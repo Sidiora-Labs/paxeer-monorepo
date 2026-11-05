@@ -17,6 +17,10 @@ beforeAll(async () => {
   process.env.AGENT_JWT_SECRET = randomBytes(32).toString('hex');
   process.env.LOG_LEVEL = 'error';
   process.env.RPC_URLS = `${idp.url}/rpc`;
+  delete process.env.ATTESTOR_ENDPOINTS;
+  delete process.env.WALLET_IDENTITY_BINDING_TENANT;
+  delete process.env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE;
+  delete process.env.WALLET_GAS_STATION_URL;
   pg = await startPostgres();
   const index = await import('../src/index.js');
   poolModule = await import('../src/db/pool.js');
@@ -47,6 +51,35 @@ async function provision(userId: string): Promise<{ id: string; address: string 
   const { wallet } = res.json() as { wallet: { id: string; address: string } };
   return wallet;
 }
+
+async function provisionsPlainWalletWithoutAttestorsOrGasStation(): Promise<void> {
+  const { env } = await import('../src/env.js');
+  expect(env.ATTESTOR_ENDPOINTS).toEqual([]);
+  expect(env.WALLET_IDENTITY_BINDING_TENANT).toBeUndefined();
+  expect(env.WALLET_GAS_STATION_URL).toBeUndefined();
+
+  const userId = randomUUID();
+  const res = await asUser(userId, 'POST', '/v1/wallet/provision');
+  expect(res.statusCode, res.body).toBe(200);
+  expect(res.json()).toMatchObject({
+    wallet: {
+      id: expect.any(String),
+      address: expect.stringMatching(/^0x[0-9a-fA-F]{40}$/),
+      kind: 'standard',
+      chain_id: env.HYPERPAXEER_CHAIN_ID,
+    },
+    identityBinding: null,
+  });
+  const wallet = await walletsModule.findWalletByUserId(userId);
+  expect(wallet).not.toBeNull();
+  expect(res.json().wallet.id).toBe(wallet!.id);
+  expect(res.json().wallet.address).toBe(wallet!.address);
+}
+
+it(
+  'provisions a plain wallet without attestors or a gas station',
+  provisionsPlainWalletWithoutAttestorsOrGasStation,
+);
 
 describe('funded lane removal', () => {
   it.each([

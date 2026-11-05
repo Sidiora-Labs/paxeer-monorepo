@@ -8,9 +8,11 @@ from collections.abc import Mapping
 from urllib.error import URLError
 
 from .account_derivation import keccak256
+from .evm_transaction import decode_signed_transaction
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
-from .x402 import verify_payment_receipt
+from .verifier import ReceiptKey, SequencerReceiptVerificationError, verify_sequencer_receipt
+from .x402 import payment_commitment, refuse_payer_grant, verify_payment_receipt
 
 
 def rpc_hex(value: object, size: int | None = None) -> bytes:
@@ -25,6 +27,34 @@ def rpc_hex(value: object, size: int | None = None) -> bytes:
     return bytes.fromhex(value)
 
 
+def decode_receipt_keys(result: object) -> tuple[ReceiptKey, ...]:
+    """Decode px_getReceiptKeys; ranges are JSON integers, not EVM quantities."""
+    if not isinstance(result, dict) or set(result) != {"keys"}:
+        raise ValueError("invalid-receipt-keys")
+    entries = result["keys"]
+    if not isinstance(entries, list):
+        raise ValueError("invalid-receipt-keys")
+    keys = []
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {
+            "keyId", "publicKey", "firstHeight", "lastHeight"
+        }:
+            raise ValueError("invalid-receipt-keys")
+        key_id = _transaction_bytes(entry["keyId"], 32)
+        public_key = _transaction_bytes(entry["publicKey"], 32)
+        first, last = entry["firstHeight"], entry["lastHeight"]
+        if (
+            key_id == bytes(32) or key_id in seen
+            or type(first) is not int or type(last) is not int
+            or not 0 < first <= last <= 0xffffffffffffffff
+        ):
+            raise ValueError("invalid-receipt-keys")
+        seen.add(key_id)
+        keys.append(ReceiptKey(key_id, public_key, first, last))
+    return tuple(keys)
+
+
 class PaymentRpcError(Exception):
     def __init__(self, code: int, data: object):
         super().__init__(f"JSON-RPC error {code}")
@@ -33,7 +63,9 @@ class PaymentRpcError(Exception):
 
 
 def _transaction_bytes(value: object, size: int | None = None) -> bytes:
-    if not isinstance(value, str) or not value.startswith("0x"):
+    if not isinstance(value, str):
+        raise ValueError("invalid-rpc-hex")
+    if not value.startswith("0x"):
         raise ValueError("invalid-rpc-hex")
     return rpc_hex(value[2:].lower(), size)
 
@@ -136,14 +168,21 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class PaymentRpc:
-    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None):
+    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None,
+                 *, hosted_gateway_endpoint: str | None = None):
+        if (not isinstance(endpoint, str) or not endpoint
+                or any(ord(character) <= 32 or ord(character) == 127 for character in endpoint)
+                or "\\" in endpoint):
+            raise ValueError("invalid-rpc-endpoint")
         url = urllib.parse.urlsplit(endpoint)
+        # Accessing port also refuses malformed and out-of-range authorities.
+        url.port
         if (
-            url.username
-            or url.password
+            url.username is not None
+            or url.password is not None
             or url.fragment
             or url.query
-            or url.path != "/rpc"
+            or url.path not in ("", "/") and endpoint != hosted_gateway_endpoint
             or not url.hostname
             or url.scheme != "https"
             and not (
@@ -173,6 +212,9 @@ class PaymentRpc:
         if len(raw) > 8388608:
             raise ValueError("rpc-body-too-large")
         return _decode_rpc_response(json.loads(raw), request_id)
+
+    def receipt_keys(self) -> tuple[ReceiptKey, ...]:
+        return decode_receipt_keys(self.call("px_getReceiptKeys", []))
 
     def send(self, raw_transaction: str) -> str:
         canonical = _transaction_bytes(raw_transaction)
@@ -210,79 +252,126 @@ class PaymentRpc:
 
 def verify_rpc_payment(
     result,
-    expected_activity,
+    expected_tx_hash,
     expected_payer,
-    authorized,
-    signatures,
     *,
+    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
+    raw_transaction: bytes,
     amount,
     asset,
     pay_to,
-    commitment="executed",
-    evidence=None,
+    commitment="receipted",
+    finality=None,
+    scheme="exact",
+    grant_binding=None,
 ):
-    rpc_hex(expected_activity, 32)
-    rpc_hex(expected_payer, 32)
-    if result.get("activity_id") != expected_activity:
-        raise ValueError("activity-mismatch")
-    if result.get("state") == "pending":
-        return None
-    if result.get("state") not in (None, "completed"):
-        raise ValueError("payment-refused")
-    if "commitment" in result and result["commitment"] != commitment:
+    """Verify an EVM payment and return txHash, rung, height and keyId.
+
+    A submitted transaction renders as pending with no height or keyId.
+    Receipted and committed results carry the signed receipt's height and keyId.
+    """
+    if grant_binding is not None or scheme in ("metered", "subscription"):
+        refuse_payer_grant()
+    expected_hash = _transaction_bytes(expected_tx_hash, 32)
+    payer = _transaction_bytes(expected_payer, 32)
+    payment_commitment({"layerx": {"commitment": commitment}})
+    decode_signed_transaction(raw_transaction)
+    if expected_hash != keccak256(raw_transaction):
+        raise ValueError("transaction-hash-mismatch")
+    result = _sequencer_result(result, expected_hash)
+    if result is None:
+        raise ValueError("missing-sequencer-receipt")
+    if result["rung"] == "submitted":
+        return {
+            "txHash": "0x" + expected_hash.hex(),
+            "rung": "pending",
+            "height": None,
+            "keyId": None,
+        }
+    if commitment == "committed" and result["rung"] != "committed":
         raise ValueError("commitment-mismatch")
+    height = result.get("height")
+    if not isinstance(height, str) or re.fullmatch(
+        r"0x(?:0|[1-9a-f][0-9a-f]{0,15})", height
+    ) is None:
+        raise ValueError("invalid-receipt-height")
+    canonical_receipt = _transaction_bytes(result["receipt"])
     try:
         verified = verify_payment_receipt(
-            rpc_hex(result.get("receipt")),
-            authorized,
-            signatures,
+            canonical_receipt,
+            raw_transaction,
+            receipt_keys,
             amount=amount,
             asset=asset,
             pay_to=pay_to,
-            payer=expected_payer,
+            payer=payer.hex(),
             commitment=commitment,
-            evidence=evidence,
+            finality=finality,
+            scheme=scheme,
+            grant_binding=grant_binding,
             return_data=(
                 _return_data(result["returnData"]) if "returnData" in result else None
             ),
         )
+    except SequencerReceiptVerificationError:
+        raise
     except PlatformSdkError as error:
         raise ValueError("payment-binding-mismatch") from error
     if (
-        verified.receipt.activity_id.hex() != expected_activity
-        or verified.receipt.from_account.hex() != expected_payer
+        verified.receipt.activity_id != expected_hash
+        or verified.height != int(height, 16)
+        or verified.receipt.context_hash != _transaction_bytes(result["keyId"], 32)
     ):
+        raise ValueError("payment-binding-mismatch")
+    if commitment == "committed":
+        rpc_committed_evidence(result, raw_transaction, receipt_keys, *finality)
+    return {
+        "txHash": "0x" + expected_hash.hex(),
+        "rung": result["rung"],
+        "height": verified.height,
+        "keyId": "0x" + verified.receipt.context_hash.hex(),
+    }
+
+
+def _verified_rpc_receipt(result, raw_transaction, receipt_keys):
+    expected_hash = keccak256(raw_transaction)
+    decode_signed_transaction(raw_transaction)
+    result = _sequencer_result(result, expected_hash)
+    if result is None or result["rung"] == "submitted":
+        return None
+    verified = verify_sequencer_receipt(
+        _transaction_bytes(result["receipt"]), raw_transaction, receipt_keys,
+    )
+    if (result.get("height") != hex(verified.height)
+            or _transaction_bytes(result["keyId"], 32) != verified.receipt.context_hash):
         raise ValueError("payment-binding-mismatch")
     return verified
 
 
-def rpc_batch_evidence(result, activity_id, receipt, network_id, authorization):
-    from .verifier import MerkleProof
-    from .x402 import PaymentCommitmentEvidence
+def rpc_committed_evidence(result, raw_transaction, receipt_keys, commit_trust, evidence):
+    """Authenticate the live signed receipt and independently pinned block inclusion."""
+    from .committed import CommitTrust
+    verified = _verified_rpc_receipt(result, raw_transaction, receipt_keys)
+    if verified is None or result["rung"] != "committed":
+        raise ValueError("missing-committed-evidence")
+    if not isinstance(commit_trust, CommitTrust) or not isinstance(evidence, dict):
+        raise ValueError("missing-committed-evidence")
+    landing = commit_trust.verify(raw_transaction, verified.height, evidence)
+    if _transaction_bytes(result["blockHash"], 32) != landing.block_hash:
+        raise ValueError("committed-landing-mismatch")
+    return commit_trust, evidence
 
-    bundle = result["batch_evidence"]
-    signed = bundle["signed_header"]
-    proof = bundle["proof"]
-    if (
-        bundle["kind"] != "receipt"
-        or bundle["activity_id"] != activity_id
-        or rpc_hex(bundle["canonical_value"]) != receipt
-        or rpc_hex(signed["public_key"], 32) != authorization.public_key
-        or rpc_hex(signed["sequencer_id"], 32) != authorization.sequencer_id
-        or type(proof["leaf_index"]) is not int
-        or type(proof["leaf_count"]) is not int
-        or not isinstance(proof["siblings"], list)
-        or len(proof["siblings"]) > 64
-    ):
-        raise ValueError("batch-binding-mismatch")
-    return PaymentCommitmentEvidence(
-        network_id,
-        rpc_hex(signed["canonical_header"]),
-        rpc_hex(signed["signature"], 64),
-        authorization,
-        MerkleProof(
-            proof["leaf_index"],
-            proof["leaf_count"],
-            tuple(rpc_hex(v, 32) for v in proof["siblings"]),
-        ),
-    )
+
+def rpc_payment_evidence(result, raw_transaction, receipt_keys, *,
+                         commit_trust=None, committed_evidence=None):
+    """Return current receipt/transaction evidence, or None while submission is pending."""
+    from .x402 import PaymentEvidence
+    verified = _verified_rpc_receipt(result, raw_transaction, receipt_keys)
+    if verified is None:
+        return None
+    finality = None
+    if result["rung"] == "committed":
+        finality = rpc_committed_evidence(
+            result, raw_transaction, receipt_keys, commit_trust, committed_evidence,
+        )
+    return PaymentEvidence(verified.canonical_bytes, raw_transaction, finality)

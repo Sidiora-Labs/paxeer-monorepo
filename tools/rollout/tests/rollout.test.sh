@@ -5,12 +5,13 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 rollout="$root/tools/rollout/rollout.sh"
 ledger="$root/tools/rollout/ledger.sh"
-manifest="$root/deploy/rollout.kvx"
+manifest="$here/retained.kvx"
+export ROLLOUT_MANIFEST="$manifest"
 sha=0123456789abcdef0123456789abcdef01234567
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 export ROLLOUT_DRY_RUN=1
-unset RAILWAY_API_TOKEN RAILWAY_PROJECT_ID ROLLOUT_MANIFEST
+unset RAILWAY_API_TOKEN RAILWAY_PROJECT_ID
 
 fail() {
 	echo "FAIL: $*" >&2
@@ -24,7 +25,7 @@ plan_precedes() {
 
 "$rollout" plan --sha "$sha" >"$tmp/plan"
 mapfile -t want < <(sed -n 's/^\[service\.\(.*\)\]$/\1/p' "$manifest")
-[ "${#want[@]}" -eq 26 ] || fail "manifest has ${#want[@]} services, want 26"
+[ "${#want[@]}" -eq 24 ] || fail "manifest has ${#want[@]} services, want 24"
 mapfile -t got < <(awk 'NR > 1 {print $2}' "$tmp/plan")
 [ "${#got[@]}" -eq "${#want[@]}" ] || fail "plan lists ${#got[@]} of ${#want[@]} services"
 for s in "${want[@]}"; do
@@ -32,24 +33,24 @@ for s in "${want[@]}"; do
 done
 awk 'NR > 1 {print $1}' "$tmp/plan" | sort -n -c || fail "plan is not in wave order"
 
-for s in identity router redis-router redis-internal internal-kms internal-journeys internal-payments \
+for s in identity gateway redis-router redis-internal internal-kms internal-journeys internal-payments \
 	internal-approvals internal-programs webhooks-public webhooks-ingress dashboard dashboard-web interop \
 	search-front ramp wallet-gateway wallet-postgres gas-station indexer ai-evaluator; do
 	grep -qE "^ *[0-9]+ $s +railway +$s " "$tmp/plan" || fail "$s is not a railway target"
 done
-for s in program-registry explorer-index sequencer-primary sequencer-standby archive; do
+for s in paxd program-registry archive; do
 	grep -qE "^ *[0-9]+ $s +box +$s ghcr\.io/sidiora-labs/[a-z0-9-]+:${sha:0:12} unit=[a-z0-9-]+\.service host=\\\$[A-Z_]+_HOST " "$tmp/plan" ||
 		fail "$s is not a box target"
 done
-grep -qE " router +railway +router commit=$sha " "$tmp/plan" || fail "railway rows do not pin the commit"
+grep -qE " identity +railway +identity commit=$sha " "$tmp/plan" || fail "railway rows do not pin the commit"
 grep -qE " redis-router +railway +redis-router skip stock-image=redis$" "$tmp/plan" || fail "stock redis is not skipped"
-awk 'NR > 1 && ($2 == "kernel" || $2 == "intent-ingester" || $2 == "oracle-feeder" || $2 == "perps-keeper" ||
+awk 'NR > 1 && ($2 == "router" || $2 == "sequencer-primary" || $2 == "sequencer-standby" || $2 == "kernel" || $2 == "intent-ingester" || $2 == "oracle-feeder" || $2 == "perps-keeper" ||
 	$2 ~ /relay-archive/ || $2 ~ /guarantor/) {exit 1}' "$tmp/plan" ||
 	fail "plan includes a retired service"
-plan_precedes sequencer-primary router "$tmp/plan" || fail "sequencer-primary does not precede router"
-plan_precedes sequencer-primary sequencer-standby "$tmp/plan" ||
-	fail "sequencer-standby does not follow sequencer-primary"
-plan_precedes sequencer-standby archive "$tmp/plan" || fail "archive does not follow sequencer-standby"
+plan_precedes paxd program-registry "$tmp/plan" || fail "program-registry does not follow paxd"
+plan_precedes paxd archive "$tmp/plan" || fail "archive does not follow paxd"
+plan_precedes wallet-postgres wallet-gateway "$tmp/plan" || fail "wallet-gateway does not follow its database"
+plan_precedes webhooks-ingress webhooks-public "$tmp/plan" || fail "public webhooks do not follow ingress"
 plan_precedes gas-station ai-evaluator "$tmp/plan" || fail "ai-evaluator does not follow gas-station"
 grep -qE "^ *5 archive +box +archive ghcr\.io/sidiora-labs/paxd:${sha:0:12} unit=paxd\.service host=\\\$ARCHIVE_HOST health=tcp:8545$" "$tmp/plan" ||
 	fail "archive does not use its paxd image, host, unit and health check"
@@ -64,7 +65,7 @@ from rollout import services
 
 units = {unit["name"]: unit for unit in services(sys.argv[2])}
 assert not any(
-    name in {"kernel", "intent-ingester", "oracle-feeder", "perps-keeper"} or "relay-archive" in name or "guarantor" in name
+    name in {"router", "sequencer-primary", "sequencer-standby", "kernel", "intent-ingester", "oracle-feeder", "perps-keeper"} or "relay-archive" in name or "guarantor" in name
     for name in units
 ), units.keys()
 assert units["archive"] == {
@@ -85,34 +86,28 @@ assert units["ai-evaluator"] == {
     "order": 12,
 }, units["ai-evaluator"]
 PY
-grep -qE " sequencer-primary +box +sequencer-primary .* unit=paxeer-sequencer-primary\.service host=\\\$SEQUENCER_PRIMARY_HOST " "$tmp/plan" ||
-	fail "sequencer-primary does not own its host and unit"
-grep -qE " sequencer-standby +box +sequencer-standby .* unit=paxeer-sequencer-standby\.service host=\\\$SEQUENCER_STANDBY_HOST " "$tmp/plan" ||
-	fail "sequencer-standby does not own its host and unit"
-for k in receipt-key wal; do
-	[ "$(grep -oE "/[a-z/]+sequencer-(primary|standby)[-/]$k[a-z0-9.]*" "$manifest" | sort -u | wc -l)" -eq 2 ] ||
-		fail "sequencer primary and standby do not name their own $k"
-done
-sed -e '/^\[service\.router\]$/,/^order/s/^order = 5$/order = 1/' "$manifest" >"$tmp/router-first.kvx"
-ROLLOUT_MANIFEST="$tmp/router-first.kvx" "$rollout" plan --sha "$sha" >"$tmp/router-first.plan"
-if plan_precedes sequencer-primary router "$tmp/router-first.plan"; then
-	fail "ordering check accepted a plan listing the router before the sequencer"
+grep -qE "^ *3 paxd +box +paxd ghcr\.io/sidiora-labs/paxd:${sha:0:12} unit=paxd\.service host=\\\$PAXD_HOST health=tcp:8545$" "$tmp/plan" ||
+	fail "paxd does not own its image, host, unit and health check"
+sed -e '/^\[service\.paxd\]$/,/^order/s/^order = 3$/order = 5/' "$manifest" >"$tmp/paxd-last.kvx"
+ROLLOUT_MANIFEST="$tmp/paxd-last.kvx" "$rollout" plan --sha "$sha" >"$tmp/paxd-last.plan"
+if plan_precedes paxd program-registry "$tmp/paxd-last.plan"; then
+	fail "ordering check accepted a plan listing program-registry before paxd"
 fi
-for order in 3 4; do
+for order in 2 3; do
 	sed -e "/^\[service\.archive\]$/,/^order/s/^order = 5$/order = $order/" "$manifest" >"$tmp/archive-$order.kvx"
 	ROLLOUT_MANIFEST="$tmp/archive-$order.kvx" "$rollout" plan --sha "$sha" >"$tmp/archive-$order.plan"
-	if plan_precedes sequencer-standby archive "$tmp/archive-$order.plan"; then
-		fail "ordering check accepted archive at or before sequencer-standby"
+	if plan_precedes paxd archive "$tmp/archive-$order.plan"; then
+		fail "ordering check accepted archive at or before paxd"
 	fi
 done
 
-"$rollout" apply --sha "$sha" --only sequencer-primary,router >"$tmp/apply"
+"$rollout" apply --sha "$sha" --only paxd,identity >"$tmp/apply"
 [ "$(awk 'NR > 1' "$tmp/apply" | wc -l)" -eq 2 ] || fail "--only did not narrow the plan"
-grep -qE "^ *3 sequencer-primary +box +sequencer-primary " "$tmp/apply" || fail "--only misses sequencer-primary"
-grep -qE "^ *5 router +railway +router " "$tmp/apply" || fail "--only misses router"
+grep -qE "^ *3 paxd +box +paxd " "$tmp/apply" || fail "--only misses paxd"
+grep -qE "^ *2 identity +railway +identity " "$tmp/apply" || fail "--only misses identity"
 for mode in plan apply; do
-	for s in kernel intent-ingester relay-archive-a relay-archive-b oracle-feeder perps-keeper; do
-		for selection in "$s" "$s,router"; do
+	for s in router sequencer-primary sequencer-standby kernel intent-ingester relay-archive-a relay-archive-b oracle-feeder perps-keeper; do
+		for selection in "$s" "$s,identity"; do
 			status=0
 			"$rollout" "$mode" --sha "$sha" --only "$selection" >"$tmp/retired.out" 2>"$tmp/retired.err" || status=$?
 			[ "$status" -eq 2 ] || fail "$mode --only $selection returned $status, want 2"
@@ -188,11 +183,11 @@ for shipped in rollout rollout-launchpad rollout-perps; do
 done
 
 export ROLLOUT_LEDGER_DIR="$tmp/ledger"
-"$ledger" "$sha" router railway 2026-10-07T10:00:00Z pass /root/lx-ops/rollout/2026-10-07/x-router.log
-"$ledger" "$sha" router railway 2026-10-07T10:05:00Z fail /root/lx-ops/rollout/2026-10-07/x-router.log
-grep -qx "\[rollout.${sha:0:12}.router\]" "$tmp/ledger/2026-10-07.kvx" || fail "ledger record missing"
-grep -qx "\[rollout.${sha:0:12}.router.2\]" "$tmp/ledger/2026-10-07.kvx" || fail "second ledger record missing"
-if "$ledger" "$sha" router box 2026-10-07T10:00:00Z pass 10.1.2.3:/var/log/x >/dev/null 2>&1; then
+"$ledger" "$sha" identity railway 2026-10-07T10:00:00Z pass /root/lx-ops/rollout/2026-10-07/x-identity.log
+"$ledger" "$sha" identity railway 2026-10-07T10:05:00Z fail /root/lx-ops/rollout/2026-10-07/x-identity.log
+grep -qx "\[rollout.${sha:0:12}.identity\]" "$tmp/ledger/2026-10-07.kvx" || fail "ledger record missing"
+grep -qx "\[rollout.${sha:0:12}.identity.2\]" "$tmp/ledger/2026-10-07.kvx" || fail "second ledger record missing"
+if "$ledger" "$sha" identity box 2026-10-07T10:00:00Z pass 10.1.2.3:/var/log/x >/dev/null 2>&1; then
 	fail "ledger accepted evidence outside /root/lx-ops"
 fi
 
@@ -248,11 +243,38 @@ class Railway(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
 
+def validate_wake_health(case):
+    sleeping = any(
+        call.get("data", {}).get("serviceInstance", {}).get("latestDeployment", {}).get("status") == "SLEEPING"
+        for call in case["calls"]
+        if call.get("data", {}).get("serviceInstance", {}).get("latestDeployment")
+    )
+    if not sleeping:
+        return
+    proof = case["wake_health"]
+    assert proof["required_for_pass"] is True
+    assert f'health = "{proof["path"]}"' in case["manifest"]
+    if case["exit"] == 0:
+        assert proof["state"] == "ready"
+        assert proof["observations"] == [
+            {"event": "wake", "result": "success"},
+            {"event": "health", "method": "GET", "path": proof["path"], "status": 200},
+        ]
+        assert case["calls"][-1]["data"]["deployment"]["status"] == "SUCCESS"
+        assert case["out"] == ["pass gateway"]
+    else:
+        assert proof["state"] in {"unavailable", "timed-out"}
+        assert case["exit"] == 1
+        assert case["out"] == ["blocked gateway"]
+        assert case["calls"][-1]["data"]["deployment"]["status"] == "SLEEPING"
+
+
 server = ThreadingHTTPServer(("127.0.0.1", 0), Railway)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 rollout.API = f"http://127.0.0.1:{server.server_port}/graphql/v2"
 failures = []
 for name, case in record["scenarios"].items():
+    validate_wake_health(case)
     manifest = tmp / f"replay-{name}.kvx"
     manifest.write_text("\n".join(case["manifest"]) + "\n")
     rollout.os.environ["ROLLOUT_MANIFEST"] = str(manifest)

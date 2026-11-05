@@ -15,9 +15,10 @@
 
 use std::fmt;
 use std::io::{Read, Write};
-use std::net::{TcpStream, ToSocketAddrs as _};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs as _};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -30,12 +31,11 @@ const MAXIMUM_JOINED_ASSETS: usize = 1_024;
 pub const PAX_ADDRESS_LIMIT: usize = 128;
 /// Longest accepted asset denomination text.
 pub const DENOM_LIMIT: usize = 128;
-/// Longest accepted anchor status name.
-pub const STATUS_NAME_LIMIT: usize = 64;
 /// Longest accepted network identifier text.
 pub const NETWORK_ID_LIMIT: usize = 64;
 
 static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
+static ACTIVE_RESOLVERS: AtomicUsize = AtomicUsize::new(0);
 
 /// How a fact reached a caller. A gateway answer is never upgraded to a
 /// verified level: the two sources stay distinguishable at every hop.
@@ -278,130 +278,225 @@ impl ResolvedIdentities {
     }
 }
 
+/// An exact unsigned on-chain amount, including the full uint256 domain.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Quantity([u8; 32]);
+
+impl Quantity {
+    /// Preserves a complete big-endian uint256 word.
+    #[must_use]
+    pub const fn from_be_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// Returns the complete big-endian uint256 word.
+    #[must_use]
+    pub const fn to_be_bytes(self) -> [u8; 32] {
+        self.0
+    }
+
+    /// Narrows an amount only for the explicitly named business operation.
+    ///
+    /// # Errors
+    /// Refuses amounts that the operation's 128-bit amount cannot represent.
+    pub fn for_operation(self, operation: &'static str) -> Result<u128, GatewayError> {
+        if self.0[..16].iter().any(|byte| *byte != 0) {
+            return Err(GatewayError::AmountOutOfRange { operation });
+        }
+        let mut bytes = [0; 16];
+        bytes.copy_from_slice(&self.0[16..]);
+        Ok(u128::from_be_bytes(bytes))
+    }
+
+    fn counted(self) -> Result<u64, GatewayError> {
+        if self.0[..24].iter().any(|byte| *byte != 0) {
+            return Err(GatewayError::MalformedAnswer);
+        }
+        let mut bytes = [0; 8];
+        bytes.copy_from_slice(&self.0[24..]);
+        Ok(u64::from_be_bytes(bytes))
+    }
+}
+
+impl From<u128> for Quantity {
+    fn from(value: u128) -> Self {
+        let mut bytes = [0; 32];
+        bytes[16..].copy_from_slice(&value.to_be_bytes());
+        Self(bytes)
+    }
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut value = self.0;
+        let mut digits = [b'0'; 78];
+        let mut start = digits.len();
+        loop {
+            let mut remainder = 0_u16;
+            for byte in &mut value {
+                let current = (remainder << 8) | u16::from(*byte);
+                *byte = (current / 10) as u8;
+                remainder = current % 10;
+            }
+            start -= 1;
+            digits[start] = b'0' + remainder as u8;
+            if value.iter().all(|byte| *byte == 0) {
+                break;
+            }
+        }
+        for byte in &digits[start..] {
+            write!(formatter, "{}", char::from(*byte))?;
+        }
+        Ok(())
+    }
+}
+
 /// The Paxeer half of one account as `px_getAccount` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PaxeerAccount {
     /// The EVM address the balance and nonce were read at.
     pub address: [u8; 20],
-    /// The native balance at the latest block.
-    pub balance: u128,
-    /// The transaction count at the latest block.
+    /// The native balance at the reported block height.
+    pub balance: Quantity,
+    /// The transaction count at the reported block height.
     pub nonce: u64,
+    /// The block height at which the balance and nonce were read.
+    pub height: u64,
 }
 
-/// One account joined across both domains by `px_getAccount`.
+/// One chain account as `px_getAccount` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountJoin {
     /// The resolved identities of the account.
     pub account: ResolvedIdentities,
     /// The Paxeer half, absent when the account is not bound to an address.
     pub paxeer: Option<PaxeerAccount>,
-    /// The `LayerX` public core account document, absent when there is none.
-    pub layerx: Option<Value>,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
 
-/// The Paxeer bank balance of one asset for one address.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PaxeerAssetBalance {
-    /// The bank denomination the balance was read under.
-    pub denom: String,
-    /// The exact balance.
-    pub amount: u128,
-}
-
-/// The custody precompile's record for one asset.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CustodyAsset {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The bank denomination custody mints against.
-    pub denom: String,
-    /// Whether deposits are accepted.
-    pub enabled: bool,
-    /// Whether the asset is paused.
-    pub paused: bool,
-    /// The smallest accepted deposit.
-    pub minimum_deposit: u128,
-    /// The ceiling on total custodied value.
-    pub custody_cap: u128,
-    /// The amount currently custodied.
-    pub custodied: u128,
-    /// The amount already released.
-    pub released: u128,
-    /// The amount queued for release.
-    pub pending: u128,
-}
-
-/// One asset held by the same account in either domain, joined through the
-/// custody asset map, exactly as `px_getBalances` reports it.
+/// One bank coin as `px_getBalances` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetBalance {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The joined denomination, when either domain reports one.
-    pub denom: Option<String>,
-    /// The custody precompile's record, absent when the asset is not custodied.
-    pub custody: Option<CustodyAsset>,
-    /// The Paxeer bank balance, absent when no address or denom is known.
-    pub paxeer: Option<PaxeerAssetBalance>,
-    /// The `LayerX` account document for this asset, absent when there is none.
-    pub layerx: Option<Value>,
+    /// The bank denomination.
+    pub denom: String,
+    /// The exact balance at the answer height.
+    pub amount: Quantity,
 }
 
-impl AssetBalance {
-    /// The LayerX-side spendable amount this row reports, when it reports one.
-    ///
-    /// # Errors
-    /// Refuses a `LayerX` document whose balance is not a gateway quantity.
-    pub fn layerx_amount(&self) -> Result<Option<u128>, GatewayError> {
-        let Some(document) = self.layerx.as_ref() else {
-            return Ok(None);
-        };
-        let value = document
-            .get("balance")
-            .or_else(|| document.get("amount"))
-            .ok_or(GatewayError::MalformedAnswer)?;
-        quantity(value).map(Some)
-    }
-}
-
-/// The bounded joined balance table for one account.
+/// The bounded bank balance table for one account at one height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountBalances {
-    /// The resolved identities the table was joined for.
+    /// The resolved identities the table was read for.
     pub account: ResolvedIdentities,
-    /// One row per joined asset, in the gateway's own order.
+    /// The block height at which every coin was read.
+    pub height: u64,
+    /// One row per bank coin, in the gateway's own order.
     pub balances: Vec<AssetBalance>,
-    /// The number of assets the gateway joins per answer.
-    pub joined_limit: u64,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
 
 impl AccountBalances {
-    /// The row for one asset, when the joined table carries it.
+    fn validate_denominations(&self) -> Result<(), GatewayError> {
+        let mut seen = std::collections::BTreeSet::new();
+        for row in &self.balances {
+            if !seen.insert(row.denom.as_str()) {
+                return Err(GatewayError::MalformedAnswer);
+            }
+        }
+        Ok(())
+    }
+
+    /// The row for one bank denomination, when the table carries it.
     #[must_use]
-    pub fn asset(&self, asset_id: [u8; 32]) -> Option<&AssetBalance> {
-        self.balances.iter().find(|row| row.asset_id == asset_id)
+    pub fn asset(&self, denom: &str) -> Option<&AssetBalance> {
+        self.balances.iter().find(|row| row.denom == denom)
     }
 }
 
-/// One entry of the joined asset map from `px_listAssets`.
+/// The dependency-free wallet observation consumed by human journeys.
+///
+/// Domain-specific address and amount wrappers are applied by the human
+/// service after this shared read and acceptance boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AssetEntry {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The `LayerX` public core asset record.
-    pub layerx: Option<Value>,
-    /// The custody precompile's record, absent when the asset is not custodied.
-    pub paxeer: Option<CustodyAsset>,
+pub struct WalletObservation {
+    wallet: [u8; 20],
+    balances: AccountBalances,
 }
 
-/// The bounded joined asset map.
+impl WalletObservation {
+    /// Accepts the public balance result at the human consumer boundary.
+    ///
+    /// # Errors
+    /// Refuses an unbound wallet or ambiguous denomination rows.
+    pub fn accept(balances: AccountBalances) -> Result<Self, GatewayError> {
+        balances.validate_denominations()?;
+        if !balances.account.bound {
+            return Err(GatewayError::Unbound);
+        }
+        let wallet = balances.account.evm_address.ok_or(GatewayError::Unbound)?;
+        Ok(Self { wallet, balances })
+    }
+
+    /// The bound wallet reported by the producer.
+    #[must_use]
+    pub const fn wallet(&self) -> [u8; 20] {
+        self.wallet
+    }
+
+    /// The exact bank amount, absent when the producer supplied no row.
+    #[must_use]
+    pub fn balance(&self, denom: &str) -> Option<Quantity> {
+        self.balances.asset(denom).map(|row| row.amount)
+    }
+
+    /// Reads a balance for a named operation with a 128-bit business amount.
+    ///
+    /// # Errors
+    /// Refuses an existing balance too large for that operation; absence stays
+    /// distinct from both refusal and an observed zero.
+    pub fn balance_for_operation(
+        &self,
+        denom: &str,
+        operation: &'static str,
+    ) -> Result<Option<u128>, GatewayError> {
+        self.balance(denom)
+            .map(|amount| amount.for_operation(operation))
+            .transpose()
+    }
+
+    /// The original joined result, including its evidence and height.
+    #[must_use]
+    pub const fn joined(&self) -> &AccountBalances {
+        &self.balances
+    }
+}
+
+/// One chain asset from `px_listAssets`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AssetEntry {
+    /// The indexer's asset identifier, including bank denomination identifiers.
+    pub asset_id: String,
+    /// The bank denomination, absent for assets without one.
+    pub denom: Option<String>,
+    /// The indexer's asset kind.
+    pub kind: String,
+    /// The chain name, absent when the metadata read failed.
+    pub name: Option<String>,
+    /// The chain symbol, absent when the metadata read failed.
+    pub symbol: Option<String>,
+    /// The chain decimal precision, absent when the metadata read failed.
+    pub decimals: Option<u8>,
+    /// The chain supply, absent when the metadata read failed.
+    pub supply: Option<Quantity>,
+}
+
+/// The bounded chain asset table at one height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetTable {
+    /// The block height at which the chain metadata was read.
+    pub height: u64,
     /// One entry per joined asset, in the gateway's own order.
     pub assets: Vec<AssetEntry>,
     /// The number of assets the gateway joins per answer.
@@ -410,15 +505,17 @@ pub struct AssetTable {
     pub evidence: Evidence,
 }
 
-/// The anchor rung of the settlement ladder.
+/// The consensus head reported by the gateway.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AnchorHead {
-    /// The newest batch the anchor reports as finalised, when one exists.
-    pub latest_finalized_batch: Option<u64>,
-    /// The anchor's own status code for that batch.
-    pub status: Option<u64>,
-    /// The anchor's own name for that status.
-    pub status_name: Option<String>,
+pub struct ConsensusHead {
+    /// The latest consensus block height.
+    pub latest_height: u64,
+    /// The latest consensus block hash.
+    pub latest_block_hash: [u8; 32],
+    /// The latest consensus application hash.
+    pub latest_app_hash: [u8; 32],
+    /// Whether the consensus node is catching up.
+    pub catching_up: bool,
 }
 
 /// One head for the whole network, as `px_getNetwork` reports it.
@@ -430,8 +527,8 @@ pub struct NetworkHead {
     pub chain_id: u64,
     /// The Paxeer block the gateway currently reports as latest.
     pub latest_block: u64,
-    /// The anchor rung.
-    pub anchor: AnchorHead,
+    /// The consensus head, absent when consensus is unavailable.
+    pub consensus: Option<ConsensusHead>,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
@@ -454,6 +551,11 @@ pub enum GatewayError {
     Unbound,
     /// The answer is not the documented gateway document.
     MalformedAnswer,
+    /// A valid chain amount exceeds a named operation's business amount.
+    AmountOutOfRange {
+        /// The operation that requested the narrower amount.
+        operation: &'static str,
+    },
 }
 
 impl fmt::Display for GatewayError {
@@ -466,6 +568,12 @@ impl fmt::Display for GatewayError {
             }
             Self::Unbound => formatter.write_str("gateway answer is bound to another request"),
             Self::MalformedAnswer => formatter.write_str("gateway answer is malformed"),
+            Self::AmountOutOfRange { operation } => {
+                write!(
+                    formatter,
+                    "chain amount exceeds the 128-bit amount for {operation}"
+                )
+            }
         }
     }
 }
@@ -486,28 +594,39 @@ impl GatewayEndpoint {
     /// Parses `http://host[:port][/path]` or `https://host[:port][/path]`.
     ///
     /// # Errors
-    /// Refuses another scheme, an empty host, a zero port and a host outside
-    /// the ASCII host grammar.
+    /// Refuses invalid authorities, request-target characters and escapes.
     pub fn parse(endpoint: &str) -> Result<Self, GatewayError> {
-        let trimmed = endpoint.trim();
-        let (secure, rest) = if let Some(rest) = trimmed.strip_prefix("https://") {
+        if endpoint
+            .bytes()
+            .any(|byte| !byte.is_ascii() || byte.is_ascii_control() || byte.is_ascii_whitespace())
+        {
+            return Err(GatewayError::InvalidEndpoint);
+        }
+        let (secure, rest) = if let Some(rest) = endpoint.strip_prefix("https://") {
             (true, rest)
-        } else if let Some(rest) = trimmed.strip_prefix("http://") {
+        } else if let Some(rest) = endpoint.strip_prefix("http://") {
             (false, rest)
         } else {
             return Err(GatewayError::InvalidEndpoint);
         };
-        let (authority, path) = rest
-            .split_once('/')
-            .map_or((rest, "/".to_owned()), |(authority, path)| {
-                (authority, format!("/{path}"))
-            });
+        let (authority, target) = rest.split_at(rest.find(['/', '?']).unwrap_or(rest.len()));
+        let path = if target.starts_with('/') {
+            target.to_owned()
+        } else {
+            format!("/{target}")
+        };
+        validate_request_target(&path)?;
         let (host, port) = match authority.rsplit_once(':') {
-            Some((host, port)) => (
-                host,
-                port.parse::<u16>()
-                    .map_err(|_| GatewayError::InvalidEndpoint)?,
-            ),
+            Some((host, port))
+                if !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) =>
+            {
+                (
+                    host,
+                    port.parse::<u16>()
+                        .map_err(|_| GatewayError::InvalidEndpoint)?,
+                )
+            }
+            Some(_) => return Err(GatewayError::InvalidEndpoint),
             None => (authority, if secure { 443 } else { 80 }),
         };
         if port == 0
@@ -543,6 +662,20 @@ impl GatewayEndpoint {
     /// # Errors
     /// Reports connection, TLS and HTTP framing failures.
     pub fn post(&self, body: &str) -> Result<Vec<u8>, GatewayError> {
+        self.post_with_deadline(body, Instant::now() + IO_TIMEOUT)
+    }
+
+    /// Posts with one injected monotonic deadline for resolution, connect,
+    /// TLS, request writes and response reads.
+    ///
+    /// # Errors
+    /// Reports an expired budget or a transport or framing failure.
+    pub fn post_with_deadline(
+        &self,
+        body: &str,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, GatewayError> {
+        remaining(deadline).map_err(transport_error)?;
         let head = format!(
             "POST {} HTTP/1.1\r\nHost: {}:{}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             self.path,
@@ -552,11 +685,11 @@ impl GatewayEndpoint {
         );
         let mut last = "gateway endpoint has no address".to_owned();
         let mut connected = None;
-        for address in (self.host.as_str(), self.port)
-            .to_socket_addrs()
-            .map_err(|error| GatewayError::Transport(format!("resolution failed: {error}")))?
-        {
-            match TcpStream::connect_timeout(&address, IO_TIMEOUT) {
+        for address in resolve_addresses(&self.host, self.port, deadline)? {
+            match TcpStream::connect_timeout(
+                &address,
+                remaining(deadline).map_err(transport_error)?,
+            ) {
                 Ok(stream) => {
                     connected = Some(stream);
                     break;
@@ -564,11 +697,10 @@ impl GatewayEndpoint {
                 Err(error) => last = format!("connection failed: {error}"),
             }
         }
-        let stream = connected.ok_or(GatewayError::Transport(last))?;
-        stream
-            .set_read_timeout(Some(IO_TIMEOUT))
-            .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
-            .map_err(|error| GatewayError::Transport(format!("timeout setup failed: {error}")))?;
+        let stream = DeadlineStream {
+            stream: connected.ok_or(GatewayError::Transport(last))?,
+            deadline,
+        };
         let answer = if self.secure {
             let connector = native_tls::TlsConnector::builder()
                 .build()
@@ -576,12 +708,14 @@ impl GatewayEndpoint {
             let mut stream = connector.connect(&self.host, stream).map_err(|error| {
                 GatewayError::Transport(format!("TLS handshake failed: {error}"))
             })?;
-            exchange(&mut stream, &head, body.as_bytes())?
+            exchange(&mut stream, &head, body.as_bytes(), deadline)?
         } else {
             let mut stream = stream;
-            exchange(&mut stream, &head, body.as_bytes())?
+            exchange(&mut stream, &head, body.as_bytes(), deadline)?
         };
-        http_body(&answer)
+        let result = http_body(&answer)?;
+        remaining(deadline).map_err(transport_error)?;
+        Ok(result)
     }
 
     /// Posts one `px_*` or `eth_*` call and returns its JSON-RPC result.
@@ -660,10 +794,127 @@ impl GatewayEndpoint {
 /// The deployment variable every service reads the gateway endpoint from.
 pub const ENDPOINT_VARIABLE: &str = "LAYERX_NETWORK_GATEWAY_ENDPOINT";
 
+fn validate_request_target(target: &str) -> Result<(), GatewayError> {
+    let mut bytes = target.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let high = bytes
+                .next()
+                .and_then(nibble)
+                .ok_or(GatewayError::InvalidEndpoint)?;
+            let low = bytes
+                .next()
+                .and_then(nibble)
+                .ok_or(GatewayError::InvalidEndpoint)?;
+            if (high * 16 + low).is_ascii_control() {
+                return Err(GatewayError::InvalidEndpoint);
+            }
+        } else if !byte.is_ascii_alphanumeric() && !b"-._~!$&'()*+,;=:@/?".contains(&byte) {
+            return Err(GatewayError::InvalidEndpoint);
+        }
+    }
+    Ok(())
+}
+
+fn remaining(deadline: Instant) -> std::io::Result<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|left| !left.is_zero())
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "gateway total deadline expired",
+            )
+        })
+}
+
+fn transport_error(error: std::io::Error) -> GatewayError {
+    GatewayError::Transport(error.to_string())
+}
+
+struct ResolverPermit;
+
+impl Drop for ResolverPermit {
+    fn drop(&mut self) {
+        ACTIVE_RESOLVERS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+fn resolve_addresses(
+    host: &str,
+    port: u16,
+    deadline: Instant,
+) -> Result<Vec<SocketAddr>, GatewayError> {
+    remaining(deadline).map_err(transport_error)?;
+    if let Ok(address) = host.parse::<IpAddr>() {
+        return Ok(vec![SocketAddr::new(address, port)]);
+    }
+    // The system resolver cannot be interrupted. Bound both its caller's wait
+    // and the number of resolver threads that may outlive that wait.
+    ACTIVE_RESOLVERS
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+            (active < 16).then_some(active + 1)
+        })
+        .map_err(|_| GatewayError::Transport("gateway resolver capacity exhausted".to_owned()))?;
+    let permit = ResolverPermit;
+    let host = host.to_owned();
+    let (sender, receiver) = mpsc::sync_channel(1);
+    std::thread::Builder::new()
+        .name("gateway-resolver".to_owned())
+        .spawn(move || {
+            let _permit = permit;
+            let result = (host.as_str(), port)
+                .to_socket_addrs()
+                .map(Iterator::collect);
+            let _ = sender.send(result);
+        })
+        .map_err(transport_error)?;
+    let addresses = receiver
+        .recv_timeout(remaining(deadline).map_err(transport_error)?)
+        .map_err(|error| GatewayError::Transport(format!("resolution deadline: {error}")))?
+        .map_err(transport_error)?;
+    remaining(deadline).map_err(transport_error)?;
+    Ok(addresses)
+}
+
+#[derive(Debug)]
+struct DeadlineStream {
+    stream: TcpStream,
+    deadline: Instant,
+}
+
+impl Read for DeadlineStream {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.stream
+            .set_read_timeout(Some(remaining(self.deadline)?))?;
+        let count = self.stream.read(buffer)?;
+        remaining(self.deadline)?;
+        Ok(count)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        self.stream
+            .set_write_timeout(Some(remaining(self.deadline)?))?;
+        let count = self.stream.write(buffer)?;
+        remaining(self.deadline)?;
+        Ok(count)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        remaining(self.deadline)?;
+        self.stream.flush()?;
+        remaining(self.deadline)?;
+        Ok(())
+    }
+}
+
 fn exchange<S: Read + Write>(
     stream: &mut S,
     head: &str,
     body: &[u8],
+    deadline: Instant,
 ) -> Result<Vec<u8>, GatewayError> {
     stream
         .write_all(head.as_bytes())
@@ -671,13 +922,19 @@ fn exchange<S: Read + Write>(
         .and_then(|()| stream.flush())
         .map_err(|error| GatewayError::Transport(format!("request failed: {error}")))?;
     let mut answer = Vec::new();
-    Read::take(&mut *stream, ANSWER_LIMIT + 1)
-        .read_to_end(&mut answer)
-        .map_err(|error| GatewayError::Transport(format!("answer failed: {error}")))?;
-    if u64::try_from(answer.len()).map_or(true, |length| length > ANSWER_LIMIT) {
-        return Err(GatewayError::Transport(
-            "answer exceeds its size limit".to_owned(),
-        ));
+    let mut buffer = [0; 8192];
+    loop {
+        remaining(deadline).map_err(transport_error)?;
+        let count = stream.read(&mut buffer).map_err(transport_error)?;
+        if count == 0 {
+            break;
+        }
+        if (answer.len() + count) as u64 > ANSWER_LIMIT {
+            return Err(GatewayError::Transport(
+                "answer exceeds its size limit".to_owned(),
+            ));
+        }
+        answer.extend_from_slice(&buffer[..count]);
     }
     Ok(answer)
 }
@@ -685,8 +942,13 @@ fn exchange<S: Read + Write>(
 /// Extracts the body of one HTTP/1.1 answer, failing closed on a refusal.
 ///
 /// # Errors
-/// Refuses an unframed answer, a non-200 status and a truncated body.
+/// Refuses an unframed answer, a non-200 status, transfer encodings and any
+/// body whose size differs from its single declared Content-Length.
 pub fn http_body(answer: &[u8]) -> Result<Vec<u8>, GatewayError> {
+    let invalid = || GatewayError::Transport("invalid HTTP response framing".to_owned());
+    if answer.len() as u64 > ANSWER_LIMIT {
+        return Err(invalid());
+    }
     let end = answer
         .windows(4)
         .position(|value| value == b"\r\n\r\n")
@@ -694,16 +956,54 @@ pub fn http_body(answer: &[u8]) -> Result<Vec<u8>, GatewayError> {
     let head = std::str::from_utf8(answer.get(..end).unwrap_or_default())
         .map_err(|_| GatewayError::Transport("answer headers are not UTF-8".to_owned()))?;
     let body = answer.get(end + 4..).unwrap_or_default();
-    let status = head
-        .lines()
-        .next()
-        .and_then(|line| line.split_ascii_whitespace().nth(1))
-        .and_then(|code| code.parse::<u16>().ok())
-        .ok_or_else(|| GatewayError::Transport("answer has no status".to_owned()))?;
+    let mut lines = head.split("\r\n");
+    let status_line = lines.next().ok_or_else(invalid)?;
+    if status_line.bytes().any(|byte| byte.is_ascii_control()) {
+        return Err(invalid());
+    }
+    let mut status_fields = status_line.splitn(3, ' ');
+    if !matches!(status_fields.next(), Some("HTTP/1.1" | "HTTP/1.0")) {
+        return Err(invalid());
+    }
+    let code = status_fields.next().ok_or_else(invalid)?;
+    if code.len() != 3 || !code.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(invalid());
+    }
+    let status = code.parse::<u16>().map_err(|_| invalid())?;
     if status != 200 {
         return Err(GatewayError::Transport(format!(
             "gateway answered HTTP {status}"
         )));
+    }
+    let mut length = None;
+    for line in lines {
+        let (name, value) = line.split_once(':').ok_or_else(invalid)?;
+        if name.is_empty()
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte))
+            || value
+                .bytes()
+                .any(|byte| byte.is_ascii_control() && byte != b'\t')
+        {
+            return Err(invalid());
+        }
+        if name.eq_ignore_ascii_case("transfer-encoding") {
+            return Err(invalid());
+        }
+        if name.eq_ignore_ascii_case("content-length") {
+            let value = value.trim_matches([' ', '\t']);
+            if length.is_some()
+                || value.is_empty()
+                || !value.bytes().all(|byte| byte.is_ascii_digit())
+            {
+                return Err(invalid());
+            }
+            length = Some(value.parse::<usize>().map_err(|_| invalid())?);
+        }
+    }
+    if length != Some(body.len()) {
+        return Err(invalid());
     }
     Ok(body.to_vec())
 }
@@ -829,34 +1129,51 @@ pub fn boolean(value: &Value) -> Result<bool, GatewayError> {
     value.as_bool().ok_or(GatewayError::MalformedAnswer)
 }
 
-/// Decodes a gateway quantity: an unsigned decimal string, a `0x` quantity or
-/// a JSON integer. Nothing else is admitted.
+/// Decodes an unsigned decimal string, a `0x` quantity or a JSON integer
+/// without narrowing an on-chain amount.
 ///
 /// # Errors
-/// Refuses every other spelling and any value beyond 128 bits.
-pub fn quantity(value: &Value) -> Result<u128, GatewayError> {
+/// Refuses malformed quantities and values beyond 256 bits. JSON numbers
+/// must be exact unsigned integers representable by the JSON decoder.
+pub fn quantity(value: &Value) -> Result<Quantity, GatewayError> {
     match value {
         Value::Number(number) => number
             .as_u64()
-            .map(u128::from)
+            .map(|value| Quantity::from(u128::from(value)))
             .ok_or(GatewayError::MalformedAnswer),
         Value::String(text) => {
             let trimmed = text.trim();
-            if let Some(body) = trimmed
+            let (digits, radix) = if let Some(body) = trimmed
                 .strip_prefix("0x")
                 .or_else(|| trimmed.strip_prefix("0X"))
             {
-                if body.is_empty()
-                    || body.len() > 32
-                    || !body.bytes().all(|byte| byte.is_ascii_hexdigit())
-                {
+                if body.len() > 64 {
                     return Err(GatewayError::MalformedAnswer);
                 }
-                return u128::from_str_radix(body, 16).map_err(|_| GatewayError::MalformedAnswer);
+                (body, 16_u16)
+            } else {
+                (trimmed, 10_u16)
+            };
+            if digits.is_empty() {
+                return Err(GatewayError::MalformedAnswer);
             }
-            trimmed
-                .parse::<u128>()
-                .map_err(|_| GatewayError::MalformedAnswer)
+            let mut bytes = [0_u8; 32];
+            for byte in digits.bytes() {
+                let digit = nibble(byte).ok_or(GatewayError::MalformedAnswer)?;
+                if u16::from(digit) >= radix {
+                    return Err(GatewayError::MalformedAnswer);
+                }
+                let mut carry = u16::from(digit);
+                for byte in bytes.iter_mut().rev() {
+                    let current = u16::from(*byte) * radix + carry;
+                    *byte = (current & 0xff) as u8;
+                    carry = current >> 8;
+                }
+                if carry != 0 {
+                    return Err(GatewayError::MalformedAnswer);
+                }
+            }
+            Ok(Quantity(bytes))
         }
         _ => Err(GatewayError::MalformedAnswer),
     }
@@ -866,7 +1183,7 @@ pub fn quantity(value: &Value) -> Result<u128, GatewayError> {
 ///
 /// # Errors
 /// Refuses every spelling [`quantity`] refuses.
-pub fn optional_quantity(value: &Value) -> Result<Option<u128>, GatewayError> {
+pub fn optional_quantity(value: &Value) -> Result<Option<Quantity>, GatewayError> {
     if value.is_null() {
         return Ok(None);
     }
@@ -878,14 +1195,7 @@ pub fn optional_quantity(value: &Value) -> Result<Option<u128>, GatewayError> {
 /// # Errors
 /// Refuses every spelling [`quantity`] refuses and any value beyond 64 bits.
 pub fn counted(value: &Value) -> Result<u64, GatewayError> {
-    u64::try_from(quantity(value)?).map_err(|_| GatewayError::MalformedAnswer)
-}
-
-fn optional_counted(value: &Value) -> Result<Option<u64>, GatewayError> {
-    if value.is_null() {
-        return Ok(None);
-    }
-    counted(value).map(Some)
+    quantity(value)?.counted()
 }
 
 /// Decodes the `px_resolveAccount` result.
@@ -928,44 +1238,23 @@ pub fn decode_account(result: &Value) -> Result<AccountJoin, GatewayError> {
             )?,
             balance: quantity(&document["balance"])?,
             nonce: counted(&document["nonce"])?,
+            height: counted(&document["height"])?,
         }),
         _ => return Err(GatewayError::MalformedAnswer),
     };
     Ok(AccountJoin {
         account,
         paxeer,
-        layerx: object_or_null(&result["layerx"])?,
         evidence: Evidence::GatewayReported,
     })
 }
 
-fn object_or_null(value: &Value) -> Result<Option<Value>, GatewayError> {
+fn asset_metadata_text(value: &Value) -> Result<Option<String>, GatewayError> {
     match value {
         Value::Null => Ok(None),
-        document if document.is_object() => Ok(Some(document.clone())),
+        Value::String(text) => Ok(Some(text.clone())),
         _ => Err(GatewayError::MalformedAnswer),
     }
-}
-
-fn decode_custody_asset(value: &Value) -> Result<Option<CustodyAsset>, GatewayError> {
-    let Some(document) = object_or_null(value)? else {
-        return Ok(None);
-    };
-    Ok(Some(CustodyAsset {
-        asset_id: digest(
-            document["asset_id"]
-                .as_str()
-                .ok_or(GatewayError::MalformedAnswer)?,
-        )?,
-        denom: required_text(&document["denom"], DENOM_LIMIT)?,
-        enabled: boolean(&document["enabled"])?,
-        paused: boolean(&document["paused"])?,
-        minimum_deposit: quantity(&document["minimum_deposit"])?,
-        custody_cap: quantity(&document["custody_cap"])?,
-        custodied: quantity(&document["custodied"])?,
-        released: quantity(&document["released"])?,
-        pending: quantity(&document["pending"])?,
-    }))
 }
 
 /// Decodes the `px_getBalances` result.
@@ -982,31 +1271,19 @@ pub fn decode_account_balances(result: &Value) -> Result<AccountBalances, Gatewa
     }
     let mut balances = Vec::with_capacity(rows.len());
     for row in rows {
-        let paxeer = match object_or_null(&row["paxeer"])? {
-            None => None,
-            Some(document) => Some(PaxeerAssetBalance {
-                denom: required_text(&document["denom"], DENOM_LIMIT)?,
-                amount: quantity(&document["amount"])?,
-            }),
-        };
         balances.push(AssetBalance {
-            asset_id: digest(
-                row["asset_id"]
-                    .as_str()
-                    .ok_or(GatewayError::MalformedAnswer)?,
-            )?,
-            denom: optional_text(&row["denom"], DENOM_LIMIT)?,
-            custody: decode_custody_asset(&row["custody"])?,
-            paxeer,
-            layerx: object_or_null(&row["layerx"])?,
+            denom: required_text(&row["denom"], DENOM_LIMIT)?,
+            amount: quantity(&row["amount"])?,
         });
     }
-    Ok(AccountBalances {
+    let balances = AccountBalances {
         account: decode_identities(&result["account"])?,
+        height: counted(&result["height"])?,
         balances,
-        joined_limit: counted(&result["joined_limit"])?,
         evidence: Evidence::GatewayReported,
-    })
+    };
+    balances.validate_denominations()?;
+    Ok(balances)
 }
 
 /// Decodes the `px_listAssets` result.
@@ -1024,16 +1301,29 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
     let mut assets = Vec::with_capacity(rows.len());
     for row in rows {
         assets.push(AssetEntry {
-            asset_id: digest(
-                row["asset_id"]
-                    .as_str()
-                    .ok_or(GatewayError::MalformedAnswer)?,
-            )?,
-            layerx: object_or_null(&row["layerx"])?,
-            paxeer: decode_custody_asset(&row["paxeer"])?,
+            asset_id: row["asset_id"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .ok_or(GatewayError::MalformedAnswer)?
+                .to_owned(),
+            denom: optional_text(&row["denom"], DENOM_LIMIT)?,
+            kind: row["kind"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .ok_or(GatewayError::MalformedAnswer)?
+                .to_owned(),
+            name: asset_metadata_text(&row["name"])?,
+            symbol: asset_metadata_text(&row["symbol"])?,
+            decimals: optional_quantity(&row["decimals"])?
+                .map(|quantity| {
+                    u8::try_from(quantity.counted()?).map_err(|_| GatewayError::MalformedAnswer)
+                })
+                .transpose()?,
+            supply: optional_quantity(&row["supply"])?,
         });
     }
     Ok(AssetTable {
+        height: counted(&result["height"])?,
         assets,
         joined_limit: counted(&result["joined_limit"])?,
         evidence: Evidence::GatewayReported,
@@ -1046,16 +1336,29 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
 /// Refuses a document that is not the declared shape.
 pub fn decode_network(result: &Value) -> Result<NetworkHead, GatewayError> {
     let paxeer = &result["paxeer"];
-    let anchor = &result["anchor"];
+    let consensus = match result.get("consensus") {
+        Some(Value::Null) if result["reason"] == "consensus_unavailable" => None,
+        Some(head @ Value::Object(_)) => Some(ConsensusHead {
+            latest_height: counted(&head["latest_height"])?,
+            latest_block_hash: digest(
+                head["latest_block_hash"]
+                    .as_str()
+                    .ok_or(GatewayError::MalformedAnswer)?,
+            )?,
+            latest_app_hash: digest(
+                head["latest_app_hash"]
+                    .as_str()
+                    .ok_or(GatewayError::MalformedAnswer)?,
+            )?,
+            catching_up: boolean(&head["catching_up"])?,
+        }),
+        _ => return Err(GatewayError::MalformedAnswer),
+    };
     Ok(NetworkHead {
         network_id: required_text(&result["network_id"], NETWORK_ID_LIMIT)?,
         chain_id: counted(&paxeer["chain_id"])?,
         latest_block: counted(&paxeer["latest_block"])?,
-        anchor: AnchorHead {
-            latest_finalized_batch: optional_counted(&anchor["latest_finalized_batch"])?,
-            status: optional_counted(&anchor["status"])?,
-            status_name: optional_text(&anchor["status_name"], STATUS_NAME_LIMIT)?,
-        },
+        consensus,
         evidence: Evidence::GatewayReported,
     })
 }
@@ -1113,40 +1416,20 @@ mod tests {
                 "layerx_account": "33".repeat(32),
                 "bound": true
             },
-            "balances": [{
-                "asset_id": "44".repeat(32),
-                "denom": "upax",
-                "custody": {
-                    "asset_id": "44".repeat(32),
-                    "denom": "upax",
-                    "pointer": "0x2222222222222222222222222222222222222222",
-                    "enabled": true,
-                    "paused": false,
-                    "minimum_deposit": "1",
-                    "custody_cap": "1000",
-                    "custodied": "500",
-                    "released": "10",
-                    "pending": "0"
-                },
-                "paxeer": {"denom": "upax", "amount": "250"},
-                "layerx": {"asset_id": "44".repeat(32), "balance": "125"}
-            }],
-            "joined_limit": 16
+            "height": 16,
+            "balances": [{"denom": "upax", "amount": "250"}]
         });
         let balances =
             decode_account_balances(&result).unwrap_or_else(|error| panic!("balances: {error}"));
-        assert_eq!(balances.joined_limit, 16);
+        assert_eq!(balances.height, 16);
         assert!(balances.account.bound);
+        assert_eq!(balances.balances.len(), 1);
         let row = balances
-            .asset([0x44; 32])
+            .asset("upax")
             .unwrap_or_else(|| panic!("asset row"));
-        assert_eq!(row.denom.as_deref(), Some("upax"));
-        assert_eq!(
-            row.custody.as_ref().map(|custody| custody.custodied),
-            Some(500)
-        );
-        assert_eq!(row.paxeer.as_ref().map(|paxeer| paxeer.amount), Some(250));
-        assert_eq!(row.layerx_amount(), Ok(Some(125)));
+        assert_eq!(row.denom, "upax");
+        assert_eq!(row.amount, Quantity::from(250));
+        assert_eq!(balances.evidence, Evidence::GatewayReported);
     }
 
     #[test]
@@ -1164,7 +1447,7 @@ mod tests {
         });
         let join = decode_account(&result).unwrap_or_else(|error| panic!("account: {error}"));
         assert!(join.paxeer.is_none());
-        assert!(join.layerx.is_none());
+        assert_eq!(join.account.evm_address, None);
         assert!(!join.account.bound);
         assert_eq!(join.evidence, Evidence::GatewayReported);
     }
@@ -1174,27 +1457,33 @@ mod tests {
         let result = json!({
             "network_id": "paxeer-x",
             "paxeer": {"chain_id": "0x1f", "latest_block": 4_096},
-            "anchor": {
-                "latest_finalized_batch": 12,
-                "status": 2,
-                "status_name": "final",
-                "status_ladder": {"0": "unknown", "1": "submitted", "2": "final"}
-            },
-            "layerx": {"node_info": {}}
+            "consensus": {
+                "latest_height": "4096",
+                "latest_block_hash": "A1".repeat(32),
+                "latest_app_hash": "B2".repeat(32),
+                "catching_up": false
+            }
         });
         let head = decode_network(&result).unwrap_or_else(|error| panic!("network: {error}"));
         assert_eq!(head.network_id, "paxeer-x");
         assert_eq!(head.chain_id, 31);
         assert_eq!(head.latest_block, 4_096);
-        assert_eq!(head.anchor.latest_finalized_batch, Some(12));
-        assert_eq!(head.anchor.status_name.as_deref(), Some("final"));
+        assert_eq!(
+            head.consensus,
+            Some(ConsensusHead {
+                latest_height: 4_096,
+                latest_block_hash: [0xa1; 32],
+                latest_app_hash: [0xb2; 32],
+                catching_up: false,
+            })
+        );
     }
 
     #[test]
     fn a_malformed_quantity_is_refused_rather_than_defaulted() {
-        assert_eq!(quantity(&json!("12")), Ok(12));
-        assert_eq!(quantity(&json!("0x0c")), Ok(12));
-        assert_eq!(quantity(&json!(12)), Ok(12));
+        assert_eq!(quantity(&json!("12")), Ok(Quantity::from(12)));
+        assert_eq!(quantity(&json!("0x0c")), Ok(Quantity::from(12)));
+        assert_eq!(quantity(&json!(12)), Ok(Quantity::from(12)));
         for refused in [json!("-1"), json!("0x"), json!("zz"), json!(true)] {
             assert_eq!(quantity(&refused), Err(GatewayError::MalformedAnswer));
         }
@@ -1310,24 +1599,49 @@ mod identity_selector_contract_bound_shape {
     #[test]
     fn retaining_lookup_refuses_incomplete_or_conflicting_joins() {
         let mut identities = ResolvedIdentities {
-            lookup_selector: None, evm_address: Some([9; 20]), pax_address: None,
-            layerx_did: Some([7; 32]), layerx_account: Some([8; 32]),
-            bound: true, evidence: Evidence::GatewayReported,
+            lookup_selector: None,
+            evm_address: Some([9; 20]),
+            pax_address: None,
+            layerx_did: Some([7; 32]),
+            layerx_account: Some([8; 32]),
+            bound: true,
+            evidence: Evidence::GatewayReported,
         };
         let requested = AccountIdentifier::Evm([9; 20]);
-        assert_eq!(identities.retain_lookup(requested), Ok(LookupSelector::Evm([9; 20])));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Ok(LookupSelector::Evm([9; 20]))
+        );
         let preserved = identities.clone();
         identities.layerx_account = None;
-        assert_eq!(identities.retain_lookup(requested), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved.clone();
         identities.bound = false;
-        assert_eq!(identities.retain_lookup(requested), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved.clone();
         identities.evm_address = None;
-        assert_eq!(identities.retain_lookup(AccountIdentifier::Did([7; 32])), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(AccountIdentifier::Did([7; 32])),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved;
-        assert_eq!(identities.retain_lookup(AccountIdentifier::Did([8; 32])), Err(GatewayError::Unbound));
-        assert_eq!(identities.lookup_selector, Some(LookupSelector::Evm([9; 20])));
-        assert_eq!(identities.native_reference(), Some(NativeAccountReference([8; 32])));
+        assert_eq!(
+            identities.retain_lookup(AccountIdentifier::Did([8; 32])),
+            Err(GatewayError::Unbound)
+        );
+        assert_eq!(
+            identities.lookup_selector,
+            Some(LookupSelector::Evm([9; 20]))
+        );
+        assert_eq!(
+            identities.native_reference(),
+            Some(NativeAccountReference([8; 32]))
+        );
     }
 }

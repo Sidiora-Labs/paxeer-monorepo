@@ -1,8 +1,9 @@
 use crate::{
     error::Error,
-    types::{GoogleVerifyRequest, VerifyRequest, VerifyResponse},
+    types::{GoogleVerifyRequest, VerifyMode, VerifyRequest, VerifyResponse},
 };
 use reqwest::Client;
+use std::time::Duration;
 
 const GOOGLE_RECAPTCHA_VERIFY_URL: &str = "https://www.google.com/recaptcha/api/siteverify";
 /// Default minimum score threshold for v3
@@ -17,9 +18,19 @@ pub struct RecaptchaClient {
 
 impl RecaptchaClient {
     pub fn new(secret_key: impl Into<String>) -> Self {
-        Self::with_http_client(secret_key, Client::new())
+        Self::with_http_client(
+            secret_key,
+            Client::builder()
+                .connect_timeout(Duration::from_secs(3))
+                .timeout(Duration::from_secs(10))
+                .build()
+                .expect("failed to initialize reCAPTCHA HTTP client"),
+        )
     }
 
+    /// Override the default 3-second connect and 10-second whole-request deadlines
+    /// by supplying a client configured with `connect_timeout` and `timeout`.
+    /// The whole-request deadline includes reading the verification response body.
     pub fn with_http_client(secret_key: impl Into<String>, http_client: Client) -> Self {
         Self {
             secret_key: secret_key.into(),
@@ -28,8 +39,8 @@ impl RecaptchaClient {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn with_verify_url(mut self, url: impl Into<String>) -> Self {
+    /// Use a trusted alternative verification endpoint (for example a local test peer).
+    pub fn with_verify_url(mut self, url: impl Into<String>) -> Self {
         self.verify_url = url.into();
         self
     }
@@ -55,14 +66,29 @@ impl RecaptchaClient {
         }
 
         // Check hostname if expected
-        if let Some(expected_hostname) = request.expected_hostname
-            && let Some(ref actual_hostname) = verify_response.hostname
-            && actual_hostname != expected_hostname
-        {
-            return Err(Error::HostnameMismatch {
-                expected: expected_hostname.to_string(),
-                actual: actual_hostname.clone(),
-            });
+        if let Some(expected_hostname) = request.expected_hostname {
+            let actual_hostname = verify_response
+                .hostname
+                .as_ref()
+                .ok_or(Error::MissingHostname)?;
+            if actual_hostname != expected_hostname {
+                return Err(Error::HostnameMismatch {
+                    expected: expected_hostname.to_string(),
+                    actual: actual_hostname.clone(),
+                });
+            }
+        }
+
+        // Public fields also impose v3 requirements when set without the builders.
+        let requires_v3 = request.mode == VerifyMode::V3
+            || request.expected_action.is_some()
+            || request.min_score.is_some();
+        if requires_v3 {
+            verify_response.score.ok_or(Error::MissingScore)?;
+            verify_response
+                .action
+                .as_ref()
+                .ok_or(Error::MissingAction)?;
         }
 
         // For v3 responses, check score and action
@@ -76,14 +102,17 @@ impl RecaptchaClient {
             }
 
             // Check action if expected
-            if let Some(expected_action) = request.expected_action
-                && let Some(ref actual_action) = verify_response.action
-                && actual_action != expected_action
-            {
-                return Err(Error::ActionMismatch {
-                    expected: expected_action.to_string(),
-                    actual: actual_action.clone(),
-                });
+            if let Some(expected_action) = request.expected_action {
+                let actual_action = verify_response
+                    .action
+                    .as_ref()
+                    .ok_or(Error::MissingAction)?;
+                if actual_action != expected_action {
+                    return Err(Error::ActionMismatch {
+                        expected: expected_action.to_string(),
+                        actual: actual_action.clone(),
+                    });
+                }
             }
         }
 
@@ -132,7 +161,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_v2_success() {
-        let (_, client) = mock_client(v2_response("example.com")).await;
+        let (_server, client) = mock_client(v2_response("example.com")).await;
         let response = client.verify(VerifyRequest::new("token")).await.unwrap();
         assert!(response.success);
         assert!(!response.is_v3());
@@ -140,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_v3_success() {
-        let (_, client) = mock_client(v3_response("example.com", 0.9, "login")).await;
+        let (_server, client) = mock_client(v3_response("example.com", 0.9, "login")).await;
         let response = client
             .verify(
                 VerifyRequest::new("token")
@@ -155,7 +184,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_v3_score_too_low() {
-        let (_, client) = mock_client(v3_response("example.com", 0.3, "login")).await;
+        let (_server, client) = mock_client(v3_response("example.com", 0.3, "login")).await;
         let err = client
             .verify(VerifyRequest::new("token").with_min_score(0.5))
             .await
@@ -167,7 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_action_mismatch() {
-        let (_, client) = mock_client(v3_response("example.com", 0.9, "signup")).await;
+        let (_server, client) = mock_client(v3_response("example.com", 0.9, "signup")).await;
         let err = client
             .verify(VerifyRequest::new("token").with_expected_action("login"))
             .await
@@ -179,7 +208,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_hostname_mismatch() {
-        let (_, client) = mock_client(v2_response("malicious.com")).await;
+        let (_server, client) = mock_client(v2_response("malicious.com")).await;
         let err = client
             .verify(VerifyRequest::new("token").with_expected_hostname("example.com"))
             .await
@@ -191,7 +220,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_failed_with_error_codes() {
-        let (_, client) = mock_client(serde_json::json!({
+        let (_server, client) = mock_client(serde_json::json!({
             "success": false,
             "error-codes": ["invalid-input-response", "timeout-or-duplicate"]
         }))

@@ -19,9 +19,12 @@ import (
 const (
 	OrobAddress              = "0x0000000000000000000000000000000000000901"
 	PrecompileName           = "orob"
-	ResolveOffsetMethod      = "resolveOffset"
-	ResolveOffsetBatchMethod = "resolveOffsetBatch"
-	ToOffsetMethod           = "toOffset"
+	resolveOffset            = "resolveOffset"
+	resolveOffsetBatch       = "resolveOffsetBatch"
+	toOffset                 = "toOffset"
+	ResolveOffsetMethod      = resolveOffset
+	ResolveOffsetBatchMethod = resolveOffsetBatch
+	ToOffsetMethod           = toOffset
 	abiJSON                  = `[
 		{"type":"function","name":"resolveOffset","stateMutability":"pure","inputs":[{"name":"oraclePrice","type":"int256"},{"name":"offsetBps","type":"int16"}],"outputs":[{"name":"absolutePrice","type":"int256"}]},
 		{"type":"function","name":"resolveOffsetBatch","stateMutability":"pure","inputs":[{"name":"oraclePrice","type":"int256"},{"name":"offsetsBps","type":"int16[]"}],"outputs":[{"name":"absolutePrices","type":"int256[]"}]},

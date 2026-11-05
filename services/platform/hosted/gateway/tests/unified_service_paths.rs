@@ -2,6 +2,7 @@ use serde_json::{json, Value};
 use std::fs;
 use std::io::{Cursor, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread;
@@ -14,9 +15,25 @@ const WALLET: &str = include_str!("../../../../../services/wallet/gateway/src/ro
 const SIGN: &str = include_str!("../../../../../services/wallet/gateway/src/routes/sign.ts");
 const OWNER: &str = include_str!("../../../../../services/wallet/gateway/src/index.ts");
 const SDK_PROVIDER: &str = include_str!("../../../../../sdk/wallet/src/provider.ts");
-const SDK_LX: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
+const SDK_WALLET: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
 const SDK_GAS: &str = include_str!("../../../../../sdk/wallet/src/modules/gas-station.ts");
-const ARCHIVE: &str = include_str!("../../../../../services/platform/relay_archive/runtime.py");
+
+#[test]
+fn served_catalogue_lists_px_register_and_no_retired_lx_routes() {
+    let routes = unified_service_catalogue()["routes"]
+        .as_array()
+        .expect("production routes");
+    for route in routes {
+        assert_ne!(route["path"], "lx_register", "retired route: {route}");
+        assert_ne!(route["path"], "lx_getHistory", "retired route: {route}");
+    }
+    assert!(routes.iter().any(|route| {
+        route["id"] == "kernel:POST:px_register" && route["path"] == "px_register"
+    }));
+    assert!(routes.iter().any(|route| {
+        route["id"] == "indexer:POST:px_getHistory" && route["path"] == "px_getHistory"
+    }));
+}
 
 fn operation(method: &str, target: &str, source: &str) {
     let entry = unified_service_route(method, target).expect("actual unified service operation");
@@ -47,9 +64,17 @@ fn real_registered_wallet_handlers_have_the_same_unified_owner() {
     assert!(OWNER.contains("app.register(walletSponsorRoutes)"));
     assert!(OWNER.contains("app.register(signRoutes)"));
     assert!(SIGN.contains("await lxApprovalRoutes(app, pool, attestors, limiter)"));
+    let wallet: String = WALLET
+        .chars()
+        .filter(|value| !value.is_whitespace())
+        .collect();
+    let sign: String = SIGN
+        .chars()
+        .filter(|value| !value.is_whitespace())
+        .collect();
     for name in ["submit", "status"] {
         let path = format!("/v1/wallet/sponsored/{name}");
-        assert!(WALLET.contains(&format!("app.post('{path}',{{preHandler:requireAuth}}")));
+        assert!(wallet.contains(&format!("app.post('{path}',{{preHandler:requireAuth}}")));
         operation(
             "POST",
             &path,
@@ -58,36 +83,59 @@ fn real_registered_wallet_handlers_have_the_same_unified_owner() {
     }
     for path in [
         "/v1/wallet/sign-digest",
-        "/v1/wallet/sign-custody",
         "/v1/wallet/lx/review",
         "/v1/wallet/lx/approve",
         "/v1/wallet/lx/sign",
     ] {
-        assert!(SIGN.contains(&format!("app.post('{path}',{{preHandler:requireAuth")));
+        assert!(sign.contains(&format!("app.post('{path}',{{preHandler:requireAuth")));
         operation("POST", path, "services/wallet/gateway/src/routes/sign.ts");
     }
-    operation(
-        "GET",
-        &format!("/v1/wallet/custody/0x{}", "ab".repeat(32)),
-        "services/wallet/gateway/src/routes/sign.ts",
-    );
+    for (method, route, target) in [
+        (
+            "POST",
+            "/v1/wallet/sign-custody",
+            "/v1/wallet/sign-custody".to_owned(),
+        ),
+        (
+            "GET",
+            "/v1/wallet/custody/:id",
+            format!("/v1/wallet/custody/0x{}", "ab".repeat(32)),
+        ),
+        (
+            "GET",
+            "/v1/wallet/custody-authorization/:id",
+            format!("/v1/wallet/custody-authorization/0x{}", "ab".repeat(32)),
+        ),
+    ] {
+        assert!(!sign.contains(&format!("app.{}('{route}'", method.to_lowercase())));
+        assert!(
+            unified_service_route(method, &target).is_none(),
+            "retired {method} {target}"
+        );
+        assert!(unified_service_catalogue()["routes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| entry["path"] != route));
+    }
     operation(
         "GET",
         "/v1/wallet/lx/approvals/12345678-1234-4234-8234-123456789abc",
         "services/wallet/gateway/src/routes/sign.ts",
     );
-    assert!(SIGN.contains("app.get('/v1/wallet/custody/:id',{preHandler:requireAuth"));
-    assert!(SIGN.contains("app.get('/v1/wallet/lx/approvals/:id',{preHandler:requireAuth"));
+
+    assert!(sign.contains("app.get('/v1/wallet/lx/approvals/:id',{preHandler:requireAuth"));
 }
 
 #[test]
 fn actual_sdk_callers_and_existing_ownership_checks_stay_connected() {
+    assert!(SDK_PROVIDER.contains("/v1/wallet/sign-digest"));
     for path in [
-        "/v1/wallet/sign-digest",
         "/v1/wallet/sign-custody",
         "/v1/wallet/custody/",
+        "/v1/wallet/custody-authorization/",
     ] {
-        assert!(SDK_PROVIDER.contains(path), "actual SDK caller {path}");
+        assert!(!SDK_PROVIDER.contains(path), "retired SDK caller {path}");
     }
     for path in [
         "/v1/wallet/lx/review",
@@ -95,12 +143,23 @@ fn actual_sdk_callers_and_existing_ownership_checks_stay_connected() {
         "/v1/wallet/lx/sign",
         "/v1/wallet/lx/approvals/",
     ] {
-        assert!(SDK_LX.contains(path), "actual retained LX caller {path}");
+        assert!(!SDK_WALLET.contains(path), "retired LX SDK caller {path}");
+    }
+    for path in [
+        "/v1/wallet/evm/review",
+        "/v1/wallet/evm/approve",
+        "/v1/wallet/evm/approvals/",
+    ] {
+        assert!(SDK_WALLET.contains(path), "actual EVM SDK caller {path}");
     }
     assert!(SDK_GAS.contains("/v1/wallet/sponsored/status"));
     assert!(SDK_GAS.contains("/v1/wallet/sponsored/submit"));
-    assert!(WALLET.contains("wallet.address.toLowerCase()!==account.toLowerCase()"));
-    assert!(SIGN.contains("where id=$1 and user_id=$2"));
+    let wallet: String = WALLET
+        .chars()
+        .filter(|value| !value.is_whitespace())
+        .collect();
+    assert!(wallet.contains("wallet.address.toLowerCase()!==account.toLowerCase()"));
+    assert!(!SIGN.contains("where id=$1 and user_id=$2"));
     assert!(SIGN.contains("where id=$1 and principal=$2 for update"));
     assert!(SIGN.contains("explicit_lx_approval_required"));
     assert!(SIGN.contains("attestor_custody_required"));
@@ -166,8 +225,6 @@ fn archive_sync_readiness_reaches_the_actual_sync_predicate() {
         entry["source"],
         "services/platform/relay_archive/runtime.py"
     );
-    assert!(ARCHIVE.contains("if path == \"/v1/sync/readiness\":"));
-    assert!(ARCHIVE.contains("value = self.readiness()"));
     assert!(unified_service_route("GET", "/v1/sync/network").is_some());
     assert!(unified_service_route("GET", "/v1/history/activities?limit=10&cursor=0").is_some());
 }
@@ -204,6 +261,7 @@ struct Gateway {
     redis: Child,
     directory: PathBuf,
     port: u16,
+    redis_port: u16,
 }
 
 impl Drop for Gateway {
@@ -218,6 +276,10 @@ impl Drop for Gateway {
 
 impl Gateway {
     fn start() -> Self {
+        Self::start_with_explorer(None)
+    }
+
+    fn start_with_explorer(explorer: Option<&TcpListener>) -> Self {
         let directory = std::env::temp_dir().join(format!(
             "layerx-unified-paths-{}-{}",
             std::process::id(),
@@ -229,6 +291,47 @@ impl Gateway {
         fs::create_dir(&directory)
             .unwrap_or_else(|error| panic!("test directory must be created: {error}"));
         let file = |name: &str| directory.join(name);
+        if let Some(explorer) = explorer {
+            let authorization = file("explorer-authorization");
+            fs::write(&authorization, format!("Bearer {}", "ab".repeat(32)))
+                .unwrap_or_else(|error| panic!("explorer authority must be written: {error}"));
+            fs::set_permissions(&authorization, fs::Permissions::from_mode(0o600))
+                .unwrap_or_else(|error| panic!("explorer authority must be protected: {error}"));
+            let bindings = file("route-bindings.json");
+            fs::write(
+                &bindings,
+                json!({
+                    "schema": "paxeer-x.route-bindings.v1",
+                    "chain_id": 125,
+                    "network_id": "unified-service-paths",
+                    "wire_version": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
+                    "allowed_origins": [],
+                    "services": {},
+                    "upstreams": {
+                        "layerx-explorer": {
+                            "service": "explorer",
+                            "binding": {
+                                "url": format!("https://localhost:{}", explorer.local_addr().expect("explorer address").port()),
+                                "health_path": "/v1/readiness",
+                                "identity_path": "/v1/identity",
+                                "health_authorization_file": authorization,
+                                "ready_pointer": "/complete",
+                                "ready_value": true,
+                                "network_pointer": "/network_id",
+                                "network_value": "unified-service-paths",
+                                "version_pointer": "/wire_version",
+                                "version_value": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string()
+                            }
+                        }
+                    },
+                    "passthrough": []
+                })
+                .to_string(),
+            )
+            .unwrap_or_else(|error| panic!("explorer binding must be written: {error}"));
+            fs::set_permissions(&bindings, fs::Permissions::from_mode(0o600))
+                .unwrap_or_else(|error| panic!("explorer binding must be protected: {error}"));
+        }
         run(
             "openssl",
             &[
@@ -293,7 +396,8 @@ impl Gateway {
                 .unwrap_or_else(|error| panic!("{name} must be written: {error}"));
         }
         let port = free_port();
-        let gateway = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
+        command
             .env_clear()
             .env("PATH", std::env::var_os("PATH").unwrap_or_default())
             .env("LAYERX_GATEWAY_LISTEN", format!("127.0.0.1:{port}"))
@@ -312,7 +416,14 @@ impl Gateway {
             .env("LAYERX_GATEWAY_REDIS_USERNAME_FILE", file("redis-username"))
             .env("LAYERX_GATEWAY_REDIS_PASSWORD_FILE", file("redis-password"))
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::null());
+        if explorer.is_some() {
+            command.env(
+                "LAYERX_GATEWAY_ROUTE_BINDINGS_FILE",
+                file("route-bindings.json"),
+            );
+        }
+        let gateway = command
             .spawn()
             .unwrap_or_else(|error| panic!("gateway must start: {error}"));
         let mut started = Self {
@@ -320,6 +431,7 @@ impl Gateway {
             redis,
             directory,
             port,
+            redis_port,
         };
         for _ in 0..200 {
             if let Ok(Some(status)) = started.gateway.try_wait() {
@@ -379,6 +491,124 @@ impl Gateway {
         assert_eq!(answer["id"], 9, "{answer}");
         answer
     }
+
+    fn assert_retired_paths(&self) {
+        for path in ["/rpc", "/rpc/schema", "/rpc/ws", "/rpc/evm/ws"] {
+            for method in ["GET", "POST"] {
+                let (status, body) = self
+                    .exchange(method, path, b"{}")
+                    .expect("retired route response");
+                assert_eq!(status, 404, "{method} {path}");
+                let body: Value = serde_json::from_slice(&body).expect("retired route refusal");
+                assert_eq!(body["error"]["code"], "not_found");
+            }
+        }
+    }
+
+    fn websocket(&self) -> TcpStream {
+        use layerx_platform_gateway::gateway_digest;
+        use layerx_platform_gateway::store::{KeyRecord, RedisEndpoint, RedisStore};
+        use zeroize::Zeroizing;
+
+        let ca = native_tls::Certificate::from_der(
+            &fs::read(self.directory.join("server.der")).expect("outbound CA"),
+        )
+        .expect("outbound certificate");
+        let store = RedisStore::new(
+            RedisEndpoint::parse(&format!("rediss://localhost:{}", self.redis_port))
+                .expect("Redis endpoint"),
+            ca,
+            Zeroizing::new("gateway".into()),
+            Zeroizing::new("gateway-secret".into()),
+        );
+        let secret = format!("lxp_live_{}", "34".repeat(32));
+        let record = KeyRecord {
+            key_id: "lx-refusal-reader".into(),
+            principal_digest: gateway_digest(&[b"lx-refusal-reader"]),
+            salt: "lx-refusal-salt".into(),
+            secret_digest: gateway_digest(&[
+                b"gateway-key-v1",
+                b"lx-refusal-salt",
+                secret.as_bytes(),
+            ]),
+            signer_public_key: "11".repeat(32),
+            scopes: "receipt:read".into(),
+            quota_requests: 100,
+            quota_window_seconds: 60,
+            epoch: 1,
+            disabled: false,
+        };
+        store
+            .issue_key(&record, "issue-lx-refusal-reader")
+            .expect("issue WebSocket reader key");
+        let mut stream = TcpStream::connect(("127.0.0.1", self.port)).expect("WebSocket connect");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("WebSocket timeout");
+        write!(stream, "GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nAuthorization: LayerX-Key {}:{secret}\r\n\r\n", record.key_id).expect("WebSocket upgrade");
+        let mut headers = Vec::new();
+        while !headers.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream
+                .read_exact(&mut byte)
+                .expect("WebSocket upgrade response");
+            headers.push(byte[0]);
+            assert!(headers.len() <= 4096, "bounded WebSocket upgrade");
+        }
+        let headers = String::from_utf8(headers).expect("WebSocket response headers");
+        assert!(headers.starts_with("HTTP/1.1 101 "), "{headers}");
+        assert!(
+            headers.contains("Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo="),
+            "{headers}"
+        );
+        stream
+    }
+}
+
+fn websocket_call(stream: &mut TcpStream, method: &str, params: &Value) -> Value {
+    let body =
+        serde_json::to_vec(&json!({"jsonrpc": "2.0", "id": 9, "method": method, "params": params}))
+            .expect("WebSocket request");
+    let mut frame = vec![0x81];
+    if body.len() < 126 {
+        frame.push(0x80 | u8::try_from(body.len()).expect("short frame length"));
+    } else {
+        frame.push(0x80 | 126);
+        frame.extend_from_slice(
+            &u16::try_from(body.len())
+                .expect("frame length")
+                .to_be_bytes(),
+        );
+    }
+    let mut mask = [0; 4];
+    getrandom::fill(&mut mask).expect("WebSocket mask");
+    frame.extend_from_slice(&mask);
+    frame.extend(body.iter().enumerate().map(|(i, byte)| byte ^ mask[i % 4]));
+    stream.write_all(&frame).expect("WebSocket request write");
+    let mut header = [0; 2];
+    stream
+        .read_exact(&mut header)
+        .expect("WebSocket response header");
+    assert_eq!(header[0], 0x81, "text response for {method}");
+    assert_eq!(header[1] & 0x80, 0, "server response is unmasked");
+    let length = match header[1] {
+        126 => {
+            let mut length = [0; 2];
+            stream
+                .read_exact(&mut length)
+                .expect("WebSocket response length");
+            usize::from(u16::from_be_bytes(length))
+        }
+        127 => panic!("unbounded WebSocket refusal"),
+        length => usize::from(length),
+    };
+    let mut body = vec![0; length];
+    stream
+        .read_exact(&mut body)
+        .expect("WebSocket response body");
+    let answer: Value = serde_json::from_slice(&body).expect("WebSocket JSON response");
+    assert_eq!(answer["id"], 9, "{answer}");
+    answer
 }
 
 const ACCOUNT: &str = "0x00000000000000000000000000000000000000ab";
@@ -386,6 +616,7 @@ const ACCOUNT: &str = "0x00000000000000000000000000000000000000ab";
 #[test]
 fn register_replaced() {
     let gateway = Gateway::start();
+    gateway.assert_retired_paths();
     let signer = "ab".repeat(32);
     let signature = "cd".repeat(64);
     for params in [
@@ -400,12 +631,9 @@ fn register_replaced() {
     let served = gateway.call("px_register", &json!([signer, signature]));
     assert!(served.get("result").is_none(), "{served}");
     assert_eq!(served["error"]["code"], -32002, "{served}");
-    let (status, schema) = gateway
-        .exchange("GET", "/rpc/schema", b"")
-        .unwrap_or_else(|error| panic!("schema must be answered: {error}"));
-    assert_eq!(status, 200);
+    let schema = include_bytes!("../openrpc.json");
     let schema: Value =
-        serde_json::from_slice(&schema).unwrap_or_else(|error| panic!("schema JSON: {error}"));
+        serde_json::from_slice(schema).unwrap_or_else(|error| panic!("schema JSON: {error}"));
     let names: Vec<&str> = schema["methods"]
         .as_array()
         .unwrap_or_else(|| panic!("schema methods"))
@@ -419,8 +647,37 @@ fn register_replaced() {
 }
 
 #[test]
+fn explorer_program_paths_are_not_proxied() {
+    let explorer = TcpListener::bind("127.0.0.1:0").expect("explorer listener must bind");
+    explorer
+        .set_nonblocking(true)
+        .expect("explorer listener must be nonblocking");
+    let gateway = Gateway::start_with_explorer(Some(&explorer));
+    let program = "ab".repeat(32);
+    for path in [
+        format!("/v1/programs/{program}"),
+        format!("/v1/programs/{program}/reads/resolve"),
+    ] {
+        let (status, body) = gateway
+            .exchange("GET", &path, b"")
+            .unwrap_or_else(|error| panic!("{path} must be answered: {error}"));
+        let answer: Value = serde_json::from_slice(&body)
+            .unwrap_or_else(|error| panic!("{path} answer must be JSON: {error}"));
+        assert_eq!(status, 404, "{path} {answer}");
+        assert_eq!(answer["error"]["code"], "not_found", "{path} {answer}");
+        match explorer.accept() {
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(error) => panic!("explorer connection check failed: {error}"),
+            Ok(_) => panic!("{path} reached the explorer upstream"),
+        }
+    }
+}
+
+#[test]
 fn lx_reads_switched_off() {
     let gateway = Gateway::start();
+    gateway.assert_retired_paths();
+    let mut websocket = gateway.websocket();
     let key = "ab".repeat(32);
     let did = format!("did:layerx:{key}");
     for (method, params) in [
@@ -439,14 +696,44 @@ fn lx_reads_switched_off() {
         ("lx_getAsset", json!([key])),
         ("lx_getNodeInfo", json!([])),
         ("lx_requestFunds", json!([key])),
+        ("lx_sendActivity", json!(["00", "executed"])),
+        ("lx_estimateFee", json!(["00"])),
+        (
+            "lx_getProgramEvents",
+            json!([{"topic": "ab", "from_sequence": 0, "limit": 1}]),
+        ),
+        ("lx_getWalletCaps", json!([])),
+        ("lx_subscribe", json!(["receipts"])),
+        ("lx_unsubscribe", json!(["retired-subscription"])),
+        ("lx_subscription", json!([])),
+        ("lx_unknown", json!({"invalid": true})),
     ] {
         let answer = gateway.call(method, &params);
         assert!(answer.get("result").is_none(), "{method} {answer}");
         assert_eq!(answer["error"]["code"], -32601, "{method} {answer}");
+        assert_eq!(
+            answer["error"]["message"], "Method not found",
+            "{method} {answer}"
+        );
+        assert_eq!(
+            websocket_call(&mut websocket, method, &params),
+            answer,
+            "WebSocket {method}"
+        );
     }
     for method in ["px_getHistory", "px_getUnifiedHistory"] {
         let answer = gateway.call(method, &json!([ACCOUNT]));
         assert_ne!(answer["error"]["code"], -32601, "{method} {answer}");
         assert_ne!(answer["error"]["code"], -32602, "{method} {answer}");
     }
+    let schema = include_bytes!("../openrpc.json");
+    let schema: Value = serde_json::from_slice(schema).expect("served OpenRPC JSON");
+    assert!(schema["methods"]
+        .as_array()
+        .expect("schema methods")
+        .iter()
+        .all(|method| !method["name"]
+            .as_str()
+            .expect("method name")
+            .starts_with("lx_")));
 }

@@ -8,26 +8,26 @@ package internaltest
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
+	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
-
-	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/migrate"
 )
 
 // PostgresDSNEnv / RedisURLEnv name the already running Postgres / Redis the
 // tests use.
 //
-//   - PostgresDSNEnv is an admin DSN whose role may CREATE DATABASE. Each call
+//   - PostgresDSNEnv is an admin DSN whose role may CREATE DATABASE and CREATE ROLE. Each call
 //     gets a throwaway database, dropped WITH (FORCE) on cleanup.
 //   - RedisURLEnv is a redis:// URL that must name the logical database
 //     reserved for these tests; it is flushed before and after each test, so
@@ -37,95 +37,56 @@ const (
 	RedisURLEnv    = "SOCIAL_TEST_REDIS_URL"
 )
 
-// NewPostgres creates a throwaway database on the PostgresDSNEnv server,
-// applies the social goose migrations, creates the cross-schema indexer.pools
-// table (owned by the indexer service in prod; created here so creator lookups
-// resolve), and returns a ready pgx pool. Torn down via t.Cleanup.
+// NewPostgres bootstraps the coordinator-owned social schema and its producer
+// interfaces on the server named by PostgresDSNEnv.
 func NewPostgres(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	ctx := context.Background()
 	admin := os.Getenv(PostgresDSNEnv)
 	if admin == "" {
-		t.Fatalf("%s is not set: point it at a running PostgreSQL whose role may CREATE DATABASE; tests never start containers", PostgresDSNEnv)
+		t.Fatalf("%s is not set: point it at a running PostgreSQL whose role may CREATE DATABASE and CREATE ROLE", PostgresDSNEnv)
 	}
-	dsn := throwawayDatabase(t, admin)
-	if err := migrate.Up(ctx, dsn); err != nil {
-		t.Fatalf("migrate up: %v", err)
-	}
+	return NewPostgresAt(t, admin)
+}
 
-	cfg, err := pgxpool.ParseConfig(dsn)
+func NewPostgresAt(t *testing.T, admin string) *pgxpool.Pool {
+	t.Helper()
+	ctx := context.Background()
+	database := coordinatortest.Bootstrap(t, admin, "chat_runtime")
+	cfg, err := pgxpool.ParseConfig(database.AdminDSN)
 	if err != nil {
-		t.Fatalf("parse pool config: %v", err)
+		t.Fatal(err)
 	}
+	cfg.ConnConfig.RuntimeParams["search_path"] = "chat,public"
 	cfg.MaxConns = 8
 	cfg.MaxConnIdleTime = 30 * time.Second
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
-		t.Fatalf("new pool: %v", err)
+		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-
-	if _, err := pool.Exec(ctx, `
-		CREATE SCHEMA IF NOT EXISTS indexer;
-		CREATE TABLE IF NOT EXISTS indexer.pools (
-			pool_address  varchar(42) PRIMARY KEY,
-			token_address varchar(42) NOT NULL,
-			creator       varchar(42) NOT NULL,
-			created_at    bigint NOT NULL
-		);`); err != nil {
-		t.Fatalf("create indexer.pools: %v", err)
-	}
 	return pool
 }
 
-// throwawayDatabase creates a uniquely named database on the server admin
-// points at and drops it (terminating leftover sessions) at cleanup.
-func throwawayDatabase(t *testing.T, admin string) string {
+func CoordinatorMigrationSQL(t *testing.T, schema string, version int) string {
 	t.Helper()
-	ctx := context.Background()
-	cfg, err := pgx.ParseConfig(admin)
+	path := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad/spec/production-system/integration/migrations", fmt.Sprintf("%d.sql", version))
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("parse %s: %v", PostgresDSNEnv, err)
-	}
-	suffix := make([]byte, 6)
-	if _, err = rand.Read(suffix); err != nil {
 		t.Fatal(err)
 	}
-	name := "social_test_" + hex.EncodeToString(suffix)
-	conn, err := pgx.ConnectConfig(ctx, cfg)
-	if err != nil {
-		t.Fatalf("connect %s: %v", PostgresDSNEnv, err)
-	}
-	defer conn.Close(ctx)
-	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
-		t.Fatalf("create database %s: %v", name, err)
-	}
-	t.Cleanup(func() {
-		c, e := pgx.ConnectConfig(context.Background(), cfg)
-		if e != nil {
-			t.Logf("drop database %s: %v", name, e)
-			return
-		}
-		defer c.Close(context.Background())
-		if _, e = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); e != nil {
-			t.Logf("drop database %s: %v", name, e)
-		}
-	})
-	u, err := url.Parse(admin)
-	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
-		t.Fatalf("%s must be a postgres:// URL", PostgresDSNEnv)
-	}
-	u.Path = "/" + name
-	return u.String()
+	ddl := regexp.MustCompile(`(?m)^SET LOCAL search_path[^\n]*\n`).ReplaceAllString(string(raw), "")
+	quoted := pgx.Identifier{schema}.Sanitize()
+	return strings.NewReplacer(`"chat".`, quoted+".", "chat.", quoted+".").Replace(ddl)
 }
 
 // SeedPool inserts a row into indexer.pools so creator-authorized deletes resolve.
 func SeedPool(t *testing.T, pool *pgxpool.Pool, poolAddr, tokenAddr, creator string, createdAt int64) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
-		`INSERT INTO indexer.pools (pool_address, token_address, creator, created_at) VALUES ($1,$2,$3,$4)
+		`INSERT INTO indexer.pools (pool_address, token_address, creator, created_at, optical, pool_id, created_block, tx_hash)
+		 VALUES ($1,$2,$3,$4,$1,$5,1,$5)
 		 ON CONFLICT (pool_address) DO UPDATE SET token_address = EXCLUDED.token_address, creator = EXCLUDED.creator, created_at = EXCLUDED.created_at`,
-		poolAddr, tokenAddr, creator, createdAt); err != nil {
+		poolAddr, tokenAddr, creator, createdAt, "0x"+strings.Repeat("0", 24)+strings.TrimPrefix(poolAddr, "0x")); err != nil {
 		t.Fatalf("seed pool: %v", err)
 	}
 }

@@ -1,0 +1,17 @@
+[disposition.15.0.4.2]
+finding = "15.0.4.2"
+status = "resolved"
+evidence = "Commit aa4a00f62ab15603299acdd5f996ad1ac13083f0 added the receipted commitment and offerPurposeHash(resourceUrl) to the offer, retained on current origin/main at sdk/integrations/express/src/index.ts:276, and spec/layerx-merge/spec.kvx:192120 now lists only retained symbols LAYERX_RECEIPT_KEYS_JSON, parseReceiptKeys and offerPurposeHash."
+follow_up = "closure"
+
+[disposition.15.0.4.3]
+finding = "15.0.4.3"
+status = "resolved"
+evidence = "Commit aa4a00f62ab15603299acdd5f996ad1ac13083f0 replaced the fixture signing-digest comparison with keccak256 of the fixture signedReceipt bytes, retained on current origin/main at sdk/integrations/express/test/receipt-keys.test.mjs:346."
+follow_up = "closure"
+
+[disposition.15.0.4.4]
+finding = "15.0.4.4"
+status = "resolved"
+evidence = "Commit aa4a00f62ab15603299acdd5f996ad1ac13083f0 retained direct verification of the recorded vector but changed the restart loop to environment() and the original offer-matching proof at sdk/integrations/express/test/receipt-keys.test.mjs:349 and sdk/integrations/express/test/receipt-keys.test.mjs:358 on current origin/main, asserting HTTP 200, identical settlement and recovered fulfillment without another release."
+follow_up = "closure"

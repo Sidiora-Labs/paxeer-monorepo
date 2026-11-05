@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -13,12 +14,18 @@ import (
 	otelmetrics "go.opentelemetry.io/otel/metric"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti"
+	storev2_rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/tasks"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/legacytm"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	utilmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 )
 
@@ -57,6 +64,19 @@ func (app *App) BeginBlock(
 	// and before the module begin blockers, so the modules that plan initialises and
 	// the values it writes are live for the rest of the block
 	app.applyNamedUpgrade(ctx)
+	if app.Sequenced(ctx, height) {
+		if votes != nil {
+			if err := app.SequencerKeeper.StoreVotes(ctx, height, votes); err != nil {
+				panic(err)
+			}
+		}
+		// Validators and the executor use the same decided votes for the previous height.
+		var err error
+		votes, err = app.SequencerKeeper.StoredVotes(ctx, height-1)
+		if err != nil {
+			panic(err)
+		}
+	}
 	legacyabci.BeginBlock(ctx, height, votes, byzantineValidators, app.BeginBlockKeepers)
 	return abci.ResponseBeginBlock{
 		Events: sdk.MarkEventsToIndex(ctx.EventManager().ABCIEvents(), app.IndexEvents),
@@ -103,6 +123,9 @@ func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTxV2) *abci.R
 			},
 		}
 	}
+	if req == nil {
+		return wrapErr(sdkerrors.ErrInvalidRequest.Wrap("nil CheckTx request"))
+	}
 	_, span := app.GetBaseApp().TracingInfo.StartWithContext("CheckTx", ctx)
 	defer span.End()
 	checkTxStart := time.Now()
@@ -111,6 +134,9 @@ func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTxV2) *abci.R
 		appMetrics.checkTxDuration.Record(ctx, time.Since(checkTxStart).Seconds())
 	}()
 	sdkCtx := app.GetCheckTxContext(req.Tx, req.Type == abci.CheckTxTypeV2Recheck)
+	if bytes.HasPrefix(req.Tx, []byte(seqtypes.SequenceBatchDomain)) {
+		return wrapErr(seqkeeper.RefuseCheckTx(sdkCtx))
+	}
 	tx, err := app.txDecoder(req.Tx)
 	if err != nil {
 		return wrapErr(err)
@@ -257,24 +283,98 @@ func (app *App) DeliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (
 	return sdk.DeliverTxBatchResponse{Results: responses}
 }
 
+// FinalizeBlock includes the committed block identity in the hash consensus
+// records. HandlePreCommit writes the same identity during Commit; introducing
+// that key only there would change the state after FinalizeBlock published it.
+func (app *App) FinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBlock) (*abci.ResponseFinalizeBlock, error) {
+	res, err := app.BaseApp.FinalizeBlock(ctx, req)
+	if err != nil {
+		return res, err
+	}
+	if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
+		return res, nil
+	}
+	id := tmproto.BlockID{Hash: bytes.Clone(req.Hash)}
+	bz, err := id.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("finalize committed block identity: %w", err)
+	}
+	// FinalizeBlocker has already written the selected sealed, optimistic or
+	// deliver branch to the root. Include the commit-only marker before hashing
+	// that root, without publishing LastBlockID before Commit succeeds.
+	state := app.NewUncachedContext(false, *req.Header)
+	state.KVStore(app.GetKey(upgradetypes.StoreKey)).Set(committedBlockIdentityKey, bz)
+	res.AppHash = app.GetWorkingHash()
+	return res, nil
+}
+
 func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error) {
+	if app.lightInvarianceErr != nil {
+		return nil, fmt.Errorf("commit refused after failed light invariance: %w", app.lightInvarianceErr)
+	}
 	_, span := app.GetBaseApp().TracingInfo.StartWithContext("Commit", ctx)
 	defer span.End()
 	start := time.Now()
 	res, err = app.BaseApp.Commit(ctx)
+	if err == nil {
+		logStore := func(name string, hash []byte) {
+			logger.Info("committed store", "height", app.LastBlockHeight(), "store", name, "hash", fmt.Sprintf("%X", hash))
+		}
+		switch rs := app.CommitMultiStore().(type) {
+		case *rootmulti.Store:
+			for _, store := range rs.LastCommitInfo().StoreInfos {
+				logStore(store.Name, store.CommitId.Hash)
+			}
+		case *storev2_rootmulti.Store:
+			snapshot := rs.SnapshotSCStore()
+			if snapshot == nil {
+				logger.Error("committed store hashes unavailable: SC snapshot unsupported", "height", app.LastBlockHeight())
+				break
+			}
+			for _, store := range snapshot.LastCommitInfo().StoreInfos {
+				logStore(store.Name, store.CommitId.Hash)
+			}
+			if releaser, ok := snapshot.(interface{ ReleaseSnapshotRefs() error }); ok {
+				if releaseErr := releaser.ReleaseSnapshotRefs(); releaseErr != nil {
+					logger.Error("release committed store hash snapshot", "height", app.LastBlockHeight(), "err", releaseErr)
+				}
+			}
+		}
+	}
 	elapsed := time.Since(start)
 	// legacy: telemetry.MeasureSince in cosmos/baseapp/abci.go TODO(PLT-327)
 	appMetrics.commitDuration.Record(ctx, elapsed.Seconds())
 	app.RecordBenchmarkCommitTime(elapsed)
 	// After a successful Commit, publish the pending eth_newHeads event
 	// stashed by FinalizeBlocker. Subscribers see only committed state.
-	// Header.AppHash is intentionally left unset (Tendermint convention:
-	// it holds the previous block's hash); stateRoot is sourced from
-	// response.AppHash by encodeCommittedBlock.
 	if err == nil {
+		height := app.LastBlockHeight()
+		appHash, hashErr := app.CommittedAppHash(height)
+		if hashErr != nil {
+			return res, hashErr
+		}
 		if n, ok := app.blockHeaderNotifier.Get(); ok {
-			n.PublishStashed()
+			if app.pendingBlockHeader != nil {
+				app.pendingBlockHeader.AppHash = bytes.Clone(appHash)
+				n.PublishStashed()
+				app.pendingBlockHeader = nil
+			}
+		}
+		if app.commitListener != nil {
+			err = commitListener(app, height, appHash)
 		}
 	}
 	return res, err
+}
+
+func commitListener(app *App, height int64, appHash []byte) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("commit listener panicked", "height", height, "panic", r)
+		}
+	}()
+	if err := app.commitListener(height, appHash); err != nil {
+		return fmt.Errorf("commit listener at height %d: %w", height, err)
+	}
+	return nil
 }

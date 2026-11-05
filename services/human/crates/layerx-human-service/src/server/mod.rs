@@ -2,32 +2,36 @@
 
 pub mod agent_creation;
 pub mod agent_runtime;
+pub mod attestor_send_journal;
 pub mod backend;
+mod balance_material;
 mod component;
 mod component_protocol;
 mod executor;
+mod finalization;
 mod http;
 pub mod identity;
 mod identity_dispatch;
 mod identity_services;
+pub mod key_export;
 mod limits;
-pub mod movement_provider;
 pub mod native_send;
 mod privileged;
-mod projection;
 pub mod production_auth;
 pub mod production_components;
 mod production_reads;
+mod projection;
 pub mod schema;
 pub(crate) mod stream_journal;
 
+use layerx_types::clock::{Clock, Deadline};
 use std::io;
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use layerx_client::lni::transport::ConnectionGate;
+use crate::frame::ConnectionGate;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use zeroize::Zeroize;
@@ -174,7 +178,7 @@ impl<B: HumanApiComponents> BoundPlainServer<B> {
                 let public_rate_key = public_rate_key(peer);
                 let watched = tcp.try_clone();
                 let _ = router.serve_one_with_disconnect(&mut tcp, &public_rate_key, || {
-                    StreamCancellation::watch(watched?).map(Some)
+                    StreamCancellation::watch(watched?, Arc::clone(router.clock())).map(Some)
                 });
             });
         }
@@ -269,7 +273,7 @@ impl<B: HumanApiComponents> HttpsServer<B> {
                 let public_rate_key = public_rate_key(peer);
                 let watched = stream.sock.try_clone();
                 let _ = router.serve_one_with_disconnect(&mut stream, &public_rate_key, || {
-                    StreamCancellation::watch(watched?).map(Some)
+                    StreamCancellation::watch(watched?, Arc::clone(router.clock())).map(Some)
                 });
             });
         }
@@ -301,19 +305,24 @@ pub(super) struct StreamCancellation {
     cancelled: Arc<std::sync::atomic::AtomicBool>,
     stop: Arc<std::sync::atomic::AtomicBool>,
     wake: std::os::unix::net::UnixStream,
-    deadline: Arc<std::sync::Mutex<Option<std::time::Instant>>>,
+    deadline: Arc<std::sync::Mutex<Option<Deadline>>>,
+    clock: Arc<dyn Clock>,
     worker: Option<thread::JoinHandle<()>>,
 }
 
 impl StreamCancellation {
-    pub(super) fn watch<S: std::os::fd::AsFd + Send + 'static>(socket: S) -> io::Result<Self> {
+    pub(super) fn watch<S: std::os::fd::AsFd + Send + 'static>(
+        socket: S,
+        clock: Arc<dyn Clock>,
+    ) -> io::Result<Self> {
         use rustix::event::{poll, PollFd, PollFlags};
         use std::sync::atomic::{AtomicBool, Ordering};
         let (wake, waiter) = std::os::unix::net::UnixStream::pair()?;
         let cancelled = Arc::new(AtomicBool::new(false));
         let stop = Arc::new(AtomicBool::new(false));
-        let deadline = Arc::new(std::sync::Mutex::new(None::<std::time::Instant>));
+        let deadline = Arc::new(std::sync::Mutex::new(None::<Deadline>));
         let thread_deadline = Arc::clone(&deadline);
+        let thread_clock = Arc::clone(&clock);
         let thread_cancelled = Arc::clone(&cancelled);
         let thread_stop = Arc::clone(&stop);
         let worker = thread::Builder::new()
@@ -327,8 +336,11 @@ impl StreamCancellation {
                     if thread_stop.load(Ordering::Acquire) {
                         return;
                     }
-                    let deadline = match thread_deadline.lock() {
-                        Ok(deadline) => *deadline,
+                    let remaining = match thread_deadline.lock() {
+                        Ok(mut deadline) => deadline
+                            .as_mut()
+                            .map(|deadline| deadline.remaining(thread_clock.as_ref()))
+                            .transpose(),
                         Err(_) => {
                             thread_cancelled.store(true, Ordering::Release);
                             let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
@@ -336,9 +348,15 @@ impl StreamCancellation {
                             return;
                         }
                     };
-                    let remaining = deadline.map(|deadline| {
-                        deadline.saturating_duration_since(std::time::Instant::now())
-                    });
+                    let remaining = match remaining {
+                        Ok(remaining) => remaining,
+                        Err(_) => {
+                            thread_cancelled.store(true, Ordering::Release);
+                            let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
+                            stream_journal::changed();
+                            return;
+                        }
+                    };
                     if remaining.is_some_and(|remaining| remaining.is_zero()) {
                         thread_cancelled.store(true, Ordering::Release);
                         let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
@@ -387,17 +405,27 @@ impl StreamCancellation {
             stop,
             wake,
             deadline,
+            clock,
             worker: Some(worker),
         })
     }
 
-    pub(super) fn set_deadline(&self, deadline: std::time::Instant) -> io::Result<()> {
+    pub(super) fn set_deadline(&self, mut deadline: Deadline) -> io::Result<()> {
         let mut current = self
             .deadline
             .lock()
             .map_err(|_| io::Error::other("stream deadline unavailable"))?;
-        if current.is_some_and(|current| deadline > current) {
-            return Err(io::Error::other("stream deadline cannot extend"));
+        if let Some(current) = current.as_mut() {
+            let remaining = deadline
+                .remaining(self.clock.as_ref())
+                .map_err(io::Error::other)?;
+            if remaining
+                > current
+                    .remaining(self.clock.as_ref())
+                    .map_err(io::Error::other)?
+            {
+                return Err(io::Error::other("stream deadline cannot extend"));
+            }
         }
         *current = Some(deadline);
         drop(current);

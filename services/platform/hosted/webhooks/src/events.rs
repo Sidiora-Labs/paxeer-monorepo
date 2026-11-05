@@ -22,10 +22,32 @@ pub enum Verification {
     Unverified,
     /// A sequencer-signed `LayerX` receipt verified.
     ReceiptVerified,
-    /// A threshold checkpoint certificate verified.
-    CheckpointFinalised,
-    /// The settlement reference matched the registered Paxeer anchor.
-    PaxeerFinalised,
+    /// A sequencer receipt included in a committed chain block.
+    BlockCommitted,
+}
+
+#[doc(hidden)]
+pub fn deserialize_stored_verification<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Verification, D::Error> {
+    let word = String::deserialize(d)?;
+    match word.as_str() {
+        "unverified" => Ok(Verification::Unverified),
+        "receipt-verified" => Ok(Verification::ReceiptVerified),
+        "block-committed" | "checkpoint-finalised" | "paxeer-finalised" => {
+            Ok(Verification::BlockCommitted)
+        }
+        _ => Err(serde::de::Error::unknown_variant(
+            &word,
+            &[
+                "unverified",
+                "receipt-verified",
+                "block-committed",
+                "checkpoint-finalised",
+                "paxeer-finalised",
+            ],
+        )),
+    }
 }
 
 impl Verification {
@@ -35,8 +57,7 @@ impl Verification {
         match self {
             Self::Unverified => "unverified",
             Self::ReceiptVerified => "receipt-verified",
-            Self::CheckpointFinalised => "checkpoint-finalised",
-            Self::PaxeerFinalised => "paxeer-finalised",
+            Self::BlockCommitted => "block-committed",
         }
     }
 
@@ -48,8 +69,7 @@ impl Verification {
         match value {
             "unverified" => Ok(Self::Unverified),
             "receipt-verified" => Ok(Self::ReceiptVerified),
-            "checkpoint-finalised" => Ok(Self::CheckpointFinalised),
-            "paxeer-finalised" => Ok(Self::PaxeerFinalised),
+            "block-committed" => Ok(Self::BlockCommitted),
             _ => Err(WebhookError::InvalidRequest),
         }
     }
@@ -57,13 +77,12 @@ impl Verification {
     /// Projects a protocol verification rank onto the human plane vocabulary.
     ///
     /// Sequencer-signed, batch-included and state-proven receipts all present
-    /// as `receipt-verified`; ranks above them present their own finality.
+    /// as `receipt-verified`; ranks 4 and 5 present as `block-committed`.
     #[must_use]
     pub const fn from_wire_rank(rank: u8) -> Self {
         match rank {
             1..=3 => Self::ReceiptVerified,
-            4 => Self::CheckpointFinalised,
-            5 => Self::PaxeerFinalised,
+            4..=5 => Self::BlockCommitted,
             _ => Self::Unverified,
         }
     }
@@ -339,6 +358,7 @@ impl Display for DeliveryId {
 pub struct ProtocolFact {
     name: String,
     value: String,
+    #[serde(deserialize_with = "deserialize_stored_verification")]
     verification: Verification,
     receipt_digest: Option<String>,
 }
@@ -467,6 +487,7 @@ pub struct ProtocolEvent {
     subject: SubjectId,
     subject_sequence: u64,
     occurred_at: u64,
+    #[serde(deserialize_with = "deserialize_stored_verification")]
     verification: Verification,
     receipt_digest: Option<String>,
     facts: Vec<ProtocolFact>,
@@ -628,15 +649,20 @@ pub struct PaymentDraft<'a> {
 /// receipt bytes or a level weaker than a verified `LayerX` receipt, and
 /// [`WebhookError::InvalidRequest`] for an invalid amount or asset.
 pub fn settled_payment(draft: PaymentDraft<'_>) -> Result<ProtocolEvent, WebhookError> {
+    let level = Verification::parse(draft.operation.verification_level())?;
+    settled_payment_at(draft, level)
+}
+
+pub(crate) fn settled_payment_at(
+    draft: PaymentDraft<'_>,
+    verification: Verification,
+) -> Result<ProtocolEvent, WebhookError> {
     if draft.operation.receipt().is_empty() {
         return Err(WebhookError::VerificationRequired);
     }
     if draft.operation.result_code() != 0 {
         return Err(WebhookError::VerificationRequired);
     }
-    let verification = Verification::parse(
-        layerx_platform_gateway::VerifiedOperation::verification_level(draft.operation),
-    )?;
     if !verification.at_least(Verification::ReceiptVerified) {
         return Err(WebhookError::VerificationRequired);
     }
@@ -670,4 +696,166 @@ pub fn settled_payment(draft: PaymentDraft<'_>) -> Result<ProtocolEvent, Webhook
         occurred_at: draft.occurred_at,
         facts,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        EventDraft, EventId, EventKind, Principal, ProtocolEvent, ProtocolFact, SubjectId,
+        Verification,
+    };
+    use crate::error::WebhookError;
+
+    #[test]
+    fn stored_retired_verification_words_decode_as_block_committed() {
+        let event = ProtocolEvent::new(EventDraft {
+            id: EventId::new("stored-event").expect("valid event id"),
+            kind: EventKind::Payment,
+            principal: Principal::new("stored-principal").expect("valid principal"),
+            subject: SubjectId::new("stored-subject").expect("valid subject"),
+            subject_sequence: 1,
+            occurred_at: 1,
+            facts: vec![ProtocolFact::verified(
+                "payment",
+                "settled",
+                Verification::BlockCommitted,
+                "ab".repeat(32),
+            )
+            .expect("valid committed fact")],
+        })
+        .expect("valid committed event");
+        let canonical = serde_json::to_value(&event).expect("event serializes");
+
+        for event_word in ["checkpoint-finalised", "paxeer-finalised"] {
+            assert!(matches!(
+                Verification::parse(event_word),
+                Err(WebhookError::InvalidRequest)
+            ));
+            assert!(serde_json::from_value::<Verification>(serde_json::json!(event_word)).is_err());
+
+            for fact_word in ["checkpoint-finalised", "paxeer-finalised"] {
+                let mut stored = canonical.clone();
+                stored["verification"] = serde_json::json!(event_word);
+                stored["facts"][0]["verification"] = serde_json::json!(fact_word);
+                let decoded: ProtocolEvent =
+                    serde_json::from_value(stored.clone()).expect("retired stored words decode");
+                assert_eq!(decoded.verification(), Verification::BlockCommitted);
+                assert_eq!(
+                    decoded.facts()[0].verification(),
+                    Verification::BlockCommitted
+                );
+                decoded
+                    .validate()
+                    .expect("decoded event retains its evidence");
+                let serialized = serde_json::to_value(&decoded).expect("decoded event serializes");
+                assert_eq!(serialized["verification"], "block-committed");
+                assert_eq!(serialized["facts"][0]["verification"], "block-committed");
+                assert_eq!(serialized, canonical);
+
+                let mut unknown_event = stored.clone();
+                unknown_event["verification"] = serde_json::json!("finalised-forever");
+                assert!(serde_json::from_value::<ProtocolEvent>(unknown_event).is_err());
+                stored["facts"][0]["verification"] = serde_json::json!("finalised-forever");
+                assert!(serde_json::from_value::<ProtocolEvent>(stored).is_err());
+            }
+        }
+
+        for level in [
+            Verification::Unverified,
+            Verification::ReceiptVerified,
+            Verification::BlockCommitted,
+        ] {
+            let mut stored = canonical.clone();
+            stored["verification"] = serde_json::json!(level.as_str());
+            stored["facts"][0]["verification"] = serde_json::json!(level.as_str());
+            let decoded: ProtocolEvent =
+                serde_json::from_value(stored).expect("current stored words decode");
+            assert_eq!(decoded.verification(), level);
+            assert_eq!(decoded.facts()[0].verification(), level);
+        }
+    }
+
+    #[test]
+    fn block_committed_is_the_top_verification_above_receipt_verified() {
+        let levels = [
+            (Verification::Unverified, "unverified"),
+            (Verification::ReceiptVerified, "receipt-verified"),
+            (Verification::BlockCommitted, "block-committed"),
+        ];
+        for (rank, (level, word)) in levels.iter().enumerate() {
+            assert_eq!(level.as_str(), *word);
+            let parsed = Verification::parse(level.as_str()).expect("wire level round-trips");
+            assert_eq!(parsed, *level);
+            for (required_rank, (required, required_word)) in levels.iter().enumerate() {
+                let parsed_required =
+                    Verification::parse(required_word).expect("required wire level round-trips");
+                assert_eq!(parsed_required, *required);
+                assert_eq!(parsed.at_least(parsed_required), rank >= required_rank);
+                assert_eq!(parsed.cmp(&parsed_required), rank.cmp(&required_rank));
+            }
+        }
+        assert!(Verification::Unverified < Verification::ReceiptVerified);
+        assert!(Verification::ReceiptVerified < Verification::BlockCommitted);
+        assert!(Verification::BlockCommitted.at_least(Verification::ReceiptVerified));
+        assert!(!Verification::ReceiptVerified.at_least(Verification::BlockCommitted));
+        for word in ["checkpoint-finalised", "paxeer-finalised"] {
+            assert!(matches!(
+                Verification::parse(word),
+                Err(WebhookError::InvalidRequest)
+            ));
+        }
+    }
+
+    #[test]
+    fn block_committed_orders_above_receipt() {
+        let committed = Verification::BlockCommitted;
+        assert_eq!(committed.as_str(), "block-committed");
+        assert!(matches!(
+            Verification::parse(committed.as_str()),
+            Ok(Verification::BlockCommitted)
+        ));
+
+        assert!(Verification::ReceiptVerified < committed);
+        assert!(Verification::Unverified < committed);
+        assert!(committed.at_least(Verification::ReceiptVerified));
+        assert!(committed.at_least(committed));
+        assert!(!Verification::ReceiptVerified.at_least(committed));
+        assert!(!Verification::Unverified.at_least(committed));
+        assert!(committed.at_least(Verification::Unverified));
+    }
+
+    #[test]
+    fn kernel_finality_words_are_refused() {
+        for word in ["checkpoint-finalised", "paxeer-finalised"] {
+            assert!(matches!(
+                Verification::parse(word),
+                Err(WebhookError::InvalidRequest)
+            ));
+            assert!(serde_json::from_value::<Verification>(serde_json::json!(word)).is_err());
+        }
+
+        for rank in 1..=3 {
+            assert_eq!(
+                Verification::from_wire_rank(rank),
+                Verification::ReceiptVerified
+            );
+        }
+        for rank in 4..=5 {
+            assert_eq!(
+                Verification::from_wire_rank(rank),
+                Verification::BlockCommitted
+            );
+        }
+        for rank in [0, 6, u8::MAX] {
+            assert_eq!(Verification::from_wire_rank(rank), Verification::Unverified);
+        }
+        for (word, expected) in [
+            ("unverified", Verification::Unverified),
+            ("receipt-verified", Verification::ReceiptVerified),
+            ("block-committed", Verification::BlockCommitted),
+        ] {
+            assert!(matches!(Verification::parse(word), Ok(level) if level == expected));
+            assert_eq!(expected.as_str(), word);
+        }
+    }
 }

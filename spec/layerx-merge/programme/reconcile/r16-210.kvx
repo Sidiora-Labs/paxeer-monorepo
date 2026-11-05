@@ -1,0 +1,243 @@
+[reconcile.r16-210]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-210.1]
+interface = "interface.16.mk-test-contracts"
+verdict = "served"
+path = "Makefile"
+line = 1131
+symbol = "test-contracts"
+evidence = "Declares test-contracts: test-contract-state-surface; the recipe runs forge test --offline --root ., preserving the registered prerequisite."
+
+[row.r16-210.2]
+interface = "interface.16.mk-test-crypto-ct"
+verdict = "served"
+path = "Makefile"
+line = 1331
+symbol = "test-crypto-ct"
+evidence = "Declares test-crypto-ct with $(BUILD_DIR)/tests/lxp_test_ct, then runs that binary, the symbol allowlist and test-crypto-sanitizers."
+
+[row.r16-210.3]
+interface = "interface.16.mk-test-crypto-ed25519"
+verdict = "served"
+path = "Makefile"
+line = 1275
+symbol = "test-crypto-ed25519"
+evidence = "Declares test-crypto-ed25519: $(BUILD_DIR)/tests/lxp_test_ed25519 and runs the same binary; the crypto-suite and agent targets are callers."
+
+[row.r16-210.4]
+interface = "interface.16.mk-test-crypto-hash"
+verdict = "served"
+path = "Makefile"
+line = 1266
+symbol = "test-crypto-hash"
+evidence = "Declares test-crypto-hash: $(BUILD_DIR)/tests/lxp_test_hash and runs the same binary; the .PHONY entry and crypto-suite prerequisite are mentions."
+
+[row.r16-210.5]
+interface = "interface.16.mk-test-crypto-sanitizers"
+verdict = "served"
+path = "Makefile"
+line = 1316
+symbol = "test-crypto-sanitizers"
+evidence = "Declares test-crypto-sanitizers: with no prerequisites; its recipe recursively runs test-crypto-suite under address, undefined and thread sanitizers."
+
+[row.r16-210.6]
+interface = "interface.16.mk-test-crypto-secp256k1"
+verdict = "served"
+path = "Makefile"
+line = 1282
+symbol = "test-crypto-secp256k1"
+evidence = "Declares test-crypto-secp256k1: $(BUILD_DIR)/tests/lxp_test_secp256k1 and runs that binary; the suite continuation and agent target are callers."
+
+[row.r16-210.7]
+interface = "interface.16.mk-test-crypto-suite"
+verdict = "served"
+path = "Makefile"
+line = 1310
+symbol = "test-crypto-suite"
+evidence = "Declares test-crypto-suite; continuations through line 1313 retain the hash, ed25519, secp256k1, merkle, merkle-proof, merkle-vector and lxp_test_ct prerequisites from the signature."
+
+[row.r16-210.8]
+interface = "interface.16.mk-test-envelope"
+verdict = "served"
+path = "Makefile"
+line = 1502
+symbol = "test-envelope"
+evidence = "Declares test-envelope: $(BUILD_DIR)/tests/lxp_test_envelope and runs that binary; .PHONY and the aggregate test prerequisites are mentions."
+
+[row.r16-210.9]
+interface = "interface.16.mk-test-escrow-dispute"
+verdict = "served"
+path = "Makefile"
+line = 533
+symbol = "test-escrow-dispute"
+evidence = "Declares test-escrow-dispute: $(BUILD_DIR)/tests/test_escrow_dispute; the recipe runs the dispute binary and the ledger sole-writer check."
+
+[row.r16-210.10]
+interface = "interface.16.mk-test-escrow-invariants"
+verdict = "served"
+path = "Makefile"
+line = 545
+symbol = "test-escrow-invariants"
+evidence = "Declares test-escrow-invariants: $(BUILD_DIR)/tests/test_escrow_invariants; the recipe runs the invariants binary and the ledger sole-writer check."
+
+[row.r16-210.11]
+interface = "interface.16.mk-test-escrow-timeout"
+verdict = "served"
+path = "Makefile"
+line = 522
+symbol = "test-escrow-timeout"
+evidence = "Declares test-escrow-timeout: $(BUILD_DIR)/tests/test_escrow_timeout. The registered additional $(BUILD_DIR)/tests/lxp_test_epoch_escrow_timeout prerequisite is absent; the recipe runs test_escrow_timeout and the ledger sole-writer check."
+
+[row.r16-210.12]
+interface = "interface.16.mk-test-fee-gate"
+verdict = "served"
+path = "Makefile"
+line = 1539
+symbol = "test-fee-gate"
+evidence = "Declares test-fee-gate: $(BUILD_DIR)/tests/lxp_test_fee_gate and runs that binary; the .PHONY entry and aggregate test prerequisite are mentions."
+
+[row.r16-210.13]
+interface = "interface.16.mk-test-fee-replay"
+verdict = "served"
+path = "Makefile"
+line = 935
+symbol = "test-fee-replay"
+evidence = "Declares test-fee-replay: $(BUILD_DIR)/tests/test_fee_replay test-dispatch, preserving both registered prerequisites; the recipe runs test_fee_replay."
+
+[row.r16-210.14]
+interface = "interface.16.mk-test-fees"
+verdict = "served"
+path = "Makefile"
+line = 914
+symbol = "test-fees"
+evidence = "Declares test-fees with the registered test_fees, test_fees_v3 and test_fees_v4 binaries as prerequisites, then runs all three binaries."
+
+[row.r16-210.15]
+interface = "interface.16.mk-test-gateway"
+verdict = "served"
+path = "Makefile"
+line = 985
+symbol = "test-gateway"
+evidence = "Declares test-gateway; the continuation at line 986 retains $(BUILD_DIR)/obj/fuzz/fuzz_gateway_json.o beside $(BUILD_DIR)/tests/test_gateway_requirement, matching the signature."
+
+[row.r16-210.16]
+interface = "interface.16.mk-test-gateway-kv"
+verdict = "served"
+path = "Makefile"
+line = 1006
+symbol = "test-gateway-kv"
+evidence = "Declares test-gateway-kv: $(BUILD_DIR)/tests/test_gateway_kv and runs that binary; the .PHONY entry and aggregate prerequisite are mentions."
+
+[row.r16-210.17]
+interface = "interface.16.mk-test-gateway-send"
+verdict = "served"
+path = "Makefile"
+line = 996
+symbol = "test-gateway-send"
+evidence = "Declares test-gateway-send: $(BUILD_DIR)/tests/test_gateway_send and runs that binary; the .PHONY entry and aggregate prerequisite are mentions."
+
+[row.r16-210.18]
+interface = "interface.16.mk-test-genesis"
+verdict = "served"
+path = "Makefile"
+line = 1086
+symbol = "test-genesis"
+evidence = "Declares test-genesis: test-genesis-bootstrap, retaining the registered bootstrap dependency; the .PHONY entry and qualification prerequisite are mentions."
+
+[row.r16-210.19]
+interface = "interface.16.mk-test-genesis-import"
+verdict = "served"
+path = "Makefile"
+line = 1095
+symbol = "test-genesis-import"
+evidence = "Declares test-genesis-import: $(BUILD_DIR)/tests/test_genesis_import and runs that binary; the .PHONY entry and qualification prerequisite are mentions."
+
+[row.r16-210.20]
+interface = "interface.16.mk-test-genesis-module-table"
+verdict = "served"
+path = "Makefile"
+line = 1083
+symbol = "test-genesis-module-table"
+evidence = "Declares test-genesis-module-table: $(BUILD_DIR)/tests/test_genesis_module_table and runs that binary, preserving the registered signature despite the override.J58.21 annotation."
+
+[row.r16-210.21]
+interface = "interface.16.mk-test-genesis-reconcile"
+verdict = "served"
+path = "Makefile"
+line = 1105
+symbol = "test-genesis-reconcile"
+evidence = "Declares test-genesis-reconcile: $(BUILD_DIR)/tests/test_genesis_reconcile and runs that binary; the .PHONY entry and qualification prerequisite are mentions."
+
+[row.r16-210.22]
+interface = "interface.16.mk-test-governance"
+verdict = "served"
+path = "Makefile"
+line = 872
+symbol = "test-governance"
+evidence = "Declares test-governance: $(BUILD_DIR)/tests/test_governance_params and runs that binary; test-wave-12 references this target as a prerequisite."
+
+[row.r16-210.23]
+interface = "interface.16.mk-test-governance-activation"
+verdict = "served"
+path = "Makefile"
+line = 881
+symbol = "test-governance-activation"
+evidence = "Declares test-governance-activation: $(BUILD_DIR)/tests/test_governance_activation and runs that binary; test-wave-12 is a caller."
+
+[row.r16-210.24]
+interface = "interface.16.mk-test-governance-emergency"
+verdict = "served"
+path = "Makefile"
+line = 890
+symbol = "test-governance-emergency"
+evidence = "Declares test-governance-emergency: $(BUILD_DIR)/tests/test_governance_emergency and runs that binary; test-wave-12 is a caller."
+
+[row.r16-210.25]
+interface = "interface.16.mk-test-grants"
+verdict = "served"
+path = "Makefile"
+line = 1553
+symbol = "test-grants"
+evidence = "Declares test-grants: $(BUILD_DIR)/tests/lxp_test_grants and runs that binary, preserving the registered signature despite the override.J58.23 annotation; agent-test-crypto-keystore is a caller."
+
+[row.r16-210.26]
+interface = "interface.16.mk-test-identity"
+verdict = "served"
+path = "Makefile"
+line = 1546
+symbol = "test-identity"
+evidence = "Declares test-identity: $(BUILD_DIR)/tests/lxp_test_identity and runs that binary; the .PHONY entry and aggregate test prerequisite are mentions."
+
+[row.r16-210.27]
+interface = "interface.16.mk-test-legacy-readonly"
+verdict = "served"
+path = "Makefile"
+line = 1115
+symbol = "test-legacy-readonly"
+evidence = "Declares test-legacy-readonly: $(BUILD_DIR)/tests/test_legacy_readonly and runs that binary; the .PHONY entry and qualification prerequisite are mentions."
+
+[row.r16-210.28]
+interface = "interface.16.mk-test-log"
+verdict = "served"
+path = "Makefile"
+line = 1416
+symbol = "test-log"
+evidence = "Declares test-log: $(BUILD_DIR)/tests/lxp_test_log and runs that binary; the test-storage prerequisite and .PHONY entry are mentions."
+
+[row.r16-210.29]
+interface = "interface.16.mk-test-log-durability"
+verdict = "served"
+path = "Makefile"
+line = 1424
+symbol = "test-log-durability"
+evidence = "Declares test-log-durability: $(BUILD_DIR)/tests/lxp_test_log_durability and runs that binary; the test-storage prerequisite and .PHONY entry are mentions."
+
+[row.r16-210.30]
+interface = "interface.16.mk-test-lxphost"
+verdict = "served"
+path = "Makefile"
+line = 2438
+symbol = "test-lxphost"
+evidence = "Declares test-lxphost: paxd-native-libs and runs CGO_ENABLED=1 go test ./modules/lxphost/...; the .PHONY entry and recursive test-paxd-domain call are mentions."

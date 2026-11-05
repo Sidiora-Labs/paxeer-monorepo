@@ -1,0 +1,105 @@
+{
+  "manifests": {
+    "services/launchpad/pnl-tracker/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0",
+      "golang.org/x/image": "0.41.0"
+    },
+    "services/launchpad/metadata/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0",
+      "golang.org/x/image": "0.41.0"
+    },
+    "services/launchpad/trading-charts/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/gateway/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/api/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/user/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/stats-workers/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/social/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/security/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/ranking-algo/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/livestream/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/indexer/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "services/launchpad/security/control/go.mod": {
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "sdk/launchpad/shared/go.mod": {
+      "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream": "1.7.8",
+      "github.com/aws/aws-sdk-go-v2/service/s3": "1.97.3",
+      "github.com/go-chi/chi/v5": "5.4.0",
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    },
+    "sdk/launchpad/protocol/go.mod": {
+      "github.com/klauspost/compress": "1.18.7",
+      "golang.org/x/crypto": "0.52.0"
+    }
+  }
+}

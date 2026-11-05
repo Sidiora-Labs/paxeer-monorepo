@@ -1,34 +1,24 @@
-//! Versioned client for the `LayerX` Node Interface.
+//! Clients for the merged `paxd` BFT chain (EVM chain id 125).
+//!
+//! [`sequencer`] and [`rpc`] use the node's root JSON-RPC endpoint for chain
+//! reads, signed transactions and committed-block evidence. [`px`] joins account,
+//! asset and history data at the hosted gateway; its labels do not prove finality.
+//! [`frame`] provides a generic bounded codec and transport, without a separate
+//! kernel protocol or public LNI boundary.
 
 pub mod account_binding;
-pub mod availability;
-pub mod batch;
 pub mod budget;
-pub mod client;
-pub mod evidence;
+pub mod chains;
+pub mod fee;
+pub mod frame;
 pub mod grants;
-pub mod handover;
-pub mod head;
-pub mod lni;
 pub mod paxeer_binding;
-pub mod read;
-pub mod receipt;
-pub mod resolver;
+pub mod px;
+pub mod rpc;
 #[cfg(target_os = "linux")]
 pub mod runtime_clock;
 pub mod sequencer;
-pub mod stream;
-pub mod submit;
+pub mod storage_witness;
+pub mod subscription;
 
-pub use client::Client;
-
-pub mod payments;
-
-pub mod withdrawal;
-
-pub mod caps;
-pub mod execution_prestate;
-
-pub mod arbiter_admission;
-pub mod arbiter_prestate;
 pub mod ai_market;

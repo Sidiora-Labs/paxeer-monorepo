@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
+"""Qualify merged bank movement authority and immutable committed evidence pins."""
+import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import signal
 import stat
-import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-PREFIX = 'LAYERX_HUMAN_MOVEMENT_PROVIDER_'
-TEST = 'custody_profile_startup_enforces_owner_binding_and_retained_pin'
-CASES = ['valid-profile', 'same-profile-restart', 'missing-path', 'absent-file',
-         'wrong-network', 'wrong-policy-hash', 'wrong-module', 'wrong-asset',
-         'wrong-reserve', 'wrong-light-authority', 'wrong-protocol', 'short-profile',
-         'long-profile', 'group-readable', 'group-readable-directory', 'symlink-profile',
-         'non-owner', 'changed-authority-retained-pin', 'changed-checkpoint-authority',
-         'changed-custody-reference', 'changed-checkpoint-registry', 'restored-profile-restart']
+sys.path.insert(0, str(Path(__file__).parent))
+import merged_qualification as merged
+
+CASES = ('valid-bank-authority', 'same-authority-restart', 'wrong-chain', 'wrong-genesis',
+         'wrong-module', 'wrong-asset', 'non-owner', 'changed-authority-retained-pin',
+         'changed-receipt-key', 'changed-committed-proof', 'restored-state-restart')
 
 
 def require(value, reason):
@@ -25,58 +23,34 @@ def require(value, reason):
         raise RuntimeError(reason)
 
 
-def private_directory(path, owner=None):
+def private_directory(path):
     path = Path(path)
     info = path.lstat()
-    require(path.is_absolute() and path.resolve() == path and stat.S_ISDIR(info.st_mode)
-            and info.st_uid == (os.geteuid() if owner is None else owner) and stat.S_IMODE(info.st_mode) == 0o700,
+    require(path.is_absolute() and path.resolve(strict=True) == path and stat.S_ISDIR(info.st_mode)
+            and info.st_uid == os.geteuid() and stat.S_IMODE(info.st_mode) == 0o700,
             'owner-only canonical fixture directory required')
     return path
 
 
-def private_bytes(path, maximum=1048576, owner=None):
+def private_bytes(path, maximum=1048576):
     path = Path(path)
-    private_directory(path.parent, owner)
-    info = path.lstat()
-    require(path.is_absolute() and path.resolve() == path and stat.S_ISREG(info.st_mode)
-            and info.st_nlink == 1 and info.st_uid == (os.geteuid() if owner is None else owner)
-            and stat.S_IMODE(info.st_mode) == 0o600 and 0 < info.st_size <= maximum,
-            'owner-only regular bounded fixture input required')
-    return path.read_bytes()
-
-
-def projection_directory(path):
-    path = Path(path)
-    info = path.lstat()
-    require(path.is_absolute() and path.resolve() == path and stat.S_ISDIR(info.st_mode)
-            and info.st_uid == 4020 and info.st_gid == 4020
-            and stat.S_IMODE(info.st_mode) == 0o500,
-            'canonical movement read-only projection directory required')
-    return path
-
-
-def projection_bytes(path, maximum=1048576):
-    path = Path(path)
-    projection_directory(path.parent)
-    info = path.lstat()
-    require(path.is_absolute() and path.resolve() == path and stat.S_ISREG(info.st_mode)
-            and info.st_nlink == 1 and info.st_uid == 0 and info.st_gid == 4020
-            and stat.S_IMODE(info.st_mode) == 0o440 and 0 < info.st_size <= maximum,
-            'canonical root-owned bounded read-only movement projection required')
-    return path.read_bytes()
-
-
-def projection_value(directory, suffix):
-    value = projection_bytes(directory / (PREFIX + suffix), 65536).decode('utf-8')
-    require(value and not any(character in value for character in '\r\n\0'),
-            'canonical read-only projected movement value required')
-    return value
+    private_directory(path.parent)
+    require(path.is_absolute() and path.resolve(strict=True) == path, 'canonical private input required')
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+                and info.st_uid == os.geteuid() and stat.S_IMODE(info.st_mode) == 0o600
+                and 0 < info.st_size <= maximum, 'owner-only regular bounded fixture input required')
+        value = stream.read(maximum + 1)
+        require(0 < len(value) <= maximum, 'private input exceeds bound')
+        return value
 
 
 def unique(items):
     output = {}
     for key, value in items:
-        require(key not in output, 'duplicate fixture/manifest field refused')
+        require(key not in output, 'duplicate fixture field refused')
         output[key] = value
     return output
 
@@ -85,157 +59,87 @@ def document(path):
     return json.loads(private_bytes(path), object_pairs_hook=unique)
 
 
-def digest(value):
-    return hashlib.sha256(value).hexdigest()
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':')).encode() + b'\n'
 
 
-def sources():
-    paths = set()
-    for package in ('layerx-human-movement-provider', 'layerx-paxeer-client'):
-        base = ROOT / 'services/human/crates' / package
-        paths.update(path for path in (base / 'src').rglob('*') if path.is_file())
-        paths.update(path for path in (base / 'tests').rglob('*') if path.is_file())
-        paths.add(base / 'Cargo.toml')
-    for relative in ('services/human/Cargo.toml', 'services/human/Cargo.lock', 'services/platform/hosted/human/owner_custody.py',
-                     'services/platform/hosted/human/material.py', 'docker/kernel/init.sh',
-                     'docker/human-service/entrypoint.sh', 'tests/bridge/custody_credit.py',
-                     'tests/bridge/comet_credit.py', 'tests/fixtures/custody/native-credit-receipt/profile',
-                     'tools/qualification/paxeer-x/movement-custody-profile.py'):
-        paths.add(ROOT / relative)
-    require(all(path.is_file() and not path.is_symlink() for path in paths), 'complete real source inputs required')
-    return {str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in sorted(paths)}
+def retain(path, value):
+    """Create once; a restart can only read exactly the same authority/evidence."""
+    path = Path(path)
+    private_directory(path.parent)
+    data = canonical(value)
+    try:
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    except FileExistsError:
+        require(private_bytes(path) == data, 'retained bank authority or committed proof changed')
+    else:
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
 
 
-def artifact(row):
-    require(set(row) == {'path', 'sha256'}, 'exact supplied artifact identity required')
-    path = Path(row['path'])
-    info = path.lstat()
-    require(path.is_absolute() and path.resolve() == path and stat.S_ISREG(info.st_mode)
-            and info.st_uid == os.geteuid() and info.st_mode & 0o022 == 0
-            and os.access(path, os.X_OK) and path.read_bytes()[:4] == b'\x7fELF'
-            and digest(path.read_bytes()) == row['sha256'], 'genuine prebuilt executable identity required')
-    return path
+class BankMovement:
+    def __init__(self, node, profile_path, state_directory):
+        self.node = node
+        self.profile = document(profile_path)
+        self.state = private_directory(state_directory)
+        profile = self.profile
+        require(set(profile) == {'version', 'chain_id', 'genesis_hash', 'module', 'asset', 'owner', 'receipt_keys'}
+                and profile['version'] == 1 and type(profile['chain_id']) is int and profile['chain_id'] == 125
+                and profile['module'] == 'bank' and profile['asset'] == 'uhpx',
+                'merged bank authority on chain 125 and native asset required')
+        require(re.fullmatch(r'0x[0-9a-f]{40}', profile['owner']) and int(profile['owner'], 16)
+                and re.fullmatch(r'0x[0-9a-f]{64}', profile['genesis_hash']) and int(profile['genesis_hash'], 16),
+                'nonzero canonical owner and genesis required')
+        require(profile['receipt_keys'] == node.receipt_keys, 'node receipt keys differ from owner authority')
+        self.check_chain()
+        retain(self.state / 'bank-authority.pin', profile)
 
+    def check_chain(self):
+        require(self.node.call('eth_chainId', []) == '0x7d', 'wrong merged chain identity')
+        genesis = self.node.call('eth_getBlockByNumber', ['0x0', False])
+        require(isinstance(genesis, dict) and genesis.get('number') == '0x0'
+                and genesis.get('hash') == self.profile['genesis_hash'], 'wrong merged genesis authority')
 
-def env_value(directory, suffix, owner=None):
-    value = private_bytes(directory / (PREFIX + suffix), 65536, owner).decode('utf-8')
-    require(value and not any(character in value for character in '\r\n\0'), 'canonical projected movement value required')
-    return value
+    def prove(self, transaction_hash, recipient, amount):
+        require(re.fullmatch(r'0x[0-9a-f]{40}', recipient) and int(recipient, 16)
+                and type(amount) is int and 0 < amount < 1 << 256, 'canonical bank destination and amount required')
+        self.check_chain()
+        proof = self.node.committed(transaction_hash, owner=self.profile['owner'])
+        transaction, _ = merged.evm.decode_signed(bytes.fromhex(proof['raw_transaction'][2:]))
+        require(transaction.chain_id == 125 and transaction.to.hex() == recipient[2:]
+                and transaction.value == amount and transaction.data == b'',
+                'committed native bank transfer binding mismatch')
+        row = self.node.call('pax_sequencerReceipt', [transaction_hash])
+        verified, _ = merged.CHAIN._EXECUTION.verified_execution(
+            row, bytes.fromhex(proof['raw_transaction'][2:]), {'receipt_keys': self.node.receipt_keys})
+        require(row['paymentDenom'] == self.profile['asset']
+                and verified.receipt_digest.hex() == proof['receipt_digest'], 'native bank asset or proof mismatch')
+        retained = {'authority_sha256': hashlib.sha256(canonical(self.profile)).hexdigest(),
+                    'recipient': recipient, 'amount': str(amount), 'proof': proof}
+        retain(self.state / (transaction_hash[2:] + '.proof'), retained)
+        return retained
 
 
 def main():
-    require(not sys.argv[1:], 'this gate consumes prebuilt artifacts only')
-    fixture_path = os.environ.get('LAYERX_MOVEMENT_CUSTODY_FIXTURE')
-    manifest_path = os.environ.get('LAYERX_MOVEMENT_CUSTODY_ARTIFACT_MANIFEST')
-    if not fixture_path or not manifest_path:
-        print(json.dumps({'exit_code': 78, 'status': 'prerequisite-unavailable',
-                          'reason': 'protected genuine owner fixture and source-bound prebuilt artifact manifest required'}))
-        return 78
-    require(os.geteuid() == 0, 'isolated root fixture required for real non-owner refusal; no skipped cases')
-    fixture = document(fixture_path)
-    require(set(fixture) == {'version', 'isolated', 'producer_directory', 'material_root',
-                            'kernel_projection_directory', 'runtime_directory', 'policy_path', 'evidence_root'}
-            and fixture['version'] == 1 and fixture['isolated'] is True,
-            'exact genuine producer-to-runtime isolated fixture contract required')
-    manifest = document(manifest_path)
-    bound = sources()
-    require(set(manifest) == {'version', 'sources', 'artifacts'} and manifest['version'] == 1
-            and manifest['sources'] == bound and set(manifest['artifacts']) == {'movement', 'startup'},
-            'complete current source/prebuilt movement and startup manifest required')
-    movement = artifact(manifest['artifacts']['movement'])
-    startup = artifact(manifest['artifacts']['startup'])
-    producer = private_directory(fixture['producer_directory'])
-    material = private_directory(fixture['material_root'])
-    projection = projection_directory(fixture['kernel_projection_directory'])
-    runtime = private_directory(fixture['runtime_directory'], 4020)
-    evidence_parent = private_directory(fixture['evidence_root'])
-    policy = document(fixture['policy_path'])
-    owner = document(producer / 'owner-custody.json')
-    profile = private_bytes(producer / 'custody.profile', 223)
-    require(len(profile) == 223 and profile[:5] == b'LXBC3'
-            and int.from_bytes(profile[5:13], 'big') == 125
-            and profile[13:33].hex() == '0000000000000000000000000000000000001013'
-            and profile[33:65] == hashlib.sha256(b'LX:CUSTODY:MODULE:v1' + b'layerxcustody' + profile[13:33]).digest(),
-            'actual canonical native custody producer binding required')
-    profile_hash = digest(profile)
-    require(owner.get('custody_profile') == 'custody.profile'
-            and owner.get('custody_profile_sha256') == '0x' + profile_hash
-            and owner.get('asset') == profile[97:129].hex()
-            and owner.get('runtime_sha256') == profile[33:65].hex()
-            and owner.get('vault', '').lower() == '0x' + profile[13:33].hex(),
-            'actual owner bootstrap custody output must bind exact profile')
-    require(policy['movement']['CUSTODY_PROFILE'] == '/run/human-private/movement/custody.profile'
-            and policy['movement']['CUSTODY_PROFILE_SHA256'] == '0x' + profile_hash,
-            'actual typed owner policy must bind private path and complete profile digest')
-    config = private_directory(material / 'movement-config')
-    require(projection_bytes(projection / 'custody.profile', 223) == profile,
-            'actual read-only kernel projected profile bytes must match producer')
-    for path, owner_uid in ((material / 'movement/custody.profile', 0), (runtime / 'custody.profile', 4020)):
-        require(private_bytes(path, 223, owner_uid) == profile, 'producer/material/kernel/runtime profile bytes must match')
-    require(env_value(config, 'CUSTODY_PROFILE') == policy['movement']['CUSTODY_PROFILE']
-            and env_value(config, 'CUSTODY_PROFILE_SHA256') == '0x' + profile_hash
-            and env_value(config, 'NETWORK_ID') == str(int.from_bytes(profile[201:205], 'big'))
-            and env_value(config, 'PROTOCOL_VERSION') == '3'
-            and profile[205:207] == b'\x00\x03', 'actual material environment network/profile policy mismatch')
-    projected_env = projection_directory(projection / 'env')
-    for suffix in ('CUSTODY_PROFILE', 'CUSTODY_PROFILE_SHA256', 'NETWORK_ID', 'PROTOCOL_VERSION',
-                   'PAXEER_CHECKPOINT_AUTHORITY', 'CUSTODY_REFERENCE', 'PAXEER_CHECKPOINT_REGISTRY', 'PAXEER_RPC_URLS'):
-        require(projection_value(projected_env, suffix) == env_value(config, suffix), 'actual kernel projected environment mismatch')
-    ca = runtime / 'ca.der'
-    private_bytes(ca, 65536, 4020)
-    authority = env_value(config, 'PAXEER_CHECKPOINT_AUTHORITY')
-    reference = env_value(config, 'CUSTODY_REFERENCE')
-    registry = env_value(config, 'PAXEER_CHECKPOINT_REGISTRY')
-    for value, width in ((authority, 64), (reference, 64), (registry, 40)):
-        require(re.fullmatch('0x[0-9a-fA-F]{' + str(width) + '}', value) and int(value[2:], 16),
-                'actual separate checkpoint registration authority required')
-    for suffix in ('PAXEER_CHECKPOINT_AUTHORITY', 'CUSTODY_REFERENCE', 'PAXEER_CHECKPOINT_REGISTRY'):
-        require(policy['movement'][suffix] == env_value(config, suffix), 'owner checkpoint policy projection mismatch')
-    nonce = os.urandom(12).hex()
-    evidence = evidence_parent / ('movement-custody-' + nonce)
-    evidence.mkdir(mode=0o700)
-    environment = {'LAYERX_MOVEMENT_CUSTODY_BINARY': str(movement),
-                   'LAYERX_MOVEMENT_CUSTODY_OWNER_PROFILE': str(runtime / 'custody.profile'),
-                   'LAYERX_MOVEMENT_CUSTODY_CA_DER': str(ca),
-                   'LAYERX_MOVEMENT_CUSTODY_RPC_URLS': env_value(config, 'PAXEER_RPC_URLS'),
-                   'LAYERX_MOVEMENT_CUSTODY_CHECKPOINT_AUTHORITY': authority,
-                   'LAYERX_MOVEMENT_CUSTODY_REFERENCE': reference,
-                   'LAYERX_MOVEMENT_CUSTODY_CHECKPOINT_REGISTRY': registry,
-                   'LAYERX_MOVEMENT_CUSTODY_TEST_EVIDENCE': str(evidence)}
-    log = evidence / 'startup.log'
-    with log.open('xb') as output:
-        log.chmod(0o600)
-        process = subprocess.Popen([str(startup), '--nocapture', '--test-threads=1'], cwd=ROOT,
-                                   env=environment, stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
-        try:
-            code = process.wait(timeout=600)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
-            process.wait()
-            code = 124
-    print(json.dumps({'command': [str(startup), '--nocapture', '--test-threads=1'],
-                      'exit_code': code, 'log_path': str(log)}), flush=True)
-    if code:
-        return code
-    output = private_bytes(log).decode('utf-8')
-    for test in (TEST, 'executable_refuses_missing_configuration_without_exposing_environment',
-                 'probe_refuses_incomplete_transport_configuration_and_an_absent_listener'):
-        require('test ' + test + ' ... ok' in output, 'every retained and new actual startup case must execute')
-    require('test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out' in output,
-            'complete unskipped actual startup corpus required')
-    report = document(evidence / 'startup-cases.json')
-    require(report == {'version': 1, 'captured': CASES, 'owner': CASES, 'role_cases': ['movement-uid4020-startup', 'movement-uid4020-restart'], 'owner_profile_sha256': profile_hash},
-            'complete real owner/captured refusal and recovery evidence required')
-    pinned = b'LXMPA1' + profile + bytes.fromhex(authority[2:] + reference[2:] + registry[2:])
-    require(len(pinned) == 313 and private_bytes(evidence / 'owner/state/custody-profile.pin', 313) == pinned,
-            'actual immutable owner profile/checkpoint authority pin must survive refusal and restart')
-    require(sources() == bound, 'source changed during qualification')
-    artifact(manifest['artifacts']['movement'])
-    artifact(manifest['artifacts']['startup'])
-    require(private_bytes(producer / 'custody.profile', 223) == profile
-            and private_bytes(runtime / 'custody.profile', 223, 4020) == profile,
-            'actual owner custody inputs changed during qualification')
-    print(json.dumps({'status': 'passed', 'exit_code': 0, 'log_path': str(log), 'evidence': str(evidence)}))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--fixture', default=os.environ.get('LAYERX_MOVEMENT_BANK_FIXTURE'))
+    args = parser.parse_args()
+    require(args.fixture, 'explicit protected merged bank fixture required')
+    fixture = document(args.fixture)
+    require(set(fixture) == {'profile', 'state_directory', 'node_url', 'transaction_hash', 'recipient', 'amount'},
+            'closed merged bank fixture required')
+    profile = document(fixture['profile'])
+    node = merged.CHAIN.Node(fixture['node_url'], profile['receipt_keys'])
+    result = BankMovement(node, fixture['profile'], fixture['state_directory']).prove(
+        fixture['transaction_hash'], fixture['recipient'], fixture['amount'])
+    print(json.dumps({'status': 'passed', 'exit_code': 0, 'evidence': result}))
     return 0
 
 
@@ -243,6 +147,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main())
     except (OSError, ValueError, KeyError, TypeError, RuntimeError) as error:
-        print(json.dumps({'status': 'refused', 'exit_code': 2,
-                          'reason': str(error) if isinstance(error, RuntimeError) else type(error).__name__}))
+        print(json.dumps({'status': 'refused', 'exit_code': 2, 'reason': str(error)}))
         sys.exit(2)

@@ -1,0 +1,19 @@
+[task.22.31.114]
+audit = "22.30.53"
+scope = "storage/db_engine/litt/util"
+baseline = "Not run: the explicit gate order forbids testing before complete implementation and permits verification only through hf-done; no prior gate ledger or prior repair tests existed. No baseline failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."
+
+[finding.stale-lock-takeover]
+tests = ["TestRepair_114_StaleLockTakeover", "TestRepair_114_LockReleaseOwnership"]
+repair = "Permanent advisory-lock sidecar serializes acquisition, stale metadata takeover and owned metadata removal; crash closes the advisory descriptor without unlinking its inode."
+
+[finding.backup-durable-ack]
+tests = ["TestRepair_114_BackupDurableAck"]
+repair = "Rsync requests receiver file fsync, then requires a successful receiver syncfs barrier and exact acknowledgment before returning success. All per-file successes together cover the complete segment and its directory entries before reclamation. Unsupported barriers, writeback errors, missing acknowledgments and lost connections fail closed."
+wiring_request = "Domain 5, storage/db_engine/litt/cli/push.go: retain the complete snapshot until all Rsync durable acknowledgments succeed; reclaim only the explicitly acknowledged published segment set (snapshot-reclaim-range task 22.31.112)."
+qualification_limit = "The real rsync/sshd test kills the receiver shell before acknowledgment, retries after restart, reclaims snapshot hardlinks, restarts again and opens/reads the real segment. This tests process-crash recovery, not a physical power-cut experiment. Receiver requires rsync --fsync/--secluded-args and GNU sync -f."
+
+[finding.move-symlink-contract]
+tests = ["TestRepair_114_MoveSymlinkContract"]
+repair = "Lstat rejects root symlinks, a preflight walk rejects nested symlinks before mutation, and moveFile validates before parent creation or rename. Tests cover file/directory/dangling links, preserve/move modes, same/cross filesystem paths and successful regular transfers."

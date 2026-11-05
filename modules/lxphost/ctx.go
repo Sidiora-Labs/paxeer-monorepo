@@ -4,6 +4,7 @@ package lxphost
 
 /*
 #include <string.h>
+#include "layerx/lx_asset.h"
 #include "layerx/lxp_ledger.h"
 #include "layerx/lxp_snapshot.h"
 
@@ -72,14 +73,15 @@ func WithSequence(ctx sdk.Context, sequence uint64) sdk.Context {
 	return ctx.WithValue(sequenceContextKey{}, sequence)
 }
 
-type branchCtx struct {
+type branch struct {
 	store       sdk.KVStore
 	sequence    uint64
 	timestampMs uint64
 	batchNumber uint64
 	loaded      map[string][]byte
-	idempotency int
 }
+
+type branchCtx = branch
 
 func newBranchCtx(ctx sdk.Context, key sdk.StoreKey) (*branchCtx, error) {
 	sequence, ok := ctx.Value(sequenceContextKey{}).(uint64)
@@ -119,6 +121,15 @@ func (b *branchCtx) lastSequence() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
+func NextSequence(ctx sdk.Context, key sdk.StoreKey) (uint64, error) {
+	branch := &branchCtx{store: ctx.KVStore(key)}
+	last, err := branch.lastSequence()
+	if err != nil {
+		return 0, err
+	}
+	return last + 1, nil
+}
+
 func (b *branchCtx) identitySequence(did [32]byte) (uint64, error) {
 	value := b.store.Get(identitySequenceKey(did))
 	if value == nil {
@@ -130,41 +141,25 @@ func (b *branchCtx) identitySequence(did [32]byte) (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (b *branchCtx) load(h *Host) error {
-	iterator := sdk.KVStorePrefixIterator(b.store, []byte{moduleKVPrefix})
-	for ; iterator.Valid(); iterator.Next() {
-		key := iterator.Key()
-		if len(key) < 4 {
-			iterator.Close()
+func (b *branchCtx) load(h *Host, modules []uint16) error {
+	for _, module := range modules {
+		iterator := sdk.KVStorePrefixIterator(b.store, moduleKVKey(module, nil))
+		for ; iterator.Valid(); iterator.Next() {
+			key := iterator.Key()
+			if len(key) < 4 {
+				iterator.Close()
+				return codeFatalInvariant
+			}
+			value := append([]byte(nil), iterator.Value()...)
+			if err := h.loadModuleKV(module, key[3:], value); err != nil {
+				iterator.Close()
+				return err
+			}
+			b.loaded[string(key)] = value
+		}
+		if err := iterator.Close(); err != nil {
 			return codeFatalInvariant
 		}
-		value := append([]byte(nil), iterator.Value()...)
-		if err := h.loadModuleKV(binary.BigEndian.Uint16(key[1:3]), key[3:], value); err != nil {
-			iterator.Close()
-			return err
-		}
-		b.loaded[string(key)] = value
-	}
-	if err := iterator.Close(); err != nil {
-		return codeFatalInvariant
-	}
-	iterator = sdk.KVStorePrefixIterator(b.store, []byte{idempotencyPrefix})
-	for ; iterator.Valid(); iterator.Next() {
-		key := iterator.Key()
-		if len(key) != 33 {
-			iterator.Close()
-			return codeFatalInvariant
-		}
-		var hash [32]byte
-		copy(hash[:], key[1:])
-		if err := h.loadIdempotency(hash, iterator.Value()); err != nil {
-			iterator.Close()
-			return err
-		}
-		b.idempotency++
-	}
-	if err := iterator.Close(); err != nil {
-		return codeFatalInvariant
 	}
 	rows, err := restoreAccounts(b.store, h.accountRegistry())
 	if err != nil {
@@ -172,6 +167,58 @@ func (b *branchCtx) load(h *Host) error {
 	}
 	for key, value := range rows {
 		b.loaded[key] = value
+	}
+	return nil
+}
+
+func (b *branchCtx) loadProgramsFeeRecords(h *Host) error {
+	active := b.store.Get(moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progfee/active/v1")))
+	if len(active) < 9 || string(active[:5]) != "LXFR1" {
+		return nil
+	}
+	load := func(key []byte) error {
+		storeKey := moduleKVKey(C.LXP_MODULE_PROGRAMS, key)
+		value := b.store.Get(storeKey)
+		if value == nil {
+			return nil
+		}
+		value = append([]byte(nil), value...)
+		if err := h.loadModuleKV(C.LXP_MODULE_PROGRAMS, key, value); err != nil {
+			return err
+		}
+		b.loaded[string(storeKey)] = value
+		return nil
+	}
+	for _, key := range [][]byte{
+		[]byte("progfee/active/v1"),
+		append([]byte("progfee/history/v1/"), active[5:9]...),
+		[]byte("progmet/active/v1"),
+	} {
+		if err := load(key); err != nil {
+			return err
+		}
+	}
+	metering := b.store.Get(moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progmet/active/v1")))
+	if len(metering) >= 9 && string(metering[:5]) == "LXMR1" {
+		version := binary.BigEndian.Uint32(metering[5:9])
+		prefix := []byte("progmet/history/v1/")
+		iterator := sdk.KVStorePrefixIterator(b.store, moduleKVKey(C.LXP_MODULE_PROGRAMS, prefix))
+		for ; iterator.Valid(); iterator.Next() {
+			key := iterator.Key()[3:]
+			if len(key) != len(prefix)+4 {
+				continue
+			}
+			historicalVersion := binary.BigEndian.Uint32(key[len(prefix):])
+			if historicalVersion > 0 && historicalVersion <= version {
+				if err := load(key); err != nil {
+					iterator.Close()
+					return err
+				}
+			}
+		}
+		if err := iterator.Close(); err != nil {
+			return codeFatalInvariant
+		}
 	}
 	return nil
 }
@@ -221,6 +268,11 @@ func committedAccounts(registry unsafe.Pointer) (map[string][]byte, error) {
 			return nil, err
 		}
 		key := accountKey(id)
+		// Standalone snapshot rows frame the account id with a big-endian u32.
+		if uint64(length) > uint64(len(buffer)) || length < 36 ||
+			binary.BigEndian.Uint32(buffer[:4]) != 32 || !bytes.Equal(buffer[4:36], id[:]) {
+			return nil, codeFatalInvariant
+		}
 		if _, duplicate := rows[string(key)]; duplicate {
 			return nil, codeFatalInvariant
 		}
@@ -231,10 +283,6 @@ func committedAccounts(registry unsafe.Pointer) (map[string][]byte, error) {
 
 func (b *branchCtx) commit(h *Host, did [32]byte) error {
 	entries, err := h.moduleKV()
-	if err != nil {
-		return err
-	}
-	replays, err := h.idempotencyFrom(b.idempotency)
 	if err != nil {
 		return err
 	}
@@ -277,9 +325,6 @@ func (b *branchCtx) commit(h *Host, did [32]byte) error {
 			b.store.Set([]byte(key), value)
 		}
 	}
-	for _, replay := range replays {
-		b.store.Set(append([]byte{idempotencyPrefix}, replay.hash[:]...), replay.entry)
-	}
 	sequence := make([]byte, 8)
 	binary.BigEndian.PutUint64(sequence, next)
 	b.store.Set(identitySequenceKey(did), sequence)
@@ -302,4 +347,25 @@ func accountKey(id [32]byte) []byte {
 
 func identitySequenceKey(did [32]byte) []byte {
 	return append([]byte{identitySequencePrefix}, did[:]...)
+}
+
+func idempotencyKey(key IdempotencyKey) []byte {
+	return append([]byte{idempotencyPrefix}, key[:]...)
+}
+
+func (b *branchCtx) checkPaymentReference(activity Activity) error {
+	// Prefix 0x04 in the host store is the authoritative payment-reference set:
+	// committed records survive restart, and branch writes follow cache rollback.
+	// Check it directly rather than maintaining a second set in kernel memory,
+	// which is reset between executions.
+	if activity.Type == uint32(C.LX_ASSET_SEND) && b.store.Has(idempotencyKey(activity.IdempotencyKey)) {
+		return codeIdempotentReplay
+	}
+	return nil
+}
+
+func (b *branchCtx) commitPaymentReference(activity Activity, receipt Receipt) {
+	if activity.Type == uint32(C.LX_ASSET_SEND) && receipt.ResultCode == 0 {
+		b.store.Set(idempotencyKey(activity.IdempotencyKey), receipt.Encoded)
+	}
 }

@@ -1,0 +1,9 @@
+[repair.22.33.1317]
+finding = "paid-api-durable-fulfillment"
+acceptance = "22998.1"
+implementation = "An exclusive durable claim precedes release; complete fsynced records are published without overwrite, staged results recover on reopen, and uncertain outcomes require explicit reconciliation with the application's authoritative resource result."
+tests = ["paidApiConcurrentDeliveriesClaimBeforeRelease", "paidApiHttpConcurrentResponsesSurviveReopen", "paidApiInterruptedReleaseRequiresReconciliation", "paidApiInterruptedPublicationRecoversCompleteRecord", "paidApiIncompleteClaimNeverReleasesAgain"]
+verify_cmd = "node --test services/platform/examples/test/repair-22-33-1317.test.mjs"
+baseline = "Not run: the explicit task gate order forbids running verify before implementation or outside hf-done; no pre-change failure is claimed."
+evidence = "The runner's hf-done evidence records the exact verified candidate revision, command, exit code and private log location; the final task response copies that evidence."
+wiring_requests = []

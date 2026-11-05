@@ -9,7 +9,34 @@
   {"type":"function","name":"budgetDelegateSpend","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"internalType":"bytes32","name":"recipient","type":"bytes32"},{"internalType":"uint128","name":"amount","type":"uint128"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"budgetFund","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"internalType":"uint128","name":"amount","type":"uint128"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"budgetFundNative","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"internalType":"uint128","name":"amount","type":"uint128"},{"internalType":"uint64","name":"sourceSequence","type":"uint64"}],"outputs":[],"stateMutability":"nonpayable"},
-  {"type":"function","name":"budgetPull","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"internalType":"bytes32","name":"recipient","type":"bytes32"},{"internalType":"uint128","name":"amount","type":"uint128"},{"internalType":"bytes","name":"payerGrant","type":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},
+  {
+    "type": "function",
+    "name": "budgetPull",
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "budgetId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "recipient",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint128",
+        "name": "amount",
+        "type": "uint128"
+      },
+      {
+        "internalType": "bytes",
+        "name": "payerGrant",
+        "type": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
   {"type":"function","name":"budgetRemaining","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"}],"outputs":[{"internalType":"uint128","name":"remaining","type":"uint128"}],"stateMutability":"view"},
   {"type":"function","name":"budgetRevoke","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"internalType":"uint64","name":"revocationSequence","type":"uint64"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"budgetSpend","inputs":[{"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"internalType":"bytes32","name":"recipient","type":"bytes32"},{"internalType":"uint128","name":"amount","type":"uint128"}],"outputs":[],"stateMutability":"nonpayable"},
@@ -41,7 +68,29 @@
   {"type":"function","name":"serviceCommitAbandon","inputs":[{"internalType":"bytes32","name":"commitmentId","type":"bytes32"},{"internalType":"uint16","name":"reason","type":"uint16"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"serviceCommitTask","inputs":[{"internalType":"bytes32","name":"commitmentId","type":"bytes32"},{"internalType":"bytes32","name":"agreementId","type":"bytes32"},{"internalType":"bytes32","name":"taskHash","type":"bytes32"},{"internalType":"bytes32","name":"escrowId","type":"bytes32"},{"internalType":"uint64","name":"deadlineMs","type":"uint64"},{"internalType":"uint64","name":"resourceBound","type":"uint64"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"serviceDeliver","inputs":[{"internalType":"bytes32","name":"deliveryId","type":"bytes32"},{"internalType":"bytes32","name":"agreementId","type":"bytes32"},{"components":[{"internalType":"bytes32","name":"hash","type":"bytes32"},{"internalType":"uint64","name":"artifactSizeBytes","type":"uint64"},{"internalType":"bytes32","name":"availabilityReference","type":"bytes32"}],"internalType":"struct ILayerXPay.Deliverable[]","name":"deliverables","type":"tuple[]"}],"outputs":[],"stateMutability":"nonpayable"},
-  {"type":"function","name":"serviceDisputeOpen","inputs":[{"internalType":"bytes32","name":"disputeId","type":"bytes32"},{"internalType":"bytes32","name":"agreementId","type":"bytes32"},{"internalType":"bytes32[]","name":"evidenceHashes","type":"bytes32[]"}],"outputs":[],"stateMutability":"nonpayable"},
+  {
+    "type": "function",
+    "name": "serviceDisputeOpen",
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "disputeId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "agreementId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "evidenceHashes",
+        "type": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
   {"type":"function","name":"serviceDisputeResolve","inputs":[{"internalType":"bytes32","name":"disputeId","type":"bytes32"},{"internalType":"uint16","name":"ruling","type":"uint16"},{"internalType":"uint32","name":"providerBps","type":"uint32"},{"internalType":"bytes32","name":"escrowResolutionId","type":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"serviceOfferPublish","inputs":[{"internalType":"bytes32","name":"offerId","type":"bytes32"},{"internalType":"bytes32","name":"assetId","type":"bytes32"},{"internalType":"uint128","name":"price","type":"uint128"},{"internalType":"bytes32","name":"termsHash","type":"bytes32"},{"internalType":"bytes32","name":"deliverableSpecHash","type":"bytes32"},{"internalType":"uint64","name":"deliveryDeadlineMs","type":"uint64"},{"internalType":"uint64","name":"acceptanceWindowMs","type":"uint64"},{"internalType":"uint64","name":"disputeWindowMs","type":"uint64"},{"internalType":"uint8","name":"defaultOutcome","type":"uint8"},{"internalType":"uint64","name":"offerExpiryMs","type":"uint64"}],"outputs":[],"stateMutability":"nonpayable"},
   {"type":"function","name":"serviceOfferWithdraw","inputs":[{"internalType":"bytes32","name":"offerId","type":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},
@@ -60,12 +109,60 @@
   {"type":"event","name":"AgreementProposed","inputs":[{"indexed":true,"internalType":"bytes32","name":"primary","type":"bytes32"},{"indexed":true,"internalType":"bytes32","name":"secondary","type":"bytes32"},{"indexed":false,"internalType":"uint8","name":"code","type":"uint8"},{"indexed":false,"internalType":"uint64","name":"sequence","type":"uint64"}],"anonymous":false},
   {"type":"event","name":"BudgetAmended","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"perPeriodLimit","type":"uint128"},{"indexed":false,"internalType":"uint64","name":"expiryMs","type":"uint64"}],"anonymous":false},
   {"type":"event","name":"BudgetClosed","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"drained","type":"uint128"},{"indexed":false,"internalType":"uint64","name":"revocationSequence","type":"uint64"}],"anonymous":false},
-  {"type":"event","name":"BudgetCreated","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"bytes32","name":"assetId","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"amount","type":"uint128"}],"anonymous":false},
+  {
+    "type": "event",
+    "name": "BudgetCreated",
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "budgetId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "assetId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint128",
+        "name": "amount",
+        "type": "uint128"
+      }
+    ],
+    "anonymous": false
+  },
   {"type":"event","name":"BudgetDefunded","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"amount","type":"uint128"},{"indexed":false,"internalType":"uint128","name":"perPeriodLimit","type":"uint128"}],"anonymous":false},
   {"type":"event","name":"BudgetDelegateAdded","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"bytes32","name":"delegateActor","type":"bytes32"}],"anonymous":false},
   {"type":"event","name":"BudgetDelegateRemoved","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"bytes32","name":"delegateActor","type":"bytes32"}],"anonymous":false},
   {"type":"event","name":"BudgetFunded","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"amount","type":"uint128"}],"anonymous":false},
-  {"type":"event","name":"BudgetRevoked","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"drained","type":"uint128"},{"indexed":false,"internalType":"uint64","name":"revocationSequence","type":"uint64"}],"anonymous":false},
+  {
+    "type": "event",
+    "name": "BudgetRevoked",
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "budgetId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint128",
+        "name": "drained",
+        "type": "uint128"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "revocationSequence",
+        "type": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
   {"type":"event","name":"BudgetSpent","inputs":[{"indexed":true,"internalType":"bytes32","name":"budgetId","type":"bytes32"},{"indexed":false,"internalType":"bytes32","name":"recipient","type":"bytes32"},{"indexed":false,"internalType":"uint128","name":"amount","type":"uint128"}],"anonymous":false},
   {"type":"event","name":"CommitAbandoned","inputs":[{"indexed":true,"internalType":"bytes32","name":"primary","type":"bytes32"},{"indexed":true,"internalType":"bytes32","name":"secondary","type":"bytes32"},{"indexed":false,"internalType":"uint8","name":"code","type":"uint8"},{"indexed":false,"internalType":"uint64","name":"sequence","type":"uint64"}],"anonymous":false},
   {"type":"event","name":"DefaultOutcomeApplied","inputs":[{"indexed":true,"internalType":"bytes32","name":"agreementId","type":"bytes32"},{"indexed":false,"internalType":"uint8","name":"state","type":"uint8"},{"indexed":false,"internalType":"bool","name":"defaultApplied","type":"bool"},{"indexed":false,"internalType":"uint64","name":"outcomeSequence","type":"uint64"},{"indexed":false,"internalType":"uint64","name":"outcomeTimestampMs","type":"uint64"}],"anonymous":false},

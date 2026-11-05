@@ -15,7 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
-	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -129,8 +129,26 @@ func (r *resolutionSends1315) record(t *testing.T, h *sendSeqHarness, i int, etx
 // startResolutionReceiptServer1315 serves pax_sequencerReceipt over HTTP from the harness record.
 func startResolutionReceiptServer1315(t *testing.T, h *sendSeqHarness, sends *resolutionSends1315) int {
 	t.Helper()
-	keeper := seqkeeper.NewKeeper(sdk.NewKVStoreKey(seqtypes.StoreKey))
-	return startSeqReceiptServer9005(t, h.app, resolutionCtxProvider1315(h), evmrpc.SequencerReceiptOption{Source: sends, Keeper: &keeper})
+	keyID, err := h.key.KeyID(sendSeqOpenHeight)
+	require.NoError(t, err)
+	public := h.key.PublicKey()
+	ctxProvider := resolutionCtxProvider1315(h)
+	ctx := ctxProvider(evmrpc.LatestCtxHeight)
+	require.NoError(t, h.app.SequencerKeeper.SetReceiptKeys(ctx, seqkeeper.ReceiptKeys{{
+		KeyId: keyID[:], PublicKey: public[:], FirstHeight: 1, LastHeight: 1000,
+	}}))
+	receiptCtxProvider := func(height int64) sdk.Context {
+		if height == evmrpc.PendingCtxHeight {
+			return ctxProvider(height)
+		}
+		return ctx.WithMultiStore(ctx.MultiStore().CacheMultiStore())
+	}
+	pins, err := h.app.SequencerKeeper.ReceiptKeyPins(receiptCtxProvider(evmrpc.LatestCtxHeight))
+	require.NoError(t, err)
+	require.Equal(t, []verify.SequencerAuthorization{{
+		SequencerID: keyID, PublicKey: public, FirstBatchNumber: 1, LastBatchNumber: 1000,
+	}}, pins)
+	return startSeqReceiptServer9005(t, h.app, receiptCtxProvider, evmrpc.SequencerReceiptOption{Source: sends, Keeper: &h.app.SequencerKeeper})
 }
 
 func TestResolutionPendingTag(t *testing.T) {
@@ -143,7 +161,7 @@ func TestResolutionPendingTag(t *testing.T) {
 
 	ctxProvider := resolutionCtxProvider1315(h)
 	fullNode := resolutionInProc1315(t, evmrpc.NewStateAPI(&MockClient{}, &h.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP,
-		evmrpc.NewWatermarkManager(&MockClient{}, ctxProvider, nil, nil)))
+		evmrpc.NewWatermarkManager(&MockClient{}, ctxProvider, nil, nil), nil))
 	var balance hexutil.Big
 	err = fullNode.Call(&balance, "eth_getBalance", to, "pending")
 	requireRPCError1315(t, err, -32000, "pending served by sequencer")
@@ -155,7 +173,7 @@ func TestResolutionPendingTag(t *testing.T) {
 
 	seqWatermarks := evmrpc.NewWatermarkManager(&MockClient{latestOverride: sendSeqCommittedTip}, ctxProvider, nil, nil)
 	seqWatermarks.SetPendingSnapshot(h.exec)
-	seqNode := resolutionInProc1315(t, evmrpc.NewStateAPI(&MockClient{}, &h.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, seqWatermarks))
+	seqNode := resolutionInProc1315(t, evmrpc.NewStateAPI(&MockClient{}, &h.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, seqWatermarks, nil))
 	require.NoError(t, seqNode.Call(&balance, "eth_getBalance", to, "pending"))
 	require.Zero(t, big.NewInt(resolutionOnePaxWei1315).Cmp(balance.ToInt()))
 }
@@ -355,6 +373,13 @@ func resolutionStallable1315(t *testing.T, service any) (*rpc.Client, *resolutio
 }
 
 func TestResolutionPendingSubscriptionOverflow(t *testing.T) {
+	defaults := app.DefaultConsensusParams
+	params := *defaults
+	block := *defaults.Block
+	block.MaxBytes = 100000000
+	params.Block = &block
+	app.DefaultConsensusParams = &params
+	t.Cleanup(func() { app.DefaultConsensusParams = defaults })
 	sender := occutils.NewSigner()
 	h := newSendSeqHarness(t, sender)
 	to := common.BytesToAddress(sendSeqLabel("resolution overflow recipient")[:20])

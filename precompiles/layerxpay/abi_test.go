@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
@@ -409,4 +410,24 @@ func solidityType(t *testing.T, typeName string, name string, structs map[string
 	}
 	return abi.ArgumentMarshaling{Name: name, Type: kind, InternalType: "struct " + solidityInterface + "." + typeName,
 		Components: components}
+}
+
+// The payment consumer compiles against the producer's exported ABI, including
+// its identifier returns; draw remains exclusively at 0x101A.
+func TestLedgerProducerABIAtPaymentBoundary(t *testing.T) {
+	ledger := layerxledger.GetABI()
+	pay := pcommon.MustGetABI(abiTestFS, "abi.json")
+	require.Equal(t, drawSignature, ledger.Methods["draw"].Sig)
+	_, err := pay.MethodById(ledger.Methods["draw"].ID)
+	require.Error(t, err)
+	for _, name := range []string{"register", "openAccount", "issueGrant"} {
+		require.Len(t, ledger.Methods[name].Outputs, 1, name)
+		require.Equal(t, "bytes32", ledger.Methods[name].Outputs[0].Type.String(), name)
+	}
+	for _, name := range []string{"PayerGrantIssued", "PaymentDrawn", "PaymentExact", "Transfer"} {
+		event := ledger.Events[name]
+		require.NotEmpty(t, event.Name)
+		_, err := pay.EventByID(event.ID)
+		require.Error(t, err, "%s belongs to the ledger emitter", name)
+	}
 }

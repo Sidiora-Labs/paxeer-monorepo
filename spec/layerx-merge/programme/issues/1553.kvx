@@ -1,0 +1,7 @@
+[issue.1553]
+number = 1553
+title = "[Coherence] The cumulative-gas and fee-token rulings for 22.23.8 cite decision 2386, which is the batch-header retirement decision"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "spec-edit"
+evidence = "Completed task 22.23.8 (spec/layerx-merge/spec.kvx:191346) still cites decision 2386 in do_6 and do_7 (:191375 and :191376), as does finding 21.87.1.2 (spec/layerx-merge/qualification.kvx:19380), although that decision covers only batch-header retirement (spec/layerx-merge/spec.kvx:7428, :7432); the spec must cite payment-asset decision 2360 (:7272, which already lists 22.23.8 in affects at :7276) for the fee-token expectation and record a separate cumulative-gas decision affecting 22.23.8 for do_7 and the finding, matching the payment digest at node/sequencer/receipt.go:234, the signed cumulative gas at node/sequencer/receipt.go:461 and node/sequencer/accepter.go:103, and the assertions at node/sequencer/receipt_equality_test.go:473 and node/sequencer/accepter_test.go:383 introduced by commit 75256e3897053527589ab3fc26ee00cee9eec532."
+close_comment = "The receipt implementation and tests already use the payment-asset digest and cumulative gas bound by the signed receipt. The specification needs to cite existing decision 2360 for the fee-token expectation and record a separate cumulative-gas decision affecting 22.23.8, replacing the unrelated batch-retirement reference in the task and finding."

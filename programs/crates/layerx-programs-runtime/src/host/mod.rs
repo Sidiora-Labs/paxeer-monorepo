@@ -100,7 +100,6 @@ std::thread_local! {
 }
 
 /// Counts every host surface registration performed on the calling thread.
-#[cfg(test)]
 pub(crate) fn linker_constructions_on_current_thread() -> usize {
     LINKER_CONSTRUCTIONS.with(core::cell::Cell::get)
 }
@@ -1146,6 +1145,16 @@ pub(crate) fn reconcile_reference_guest_cpu(
     Ok(())
 }
 
+fn private_cpu_trap(state: &mut RuntimeState) -> wasmi::core::Trap {
+    if !state.meter().is_activity()
+        && (state.failure().is_some()
+            || matches!(state.refusal(), Some(CompositionRefusal::Program(_))))
+    {
+        state.meter_mut().mark_cpu_exhausted();
+    }
+    wasmi::core::Trap::from(wasmi::core::TrapCode::OutOfFuel)
+}
+
 #[allow(clippy::too_many_lines)]
 pub(crate) fn linker(engine: &Engine) -> Result<HostLinker, ExecutionFault> {
     LINKER_CONSTRUCTIONS.with(|count| count.set(count.get().saturating_add(1)));
@@ -1154,14 +1163,16 @@ pub(crate) fn linker(engine: &Engine) -> Result<HostLinker, ExecutionFault> {
         .func_wrap(
             PRIVATE_METER_MODULE,
             PRIVATE_CHECK_FUNCTION,
-            |caller: Caller<'_, RuntimeState>, raw_charge: i64| -> Result<(), wasmi::core::Trap> {
+            |mut caller: Caller<'_, RuntimeState>,
+             raw_charge: i64|
+             -> Result<(), wasmi::core::Trap> {
                 let charge = u64::try_from(raw_charge)
                     .map_err(|_| wasmi::core::Trap::from(wasmi::core::TrapCode::OutOfFuel))?;
-                let meter = caller.data().meter();
-                match meter.cpu_total().checked_add(charge) {
-                    Some(attempted) if attempted <= meter.cpu_budget() => Ok(()),
-                    _ => Err(wasmi::core::Trap::from(wasmi::core::TrapCode::OutOfFuel)),
-                }
+                caller
+                    .data_mut()
+                    .meter_mut()
+                    .check_cpu(charge)
+                    .map_err(|_| private_cpu_trap(caller.data_mut()))
             },
         )
         .map_err(|error| linker_fault(&error))?;
@@ -1178,7 +1189,7 @@ pub(crate) fn linker(engine: &Engine) -> Result<HostLinker, ExecutionFault> {
                     .data_mut()
                     .meter_mut()
                     .charge_cpu(charge)
-                    .map_err(|_| wasmi::core::Trap::from(wasmi::core::TrapCode::OutOfFuel))
+                    .map_err(|_| private_cpu_trap(caller.data_mut()))
             },
         )
         .map_err(|error| linker_fault(&error))?;
@@ -1266,6 +1277,7 @@ pub(crate) const fn error_status(error: &AbiError) -> i32 {
         AbiError::BalanceAbsent => STATUS_ABSENT,
         AbiError::OracleUnknownMarket => STATUS_ORACLE_UNKNOWN_MARKET,
         AbiError::OracleMarketHalted => STATUS_ORACLE_MARKET_HALTED,
+        AbiError::EffectLimit => STATUS_BOUNDS,
         AbiError::Storage(
             crate::storage::StorageError::InvalidScanCursor
             | crate::storage::StorageError::InvalidScanLimits,

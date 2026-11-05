@@ -1,0 +1,124 @@
+[disposition.13.22.1.2]
+finding = "13.22.1.2"
+status = "resolved"
+evidence = "Commit e894c7ae4 moved the node-dependent tests into layerxprograms_test, as precompiles/layerxprograms/harness_test.go:3 shows, and exposed package internals through export_test.go to break the import cycle."
+
+[disposition.13.22.1.3]
+finding = "13.22.1.3"
+status = "resolved"
+evidence = "Commit b273322cf added handlerTable, duplicate-safe registration and registered-method dispatch, and precompiles/layerxprograms/submit.go:109 restricts the STATICCALL refusal to gasTable write methods."
+
+[disposition.13.22.4]
+finding = "13.22.4"
+status = "resolved"
+evidence = "Commit 83cfd2191 completed unsigned bound Programs admission in kernel_program_signer_binding, and modules/lxphost/host.go:562 now passes binding_authority alongside signature_valid instead of merely recording authority_bound."
+
+[disposition.13.22.4.1]
+finding = "13.22.4.1"
+status = "resolved"
+evidence = "Commit 83cfd2191 added the unsigned binding-authority branch at src/protocol/lxp_kernel.c:219, accepting a host-verified binding after the actor, principal and verified-key checks instead of unconditionally verifying an empty signature."
+
+[disposition.13.22.4.2]
+finding = "13.22.4.2"
+status = "resolved"
+evidence = "Commit 83cfd2191 landed task 1.23.4, and src/protocol/lxp_kernel.c:219 now returns LXP_OK for an unsigned activity only when execution binding_authority and signature_valid are both set."
+
+[disposition.13.22.4.3]
+finding = "13.22.4.3"
+status = "resolved"
+evidence = "Commit b575ada34 replaced the obsolete idempotency-store assertions with direct receipt comparison and ReadIdentitySequence at precompiles/layerxprograms/submit_test.go:68, while its fee-limit cases assert refusal and unchanged state before checking zero-limit success."
+
+[disposition.13.22.5]
+finding = "13.22.5"
+status = "resolved"
+evidence = "Commit 0ef639b2b made emitReceiptEvents accept the caller-decoded programID at precompiles/layerxprograms/events.go:96 and use it for missing indexed topics, with lifecycle callers such as method_upgrade.go:29 supplying that id."
+
+[disposition.13.23.2]
+finding = "13.23.2"
+status = "resolved"
+evidence = "Commit 361d88bee registered getProgram and the other registry views at precompiles/layerxprograms/view_registry.go:13, whose getProgramHandler reads the host record and packs its ABI output for STATICCALL."
+
+[disposition.13.24.1]
+finding = "13.24.1"
+status = "resolved"
+evidence = "Commit e6bb6130c populated execution fee_balance from the payer main account at modules/lxphost/host.go:568, and the landed call test at precompiles/layerxprograms/method_call_test.go:246 now expects the occupancy admission refusal LXP_UNAUTHORIZED_DEBIT for a limit below the execution ceiling."
+
+[disposition.13.24.1.1]
+finding = "13.24.1.1"
+status = "resolved"
+evidence = "Commit 6ba33344a aligned the low-fee test with src/modules/programs/occupancy.c:318, and precompiles/layerxprograms/method_call_test.go:246 asserts LXP_UNAUTHORIZED_DEBIT with unchanged balances, store and logs."
+
+[disposition.13.24.2]
+finding = "13.24.2"
+status = "resolved"
+evidence = "modules/lxphost/simulate.go:109 now sets execution binding_authority for an unsigned host-bound activity together with signature_valid, so kernel_program_signer_binding can accept it through the branch introduced by 83cfd2191."
+
+[disposition.13.25.1]
+finding = "13.25.1"
+status = "resolved"
+evidence = "Commit e548ff0c6 aligned principalOf and principal_test.go:65 on the DID id for actor and principal with owner kind and hash, while 0981a1dd3 changed src/modules/programs/transfer.c:41 to authorize debits from accounts owned by that DID."
+
+[disposition.13.25.1.2]
+finding = "13.25.1.2"
+status = "resolved"
+evidence = "Commit 0981a1dd3 added DID-owned source-account authorization at src/modules/programs/transfer.c:41 and an owned-main-account sequence lookup, while e548ff0c6 supplies Kind and AuthorityHash at precompiles/layerxprograms/principal.go:31."
+
+[disposition.13.25.2]
+finding = "13.25.2"
+status = "resolved"
+evidence = "Commit ec706a0ab replaced the v1 Programs registration with programs_module_registration_v4_storage_retirement at modules/lxphost/host.go:175 and modules/lxphost/read.go:185, admitting the account, wind-down, sandbox, destroy and storage-retirement activity types."
+
+[disposition.13.25.2.1]
+finding = "13.25.2.1"
+status = "resolved"
+evidence = "Commit cac886498 added TestProgramsRegisterAccountDuplicateIsIdempotent at precompiles/layerxprograms/method_account_test.go:133, asserting identical-registration success without changed records or logs and LXP_ASSET_MISMATCH for a conflicting asset."
+
+[disposition.13.26.1.1]
+finding = "13.26.1.1"
+status = "resolved"
+evidence = "Commit 1359ae09a removed the observer gates later identified as the source of these MODULE_DISABLED refusals, while modules/lxphost/host.go:273 binds the Programs accounts, assets and resolver callbacks and modules/lxphost/programs_registration_test.go:31 now expects payload truncation instead of module disablement."
+
+[disposition.13.26.1.2]
+finding = "13.26.1.2"
+status = "resolved"
+evidence = "Commit 1359ae09a removed observe_commit from both account and wind-down admission gates, with src/protocol/lxp_kernel.c:6622 now requiring the occupancy protocol and Programs runtime and modules/lxphost/programs_registration_test.go:31 no longer pinning -103."
+
+[disposition.13.26.3.1]
+finding = "13.26.3.1"
+status = "resolved"
+evidence = "Commit e1c81cc5a resolves the active occupancy parameters and copies their asset id into programs_runtime.occupancy_asset_id at modules/lxphost/host.go:579 before executing the activity and binding its ledger admission."
+
+[disposition.13.26.3.2]
+finding = "13.26.3.2"
+status = "resolved"
+evidence = "Commit be598ef6d added the active and historical Programs fee records to newHarness at precompiles/layerxprograms/harness_test.go:72 before constructing the host, eliminating the missing-record deploy refusal that blocked exitValue."
+
+[disposition.13.27.1.1]
+finding = "13.27.1.1"
+status = "resolved"
+evidence = "Commit 0c7efc0d3 added savepoint discard for a nonfatal pre-seal runtime refusal at src/modules/programs/sandbox.c:433 and limits the remaining active-savepoint invariant to successful execution."
+
+[disposition.13.27.1.2]
+finding = "13.27.1.2"
+status = "resolved"
+evidence = "Commit 613aff1b9 changed both lifecycle accessors to sandbox_for_call at src/modules/programs/sandbox.c:537 and src/modules/programs/sandbox.c:554, whose resolver accepts either the inner call token or the outer sandbox token."
+
+[disposition.13.27.1.3]
+finding = "13.27.1.3"
+status = "resolved"
+evidence = "The landed 13.27.1 commit be6b54656 changes only method_sandbox_execute.go and its test, leaving the lifecycle accessor fix to 613aff1b9 and the diagnosed sequence-account fix to 619287d20 at src/modules/programs/call.c:2288."
+
+[disposition.13.27.1.4]
+finding = "13.27.1.4"
+status = "resolved"
+evidence = "Commit 619287d20 added the DID-owned main-account fallback at src/modules/programs/call.c:2288 when ledger admission is unbound and a direct principal lookup finds no account, removing the sandbox escrow -208 refusal."
+
+[disposition.13.27.1.5]
+finding = "13.27.1.5"
+status = "resolved"
+evidence = "Commits 7331258b0 and 484ecd30d repaired sandbox usage publication and escrow-charge receipt projection, and the landed be6b54656 fixture at precompiles/layerxprograms/method_sandbox_execute_test.go:153 sets the required global transfer sequence and asserts successful execution and usage receipt emission."
+
+[disposition.13.27.1.6]
+finding = "13.27.1.6"
+status = "resolved"
+evidence = "Commit be6b54656 runs sandboxFund and sandboxActivate through the registered handlers at precompiles/layerxprograms/method_sandbox_execute_test.go:120, reads the resulting Active lease and derives its digest, escrow, asset and fee destination for sandboxExecute instead of hand-seeding a funded lease as executable state."

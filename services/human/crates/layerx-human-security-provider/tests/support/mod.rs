@@ -1,54 +1,127 @@
-use layerx_intents::vectors::{security_batch_header, security_program_receipt};
+#[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod clock_server;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_human_security_provider::RecoveryReceipt;
-use layerx_intents::canonical::{batch_header_digest, execution_batch_id, receipt_digest};
-use layerx_proof::merkle::{build_proof, encode_proof};
+use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
+use layerx_human_security_provider::{RecoveryReceipt, RecoveryTransactionEvidence};
+use layerx_programs::chain_proof::{
+    header::ChainHeader,
+    trust_store::TrustRoot,
+    validators::{TrustedValidator, ValidatorSet},
+};
+use serde::Deserialize;
+use std::path::Path;
+use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::time::Duration;
+
+pub struct ClockAuthority {
+    pub clock: Arc<RuntimeClock>,
+    binding: ClockBinding,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl ClockAuthority {
+    pub fn start(root: &Path) -> Self {
+        let mut server = clock_server::Server::bind(root).unwrap();
+        let binding = ClockBinding {
+            socket: server.socket().to_owned(),
+            process: std::process::id(),
+            user: rustix::process::geteuid().as_raw(),
+        };
+        let stop = Arc::new(AtomicBool::new(false));
+        let shutdown = stop.clone();
+        let thread = std::thread::spawn(move || {
+            while !shutdown.load(Ordering::Acquire) {
+                server.poll().unwrap();
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        });
+        Self {
+            clock: RuntimeClock::connect(binding.clone()).unwrap(),
+            binding,
+            stop,
+            thread: Some(thread),
+        }
+    }
+
+    pub fn configure(&self, command: &mut Command) {
+        command
+            .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.binding.socket)
+            .env("LAYERX_RUNTIME_CLOCK_PID", self.binding.process.to_string())
+            .env("LAYERX_RUNTIME_CLOCK_UID", self.binding.user.to_string());
+    }
+}
+
+impl Drop for ClockAuthority {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        self.thread.take().unwrap().join().unwrap();
+    }
+}
+
+#[derive(Deserialize)]
+struct RecordedValidator {
+    public_key: String,
+    power: u64,
+}
+
+#[derive(Deserialize)]
+struct RecordedCase {
+    validators: Vec<RecordedValidator>,
+    receipt: RecoveryReceipt,
+    inclusion: RecoveryTransactionEvidence,
+}
+
+#[derive(Deserialize)]
+struct Recording {
+    provenance: String,
+    cases: Vec<RecordedCase>,
+}
+
+pub fn recorded_evidence(index: usize) -> (Vec<u8>, RecoveryReceipt) {
+    let recording: Recording =
+        serde_json::from_slice(include_bytes!("recording/recovery-22-33-47.json")).unwrap();
+    assert!(recording
+        .provenance
+        .starts_with("paxd RPC via daemon/committed-fixture"));
+    assert_eq!(recording.cases.len(), 3);
+    let case = recording.cases.into_iter().nth(index).unwrap();
+    let header = ChainHeader::decode(&STANDARD.decode(&case.receipt.header).unwrap()).unwrap();
+    let validators = ValidatorSet::new(
+        case.validators
+            .into_iter()
+            .map(|v| {
+                TrustedValidator::new(
+                    STANDARD.decode(v.public_key).unwrap().try_into().unwrap(),
+                    v.power,
+                )
+            })
+            .collect(),
+    )
+    .unwrap();
+    assert_eq!(validators.hash().as_slice(), header.validators_hash);
+    let trust = TrustRoot {
+        chain_id: header.chain_id.clone(),
+        height: u64::try_from(header.height).unwrap(),
+        time_ms: u64::try_from(header.time.seconds).unwrap() * 1000
+            + u64::try_from(header.time.nanos / 1_000_000).unwrap(),
+        header_hash: header.hash().unwrap(),
+        validators,
+    }
+    .canonical_bytes()
+    .unwrap();
+    (
+        trust,
+        case.receipt
+            .with_transaction_evidence(&case.inclusion)
+            .unwrap(),
+    )
+}
 
 pub fn evidence() -> (Vec<u8>, RecoveryReceipt) {
-    let key = SigningKey::from_bytes(&[37; 32]);
-    let public = key.verifying_key().to_bytes();
-    let activity = [42; 32];
-    let batch = execution_batch_id([0x11; 32], activity, 1, 1).unwrap();
-    let timestamp = 1_700_000_000_000;
-    let unsigned =
-        security_program_receipt(activity, batch, 1, timestamp, [23; 32], [24; 32], None);
-    let signature = key.sign(&receipt_digest(&unsigned).unwrap()).to_bytes();
-    let receipt = security_program_receipt(
-        activity,
-        batch,
-        1,
-        timestamp,
-        [23; 32],
-        [24; 32],
-        Some(signature),
-    );
-    let (proof, root) = build_proof(&[&receipt], 0).unwrap();
-    let header = security_batch_header(1, timestamp, [23; 32], [24; 32], root, public, 2);
-    let header_signature = key.sign(&batch_header_digest(&header).unwrap()).to_bytes();
-    let mut history = b"LayerX/sequencer-trust-history/v1\0".to_vec();
-    history.extend_from_slice(&1u16.to_be_bytes());
-    history.extend_from_slice(&0u16.to_be_bytes());
-    history.extend_from_slice(&2u16.to_be_bytes());
-    history.extend_from_slice(&42u32.to_be_bytes());
-    history.extend_from_slice(&2u64.to_be_bytes());
-    history.extend_from_slice(&public);
-    history.extend_from_slice(&public);
-    history.extend_from_slice(&1u64.to_be_bytes());
-    history.extend_from_slice(&100u64.to_be_bytes());
-    history.push(0);
-    history.extend_from_slice(&0u64.to_be_bytes());
-    (
-        history,
-        RecoveryReceipt {
-            version: 1,
-            principal: "alice".into(),
-            evidence_id: "recovery-1".into(),
-            canonical_receipt: STANDARD.encode(receipt),
-            receipt_proof: STANDARD.encode(encode_proof(&proof)),
-            header: STANDARD.encode(header),
-            header_signature: STANDARD.encode(header_signature),
-        },
-    )
+    recorded_evidence(1)
 }

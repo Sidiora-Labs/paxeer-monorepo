@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/fixtures/example/contracts/simplestorage"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
@@ -78,7 +79,7 @@ func pendingSimulateAPIs(s *pendingSequencer, wm *evmrpc.WatermarkManager) pendi
 	cfg := &evmrpc.SimulateConfig{GasCap: 10_000_000, EVMTimeout: 5 * time.Second}
 	return pendingSimulateNode{
 		seq:   s,
-		state: evmrpc.NewStateAPI(tmClient, &s.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, wm),
+		state: evmrpc.NewStateAPI(tmClient, &s.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, wm, s.app.CommitMultiStore().(storetypes.Queryable)),
 		sim: evmrpc.NewSimulationAPI(ctxProvider, &s.app.EvmKeeper, legacyabci.BeginBlockKeepers{}, txConfigProvider, tmClient, cfg,
 			s.app.BaseApp, s.app.TracerAnteHandler, evmrpc.ConnectionTypeHTTP, evmrpc.NewBlockCache(3000), &sync.Mutex{}, wm),
 		backend: evmrpc.NewBackend(ctxProvider, &s.app.EvmKeeper, legacyabci.BeginBlockKeepers{}, txConfigProvider, tmClient, cfg,
@@ -178,8 +179,9 @@ func TestPendingSimulateBalanceMatchesCommit(t *testing.T) {
 	batch, err := s.exec.Seal(committed + 1)
 	require.NoError(t, err)
 	require.Len(t, batch.Txs, 1)
-	_, err = n.state.GetBalance(ctx, sender.EvmAddress, pendingSimulateTag)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	idleSender, err := n.state.GetBalance(ctx, sender.EvmAddress, pendingSimulateTag)
+	require.NoError(t, err)
+	requireWeiEqual(t, funded, idleSender.ToInt())
 	batch.Store.Write()
 	require.Equal(t, committed+1, s.app.CommitMultiStore().Commit(true).Version)
 	s.committed = committed + 1
@@ -190,6 +192,81 @@ func TestPendingSimulateBalanceMatchesCommit(t *testing.T) {
 	committedRecipient, err := after.state.GetBalance(ctx, recipient, pendingSimulateLat)
 	require.NoError(t, err)
 	requireWeiEqual(t, pendingRecipient.ToInt(), committedRecipient.ToInt())
+}
+
+func TestPendingSimulateIdleAndReopenedStateAndHeader(t *testing.T) {
+	sender := utils.NewSigner()
+	s := newPendingSequencer(t, 2, sender)
+	ctx := context.Background()
+	creation, set, get := pendingSimulateStorage(t)
+	pendingSimulateAccept(t, s.exec, pendingSimulateTx(t, sender, 0, nil, big.NewInt(0), creation, pendingSimulateDeployGas))
+	contract := crypto.CreateAddress(sender.EvmAddress, 0)
+	batch, err := s.exec.Seal(s.committed + 1)
+	require.NoError(t, err)
+	batch.Store.Write()
+	s.committed++
+	require.Equal(t, s.committed, s.app.CommitMultiStore().Commit(true).Version)
+	s.wm = evmrpc.NewWatermarkManager(&MockClient{latestOverride: s.committed}, s.ctxProvider, nil, nil)
+	s.wm.SetPendingSnapshot(s.exec)
+	n := pendingSimulateAPIs(s, s.wm)
+	args := pendingSimulateArgs(sender.EvmAddress, contract, big.NewInt(0), get)
+	setArgs := pendingSimulateArgs(sender.EvmAddress, contract, big.NewInt(0), set)
+
+	latestState, latestHeader, err := n.backend.StateAndHeaderByNumberOrHash(ctx, pendingSimulateLat)
+	require.NoError(t, err)
+	idleState, idleHeader, err := n.backend.StateAndHeaderByNumberOrHash(ctx, pendingSimulateTag)
+	require.NoError(t, err)
+	require.Equal(t, s.committed, idleHeader.Number.Int64())
+	require.Equal(t, latestHeader, idleHeader)
+	require.NotEqual(t, common.Hash{}, idleHeader.Root)
+	require.Equal(t, latestState.GetCode(contract), idleState.GetCode(contract))
+	require.Equal(t, latestState.GetState(contract, common.Hash{}), idleState.GetState(contract, common.Hash{}))
+	idleCode, err := n.state.GetCode(ctx, contract, pendingSimulateTag)
+	require.NoError(t, err)
+	require.NotEmpty(t, idleCode)
+	require.Equal(t, idleState.GetCode(contract), []byte(idleCode))
+	idleStorage, err := n.state.GetStorageAt(ctx, contract, "0x0", pendingSimulateTag)
+	require.NoError(t, err)
+	require.Equal(t, pendingSimulateWord(0), idleStorage)
+	require.NotPanics(t, func() {
+		require.Equal(t, n.backend.ChainConfigAtHeight(s.committed), n.backend.ChainConfigAtHeight(evmrpc.PendingCtxHeight))
+	})
+	idle, err := n.sim.Call(ctx, args, &pendingSimulateTag, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, pendingSimulateWord(0), idle)
+	latestEstimate, err := n.sim.EstimateGas(ctx, setArgs, &pendingSimulateLat, nil)
+	require.NoError(t, err)
+	for _, tag := range []*rpc.BlockNumberOrHash{nil, &pendingSimulateTag} {
+		estimate, err := n.sim.EstimateGas(ctx, setArgs, tag, nil)
+		require.NoError(t, err)
+		require.Equal(t, latestEstimate, estimate)
+	}
+
+	openTime := time.Now().UTC().Add(2 * time.Second)
+	require.NoError(t, s.exec.Open(s.committed+1, openTime.UnixMilli()))
+	pendingSimulateAccept(t, s.exec, pendingSimulateTx(t, sender, 1, &contract, big.NewInt(0), set, pendingSimulateSetGas))
+	openState, openHeader, err := n.backend.StateAndHeaderByNumberOrHash(ctx, pendingSimulateTag)
+	require.NoError(t, err)
+	require.Equal(t, s.committed+1, openHeader.Number.Int64())
+	require.Equal(t, uint64(openTime.Unix()), openHeader.Time)
+	require.Equal(t, common.Hash{}, openHeader.Root)
+	require.Equal(t, common.BigToHash(big.NewInt(pendingSimulateStored)), openState.GetState(contract, common.Hash{}))
+	require.Equal(t, n.backend.ChainConfigAtHeight(openHeader.Number.Int64()), n.backend.ChainConfigAtHeight(evmrpc.PendingCtxHeight))
+	opened, err := n.sim.Call(ctx, args, &pendingSimulateTag, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, pendingSimulateWord(pendingSimulateStored), opened)
+	stillCommitted, err := n.sim.Call(ctx, args, &pendingSimulateLat, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, idle, stillCommitted)
+	code, err := n.state.GetCode(ctx, contract, pendingSimulateTag)
+	require.NoError(t, err)
+	require.Equal(t, openState.GetCode(contract), []byte(code))
+	storage, err := n.state.GetStorageAt(ctx, contract, "0x0", pendingSimulateTag)
+	require.NoError(t, err)
+	require.Equal(t, pendingSimulateWord(pendingSimulateStored), storage)
+	estimate, err := n.sim.EstimateGas(ctx, setArgs, &pendingSimulateTag, nil)
+	require.NoError(t, err)
+	require.Less(t, estimate, latestEstimate)
 }
 
 func TestPendingSimulateEstimateDefaultsPending(t *testing.T) {

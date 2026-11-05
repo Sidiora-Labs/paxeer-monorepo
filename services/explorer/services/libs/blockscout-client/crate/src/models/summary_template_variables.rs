@@ -18,8 +18,49 @@ use serde::{Deserialize, Serialize};
 use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
-pub struct SummaryTemplateVariables {
-    pub action_type: models::SummaryVariable,
-    pub amount: models::SummaryVariableCurrency,
-    pub token: models::SummaryVariableToken,
+#[serde(transparent)]
+pub struct SummaryTemplateVariables(pub std::collections::BTreeMap<String, SummaryTemplateValue>);
+
+impl std::ops::Deref for SummaryTemplateVariables {
+    type Target = std::collections::BTreeMap<String, SummaryTemplateValue>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value")]
+pub enum SummaryTemplateValue {
+    #[serde(rename = "string")]
+    String(String),
+    #[serde(rename = "currency")]
+    Currency(String),
+    #[serde(rename = "token")]
+    Token(SummaryToken),
+    #[serde(rename = "address")]
+    Address(SummaryAddress),
+    #[serde(rename = "dexTag")]
+    DexTag(SummaryDexTag),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SummaryToken {
+    #[serde(flatten)]
+    pub token: models::TokenInfo,
+    #[serde(flatten)]
+    pub properties: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SummaryAddress {
+    pub hash: String,
+    #[serde(flatten)]
+    pub properties: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SummaryDexTag {
+    pub name: String,
+    pub icon: String,
+    pub url: String,
 }

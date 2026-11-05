@@ -1,0 +1,7 @@
+[repair.22.31.129]
+finding = "program-genesis-kind"
+policy = "Origin-2 pending records support fetch and search only; origin-1 storage receipts remain supported."
+tests = ["TestRepair_129_ProgramKindPolicy", "TestRepair_129_ModuleJSONRoundTrip"]
+baseline = "No earlier gate ledger or repair tests existed; the ordered gate instructions prohibit verification before implementation, so no baseline failure is claimed."
+wiring = "None: the shared policy and all repaired consumers are inside the authorized paths."
+evidence = "The runner records the verified candidate revision, exact command, exit and private log through hf-build and hf-done."

@@ -1,0 +1,6 @@
+[repair.go-precompiles.105]
+target = "precompiles/launchpad"
+command = "CGO_ENABLED=1 go vet ./precompiles/launchpad/ && CGO_ENABLED=1 go test -count=1 ./precompiles/launchpad/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "precompiles/launchpad/parity_test.go and precompiles/launchpad/retained_test.go register optical fixtures through OpticalRegistry before market creation as required by 18769.1, preserving swap assertions and checking unapproved optical refusal."

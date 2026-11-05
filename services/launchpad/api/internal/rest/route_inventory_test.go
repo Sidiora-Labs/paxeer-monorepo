@@ -27,7 +27,7 @@ func TestProductionRegisteredOperationsHaveFrozenContracts(t *testing.T) {
 	}
 	contracts := map[string]map[string]map[string]json.RawMessage{}
 	for _, version := range []string{"v1", "v2"} {
-		raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/" + version + "/openapi.json")
+		raw, err := os.ReadFile("testdata/contracts/" + version + "/openapi.json")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -39,8 +39,10 @@ func TestProductionRegisteredOperationsHaveFrozenContracts(t *testing.T) {
 		}
 		contracts[version] = document.Paths
 	}
+	registered := map[string]bool{}
 	count := 0
 	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		registered[method+" "+path] = true
 		version := "v1"
 		if strings.HasPrefix(path, "/v2/") {
 			version = "v2"
@@ -63,6 +65,15 @@ func TestProductionRegisteredOperationsHaveFrozenContracts(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	for version, paths := range contracts {
+		for path, methods := range paths {
+			for method := range methods {
+				if !registered[strings.ToUpper(method)+" "+path] {
+					t.Errorf("frozen %s operation is no longer registered: %s %s", version, method, path)
+				}
+			}
+		}
 	}
 	if count < 6 {
 		t.Fatal("canonical operation inventory incomplete", count)

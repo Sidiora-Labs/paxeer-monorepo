@@ -1,0 +1,58 @@
+[task.22.33.1288]
+mode = "BUILD"
+baseline = "Not run: the controlling order forbids testing before the complete implementation and allows verification only through hf-done; no pre-change failures are claimed."
+evidence = "The runner hf-build/hf-done ledger records the candidate revision, exact command, exit code and private evidence location."
+
+[finding.gas-overflow-check]
+tests = ["TestRepairM_1288_GasOverflow"]
+repair = "Reject products above MaxUint64/GasMultiplier before multiplying, with explicit rejection of a zero multiplier; test the exact boundary and successor for four multipliers and the wraparound that the old check missed."
+
+[finding.gov-encoder-override]
+tests = ["TestRepairM_1288_GovEncoderOverride"]
+repair = "Dispatch through e.Gov; a native reflect contract emits a governance vote, the configured encoder emits a bank message, and the real registered bank service transfers the contract balance; preserve all four default plain votes and weighted/absent/unset/unknown refusal."
+
+[finding.history-query-test-gap]
+tests = ["TestRepairM_1288_HistoryQuery"]
+repair = "Assert the actual empty unknown-address query result; reuse the real committed instantiate and three successive migrations through registered protobuf query transport, checking history ordering and old-code index removal before and after persistent-store reopen."
+
+[finding.ibc-query-before-metadata]
+tests = ["TestRepairM_1288_IBCBeforeMetadata"]
+repair = "Define prebinding port_id as empty and default-port channel as absent, guard both metadata reads, and preserve explicit-port channels; a committed executable IBC-capable fixture issues query_chain from instantiate and query, with binding and persistent-store reopen assertions."
+
+[finding.ibc-gas-test-gap]
+tests = ["TestRepairM_1288_IBCGas"]
+repair = "Retain relay behavior and assert charged runtime deltas; reuse and strengthen the six-operation real native IBC lifecycle with storage reads/writes, default and nondefault multipliers, exact passed budgets, actual native gas return versus SDK runtime charges, and native over-budget refusal."
+
+[finding.snapshot-recovery-proof]
+tests = ["TestRepairM_1288_SnapshotRecovery"]
+repair = "Instantiate and change contract state, pin, snapshot the real production storev2 and Wasm extension, restore both protobuf streams, close and reopen the persistent store and native VM, initialize pins, and execute/query the recovered state and native pin metrics."
+
+[finding.test-handler-third-shape]
+tests = ["TestRepairM_1288_HandlerResponses"]
+repair = "TestHandler invokes the real Msg service and sdk.WrapServiceResult with production event filtering; compare StoreCode, Instantiate and Execute bytes against production and registered routing and decode all three from actual native submessage replies, including nonempty Execute data."
+
+[gotcha.snapshot_store]
+observed = "The legacy SDK DB-adapter store rejects historical export and snapshot/restore, while production storev2 implements those interfaces."
+fix = "Use the real persistent storev2 fixture for snapshot recovery; the keeper test setup accepts a production CommitMultiStore without substituting a mock."
+
+[gotcha.vote_option]
+observed = "The native runtime VoteMsg.Vote type is unexported."
+fix = "Construct typed VoteMsg values using exported vote constants instead of naming the private type."
+
+[qualification.build_repair]
+revision = "93d69343728ab283db4a0fc45468576fa7dfeeb9"
+command = "go build ./wasm/x/wasm/keeper/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Replacing the legacy test-handler encoding made its fmt import unused; removed the import."
+
+[qualification.snapshot_fixture_repair]
+revision = "be05748500083b2ccc88ca367b231a7f182d2c50"
+command = "cg spec done 22.33.1288 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m1288.log"
+observed = "Six repair cases passed; snapshot setup used an uncached storev2 context and could not read freshly minted funds."
+
+[gotcha.storev2_context]
+observed = "storev2 commitment.Store buffers writes for commit and reads from committed trees; block execution needs a real CacheMultiStore."
+fix = "The supplied-store fixture creates a cached context, writes it before the source commit, and replaces the destination context cache after restore."

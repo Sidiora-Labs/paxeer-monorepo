@@ -1,0 +1,29 @@
+{
+ "slug": "tests-integration-dapp-tests-2",
+ "manifests": [
+  "tests/integration/dapp_tests/package.json",
+  "tests/integration/dapp_tests/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-73rr-hh4g-fpgx",
+   "number": 4723,
+   "package": "diff",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "low",
+   "range": ">= 6.0.0, < 8.0.3",
+   "patched": "8.0.3"
+  },
+  {
+   "ghsa": "GHSA-3g3m-2fjr-6pw4",
+   "number": 4724,
+   "package": "glob",
+   "ecosystem": "npm",
+   "manifest": "tests/integration/dapp_tests/package-lock.json",
+   "severity": "medium",
+   "range": ">= 9.0.0, <= 14.0.1",
+   "patched": "14.0.2"
+  }
+ ]
+}

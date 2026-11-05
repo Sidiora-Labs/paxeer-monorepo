@@ -13,14 +13,17 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-express",
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/receipt-keys.test.mjs"
   },
   "dependencies": {
     "@sidiora/layerx-buyer-middleware": "0.1.0",
@@ -35,5 +38,7 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
 }

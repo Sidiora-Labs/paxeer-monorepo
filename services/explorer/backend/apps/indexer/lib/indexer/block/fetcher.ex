@@ -183,9 +183,11 @@ defmodule Indexer.Block.Fetcher do
          blocks = TransformBlocks.transform_blocks(blocks_params),
          {:receipts, {:ok, receipt_params}} <- {:receipts, Receipts.fetch(state, transactions_params_without_receipts)},
          %{logs: receipt_logs, receipts: receipts} = receipt_params,
+         {:receipts, :ok} <-
+           {:receipts, validate_receipts_and_logs(receipt_params, transactions_params_without_receipts)},
          transactions_with_receipts = Receipts.put(transactions_params_without_receipts, receipts),
          celo_epoch_logs = CeloEpochLogs.fetch(blocks, json_rpc_named_arguments),
-         logs = maybe_set_new_log_index(receipt_logs) ++ celo_epoch_logs,
+         logs = receipt_logs ++ celo_epoch_logs,
          %{token_transfers: token_transfers, tokens: tokens} = TokenTransfers.parse(logs),
          %{token_transfers: celo_native_token_transfers, tokens: celo_tokens} =
            CeloTransactionTokenTransfers.parse_transactions(transactions_with_receipts),
@@ -325,7 +327,8 @@ defmodule Indexer.Block.Fetcher do
     end
   end
 
-  defp import_options(basic_import_options, chain_specific_import_options) do
+  @doc false
+  def import_options(basic_import_options, chain_specific_import_options) do
     do_import_options(
       chain_type(),
       basic_import_options,
@@ -401,11 +404,6 @@ defmodule Indexer.Block.Fetcher do
   defp do_import_options(:paxeer_x, basic_import_options, %{paxeer_x_logs: paxeer_x_logs}) do
     basic_import_options
     |> Map.put_new(:paxeer_x_account_bindings, %{params: paxeer_x_logs.lx_account_bindings})
-    |> Map.put_new(:paxeer_x_custody_events, %{params: paxeer_x_logs.lx_custody_events})
-    |> Map.put_new(:paxeer_x_deposit_roots, %{params: paxeer_x_logs.lx_deposit_roots})
-    |> Map.put_new(:paxeer_x_anchors, %{params: paxeer_x_logs.lx_anchors})
-    |> Map.put_new(:paxeer_x_guarantor_events, %{params: paxeer_x_logs.lx_guarantor_events})
-    |> Map.put_new(:paxeer_x_receipts, %{params: paxeer_x_logs.lx_receipts})
     |> Map.put_new(:paxeer_x_market_events, %{params: paxeer_x_logs.lx_market_events})
   end
 
@@ -984,22 +982,73 @@ defmodule Indexer.Block.Fetcher do
     ArbitrumMessagesToL2Matcher.async_discover_match(transactions_with_messages_from_l1)
   end
 
-  # workaround for cases when RPC send logs with same index within one block
-  defp maybe_set_new_log_index(logs) do
-    logs
-    |> Enum.group_by(& &1.block_hash)
-    |> Enum.map(fn {block_hash, logs_per_block} ->
-      if logs_per_block |> Enum.frequencies_by(& &1.index) |> Map.values() |> Enum.max() == 1 do
-        logs_per_block
-      else
-        Logger.error("Found logs with same index within one block: #{block_hash}")
+  # Quarantine the range on any duplicate, even an identical one: the decoded
+  # receipt params cannot establish byte-identical canonical RPC responses.
+  defp validate_receipts_and_logs(%{receipts: receipts, logs: logs}, transactions) do
+    transactions_by_hash = Map.new(transactions, &{&1.hash, &1})
 
-        logs_per_block
-        |> Enum.sort_by(&{&1.transaction_index, &1.index, &1.transaction_hash})
-        |> Enum.with_index(&%{&1 | index: &2})
+    with :ok <- validate_receipts(receipts, transactions_by_hash) do
+      validate_receipt_logs(logs, transactions_by_hash)
+    end
+  end
+
+  defp validate_receipts(receipts, transactions_by_hash) do
+    receipts
+    |> Enum.reduce_while({:ok, MapSet.new()}, fn receipt, {:ok, seen} ->
+      hash = receipt.transaction_hash
+
+      case Map.fetch(transactions_by_hash, hash) do
+        {:ok, transaction} ->
+          cond do
+            MapSet.member?(seen, hash) ->
+              {:halt, {:error, {:duplicate_receipt, hash}}}
+
+            receipt.transaction_index != transaction.index ->
+              {:halt, {:error, {:receipt_transaction_mismatch, hash}}}
+
+            true ->
+              {:cont, {:ok, MapSet.put(seen, hash)}}
+          end
+
+        :error ->
+          {:halt, {:error, {:unexpected_receipt, hash}}}
       end
     end)
-    |> List.flatten()
+    |> case do
+      {:ok, seen} ->
+        missing = transactions_by_hash |> Map.keys() |> Enum.reject(&MapSet.member?(seen, &1)) |> Enum.sort()
+        if missing == [], do: :ok, else: {:error, {:missing_receipts, missing}}
+
+      error ->
+        error
+    end
+  end
+
+  defp validate_receipt_logs(logs, transactions_by_hash) do
+    logs
+    |> Enum.reduce_while({:ok, MapSet.new()}, fn log, {:ok, seen} ->
+      key = {log.block_hash, log.index}
+      transaction = Map.get(transactions_by_hash, log.transaction_hash)
+
+      cond do
+        not is_integer(log.index) or log.index < 0 ->
+          {:halt, {:error, {:invalid_log_index, key}}}
+
+        is_nil(transaction) or log.block_hash != transaction.block_hash or
+          log.block_number != transaction.block_number or log.transaction_index != transaction.index ->
+          {:halt, {:error, {:log_transaction_mismatch, key}}}
+
+        MapSet.member?(seen, key) ->
+          {:halt, {:error, {:duplicate_log_index, key}}}
+
+        true ->
+          {:cont, {:ok, MapSet.put(seen, key)}}
+      end
+    end)
+    |> case do
+      {:ok, _seen} -> :ok
+      error -> error
+    end
   end
 
   defp parse_celo_pending_account_operations(logs) do

@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,9 +19,13 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,6 +49,7 @@ type BankKeeperInterface interface {
 	SendCoinsFromModuleToAccount(ctx sdk.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 	AddWei(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Int) error
 	GetBalance(ctx sdk.Context, addr sdk.AccAddress, denom string) sdk.Coin
+	GetWeiBalance(ctx sdk.Context, addr sdk.AccAddress) sdk.Int
 }
 
 // FailureType categorizes the type of test failure
@@ -78,7 +86,7 @@ type StateTestContext struct {
 // NewStateTestContext creates a test context configured for state tests
 func NewStateTestContext(t testing.TB, blockTime time.Time, workers int, mode ExecutorMode) *StateTestContext {
 	occEnabled := mode == ModeV2withOCC || mode == ModeGigaOCC
-	gigaEnabled := mode == ModeGigaSequential || mode == ModeGigaOCC
+	gigaEnabled := mode == ModeGigaSequential || mode == ModeGigaOCC || mode == ModeGigaWithRegularStore
 	gigaOCCEnabled := mode == ModeGigaOCC
 	gigaWithRegularStore := mode == ModeGigaWithRegularStore
 
@@ -103,6 +111,7 @@ func NewStateTestContext(t testing.TB, blockTime time.Time, workers int, mode Ex
 		})
 	}
 	testApp := wrapper.App
+	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
 	ctx := wrapper.Ctx
 	ctx = ctx.WithBlockHeader(tmproto.Header{
 		Height:  ctx.BlockHeader().Height,
@@ -131,7 +140,7 @@ func NewStateTestContext(t testing.TB, blockTime time.Time, workers int, mode Ex
 
 // IsGigaMode returns true if the context is configured for Giga execution modes.
 func (stc *StateTestContext) IsGigaMode() bool {
-	return stc.Mode == ModeGigaSequential || stc.Mode == ModeGigaOCC
+	return stc.Mode == ModeGigaSequential || stc.Mode == ModeGigaOCC || stc.Mode == ModeGigaWithRegularStore
 }
 
 // EvmKeeper returns the appropriate EVM keeper based on mode.
@@ -208,14 +217,17 @@ func RunStateTestBlock(stc *StateTestContext, txs [][]byte) ([]abci.Event, []*ab
 		Header: &header,
 	}
 
-	events, results, _, err := stc.TestApp.ProcessBlock(stc.Ctx, txs, finalizeBlockToBlockProcessRequest(req), req.DecidedLastCommit, false, nil)
+	events, results, _, err := stc.TestApp.ProcessBlock(stc.Ctx, txs, app.NewBlockProcessRequest(req), req.DecidedLastCommit, false, nil)
 	return events, results, err
 }
 
 // runStateTestComparison runs a state test and returns detailed results.
 // The config parameter controls which Giga mode to use and whether to verify against fixtures.
 func runStateTestComparison(t *testing.T, st *harness.StateTestJSON, post harness.StateTestPost, config ComparisonConfig) TestResult {
-	blockTime := time.Now()
+	blockTime := time.Unix(1_800_000_000, 0).UTC()
+	if !config.VerifyEthereumSpec {
+		return TestResult{FailureType: FailureTypeUnknown, Message: "qualification requires the fixture oracle"}
+	}
 
 	// Build the transaction
 	signedTx, sender, err := harness.BuildTransaction(st, post)
@@ -250,43 +262,12 @@ func runStateTestComparison(t *testing.T, st *harness.StateTestJSON, post harnes
 
 	_, gigaResults, gigaErr := RunStateTestBlock(gigaCtx, [][]byte{txBytes})
 
-	// --- Handle ExpectException cases ---
+	// Block processing errors are infrastructure failures, never fixture exceptions.
+	if result := compareExecutionOutcomes(post.ExpectException, v2Results, v2Err, gigaResults, gigaErr); !result.Passed {
+		return result
+	}
 	if post.ExpectException != "" {
-		// This test expects the transaction to fail
-		// Both executors should produce an error or a failed result
-		v2Failed := v2Err != nil || (len(v2Results) > 0 && v2Results[0].Code != 0)
-		gigaFailed := gigaErr != nil || (len(gigaResults) > 0 && gigaResults[0].Code != 0)
-
-		if !v2Failed && !gigaFailed {
-			return TestResult{
-				Passed:      false,
-				FailureType: FailureTypeErrorMismatch,
-				Message:     fmt.Sprintf("expected exception %q but both executors succeeded", post.ExpectException),
-			}
-		}
-		// Both should fail - that's expected
 		return TestResult{Passed: true}
-	}
-
-	// --- Compare execution errors ---
-	if v2Err != nil && gigaErr != nil {
-		// Both failed - check if same type of failure
-		t.Logf("Both executors failed: v2=%v, giga=%v", v2Err, gigaErr)
-		return TestResult{Passed: true}
-	}
-	if v2Err != nil {
-		return TestResult{
-			Passed:      false,
-			FailureType: FailureTypeV2Error,
-			Message:     fmt.Sprintf("V2 execution failed but Giga succeeded: %v", v2Err),
-		}
-	}
-	if gigaErr != nil {
-		return TestResult{
-			Passed:      false,
-			FailureType: FailureTypeGigaError,
-			Message:     fmt.Sprintf("Giga execution failed but V2 succeeded: %v", gigaErr),
-		}
 	}
 
 	// --- Compare results ---
@@ -347,30 +328,39 @@ func runStateTestComparison(t *testing.T, st *harness.StateTestJSON, post harnes
 	}
 
 	// --- Verify post-state against fixture (if configured and available) ---
-	if config.VerifyEthereumSpec && len(post.State) > 0 {
+	if len(post.State) == 0 {
+		return TestResult{FailureType: FailureTypeUnknown, Message: "fixture oracle has no explicit post.state"}
+	}
+	{
 		v2Diffs := verifyPostStateWithResult(t, v2Ctx.Ctx, v2Ctx.EvmKeeper(), v2Ctx.BankKeeper(), post.State, "V2")
 		gigaDiffs := verifyPostStateWithResult(t, gigaCtx.Ctx, gigaCtx.EvmKeeper(), gigaCtx.BankKeeper(), post.State, "Giga")
 
-		// Log any fixture verification differences
-		if len(v2Diffs) > 0 {
-			t.Logf("V2 vs fixture differences:")
-			for _, diff := range v2Diffs {
-				t.Logf("  %s", diff)
+		diffs := append(v2Diffs, gigaDiffs...)
+		if len(diffs) > 0 {
+			return TestResult{FailureType: diffs[0].Type, Message: diffs[0].Summary, Details: formatStateDiffs(diffs)}
+		}
+		for _, ctx := range []*StateTestContext{v2Ctx, gigaCtx} {
+			receipt, err := (&GigaTestContext{Ctx: ctx.Ctx, TestApp: ctx.TestApp, Mode: ctx.Mode}).GetTransientReceipt(t, signedTx.Hash(), 0)
+			if err != nil {
+				return TestResult{FailureType: FailureTypeUnknown, Message: fmt.Sprintf("fixture receipt: %v", err)}
+			}
+			logs := make([]*ethtypes.Log, 0, len(receipt.Logs))
+			for _, log := range receipt.Logs {
+				topics := make([]common.Hash, len(log.Topics))
+				for i, topic := range log.Topics {
+					topics[i] = common.HexToHash(topic)
+				}
+				logs = append(logs, &ethtypes.Log{Address: common.HexToAddress(log.Address), Topics: topics, Data: log.Data})
+			}
+			encoded, err := rlp.EncodeToBytes(logs)
+			if err != nil {
+				return TestResult{FailureType: FailureTypeUnknown, Message: err.Error()}
+			}
+			if crypto.Keccak256Hash(encoded) != post.Logs {
+				return TestResult{FailureType: FailureTypeStateMismatch, Message: fmt.Sprintf("%s fixture logs hash differs: got %s want %s", ctx.Mode, crypto.Keccak256Hash(encoded), post.Logs)}
 			}
 		}
-		if len(gigaDiffs) > 0 {
-			t.Logf("Giga vs fixture differences:")
-			for _, diff := range gigaDiffs {
-				t.Logf("  %s", diff)
-			}
-			// Return the first Giga diff as the failure
-			return TestResult{
-				Passed:      false,
-				FailureType: gigaDiffs[0].Type,
-				Message:     gigaDiffs[0].Summary,
-				Details:     formatStateDiffs(gigaDiffs),
-			}
-		}
+
 	}
 
 	return TestResult{Passed: true}
@@ -415,9 +405,9 @@ func comparePostStates(_ *testing.T, v2Ctx, gigaCtx *StateTestContext, preState 
 		paxAddr := v2Keeper.GetPaxAddressOrDefault(v2Ctx.Ctx, addr)
 
 		// Compare balance (uhpx)
-		v2Balance := v2Bank.GetBalance(v2Ctx.Ctx, paxAddr, "uhpx")
-		gigaBalance := gigaBank.GetBalance(gigaCtx.Ctx, paxAddr, "uhpx")
-		if !v2Balance.Amount.Equal(gigaBalance.Amount) {
+		v2Balance := stateBalanceWei(v2Ctx.Ctx, v2Bank, paxAddr)
+		gigaBalance := stateBalanceWei(gigaCtx.Ctx, gigaBank, paxAddr)
+		if v2Balance.Cmp(gigaBalance) != 0 {
 			diffs = append(diffs, StateDiff{
 				Type:     FailureTypeBalanceMismatch,
 				Address:  addr,
@@ -479,8 +469,7 @@ func verifyPostStateWithResult(t *testing.T, ctx sdk.Context, keeper EvmKeeperIn
 	for addr, expectedAccount := range expectedState {
 		// Verify balance
 		paxAddr := keeper.GetPaxAddressOrDefault(ctx, addr)
-		actualCoin := bankKeeper.GetBalance(ctx, paxAddr, "uhpx")
-		actualBalance := actualCoin.Amount.BigInt()
+		actualBalance := stateBalanceWei(ctx, bankKeeper, paxAddr)
 
 		expectedBalance := expectedAccount.Balance
 		if expectedBalance == nil {
@@ -556,107 +545,161 @@ func truncateHex(hex string) string {
 	return hex
 }
 
-// runStateTestSuite runs the state test suite with the given configuration.
-// This is the common test iteration logic shared by TestGigaVsV2_StateTests and TestGigaWithRegularStore_StateTests.
-func runStateTestSuite(t *testing.T, config ComparisonConfig, summaryName string) {
-	stateTestsPath, err := harness.GetStateTestsPath()
-	require.NoError(t, err, "failed to get path to state tests")
+// stateBalanceWei compares the complete EVM balance, including the fractional bank store.
+func stateBalanceWei(ctx sdk.Context, bank BankKeeperInterface, addr sdk.AccAddress) *big.Int {
+	return new(big.Int).Add(new(big.Int).Mul(bank.GetBalance(ctx, addr, "uhpx").Amount.BigInt(), state.UhpxToSweiMultiplier), bank.GetWeiBalance(ctx, addr).BigInt())
+}
 
-	// Load skip list
-	skipList, err := harness.LoadSkipList()
-	require.NoError(t, err, "failed to load skip list")
-
-	// Allow filtering to specific directory via STATE_TEST_DIR env var
-	specificDir := os.Getenv("STATE_TEST_DIR")
-	if specificDir == "" {
-		t.Skip("STATE_TEST_DIR not set - skipping state tests")
+// exceptionKind classifies a failed transaction by the canonical ABCI code and EVM cause.
+// Unknown codes and infrastructure errors never satisfy an expected fixture exception.
+func exceptionKind(result *abci.ExecTxResult) string {
+	if result == nil || result.Code == 0 {
+		return ""
 	}
-
-	// Allow filtering to specific test name via STATE_TEST_NAME env var
-	specificTestName := os.Getenv("STATE_TEST_NAME")
-
-	// Allow bypassing skip list for analysis purposes
-	ignoreSkipList := os.Getenv("IGNORE_SKIP_LIST") == "true"
-
-	// Check if entire category is skipped
-	if !ignoreSkipList && skipList.IsCategorySkipped(specificDir) {
-		t.Skipf("Skipping category %s (in skip list)", specificDir)
+	if result.Codespace == sdkerrors.RootCodespace {
+		switch result.Code {
+		case sdkerrors.ErrInsufficientFunds.ABCICode():
+			return "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+		case sdkerrors.ErrInvalidSequence.ABCICode(), sdkerrors.ErrWrongSequence.ABCICode():
+			return "TransactionException.NONCE_MISMATCH"
+		}
 	}
-
-	dirPath := stateTestsPath + "/" + specificDir
-
-	tests, err := harness.LoadStateTestsFromDir(dirPath)
-	require.NoError(t, err, "failed to load state tests from %s", dirPath)
-
-	if len(tests) == 0 {
-		t.Skipf("No state tests found in %s", dirPath)
+	causes := []struct{ text, kind string }{
+		{core.ErrIntrinsicGas.Error(), "TransactionException.INTRINSIC_GAS_TOO_LOW"},
+		{core.ErrInsufficientFunds.Error(), "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"},
+		{core.ErrNonceTooHigh.Error(), "TransactionException.NONCE_MISMATCH"},
+		{core.ErrNonceTooLow.Error(), "TransactionException.NONCE_MISMATCH"},
+		{core.ErrFeeCapTooLow.Error(), "TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS"},
+		{core.ErrTipAboveFeeCap.Error(), "TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS"},
+		{core.ErrSenderNoEOA.Error(), "TransactionException.SENDER_NOT_EOA"},
 	}
-
-	t.Logf("Found %d state test files in %s", len(tests), specificDir)
-	if specificTestName != "" {
-		t.Logf("Filtering to tests matching: %s", specificTestName)
+	if result.Codespace == "giga-infrastructure" {
+		return ""
 	}
+	for _, cause := range causes {
+		if strings.Contains(result.Log, cause.text) {
+			return cause.kind
+		}
+	}
+	return ""
+}
 
-	// Track results for summary
+func compareExecutionOutcomes(expected string, v2 []*abci.ExecTxResult, v2Err error, giga []*abci.ExecTxResult, gigaErr error) TestResult {
+	fail := func(message string) TestResult {
+		return TestResult{FailureType: FailureTypeErrorMismatch, Message: message}
+	}
+	if v2Err != nil || gigaErr != nil {
+		return fail(fmt.Sprintf("unexpected executor error: V2=%v Giga=%v", v2Err, gigaErr))
+	}
+	if len(v2) != 1 || len(giga) != 1 || v2[0] == nil || giga[0] == nil {
+		return fail("each executor must return exactly one nonnil result")
+	}
+	if expected == "" {
+		if v2[0].Code != 0 || giga[0].Code != 0 {
+			return fail(fmt.Sprintf("unexpected transaction failure: V2=%s Giga=%s", v2[0], giga[0]))
+		}
+		return TestResult{Passed: true}
+	}
+	left, right := exceptionKind(v2[0]), exceptionKind(giga[0])
+	if left == "" || right == "" || left != right {
+		return fail(fmt.Sprintf("expected %s: V2=%q Giga=%q", expected, left, right))
+	}
+	for _, allowed := range strings.Split(expected, "|") {
+		if left == allowed {
+			return TestResult{Passed: true}
+		}
+	}
+	return fail(fmt.Sprintf("expected %s: both executors returned %s", expected, left))
+}
+
+type requiredStateSelection struct {
+	Directory string
+	Name      string
+	Fork      string
+	Count     int
+}
+
+type selectedStateCase struct {
+	Name string
+	Test *harness.StateTestJSON
+	Post harness.StateTestPost
+}
+
+func selectRequiredStateCases(tests map[string]*harness.StateTestJSON, selection requiredStateSelection) ([]selectedStateCase, error) {
+	if selection.Directory == "" || selection.Name == "" || selection.Fork != "Cancun" || selection.Count <= 0 {
+		return nil, fmt.Errorf("required selection needs directory, name, Cancun fork and positive expected count")
+	}
+	names := make([]string, 0, len(tests))
+	for name := range tests {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var selected []selectedStateCase
+	for _, name := range names {
+		posts := tests[name].Post[selection.Fork]
+		if len(posts) == 0 && strings.Contains(name, selection.Name) {
+			return nil, fmt.Errorf("selected fixture %s has no %s posts", name, selection.Fork)
+		}
+		for index, post := range posts {
+			caseName := name
+			if len(posts) > 1 {
+				caseName = fmt.Sprintf("%s/%d", name, index)
+			}
+			if !strings.Contains(caseName, selection.Name) {
+				continue
+			}
+			selected = append(selected, selectedStateCase{Name: caseName, Test: tests[name], Post: post})
+		}
+	}
+	if len(selected) != selection.Count {
+		return nil, fmt.Errorf("selected=%d required=%d", len(selected), selection.Count)
+	}
+	return selected, nil
+}
+
+func runRequiredStateSelection(t *testing.T, root string, selection requiredStateSelection, config ComparisonConfig, summaryName string) {
+	t.Helper()
+	tests, err := harness.LoadStateTestsFromDir(filepath.Join(root, selection.Directory))
+	require.NoError(t, err)
+	selected, err := selectRequiredStateCases(tests, selection)
+	require.NoError(t, err)
 	summary := NewTestSummary()
-
-	// Print summary at the end
-	t.Cleanup(func() {
-		t.Logf("\n=== %s Test Summary ===", summaryName)
-		summary.PrintSummary(t)
-	})
-
-	for testName, st := range tests {
-		// Filter by test name if specified
-		if specificTestName != "" && !strings.Contains(testName, specificTestName) {
-			continue
-		}
-
-		// Run each subtest for Cancun fork (most recent stable)
-		cancunPosts, ok := st.Post["Cancun"]
-		if !ok {
-			// Try other forks
-			for fork := range st.Post {
-				cancunPosts = st.Post[fork]
-				break
+	executed := 0
+	for _, fixture := range selected {
+		fixture := fixture
+		t.Logf("Nonexcluded fixture: %s/%s fork=%s", selection.Directory, fixture.Name, selection.Fork)
+		t.Run(fixture.Name, func(t *testing.T) {
+			executed++
+			result := runStateTestComparison(t, fixture.Test, fixture.Post, config)
+			if result.Passed {
+				summary.RecordPass(selection.Directory, fixture.Name)
+			} else {
+				summary.RecordFailure(selection.Directory, fixture.Name, result.FailureType, result.Message)
+				t.Errorf("State comparison failed: %s - %s: %v", result.FailureType, result.Message, result.Details)
 			}
-		}
-
-		for i, post := range cancunPosts {
-			subtestName := testName
-			if len(cancunPosts) > 1 {
-				subtestName = fmt.Sprintf("%s/%d", testName, i)
-			}
-
-			// Check skip list (unless bypassed for analysis)
-			if !ignoreSkipList {
-				if shouldSkip, reason := skipList.ShouldSkip(specificDir, subtestName); shouldSkip {
-					t.Run(subtestName, func(t *testing.T) {
-						summary.RecordSkip(specificDir, subtestName, reason)
-						t.Skipf("Skipped: %s", reason)
-					})
-					continue
-				}
-			}
-
-			// Capture variables for closure
-			category := specificDir
-			testNameCopy := subtestName
-			stCopy := st
-			postCopy := post
-
-			t.Run(subtestName, func(t *testing.T) {
-				result := runStateTestComparison(t, stCopy, postCopy, config)
-				if result.Passed {
-					summary.RecordPass(category, testNameCopy)
-				} else {
-					summary.RecordFailure(category, testNameCopy, result.FailureType, result.Message)
-					t.Errorf("State comparison failed: %s - %s", result.FailureType, result.Message)
-					for _, detail := range result.Details {
-						t.Logf("  %s", detail)
-					}
-				}
-			})
-		}
+		})
 	}
+	t.Logf("%s: selected=%d executed=%d required=%d skipped=%d", summaryName, len(selected), executed, selection.Count, summary.TotalSkipped)
+	summary.PrintSummary(t)
+	require.Equal(t, selection.Count, executed, "required fixtures were filtered out by the Go test runner")
+	require.Zero(t, summary.TotalSkipped)
+}
+
+func runStateTestSuite(t *testing.T, config ComparisonConfig, summaryName string) {
+	count, err := strconv.Atoi(os.Getenv("STATE_TEST_COUNT"))
+	require.NoError(t, err, "STATE_TEST_COUNT must declare the required executed count")
+	selection := requiredStateSelection{Directory: os.Getenv("STATE_TEST_DIR"), Name: os.Getenv("STATE_TEST_NAME"), Fork: os.Getenv("STATE_TEST_FORK"), Count: count}
+	// Validate configuration before touching the archive. Exclusions never qualify a repair.
+	require.NotEmpty(t, selection.Directory)
+	require.NotEmpty(t, selection.Name)
+	require.Equal(t, "Cancun", selection.Fork)
+	require.Positive(t, selection.Count)
+	require.Equal(t, "true", os.Getenv("IGNORE_SKIP_LIST"), "qualification must activate every selected fixture")
+	require.Equal(t, "true", os.Getenv("VERIFY_ETHEREUM_SPEC"), "qualification must enable the independent oracle")
+	root := os.Getenv("STATE_TEST_ROOT")
+	if root == "" {
+		root, err = harness.GetStateTestsPath()
+		require.NoError(t, err)
+	}
+	runRequiredStateSelection(t, root, selection, config, summaryName)
 }

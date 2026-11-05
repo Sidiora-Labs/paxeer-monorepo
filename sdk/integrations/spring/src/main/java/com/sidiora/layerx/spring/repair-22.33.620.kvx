@@ -1,0 +1,21 @@
+[repair.22.33.620]
+audit = "22.30.163"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.spring.Repair2233620Test"
+evidence = "The bounded hf-build/hf-done ledger records the verified candidate revision, command, exit and private log; this mapping makes no independent qualification claim."
+baseline = "Not run: the explicit implementation-first order and prohibition on manual verify runs override the contradictory unchanged-tree verification step; the repair test does not exist on the base and no pre-change test failure is claimed."
+fixture = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxledger-pay-exact is the committed node-produced chain-125 transaction and signed receipt; payment headers are emitted by the production portable evidence encoder."
+transport = "Loopback HTTP requests pass through the real payment filter, authority, portable decoder, signature/native-payment verifier and durable store into a keyed effect authority; responses pass through the real settlement decoder and receipt verifier. The external peer retains effect results in an in-memory store across production store/filter restarts."
+
+[finding.028]
+tests = ["finding028CrashBeforeReleaseReopensAndReconcilesBeforeExecuting", "finding028CrashAfterReleaseReopensAndRecoversWithoutRepeatingEffect", "finding028InterruptedLegacyReleaseAndConflictingClaimsCannotReplay"]
+proof = "An atomic fsynced claim binds the complete payment identity before release. Reopened stores reconcile by the same idempotency key: confirmed absence permits release, recovered effects publish the original resource, and uncertain outcomes or legacy handlers refuse replay. Claims and completed results retain digest, receipt, key and transaction conflict checks."
+compatibility = "Completed records without a state marker remain readable. Legacy unkeyed effects may complete their first admission, but an interrupted admission remains claimed until an explicit recovery authority is supplied; no automatic legacy replay is allowed."
+
+[finding.029]
+tests = ["finding029SimultaneousEqualRequestsReleaseOnceAndOtherKeysProceed"]
+proof = "Concurrent verified equal payments wait on the same per-key admission before release, receive the identical stored resource and settlement header, and execute one release. A different principal proceeds while that key is held; all four conflict fields remain enforced."
+
+[wiring]
+task_record = "spec/layerx-merge/spec.kvx — owning domain 15 (integrations): copy this finding-to-test mapping, baseline-order conflict and bounded gate revision evidence into task 22.33.620; direct spec edits are prohibited for this worker."
+gotcha_ledger = "GOTCHA.kvx — owning domain 15 (integrations): record that the repair's unchanged-tree verification instruction conflicts with its explicit implementation-first and hf-done-only gate order; the worker records it here because GOTCHA.kvx is outside scope."

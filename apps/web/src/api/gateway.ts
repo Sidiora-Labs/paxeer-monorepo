@@ -18,6 +18,27 @@ const HASH = /^0x[0-9a-fA-F]{64}$/u;
 
 export const HISTORY_PAGE_LIMIT = 25;
 
+/** LAYERX_NODE_ENDPOINT uses a node root, default api1; api2 through api14 are alternatives. */
+export const DEFAULT_NODE_ENDPOINT = "https://api1.mainnet-beta.paxeer.network/";
+
+const NODE_METHODS: ReadonlySet<string> = new Set([
+  "px_resolveAccount",
+  "px_getAccount",
+  "px_getBalances",
+  "px_listAssets",
+  "px_getNetwork",
+  "px_getCapabilities",
+  "px_getRouteCatalogue",
+  "px_getHistory",
+  "px_getUnifiedHistory",
+  "px_listHolderRecords",
+  "px_getCommit",
+  "px_getValidators",
+  "px_getReceiptKeys",
+  "px_getSequenceBatch",
+  "pax_sequencerReceipt",
+]);
+
 export class GatewayUnavailableError extends Error {
   constructor(detail: string) {
     super(`The network gateway is unavailable: ${detail}`);
@@ -37,16 +58,19 @@ export class GatewayRpcError extends Error {
   }
 }
 
-function gatewayEndpoint(): URL {
-  const configured = process.env.LAYERX_GATEWAY_URL;
+function gatewayEndpoint(method: string): URL {
+  // Registration/funding and hosted operations retain LAYERX_GATEWAY_URL.
+  const node = NODE_METHODS.has(method);
+  const key = node ? "LAYERX_NODE_ENDPOINT" : "LAYERX_GATEWAY_URL";
+  const configured = process.env[key] ?? (node ? DEFAULT_NODE_ENDPOINT : undefined);
   if (configured === undefined) {
-    throw new GatewayUnavailableError("LAYERX_GATEWAY_URL is not set");
+    throw new GatewayUnavailableError(`${key} is not set`);
   }
   let endpoint: URL;
   try {
     endpoint = new URL(configured);
   } catch {
-    throw new GatewayUnavailableError("LAYERX_GATEWAY_URL is not a URL");
+    throw new GatewayUnavailableError(`${key} is not a URL`);
   }
   const loopback = endpoint.hostname === "127.0.0.1" || endpoint.hostname === "localhost";
   if (
@@ -56,7 +80,10 @@ function gatewayEndpoint(): URL {
     endpoint.search !== "" ||
     endpoint.hash !== ""
   ) {
-    throw new GatewayUnavailableError("LAYERX_GATEWAY_URL must be HTTPS or loopback HTTP");
+    throw new GatewayUnavailableError(`${key} must be HTTPS or loopback HTTP`);
+  }
+  if (node && endpoint.pathname !== "/") {
+    throw new GatewayUnavailableError(`${key} must name the node root without a route suffix`);
   }
   return endpoint;
 }
@@ -67,12 +94,47 @@ function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
 
 let nextId = 0;
 
+async function responseBody(response: Response, method: string): Promise<string> {
+  const reader = response.body?.getReader();
+  if (reader === undefined) throw new GatewayUnavailableError(`${method} answered no body`);
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (chunk.value.byteLength > MAX_RESPONSE_BYTES - length) {
+        await reader.cancel();
+        throw new GatewayUnavailableError(`${method} answer too large`);
+      }
+      length += chunk.value.byteLength;
+      chunks.push(chunk.value);
+    }
+  } catch (error) {
+    if (error instanceof GatewayUnavailableError) throw error;
+    throw new GatewayUnavailableError(`${method} body did not answer`);
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let position = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, position);
+    position += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new GatewayUnavailableError(`${method} answered malformed UTF-8`);
+  }
+}
+
 async function rpc(method: string, params: readonly unknown[]): Promise<unknown> {
   nextId += 1;
   const id = String(nextId);
   let response: Response;
   try {
-    response = await fetch(gatewayEndpoint(), {
+    response = await fetch(gatewayEndpoint(method), {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
@@ -86,13 +148,19 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
     throw new GatewayUnavailableError(`${method} did not answer`);
   }
   if (!response.ok) {
+    await response.body?.cancel();
     throw new GatewayUnavailableError(`${method} answered HTTP ${String(response.status)}`);
   }
-  const body = await response.text();
-  if (body.length > MAX_RESPONSE_BYTES) {
-    throw new GatewayUnavailableError(`${method} answer too large`);
+  const body = await responseBody(response, method);
+  let document: unknown;
+  try {
+    document = JSON.parse(body);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new GatewayUnavailableError(`${method} answered malformed JSON`);
+    }
+    throw error;
   }
-  const document: unknown = JSON.parse(body);
   if (!isObject(document) || document.jsonrpc !== "2.0" || document.id !== id) {
     throw new GatewayUnavailableError(`${method} answered a malformed envelope`);
   }
@@ -113,9 +181,12 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
   return document.result;
 }
 
-export async function ethCall(call: Readonly<{ to: string; data: string; from?: string }>): Promise<string> {
+export async function ethCall(
+  call: Readonly<{ to: string; data: string; from?: string }>,
+  block?: bigint,
+): Promise<string> {
   const request = call.from === undefined ? { to: call.to, data: call.data } : { from: call.from, to: call.to, data: call.data };
-  const result = await rpc("eth_call", [request, "latest"]);
+  const result = await rpc("eth_call", [request, block === undefined ? "latest" : `0x${block.toString(16)}`]);
   if (typeof result !== "string" || !DATA.test(result)) {
     throw new GatewayUnavailableError("eth_call answered malformed data");
   }
@@ -136,50 +207,86 @@ export interface GatewayLog extends PrecompileLog {
   readonly logIndex: bigint;
 }
 
+export interface GatewayReceipt {
+  readonly transactionHash: string;
+  readonly blockNumber: bigint;
+  readonly status: "success" | "reverted";
+  readonly logs: readonly GatewayLog[];
+}
+
+function gatewayLog(entry: unknown, method: string): GatewayLog {
+  if (
+    !isObject(entry) ||
+    typeof entry.address !== "string" ||
+    !Array.isArray(entry.topics) ||
+    typeof entry.data !== "string" ||
+    typeof entry.blockNumber !== "string" ||
+    !QUANTITY.test(entry.blockNumber) ||
+    typeof entry.transactionHash !== "string" ||
+    !HASH.test(entry.transactionHash) ||
+    typeof entry.logIndex !== "string" ||
+    !QUANTITY.test(entry.logIndex)
+  ) {
+    throw new GatewayUnavailableError(`${method} answered a malformed log`);
+  }
+  const topics = entry.topics.map((topic: unknown) => {
+    if (typeof topic !== "string") {
+      throw new GatewayUnavailableError(`${method} answered a malformed topic`);
+    }
+    return topic;
+  });
+  return {
+    address: entry.address,
+    topics,
+    data: entry.data,
+    blockNumber: BigInt(entry.blockNumber),
+    transactionHash: entry.transactionHash,
+    logIndex: BigInt(entry.logIndex),
+  };
+}
+
+export async function ethTransactionReceipt(hash: string): Promise<GatewayReceipt | undefined> {
+  if (!HASH.test(hash)) {
+    throw new TypeError("eth_getTransactionReceipt takes a 32-byte transaction hash");
+  }
+  const result = await rpc("eth_getTransactionReceipt", [hash]);
+  if (result === null) {
+    return undefined;
+  }
+  if (
+    !isObject(result) ||
+    typeof result.transactionHash !== "string" ||
+    !HASH.test(result.transactionHash) ||
+    typeof result.blockNumber !== "string" ||
+    !QUANTITY.test(result.blockNumber) ||
+    (result.status !== "0x0" && result.status !== "0x1") ||
+    !Array.isArray(result.logs)
+  ) {
+    throw new GatewayUnavailableError("eth_getTransactionReceipt answered a malformed receipt");
+  }
+  return {
+    transactionHash: result.transactionHash,
+    blockNumber: BigInt(result.blockNumber),
+    status: result.status === "0x1" ? "success" : "reverted",
+    logs: result.logs.map((entry: unknown) => gatewayLog(entry, "eth_getTransactionReceipt")),
+  };
+}
+
 export async function ethGetLogs(
-  filter: Readonly<{ address: string; topics: readonly (string | null)[]; fromBlock: bigint }>,
+  filter: Readonly<{ address: string; topics: readonly (string | null)[]; fromBlock: bigint; toBlock?: bigint }>,
 ): Promise<readonly GatewayLog[]> {
   const result = await rpc("eth_getLogs", [
     {
       address: filter.address,
       topics: filter.topics,
       fromBlock: `0x${filter.fromBlock.toString(16)}`,
-      toBlock: "latest",
+      toBlock: filter.toBlock === undefined ? "latest" : `0x${filter.toBlock.toString(16)}`,
     },
   ]);
   if (!Array.isArray(result)) {
     throw new GatewayUnavailableError("eth_getLogs answered a malformed list");
   }
-  return result.map((entry: unknown): GatewayLog => {
-    if (
-      !isObject(entry) ||
-      typeof entry.address !== "string" ||
-      !Array.isArray(entry.topics) ||
-      typeof entry.data !== "string" ||
-      typeof entry.blockNumber !== "string" ||
-      !QUANTITY.test(entry.blockNumber) ||
-      typeof entry.transactionHash !== "string" ||
-      !HASH.test(entry.transactionHash) ||
-      typeof entry.logIndex !== "string" ||
-      !QUANTITY.test(entry.logIndex)
-    ) {
-      throw new GatewayUnavailableError("eth_getLogs answered a malformed log");
-    }
-    const topics = entry.topics.map((topic: unknown) => {
-      if (typeof topic !== "string") {
-        throw new GatewayUnavailableError("eth_getLogs answered a malformed topic");
-      }
-      return topic;
-    });
-    return {
-      address: entry.address,
-      topics,
-      data: entry.data,
-      blockNumber: BigInt(entry.blockNumber),
-      transactionHash: entry.transactionHash,
-      logIndex: BigInt(entry.logIndex),
-    };
-  });
+  return result.map((entry: unknown) => gatewayLog(entry, "eth_getLogs"));
 }
 
 /** The Paxeer X fork surfaces the gateway probes with `eth_getCode`. */

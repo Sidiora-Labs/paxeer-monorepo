@@ -259,6 +259,18 @@ func (suite *KeeperTestSuite) TestGRPCValidatorSlashes() {
 			true,
 		},
 		{
+			"request slashes by block height rather than reward period",
+			func() {
+				req = &types.QueryValidatorSlashesRequest{
+					ValidatorAddress: valAddrs[0].String(),
+					StartingHeight:   2,
+					EndingHeight:     3,
+				}
+				expRes = &types.QueryValidatorSlashesResponse{Slashes: slashes[:2]}
+			},
+			true,
+		},
+		{
 			"request slashes with offset 2 and limit 2",
 			func() {
 				pageReq := &query.PageRequest{

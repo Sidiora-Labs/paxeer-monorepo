@@ -1,0 +1,59 @@
+[disposition.22.6.4.1]
+finding = "22.6.4.1"
+status = "resolved"
+evidence = "054988c9f repaired the merge-table, gateway parity and unknown-name expectations, while spec/layerx-merge/spec.kvx:195473 installs the wallet dependencies used by the unchanged streams proof at precompiles/layerxagent/streams/proof_streams_0x0906_test.go:170."
+follow_up = "closure"
+
+[disposition.22.12.4.2]
+finding = "22.12.4.2"
+status = "open"
+evidence = "Although 301b1ed04 repaired the server fixtures and added policy/evm coverage, services/wallet/attestor/internal/policy/policy_test.go:709 still requires the omitted lx_activity kind and :799 still requires exactly five perps selectors against thirteen in services/wallet/deploy/attestor-policy.json, leaving the original shipped-policy failures for 22.12.7 to repair."
+follow_up = "22.12.7"
+
+[disposition.22.13.6.3]
+finding = "22.13.6.3"
+status = "resolved"
+evidence = "fb067a262 retained the always-enabled programs_module_registration_v4 row at src/protocol/lxp_genesis.c:56 and selects storage retirement only when its separate manifest flag is enabled at :385, with the default-plan assertions retained at tests/test_genesis_module_table.c:169 and both published fixtures regenerated."
+follow_up = "closure"
+
+[disposition.22.9.24.1]
+finding = "22.9.24.1"
+status = "resolved"
+evidence = "5b4f53b03 added record.VerificationStatus to services/agent/schema/agent-api/golden/v1.kvx:121 and updated services/agent/crates/layerx-agent-api/tests/schema.rs:205 and :238 to pin the four verification states and retain_exact_signed_EIP1559_transaction_and_resolve_by_hash, with the current v1 schema and golden byte-identical."
+follow_up = "closure"
+
+[disposition.22.1.4.1]
+finding = "22.1.4.1"
+status = "resolved"
+evidence = "56f556472 removed receipt_state_tamper and the retired idempotency-entry mutation from transition, which now asserts idempotency_count == 0U while preserving committed-root equality at tests/test_state_commitment_transition.c:339."
+follow_up = "closure"
+
+[disposition.22.13.6.4]
+finding = "22.13.6.4"
+status = "resolved"
+evidence = "fb067a262 left lxp_genesis_module_enable_key at src/protocol/lxp_genesis.c:129 using the ordinary module-enable gate check without a programs special case, and reads LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER separately at :176 with false as its absent-parameter default."
+follow_up = "closure"
+
+[disposition.22.6.7.2]
+finding = "22.6.7.2"
+status = "resolved"
+evidence = "ccd3b0d9d restored the height-one nil-keeper harness at precompiles/layerxverify/layerxverify_test.go:25, isolated exchange upgrade state at precompiles/layerxexchange/layerxexchange_test.go:156 and EVM events at :193, and mapped -804 to LXP_DA_MISSING at precompiles/layerxexchange/errors.go:12."
+follow_up = "closure"
+
+[disposition.22.6.4.2]
+finding = "22.6.4.2"
+status = "resolved"
+evidence = "054988c9f added layerxchains to the expected merge tables and separated the unknown-name refusal from known-precompile initialization errors, while precompiles/missing_merge_test.go:32 now derives the remaining entries from MergeAddressTable and precompiles/merge_gateway_parity_test.go:62 compares actual missing constructors with the gateway set."
+follow_up = "closure"
+
+[disposition.22.9.24.2]
+finding = "22.9.24.2"
+status = "resolved"
+evidence = "5b4f53b03 refreshed the agent-api source manifest after restoring the schema, and sdk/platform/pipeline.kvx:8 now records 3687dc298e6afdedf28e7b294ced05229e2607501ce2d6a000378887b41fe31b, matching the current source tree under the source_digest algorithm at sdk/platform/generators/src/main.rs:261."
+follow_up = "closure"
+
+[disposition.22.8.11.2]
+finding = "22.8.11.2"
+status = "resolved"
+evidence = "a5a196edb replaced ReceiptAuthorityClient with SequencerReceiptClient at services/platform/middleware/buyer/test/evm-terms.test.mjs:6 and constructs it with a pinned receipt key at :26, matching the exported constructor at services/platform/examples/support/runtime.mjs:96."
+follow_up = "closure"

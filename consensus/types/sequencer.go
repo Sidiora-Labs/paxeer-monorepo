@@ -11,8 +11,18 @@ type SequencerSource interface {
 	// Sequenced reports whether the block at height is built from the sealed
 	// slice; it is false below the activation height.
 	Sequenced(height int64) bool
+	// Admit runs reaped mempool transactions in order through the leader's accept
+	// path at the open height. A transaction refusal is not an error. An error
+	// means the accept path can take no more transactions (layer not open, lease
+	// fenced or replication halted); CreateProposalBlock fails as for a Seal error.
+	Admit(ctx context.Context, height int64, txs Txs) (admitted int, err error)
 	// Seal closes the pending block for height and returns it.
 	Seal(ctx context.Context, height int64) (SealedBlock, error)
+}
+
+// LeaderSource supplies the leader schedule read from committed chain state.
+type LeaderSource interface {
+	LeaderSchedule(height int64) (activationHeight int64, leaders [][32]byte, err error)
 }
 
 // SealedBlock is a sealed pending block: the encoded MsgSequenceBatch, the

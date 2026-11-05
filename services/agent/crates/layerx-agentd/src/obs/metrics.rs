@@ -8,7 +8,7 @@ pub enum MetricKind {
     SubmissionOutcome,
     UnknownPopulation,
     UnknownAge,
-    VerificationLevel,
+    Rung,
     BoundaryLatency,
     ErrorClass,
     PolicyDecision,
@@ -24,7 +24,7 @@ impl MetricKind {
         Self::SubmissionOutcome,
         Self::UnknownPopulation,
         Self::UnknownAge,
-        Self::VerificationLevel,
+        Self::Rung,
         Self::BoundaryLatency,
         Self::ErrorClass,
         Self::PolicyDecision,
@@ -44,21 +44,20 @@ pub enum MetricLabel {
     AgeUnderSecond,
     AgeUnderMinute,
     AgeAtLeastMinute,
-    SequencerSigned,
-    BatchIncluded,
-    StateProven,
-    CheckpointFinalised,
-    SettlementAnchored,
+    Submitted,
+    Receipted,
+    Committed,
     BoundaryReady,
     BoundaryBackpressured,
     BoundaryUnavailable,
-    BoundaryBehind,
-    CoreHalted,
-    CoreEmergency,
-    DataUnavailable,
+    NodeBehind,
+    NodeUnavailable,
+    ChainHalted,
+    BlockUnavailable,
     AccessDenied,
     InvalidRequest,
     StorageFailure,
+    BoundaryFailure,
     InternalFailure,
     Allowed,
     Denied,
@@ -67,6 +66,89 @@ pub enum MetricLabel {
     LagHealthy,
     Lagging,
     RateExceeded,
+}
+
+impl MetricLabel {
+    pub const ALL: [Self; 28] = [
+        Self::Executed,
+        Self::Failed,
+        Self::Unknown,
+        Self::AgeUnderSecond,
+        Self::AgeUnderMinute,
+        Self::AgeAtLeastMinute,
+        Self::Submitted,
+        Self::Receipted,
+        Self::Committed,
+        Self::BoundaryReady,
+        Self::BoundaryBackpressured,
+        Self::BoundaryUnavailable,
+        Self::NodeBehind,
+        Self::NodeUnavailable,
+        Self::ChainHalted,
+        Self::BlockUnavailable,
+        Self::AccessDenied,
+        Self::InvalidRequest,
+        Self::StorageFailure,
+        Self::BoundaryFailure,
+        Self::InternalFailure,
+        Self::Allowed,
+        Self::Denied,
+        Self::UtilizationLow,
+        Self::UtilizationHigh,
+        Self::LagHealthy,
+        Self::Lagging,
+        Self::RateExceeded,
+    ];
+
+    // The merge's public metrics use node availability and chain finality names.
+    #[allow(non_upper_case_globals)]
+    pub const BoundaryBehind: Self = Self::NodeBehind;
+    #[allow(non_upper_case_globals)]
+    pub const CoreHalted: Self = Self::ChainHalted;
+    #[allow(non_upper_case_globals)]
+    pub const CoreEmergency: Self = Self::ChainHalted;
+    #[allow(non_upper_case_globals)]
+    pub const DataUnavailable: Self = Self::BlockUnavailable;
+
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Executed => "executed",
+            Self::Failed => "failed",
+            Self::Unknown => "unknown",
+            Self::AgeUnderSecond => "age_under_second",
+            Self::AgeUnderMinute => "age_under_minute",
+            Self::AgeAtLeastMinute => "age_at_least_minute",
+            Self::Submitted => "submitted",
+            Self::Receipted => "receipted",
+            Self::Committed => "committed",
+            Self::BoundaryReady => "boundary_ready",
+            Self::BoundaryBackpressured => "boundary_backpressured",
+            Self::BoundaryUnavailable => "boundary_unavailable",
+            Self::NodeBehind => "node_behind",
+            Self::NodeUnavailable => "node_unavailable",
+            Self::ChainHalted => "chain_halted",
+            Self::BlockUnavailable => "block_unavailable",
+            Self::AccessDenied => "access_denied",
+            Self::InvalidRequest => "invalid_request",
+            Self::StorageFailure => "storage_failure",
+            Self::BoundaryFailure => "node_failure",
+            Self::InternalFailure => "internal_failure",
+            Self::Allowed => "allowed",
+            Self::Denied => "denied",
+            Self::UtilizationLow => "utilization_low",
+            Self::UtilizationHigh => "utilization_high",
+            Self::LagHealthy => "lag_healthy",
+            Self::Lagging => "lagging",
+            Self::RateExceeded => "rate_exceeded",
+        }
+    }
+}
+
+impl Display for MetricLabel {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.name())
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -178,6 +260,27 @@ impl Metrics {
         Ok(())
     }
 
+    /// Decodes a producer's bounded label before recording a sample.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InvalidLabel` for unknown names or labels belonging to another kind,
+    /// and `UnknownTenant` for a tenant that has not been admitted. Refusals never
+    /// change the registry.
+    pub fn observe_named(
+        &mut self,
+        tenant: &TenantId,
+        kind: MetricKind,
+        label: &str,
+        value: u64,
+    ) -> Result<(), MetricsError> {
+        let label = MetricLabel::ALL
+            .into_iter()
+            .find(|candidate| candidate.name() == label)
+            .ok_or(MetricsError::InvalidLabel)?;
+        self.observe(tenant, kind, label, value)
+    }
+
     #[must_use]
     pub fn snapshot(&self, tenant: &TenantId) -> Vec<(MetricKey, MetricPoint)> {
         self.points
@@ -201,13 +304,9 @@ fn valid_label(kind: MetricKind, label: MetricLabel) -> bool {
                 | MetricLabel::AgeUnderMinute
                 | MetricLabel::AgeAtLeastMinute
         ),
-        MetricKind::VerificationLevel => matches!(
+        MetricKind::Rung => matches!(
             label,
-            MetricLabel::SequencerSigned
-                | MetricLabel::BatchIncluded
-                | MetricLabel::StateProven
-                | MetricLabel::CheckpointFinalised
-                | MetricLabel::SettlementAnchored
+            MetricLabel::Submitted | MetricLabel::Receipted | MetricLabel::Committed
         ),
         MetricKind::BoundaryLatency => matches!(
             label,
@@ -220,6 +319,7 @@ fn valid_label(kind: MetricKind, label: MetricLabel) -> bool {
             MetricLabel::AccessDenied
                 | MetricLabel::InvalidRequest
                 | MetricLabel::StorageFailure
+                | MetricLabel::BoundaryFailure
                 | MetricLabel::BoundaryUnavailable
                 | MetricLabel::InternalFailure
         ),
@@ -237,11 +337,10 @@ fn valid_label(kind: MetricKind, label: MetricLabel) -> bool {
         MetricKind::DegradedState => matches!(
             label,
             MetricLabel::BoundaryReady
-                | MetricLabel::BoundaryUnavailable
-                | MetricLabel::BoundaryBehind
-                | MetricLabel::CoreHalted
-                | MetricLabel::CoreEmergency
-                | MetricLabel::DataUnavailable
+                | MetricLabel::NodeBehind
+                | MetricLabel::NodeUnavailable
+                | MetricLabel::ChainHalted
+                | MetricLabel::BlockUnavailable
         ),
     }
 }

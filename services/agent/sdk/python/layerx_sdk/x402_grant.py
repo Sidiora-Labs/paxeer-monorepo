@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from .x402 import payment_commitment
 from .x402_receive import decode_receive
 
 
@@ -11,6 +12,7 @@ def validate_grant_draw(
     receive = decode_receive(wire)
     grant = receive["payer_grant"]
     terms = offer["extra"]["layerx"]
+    payment_commitment(offer["extra"])
 
     def integer(value, bits):
         return (
@@ -22,7 +24,6 @@ def validate_grant_draw(
     if (
         not integer(offer["amount"], 128)
         or int(offer["amount"]) == 0
-        or terms["commitment"] not in ("executed", "batched", "finalised")
         or not isinstance(terms.get("payer"), str)
         or re.fullmatch(r"[0-9a-f]{64}", terms.get("payer", "")) is None
         or terms.get("payer") == "00" * 32

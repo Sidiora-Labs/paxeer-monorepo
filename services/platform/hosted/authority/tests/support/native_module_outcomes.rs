@@ -125,10 +125,28 @@ fn original_native_module_successes_refusals_and_handover_verify_with_maintenanc
         let batch = activity_batch(receipt, authorization.public_key());
         assert_eq!(verify_authorized_receipt(&bytes, &batch), Ok(()));
         if (2..=7).contains(&fixture.module_id) {
-            let refusal = layerx_proof::receipt::verify_outcome(&bytes, &batch)
-                .err()
-                .unwrap_or_else(|| panic!("generic operation zero must remain refused"));
-            assert_eq!(refusal.check, ReceiptCheck::Operation);
+            assert_eq!(receipt.operation(), 0);
+            let outcome = must(layerx_proof::receipt::verify_outcome(&bytes, &batch));
+            assert_eq!(outcome.canonical_bytes(), bytes);
+            assert_eq!(
+                outcome
+                    .receipt()
+                    .protocol()
+                    .unwrap_or_else(|| panic!("native owner outcome"))
+                    .result_code(),
+                fixture.result_code
+            );
+            if fixture.result_code != 0 {
+                assert_eq!(
+                    layerx_proof::receipt::verify(&bytes, &batch)
+                        .err()
+                        .map(|failure| failure.check),
+                    Some(ReceiptCheck::ResultCode)
+                );
+            } else {
+                let verified = must(layerx_proof::receipt::verify(&bytes, &batch));
+                assert_eq!(verified.canonical_bytes(), bytes);
+            }
         }
         results.push((fixture.module_id, fixture.result_code));
     }

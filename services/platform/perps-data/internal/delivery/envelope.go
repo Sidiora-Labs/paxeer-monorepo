@@ -16,7 +16,26 @@ import (
 	"time"
 )
 
-const MaxEnvelopeBytes = 1 << 20
+const (
+	// MaxTransportBytes is the body-plus-headers limit of PERPS_V1 and the
+	// deployed NATS broker. Subject and reply framing are outside this limit.
+	MaxTransportBytes   = 1 << 20
+	maxHeaderTokenBytes = 128
+	// MaxTransportHeaderBytes includes the NATS header preamble/terminator and
+	// each "name: value\r\n". IDs, kinds and stream names are bounded tokens;
+	// Perps sequences/heights are int63 decimals, broker expectations uint64.
+	// Skipped controls carry fewer, shorter headers than this event budget.
+	MaxTransportHeaderBytes = len("NATS/1.0\r\n\r\n") +
+		len("Perps-Seq") + 4 + 19 +
+		len("Perps-Block") + 4 + 19 +
+		len("Perps-Kind") + 4 + maxHeaderTokenBytes +
+		len("Nats-Msg-Id") + 4 + maxHeaderTokenBytes +
+		len("Nats-Expected-Stream") + 4 + maxHeaderTokenBytes +
+		len("Nats-Expected-Last-Sequence") + 4 + 20
+	// MaxEnvelopeBytes bounds admission, stored bodies and consumer decoding,
+	// reserving every mandatory publisher header before an event is enqueued.
+	MaxEnvelopeBytes = MaxTransportBytes - MaxTransportHeaderBytes
+)
 
 var (
 	ErrIntegrity     = errors.New("delivery: immutable identity conflict")
@@ -26,7 +45,7 @@ var (
 	// ErrOversized reports a message the broker refuses for its size; it can
 	// never persist.
 	ErrOversized = errors.New("delivery: message refused for size")
-	token        = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
+	token        = regexp.MustCompile(fmt.Sprintf(`^[a-zA-Z0-9_-]{1,%d}$`, maxHeaderTokenBytes))
 	subjectToken = regexp.MustCompile(`^[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$`)
 	decimal      = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
 )
@@ -89,7 +108,7 @@ func (e Envelope) Validate(p Policy, subject string) error {
 	if len(subject) > 256 || !subjectToken.MatchString(subject) || !p.admits(subject) {
 		return ErrAuthorization
 	}
-	if !token.MatchString(e.EventID) || !token.MatchString(e.TraceID) || !p.EventTypes[e.EventType] {
+	if !token.MatchString(e.EventID) || !token.MatchString(e.TraceID) || !token.MatchString(e.EventType) || !p.EventTypes[e.EventType] {
 		return errors.New("delivery: invalid event identity or type")
 	}
 	if e.SchemaVersion != 1 {

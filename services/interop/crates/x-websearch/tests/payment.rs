@@ -14,9 +14,13 @@ use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::payments::{Grant, Payment};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::leaf_hash;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{receipt_digest, Domain};
+use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use x_websearch::assets::{AcceptedAsset, AcceptedAssets};
@@ -26,20 +30,65 @@ use x_websearch::content::ContentStore;
 use x_websearch::crawl::title_of;
 use x_websearch::index::WebIndex;
 use x_websearch::payment::{
-    account_id, hex, purpose_hash, receiver_did, sign_draw, wallet_account, DrawRequest, GateError,
-    PaymentGate, EXACT, METERED, PAYER_DID, PAYMENT_REQUIRED, PAYMENT_RESPONSE, PAYMENT_SIGNATURE,
-    PROTOCOL_VERSION,
+    decode_grant, draw_calldata, hex, purpose_hash, read_payer_grant, read_receiver_did,
+    read_receiver_sequence, GateError, LedgerTransaction, PaymentGate, DRAW_SIGNATURE, EXACT,
+    LEDGER_PRECOMPILE, METERED, PAYER_ADDRESS, PAYMENT_REQUIRED, PAYMENT_RESPONSE,
+    PAYMENT_SIGNATURE,
 };
 use x_websearch::search::search_route;
+use x_websearch::settlement::{SettlementError, SettlementRpc};
 use x_websearch::{
     Config, KeyFiles, Limits, Request, Response, Route, RouteTable, RunningServer, Server,
 };
 
 type Outcome<T = ()> = Result<T, Box<dyn Error>>;
 
-const RECEIVER_SECRET: &str = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60";
+const RECEIVER_SECRET: &str = "0000000000000000000000000000000000000000000000000000000000000003";
+const RECEIVER_DID_KEY: &str = "2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8";
 const NOW_MS: u64 = 1_000_000_000_000;
 const CURRENCIES: [&str; 4] = ["SID", "PAX", "USDC", "USDL"];
+fn wallet_account(did: &str, asset: &AcceptedAsset) -> String {
+    if asset.symbol == AssetSymbol::Pax {
+        format!("agent:{did}:main")
+    } else {
+        format!("agent:{did}:asset:{}", asset.id_hex())
+    }
+}
+
+fn account_id(account: &str) -> Option<[u8; 32]> {
+    layerx_x402::model::account_identifiers(account)
+        .ok()
+        .map(|ids| ids[1])
+}
+
+const PAYER: [u8; 20] = [0xab; 20];
+const PAYER_TEXT: &str = "0xabababababababababababababababababababab";
+
+fn payer_account(asset: &AcceptedAsset) -> Outcome<[u8; 32]> {
+    let mut owner = [0; 32];
+    owner[12..].copy_from_slice(&PAYER);
+    account_id(&wallet_account(
+        &format!("did:layerx:{}", hex(&owner)),
+        asset,
+    ))
+    .ok_or_else(|| fail("payer account"))
+}
+
+fn payer_account_rules() -> Outcome<Vec<Value>> {
+    CURRENCIES
+        .iter()
+        .map(|currency| {
+            let asset = accepted(currency)?;
+            let mut owner = [0; 32];
+            owner[12..].copy_from_slice(&PAYER);
+            Ok(json!({"method":"eth_call", "params":[{
+            "to":format!("0x{}", hex(&LEDGER_PRECOMPILE)),
+            "data":format!("0x3f050cbc{}{}", hex(&owner), asset.id_hex())}, "pending"],
+            "result":format!("0x{}", hex(&payer_account(&asset)?))}))
+        })
+        .collect()
+}
+
 const RECORD_VARIABLE: &str = "X_WEBSEARCH_RECORD_EXCHANGE";
 
 const fn fixed_clock() -> u64 {
@@ -80,6 +129,9 @@ struct Gateway {
     address: SocketAddr,
     rules: Arc<Mutex<Vec<Rule>>>,
     calls: Arc<Mutex<Vec<String>>>,
+    requests: Arc<Mutex<Vec<Value>>>,
+    journal: Arc<Mutex<Option<PathBuf>>>,
+    broadcasts: Arc<Mutex<Vec<Vec<x_websearch::payment::PaymentRecord>>>>,
 }
 
 fn load_rules(names: &[&str]) -> Outcome<Vec<Rule>> {
@@ -92,6 +144,22 @@ fn load_rules(names: &[&str]) -> Outcome<Vec<Rule>> {
             .ok_or_else(|| fail(format!("{name} has no gateway rules")))?;
         rules.extend(parse_rules(list)?);
     }
+    if !names.contains(&"metered.json") {
+        let recording = read_json(&fixtures().join("gateway/metered.json"))?;
+        let ledger_rules: Vec<Value> = recording["endpoints"]["gateway"]["*"]
+            .as_array()
+            .ok_or("gateway rules")?
+            .iter()
+            .filter(|rule| {
+                rule["method"]
+                    .as_str()
+                    .is_some_and(|name| name.starts_with("eth_"))
+            })
+            .cloned()
+            .collect();
+        rules.extend(parse_rules(&ledger_rules)?);
+    }
+    rules.extend(parse_rules(&payer_account_rules()?)?);
     Ok(rules)
 }
 
@@ -182,7 +250,9 @@ fn serve(stream: &mut TcpStream, rules: &Mutex<Vec<Rule>>, calls: &Mutex<Vec<Str
 impl Gateway {
     /// Replays the rules `list` holds, in the recording's own shape.
     fn serve_rules(list: &[Value]) -> Outcome<Self> {
-        Self::listen(parse_rules(list)?)
+        let mut rules = parse_rules(list)?;
+        rules.extend(parse_rules(&payer_account_rules()?)?);
+        Self::listen(rules)
     }
 
     fn start(names: &[&str]) -> Outcome<Self> {
@@ -194,16 +264,59 @@ impl Gateway {
         let address = listener.local_addr()?;
         let rules = Arc::new(Mutex::new(rules));
         let calls = Arc::new(Mutex::new(Vec::new()));
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let journal = Arc::new(Mutex::new(None::<PathBuf>));
+        let broadcasts = Arc::new(Mutex::new(Vec::new()));
+        let (served_requests, served_journal, served_broadcasts) = (
+            Arc::clone(&requests),
+            Arc::clone(&journal),
+            Arc::clone(&broadcasts),
+        );
         let (served_rules, served_calls) = (Arc::clone(&rules), Arc::clone(&calls));
         thread::spawn(move || {
             for mut stream in listener.incoming().flatten() {
-                let _ = serve(&mut stream, &served_rules, &served_calls);
+                let outcome = (|| -> Outcome {
+                    let (_, body) = read_http(&mut stream)?;
+                    let request: Value = serde_json::from_slice(&body)?;
+                    if request["method"] == "eth_sendRawTransaction" {
+                        let directory = served_journal
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .clone()
+                            .ok_or("broadcast without journal")?;
+                        let records = std::fs::read_dir(directory)?
+                            .map(|entry| -> Outcome<x_websearch::payment::PaymentRecord> {
+                                Ok(serde_json::from_slice(&std::fs::read(entry?.path())?)?)
+                            })
+                            .collect::<Outcome<Vec<_>>>()?;
+                        served_broadcasts
+                            .lock()
+                            .unwrap_or_else(PoisonError::into_inner)
+                            .push(records);
+                    }
+                    served_requests
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .push(request);
+                    let reply = answer(&served_rules, &served_calls, &body);
+                    let response = reply.map_or_else(
+                        || "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_owned(),
+                        |reply| { let body = reply.to_string(); format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()) });
+                    stream.write_all(response.as_bytes())?;
+                    Ok(())
+                })();
+                if let Err(error) = outcome {
+                    panic!("gateway recorder: {error}");
+                }
             }
         });
         Ok(Self {
             address,
             rules,
             calls,
+            requests,
+            journal,
+            broadcasts,
         })
     }
 
@@ -244,6 +357,7 @@ fn conformance(gateway: &Gateway) -> Outcome<ConformanceSuite> {
 }
 
 struct Harness {
+    gate: Option<Arc<PaymentGate>>,
     server: Option<RunningServer>,
     gateway: Gateway,
     served: Arc<AtomicUsize>,
@@ -269,14 +383,27 @@ fn configure_with(
     let mut config = read_json(&fixtures().join("config/valid.json"))?;
     config["data_dir"] = json!(scratch.join("data"));
     config["gateway"]["endpoint"] = json!(format!("http://{}/rpc", gateway.address));
-    config["gateway"]["sequencer_public_key"] = json!(text(buyer, "/sequencerPublicKey")?);
+    config["evm"]["endpoint"] = json!(format!("http://{}/rpc", gateway.address));
+    config["evm"]["chain_id"] = json!(125);
+    let gateway_config = config["gateway"].as_object_mut().ok_or("gateway object")?;
+    gateway_config.remove("sequencer_id");
+    gateway_config.remove("sequencer_public_key");
+    gateway_config.insert(
+        "receipt_keys".to_owned(),
+        json!([{
+            "key_id": hex(&receipt_key_id()),
+            "public_key": text(buyer, "/sequencerPublicKey")?,
+            "first_height": 0,
+            "last_height": u64::MAX,
+        }]),
+    );
     if let Some(payment) = payment {
         config["payment"] = payment;
     }
     Ok(Config::parse(&config.to_string())?)
 }
 
-fn receiver_key(scratch: &Path) -> Outcome<ed25519_dalek::SigningKey> {
+fn receiver_key(scratch: &Path) -> Outcome<k256::ecdsa::SigningKey> {
     let path = scratch.join("receiver.key");
     std::fs::write(&path, RECEIVER_SECRET)?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
@@ -304,9 +431,21 @@ impl Harness {
     /// Starts the sidecar against `gateway` with `payment` as the
     /// configuration's `payment` object.
     fn launch(name: &str, gateway: Gateway, payment: Option<Value>) -> Outcome<Self> {
+        Self::launch_with_receipt_keys(name, gateway, payment, None)
+    }
+
+    fn launch_with_receipt_keys(
+        name: &str,
+        gateway: Gateway,
+        payment: Option<Value>,
+        receipt_keys: Option<Vec<SequencerAuthorization>>,
+    ) -> Outcome<Self> {
         let scratch = scratch_dir(name)?;
         let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
-        let config = configure_with(&scratch, &gateway, &buyer, payment)?;
+        let mut config = configure_with(&scratch, &gateway, &buyer, payment)?;
+        if let Some(keys) = receipt_keys {
+            config.gateway.receipt_keys = keys;
+        }
         let receiver = receiver_key(&scratch)?;
         let gate = Arc::new(PaymentGate::new(
             &config,
@@ -314,6 +453,10 @@ impl Harness {
             conformance(&gateway)?,
             fixed_clock,
         )?);
+        *gateway
+            .journal
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = Some(scratch.join("data/payments/requests"));
         let served = Arc::new(AtomicUsize::new(0));
         let data = scratch.join("data");
         let store = Arc::new(ContentStore::open(&data, &[])?);
@@ -350,11 +493,64 @@ impl Harness {
         let running = Server::bind("127.0.0.1:0".parse()?, Limits::default(), routes)?.spawn()?;
         Ok(Self {
             server: Some(running),
+            gate: Some(gate),
             gateway,
             served,
             buyer,
             scratch,
         })
+    }
+
+    fn gate(&self) -> &Arc<PaymentGate> {
+        self.gate.as_ref().expect("payment gate is running")
+    }
+
+    fn close_gate(&mut self) -> Outcome {
+        if let Some(server) = self.server.take() {
+            server.shutdown()?;
+        }
+        self.gate.take();
+        Ok(())
+    }
+
+    fn delivery_server(&mut self) -> Outcome {
+        if let Some(server) = self.server.take() {
+            server.shutdown()?;
+        }
+        let store = ContentStore::open(&self.scratch.join("data"), &[])?;
+        let pages = vectors()?;
+        let counter = Arc::clone(&self.served);
+        let mut routes = RouteTable::new();
+        PaymentGate::install_validated(
+            self.gate(),
+            &mut routes,
+            Route::Fetch,
+            |request| match request.query_param("url") {
+                Ok(Some(_)) => Ok(()),
+                _ => Err(Response::error(400, "missing_url")),
+            },
+            move |request| {
+                counter.fetch_add(1, Ordering::SeqCst);
+                fetch_page(&pages, &store, request)
+            },
+        )?;
+        self.server =
+            Some(Server::bind("127.0.0.1:0".parse()?, Limits::default(), routes)?.spawn()?);
+        Ok(())
+    }
+
+    fn restart_deliveries(&mut self) -> Outcome {
+        self.close_gate()?;
+        let config = configure_with(&self.scratch, &self.gateway, &self.buyer, None)?;
+        let gate = Arc::new(PaymentGate::new(
+            &config,
+            &receiver_key(&self.scratch)?,
+            conformance(&self.gateway)?,
+            fixed_clock,
+        )?);
+        gate.recover_pending_deliveries()?;
+        self.gate = Some(gate);
+        self.delivery_server()
     }
 
     fn address(&self) -> Outcome<SocketAddr> {
@@ -369,7 +565,7 @@ impl Harness {
     }
 
     fn payer(&self) -> Outcome<&str> {
-        text(&self.buyer, "/payerDid")
+        Ok(PAYER_TEXT)
     }
 
     fn get(&self, target: &str, headers: &[(&str, &str)]) -> Outcome<Reply> {
@@ -396,13 +592,20 @@ impl Harness {
         currency: &str,
         payload: &Value,
     ) -> Outcome<String> {
-        let headers: Vec<(&str, &str)> =
-            payer.map(|payer| (PAYER_DID, payer)).into_iter().collect();
+        let headers: Vec<(&str, &str)> = payer
+            .map(|payer| (PAYER_ADDRESS, payer))
+            .into_iter()
+            .collect();
         let challenge = self.get(target, &headers)?;
         if challenge.status != 402 {
             return Err(fail(format!(
-                "expected a challenge, got {}",
-                challenge.status
+                "{target}: expected a challenge, got {}: {:?}; requests: {:?}",
+                challenge.status,
+                challenge.body,
+                self.gateway
+                    .requests
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
             )));
         }
         let required = challenge.decoded(PAYMENT_REQUIRED)?;
@@ -427,17 +630,23 @@ impl Harness {
     fn pay(&self, target: &str, payer: Option<&str>, signature: &str) -> Outcome<Reply> {
         let mut headers = vec![(PAYMENT_SIGNATURE, signature)];
         if let Some(payer) = payer {
-            headers.push((PAYER_DID, payer));
+            headers.push((PAYER_ADDRESS, payer));
         }
         self.get(target, &headers)
     }
 
-    fn metered(&self, target: &str, currency: &str, grant: &str, label: &str) -> Outcome<Reply> {
+    fn metered_payload_against_exact(
+        &self,
+        target: &str,
+        currency: &str,
+        grant: &str,
+        label: &str,
+    ) -> Outcome<Reply> {
         let payer = self.payer()?;
         let signature = self.signature(
             target,
             Some(payer),
-            METERED,
+            EXACT,
             currency,
             &metered_payload(grant, label),
         )?;
@@ -565,7 +774,8 @@ fn percent(text: &str) -> String {
 }
 
 fn metered_payload(grant: &str, label: &str) -> Value {
-    json!({ "grant": grant, "idempotencyKey": receive_key(label) })
+    let grant_id = grant.get(..64).unwrap_or(grant);
+    json!({ "grantId": grant_id, "idempotencyKey": receive_key(label) })
 }
 
 struct Reply {
@@ -638,42 +848,488 @@ fn assert_refused(reply: &Reply, reason: &str) {
     assert!(reply.header(PAYMENT_REQUIRED).is_some());
 }
 
-#[test]
-fn metered_draws_settle_in_each_asset() -> Outcome {
-    let harness = Harness::start("metered", &["metered.json"])?;
-    for currency in CURRENCIES {
-        let grant = harness.grant(&format!("/grants/{currency}"))?;
-        let reply = harness.metered(
-            &format!("/search?q={currency}"),
-            currency,
-            &grant,
-            &format!("metered-{currency}"),
-        )?;
-        assert_settled(&reply)?;
-        let response = reply.decoded(PAYMENT_RESPONSE)?;
-        assert_eq!(response.get("network"), Some(&json!("eip155:1337")));
-        assert_eq!(
-            response.pointer("/extensions/layerx/purposeHash"),
-            Some(&json!(hex(&purpose_hash(&receiver_public_key()?))))
-        );
-        let asset = accepted(currency)?;
-        let payer = account_id(&wallet_account(harness.payer()?, &asset))
-            .ok_or_else(|| fail("payer account"))?;
-        assert_eq!(response.get("payer"), Some(&json!(hex(&payer))));
-        assert_eq!(reply.body.get("query"), Some(&json!(currency)));
+fn assert_exact_only(offers: &[Value]) -> Outcome {
+    assert_eq!(offers.len(), CURRENCIES.len());
+    for (offer, currency) in offers.iter().zip(CURRENCIES) {
+        assert_eq!(offer["scheme"], EXACT);
+        assert_eq!(offer["extra"]["layerx"]["currency"], currency);
+        assert!(offer["extra"]["layerx"].get("payer").is_none());
+        assert!(offer["extra"]["layerx"].get("purposeHash").is_none());
     }
-    assert_eq!(harness.served(), 4);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 4);
     Ok(())
+}
+
+fn assert_no_payment_state(harness: &Harness) -> Outcome {
+    assert_eq!(harness.served(), 0);
+    for directory in ["requests", "receive-keys", "receipts", "deliveries"] {
+        assert_eq!(
+            std::fs::read_dir(harness.scratch.join("data/payments").join(directory))?.count(),
+            0,
+            "{directory}"
+        );
+    }
+    for method in [
+        "pax_sequencerReceipt",
+        "eth_getTransactionCount",
+        "eth_estimateGas",
+        "eth_sendRawTransaction",
+        "lx_sendActivity",
+        "lx_getReceipt",
+        "lx_getSequence",
+    ] {
+        assert_eq!(harness.gateway.calls(method), 0, "{method}");
+    }
+    assert!(harness
+        .gateway
+        .broadcasts
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .is_empty());
+    Ok(())
+}
+
+fn assert_metered_payload_refused(
+    harness: &Harness,
+    target: &str,
+    currency: &str,
+    grant: &str,
+    label: &str,
+) -> Outcome {
+    let reply = harness.metered_payload_against_exact(target, currency, grant, label)?;
+    assert_refused(&reply, "invalid_payment_payload");
+    assert_eq!(reply.decoded(PAYMENT_RESPONSE)?["success"], false);
+    let required = reply.decoded(PAYMENT_REQUIRED)?;
+    assert_exact_only(required["accepts"].as_array().ok_or("offers")?)?;
+    assert_no_payment_state(harness)
+}
+
+fn draw_event(grant: &Grant, label: &str) -> Outcome<SequencerLog> {
+    let mut amount = [0; 32];
+    amount[16..].copy_from_slice(&accepted("SID")?.price.to_be_bytes());
+    Ok(SequencerLog::new(
+        LEDGER_PRECOMPILE,
+        vec![
+            x_websearch::watch::keccak(
+                b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
+            ),
+            grant.id,
+            grant.from,
+            grant.recipient,
+        ],
+        [grant.asset, amount, receive_key_bytes(label), [0; 32]].concat(),
+        0,
+    ))
+}
+
+fn draw_receipt_answer(hash: [u8; 32], logs: &[SequencerLog], status: u64) -> Outcome<Value> {
+    signed_draw_receipt_answer(hash, logs, status, &test_key("sequencer"))
+}
+
+fn signed_draw_receipt_answer(
+    hash: [u8; 32],
+    logs: &[SequencerLog],
+    status: u64,
+    sequencer: &SigningKey,
+) -> Outcome<Value> {
+    signed_draw_receipt_with_fee(hash, logs, status, sequencer, 1)
+}
+
+fn signed_draw_receipt_with_fee(
+    hash: [u8; 32],
+    logs: &[SequencerLog],
+    status: u64,
+    sequencer: &SigningKey,
+    fee: u128,
+) -> Outcome<Value> {
+    fn encode(
+        hash: [u8; 32],
+        logs: &[SequencerLog],
+        status: u64,
+        fee: u128,
+        signature: Option<[u8; 64]>,
+    ) -> Outcome<Vec<u8>> {
+        let mut summary = Vec::new();
+        for value in [210_000u64, 210_000, 1] {
+            summary.extend_from_slice(&value.to_be_bytes());
+        }
+        summary.extend_from_slice(&0u32.to_be_bytes());
+        summary.extend_from_slice(&[0; 40]);
+        summary.extend_from_slice(&Sha256::digest(b""));
+        summary.extend_from_slice(&0u32.to_be_bytes());
+        summary.extend_from_slice(&u32::try_from(logs.len())?.to_be_bytes());
+        summary.push(4);
+        summary.extend_from_slice(b"upax");
+        let mut effects = vec![(1u8, summary)];
+        for log in logs {
+            let mut body = log.address().to_vec();
+            body.push(u8::try_from(log.topics().len())?);
+            for topic in log.topics() {
+                body.extend_from_slice(topic);
+            }
+            body.extend_from_slice(&Sha256::digest(log.data()));
+            effects.push((3, body));
+        }
+        let mut encoder = Encoder::new(16_384);
+        wire(encoder.structure_header_version(0x5201, layerx_wire::limits::PROTOCOL_VERSION))?;
+        wire(encoder.u16(layerx_wire::limits::PROTOCOL_VERSION))?;
+        wire(encoder.bytes(&hash, 32))?;
+        wire(encoder.u64(7))?;
+        wire(encoder.bytes(&[4; 32], 32))?;
+        let preimage = [
+            b"PAXEER/v1/sequence\0".as_slice(),
+            &[4; 32],
+            &7u64.to_be_bytes(),
+            &hash,
+        ]
+        .concat();
+        wire(encoder.bytes(&Sha256::digest(&preimage), 32))?;
+        wire(encoder.bytes(&Sha256::digest(b""), 32))?;
+        wire(encoder.i32(if status == 1 { 0 } else { 1 }))?;
+        wire(encoder.sequence_length(effects.len(), layerx_wire::limits::MAX_SEQUENCER_EFFECTS))?;
+        for (index, (kind, body)) in effects.iter().enumerate() {
+            wire(encoder.u16(12))?;
+            wire(encoder.u16(u16::try_from(index)?))?;
+            wire(encoder.u16(0))?;
+            wire(encoder.tag(*kind, 3))?;
+            wire(encoder.u8(0))?;
+            wire(encoder.bytes(&[0; 32], 32))?;
+            wire(encoder.bytes(body, 256))?;
+        }
+        wire(encoder.u128(fee))?;
+        let mut batch = [0; 32];
+        batch[24..].copy_from_slice(&9u64.to_be_bytes());
+        wire(encoder.bytes(&batch, 32))?;
+        wire(encoder.u16(12))?;
+        wire(encoder.u32(1))?;
+        wire(encoder.u32(0))?;
+        wire(encoder.u8(2))?;
+        wire(encoder.bytes(&Sha256::digest(b"upax"), 32))?;
+        wire(encoder.u128(0))?;
+        let mut from = [0; 32];
+        from[12..].copy_from_slice(&receiver_public_key()?);
+        let mut to = [0; 32];
+        to[12..].copy_from_slice(&LEDGER_PRECOMPILE);
+        wire(encoder.bytes(&from, 32))?;
+        wire(encoder.u128(100))?;
+        wire(encoder.u128(99))?;
+        wire(encoder.u64(7))?;
+        wire(encoder.bytes(&to, 32))?;
+        wire(encoder.u128(0))?;
+        wire(encoder.u128(0))?;
+        wire(encoder.bytes(&[0; 32], 32))?;
+        wire(encoder.bytes(&[0; 32], 32))?;
+        wire(encoder.bytes(&receipt_key_id(), 32))?;
+        wire(encoder.u64(NOW_MS))?;
+        wire(encoder.u8(u8::from(signature.is_some())))?;
+        if let Some(signature) = signature {
+            wire(encoder.bytes(&signature, 64))?;
+        }
+        Ok(encoder.finish())
+    }
+    let unsigned = encode(hash, logs, status, fee, None)?;
+    let signature = sequencer.sign(&wire(receipt_digest(&unsigned))?).to_bytes();
+    let signed = encode(hash, logs, status, fee, Some(signature))?;
+    verify_sequencer_signature(
+        &signed,
+        ReceiptKeys::HeightRanges(&[SequencerAuthorization::new(
+            receipt_key_id(),
+            sequencer.verifying_key().to_bytes(),
+            0,
+            u64::MAX,
+        )]),
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let logs: Vec<Value> = logs.iter().map(|log| json!({
+        "address":format!("0x{}", hex(&log.address())),
+        "topics":log.topics().iter().map(|topic| format!("0x{}", hex(topic))).collect::<Vec<_>>(),
+        "data":format!("0x{}", hex(log.data())), "logIndex":format!("0x{:x}", log.log_index()),
+    })).collect();
+    Ok(
+        json!({"rung":"receipted", "txHash":format!("0x{}", hex(&hash)), "nonce":"0x7",
+        "seq":"0x7", "height":"0x9", "status":format!("0x{status:x}"), "logs":logs,
+        "keyId":format!("0x{}", hex(&receipt_key_id())), "receipt":format!("0x{}", hex(&signed))}),
+    )
+}
+
+fn metered_payload_signature(harness: &Harness, encoded: &str, label: &str) -> Outcome<String> {
+    harness.signature(
+        &format!("/search?q={label}"),
+        Some(harness.payer()?),
+        EXACT,
+        "SID",
+        &metered_payload(encoded, label),
+    )
+}
+
+fn receipt_rule(harness: &Harness, hash: [u8; 32], answer: Value, once: bool) -> Outcome {
+    harness.gateway.rules.lock().unwrap_or_else(PoisonError::into_inner).extend(parse_rules(&[
+        json!({"method":"pax_sequencerReceipt", "params":[format!("0x{}", hex(&hash))], "result":answer, "once":once}),
+    ])?);
+    Ok(())
+}
+
+fn pending_exact_recovery(label: &str, committed: bool, restart: bool) -> Outcome {
+    let mut harness = Harness::start(label, &["exact.json"])?;
+    harness.delivery_server()?;
+    let target = format!("/fetch?url={label}");
+    let payment = exact_fixture("SID")?;
+    let hash = text(&payment, "/txHash")?;
+    let recorded;
+    {
+        let mut rules = harness
+            .gateway
+            .rules
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let index = rules
+            .iter()
+            .position(|rule| rule.method == "pax_sequencerReceipt" && rule.params == json!([hash]))
+            .ok_or("recorded exact receipt")?;
+        let mut receipt = rules[index].answer["result"].clone();
+        if committed {
+            receipt["rung"] = json!("committed");
+            receipt["blockNumber"] = receipt["height"].clone();
+            receipt["blockHash"] = json!(format!("0x{}", "ab".repeat(32)));
+        }
+        recorded = receipt.clone();
+        rules[index].answer = json!({"result":receipt});
+        let pending = json!({"method":"pax_sequencerReceipt", "params":[hash], "result":{"rung":"submitted", "txHash":hash, "nonce":"0x7"}, "once":true});
+        rules.splice(index..index, parse_rules(&[pending.clone(), pending])?);
+    }
+    let signature = harness.signature(&target, None, EXACT, "SID", &payment)?;
+    for _ in 0..2 {
+        let reply = harness.pay(&target, None, &signature)?;
+        assert_eq!(
+            (reply.status, reply.error()),
+            (503, Some("payment_pending"))
+        );
+        assert_eq!(reply.header("Retry-After"), Some("1"));
+        assert_eq!(harness.served(), 0);
+        for directory in ["requests", "receipts", "deliveries"] {
+            assert_eq!(
+                std::fs::read_dir(harness.scratch.join("data/payments").join(directory))?.count(),
+                0
+            );
+        }
+    }
+    if restart {
+        harness.restart_deliveries()?;
+    }
+    let settled = harness.pay(&target, None, &signature)?;
+    assert_settled(&settled)?;
+    let response = settled.decoded(PAYMENT_RESPONSE)?;
+    assert_eq!(response["transaction"], payment["txHash"]);
+    let evidence = &response["extensions"]["layerx"];
+    assert_eq!(evidence["verificationLevel"], "receipted");
+    assert_eq!(evidence["receiptDigest"], payment["receiptDigest"]);
+    for unproved in ["blockNumber", "blockHash", "proof"] {
+        assert!(evidence.get(unproved).is_none(), "{unproved}: {evidence}");
+    }
+    assert_eq!(harness.served(), 1);
+    let requests = harness
+        .gateway
+        .requests
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let lookups: Vec<_> = requests
+        .iter()
+        .filter(|request| request["method"] == "pax_sequencerReceipt")
+        .collect();
+    assert_eq!(lookups.len(), 3);
+    for lookup in lookups {
+        assert_eq!(lookup["params"], json!([hash]));
+    }
+    drop(requests);
+    harness.restart_deliveries()?;
+    let replay = harness.pay(&target, None, &signature)?;
+    assert_settled(&replay)?;
+    assert_eq!(replay.raw, settled.raw);
+    assert_eq!(
+        replay.header(PAYMENT_RESPONSE),
+        settled.header(PAYMENT_RESPONSE)
+    );
+    assert_eq!(harness.served(), 1);
+    assert_eq!(harness.gateway.calls("pax_sequencerReceipt"), 5);
+    let entries = std::fs::read_dir(harness.scratch.join("data/payments/requests"))?
+        .collect::<Result<Vec<_>, _>>()?;
+    assert_eq!(entries.len(), 1);
+    let record: x_websearch::payment::PaymentRecord =
+        serde_json::from_slice(&std::fs::read(entries[0].path())?)?;
+    assert!(!record.released);
+    assert_eq!(record.tx_hash.as_deref(), hash.strip_prefix("0x"));
+    let receipt = x_websearch::payment::unhex(record.receipt.as_deref().ok_or("receipt")?)
+        .ok_or("receipt hex")?;
+    let original = recorded;
+    assert_eq!(format!("0x{}", hex(&receipt)), original["receipt"]);
+    verify_sequencer_signature(
+        &receipt,
+        ReceiptKeys::HeightRanges(
+            &configure_with(&harness.scratch, &harness.gateway, &harness.buyer, None)?
+                .gateway
+                .receipt_keys,
+        ),
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+    assert_eq!(record.receipt_digest, Some(hex(&digest)));
+    assert_eq!(
+        record.receipt_digest.as_deref(),
+        payment["receiptDigest"].as_str()
+    );
+    let receipts = harness.scratch.join("data/payments/receipts");
+    assert_eq!(std::fs::read_dir(&receipts)?.count(), 1);
+    assert_eq!(
+        std::fs::read(receipts.join(hex(&digest)))?,
+        entries[0].file_name().as_encoded_bytes()
+    );
+    let deliveries = harness.scratch.join("data/payments/deliveries");
+    assert_eq!(std::fs::read_dir(&deliveries)?.count(), 1);
+    let delivery = read_json(&deliveries.join(entries[0].file_name()))?;
+    assert_eq!(delivery["state"], "ready");
+    assert_eq!(delivery["receipt_digest"], hex(&digest));
+    for method in [
+        "eth_sendRawTransaction",
+        "eth_estimateGas",
+        "eth_getTransactionCount",
+        "lx_sendActivity",
+        "lx_getReceipt",
+        "lx_getActivityStatus",
+        "lx_getSequence",
+    ] {
+        assert_eq!(harness.gateway.calls(method), 0, "{method}");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_pending_exact_payment_recovers_from_the_sequencer_receipt_and_releases_once() -> Outcome {
+    for committed in [false, true] {
+        pending_exact_recovery(
+            if committed {
+                "recover-committed"
+            } else {
+                "recover-receipted"
+            },
+            committed,
+            false,
+        )?;
+    }
+    Ok(())
+}
+
+#[test]
+fn a_reverted_metered_draw_payload_is_refused_without_state() -> Outcome {
+    let label = "reverted-draw";
+    let (harness, grant, encoded) = ledger_harness(label)?;
+    let signed = test_draw(
+        &receiver_secret()?,
+        &grant,
+        accepted("SID")?.price,
+        7,
+        receive_key_bytes(label),
+    )?;
+    receipt_rule(
+        &harness,
+        signed.hash,
+        draw_receipt_answer(signed.hash, &[], 0)?,
+        false,
+    )?;
+    assert_metered_payload_refused(
+        &harness,
+        &format!("/search?q={label}"),
+        "SID",
+        &encoded,
+        label,
+    )
+}
+
+#[test]
+fn a_metered_payload_with_a_mismatched_draw_receipt_is_refused_without_state() -> Outcome {
+    for case in [
+        "missing",
+        "amount",
+        "recipient",
+        "key",
+        "grant",
+        "address",
+        "unsigned-log",
+        "window",
+        "seq",
+        "height",
+        "status",
+    ] {
+        let label = format!("draw-mismatch-{case}");
+        let keys = if case == "window" {
+            Some(vec![SequencerAuthorization::new(
+                receipt_key_id(),
+                test_key("sequencer").verifying_key().to_bytes(),
+                10,
+                20,
+            )])
+        } else {
+            None
+        };
+        let (harness, grant, encoded) = ledger_harness_with_keys(&label, "metered.json", keys)?;
+        let signed = test_draw(
+            &receiver_secret()?,
+            &grant,
+            accepted("SID")?.price,
+            7,
+            receive_key_bytes(&label),
+        )?;
+        assert_ledger_transaction(&signed.raw, 7, RECEIVER_SEQUENCE, &grant, &label)?;
+        let event = draw_event(&grant, &label)?;
+        let mut address = event.address();
+        let mut topics = event.topics().to_vec();
+        let mut data = event.data().to_vec();
+        match case {
+            "amount" => data[63] ^= 1,
+            "recipient" => topics[3][0] ^= 1,
+            "key" => data[64] ^= 1,
+            "grant" => topics[1][0] ^= 1,
+            "address" => address[0] ^= 1,
+            _ => {}
+        }
+        let logs = if case == "missing" {
+            vec![]
+        } else {
+            vec![SequencerLog::new(address, topics, data, 0)]
+        };
+        let mut answer = draw_receipt_answer(signed.hash, &logs, 1)?;
+        match case {
+            "unsigned-log" => answer["logs"][0]["data"] = json!(format!("0x{}", "00".repeat(128))),
+            "seq" => answer["seq"] = json!("0x8"),
+            "height" => answer["height"] = json!("0xa"),
+            "status" => answer["status"] = json!("0x0"),
+            _ => (),
+        };
+        receipt_rule(&harness, signed.hash, answer, false)?;
+        assert_metered_payload_refused(
+            &harness,
+            &format!("/search?q={label}"),
+            "SID",
+            &encoded,
+            &label,
+        )?;
+    }
+    Ok(())
+}
+
+#[path = "support/payment_repair.rs"]
+mod payment_repair;
+
+#[test]
+fn supported_exact_offers_settle_in_each_asset_and_retired_metered_offers_are_refused() -> Outcome {
+    payment_repair::supported_offers_refusals_and_recovery()
 }
 
 #[test]
 fn pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own() -> Outcome {
     let harness = Harness::start("accounts", &["refusals.json"])?;
     let payer = harness.payer()?;
-    let receiver = receiver_did(&receiver_public_key()?);
+    let receiver = receiver_did();
     let offers = harness
-        .get("/search?q=accounts", &[(PAYER_DID, payer)])?
+        .get("/search?q=accounts", &[(PAYER_ADDRESS, payer)])?
         .decoded(PAYMENT_REQUIRED)?;
     let offers = offers
         .get("accepts")
@@ -682,26 +1338,364 @@ fn pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own() -> Ou
     for offer in offers {
         let currency = text(offer, "/extra/layerx/currency")?;
         let asset = accepted(currency)?;
-        let (receiver_account, payer_account) = if currency == "PAX" {
-            (
-                format!("agent:{receiver}:main"),
-                format!("agent:{payer}:main"),
-            )
+        let receiver_account = if currency == "PAX" {
+            format!("agent:{receiver}:main")
         } else {
-            (
-                format!("agent:{receiver}:asset:{}", asset.id_hex()),
-                format!("agent:{payer}:asset:{}", asset.id_hex()),
-            )
+            format!("agent:{receiver}:asset:{}", asset.id_hex())
         };
         assert_eq!(text(offer, "/extra/layerx/account")?, receiver_account);
         let pay_to = account_id(&receiver_account).ok_or_else(|| fail("payee"))?;
         assert_eq!(text(offer, "/payTo")?, hex(&pay_to));
-        if text(offer, "/scheme")? == METERED {
-            let drawn = account_id(&payer_account).ok_or_else(|| fail("payer"))?;
-            assert_eq!(text(offer, "/extra/layerx/payer")?, hex(&drawn));
-        }
     }
-    assert_eq!(offers.len(), 8);
+    assert_exact_only(offers)?;
+    Ok(())
+}
+
+fn exact_exchange() -> Outcome<Value> {
+    let receiver = receiver_did();
+    let mut rules = Vec::new();
+    let mut payments = serde_json::Map::new();
+    for currency in CURRENCIES {
+        let asset = accepted(currency)?;
+        let label = format!("pay-exact-{currency}");
+        let payer = payer_account(&asset)?;
+        let payee = account_id(&wallet_account(&receiver, &asset)).ok_or("payee")?;
+        let mut amount = [0; 32];
+        amount[16..].copy_from_slice(&asset.price.to_be_bytes());
+        let mut expires = [0; 32];
+        expires[24..].copy_from_slice(&GRANT_EXPIRATION.to_be_bytes());
+        let signed = LedgerTransaction {
+            chain_id: 125,
+            nonce: 7,
+            gas_price: 1,
+            gas_limit: 210_000,
+            data: [
+                &[0x78, 0xea, 0x11, 0xdb][..],
+                &payer,
+                &payee,
+                &asset.asset_id,
+                &amount,
+                &expires,
+                &receive_key_bytes(&label),
+            ]
+            .concat(),
+        }
+        .sign(&receiver_secret()?)?;
+        let event = SequencerLog::new(
+            LEDGER_PRECOMPILE,
+            vec![
+                x_websearch::watch::keccak(
+                    b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)",
+                ),
+                receive_key_bytes(&label),
+                payer,
+                payee,
+            ],
+            [asset.asset_id, amount].concat(),
+            0,
+        );
+        let answer = draw_receipt_answer(signed.hash, &[event], 1)?;
+        let receipt = x_websearch::payment::unhex(
+            text(&answer, "/receipt")?
+                .strip_prefix("0x")
+                .ok_or("receipt prefix")?,
+        )
+        .ok_or("receipt hex")?;
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        payments.insert(
+            currency.to_owned(),
+            json!({
+                "txHash": format!("0x{}", hex(&signed.hash)),
+                "rawTransaction": format!("0x{}", hex(&signed.raw)),
+                "receiptDigest": hex(&digest), "verificationLevel": "receipted",
+                "idempotencyKey": receive_key(&label),
+            }),
+        );
+        rules.push(json!({"method": "pax_sequencerReceipt", "params": [format!("0x{}", hex(&signed.hash))], "result": answer}));
+    }
+    let sid = accepted("SID")?;
+    let receiver = account_id(&wallet_account(&receiver_did(), &sid)).ok_or("payee")?;
+    let other = account_id(&wallet_account(
+        &format!("did:layerx:{}", "22".repeat(32)),
+        &sid,
+    ))
+    .ok_or("other payee")?;
+    for (label, payee, signer) in [
+        ("exact-other-payee", other, test_key("sequencer")),
+        ("exact-untrusted", receiver, test_key("untrusted-sequencer")),
+    ] {
+        let hash = labelled("x-websearch-test/activity/", label);
+        let answer = signed_draw_receipt_answer(
+            hash,
+            &[exact_event(&sid, payer_account(&sid)?, payee, label, 0)],
+            1,
+            &signer,
+        )?;
+        rules.push(
+            json!({"method":"pax_sequencerReceipt", "params":[answer["txHash"]], "result":answer}),
+        );
+    }
+    rules.push(json!({"method":"pax_sequencerReceipt", "params":[format!("0x{}",hex(&labelled("x-websearch-test/activity/", "exact-unknown")))], "result":null}));
+    Ok(json!({"endpoints": {"gateway": {"*": rules}}, "payments": payments}))
+}
+
+fn exact_fixture(currency: &str) -> Outcome<Value> {
+    exact_payment_fields(
+        &read_json(&fixtures().join("gateway/exact.json"))?["payments"]
+            .get(currency)
+            .cloned()
+            .ok_or_else(|| fail("exact payment"))?,
+    )
+}
+
+fn exact_payment_fields(payment: &Value) -> Outcome<Value> {
+    let mut payment = payment.clone();
+    payment
+        .as_object_mut()
+        .ok_or("exact payment object")?
+        .remove("rawTransaction");
+    Ok(payment)
+}
+
+#[test]
+fn an_exact_payment_settles_from_its_pay_exact_transaction() -> Outcome {
+    assert_eq!(
+        read_json(&fixtures().join("gateway/exact.json"))?,
+        exact_exchange()?
+    );
+    let harness = Harness::start("pay-exact-transaction", &["exact.json"])?;
+    for currency in CURRENCIES {
+        let recording = read_json(&fixtures().join("gateway/exact.json"))?;
+        let recorded = &recording["payments"][currency];
+        let raw = text(recorded, "/rawTransaction")?
+            .strip_prefix("0x")
+            .ok_or("transaction prefix")?;
+        let raw = x_websearch::payment::unhex(raw).ok_or("transaction hex")?;
+        assert_eq!(
+            recorded["txHash"],
+            format!("0x{}", hex(&x_websearch::watch::keccak(&raw)))
+        );
+        let payment = exact_fixture(currency)?;
+        assert!(payment.get("rawTransaction").is_none());
+        assert_eq!(payment.as_object().ok_or("exact payment object")?.len(), 4);
+        let reply = harness.exact(&format!("/fetch?url={currency}"), currency, &payment)?;
+        assert_settled(&reply)?;
+        let response = reply.decoded(PAYMENT_RESPONSE)?;
+        assert_eq!(response["transaction"], payment["txHash"]);
+        assert_eq!(
+            response["extensions"]["layerx"]["verificationLevel"],
+            "receipted"
+        );
+        assert_eq!(
+            response["extensions"]["layerx"]["receiptDigest"],
+            payment["receiptDigest"]
+        );
+    }
+    assert_eq!(harness.served(), 4);
+    assert_eq!(harness.gateway.calls("pax_sequencerReceipt"), 4);
+    for method in ["lx_getReceipt", "lx_sendActivity", "eth_sendRawTransaction"] {
+        assert_eq!(harness.gateway.calls(method), 0);
+    }
+    Ok(())
+}
+
+#[test]
+fn an_exact_transaction_already_consumed_is_refused() -> Outcome {
+    let harness = Harness::start("pay-exact-consumed", &["exact.json"])?;
+    let mut payment = exact_fixture("SID")?;
+    assert_settled(&harness.exact("/fetch?url=first", "SID", &payment)?)?;
+    payment["idempotencyKey"] = json!(receive_key("another-exact-request"));
+    assert_refused(
+        &harness.exact("/fetch?url=second", "SID", &payment)?,
+        "receipt_consumed",
+    );
+    assert_eq!(harness.served(), 1);
+    assert_eq!(
+        std::fs::read_dir(harness.scratch.join("data/payments/receipts"))?.count(),
+        1
+    );
+    assert_eq!(
+        std::fs::read_dir(harness.scratch.join("data/payments/requests"))?.count(),
+        1
+    );
+    Ok(())
+}
+
+#[test]
+fn delivery_recovers_the_recorded_receipted_settlement() -> Outcome {
+    let mut harness = Harness::start("receipted-delivery", &["exact.json"])?;
+    harness.delivery_server()?;
+    let target = "/fetch?url=recorded-delivery";
+    let signature = harness.signature(target, None, EXACT, "SID", &exact_fixture("SID")?)?;
+    let first = harness.pay(target, None, &signature)?;
+    assert_settled(&first)?;
+    assert_eq!(
+        first.decoded(PAYMENT_RESPONSE)?["transaction"],
+        exact_fixture("SID")?["txHash"]
+    );
+    harness.restart_deliveries()?;
+    let replay = harness.pay(target, None, &signature)?;
+    assert_settled(&replay)?;
+    assert_eq!(first.raw, replay.raw);
+    assert_eq!(
+        first.header(PAYMENT_RESPONSE),
+        replay.header(PAYMENT_RESPONSE)
+    );
+    assert_eq!(harness.served(), 1);
+    assert_eq!(harness.gateway.calls("eth_sendRawTransaction"), 0);
+    assert_eq!(harness.gateway.calls("lx_getReceipt"), 0);
+    Ok(())
+}
+
+fn kernel_era_delivery(harness: &Harness, released: bool) -> Outcome<(PathBuf, String)> {
+    let path = std::fs::read_dir(harness.scratch.join("data/payments/requests"))?
+        .next()
+        .ok_or("payment record")??
+        .path();
+    let mut record = read_json(&path)?;
+    let asset = accepted("SID")?;
+    let activity_id = labelled("x-websearch-test/activity/", "kernel-era-payment");
+    let receipt = signed_receipt(
+        &Movement {
+            label: "kernel-era-payment",
+            operation: 5,
+            activity_id,
+            asset: &asset,
+            amount: asset.price,
+            from: fixture_word(&record, "/payer")?,
+            to: fixture_word(&record["offer"], "/payTo")?,
+            fee: RECORDED_FEE,
+        },
+        &test_key("sequencer"),
+    )?;
+    let digest = hex(&wire(leaf_hash(&receipt))?);
+    let previous_digest = text(&record, "/receipt_digest")?.to_owned();
+    let object = record.as_object_mut().ok_or("payment object")?;
+    object.remove("tx_hash");
+    object.remove("raw_transaction");
+    object.insert("activity".to_owned(), Value::Null);
+    object.insert("activity_id".to_owned(), json!(hex(&activity_id)));
+    record["attempted"] = json!(true);
+    record["released"] = json!(released);
+    record["receipt"] = json!(hex(&receipt));
+    record["receipt_digest"] = json!(digest);
+    std::fs::write(&path, serde_json::to_vec(&record)?)?;
+    let key = path.file_name().ok_or("payment key")?;
+    let receipts = harness.scratch.join("data/payments/receipts");
+    std::fs::rename(receipts.join(previous_digest), receipts.join(&digest))?;
+    let delivery_path = harness.scratch.join("data/payments/deliveries").join(key);
+    let mut delivery = read_json(&delivery_path)?;
+    delivery["receipt_digest"] = json!(digest);
+    let headers = delivery["response"]["headers"]
+        .as_array_mut()
+        .ok_or("delivery headers")?;
+    let header = headers
+        .iter_mut()
+        .find(|header| header[0] == PAYMENT_RESPONSE)
+        .ok_or("payment response")?;
+    let mut settlement: Value =
+        serde_json::from_slice(&STANDARD.decode(header[1].as_str().ok_or("header text")?)?)?;
+    settlement["transaction"] = json!(format!("lxp:{digest}"));
+    settlement["extensions"]["layerx"] = json!({"receipt": STANDARD.encode(&receipt),
+        "receiptDigest": digest, "verificationLevel": "sequencer-signed"});
+    settlement["extensions"]["x-websearch"]["receiptDigest"] = json!(digest);
+    let encoded = encode(&settlement);
+    header[1] = json!(encoded);
+    std::fs::write(delivery_path, serde_json::to_vec(&delivery)?)?;
+    Ok((path, encoded))
+}
+
+#[test]
+fn a_released_kernel_era_record_is_still_replayed() -> Outcome {
+    let mut harness = Harness::start("released-kernel-record", &["exact.json"])?;
+    harness.delivery_server()?;
+    let target = "/fetch?url=kernel-replay";
+    let signature = harness.signature(target, None, EXACT, "SID", &exact_fixture("SID")?)?;
+    let first = harness.pay(target, None, &signature)?;
+    assert_settled(&first)?;
+    let (path, header) = kernel_era_delivery(&harness, true)?;
+    let key =
+        x_websearch::payment::unhex(path.file_name().ok_or("key")?.to_str().ok_or("key text")?)
+            .ok_or("key hex")?
+            .try_into()
+            .map_err(|_| fail("key length"))?;
+    let store = x_websearch::payment::PaymentStore::open(&harness.scratch.join("data"))?;
+    let record = store.load(&key)?.ok_or("loaded legacy record")?;
+    assert!(record.released);
+    assert_eq!(record.tx_hash, None);
+    assert_eq!(
+        record.receipt_digest.as_deref(),
+        read_json(&path)?["receipt_digest"].as_str()
+    );
+    let lookups = harness.gateway.calls("pax_sequencerReceipt");
+    for _ in 0..2 {
+        let replay = harness.pay(target, None, &signature)?;
+        assert_settled(&replay)?;
+        assert_eq!(replay.raw, first.raw);
+        assert_eq!(replay.header(PAYMENT_RESPONSE), Some(header.as_str()));
+    }
+    assert_eq!(harness.served(), 1);
+    assert_eq!(harness.gateway.calls("pax_sequencerReceipt"), lookups);
+    Ok(())
+}
+
+#[test]
+fn an_unreleased_kernel_era_record_stops_startup() -> Outcome {
+    let mut harness = Harness::start("unreleased-kernel-record", &["exact.json"])?;
+    harness.delivery_server()?;
+    assert_settled(&harness.exact("/fetch?url=kernel-pending", "SID", &exact_fixture("SID")?)?)?;
+    let (path, _) = kernel_era_delivery(&harness, false)?;
+    harness.close_gate()?;
+    let config = configure_with(&harness.scratch, &harness.gateway, &harness.buyer, None)?;
+    let error = match PaymentGate::new(
+        &config,
+        &receiver_key(&harness.scratch)?,
+        conformance(&harness.gateway)?,
+        fixed_clock,
+    ) {
+        Err(GateError::Store(error)) => error,
+        Err(error) => return Err(fail(format!("unexpected startup error: {error}"))),
+        Ok(_) => return Err(fail("unreleased kernel activity accepted")),
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    assert!(error.to_string().contains(
+        path.file_name()
+            .ok_or("filename")?
+            .to_str()
+            .ok_or("filename text")?
+    ));
+    assert!(error.to_string().contains("unreleased kernel activity"));
+    assert_eq!(harness.gateway.calls("eth_sendRawTransaction"), 0);
+    assert_eq!(harness.served(), 1);
+    Ok(())
+}
+
+#[test]
+fn a_kernel_era_delivery_is_still_served() -> Outcome {
+    let mut harness = Harness::start("kernel-delivery-restart", &["exact.json"])?;
+    harness.delivery_server()?;
+    let target = "/fetch?url=kernel-delivery";
+    let signature = harness.signature(target, None, EXACT, "SID", &exact_fixture("SID")?)?;
+    let first = harness.pay(target, None, &signature)?;
+    assert_settled(&first)?;
+    let (_, header) = kernel_era_delivery(&harness, true)?;
+    let lookups = harness.gateway.calls("pax_sequencerReceipt");
+    harness.restart_deliveries()?;
+    let replay = harness.pay(target, None, &signature)?;
+    assert_settled(&replay)?;
+    assert_eq!(replay.raw, first.raw);
+    assert_eq!(replay.header(PAYMENT_RESPONSE), Some(header.as_str()));
+    assert_eq!(
+        replay.decoded(PAYMENT_RESPONSE)?["extensions"]["layerx"]["verificationLevel"],
+        "sequencer-signed"
+    );
+    assert_eq!(harness.gateway.calls("pax_sequencerReceipt"), lookups);
+    assert_eq!(harness.served(), 1);
+    assert_refused(
+        &harness.pay("/fetch?url=other-resource", None, &signature)?,
+        "request_mismatch",
+    );
+    assert_eq!(harness.served(), 1);
     Ok(())
 }
 
@@ -721,45 +1715,14 @@ fn exact_receipts_settle_in_each_asset() -> Outcome {
         assert_eq!(reply.body.get("url"), Some(&json!(currency)));
     }
     assert_eq!(harness.served(), 4);
-    assert_eq!(harness.gateway.calls("lx_getReceipt"), 4);
+    assert_eq!(harness.gateway.calls("pax_sequencerReceipt"), 4);
     Ok(())
 }
 
 #[test]
-fn a_pending_draw_recovers_the_same_activity_and_releases_once() -> Outcome {
-    let harness = Harness::start("pending", &["pending.json"])?;
-    let payer = harness.payer()?;
-    let grant = harness.grant("/grants/SID")?;
-    let target = "/search?q=pending";
-    let signature = harness.signature(
-        target,
-        Some(payer),
-        METERED,
-        "SID",
-        &metered_payload(&grant, "pending-SID"),
-    )?;
-    for _ in 0..2 {
-        let reply = harness.pay(target, Some(payer), &signature)?;
-        assert_eq!(
-            (reply.status, reply.error()),
-            (503, Some("payment_pending"))
-        );
-        assert_eq!(reply.header("Retry-After"), Some("1"));
-        assert_eq!(harness.served(), 0);
-    }
-    assert_settled(&harness.pay(target, Some(payer), &signature)?)?;
-    assert_eq!(harness.served(), 1);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 1);
-    assert_eq!(harness.gateway.calls("lx_getActivityStatus"), 2);
-    assert_eq!(harness.gateway.calls("lx_getReceipt"), 1);
-    assert_eq!(harness.gateway.calls("lx_getSequence"), 2);
-    assert_refused(
-        &harness.pay(target, Some(payer), &signature)?,
-        "receipt_consumed",
-    );
-    assert_eq!(harness.served(), 1);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 1);
-    Ok(())
+fn a_pending_exact_payment_recovers_the_same_transaction_after_restart_and_releases_once() -> Outcome
+{
+    pending_exact_recovery("pending-exact-restart", false, true)
 }
 
 #[test]
@@ -767,7 +1730,7 @@ fn malformed_and_unmatched_payments_are_challenged() -> Outcome {
     let harness = Harness::start("challenge", &["refusals.json"])?;
     let payer = harness.payer()?;
     let target = "/search?q=challenge";
-    let challenge = harness.get(target, &[(PAYER_DID, payer)])?;
+    let challenge = harness.get(target, &[(PAYER_ADDRESS, payer)])?;
     assert_refused(&challenge, "payment_required");
     let offers = challenge.decoded(PAYMENT_REQUIRED)?;
     assert_eq!(
@@ -775,7 +1738,7 @@ fn malformed_and_unmatched_payments_are_challenged() -> Outcome {
             .pointer("/accepts")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(8)
+        Some(4)
     );
     assert_eq!(
         harness
@@ -794,7 +1757,7 @@ fn malformed_and_unmatched_payments_are_challenged() -> Outcome {
     let signature = harness.signature(
         target,
         Some(payer),
-        METERED,
+        EXACT,
         "SID",
         &metered_payload(&grant, "altered"),
     )?;
@@ -812,110 +1775,104 @@ fn malformed_and_unmatched_payments_are_challenged() -> Outcome {
     );
     assert_eq!(
         harness
-            .get("/search?q=x", &[(PAYER_DID, "did:Upper")])?
+            .get("/search?q=x", &[(PAYER_ADDRESS, "did:Upper")])?
             .status,
         400
     );
-    assert_eq!(harness.served(), 0);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 0);
+    assert_no_payment_state(&harness)?;
     Ok(())
 }
 
 #[test]
-fn grants_that_do_not_bind_this_draw_are_refused() -> Outcome {
+fn metered_grants_that_do_not_bind_the_request_are_refused_without_state() -> Outcome {
     let harness = Harness::start("grants", &["refusals.json"])?;
-    for (grant, reason) in [
-        ("recurring", "grant_not_metered"),
-        ("expired", "grant_expired"),
-        ("otherPurpose", "grant_purpose_mismatch"),
-        ("lowLimit", "grant_limit"),
-        ("otherRecipient", "grant_recipient_mismatch"),
+    for name in [
+        "recurring",
+        "expired",
+        "otherPurpose",
+        "lowLimit",
+        "otherRecipient",
     ] {
-        let grant = harness.grant(&format!("/refusedGrants/{grant}"))?;
-        let reply = harness.metered(&format!("/search?q={reason}"), "SID", &grant, reason)?;
-        assert_refused(&reply, reason);
-        assert_eq!(
-            reply.decoded(PAYMENT_RESPONSE)?.get("success"),
-            Some(&json!(false))
-        );
+        let grant = harness.grant(&format!("/refusedGrants/{name}"))?;
+        assert_metered_payload_refused(
+            &harness,
+            &format!("/search?q={name}"),
+            "SID",
+            &grant,
+            name,
+        )?;
     }
     let grant = harness.grant("/grants/SID")?;
-    let bogus = format!("{}00", &grant[..grant.len() - 2]);
-    assert_refused(
-        &harness.metered("/search?q=bogus", "SID", &bogus, "bogus")?,
-        "invalid_grant",
-    );
-    assert_refused(
-        &harness.metered("/search?q=asset", "PAX", &grant, "asset")?,
-        "grant_payer_mismatch",
-    );
-    let other = format!("did:layerx:{}", "11".repeat(32));
+    assert_metered_payload_refused(
+        &harness,
+        "/search?q=bogus",
+        "SID",
+        &"00".repeat(32),
+        "bogus",
+    )?;
+    assert_metered_payload_refused(&harness, "/search?q=asset", "PAX", &grant, "asset")?;
+    let other = format!("0x{}", "11".repeat(20));
     let target = "/search?q=other-payer";
     let signature = harness.signature(
         target,
         Some(&other),
-        METERED,
+        EXACT,
         "SID",
         &metered_payload(&grant, "other-payer"),
     )?;
     assert_refused(
         &harness.pay(target, Some(&other), &signature)?,
-        "grant_payer_mismatch",
+        "invalid_payment_payload",
     );
-    assert_eq!(harness.served(), 0);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 0);
-    Ok(())
+    assert_no_payment_state(&harness)
 }
 
 #[test]
-fn draws_the_gateway_does_not_settle_release_nothing() -> Outcome {
+fn unsettled_metered_draw_payloads_release_nothing() -> Outcome {
     let harness = Harness::start("draws", &["refusals.json"])?;
     let grant = harness.grant("/grants/SID")?;
-    for (label, reason) in [
-        ("refused-other-receipt", "receipt_mismatch"),
-        ("refused-untrusted", "receipt_unverified"),
-        ("refused-failed", "payment_failed"),
-        ("refused-other-activity", "receipt_mismatch"),
-        ("refused-amount", "receipt_mismatch"),
+    for label in [
+        "refused-other-receipt",
+        "refused-untrusted",
+        "refused-failed",
+        "refused-other-activity",
+        "refused-amount",
+        "refused-unknown",
     ] {
-        assert_refused(
-            &harness.metered(&format!("/search?q={label}"), "SID", &grant, label)?,
-            reason,
-        );
+        assert_metered_payload_refused(
+            &harness,
+            &format!("/search?q={label}"),
+            "SID",
+            &grant,
+            label,
+        )?;
     }
     let pax = harness.grant("/grants/PAX")?;
-    assert_refused(
-        &harness.metered("/search?q=conflict", "PAX", &pax, "refused-failed")?,
-        "idempotency_conflict",
-    );
-    let payer = harness.payer()?;
-    let target = "/search?q=unknown";
+    assert_metered_payload_refused(
+        &harness,
+        "/search?q=conflict",
+        "PAX",
+        &pax,
+        "refused-failed",
+    )?;
     let signature = harness.signature(
-        target,
-        Some(payer),
-        METERED,
+        "/search?q=unknown",
+        Some(harness.payer()?),
+        EXACT,
         "SID",
         &metered_payload(&grant, "refused-unknown"),
     )?;
-    let reply = harness.pay(target, Some(payer), &signature)?;
-    assert_eq!(
-        (reply.status, reply.error()),
-        (503, Some("payment_pending"))
-    );
     assert_refused(
-        &harness.pay("/search?q=elsewhere", Some(payer), &signature)?,
-        "request_mismatch",
+        &harness.pay("/search?q=elsewhere", Some(harness.payer()?), &signature)?,
+        "invalid_payment_payload",
     );
-    assert_eq!(harness.served(), 0);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 6);
-    Ok(())
+    assert_no_payment_state(&harness)
 }
 
 #[test]
 fn exact_receipts_that_do_not_pay_this_request_are_refused() -> Outcome {
     let harness = Harness::start("exact-refusals", &["exact.json"])?;
     for (payment, reason) in [
-        ("/refusedExact/unknown", "receipt_unknown"),
         ("/refusedExact/otherPayee", "receipt_mismatch"),
         ("/refusedExact/untrusted", "receipt_unverified"),
     ] {
@@ -929,6 +1886,17 @@ fn exact_receipts_that_do_not_pay_this_request_are_refused() -> Outcome {
             reason,
         );
     }
+    let unknown = harness.exact(
+        "/fetch?url=receipt_unknown",
+        "SID",
+        &harness.buyer["refusedExact"]["unknown"],
+    )?;
+    assert_eq!(
+        (unknown.status, unknown.error()),
+        (503, Some("payment_pending"))
+    );
+    assert_eq!(unknown.header("Retry-After"), Some("1"));
+    assert_eq!(harness.served(), 0);
     let sid = harness
         .buyer
         .pointer("/exact/SID")
@@ -966,140 +1934,298 @@ fn exact_receipts_that_do_not_pay_this_request_are_refused() -> Outcome {
 }
 
 #[test]
-fn the_configured_payer_is_offered_and_drawn_from() -> Outcome {
-    let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
-    let payer = text(&buyer, "/payerDid")?.to_owned();
-    let harness = Harness::launch(
-        "configured-payer",
-        Gateway::start(&["metered.json"])?,
-        Some(json!({ "payer_did": payer.as_str() })),
+fn the_configured_payer_address_keeps_exact_offers_and_refuses_metered_payloads() -> Outcome {
+    let (mut harness, grant, encoded) = ledger_harness("configured-payer-address")?;
+    harness.close_gate()?;
+    let config = configure_with(
+        &harness.scratch,
+        &harness.gateway,
+        &harness.buyer,
+        Some(json!({"payer_address": PAYER_TEXT})),
     )?;
-    let target = "/search?q=SID";
+    harness.gate = Some(Arc::new(PaymentGate::new(
+        &config,
+        &receiver_secret()?,
+        conformance(&harness.gateway)?,
+        fixed_clock,
+    )?));
+    harness.delivery_server()?;
+    assert_eq!(harness.gate().payer(), Some(PAYER));
+    let target = "/fetch?url=configured-address";
     let offers = harness.get(target, &[])?.decoded(PAYMENT_REQUIRED)?;
-    let offers = offers
-        .get("accepts")
-        .and_then(Value::as_array)
-        .ok_or_else(|| fail("offers"))?;
-    assert_eq!(offers.len(), 8);
-    for offer in offers {
-        if text(offer, "/scheme")? == METERED {
-            let asset = accepted(text(offer, "/extra/layerx/currency")?)?;
-            let drawn = account_id(&wallet_account(&payer, &asset)).ok_or_else(|| fail("payer"))?;
-            assert_eq!(text(offer, "/extra/layerx/payer")?, hex(&drawn));
-        }
+    let offers = offers["accepts"].as_array().ok_or("offers")?;
+    assert_exact_only(offers)?;
+    assert_eq!(
+        harness
+            .get(target, &[("LAYERX-PAYER-DID", "did:Upper")])?
+            .decoded(PAYMENT_REQUIRED)?["accepts"],
+        json!(offers)
+    );
+    for repeated in [
+        PAYER_TEXT.to_owned(),
+        PAYER_TEXT.to_uppercase().replacen("0X", "0x", 1),
+    ] {
+        assert_eq!(
+            harness.get(target, &[(PAYER_ADDRESS, &repeated)])?.status,
+            402
+        );
     }
-    let other = format!("did:layerx:{}", "11".repeat(32));
-    let mismatch = harness.get(target, &[(PAYER_DID, other.as_str())])?;
+    let other = format!("0x{}", "11".repeat(20));
+    let mismatch = harness.get(target, &[(PAYER_ADDRESS, &other)])?;
     assert_eq!(
         (mismatch.status, mismatch.error()),
         (400, Some("payer_mismatch"))
     );
-    assert_eq!(
-        harness.get(target, &[(PAYER_DID, payer.as_str())])?.status,
-        402
-    );
-    let grant = harness.grant("/grants/SID")?;
+    let asset = accepted("SID")?;
+    let (foreign, foreign_encoded) = signed_grant(
+        &test_key("payer"),
+        &GrantTerms {
+            from: account_id(&wallet_account(text(&harness.buyer, "/payerDid")?, &asset))
+                .ok_or("foreign payer")?,
+            recipient: grant.recipient,
+            asset: grant.asset,
+            per_draw_maximum: grant.per_draw_maximum,
+            allowance: grant.allowance,
+            window_length: grant.window_length,
+            expiration: grant.expiration,
+            purpose: grant.purpose_hash,
+        },
+        "",
+    )?;
+    harness.gateway.rules.lock().unwrap_or_else(PoisonError::into_inner).extend(parse_rules(&[
+        json!({"method":"eth_call", "params":[{"to":format!("0x{}", hex(&LEDGER_PRECOMPILE)),
+            "data":format!("0x423fe4b2{}", hex(&foreign.id))}, "pending"], "result":ledger_answer(&foreign_encoded)})
+    ])?);
     let signature = harness.signature(
         target,
         None,
-        METERED,
+        EXACT,
         "SID",
-        &metered_payload(&grant, "metered-SID"),
+        &metered_payload(&foreign_encoded, "wrong-payer-address"),
     )?;
-    let reply = harness.pay(target, None, &signature)?;
-    assert_settled(&reply)?;
-    let sid = accepted("SID")?;
-    let drawn = account_id(&wallet_account(&payer, &sid)).ok_or_else(|| fail("payer"))?;
-    assert_eq!(
-        reply.decoded(PAYMENT_RESPONSE)?.get("payer"),
-        Some(&json!(hex(&drawn)))
+    assert_refused(
+        &harness.pay(target, None, &signature)?,
+        "invalid_payment_payload",
     );
-    let recording = read_json(&fixtures().join("gateway/metered.json"))?;
-    let submitted = recording
-        .pointer("/endpoints/gateway/*")
-        .and_then(Value::as_array)
-        .and_then(|rules| {
-            rules
-                .iter()
-                .find(|rule| rule.get("method") == Some(&json!("lx_sendActivity")))
-        })
-        .ok_or_else(|| fail("recorded draw"))?;
-    assert!(text(submitted, "/params/0")?.contains(&hex(&drawn)));
-    assert_eq!(harness.served(), 1);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 1);
+    assert_metered_payload_refused(&harness, target, "SID", &encoded, "configured-address")?;
+    let requests = harness
+        .gateway
+        .requests
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    assert!(!requests.iter().any(|request| request["params"][0]["data"]
+        .as_str()
+        .is_some_and(|data| data.starts_with("0x423fe4b2") || data.starts_with("0xce2f921f"))));
     Ok(())
 }
 
 #[test]
-fn a_draw_charged_above_the_configured_fee_limit_is_refused() -> Outcome {
+fn a_payer_did_header_is_ignored_and_a_malformed_address_is_refused() -> Outcome {
+    let harness = Harness::start("payer-header-address", &["metered.json"])?;
+    let target = "/search?q=payer-address";
+    for did in ["did:layerx:buyer", "did:Upper", "not-a-did"] {
+        let reply = harness.get(target, &[("LAYERX-PAYER-DID", did)])?;
+        assert_eq!(reply.status, 402);
+        let required = reply.decoded(PAYMENT_REQUIRED)?;
+        let offers = required["accepts"].as_array().ok_or("offers")?;
+        assert_eq!(offers.len(), 4);
+        assert!(offers.iter().all(|offer| offer["scheme"] == EXACT));
+    }
+    for address in [
+        String::new(),
+        "did:layerx:buyer".to_owned(),
+        "ab".repeat(20),
+        format!("0X{}", "ab".repeat(20)),
+        format!("0x{}", "ab".repeat(19)),
+        format!("0x{}", "ab".repeat(21)),
+        format!("0x{}", "gg".repeat(20)),
+        format!("0x{}g", "a".repeat(39)),
+    ] {
+        let reply = harness.get(target, &[(PAYER_ADDRESS, &address)])?;
+        assert_eq!(
+            (reply.status, reply.error()),
+            (400, Some("malformed_payer"))
+        );
+    }
+    let reply = harness.get(
+        target,
+        &[
+            ("LAYERX-PAYER-DID", "did:Upper"),
+            (PAYER_ADDRESS, PAYER_TEXT),
+        ],
+    )?;
+    assert_eq!(reply.status, 402);
+    let required = reply.decoded(PAYMENT_REQUIRED)?;
+    let offers = required["accepts"].as_array().ok_or("offers")?;
+    assert_exact_only(offers)?;
+    assert_no_payment_state(&harness)
+}
+
+#[test]
+fn a_receipt_outside_every_configured_key_window_is_refused() -> Outcome {
+    let sid = accepted("SID")?;
+    let payee = receiver_did();
+    let key = test_key("sequencer");
+    let activity_id = labelled("x-websearch-test/activity/", "outside-key-windows");
+    let receipt = signed_receipt(
+        &Movement {
+            label: "outside-key-windows",
+            operation: 5,
+            activity_id,
+            asset: &sid,
+            amount: sid.price,
+            from: payer_account(&sid)?,
+            to: account_id(&wallet_account(&payee, &sid)).ok_or("payee")?,
+            fee: RECORDED_FEE,
+        },
+        &key,
+    )?;
+    let covering = [SequencerAuthorization::new(
+        receipt_key_id(),
+        key.verifying_key().to_bytes(),
+        9,
+        9,
+    )];
+    let verified = wire(verify_sequencer_signature(
+        &receipt,
+        ReceiptKeys::HeightRanges(&covering),
+    ))?;
+    let facts = verified.protocol().ok_or("protocol receipt")?;
+    assert_eq!(facts.activity_id(), activity_id);
+    assert_eq!(&facts.batch_id()[24..], &9_u64.to_be_bytes());
+    let windows = vec![
+        SequencerAuthorization::new(receipt_key_id(), key.verifying_key().to_bytes(), 0, 8),
+        SequencerAuthorization::new(
+            labelled("x-websearch-test/receipt-key/", "next"),
+            test_key("next").verifying_key().to_bytes(),
+            10,
+            20,
+        ),
+    ];
+    let answer = draw_receipt_answer(
+        activity_id,
+        &[exact_event(
+            &sid,
+            payer_account(&sid)?,
+            account_id(&wallet_account(&payee, &sid)).ok_or("payee")?,
+            "outside-key-windows",
+            0,
+        )],
+        1,
+    )?;
+    let mut rules = load_rules(&[])?;
+    rules.extend(parse_rules(&[json!({
+        "method": "pax_sequencerReceipt", "params": [format!("0x{}",hex(&activity_id))],
+        "result": answer,
+    })])?);
+    let harness = Harness::launch_with_receipt_keys(
+        "outside-key-windows",
+        Gateway::listen(rules)?,
+        None,
+        Some(windows),
+    )?;
+    let reply = harness.exact(
+        "/fetch?url=outside-key-windows",
+        "SID",
+        &exact_payment(&answer, "outside-key-windows")?,
+    )?;
+    assert_refused(&reply, "receipt_unverified");
+    assert_eq!(
+        reply.decoded(PAYMENT_RESPONSE)?.get("success"),
+        Some(&json!(false))
+    );
+    assert_eq!(harness.served(), 0);
+    assert_eq!(harness.gateway.calls("lx_sendActivity"), 0);
+    assert_eq!(harness.gateway.calls("lx_getReceipt"), 0);
+    assert_eq!(
+        std::fs::read_dir(harness.scratch.join("data/payments/receipts"))?.count(),
+        0
+    );
+    assert_eq!(
+        std::fs::read_dir(harness.scratch.join("data/payments/deliveries"))?.count(),
+        0
+    );
+    Ok(())
+}
+
+#[test]
+fn metered_draw_payloads_at_and_above_the_fee_limit_are_refused_without_state() -> Outcome {
     const LIMIT: u128 = 5;
     let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
     let receiver = receiver_secret()?;
-    let receiver_did = receiver_did(&receiver.verifying_key().to_bytes());
+    let receiver_did = receiver_did();
     let sid = accepted("SID")?;
     let encoded = text(&buyer, "/grants/SID")?;
-    let grant = x_websearch::payment::unhex(encoded)
-        .and_then(|bytes| x_websearch::payment::decode_grant(&bytes, &receiver_did))
-        .ok_or_else(|| fail("grant"))?;
+    let bytes = x_websearch::payment::unhex(encoded).ok_or("grant bytes")?;
+    let Payment::IssueGrant(grant) = wire(Payment::decode(
+        layerx_types::payload::ModuleId::Asset,
+        7,
+        &bytes,
+        receiver_did.as_bytes(),
+    ))?
+    else {
+        return Err(fail("grant"));
+    };
     let pay_to = account_id(&wallet_account(&receiver_did, &sid)).ok_or_else(|| fail("payee"))?;
-    let from = account_id(&wallet_account(text(&buyer, "/payerDid")?, &sid))
-        .ok_or_else(|| fail("payer"))?;
     let mut list = vec![
         identity_rule(&receiver_did, IDENTITY_SEQUENCE, false),
         account_rule(&pay_to),
     ];
+    let recording = read_json(&fixtures().join("gateway/metered.json"))?;
+    list.extend(
+        recording["endpoints"]["gateway"]["*"]
+            .as_array()
+            .ok_or("rules")?
+            .iter()
+            .filter(|rule| {
+                rule["method"]
+                    .as_str()
+                    .is_some_and(|name| name.starts_with("eth_"))
+            })
+            .cloned(),
+    );
     for (label, fee) in [("fee-above-limit", LIMIT + 1), ("fee-at-limit", LIMIT)] {
-        let signed = wire(sign_draw(
-            &receiver,
-            &DrawRequest {
-                grant: &grant,
-                amount: sid.price,
-                receiver_sequence: RECEIVER_SEQUENCE,
-                identity_sequence: IDENTITY_SEQUENCE,
-                idempotency_key: receive_key_bytes(label),
-                network_id: 1,
-                now_ms: NOW_MS,
-                fee_limit: LIMIT,
-            },
-        ))?;
-        let receipt = signed_receipt(
-            &Movement {
-                label,
-                operation: 6,
-                activity_id: signed.activity_id,
-                asset: &sid,
-                amount: sid.price,
-                from,
-                to: pay_to,
-                fee,
-            },
+        let (recorded, _) = recorded_draw(&grant, &sid, label, 7, RECEIVER_SEQUENCE)?;
+        let (_, body, _) = rlp_item(&recorded.raw)?;
+        let mut rest = body;
+        for _ in 0..5 {
+            let (_, _, n) = rlp_item(rest)?;
+            rest = &rest[n..];
+        }
+        let (_, data, _) = rlp_item(rest)?;
+        let signed = LedgerTransaction {
+            chain_id: 125,
+            nonce: 7,
+            gas_price: 1,
+            gas_limit: u64::try_from(LIMIT)?,
+            data: data.to_vec(),
+        }
+        .sign(&receiver)?;
+        let answer = signed_draw_receipt_with_fee(
+            signed.hash,
+            &[draw_event(&grant, label)?],
+            1,
             &test_key("sequencer"),
+            fee,
         )?;
-        list.push(send_rule(
-            &signed.canonical,
-            ("result", completed(&signed.activity_id, &receipt)),
-        ));
+        let mut rules = native_draw_rules(&signed, answer)?;
+        rules[0]["result"] = json!(format!("0x{LIMIT:x}"));
+        list.extend(rules);
     }
     let harness = Harness::launch(
         "fee-limit",
         Gateway::serve_rules(&list)?,
         Some(json!({ "draw_fee_limit": LIMIT.to_string() })),
     )?;
-    let refused = harness.metered(
-        "/search?q=fee-above-limit",
-        "SID",
-        encoded,
-        "fee-above-limit",
-    )?;
-    assert_refused(&refused, "draw_fee_limit_exceeded");
-    assert_eq!(
-        refused.decoded(PAYMENT_RESPONSE)?.get("success"),
-        Some(&json!(false))
-    );
-    assert_eq!(harness.served(), 0);
-    assert_settled(&harness.metered("/search?q=fee-at-limit", "SID", encoded, "fee-at-limit")?)?;
-    assert_eq!(harness.served(), 1);
-    assert_eq!(harness.gateway.calls("lx_sendActivity"), 2);
+    for label in ["fee-above-limit", "fee-at-limit"] {
+        assert_metered_payload_refused(
+            &harness,
+            &format!("/search?q={label}"),
+            "SID",
+            encoded,
+            label,
+        )?;
+    }
     Ok(())
 }
 
@@ -1118,27 +2244,23 @@ fn the_gate_reads_its_payment_settings_and_checks_the_configured_suite() -> Outc
     assert_eq!(defaults.draw_fee_limit(), DEFAULT_DRAW_FEE_LIMIT);
     assert_eq!(defaults.payer(), None);
     drop(defaults);
-    let payer = text(&buyer, "/payerDid")?;
     let configured = PaymentGate::new(
         &configure_with(
             &scratch,
             &gateway,
             &buyer,
-            Some(json!({ "payer_did": payer, "draw_fee_limit": "42" })),
+            Some(json!({ "payer_address": PAYER_TEXT, "draw_fee_limit": "42" })),
         )?,
         &receiver,
         conformance(&gateway)?,
         fixed_clock,
     )?;
     assert_eq!(configured.draw_fee_limit(), 42);
-    assert_eq!(configured.payer(), Some(payer));
+    assert_eq!(configured.payer(), Some(PAYER));
     drop(configured);
-    let mut unusable = configure_with(&scratch, &gateway, &buyer, None)?;
-    unusable.payment.payer_did = Some("did:Upper".to_owned());
-    assert!(matches!(
-        PaymentGate::new(&unusable, &receiver, conformance(&gateway)?, fixed_clock),
-        Err(GateError::Payer)
-    ));
+    let mut unusable = read_json(&fixtures().join("config/valid.json"))?;
+    unusable["payment"] = json!({"payer_address": "did:Upper"});
+    assert!(Config::parse(&unusable.to_string()).is_err());
     let recorded = configure_with(
         &scratch,
         &gateway,
@@ -1184,19 +2306,28 @@ fn the_gate_reads_its_payment_settings_and_checks_the_configured_suite() -> Outc
     Ok(())
 }
 
-fn receiver_secret() -> Outcome<SigningKey> {
+fn receiver_secret() -> Outcome<k256::ecdsa::SigningKey> {
     let secret: [u8; 32] = x_websearch::payment::unhex(RECEIVER_SECRET)
         .and_then(|bytes| bytes.try_into().ok())
         .ok_or_else(|| fail("receiver secret"))?;
-    Ok(SigningKey::from_bytes(&secret))
+    Ok(k256::ecdsa::SigningKey::from_slice(&secret)?)
 }
 
-fn receiver_public_key() -> Outcome<[u8; 32]> {
-    Ok(receiver_secret()?.verifying_key().to_bytes())
+fn receiver_public_key() -> Outcome<[u8; 20]> {
+    Ok(x_websearch::attest::signer_address(&receiver_secret()?))
 }
 
 fn accepted(currency: &str) -> Outcome<AcceptedAsset> {
-    let config = Config::parse(&read_json(&fixtures().join("config/valid.json"))?.to_string())?;
+    let mut value = read_json(&fixtures().join("config/valid.json"))?;
+    value["gateway"] = json!({
+        "endpoint": "http://127.0.0.1:8547/rpc",
+        "receipt_keys": [{
+            "key_id": hex(&receipt_key_id()),
+            "public_key": hex(&test_key("sequencer").verifying_key().to_bytes()),
+            "first_height": 0, "last_height": u64::MAX,
+        }],
+    });
+    let config = Config::parse(&value.to_string())?;
     let assets = AcceptedAssets::new(&config.assets).map_err(|error| fail(format!("{error:?}")))?;
     assets
         .all()
@@ -1214,6 +2345,10 @@ fn wire<T, E: std::fmt::Debug>(result: Result<T, E>) -> Outcome<T> {
 /// their public halves and signatures reach the fixtures.
 fn test_key(label: &str) -> SigningKey {
     SigningKey::from_bytes(&labelled("x-websearch-test/key/", label))
+}
+
+fn receipt_key_id() -> [u8; 32] {
+    labelled("x-websearch-test/receipt-key/", "sequencer")
 }
 
 /// One asset movement a recorded receipt attests.
@@ -1250,7 +2385,9 @@ fn encode_receipt(movement: &Movement<'_>, signature: Option<[u8; 64]>) -> Outco
     wire(encoder.i32(0))?;
     wire(encoder.sequence_length(0, 512))?;
     wire(encoder.u128(movement.fee))?;
-    wire(encoder.bytes(&root("batch"), 32))?;
+    let mut batch = [0; 32];
+    batch[24..].copy_from_slice(&9_u64.to_be_bytes());
+    wire(encoder.bytes(&batch, 32))?;
     wire(encoder.u16(1))?;
     wire(encoder.u32(1))?;
     wire(encoder.u32(1))?;
@@ -1266,7 +2403,7 @@ fn encode_receipt(movement: &Movement<'_>, signature: Option<[u8; 64]>) -> Outco
     wire(encoder.u128(amount * 2))?;
     wire(encoder.bytes(&root("transfer-set"), 32))?;
     wire(encoder.bytes(&root("authorization"), 32))?;
-    wire(encoder.bytes(&root("context"), 32))?;
+    wire(encoder.bytes(&receipt_key_id(), 32))?;
     wire(encoder.u64(1_000))?;
     wire(encoder.u8(u8::from(signature.is_some())))?;
     if let Some(signature) = signature {
@@ -1281,12 +2418,116 @@ fn signed_receipt(movement: &Movement<'_>, sequencer: &SigningKey) -> Outcome<Ve
     encode_receipt(movement, Some(sequencer.sign(&digest).to_bytes()))
 }
 
-fn exact_payment(receipt: &[u8]) -> Outcome<Value> {
+fn exact_payment(answer: &Value, label: &str) -> Outcome<Value> {
+    let receipt = x_websearch::payment::unhex(
+        text(answer, "/receipt")?
+            .strip_prefix("0x")
+            .ok_or("receipt prefix")?,
+    )
+    .ok_or("receipt hex")?;
     Ok(json!({
-        "receipt": STANDARD.encode(receipt),
-        "receiptDigest": hex(&wire(leaf_hash(receipt))?),
-        "verificationLevel": "sequencer-signed",
+        "txHash": text(answer, "/txHash")?,
+        "receiptDigest": hex(&layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?),
+        "verificationLevel": "receipted",
+        "idempotencyKey": receive_key(label),
     }))
+}
+
+fn exact_event(
+    asset: &AcceptedAsset,
+    payer: [u8; 32],
+    payee: [u8; 32],
+    label: &str,
+    log_index: u64,
+) -> SequencerLog {
+    let mut amount = [0; 32];
+    amount[16..].copy_from_slice(&asset.price.to_be_bytes());
+    SequencerLog::new(
+        LEDGER_PRECOMPILE,
+        vec![
+            x_websearch::watch::keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
+            receive_key_bytes(label),
+            payer,
+            payee,
+        ],
+        [asset.asset_id, amount].concat(),
+        log_index,
+    )
+}
+
+fn recorded_draw(
+    grant: &Grant,
+    asset: &AcceptedAsset,
+    label: &str,
+    nonce: u64,
+    receiver_sequence: u64,
+) -> Outcome<(x_websearch::submit::SignedTransaction, Value)> {
+    let payload: layerx_x402::model::PaymentPayload = serde_json::from_value(json!({
+        "x402Version": 2,
+        "accepted": {
+            "scheme": METERED, "network": "eip155:125", "amount": asset.price.to_string(),
+            "asset": asset.id_hex(), "payTo": hex(&grant.recipient), "maxTimeoutSeconds": 60,
+            "extra": {"layerx": {"commitment":"executed", "account":wallet_account(&receiver_did(), asset),
+                "currency":asset.symbol.code(), "payer":hex(&grant.from), "purposeHash":hex(&grant.purpose_hash)}},
+        },
+        "payload": {"grantId":hex(&grant.id), "idempotencyKey":receive_key(label)},
+    }))?;
+    let mut digest = Sha256::new();
+    digest.update(b"LayerX/x402/v2/payment\0");
+    digest.update(serde_json::to_vec(&payload)?);
+    let signed = LedgerTransaction {
+        chain_id: 125,
+        nonce,
+        gas_price: 1,
+        gas_limit: 210_000,
+        data: draw_calldata(
+            &grant.id,
+            &grant.recipient,
+            asset.price,
+            &receive_key_bytes(label),
+            receiver_sequence,
+            &grant.purpose_hash,
+            &digest.finalize().into(),
+        ),
+    }
+    .sign(&receiver_secret()?)?;
+    let mut amount = [0; 32];
+    amount[16..].copy_from_slice(&asset.price.to_be_bytes());
+    let drawn = SequencerLog::new(
+        LEDGER_PRECOMPILE,
+        vec![
+            x_websearch::watch::keccak(
+                b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
+            ),
+            grant.id,
+            grant.from,
+            grant.recipient,
+        ],
+        [asset.asset_id, amount, receive_key_bytes(label), [0; 32]].concat(),
+        0,
+    );
+    let answer = draw_receipt_answer(signed.hash, &[drawn], 1)?;
+    Ok((signed, answer))
+}
+
+fn native_draw_rules(
+    signed: &x_websearch::submit::SignedTransaction,
+    answer: Value,
+) -> Outcome<Vec<Value>> {
+    let (_, body, _) = rlp_item(&signed.raw)?;
+    let mut rest = body;
+    for _ in 0..5 {
+        let (_, _, n) = rlp_item(rest)?;
+        rest = &rest[n..];
+    }
+    let (_, data, _) = rlp_item(rest)?;
+    Ok(vec![
+        json!({"method":"eth_estimateGas", "params":[{
+            "from":format!("0x{}",hex(&receiver_public_key()?)), "to":format!("0x{}",hex(&LEDGER_PRECOMPILE)),
+            "data":format!("0x{}",hex(data)), "value":"0x0"}], "result":"0x33450"}),
+        json!({"method":"eth_sendRawTransaction", "params":[format!("0x{}",hex(&signed.raw))], "result":format!("0x{}",hex(&signed.hash))}),
+        json!({"method":"pax_sequencerReceipt", "params":[format!("0x{}",hex(&signed.hash))], "result":answer}),
+    ])
 }
 
 /// What a payer-signed grant binds besides its signer.
@@ -1382,43 +2623,328 @@ fn completed(activity_id: &[u8; 32], receipt: &[u8]) -> Value {
     json!({ "activity_id": hex(activity_id), "receipt": hex(receipt), "state": "completed" })
 }
 
-const RECEIVER_SEQUENCE: u64 = 3;
+const RECEIVER_SEQUENCE: u64 = 19;
 const IDENTITY_SEQUENCE: u64 = 7;
 const GRANT_EXPIRATION: u64 = NOW_MS / 1_000 + 86_400;
+
+fn ledger_answer(canonical: &str) -> String {
+    let length = canonical.len() / 2;
+    let absent = canonical.bytes().all(|byte| byte == b'0');
+    let counters = if absent { [0, 0, 0] } else { [17, 19, 5] };
+    let mut answer = String::from("0x");
+    for word in [224, counters[0], counters[1], counters[2], 0, 0, 0, length] {
+        let _ = write!(answer, "{word:064x}");
+    }
+    answer.push_str(canonical);
+    answer.push_str(&"00".repeat((32 - length % 32) % 32));
+    answer
+}
+
+fn ledger_recording(buyer: &Value) -> Outcome<Value> {
+    let mut grants = Vec::new();
+    for category in ["grants", "refusedGrants"] {
+        for (name, encoded) in buyer[category].as_object().ok_or("grants")? {
+            let encoded = encoded.as_str().ok_or("canonical grant")?;
+            grants.push(json!({
+                "name": name, "grantId": &encoded[..64], "canonical": encoded,
+                "result": ledger_answer(encoded),
+            }));
+        }
+    }
+    for (name, grant_id, canonical) in [
+        ("absent", "00".repeat(32), "00".repeat(346)),
+        ("empty", "ff".repeat(32), String::new()),
+    ] {
+        grants.push(json!({
+            "name": name, "grantId": grant_id, "canonical": canonical,
+            "result": ledger_answer(&canonical),
+        }));
+    }
+    grants.push(json!({
+        "name": "reverted", "grantId": "ee".repeat(32), "canonical": "",
+        "error": {"code": 3, "message": "execution reverted: LXP_NO_PAYER_GRANT"},
+    }));
+    let mut vectors = Vec::new();
+    for (name, amount, receiver_sequence) in [
+        (
+            "mixed",
+            0x0102_0304_0506_0708_090a_0b0c_0d0e_0f10_u128,
+            0x0102_0304_0506_0708_u64,
+        ),
+        ("zero", 0, 0),
+        ("maximum", u128::MAX, u64::MAX),
+    ] {
+        let grant_id = "11".repeat(32);
+        let recipient = "22".repeat(32);
+        let key = "44".repeat(32);
+        let purpose = "55".repeat(32);
+        let trace = "66".repeat(32);
+        vectors.push(json!({
+            "name": name, "grantId": grant_id, "recipient": recipient,
+            "amount": amount.to_string(), "idempotencyKey": key,
+            "receiverSequence": receiver_sequence.to_string(), "purpose": purpose, "trace": trace,
+            "calldata": format!("2e89490f{grant_id}{recipient}{amount:064x}{key}{receiver_sequence:064x}{purpose}{trace}"),
+        }));
+    }
+    let mut accounts = serde_json::Map::new();
+    for currency in CURRENCIES {
+        let asset = accepted(currency)?;
+        let account = account_id(&wallet_account(&receiver_did(), &asset)).ok_or("payee")?;
+        accounts.insert(currency.to_owned(), json!(hex(&account)));
+    }
+    let address = receiver_public_key()?;
+    Ok(json!({
+        "source": "precompiles/layerxledger/abi.json; independent ABI words, big-endian integers and right-padded dynamic bytes",
+        "drawVectors": vectors, "grants": grants,
+        "receiverAddress": format!("0x{}", hex(&address)),
+        "receiverDidKey": RECEIVER_DID_KEY,
+        "receiverAccounts": accounts,
+        "receiverPurpose": hex(&purpose_hash(&address)),
+        "transaction": {"chainId":125, "firstNonce":7, "gasPrice":"1", "gasLimit":210000},
+    }))
+}
+
+fn ledger_rules(ledger: &Value) -> Outcome<Vec<Value>> {
+    let mut rules = vec![json!({ "method": "eth_chainId", "params": [], "result": "0x7d" })];
+    for grant in ledger["grants"].as_array().ok_or("ledger grants")? {
+        let mut rule = json!({
+            "method": "eth_call",
+            "params": [{
+                "to": "0x000000000000000000000000000000000000101a",
+                "data": format!("0x423fe4b2{}", text(grant, "/grantId")?),
+            }, "pending"],
+        });
+        let kind = if grant.get("error").is_some() {
+            "error"
+        } else {
+            "result"
+        };
+        rule[kind] = grant[kind].clone();
+        rules.push(rule);
+    }
+    for currency in CURRENCIES {
+        let asset = accepted(currency)?;
+        rules.push(json!({"method":"eth_call", "params":[{
+            "to":format!("0x{}", hex(&LEDGER_PRECOMPILE)),
+            "data":format!("0x3f050cbc{RECEIVER_DID_KEY}{}", asset.id_hex())}, "pending"],
+            "result":format!("0x{}", text(ledger, &format!("/receiverAccounts/{currency}"))?)}));
+    }
+    let did = receiver_did();
+    let address = receiver_public_key()?;
+    rules.push(json!({"method":"eth_call", "params":[{
+        "to":"0x0000000000000000000000000000000000001004",
+        "data":format!("0xd3600b24{:0>64}", hex(&address))}, "pending"],
+        "result":format!("0x{RECEIVER_DID_KEY}{:064x}{:064x}{}{}", 64, did.len(), hex(did.as_bytes()), "00".repeat((32 - did.len() % 32) % 32))}));
+    Ok(rules)
+}
+
+fn fixture_word(value: &Value, pointer: &str) -> Outcome<[u8; 32]> {
+    x_websearch::payment::unhex(text(value, pointer)?)
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or_else(|| fail(format!("invalid fixture word {pointer}")))
+}
+
+#[test]
+fn legacy_draw_calldata_matches_the_ledger_draw_selector_and_layout() -> Outcome {
+    let native_abi: Value = serde_json::from_str(include_str!(
+        "../../../../../precompiles/layerxledger/abi.json"
+    ))?;
+    let native_draw = native_abi
+        .as_array()
+        .ok_or("native ABI")?
+        .iter()
+        .find(|item| item["type"] == "function" && item["name"] == "draw")
+        .ok_or("native draw")?;
+    assert_eq!(native_draw["inputs"][4]["name"], "sequence");
+    assert_eq!(native_draw["inputs"][4]["type"], "uint64");
+    assert_eq!(
+        DRAW_SIGNATURE,
+        "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)"
+    );
+    assert_eq!(
+        hex(&LEDGER_PRECOMPILE),
+        "000000000000000000000000000000000000101a"
+    );
+    let recording = read_json(&fixtures().join("gateway/metered.json"))?;
+    let vectors = recording["ledger"]["drawVectors"]
+        .as_array()
+        .ok_or("draw vectors")?;
+    assert_eq!(vectors.len(), 3);
+    for vector in vectors {
+        let amount: u128 = text(vector, "/amount")?.parse()?;
+        let receiver_sequence: u64 = text(vector, "/receiverSequence")?.parse()?;
+        let calldata = draw_calldata(
+            &fixture_word(vector, "/grantId")?,
+            &fixture_word(vector, "/recipient")?,
+            amount,
+            &fixture_word(vector, "/idempotencyKey")?,
+            receiver_sequence,
+            &fixture_word(vector, "/purpose")?,
+            &fixture_word(vector, "/trace")?,
+        );
+        assert_eq!(calldata.len(), 228);
+        assert_eq!(&calldata[..4], &[0x2e, 0x89, 0x49, 0x0f]);
+        assert_eq!(hex(&calldata), text(vector, "/calldata")?);
+        assert_eq!(&calldata[84..100], &amount.to_be_bytes());
+        assert_eq!(&calldata[156..164], &receiver_sequence.to_be_bytes());
+    }
+    Ok(())
+}
+
+#[test]
+fn legacy_payer_grant_codec_replays_historical_ledger_responses() -> Outcome {
+    let recording = read_json(&fixtures().join("gateway/metered.json"))?;
+    let gateway = Gateway::start(&["metered.json"])?;
+    let rpc = SettlementRpc::new(&format!("http://{}/rpc", gateway.address), 125)?;
+    let grants = recording["ledger"]["grants"].as_array().ok_or("grants")?;
+    assert_eq!(grants.len(), 12);
+    for entry in grants {
+        let id = fixture_word(entry, "/grantId")?;
+        let answer = read_payer_grant(&rpc, &id)?;
+        let canonical =
+            x_websearch::payment::unhex(text(entry, "/canonical")?).ok_or("canonical")?;
+        if canonical.iter().all(|byte| *byte == 0) {
+            assert_eq!(answer, None);
+            continue;
+        }
+        let Payment::IssueGrant(expected) = wire(Payment::decode(
+            layerx_types::payload::ModuleId::Asset,
+            7,
+            &canonical,
+            b"",
+        ))?
+        else {
+            return Err(fail("expected grant"));
+        };
+        assert_eq!(answer, Some(expected));
+    }
+    assert_eq!(gateway.calls("eth_call"), grants.len());
+    assert_eq!(gateway.calls("eth_chainId"), grants.len());
+    assert_eq!(gateway.calls("eth_sendRawTransaction"), 0);
+
+    let good = x_websearch::payment::unhex(
+        text(&grants[0], "/result")?
+            .strip_prefix("0x")
+            .ok_or("hex")?,
+    )
+    .ok_or("answer")?;
+    let mut malformed = vec![
+        good[..good.len() - 1].to_vec(),
+        good[..224].to_vec(),
+        Vec::new(),
+    ];
+    for (offset, value) in [
+        (31, 0xc0),
+        (32, 1),
+        (96, 1),
+        (191, 2),
+        (223, 2),
+        (224, 1),
+        (good.len() - 1, 1),
+        (256 + 345, 0),
+    ] {
+        let mut altered = good.clone();
+        altered[offset] = value;
+        malformed.push(altered);
+    }
+    for answer in malformed {
+        assert_eq!(decode_grant(&answer, ""), None);
+    }
+    let wrong_id = [0x77; 32];
+    let mismatched = Gateway::serve_rules(&[
+        json!({"method": "eth_chainId", "params": [], "result": "0x7d"}),
+        json!({"method": "eth_call", "params": [{
+            "to": "0x000000000000000000000000000000000000101a",
+            "data": format!("0x423fe4b2{}", hex(&wrong_id)),
+        }, "pending"], "result": grants[0]["result"]}),
+    ])?;
+    let rpc = SettlementRpc::new(&format!("http://{}", mismatched.address), 125)?;
+    assert_eq!(
+        read_payer_grant(&rpc, &wrong_id),
+        Err(SettlementError::Malformed)
+    );
+    Ok(())
+}
+
+#[test]
+fn a_grant_the_ledger_does_not_hold_is_refused_before_any_transaction() -> Outcome {
+    let harness = Harness::start("ledger-absent", &["metered.json"])?;
+    for (label, grant_id) in [
+        ("absent", "00".repeat(32)),
+        ("empty", "ff".repeat(32)),
+        ("reverted", "ee".repeat(32)),
+    ] {
+        let reply = harness.metered_payload_against_exact(
+            &format!("/search?q={label}"),
+            "SID",
+            &grant_id,
+            label,
+        )?;
+        assert_refused(&reply, "invalid_payment_payload");
+        assert_eq!(reply.decoded(PAYMENT_RESPONSE)?["success"], json!(false));
+    }
+    for name in [
+        "recurring",
+        "expired",
+        "otherPurpose",
+        "lowLimit",
+        "otherRecipient",
+    ] {
+        let grant = harness.grant(&format!("/refusedGrants/{name}"))?;
+        assert_refused(
+            &harness.metered_payload_against_exact(
+                &format!("/search?q={name}"),
+                "SID",
+                &grant,
+                name,
+            )?,
+            "invalid_payment_payload",
+        );
+    }
+    let canonical = harness.grant("/grants/SID")?;
+    for payload in [
+        json!({"grant": canonical, "idempotencyKey": receive_key("legacy")}),
+        json!({"grantId": canonical, "idempotencyKey": receive_key("oversize")}),
+        json!({"grantId": "00", "idempotencyKey": receive_key("short")}),
+    ] {
+        let target = "/search?q=invalid-grant-id";
+        let payer = harness.payer()?;
+        let signature = harness.signature(target, Some(payer), EXACT, "SID", &payload)?;
+        assert_refused(
+            &harness.pay(target, Some(payer), &signature)?,
+            "invalid_payment_payload",
+        );
+    }
+    assert_no_payment_state(&harness)
+}
 
 /// The gateway recording, rebuilt from the real draw signer, grant codec and
 /// receipt encoding under the deterministic test keys.
 #[allow(clippy::too_many_lines)]
 fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
     let receiver = receiver_secret()?;
-    let receiver_did = receiver_did(&receiver.verifying_key().to_bytes());
-    let purpose = purpose_hash(&receiver.verifying_key().to_bytes());
+    let receiver_did = receiver_did();
+    let purpose = purpose_hash(&x_websearch::attest::signer_address(&receiver));
     let sequencer = test_key("sequencer");
     let untrusted = test_key("untrusted-sequencer");
     let payer = test_key("payer");
-    let payer_did = x_websearch::payment::receiver_did(&payer.verifying_key().to_bytes());
+    let payer_did = format!("did:layerx:{}", hex(&payer.verifying_key().to_bytes()));
     let account = |did: &str, asset: &AcceptedAsset| {
         account_id(&wallet_account(did, asset)).ok_or_else(|| fail("account"))
     };
     let other_did = format!("did:layerx:{}", "22".repeat(32));
-    let draw = |grant: &Grant, asset: &AcceptedAsset, identity: u64, label: &str| {
-        wire(sign_draw(
+    let draw = |grant: &Grant, asset: &AcceptedAsset, nonce: u64, label: &str| {
+        test_draw(
             &receiver,
-            &DrawRequest {
-                grant,
-                amount: asset.price,
-                receiver_sequence: RECEIVER_SEQUENCE,
-                identity_sequence: identity,
-                idempotency_key: receive_key_bytes(label),
-                network_id: 1,
-                now_ms: NOW_MS,
-                fee_limit: DEFAULT_DRAW_FEE_LIMIT,
-            },
-        ))
+            grant,
+            asset.price,
+            nonce,
+            receive_key_bytes(label),
+        )
     };
     let terms = |asset: &AcceptedAsset| -> Outcome<GrantTerms> {
         Ok(GrantTerms {
-            from: account(&payer_did, asset)?,
+            from: payer_account(asset)?,
             recipient: account(&receiver_did, asset)?,
             asset: asset.asset_id,
             per_draw_maximum: asset.price * 10,
@@ -1446,16 +2972,16 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
             &Movement {
                 label: &label,
                 operation: 6,
-                activity_id: signed.activity_id,
+                activity_id: signed.hash,
                 asset: &asset,
                 amount: asset.price,
-                from: account(&payer_did, &asset)?,
+                from: payer_account(&asset)?,
                 to: pay_to,
                 fee: RECORDED_FEE,
             },
             &sequencer,
         )?;
-        let mut result = completed(&signed.activity_id, &receipt);
+        let mut result = completed(&signed.hash, &receipt);
         result["commitment"] = json!("executed");
         metered_identity.push(identity_rule(
             &receiver_did,
@@ -1463,29 +2989,10 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
             true,
         ));
         metered_accounts.push(account_rule(&pay_to));
-        metered_sends.push(send_rule(&signed.canonical, ("result", result)));
+        metered_sends.push(send_rule(&signed.raw, ("result", result)));
 
-        let label = format!("exact-{currency}");
-        let activity_id = labelled("x-websearch-test/activity/", &label);
-        let receipt = signed_receipt(
-            &Movement {
-                label: &label,
-                operation: 5,
-                activity_id,
-                asset: &asset,
-                amount: asset.price,
-                from: account(&payer_did, &asset)?,
-                to: pay_to,
-                fee: RECORDED_FEE,
-            },
-            &sequencer,
-        )?;
-        exact.insert(currency.to_owned(), exact_payment(&receipt)?);
-        exact_rules.push(json!({
-            "method": "lx_getReceipt",
-            "params": [hex(&activity_id)],
-            "result": completed(&activity_id, &receipt),
-        }));
+        let payment = exact_payment_fields(&exact_exchange()?["payments"][currency])?;
+        exact.insert(currency.to_owned(), payment);
     }
     let mut metered_rules = Vec::new();
     for (identity, account) in metered_identity.into_iter().zip(metered_accounts) {
@@ -1496,34 +3003,28 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
 
     let sid = accepted("SID")?;
     let sid_receiver = account(&receiver_did, &sid)?;
-    let sid_payer = account(&payer_did, &sid)?;
-    let sid_exact =
-        |label: &str, to: [u8; 32], signer: &SigningKey| -> Outcome<(Value, [u8; 32])> {
-            let activity_id = labelled("x-websearch-test/activity/", label);
-            let receipt = signed_receipt(
-                &Movement {
-                    label,
-                    operation: 5,
-                    activity_id,
-                    asset: &sid,
-                    amount: sid.price,
-                    from: sid_payer,
-                    to,
-                    fee: RECORDED_FEE,
-                },
-                signer,
-            )?;
-            Ok((exact_payment(&receipt)?, activity_id))
-        };
+    let sid_payer = payer_account(&sid)?;
+    let sid_exact = |label: &str, to: [u8; 32], signer: &SigningKey| -> Outcome<(Value, Value)> {
+        let hash = labelled("x-websearch-test/activity/", label);
+        let answer = signed_draw_receipt_answer(
+            hash,
+            &[exact_event(&sid, sid_payer, to, label, 0)],
+            1,
+            signer,
+        )?;
+        Ok((exact_payment(&answer, label)?, answer))
+    };
     let other_payee = account(&other_did, &sid)?;
-    let (other_payment, _) = sid_exact("exact-other-payee", other_payee, &sequencer)?;
-    let (unknown_payment, unknown_activity) = sid_exact("exact-unknown", sid_receiver, &sequencer)?;
-    let (untrusted_payment, _) = sid_exact("exact-untrusted", sid_receiver, &untrusted)?;
-    exact_rules.push(json!({
-        "method": "lx_getReceipt",
-        "params": [hex(&unknown_activity)],
-        "error": { "code": -32004, "message": "unknown activity" },
-    }));
+    let (other_payment, other_answer) = sid_exact("exact-other-payee", other_payee, &sequencer)?;
+    let (unknown_payment, _) = sid_exact("exact-unknown", sid_receiver, &sequencer)?;
+    let (untrusted_payment, untrusted_answer) =
+        sid_exact("exact-untrusted", sid_receiver, &untrusted)?;
+    for answer in [other_answer, untrusted_answer] {
+        exact_rules.push(
+            json!({"method":"pax_sequencerReceipt", "params":[answer["txHash"]], "result":answer}),
+        );
+    }
+    exact_rules.push(json!({"method":"pax_sequencerReceipt", "params":[unknown_payment["txHash"]], "result":null}));
 
     let refused = |edit: &dyn Fn(&mut GrantTerms)| -> Outcome<String> {
         let mut refused = terms(&sid)?;
@@ -1556,15 +3057,15 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
     };
     let pending = draw(&sid_grant, &sid, IDENTITY_SEQUENCE, "pending-SID")?;
     let pending_receipt = signed_receipt(
-        &sid_movement("pending-SID", pending.activity_id, sid.price),
+        &sid_movement("pending-SID", pending.hash, sid.price),
         &sequencer,
     )?;
-    let pending_id = hex(&pending.activity_id);
+    let pending_id = hex(&pending.hash);
     let pending_rules = vec![
         identity_rule(&receiver_did, IDENTITY_SEQUENCE, false),
         account_rule(&sid_receiver),
         send_rule(
-            &pending.canonical,
+            &pending.raw,
             (
                 "error",
                 json!({
@@ -1588,7 +3089,7 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
         json!({
             "method": "lx_getReceipt",
             "params": [pending_id],
-            "result": completed(&pending.activity_id, &pending_receipt),
+            "result": completed(&pending.hash, &pending_receipt),
         }),
     ];
 
@@ -1603,44 +3104,40 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
         identity_rule(&receiver_did, IDENTITY_SEQUENCE, false),
         account_rule(&sid_receiver),
         send_rule(
-            &other_receipt.canonical,
+            &other_receipt.raw,
             (
                 "result",
                 completed(
-                    &other_receipt.activity_id,
+                    &other_receipt.hash,
                     &signed_receipt(
-                        &sid_movement(
-                            "refused-other-receipt",
-                            other_activity.activity_id,
-                            sid.price,
-                        ),
+                        &sid_movement("refused-other-receipt", other_activity.hash, sid.price),
                         &sequencer,
                     )?,
                 ),
             ),
         ),
         send_rule(
-            &untrusted_draw.canonical,
+            &untrusted_draw.raw,
             (
                 "result",
                 completed(
-                    &untrusted_draw.activity_id,
+                    &untrusted_draw.hash,
                     &signed_receipt(
-                        &sid_movement("refused-untrusted", untrusted_draw.activity_id, sid.price),
+                        &sid_movement("refused-untrusted", untrusted_draw.hash, sid.price),
                         &untrusted,
                     )?,
                 ),
             ),
         ),
         send_rule(
-            &failed.canonical,
+            &failed.raw,
             (
                 "result",
-                json!({ "activity_id": hex(&failed.activity_id), "state": "failed" }),
+                json!({ "activity_id": hex(&failed.hash), "state": "failed" }),
             ),
         ),
         send_rule(
-            &other_activity.canonical,
+            &other_activity.raw,
             (
                 "result",
                 completed(
@@ -1653,13 +3150,13 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
             ),
         ),
         send_rule(
-            &amount.canonical,
+            &amount.raw,
             (
                 "result",
                 completed(
-                    &amount.activity_id,
+                    &amount.hash,
                     &signed_receipt(
-                        &sid_movement("refused-amount", amount.activity_id, sid.price + 1),
+                        &sid_movement("refused-amount", amount.hash, sid.price + 1),
                         &sequencer,
                     )?,
                 ),
@@ -1677,13 +3174,131 @@ fn gateway_recording() -> Outcome<Vec<(&'static str, Value)>> {
             "untrusted": untrusted_payment,
         },
         "refusedGrants": refused_grants,
+        "sequencerId": hex(&receipt_key_id()),
         "sequencerPublicKey": hex(&sequencer.verifying_key().to_bytes()),
+        "firstBatchNumber": 9,
+        "lastBatchNumber": 9,
     });
+    let ledger = ledger_recording(&buyer)?;
+    let mut native_rules = vec![
+        json!({"method":"eth_getTransactionCount", "params":[format!("0x{}", hex(&receiver_public_key()?)), "pending"], "result":"0x7"}),
+        json!({"method":"eth_gasPrice", "params":[], "result":"0x1"}),
+    ];
+    for currency in CURRENCIES {
+        let asset = accepted(currency)?;
+        native_rules.push(json!({"method":"eth_call", "params":[{
+            "to":format!("0x{}",hex(&LEDGER_PRECOMPILE)),
+            "data":format!("0xce2f921f{RECEIVER_DID_KEY}{}",asset.id_hex())},"pending"],
+            "result":format!("0x{RECEIVER_SEQUENCE:064x}")}));
+        let (grant, _) = signed_grant(&payer, &terms(&asset)?, &receiver_did)?;
+        let label = format!("metered-{currency}");
+        let (signed, answer) = recorded_draw(&grant, &asset, &label, 7, RECEIVER_SEQUENCE)?;
+        let raw = format!("0x{}", hex(&signed.raw));
+        // The estimate uses the same calldata as the independently signed transaction.
+        let data = {
+            let (_, body, _) = rlp_item(&signed.raw)?;
+            let mut rest = body;
+            for _ in 0..5 {
+                let (_, _, n) = rlp_item(rest)?;
+                rest = &rest[n..];
+            }
+            let (_, data, _) = rlp_item(rest)?;
+            format!("0x{}", hex(data))
+        };
+        native_rules.push(json!({"method":"eth_estimateGas", "params":[{
+            "from":format!("0x{}",hex(&receiver_public_key()?)), "to":format!("0x{}",hex(&LEDGER_PRECOMPILE)),
+            "data":data, "value":"0x0"}],"result":"0x33450"}));
+        native_rules.push(json!({"method":"eth_sendRawTransaction", "params":[raw], "result":format!("0x{}",hex(&signed.hash))}));
+        native_rules.push(
+            json!({"method":"pax_sequencerReceipt", "params":[answer["txHash"]], "result":answer}),
+        );
+    }
+    let mut refusal_rules = refusal_rules;
+    for label in [
+        "refused-other-receipt",
+        "refused-untrusted",
+        "refused-failed",
+        "refused-other-activity",
+        "refused-amount",
+    ] {
+        let (signed, _) = recorded_draw(&sid_grant, &sid, label, 7, RECEIVER_SEQUENCE)?;
+        let event = draw_event(&sid_grant, label)?;
+        let mut data = event.data().to_vec();
+        if label == "refused-amount" {
+            data[32..64].fill(0);
+            data[48..64].copy_from_slice(&(sid.price + 1).to_be_bytes());
+        }
+        let event = SequencerLog::new(event.address(), event.topics().to_vec(), data, 0);
+        let receipt_hash = match label {
+            "refused-other-receipt" => {
+                recorded_draw(
+                    &sid_grant,
+                    &sid,
+                    "refused-other-activity",
+                    7,
+                    RECEIVER_SEQUENCE,
+                )?
+                .0
+                .hash
+            }
+            "refused-other-activity" => elsewhere,
+            _ => signed.hash,
+        };
+        let answer = signed_draw_receipt_answer(
+            receipt_hash,
+            &[event],
+            if label == "refused-failed" { 0 } else { 1 },
+            if label == "refused-untrusted" {
+                &untrusted
+            } else {
+                &sequencer
+            },
+        )?;
+        refusal_rules.extend(native_draw_rules(&signed, answer)?);
+    }
+    // The unknown draw is broadcast, and remains pending without a sequencer receipt.
+    let (unknown, _) = recorded_draw(&sid_grant, &sid, "refused-unknown", 7, RECEIVER_SEQUENCE)?;
+    refusal_rules.extend(native_draw_rules(&unknown, Value::Null)?);
+    let mut pending_native = native_rules.clone();
+    for label in ["recover-receipted", "recover-committed"] {
+        let (signed, _) = recorded_draw(&sid_grant, &sid, label, 7, 0)?;
+        pending_native.push(json!({"method":"pax_sequencerReceipt", "params":[format!("0x{}",hex(&signed.hash))], "result":null, "once":true}));
+    }
+    let (pending, pending_answer) =
+        recorded_draw(&sid_grant, &sid, "pending-SID", 7, RECEIVER_SEQUENCE)?;
+    let pending_data = {
+        let (_, body, _) = rlp_item(&pending.raw)?;
+        let mut rest = body;
+        for _ in 0..5 {
+            let (_, _, n) = rlp_item(rest)?;
+            rest = &rest[n..];
+        }
+        let (_, data, _) = rlp_item(rest)?;
+        format!("0x{}", hex(data))
+    };
+    pending_native.extend([
+        json!({"method":"eth_estimateGas", "params":[{"from":format!("0x{}",hex(&receiver_public_key()?)),
+            "to":format!("0x{}",hex(&LEDGER_PRECOMPILE)), "data":pending_data, "value":"0x0"}], "result":"0x33450"}),
+        json!({"method":"eth_sendRawTransaction", "params":[format!("0x{}",hex(&pending.raw))], "result":format!("0x{}",hex(&pending.hash))}),
+        json!({"method":"pax_sequencerReceipt", "params":[pending_answer["txHash"]], "result":null, "once":true}),
+        json!({"method":"pax_sequencerReceipt", "params":[pending_answer["txHash"]], "result":pending_answer}),
+    ]);
+    metered_rules.extend(native_rules);
+    metered_rules.extend(exact_rules);
+    let ledger_rules = ledger_rules(&ledger)?;
+    metered_rules.extend(ledger_rules.clone());
+    let mut metered = rules(&metered_rules);
+    metered["ledger"] = ledger.clone();
+    let mut pending_rules = pending_rules;
+    pending_rules.extend(pending_native);
+    pending_rules.extend(ledger_rules);
+    let mut pending = rules(&pending_rules);
+    pending["ledger"] = ledger;
     Ok(vec![
         ("buyer.json", buyer),
-        ("exact.json", rules(&exact_rules)),
-        ("metered.json", rules(&metered_rules)),
-        ("pending.json", rules(&pending_rules)),
+        ("exact.json", exact_exchange()?),
+        ("metered.json", metered),
+        ("pending.json", pending),
         ("refusals.json", rules(&refusal_rules)),
     ])
 }
@@ -1693,7 +3308,7 @@ fn pretty(value: &Value) -> Outcome<String> {
 }
 
 #[test]
-fn the_gateway_recording_is_reproduced_by_the_real_signers() -> Outcome {
+fn legacy_gateway_recording_is_reproduced_by_the_real_signers() -> Outcome {
     let recording = gateway_recording()?;
     let recorded = std::env::var_os(RECORD_VARIABLE).is_some();
     for (name, value) in &recording {
@@ -1726,10 +3341,37 @@ fn exchange_entry(target: &str, headers: &[(&str, &str)], reply: &Reply) -> Outc
         };
         request.insert((*name).to_owned(), value);
     }
+    if let Some(payload) = request.get(PAYMENT_SIGNATURE) {
+        let scheme = text(payload, "/accepted/scheme")?;
+        if reply.header(PAYMENT_RESPONSE).is_none() {
+            return Err(fail(format!(
+                "{target} ({scheme}): missing settlement response (status {}, body {})",
+                reply.status, reply.body
+            )));
+        }
+    }
     let mut response = serde_json::Map::new();
     for name in [PAYMENT_REQUIRED, PAYMENT_RESPONSE] {
         if reply.header(name).is_some() {
-            response.insert(name.to_owned(), reply.decoded(name)?);
+            let value = reply.decoded(name)?;
+            if name == PAYMENT_RESPONSE {
+                let scheme = request
+                    .get(PAYMENT_SIGNATURE)
+                    .and_then(|payload| payload.pointer("/accepted/scheme"))
+                    .and_then(Value::as_str)
+                    .ok_or("settlement request scheme")?;
+                if value.get("success") != Some(&json!(true)) {
+                    return Err(fail(format!(
+                        "{target} ({scheme}): settlement refused: {value}"
+                    )));
+                }
+                let evidence = value.pointer("/extensions/layerx").ok_or_else(|| {
+                    fail(format!("{target} ({scheme}): missing settlement evidence"))
+                })?;
+                serde_json::from_value::<layerx_x402::buyer::LayerXEvidence>(evidence.clone())
+                    .map_err(|error| fail(format!("{target} ({scheme}): {error}")))?;
+            }
+            response.insert(name.to_owned(), value);
         }
     }
     if let Some(retry) = reply.header("Retry-After") {
@@ -1752,32 +3394,87 @@ const FETCHED: [(&str, usize); 4] = [("SID", 0), ("PAX", 1), ("USDC", 2), ("USDL
 
 #[test]
 fn the_client_exchange_matches_the_recording() -> Outcome {
+    use layerx_interop_gateway::trace::TraceId;
+    use layerx_x402::buyer::{BuiltPayment, Buyer};
+
     let harness = Harness::start("client", &["metered.json", "exact.json"])?;
-    let pages = vectors()?;
-    let payer = harness.payer()?.to_owned();
-    let grant = harness.grant("/grants/SID")?;
-    let search = "/search?q=paxeer".to_owned();
-    let metered = harness.signature(
-        &search,
-        Some(&payer),
-        METERED,
+    let path = fixtures().join("client-exchange.json");
+    let recorded = read_json(&path)?;
+    let rows = recorded["exchange"].as_array().ok_or("client exchange")?;
+    assert_eq!(rows.len(), 11);
+    let historical = &rows[1];
+    let payload = &historical["request"]["headers"][PAYMENT_SIGNATURE];
+    let expected = BuiltPayment {
+        header: encode(payload),
+        payload: serde_json::from_value(payload.clone())?,
+        idempotency_key: fixture_word(payload, "/payload/idempotencyKey")?,
+    };
+    assert_eq!(expected.payload.accepted.scheme, METERED);
+    let response = &historical["response"]["headers"][PAYMENT_RESPONSE];
+    let keys = configure_with(&harness.scratch, &harness.gateway, &harness.buyer, None)?
+        .gateway
+        .receipt_keys;
+    let settlement =
+        Buyer::capture_settlement(&encode(response), &expected, &keys, &TraceId::mint([0; 16]))
+            .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(settlement.rung, "receipted");
+    assert_eq!(
+        hex(&settlement.receipt_digest),
+        text(response, "/extensions/layerx/receiptDigest")?
+    );
+    assert_eq!(
+        response["extensions"]["layerx"]["purposeHash"],
+        hex(&purpose_hash(&receiver_public_key()?))
+    );
+    let search = text(historical, "/request/target")?;
+    let challenge = harness.get(search, &[(PAYER_ADDRESS, harness.payer()?)])?;
+    assert_refused(&challenge, "payment_required");
+    let required = challenge.decoded(PAYMENT_REQUIRED)?;
+    let offers = required["accepts"].as_array().ok_or("offers")?;
+    assert_exact_only(offers)?;
+    let old_offers = rows[0]["response"]["headers"][PAYMENT_REQUIRED]["accepts"]
+        .as_array()
+        .ok_or("historical offers")?;
+    let exact_offers: Vec<_> = old_offers
+        .iter()
+        .filter(|offer| offer["scheme"] == EXACT)
+        .cloned()
+        .collect();
+    let metered_offers: Vec<_> = old_offers
+        .iter()
+        .filter(|offer| offer["scheme"] == METERED)
+        .collect();
+    assert_eq!(offers, &exact_offers);
+    assert_eq!(metered_offers.len(), CURRENCIES.len());
+    for offer in metered_offers {
+        let historical_offer: layerx_x402::model::PaymentRequirements =
+            serde_json::from_value(offer.clone())?;
+        assert_eq!(historical_offer.scheme, METERED);
+        assert!(!offers.contains(offer));
+    }
+    assert_refused(
+        &harness.pay(search, Some(harness.payer()?), &expected.header)?,
+        "payment_invalid",
+    );
+    assert_no_payment_state(&harness)?;
+    let mixed = harness.signature(
+        search,
+        Some(harness.payer()?),
+        EXACT,
         "SID",
-        &metered_payload(&grant, "metered-SID"),
+        &payload["payload"],
     )?;
-    let mut steps: Vec<(String, Vec<(&str, String)>)> = vec![
-        (search.clone(), vec![(PAYER_DID, payer.clone())]),
-        (
-            search,
-            vec![(PAYER_DID, payer.clone()), (PAYMENT_SIGNATURE, metered)],
-        ),
-    ];
+    assert_refused(
+        &harness.pay(search, Some(harness.payer()?), &mixed)?,
+        "invalid_payment_payload",
+    );
+    assert_no_payment_state(&harness)?;
+
+    let pages = vectors()?;
+    let mut steps: Vec<(String, Vec<(&str, String)>)> = Vec::new();
     for (currency, page) in FETCHED {
         let target = format!("/fetch?url={}", percent(&pages[page].payload));
-        let payment = harness
-            .buyer
-            .pointer(&format!("/exact/{currency}"))
-            .cloned()
-            .ok_or_else(|| fail("payment"))?;
+        let payment = exact_fixture(currency)?;
         let signature = harness.signature(&target, None, EXACT, currency, &payment)?;
         steps.push((target.clone(), vec![]));
         steps.push((target, vec![(PAYMENT_SIGNATURE, signature)]));
@@ -1792,23 +3489,18 @@ fn the_client_exchange_matches_the_recording() -> Outcome {
         let reply = harness.get(target, &headers)?;
         exchange.push(exchange_entry(target, &headers, &reply)?);
     }
-    assert_eq!(harness.served(), 5);
-
+    assert_eq!(harness.served(), 4);
     let statuses: Vec<u64> = exchange
         .iter()
         .filter_map(|entry| entry.pointer("/response/status").and_then(Value::as_u64))
         .collect();
-    assert_eq!(
-        statuses,
-        [402, 200, 402, 200, 402, 200, 402, 200, 402, 200, 200]
-    );
-    let settled = &exchange[1]["response"]["headers"][PAYMENT_RESPONSE];
-    assert_eq!(
-        settled.pointer("/extensions/layerx/purposeHash"),
-        Some(&json!(hex(&purpose_hash(&receiver_public_key()?))))
-    );
+    assert_eq!(statuses, [402, 200, 402, 200, 402, 200, 402, 200, 200]);
     for (step, (currency, page)) in FETCHED.iter().enumerate() {
-        let paid = &exchange[3 + 2 * step]["response"];
+        assert_eq!(
+            exchange[1 + 2 * step]["request"]["headers"][PAYMENT_SIGNATURE]["payload"],
+            exact_fixture(currency)?
+        );
+        let paid = &exchange[1 + 2 * step]["response"];
         let asset = accepted(currency)?;
         assert_eq!(paid["headers"][PAYMENT_RESPONSE]["success"], true);
         assert_eq!(
@@ -1818,19 +3510,674 @@ fn the_client_exchange_matches_the_recording() -> Outcome {
         assert_eq!(paid["body"]["url"], pages[*page].payload);
         assert_eq!(paid["body"]["digest"], pages[*page].digest);
     }
-    let stored = STANDARD.decode(text(&exchange[10], "/response/bodyBase64")?)?;
+    let stored = STANDARD.decode(text(&exchange[8], "/response/bodyBase64")?)?;
     assert_eq!(digest_hex(&content_digest(&stored)), pages[0].digest);
-    let pax = accepted("PAX")?;
-    assert_eq!(pax.symbol, AssetSymbol::Pax);
+    assert_eq!(accepted("PAX")?.symbol, AssetSymbol::Pax);
     let recording_text = serde_json::to_string(&exchange)?;
     assert!(!recording_text.contains(&harness.address()?.to_string()));
     assert!(!recording_text.contains(&harness.gateway.address.to_string()));
+    assert_eq!(exchange, rows[2..]);
+    assert_eq!(harness.gateway.calls("eth_sendRawTransaction"), 0);
+    Ok(())
+}
 
-    let recorded = json!({ "exchange": exchange });
-    let path = fixtures().join("client-exchange.json");
-    if std::env::var_os(RECORD_VARIABLE).is_some() {
-        std::fs::write(&path, pretty(&recorded)?)?;
+#[test]
+fn recorded_settlements_are_captured_by_the_buyer() -> Outcome {
+    use layerx_interop_gateway::trace::TraceId;
+    use layerx_x402::buyer::{BuiltPayment, Buyer};
+
+    let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
+    let keys = [SequencerAuthorization::new(
+        fixture_word(&buyer, "/sequencerId")?,
+        fixture_word(&buyer, "/sequencerPublicKey")?,
+        buyer["firstBatchNumber"]
+            .as_u64()
+            .ok_or("first batch number")?,
+        buyer["lastBatchNumber"]
+            .as_u64()
+            .ok_or("last batch number")?,
+    )];
+    let recording = read_json(&fixtures().join("client-exchange.json"))?;
+    let exchange = recording["exchange"].as_array().ok_or("client exchange")?;
+    let mut exact = 0;
+    let mut metered = 0;
+    for entry in exchange {
+        let Some(payload) = entry.pointer("/request/headers/PAYMENT-SIGNATURE") else {
+            continue;
+        };
+        let target = text(entry, "/request/target")?;
+        let scheme = text(payload, "/accepted/scheme")?;
+        let expected = BuiltPayment {
+            header: encode(payload),
+            payload: serde_json::from_value(payload.clone())?,
+            idempotency_key: fixture_word(payload, "/payload/idempotencyKey")?,
+        };
+        let response = entry
+            .pointer("/response/headers/PAYMENT-RESPONSE")
+            .ok_or_else(|| fail(format!("{target} ({scheme}): missing settlement response")))?;
+        let evidence = response
+            .pointer("/extensions/layerx")
+            .ok_or_else(|| fail(format!("{target} ({scheme}): missing settlement evidence")))?;
+        serde_json::from_value::<layerx_x402::buyer::LayerXEvidence>(evidence.clone())
+            .map_err(|error| fail(format!("{target} ({scheme}): {error}")))?;
+        let settlement =
+            Buyer::capture_settlement(&encode(response), &expected, &keys, &TraceId::mint([0; 16]))
+                .map_err(|error| fail(format!("{target} ({scheme}): {error:?}")))?;
+        assert_eq!(settlement.rung, "receipted");
+        assert_eq!(
+            hex(&settlement.receipt_digest),
+            text(response, "/extensions/layerx/receiptDigest")?
+        );
+        match scheme {
+            EXACT => exact += 1,
+            METERED => metered += 1,
+            _ => return Err(fail(format!("{target}: unexpected scheme {scheme}"))),
+        }
     }
-    assert_eq!(read_json(&path)?, recorded);
+    assert_eq!(exact, CURRENCIES.len());
+    assert_eq!(metered, 1);
+    Ok(())
+}
+
+fn receiver_did() -> String {
+    format!("did:layerx:{RECEIVER_DID_KEY}")
+}
+
+fn test_draw(
+    receiver: &k256::ecdsa::SigningKey,
+    grant: &Grant,
+    amount: u128,
+    nonce: u64,
+    key: [u8; 32],
+) -> Outcome<x_websearch::submit::SignedTransaction> {
+    Ok(LedgerTransaction {
+        chain_id: 125,
+        nonce,
+        gas_price: 1,
+        gas_limit: 210_000,
+        data: draw_calldata(
+            &grant.id,
+            &grant.recipient,
+            amount,
+            &key,
+            RECEIVER_SEQUENCE,
+            &grant.purpose_hash,
+            &[0; 32],
+        ),
+    }
+    .sign(receiver)?)
+}
+
+fn ledger_harness(name: &str) -> Outcome<(Harness, Grant, String)> {
+    ledger_harness_recording(name, "metered.json")
+}
+
+fn ledger_harness_recording(name: &str, file: &str) -> Outcome<(Harness, Grant, String)> {
+    ledger_harness_with_keys(name, file, None)
+}
+
+fn ledger_harness_with_keys(
+    name: &str,
+    file: &str,
+    keys: Option<Vec<SequencerAuthorization>>,
+) -> Outcome<(Harness, Grant, String)> {
+    let recording = read_json(&fixtures().join("gateway").join(file))?;
+    let ledger = &recording["ledger"];
+    let asset = accepted("SID")?;
+    let receiver = receiver_secret()?;
+    let address = x_websearch::attest::signer_address(&receiver);
+    assert_eq!(
+        format!("0x{}", hex(&address)),
+        text(ledger, "/receiverAddress")?
+    );
+    let purpose = purpose_hash(&address);
+    assert_eq!(hex(&purpose), text(ledger, "/receiverPurpose")?);
+    let (grant, encoded) = signed_grant(
+        &test_key("payer"),
+        &GrantTerms {
+            from: payer_account(&asset)?,
+            recipient: fixture_word(ledger, "/receiverAccounts/SID")?,
+            asset: asset.asset_id,
+            per_draw_maximum: asset.price * 10,
+            allowance: asset.price * 10_000,
+            window_length: 0,
+            expiration: GRANT_EXPIRATION,
+            purpose,
+        },
+        "",
+    )?;
+    let mut list: Vec<Value> = recording["endpoints"]["gateway"]["*"]
+        .as_array()
+        .ok_or("rules")?
+        .iter()
+        .filter(|rule| {
+            rule["method"] == "eth_chainId"
+                || rule["method"] == "pax_sequencerReceipt"
+                || rule["params"][0]["data"].as_str().is_some_and(|data| {
+                    data.starts_with("0x3f050cbc") || data.starts_with("0xd3600b24")
+                })
+        })
+        .cloned()
+        .collect();
+    list.push(json!({"method":"eth_call", "params":[{
+        "to":format!("0x{}", hex(&LEDGER_PRECOMPILE)),
+        "data":format!("0x423fe4b2{}", hex(&grant.id))}, "pending"], "result":ledger_answer(&encoded)}));
+    for nonce in [7, 8] {
+        list.push(json!({"method":"eth_getTransactionCount", "params":[format!("0x{}", hex(&address)), "pending"], "once":true, "result":format!("0x{nonce:x}")}));
+    }
+    let did_key = fixture_word(ledger, "/receiverDidKey")?;
+    for receiver_sequence in [0_u64, 1] {
+        list.push(json!({"method":"eth_call", "params":[{
+            "to":format!("0x{}", hex(&LEDGER_PRECOMPILE)),
+            "data":format!("0xce2f921f{}{}", hex(&did_key), hex(&asset.asset_id))}, "pending"],
+            "once":true, "result":format!("0x{receiver_sequence:064x}")}));
+    }
+    list.push(json!({"method":"eth_gasPrice", "params":[], "result":"0x1"}));
+    list.push(json!({"method":"eth_estimateGas", "params":"$any", "result":"0x33450"}));
+    list.extend(payer_account_rules()?);
+    let harness =
+        Harness::launch_with_receipt_keys(name, Gateway::serve_rules(&list)?, None, keys)?;
+    assert_eq!(harness.gate().receiver_address(), address);
+    assert_eq!(harness.gate().purpose(), purpose);
+    assert_eq!(harness.gate().payee(&asset), grant.recipient);
+    Ok((harness, grant, encoded))
+}
+
+fn rlp_item(bytes: &[u8]) -> Outcome<(bool, &[u8], usize)> {
+    let first = *bytes.first().ok_or("empty RLP")?;
+    let (list, offset, length) = match first {
+        0..=127 => (false, 0, 1),
+        128..=183 => (false, 1, usize::from(first - 128)),
+        184..=191 | 248..=255 => {
+            let list = first >= 248;
+            let width = usize::from(first - if list { 247 } else { 183 });
+            let length = bytes
+                .get(1..1 + width)
+                .ok_or("RLP length")?
+                .iter()
+                .try_fold(0_usize, |n, byte| {
+                    n.checked_mul(256)?.checked_add(usize::from(*byte))
+                })
+                .ok_or("RLP overflow")?;
+            (list, 1 + width, length)
+        }
+        192..=247 => (true, 1, usize::from(first - 192)),
+    };
+    Ok((
+        list,
+        bytes.get(offset..offset + length).ok_or("truncated RLP")?,
+        offset + length,
+    ))
+}
+
+fn assert_ledger_transaction(
+    raw: &[u8],
+    expected_nonce: u64,
+    expected_sequence: u64,
+    grant: &Grant,
+    label: &str,
+) -> Outcome {
+    let (list, body, consumed) = rlp_item(raw)?;
+    assert!(list);
+    assert_eq!(consumed, raw.len());
+    let mut remaining = body;
+    let mut fields = Vec::new();
+    let mut signing_fields = Vec::new();
+    while !remaining.is_empty() {
+        let (list, field, length) = rlp_item(remaining)?;
+        assert!(!list);
+        if fields.len() < 6 {
+            signing_fields.extend_from_slice(&remaining[..length]);
+        }
+        fields.push(field);
+        remaining = &remaining[length..];
+    }
+    assert_eq!(fields.len(), 9);
+    let integer = |field: &[u8]| {
+        field
+            .iter()
+            .fold(0_u64, |value, byte| value * 256 + u64::from(*byte))
+    };
+    assert_eq!(integer(fields[0]), expected_nonce);
+    assert_eq!(integer(fields[1]), 1);
+    assert_eq!(integer(fields[2]), 210_000);
+    assert_eq!(fields[3], LEDGER_PRECOMPILE);
+    assert!(fields[4].is_empty());
+    let data = fields[5];
+    assert_eq!(data.len(), 228);
+    assert_eq!(&data[..4], &[0x2e, 0x89, 0x49, 0x0f]);
+    assert_eq!(&data[4..36], &grant.id);
+    assert_eq!(&data[36..68], &grant.recipient);
+    assert_eq!(&data[68..84], &[0; 16]);
+    assert_eq!(&data[84..100], &accepted("SID")?.price.to_be_bytes());
+    assert_eq!(&data[100..132], &receive_key_bytes(label));
+    assert_eq!(&data[132..156], &[0; 24]);
+    assert_eq!(&data[156..164], &expected_sequence.to_be_bytes());
+    assert_ne!(
+        &data[156..164],
+        &(NOW_MS + x_websearch::payment::DRAW_VALIDITY_MS).to_be_bytes()
+    );
+    assert_ne!(expected_sequence, expected_nonce);
+    assert_eq!(&data[164..196], &grant.purpose_hash);
+    let v = integer(fields[6]);
+    assert_eq!((v - 35) / 2, 125);
+    signing_fields.extend_from_slice(&[0x7d, 0x80, 0x80]);
+    let length = u16::try_from(signing_fields.len())?;
+    assert!(length >= 256);
+    let unsigned = [&[0xf9][..], &length.to_be_bytes(), &signing_fields].concat();
+    let mut r = [0; 32];
+    let mut s = [0; 32];
+    r[32 - fields[7].len()..].copy_from_slice(fields[7]);
+    s[32 - fields[8].len()..].copy_from_slice(fields[8]);
+    let signature = k256::ecdsa::Signature::from_scalars(r, s)?;
+    assert!(signature.normalize_s().is_none());
+    let recovery = k256::ecdsa::RecoveryId::try_from(((v - 35) % 2) as u8)?;
+    let recovered = k256::ecdsa::VerifyingKey::recover_from_prehash(
+        &x_websearch::watch::keccak(&unsigned),
+        &signature,
+        recovery,
+    )?;
+    assert_eq!(recovered, *receiver_secret()?.verifying_key());
+    Ok(())
+}
+
+#[test]
+fn a_metered_payload_is_refused_before_a_receiver_signed_ledger_transaction() -> Outcome {
+    let (harness, grant, encoded) = ledger_harness("receiver-signed-ledger")?;
+    let label = "receiver-signed";
+    let signed = test_draw(
+        &receiver_secret()?,
+        &grant,
+        accepted("SID")?.price,
+        7,
+        receive_key_bytes(label),
+    )?;
+    assert_eq!(x_websearch::watch::keccak(&signed.raw), signed.hash);
+    assert_ledger_transaction(&signed.raw, 7, RECEIVER_SEQUENCE, &grant, label)?;
+    assert_eq!(&signed.raw[0..1], &[0xf9]);
+    assert_metered_payload_refused(
+        &harness,
+        &format!("/search?q={label}"),
+        "SID",
+        &encoded,
+        label,
+    )?;
+    let requests = harness
+        .gateway
+        .requests
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    let account_calls: Vec<_> = requests
+        .iter()
+        .filter(|request| {
+            request["params"][0]["data"]
+                .as_str()
+                .is_some_and(|data| data.starts_with(&format!("0x3f050cbc{RECEIVER_DID_KEY}")))
+        })
+        .collect();
+    assert_eq!(account_calls.len(), 4);
+    let owner = test_key("receiver").verifying_key().to_bytes();
+    for (call, asset) in account_calls.iter().zip(harness.gate().assets().all()) {
+        assert_eq!(
+            call["params"],
+            json!([{"to":format!("0x{}", hex(&LEDGER_PRECOMPILE)), "data":format!("0x3f050cbc{}{}", hex(&owner), hex(&asset.asset_id))}, "pending"])
+        );
+        let native_account = account_id(&wallet_account(
+            &format!("did:layerx:{}", hex(&owner)),
+            asset,
+        ))
+        .ok_or("native receiver account")?;
+        assert_eq!(harness.gate().payee(asset), native_account);
+    }
+    assert!(!requests.iter().any(|request| request["params"][0]["data"]
+        .as_str()
+        .is_some_and(|data| data.starts_with("0xce2f921f"))));
+    Ok(())
+}
+
+#[test]
+fn metered_payloads_do_not_allocate_receiver_nonces() -> Outcome {
+    let (harness, grant, encoded) = ledger_harness("sequential-ledger-nonces")?;
+    let mut hashes = Vec::new();
+    for (nonce, sequence, label) in [(7, 0, "nonce-seven"), (8, 1, "nonce-eight")] {
+        let signed = LedgerTransaction {
+            chain_id: 125,
+            nonce,
+            gas_price: 1,
+            gas_limit: 210_000,
+            data: draw_calldata(
+                &grant.id,
+                &grant.recipient,
+                accepted("SID")?.price,
+                &receive_key_bytes(label),
+                sequence,
+                &grant.purpose_hash,
+                &[0; 32],
+            ),
+        }
+        .sign(&receiver_secret()?)?;
+        assert_ledger_transaction(&signed.raw, nonce, sequence, &grant, label)?;
+        assert_eq!(x_websearch::watch::keccak(&signed.raw), signed.hash);
+        hashes.push(signed.hash);
+        assert_metered_payload_refused(
+            &harness,
+            &format!("/search?q={label}"),
+            "SID",
+            &encoded,
+            label,
+        )?;
+    }
+    assert_ne!(hashes[0], hashes[1]);
+    Ok(())
+}
+
+#[test]
+fn receiver_binding_and_sequence_reads_are_strict() -> Outcome {
+    let recording = read_json(&fixtures().join("gateway/metered.json"))?;
+    let binding = recording["endpoints"]["gateway"]["*"]
+        .as_array()
+        .ok_or("rules")?
+        .iter()
+        .find(|rule| {
+            rule["params"][0]["data"]
+                .as_str()
+                .is_some_and(|data| data.starts_with("0xd3600b24"))
+        })
+        .ok_or("binding rule")?;
+    let key = test_key("receiver").verifying_key().to_bytes();
+    let raw =
+        x_websearch::payment::unhex(text(binding, "/result")?.strip_prefix("0x").ok_or("hex")?)
+            .ok_or("binding bytes")?;
+    for mutation in [
+        None,
+        Some(0),
+        Some(32),
+        Some(63),
+        Some(95),
+        Some(96),
+        Some(191),
+    ] {
+        let mut rule = binding.clone();
+        let mut bytes = raw.clone();
+        if let Some(index) = mutation {
+            bytes[index] ^= 1;
+        }
+        rule["result"] = json!(format!("0x{}", hex(&bytes)));
+        let gateway = Gateway::serve_rules(&[
+            json!({"method":"eth_chainId", "params":[], "result":"0x7d"}),
+            rule,
+        ])?;
+        let rpc = SettlementRpc::new(&format!("http://{}/rpc", gateway.address), 125)?;
+        let result = read_receiver_did(&rpc, &receiver_public_key()?);
+        if mutation.is_none() {
+            assert_eq!(result?, key);
+        } else {
+            assert_eq!(result, Err(SettlementError::Malformed));
+        }
+    }
+    let mut unbound = binding.clone();
+    unbound.as_object_mut().ok_or("rule")?.remove("result");
+    unbound["error"] = json!({"code":3, "message":"LXP_ADDR_EVM_NOT_BOUND"});
+    let gateway = Gateway::serve_rules(&[
+        json!({"method":"eth_chainId", "params":[], "result":"0x7d"}),
+        unbound,
+    ])?;
+    let rpc = SettlementRpc::new(&format!("http://{}/rpc", gateway.address), 125)?;
+    assert_eq!(
+        read_receiver_did(&rpc, &receiver_public_key()?),
+        Err(SettlementError::Rpc {
+            code: 3,
+            message: "LXP_ADDR_EVM_NOT_BOUND".to_owned(),
+        })
+    );
+
+    let asset = accepted("SID")?;
+    for sequence in [0_u64, 1, 300] {
+        let gateway = Gateway::serve_rules(&[
+            json!({"method":"eth_chainId", "params":[], "result":"0x7d"}),
+            json!({"method":"eth_call", "params":[{
+                "to":format!("0x{}", hex(&LEDGER_PRECOMPILE)),
+                "data":format!("0xce2f921f{}{}", hex(&key), hex(&asset.asset_id))
+            }, "pending"], "result":format!("0x{sequence:064x}")}),
+        ])?;
+        let rpc = SettlementRpc::new(&format!("http://{}/rpc", gateway.address), 125)?;
+        assert_eq!(
+            read_receiver_sequence(&rpc, &key, &asset.asset_id)?,
+            sequence
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn metered_draw_refuses_unavailable_or_malformed_receiver_sequence() -> Outcome {
+    let answers = [
+        json!({"result":"0x"}),
+        json!({"result":format!("0x{}", "00".repeat(31))}),
+        json!({"result":format!("0x{}", "00".repeat(33))}),
+        json!({"result":format!("0x01{}", "00".repeat(31))}),
+        json!({"error":{"code":3, "message":"LXP_UNKNOWN_ACCOUNT"}}),
+    ];
+    for (index, answer) in answers.into_iter().enumerate() {
+        let label = format!("receiver-sequence-refused-{index}");
+        let (harness, _grant, encoded) = ledger_harness(&label)?;
+        for rule in harness
+            .gateway
+            .rules
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter_mut()
+        {
+            if rule.params[0]["data"]
+                .as_str()
+                .is_some_and(|data| data.starts_with("0xce2f921f"))
+            {
+                rule.answer = answer.clone();
+            }
+        }
+        let signature = metered_payload_signature(&harness, &encoded, &label)?;
+        let reply = harness.pay(
+            &format!("/search?q={label}"),
+            Some(harness.payer()?),
+            &signature,
+        )?;
+        assert_refused(&reply, "invalid_payment_payload");
+        assert_no_payment_state(&harness)?;
+        assert_eq!(harness.gateway.calls("eth_getTransactionCount"), 0);
+        assert_eq!(harness.gateway.calls("eth_estimateGas"), 0);
+        assert_eq!(harness.gateway.calls("eth_sendRawTransaction"), 0);
+        assert_eq!(harness.served(), 0);
+    }
+    Ok(())
+}
+
+#[test]
+fn metered_draw_refuses_a_changed_receiver_binding() -> Outcome {
+    let label = "receiver-binding-changed";
+    let (harness, _grant, encoded) = ledger_harness(label)?;
+    let key = test_key("other-receiver").verifying_key().to_bytes();
+    let did = format!("did:layerx:{}", hex(&key));
+    for rule in harness
+        .gateway
+        .rules
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .iter_mut()
+    {
+        if rule.params[0]["data"]
+            .as_str()
+            .is_some_and(|data| data.starts_with("0xd3600b24"))
+        {
+            let answer = format!(
+                "0x{}{:064x}{:064x}{}{}",
+                hex(&key),
+                64,
+                did.len(),
+                hex(did.as_bytes()),
+                "00".repeat(32 - did.len() % 32)
+            );
+            rule.answer = json!({"result":answer});
+        }
+    }
+    let signature = metered_payload_signature(&harness, &encoded, label)?;
+    let reply = harness.pay(
+        &format!("/search?q={label}"),
+        Some(harness.payer()?),
+        &signature,
+    )?;
+    assert_refused(&reply, "invalid_payment_payload");
+    assert_no_payment_state(&harness)?;
+    assert_eq!(harness.gateway.calls("eth_getTransactionCount"), 0);
+    assert_eq!(harness.gateway.calls("eth_estimateGas"), 0);
+    assert_eq!(harness.gateway.calls("eth_sendRawTransaction"), 0);
+    assert_eq!(harness.served(), 0);
+    Ok(())
+}
+
+#[test]
+fn exact_payment_accepts_only_native_signed_topic_order() -> Outcome {
+    let permutations = [
+        [1, 2, 3],
+        [1, 3, 2],
+        [2, 1, 3],
+        [2, 3, 1],
+        [3, 1, 2],
+        [3, 2, 1],
+    ];
+    for permutation in permutations {
+        let label = format!("exact-topic-order-{permutation:?}");
+        let harness = Harness::start(&label, &[])?;
+        let asset = accepted("SID")?;
+        let payer = payer_account(&asset)?;
+        let payee = harness.gate.as_ref().ok_or("payment gate")?.payee(&asset);
+        let reference = receive_key_bytes(&label);
+        let native = [
+            x_websearch::watch::keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
+            reference,
+            payer,
+            payee,
+        ];
+        assert_ne!(reference, payer);
+        assert_ne!(reference, payee);
+        assert_ne!(payer, payee);
+        let mut amount = [0; 32];
+        amount[16..].copy_from_slice(&asset.price.to_be_bytes());
+        let event = SequencerLog::new(
+            LEDGER_PRECOMPILE,
+            vec![
+                native[0],
+                native[permutation[0]],
+                native[permutation[1]],
+                native[permutation[2]],
+            ],
+            [asset.asset_id, amount].concat(),
+            0,
+        );
+        let hash = labelled("x-websearch-test/transaction/", &label);
+        let answer = draw_receipt_answer(hash, &[event], 1)?;
+        let receipt =
+            x_websearch::payment::unhex(text(&answer, "/receipt")?.trim_start_matches("0x"))
+                .ok_or("receipt bytes")?;
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        let payment = json!({
+            "txHash": format!("0x{}", hex(&hash)),
+            "receiptDigest": hex(&digest), "verificationLevel": "receipted",
+            "idempotencyKey": hex(&reference),
+        });
+        receipt_rule(&harness, hash, answer, false)?;
+        let target = "/fetch?url=topic-order";
+        let signature =
+            harness.signature(target, Some(harness.payer()?), EXACT, "SID", &payment)?;
+        let reply = harness.pay(target, Some(harness.payer()?), &signature)?;
+        if permutation == [1, 2, 3] {
+            assert_settled(&reply)?;
+            assert_eq!(reply.decoded(PAYMENT_RESPONSE)?["payer"], hex(&payer));
+            assert_eq!(harness.served(), 1);
+        } else {
+            assert_refused(&reply, "receipt_mismatch");
+            assert_eq!(harness.served(), 0);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn exact_payment_native_topics_retain_receipt_validation() -> Outcome {
+    for mutation in [
+        "payer",
+        "payee",
+        "reference",
+        "asset",
+        "amount",
+        "amount-overflow",
+        "address",
+        "duplicate",
+        "status",
+        "signature",
+        "unsigned-log",
+    ] {
+        let label = format!("native-exact-{mutation}");
+        let harness = Harness::start(&label, &[])?;
+        let asset = accepted("SID")?;
+        let payer = payer_account(&asset)?;
+        let payee = harness.gate.as_ref().ok_or("payment gate")?.payee(&asset);
+        let mut topics = vec![
+            x_websearch::watch::keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
+            receive_key_bytes(&label),
+            payer,
+            payee,
+        ];
+        let mut data = [0; 64];
+        data[..32].copy_from_slice(&asset.asset_id);
+        data[48..].copy_from_slice(&asset.price.to_be_bytes());
+        let mut address = LEDGER_PRECOMPILE;
+        match mutation {
+            "payer" => topics[2][0] ^= 1,
+            "payee" => topics[3][0] ^= 1,
+            "reference" => topics[1][0] ^= 1,
+            "asset" => data[0] ^= 1,
+            "amount" => data[63] ^= 1,
+            "amount-overflow" => data[32] = 1,
+            "address" => address[0] ^= 1,
+            _ => (),
+        }
+        let mut logs = vec![SequencerLog::new(address, topics.clone(), data.to_vec(), 0)];
+        if mutation == "duplicate" {
+            logs.push(SequencerLog::new(address, topics, data.to_vec(), 1));
+        }
+        let hash = labelled("x-websearch-test/transaction/", &label);
+        let mut answer = draw_receipt_answer(hash, &logs, u64::from(mutation != "status"))?;
+        let mut receipt =
+            x_websearch::payment::unhex(text(&answer, "/receipt")?.trim_start_matches("0x"))
+                .ok_or("receipt bytes")?;
+        if mutation == "signature" {
+            let last = receipt.len() - 1;
+            receipt[last] ^= 1;
+            answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
+        }
+        if mutation == "unsigned-log" {
+            answer["logs"][0]["topics"][2] = json!(format!("0x{}", "00".repeat(32)));
+        }
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        let payment = json!({
+            "txHash": format!("0x{}", hex(&hash)),
+            "receiptDigest": hex(&digest), "verificationLevel": "receipted",
+            "idempotencyKey": receive_key(&label),
+        });
+        receipt_rule(&harness, hash, answer, false)?;
+        let target = "/fetch?url=receipt-validation";
+        let signature =
+            harness.signature(target, Some(harness.payer()?), EXACT, "SID", &payment)?;
+        let reply = harness.pay(target, Some(harness.payer()?), &signature)?;
+        assert_refused(
+            &reply,
+            match mutation {
+                "status" => "payment_failed",
+                "signature" => "receipt_unverified",
+                _ => "receipt_mismatch",
+            },
+        );
+        assert_eq!(harness.served(), 0, "{mutation}");
+    }
     Ok(())
 }

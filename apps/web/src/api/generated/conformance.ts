@@ -13,11 +13,6 @@ import {
   decodeAuthenticatorSetupBegin,
   decodeAuthenticatorSetupFinish,
   decodeBackupCodeRotation,
-  decodeBindingStatementRequest,
-  decodeBindingSubmission,
-  decodeDepositConfirmRequest,
-  decodeDepositStartRequest,
-  decodeExitStartRequest,
   decodeExportEvidenceRequest,
   decodeExportStatementRequest,
   decodeKeyExportBegin,
@@ -37,7 +32,6 @@ import {
   decodeProfileUpdate,
   decodeProgramApprovalDecisionRequest,
   decodeProgramApprovalDisclosureRequest,
-  decodeRebindingSubmission,
   decodeSecurityActionRequest,
   decodeSecurityPasskeyRegistrationBegin,
   decodeSecurityPasskeyRegistrationFinish,
@@ -52,13 +46,12 @@ import {
   decodeSupportFeedbackRequest,
   decodeSupportReadRequest,
   decodeSupportReplyRequest,
-  decodeWithdrawClaimRequest,
-  decodeWithdrawStartRequest,
   encodeAccountBalance,
   encodeAccountCreation,
   encodeActivityEntryDetail,
   encodeActivityPage,
   encodeAgent,
+  encodeAgentCreationJourney,
   encodeAgentPage,
   encodeApprovalDecision,
   encodeApprovalDetail,
@@ -67,10 +60,7 @@ import {
   encodeAuthenticatorSetupResult,
   encodeAuthenticatorStatus,
   encodeBackupCodeSet,
-  encodeBindingRebindAction,
-  encodeBindingStatement,
   encodeEvidenceMaterial,
-  encodeExitEligibility,
   encodeExportArtefact,
   encodeExportedPrimaryKey,
   encodeHomeSummary,
@@ -87,6 +77,7 @@ import {
   encodeNotificationPage,
   encodeNotificationPreferences,
   encodeNotificationSummary,
+  encodeOnboardingJourney,
   encodePasskey,
   encodePasskeyAssertion,
   encodePasskeyAssertionChallenge,
@@ -112,7 +103,6 @@ import {
   encodeSupportConversationStatus,
   encodeTimedSecret,
   encodeVersionInfo,
-  encodeWalletBinding,
   type HumanApiClient,
   type JsonValue,
   type OperationName,
@@ -163,7 +153,7 @@ export const conformance: { readonly [name in OperationName]: (run: ConformanceR
   "agent.archive": async (run) =>
     encodeJourney(await run.client.agentArchive(runParam(run, "agent_id"), decodeAgentArchiveRequest(runBody(run), "golden request body"), runKey(run))),
   "agent.create": async (run) =>
-    encodeJourney(await run.client.agentCreate(decodeAgentCreateRequest(runBody(run), "golden request body"), runKey(run))),
+    encodeAgentCreationJourney(await run.client.agentCreate(decodeAgentCreateRequest(runBody(run), "golden request body"), runKey(run))),
   "agent.get": async (run) =>
     encodeAgent(await run.client.agentGet(runParam(run, "agent_id"))),
   "agent.limit": async (run) =>
@@ -216,26 +206,8 @@ export const conformance: { readonly [name in OperationName]: (run: ConformanceR
     encodeAuthenticatorSetupResult(await run.client.authenticatorSetupFinish(runParam(run, "setup_id"), decodeAuthenticatorSetupFinish(runBody(run), "golden request body"))),
   "authenticator.status": async (run) =>
     encodeAuthenticatorStatus(await run.client.authenticatorStatus()),
-  "binding.rebind": async (run) =>
-    encodeJourney(await run.client.bindingRebind(decodeRebindingSubmission(runBody(run), "golden request body"), runKey(run))),
-  "binding.rebind.action": async (run) =>
-    encodeBindingRebindAction(await run.client.bindingRebindAction(decodeBindingStatementRequest(runBody(run), "golden request body"))),
-  "binding.statement": async (run) =>
-    encodeBindingStatement(await run.client.bindingStatement(decodeBindingStatementRequest(runBody(run), "golden request body"))),
-  "binding.status": async (run) =>
-    encodeWalletBinding(await run.client.bindingStatus()),
-  "binding.submit": async (run) =>
-    encodeJourney(await run.client.bindingSubmit(decodeBindingSubmission(runBody(run), "golden request body"), runKey(run))),
-  "deposit.confirm": async (run) =>
-    encodeJourney(await run.client.depositConfirm(runParam(run, "journey_id"), decodeDepositConfirmRequest(runBody(run), "golden request body"))),
-  "deposit.start": async (run) =>
-    encodeJourney(await run.client.depositStart(decodeDepositStartRequest(runBody(run), "golden request body"), runKey(run))),
   "evidence.get": async (run) =>
     encodeEvidenceMaterial(await run.client.evidenceGet(runParam(run, "evidence_id"))),
-  "exit.eligibility": async (run) =>
-    encodeExitEligibility(await run.client.exitEligibility()),
-  "exit.start": async (run) =>
-    encodeJourney(await run.client.exitStart(decodeExitStartRequest(runBody(run), "golden request body"), runKey(run))),
   "home.summary": async (run) =>
     encodeHomeSummary(await run.client.homeSummary()),
   "intent.plan": async (run) =>
@@ -265,9 +237,9 @@ export const conformance: { readonly [name in OperationName]: (run: ConformanceR
   "notification.read": async (run) =>
     encodeNotificationSummary(await run.client.notificationRead(runParam(run, "notification_id"))),
   "onboarding.resume": async (run) =>
-    encodeJourney(await run.client.onboardingResume()),
+    encodeOnboardingJourney(await run.client.onboardingResume()),
   "onboarding.status": async (run) =>
-    encodeJourney(await run.client.onboardingStatus()),
+    encodeOnboardingJourney(await run.client.onboardingStatus()),
   "passkey.assert.begin": async (run) =>
     encodePasskeyAssertionChallenge(await run.client.passkeyAssertBegin(decodePasskeyAssertionBegin(runBody(run), "golden request body"))),
   "passkey.assert.finish": async (run) =>
@@ -334,8 +306,4 @@ export const conformance: { readonly [name in OperationName]: (run: ConformanceR
     encodeSupportConversationStatus(await run.client.supportStatus(runParam(run, "conversation_id"))),
   "version": async (run) =>
     encodeVersionInfo(await run.client.version()),
-  "withdraw.claim": async (run) =>
-    encodeJourney(await run.client.withdrawClaim(runParam(run, "journey_id"), decodeWithdrawClaimRequest(runBody(run), "golden request body"))),
-  "withdraw.start": async (run) =>
-    encodeJourney(await run.client.withdrawStart(decodeWithdrawStartRequest(runBody(run), "golden request body"), runKey(run))),
 };

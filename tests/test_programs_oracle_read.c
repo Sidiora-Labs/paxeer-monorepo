@@ -318,7 +318,7 @@ static int oracle_read_pending_case(lxp_module_ctx *perps_ctx,
     return 0;
 }
 
-static int oracle_read_case(void)
+static int oracle_read_case(lxp_kernel *kernel)
 {
     static const uint8_t did[] = "did:lxp:programs-oracle-read";
     static const uint8_t actor_name[] = "agent:did:lxp:programs-oracle-read:main";
@@ -344,7 +344,6 @@ static int oracle_read_case(void)
     lxp_arena perps_arena;
     lxp_state_store state;
     lxp_state_journal journal;
-    lxp_kernel kernel;
     lxp_module_ctx perps_ctx;
     lxp_module_ctx view_ctx;
     lxp_effect_buffer perps_effects;
@@ -420,7 +419,7 @@ static int oracle_read_case(void)
         1U, 1U, 1U, 2U, 4U, 1U, 1U, 1U
     };
     runtime.resolve_metering_schedule = lxp_programs_metering_resolve_runtime;
-    runtime.metering_schedule_context = &kernel;
+    runtime.metering_schedule_context = kernel;
     (void)memcpy(runtime.occupancy_asset_id, fee_asset, 32U);
     runtime.resolve_occupancy_parameters = occupancy_parameters;
     runtime.occupancy_parameter_context = &runtime;
@@ -429,19 +428,19 @@ static int oracle_read_case(void)
     ORACLE_READ_CHECK(lxp_state_store_init(&state, 1U) == LXP_OK);
     ORACLE_READ_CHECK(lxp_identity_register(&identities, did, sizeof(did) - 1U,
                                             primary_key, &identity) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_kernel_create(&kernel, &state, &journal, &parameters,
+    ORACLE_READ_CHECK(lxp_kernel_create(kernel, &state, &journal, &parameters,
                                         0U) == LXP_OK);
-    ORACLE_READ_CHECK(install_metering_v1(&kernel) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_kernel_register_module(&kernel,
+    ORACLE_READ_CHECK(install_metering_v1(kernel) == LXP_OK);
+    ORACLE_READ_CHECK(lxp_kernel_register_module(kernel,
         programs_module_registration_v4()) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_kernel_register_module(&kernel,
+    ORACLE_READ_CHECK(lxp_kernel_register_module(kernel,
         lx_perps_module_iface()) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_kernel_bind_module_runtime(&kernel,
+    ORACLE_READ_CHECK(lxp_kernel_bind_module_runtime(kernel,
         LXP_MODULE_PROGRAMS, &runtime) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_programs_bind_fee_transaction(&kernel) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_kernel_set_capabilities(&kernel, NULL,
+    ORACLE_READ_CHECK(lxp_programs_bind_fee_transaction(kernel) == LXP_OK);
+    ORACLE_READ_CHECK(lxp_kernel_set_capabilities(kernel, NULL,
         lxp_kernel_canonical_ledger_apply) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_state_root(&kernel, kernel.current_state_root) == LXP_OK);
+    ORACLE_READ_CHECK(lxp_state_root(kernel, kernel->current_state_root) == LXP_OK);
     ORACLE_READ_CHECK(lxp_arena_init(&arena, arena_bytes,
                                      sizeof(arena_bytes)) == LXP_OK);
     (void)memset(&execution, 0, sizeof(execution));
@@ -481,7 +480,7 @@ static int oracle_read_case(void)
             activity.idempotency_key[31] = (uint8_t)(0x41U + deploy);
             execution.global_sequence = state.next_sequence;
             ORACLE_READ_CHECK(lxp_arena_reset(&arena, 0U) == LXP_OK);
-            ORACLE_READ_CHECK(execute_artifact_fixture_activity(&kernel,
+            ORACLE_READ_CHECK(execute_artifact_fixture_activity(kernel,
                 &activity, &execution, &receipt) == LXP_OK);
             ORACLE_READ_CHECK(receipt.result_code == LXP_OK);
             ORACLE_READ_CHECK(identity->next_sequence == ++identity_sequence);
@@ -494,7 +493,7 @@ static int oracle_read_case(void)
                                              &journal) == LXP_OK);
     ORACLE_READ_CHECK(lxp_arena_init(&perps_arena, perps_arena_bytes,
                                      sizeof(perps_arena_bytes)) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_module_ctx_init(&perps_ctx, &kernel, LXP_MODULE_PERPS,
+    ORACLE_READ_CHECK(lxp_module_ctx_init(&perps_ctx, kernel, LXP_MODULE_PERPS,
         10U, 0U, state.next_sequence, 100000U, &perps_arena, true) == LXP_OK);
     perps_ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
     ORACLE_READ_CHECK(lxp_effect_buffer_init(&perps_effects) == LXP_OK);
@@ -513,10 +512,10 @@ static int oracle_read_case(void)
     ORACLE_READ_CHECK(lxp_module_ctx_prepare_commit(&perps_ctx) == LXP_OK);
     ORACLE_READ_CHECK(lxp_state_journal_commit(&journal) == LXP_OK);
     ORACLE_READ_CHECK(lxp_module_ctx_commit(&perps_ctx) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_state_root(&kernel, kernel.current_state_root) == LXP_OK);
+    ORACLE_READ_CHECK(lxp_state_root(kernel, kernel->current_state_root) == LXP_OK);
     ORACLE_READ_CHECK(lxp_arena_init(&perps_arena, perps_arena_bytes,
                                      sizeof(perps_arena_bytes)) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_module_ctx_init(&perps_ctx, &kernel, LXP_MODULE_PERPS,
+    ORACLE_READ_CHECK(lxp_module_ctx_init(&perps_ctx, kernel, LXP_MODULE_PERPS,
         10U, 0U, state.next_sequence, 100000U, &perps_arena, false) == LXP_OK);
     ORACLE_READ_CHECK(lx_perps_oracle_state_lookup(&perps_ctx, observed_id,
                                                    &loaded) == LXP_OK);
@@ -538,7 +537,7 @@ static int oracle_read_case(void)
     execution.fee_balance = actor->balance;
     execution.global_sequence = state.next_sequence;
     ORACLE_READ_CHECK(lxp_arena_reset(&arena, 0U) == LXP_OK);
-    ORACLE_READ_CHECK(execute_artifact_fixture_activity(&kernel, &activity,
+    ORACLE_READ_CHECK(execute_artifact_fixture_activity(kernel, &activity,
         &execution, &receipt) == LXP_OK);
     ORACLE_READ_CHECK(receipt.result_code == LXP_OK);
     ORACLE_READ_CHECK(identity->next_sequence == ++identity_sequence);
@@ -561,7 +560,7 @@ static int oracle_read_case(void)
             execution.fee_balance = actor->balance;
             execution.global_sequence = state.next_sequence;
             ORACLE_READ_CHECK(lxp_arena_reset(&arena, 0U) == LXP_OK);
-            ORACLE_READ_CHECK(execute_artifact_fixture_activity(&kernel,
+            ORACLE_READ_CHECK(execute_artifact_fixture_activity(kernel,
                 &activity, &execution, &receipt) == LXP_OK);
             ORACLE_READ_CHECK(receipt.result_code == LXP_ERR_NON_CANONICAL);
             ORACLE_READ_CHECK(receipt.program_outcome.present);
@@ -573,7 +572,7 @@ static int oracle_read_case(void)
     /* The host binding itself distinguishes the two refusals by type. */
     ORACLE_READ_CHECK(lxp_arena_init(&perps_arena, perps_arena_bytes,
                                      sizeof(perps_arena_bytes)) == LXP_OK);
-    ORACLE_READ_CHECK(lxp_module_ctx_init(&view_ctx, &kernel,
+    ORACLE_READ_CHECK(lxp_module_ctx_init(&view_ctx, kernel,
         LXP_MODULE_PROGRAMS, 10U, 0U, state.next_sequence, 100000U,
         &perps_arena, false) == LXP_OK);
     ORACLE_READ_CHECK(lx_oracle_committed_read(&view_ctx, observed_id,
@@ -587,7 +586,7 @@ static int oracle_read_case(void)
     ORACLE_READ_CHECK(lx_oracle_committed_read(&view_ctx, halted_id,
                                                &committed) ==
                       LXP_ERR_MARKET_HALTED);
-    ORACLE_READ_CHECK(lxp_module_ctx_init(&perps_ctx, &kernel, LXP_MODULE_PERPS,
+    ORACLE_READ_CHECK(lxp_module_ctx_init(&perps_ctx, kernel, LXP_MODULE_PERPS,
         10U, 0U, state.next_sequence, 100000U, &perps_arena, true) == LXP_OK);
     ORACLE_READ_CHECK(lxp_module_ctx_set_mutable(&view_ctx, true) == LXP_OK);
     ORACLE_READ_CHECK(oracle_read_pending_case(&perps_ctx, &view_ctx,
@@ -596,12 +595,21 @@ static int oracle_read_case(void)
                                           LXP_ERR_UNKNOWN_FIELD) == 0);
     ORACLE_READ_CHECK(oracle_read_refusal(&view_ctx, halted_id,
                                           LXP_ERR_MARKET_HALTED) == 0);
+    lxp_module_ctx_rollback(&perps_ctx);
+    lxp_module_ctx_rollback(&view_ctx);
+    while (kernel->blob_count != 0U)
+        free(kernel->blobs[--kernel->blob_count].bytes);
+    lx_account_registry_release(&accounts);
     ORACLE_READ_CHECK(lxp_state_store_destroy(&state) == LXP_OK);
     return 0;
 }
 
 int main(void)
 {
-    if (oracle_read_case() != 0) return 1;
-    return 0;
+    lxp_kernel *kernel = calloc(1U, sizeof(*kernel));
+    int result;
+    ORACLE_READ_CHECK(kernel != NULL);
+    result = oracle_read_case(kernel);
+    free(kernel);
+    return result;
 }

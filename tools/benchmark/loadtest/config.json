@@ -57,11 +57,7 @@
       "collect_rewards",
       "distribute_rewards",
       "wasm_instantiate",
-      "wasm_occ_iterator_write",
-      "wasm_occ_iterator_range",
-      "wasm_occ_parallel_write",
-      "evm",
-      "univ2"
+      "evm"
     ],
     "evm_use_eip1559_txs": true,
     "run_oracle": false,
@@ -79,7 +75,6 @@
         "payload": "{}"
       }
     },
-    "pax_tester_address": "",
     "contract_distribution": [
       {
         "contract_address": "pax1zwv6feuzhy6a9wekh96cd57lsarmqlwxdypdsplw6zhfncqw6ftq8e5uhw",

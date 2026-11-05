@@ -1,565 +1,389 @@
 # Agentd
 
-`layerx-agentd` is the non-authoritative LayerX Network agent daemon
-(`services/agent/crates/layerx-agentd/src/lib.rs:1`). It consumes protocol
-receipts and signed batch evidence. It never mints balances. It never
-mints a protocol budget object from local state.
+`layerx-agentd` is the non-authoritative agent process and library in
+`services/agent/crates/layerx-agentd`. It owns tenant sessions, preparations,
+local policy, durable reservations and recovery. It consumes node receipts
+and committed state; it cannot mint balances or turn local accounting into
+protocol authority.
 
-The crate is a library plus a binary. The binary
-(`services/agent/crates/layerx-agentd/src/main.rs:782-787`) binds a loopback
-program-balance listener and a human Unix owner. Budget creation,
-approval holds, capability ceilings, and receipt verification are
-library paths. Evidence tests construct `EvidenceAuthority` from a
-protected `layerx-sequencer-authority-v1` file, then a real sequencer
-handshake (`services/agent/crates/layerx-agentd/tests/support/mod.rs:238-292, 295-309`;
-`services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1293-1298`).
+Paxeer mainnet-beta is one BFT network, with EVM chain id **125** (`0x7d`).
+The kernel participates in the network and proposes blocks. A transaction
+receipt is final when its block is committed. Agentd is a client of this
+network, not another consensus or settlement layer. Tenant domains are
+namespaces in the database; they do not require separate chains or nodes.
 
-This page covers those library paths. It does not cover MCP routing or
-interop adapters.
-
----
+For the node connection and hosted gateway boundary, see [Node access](lni.md).
+For scope-bound tools over the same agent session, see [MCP](mcp.md).
 
 ## What it never does
 
-Local figures are a cache, not authority
-(`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:23-29`). A
-daemon-only limit is labelled `daemon-enforced` and states that
-bypassing `layerx-agentd` bypasses the limit
-(`services/agent/crates/layerx-agentd/src/budget/create.rs:7-8, 84-106`;
-`services/agent/crates/layerx-agentd/tests/budget_create.rs:216-222`).
+Local figures are rebuildable caches. `LocalLimit::new` explicitly labels
+its enforcement `daemon-enforced`: bypassing agentd bypasses that limit.
+Approvals and locally narrowed capability dimensions have the same limitation.
+Protocol budgets, in contrast, require a successful committed transaction and
+a matching protocol budget record. Neither a local hold nor a successful
+submission acknowledgement creates one.
 
-`create_protocol_budget` submits only a verifier-bound canonical
-activity, verifies the core receipt, then still returns
-`ProtocolObjectEffectUnavailable` because the receipt schema carries
-no created budget object effect. The store argument is unused. No
-`ObjectKind::Budget` record is written
-(`services/agent/crates/layerx-agentd/src/budget/create.rs:122-162`;
-`services/agent/crates/layerx-agentd/tests/budget_create.rs:58-83, 87-108`).
-
-`ProtocolBudget` exists as a return type
-(`services/agent/crates/layerx-agentd/src/budget/create.rs:53-82`).
-`create_protocol_budget` never returns `Ok`. Those two facts stand
-together.
-
----
+Sources: `src/budget/create.rs`, `src/budget/reconcile.rs`,
+`src/approval/mod.rs`, and `src/capability/report.rs`, relative to the agentd
+crate throughout this page.
 
 ## Protocol evidence
 
-Trusted policy is owned by the daemon and is never taken from proof
-ingress (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1, 94-100,
-502-505`). `Gate::new` loads it from
-`StartupConfig.sequencer_authority_source` before any write gate
-opens (`services/agent/crates/layerx-agentd/src/boot.rs:76-93`;
-`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:142-226`). The
-file's first line must be `layerx-sequencer-authority-v1`
-(`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:22, 159-161`).
+### Startup and reconnection
 
-`EvidenceAuthority` is the write-ready wrapper around that verifier
-(`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:429-466`).
-`handshake_gate` then requires the node's authorised sequencer key
-to match an active configured interval
-(`services/agent/crates/layerx-agentd/src/boot.rs:180-186`;
-`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:228-237`). A
-caller cannot substitute a policy after handshake
-(`services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:176-192`).
+`NodeRpc::connect` checks `eth_chainId` against `NodeRpcConfig.chain_id` before
+returning a connection. An unavailable endpoint, malformed answer or chain
+mismatch refuses startup. Calls have a finite deadline; the environment-based
+configuration uses 30 seconds. HTTPS validates certificates using system roots
+or the explicitly supplied CA in `connect_with_ca`.
 
-### Receipt verifier
+`boot::readiness_gate` fetches `px_getReceiptKeys` on every check and refuses
+an empty key set. The library `Gate` starts `NotReady`, clears readiness
+before refreshing, and compares each published key's first and last heights
+against its configured evidence policy. A failed refresh leaves writes closed;
+a successful refresh advances its readiness generation. `disconnected` closes
+the gate again. `guard_write` and `evidence_authority` refuse while not ready.
 
-`EvidenceAuthority::verify_receipt` is the receipt verifier
-(`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:444-454,
-311-375`). Raw ingress is `canonical_receipt`, Merkle `proof`,
-`canonical_header`, and `header_signature` only
-(`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:502-528`).
+This is a chain-checked node connection and receipt-key refresh. The old LNI
+handshake is retired. Identifiers such as `SequencerEndpoint`,
+`pax_sequencerReceipt` and `HandshakeKey` remain in code; they do not identify
+an additional network service.
 
-Fields that must bind:
+The binary and the library have distinct startup wiring. Full binary mode
+starts program reads, the shared human owner and the authenticated agent
+boundary. `LAYERX_AGENT_MODE=human-owner` starts the human owner with its
+loopback health listener and checks node RPC before serving; it refuses MCP
+binding publication. An omitted mode selects `full`.
 
-| Check | Binding |
-| --- | --- |
-| Policy | Header `protocol_version`, `network_id`, `sequencer_id`, `epoch`, batch number inside the active (non-revoked) range (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:239-302, 315-317`) |
-| Inclusion | `layerx_proof::inclusion::verify_receipt` over receipt bytes, proof, header, header signature, and configured `SequencerAuthorization` (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:318-325`) |
-| Receipt shape | Decode; require a protocol receipt (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:326-336`) |
-| Protocol version | Receipt protocol version equals the selected header (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:337-339`) |
-| Sequence range | `global_sequence` inside the header's first/last sequence (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:340-344`) |
-| Batch identity | `receipt_execution_batch_id(protocol, header)` equals `protocol.batch_id()` (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:345-349`; `services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:342-347`) |
-| Outcome | `layerx_proof::receipt::verify_outcome` against `AuthorizedBatch` of execution id, asset, previous/resulting roots, and the configured public key (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:350-358`) |
+Sources: `src/node_rpc.rs`, `src/boot.rs`, `src/main.rs`,
+`src/human_owner_mode.rs`.
 
-Durable receipt storage runs `verify_outcome` before any index write
-(`services/agent/crates/layerx-agentd/src/receipt.rs:74-123`). Cache values
-are constructed only from already-verified evidence
-(`services/agent/crates/layerx-agentd/src/cache.rs:1, 31-36`). Insert refuses
-an empty key or a zero `evidence_id`
-(`services/agent/crates/layerx-agentd/src/cache.rs:152-165`).
+### Receipt verifier and committed state
 
-Failed verification issues no `VerifiedReceiptEvidence`, writes no
-cache entry, and writes no budget record
-(`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:305-310`;
-`services/agent/crates/layerx-agentd/src/receipt.rs:48-53, 89-90`;
-`services/agent/crates/layerx-agentd/tests/budget_create.rs:163-188`).
+The node produces receipt signing keys with governed key ids and height
+ranges. A signing key supplied beside a receipt is not a trust pin.
+`finality::VerifiedReceipt::verify` verifies the canonical signature against
+the published key interval and binds the transaction hash, EVM receipt module
+and encoded height. Keep trusted key configuration separate from proof ingress.
 
-State ingress is the same policy plus
-`layerx_proof::inclusion::verify_state`
-(`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:377-405`).
+`finality::VerifiedBlock::verify` checks the block hash and height against a
+CometBFT commit under a separately trusted consensus chain id and validator
+set. Duplicate signers, invalid signatures and insufficient voting power are
+refused; signatures must represent more than two thirds of the voting power.
+The consensus chain-id string and validator set are explicit trust inputs,
+not values to copy unchecked from a receipt response.
+
+The committed read path in `src/read/checkpoint.rs` authenticates the block
+header and commit. `src/read/committed.rs` binds precompile reads and storage
+witnesses to that committed state. Decoding an ABI result alone does not prove
+its origin. Historical canonical receipt bytes remain unchanged when stronger
+commit evidence is attached.
+
+`protocol_evidence::EvidenceAuthority` also retains canonical activity,
+receipt and state verification paths, including activity identity, inclusion,
+outcome and replay checks. Their historical batch/header field names describe
+the retained encoding, not a second finality mechanism.
 
 ### Evidence refusals
 
 | Error | Meaning |
 | --- | --- |
-| `VerifierPolicyError::AuthoritySourceUnavailable` / `Unprotected` / `Malformed` | Configured authority file cannot be used (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:409-427, 142-156`) |
-| `EmptyPolicy` | Zero protocol version, zero network id, or no sequencers (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:114-116`) |
-| `AmbiguousAuthorization` | Overlapping active sequencer ranges (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:107-108, 130-131`) |
-| `ProtocolVersion` / `Network` | Header disagrees with trusted policy (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:245-250`; `services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:224-271`) |
-| `UnknownSequencer` / `Epoch` / `BatchRange` / `Revoked` | Identity, epoch, range, or inclusive revocation miss (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:38, 251-289`; `services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:196-338`) |
-| `HandshakeKey` | Handshake key is not active at the sealed batch (`services/agent/crates/layerx-agentd/src/boot.rs:180-186`) |
-| `ReceiptEvidenceError::Inclusion` / `Receipt` | Proof or `verify_outcome` refusal (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:551-560`) |
-| `ReceiptEvidenceError::ProtocolVersion` / `SequenceRange` / `BatchIdentity` | Receipt does not bind the selected header (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:337-349`) |
-| `ReceiptReplayError::DuplicateReceipt` / `DuplicateActivity` | Same receipt digest or activity id admitted twice (`services/agent/crates/layerx-agentd/src/protocol_evidence.rs:473-500`) |
-
----
+| `NodeRpcError::ChainIdMismatch` | Endpoint chain identity differs from configuration |
+| `NodeRpcError::Unavailable` | RPC connection or deadline failed |
+| `GateError::NoReceiptKeys` | Readiness cannot establish a usable receipt-key set |
+| `VerifierPolicyError::HandshakeKey` | Refreshed keys do not match configured intervals |
+| `AuthoritySourceUnavailable` / `AuthoritySourceUnprotected` / `AuthoritySourceMalformed` | The library evidence-policy source cannot be trusted or decoded |
+| `FinalityError::InvalidReceipt` / `InvalidCommit` | Receipt or consensus evidence failed verification |
+| `ReceiptReplayError::DuplicateReceipt` / `DuplicateActivity` | Receipt digest or activity was already admitted |
 
 ## Budget lifecycle
 
 ### Creation from a verified receipt
 
-`BudgetRequest` carries tenant, `request_id`, `BudgetKind`
-(`ProtocolBudget` or `CapabilityGrant`), asset, ceiling,
-`expiry_sequence`, canonical activity bytes, and an optional
-`VerifiedSubmission` (`services/agent/crates/layerx-agentd/src/budget/create.rs:11-28`).
+`BudgetRequest` carries the tenant, `request_id`, kind, asset, ceiling,
+`expiry_ms`, authenticated `core_time_ms`, canonical transaction bytes and a
+`VerifiedSubmission`. Expiry uses milliseconds of core time. The helper
+`core_expiry_ms` converts a public expiry in seconds with overflow checks.
 
-`create_protocol_budget` refuses a zero ceiling or expiry, an empty
-activity, a missing submission, or a submission whose exact bytes or
-idempotency key disagree with the request. Those refusals never reach
-`BudgetPipeline::submit_budget`
-(`services/agent/crates/layerx-agentd/src/budget/create.rs:137-151`;
-`services/agent/crates/layerx-agentd/tests/budget_create.rs:111-159`). After
-submit it verifies the raw receipt and requires
-`activity_id` equality and `result_code == 0`, then fail-closes with
-`ProtocolObjectEffectUnavailable`
-(`services/agent/crates/layerx-agentd/src/budget/create.rs:152-162`).
+`create_protocol_budget` requires non-zero limits, expiry after core time,
+and exact submission bytes and idempotency key. It decodes the signed EIP-1559
+call and checks that it is the requested `budgetCreate` or `budgetCreateNative`
+call to the pay precompile at `0x000000000000000000000000000000000000101b`.
+Native creation also binds its source account and source sequence.
 
-`LocalLimit::new` is the honest daemon-only constructor. It does not
-submit an activity (`services/agent/crates/layerx-agentd/src/budget/create.rs:95-106`).
+The pipeline submits via `eth_sendRawTransaction`, checks the returned hash,
+then polls `pax_sequencerReceipt` for committed evidence. It confirms the
+creation log and reads `getBudget(bytes32)` at the receipt height. The record
+must match the created budget id, account, asset, limits, period, expiry,
+revocation, rollover, purpose and optional source account, with no initial
+spend, carry, closure or revocation. Only then does it return a
+`ProtocolBudget` labelled `protocol-enforced`, with the receipt bytes and
+confirming height. This function's store argument is unused; returning that
+object does not itself persist a local budget record.
+
+Sources: `src/budget/create.rs`, `src/budget/reconcile.rs`.
 
 ### Reserve
 
-`BudgetLimiter` holds per-`LimitId` ceilings across five scopes:
-tenant, agent, session, capability, counterparty
-(`services/agent/crates/layerx-agentd/src/budget/reserve.rs:11-20, 38-82`).
-`reserve` checks every applicable limit under one lock, then inserts
-the same reservation id into each (`services/agent/crates/layerx-agentd/src/budget/mod.rs:46-58`;
-`services/agent/crates/layerx-agentd/src/budget/reserve.rs:178-244`).
-Projected `consumed + held + requested` may not pass the ceiling
-(`services/agent/crates/layerx-agentd/src/budget/reserve.rs:196-212`).
-A refused request leaves no held reservation
-(`services/agent/crates/layerx-agentd/tests/budget_reserve.rs:60-86`).
+`BudgetLimiter` enforces configured ceilings across tenant, agent, session,
+capability and counterparty scopes. Reservation checks and insertion run under
+one lock; `consumed + held + requested` cannot exceed an applicable ceiling.
+A refused reservation creates no hold.
 
-`release` with `ReleaseKind::Unknown` is a no-op (`Ok(false)`).
-`Executed` adds the held amount to `consumed`. `Failed` drops the
-hold. `Expired` drops it only when `current_sequence >= expiry`
-(`services/agent/crates/layerx-agentd/src/budget/reserve.rs:153-158, 290-319`;
-`services/agent/crates/layerx-agentd/tests/budget_reserve.rs:89-101`).
+`ReleaseKind::Unknown` keeps the reservation. `Executed` moves its amount to
+consumed; `Failed` drops the hold. `Expired` releases an ordinary reservation
+only after its expiry condition. Work that may already have reached the node
+must remain in unknown-outcome recovery rather than being freed on a timeout.
 
-This limiter is daemon-local. It is not a protocol budget object.
+Program reservations retain their charge kind, source, asset and applicable
+limits. Source resolution checks the prepared call and committed inputs;
+principal, program spend and fee exposure are not interchangeable amounts.
+Durable records restore held exposure and consumed totals after restart.
+
+Sources: `src/budget/reserve.rs`, `src/budget/mod.rs`,
+`src/budget/program_sources.rs`, `src/budget/program_settlement.rs`.
 
 ### Reconcile
 
-`reconcile` verifies every spend receipt against
-`expected_activity_id`, admits them through a replay guard, verifies
-state inclusion, then returns `ProtocolStateSchemaUnavailable`. Core
-defines no canonical budget record/key schema. Local accounting is
-not rewritten (`services/agent/crates/layerx-agentd/src/budget/mod.rs:29-36`;
-`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:7-14, 102-125`;
-`services/agent/crates/layerx-agentd/tests/budget_reconcile.rs:17-39, 114-148`).
+Reconciliation has real success paths. `budget::reconcile` verifies receipt
+identity, rejects replay, verifies state inclusion and decodes a canonical
+`ProtocolBudgetRecord`. It replaces local consumed accounting with
+`spent_this_period` and returns an opaque `ReconciliationState` carrying the
+window, remaining amount, divergence and observed head.
 
-`ReconciliationState` has no public constructor
-(`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:31-34`).
-`reconcile` never returns `Ok`.
+For native pay reads, `ProtocolBudgetState::read_at` obtains
+`getBudget(bytes32)` at an explicit committed height. Its `reconcile` method
+checks receipt identity, duplicate spends and that no spend is newer than that
+state. Closed or revoked budgets have zero remaining allowance. The public
+`decode_get_budget` decoder validates the ABI layout but does not authenticate
+an endpoint or establish state inclusion by itself.
+
+Source: `src/budget/reconcile.rs`.
 
 ### Divergence
 
-`divergence_alert` would take a `ReconciliationState` with a
-`Some(divergence)`, enforce `max(local, protocol)` consumed and
-`min(protocol remaining, local remaining)`, and set
-`ready_for_writes: false` (`services/agent/crates/layerx-agentd/src/budget/divergence.rs:32-56`).
-Because `reconcile` never issues that state, the live path cannot
-open an alert. Untyped included leaves are not authority
-(`services/agent/crates/layerx-agentd/tests/budget_divergence.rs:17-36`).
+`divergence_alert` reports a verified local/protocol mismatch. While it is
+open, enforcement uses the greater consumed figure and the smaller remaining
+allowance; `ready_for_writes` is false. The alert preserves both figures,
+window bounds, last verified receipt and observed head for audit.
 
-### Unknown-budget refusal
+Source: `src/budget/divergence.rs`.
 
-`hold_unknown` persists an unresolved reservation under
-`ObjectKind::Budget` (`services/agent/crates/layerx-agentd/src/budget/hold.rs:80-87, 147-151`).
-Process loss keeps the hold
-(`services/agent/crates/layerx-agentd/tests/budget_unknown.rs:18-56`).
+### Unknown-budget refusal and restart
 
-`rebuild` verifies receipts (result code `0` sums `amount` into
-`receipt_consumed`), verifies state inclusion, counts unresolved
-holds, then sets `protocol_consumed: None` and `reconciled: false`
-(`services/agent/crates/layerx-agentd/src/budget/hold.rs:89-137`).
-`require_write_ready` returns `ProtocolStateSchemaUnavailable`
-(`services/agent/crates/layerx-agentd/src/budget/hold.rs:49-57`;
-`services/agent/crates/layerx-agentd/tests/budget_unknown.rs:60-85`).
+`hold_unknown` persists unresolved reservations under `ObjectKind::Budget`.
+`rebuild` re-verifies persisted receipts, checks their expected activity ids,
+rejects replay and sums successful receipt amounts. It verifies and decodes the
+protocol budget state, then totals unresolved durable holds.
+
+`RestartAccounting.protocol_consumed` can now be present. Reconciliation
+succeeds when protocol consumption falls between the verified receipt sum and
+that sum plus unresolved holds. `require_write_ready` refuses missing schema
+or unreconciled accounting. A process restart or an elapsed expiry is not
+evidence that an unknown transaction failed.
+
+Source: `src/budget/hold.rs`. Native call recovery also retains exact
+preparation, disclosure, decision, signed bytes and queue/receipt state in
+`src/approval/call_bound.rs` and `src/outbox/`.
 
 ### Budget states
 
-| Record | What it holds | Authority |
-| --- | --- | --- |
-| `LocalAccounting` | `consumed`, `window_start_sequence`, `last_receipt` (`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:23-29`) | Cache only |
-| `LimitState` | Configured ceiling, `consumed`, map of held `(amount, expiry)` (`services/agent/crates/layerx-agentd/src/budget/reserve.rs:32-35`) | Daemon limiter |
-| `DurableBudgetReservation` | Canonical digest over reservation id, limit, scope, amount, ceiling, expiry (`services/agent/crates/layerx-agentd/src/budget/reserve.rs:126-149`) | Restart record for the limiter |
-| `UnknownReservation` | Amount and expiry until a receipt resolves it (`services/agent/crates/layerx-agentd/src/budget/hold.rs:8-16`) | Held, not spendable |
-| `RestartAccounting` | `receipt_consumed`, `held_unresolved`; `protocol_consumed` stays `None` (`services/agent/crates/layerx-agentd/src/budget/hold.rs:32-39, 131-137`) | Writes refused |
-| `ProtocolBudget` | Object id, kind, receipt bytes (`services/agent/crates/layerx-agentd/src/budget/create.rs:53-61`) | Type exists; creation never returns it |
-| `ReconciliationState` | Protocol vs local consumed, remaining, divergence (`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:31-46`) | Type exists; `reconcile` never returns it |
+| Record | Role |
+| --- | --- |
+| `LocalAccounting` | Rebuildable consumed/window/last-receipt cache |
+| `LimitState` / `DurableBudgetReservation` | Local ceiling, consumed amount and held exposure |
+| `UnknownReservation` | Durable unresolved amount, unavailable for reuse |
+| `RestartAccounting` | Verified protocol and receipt consumption plus unresolved holds |
+| `ProtocolBudget` | Confirmed protocol object, canonical record and creation receipt |
+| `ReconciliationState` | Opaque verified result that can reopen reconciled controls |
 
 ### Budget refusals
 
 | Error | When |
 | --- | --- |
-| `BudgetCreationError::InvalidLimit` | Zero ceiling or expiry (`services/agent/crates/layerx-agentd/src/budget/create.rs:137-139`) |
-| `EmptyActivity` | Empty canonical bytes (`services/agent/crates/layerx-agentd/src/budget/create.rs:140-142`) |
-| `ActivityBindingUnavailable` / `ActivityBindingMismatch` | Missing or substituted `VerifiedSubmission` (`services/agent/crates/layerx-agentd/src/budget/create.rs:143-151`) |
-| `Submission` | Pipeline did not return a receipt (`services/agent/crates/layerx-agentd/src/budget/create.rs:45-50, 152`) |
-| `UnverifiedReceipt` | `verify_receipt` refused (`services/agent/crates/layerx-agentd/src/budget/create.rs:153-155`) |
-| `ReceiptActivityMismatch` | Receipt activity id ≠ submission activity id (`services/agent/crates/layerx-agentd/src/budget/create.rs:156-158`) |
-| `CoreRejected` | `result_code != 0` (`services/agent/crates/layerx-agentd/src/budget/create.rs:159-161`) |
-| `ProtocolObjectEffectUnavailable` | Verified success still has no object effect (`services/agent/crates/layerx-agentd/src/budget/create.rs:126-130, 162`) |
-| `LimitRefusal::InvalidRequest` | Zero amount, expiry ≤ current sequence, empty limits, or duplicate reservation id (`services/agent/crates/layerx-agentd/src/budget/reserve.rs:181-195`) |
-| `UnknownLimit` | Unconfigured `LimitId` (`services/agent/crates/layerx-agentd/src/budget/reserve.rs:170, 192`) |
-| `Exceeded` | Names limit, ceiling, consumed, held, requested (`services/agent/crates/layerx-agentd/src/budget/reserve.rs:161-169, 203-211`) |
-| `ReconcileError::UnverifiedReceipt` / `UnverifiedProtocolState` | Evidence failed (`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:92-100, 112-123`) |
-| `DuplicateReceipt` / `DuplicateActivity` / `ReceiptActivityMismatch` | Replay or activity bind failed before schema refusal (`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:111-118`; `services/agent/crates/layerx-agentd/tests/budget_reconcile.rs:42-87`) |
-| `ProtocolStateSchemaUnavailable` | Inclusion succeeded; no canonical budget schema (`services/agent/crates/layerx-agentd/src/budget/reconcile.rs:124`) |
-| `RestartError::ProtocolStateSchemaUnavailable` | Write admission after rebuild (`services/agent/crates/layerx-agentd/src/budget/hold.rs:49-51`) |
-
----
+| `BudgetCreationError::InvalidLimit` / `Expired` | Invalid ceiling or expiry, or expiry not after core time |
+| `EmptyActivity` / `ActivityBindingUnavailable` / `ActivityBindingMismatch` | Missing or substituted canonical submission |
+| `NotBudgetCreation` / `IdentityMismatch` | Wrong call or creation identity |
+| `Submission` / `ReceiptActivityMismatch` | Submission failed or the returned transaction identity differs |
+| `UnverifiedReceipt` / `CoreRejected` | Missing committed evidence or failed execution |
+| `CreatedBudgetUnconfirmed` | Creation effect or matching state could not be confirmed |
+| `LimitRefusal::UnknownLimit` / `Exceeded` | Missing configured limit or projected exposure above it |
+| `ReconcileError::UnverifiedReceipt` / `UnverifiedProtocolState` | Receipt or protocol-state evidence failed |
+| `ProtocolStateSchemaUnavailable` | Budget record could not be decoded |
+| `RestartError::Unreconciled` | Restart accounting does not yet permit writes |
 
 ## Approval model
 
-Approvals are a daemon-enforced restriction. They confer no protocol
-authority. Bypassing `layerx-agentd` bypasses the restriction
-(`services/agent/crates/layerx-agentd/src/approval/mod.rs:24-30, 51-52, 609-616`).
-`ApprovalEnforcement` has one variant: `DaemonOnly`.
+Approvals restrict the local agent; they confer no protocol authority.
+The registry binds a decision to the canonical preparation and disclosure
+digest the approver saw. Changed bytes or actor identity are refused. Hold
+expiry never grants approval, and concurrent decisions have one winner.
+Approve releases the exact held preparation into the submission queue;
+reject releases its local budget reservation as failed. Lists and lookups
+are tenant-scoped; cross-tenant identifiers return `NotFound`.
 
-### Who approves
+The native call path retains the EVM preparation, sender, disclosure,
+session generation, budget reservation and receipt-key intervals. Its states
+include `Awaiting`, `Granted`, `Rejected`, `Expired`, `Signed`, `Queued` and
+`Settled`. Recovery restores and validates those bytes rather than preparing
+a replacement call. A local approval or queue transition does not claim chain
+execution; receipt and debit evidence are checked before settling exposure.
 
-`ApproverId` is a non-empty string for the human or external
-approver (`services/agent/crates/layerx-agentd/src/policy/approval.rs:42-63`).
-`DecisionRequest` carries tenant, approval id, `DecisionKey`,
-approver, and current sequence
-(`services/agent/crates/layerx-agentd/src/approval/mod.rs:288-295`).
+Approval lifecycle events are local audit/stream facts with `UNVERIFIED`
+protocol verification, even when authenticated. They must not be reported as
+transaction receipts. The registry's approve/reject `DecisionKey` is a
+separate bounded string: non-empty, at most 255 bytes, without NUL. Repeating
+the winning key returns its original outcome; another key conflicts.
 
-### What an approval binds
-
-`hold` stores only prepared bytes and their decoded disclosure, never
-the caller request. The hold window must close before preparation
-expiry. The SHA-256 of unsigned canonical bytes must equal
-`disclosure.canonical_digest`. The context agent must equal the
-disclosed actor (`services/agent/crates/layerx-agentd/src/policy/approval.rs:439-524`).
-
-`decide` on the registry applies exactly one `Approve` or `Reject` to
-the disclosure digest the approver saw
-(`services/agent/crates/layerx-agentd/src/policy/approval.rs:560-605`;
-`services/agent/crates/layerx-agentd/tests/approval.rs:99-132`). A changed
-digest is `DisclosureChanged`. Expiry never approves
-(`services/agent/crates/layerx-agentd/tests/approval.rs:76-96`). Concurrent
-decisions have one winner (`services/agent/crates/layerx-agentd/tests/approval.rs:136-165`).
-
-`ApprovalService::approve` releases that exact held `Prepared` into
-`ApprovalSubmissionQueue`. Submit later must present the same
-preparation bytes and `submission_ref`
-(`services/agent/crates/layerx-agentd/src/approval/mod.rs:379-486, 169-198`).
-If the live preparation no longer equals the hold, the outcome is
-`Defective` (`services/agent/crates/layerx-agentd/src/approval/mod.rs:635-642`).
-Reject releases the budget reservation as `Failed`
-(`services/agent/crates/layerx-agentd/src/approval/mod.rs:488-562`).
-
-`hold_reserved` persists the hold with the exact already-acquired
-`BudgetReservation` whose id equals the approval request id
-(`services/agent/crates/layerx-agentd/src/policy/approval.rs:463-505`).
-
-### How events are recorded
-
-`ApprovalEvents::emit` appends a `PolicyDecision` audit entry, then
-atomically ingests a local-only stream event
-(`services/agent/crates/layerx-agentd/src/approval/events.rs:60-128`). Canonical
-bytes are `LXAE` plus kind, sequence, approval id, digest, and
-optional principal (`services/agent/crates/layerx-agentd/src/approval/events.rs:151-168`).
-Stream `verification_level` is `UNVERIFIED`
-(`services/agent/crates/layerx-agentd/src/approval/events.rs:97, 106`). That
-disagrees with protocol receipt metadata, which stores a
-proof-derived `VerificationLevel`
-(`services/agent/crates/layerx-agentd/src/receipt.rs:30-38, 95-100`). Both
-are as written: approval lifecycle events are local restrictions,
-not protocol receipts.
-
-| Kind | Audit decision | Stream result code |
-| --- | --- | --- |
-| `Created` | `Requested` | `0` |
-| `Granted` | `Allowed` | `0` |
-| `Rejected` | `Refused` | `-1` |
-| `Expired` | `Failed` | `-2` |
-
-(`services/agent/crates/layerx-agentd/src/approval/events.rs:23-28, 185-199`)
-
-`DecisionKey` is required for approve/reject idempotency (non-empty,
-≤255 bytes, no NUL)
-(`services/agent/crates/layerx-agentd/src/approval/expiry.rs:15-36`). A repeat
-of the winning key returns the original outcome; a different key
-returns `Conflict` (`services/agent/crates/layerx-agentd/src/approval/expiry.rs:141-171`).
-
-### Approval states
-
-| State | Meaning |
-| --- | --- |
-| `AwaitingApproval` | Hold is open (`services/agent/crates/layerx-agentd/src/policy/approval.rs:75-81, 538`) |
-| `Approved` | Approver released the exact preparation |
-| `Rejected` | Approver rejected; reservation released |
-| `Expired` | `current_sequence >= expires_at_sequence`; no later approve (`services/agent/crates/layerx-agentd/src/policy/approval.rs:581-592, 691-720`) |
-| `Defective` | Held disclosure digest no longer matches canonical bytes (`services/agent/crates/layerx-agentd/src/policy/approval.rs:664-674`) |
-
-List/get are tenant-scoped. Cross-tenant identifiers return
-`NotFound`, not existence (`services/agent/crates/layerx-agentd/src/approval/mod.rs:357-361`).
-
----
+Sources: `src/policy/approval.rs`, `src/approval/{mod,events,expiry,call_bound}.rs`.
 
 ## Capability and attenuation
 
-A capability is tenant-owned and has no implicit open dimension
-(`services/agent/crates/layerx-agentd/src/capability/mod.rs:47-94`). Missing
-any of activity types, counterparties, assets, amount ceiling, rate
-ceiling, purposes, or expiry is `MissingDimension`.
+Capabilities are tenant-owned and explicitly bound on activity type,
+counterparty, asset, amount, rate, purpose and expiry. Evaluation refuses the
+first failing dimension. `assert_narrowing` checks the protocol authority's
+activity types, counterparties, assets, amount and expiry; rate and purpose
+are local dimensions unless explicitly enforceable. The binding never
+replaces the original protocol submission authority.
 
-`evaluate` checks a `PreparedIntent` in fixed order: expiry,
-activity type, counterparty, asset, amount, rate, purpose
-(`services/agent/crates/layerx-agentd/src/capability/mod.rs:177-203`;
-`services/agent/crates/layerx-agentd/tests/capability.rs:47-76`). The first
-failure is the named `Refuse` dimension.
+Attenuation produces a child no wider than its parent. Amount and expiry may
+shrink; the rate window cannot shorten in a way that widens permission.
+Revoking a subtree cancels unsubmitted work, while already submitted work
+still needs receipt resolution.
 
-### Narrowing
+`Ceiling::new` and a receipt-only rebuild start unreconciled. A verified
+`ReconciliationState` supplied to `Ceiling::reconcile` enables reservations.
+Receipt application must match the held activity and amount. Unknown outcomes
+remain held across expiry; a failed result consumes no transfer amount.
 
-`assert_narrowing` proves the capability is no wider than a
-core-resolved `ProtocolScope` on activity types, counterparties,
-assets, amount, and expiry
-(`services/agent/crates/layerx-agentd/src/capability/narrowing.rs:9-18, 75-107`).
-`ProtocolScope` has no rate or purpose fields. Those dimensions are
-classified `DaemonOnly` unless listed in `enforceable_dimensions`
-(`services/agent/crates/layerx-agentd/src/capability/narrowing.rs:109-131`;
-`services/agent/crates/layerx-agentd/tests/narrowing.rs:58-71`). The binding
-never becomes the submission authority; `submission_authority`
-returns the protocol authority
-(`services/agent/crates/layerx-agentd/src/capability/narrowing.rs:62-66`).
-A later wider protocol scope disables the binding
-(`services/agent/crates/layerx-agentd/src/capability/narrowing.rs:42-59`).
-
-### Attenuation
-
-`attenuate` derives a child that is a subset on every dimension.
-Amount and expiry may shrink, not grow. Rate `maximum_uses` may
-shrink; `window_sequences` may not shorten below the parent
-(`services/agent/crates/layerx-agentd/src/capability/attenuate.rs:169-194, 229-255`).
-`revoke_subtree` marks the root and descendants revoked and cancels
-only unsubmitted work
-(`services/agent/crates/layerx-agentd/src/capability/attenuate.rs:196-227`).
-
-Enforcement reports refuse wording that calls a daemon-only control
-a protocol guarantee
-(`services/agent/crates/layerx-agentd/src/capability/report.rs:9-10, 100-111`).
-
-### Ceilings
-
-`Ceiling` is a capability amount ceiling. `new` leaves
-`protocol_reconciliation: None`. `consume` then returns
-`Unreconciled` (`services/agent/crates/layerx-agentd/src/capability/consume.rs:38-55, 265-285`;
-`services/agent/crates/layerx-agentd/tests/ceiling.rs:7-28`).
-`rebuild` from verified receipts may restore `consumed` but still
-leaves the ceiling unreconciled, so new reservations stay refused
-(`services/agent/crates/layerx-agentd/src/capability/consume.rs:57-108`;
-`services/agent/crates/layerx-agentd/tests/ceiling.rs:65-91`).
-`apply_receipt` consumes only a verified terminal receipt whose
-activity id and amount match the held reservation; a failed
-`result_code` consumes nothing
-(`services/agent/crates/layerx-agentd/src/capability/consume.rs:110-153`).
-Unknown outcomes stay held across expiry
-(`services/agent/crates/layerx-agentd/src/capability/consume.rs:175-202`).
-
-That matches budget rebuild: receipt sums are not protocol
-reconciliation (`services/agent/crates/layerx-agentd/src/budget/hold.rs:131-137`).
-
----
+Sources: `src/capability/{mod,narrowing,attenuate,consume,report}.rs`.
 
 ## Local limit versus protocol-equivalent
 
-The code draws the line in three places.
+Keep enforcement labels with the result: a protocol budget cites its confirmed
+object and state, while local ceilings, approvals and unsupported capability
+dimensions say `daemon-enforced` or `DaemonOnly` and disclose the bypass.
+Local bookkeeping cannot upgrade those restrictions into protocol guarantees.
 
-1. **Budget objects.** `LocalLimit.enforcement` is
-   `daemon-enforced` with an explicit bypass statement. Tests forbid
-   the word `equivalent`
-   (`services/agent/crates/layerx-agentd/src/budget/create.rs:7-8, 95-106`;
-   `services/agent/crates/layerx-agentd/tests/budget_create.rs:216-222`).
-   A protocol budget would be a core object id issued from a verified
-   receipt; that path fail-closes
-   (`services/agent/crates/layerx-agentd/src/budget/create.rs:126-130, 162`).
-
-2. **Capability dimensions.** `Enforcement::Protocol` cites the
-   protocol authority object. `Enforcement::DaemonOnly` uses the same
-   bypass sentence as local limits
-   (`services/agent/crates/layerx-agentd/src/capability/narrowing.rs:21-25`;
-   `services/agent/crates/layerx-agentd/src/capability/report.rs:9-10, 64-69`).
-   Rate and purpose have no `ProtocolScope` fields, so they cannot be
-   protocol-narrowed by `validate`
-   (`services/agent/crates/layerx-agentd/src/capability/narrowing.rs:89-107`).
-
-3. **Approvals.** `APPROVAL_ENFORCEMENT_NOTICE` states the hold
-   confers no protocol authority
-   (`services/agent/crates/layerx-agentd/src/approval/mod.rs:24-25`).
-
-`BudgetLimiter` (`LimitId` as `[u8; 16]`, identity scopes) and
-`limits::RateLimiter` (`LimitId` as a string, including
-`OperationClass`) are different types with the same names
-(`services/agent/crates/layerx-agentd/src/budget/reserve.rs:11-20`;
-`services/agent/crates/layerx-agentd/src/limits/rate.rs:8-55`). They are not
-interchangeable.
-
----
+The `[u8; 16]` budget `LimitId` and the string-based rate-limiter `LimitId`
+are different types. Their scopes and accounting must not be interchanged.
 
 ## Admission, quotas, rate, deadlines
 
-These are layered daemon controls, not protocol budgets.
+`BoundaryAdmission` has seven priority lanes and returns typed `Backpressure`
+without waiting. Submission and receipt resolution outrank bulk reads.
+`Quota` accounts per tenant for subscriptions, prepared activities, outbox
+entries, audit retention and stored receipts; pathological clients shed
+non-critical work while submission and receipt resolution remain admitted.
 
-Outbound core work uses `BoundaryAdmission` with seven strict
-priority lanes. Submission and receipt resolution outrank bulk reads.
-Admission never waits; it returns typed `Backpressure`
-(`services/agent/crates/layerx-agentd/src/limits/admission.rs:3-13, 109-123, 168-174`).
+`RateLimiter` uses authenticated `logical_time_ms` and requires a shared,
+linearizable `CounterLedger` across instances of a tenant. Each request has
+a finite `RequestDeadline`. A write that may have reached the node transfers
+to `UnknownResolving` rather than being cancelled as if it never happened.
 
-`Quota` prices five durable resources per tenant and sheds only
-non-critical work of a pathological client. Submission and receipt
-resolution still admit (`services/agent/crates/layerx-agentd/src/limits/quota.rs:16-25, 264-294`).
-
-`RateLimiter` uses authenticated `logical_time_ms`, never an instance
-clock. Every instance of a tenant must share one linearizable
-`CounterLedger` (`services/agent/crates/layerx-agentd/src/limits/rate.rs:5-6, 253-261`).
-
-Every request has a finite `RequestDeadline`. A write that may have
-reached core transfers to `UnknownResolving` instead of cancelling
-(`services/agent/crates/layerx-agentd/src/limits/deadline.rs:5-18, 437-458`).
-
----
+Sources: `src/limits/{admission,quota,rate,deadline}.rs`.
 
 ## Degraded mode and finality
 
-`Controller` starts `Unreachable` with `UNVERIFIED`
-(`services/agent/crates/layerx-agentd/src/degraded.rs:115-123`). Modes:
+`Controller` starts `Unreachable` at maximum rung `Submitted`, without a
+verified reference. Only `Healthy` serves preparation, submission
+acknowledgements and live streams. `Behind`, `Halted`, `Emergency` and
+`DataUnavailable` refuse those operations but can still resolve unknown
+submissions; `Unreachable` refuses resolution too.
 
-| Mode | How entered | Preparation / submit ack / live stream | Unknown resolution |
-| --- | --- | --- | --- |
-| `Healthy` | `Observation::Ready` without head or level regression | served | served |
-| `Behind` | Ready observation with a lower head sequence or lower maximum verification | `LiveCoreRequired` | served |
-| `Unreachable` | `Observation::Unreachable` | `LiveCoreRequired` / `StreamUnavailable` | `ResolutionUnavailable` |
-| `Halted` / `Emergency` / `DataUnavailable` | matching observation | refused writes and streams | served |
+Cached reads return already verified bytes and explicit staleness. Their
+reported rung is capped by both the held evidence and the controller's
+maximum rung. Requests above either cap, or before any verified reference,
+are refused.
 
-(`services/agent/crates/layerx-agentd/src/degraded.rs:13-20, 134-139, 228-288, 291-331`)
+Transaction progress uses these rungs:
 
-`serve_cached` returns already-verified bytes with an explicit
-staleness flag and a reported level capped by
-`maximum_verification`. It refuses a read before any verified
-reference (`services/agent/crates/layerx-agentd/src/degraded.rs:179-226`).
-Cache revalidation never serves above the held proof level
-(`services/agent/crates/layerx-agentd/src/cache.rs:219-276`;
-`services/agent/crates/layerx-agentd/tests/cache.rs:74-109`).
+| Rung | Evidence held by the agent |
+| --- | --- |
+| `Submitted` | Transaction hash accepted by `eth_sendRawTransaction` |
+| `Receipted` | Canonical receipt verified against a trusted receipt-key interval |
+| `Committed` | Receipt plus a verified CometBFT commit at its height |
 
-Finality records sit beside receipt bytes, never inside them
-(`services/agent/crates/layerx-agentd/src/finality.rs:32, 68`). `augment`
-verifies activity and receipt inclusion and raises metadata to
-`BATCH_INCLUDED` without changing canonical receipt bytes
-(`services/agent/crates/layerx-agentd/src/finality.rs:78-161`). Checkpoint
-finality is unavailable on that raw path.
-`augment_verified` may raise to `CHECKPOINT_FINALISED` when a
-node-authority `VerifiedCheckpoint` covers the same header. The
-comment at the settlement field states registration bytes are
-retained and never relabelled as a Paxeer settlement anchor without
-a separate live-chain verifier
-(`services/agent/crates/layerx-agentd/src/finality.rs:164-256, 231-233`).
-`wait_for_level` polls an independent `VerificationProgress` source
-until the requested level or an explicit deadline
-(`services/agent/crates/layerx-agentd/src/finality.rs:282-323`).
+The network's finality event is block commit. These rungs describe how much
+evidence the client has verified. `augment` / `augment_verified` store the
+extra evidence beside the unchanged canonical receipt bytes.
+`SubmissionProgress::refresh` fetches receipts, keys and blocks, but its
+consensus commit and validator trust inputs are supplied separately; a block
+response alone cannot raise the rung to `Committed`. `wait_for_rung` reports
+the reached rung and whether the explicit deadline elapsed.
 
----
+Sources: `src/degraded.rs`, `src/cache.rs`, `src/finality.rs`,
+`services/agent/crates/layerx-types/src/rung.rs`.
 
 ## Idempotency keys
 
-Caller idempotency is durable per tenant
-(`services/agent/crates/layerx-agentd/src/idempotency.rs:1, 88-93`). The key
-must be non-zero; request bytes must be non-empty and ≤ `1_048_576`
-(`services/agent/crates/layerx-agentd/src/idempotency.rs:11-12, 161-163`).
-Digest domain is `LXP/agent/request/v1\0`
-(`services/agent/crates/layerx-agentd/src/idempotency.rs:264-268`). A repeat
-with the same digest returns `RepeatedOriginal`. A different digest
-is `Conflict` (`services/agent/crates/layerx-agentd/src/idempotency.rs:169-178`).
-Daemon retention is never shorter than the protocol window
-(`services/agent/crates/layerx-agentd/src/idempotency.rs:21-37`).
+Caller idempotency is durable and tenant-scoped. Keys are non-zero 32-byte
+values; canonical request bytes are non-empty and at most 1,048,576 bytes.
+The request digest uses the `LXP/agent/request/v1` domain with a trailing NUL.
+A completed repeat with identical bytes returns `RepeatedOriginal`; changed
+bytes conflict. Retention cannot be shorter than the protocol window.
+Pending durable work is recovered rather than submitted as a new request.
 
-Receipt storage indexes the same 32-byte key
-(`services/agent/crates/layerx-agentd/src/receipt.rs:14-18, 82-86`). Approval
-`DecisionKey` is a separate bounded string for approve/reject
-(`services/agent/crates/layerx-agentd/src/approval/expiry.rs:15-36`).
-
----
+Source: `src/idempotency.rs`. Approval decision keys remain distinct from
+transaction request keys.
 
 ## Config keys
 
-Startup configuration is one UTF-8 `key=value` file. Exact
-`LAYERX_*` environment values override the named file. No
-security-relevant value has a default
-(`services/agent/crates/layerx-agentd/src/config.rs:1-6, 64-65`). Unknown
-`LAYERX_*` names are refused (`services/agent/crates/layerx-agentd/src/config.rs:171-173`).
+The library `StartupConfig` loader reads one explicitly named protected UTF-8
+`key=value` file. Exact environment keys override it. Duplicate file keys,
+blank overrides and unknown `LAYERX_*` settings are refused. Per-tenant maps
+must contain exactly one value per configured tenant; no security-relevant
+value has a default.
 
-| File key | Environment key | Role |
+| File key | Environment key | Value |
 | --- | --- | --- |
-| `network_id` | `LAYERX_NETWORK_ID` | Non-zero network id (`services/agent/crates/layerx-agentd/src/config.rs:29-62, 295`) |
-| `node_endpoint` | `LAYERX_NODE_ENDPOINT` | Absolute normalised node path |
-| `expected_protocol_version` | `LAYERX_EXPECTED_PROTOCOL_VERSION` | Occupancy protocol; unsupported versions refused (`services/agent/crates/layerx-agentd/src/config.rs:296-302`) |
+| `network_id` | `LAYERX_NETWORK_ID` | Non-zero network id |
+| `node_endpoint` | `LAYERX_NODE_ENDPOINT` | HTTP or HTTPS JSON-RPC URL |
+| `expected_chain_id` | `LAYERX_EXPECTED_CHAIN_ID` | Non-zero chain id; mainnet-beta uses 125 |
 | `tenants` | `LAYERX_TENANTS` | Non-empty unique tenant ids |
-| `policy_sources` | `LAYERX_POLICY_SOURCES` | Exactly one absolute path per tenant |
-| `signer_configurations` | `LAYERX_SIGNER_CONFIGURATIONS` | Exactly one absolute path per tenant |
-| `verification_defaults` | `LAYERX_VERIFICATION_DEFAULTS` | Per-tenant `sequencer-signed`, `batch-included`, `state-proven`, `checkpoint-finalised`, or `settlement-anchored` (`services/agent/crates/layerx-agentd/src/config.rs:438-471`) |
-| `sequencer_authority_source` | `LAYERX_SEQUENCER_AUTHORITY_SOURCE` | Protected `layerx-sequencer-authority-v1` file |
+| `policy_sources` | `LAYERX_POLICY_SOURCES` | One absolute normalized policy path per tenant |
+| `signer_configurations` | `LAYERX_SIGNER_CONFIGURATIONS` | One absolute normalized signer path per tenant |
+| `verification_defaults` | `LAYERX_VERIFICATION_DEFAULTS` | Per-tenant compatibility verification labels, described below |
+| `receipt_key_source` | `LAYERX_RECEIPT_KEY_SOURCE` | `px_getReceiptKeys` or an absolute normalized pin-file path |
 
-| `RejectionReason` | Meaning |
-| --- | --- |
-| `Missing` / `Empty` / `Duplicate` / `Unknown` | Absent, blank, repeated, or unrecognised setting (`services/agent/crates/layerx-agentd/src/config.rs:80-94`) |
-| `InvalidInteger` / `UnsupportedProtocol` | Zero or non-occupancy protocol |
-| `InvalidTenant` / `IncompleteTenantMap` | Bad or incomplete per-tenant maps |
-| `InvalidPath` | Not absolute and normalised |
-| `InvalidVerificationLevel` | Unsafe default |
-| `TooLarge` / `InvalidEncoding` / `Unavailable` / `Unprotected` | File bounds, UTF-8, I/O, or mode/owner |
+The parser still accepts `sequencer-signed`, `batch-included`, `state-proven`,
+`checkpoint-finalised` and `settlement-anchored` as compatibility labels.
+They are not the live transaction rung vocabulary and do not establish a
+second settlement or finality stage.
 
-The binary in `main.rs` reads a disjoint `LAYERX_AGENT_*` set for
-the program-balance listener and human owner (loopback listen,
-distinct bearers, deployment journal, human socket, one
-`LimitConfig`). Those names are required environment keys, not
-`SECURITY_RELEVANT_SETTINGS` (`services/agent/crates/layerx-agentd/src/main.rs:61-67, 114-135, 514-549`).
+There is a narrower limitation in the library `Gate::new` path:
+`ProtocolEvidenceVerifier::load` currently requires `ReceiptKeySource::PinnedFile`;
+selecting `NodeRpc` there returns `AuthoritySourceUnavailable`. That retained
+file decoder still recognizes the `layerx-sequencer-authority-v1` format.
+This is a compatibility policy loader, not a requirement to start a retired
+LNI service. The gate then checks current node keys against those pins.
 
----
+The binary does not load this library file as its environment contract.
+Its `NodeRpcConfig` uses `LAYERX_AGENT_NODE_RPC_URL` and
+`LAYERX_AGENT_NODE_CHAIN_ID` (decimal or `0x` hexadecimal). Full-mode program
+reads separately use `LAYERX_AGENT_NODE_ENDPOINT` and the remaining explicit
+`LAYERX_AGENT_*` configuration in `src/main.rs`, including authority trust,
+policy sources, listener credentials and journals. These similarly named
+settings are not interchangeable. The human owner also requires its protocol
+and network configuration. See [MCP serving](mcp.md#serving) for binding inputs.
+
+Configuration errors name the setting and reason: missing, empty, duplicate,
+unknown or retired keys; invalid integers, URLs, paths, tenants, verification
+labels or maps; and unavailable, unprotected, oversized or invalidly encoded
+files. Source: `src/config.rs`.
 
 ## Makefile gates
 
-Agentd suites live under `make agent-test-agentd-<area>` in the
-repository `Makefile`. Budget, approval, capability, evidence, cache,
-degraded, finality, and idempotency targets include:
+The repository `Makefile` retains focused targets such as
+`agent-test-agentd-budget-create`, `agent-test-agentd-budget-reconcile`,
+`agent-test-agentd-budget-reserve`, `agent-test-agentd-budget-unknown`,
+`agent-test-agentd-budget-divergence`, `agent-test-agentd-approval`,
+`agent-test-agentd-capability`, `agent-test-agentd-ceiling`,
+`agent-test-agentd-finality`, `agent-test-agentd-degraded`,
+`agent-test-agentd-idempotency` and `agent-test-agentd-config`.
+The retained name `agent-test-agentd-handshake-gate` exercises node readiness;
+it does not reintroduce LNI. Select the suite for the implementation being
+changed; this reference is not a claim that those suites ran for this page.
 
-- `agent-test-agentd-budget-create` / `budget-reconcile` / `budget-reserve` / `budget-unknown` / `budget-divergence`
-- `agent-test-agentd-approval` and `agent-test-approvals`
-- `agent-test-agentd-capability` / `narrowing` / `attenuation` / `ceiling` / `enforcement-report`
-- `agent-test-agentd-cache` / `receipts` / `finality` / `degraded` / `idempotency` / `handshake-gate` / `admission` / `config`
-
-(`Makefile:2357-2385, 2397-2401, 2426-2436, 2453-2454, 2478-2479, 2522-2529`)
-
-`tests/protocol_evidence.rs` has no dedicated `agent-test-agentd-protocol-evidence` target.
-The handshake and budget suites load the same `EvidenceAuthority` path.
-
-Sources: `services/agent/crates/layerx-agentd/src/{lib,main,config,protocol_evidence,receipt,cache,degraded,finality,idempotency,authority}.rs`,
-`services/agent/crates/layerx-agentd/src/{budget,approval,capability,limits,policy,boot}/`,
-`services/agent/crates/layerx-agentd/tests/{budget_*,approval*,capability,ceiling,degraded,finality,cache,admission,protocol_evidence}.rs`,
-`services/agent/crates/layerx-agentd/tests/support/{mod,real_authority}.rs`.
-
-[Home](../index.md)
+[Node access](lni.md) · [MCP](mcp.md) · [Home](../index.md)

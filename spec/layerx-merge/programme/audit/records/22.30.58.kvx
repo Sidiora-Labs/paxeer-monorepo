@@ -1,0 +1,1576 @@
+[audit.22.30.58]
+task = "22.30.58"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 194
+findings = 33
+docs_reviewed = 10
+upgrade_ready = false
+blocking = ["upgrade-query-forwarding", "latest-consensus-proof", "misbehaviour-file-decode", "upgrade-cli-proof-encoding", "genesis-receipt-loss", "consensus-states-pagination", "consensus-heights-pagination", "header-validator-pagination", "self-consensus-validator-pagination"]
+requirements = ["15272.1", "6865.1", "6865.2", "6866.1", "6866.2", "6867.1", "6867.2"]
+produces_reviewed = 617
+consumes_reviewed = 233
+distinct_interfaces_reviewed = 633
+interface_coverage = "Reviewed 439 Go exports, 68 error codes, 36 CLI commands, 36 IBC callbacks, 27 REST routes, 20 metrics and 7 protobuf rows. Optional ICA callbacks are marked unreachable in the registry; active node routes are transfer and Wasm."
+requirement_review = "Core Params preserve snake_case JSON names, InboundEnabled/OutboundEnabled keys, optional genesis field four, enabled defaults and actual flag export/import. Registration source assertions are present; no undeclared Go gate was run."
+recovery_review = "Persistent host-keyed state, client metadata and capability owner recovery were traced through import/export and capability InitMemStore before IBC block handling. Constructor receipt loss and allocation/decoder issues are findings. Ack/timeout settlement stays enabled when new outbound work is blocked."
+security_review = "Reviewed signer validation, scoped capability ownership, concrete membership/nonmembership proofs, packet/ack commitments, ordered counters, unordered receipts, replay/no-op handling and cached callback writes. Transfer consumes canonical ICS20 JSON; Wasm uses opaque packet/ack bytes through matching interfaces."
+retired_review = "Executable members have no retired LayerX daemon or public-router dependency. The port Router is an in-process IBC callback map; v100 types are intentional migration inputs. Root documentation still describes the retired split deployment."
+qualification_limit = "Static pre-upgrade audit only. The declared build records source revision and the declared verification checks record/graph consistency; neither is an interchain runtime test campaign."
+
+[file.1]
+path = "interchain/modules/core/02-client/abci.go"
+lines = 44
+verdict = "clean"
+note = "Read full file. Refreshes localhost height and prunes Tendermint consensus states through the concrete client store."
+
+[file.2]
+path = "interchain/modules/core/02-client/abci_test.go"
+lines = 92
+verdict = "clean"
+note = "Read full file. Read localhost updates and pruning cases against BeginBlocker and persisted client state."
+
+[file.3]
+path = "interchain/modules/core/02-client/client/cli/cli.go"
+lines = 53
+verdict = "clean"
+note = "Read full file. Client CLI roots register matching query and transaction constructors under the ICS02 name."
+
+[file.4]
+path = "interchain/modules/core/02-client/client/cli/query.go"
+lines = 335
+verdict = "issues"
+note = "Read full file. Read every query constructor and flag; params RPC error handling is a finding."
+
+[file.5]
+path = "interchain/modules/core/02-client/client/cli/tx.go"
+lines = 395
+verdict = "issues"
+note = "Read full file. Read all transaction and proposal constructors; misbehaviour file and upgrade proof decoding have findings."
+
+[file.6]
+path = "interchain/modules/core/02-client/client/proposal_handler.go"
+lines = 26
+verdict = "clean"
+note = "Read full file. Current proposal handlers intentionally supply no legacy REST handler, matching module registration."
+
+[file.7]
+path = "interchain/modules/core/02-client/client/utils/utils.go"
+lines = 208
+verdict = "issues"
+note = "Read full file. Read both proof/gRPC branches and header helpers; latest-height selection and validator pagination have findings."
+
+[file.8]
+path = "interchain/modules/core/02-client/doc.go"
+lines = 10
+verdict = "clean"
+note = "Read full file. ICS02 package responsibilities agree with exported light-client contracts."
+
+[file.9]
+path = "interchain/modules/core/02-client/genesis.go"
+lines = 71
+verdict = "clean"
+note = "Read full file. Import/export preserves clients, consensus states, metadata, allowed clients and next allocation counter."
+
+[file.10]
+path = "interchain/modules/core/02-client/keeper/client.go"
+lines = 267
+verdict = "clean"
+note = "Read full file. Read create, update, upgrade and misbehaviour paths, allowlist, inbound checks, concrete verification and metadata writes."
+
+[file.11]
+path = "interchain/modules/core/02-client/keeper/client_test.go"
+lines = 720
+verdict = "clean"
+note = "Read full file. Read creation, updates, localhost, upgrade, misbehaviour, inbound gating and emitted event cases with real typed states."
+
+[file.12]
+path = "interchain/modules/core/02-client/keeper/encoding.go"
+lines = 42
+verdict = "clean"
+note = "Read full file. Keeper codec wrappers preserve registered Any types and explicit error versus must-method semantics."
+
+[file.13]
+path = "interchain/modules/core/02-client/keeper/events.go"
+lines = 106
+verdict = "clean"
+note = "Read full file. Client event names, identifiers, encoded headers and height attributes match exported constants."
+
+[file.14]
+path = "interchain/modules/core/02-client/keeper/grpc_query.go"
+lines = 332
+verdict = "issues"
+note = "Read full file. Read every query handler; both consensus collection callbacks ignore the pagination accumulation flag."
+
+[file.15]
+path = "interchain/modules/core/02-client/keeper/grpc_query_test.go"
+lines = 654
+verdict = "issues"
+note = "Read full file. Read all query tests; upgraded-consensus coverage bypasses production aggregate registration."
+
+[file.16]
+path = "interchain/modules/core/02-client/keeper/keeper.go"
+lines = 403
+verdict = "clean"
+note = "Read full file. Read store helpers, metadata export, self-client checks, upgrade keeper calls and all iterators against host keys."
+
+[file.17]
+path = "interchain/modules/core/02-client/keeper/keeper_test.go"
+lines = 393
+verdict = "clean"
+note = "Read full file. Read concrete keeper setup, historical fixtures, state/metadata round trips and consensus iteration; query registration gap is recorded at query tests."
+
+[file.18]
+path = "interchain/modules/core/02-client/keeper/metrics.go"
+lines = 45
+verdict = "clean"
+note = "Read full file. Client OpenTelemetry instrument names and labels agree with lifecycle emissions and startup error handling."
+
+[file.19]
+path = "interchain/modules/core/02-client/keeper/migrations.go"
+lines = 27
+verdict = "clean"
+note = "Read full file. Version-one migration passes the current codec, store key and staking keeper to the real v100 migration."
+
+[file.20]
+path = "interchain/modules/core/02-client/keeper/params.go"
+lines = 24
+verdict = "clean"
+note = "Read full file. Allowed-client reads use an addressable slice; generic ParamSetPairs disagreement is recorded in types/params.go."
+
+[file.21]
+path = "interchain/modules/core/02-client/keeper/params_test.go"
+lines = 17
+verdict = "clean"
+note = "Read full file. Direct keeper parameter round trip uses the concrete allowed-client values and shared subspace."
+
+[file.22]
+path = "interchain/modules/core/02-client/keeper/proposal.go"
+lines = 117
+verdict = "clean"
+note = "Read full file. Subject/substitute recovery checks status/type compatibility; upgrade handling schedules and stores the committed upgraded client."
+
+[file.23]
+path = "interchain/modules/core/02-client/keeper/proposal_test.go"
+lines = 278
+verdict = "clean"
+note = "Read full file. Read recovery compatibility, active substitute and upgrade proposal storage cases against real keeper methods."
+
+[file.24]
+path = "interchain/modules/core/02-client/legacy/v100/genesis.go"
+lines = 151
+verdict = "clean"
+note = "Read full file. Legacy genesis migration converts concrete solo-machine/Tendermint states and metadata into current typed genesis."
+
+[file.25]
+path = "interchain/modules/core/02-client/legacy/v100/genesis_test.go"
+lines = 308
+verdict = "clean"
+note = "Read full file. Read both migration suites with concrete legacy Any inputs and current state/consensus assertions."
+
+[file.26]
+path = "interchain/modules/core/02-client/legacy/v100/solomachine.go"
+lines = 208
+verdict = "clean"
+note = "Read full file. Migration-only solo-machine adapter intentionally panics for unsupported runtime verification; it is not an active client implementation."
+
+[file.27]
+path = "interchain/modules/core/02-client/legacy/v100/store.go"
+lines = 179
+verdict = "clean"
+note = "Read full file. Read solo-machine consensus pruning and Tendermint processed-time/height metadata migration with current encodings."
+
+[file.28]
+path = "interchain/modules/core/02-client/legacy/v100/store_test.go"
+lines = 231
+verdict = "clean"
+note = "Read full file. Read concrete store migration and metadata preservation cases, including pruning of obsolete solo-machine state."
+
+[file.29]
+path = "interchain/modules/core/02-client/module.go"
+lines = 29
+verdict = "clean"
+note = "Read full file. ICS02 name, CLI roots and QueryServer registration match the generated client service."
+
+[file.30]
+path = "interchain/modules/core/02-client/proposal_handler.go"
+lines = 25
+verdict = "clean"
+note = "Read full file. Governance dispatch accepts registered update/upgrade content and returns an error for unsupported proposal types."
+
+[file.31]
+path = "interchain/modules/core/02-client/proposal_handler_test.go"
+lines = 87
+verdict = "clean"
+note = "Read full file. Read real proposal dispatch success/failure paths using the actual client keeper."
+
+[file.32]
+path = "interchain/modules/core/02-client/simulation/decoder.go"
+lines = 39
+verdict = "issues"
+note = "Read full file. Consensus-prefix matching also catches processed metadata and decodes it as Any; recorded as a runtime defect."
+
+[file.33]
+path = "interchain/modules/core/02-client/simulation/decoder_test.go"
+lines = 70
+verdict = "issues"
+note = "Read full file. Read hand-built client/consensus fixtures; real light-client metadata shapes are absent from decoder coverage."
+
+[file.34]
+path = "interchain/modules/core/02-client/simulation/genesis.go"
+lines = 14
+verdict = "clean"
+note = "Read full file. Simulation client genesis delegates to the same default constructor consumed by module initialization."
+
+[file.35]
+path = "interchain/modules/core/02-client/types/client.go"
+lines = 111
+verdict = "clean"
+note = "Read full file. Identified states, sorted consensus heights, Any unpacking and client-type validation match exported contracts."
+
+[file.36]
+path = "interchain/modules/core/02-client/types/client_test.go"
+lines = 85
+verdict = "clean"
+note = "Read full file. Consensus-with-height JSON and client-type validation cases match generated fields and identifier bounds."
+
+[file.37]
+path = "interchain/modules/core/02-client/types/codec.go"
+lines = 189
+verdict = "clean"
+note = "Read full file. Read registration and every Any pack/unpack helper for client, consensus, header, misbehaviour and proposal types."
+
+[file.38]
+path = "interchain/modules/core/02-client/types/codec_test.go"
+lines = 210
+verdict = "clean"
+note = "Read full file. Read concrete Tendermint, solo-machine and localhost packing cases plus nil/invalid inputs."
+
+[file.39]
+path = "interchain/modules/core/02-client/types/encoding.go"
+lines = 114
+verdict = "clean"
+note = "Read full file. Binary encodings consistently use registered protobuf Any and preserve error-returning versus must wrappers."
+
+[file.40]
+path = "interchain/modules/core/02-client/types/encoding_test.go"
+lines = 28
+verdict = "clean"
+note = "Read full file. Header codec round trip uses a real signed Tendermint header and compares concrete decoded state."
+
+[file.41]
+path = "interchain/modules/core/02-client/types/errors.go"
+lines = 37
+verdict = "clean"
+note = "Read full file. Client codespace, error numbers and exported names match keeper/message consumers and registry declarations."
+
+[file.42]
+path = "interchain/modules/core/02-client/types/events.go"
+lines = 30
+verdict = "clean"
+note = "Read full file. Client event and attribute constants match the concrete emitters and relayer-facing fields."
+
+[file.43]
+path = "interchain/modules/core/02-client/types/expected_keepers.go"
+lines = 26
+verdict = "clean"
+note = "Read full file. Staking historical-info/unbonding and upgrade interfaces match injected node keepers."
+
+[file.44]
+path = "interchain/modules/core/02-client/types/genesis.go"
+lines = 250
+verdict = "issues"
+note = "Read full file. Read full client/consensus/metadata genesis validation; sequence-zero allocation hole is recorded."
+
+[file.45]
+path = "interchain/modules/core/02-client/types/genesis_test.go"
+lines = 550
+verdict = "clean"
+note = "Read full file. Read marshaling and validation tables including metadata, allowlists, localhost and consensus heights; sequence hole is recorded at validator."
+
+[file.46]
+path = "interchain/modules/core/02-client/types/height.go"
+lines = 194
+verdict = "clean"
+note = "Read full file. Revision/height comparison, parsing, chain revision changes and increment/decrement agree with host encoding."
+
+[file.47]
+path = "interchain/modules/core/02-client/types/height_test.go"
+lines = 157
+verdict = "clean"
+note = "Read full file. Read ordering, zero, parsing, chain revision and self-height assertions against concrete Height behavior."
+
+[file.48]
+path = "interchain/modules/core/02-client/types/keys.go"
+lines = 66
+verdict = "clean"
+note = "Read full file. Client identifiers use the client-type plus hyphenated decimal uint64 sequence with matching parser/formatter."
+
+[file.49]
+path = "interchain/modules/core/02-client/types/keys_test.go"
+lines = 56
+verdict = "clean"
+note = "Read full file. Read identifier parsing tables for invalid delimiters, lengths, types and sequence values."
+
+[file.50]
+path = "interchain/modules/core/02-client/types/metrics.go"
+lines = 9
+verdict = "clean"
+note = "Read full file. The client_type metric label matches client lifecycle emissions and registry rows."
+
+[file.51]
+path = "interchain/modules/core/02-client/types/msgs.go"
+lines = 279
+verdict = "clean"
+note = "Read full file. Read all create/update/upgrade/misbehaviour message validation, signer handling, proof presence and Any unpacking."
+
+[file.52]
+path = "interchain/modules/core/02-client/types/msgs_test.go"
+lines = 617
+verdict = "clean"
+note = "Read full file. Read concrete message marshaling, signer and ValidateBasic tables using real Any packers."
+
+[file.53]
+path = "interchain/modules/core/02-client/types/params.go"
+lines = 72
+verdict = "issues"
+note = "Read full file. Client defaults/validation agree, but generic ParamSetPairs reads receive a slice value instead of a pointer."
+
+[file.54]
+path = "interchain/modules/core/02-client/types/params_test.go"
+lines = 30
+verdict = "clean"
+note = "Read full file. Allowed-client validation cases reject blank names and invalid concrete parameter types."
+
+[file.55]
+path = "interchain/modules/core/02-client/types/proposal.go"
+lines = 142
+verdict = "clean"
+note = "Read full file. Recovery proposal carries subject/substitute IDs; upgrade proposal carries plan and packed client state with current governance registration."
+
+[file.56]
+path = "interchain/modules/core/02-client/types/proposal_test.go"
+lines = 216
+verdict = "clean"
+note = "Read full file. Read both proposal validation/marshaling paths and upgrade String behavior against actual concrete types."
+
+[file.57]
+path = "interchain/modules/core/02-client/types/query.go"
+lines = 66
+verdict = "clean"
+note = "Read full file. Query response constructors retain Any state fields, proof bytes and proof heights; unpacking matches generated fields."
+
+[file.58]
+path = "interchain/modules/core/03-connection/client/cli/cli.go"
+lines = 25
+verdict = "clean"
+note = "Read full file. Connection query root registers the implemented query commands under the ICS03 name."
+
+[file.59]
+path = "interchain/modules/core/03-connection/client/cli/query.go"
+lines = 125
+verdict = "clean"
+note = "Read full file. Read connection/list/client-path commands, pagination/proof flags and response printing against concrete utility calls."
+
+[file.60]
+path = "interchain/modules/core/03-connection/client/utils/utils.go"
+lines = 218
+verdict = "clean"
+note = "Read full file. Read every proof/gRPC path and parser; host keys, proof heights and ClientPaths repeated-string wire representation agree."
+
+[file.61]
+path = "interchain/modules/core/03-connection/genesis.go"
+lines = 32
+verdict = "clean"
+note = "Read full file. Connection import/export preserves identified ends, client associations, allocation counter and delay parameters."
+
+[file.62]
+path = "interchain/modules/core/03-connection/keeper/events.go"
+lines = 75
+verdict = "clean"
+note = "Read full file. Handshake events use matching local/counterparty identifiers and exported attribute names."
+
+[file.63]
+path = "interchain/modules/core/03-connection/keeper/grpc_query.go"
+lines = 177
+verdict = "clean"
+note = "Read full file. Read all connection queries, request checks, pagination and associated state lookup against generated responses."
+
+[file.64]
+path = "interchain/modules/core/03-connection/keeper/grpc_query_test.go"
+lines = 442
+verdict = "clean"
+note = "Read full file. Read connection/list/client-path/associated-state tests including invalid identifiers and missing-state responses."
+
+[file.65]
+path = "interchain/modules/core/03-connection/keeper/handshake.go"
+lines = 372
+verdict = "clean"
+note = "Read full file. Read four handshake steps, crossing hellos, negotiated versions/features, delay agreement, proofs and directional flags."
+
+[file.66]
+path = "interchain/modules/core/03-connection/keeper/handshake_test.go"
+lines = 740
+verdict = "clean"
+note = "Read full file. Read complete open-init/try/ack/confirm tables, invalid proofs, version negotiation, crossing hellos and inbound/outbound rejection."
+
+[file.67]
+path = "interchain/modules/core/03-connection/keeper/keeper.go"
+lines = 226
+verdict = "clean"
+note = "Read full file. Read persisted ConnectionEnd/ClientPaths protobuf values, allocation keys, associations and iteration against genesis export."
+
+[file.68]
+path = "interchain/modules/core/03-connection/keeper/keeper_test.go"
+lines = 150
+verdict = "clean"
+note = "Read full file. Read state/path round trips, iteration and timestamp lookup against concrete client and connection keepers."
+
+[file.69]
+path = "interchain/modules/core/03-connection/keeper/metrics.go"
+lines = 45
+verdict = "clean"
+note = "Read full file. Connection OpenTelemetry counters agree with handshake lifecycle emission and setup errors."
+
+[file.70]
+path = "interchain/modules/core/03-connection/keeper/params.go"
+lines = 24
+verdict = "clean"
+note = "Read full file. Direct keeper reads use a uint64 pointer; generic destination and zero validator defects are recorded in types/params.go."
+
+[file.71]
+path = "interchain/modules/core/03-connection/keeper/params_test.go"
+lines = 17
+verdict = "clean"
+note = "Read full file. Concrete parameter round trip preserves MaxExpectedTimePerBlock in nanoseconds."
+
+[file.72]
+path = "interchain/modules/core/03-connection/keeper/verify.go"
+lines = 313
+verdict = "clean"
+note = "Read full file. Read all proof forwarding and time/block delay checks against exported client verification signatures; zero configuration issue is recorded at validator."
+
+[file.73]
+path = "interchain/modules/core/03-connection/keeper/verify_test.go"
+lines = 686
+verdict = "clean"
+note = "Read full file. Read every state/packet/receipt/sequence proof table including delay and height failures using real client verification."
+
+[file.74]
+path = "interchain/modules/core/03-connection/module.go"
+lines = 24
+verdict = "clean"
+note = "Read full file. ICS03 name, query root and service registration match generated QueryServer declarations."
+
+[file.75]
+path = "interchain/modules/core/03-connection/simulation/decoder.go"
+lines = 33
+verdict = "clean"
+note = "Read full file. Connection diff decoding uses the same ConnectionEnd and ClientPaths protobuf shapes as keeper writes; global keys are recorded at root decoder."
+
+[file.76]
+path = "interchain/modules/core/03-connection/simulation/decoder_test.go"
+lines = 69
+verdict = "clean"
+note = "Read full file. Read recognized connection/path values and unknown-key decoder behavior."
+
+[file.77]
+path = "interchain/modules/core/03-connection/simulation/genesis.go"
+lines = 14
+verdict = "clean"
+note = "Read full file. Simulation connection genesis uses empty state and current default connection timing parameters."
+
+[file.78]
+path = "interchain/modules/core/03-connection/types/codec.go"
+lines = 46
+verdict = "clean"
+note = "Read full file. Connection messages and exported interfaces register with matching generated descriptors and concrete types."
+
+[file.79]
+path = "interchain/modules/core/03-connection/types/connection.go"
+lines = 128
+verdict = "clean"
+note = "Read full file. Connection/counterparty validation agrees on state, versions, client IDs, prefix and nanosecond delay."
+
+[file.80]
+path = "interchain/modules/core/03-connection/types/connection_test.go"
+lines = 121
+verdict = "clean"
+note = "Read full file. Read connection/counterparty/identified-connection tables for state, identifier, prefix and version validity."
+
+[file.81]
+path = "interchain/modules/core/03-connection/types/errors.go"
+lines = 19
+verdict = "clean"
+note = "Read full file. Connection codespace/error numbers agree with handshake/query/validation call sites."
+
+[file.82]
+path = "interchain/modules/core/03-connection/types/events.go"
+lines = 25
+verdict = "clean"
+note = "Read full file. Handshake event and attribute constants match emitted connection events."
+
+[file.83]
+path = "interchain/modules/core/03-connection/types/expected_keepers.go"
+lines = 17
+verdict = "clean"
+note = "Read full file. Injected client keeper interfaces match concrete self-client/self-consensus and client-state signatures."
+
+[file.84]
+path = "interchain/modules/core/03-connection/types/genesis.go"
+lines = 82
+verdict = "issues"
+note = "Read full file. Read genesis paths, parameters and connection validation; existing connection-0 bypasses next-sequence check."
+
+[file.85]
+path = "interchain/modules/core/03-connection/types/genesis_test.go"
+lines = 133
+verdict = "issues"
+note = "Read full file. Valid fixture explicitly accepts connection-0 with next sequence zero; recorded test-gap."
+
+[file.86]
+path = "interchain/modules/core/03-connection/types/keys.go"
+lines = 62
+verdict = "clean"
+note = "Read full file. Connection identifiers consistently use connection-N with decimal uint64 sequence and matching parser."
+
+[file.87]
+path = "interchain/modules/core/03-connection/types/keys_test.go"
+lines = 49
+verdict = "clean"
+note = "Read full file. Read malformed, negative, overflowing and valid connection sequence parser cases."
+
+[file.88]
+path = "interchain/modules/core/03-connection/types/msgs.go"
+lines = 287
+verdict = "clean"
+note = "Read full file. Read all handshake message fields, signer/proof/height checks and packed client-state unpacking against keeper inputs."
+
+[file.89]
+path = "interchain/modules/core/03-connection/types/msgs_test.go"
+lines = 235
+verdict = "clean"
+note = "Read full file. Read all four connection message tables with concrete client, prefix, proof and consensus-height values."
+
+[file.90]
+path = "interchain/modules/core/03-connection/types/params.go"
+lines = 54
+verdict = "issues"
+note = "Read full file. Read timing defaults and validation; registered zero acceptance and generic destination pointers are findings."
+
+[file.91]
+path = "interchain/modules/core/03-connection/types/params_test.go"
+lines = 30
+verdict = "clean"
+note = "Read full file. Params.Validate rejects zero, but the separately registered governance validator differs as recorded in params.go."
+
+[file.92]
+path = "interchain/modules/core/03-connection/types/query.go"
+lines = 71
+verdict = "clean"
+note = "Read full file. Response constructors retain paths, client IDs, Any state values and proof heights with generated field types."
+
+[file.93]
+path = "interchain/modules/core/03-connection/types/version.go"
+lines = 221
+verdict = "clean"
+note = "Read full file. Read supported version/feature negotiation and intersection; basic empty feature lists differ intentionally from handshake selection requirements."
+
+[file.94]
+path = "interchain/modules/core/03-connection/types/version_test.go"
+lines = 166
+verdict = "clean"
+note = "Read full file. Read supported-feature, negotiated version, intersection and validation cases against concrete connection behavior."
+
+[file.95]
+path = "interchain/modules/core/04-channel/client/cli/cli.go"
+lines = 51
+verdict = "clean"
+note = "Read full file. Channel CLI roots register current channel/packet query commands under the ICS04 name."
+
+[file.96]
+path = "interchain/modules/core/04-channel/client/cli/query.go"
+lines = 462
+verdict = "clean"
+note = "Read full file. Read all channel/packet/ack/unreceived/sequence command constructors, numeric parsing, proof and pagination flags."
+
+[file.97]
+path = "interchain/modules/core/04-channel/client/utils/utils.go"
+lines = 300
+verdict = "clean"
+note = "Read full file. Read every gRPC/proof utility path; packet bytes, receipts, associated states and next-receive values match store encodings."
+
+[file.98]
+path = "interchain/modules/core/04-channel/genesis.go"
+lines = 50
+verdict = "clean"
+note = "Read full file. Direct GenesisState import/export retains receipts, commitments, acknowledgements and all counters; separate constructor loss is recorded at types/genesis.go."
+
+[file.99]
+path = "interchain/modules/core/04-channel/keeper/events.go"
+lines = 269
+verdict = "clean"
+note = "Read full file. Read handshake and packet event emission including binary data, sequence, timeout fields and acknowledgement reconstruction attributes."
+
+[file.100]
+path = "interchain/modules/core/04-channel/keeper/grpc_query.go"
+lines = 542
+verdict = "clean"
+note = "Read full file. Read every query and request validator; receipt boolean, uint64 sequences, commitment/ack bytes and REST parameters match generated transport."
+
+[file.101]
+path = "interchain/modules/core/04-channel/keeper/grpc_query_test.go"
+lines = 1548
+verdict = "clean"
+note = "Read full file. Read all channel, collection, packet, acknowledgement, receipt, association, unreceived and sequence query tables including ordered/unordered and missing state cases."
+
+[file.102]
+path = "interchain/modules/core/04-channel/keeper/handshake.go"
+lines = 567
+verdict = "clean"
+note = "Read full file. Read negotiated ordering, capability ownership, state transitions, proof checks, crossing hellos, close behavior and sequence initialization."
+
+[file.103]
+path = "interchain/modules/core/04-channel/keeper/handshake_test.go"
+lines = 890
+verdict = "clean"
+note = "Read full file. Read all open/close handshake tables including proof/capability failures and directional traffic flags."
+
+[file.104]
+path = "interchain/modules/core/04-channel/keeper/keeper.go"
+lines = 478
+verdict = "clean"
+note = "Read full file. Read all channel, sequence, receipt, commitment and acknowledgement storage/iteration and capability lookup against host keys and uint64 encodings."
+
+[file.105]
+path = "interchain/modules/core/04-channel/keeper/keeper_test.go"
+lines = 366
+verdict = "issues"
+note = "Read full file. Read channel/state/sequence tests; receive assertion uses the send getter and equal fixture values hide it."
+
+[file.106]
+path = "interchain/modules/core/04-channel/keeper/metrics.go"
+lines = 57
+verdict = "clean"
+note = "Read full file. Channel OpenTelemetry packet/ack/timeout and handshake instruments match keeper emission and label names."
+
+[file.107]
+path = "interchain/modules/core/04-channel/keeper/packet.go"
+lines = 547
+verdict = "clean"
+note = "Read full file. Read send/receive/write-ack/acknowledge proof, capability, replay, sequence and hash validation through persisted packet lifecycle."
+
+[file.108]
+path = "interchain/modules/core/04-channel/keeper/packet_test.go"
+lines = 947
+verdict = "clean"
+note = "Read full file. Read complete send/receive/ack tables including expired deadlines, duplicates, sequence order, capabilities and inbound rejection."
+
+[file.109]
+path = "interchain/modules/core/04-channel/keeper/timeout.go"
+lines = 286
+verdict = "clean"
+note = "Read full file. Read normal and close timeouts, either-deadline expiry, receipt/sequence proofs, commitment removal and ordered-channel closure."
+
+[file.110]
+path = "interchain/modules/core/04-channel/keeper/timeout_test.go"
+lines = 433
+verdict = "clean"
+note = "Read full file. Read height/timestamp, ordered/unordered, channel/connection state and executed timeout tests against real lifecycle paths."
+
+[file.111]
+path = "interchain/modules/core/04-channel/module.go"
+lines = 29
+verdict = "clean"
+note = "Read full file. ICS04 module name, CLI roots and service registration match generated channel contracts."
+
+[file.112]
+path = "interchain/modules/core/04-channel/simulation/decoder.go"
+lines = 49
+verdict = "issues"
+note = "Read full file. Decoder handles channel/sequence/hash shapes but misses real unordered packet receipts."
+
+[file.113]
+path = "interchain/modules/core/04-channel/simulation/decoder_test.go"
+lines = 89
+verdict = "clean"
+note = "Read full file. Read channel/sequence/commitment/ack decoder fixtures and unknown-key case; receipt coverage is proposed with decoder repair."
+
+[file.114]
+path = "interchain/modules/core/04-channel/simulation/genesis.go"
+lines = 14
+verdict = "clean"
+note = "Read full file. Simulation channel genesis uses current empty channel/packet collections and next sequence zero."
+
+[file.115]
+path = "interchain/modules/core/04-channel/types/acknowledgement.go"
+lines = 62
+verdict = "clean"
+note = "Read full file. Acknowledgement oneof validation and canonical JSON bytes agree with transfer and opaque Wasm acknowledgement consumers."
+
+[file.116]
+path = "interchain/modules/core/04-channel/types/acknowledgement_test.go"
+lines = 70
+verdict = "clean"
+note = "Read full file. Read result/error/empty acknowledgement cases and exact canonical byte assertions."
+
+[file.117]
+path = "interchain/modules/core/04-channel/types/channel.go"
+lines = 128
+verdict = "clean"
+note = "Read full file. Channel ordering/state/counterparty/connection-hop/version validation agrees with handshake and message shapes."
+
+[file.118]
+path = "interchain/modules/core/04-channel/types/channel_test.go"
+lines = 59
+verdict = "clean"
+note = "Read full file. Read channel/counterparty tables for state, order, identifier and one-hop connection constraints."
+
+[file.119]
+path = "interchain/modules/core/04-channel/types/codec.go"
+lines = 52
+verdict = "clean"
+note = "Read full file. Handshake and packet SDK Msg registrations match concrete generated service descriptors."
+
+[file.120]
+path = "interchain/modules/core/04-channel/types/errors.go"
+lines = 41
+verdict = "clean"
+note = "Read full file. Channel/packet codespace and error numbers agree with proof, timeout, capability, sequence and no-op consumers."
+
+[file.121]
+path = "interchain/modules/core/04-channel/types/events.go"
+lines = 54
+verdict = "clean"
+note = "Read full file. Event/attribute constants agree with concrete handshake/packet/ack/timeout emitters."
+
+[file.122]
+path = "interchain/modules/core/04-channel/types/expected_keepers.go"
+lines = 78
+verdict = "clean"
+note = "Read full file. Client/connection/port/scoped keeper contracts agree with injected concrete methods, capabilities and proof/state types."
+
+[file.123]
+path = "interchain/modules/core/04-channel/types/genesis.go"
+lines = 156
+verdict = "issues"
+note = "Read full file. Read genesis constructors and validation; constructor receipt loss and sequence-zero validation are findings."
+
+[file.124]
+path = "interchain/modules/core/04-channel/types/genesis_test.go"
+lines = 225
+verdict = "issues"
+note = "Read full file. Read full validation tables; success case supplies receipts but only asserts Validate, hiding constructor data loss."
+
+[file.125]
+path = "interchain/modules/core/04-channel/types/keys.go"
+lines = 62
+verdict = "clean"
+note = "Read full file. Channel IDs use channel-N decimal uint64 sequences with matching parser and host validation."
+
+[file.126]
+path = "interchain/modules/core/04-channel/types/keys_test.go"
+lines = 47
+verdict = "clean"
+note = "Read full file. Read malformed, negative, overflowing and valid channel sequence parser cases."
+
+[file.127]
+path = "interchain/modules/core/04-channel/types/msgs.go"
+lines = 485
+verdict = "clean"
+note = "Read full file. Read every handshake/close/receive/timeout/ack message, proof/height/signature checks and generated fields against dispatch inputs."
+
+[file.128]
+path = "interchain/modules/core/04-channel/types/msgs_test.go"
+lines = 437
+verdict = "clean"
+note = "Read full file. Read complete ValidateBasic and signer tables with mounted real stores and current packet/handshake shapes."
+
+[file.129]
+path = "interchain/modules/core/04-channel/types/packet.go"
+lines = 113
+verdict = "clean"
+note = "Read full file. Packet commitment byte order and SHA256 construction agree with light-client proof consumers; packet/ack checks preserve timeout and payload semantics."
+
+[file.130]
+path = "interchain/modules/core/04-channel/types/packet_test.go"
+lines = 53
+verdict = "clean"
+note = "Read full file. Read concrete commitment and packet validation cases for sequence, endpoints, timeouts and payload."
+
+[file.131]
+path = "interchain/modules/core/04-channel/types/query.go"
+lines = 95
+verdict = "clean"
+note = "Read full file. Response constructors preserve proof heights/bytes, packed associated state, receipt bool and uint64 receive sequence."
+
+[file.132]
+path = "interchain/modules/core/04-channel/types/version.go"
+lines = 27
+verdict = "clean"
+note = "Read full file. Version split/merge helpers preserve delimiter prefixes and suffix extraction semantics."
+
+[file.133]
+path = "interchain/modules/core/04-channel/types/version_test.go"
+lines = 77
+verdict = "clean"
+note = "Read full file. Read missing-separator, composite and ordinary channel version split/merge cases."
+
+[file.134]
+path = "interchain/modules/core/05-port/keeper/keeper.go"
+lines = 79
+verdict = "clean"
+note = "Read full file. Read scoped port binding, authentication and owner lookup; persistent capability owners rehydrate before IBC block handling."
+
+[file.135]
+path = "interchain/modules/core/05-port/keeper/keeper_test.go"
+lines = 76
+verdict = "clean"
+note = "Read full file. Read bind/authenticate cases against real scoped capabilities and module-owned ports."
+
+[file.136]
+path = "interchain/modules/core/05-port/module.go"
+lines = 24
+verdict = "clean"
+note = "Read full file. Port query registration is an optional external API; node aggregate services expose client/connection/channel without claiming an active port route."
+
+[file.137]
+path = "interchain/modules/core/05-port/types/errors.go"
+lines = 13
+verdict = "clean"
+note = "Read full file. Port and capability errors retain declared codespace/numbers and match keeper/router consumers."
+
+[file.138]
+path = "interchain/modules/core/05-port/types/keys.go"
+lines = 15
+verdict = "clean"
+note = "Read full file. Port module/store names match host capability paths and do not describe a public LayerX router."
+
+[file.139]
+path = "interchain/modules/core/05-port/types/module.go"
+lines = 123
+verdict = "clean"
+note = "Read full file. Read every IBCModule callback signature, opaque packet/ack bytes, relayer addresses, capabilities and handshake lifecycle consumed by transfer/Wasm."
+
+[file.140]
+path = "interchain/modules/core/05-port/types/query.go"
+lines = 9
+verdict = "clean"
+note = "Read full file. AppVersion response constructor preserves its string field without implying node service registration."
+
+[file.141]
+path = "interchain/modules/core/05-port/types/router.go"
+lines = 65
+verdict = "clean"
+note = "Read full file. Sealed in-process IBC route map enforces unique valid module routes; this is protocol routing rather than a retired network endpoint."
+
+[file.142]
+path = "interchain/modules/core/05-port/types/utils.go"
+lines = 17
+verdict = "clean"
+note = "Read full file. Owner selection excludes the core IBC capability owner and identifies the application owner consistently."
+
+[file.143]
+path = "interchain/modules/core/23-commitment/types/bench_test.go"
+lines = 15
+verdict = "clean"
+note = "Read full file. Read empty-proof benchmark; it constructs the exported type without claiming proof verification success."
+
+[file.144]
+path = "interchain/modules/core/23-commitment/types/codec.go"
+lines = 44
+verdict = "clean"
+note = "Read full file. Prefix/path/root/proof registration matches exported commitment interfaces used by light clients."
+
+[file.145]
+path = "interchain/modules/core/23-commitment/types/commitment_test.go"
+lines = 37
+verdict = "clean"
+note = "Read full file. Read suite setup with actual SDK proof specs, codec and concrete Merkle types."
+
+[file.146]
+path = "interchain/modules/core/23-commitment/types/errors.go"
+lines = 15
+verdict = "clean"
+note = "Read full file. Commitment error numbers retain stable proof/prefix/path/root validation meanings."
+
+[file.147]
+path = "interchain/modules/core/23-commitment/types/merkle.go"
+lines = 323
+verdict = "clean"
+note = "Read full file. Read membership/nonmembership, proof-spec alignment, chained roots, path/prefix and argument checks; unimplemented batch paths return explicit errors."
+
+[file.148]
+path = "interchain/modules/core/23-commitment/types/merkle_test.go"
+lines = 171
+verdict = "clean"
+note = "Read full file. Read proof verification failures and prefix/path formatting cases with real ICS23 structures and expected roots."
+
+[file.149]
+path = "interchain/modules/core/23-commitment/types/utils.go"
+lines = 27
+verdict = "clean"
+note = "Read full file. ABCI proof operation conversion preserves ICS23 proof order and protobuf shape consumed by Merkle verification."
+
+[file.150]
+path = "interchain/modules/core/23-commitment/types/utils_test.go"
+lines = 98
+verdict = "clean"
+note = "Read full file. Read valid/malformed proof conversion cases and concrete CommitmentProof result assertions."
+
+[file.151]
+path = "interchain/modules/core/24-host/doc.go"
+lines = 8
+verdict = "clean"
+note = "Read full file. Host package comment correctly identifies ICS24 identifier and storage path responsibility."
+
+[file.152]
+path = "interchain/modules/core/24-host/errors.go"
+lines = 15
+verdict = "clean"
+note = "Read full file. Host error codes match identifier/path validator failures consumed by message and query paths."
+
+[file.153]
+path = "interchain/modules/core/24-host/keys.go"
+lines = 235
+verdict = "clean"
+note = "Read full file. Read every client/consensus/connection/channel/packet/sequence/ack/receipt/capability key builder against store and proof consumers."
+
+[file.154]
+path = "interchain/modules/core/24-host/parse.go"
+lines = 79
+verdict = "clean"
+note = "Read full file. Connection/channel path parsing enforces expected segments and IDs; must wrappers are deliberate internal panic paths."
+
+[file.155]
+path = "interchain/modules/core/24-host/parse_test.go"
+lines = 48
+verdict = "clean"
+note = "Read full file. Read identifier parsing success and malformed path cases against host key builders."
+
+[file.156]
+path = "interchain/modules/core/24-host/validate.go"
+lines = 118
+verdict = "clean"
+note = "Read full file. Read identifier length/character/path composition checks; module-specific bounds agree with message/query callers."
+
+[file.157]
+path = "interchain/modules/core/24-host/validate_test.go"
+lines = 149
+verdict = "clean"
+note = "Read full file. Read default/custom validator tables covering lengths, invalid characters and path composition."
+
+[file.158]
+path = "interchain/modules/core/ante/ante.go"
+lines = 92
+verdict = "clean"
+note = "Read full file. Read redundancy checks for real client update/receive/ack/timeout messages; only already-settled work becomes declared redundant/no-op errors."
+
+[file.159]
+path = "interchain/modules/core/ante/ante_test.go"
+lines = 487
+verdict = "clean"
+note = "Read full file. Read full ante suite using real coordinator state, packet proofs, acknowledgement and timeout messages rather than replacement consumers."
+
+[file.160]
+path = "interchain/modules/core/client/cli/cli.go"
+lines = 50
+verdict = "clean"
+note = "Read full file. IBC root CLI registers client/connection/channel branches with current module naming and constructors."
+
+[file.161]
+path = "interchain/modules/core/client/query.go"
+lines = 71
+verdict = "clean"
+note = "Read full file. Proof queries target committed IBC store versions, convert actual ABCI proof operations and report chain-revision proof heights."
+
+[file.162]
+path = "interchain/modules/core/exported/channel.go"
+lines = 39
+verdict = "clean"
+note = "Read full file. Exported Channel/Packet/Acknowledgement contracts match concrete channel types and application callback byte shapes."
+
+[file.163]
+path = "interchain/modules/core/exported/client.go"
+lines = 243
+verdict = "clean"
+note = "Read full file. Read all status/height/client/consensus/header/misbehaviour/metadata contracts against concrete light-client verification and recovery implementations."
+
+[file.164]
+path = "interchain/modules/core/exported/commitment.go"
+lines = 45
+verdict = "clean"
+note = "Read full file. Exported root/prefix/path/proof contracts match Merkle implementations and concrete light-client proof calls."
+
+[file.165]
+path = "interchain/modules/core/exported/connection.go"
+lines = 26
+verdict = "clean"
+note = "Read full file. Connection/counterparty/version contracts match protobuf-backed accessors and handshake negotiation."
+
+[file.166]
+path = "interchain/modules/core/genesis.go"
+lines = 36
+verdict = "clean"
+note = "Read full file. Core genesis defaults absent Params and exports actual flags; direct submodule state retains receipts and metadata."
+
+[file.167]
+path = "interchain/modules/core/genesis_params_test.go"
+lines = 57
+verdict = "clean"
+note = "Read full file. Read flag preservation and absent-Params defaults through real keeper initialization/export, matching 6867.1/.2."
+
+[file.168]
+path = "interchain/modules/core/genesis_test.go"
+lines = 373
+verdict = "clean"
+note = "Read full file. Read aggregate validation, initialization/export, client metadata, localhost and connection/channel state cases."
+
+[file.169]
+path = "interchain/modules/core/keeper/grpc_query.go"
+lines = 139
+verdict = "issues"
+note = "Read full file. Read aggregate query forwarders; missing UpgradedConsensusState is exposed by production registration."
+
+[file.170]
+path = "interchain/modules/core/keeper/inbound_test.go"
+lines = 180
+verdict = "clean"
+note = "Read full file. Read default enabled, blocked receive/open and allowed ack/timeout cases; disabling new traffic still permits settlement."
+
+[file.171]
+path = "interchain/modules/core/keeper/keeper.go"
+lines = 99
+verdict = "issues"
+note = "Read full file. Read dependency validation, shared parameter table, subkeeper construction and route sealing; nil QueryServer embedding hides incomplete implementation."
+
+[file.172]
+path = "interchain/modules/core/keeper/keeper_test.go"
+lines = 133
+verdict = "clean"
+note = "Read full file. Read empty dependency rejection and actual aggregate keeper setup with staking, upgrade and capability dependencies."
+
+[file.173]
+path = "interchain/modules/core/keeper/metrics.go"
+lines = 39
+verdict = "clean"
+note = "Read full file. Module-level packet/timeout instruments match message-server emission and label names."
+
+[file.174]
+path = "interchain/modules/core/keeper/migrations.go"
+lines = 38
+verdict = "clean"
+note = "Read full file. Read v1 delegation and idempotent v2-to-v3 flag migration; explicit values survive and missing flags default enabled."
+
+[file.175]
+path = "interchain/modules/core/keeper/migrations_test.go"
+lines = 28
+verdict = "clean"
+note = "Read full file. Read default flag initialization and preservation of an explicitly disabled flag on migration rerun."
+
+[file.176]
+path = "interchain/modules/core/keeper/msg_server.go"
+lines = 699
+verdict = "issues"
+note = "Read full file. Read every message handler, cached callback contexts, proof/no-op handling and recovery settlement; timeout metric contract disagreement is recorded."
+
+[file.177]
+path = "interchain/modules/core/keeper/msg_server_test.go"
+lines = 738
+verdict = "clean"
+note = "Read full file. Read complete receive/ack/timeout/timeout-on-close and upgrade tests with real callback/proof/state settlement paths."
+
+[file.178]
+path = "interchain/modules/core/keeper/params.go"
+lines = 49
+verdict = "clean"
+note = "Read full file. Core parameter reads use pointer pairs, setters preserve the opposite flag and subkeepers share the same subspace."
+
+[file.179]
+path = "interchain/modules/core/keeper/params_test.go"
+lines = 29
+verdict = "clean"
+note = "Read full file. Read core default/get/set and independent flag mutations against actual persistent parameter storage."
+
+[file.180]
+path = "interchain/modules/core/legacy/v100/genesis.go"
+lines = 60
+verdict = "clean"
+note = "Read full file. Aggregate legacy migration delegates submodules and initializes current core Params; legacy support is intentional data recovery."
+
+[file.181]
+path = "interchain/modules/core/legacy/v100/genesis_test.go"
+lines = 178
+verdict = "clean"
+note = "Read full file. Read aggregate solo-machine migration and preservation of current client/connection/channel genesis state."
+
+[file.182]
+path = "interchain/modules/core/module.go"
+lines = 232
+verdict = "clean"
+note = "Read full file. Read codec/gateway/service registration, migrations, genesis streaming, lifecycle and simulation hooks; query dispatch defect is recorded at keeper source."
+
+[file.183]
+path = "interchain/modules/core/simulation/decoder.go"
+lines = 33
+verdict = "issues"
+note = "Read full file. Read composed diff decoder; legitimate global allocation keys fall through to invalid-prefix panic."
+
+[file.184]
+path = "interchain/modules/core/simulation/genesis.go"
+lines = 64
+verdict = "clean"
+note = "Read full file. Read randomized typed genesis composition and app-state JSON insertion with current codecs/defaults."
+
+[file.185]
+path = "interchain/modules/core/spec/01_concepts.md"
+lines = 214
+verdict = "issues"
+note = "Read full file. Read complete 214-line page; recovery payload, connection spelling and timeout conjunction contradict current behavior."
+
+[file.186]
+path = "interchain/modules/core/types/codec.go"
+lines = 24
+verdict = "clean"
+note = "Read full file. Core registrations delegate concrete client/connection/channel/commitment/light-client types without enabling a legacy Amino message route."
+
+[file.187]
+path = "interchain/modules/core/types/errors.go"
+lines = 11
+verdict = "clean"
+note = "Read full file. Core invalid-route codespace and number agree with module dispatch consumers."
+
+[file.188]
+path = "interchain/modules/core/types/genesis.go"
+lines = 47
+verdict = "clean"
+note = "Read full file. Default genesis enables both flags; absent Params validates and submodule checks delegate, matching 6865/6866 compatibility."
+
+[file.189]
+path = "interchain/modules/core/types/genesis_test.go"
+lines = 27
+verdict = "clean"
+note = "Read full file. Read default flag and absent-field validation cases against optional generated Params pointer."
+
+[file.190]
+path = "interchain/modules/core/types/metrics.go"
+lines = 12
+verdict = "clean"
+note = "Read full file. Label names match source/destination port/channel and timeout_type emission sites."
+
+[file.191]
+path = "interchain/modules/core/types/params.go"
+lines = 53
+verdict = "clean"
+note = "Read full file. Core bool defaults, snake_case JSON fields, legacy key bytes and pointer ParamSetPairs agree with 6865/6866 requirements."
+
+[file.192]
+path = "interchain/modules/core/types/params_test.go"
+lines = 129
+verdict = "clean"
+note = "Read full file. Read descriptor tags, JSON names, field-four optionality and parameter/genesis marshal round trips."
+
+[file.193]
+path = "interchain/modules/core/types/proto_registry_test.go"
+lines = 48
+verdict = "clean"
+note = "Read full file. Read registration assertions for client/channel and both ICA transaction descriptors; no Go runtime gate was executed by this audit."
+
+[file.194]
+path = "interchain/modules/core/types/query.go"
+lines = 26
+verdict = "clean"
+note = "Read full file. Aggregate service embeds exactly generated client/connection/channel contracts and registers all against the same server."
+
+[finding.upgrade-query-forwarding]
+file = "interchain/modules/core/keeper/grpc_query.go"
+line = 0
+class = "interface-mismatch"
+severity = "high"
+observed = "The aggregate Keeper has no UpgradedConsensusState forwarder. AppModule.RegisterServices registers that Keeper for the generated client Query service, so dispatch reaches its nil embedded types.QueryServer instead of ClientKeeper.UpgradedConsensusState. The generated gateway advertises GET /ibc/core/client/v1/upgraded_consensus_states on this broken path."
+expected = "The registered upgraded-consensus gRPC and REST methods must reach the concrete client keeper and return a declared response or typed missing-state error without a nil-interface panic."
+proposal = "Add an explicit UpgradedConsensusState method in interchain/modules/core/keeper/grpc_query.go forwarding to ClientKeeper; exercise the real AppModule registration through gRPC and the generated gateway with stored and missing upgrade consensus state."
+owner_domain = 6
+interface = "6.rest-ibc-client-upgradedconsensusstate"
+
+[finding.nil-query-embedding]
+file = "interchain/modules/core/keeper/keeper.go"
+line = 27
+class = "runtime-risk"
+severity = "medium"
+observed = "Keeper embeds types.QueryServer but NewKeeper never initializes that interface. The compile-time QueryServer assertion succeeds through promoted methods even when generated handlers are missing, as with UpgradedConsensusState, allowing a runtime nil-interface panic instead of a compile-time failure."
+expected = "The production server must implement every generated query explicitly so an added or omitted handler cannot silently inherit an uninitialized implementation."
+proposal = "Remove the embedded QueryServer fallback from interchain/modules/core/keeper/keeper.go after adding the missing forwarder, retain the compile-time assertion and add a real aggregate service registration regression."
+owner_domain = 6
+
+[finding.latest-consensus-proof]
+file = "interchain/modules/core/02-client/client/utils/utils.go"
+line = 73
+class = "interface-mismatch"
+severity = "high"
+observed = "QueryConsensusState ignores latestHeight when prove is true and passes the supplied height directly to QueryConsensusStateABCI. The CLI leaves that height at 0-0 for --latest-height and defaults prove to true, so a valid latest query targets consensusStates/0-0 instead of the current state."
+expected = "The latest-height option must select the same current consensus state on both transports, with a proof authenticating that exact state at the reported query revision."
+proposal = "Resolve latest client height at a pinned snapshot before constructing the consensus proof key in interchain/modules/core/02-client/client/utils/utils.go; test the real CLI with latest-height and both prove modes against a client containing several consensus heights."
+owner_domain = 6
+interface = "15.go-interchain-modules-core-02-client-client-utils-query-consensus-state-j57"
+
+[finding.misbehaviour-file-decode]
+file = "interchain/modules/core/02-client/client/cli/tx.go"
+line = 155
+class = "interface-mismatch"
+severity = "high"
+observed = "The misbehaviour command passes misbehaviour rather than &misbehaviour to UnmarshalInterfaceJSON after reading the advertised file argument. Parsing the filename as inline JSON already failed, leaving a nil interface, so the file decoder has no destination for the produced concrete misbehaviour."
+expected = "Registered misbehaviour JSON supplied in the documented file argument must yield the same exported.Misbehaviour and transaction as equivalent inline JSON."
+proposal = "Pass the interface destination pointer in interchain/modules/core/02-client/client/cli/tx.go and test concrete registered misbehaviour JSON through an actual file, CLI decoding and MsgSubmitMisbehaviour construction, including malformed-file rejection."
+owner_domain = 6
+interface = "6.cli-ibc-02-client-misbehaviour-j37"
+
+[finding.upgrade-cli-proof-encoding]
+file = "interchain/modules/core/02-client/client/cli/tx.go"
+line = 224
+class = "interface-mismatch"
+severity = "high"
+observed = "NewUpgradeClientCmd converts proof arguments directly with []byte(args[3]) and []byte(args[4]). QueryTendermintProof emits protobuf MerkleProof bytes, byte fields in JSON are base64, and Tendermint VerifyUpgradeAndUpdateState consumes binary protobuf with cdc.Unmarshal. Normal textual proof output is submitted as the wrong bytes and arbitrary binary proofs cannot reliably travel through argv."
+expected = "Operators must be able to transfer real query-produced upgrade proofs into the command through a documented reversible encoding yielding the exact binary bytes accepted by the upgrade verifier."
+proposal = "Define strict base64 proof decoding or explicit binary proof-file inputs in interchain/modules/core/02-client/client/cli/tx.go, update help and test real produced proofs through CLI transaction construction and the Tendermint upgrade verifier, rejecting malformed encodings."
+owner_domain = 6
+interface = "6.cli-ibc-02-client-upgrade-j37"
+
+[finding.genesis-receipt-loss]
+file = "interchain/modules/core/04-channel/types/genesis.go"
+line = 50
+class = "interface-mismatch"
+severity = "high"
+observed = "NewGenesisState accepts receipts []PacketState but omits Receipts from its returned struct. Recovery genesis constructed through this public API silently loses unordered-channel replay receipts, which InitGenesis then cannot import. Ordinary channel ExportGenesis uses a direct struct and is not this lossy constructor path."
+expected = "Every supplied receipt must survive constructor, serialization and import so already-received unordered packets remain rejected after recovery."
+proposal = "Assign Receipts: receipts in interchain/modules/core/04-channel/types/genesis.go and test a real unordered receive through constructor, JSON serialization and a fresh keeper import, asserting retained receipt and replay rejection."
+owner_domain = 6
+interface = "15.go-interchain-modules-core-04-channel-types-new-genesis-state-j57"
+
+[finding.consensus-states-pagination]
+file = "interchain/modules/core/02-client/keeper/grpc_query.go"
+line = 178
+class = "interface-mismatch"
+severity = "high"
+observed = "ConsensusStates appends every eligible callback result without checking accumulate. The consumed SDK FilteredPaginate calls onResult with accumulate=false for offset-skipped records and records scanned beyond the limit, so the response contains states outside its declared page and may exceed the requested limit."
+expected = "ConsensusStates must return only selected page members while Pagination.Total and NextKey describe the filtered collection; metadata keys must stay excluded."
+proposal = "Honor accumulate before appending in interchain/modules/core/02-client/keeper/grpc_query.go and query real stored consensus states with offset, key continuation, reverse ordering and count_total, asserting exact membership, bounds and no cross-page duplication."
+owner_domain = 6
+interface = "6.rest-ibc-client-consensusstates"
+
+[finding.consensus-heights-pagination]
+file = "interchain/modules/core/02-client/keeper/grpc_query.go"
+line = 217
+class = "interface-mismatch"
+severity = "high"
+observed = "ConsensusStateHeights unconditionally appends the height in FilteredPaginate callbacks. The consumed paginator marks skipped and total-count-only records with accumulate=false, so offset and count_total queries return heights outside the requested page."
+expected = "ConsensusStateHeights must obey PageRequest offset, key, limit and reverse semantics and report continuation metadata matching the returned height slice."
+proposal = "Append heights only when accumulate is true in interchain/modules/core/02-client/keeper/grpc_query.go; test keeper-produced heights through real registered queries and gateway pagination with exact page membership and continuation assertions."
+owner_domain = 6
+interface = "6.rest-ibc-client-consensusstateheights"
+
+[finding.header-validator-pagination]
+file = "interchain/modules/core/02-client/client/utils/utils.go"
+line = 148
+class = "interface-mismatch"
+severity = "high"
+observed = "QueryTendermintHeader fetches only validator page 1 with per_page=10000 and ignores Total. The actual consensus Validators endpoint caps per_page at 100 unless Unsafe is enabled, in both Autobahn and CometBFT branches, so larger validator sets yield a partial ValidatorSet beside the full signed header."
+expected = "Header.ValidatorSet must contain the complete set at the selected commit height so the receiving light client can validate its committed hash and signatures."
+proposal = "Fetch all pages at the pinned height in interchain/modules/core/02-client/client/utils/utils.go, reject inconsistent totals and validate the assembled hash against the header; cover at least 101 validators through the real capped RPC endpoint."
+owner_domain = 6
+interface = "15.go-interchain-modules-core-02-client-client-utils-query-tendermint-header-j57"
+
+[finding.self-consensus-validator-pagination]
+file = "interchain/modules/core/02-client/client/utils/utils.go"
+line = 196
+class = "interface-mismatch"
+severity = "high"
+observed = "QuerySelfConsensusState hashes page 1 of validators at height+1 after requesting per_page=10000. The real consensus RPC caps this to 100 by default; for larger sets NextValidatorsHash is the hash of a subset rather than the next set committed by the block."
+expected = "The consensus state used for counterparty initialization must carry the complete committed next-validator hash independent of RPC page limits."
+proposal = "Collect every next-height validator page in interchain/modules/core/02-client/client/utils/utils.go, verify completeness and compare with the commit header NextValidatorsHash; cover actual RPC-to-client initialization with more than 100 validators."
+owner_domain = 6
+interface = "15.go-interchain-modules-core-02-client-client-utils-query-self-consensus-state-j57"
+
+[finding.params-query-error]
+file = "interchain/modules/core/02-client/client/cli/query.go"
+line = 327
+class = "runtime-risk"
+severity = "medium"
+observed = "GetCmdParams discards the error from queryClient.ClientParams and immediately dereferences res.Params. A failed query returns a nil response and turns an ordinary unavailable/transport error into a CLI panic."
+expected = "The parameter query command must return its original RPC error to the operator and print parameters only after successful response decoding."
+proposal = "Check and return the ClientParams error before reading res.Params in interchain/modules/core/02-client/client/cli/query.go; cover a real unavailable endpoint and a successful concrete parameter response."
+owner_domain = 6
+
+[finding.client-sequence-zero]
+file = "interchain/modules/core/02-client/types/genesis.go"
+line = 207
+class = "restart-recovery"
+severity = "medium"
+observed = "GenesisState.Validate checks maxSequence != 0 before comparing the next client counter. A nonempty imported set containing only sequence zero may retain next sequence zero, causing allocation to reuse an imported identifier. Client/connection creation can overwrite the prior state; channel creation may instead fail on an existing capability."
+expected = "Validated recovery genesis must put the next client sequence strictly above all imported identifiers, including zero, while empty genesis may start at zero."
+proposal = "Track identifier presence separately from maxSequence in interchain/modules/core/02-client/types/genesis.go; reject nonempty sequence-zero/next-zero genesis and test real import followed by allocation leaves existing client state unchanged."
+owner_domain = 6
+
+[finding.connection-sequence-zero]
+file = "interchain/modules/core/03-connection/types/genesis.go"
+line = 70
+class = "restart-recovery"
+severity = "medium"
+observed = "GenesisState.Validate checks maxSequence != 0 before comparing the next connection counter. A nonempty imported set containing only sequence zero may retain next sequence zero, causing allocation to reuse an imported identifier. Client/connection creation can overwrite the prior state; channel creation may instead fail on an existing capability."
+expected = "Validated recovery genesis must put the next connection sequence strictly above all imported identifiers, including zero, while empty genesis may start at zero."
+proposal = "Track identifier presence separately from maxSequence in interchain/modules/core/03-connection/types/genesis.go; reject nonempty sequence-zero/next-zero genesis and test real import followed by allocation leaves existing connection state unchanged."
+owner_domain = 6
+
+[finding.channel-sequence-zero]
+file = "interchain/modules/core/04-channel/types/genesis.go"
+line = 99
+class = "restart-recovery"
+severity = "medium"
+observed = "GenesisState.Validate checks maxSequence != 0 before comparing the next channel counter. A nonempty imported set containing only sequence zero may retain next sequence zero, causing allocation to reuse an imported identifier. Client/connection creation can overwrite the prior state; channel creation may instead fail on an existing capability."
+expected = "Validated recovery genesis must put the next channel sequence strictly above all imported identifiers, including zero, while empty genesis may start at zero."
+proposal = "Track identifier presence separately from maxSequence in interchain/modules/core/04-channel/types/genesis.go; reject nonempty sequence-zero/next-zero genesis and test real import followed by allocation leaves existing channel state unchanged."
+owner_domain = 6
+
+[finding.connection-genesis-test-collision]
+file = "interchain/modules/core/03-connection/types/genesis_test.go"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "The valid-genesis fixture contains connection-0 but passes NextConnectionSequence=0 and expects validation success. This fixture endorses recovery state that reallocates an already-imported connection ID."
+expected = "A valid fixture containing connection-0 must use next sequence at least one, with sequence-zero collision explicitly rejected."
+proposal = "Correct the valid fixture in interchain/modules/core/03-connection/types/genesis_test.go to next sequence one; add zero-collision rejection and actual import/open assertions that retain the original connection."
+owner_domain = 6
+
+[finding.zero-block-delay-parameter]
+file = "interchain/modules/core/03-connection/types/params.go"
+line = 48
+class = "config-drift"
+severity = "medium"
+observed = "Params.Validate rejects MaxExpectedTimePerBlock=0, but the registered validateParams function only checks uint64 type and accepts zero. SDK Subspace.Update uses that validator, so governance can store zero and getBlockDelay then returns zero block delay even for a nonzero connection delay period."
+expected = "All parameter update paths must enforce the same nonzero time-per-block invariant as genesis validation, preserving intended time-and-block verification delays."
+proposal = "Reject zero in the registered validator and reuse it from Params.Validate in interchain/modules/core/03-connection/types/params.go; test real subspace/governance update and delay verification before/after a valid timing change."
+owner_domain = 6
+
+[finding.client-parameter-destination]
+file = "interchain/modules/core/02-client/types/params.go"
+line = 45
+class = "interface-mismatch"
+severity = "medium"
+observed = "ParamSetPairs passes p.AllowedClients by value to NewParamSetPair. SDK GetParamSet/GetParamSetIfExists sends pair.Value to a decoder expecting an addressable destination pointer, so generic reads cannot populate this Params instance. Current keeper-specific reads use direct pointers and avoid that path."
+expected = "The exported ParamSet must support generic SDK reads and writes of AllowedClients, following the destination-pointer convention used by the core bool parameters."
+proposal = "Pass &p.AllowedClients in interchain/modules/core/02-client/types/params.go; test SetParamSet then GetParamSet into fresh Params and GetParamSetIfExists with existing and absent storage."
+owner_domain = 6
+interface = "15.go-x-params-types-new-param-set-pair-j76"
+
+[finding.connection-parameter-destination]
+file = "interchain/modules/core/03-connection/types/params.go"
+line = 44
+class = "interface-mismatch"
+severity = "medium"
+observed = "ParamSetPairs passes p.MaxExpectedTimePerBlock by value to NewParamSetPair. SDK GetParamSet/GetParamSetIfExists sends pair.Value to a decoder expecting an addressable destination pointer, so generic reads cannot populate this Params instance. Current keeper-specific reads use direct pointers and avoid that path."
+expected = "The exported ParamSet must support generic SDK reads and writes of MaxExpectedTimePerBlock, following the destination-pointer convention used by the core bool parameters."
+proposal = "Pass &p.MaxExpectedTimePerBlock in interchain/modules/core/03-connection/types/params.go; test SetParamSet then GetParamSet into fresh Params and GetParamSetIfExists with existing and absent storage."
+owner_domain = 6
+interface = "15.go-x-params-types-new-param-set-pair-j76"
+
+[finding.client-metadata-decoder]
+file = "interchain/modules/core/02-client/simulation/decoder.go"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "NewDecodeStore treats every clients/... key containing consensusStates as a consensus Any. Tendermint writes consensusStates/<height>/processedTime as big-endian uint64 and /processedHeight as a height string, so legitimate metadata diffs reach MustUnmarshalConsensusState and panic."
+expected = "The store decoder must match the exact consensus leaf shape and decode processed metadata with its real encoding rather than treating metadata as protobuf Any."
+proposal = "Route exact key shapes in interchain/modules/core/02-client/simulation/decoder.go, decode metadata and iteration keys explicitly, and run actual client initialization/update store diffs through the registered aggregate decoder."
+owner_domain = 6
+
+[finding.receipt-diff-decoder]
+file = "interchain/modules/core/04-channel/simulation/decoder.go"
+line = 45
+class = "runtime-risk"
+severity = "medium"
+observed = "The channel decoder recognizes channel ends, sequences, commitments and acknowledgement hashes but not receipts. SetPacketReceipt writes a valid receipts/ports/.../channels/.../sequences/... key with byte 1; the aggregate decoder then panics on this ordinary unordered-receive state."
+expected = "Every persistent packet-lifecycle key emitted by the channel keeper, including replay-protection receipts, must be handled by its registered store decoder."
+proposal = "Add explicit receipt-key/value decoding to interchain/modules/core/04-channel/simulation/decoder.go and pass a real unordered receive diff through the aggregate decoder, including receipts retained after export/import."
+owner_domain = 6
+
+[finding.allocation-diff-decoder]
+file = "interchain/modules/core/simulation/decoder.go"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "The aggregate decoder panics when no subdecoder accepts a key, but none handles nextClientSequence, nextConnectionSequence or nextChannelSequence. Ordinary creation therefore emits valid persisted big-endian uint64 allocation diffs classified as invalid prefixes."
+expected = "The decoder registered by AppModule must handle every global allocation key produced by core keepers while still rejecting unknown or corrupt keys."
+proposal = "Decode the three exact allocation keys in interchain/modules/core/simulation/decoder.go with their real uint64 representation and exercise actual client/connection/channel creation diffs without relaxing unknown-key rejection."
+owner_domain = 6
+
+[finding.receive-sequence-test-getter]
+file = "interchain/modules/core/04-channel/keeper/keeper_test.go"
+line = 278
+class = "test-gap"
+severity = "medium"
+observed = "TestSetSequence sets send/receive/ack counters all to 10 and obtains storedNextSeqRecv using GetNextSequenceSend. The receive getter is not exercised by this assertion and a send/receive key mix-up still passes."
+expected = "Sequence tests must read each counter with its matching getter and independently distinguish persisted send, receive and acknowledgement values."
+proposal = "Use distinct counter values and GetNextSequenceRecv in interchain/modules/core/04-channel/keeper/keeper_test.go; assert all three survive export/import into a fresh keeper without changing values."
+owner_domain = 6
+
+[finding.aggregate-query-test-gap]
+file = "interchain/modules/core/02-client/keeper/grpc_query_test.go"
+line = 586
+class = "test-gap"
+severity = "medium"
+observed = "TestQueryUpgradedConsensusStates uses suite.queryClient. Setup in keeper_test.go registers app.IBCKeeper.ClientKeeper directly in a helper, bypassing AppModule.RegisterServices and its aggregate Keeper, so this test hides the missing production UpgradedConsensusState dispatch."
+expected = "A query regression must traverse production module registration and generated transport to the concrete handler, including the gateway route exposed to clients."
+proposal = "Retain focused client tests and add actual AppModule service/gateway coverage alongside interchain/modules/core/02-client/keeper/grpc_query_test.go with stored and absent upgraded consensus state and typed error assertions."
+owner_domain = 6
+
+[finding.metadata-decoder-fixture-gap]
+file = "interchain/modules/core/02-client/simulation/decoder_test.go"
+line = 32
+class = "test-gap"
+severity = "medium"
+observed = "TestDecodeStore builds only client/consensus Any leaves and an unknown key. Real Tendermint initialization also emits processedTime, processedHeight and iteration metadata; those producer shapes never traverse the test and the metadata panic remains hidden."
+expected = "Decoder integration coverage must include the full key/value output of real light-client initialization and updates, especially metadata needed for delay verification and recovery."
+proposal = "Extend interchain/modules/core/02-client/simulation/decoder_test.go with actual keeper-produced Tendermint update diffs and assert readable metadata without substituting a fake producer or weakening unknown-key checks."
+owner_domain = 6
+
+[finding.receipt-constructor-test-gap]
+file = "interchain/modules/core/04-channel/types/genesis_test.go"
+line = 55
+class = "test-gap"
+severity = "medium"
+observed = "The valid-genesis fixture passes receipts to NewGenesisState but only calls Validate and checks its error. Since the constructor omits Receipts, the fixture succeeds after the replay-protection data has disappeared from the state it validates."
+expected = "A test supplying nonempty receipts must assert those exact values survive construction, encoding and import instead of accepting validation after silent data loss."
+proposal = "Add receipt equality and real keeper import/replay assertions in interchain/modules/core/04-channel/types/genesis_test.go using the receipt produced by an actual unordered receive, alongside the constructor repair."
+owner_domain = 6
+
+[finding.timeout-height-metric-contract]
+file = "interchain/modules/core/keeper/msg_server.go"
+line = 538
+class = "interface-mismatch"
+severity = "medium"
+observed = "The registry declares telemetry keys [ibc, timeout, packet, height], while the producer emits [ibc, timeout, packet] with a separate timeout_type=height label. A dashboard or alert selecting the declared suffixed metric name cannot observe the emitted timeout counter."
+expected = "Registry and IBC telemetry contract must describe the exact counter name and label dimensions emitted by timeout handlers so operators can distinguish expiry from timeout-on-close."
+proposal = "Domain 17 should correct the matching interface row and spec/layerx-merge/contracts/ibc.md to the shared three-part name with timeout_type=height; domain 6 should assert the corresponding real telemetry sink emission."
+owner_domain = 6
+interface = "15.met-ibc-interchain-modules-core-keeper-ibc-timeout-packet-height-j57"
+
+[finding.timeout-close-metric-contract]
+file = "interchain/modules/core/keeper/msg_server.go"
+line = 617
+class = "interface-mismatch"
+severity = "medium"
+observed = "The registry declares telemetry keys [ibc, timeout, packet, channel-closed], while the producer emits [ibc, timeout, packet] with a separate timeout_type=channel-closed label. A dashboard or alert selecting the declared suffixed metric name cannot observe the emitted timeout counter."
+expected = "Registry and IBC telemetry contract must describe the exact counter name and label dimensions emitted by timeout handlers so operators can distinguish expiry from timeout-on-close."
+proposal = "Domain 17 should correct the matching interface row and spec/layerx-merge/contracts/ibc.md to the shared three-part name with timeout_type=channel-closed; domain 6 should assert the corresponding real telemetry sink emission."
+owner_domain = 6
+interface = "15.met-ibc-interchain-modules-core-keeper-ibc-timeout-packet-channel-closed-j57"
+
+[finding.tokenfactory-registry-caller]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 280489
+class = "doc-drift"
+severity = "low"
+observed = "Row 6.go-tokenfactory-newkeeper-j35 lists core keeper.go:69-72 and keeper_test.go:66 as tokenfactory constructor callers. Those imports/calls actually resolve to clientkeeper, connectionkeeper, portkeeper, channelkeeper and ibckeeper, with distinct signatures; this slice does not call tokenfactory.NewKeeper."
+expected = "Interface dependency metadata must resolve selector imports correctly so tokenfactory constructor changes do not claim unrelated IBC keeper consumers."
+proposal = "Correct the callers for 6.go-tokenfactory-newkeeper-j35 in spec/layerx-merge/interfaces.kvx and regenerate its contract using qualified import resolution while retaining genuine tokenfactory callers."
+owner_domain = 17
+interface = "6.go-tokenfactory-newkeeper-j35"
+
+[finding.readme-retired-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README describes layerxd as a separate running daemon whose checkpoints settle through layerxAnchor; lines 141-146 also recommend make layerxd. This presents the retired split deployment as the current network architecture."
+expected = "The finished network is one paxd BFT chain with its kernel proposing blocks and receipts final at block commit; operator instructions must describe that merged deployment."
+proposal = "Rewrite README.md architecture and kernel build examples around the linked paxd/kernel, chain ID 125 and block-commit finality; explicitly retire split-daemon instructions and link current node commands."
+owner_domain = 17
+
+[finding.monorepo-retired-trust-boundary]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo overview names the kernel layerxd at line 3 and presents checkpoint registration, guarantor bonds, challenges and emergency exits as the current settlement trust model at lines 70-72, without explaining single-chain block-commit finality."
+expected = "Repository documentation must describe the kernel within paxd and distinguish current chain state/custody boundaries from retired separate-daemon checkpoint settlement."
+proposal = "Update docs/MONOREPO.md component naming, build boundaries and trust-boundary prose to the merged chain and its actual finality/custody paths, separating any historical deployment description."
+owner_domain = 17
+
+[finding.concept-governance-recovery]
+file = "interchain/modules/core/spec/01_concepts.md"
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page says governance supplies a canonical Header to override a frozen client. Current ClientUpdateProposal carries SubjectClientId and SubstituteClientId, and the keeper invokes CheckSubstituteAndUpdateState against an active compatible substitute."
+expected = "Operators must see the real recovery proposal payload and active-substitute/compatibility prerequisites supported by current governance and light-client code."
+proposal = "Rewrite interchain/modules/core/spec/01_concepts.md recovery guidance around subject/substitute IDs, status/compatibility checks and the current client-update proposal CLI."
+owner_domain = 6
+
+[finding.concept-connection-identifier]
+file = "interchain/modules/core/spec/01_concepts.md"
+line = 37
+class = "doc-drift"
+severity = "low"
+observed = "The handshake page spells the generated identifier connection{N}; FormatConnectionIdentifier emits connection-N and ParseConnectionSequence expects the hyphenated prefix."
+expected = "Identifier examples must match the exact connection-N spelling accepted in store paths, proofs, CLI queries and transaction messages."
+proposal = "Change interchain/modules/core/spec/01_concepts.md to connection-{N} and give connection-0 as the first allocated identifier."
+owner_domain = 6
+
+[finding.concept-timeout-conjunction]
+file = "interchain/modules/core/spec/01_concepts.md"
+line = 209
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page requires both timeout timestamp and height to expire. TimeoutPacket rejects only while neither enabled deadline has expired, so either deadline can trigger timeout; a zero field disables only that deadline."
+expected = "Relayers must follow the same either-enabled-deadline expiry rule as the keeper so refundable packets are not held waiting for an unnecessary second deadline."
+proposal = "Rewrite timeout guidance in interchain/modules/core/spec/01_concepts.md to explain either enabled deadline, zero-field semantics and timeout-on-close, linking actual keeper checks and representative tests."
+owner_domain = 6
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Read the complete page. Lines 44-47 and 141-146 retain retired layerxd/checkpoint topology and build guidance; see readme-retired-topology."
+
+[doc.2]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read the complete page. Lines 3 and 66-72 retain the split-daemon/checkpoint settlement model; see monorepo-retired-trust-boundary."
+
+[doc.3]
+path = "interchain/modules/core/spec/01_concepts.md"
+status = "stale"
+notes = "Read all 214 lines. Lines 25-27, 37 and 209-211 disagree with subject/substitute recovery, hyphenated connection IDs and either-deadline timeout behavior."
+
+[doc.4]
+path = "spec/layerx-merge/contracts/ibc.md"
+status = "stale"
+notes = "Read header and relevant core CLI, Go API, errors, ports, REST, telemetry and testing sections, not the entire generated catalogue. Pinned-revision convention is valid; timeout telemetry rows repeat the metric-name/label disagreement."
+
+[doc.5]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Reviewed all 633 distinct package produces/consumes rows. Signatures, error codes, CLI/REST shapes and callbacks were compared; timeout metric names and false tokenfactory caller resolution have findings."
+
+[doc.6]
+path = "spec/layerx-merge/spec.kvx"
+status = "accurate"
+notes = "Read active task and requirements 15272, 6865, 6866 and 6867. Params JSON/key compatibility, optional field four, defaults and flag preservation agree with source declarations/assertions; no Go qualification run is claimed."
+
+[doc.7]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read full brief: single-network topology, finality, all nine review checks, severity and record grammar were applied to this slice."
+
+[doc.8]
+path = "spec/layerx-merge/docs/plans/orchestration.md"
+status = "accurate"
+notes = "Read ownership table and surrounding execution-plan material to resolve domains 6, 15 and 17. It distinguishes planned execution from evidence; the full operational plan was not re-audited."
+
+[doc.9]
+path = "GOTCHA.kvx"
+status = "accurate"
+notes = "Read repository pitfalls before member review. Pitfall entries were used as context, not as evidence of a build or runtime test pass for this slice."
+
+[doc.10]
+path = "spec/workflow.kvx"
+status = "accurate"
+notes = "Read principles and hard rules. Task-specific record-only scope and bounded gate instructions govern this audit; proposed repairs remain unapplied."

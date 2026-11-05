@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -24,11 +25,12 @@ var ErrBlockHeightNotYetAvailable = errors.New("block height not yet available")
 // requests only target heights where all backing data sources are fully
 // synchronized.
 type WatermarkManager struct {
-	tmClient     client.LocalClient
-	ctxProvider  func(int64) sdk.Context
-	stateStore   types.StateStore
-	receiptStore receipt.ReceiptStore
-	pending      PendingSnapshot
+	tmClient        client.LocalClient
+	ctxProvider     func(int64) sdk.Context
+	stateStore      types.StateStore
+	receiptStore    receipt.ReceiptStore
+	pending         PendingSnapshot
+	pendingOpenWait time.Duration
 }
 
 func NewWatermarkManager(
@@ -52,17 +54,78 @@ func (m *WatermarkManager) SetPendingSnapshot(pending PendingSnapshot) {
 	m.pending = pending
 }
 
-// resolvePending returns the height of the open block. The snapshot it takes is
-// read for its height only and never written.
-func (m *WatermarkManager) resolvePending() (int64, error) {
+func (m *WatermarkManager) SetPendingOpenWait(wait time.Duration) {
+	m.pendingOpenWait = wait
+}
+
+func (m *WatermarkManager) PendingContext(ctx context.Context) (sdk.Context, error) {
 	if m == nil || m.pending == nil {
-		return 0, ErrPendingServedBySequencer
+		return sdk.Context{}, ErrPendingServedBySequencer
 	}
-	ctx, err := m.pending.Snapshot()
+	wait := m.pendingOpenWait
+	if wait <= 0 {
+		wait = PendingOpenWait
+	}
+	bounded, cancel := context.WithTimeout(ctx, wait)
+	defer cancel()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if bounded.Err() != nil {
+			if err := ctx.Err(); err != nil {
+				return sdk.Context{}, err
+			}
+			return sdk.Context{}, ErrPendingBlockClosed
+		}
+		snapshot, err := m.pending.Snapshot()
+		if !errors.Is(err, ErrLayerNotOpen) {
+			return snapshot, err
+		}
+		select {
+		case <-bounded.Done():
+			if err := ctx.Err(); err != nil {
+				return sdk.Context{}, err
+			}
+			return sdk.Context{}, ErrPendingBlockClosed
+		case <-ticker.C:
+		}
+	}
+}
+
+// resolvePending returns the height of the open block, or the latest committed
+// height while no block is open. The snapshot is read for its height only and
+// never written, matching the fallback used for simulation reads.
+func (m *WatermarkManager) resolvePending() (int64, error) {
+	height, _, err := m.pendingHeight(context.Background())
+	return height, err
+}
+
+func (m *WatermarkManager) pendingHeight(ctx context.Context) (height int64, open bool, err error) {
+	_, height, open, err = m.pendingSnapshot(ctx)
+	return height, open, err
+}
+
+// pendingSnapshot preserves the identity and state of a single snapshot read.
+// An idle answer carries only the committed height, never an open context.
+func (m *WatermarkManager) pendingSnapshot(ctx context.Context) (sdk.Context, int64, bool, error) {
+	if m == nil || m.pending == nil {
+		return sdk.Context{}, 0, false, ErrPendingServedBySequencer
+	}
+	if err := ctx.Err(); err != nil {
+		return sdk.Context{}, 0, false, err
+	}
+	snapshot, err := m.pending.Snapshot()
+	if errors.Is(err, ErrLayerNotOpen) {
+		snapshot, err = m.PendingContext(ctx)
+		if errors.Is(err, ErrPendingBlockClosed) {
+			height, err := m.LatestHeight(ctx)
+			return sdk.Context{}, height, false, err
+		}
+	}
 	if err != nil {
-		return 0, fmt.Errorf("pending block unavailable: %w", err)
+		return sdk.Context{}, 0, false, fmt.Errorf("pending block unavailable: %w", err)
 	}
-	return ctx.BlockHeight(), nil
+	return snapshot, snapshot.BlockHeight(), true, nil
 }
 
 // Watermarks returns the earliest block height, earliest state height, and
@@ -187,13 +250,18 @@ func (m *WatermarkManager) EarliestStateHeight(ctx context.Context) (int64, erro
 // If the resolved height sits outside the tracked watermarks, the method returns
 // an error explaining whether it is too old (pruned) or too new (not yet
 // available). The pending tag resolves to PendingCtxHeight while a block is
-// open on the sequencer and standby.
+// open on the sequencer and standby, or the latest committed height while no
+// block is open.
 func (m *WatermarkManager) ResolveHeight(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (int64, error) {
 	if blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber != nil && *blockNrOrHash.BlockNumber == rpc.PendingBlockNumber {
-		if _, err := m.resolvePending(); err != nil {
+		height, open, err := m.pendingHeight(ctx)
+		if err != nil {
 			return 0, err
 		}
-		return PendingCtxHeight, nil
+		if open {
+			return PendingCtxHeight, nil
+		}
+		return height, nil
 	}
 	_, stateEarliest, latest, err := m.Watermarks(ctx)
 	if err != nil {

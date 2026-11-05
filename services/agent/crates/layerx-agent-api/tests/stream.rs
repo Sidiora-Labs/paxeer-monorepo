@@ -1,10 +1,12 @@
 use layerx_agent_api::identity::{ActivityType, AgentDid, CapabilityId, ExplicitSet, TenantId};
 use layerx_agent_api::subscription::{
-    Cursor, DeduplicationId, Delivery, DeliveryTarget, EventDelivery, EventIdentity, GapNotice,
+    DeduplicationId, Delivery, DeliveryTarget, EventDelivery, EventIdentity, GapNotice,
     ReceiptReference, SubscriptionCreate, SubscriptionFilter, SubscriptionScope, TenantObject,
     TruncationNotice,
 };
 use layerx_agent_api::Sequence;
+
+type Cursor = layerx_agent_api::subscription::Cursor;
 
 const SCHEMA: &str = include_str!("../../../schema/agent-api/stream.kvx");
 
@@ -38,12 +40,23 @@ fn subscription_requires_tenant_agent_capability_and_durable_cursor() {
     let create = SubscriptionCreate {
         scope: scope(),
         filter: empty_filter(),
-        start: Cursor(Sequence(44)),
+        start: Cursor {
+            block_height: 44,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: required(DeliveryTarget::new("pull:consumer-a")),
     }
     .validate()
     .unwrap_or_else(|error| panic!("subscription: {error:?}"));
-    assert_eq!(create.start, Cursor(Sequence(44)));
+    assert_eq!(
+        create.start,
+        Cursor {
+            block_height: 44,
+            tx_index: 0,
+            log_index: 0
+        }
+    );
     assert!(SCHEMA.contains("required = [\"scope\",\"filter\",\"start\",\"delivery_target\"]"));
     assert!(SCHEMA.contains("last acknowledged cursor"));
 }
@@ -65,7 +78,11 @@ fn event_delivery_has_identity_derived_deduplication_and_receipt_level() {
     let delivery = EventDelivery::new(
         identity,
         vec![1, 2, 3],
-        Cursor(Sequence(45)),
+        Cursor {
+            block_height: 45,
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::None,
     )
     .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -74,7 +91,14 @@ fn event_delivery_has_identity_derived_deduplication_and_receipt_level() {
         DeduplicationId::from_event_identity(identity)
     );
     assert!(SCHEMA.contains("Consumers must deduplicate on deduplication_id"));
-    assert_eq!(delivery.cursor, Cursor(Sequence(45)));
+    assert_eq!(
+        delivery.cursor,
+        Cursor {
+            block_height: 45,
+            tx_index: 0,
+            log_index: 0
+        }
+    );
 }
 
 #[test]
@@ -82,7 +106,11 @@ fn gap_and_truncation_are_first_class_delivery_barriers() {
     let gap = GapNotice {
         missing_first: Sequence(46),
         missing_last: Sequence(48),
-        backfill_cursor: Cursor(Sequence(46)),
+        backfill_cursor: Cursor {
+            block_height: 46,
+            tx_index: 0,
+            log_index: 0,
+        },
         backfill_attempted: true,
     }
     .validate()
@@ -90,7 +118,11 @@ fn gap_and_truncation_are_first_class_delivery_barriers() {
     let truncated = TruncationNotice {
         requested_first: Sequence(1),
         oldest_available: Sequence(20),
-        resume_cursor: Cursor(Sequence(20)),
+        resume_cursor: Cursor {
+            block_height: 20,
+            tx_index: 0,
+            log_index: 0,
+        },
     };
     assert!(matches!(Delivery::Gap(gap), Delivery::Gap(_)));
     assert!(matches!(

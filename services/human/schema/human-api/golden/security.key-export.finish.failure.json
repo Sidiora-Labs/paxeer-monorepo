@@ -1,0 +1,12 @@
+{
+  "status": 403,
+  "body": {
+    "ok": false,
+    "error": {
+      "code": "step-up-required",
+      "copy_key": "error.step-up.required",
+      "retry": "structural"
+    },
+    "trace": "trc_key_export_finish_contract_example"
+  }
+}

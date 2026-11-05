@@ -1,0 +1,886 @@
+[audit.22.30.82]
+task = "22.30.82"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 58
+findings = 43
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["tenant-backfill", "backfill-content-authentication", "snapshot-membership", "reputation-membership", "testnet-chain-id", "smoke-receipt-shape"]
+produces_reviewed = 133
+consumes_reviewed = 362
+source_lines_reviewed = 26968
+requirements = ["20006.1", "8182.2", "21144.1", "8341.1", "22998.1", "21064.1", "8357.1", "8356.1", "8113.1", "8145.1", "19010.2", "19010.1", "21021.1", "21011.1", "21001.1", "13279.1", "13279.2", "8082.1", "8149.1", "8150.1", "8150.2", "8181.1", "8182.1", "8185.1", "8185.2", "8186.1", "8183.1", "8184.1", "8187.1", "8187.2", "8230.1", "8290.1", "8963.1", "8949.1", "18787.1", "18933.1", "18732.1", "181351.1", "181358.1", "181394.1", "181396.1", "181396.2", "18729.1"]
+review_basis = "Full member-file review against the brief, requirements, registry lifecycle and producer/consumer paths. Existing tests were inspected; this audit qualification does not run executable source or integration gates."
+
+[file.01]
+path = "services/platform/examples/run-reference-apps.mjs"
+lines = 588
+verdict = "issues"
+note = "Full review: manifest validation, emulator provisioning, child lifecycle and receipt-driven checkout. Merchant result-code omission is recorded."
+
+[file.02]
+path = "services/platform/hosted/indexer/Cargo.toml"
+lines = 36
+verdict = "clean"
+note = "Full review: dependency paths and direct source uses; retired layerx-proof and paxeer-verifier dependencies are absent."
+
+[file.03]
+path = "services/platform/hosted/indexer/abis/names.json"
+lines = 291
+verdict = "clean"
+note = "Full review: registry, registrar, controller and resolver event names, types and indexed fields against the pinned Solidity producers and name decoder."
+
+[file.04]
+path = "services/platform/hosted/indexer/env-init.sh"
+lines = 98
+verdict = "clean"
+note = "Full review: persistent start/cutover markers, interrupted backfill resume, CA pinning, completion waiting and privilege drop."
+
+[file.05]
+path = "services/platform/hosted/indexer/src/abi.rs"
+lines = 1091
+verdict = "issues"
+note = "Full review: ABI parsing, canonicalization, value bounds, fixed/nested precompile layout and log decoding. bytes24 topic defect is recorded."
+
+[file.06]
+path = "services/platform/hosted/indexer/src/ai_health.rs"
+lines = 1387
+verdict = "clean"
+note = "Full review: observer signatures, canonical encodings, replay persistence, privacy thresholds, diagnostics authorization, freshness, metrics and bounded alerts."
+
+[file.07]
+path = "services/platform/hosted/indexer/src/ai_market.rs"
+lines = 2075
+verdict = "issues"
+note = "Full review: snapshot schema/capture, promotion, cursor keys, retention, streams, outbox and all queries. Proof, archive, freshness and limiter findings are recorded."
+
+[file.08]
+path = "services/platform/hosted/indexer/src/ai_reputation.rs"
+lines = 624
+verdict = "issues"
+note = "Full review: reputation admission, codec bindings, conflicts, archives and queries. Missing state membership verification is recorded."
+
+[file.09]
+path = "services/platform/hosted/indexer/src/api.rs"
+lines = 805
+verdict = "clean"
+note = "Full review: every HTTP route, query/path decoder, refusal, readiness condition, TLS listener and connection limit. Unbounded name reads are recorded at their store implementation."
+
+[file.10]
+path = "services/platform/hosted/indexer/src/backfill.rs"
+lines = 265
+verdict = "issues"
+note = "Full review: range conversion, node checks, progress persistence, resume and live cutover. Missing content authentication is recorded."
+
+[file.11]
+path = "services/platform/hosted/indexer/src/blockscout.rs"
+lines = 531
+verdict = "issues"
+note = "Full review: every database row type, validation and EVM conversion. Missing transaction domain is recorded."
+
+[file.12]
+path = "services/platform/hosted/indexer/src/chains.rs"
+lines = 173
+verdict = "clean"
+note = "Full review: chain configuration, all four event ABIs, status values and registry defaults against the producer contract."
+
+[file.13]
+path = "services/platform/hosted/indexer/src/codec.rs"
+lines = 283
+verdict = "clean"
+note = "Full review: byte, decimal, quantity, hex, base64 and percent encodings and their bounded refusal paths."
+
+[file.14]
+path = "services/platform/hosted/indexer/src/config.rs"
+lines = 494
+verdict = "issues"
+note = "Full review: environment and CLI options, source requirements, transport trust, finality defaults and negative retirement assertions. Registry drift is recorded."
+
+[file.15]
+path = "services/platform/hosted/indexer/src/explorer.rs"
+lines = 810
+verdict = "clean"
+note = "Full review: both explorer feeds, transaction-position enrichment, page budget, durable continuation, completion and merged-history tests."
+
+[file.16]
+path = "services/platform/hosted/indexer/src/explorer_fixtures/token_transfers_page1.json"
+lines = 44
+verdict = "clean"
+note = "Full review: committed token transfer first-page fixture, raw Blockscout field names, positions and continuation query."
+
+[file.17]
+path = "services/platform/hosted/indexer/src/explorer_fixtures/token_transfers_page2.json"
+lines = 31
+verdict = "clean"
+note = "Full review: committed second-page token transfer fixture, event encodings and terminating continuation."
+
+[file.18]
+path = "services/platform/hosted/indexer/src/explorer_fixtures/transactions.json"
+lines = 49
+verdict = "clean"
+note = "Full review: committed transaction fixture, including hash, timestamp, value, status and ordering fields consumed by explorer import."
+
+[file.19]
+path = "services/platform/hosted/indexer/src/follow.rs"
+lines = 69
+verdict = "clean"
+note = "Full review: bounded step and walk-back logic, finality-depth rollback boundary and progress/idle outcomes."
+
+[file.20]
+path = "services/platform/hosted/indexer/src/lib.rs"
+lines = 70
+verdict = "clean"
+note = "Full review: exported modules, IndexError conversions and display paths; retired-module negative tests agree with exports."
+
+[file.21]
+path = "services/platform/hosted/indexer/src/main.rs"
+lines = 196
+verdict = "issues"
+note = "Full review: executable modes, registry loading, backfill and follow workers, observations and dispatch. Daemon fallback and AI startup gaps are recorded."
+
+[file.22]
+path = "services/platform/hosted/indexer/src/names.rs"
+lines = 202
+verdict = "clean"
+note = "Full review: names addresses, node derivation and contract event/action mapping; NewOwner/NewResolver correctly map to transfer/set_resolver."
+
+[file.23]
+path = "services/platform/hosted/indexer/src/paxeer.rs"
+lines = 1225
+verdict = "clean"
+note = "Full review: EVM/log, bank/tokenfactory, pointer, tenant and precompile decoding; receipts, Cosmos source handling, rollback and following."
+
+[file.24]
+path = "services/platform/hosted/indexer/src/paxscan.rs"
+lines = 312
+verdict = "issues"
+note = "Full review: Postgres column errors, repeatable-read query ranges, leaf pin and TLS opt-in. Missing tenant metadata selection is recorded."
+
+[file.25]
+path = "services/platform/hosted/indexer/src/store.rs"
+lines = 2829
+verdict = "issues"
+note = "Full review: every schema, migration, transaction, cursor, tenant/name query, explorer import, history and rollback path. Legacy evidence and name risks are recorded."
+
+[file.26]
+path = "services/platform/hosted/indexer/src/transport.rs"
+lines = 481
+verdict = "issues"
+note = "Full review: endpoint validation, loopback checks, pinned CA, RPC ids, response framing and socket timeouts. Complete-request deadline gap is recorded."
+
+[file.27]
+path = "services/platform/hosted/indexer/tests/abi_image_layout.rs"
+lines = 118
+verdict = "clean"
+note = "Full review: real packaging script execution, byte comparison, nested ABI registration and required-file refusal assertions remain strict."
+
+[file.28]
+path = "services/platform/hosted/indexer/tests/ai_health_privacy.rs"
+lines = 803
+verdict = "clean"
+note = "Full review: all health encoding, signatures, replay, freshness, privacy, diagnostics and reopen tests; operational health does not confer canonical authority."
+
+[file.29]
+path = "services/platform/hosted/indexer/tests/ai_reputation_finality.rs"
+lines = 974
+verdict = "issues"
+note = "Full review: all reputation fixtures, admissions, finality/refusal, rollback/conflict and persistence tests. Non-membership proof fixture is recorded."
+
+[file.30]
+path = "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs"
+lines = 1140
+verdict = "issues"
+note = "Full review: all snapshot capture, finality, cursor, retention, rollback, restore, malformed-header and reopen tests. Proof/archive path gaps are recorded."
+
+[file.31]
+path = "services/platform/hosted/indexer/tests/backfill.rs"
+lines = 593
+verdict = "issues"
+note = "Full review: all backfill conversion, progress, gap fill, cutover, mismatch and disabled-index cases. Tenant and daemon path omissions are recorded."
+
+[file.32]
+path = "services/platform/hosted/indexer/tests/chains_api.rs"
+lines = 414
+verdict = "clean"
+note = "Full review: chain list/detail/name lookup, summary, transfers/events, pagination, status and invalid-query assertions."
+
+[file.33]
+path = "services/platform/hosted/indexer/tests/chains_ingest.rs"
+lines = 380
+verdict = "clean"
+note = "Full review: chain event ingestion, status mapping, funding/operator change, invalid status refusal and rollback against producer ABI."
+
+[file.34]
+path = "services/platform/hosted/indexer/tests/chains_scope.rs"
+lines = 327
+verdict = "clean"
+note = "Full review: tenant transaction scoping, root behavior, shared-source finality, reversibility and rollback assertions."
+
+[file.35]
+path = "services/platform/hosted/indexer/tests/env_example.rs"
+lines = 54
+verdict = "clean"
+note = "Full review: real env-example names require database URL and server-pin placeholders; missing-pin refusal remains asserted."
+
+[file.36]
+path = "services/platform/hosted/indexer/tests/finality_evidence_v2.rs"
+lines = 230
+verdict = "issues"
+note = "Full review: shared binding vector, commit metadata and invalid finality cases. Hash-only store-proof fixture gap is recorded."
+
+[file.37]
+path = "services/platform/hosted/indexer/tests/history_position.rs"
+lines = 1053
+verdict = "clean"
+note = "Full review: all history position ordering, same-position paging, holders, finality, rollback and precompile producer-vector stdin consumers."
+
+[file.38]
+path = "services/platform/hosted/indexer/tests/ingest.rs"
+lines = 820
+verdict = "clean"
+note = "Full review: all EVM/log/Cosmos ingestion fixtures, custody absence, bounds, precompile metadata, pagination, persistence and rollback assertions."
+
+[file.39]
+path = "services/platform/hosted/indexer/tests/names_api.rs"
+lines = 519
+verdict = "clean"
+note = "Full review: name-service route/vector shapes, protocol aliases, invalid parameters, methods and event-history assertions."
+
+[file.40]
+path = "services/platform/hosted/indexer/tests/names_ingest.rs"
+lines = 614
+verdict = "clean"
+note = "Full review: pinned name event signatures, registry/registrar/controller/resolver ingestion, restart, rollback and registration/action labeling."
+
+[file.41]
+path = "services/platform/hosted/indexer/tests/retired_client_modules.rs"
+lines = 64
+verdict = "clean"
+note = "Full review: negative checks reject retired client modules and verifier dependencies; their strings assert absence rather than call retired services."
+
+[file.42]
+path = "services/platform/hosted/indexer/tests/rollback_projection.rs"
+lines = 462
+verdict = "clean"
+note = "Full review: rollback and redelivery restore asset and holder projections. Synthetic unit identifiers exercise generic store behavior, not a running retired service."
+
+[file.43]
+path = "services/platform/hosted/testnet/Cargo.toml"
+lines = 25
+verdict = "clean"
+note = "Full review: all direct dependency declarations agree with control executable and shared release/version library uses."
+
+[file.44]
+path = "services/platform/hosted/testnet/README.md"
+lines = 9
+verdict = "issues"
+note = "Full review of the whole README; obsolete dependency, Programs journey and settlement-bootstrap claims are recorded."
+
+[file.45]
+path = "services/platform/hosted/testnet/deployment.yaml"
+lines = 309
+verdict = "issues"
+note = "Full review: all workloads, services, schedules, volumes, security contexts, environment inputs and network policies. Registry remnant is recorded."
+
+[file.46]
+path = "services/platform/hosted/testnet/render-status.sh"
+lines = 38
+verdict = "clean"
+note = "Full review: exact redacted status keys, component names/states, private credential configuration and bounded publisher HTTP call."
+
+[file.47]
+path = "services/platform/hosted/testnet/reset-testnet.sh"
+lines = 34
+verdict = "clean"
+note = "Full review: monthly date filter, protected reset token, HTTPS call and deterministic monthly idempotency key."
+
+[file.48]
+path = "services/platform/hosted/testnet/run-testnet.sh"
+lines = 23
+verdict = "clean"
+note = "Full review: all required configuration and credential-file checks and final exec; no registry variable is required."
+
+[file.49]
+path = "services/platform/hosted/testnet/src/lib.rs"
+lines = 128
+verdict = "issues"
+note = "Full review: release compatibility, HTTPS origin checks, private defaults and tests. Legacy network id collision with EVM signing is recorded."
+
+[file.50]
+path = "services/platform/hosted/testnet/src/main.rs"
+lines = 1704
+verdict = "clean"
+note = "Full review: every probe, dependency/journey set, redacted status, admission, funding/reset proxy, TLS and admin authorization branch and internal test."
+
+[file.51]
+path = "services/platform/hosted/testnet/status.json"
+lines = 10
+verdict = "issues"
+note = "Full review: monitoring artifact selectors disagree with current status components and have no in-repository runtime caller."
+
+[file.52]
+path = "services/platform/hosted/testnet/tests/faucet-quota.py"
+lines = 209
+verdict = "clean"
+note = "Full review: real faucet quota, authentication, idempotency, concurrency, boundary and response assertions and bounded HTTP calls."
+
+[file.53]
+path = "services/platform/hosted/testnet/tests/hosted-smoke.sh"
+lines = 168
+verdict = "issues"
+note = "Full review: smoke input handling, dependency admissions, funding, payment invocation and receipt inspection. CLI and receipt disagreements are recorded."
+
+[file.54]
+path = "services/platform/hosted/testnet/tests/journey-credentials.py"
+lines = 63
+verdict = "clean"
+note = "Full review: protected session files, no-redirect TLS issuance, requested scopes and exact signer-bound key response/credential configuration checks."
+
+[file.55]
+path = "services/platform/hosted/testnet/tests/journey_common.py"
+lines = 101
+verdict = "issues"
+note = "Full review: protected evidence files, JSON-RPC ids and success/error shapes and bounded curl transport. Retired router suffix is recorded."
+
+[file.56]
+path = "services/platform/hosted/testnet/tests/payment-journey.py"
+lines = 321
+verdict = "issues"
+note = "Full review: native EIP-1559 signing, funding, fees, balances, independent receipt checks and replay refusal. Signer/asset caller drift is recorded."
+
+[file.57]
+path = "services/platform/hosted/testnet/tests/test_journeys.py"
+lines = 48
+verdict = "clean"
+note = "Full review: AST extraction requires literal methods, allowed namespaces and current payment method set; removed Programs invocation is forbidden."
+
+[file.58]
+path = "services/platform/hosted/testnet/tests/wallet-receipt-journey.py"
+lines = 154
+verdict = "issues"
+note = "Full review: real wallet subprocess, TLS forwarding, signed-receipt corruption checks and server shutdown; obsolete endpoint fixture is recorded."
+
+[finding.tenant-backfill]
+file = "services/platform/hosted/indexer/src/blockscout.rs"
+line = 443
+class = "interface-mismatch"
+severity = "high"
+observed = "rpc_blocks emits transactions without chainId. paxeer::chain_activity returns None without that field; Store::write_unit consequently assigns imported tenant transfers and events to paxeer and omits tenant activity totals. The persisted cutover means following never revisits this history."
+expected = "Requirement 20006.1 requires tenant transaction rows to retain pax:<id> and per-chain summary totals on historical import as well as live ingestion."
+proposal = "Preserve verified transaction chainId through services/platform/hosted/indexer/src/paxscan.rs and blockscout.rs into decode_block. Prove tenant transfers, events and summary equality across backfill, cutover and reopen."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-store-unit"
+
+[finding.tenant-query]
+file = "services/platform/hosted/indexer/src/paxscan.rs"
+line = 194
+class = "wiring-gap"
+severity = "medium"
+observed = "PaxscanDatabase::range selects transaction hashes, sender, recipient, value and input but no transaction chain id. TransactionRow cannot carry the namespace metadata consumed by live chain_activity."
+expected = "The database transport must preserve the transaction domain needed by requirement 20006.1 rather than constructing root-domain transactions from incomplete rows."
+proposal = "Extend services/platform/hosted/indexer/src/paxscan.rs and TransactionRow together to obtain verified transaction domains, querying the node when the database cannot supply them; refuse unresolved domains instead of assigning root history."
+owner_domain = 8
+interface = "8.env-indexer-paxscan-database-public-url-j69"
+
+[finding.backfill-content-authentication]
+file = "services/platform/hosted/indexer/src/backfill.rs"
+line = 202
+class = "security"
+severity = "high"
+observed = "apply_range compares the database block hash and ordered transaction hashes with the node, then trusts database transaction bodies and receipts. Changed sender, value or log data under the same listed hashes passes. PaxscanTls::Unauthenticated allows this input from a peer with no authenticated identity."
+expected = "Imported transfer, name and registry state must represent committed transaction and receipt contents. Comparing identifiers alone cannot authenticate the bodies that determine published history."
+proposal = "In services/platform/hosted/indexer/src/backfill.rs verify transaction and receipt contents against committed roots or obtain them from the authenticated node before commit. Cover altered logs and amounts and ensure the unauthenticated database option cannot publish unverified state."
+owner_domain = 8
+interface = "8.env-indexer-layerx-indexer-paxscan-tls-unauthenticated-j69"
+
+[finding.snapshot-membership]
+file = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 338
+class = "security"
+severity = "high"
+observed = "verify_block_commit verifies header and validator signatures but only requires nonempty store_proof and hashes it. promote trusts caller-supplied state and the SequencerSigned enum, matches caller metadata to app_hash, and publishes rank 4 without verifying the program state leaf. StateCapture and bind_snapshot check internal consistency, not membership."
+expected = "Finalized snapshots must bind the exact program state bytes to authenticated committed state. A digest of arbitrary proof bytes cannot establish membership under the committed app hash."
+proposal = "Add real committed state-membership verification in services/platform/hosted/indexer/src/ai_market.rs before finality promotion. Bind the verified key, chain, program, state digest and root; reject nonempty malformed proofs and unrelated valid state proofs."
+owner_domain = 8
+interface = "13.rs-aim-queries-readproof"
+
+[finding.reputation-membership]
+file = "services/platform/hosted/indexer/src/ai_reputation.rs"
+line = 407
+class = "security"
+severity = "high"
+observed = "ReputationProjector::admit uses the hash-only proof helper and reassembles caller-supplied F07 chunks. A signed header and matching claimed root permit publication of internally consistent reputation state without proving that the program leaf belongs to the committed root."
+expected = "Finalized reputation must derive from the exact program state authenticated under the committed app hash, including after reopening the durable projector."
+proposal = "Make services/platform/hosted/indexer/src/ai_reputation.rs consume the authenticated program-state result of the shared membership verifier. Reject changed F07 payloads under an unchanged valid commit and prove refusal across reopen."
+owner_domain = 8
+interface = "13.rs-aim-queries-statecapture"
+
+[finding.snapshot-archive]
+file = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 1156
+class = "restart-recovery"
+severity = "medium"
+observed = "make_room and archive set state=NULL and projection=4 without writing the body to an archive or retaining an archive acknowledgement. archive claims to move content to an external archive, but restore_archived requires the caller to supply the bytes the eviction path discarded."
+expected = "A snapshot advertised as archived must have recoverable content or an explicit pruned lifecycle. Recovery must not depend on a test retaining original body bytes in memory."
+proposal = "In services/platform/hosted/indexer/src/ai_market.rs acknowledge a durable digest-addressed archive and persist its locator before removing a body. Prove recovery after restart, or expose an explicit pruned state and correct the archive claim."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-ai-market-projectionstate"
+
+[finding.authority-regression]
+file = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 1869
+class = "runtime-risk"
+severity = "medium"
+observed = "market_view and require_fresh_authority use saturating_sub. An independently verified height below the snapshot execution height becomes lag zero, Current, and acceptable for authority use. ai_health::authority_lag instead refuses this as AuthorityRegression."
+expected = "Routing, signing and runner release must fail closed when verified authority regresses below the snapshot being used, consistently across market and health projections."
+proposal = "Use checked height ordering in services/platform/hosted/indexer/src/ai_market.rs and return a regression refusal. Add lower-height cases to tests/ai_snapshot_minimal.rs for freshness reporting and signing admission."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-ai-market-freshness"
+
+[finding.limiter-retention]
+file = "services/platform/hosted/indexer/src/ai_market.rs"
+line = 758
+class = "runtime-risk"
+severity = "medium"
+observed = "QueryLimiter inserts one HashMap bucket per viewer visibility. Permit::drop only reduces active; no expiry or cardinality bound removes idle principals, so a long-lived gateway retains all distinct principals even after their keys are revoked."
+expected = "The public query limiter must bound memory as well as request rate and concurrency without resetting active principal quotas."
+proposal = "Bound and expire zero-active idle buckets in services/platform/hosted/indexer/src/ai_market.rs. Refuse admission at safe capacity and cover principal churn, outstanding permits and expiry while preserving live quotas."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-ai-market-querylimiter"
+
+[finding.abi-bytes24]
+file = "services/platform/hosted/indexer/src/abi.rs"
+line = 164
+class = "runtime-risk"
+severity = "medium"
+observed = "AbiType::parse maps both bytes24 and function to FixedBytes(24), while canonical emits function for this variant. An ABI event declaring bytes24 therefore gets a different canonical signature and topic from the Solidity producer."
+expected = "Canonical signatures must preserve distinct Solidity bytes24 and function names even though their encoded values both use 24 bytes."
+proposal = "Give function a distinct AbiType variant in services/platform/hosted/indexer/src/abi.rs, preserve bytes24 canonicalization and cover both topics and nested array forms."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-abi-keccak"
+
+[finding.comet-fallback-wiring]
+file = "services/platform/hosted/indexer/src/main.rs"
+line = 175
+class = "wiring-gap"
+severity = "medium"
+observed = "The daemon invokes observe_comet(store)? before step. observe_comet rejects status tx_index other than on, preventing the daemon from reaching cosmos_range's TX_INDEX_DISABLED EVM-only fallback on an archive node with transaction indexing disabled."
+expected = "The EVM-only fallback must be reachable from the running daemon while readiness honestly reports unavailable Cosmos enrichment."
+proposal = "Separate source observation from EVM progress in services/platform/hosted/indexer/src/main.rs and paxeer.rs for the recognized disabled-index condition. Cover the actual daemon callback order with tx_index off."
+owner_domain = 8
+interface = "8.env-indexer-layerx-indexer-comet-url-j69"
+
+[finding.ai-runtime-wiring]
+file = "services/platform/hosted/indexer/src/main.rs"
+line = 190
+class = "wiring-gap"
+severity = "medium"
+observed = "The indexer starts only Paxeer following and api::serve_with; no production caller observes or promotes ProjectionStore snapshots or admits ReputationProjector captures. Gateway ai_views::respond is exported by its library but its executable dispatcher does not call it."
+expected = "Hosted AI projections need running committed-state producers, durable updates and mounted authenticated query consumers. Exported helpers alone do not make these interfaces operational."
+proposal = "Wire committed program-read ingestion and durable AI projections into services/platform/hosted/indexer/src/main.rs and mount services/platform/hosted/gateway/src/ai_views.rs from its dispatcher. Prove authenticated publication and reads across process restart."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-ai-market-projectionstore"
+
+[finding.legacy-settlement-output]
+file = "services/platform/hosted/indexer/src/store.rs"
+line = 2204
+class = "retired-reference"
+severity = "medium"
+observed = "Store retains settlement_evidence and transfer_document returns its saved JSON whenever present. Reopening a pre-upgrade database can therefore expose retired checkpoint or settlement authority after the ingestion and configuration paths were removed."
+expected = "The merged indexer must publish block_commit final_basis without presenting cached retired checkpoint settlement as current authority."
+proposal = "Add an explicit upgrade migration and output policy in services/platform/hosted/indexer/src/store.rs that retires legacy settlement documents while preserving history. Cover reopen of a pre-upgrade database with populated settlement_evidence."
+owner_domain = 8
+interface = "8.fmt-indexer-store-schema"
+
+[finding.names-unbounded-reads]
+file = "services/platform/hosted/indexer/src/store.rs"
+line = 2333
+class = "runtime-risk"
+severity = "medium"
+observed = "name_events collects every event for a node into a Vec without a limit, and query_names similarly collects every matching portfolio name. Public names routes serialize all results while holding shared store work, unlike bounded history and holder endpoints."
+expected = "Public name history and address lookup must have explicit response and database-work bounds so large histories or portfolios cannot exhaust service memory."
+proposal = "Introduce bounded pagination or an explicit maximum-result refusal in services/platform/hosted/indexer/src/store.rs and api.rs; coordinate explorer and wallet consumers and cover histories and portfolios above the bound."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-store-store"
+
+[finding.reverse-forward-binding]
+file = "services/platform/hosted/indexer/src/store.rs"
+line = 2366
+class = "security"
+severity = "medium"
+observed = "name_for_address returns self.name(reverse) for a claimed reverse name without checking the forward record resolves to the queried address or remains unexpired. An address can consequently be displayed with another account's unconfirmed name."
+expected = "An address primary name should require matching valid forward and reverse records; an unconfirmed reverse label must not imply ownership of the forward name."
+proposal = "Validate the forward target and expiry in services/platform/hosted/indexer/src/store.rs before returning the primary name. Add names API cases for foreign targets, expired registration and valid forward/reverse pairs."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-store-store"
+
+[finding.transport-total-deadline]
+file = "services/platform/hosted/indexer/src/transport.rs"
+line = 309
+class = "runtime-risk"
+severity = "medium"
+observed = "round_trip reads until EOF and socket timeouts apply separately to each read. A peer trickling bytes can exceed LAYERX_INDEXER_TIMEOUT_MS indefinitely within the response-size bound, while a complete Content-Length body still waits for connection close."
+expected = "The RPC timeout should bound the complete request lifecycle and complete HTTP framing should end the response independently of peer connection teardown."
+proposal = "Apply a monotonic total deadline and incremental bounded HTTP framing in services/platform/hosted/indexer/src/transport.rs, including TLS reads and writes. Cover trickling responses and a complete body on a connection that remains open."
+owner_domain = 8
+interface = "8.env-indexer-layerx-indexer-timeout-ms-j69"
+
+[finding.block-time-contract-drift]
+file = "services/platform/hosted/indexer/src/config.rs"
+line = 255
+class = "config-drift"
+severity = "low"
+observed = "Config::from_lookup no longer reads LAYERX_INDEXER_BLOCK_TIME_MS, but its registry row remains stable and declares a removed policy call; the generated hosted contract repeats it."
+expected = "The configuration registry must state that block-commit finality is independent of a block-time knob, matching requirements 8182.1 and 8187.1."
+proposal = "Retire the obsolete environment row in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/platform-hosted.md. Preserve depth zero and explicit fixed-depth behavior in services/platform/hosted/indexer/src/config.rs."
+owner_domain = 8
+interface = "8.env-indexer-layerx-indexer-block-time-ms-j69"
+
+[finding.snapshot-proof-tests]
+file = "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs"
+line = 362
+class = "test-gap"
+severity = "medium"
+observed = "store_proof constructs repeated root bytes followed by sequence bytes, and tests promote this arbitrary buffer under signed headers. Archive recovery restores from a local genuine buffer instead of a durable archive transport."
+expected = "Snapshot path tests must reject non-membership proof bytes and recover retained content after producer and consumer restart using real committed-state proof and archive transports."
+proposal = "Extend services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs with the real state-proof producer and archive retrieval paths. Retain strict commit assertions and add altered leaves, unrelated keys and restart recovery."
+owner_domain = 8
+interface = "13.rs-aim-queries-finalityevidence"
+
+[finding.reputation-proof-tests]
+file = "services/platform/hosted/indexer/tests/ai_reputation_finality.rs"
+line = 457
+class = "test-gap"
+severity = "medium"
+observed = "The reputation fixture calls root bytes followed by height a store_proof and admits it with correctly signed block headers. This proves signature checks while concealing the missing membership check for F07 payload bytes."
+expected = "Reputation finality tests must connect actual program-state proofs to the projector and refuse changed reputation payloads under unchanged authenticated roots."
+proposal = "Drive services/platform/hosted/indexer/tests/ai_reputation_finality.rs with a real committed program-state proof; retain rollback, conflict and reopen assertions and add valid-commit invalid-membership refusals."
+owner_domain = 8
+interface = "13.rs-aim-queries-statecapture"
+
+[finding.binding-proof-tests]
+file = "services/platform/hosted/indexer/tests/finality_evidence_v2.rs"
+line = 108
+class = "test-gap"
+severity = "medium"
+observed = "finality_evidence_v2 supplies the literal snapshot-binding-v2 store proof bytes and asserts its SHA256 digest. The vector establishes encoding agreement while making no state-membership assertion under the signed app hash."
+expected = "Finality evidence tests must distinguish canonical byte vectors from authenticated state evidence and reject malformed nonempty proofs."
+proposal = "Keep canonical vectors in services/platform/hosted/indexer/tests/finality_evidence_v2.rs and add real store-proof production through verification and binding consumption, covering malformed and wrong-key proofs."
+owner_domain = 8
+interface = "13.rs-aim-queries-finalityevidence"
+
+[finding.backfill-path-tests]
+file = "services/platform/hosted/indexer/tests/backfill.rs"
+line = 356
+class = "test-gap"
+severity = "medium"
+observed = "The converted-versus-live comparison omits chainId and uses root-only fixtures. The disabled tx-index test invokes step directly, bypassing the daemon observe_comet precondition that prevents its EVM fallback."
+expected = "Backfill equivalence must include tenant metadata and per-tenant observable results, and fallback tests must use the executable's observation ordering."
+proposal = "Extend services/platform/hosted/indexer/tests/backfill.rs with a real tenant transaction and daemon-path disabled-index case. Compare tenant history, events and summaries across cutover and reopen without omitting chainId."
+owner_domain = 8
+interface = "8.rs-indexer-layerx-indexer-store-unit"
+
+[finding.testnet-chain-id]
+file = "services/platform/hosted/testnet/src/lib.rs"
+line = 4
+class = "interface-mismatch"
+severity = "high"
+observed = "TESTNET_NETWORK_ID is 402 and /v1/parameters emits it. hosted-smoke passes it as payment-journey --network-id, which is used for both eth_chainId equality and EIP-1559 signing. The Paxeer node and beta chain configuration use EVM chain id 125."
+expected = "The payment must validate and sign for EVM chain 125; a legacy protocol-network identifier requires a separate field and cannot substitute for the chain id."
+proposal = "Separate protocol metadata from an explicit validated evm_chain_id in services/platform/hosted/testnet/src/lib.rs and main.rs. Update hosted-smoke.sh and payment-journey.py and prove the parameters-to-signed-transaction path against chain 125."
+owner_domain = 8
+interface = "8.http-testnet-any-v1-parameters"
+
+[finding.smoke-removed-option]
+file = "services/platform/hosted/testnet/tests/hosted-smoke.sh"
+line = 135
+class = "wiring-gap"
+severity = "medium"
+observed = "hosted-smoke passes --encoder to payment-journey.py although the payment parser declares no such option. argparse exits before the rewritten chain payment journey executes even when endpoints and credentials are otherwise valid."
+expected = "The maintained smoke caller must invoke the actual accepted payment options and reach the native EVM transaction path."
+proposal = "Remove the obsolete encoder input and argument from services/platform/hosted/testnet/tests/hosted-smoke.sh and its input producer; cover the real caller-to-parser contract without bypassing payment assertions."
+owner_domain = 8
+
+[finding.smoke-receipt-shape]
+file = "services/platform/hosted/testnet/tests/hosted-smoke.sh"
+line = 151
+class = "interface-mismatch"
+severity = "high"
+observed = "payment-journey writes receipt.json as result=pax_sequencerReceipt, which emits rung, txHash, nonce and a receipt view including signingKey. hosted-smoke reads result.authority batch, asset and roots from that file and invokes AuthorizedBatch verification. The payment producer never emits that object."
+expected = "Receipt inspection must consume the node receipt shape and independently verify its binding, signed bytes and achieved rung with receipt keys."
+proposal = "Rewrite receipt inspection in services/platform/hosted/testnet/tests/hosted-smoke.sh to consume payment-journey.py's actual node receipt result and use the current verifier. Preserve success, binding, replay and corruption assertions."
+owner_domain = 8
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.smoke-signer-asset]
+file = "services/platform/hosted/testnet/tests/payment-journey.py"
+line = 130
+class = "config-drift"
+severity = "medium"
+observed = "payment-journey requires denomination uhpx and a SECP256K1 private key. hosted-smoke forwards beta-cluster.sh outputs containing the legacy 32-byte asset id and a generated Ed25519 PEM signer, which the new payment routine refuses before signing."
+expected = "The maintained smoke environment must supply native denomination and an EVM secp256k1 signer, separate from any Ed25519 hosted identity key, with an explicit identity binding."
+proposal = "Coordinate services/platform/hosted/testnet/tests/payment-journey.py and hosted-smoke.sh with services/platform/hosted/tests/beta-cluster.sh to export distinct EVM signer and denomination inputs. Prove funding and signing with those real outputs."
+owner_domain = 8
+
+[finding.journey-router-path]
+file = "services/platform/hosted/testnet/tests/journey_common.py"
+line = 79
+class = "retired-reference"
+severity = "medium"
+observed = "JourneyRpc.rpc unconditionally posts all px_, eth_ and pax_ calls to gateway + /rpc. Method renaming leaves submission and receipt reads dependent on the retired unified public router."
+expected = "Brief facts 2 and 3 require root node RPC and the hosted gateway's declared px_ contract without the removed unified /rpc surface."
+proposal = "Change services/platform/hosted/testnet/tests/journey_common.py and callers to use explicit node and hosted endpoints with their own authentication and declared methods; prove requests reach the actual maintained listeners."
+owner_domain = 8
+
+[finding.wallet-router-fixture]
+file = "services/platform/hosted/testnet/tests/wallet-receipt-journey.py"
+line = 101
+class = "retired-reference"
+severity = "medium"
+observed = "wallet-receipt-journey rewrites wallet configuration to a TLS proxy endpoint ending in /rpc, reinforcing the removed public routing layout in both valid and corrupted receipt cases."
+expected = "Wallet receipt tests must preserve the maintained root node RPC endpoint contract while proving successful verification and corruption refusal."
+proposal = "Use the node root path in services/platform/hosted/testnet/tests/wallet-receipt-journey.py and assert forwarded paths, retaining the real wallet subprocess and valid/corrupt receipt checks."
+owner_domain = 8
+
+[finding.status-selector]
+file = "services/platform/hosted/testnet/status.json"
+line = 4
+class = "config-drift"
+severity = "low"
+observed = "status.json selects top-level testnet, gateway, core and paxeer fields. /v1/status instead emits a components array of name/state objects, which render-status.sh correctly validates; no in-repository caller reads this selector file."
+expected = "Retained monitoring configuration must address the actual redacted producer shape or be retired so operators cannot deploy selectors that never resolve."
+proposal = "Update services/platform/hosted/testnet/status.json to select components by name in the supported publisher grammar, or retire the unused configuration and documentation; prove selectors against public_status output."
+owner_domain = 8
+interface = "8.http-testnet-any-v1-status"
+
+[finding.registry-deployment-remnant]
+file = "services/platform/hosted/testnet/deployment.yaml"
+line = 95
+class = "retired-reference"
+severity = "low"
+observed = "deployment.yaml still sets LAYERX_TESTNET_REGISTRY_URL and permits control egress to program-registry, although Config no longer reads it and the three journeys have no registry dependency."
+expected = "The retired registry dependency should be absent from control deployment inputs and network policy as well as its code dependency sets."
+proposal = "Remove the unused registry environment entry and control-to-registry egress rule from services/platform/hosted/testnet/deployment.yaml and align operations documentation with its eight retained dependencies."
+owner_domain = 8
+interface = "8.env-testnet-layerx-testnet-registry-url"
+
+[finding.merchant-result-code]
+file = "services/platform/examples/run-reference-apps.mjs"
+line = 486
+class = "wiring-gap"
+severity = "medium"
+observed = "merchantCheckoutOutcome emits receiptDigest, rung and transactionHash but omits resultCode required by 8341.1. qualify-reference-apps currently checks resultCode only for marketplace outcomes."
+expected = "The merchant checkout outcome must carry its verified successful result code with transaction identity and rung so the consumer can assert the declared contract."
+proposal = "Expose the verified receipt resultCode in services/platform/examples/run-reference-apps.mjs and assert it on the merchant outcome in qualify-reference-apps.mjs using the actual BuyerMiddleware settlement."
+owner_domain = 8
+interface = "8.cli-examples-run-reference-apps-mjs-check"
+
+[finding.doc-beta-cluster]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator guide describes Paxeer plus a separate LayerX Network daemon, checkpoint-authority and relay archive images, settlement bootstrap and a custody profile mounted into layerxd."
+expected = "The finished network is one paxd BFT chain with an integrated kernel. Deployment and recovery guidance must use committed blocks and the retained hosted services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the merged node, current image set and three testnet journeys; replace custody-profile and settlement-bootstrap instructions with current genesis and committed-state checks."
+owner_domain = 8
+
+[finding.doc-beta-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki beta guide repeats the separate LayerX daemon deployment, settlement bootstrap and checkpoint trust material; its custody profile is mounted with layerxd --custody-profile."
+expected = "The wiki must agree with the maintained operator guide on the single merged network, current bootstrap path and supported recovery evidence."
+proposal = "Update docs/wiki/BetaCluster.md with the operator guide, replacing layerxd, custody-profile and checkpoint-authority instructions with the current paxd and hosted contracts."
+owner_domain = 8
+
+[finding.doc-routes]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue advertises Router routes and proxy/discovery surfaces for archive, replica and core boundaries. Its Paxeer section includes /rpc/evm/ws and web3 routing, while its indexer section omits current direct tenant and name-service APIs."
+expected = "Public discovery must distinguish root node RPC from hosted px_ methods and list the actual mounted merged services, without retired routing or relay archive surfaces."
+proposal = "Correct tools/paxeer-x/route-catalogue.json and the producer inventory, then regenerate docs/system/routes.md with tools/docs/gen-system-docs.sh; include retained tenant/name APIs and remove retired public routing."
+owner_domain = 8
+
+[finding.doc-network]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network introduction calls Paxeer the settlement and custody layer of a separate LayerX network, says ordinary activity stays on LayerX and periodic checkpoints settle here, and calls 402LXP the sole balance writer."
+expected = "The product is one chain with an integrated kernel, chain id 125, committed-block finality and tenant namespaces on shared infrastructure."
+proposal = "Rewrite docs/paxeer-network.md lines 3-19 for merged execution, native balances and committed receipt evidence while retaining the current virtual-chain namespace description."
+owner_domain = 8
+
+[finding.doc-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart links public /rpc and /rpc/ws, instructs deposits at retired 0x1013 and anchor 0x1014, uses network 402 and sequencer anchors, and finishes with AuthorizedBatch verification and a Programs readiness journey."
+expected = "A developer must reach chain 125 root RPC and current hosted methods, fund through maintained native paths and verify node receipts without retired custody, checkpoint or Programs readiness dependencies."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as one runnable merged-network path using the repaired smoke inputs, native payment and current node verifier; update endpoint, funding, deployment and receipt examples together."
+owner_domain = 8
+
+[finding.doc-paxeer-boundary]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-boundary and its custody client as the sole running chain access path, then documents the separate genesis relay and custody/settlement profile."
+expected = "The merged node exposes its maintained RPC boundary directly and retires separate custody/checkpoint services; guidance must identify actual node listeners and committed proof interfaces."
+proposal = "Replace docs/site/docs/concepts/paxeer-boundary.md with the current merged node boundary, namespaces, root endpoint, chain identity and state proof semantics. Label any retained migration history explicitly historical."
+owner_domain = 8
+
+[finding.doc-hosted-internal]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The internal guide says gateway receipt result consists of activity_id and hex receipt, but current receipt_document also emits authority. The maintained payment journey instead writes the separate node pax_sequencerReceipt shape with rung, txHash and receipt view."
+expected = "Adapters and operators need an exact distinction between hosted receipt responses and the merged node receipt contract so new consumers do not inherit obsolete shape assumptions."
+proposal = "Update docs/site/docs/operators/hosted-internal.md around lines 297-301 to show actual producer shapes and the maintained receipt source, and recheck cited event adapters before documenting their compatibility."
+owner_domain = 8
+
+[finding.doc-beta-control]
+file = "docs/site/docs/operators/beta-control.md"
+line = 135
+class = "doc-drift"
+severity = "medium"
+observed = "The control guide advertises /v1/journeys/programs, registry dependency/probe/environment inputs and treasury submission over LNI. The executable has exactly three journeys and no registry configuration."
+expected = "Control documentation must agree with requirements 8149 and 8150 and the actual eight-dependency, three-journey status and admission shapes."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md journey, probe, environment and funding sections from current testnet code; remove Programs readiness, registry and LNI instructions and describe native chain payment."
+owner_domain = 8
+
+[finding.doc-agents]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The agent guide sends activity.submit to public /rpc, documents batch-id and sequencer-key receipt verification, and lists checkpoint-finalised and settlement-anchored startup levels beside merged daemon instructions."
+expected = "Agent setup must use maintained node/hosted contracts and block-committed evidence. The separate local agent mutual-TLS /rpc envelope remains valid and must be distinguished from retired public routing."
+proposal = "Update docs/site/docs/agents/running.md network setup, submission, receipt and configuration sections for current merged clients and receipt keys; retain valid local daemon enrolment and MCP authorization instructions."
+owner_domain = 8
+
+[finding.doc-faucet]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet guide describes public funding by custody credit through the router and advertises lx_requestFunds as the gateway/client entry point, conflicting with the merged native payment journey and px_ contract."
+expected = "Private faucet and public funding guidance must name maintained routes and methods and must not direct users to retired custody or lx_ router interfaces."
+proposal = "Revise docs/site/docs/platform/faucet.md lines 3-37 and its deployment examples from the current px_requestFunds and retained private claim contracts; state native denomination and identity-to-EVM binding."
+owner_domain = 8
+
+[finding.doc-cli]
+file = "docs/site/docs/platform/cli.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires a public /rpc suffix and describes lx_ wallet/faucet methods and AuthorizedBatch verification through layerx_proof, alongside contradictory older command availability tables."
+expected = "CLI documentation must show one executable current path for EVM submission and node receipt verification, with local emulator commands clearly identified."
+proposal = "Rewrite docs/site/docs/platform/cli.md endpoint, funding, command and receipt sections from the current parser and merged RPC clients; remove retired lx_ and checkpoint proof instructions and resolve conflicting tables."
+owner_domain = 8
+
+[finding.doc-public-api]
+file = "docs/site/docs/platform/public-api.md"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The public API transcript presents /rpc and /rpc/ws, lx_ account/asset/payment methods and standalone batch-authority proof envelopes as the deployed integration contract."
+expected = "The public contract must separate root node namespaces from hosted px_ methods and use native denominations, EVM transaction hashes, receipt keys and committed-block evidence."
+proposal = "Replace docs/site/docs/platform/public-api.md with a transcript from the maintained producers and consumers covering funding, native payment, replay refusal and independent node receipt verification with current encodings."
+owner_domain = 8
+
+[finding.doc-testnet-readme]
+file = "services/platform/hosted/testnet/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The package README lists program-registry as a control dependency, reports a Programs journey and instructs settlement-contract bootstrap into the node, while the executable has three journeys and no registry configuration."
+expected = "The README must describe the exact retained control dependencies and funding, payment and receipt-inspection admission paths on the merged network."
+proposal = "Update services/platform/hosted/testnet/README.md to remove Programs readiness and settlement bootstrap; document native payment inputs and node receipt inspection after repairing the smoke caller."
+owner_domain = 8
+
+[finding.doc-hosted-contract]
+file = "spec/layerx-merge/contracts/platform-hosted.md"
+line = 1867
+class = "doc-drift"
+severity = "medium"
+observed = "The generated hosted contract marks the removed block-time key stable and repeats 8182.2 saying both relay and EVM sources are built, while the later 8187.1 explicitly requires relay-only configuration to be refused."
+expected = "Frozen interface documentation must identify superseded criteria and retired environment settings consistently with the final EVM-only configuration."
+proposal = "Resolve obsolete registry and superseded acceptance declarations in spec/layerx-merge source blocks, then regenerate spec/layerx-merge/contracts/platform-hosted.md; preserve strict current finality checks rather than restoring relay ingestion."
+owner_domain = 8
+
+[doc.doc-beta-cluster]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the full page. Lines 3-7, 26-50 and later recovery/read-principal instructions retain daemon, custody, checkpoint and replica architecture."
+
+[doc.doc-beta-wiki]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read the full wiki page. Lines 3-7 and 36-50 describe obsolete daemon, custody-profile and settlement components."
+
+[doc.doc-routes]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Read the complete generated catalogue, including static assets. Drift starts at lines 3-24; indexer rows near 786 and Paxeer rows near 904 also need replacement."
+
+[doc.doc-network]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read all 97 lines. Lines 3-19 describe pre-merge architecture; the later virtual-chain section correctly describes 125000000 + id and shared infrastructure."
+
+[doc.doc-quickstart]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read all 670 lines. Drift at 20, 50, 131-132, 154-219, 265-278, 298-304, 497-519, 535-577 and 644-651."
+
+[doc.doc-paxeer-boundary]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read all 159 lines. Lines 3-7 introduce the retired boundary/client; later relay routes, custody precompiles and settlement-profile instructions are stale."
+
+[doc.doc-hosted-internal]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Read the full page. Receipt shape at 297-301 is stale relative to gateway::receipt_document and the node payment journey."
+
+[doc.doc-beta-control]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Read all 472 lines. Drift at 3-5, 135, 183, 200, 230, 295, 333, 384 and 455."
+
+[doc.doc-agents]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read all 868 lines. Public routing at 512, retired receipt flags at 570-574 and finality/authority settings at 701-702 require revision."
+
+[doc.doc-faucet]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Read all 461 lines. Lines 3-5 and 21-37 contain retired public funding/method guidance; deployment and smoke citations also predate current files."
+
+[doc.doc-cli]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Read all 403 lines. Endpoint guidance near line 7, method/command tables and receipt verification sections require a coordinated rewrite."
+
+[doc.doc-public-api]
+path = "docs/site/docs/platform/public-api.md"
+status = "misleading"
+notes = "Read all 521 lines including canonical payload examples. Endpoint, method catalogue and receipt/proof transcript describe the pre-merge system."
+
+[doc.doc-testnet-readme]
+path = "services/platform/hosted/testnet/README.md"
+status = "stale"
+notes = "Read all 9 lines. The long paragraph at line 3 contains obsolete dependency, journey and settlement-bootstrap claims."
+
+[doc.doc-hosted-contract]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "stale"
+notes = "Read the indexer and testnet contract sections at 1848-2163 and 3478-3581. Stable block-time row at 1867 and conflicting relay criterion at 1941-1945 are stale."

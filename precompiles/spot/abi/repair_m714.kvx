@@ -1,0 +1,17 @@
+[task.22.33.714]
+audit = "spec/layerx-merge/programme/audit/records/22.30.17.kvx"
+base_revision = "f25ab9129415b70e1e47d668e4d2d04777519969"
+continuation_base_revision = "58f409287be8c8be4721f25baddd11ec1dc916fb"
+previous_attempt_revision = "a48d623d03c30dfc3381d280a73241e7d2a7540a"
+continuation = "Attempts 1 and 2 could not compile the test binary because CLI callers used the old tx.NewFactoryCLI return shape; no repair test executed or failed an assertion. Continue attempt 2 after caller repair 22.31.463, preserving the current usePerpsMarkets contract while integrating the loader documentation and resolving its seed conflict, without repeating an unchanged-tree baseline or weakening any assertion. The exact verified candidate revision is recorded by hf-done in the evidence ledger below."
+baseline = "All three normative pages already exist at the supplied base; no prior gate ledger or repair tests exist. No baseline test was run: the ordered implementation-first and wrapper-only gate instructions take precedence over step 5's contradictory unchanged-tree verification request. No pre-change failing tests are claimed."
+evidence = "The runner's /out/run/gates.jsonl records exact candidate revision, command, exit and private log for hf-build and hf-done. Qualification requires hf-done passing on the same unchanged candidate as hf-build; no passing result is claimed here in advance."
+
+[finding.missing-interface-contracts]
+implementation = "Preserve the existing registry-linked pages and anchors; document the native share deployment, bank-backed lifecycle and error/refusal bytes in markets.md, pointer resolution and log shapes in perps-data.md, and actual catalog hook returns and availability in perps-client.md."
+tests = ["TestRepairM_714_RegistryContracts", "TestRepairM_714_NativeShareContract", "TestRepairM_714_HookContracts"]
+path = "Real CreateShareToken and MintShares/BurnShares -> native EVM pointer -> actual return, Transfer log and custom-error bytes -> exported Share ABI decoder, checked against the normative market contract. All registry links to the three pages resolve including fragments; hook descriptions are checked against committed source, not claimed as React execution."
+scope = "Documentation repair only; no ABI, runtime behavior, existing assertions or tests changed."
+
+[wiring.registry]
+request = "Domain 3: reconcile stale hook signature rows and historical-only native share administration rows in spec/layerx-merge/interfaces.kvx against contracts/perps-client.md#hooks and contracts/markets.md#spot-share-token; the registry is outside this task's scope."

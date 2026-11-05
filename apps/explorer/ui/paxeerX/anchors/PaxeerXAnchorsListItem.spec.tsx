@@ -2,7 +2,8 @@
 
 import React from 'react';
 
-import { PAXEER_X_ANCHORS_ITEM } from 'stubs/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
+
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from 'vitest/lib';
@@ -12,7 +13,18 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 import PaxeerXAnchorsListItem from './PaxeerXAnchorsListItem';
 import { ANCHOR_SETTLEMENT_RUNG } from './PaxeerXAnchorsTableItem';
 
-const renderItem = (item = PAXEER_X_ANCHORS_ITEM) => render(<PaxeerXAnchorsListItem item={ item }/>);
+const anchor: PaxeerXArchiveAnchor = {
+  frozen: true,
+  batch_number: 1042,
+  checkpoint_id: '0x1a2b3c4d5e6f7081928374655647382910ffeeddccbbaa99887766554433221100',
+  checkpoint_height: 8340992,
+  sealed_height: 8340960,
+  state_root: '0xabcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+  block_number: 8341004,
+  timestamp: '2023-05-22T18:00:36.000000Z',
+};
+
+const renderItem = (item: PaxeerXArchiveAnchor = anchor) => render(<PaxeerXAnchorsListItem item={ item }/>);
 
 describe('PaxeerXAnchorsListItem', () => {
   beforeEach(() => {
@@ -34,9 +46,9 @@ describe('PaxeerXAnchorsListItem', () => {
   it('spells the heights and links the block', () => {
     const { container } = renderItem();
 
-    expect(container.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe(String(PAXEER_X_ANCHORS_ITEM.checkpoint_height));
-    expect(container.querySelector('[data-label="sealed-height"]')?.textContent).toBe(String(PAXEER_X_ANCHORS_ITEM.sealed_height));
-    expect(container.querySelector(`a[href="/block/${ PAXEER_X_ANCHORS_ITEM.block_number }"]`)).toBeTruthy();
+    expect(container.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe(String(anchor.checkpoint_height));
+    expect(container.querySelector('[data-label="sealed-height"]')?.textContent).toBe(String(anchor.sealed_height));
+    expect(container.querySelector(`a[href="/block/${ anchor.block_number }"]`)).toBeTruthy();
   });
 
   it('settles the entry on the same rung the table row uses', () => {
@@ -47,7 +59,7 @@ describe('PaxeerXAnchorsListItem', () => {
 
   it('marks a checkpoint the log left without heights or a state root', () => {
     const { container } = renderItem({
-      ...PAXEER_X_ANCHORS_ITEM,
+      ...anchor,
       checkpoint_height: null,
       sealed_height: null,
       state_root: null,

@@ -1,9 +1,11 @@
 #include "layerx/lxp_gateway.h"
 #include "layerx/lxp_hash.h"
+#include "layerx/lxp_kernel.h"
 #include "../src/network/lxp_gateway_internal.h"
 
 #include <openssl/evp.h>
 #include <sched.h>
+#include <stdio.h>
 #include <string.h>
 
 typedef struct gateway_world {
@@ -114,23 +116,18 @@ static int sign_send(
                     send->authorization.signature);
 }
 
-static int world_init(
-    gateway_world *world,
-    const uint8_t payer_public_key[32],
-    const uint8_t service_public_key[32],
-    const uint8_t sequencer_private_key[32],
-    lxp_arena *arena,
-    uint64_t timestamp)
+static int account_world_init(
+    gateway_world *world, const uint8_t payer_public_key[32])
 {
     const char *payer_name = "agent:did:key:payer:main";
     const char *payee_name = "agent:did:key:service:main";
-    lxp_result registry_status;
     (void)memset(world, 0, sizeof(*world));
     world->asset.asset_id[0] = 3U;
     (void)memcpy(world->asset.symbol, "USD", 4U);
     world->asset.symbol_length = 3U;
     world->asset.name[0] = (uint8_t)'A';
     world->asset.name_length = 1U;
+    world->asset.total_units.lo = 100U;
     world->asset.issuer_kind = 2U;
     world->asset.issuer_did32[0] = 1U;
     world->asset.custody_kind = LX_ASSET_CUSTODY_PAXEER;
@@ -158,14 +155,28 @@ static int world_init(
         lx_asset_transfer_state(
             &world->asset, &world->transfer_asset) != LXP_OK)
         return 1;
+    (void)memcpy(world->payer->authority_key, payer_public_key, 32U);
+    world->payer->has_authority_key = true;
+    return 0;
+}
+
+static int world_init(
+    gateway_world *world,
+    const uint8_t payer_public_key[32],
+    const uint8_t service_public_key[32],
+    const uint8_t sequencer_private_key[32],
+    lxp_arena *arena,
+    uint64_t timestamp)
+{
+    lxp_result registry_status;
+    if (account_world_init(world, payer_public_key) != 0) return 1;
     world->invoices = lxp_gateway_invoice_registry_create(
         &world->accounts, &registry_status);
     if (world->invoices == NULL || registry_status != LXP_OK) return 1;
-    (void)memcpy(world->payer->authority_key, payer_public_key, 32U);
-    world->payer->has_authority_key = true;
     world->environment = (lxp_send_environment){
         &world->accounts, &world->transfer_asset, 1U,
-        &world->sends, timestamp, 42U, LXP_PROTOCOL_VERSION, NULL
+        &world->sends, timestamp, 42U,
+        LXP_PROTOCOL_VERSION_STATE_COMMITMENT, NULL, false
     };
     world->settlement.assets = &world->assets;
     world->settlement.send_environment = &world->environment;
@@ -178,6 +189,263 @@ static int world_init(
     return 0;
 }
 
+#define PARITY_CHECK(condition) do { if (!(condition)) { \
+    (void)fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition); \
+    return 1; \
+} } while (0)
+
+typedef struct native_transaction {
+    lxp_kernel kernel;
+    lxp_state_store state;
+    lxp_state_journal journal;
+    lxp_identity_store identities;
+    lx_asset_runtime runtime;
+    lxp_authority_resolved authority;
+    lxp_kernel_execution execution;
+    lxp_fee_params fees;
+    uint64_t parameters;
+    uint8_t signature[64];
+    uint8_t previous_state_root[32];
+    uint8_t activity_id[32];
+    uint8_t wire[LXP_MAX_ACTIVITY_BYTES];
+} native_transaction;
+
+static int native_send_commit(
+    native_transaction *native, gateway_world *world, const lxp_send *send,
+    const uint8_t payer_private_key[32],
+    const uint8_t sequencer_private_key[32], lxp_arena *arena,
+    lxp_receipt *receipt)
+{
+    static const uint8_t did[] = "did:key:payer";
+    lxp_identity *identity;
+    lxp_activity activity = {0};
+    lxp_activity received;
+    lxp_arena wire_arena;
+    lxp_byte_span wire;
+    uint8_t payload[512];
+    uint8_t digest[32];
+    size_t payload_length = 0U;
+    const lxp_module_iface *module = lx_asset_module_iface();
+
+    native->parameters = 1U;
+    PARITY_CHECK(lxp_state_store_init(&native->state, 1U) == LXP_OK);
+    PARITY_CHECK(lxp_kernel_create(&native->kernel, &native->state,
+        &native->journal, &native->parameters, 0U) == LXP_OK);
+    PARITY_CHECK(lxp_kernel_register_module(&native->kernel, module) == LXP_OK);
+    native->runtime = (lx_asset_runtime){
+        &world->accounts, &world->asset, 1U, &world->transfer_asset, 1U,
+        42U, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false
+    };
+    PARITY_CHECK(lxp_kernel_bind_module_runtime(&native->kernel,
+        LXP_MODULE_ASSET, &native->runtime) == LXP_OK);
+    PARITY_CHECK(lxp_kernel_set_capabilities(&native->kernel, NULL,
+        lxp_kernel_canonical_ledger_apply) == LXP_OK);
+    PARITY_CHECK(lxp_identity_register(&native->identities, did,
+        sizeof(did) - 1U, send->authorization.public_key, &identity) == LXP_OK);
+    native->authority.kind = LXP_AUTHORITY_OWNER;
+    (void)memcpy(native->authority.actor, identity->did_id, 32U);
+    (void)memcpy(native->authority.principal, identity->did_id, 32U);
+    (void)memcpy(native->authority.verified_key,
+        send->authorization.public_key, 32U);
+    PARITY_CHECK(lxp_hash_payload(send->authorization.public_key, 32U,
+        native->authority.authority_hash) == LXP_OK);
+    PARITY_CHECK(lxp_send_encode(send, payload, sizeof(payload),
+        &payload_length) == LXP_OK);
+    activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    activity.network_id = 42U;
+    activity.activity_type = LX_ASSET_SEND;
+    activity.actor_did = (lxp_byte_span){did, sizeof(did) - 1U};
+    activity.authority = (lxp_byte_span){send->authorization.public_key, 32U};
+    activity.account_sequence = send->sequence;
+    activity.timestamp_bound = (lxp_timestamp_bound){90U, send->expires_at};
+    (void)memcpy(activity.idempotency_key, send->idempotency_key, 32U);
+    activity.payload = (lxp_byte_span){payload, payload_length};
+    activity.signature = (lxp_byte_span){native->signature, 64U};
+    PARITY_CHECK(lxp_hash_payload(payload, payload_length,
+        activity.payload_hash) == LXP_OK);
+    PARITY_CHECK(lxp_activity_signing_preimage(&activity, digest) == LXP_OK);
+    PARITY_CHECK(sign_raw(payer_private_key, digest, sizeof(digest),
+        native->signature) == 0);
+    PARITY_CHECK(lxp_arena_init(&wire_arena, native->wire,
+        sizeof(native->wire)) == LXP_OK);
+    PARITY_CHECK(lxp_activity_encode(&activity, &wire_arena, &wire) == LXP_OK);
+    PARITY_CHECK(lxp_activity_decode(wire.bytes, wire.length,
+        &received) == LXP_OK);
+    PARITY_CHECK(lxp_activity_verify_signature(&received) == LXP_OK);
+    PARITY_CHECK(lxp_activity_id(wire.bytes, wire.length,
+        native->activity_id) == LXP_OK);
+    native->fees.version = 1U;
+    native->fees.multiplier_basis_points = 10000U;
+    native->execution.network_id = 42U;
+    native->execution.batch_number = 1U;
+    native->execution.batch_timestamp_ms = 100U;
+    native->execution.maximum_timestamp_window = 100U;
+    native->execution.global_sequence = 1U;
+    native->execution.recorded_module_version = module->abi_version;
+    native->execution.parameter_version = 1U;
+    native->execution.signature_valid = true;
+    native->execution.identities = &native->identities;
+    native->execution.authority = &native->authority;
+    native->execution.fee_parameters = &native->fees;
+    native->execution.fee_balance = world->payer->balance;
+    native->execution.gas_limit = 1000000U;
+    native->execution.arena = arena;
+    native->execution.batch_id[0] = 0x88U;
+    native->execution.sequencer_private_key = sequencer_private_key;
+    PARITY_CHECK(lxp_state_root(&native->kernel,
+        native->kernel.current_state_root) == LXP_OK);
+    (void)memcpy(native->previous_state_root,
+        native->kernel.current_state_root, 32U);
+    native->kernel.applied_transfers_out = &native->execution.applied_transfers;
+    PARITY_CHECK(lxp_kernel_execute_activity(&native->kernel, &received,
+        &native->execution, receipt) == LXP_OK);
+    native->kernel.applied_transfers_out = NULL;
+    PARITY_CHECK(receipt->result_code == LXP_OK);
+    PARITY_CHECK(native->state.next_sequence == 2U);
+    PARITY_CHECK(!native->journal.open);
+    PARITY_CHECK(identity->next_sequence == 1U);
+    PARITY_CHECK(memcmp(receipt->activity_id, native->activity_id, 32U) == 0);
+    PARITY_CHECK(memcmp(receipt->previous_state_root,
+        native->previous_state_root, 32U) == 0);
+    PARITY_CHECK(memcmp(receipt->resulting_state_root,
+        native->kernel.current_state_root, 32U) == 0);
+    PARITY_CHECK(lxp_state_root(&native->kernel, digest) == LXP_OK);
+    PARITY_CHECK(memcmp(receipt->resulting_state_root, digest, 32U) == 0);
+    PARITY_CHECK(receipt->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT);
+    PARITY_CHECK(receipt->supply_binding_version == 1U);
+    PARITY_CHECK(lxp_u128_cmp(receipt->total_units_before,
+        (lxp_u128){0U, 100U}) == 0);
+    PARITY_CHECK(lxp_u128_cmp(receipt->total_units_after,
+        receipt->total_units_before) == 0);
+    {
+        lxp_receipt replay;
+        uint8_t committed_root[32];
+        PARITY_CHECK(lxp_state_root(&native->kernel, committed_root) == LXP_OK);
+        native->execution.global_sequence = 2U;
+        PARITY_CHECK(lxp_kernel_execute_activity(&native->kernel, &received,
+            &native->execution, &replay) == LXP_ERR_SEQUENCE_REUSED);
+        PARITY_CHECK(native->state.next_sequence == 2U);
+        PARITY_CHECK(identity->next_sequence == 1U);
+        PARITY_CHECK(world->payer->next_sequence == 1U);
+        PARITY_CHECK(world->payee->next_sequence == 0U);
+        PARITY_CHECK(world->payer->balance.hi == 0U);
+        PARITY_CHECK(world->payer->balance.lo == 75U);
+        PARITY_CHECK(world->payee->balance.hi == 0U);
+        PARITY_CHECK(world->payee->balance.lo == 25U);
+        PARITY_CHECK(lxp_state_root(&native->kernel, digest) == LXP_OK);
+        PARITY_CHECK(memcmp(committed_root, digest, 32U) == 0);
+        PARITY_CHECK(memcmp(receipt->resulting_state_root,
+            native->kernel.current_state_root, 32U) == 0);
+        PARITY_CHECK(!native->journal.open);
+    }
+    return 0;
+}
+
+static int test_gateway_native_send_parity(
+    const gateway_world *gateway, const gateway_world *direct,
+    const native_transaction *native, const lxp_send *send,
+    const lxp_receipt *gateway_receipt, const lxp_receipt *native_receipt)
+{
+    const lxp_applied_transfer_leg *leg;
+    PARITY_CHECK(gateway->payer->balance.hi == 0U);
+    PARITY_CHECK(gateway->payer->balance.lo == 75U);
+    PARITY_CHECK(gateway->payee->balance.hi == 0U);
+    PARITY_CHECK(gateway->payee->balance.lo == 25U);
+    PARITY_CHECK(lxp_u128_cmp(gateway->payer->balance,
+        direct->payer->balance) == 0);
+    PARITY_CHECK(lxp_u128_cmp(gateway->payee->balance,
+        direct->payee->balance) == 0);
+    PARITY_CHECK(gateway->payer->next_sequence == 1U);
+    PARITY_CHECK(gateway->payee->next_sequence == 0U);
+    PARITY_CHECK(direct->payer->next_sequence == gateway->payer->next_sequence);
+    PARITY_CHECK(direct->payee->next_sequence == gateway->payee->next_sequence);
+    PARITY_CHECK(native->execution.applied_transfers.count == 1U);
+    leg = &native->execution.applied_transfers.legs[0];
+    PARITY_CHECK(memcmp(leg->from, send->from, 32U) == 0);
+    PARITY_CHECK(memcmp(leg->to, send->to, 32U) == 0);
+    PARITY_CHECK(memcmp(leg->asset_id, send->asset, 32U) == 0);
+    PARITY_CHECK(lxp_u128_cmp(leg->amount, send->amount) == 0);
+    PARITY_CHECK(gateway_receipt->result_code == LXP_OK);
+    PARITY_CHECK(native_receipt->result_code == LXP_OK);
+    PARITY_CHECK(gateway_receipt->operation == 5U);
+    PARITY_CHECK(native_receipt->operation == gateway_receipt->operation);
+    PARITY_CHECK(memcmp(gateway_receipt->asset, leg->asset_id, 32U) == 0);
+    PARITY_CHECK(memcmp(native_receipt->asset, leg->asset_id, 32U) == 0);
+    PARITY_CHECK(memcmp(gateway_receipt->from, leg->from, 32U) == 0);
+    PARITY_CHECK(memcmp(native_receipt->from, leg->from, 32U) == 0);
+    PARITY_CHECK(memcmp(gateway_receipt->to, leg->to, 32U) == 0);
+    PARITY_CHECK(memcmp(native_receipt->to, leg->to, 32U) == 0);
+    PARITY_CHECK(lxp_u128_cmp(gateway_receipt->amount, leg->amount) == 0);
+    PARITY_CHECK(lxp_u128_cmp(native_receipt->amount, leg->amount) == 0);
+    PARITY_CHECK(gateway_receipt->from_sequence == send->sequence);
+    PARITY_CHECK(native_receipt->from_sequence == send->sequence);
+    PARITY_CHECK(lxp_u128_cmp(gateway_receipt->from_balance_before,
+        (lxp_u128){0U, 100U}) == 0);
+    PARITY_CHECK(lxp_u128_cmp(native_receipt->from_balance_before,
+        gateway_receipt->from_balance_before) == 0);
+    PARITY_CHECK(lxp_u128_cmp(gateway_receipt->to_balance_before,
+        (lxp_u128){0U, 0U}) == 0);
+    PARITY_CHECK(lxp_u128_cmp(native_receipt->to_balance_before,
+        gateway_receipt->to_balance_before) == 0);
+    PARITY_CHECK(lxp_u128_cmp(gateway_receipt->from_balance_after,
+        gateway->payer->balance) == 0);
+    PARITY_CHECK(lxp_u128_cmp(native_receipt->from_balance_after,
+        direct->payer->balance) == 0);
+    PARITY_CHECK(lxp_u128_cmp(gateway_receipt->to_balance_after,
+        gateway->payee->balance) == 0);
+    PARITY_CHECK(lxp_u128_cmp(native_receipt->to_balance_after,
+        direct->payee->balance) == 0);
+    PARITY_CHECK(memcmp(gateway_receipt->transfer_set_root,
+        native_receipt->transfer_set_root, 32U) == 0);
+    PARITY_CHECK(memcmp(gateway_receipt->authorization_hash,
+        native_receipt->authorization_hash, 32U) == 0);
+    PARITY_CHECK(memcmp(gateway_receipt->context_hash,
+        native_receipt->context_hash, 32U) == 0);
+    PARITY_CHECK(gateway_receipt->effects.count == 0U);
+    PARITY_CHECK(native_receipt->effects.count == 1U);
+    PARITY_CHECK(native_receipt->effects.effects[0].monetary);
+    PARITY_CHECK(native_receipt->effects.effects[0].kind == LXP_EFFECT_TRANSFER);
+    PARITY_CHECK(memcmp(native_receipt->effects.effects[0].transfer_set_root,
+        gateway_receipt->transfer_set_root, 32U) == 0);
+    PARITY_CHECK(lxp_u128_cmp(gateway_receipt->fee_charged,
+        (lxp_u128){0U, 0U}) == 0);
+    PARITY_CHECK(lxp_u128_cmp(native_receipt->fee_charged,
+        gateway_receipt->fee_charged) == 0);
+    PARITY_CHECK(gateway_receipt->global_sequence == 1U);
+    PARITY_CHECK(native_receipt->global_sequence == 1U);
+    PARITY_CHECK(gateway_receipt->timestamp == 100U);
+    PARITY_CHECK(native_receipt->timestamp == 100U);
+    return 0;
+}
+
+static int test_returned_committed_receipt(
+    const lxp_receipt *receipt, lxp_arena *arena,
+    const uint8_t sequencer_public_key[32])
+{
+    static uint8_t consumer_bytes[LXP_MAX_ACTIVITY_BYTES];
+    lxp_arena consumer_arena;
+    lxp_receipt returned;
+    lxp_byte_span canonical;
+    lxp_byte_span reencoded;
+    size_t mark = lxp_arena_mark(arena);
+    PARITY_CHECK(lxp_arena_init(&consumer_arena, consumer_bytes,
+        sizeof(consumer_bytes)) == LXP_OK);
+    PARITY_CHECK(lxp_gateway_receipt_return(receipt, arena, &canonical) == LXP_OK);
+    PARITY_CHECK(lxp_receipt_decode(canonical.bytes, canonical.length,
+        true, &returned) == LXP_OK);
+    PARITY_CHECK(lxp_receipt_verify(&returned, sequencer_public_key,
+        &consumer_arena) == LXP_OK);
+    PARITY_CHECK(lxp_receipt_encode(&returned, true, &consumer_arena,
+        &reencoded) == LXP_OK);
+    PARITY_CHECK(canonical.length == reencoded.length);
+    PARITY_CHECK(memcmp(canonical.bytes, reencoded.bytes, canonical.length) == 0);
+    PARITY_CHECK(memcmp(returned.activity_id, receipt->activity_id, 32U) == 0);
+    PARITY_CHECK(memcmp(returned.resulting_state_root,
+        receipt->resulting_state_root, 32U) == 0);
+    PARITY_CHECK(lxp_arena_reset(arena, mark) == LXP_OK);
+    return 0;
+}
+
 int main(void)
 {
     uint8_t payer_private_key[32] = {1U};
@@ -185,6 +453,8 @@ int main(void)
     uint8_t sequencer_private_key[32] = {3U};
     uint8_t payer_public_key[32];
     uint8_t service_public_key[32];
+    uint8_t sequencer_public_key[32];
+    static native_transaction native;
     static uint8_t arena_a_bytes[LXP_MAX_ACTIVITY_BYTES + 4096U];
     static uint8_t arena_b_bytes[LXP_MAX_ACTIVITY_BYTES + 4096U];
     static uint8_t arena_c_bytes[LXP_MAX_ACTIVITY_BYTES + 4096U];
@@ -202,22 +472,19 @@ int main(void)
     lxp_receipt replay_receipt;
     uint8_t encoded_send[512];
     size_t encoded_send_length = 0U;
-    lxp_byte_span gateway_bytes;
-    lxp_byte_span direct_bytes;
-    size_t arena_a_mark;
-    size_t arena_b_mark;
     lxp_result gateway_status;
-    lxp_result direct_status;
     lxp_gateway_transaction_boundary boundary;
     lx_account payer_before;
     lx_account payee_before;
     uint8_t empty_state_root[32];
+    uint8_t ledger_prestate_root[32];
     uint8_t settled_state_root[32];
     size_t settled_invoice_count = 0U;
     uint64_t settled_stored_bytes = 0U;
 
     if (public_key_for(payer_private_key, payer_public_key) != 0 ||
         public_key_for(service_private_key, service_public_key) != 0 ||
+        public_key_for(sequencer_private_key, sequencer_public_key) != 0 ||
         lxp_arena_init(&arena_a, arena_a_bytes, sizeof(arena_a_bytes)) !=
             LXP_OK ||
         lxp_arena_init(&arena_b, arena_b_bytes, sizeof(arena_b_bytes)) !=
@@ -226,8 +493,7 @@ int main(void)
             LXP_OK ||
         world_init(&gateway, payer_public_key, service_public_key,
                    sequencer_private_key, &arena_a, 100U) != 0 ||
-        world_init(&direct, payer_public_key, service_public_key,
-                   sequencer_private_key, &arena_b, 100U) != 0 ||
+        account_world_init(&direct, payer_public_key) != 0 ||
         world_init(&concurrent, payer_public_key, service_public_key,
                    sequencer_private_key, &arena_c, 100U) != 0)
         return 1;
@@ -242,7 +508,6 @@ int main(void)
     requirement.acceptable_conditions =
         (UINT32_C(1) << LXP_CONDITION_NOT_BEFORE) |
         (UINT32_C(1) << LXP_CONDITION_NOT_AFTER);
-    if (sign_requirement(service_private_key, &requirement) != 0) return 1;
     (void)memset(&send, 0, sizeof(send));
     (void)memcpy(send.from, gateway.payer->id, 32U);
     (void)memcpy(send.to, requirement.recipient, 32U);
@@ -259,7 +524,20 @@ int main(void)
     (void)memcpy(send.authorization.signed_context_hash,
                  send.context_hash, 32U);
     send.authorization.network_id = 42U;
-    send.authorization.protocol_version = LXP_PROTOCOL_VERSION;
+    send.authorization.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    {
+        uint8_t material[144];
+        (void)memcpy(material, send.from, 32U);
+        (void)memcpy(material + 32U, send.to, 32U);
+        (void)memcpy(material + 64U, send.asset, 32U);
+        if (lxp_u128_to_be(send.amount, material + 96U) != LXP_OK) return 1;
+        (void)memcpy(material + 112U, send.idempotency_key, 32U);
+        if (lxp_hash_context_value(material, sizeof(material),
+                send.context_hash) != LXP_OK) return 1;
+        (void)memcpy(requirement.purpose_hash, send.context_hash, 32U);
+        (void)memcpy(send.authorization.signed_context_hash, send.context_hash, 32U);
+        if (sign_requirement(service_private_key, &requirement) != 0) return 1;
+    }
     if (sign_send(payer_private_key, &send, payer_public_key) != 0 ||
         lxp_send_encode(
             &send, encoded_send, sizeof(encoded_send),
@@ -373,7 +651,9 @@ int main(void)
     }
     payer_before = *gateway.payer;
     payee_before = *gateway.payee;
-    if (lxp_gateway_state_root(
+    if (lx_asset_state_root(&gateway.assets, &gateway.accounts,
+            ledger_prestate_root) != LXP_OK ||
+        lxp_gateway_state_root(
             &gateway.accounts, gateway.invoices, empty_state_root) != LXP_OK)
         return 1;
     {
@@ -484,15 +764,21 @@ int main(void)
     }
     gateway_status = lxp_gateway_send_settle(
         &requirement, &send, &gateway.settlement, &gateway_receipt);
-    direct_status = lxp_gateway_send_settle(
-        &requirement, &decoded, &direct.settlement, &direct_receipt);
-    if (gateway_status != LXP_OK || direct_status != LXP_OK ||
-        gateway.payer->balance.lo != 75U ||
-        gateway.payee->balance.lo != 25U ||
-        direct.payer->balance.lo != 75U || direct.payee->balance.lo != 25U ||
-        memcmp(&gateway_receipt, &direct_receipt,
-               sizeof(gateway_receipt)) != 0)
+    if (gateway_status != LXP_OK ||
+        native_send_commit(&native, &direct, &decoded, payer_private_key,
+            sequencer_private_key, &arena_b, &direct_receipt) != 0 ||
+        test_gateway_native_send_parity(&gateway, &direct, &native, &send,
+            &gateway_receipt, &direct_receipt) != 0)
         return 1;
+    {
+        uint8_t ledger_root[32];
+        if (memcmp(ledger_prestate_root,
+                gateway_receipt.previous_state_root, 32U) != 0 ||
+            lx_asset_state_root(&gateway.assets, &gateway.accounts,
+                ledger_root) != LXP_OK ||
+            memcmp(ledger_root, gateway_receipt.resulting_state_root, 32U) != 0)
+            return 1;
+    }
     if (lxp_gateway_invoice_count(
             &gateway.accounts, gateway.invoices,
             &settled_invoice_count) != LXP_OK ||
@@ -537,20 +823,11 @@ int main(void)
             concurrent.sends.count != 1U || concurrent.invoices->count != 1U)
             return 1;
     }
-    arena_a_mark = lxp_arena_mark(&arena_a);
-    arena_b_mark = lxp_arena_mark(&arena_b);
-    if (lxp_gateway_receipt_return(
-            &gateway_receipt, &arena_a, &gateway_bytes) != LXP_OK ||
-        lxp_gateway_receipt_return(
-            &direct_receipt, &arena_b, &direct_bytes) != LXP_OK ||
-        gateway_bytes.length != direct_bytes.length ||
-        memcmp(gateway_bytes.bytes, direct_bytes.bytes,
-               gateway_bytes.length) != 0 ||
-        memcmp(gateway_receipt.resulting_state_root,
-               direct_receipt.resulting_state_root, 32U) != 0)
+    if (test_returned_committed_receipt(&gateway_receipt, &arena_a,
+            sequencer_public_key) != 0 ||
+        test_returned_committed_receipt(&direct_receipt, &arena_b,
+            sequencer_public_key) != 0)
         return 1;
-    (void)lxp_arena_reset(&arena_a, arena_a_mark);
-    (void)lxp_arena_reset(&arena_b, arena_b_mark);
     if (lxp_gateway_send_settle(
             &requirement, &send, &gateway.settlement,
             &replay_receipt) != LXP_ERR_IDEMPOTENT_REPLAY ||
@@ -570,27 +847,35 @@ int main(void)
         lxp_send repeated_invoice = decoded;
         repeated_invoice.sequence = 1U;
         repeated_invoice.idempotency_key[0] = 0x78U;
-        if (sign_send(payer_private_key, &repeated_invoice, payer_public_key) != 0 ||
+        if (sign_send(payer_private_key, &repeated_invoice,
+                payer_public_key) != 0 ||
             lxp_gateway_send_settle(&requirement, &repeated_invoice,
-                &direct.settlement, &direct_receipt) != LXP_ERR_INVOICE_ALREADY_SETTLED ||
-            direct.payer->balance.lo != 75U || direct.payee->balance.lo != 25U)
+                &gateway.settlement, &replay_receipt) !=
+                    LXP_ERR_INVOICE_ALREADY_SETTLED ||
+            gateway.payer->balance.lo != 75U || gateway.payee->balance.lo != 25U)
             return 1;
     }
     requirement.invoice_id[0] ^= 1U;
     if (sign_requirement(service_private_key, &requirement) != 0) return 1;
-    direct.environment.batch_timestamp = 201U;
+    gateway.environment.batch_timestamp = 201U;
     decoded.sequence = 1U;
     decoded.idempotency_key[0] = 0x77U;
     if (sign_send(payer_private_key, &decoded, payer_public_key) != 0 ||
         lxp_gateway_send_settle(
-            &requirement, &decoded, &direct.settlement,
-            &direct_receipt) != LXP_ERR_EXPIRED ||
-        direct.payer->balance.lo != 75U || direct.payee->balance.lo != 25U)
+            &requirement, &decoded, &gateway.settlement,
+            &replay_receipt) != LXP_ERR_EXPIRED ||
+        gateway.payer->balance.lo != 75U || gateway.payee->balance.lo != 25U)
         return 1;
-    return lxp_gateway_invoice_registry_destroy(
-               &gateway.accounts, &gateway.invoices) != LXP_OK ||
-           lxp_gateway_invoice_registry_destroy(
-               &direct.accounts, &direct.invoices) != LXP_OK ||
-           lxp_gateway_invoice_registry_destroy(
-               &concurrent.accounts, &concurrent.invoices) != LXP_OK;
+    if (lxp_gateway_invoice_registry_destroy(
+            &gateway.accounts, &gateway.invoices) != LXP_OK ||
+        lxp_state_store_destroy(&native.state) != LXP_OK ||
+        lxp_gateway_invoice_registry_destroy(
+            &concurrent.accounts, &concurrent.invoices) != LXP_OK)
+        return 1;
+    lx_account_registry_release(&gateway.accounts);
+    lx_account_registry_release(&direct.accounts);
+    lx_account_registry_release(&concurrent.accounts);
+    (void)puts("PASS test_gateway_native_send_parity");
+    (void)puts("PASS test_returned_committed_receipt");
+    return 0;
 }

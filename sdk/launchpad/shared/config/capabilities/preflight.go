@@ -232,6 +232,7 @@ type PreflightRequest struct {
 	AmountIn         string         `json:"amountIn"`
 	IsBuy            bool           `json:"isBuy"`
 	CreationPath     string         `json:"creationPath"`
+	CreationStage    string         `json:"creationStage,omitempty"`
 	Name             string         `json:"name"`
 	Symbol           string         `json:"symbol"`
 	FeeStrategy      uint8          `json:"feeStrategy"`
@@ -257,6 +258,7 @@ type Preflight struct {
 	Pool                   *PoolState          `json:"pool,omitempty"`
 	Quote                  *ContractQuote      `json:"quote,omitempty"`
 	SimulationMode         string              `json:"simulationMode"`
+	CreationStage          string              `json:"creationStage,omitempty"`
 	RequestSHA256          string              `json:"requestSha256"`
 	ObservedRevisionSHA256 string              `json:"observedRevisionSha256"`
 }
@@ -431,6 +433,10 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 	}
 	switch request.Family {
 	case Creation:
+		if request.CreationStage != "" && request.CreationStage != "creation" && request.CreationStage != "approval" {
+			return result, refuse("creation_stage_invalid", "")
+		}
+		result.CreationStage = request.CreationStage
 		cost, err := e.creationCost(ctx, request, attestation)
 		cost.ConfigRevision = result.ObservedRevisionSHA256
 		result.CreationCost = &cost
@@ -442,7 +448,21 @@ func (e *PreflightEngine) Preflight(ctx context.Context, request PreflightReques
 			}
 			return result, err
 		}
+		if request.CreationStage == "approval" {
+			result.SimulationMode = "usdl_approval"
+		} else {
+			result.SimulationMode = "create_market"
+		}
 	case PlainQuote, Trading:
+		native, err := e.nativeDeployment()
+		if err != nil {
+			return result, err
+		}
+		if native {
+			if err := attestation.ValidateFamilyFor(e.manifest, policy, []string{"SidioraFactory", "FeeAccumulator", "EventEmitter", deployment.LaunchpadPrecompileRole}, false); err != nil {
+				return result, refuse("identity_unverified", "Pool")
+			}
+		}
 		reason, err := e.registeredPool(ctx, attestation, policy, request.Pool, request.BlockHash)
 		if err != nil {
 			return result, err
@@ -534,7 +554,19 @@ func (e *PreflightEngine) creationCost(ctx context.Context, request PreflightReq
 		return CreationCost{}, refuse("creation_policy_mismatch", "ProtocolConfig")
 	}
 	to := common.HexToAddress(e.manifest.Roles[role].Address)
-	cost := CreationCost{ProtocolFeeAsset: "USDL", ProtocolFeeRaw: a.CreationFeeRaw, ProtocolFeeDisplay: "1.00 USDL", GasAsset: "PAX", BlockHash: a.BlockHash, ConfigRevision: e.revision.RevisionSHA256, Spender: to.Hex()}
+	spender := to
+	native, err := e.nativeDeployment()
+	if err != nil {
+		return CreationCost{}, err
+	}
+	if native {
+		policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
+		if err := a.ValidateFamilyFor(e.manifest, policy, []string{role, deployment.LaunchpadPrecompileRole}, false); err != nil {
+			return CreationCost{}, refuse("identity_unverified", deployment.LaunchpadPrecompileRole)
+		}
+		spender = common.HexToAddress(e.manifest.Roles[deployment.LaunchpadPrecompileRole].Address)
+	}
+	cost := CreationCost{ProtocolFeeAsset: "USDL", ProtocolFeeRaw: a.CreationFeeRaw, ProtocolFeeDisplay: "1.00 USDL", GasAsset: "PAX", BlockHash: a.BlockHash, ConfigRevision: e.revision.RevisionSHA256, Spender: spender.Hex()}
 	gas, ok := e.reader.(GasReader)
 	if !ok {
 		return cost, Unavailable{"core_market", ReasonCode("gas_estimate_unavailable"), "pinned_gas_provider"}
@@ -546,6 +578,20 @@ func (e *PreflightEngine) creationCost(ctx context.Context, request PreflightReq
 			return CreationCost{}, refuse("creation_metadata_invalid", "")
 		}
 		return CreationCost{}, err
+	}
+	if request.CreationStage == "approval" {
+		if request.Trader != request.Recipient {
+			return CreationCost{}, refuse("creation_approval_account_invalid", "USDL")
+		}
+		to = common.HexToAddress(e.manifest.Roles["USDL"].Address)
+		data, err = encodeCall("approve(address,uint256)", spender, new(big.Int).SetUint64(1_000_000))
+		if err != nil {
+			return CreationCost{}, err
+		}
+		output, err := e.reader.CallContractAtHash(ctx, ethereum.CallMsg{From: request.Trader, To: &to, Data: data}, request.BlockHash)
+		if err != nil || len(output) != 32 || new(big.Int).SetBytes(output).Cmp(big.NewInt(1)) != 0 {
+			return cost, Unavailable{"core_market", ReasonCode("approval_simulation_unavailable"), "USDL"}
+		}
 	}
 	price, err := gas.SuggestGasPrice(ctx)
 	if err != nil || price == nil || price.Sign() < 0 || price.BitLen() > 256 {
@@ -720,6 +766,27 @@ func (e *PreflightEngine) registeredPool(ctx context.Context, a deployment.Activ
 	return "", nil
 }
 
+func (e *PreflightEngine) nativeDeployment() (bool, error) {
+	if e.manifest.Roles["SidioraFactory"].Kind == "erc1967" {
+		return false, nil
+	}
+	approved, ok := deployment.Approved(e.manifest.ActivationHeight)
+	if !ok || approved.DeploymentVersion != e.manifest.DeploymentVersion || approved.SourceManifestSHA256 != e.manifest.SourceManifestSHA256 {
+		return false, refuse("identity_unverified", "SidioraFactory")
+	}
+	for _, name := range []string{"SidioraFactory", "Router", "Quoter", "PoolRegistry", "ProtocolConfig", "FeeAccumulator", "EventEmitter", "USDL", deployment.LaunchpadPrecompileRole} {
+		role, exists := e.manifest.Roles[name]
+		if !exists || role != approved.Roles[name] {
+			return false, refuse("identity_unverified", name)
+		}
+	}
+	authority := approved.Roles[deployment.LaunchpadPrecompileRole]
+	if approved.Roles["SidioraFactory"].Kind != "surface" || authority.Kind != "precompile" || authority.Address != deployment.LaunchpadPrecompileAddress {
+		return false, refuse("identity_unverified", deployment.LaunchpadPrecompileRole)
+	}
+	return true, nil
+}
+
 func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, block common.Hash) (PoolState, error) {
 	// A registered address whose code, beacon or wiring differs from the
 	// reviewed pool is a deterministic refusal; a failed read is an error.
@@ -735,12 +802,24 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	if len(code) == 0 || len(code) > 128<<10 || crypto.Keccak256Hash(code) != e.poolRuntime {
 		return PoolState{}, bad
 	}
-	slot, err := e.reader.StorageAtHash(ctx, pool, deployment.BeaconSlot, block)
+	native, err := e.nativeDeployment()
 	if err != nil {
-		return PoolState{}, failed
+		return PoolState{}, err
 	}
-	if len(slot) != 32 || !bytes.Equal(slot[:12], make([]byte, 12)) || common.BytesToAddress(slot[12:]) != common.HexToAddress(e.manifest.Roles["PoolBeacon"].Address) {
-		return PoolState{}, bad
+	version := e.manifest.Roles["PoolBeacon"].ImplementationHash
+	if native {
+		if e.poolRuntime != common.HexToHash(e.manifest.Roles["SidioraFactory"].RuntimeHash) {
+			return PoolState{}, bad
+		}
+		version = e.manifest.DeploymentVersion + "/Pool/" + e.poolRuntime.Hex()
+	} else {
+		slot, err := e.reader.StorageAtHash(ctx, pool, deployment.BeaconSlot, block)
+		if err != nil {
+			return PoolState{}, failed
+		}
+		if len(slot) != 32 || !bytes.Equal(slot[:12], make([]byte, 12)) || common.BytesToAddress(slot[12:]) != common.HexToAddress(e.manifest.Roles["PoolBeacon"].Address) {
+			return PoolState{}, bad
+		}
 	}
 	word := func(signature string) ([]byte, error) {
 		value, ok, err := e.read(ctx, pool, signature, block)
@@ -752,7 +831,11 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 		}
 		return value, nil
 	}
-	for signature, role := range map[string]string{"protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL", "eventEmitter()": "EventEmitter", "factory()": "SidioraFactory"} {
+	wiring := map[string]string{"protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL", "eventEmitter()": "EventEmitter", "factory()": "SidioraFactory"}
+	if native {
+		wiring["feeAccumulator()"] = "FeeAccumulator"
+	}
+	for signature, role := range wiring {
 		value, err := word(signature)
 		if err != nil {
 			return PoolState{}, err
@@ -775,6 +858,37 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	if len(optical) != 32 || !bytes.Equal(optical[:12], make([]byte, 12)) {
 		return PoolState{}, bad
 	}
+	if native {
+		token, err := word("tokenAddress()")
+		if err != nil {
+			return PoolState{}, err
+		}
+		if len(token) != 32 || !bytes.Equal(token[:12], make([]byte, 12)) || common.BytesToAddress(token) == (common.Address{}) {
+			return PoolState{}, bad
+		}
+		registry := common.HexToAddress(e.manifest.Roles["PoolRegistry"].Address)
+		registered, err := e.call(ctx, registry, "isRegisteredPool(address)", block, pool)
+		if err != nil {
+			return PoolState{}, err
+		}
+		if len(registered) != 32 || new(big.Int).SetBytes(registered).Cmp(big.NewInt(1)) != 0 {
+			return PoolState{}, bad
+		}
+		bound, err := e.call(ctx, registry, "getPoolByToken(address)", block, common.BytesToAddress(token))
+		if err != nil {
+			return PoolState{}, err
+		}
+		if len(bound) != 32 || !bytes.Equal(bound[:12], make([]byte, 12)) || common.BytesToAddress(bound) != pool {
+			return PoolState{}, bad
+		}
+		metadata, err := e.call(ctx, registry, "getPoolMetadata(address)", block, pool)
+		if err != nil {
+			return PoolState{}, err
+		}
+		if len(metadata) != 192 || !bytes.Equal(metadata[:12], make([]byte, 12)) || common.BytesToAddress(metadata[:32]) == (common.Address{}) || !bytes.Equal(metadata[32:64], token) || !bytes.Equal(metadata[64:96], optical) {
+			return PoolState{}, bad
+		}
+	}
 	guardian, err := word("guardian()")
 	if err != nil {
 		return PoolState{}, err
@@ -789,7 +903,7 @@ func (e *PreflightEngine) poolState(ctx context.Context, pool common.Address, bl
 	if len(paused) != 32 || new(big.Int).SetBytes(paused).Cmp(big.NewInt(1)) > 0 {
 		return PoolState{}, bad
 	}
-	state := PoolState{Address: pool.Hex(), VirtualUSDLReserve: new(big.Int).SetBytes(reserves[:32]).String(), RealUSDLBalance: new(big.Int).SetBytes(reserves[32:64]).String(), TokenReserve: new(big.Int).SetBytes(reserves[64:]).String(), Paused: paused[31] == 1, Optical: common.BytesToAddress(optical[12:]).Hex(), Guardian: common.BytesToAddress(guardian[12:]).Hex(), Lifecycle: "active", MarketFamily: "AMM", ImplementationVersion: e.manifest.Roles["PoolBeacon"].ImplementationHash}
+	state := PoolState{Address: pool.Hex(), VirtualUSDLReserve: new(big.Int).SetBytes(reserves[:32]).String(), RealUSDLBalance: new(big.Int).SetBytes(reserves[32:64]).String(), TokenReserve: new(big.Int).SetBytes(reserves[64:]).String(), Paused: paused[31] == 1, Optical: common.BytesToAddress(optical[12:]).Hex(), Guardian: common.BytesToAddress(guardian[12:]).Hex(), Lifecycle: "active", MarketFamily: "AMM", ImplementationVersion: version}
 	state.RedeemableLiquidityRaw = state.RealUSDLBalance
 	if state.Paused {
 		state.Lifecycle = "paused"
@@ -1083,7 +1197,7 @@ func (e *PreflightEngine) ReconcileCreationFee(ctx context.Context, hash common.
 		if err != nil || len(implementation) == 0 || len(implementation) > 128<<10 || crypto.Keccak256Hash(implementation).Hex() != treasuryIdentity.ImplementationHash {
 			return CreationFeeReconciliation{}, bad
 		}
-	} else if treasuryIdentity.Kind != "direct" || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
+	} else if (treasuryIdentity.Kind != "direct" && treasuryIdentity.Kind != "surface") || treasuryIdentity.ImplementationAddress != "" || treasuryIdentity.ImplementationHash != "" {
 		return CreationFeeReconciliation{}, bad
 	}
 	usdl := common.HexToAddress(e.manifest.Roles["USDL"].Address)

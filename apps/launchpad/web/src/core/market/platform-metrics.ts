@@ -54,7 +54,7 @@ export function upcomingPlatformFields(data: PlatformData): UpcomingPlatformFiel
  * (internal/rest/pool_reads.go platformMetricsV2, registered at
  * compatibility.go:93). The envelope carries volume, pool count and active
  * wallets, plus (2.2.0) total market cap, trades and new pools; a quarantined
- * envelope is rejected.
+ * envelope is rejected. Each invocation reads through Operations again; this adapter owns no cache.
  */
 export async function fetchPlatformMetricsV2(operations: Operations, signal?: AbortSignal, window: PlatformWindow = PLATFORM_WINDOW): Promise<PlatformMetricsV2> {
   const response = await operations.call('IF_PLATFORM', { query: { window } }, { signal });

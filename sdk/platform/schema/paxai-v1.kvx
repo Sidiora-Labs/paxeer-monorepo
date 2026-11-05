@@ -49,11 +49,11 @@ trailing_bytes = "refuse"
 unknown_enum_codes = "refuse"
 
 [binding]
-fields = ["chain","program","market","observed_sequence","execution_height","batch_id","native_state_root","revision","state_digest","epoch","config","policy","roster","checkpoint","settlement","rank","publication_time_ms"]
+fields = ["chain","program","market","observed_sequence","execution_height","batch_id","native_state_root","revision","state_digest","epoch","config","policy","roster","receipt","settlement","rank","publication_time_ms"]
 optional = ["epoch","roster","settlement"]
 snapshot_id_domain = "PAXAI/view/v1"
-snapshot_id_excludes = ["checkpoint","settlement","rank","publication_time_ms"]
-finality_source = "checkpoint-certificate-same-root-covering-observed-sequence"
+snapshot_id_excludes = ["receipt","settlement","rank","publication_time_ms"]
+finality_source = ["receipted","committed"]
 
 [projection_state]
 observed_unverified = 1
@@ -112,17 +112,17 @@ cursor_binding = "snapshot-id-filter-ordinal-expiry"
 refusals = ["CursorExpired","CursorMismatch","ResponseTooLarge"]
 
 [approval]
-terms = ["action","chain","program","market","actor","epoch","config","roster","policy","snapshot","effect","capabilities","access_declaration","response_capacity","resources","fee_limit","validity","expiry","idempotency_key","authority","commitment"]
+terms = ["action","chain","program","market","actor","epoch","config","roster","policy","snapshot","effect","capabilities","access_declaration","response_capacity","resources","fee_limit","nonce","gas","validity","expiry","idempotency_key","authority","commitment"]
 effect_fields = ["amount","asset","payee","worker"]
-mismatch_fields = ["action","chain","program","market","actor","epoch","config","roster","policy","snapshot","amount","asset","payee","worker","capabilities","access_declaration","response_capacity","resources","fee_limit","validity","expiry","idempotency_key","authority","commitment"]
+mismatch_fields = ["action","chain","program","market","actor","epoch","config","roster","policy","snapshot","amount","asset","payee","worker","capabilities","access_declaration","response_capacity","resources","fee_limit","nonce","gas","validity","expiry","idempotency_key","authority","commitment"]
 source = "owner-consent-disclosure-of-exact-canonical-bytes"
 approver = "activity-owner-authority"
 freshness_gate = "authority-freshness-heights"
 
 [native_call]
-protocol_version = 3
-module = 9
-activity_ordinal = 3
+to = "0x101D"
+selector = "0x54bd2b48"
+chainId = 125
 guest_abi = 5
 entrypoint = "layerx_call"
 calldata = "paxai-envelope"
@@ -160,7 +160,8 @@ resend = "exact-bytes-separately-authorized"
 fresh_signing_on_unknown = "forbidden"
 receipt_absence = "unchanged"
 failure_by_elapsed_time = "signed-only"
-finality = "checkpoint-network-and-sequence-range"
+finality = "committed"
+committed_height = "landing-height"
 
 [errors]
 query = ["BindingMismatch","FinalityUnavailable","SnapshotConflict","IntegrityFailure","CursorExpired","CursorMismatch","ResponseTooLarge"]

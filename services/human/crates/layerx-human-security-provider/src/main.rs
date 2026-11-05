@@ -10,10 +10,10 @@ fn run() -> Result<()> {
         let root = std::env::var_os("LAYERX_HUMAN_SECURITY_PROVIDER_STATE_ROOT")
             .map(PathBuf::from)
             .ok_or(Error::Configuration)?;
-        let trust = std::env::var_os("LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY")
+        let trust_root = std::env::var_os("LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY")
             .map(PathBuf::from)
             .ok_or(Error::Configuration)?;
-        return ingest_recovery_receipt(&root, &trust, &PathBuf::from(&args[1]));
+        return ingest_recovery_receipt(&root, &trust_root, &PathBuf::from(&args[1]));
     }
     if args.len() == 1 && args[0] == "probe" {
         return probe::run();

@@ -1,0 +1,65 @@
+[disposition.21.41.1.1]
+finding = "21.41.1.1"
+status = "resolved"
+evidence = "The supplied main snapshot 17990ad653409cef92fe8e31bd2b5dc14e23e6ff has an empty symbols list for task 21.41.1 at spec/layerx-merge/spec.kvx:134424, removing the Go keyword func that blocked graph qualification while retaining TestProofConsensusLeaderPin from landed commit 55bb660ec."
+follow_up = "closure"
+
+[disposition.21.17.1.1]
+finding = "21.17.1.1"
+status = "resolved"
+evidence = "The build and verify commands at spec/layerx-merge/spec.kvx:135088 and spec/layerx-merge/spec.kvx:135089 both enter services/launchpad/api before invoking Go, matching its nested go.mod and the landed proof f981bdb51; the six sibling tasks named in the finding likewise enter their owning modules."
+follow_up = "closure"
+
+[disposition.21.35.1.1]
+finding = "21.35.1.1"
+status = "resolved"
+evidence = "Task 21.35.1 retains only AddCommands and NewCustomAppConfig at spec/layerx-merge/spec.kvx:134623, removing AddCommand, FILE, simulation_gas_limit and struct while keeping the landed proof be4b79f73, and task 21.51.1 no longer lists Self at spec/layerx-merge/spec.kvx:128521."
+follow_up = "closure"
+
+[disposition.21.42.1.1]
+finding = "21.42.1.1"
+status = "resolved"
+evidence = "Landed commit bc06b7a44 replaces the operator-supplied RPC prerequisite with Crossing::start, which binds a loopback TcpListener at services/agent/crates/layerx-client/tests/proof_client.rs:570 and supplies its URL to the px_getNetwork consumers at services/agent/crates/layerx-client/tests/proof_client.rs:704 without reading LAYERX_PROOF_CLIENT_RPC_URL."
+follow_up = "closure"
+
+[disposition.21.115.1.1]
+finding = "21.115.1.1"
+status = "resolved"
+evidence = "Landed commit 308643277 removes the retired KernelKVPrefix assertion from modules/layerxledger/types/params_test.go:22 while preserving the ParamsKey comparison with 0x01, eliminating the stale identifier that prevented the proof package from compiling."
+follow_up = "closure"
+
+[disposition.21.89.1.1]
+finding = "21.89.1.1"
+status = "resolved"
+evidence = "Landed commit e3d6107cb replaces verify.BatchHeader with verify.Ed25519Digest over codec.BatchHeaderDigest at modules/layerxcustody/keeper/deposit_root_test.go:106 and constructs HeaderDigest directly at modules/layerxcustody/keeper/deposit_root_test.go:116 using the header decoded at line 55."
+follow_up = "closure"
+
+[disposition.21.156.1.1]
+finding = "21.156.1.1"
+status = "resolved"
+evidence = "Landed commit 90df7b687 makes the gas-station proof own its HTTP producer, with services/agent/sdk/typescript/test/proof_gas_station.test.ts:392 binding a loopback listener and line 397 deriving config.quoteUrl from its assigned port instead of requiring GAS_STATION_PROOF_CONFIG."
+follow_up = "closure"
+
+[disposition.21.126.1.1]
+finding = "21.126.1.1"
+status = "resolved"
+evidence = "Landed commit 42f7200a4 removes the include_str reference to deleted src/withdrawal.rs from services/platform/hosted/core/tests/retired_client_modules.rs:30 while retaining the public_reads.rs source scan and the retired-module list."
+follow_up = "closure"
+
+[disposition.21.53.1.1]
+finding = "21.53.1.1"
+status = "resolved"
+evidence = "Landed commit ec6c84ad3 replaces the NUL-terminated policy literal with the 28-byte native-fee-authority-version name and sizes the copy from name.len() at programs/crates/layerx-programs-arbiter/src/authority.rs:794, preserving the zero-padded 32-byte key without the slice-length panic."
+follow_up = "closure"
+
+[disposition.21.43.1.1]
+finding = "21.43.1.1"
+status = "resolved"
+evidence = "Landed commit 2ee5c3ed4 compares r.TransferSetRoot with stored.TransferSetRoot at modules/layerxpay/types/proof_views_test.go:396 while retaining the zero outer-receipt assertion at line 381 and nonzero stored-root assertion at line 384, resolving the contradictory check while documenting the remaining module_execute economic-binding omission at line 11."
+follow_up = "closure"
+
+[disposition.21.44.1.1]
+finding = "21.44.1.1"
+status = "resolved"
+evidence = "Landed commit c94658ac3 splits the missing-result rounds so all three raw-transaction methods expect the JSON string 0x at rpc/proof_client_parity_test.go:317 and uncle lookups and counts expect JSON null at rpc/proof_client_parity_test.go:337, matching their respective nil hexutil.Bytes and pointer results."
+follow_up = "closure"

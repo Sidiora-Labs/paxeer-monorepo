@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -148,11 +147,11 @@ func (k *Keeper) ApplyFill(ctx sdk.Context, fill PositionFill) (PositionFillResu
 
 func (k *Keeper) applyFill(ctx sdk.Context, fill PositionFill) (PositionFillResult, error) {
 	if fill.SizeBase.IsZero() || fill.Price.IsZero() {
-		return PositionFillResult{}, fmt.Errorf("%w: fill of %s base at %s", types.ErrZeroAmount, fill.SizeBase.Dec(),
+		return PositionFillResult{}, types.ErrZeroAmount.Wrapf("fill of %s base at %s", fill.SizeBase.Dec(),
 			fill.Price.Dec())
 	}
 	if fill.Kind > FillKindBackstop {
-		return PositionFillResult{}, fmt.Errorf("%w: fill kind %d", types.ErrInvalidParams, fill.Kind)
+		return PositionFillResult{}, types.ErrInvalidParams.Wrapf("fill kind %d", fill.Kind)
 	}
 	market, err := k.GetMarket(ctx, fill.MarketID)
 	if err != nil {
@@ -224,9 +223,11 @@ func (k *Keeper) applyFill(ctx sdk.Context, fill PositionFill) (PositionFillResu
 			closeNotional := new(big.Int).Div(new(big.Int).Mul(held, price), positionWad)
 			closeFunding := new(big.Int).Div(new(big.Int).Mul(held, index), positionWad)
 			result.Events = append(result.Events, positionClosedEvent(position, held, fill.Price, closeNotional, true))
-			if err := k.positionRemove(ctx, &account, position, closeNotional, closeFunding, &books); err != nil {
+			cancelled, err := k.positionRemove(ctx, &account, position, closeNotional, closeFunding, &books)
+			if err != nil {
 				return PositionFillResult{}, err
 			}
+			result.Events = append(result.Events, cancelled...)
 			settled.TradeType = TradeTypeClose
 			settled.SizeUsd.SetFromBig(closeNotional)
 			result.Trades = append(result.Trades, settled)
@@ -276,6 +277,9 @@ func (k *Keeper) applyFill(ctx sdk.Context, fill PositionFill) (PositionFillResu
 	if result.Fee, err = k.positionFee(ctx, fill, result.PositionID, notional); err != nil {
 		return PositionFillResult{}, err
 	}
+	if err := k.refreshAccountADLRanks(ctx, fill.Account); err != nil {
+		return PositionFillResult{}, err
+	}
 	if modified {
 		if fill.Fee != FeeRoleNone {
 			postFee, err := k.Equity(ctx, fill.Account)
@@ -299,7 +303,7 @@ func (k *Keeper) positionFee(ctx sdk.Context, fill PositionFill, positionID uint
 	notional *big.Int) (FeeBooking, error) {
 	var notionalUsd uint256.Int
 	if overflow := notionalUsd.SetFromBig(notional); overflow {
-		return FeeBooking{}, fmt.Errorf("%w: notional of fill of %s", types.ErrOverflow, fill.Account)
+		return FeeBooking{}, types.ErrOverflow.Wrapf("notional of fill of %s", fill.Account)
 	}
 	switch fill.Fee {
 	case FeeRoleNone:
@@ -309,7 +313,7 @@ func (k *Keeper) positionFee(ctx sdk.Context, fill PositionFill, positionID uint
 	case FeeRoleTaker:
 		return k.TakerFee(ctx, positionID, fill.Account, fill.MarketID, notionalUsd)
 	default:
-		return FeeBooking{}, fmt.Errorf("%w: fee role %d", types.ErrInvalidParams, fill.Fee)
+		return FeeBooking{}, types.ErrInvalidParams.Wrapf("fee role %d", fill.Fee)
 	}
 }
 
@@ -447,7 +451,7 @@ func positionBook(account *types.Account, books *types.VenueBooks, amountUsd *bi
 func (k *Keeper) positionOpen(ctx sdk.Context, account *types.Account, fill PositionFill, params types.Params,
 	size uint256.Int, notional, fundingShare *big.Int, result *PositionFillResult) (types.Position, error) {
 	if fill.Leverage.IsZero() {
-		return types.Position{}, fmt.Errorf("%w: zero leverage opening a position", types.ErrZeroAmount)
+		return types.Position{}, types.ErrZeroAmount.Wrap("zero leverage opening a position")
 	}
 	id, err := k.NextPositionID(ctx)
 	if err != nil {
@@ -557,24 +561,32 @@ func positionReduce(position *types.Position, size, notional, fundingShare *big.
 // settlement, goes to residueUsd, and the position, its market index, its
 // rank entry and its liquidation cooldown are deleted.
 func (k *Keeper) positionRemove(ctx sdk.Context, account *types.Account, position types.Position, notional,
-	fundingShare *big.Int, books *types.VenueBooks) error {
+	fundingShare *big.Int, books *types.VenueBooks) ([]types.EventRecord, error) {
 	leftover := new(big.Int).Sub(signedBig(position.FundingBasis), fundingShare)
 	leftover.Sub(leftover, new(big.Int).Sub(position.CostBasisUsd.ToBig(), notional))
 	if !position.IsLong {
 		leftover.Neg(leftover)
 	}
 	if leftover.Sign() < 0 {
-		return fmt.Errorf("%w: closing position %s leaves %s USD below its shares", types.ErrInvalidParams,
-			position.ID.Dec(), leftover)
+		return nil, types.ErrInvalidParams.Wrapf("closing position %s leaves %s USD below its shares", position.ID.Dec(), leftover)
 	}
 	residue, err := positionWord(new(big.Int).Add(books.ResidueUsd.ToBig(), leftover))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if account.PositionCount == 0 {
-		return fmt.Errorf("%w: position %s of %s is not counted", types.ErrInvalidParams, position.ID.Dec(),
+		return nil, types.ErrInvalidParams.Wrapf("position %s of %s is not counted", position.ID.Dec(),
 			account.Address)
 	}
+	cancelled, err := k.CancelPositionTpSl(ctx, position.ID)
+	if err != nil {
+		return nil, err
+	}
+	holder, err := k.positionAccount(ctx, account.Address)
+	if err != nil {
+		return nil, err
+	}
+	account.OpenOrderCount = holder.OpenOrderCount
 	books.ResidueUsd = residue
 	account.PositionCount--
 	store := k.store(ctx)
@@ -582,7 +594,7 @@ func (k *Keeper) positionRemove(ctx sdk.Context, account *types.Account, positio
 	store.Delete(types.AccountMarketPositionKey(position.Account, position.MarketID))
 	store.Delete(types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID))
 	store.Delete(types.LiquidationCooldownKey(position.ID))
-	return nil
+	return cancelled, nil
 }
 
 // positionClosedEvent is PositionClosed for closed base at exit price, the
@@ -670,7 +682,7 @@ func (k *Keeper) ClosePosition(ctx sdk.Context, caller common.Address, positionI
 // ErrCloseSizeExceedsPosition and a size below one lot with ErrLotSize.
 func (k *Keeper) PartialClose(ctx sdk.Context, caller common.Address, positionID, closeSizeUsd uint256.Int) (types.Order, error) {
 	if closeSizeUsd.IsZero() {
-		return types.Order{}, fmt.Errorf("%w: zero close size", types.ErrZeroAmount)
+		return types.Order{}, types.ErrZeroAmount.Wrap("zero close size")
 	}
 	position, mark, err := k.positionToClose(ctx, caller, positionID)
 	if err != nil {
@@ -678,8 +690,7 @@ func (k *Keeper) PartialClose(ctx sdk.Context, caller common.Address, positionID
 	}
 	notional := new(big.Int).Div(new(big.Int).Mul(position.SizeBase.ToBig(), mark.ToBig()), positionWad)
 	if closeSizeUsd.ToBig().Cmp(notional) > 0 {
-		return types.Order{}, fmt.Errorf("%w: %s USD of position %s worth %s USD at mark", types.ErrCloseSizeExceedsPosition,
-			closeSizeUsd.Dec(), positionID.Dec(), notional)
+		return types.Order{}, types.ErrCloseSizeExceedsPosition.Wrapf("%s USD of position %s worth %s USD at mark", closeSizeUsd.Dec(), positionID.Dec(), notional)
 	}
 	market, err := k.GetMarket(ctx, position.MarketID)
 	if err != nil {
@@ -689,8 +700,7 @@ func (k *Keeper) PartialClose(ctx sdk.Context, caller common.Address, positionID
 	base := new(big.Int).Div(new(big.Int).Mul(closeSizeUsd.ToBig(), positionWad), mark.ToBig())
 	base.Sub(base, new(big.Int).Mod(base, lot))
 	if base.Sign() == 0 {
-		return types.Order{}, fmt.Errorf("%w: %s USD at mark %s is below one lot of %s", types.ErrLotSize,
-			closeSizeUsd.Dec(), mark.Dec(), lot)
+		return types.Order{}, types.ErrLotSize.Wrapf("%s USD at mark %s is below one lot of %s", closeSizeUsd.Dec(), mark.Dec(), lot)
 	}
 	var size uint256.Int
 	size.SetFromBig(base)
@@ -704,15 +714,14 @@ func (k *Keeper) positionToClose(ctx sdk.Context, caller common.Address, positio
 		return types.Position{}, uint256.Int{}, err
 	}
 	if position.Account != caller {
-		return types.Position{}, uint256.Int{}, fmt.Errorf("%w: position %s", types.ErrNotPositionHolder, positionID.Dec())
+		return types.Position{}, uint256.Int{}, types.ErrNotPositionHolder.Wrapf("position %s", positionID.Dec())
 	}
 	state, err := k.GetMarketState(ctx, position.MarketID)
 	if err != nil {
 		return types.Position{}, uint256.Int{}, err
 	}
 	if state.MarkPrice.IsZero() {
-		return types.Position{}, uint256.Int{}, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale,
-			position.MarketID)
+		return types.Position{}, uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no mark", position.MarketID)
 	}
 	return position, state.MarkPrice, nil
 }
@@ -760,7 +769,7 @@ func (k *Keeper) ReconcileReduceOnly(ctx sdk.Context, account common.Address, ma
 		}
 		var remaining uint256.Int
 		if _, underflow := remaining.SubOverflow(&order.SizeBase, &order.FilledBase); underflow {
-			return nil, fmt.Errorf("%w: order %s filled above its size", types.ErrInvalidParams, order.ID.Dec())
+			return nil, types.ErrInvalidParams.Wrapf("order %s filled above its size", order.ID.Dec())
 		}
 		if !remaining.Gt(&position.SizeBase) {
 			continue
@@ -769,7 +778,15 @@ func (k *Keeper) ReconcileReduceOnly(ctx sdk.Context, account common.Address, ma
 		if err != nil {
 			return nil, err
 		}
-		sizeUsd, err := positionWord(new(big.Int).Div(new(big.Int).Mul(size.ToBig(), order.LimitPrice.ToBig()), positionWad))
+		price := order.LimitPrice
+		if price.IsZero() {
+			state, err := k.GetMarketState(ctx, marketID)
+			if err != nil {
+				return nil, err
+			}
+			price = state.MarkPrice
+		}
+		sizeUsd, err := positionWord(new(big.Int).Div(new(big.Int).Mul(size.ToBig(), price.ToBig()), positionWad))
 		if err != nil {
 			return nil, err
 		}
@@ -790,22 +807,22 @@ func (k *Keeper) positionReduceOnlyOrders(ctx sdk.Context, account common.Addres
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+32 {
-			return nil, fmt.Errorf("%w: account order key %x", types.ErrInvalidParams, key)
+			return nil, types.ErrInvalidParams.Wrapf("account order key %x", key)
 		}
 		var id uint256.Int
 		id.SetBytes32(key[len(prefix):])
 		bz := store.Get(types.OrderKey(id))
 		if bz == nil {
-			return nil, fmt.Errorf("%w: indexed order %s missing", types.ErrInvalidParams, id.Dec())
+			return nil, types.ErrInvalidParams.Wrapf("indexed order %s missing", id.Dec())
 		}
 		var order types.Order
 		if err := order.Unmarshal(bz); err != nil {
-			return nil, fmt.Errorf("%w: corrupt order %s: %v", types.ErrInvalidParams, id.Dec(), err)
+			return nil, types.ErrInvalidParams.Wrapf("corrupt order %s: %v", id.Dec(), err)
 		}
 		if order.ID != id || order.Account != account {
-			return nil, fmt.Errorf("%w: order %s does not match its index", types.ErrInvalidParams, id.Dec())
+			return nil, types.ErrInvalidParams.Wrapf("order %s does not match its index", id.Dec())
 		}
-		if order.MarketID == marketID && order.ReduceOnly && order.Status == types.OrderStatusResting {
+		if order.MarketID == marketID && order.ReduceOnly && (order.Status == types.OrderStatusResting || order.Status == types.OrderStatusUntriggered) {
 			orders = append(orders, order)
 		}
 	}
@@ -816,28 +833,7 @@ func (k *Keeper) positionReduceOnlyOrders(ctx sdk.Context, account common.Addres
 // CANCELLED, frees its account order, cloid and expiry entries and counts it
 // out of the account's open orders.
 func (k *Keeper) positionCancelOrder(ctx sdk.Context, order types.Order) error {
-	holder, err := k.positionAccount(ctx, order.Account)
-	if err != nil {
-		return err
-	}
-	if holder.OpenOrderCount == 0 {
-		return fmt.Errorf("%w: order %s of %s is not counted open", types.ErrInvalidParams, order.ID.Dec(), order.Account)
-	}
-	order.Status = types.OrderStatusCancelled
-	if err := k.BookRemove(ctx, order); err != nil {
-		return err
-	}
-	holder.OpenOrderCount--
-	store := k.store(ctx)
-	store.Set(types.AccountKey(order.Account), holder.Marshal())
-	store.Delete(types.AccountOrderKey(order.Account, order.ID))
-	if order.Cloid != ([16]byte{}) {
-		store.Delete(types.CloidKey(order.Account, order.MarketID, order.Cloid))
-	}
-	if order.Deadline != 0 {
-		store.Delete(types.ExpiryKey(order.Deadline, order.ID))
-	}
-	return nil
+	return k.withdrawOrder(ctx, order, types.OrderStatusCancelled)
 }
 
 // positionAccount returns the stored account, ErrNoAccount when none was
@@ -845,14 +841,14 @@ func (k *Keeper) positionCancelOrder(ctx sdk.Context, order types.Order) error {
 func (k *Keeper) positionAccount(ctx sdk.Context, address common.Address) (types.Account, error) {
 	bz := k.store(ctx).Get(types.AccountKey(address))
 	if bz == nil {
-		return types.Account{}, fmt.Errorf("%w: %s", types.ErrNoAccount, address)
+		return types.Account{}, types.ErrNoAccount.Wrapf("%s", address)
 	}
 	var account types.Account
 	if err := account.Unmarshal(bz); err != nil {
-		return types.Account{}, fmt.Errorf("%w: corrupt account %s: %v", types.ErrInvalidParams, address, err)
+		return types.Account{}, types.ErrInvalidParams.Wrapf("corrupt account %s: %v", address, err)
 	}
 	if !account.Created || account.Address != address {
-		return types.Account{}, fmt.Errorf("%w: %s", types.ErrNoAccount, address)
+		return types.Account{}, types.ErrNoAccount.Wrapf("%s", address)
 	}
 	return account, nil
 }
@@ -869,8 +865,7 @@ func (k *Keeper) positionOf(ctx sdk.Context, account common.Address, marketID ui
 		return types.Position{}, false, err
 	}
 	if position.Account != account || position.MarketID != marketID {
-		return types.Position{}, false, fmt.Errorf("%w: position %s does not match its index", types.ErrInvalidParams,
-			position.ID.Dec())
+		return types.Position{}, false, types.ErrInvalidParams.Wrapf("position %s does not match its index", position.ID.Dec())
 	}
 	return position, true, nil
 }
@@ -879,20 +874,20 @@ func (k *Keeper) positionOf(ctx sdk.Context, account common.Address, marketID ui
 // ErrUnknownPosition when none is open.
 func (k *Keeper) positionByID(ctx sdk.Context, idBytes []byte) (types.Position, error) {
 	if len(idBytes) != 32 {
-		return types.Position{}, fmt.Errorf("%w: position id of %d bytes", types.ErrInvalidParams, len(idBytes))
+		return types.Position{}, types.ErrInvalidParams.Wrapf("position id of %d bytes", len(idBytes))
 	}
 	var id uint256.Int
 	id.SetBytes32(idBytes)
 	bz := k.store(ctx).Get(types.PositionKey(id))
 	if bz == nil {
-		return types.Position{}, fmt.Errorf("%w: %s", types.ErrUnknownPosition, id.Dec())
+		return types.Position{}, types.ErrUnknownPosition.Wrapf("%s", id.Dec())
 	}
 	var position types.Position
 	if err := position.Unmarshal(bz); err != nil {
-		return types.Position{}, fmt.Errorf("%w: corrupt position %s: %v", types.ErrInvalidParams, id.Dec(), err)
+		return types.Position{}, types.ErrInvalidParams.Wrapf("corrupt position %s: %v", id.Dec(), err)
 	}
 	if position.ID != id {
-		return types.Position{}, fmt.Errorf("%w: position key %s holds position %s", types.ErrInvalidParams, id.Dec(),
+		return types.Position{}, types.ErrInvalidParams.Wrapf("position key %s holds position %s", id.Dec(),
 			position.ID.Dec())
 	}
 	return position, nil
@@ -909,7 +904,7 @@ func (k *Keeper) positionVenueBooks(ctx sdk.Context) (types.VenueBooks, error) {
 		return books, nil
 	}
 	if err := books.Unmarshal(bz); err != nil {
-		return types.VenueBooks{}, fmt.Errorf("%w: corrupt venue books: %v", types.ErrInvalidParams, err)
+		return types.VenueBooks{}, types.ErrInvalidParams.Wrapf("corrupt venue books: %v", err)
 	}
 	return books, nil
 }
@@ -922,7 +917,7 @@ func positionLot(market types.Market) *big.Int {
 func positionCheckLot(market types.Market, size uint256.Int) error {
 	lot := positionLot(market)
 	if new(big.Int).Mod(size.ToBig(), lot).Sign() != 0 {
-		return fmt.Errorf("%w: fill of %s base is not a multiple of %s", types.ErrLotSize, size.Dec(), lot)
+		return types.ErrLotSize.Wrapf("fill of %s base is not a multiple of %s", size.Dec(), lot)
 	}
 	return nil
 }
@@ -954,7 +949,7 @@ func positionCeilDiv(numerator, denominator *big.Int) *big.Int {
 func positionWord(value *big.Int) (uint256.Int, error) {
 	var word uint256.Int
 	if value.Sign() < 0 || word.SetFromBig(value) {
-		return uint256.Int{}, fmt.Errorf("%w: %s outside uint256", types.ErrOverflow, value)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("%s outside uint256", value)
 	}
 	return word, nil
 }
@@ -962,7 +957,7 @@ func positionWord(value *big.Int) (uint256.Int, error) {
 // positionSignedWord writes value as a two's complement int256 word.
 func positionSignedWord(value *big.Int) (uint256.Int, error) {
 	if value.Cmp(two255) >= 0 || value.Cmp(new(big.Int).Neg(two255)) < 0 {
-		return uint256.Int{}, fmt.Errorf("%w: %s outside int256", types.ErrOverflow, value)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("%s outside int256", value)
 	}
 	unsigned := new(big.Int).Set(value)
 	if unsigned.Sign() < 0 {

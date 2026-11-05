@@ -14,11 +14,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[5]
 SIGNER_DIR = ROOT / 'services/platform/hosted/node/signer'
-BIN = Path(os.environ.get('LAYERX_TEST_NATIVE_BIN_DIR', ROOT / 'build/bin'))
-sys.path.insert(0, str(ROOT / 'tests/support'))
 sys.path.insert(0, str(SIGNER_DIR))
 from client import SignerClient, SignerError
-from lxgb_metadata import metadata
+from native_key_harness import NativeKeyHarness, native, public_key_of as native_public_key_of
+from provider import verify as native_verify
 
 ASSET = bytes.fromhex('b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898')
 PKCS8_PREFIX = bytes.fromhex('302e020100300506032b657004220420')
@@ -603,162 +602,109 @@ class SignerCase(unittest.TestCase):
 
 
 class BootstrapTreasuryCase(unittest.TestCase):
+    recorded_native_peer = False
+
     def setUp(self):
-        for binary in ('layerxd', 'layerx-genesis-build'):
-            if not (BIN / binary).is_file():
-                self.skipTest(f'{BIN / binary} is not built')
-        self.directory = tempfile.TemporaryDirectory(prefix='lx-signer-bootstrap-')
+        self.directory = tempfile.TemporaryDirectory(prefix='native-treasury-')
         self.addCleanup(self.directory.cleanup)
         self.work = Path(self.directory.name)
-        os.chmod(self.work, 0o755)
-        self.signer = None
-        self.addCleanup(self.stop_signer)
+        self.harness = NativeKeyHarness(self.work, recorded=self.recorded_native_peer)
+        self.addCleanup(self.harness.close)
+        self.treasury_seed = self.harness.treasury_seed
+        self.treasury_path = self.harness.treasury_key
 
-    def stop_signer(self):
-        if self.signer is not None and self.signer.poll() is None:
-            self.signer.terminate()
-            try:
-                self.signer.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.signer.kill()
-                self.signer.wait(timeout=10)
-        if self.signer is not None:
-            for stream in (self.signer.stdout, self.signer.stderr):
-                if stream is not None:
-                    stream.close()
-
-    def seeds(self):
-        seeds = {}
-        for name in ('sequencer', 'treasury'):
-            path = self.work / (name + '.key')
-            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            seed = os.urandom(32)
-            with os.fdopen(descriptor, 'wb') as handle:
-                handle.write(seed)
-            seeds[name] = (seed, path)
-        return seeds
-
-    def settlement_document(self):
-        path = ROOT / 'contracts/config/checkpoint-settlement.json'
-        threshold = json.loads(path.read_text())['finality_policy']['certificate_threshold']
-        self.assertGreater(threshold, 1, 'the shipped settlement document must carry a '
-                                         'multi-guarantor certificate threshold')
-        return path
-
-    def bootstrap(self, extra):
-        treasury_public = public_key_of(self.treasury_seed)
-        (self.work / 'metadata').write_bytes(metadata(ASSET, treasury_public, os.urandom(32)))
-        holders, ports = [], []
-        for _ in range(3):
-            holder = socket.socket()
-            holder.bind(('127.0.0.1', 0))
-            holders.append(holder)
-            ports.append(holder.getsockname()[1])
-        self.assertNotIn(18545, ports)
-        self.assertNotIn(6379, ports)
-        environment = dict(
-            {key: value for key, value in os.environ.items() if not key.startswith('LAYERX_')},
-            LAYERX_NODE_PAXEER_CHAIN_ID='31337',
-            LAYERX_NODE_SETTLEMENT_CONTRACT='0x' + '0' * 36 + '1014',
-            LAYERX_NODE_CHECKPOINT_REGISTRY='0x' + '0' * 36 + '1014',
-            LAYERX_NODE_PAXEER_RPC_ADDRESS='127.0.0.1',
-            LAYERX_NODE_PAXEER_RPC_PORT=str(ports[2]))
-        command = [
-            'bash', str(ROOT / 'services/platform/hosted/node/bootstrap.sh'),
-            '--data-dir', str(self.work / 'data'), '--run-dir', str(self.work / 'run'),
-            '--network-id', '77',
-            '--sequencer-key', str(self.sequencer_path),
-            '--genesis-metadata', str(self.work / 'metadata'),
-            '--settlement-document', str(self.settlement_document()),
-            '--lni-uid', '4021', '--lni-gid', '4021',
-            '--program-port', str(ports[0]), '--replica-port', str(ports[1]),
-            '--layerxd', str(BIN / 'layerxd'),
-            '--genesis-build', str(BIN / 'layerx-genesis-build'),
-        ] + extra
-        try:
-            return subprocess.run(command, cwd=str(ROOT), env=environment,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        finally:
-            for holder in holders:
-                holder.close()
-
-    def prepare(self):
-        seeds = self.seeds()
-        self.sequencer_seed, self.sequencer_path = seeds['sequencer']
-        self.treasury_seed, self.treasury_path = seeds['treasury']
+    def bootstrap(self, extra=()):
+        args = native.parser().parse_args(self.harness.arguments() + list(extra))
+        native.validate_core_inputs({
+            'LAYERX_CORE_SEQUENCER_ENDPOINT': args.gateway_endpoint,
+            'LAYERX_CORE_CHAIN_RPC_URL': args.chain_rpc_url,
+            'LAYERX_CORE_TREASURY_SIGNER_SOCKET': args.treasury_signer_socket,
+            'LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER': '/generation/rpc-ca.der',
+            'LAYERX_CORE_FUNDING_SENDER_KEY_FILE': args.funding_sender_key_file,
+        })
+        client = self.harness.signer_client(args.treasury_signer_socket)
+        self.assertEqual(client.public_key(), native_public_key_of(self.treasury_seed),
+                         'native bootstrap requires its pinned, peer-bound treasury signer')
+        return native.bootstrap(args, commands=self.harness.peer)
 
     def exports(self):
         return dict(line.split('=', 1)
-                    for line in (self.work / 'data/node.env').read_text().splitlines())
+                    for line in (self.harness.data / 'node.env').read_text().splitlines())
 
     def assert_no_seed_copy(self):
-        data = self.work / 'data'
-        self.assertFalse((data / 'secrets/treasury-key.hex').exists())
-        for entry in data.rglob('*'):
-            if entry.is_file():
+        self.assertFalse((self.harness.data / 'secrets/treasury-key.hex').exists())
+        self.harness.assert_no_copy(self, self.treasury_seed, self.treasury_path)
+
+    def assert_treasury_handoff(self, socket_path):
+        treasury_public = native_public_key_of(self.treasury_seed)
+        with self.harness.consume() as (result, adopted, view):
+            self.assertEqual(result['generation'], 1)
+            self.assertEqual(adopted['LAYERX_CORE_TREASURY_SIGNER_SOCKET'], str(socket_path))
+            self.assertNotIn('LAYERX_NODE_TREASURY_KEY_FILE', adopted)
+            client = self.harness.signer_client(adopted['LAYERX_CORE_TREASURY_SIGNER_SOCKET'])
+            self.assertEqual(client.public_key(), treasury_public)
+            self.assertEqual(client.did(), 'did:layerx:' + treasury_public.hex())
+            digest = hashlib.sha256(b'native treasury bootstrap handoff').digest()
+            signature = client.sign(digest)
+            self.assertEqual(len(signature), 64)
+            self.assertTrue(native_verify(treasury_public, digest, signature))
+            self.assertEqual(client.sign(digest), signature)
+            self.assertFalse(native_verify(treasury_public, bytes(32), signature))
+            for entry in view.iterdir():
                 self.assertNotIn(self.treasury_seed, entry.read_bytes(), str(entry))
                 self.assertNotIn(self.treasury_seed.hex().encode(), entry.read_bytes(), str(entry))
-
-    def test_bootstrap_binds_the_treasury_through_the_signer(self):
-        self.prepare()
-        socket_path = self.work / 'treasury-signer.sock'
-        self.signer = subprocess.Popen(
-            [sys.executable, str(SIGNER_DIR / 'signer.py'), '--socket', str(socket_path),
-             '--allowed-uid', str(os.getuid()), '--provider', 'file',
-             '--key-file', str(self.treasury_path)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=str(ROOT))
-        deadline = time.monotonic() + 30
-        while not socket_path.is_socket():
-            self.assertIsNone(self.signer.poll(), 'the treasury signer exited')
-            self.assertLess(time.monotonic(), deadline, 'the signer socket did not appear')
-            time.sleep(0.05)
-        result = self.bootstrap(['--treasury-signer-socket', str(socket_path)])
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        exports = self.exports()
-        treasury_public = public_key_of(self.treasury_seed)
-        self.assertEqual(exports['LAYERX_NODE_TREASURY_PUBLIC_KEY'], treasury_public.hex())
-        self.assertEqual(exports['LAYERX_NODE_TREASURY_DID'],
-                         'did:layerx:' + treasury_public.hex())
-        self.assertEqual(exports['LAYERX_NODE_TREASURY_SIGNER_SOCKET'], str(socket_path))
-        self.assertNotIn('LAYERX_NODE_TREASURY_KEY_FILE', exports)
-        self.assertEqual((self.work / 'data/node.env').stat().st_mode & 0o777, 0o600)
-        identities = (self.work / 'data/identities.txt').read_text().splitlines()
-        did = ('did:layerx:' + treasury_public.hex()).encode().hex()
-        self.assertEqual(identities[0], f'{did}:{treasury_public.hex()}:0')
-        core = dict(line.split('=', 1)
-                    for line in (self.work / 'run/core.env').read_text().splitlines())
-        self.assertEqual(core['LAYERX_CORE_TREASURY_SIGNER_SOCKET'], str(socket_path))
+        self.assertEqual((self.harness.data / 'node.env').stat().st_mode & 0o777, 0o600)
+        self.assertEqual((self.harness.data / 'core.env').stat().st_mode & 0o777, 0o600)
+        self.assertEqual(socket_path.stat().st_mode & 0o777, 0o600)
         self.assert_no_seed_copy()
 
-    def test_bootstrap_with_a_local_seed_keeps_no_copy(self):
-        self.prepare()
-        result = self.bootstrap(['--treasury-key', str(self.treasury_path)])
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
+    def test_bootstrap_binds_the_treasury_through_the_signer(self):
+        socket_path = self.harness.signer()
+        binding = self.bootstrap(['--treasury-signer-socket', str(socket_path)])
+        self.assertEqual(native.generation_binding(self.harness.data), binding)
         exports = self.exports()
-        self.assertEqual(exports['LAYERX_NODE_TREASURY_PUBLIC_KEY'],
-                         public_key_of(self.treasury_seed).hex())
+        self.assertEqual(exports['LAYERX_NODE_EVM_CHAIN_ID'], '125')
         self.assertNotIn('LAYERX_NODE_TREASURY_KEY_FILE', exports)
-        self.assertNotIn('LAYERX_NODE_TREASURY_SIGNER_SOCKET', exports)
-        self.assertEqual((self.work / 'data/node.env').stat().st_mode & 0o777, 0o600)
-        core = (self.work / 'run/core.env').read_text()
-        self.assertNotIn('LAYERX_CORE_TREASURY_SIGNER_SOCKET', core)
+        self.assert_treasury_handoff(socket_path)
+        public = native_public_key_of(self.treasury_seed)
+        for uid, gid in ((os.geteuid() + 1, os.getegid()), (os.geteuid(), os.getegid() + 1)):
+            with self.subTest(uid=uid, gid=gid), self.assertRaises(SignerError):
+                SignerClient(str(socket_path), expected_peer_uid=uid, expected_peer_gid=gid,
+                             expected_public_key=public).public_key()
+        with self.assertRaises(SignerError):
+            self.harness.signer_client(socket_path, public_key=native_public_key_of(os.urandom(32))) \
+                .public_key()
+        self.assert_treasury_handoff(socket_path)
+
+    def test_bootstrap_with_a_local_seed_keeps_no_copy(self):
+        digest = hashlib.sha256(b'native treasury restart').digest()
+        with self.harness.serving_signer() as socket_path:
+            self.bootstrap(['--treasury-signer-socket', str(socket_path)])
+            signature = self.harness.signer_client(socket_path).sign(digest)
+            self.assert_treasury_handoff(socket_path)
+        self.assertFalse(socket_path.exists())
+        binding = native.generation_binding(self.harness.data)
+        with self.assertRaises(SignerError):
+            self.harness.signer_client(socket_path).public_key()
+        with self.harness.serving_signer() as socket_path:
+            self.assertEqual(self.harness.signer_client(socket_path).sign(digest), signature)
+            self.assertEqual(native.generation_binding(self.harness.data), binding)
+            self.assert_treasury_handoff(socket_path)
+        self.assertEqual(self.treasury_path.read_bytes(), self.treasury_seed)
         self.assert_no_seed_copy()
 
     def test_bootstrap_refuses_conflicting_and_missing_treasury_sources(self):
-        self.prepare()
-        both = self.bootstrap(['--treasury-key', str(self.treasury_path),
-                               '--treasury-signer-socket', '/tmp/absent-treasury.sock'])
-        self.assertNotEqual(both.returncode, 0)
-        self.assertIn(b'exclusive', both.stderr)
-        neither = self.bootstrap([])
-        self.assertNotEqual(neither.returncode, 0)
-        self.assertIn(b'--treasury-key or --treasury-signer-socket is required', neither.stderr)
-        absent = self.bootstrap(['--treasury-signer-socket', str(self.work / 'absent.sock')])
-        self.assertNotEqual(absent.returncode, 0)
-        self.assertIn(b'treasury signer socket is not available', absent.stderr)
-        relative = self.bootstrap(['--treasury-signer-socket', 'treasury.sock'])
-        self.assertNotEqual(relative.returncode, 0)
-        self.assertIn(b'must be an absolute path', relative.stderr)
+        with self.assertRaises(SystemExit) as failure:
+            native.parser().parse_args(self.harness.arguments() +
+                                      ['--treasury-key', str(self.treasury_path)])
+        self.assertEqual(failure.exception.code, 2)
+        with self.assertRaisesRegex(ValueError, 'protected absolute input path'):
+            self.bootstrap(['--treasury-signer-socket', ''])
+        with self.assertRaises(SignerError):
+            self.bootstrap(['--treasury-signer-socket', str(self.work / 'absent.sock')])
+        with self.assertRaisesRegex(ValueError, 'protected absolute input path'):
+            self.bootstrap(['--treasury-signer-socket', 'treasury.sock'])
+        self.assertFalse(list(self.harness.data.iterdir()))
 
 
 if __name__ == '__main__':

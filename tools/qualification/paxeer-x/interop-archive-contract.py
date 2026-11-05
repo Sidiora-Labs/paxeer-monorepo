@@ -22,10 +22,15 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
-CASES = ("archive-origin-freshness", "ramp-journal-readiness", "mirror-checkpoint-acquisition",
-         "interop-settlement-readiness", "relay-railway-assembly")
-BUDGET_SECONDS = 3.0
-POLL_SECONDS = 0.2
+sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
+from candidate import SERVICE_CATALOGUE
+
+sys.path.insert(0, str(Path(__file__).parent))
+import merged_qualification as merged
+import native_evidence as evidence
+
+CASES = ("ramp-journal-readiness", "mirror-checkpoint-acquisition",
+         "interop-settlement-readiness")
 
 
 class Failure(Exception):
@@ -47,923 +52,10 @@ def unused_port():
         return connection.getsockname()[1]
 
 
-def write_json(path, value):
-    path.write_text(json.dumps(value, sort_keys=True) + "\n")
-    path.chmod(0o644)
-
-
-def env_file(path):
-    return dict(line.split("=", 1) for line in path.read_text().splitlines() if line)
-
-
-def load_candidate(path):
-    sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
-    from candidate import Invalid, catalogue, load_private, validate
-    try:
-        data = load_private(path)
-        validate(data, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
-    except (Invalid, OSError, ValueError, KeyError, TypeError) as error:
-        raise Failure(f"candidate manifest is absent or invalid: {error}") from error
-    services = {service["id"]: service for service in data["services"]}
-    require("archive" in services, "candidate manifest does not declare the archive service")
-    archive = services["archive"]
-    return {
-        "sha256": hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest(),
-        "source_revision": data["source"]["revision"],
-        "archive_action": archive["action"],
-        "archive_bindings": archive["bindings"],
-        "archive_observations": len(archive["observations"]),
-    }
-
-
-class HostileOrigin:
-    def __init__(self, upstream, context):
-        self.upstream = upstream
-        self.context = context
-        self.mode = "offline"
-        self.fork_head = None
-        outer = self
-
-        class Handler(http.server.BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.1"
-
-            def log_message(self, format, *args):
-                del format, args
-
-            def do_GET(self):
-                mode = outer.mode
-                if mode == "offline":
-                    self.close_connection = True
-                    return
-                path = self.path
-                batch_prefix = "/v1/sync/batches/"
-                if mode == "discontinuity" and path.startswith(batch_prefix):
-                    path = batch_prefix + str(int(path[len(batch_prefix):]) - 1)
-                status, headers, body = outer.fetch(path)
-                if status == 200 and path in ("/v1/sync/network", "/v1/sync/head"):
-                    body = json.dumps(outer.mutate(mode, path, json.loads(body))).encode()
-                if status == 200 and mode == "signature" and path.startswith(batch_prefix):
-                    body = body[:-1] + bytes([body[-1] ^ 1])
-                    headers["X-Content-SHA256"] = hashlib.sha256(body).hexdigest()
-                self.send_response(status)
-                for name, value in headers.items():
-                    self.send_header(name, value)
-                self.send_header("Content-Length", str(len(body)))
-                self.send_header("Connection", "close")
-                self.end_headers()
-                self.wfile.write(body)
-                self.close_connection = True
-
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", unused_port()), Handler)
-        self.server.daemon_threads = True
-        self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-
-    def fetch(self, path):
-        try:
-            response = urllib.request.urlopen(self.upstream + path, context=self.context, timeout=8)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            headers = {}
-            for name in ("Content-Type", "X-Content-SHA256"):
-                value = response.headers.get(name)
-                if value is not None:
-                    headers[name] = value
-            return response.status, headers, response.read()
-
-    def mutate(self, mode, path, document):
-        if path == "/v1/sync/network":
-            if mode == "network":
-                document["network_id"] = document["network_id"] + 1
-            elif mode == "genesis":
-                document["genesis_sha256"] = "01" * 32
-            elif mode == "sequencer":
-                document["sequencer_id"] = "02" * 32
-        elif mode == "malformed_head" and document.get("head_batch") is not None:
-            document["head_batch"] = "0" + document["head_batch"]
-        elif mode == "fork":
-            document["head_batch"] = self.fork_head
-            document["head_batch_id"] = "ee" * 32
-            document["head_raw_sha256"] = "dd" * 32
-        return document
-
-    def close(self):
-        self.server.shutdown()
-        self.server.server_close()
-
-
-class Contract:
-    def __init__(self, build, candidate):
-        self.build = build
-        self.candidate = candidate
-        self.work = Path(tempfile.mkdtemp(prefix="layerx-archive-freshness-"))
-        self.work.chmod(0o755)
-        self.children = []
-        self.logs = []
-        self.cases = []
-        self.refusals = []
-        self.context = None
-        self.proxy = None
-        self.fixture = None
-
-    def passed(self, name, assertions):
-        self.cases.append({"case": name, "assertions": assertions})
-        print("PASS " + name, flush=True)
-
-    def execute(self, args, *, data=None, env=None, uid=None, success=True):
-        identity = {} if uid is None else {"user": uid, "group": uid, "extra_groups": []}
-        result = subprocess.run([str(arg) for arg in args], input=data, env=env,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                timeout=90, cwd=ROOT, **identity)
-        if success:
-            require(result.returncode == 0, f"{Path(str(args[0])).name} failed ({result.returncode}): "
-                    + result.stderr.decode(errors="replace")[-4000:])
-        else:
-            require(result.returncode != 0, f"{args} unexpectedly succeeded")
-        return result
-
-    def start(self, name, args, *, env=None, pass_fds=()):
-        output = (self.work / (name + ".log")).open("ab")
-        process = subprocess.Popen([str(arg) for arg in args], stdout=output, stderr=subprocess.STDOUT,
-                                   env=env, cwd=ROOT, pass_fds=pass_fds)
-        self.children.append(process)
-        self.logs.append(output)
-        return process
-
-    def stop(self, process):
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=15)
-
-    def close(self):
-        if self.proxy is not None:
-            self.proxy.close()
-        for process in reversed(self.children):
-            self.stop(process)
-        if self.fixture is not None:
-            self.fixture.cleanup()
-        for output in self.logs:
-            output.close()
-
-    def request(self, url, path, *, status=None, raw=False):
-        try:
-            response = urllib.request.urlopen(url + path, context=self.context if url.startswith("https") else None,
-                                              timeout=8)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            body = response.read()
-            if status is not None:
-                require(response.status == status, f"{url}{path}: expected HTTP {status}, got {response.status}")
-            return (response.status, body) if raw else (response.status, json.loads(body))
-
-    def ready(self, url):
-        return self.request(url, "/readyz")
-
-    def until(self, condition, label, seconds=60):
-        deadline = time.monotonic() + seconds
-        last = None
-        while time.monotonic() < deadline:
-            try:
-                value = condition()
-                if value:
-                    return value
-                last = f"condition returned {value!r}"
-            except (OSError, Failure, urllib.error.URLError, ValueError, KeyError, TypeError) as error:
-                last = error
-            time.sleep(0.05)
-        raise Failure(f"timed out: {label}; last: {last}")
-
-    def runtime_env(self):
-        return dict(os.environ, LAYERX_RELAY_ARCHIVE_RUNTIME=str(self.runtime / "runtime.py"),
-                    PYTHONDONTWRITEBYTECODE="1")
-
-    def setup(self):
-        require(os.geteuid() == 0, "native LNI UID-isolation setup requires root")
-        for name in ("net", "pid", "mnt"):
-            parent = os.environ.get("PAXEER_X_PARENT_" + name.upper())
-            require(parent is not None and os.readlink("/proc/self/ns/" + name) != parent,
-                    f"{name} namespace is not isolated from the invoking process")
-        os.setgroups([])
-        os.setgid(4020)
-        require(os.geteuid() == 0 and os.getegid() == 4020, "real LNI admission requires UID0/GID4020")
-        sys.path.insert(0, str(ROOT / "tests/daemon"))
-        import paxeer_x_runtime_fixture as fixture
-        try:
-            bundle = fixture.artifacts(os.environ.get("PAXEER_X_RUNTIME_ARTIFACTS", ""))
-            client = fixture.client_artifact(os.environ.get("PAXEER_X_RUNTIME_CLIENT_MANIFEST", ""))
-        except (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-            raise Failure(f"PAXEER_X_RUNTIME_ARTIFACTS/PAXEER_X_RUNTIME_CLIENT_MANIFEST refused: {error}") from error
-        self.bin = self.work / "bin"
-        self.bin.mkdir()
-        for name in ("layerxd", "layerx-genesis-build", "layerx-archive-codec"):
-            shutil.copy2(self.build / "bin" / name, self.bin / name)
-        self.runtime = self.work / "runtime"
-        shutil.copytree(ROOT / "services/platform/relay_archive", self.runtime,
-                        ignore=shutil.ignore_patterns("__pycache__"))
-        self.execute(["ip", "link", "set", "lo", "up"])
-        source = self.work / "source"
-        python_root = self.work / "python"
-        for mount, target in ((ROOT, source), (Path(sys.prefix), python_root)):
-            target.mkdir(mode=0o755)
-            self.execute(["mount", "--bind", mount, target])
-            self.execute(["mount", "-o", "remount,bind,ro,nosuid,nodev", target])
-        fixture.ROOT = source
-        os.environ["PATH"] = str(python_root / "bin") + ":/usr/local/bin:/usr/bin:/bin"
-        try:
-            self.fixture = fixture.RuntimeFixture(self.work / "fixture", bundle, client)
-            self.fixture.generate()
-        except (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
-            raise Failure(f"runtime fixture bring-up failed: {error}") from error
-        self.data = self.fixture.directory / "node"
-        self.node = env_file(self.data / "node.env")
-        self.submit("0")
-        self.source_log = self.data / "checkpoints/da-bodies.log"
-        self.until(lambda: self.source_log.exists() and self.source_log.stat().st_size > 0,
-                   "native canonical availability body")
-        self.manifest = self.data / "genesis/genesis.manifest"
-        self.snapshot = self.data / "genesis/00000000000000000000.lxs"
-        self.execute(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-                      "-keyout", self.work / "tls.key", "-out", self.work / "tls.crt",
-                      "-days", "1", "-subj", "/CN=localhost",
-                      "-addext", "subjectAltName=IP:127.0.0.1,DNS:localhost"])
-        self.context = ssl.create_default_context(cafile=str(self.work / "tls.crt"))
-        self.pins = {
-            "network_id": 77,
-            "genesis_sha256": hashlib.sha256(self.manifest.read_bytes()).hexdigest(),
-            "sequencer_id": self.node["LAYERX_NODE_SEQUENCER_ID"],
-            "sequencer_public_key": self.node["LAYERX_NODE_SEQUENCER_PUBLIC_KEY"],
-            "sequencer_first_batch": 1,
-            "allow_loopback_dev": True,
-            "poll_interval_seconds": POLL_SECONDS,
-            "freshness_budget_seconds": BUDGET_SECONDS,
-            "codec": str(self.bin / "layerx-archive-codec"),
-            "ca_file": str(self.work / "tls.crt"),
-        }
-
-    def submit(self, index):
-        operation = {"0": "register", "1": "open"}[index]
-        try:
-            result = self.fixture.invoke(operation, int(index), "archive-" + operation)
-        except (RuntimeError, OSError, subprocess.SubprocessError) as error:
-            raise Failure(f"native signed {operation} submission failed: {error}") from error
-        require(any(line.startswith(b"receipt ") and b" result=0 " in line for line in result.stdout.splitlines()),
-                f"native signed {operation} submission produced no successful verified receipt")
-        return result
-
-    def origin(self, name, source_log=None):
-        port = unused_port()
-        url = f"https://127.0.0.1:{port}"
-        config = dict(self.pins, data_dir=str(self.work / name), listen=f"127.0.0.1:{port}", public_url=url,
-                      genesis_manifest=str(self.manifest), genesis_snapshot=str(self.snapshot),
-                      source_log=str(source_log or self.source_log), sync_mode="local",
-                      tls_cert=str(self.work / "tls.crt"), tls_key=str(self.work / "tls.key"))
-        path = self.work / (name + ".json")
-        write_json(path, config)
-        process = self.start(name, [self.bin / "layerxd", "--relay-archive", path], env=self.runtime_env())
-        return url, process
-
-    def relay_config(self, name, upstreams, **extra):
-        port = unused_port()
-        return dict(self.pins, data_dir=str(self.work / name), listen=f"127.0.0.1:{port}",
-                    public_url=f"http://127.0.0.1:{port}", upstreams=upstreams, sync_mode="remote", **extra)
-
-    def launch(self, name, config):
-        path = self.work / (name + ".json")
-        write_json(path, config)
-        return self.start(name, [self.bin / "layerxd", "--relay-archive", path], env=self.runtime_env())
-
-    def config_refusals(self):
-        refused = []
-        base = self.relay_config("refused-config", ["http://127.0.0.1:9"])
-        variants = {
-            "local-with-upstreams": (dict(base, sync_mode="local", source_log=str(self.source_log)),
-                                     "sync_mode local must not configure remote upstreams"),
-            "local-without-source": (dict(base, sync_mode="local", upstreams=[]),
-                                     "sync_mode local requires source_log"),
-            "remote-without-origins": (dict(base, upstreams=[]),
-                                       "sync_mode remote requires upstreams or enabled peer discovery"),
-            "budget-below-poll": (dict(base, freshness_budget_seconds=0.05),
-                                  "freshness_budget_seconds must be from"),
-            "unknown-mode": (dict(base, sync_mode="hybrid"), "sync_mode must be remote or local"),
-        }
-        for name, (config, message) in variants.items():
-            path = self.work / ("config-" + name + ".json")
-            write_json(path, config)
-            result = self.execute([self.bin / "layerxd", "--relay-archive", path], env=self.runtime_env(),
-                                  success=False)
-            stderr = result.stderr.decode(errors="replace")
-            require(message in stderr, f"{name}: refusal did not name the violated contract: {stderr[-500:]}")
-            require(not (self.work / "refused-config/archive.sqlite3").exists(),
-                    f"{name}: refused configuration created archive state")
-            refused.append({"variant": name, "exit_code": result.returncode, "message": message})
-        self.refusals.extend(refused)
-        self.passed("served daemon refuses contradictory sync mode and freshness configuration",
-                    [f"{item['variant']} exits {item['exit_code']}" for item in refused])
-
-    def local_contract(self):
-        self.origin1, self.origin1_process = self.origin("origin-one")
-        self.origin2, self.origin2_process = self.origin("origin-two")
-        for url in (self.origin1, self.origin2):
-            self.until(lambda: self.ready(url)[0] == 200, url + " local readiness")
-        code, status = self.ready(self.origin1)
-        require(status["mode"] == "local" and status["mode_configured"] is True, "origin misreports its mode")
-        require(status["local_source"] == {"present": True, "remote_origins_required": False},
-                "local source health contract missing")
-        require(status["last_attempt"]["outcome"] == "current" and status["last_attempt"]["origins"] == 1,
-                "local attempt did not record a current outcome")
-        observation = status["last_observation"]
-        require(observation["source"] == "local-source" and observation["head_batch"] == "1",
-                "local observation does not name the local source head")
-        head = self.request(self.origin1, "/v1/sync/head")[1]
-        require(observation["head_batch_id"] == head["head_batch_id"], "local observation disagrees with head")
-        require(status["progress"]["head_batch"] == "1" and status["progress"]["at_ms"] is not None,
-                "local durable progress missing")
-        self.passed("explicit local-source mode is ready from its own source contract without remote origins",
-                    ["mode=local mode_configured=true", "local_source.present=true",
-                     "last_observation.source=local-source head_batch=1", "readyz=200"])
-        url, _process = self.origin("origin-absent-source", self.work / "absent-source.log")
-        self.until(lambda: self.ready(url)[1].get("last_attempt") is not None, "absent-source attempt")
-        code, status = self.ready(url)
-        require(code == 503 and status["ready"] is False, "absent local source reported ready")
-        require(status["mode"] == "local" and status["local_source"]["present"] is False,
-                "absent local source misreported")
-        require(status["last_attempt"]["outcome"] == "source_unavailable", "absent source outcome is untyped")
-        require([item["code"] for item in status["last_attempt"]["refusals"]] == ["source_unavailable"],
-                "absent source refusal missing")
-        require(status["last_observation"] is None and status["freshness"] == "unobserved",
-                "absent local source manufactured an observation")
-        self.passed("local mode with an absent source fails readiness with a typed source_unavailable outcome",
-                    ["readyz=503", "outcome=source_unavailable", "freshness=unobserved"])
-
-    def never_observed(self):
-        self.proxy = HostileOrigin(self.origin2, self.context)
-        config = self.relay_config("never-observed", [self.proxy.url],
-                                   genesis_manifest=str(self.manifest), genesis_snapshot=str(self.snapshot))
-        process = self.launch("never-observed", config)
-        url = config["public_url"]
-        self.until(lambda: self.ready(url)[1].get("last_attempt") is not None, "never-observed attempt")
-        code, status = self.ready(url)
-        require(code == 503 and status["ready"] is False, "relay without any observation reported ready")
-        require(status["freshness"] == "unobserved" and status["last_observation"] is None,
-                "relay without an observation reported one")
-        require(status["last_attempt"]["outcome"] == "unavailable", "unreachable origin outcome is not unavailable")
-        require({item["code"] for item in status["last_attempt"]["refusals"]} == {"unreachable"},
-                "unreachable origin refusal missing")
-        require(status["progress"]["head_batch"] is None and status["progress"]["at_ms"] is None,
-                "relay without origins reported batch progress")
-        require(status["mode"] == "remote" and "local_source" not in status, "remote relay misreports mode")
-        self.stop(process)
-        self.passed("remote relay with no reachable origin is unavailable and unobserved, not ready",
-                    ["readyz=503", "freshness=unobserved", "outcome=unavailable", "refusal=unreachable"])
-
-    def equal_head(self):
-        self.proxy.mode = "pass"
-        self.relay = self.relay_config("relay", [self.origin1, self.proxy.url])
-        self.relay_process = self.launch("relay", self.relay)
-        url = self.relay["public_url"]
-        self.until(lambda: self.ready(url)[0] == 200, "relay fresh readiness")
-        code, status = self.ready(url)
-        origin_head = self.request(self.origin1, "/v1/sync/head")[1]
-        observation = status["last_observation"]
-        require(status["freshness"] == "fresh" and status["degraded"] is False, "fresh relay misreported")
-        require(observation["head_batch"] == "1" and observation["head_batch_id"] == origin_head["head_batch_id"]
-                and observation["head_raw_sha256"] == origin_head["head_raw_sha256"],
-                "observation does not prove the pinned origin head")
-        require(observation["source"] in (self.origin1, self.proxy.url), "observation source is not an origin")
-        progress = status["progress"]
-        require(progress["head_batch"] == "1" and progress["at_ms"] is not None, "durable progress missing")
-        self.passed("relay backfills and records a proven pinned-head observation",
-                    ["readyz=200", "last_observation.head_batch=1 batch_id matches origin",
-                     "progress.head_batch=1"])
-        first = observation["at_ms"]
-
-        def later():
-            value = self.ready(url)[1]
-            attempt = value["last_attempt"]
-            if (value["last_observation"]["at_ms"] > first and attempt["outcome"] == "current"
-                    and attempt["advanced_batches"] == 0):
-                return value
-            return None
-        status = self.until(later, "equal-head observation refresh")
-        require(status["progress"]["at_ms"] == progress["at_ms"], "equal head moved durable progress time")
-        require(status["last_attempt"]["at_ms"] >= status["last_observation"]["at_ms"],
-                "attempt time precedes the observation it produced")
-        self.observed = status["last_observation"]
-        self.progress = status["progress"]
-        self.passed("equal-head polls refresh the observation while durable progress time stays separate",
-                    ["outcome=current advanced_batches=0", "observation.at_ms advanced",
-                     "progress.at_ms unchanged"])
-
-    def total_loss(self):
-        url = self.relay["public_url"]
-        self.stop(self.origin1_process)
-        self.proxy.mode = "offline"
-        lost = now_ms()
-
-        def unavailable():
-            value = self.ready(url)[1]
-            attempt = value["last_attempt"]
-            return value if attempt["outcome"] == "unavailable" and attempt["at_ms"] > lost else None
-        status = self.until(unavailable, "unavailable outcome after total origin loss")
-        refusals = status["last_attempt"]["refusals"]
-        require({item["origin"] for item in refusals} == {self.origin1, self.proxy.url}
-                and {item["code"] for item in refusals} == {"unreachable"},
-                "total loss did not record every origin as unreachable")
-        require(status["last_observation"]["at_ms"] <= lost and status["degraded"] is True,
-                "total loss refreshed the observation or cleared degradation")
-        require(status["progress"] == self.progress, "total loss changed durable progress")
-        age = status["observation_age_ms"]
-        require(status["ready"] == (age <= status["freshness_budget_ms"]),
-                "readiness disagrees with the declared freshness budget")
-        self.passed("total origin loss records unavailable without refreshing the proven observation",
-                    ["outcome=unavailable for 2 origins", "observation.at_ms <= loss time",
-                     "ready iff age <= budget"])
-        self.until(lambda: self.ready(url)[0] == 503, "readiness failure after the freshness budget",
-                   seconds=BUDGET_SECONDS * 4)
-        status = self.ready(url)[1]
-        require(status["freshness"] == "stale" and status["observation_age_ms"] > status["freshness_budget_ms"],
-                "readiness failed before the freshness budget elapsed")
-        require(status["last_observation"]["at_ms"] <= lost, "stale relay manufactured an observation")
-        self.stale_observation = status["last_observation"]
-        self.passed("readyz fails once the declared freshness budget elapses",
-                    ["readyz=503", "freshness=stale", f"budget_ms={status['freshness_budget_ms']}"])
-
-    def offline_restart(self):
-        url = self.relay["public_url"]
-        self.stop(self.relay_process)
-        sys.path.insert(0, str(self.runtime))
-        from protocol import load_config
-        from store import ArchiveStore
-        config = load_config(self.work / "relay.json")
-        persisted = ArchiveStore(config).load_sync_state("remote")
-        require(persisted.observation is not None
-                and persisted.observation.document() == self.stale_observation,
-                "persisted observation differs from the served observation")
-        require(persisted.attempt is not None and persisted.attempt.outcome.value == "unavailable",
-                "persisted attempt does not retain the unavailable outcome")
-        restarted = now_ms()
-        self.relay_process = self.launch("relay-restarted", self.relay)
-
-        def attempted():
-            value = self.ready(url)[1]
-            return value if value["last_attempt"]["at_ms"] > restarted else None
-        status = self.until(attempted, "restarted relay attempt")
-        code = self.ready(url)[0]
-        require(code == 503 and status["ready"] is False and status["freshness"] == "stale",
-                "offline restart reported fresh readiness")
-        require(status["last_observation"] == self.stale_observation,
-                "offline restart manufactured or lost the proven observation")
-        require(status["last_attempt"]["outcome"] == "unavailable" and status["degraded"] is True,
-                "offline restart cleared degradation without an origin")
-        require(status["progress"] == self.progress, "offline restart changed durable progress")
-        require(self.request(url, "/v1/sync/head")[1]["head_batch"] == "1", "offline restart lost archived head")
-        self.passed("offline restart retains the last proven head and stale freshness from durable storage",
-                    ["ArchiveStore.load_sync_state observation == served observation",
-                     "readyz=503 freshness=stale after restart", "head_batch=1 retained"])
-
-    def hostile(self):
-        url = self.relay["public_url"]
-        self.submit("1")
-        self.until(lambda: self.request(self.origin2, "/v1/sync/head")[1]["head_batch"] == "2",
-                   "origin advanced to batch 2")
-        require(self.request(url, "/v1/sync/head")[1]["head_batch"] == "1", "relay advanced without an origin")
-        self.proxy.fork_head = "1"
-        expected = (("network", "pin_mismatch"), ("genesis", "pin_mismatch"), ("sequencer", "pin_mismatch"),
-                    ("malformed_head", "malformed_head"), ("signature", "verification_failed"),
-                    ("discontinuity", "discontinuity"), ("fork", "discontinuity"))
-        for mode, code in expected:
-            self.proxy.mode = mode
-            switched = now_ms()
-
-            def refused():
-                value = self.ready(url)[1]
-                attempt = value["last_attempt"]
-                codes = {item["code"] for item in attempt["refusals"] if item["origin"] == self.proxy.url}
-                return value if attempt["at_ms"] > switched and codes == {code} else None
-            status = self.until(refused, f"{mode} refusal")
-            ready_code = self.ready(url)[0]
-            require(status["last_attempt"]["outcome"] == "refused", f"{mode} outcome is not refused")
-            require(status["progress"] == self.progress, f"{mode} advanced durable progress")
-            require(status["last_observation"] == self.stale_observation, f"{mode} produced an observation")
-            require(ready_code == 503 and status["degraded"] is True, f"{mode} cleared degradation")
-            require(self.request(url, "/v1/sync/head")[1]["head_batch"] == "1", f"{mode} advanced the head")
-            self.passed(f"{mode} origin is refused as {code} without advancing canonical progress",
-                        [f"refusal={code}", "outcome=refused", "progress unchanged", "readyz=503"])
-
-    def recovery(self):
-        url = self.relay["public_url"]
-        self.proxy.mode = "pass"
-        recovered = now_ms()
-        self.until(lambda: self.ready(url)[0] == 200, "recovered readiness")
-        status = self.ready(url)[1]
-        origin_head = self.request(self.origin2, "/v1/sync/head")[1]
-        observation = status["last_observation"]
-        require(observation["at_ms"] > recovered and observation["source"] == self.proxy.url,
-                "recovery observation does not come from the reconnected origin")
-        require(observation["head_batch"] == "2" and observation["head_batch_id"] == origin_head["head_batch_id"],
-                "recovery observation does not match the continued origin head")
-        require(status["progress"]["head_batch"] == "2" and status["progress"]["at_ms"] > self.progress["at_ms"],
-                "recovery did not record durable progress")
-        require(status["degraded"] is False and status["last_attempt"]["outcome"] == "current",
-                "recovery did not clear degradation")
-        require(self.request(url, "/v1/sync/batches/2", raw=True)[1]
-                == self.request(self.origin2, "/v1/sync/batches/2", raw=True)[1],
-                "recovered batch is not byte exact")
-        self.passed("reconnection validates continuity through batch 2 before clearing degradation",
-                    ["head_batch=2 batch_id matches origin", "progress.at_ms advanced", "readyz=200"])
-
-    def run(self):
-        self.setup()
-        self.config_refusals()
-        self.local_contract()
-        self.never_observed()
-        self.equal_head()
-        self.total_loss()
-        self.offline_restart()
-        self.hostile()
-        self.recovery()
-
-
-class RouterInterposer:
-    def __init__(self, upstream, context, cert, key):
-        self.upstream = urllib.parse.urlsplit(upstream)
-        self.context = context
-        self.received = []
-        self.answers = []
-        interposer = self
-
-        class Handler(http.server.BaseHTTPRequestHandler):
-            def log_message(self, format, *args):
-                pass
-
-            def do_POST(self):
-                body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-                headers = {name: value for name, value in self.headers.items()
-                           if name.lower() in ("authorization", "content-type", "accept", "idempotency-key")}
-                interposer.received.append({"path": self.path, "body": body, "headers": headers})
-                connection = http.client.HTTPSConnection(interposer.upstream.hostname, interposer.upstream.port,
-                                                         context=interposer.context, timeout=30)
-                try:
-                    connection.request("POST", self.path, body=body, headers=headers)
-                    answer = connection.getresponse()
-                    status, kind, data = answer.status, answer.getheader("Content-Type", "application/json"), answer.read()
-                finally:
-                    connection.close()
-                interposer.answers.append({"status": status, "body": data})
-                self.send_response(status)
-                self.send_header("Content-Type", kind)
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        server_context.load_cert_chain(cert, key)
-        self.server.socket = server_context.wrap_socket(self.server.socket, server_side=True)
-        self.url = f"https://127.0.0.1:{self.server.server_address[1]}"
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-
-    def close(self):
-        self.server.shutdown()
-        self.server.server_close()
-
-
-class RelayRailwayContract(Contract):
-    MANIFEST = ROOT / "services/platform/relay_archive/railway.env.example"
-    DOCKERFILE = ROOT / "docker/relay-archive/Dockerfile"
-    FILES = ROOT / "docker/relay-archive/files.tsv"
-    INSTALL = ROOT / "services/platform/relay_archive/install.sh"
-    ROLLOUT = ROOT / "deploy/rollout.kvx"
-    SERVICES = ("relay-archive-a", "relay-archive-b")
-
-    def __init__(self, build, candidate):
-        super().__init__(build, candidate)
-        self.router = None
-        self.replicas = {}
-
-    def close(self):
-        if self.router is not None:
-            self.router.close()
-        super().close()
-
-    def manifest_contract(self):
-        import re
-        import tomllib
-        text = self.MANIFEST.read_text()
-        pairs = [line.split("=", 1) for line in text.splitlines() if line.strip() and not line.startswith("#")]
-        require(all(len(pair) == 2 for pair in pairs), "railway.env.example holds a line that is not KEY=VALUE")
-        env = dict(pairs)
-        require(len(env) == len(pairs), "railway.env.example repeats a variable")
-        self.railway_env = env
-        with self.ROLLOUT.open("rb") as source:
-            services = tomllib.load(source)["service"]
-        relays = {name: row for name, row in services.items() if row.get("image") == "layerx-relay-archive"}
-        require(sorted(relays) == list(self.SERVICES)
-                and all(row["target"] == "railway" and row["railway_service"] == name for name, row in relays.items())
-                and len({row["order"] for row in relays.values()}) == 1,
-                "rollout ledger does not deploy exactly the Railway services relay-archive-a and relay-archive-b in one wave")
-        comments = " ".join(line for line in text.splitlines() if line.startswith("#"))
-        require(all(name in comments for name in self.SERVICES)
-                and f"each with its own volume at {env['LAYERX_RELAY_ARCHIVE_DATA_DIR']}" in comments,
-                "env example does not document one volume per replica service at the data directory")
-        dockerfile = self.DOCKERFILE.read_text()
-        stages = re.findall(r"^FROM .* AS (\S+)$", dockerfile, re.M)
-        railway = dockerfile[dockerfile.index("FROM base AS railway"):] if "FROM base AS railway" in dockerfile else ""
-        require(stages[-1:] == ["railway"]
-                and 'ENTRYPOINT ["/usr/local/bin/layerx-env-files", "/opt/layerx/relay_archive/install.sh", '
-                    '"--railway-start"]' in railway
-                and "COPY --chmod=0555 docker/common/env-files.sh /usr/local/bin/layerx-env-files" in railway
-                and "COPY docker/relay-archive/files.tsv /etc/layerx/files.tsv" in railway
-                and "/src/services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh" in dockerfile,
-                "Dockerfile railway target is not the last stage starting install.sh --railway-start through the shim")
-        require(not re.search(r"^VOLUME", dockerfile, re.M), "Dockerfile declares a VOLUME Railway refuses")
-        install = self.INSTALL.read_text()
-        require('if [ "${1:-}" = --railway-start ]; then' in install
-                and "--allow-railway-private-network) ALLOW_RAILWAY_PRIVATE_NETWORK=1; shift ;;" in install
-                and "fd12::/16" in install and "fly" not in install.lower(),
-                "install.sh does not dispatch --railway-start and admit only the Railway private network flag")
-        port = env["LAYERX_RELAY_ARCHIVE_LISTEN"].rsplit(":", 1)[1]
-        require(env["PORT"] == port and env["LAYERX_HEALTH_ADDR"].rsplit(":", 1)[1] == port
-                and f"EXPOSE {port}" in railway,
-                "Railway PORT, health address and EXPOSE are not the relay listener port")
-        require(all(row["health"] == "/healthz" for row in relays.values()),
-                "rollout ledger does not gate each replica service on /healthz")
-        block = install[install.index("railway_start() {"):]
-        block = block[:block.index("; do")]
-        required = re.findall(r"LAYERX_RELAY_ARCHIVE_[A-Z0-9_]+", block)
-        baked = set(re.findall(r"(LAYERX_RELAY_ARCHIVE_[A-Z0-9_]+)=", dockerfile))
-        missing = [name for name in required if name not in env and name not in baked]
-        require(len(required) == 14 and not missing,
-                f"env example lacks variables install.sh --railway-start requires: {missing}")
-        upstream = urllib.parse.urlsplit(env["LAYERX_RELAY_ARCHIVE_UPSTREAM"])
-        require(upstream.scheme == "https" and upstream.hostname == "kernel.paxeer.network"
-                and upstream.port == 9457, "replica origin is not the kernel box's TLS relay-archive listener")
-        require(env.get("LAYERX_RELAY_ARCHIVE_ALLOW_RAILWAY_PRIVATE_NETWORK") == "0"
-                and "LAYERX_RELAY_ARCHIVE_ALLOW_LOOPBACK_DEV" not in env,
-                "replica admits a private or loopback origin while its origin is the public kernel name")
-        listed = subprocess.run(["bash", str(ROOT / "tools/bringup/ca.sh"), "services"], capture_output=True, text=True,
-                                check=True).stdout
-        rows = [line.split() for line in listed.splitlines() if line.startswith("relay-archive ")]
-        require(len(rows) == 1 and rows[0][1] == "box:KERNEL_HOST"
-                and f"DNS:{upstream.hostname}" in rows[0][5].split(","),
-                "relay-archive certificate is not issued for the kernel box's network name")
-        require(env["LAYERX_RELAY_ARCHIVE_SUBMISSION_UPSTREAM"] == "https://api-mainnet-beta.paxeer.network/v1/activities",
-                "replica submissions do not go to the router")
-        require(env["LAYERX_RELAY_ARCHIVE_PUBLIC_URL"] == "https://archive.paxeer.network",
-                "replica public URL is not archive.paxeer.network")
-        files = [line.split("\t") for line in self.FILES.read_text().splitlines() if line and not line.startswith("#")]
-        require([row[:2] for row in files] == [["LAYERX_INTERNAL_CA_ROOT", env["LAYERX_RELAY_ARCHIVE_INTERNAL_CA"]]]
-                and "LAYERX_INTERNAL_CA_ROOT" in env,
-                "replica holds secret files beyond the internal CA root")
-        self.passed("Railway env example and rollout ledger declare two replica services with their own volumes "
-                    "behind /healthz",
-                    ["services=relay-archive-a,relay-archive-b target=railway",
-                     f"volume per service -> {env['LAYERX_RELAY_ARCHIVE_DATA_DIR']}",
-                     f"railway stage entrypoint layerx-env-files install.sh --railway-start port={port}",
-                     "origin=https://kernel.paxeer.network:9457 submission=router"])
-
-    def replica_env(self, name, **override):
-        port = unused_port()
-        base = self.work / name
-        env = dict(self.runtime_env(), PATH=f"{self.bin}:{os.environ['PATH']}",
-                   LAYERX_RELAY_ARCHIVE_NETWORK_ID=str(self.pins["network_id"]),
-                   LAYERX_RELAY_ARCHIVE_GENESIS_SHA256=self.pins["genesis_sha256"],
-                   LAYERX_RELAY_ARCHIVE_SEQUENCER_ID=self.pins["sequencer_id"],
-                   LAYERX_RELAY_ARCHIVE_SEQUENCER_PUBLIC_KEY=self.pins["sequencer_public_key"],
-                   LAYERX_RELAY_ARCHIVE_UPSTREAM=self.relay_origin,
-                   LAYERX_RELAY_ARCHIVE_SUBMISSION_UPSTREAM=self.router.url + "/v1/activities",
-                   LAYERX_RELAY_ARCHIVE_INTERNAL_CA=str(self.work / "tls.crt"),
-                   LAYERX_RELAY_ARCHIVE_PUBLIC_ROOTS=self.railway_env["LAYERX_RELAY_ARCHIVE_PUBLIC_ROOTS"],
-                   LAYERX_RELAY_ARCHIVE_DATA_DIR=str(base / "data"),
-                   LAYERX_RELAY_ARCHIVE_RUN_DIR=str(base / "run"),
-                   LAYERX_RELAY_ARCHIVE_LISTEN=f"127.0.0.1:{port}",
-                   LAYERX_RELAY_ARCHIVE_PUBLIC_URL=f"http://127.0.0.1:{port}",
-                   LAYERX_RELAY_ARCHIVE_CODEC=str(self.bin / "layerx-archive-codec"),
-                   LAYERX_RELAY_ARCHIVE_ALLOW_LOOPBACK_DEV="1")
-        env.update(override)
-        return {key: value for key, value in env.items() if value is not None}
-
-    def start_replica(self, name, env):
-        process = self.start(name, ["bash", self.runtime / "install.sh", "--railway-start"], env=env)
-        url = "http://" + env["LAYERX_RELAY_ARCHIVE_LISTEN"]
-        self.replicas[name] = (url, process, env)
-        return url, process
-
-    def origin_contract(self):
-        self.token = self.work / "submission-token"
-        self.token.write_text("relay-railway-" + os.urandom(32).hex())
-        self.token.chmod(0o600)
-        port = unused_port()
-        self.relay_origin = f"https://127.0.0.1:{port}"
-        config = dict(self.pins, data_dir=str(self.work / "relay-origin"), listen=f"127.0.0.1:{port}",
-                      public_url=self.relay_origin, genesis_manifest=str(self.manifest),
-                      genesis_snapshot=str(self.snapshot), source_log=str(self.source_log), sync_mode="local",
-                      source_lni_socket=str(self.fixture.directory / "run/layerxd.lni.sock"),
-                      source_submission_token_file=str(self.token),
-                      tls_cert=str(self.work / "tls.crt"), tls_key=str(self.work / "tls.key"))
-        self.origin_process = self.launch("relay-origin", config)
-        self.until(lambda: self.ready(self.relay_origin)[0] == 200, "sequencer-colocated TLS origin readiness")
-        self.router = RouterInterposer(self.relay_origin, self.context, str(self.work / "tls.crt"),
-                                       str(self.work / "tls.key"))
-
-    def start_refusals(self):
-        refused = []
-        roots = self.railway_env["LAYERX_RELAY_ARCHIVE_PUBLIC_ROOTS"].split()
-        variants = {
-            "origin-unset": ({"LAYERX_RELAY_ARCHIVE_UPSTREAM": None}, "LAYERX_RELAY_ARCHIVE_UPSTREAM is unset"),
-            "internal-ca-unset": ({"LAYERX_RELAY_ARCHIVE_INTERNAL_CA": None},
-                                  "LAYERX_RELAY_ARCHIVE_INTERNAL_CA is unset"),
-            "one-public-root": ({"LAYERX_RELAY_ARCHIVE_PUBLIC_ROOTS": roots[0]},
-                                "public roots must be exactly ISRG Root X1 and ISRG Root X2"),
-            "foreign-public-root": ({"LAYERX_RELAY_ARCHIVE_PUBLIC_ROOTS": f"{roots[0]} {self.work / 'tls.crt'}"},
-                                    "is not ISRG Root X1 or ISRG Root X2"),
-            "plain-origin": ({"LAYERX_RELAY_ARCHIVE_UPSTREAM": "http://127.0.0.1:9"},
-                             "the relay origin upstream must be HTTPS"),
-            "malformed-pin": ({"LAYERX_RELAY_ARCHIVE_GENESIS_SHA256": "00" * 32},
-                              "--genesis-sha256 must be a non-zero lowercase SHA-256"),
-        }
-        for name, (override, message) in variants.items():
-            env = self.replica_env("refused-" + name, **override)
-            result = self.execute(["bash", self.runtime / "install.sh", "--railway-start"], env=env, success=False)
-            stderr = result.stderr.decode(errors="replace")
-            require(message in stderr, f"{name}: refusal did not name the violated contract: {stderr[-500:]}")
-            require(not (self.work / ("refused-" + name) / "run/relay-archive.json").exists(),
-                    f"{name}: refused start rendered a config")
-            require(not (self.work / ("refused-" + name) / "data/archive.sqlite3").exists(),
-                    f"{name}: refused start created archive state")
-            refused.append({"variant": name, "exit_code": result.returncode, "message": message})
-        self.refusals.extend(refused)
-        self.passed("Railway replica start refuses an incomplete environment, foreign roots and a plain origin",
-                    [f"{item['variant']} exits {item['exit_code']}" for item in refused])
-
-    def replicas_ready(self):
-        origin_head = self.request(self.relay_origin, "/v1/sync/head")[1]
-        evidence = []
-        for name in ("replica-a", "replica-b"):
-            url, _process = self.start_replica(name, self.replica_env(name))
-            self.until(lambda: self.ready(url)[0] == 200, name + " pinned readiness")
-            code, status = self.ready(url)
-            head = self.request(url, "/v1/sync/head")[1]
-            readiness = self.request(url, "/v1/sync/readiness")[1]
-            require(status["freshness"] == "fresh" and status["mode"] == "remote",
-                    f"{name} is not a fresh remote replica")
-            require(head["genesis_sha256"] == self.pins["genesis_sha256"] and head["network_id"] == self.pins["network_id"]
-                    and readiness["sequencer_public_key"] == self.pins["sequencer_public_key"],
-                    f"{name} serves different pins")
-            require(head["head_batch_id"] == origin_head["head_batch_id"]
-                    and head["head_raw_sha256"] == origin_head["head_raw_sha256"],
-                    f"{name} head is not the origin head")
-            number = origin_head["head_batch"]
-            require(self.request(url, f"/v1/sync/batches/{number}", raw=True)[1]
-                    == self.request(self.relay_origin, f"/v1/sync/batches/{number}", raw=True)[1],
-                    f"{name} batch bytes differ from the origin")
-            config = json.loads((self.work / name / "run/relay-archive.json").read_text())
-            require(config["listener"] == "plain" and config["upstreams"] == [self.relay_origin]
-                    and config["ca_file"] == str(self.work / name / "run/ca.pem"),
-                    f"{name} config does not pin the TLS origin through the CA bundle")
-            evidence.append(f"{name} readyz=200 head={number} batch bytes match origin")
-        self.passed("two replicas validate pins and continuity against the TLS origin before readiness", evidence)
-
-    def wrong_pin(self):
-        env = self.replica_env("replica-wrong-pin", LAYERX_RELAY_ARCHIVE_GENESIS_SHA256="11" * 32)
-        url, process = self.start_replica("replica-wrong-pin", env)
-        self.until(lambda: self.ready(url)[1].get("last_attempt") is not None, "wrong-pin replica attempt")
-        code, status = self.ready(url)
-        codes = {item["code"] for item in status["last_attempt"]["refusals"]}
-        require(code == 503 and status["ready"] is False and codes == {"pin_mismatch"},
-                "replica with a wrong genesis pin did not refuse the origin")
-        require(self.request(url, "/v1/sync/head")[1]["head_batch"] is None, "wrong-pin replica archived a batch")
-        self.stop(process)
-        self.passed("a replica with a wrong genesis pin refuses the origin and never becomes ready",
-                    ["readyz=503", "refusal=pin_mismatch", "head_batch=null"])
-
-    def post(self, url, body, authorization):
-        request = urllib.request.Request(url + "/v1/activities", data=body, method="POST", headers={
-            "Content-Type": "application/octet-stream", "Authorization": authorization})
-        try:
-            response = urllib.request.urlopen(request, timeout=30)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            return response.status, response.read()
-
-    def forwarding(self):
-        url = self.replicas["replica-a"][0]
-        activity = self.execute([self.build / "tests/relay-archive-sign", "1"]).stdout
-        authorization = "Bearer " + self.token.read_text()
-        status, body = self.post(url, activity, authorization)
-        require(len(self.router.received) == 1, "replica did not forward exactly one submission to the router")
-        forwarded = self.router.received[0]
-        require(forwarded["path"] == "/v1/activities" and forwarded["body"] == activity,
-                "replica did not forward the original signed activity bytes")
-        require(forwarded["headers"].get("Authorization") == authorization,
-                "replica did not carry the submitter's credential to the router")
-        verdict = self.router.answers[0]
-        require(verdict["status"] not in (408, 425, 429, 500, 502, 503, 504),
-                f"router answered a retryable {verdict['status']}, no definitive verdict to relay")
-        require(status == verdict["status"] and body == verdict["body"],
-                "replica did not return the router's verdict unchanged")
-        self.passed("replica forwards the original signed bytes and returns the router's verdict unchanged",
-                    [f"forwarded {len(activity)} bytes byte-exact", f"verdict HTTP {status} relayed verbatim"])
-        altered = bytearray(activity)
-        altered[-1] ^= 1
-        before = len(self.router.received)
-        status, body = self.post(url, bytes(altered), authorization)
-        require(400 <= status < 500, f"altered activity bytes were not refused: HTTP {status}")
-        require(all(item["body"] != activity for item in self.router.received[before:]),
-                "altered submission forwarded the original bytes")
-        if len(self.router.received) > before:
-            require(self.router.received[-1]["body"] == bytes(altered)
-                    and self.router.answers[-1]["status"] == status,
-                    "altered submission verdict was not the router's")
-        self.passed("altered activity bytes are refused with a 4xx and never replaced by the original",
-                    [f"altered verdict HTTP {status}",
-                     "refused before forwarding" if len(self.router.received) == before else "router refused"])
-
-    def restart(self):
-        url, process, env = self.replicas["replica-b"]
-        before = self.request(url, "/v1/sync/head")[1]
-        self.stop(process)
-        restarted = now_ms()
-        url, _process = self.start_replica("replica-b", env)
-
-        def revalidated():
-            value = self.ready(url)
-            return value if value[0] == 200 and value[1]["last_observation"]["at_ms"] > restarted else None
-        self.until(lambda: self.request(url, "/healthz")[0] == 200, "restarted replica listener")
-        require(self.request(url, "/v1/sync/head")[1]["head_batch"] is not None,
-                "restart lost the archived history on the volume")
-        code, status = self.until(revalidated, "restarted replica freshness revalidation")
-        after = self.request(url, "/v1/sync/head")[1]
-        require(int(after["head_batch"]) >= int(before["head_batch"]), "restart regressed the archived head")
-        readiness = self.request(url, "/v1/sync/readiness")[1]
-        require(readiness["recovered_current_process"] is True, "readiness was not re-proved by this process")
-        self.passed("restart keeps the volume history and revalidates freshness before readiness",
-                    [f"head_batch {before['head_batch']} retained", "observation.at_ms after restart",
-                     "recovered_current_process=true"])
-
-    def failed_replica(self):
-        dead = f"https://127.0.0.1:{unused_port()}"
-        env = self.replica_env("replica-isolated", LAYERX_RELAY_ARCHIVE_UPSTREAM=dead)
-        url, process = self.start_replica("replica-isolated", env)
-        self.until(lambda: self.ready(url)[1].get("last_attempt") is not None, "isolated replica attempt")
-        token = self.token.read_text().encode()
-        key = (self.work / "tls.key").read_bytes()
-        answers = [self.ready(url)[1], self.request(url, "/v1/sync/readiness")[1],
-                   self.request(url, "/v1/sync/network")[1], self.request(url, "/v1/sync/head")[1]]
-        served = json.dumps(answers).encode()
-        require(self.ready(url)[0] == 503 and answers[0]["ready"] is False, "replica without its origin became ready")
-        require(token not in served and b"PRIVATE KEY" not in served and str(self.source_log).encode() not in served,
-                "failed replica exposed origin material or credentials")
-        run = self.work / "replica-isolated/run"
-        require(sorted(path.name for path in run.iterdir()) == ["ca.pem", "relay-archive.json"],
-                "replica runtime directory holds more than its config and CA bundle")
-        for path in run.iterdir():
-            text = path.read_bytes()
-            require(token not in text and b"PRIVATE KEY" not in text, f"{path.name} carries origin material")
-        self.stop(process)
-        self.passed("a replica without its origin is unready and exposes no origin key, source or credential",
-                    ["readyz=503", "no submission token, private key or source log in served documents",
-                     "run directory = relay-archive.json + ca.pem"])
-
-    def run(self):
-        self.manifest_contract()
-        self.setup()
-        sign = self.build / "tests/relay-archive-sign"
-        require(sign.is_file() and os.access(sign, os.X_OK), "tests/relay-archive-sign is not built")
-        self.origin_contract()
-        self.start_refusals()
-        self.replicas_ready()
-        self.wrong_pin()
-        self.forwarding()
-        self.restart()
-        self.failed_replica()
-
-
 def revision():
     result = subprocess.run(["git", "--no-optional-locks", "-C", str(ROOT), "rev-parse", "HEAD"],
                             capture_output=True, text=True, timeout=30)
     return result.stdout.strip() if result.returncode == 0 else "unknown"
-
-
-def isolated():
-    env = dict(os.environ)
-    for name in ("net", "pid", "mnt"):
-        env["PAXEER_X_PARENT_" + name.upper()] = os.readlink("/proc/self/ns/" + name)
-    try:
-        return subprocess.run(["unshare", "--mount", "--net", "--pid", "--fork", "--kill-child=KILL", "--mount-proc",
-                               "--propagation", "private", sys.executable, str(Path(__file__).resolve()),
-                               "--worker", *sys.argv[1:]], env=env, cwd=ROOT, timeout=1140).returncode
-    except subprocess.TimeoutExpired:
-        print("FAIL isolated archive contract exceeded 1140 seconds", flush=True)
-        return 1
 
 
 class RampJournalContract:
@@ -973,7 +65,7 @@ class RampJournalContract:
         from candidate import catalogue, load_private, validate
         self.private = load_private
         candidate = load_private(manifest)
-        validate(candidate, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
+        validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
         self.revision = candidate["source"]["revision"]
         require(self.revision == revision(), "ramp candidate source revision does not match checkout")
         ramp = next((service for service in candidate["services"] if service["id"] == "ramp"), None)
@@ -1344,384 +436,196 @@ def ramp_journal_main(manifest):
             print("Evidence: " + str(contract.work))
 
 
-class CheckpointInterposer:
-    def __init__(self, upstream, path):
-        self.upstream = str(upstream)
-        self.path = path
-        self.mode = "pass"
-        self.seen = {}
-        self.authentic = []
-        self.errors = []
-        self.closed = False
-        self.connections = []
-        self.server = socket.socket(socket.AF_UNIX)
-        self.server.bind(str(path))
-        self.server.listen(16)
-        threading.Thread(target=self.accept, daemon=True).start()
+class EthereumArchiveReader:
+    """Independent finalized mirror readback using the deployed manifest/chunk ABI."""
+    def __init__(self, node, config):
+        self.node, self.config = node, config
 
-    @staticmethod
-    def frame(connection):
-        def exact(length):
-            result = bytearray()
-            while len(result) < length:
-                chunk = connection.recv(length - len(result))
-                if not chunk:
-                    raise EOFError()
-                result.extend(chunk)
-            return bytes(result)
-        length = int.from_bytes(exact(4), "big")
-        require(22 <= length <= 67108864, "LNI frame bound")
-        return exact(length)
+    def call(self, signature, types, arguments, outputs, block):
+        data = merged.evm.encode_call(signature.split('(')[0], types, arguments)
+        result = self.node.call('eth_call', [{'to': self.config['contract'], 'data': '0x' + data.hex()}, block])
+        return merged.decode_abi(outputs, result)
 
-    @staticmethod
-    def decode(body):
-        require(len(body) >= 22, "LNI envelope truncated")
-        length = int.from_bytes(body[14:18], "big")
-        end = 18 + length
-        require(end + 4 <= len(body), "LNI payload truncated")
-        proof_length = int.from_bytes(body[end:end + 4], "big")
-        require(end + 4 + proof_length == len(body), "LNI proof length")
-        return int.from_bytes(body[4:6], "big"), body[18:end], body[end + 4:]
+    def retrieve(self, commitment):
+        config = self.config
+        require(self.node.call('eth_chainId', []) == hex(config['chain_id']), 'archive chain identity')
+        genesis = self.node.call('eth_getBlockByNumber', ['0x0', False])
+        require(genesis['hash'] == config['genesis_hash'], 'archive genesis identity')
+        head = self.node.call('eth_getBlockByNumber', ['finalized', False])
+        block = head['number']
+        require(int(block, 16) > 0 and int(head['hash'], 16) != 0, 'archive finalized coordinate')
+        code = bytes.fromhex(self.node.call('eth_getCode', [config['contract'], block])[2:])
+        require(code and merged.evm.keccak256(code).hex() == config['code_hash'], 'archive contract identity')
+        publisher = self.call('publisher()', [], [], ['address'], block)[0]
+        require(publisher.hex() == config['publisher'].removeprefix('0x'), 'archive publisher identity')
+        length, count, digest, finalized = self.call('manifest(bytes32)', ['bytes32'], [bytes.fromhex(commitment)],
+                                                   ['uint64', 'uint32', 'bytes32', 'bool'], block)
+        require(finalized and 0 < length <= 67_108_864 and 0 < count <= 65_536, 'archive manifest bounds/finality')
+        data = bytearray()
+        for index in range(count):
+            chunk = self.call('chunk(bytes32,uint32)', ['bytes32', 'uint32'], [bytes.fromhex(commitment), index], ['bytes'], block)[0]
+            require(0 < len(chunk) <= 24_576 and len(data) + len(chunk) <= length, 'archive chunk bound')
+            data.extend(chunk)
+        data = bytes(data)
+        require(len(data) == length and hashlib.sha256(data).digest() == digest
+                and archive_commitment(data) == commitment, 'archive corruption or commitment mismatch')
+        require(self.node.call('eth_getBlockByNumber', [block, False])['hash'] == head['hash'], 'archive publication reorged')
+        return data
 
-    @staticmethod
-    def mutate(mode, payload, proof):
-        data = bytearray(payload)
-        if mode in ("authority", "legacy-authority"):
-            require(proof[:2] == b"\x00\x02" and len(proof) > 32, "CXv2 authority missing")
-            proof = (b"\x00\x01" + proof[2:-32]) if mode == "legacy-authority" else proof[:-1] + bytes([proof[-1] ^ 1])
-            return payload, proof
-        require(data[:2] == b"\x00\x01", "native checkpoint CP1 missing")
-        header_length = int.from_bytes(data[2:6], "big")
-        require(header_length == 354, "canonical header length")
-        proof_at = 6 + header_length
-        proof_length = int.from_bytes(data[proof_at:proof_at + 4], "big")
-        count_at = proof_at + 4 + proof_length
-        require(count_at < len(data), "native certificate truncated")
-        count = data[count_at]
-        threshold_at = count_at + 1 + count * 274
-        require(count > 0 and threshold_at + 3 < len(data), "native attestations missing")
-        positions = {"domain": 6 + 9, "sequence": 6 + 32, "root": 6 + 91,
-                     "membership": count_at + 1 + 189}
-        if mode in positions:
-            data[positions[mode]] ^= 1
-        elif mode == "threshold":
-            data[threshold_at] = 0
-        return bytes(data), proof
 
-    def accept(self):
-        while not self.closed:
-            try:
-                client, _ = self.server.accept()
-            except OSError:
-                return
-            threading.Thread(target=self.session, args=(client,), daemon=True).start()
+def archive_commitment(data):
+    require(data.startswith(b'LXMIRROR\0\4'), 'committed archive v4 required')
+    return hashlib.sha256(b'LXP/mirror/archive/v4\0' + data).hexdigest()
 
-    def session(self, client):
-        node = socket.socket(socket.AF_UNIX)
-        self.connections.extend((client, node))
-        try:
-            node.connect(self.upstream)
-            threading.Thread(target=self.pump, args=(client, node, False), daemon=True).start()
-            self.pump(node, client, True)
-        except OSError:
-            pass
-        finally:
-            client.close()
-            node.close()
 
-    def pump(self, source, target, response):
-        try:
-            while not self.closed:
-                body = self.frame(source)
-                tag, payload, proof = self.decode(body)
-                mode = self.mode
-                if not response and tag == 14 and mode == "bare":
-                    self.seen[mode] = self.seen.get(mode, 0) + 1
-                    target.shutdown(socket.SHUT_RDWR)
-                    source.shutdown(socket.SHUT_RDWR)
-                    return
-                if response and tag == 2 and mode in ("no-proof", "head-behind", "selector"):
-                    require(len(payload) >= 91, "node information truncated")
-                    data = bytearray(payload)
-                    if mode == "no-proof":
-                        data[27:59] = bytes(32)
-                    elif mode == "selector":
-                        data[58] ^= 1
-                    else:
-                        data[11:19] = bytes(8)
-                    payload = bytes(data)
-                    self.seen[mode] = self.seen.get(mode, 0) + 1
-                if response and tag == 15 and mode == "pass":
-                    self.authentic.append((payload, proof))
-                if response and tag == 15 and mode not in ("pass", "no-proof", "head-behind", "selector"):
-                    payload, proof = self.mutate(mode, payload, proof)
-                    self.seen[mode] = self.seen.get(mode, 0) + 1
-                body = body[:14] + len(payload).to_bytes(4, "big") + payload + len(proof).to_bytes(4, "big") + proof
-                target.sendall(len(body).to_bytes(4, "big") + body)
-        except (OSError, EOFError):
-            return
-        except (Failure, ValueError, IndexError) as error:
-            self.errors.append(type(error).__name__)
+class CommittedArchiveContract:
+    """Authenticate complete native block history before accepting any mirror bytes."""
+    def __init__(self, nodes, genesis_hash, directory):
+        require(len(nodes) >= 2 and len({node.url for node in nodes}) == len(nodes), 'independent native acquisition required')
+        self.nodes, self.genesis_hash, self.directory = nodes, genesis_hash, Path(directory)
 
-    def close(self):
-        self.closed = True
-        self.server.close()
-        for connection in self.connections:
-            try:
-                connection.shutdown(socket.SHUT_RDWR)
-                connection.close()
-            except OSError:
-                pass
+    def acquire(self, height):
+        require(type(height) is int and 0 < height < 2**64, 'committed archive height')
+        observations = []
+        for node in self.nodes:
+            require(node.call('eth_chainId', []) == '0x7d', 'archive requires merged chain 125')
+            require(node.call('eth_getBlockByNumber', ['0x0', False])['hash'] == self.genesis_hash, 'archive native genesis mismatch')
+            head = node.call('eth_getBlockByNumber', ['finalized', False])
+            require(int(head['number'], 16) >= height, 'archive head behind requested block')
+            block = node.call('eth_getBlockByNumber', [hex(height), False])
+            require(block['number'] == hex(height) and int(block['hash'], 16) != 0, 'archive block identity')
+            transactions = block['transactions']
+            require(isinstance(transactions, list) and len(transactions) <= 1_048_576
+                    and len(set(transactions)) == len(transactions), 'complete distinct block transactions')
+            receipts = []
+            for reference in transactions:
+                committed = node.committed(reference)
+                require(committed['block_hash'] == block['hash'] and committed['block_number'] == block['number'],
+                        'archive receipt belongs to another committed block')
+                receipts.append(bytes.fromhex(committed['canonical_bytes']))
+            data = bytearray(b'LXMIRROR\0\4' + (125).to_bytes(4, 'big') + height.to_bytes(8, 'big'))
+            for name in ('hash', 'parentHash', 'stateRoot'):
+                value = bytes.fromhex(block[name].removeprefix('0x'))
+                require(len(value) == 32, 'archive header hash width')
+                data.extend(value)
+            timestamp = int(block['timestamp'], 16)
+            require(0 <= timestamp < 2**64, 'archive timestamp')
+            data.extend(timestamp.to_bytes(8, 'big') + len(receipts).to_bytes(4, 'big'))
+            for receipt in receipts:
+                require(0 < len(receipt) <= 33_554_432, 'archive receipt bound')
+                data.extend(len(receipt).to_bytes(4, 'big') + receipt)
+            require(len(data) <= 67_108_864, 'archive byte bound')
+            observations.append(bytes(data))
+        require(all(value == observations[0] for value in observations), 'independent native archive divergence')
+        data = observations[0]
+        commitment = archive_commitment(data)
+        evidence.retain(self.directory / (commitment + '.archive'), data)
+        return commitment, data
+
+    def readback(self, height, readers):
+        require(readers and len({reader.node.url for reader in readers}) == len(readers), 'independent archive consumers required')
+        commitment, expected = self.acquire(height)
+        for reader in readers:
+            require(reader.retrieve(commitment) == expected, 'mirror differs from committed native block history')
+        evidence.retain(self.directory / (str(height) + '.json'), evidence.canonical({'height': height, 'commitment': commitment}))
+        return commitment, expected
 
 
 class MirrorCheckpointContract:
+    """Historical gate name, current paxd/v4 publisher and consumer contract."""
     def __init__(self, manifest):
-        sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
         from candidate import catalogue, load_private, validate
         candidate = load_private(manifest)
-        validate(candidate, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
-        self.revision = candidate["source"]["revision"]
-        require(self.revision == revision(), "mirror source revision differs from checkout")
-        service = next((item for item in candidate["services"] if item["id"] == "mirror"), None)
-        require(service is not None and service["bindings"]["source_revision"] == self.revision,
-                "mirror candidate source binding absent")
-        self.inputs = load_private(os.environ.get("PAXEER_X_MIRROR_CHECKPOINT_INPUTS", ""))
-        require(self.inputs["purpose"] == "disposable-real-checkpoint-mirror-qualification",
-                "disposable funded chain and node authority input absent")
-        require(self.inputs["source_revision"] == self.revision, "artifact source revision mismatch")
-        self.binaries = {}
-        for name in ("layerxd", "layerx-mirror-publisher", "layerx-mirror-verify"):
-            artifact = self.inputs["artifacts"][name]
-            path = Path(artifact["path"])
-            require(path.is_file() and os.access(path, os.X_OK), "built executable absent")
-            require(hashlib.sha256(path.read_bytes()).hexdigest() == artifact["sha256"], "artifact digest mismatch")
-            self.binaries[name] = path
-        self.config = load_private(self.inputs["publisher_config"])
-        digest = "sha256:" + hashlib.sha256(Path(self.inputs["publisher_config"]).read_bytes()).hexdigest()
-        require(digest == service["bindings"]["config_digest"], "publisher config binding mismatch")
-        require(self.config.get("solana") is not None, "both independent mirror lanes required")
-        require(self.config["node"]["checkpoint_policy"]["chain_id"] == candidate["foundation"]["chain_id"],
-                "native finality chain pin mismatch")
-        self.verifier = load_private(self.inputs["verifier_config"])
-        require([source["kind"] for source in self.verifier["sources"]] == ["ethereum", "solana"],
-                "independent exact readback sources missing")
-        require(self.verifier["layerx_network_id"] == self.config["node"]["expected_network_id"]
-                and self.verifier["sequencer_public_key_hex"] == self.config["node"]["checkpoint_policy"]["sequencer_public_key_hex"],
-                "offline verifier domain pin mismatch")
-        self.work = Path(tempfile.mkdtemp(prefix="mirror-checkpoint-", dir=self.inputs["evidence_directory"]))
+        validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
+        self.revision = candidate['source']['revision']
+        require(self.revision == revision(), 'mirror source revision differs from checkout')
+        self.inputs = load_private(os.environ.get('PAXEER_X_MIRROR_CHECKPOINT_INPUTS', ''))
+        require(self.inputs['schema'] == 'paxeer-x.committed-archive-inputs.v2', 'merged archive runtime inputs required')
+        require(self.inputs['source_revision'] == self.revision, 'archive source revision')
+        merged.source_artifacts(self.inputs, self.revision)
+        self.work = Path(tempfile.mkdtemp(prefix='committed-archive-', dir=self.inputs['evidence_directory']))
         self.work.chmod(0o700)
-        self.children = []
-        self.logs = []
-        self.cases = []
-        self.proxy = None
-        self.publisher = None
-        self.node = None
-        self.state = self.work / "publisher-state"
-        self.port = unused_port()
-        self.url = f"http://127.0.0.1:{self.port}"
-        self.save(self.work / "inventory.json", {
-            "source_revision": self.revision,
-            "ethereum_archive_contract": self.config["ethereum"]["archive_contract_hex"],
-            "solana_archive_program": self.config["solana"]["archive_program_base58"],
-            "rpc_backends": {chain: [endpoint["independent_backend"] for endpoint in self.config[chain]["rpc"]["endpoints"]]
-                             for chain in ("ethereum", "solana")},
-            "native_authority_backends": [endpoint["independent_backend"] for endpoint in self.config["node"]["checkpoint_policy"]["rpc"]["endpoints"]],
-            "readback_sources": [source["id"] for source in self.verifier["sources"]],
-        })
-        self.config.update(state_directory=str(self.state), status_listen=f"127.0.0.1:{self.port}", poll_interval_ms=200)
-        self.batch = int(self.inputs["receipt_batch"])
-        self.receipt = Path(self.inputs["receipt_canonical"]).read_bytes()
-        require(self.batch > 0 and self.receipt, "real canonical receipt input absent")
-        self.config["first_batch_number"] = self.batch
+        self.children, self.logs, self.cases = [], [], []
+        self.binaries = self.inputs['artifacts']
+        self.config = load_private(self.inputs['publisher_config'])
+        mirror = next(service for service in candidate['services'] if service['id'] == 'mirror')
+        require(mirror['bindings']['config_digest'] == 'sha256:' + hashlib.sha256(Path(self.inputs['publisher_config']).read_bytes()).hexdigest(),
+                'publisher candidate config binding')
+        require(self.config['paxeer']['chain_id'] == candidate['foundation']['chain_id'] == 125,
+                'native committed archive chain pin')
+        self.fixture = merged.OWNED.PaxdFixture(self.inputs['native'], self.binaries['paxd']['path'], self.work)
+        self.config['state_directory'] = str(self.work / 'publisher-state')
 
     @staticmethod
     def save(path, value):
-        with path.open("w") as stream:
-            json.dump(value, stream)
-        path.chmod(0o600)
+        evidence.retain(path, evidence.canonical(value))
 
-    def launch(self, name, argv, env=None):
-        output = (self.work / (name + ".log")).open("ab")
-        self.logs.append(output)
-        process = subprocess.Popen([str(arg) for arg in argv], env=env, stdin=subprocess.DEVNULL,
-                                   stdout=output, stderr=output)
+    def launch_publisher(self):
+        log = (self.work / ('publisher-' + str(len(self.children)) + '.log')).open('xb')
+        process = subprocess.Popen([self.binaries['layerx-mirror-publisher']['path'], str(self.work / 'publisher.json')],
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=log)
         self.children.append(process)
+        self.logs.append(log)
         return process
 
     @staticmethod
     def stop(process):
         if process is not None and process.poll() is None:
             process.terminate()
-            try:
-                process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=10)
-
-    def until(self, predicate, label, seconds=150):
-        deadline = time.monotonic() + seconds
-        while time.monotonic() < deadline:
-            if self.proxy is not None:
-                require(not self.proxy.errors, "LNI mutation did not reach its real wire boundary")
-            try:
-                value = predicate()
-                if value:
-                    return value
-            except (OSError, ValueError, KeyError, urllib.error.URLError):
-                pass
-            time.sleep(0.2)
-        raise Failure("timed out: " + label)
-
-    def http(self, path):
-        try:
-            response = urllib.request.urlopen(self.url + path, timeout=5)
-        except urllib.error.HTTPError as error:
-            response = error
-        with response:
-            return response.status, json.loads(response.read())
-
-    def status(self):
-        return self.http("/status")[1]
-
-    def start_publisher(self):
-        self.save(self.work / "publisher.json", self.config)
-        self.publisher = self.launch("publisher", [self.binaries["layerx-mirror-publisher"], self.work / "publisher.json"])
-
-    def ready(self):
-        status = self.status()
-        coordinate = status["latest_verified_checkpoint_batch"]
-        if self.http("/readyz")[0] != 200 or coordinate is None or coordinate < self.batch:
-            return False
-        require(status["checkpoint_proof_boundary_ready"] and status["checkpoint_refusal"] is None,
-                "ready without authentic checkpoint")
-        for chain in ("ethereum", "solana"):
-            lane = status[chain]
-            require(lane["latest_checkpoint_batch_mirrored"] == coordinate
-                    and lane["latest_checkpoint_id_mirrored"] == status["latest_verified_checkpoint_id"]
-                    and lane["checkpoint_within_budget"] and lane["freshness"] == "current",
-                    "ready without independent checkpoint readback and freshness")
-        return status
-
-    def offline(self, source, commitment, receipt, expected):
-        request = {"batch_number": str(self.batch), "evidence": {"kind": "receipt", "canonical_hex": receipt.hex()},
-                   "policy": {"kind": "exact", "candidate": {"source": source, "commitment_hex": commitment}}}
-        result = subprocess.run([str(self.binaries["layerx-mirror-verify"]), str(self.work / "verifier.json")],
-                                input=json.dumps(request), text=True, capture_output=True, timeout=90)
-        require(result.returncode == 0 and json.loads(result.stdout).get("ok") is expected,
-                "offline chain receipt verification disagreed")
+            process.wait(timeout=10)
 
     def run(self):
-        snapshot = Path(self.inputs["node_snapshot"]).resolve()
-        require(snapshot.is_dir() and not (snapshot / ".qualification-running").exists(), "stopped durable node snapshot required")
-        local = self.work / "node"
-        shutil.copytree(snapshot, local, symlinks=False)
-        config_name = self.inputs["node_config_relative"]
-        require(not Path(config_name).is_absolute() and ".." not in Path(config_name).parts, "node config escapes snapshot")
-        config_path = local / config_name
-        original = config_path.read_text()
-        require(str(snapshot) in original, "node snapshot paths are not relocatable")
-        config_path.write_text(original.replace(str(snapshot), str(local)))
-        environment = dict(os.environ)
-        for key, value in self.inputs["node_environment"].items():
-            require(key.startswith("LAYERX_"), "node environment key outside real daemon interface")
-            environment[key] = value.replace(str(snapshot), str(local))
-        upstream = local / self.inputs["node_socket_relative"]
-        require(upstream.is_relative_to(local), "node socket escapes snapshot")
-        self.node = self.launch("layerxd", [self.binaries["layerxd"], "--serve", config_path], environment)
-        self.until(lambda: upstream.exists() and self.node.poll() is None, "real durable node startup")
-        self.proxy = CheckpointInterposer(upstream, self.work / "mirror.lni")
-        self.config["node"]["socket"] = str(self.proxy.path)
-        self.start_publisher()
-        def pending_signed_publication():
-            status = self.status()
-            return any(status[chain]["phase"] in ("signed", "broadcast_unknown", "pending")
-                       for chain in ("ethereum", "solana"))
-        self.until(pending_signed_publication, "durable in-flight signed publication", 150)
-        self.stop(self.publisher)
-        pending = {str(path.relative_to(self.state)): path.read_bytes()
-                   for path in self.state.rglob("*.journal") if path.is_file()}
-        require(pending, "in-flight publication did not persist a journal")
-        self.start_publisher()
-        baseline = self.until(self.ready, "both finalized chain readbacks")
-        for name, content in pending.items():
-            require((self.state / name).read_bytes().startswith(content), "crash replaced persisted signed publication")
-        self.cases.append("in-flight-signed-publication-crash-recovery")
-        self.cases.append({"case": "authentic-native-final-checkpoint-both-chain-readback",
-                           "status": baseline, "http_status": 200})
-        for mode in ("bare", "selector", "root", "domain", "sequence", "membership", "threshold", "authority", "legacy-authority", "head-behind"):
-            self.proxy.mode = mode
-            def refused():
-                status = self.status()
-                return (self.proxy.seen.get(mode, 0) > 0 and self.http("/readyz")[0] == 503
-                        and not status["checkpoint_proof_boundary_ready"] and status["checkpoint_refusal"] is not None)
-            self.until(refused, mode + " refusal", 40)
-            self.cases.append({"case": mode + "-refused", "http_status": self.http("/readyz")[0],
-                               "typed_refusal": self.status()["checkpoint_refusal"],
-                               "mutated_real_responses": self.proxy.seen[mode]})
-            if mode == "authority":
-                refusal = self.status()["checkpoint_refusal"]
-                self.proxy.mode = "no-proof"
-                self.until(lambda: self.proxy.seen.get("no-proof", 0) >= 3, "later no-proof observations", 30)
-                status = self.status()
-                require(status["checkpoint_refusal"] == refusal and not status["checkpoint_proof_boundary_ready"]
-                        and self.http("/readyz")[0] == 503, "no-proof observation cleared authority refusal")
-                self.cases.append("no-proof-cannot-clear-refusal")
-            self.proxy.mode = "pass"
-            self.until(self.ready, "authentic proof recovery", 90)
-        self.stop(self.publisher)
-        before = {str(path.relative_to(self.state)): path.read_bytes() for path in self.state.rglob("*") if path.is_file()}
-        require(any(name.endswith(".journal") for name in before) and any(name.endswith(".archive") for name in before),
-                "durable publication journal and archive absent")
-        self.start_publisher()
-        restored = self.until(self.ready, "restart canonical readback")
-        require(restored["latest_verified_checkpoint_id"] == baseline["latest_verified_checkpoint_id"], "restart changed checkpoint")
-        for name, content in before.items():
-            require((self.state / name).read_bytes() == content, "settled restart changed archive or duplicated publication records")
-        self.cases.append("restart-retains-signed-publication-and-reconciles")
-        archived = list(self.state.glob("archives/*.archive"))
-        require(self.proxy.authentic and archived, "native certificate preservation inputs absent")
-        for path in archived:
-            blob = path.read_bytes()
-            require(b"LXMIRROR\x00\x03" in blob and b"LXCPAUTH\x00\x01" in blob,
-                    "lossless native archive version absent")
-            require(any(payload in blob and proof in blob for payload, proof in self.proxy.authentic),
-                    "archive dropped or substituted native CP1/CX2 bytes")
-        self.cases.append("native-certificate-context-retained-byte-exactly")
-        self.stop(self.publisher)
-        self.stop(self.node)
-        self.proxy.close()
-        require(self.node.poll() is not None, "LayerX remains reachable during offline proof")
-        self.save(self.work / "verifier.json", self.verifier)
-        archives = sorted(self.state.glob("archives/*.archive"))
-        require(archives, "real published archive missing")
-        # Exact commitments are derived from the production spool filenames.
-        for source in (0, 1):
-            matched = False
-            for archive in archives:
-                request = {"batch_number": str(self.batch), "evidence": {"kind": "receipt", "canonical_hex": self.receipt.hex()},
-                           "policy": {"kind": "exact", "candidate": {"source": source, "commitment_hex": archive.stem}}}
-                result = subprocess.run([str(self.binaries["layerx-mirror-verify"]), str(self.work / "verifier.json")],
-                                        input=json.dumps(request), text=True, capture_output=True, timeout=90)
-                require(result.returncode == 0, "real offline verifier failed")
-                if json.loads(result.stdout).get("ok") is True:
-                    mutated = bytearray(self.receipt)
-                    mutated[-1] ^= 1
-                    self.offline(source, archive.stem, bytes(mutated), False)
-                    matched = True
-                    break
-            require(matched, "no independently published archive proves the real receipt")
-        self.cases.append({"case": "both-chains-prove-receipt-with-layerx-stopped-and-reject-tamper",
-                           "sources": [0, 1], "layerxd_exit_code": self.node.returncode,
-                           "valid_receipt_ok": True, "tampered_receipt_ok": False})
-        require(len(self.cases) == 16, "required mirror case execution absent")
+        self.fixture.start()
+        self.save(self.work / 'publisher.json', self.config)
+        publisher = self.launch_publisher()
+        nodes = [self.fixture.node] + [merged.CHAIN.Node(row['endpoint'], self.fixture.node.receipt_keys)
+                                      for row in self.inputs['independent_nodes']]
+        contract = CommittedArchiveContract(nodes, '0x' + self.config['paxeer']['genesis_hash_hex'].removeprefix('0x'), self.work)
+        readers = [EthereumArchiveReader(merged.CHAIN.Node(row['endpoint'], self.fixture.node.receipt_keys), row)
+                   for row in self.inputs['readback_sources']]
+        deadline = time.monotonic() + 150
+        while True:
+            require(publisher.poll() is None, 'current archive publisher exited')
+            try:
+                baseline = contract.readback(self.config['first_height'], readers)
+                break
+            except (Failure, ValueError, OSError):
+                require(time.monotonic() < deadline, 'committed publication/readback deadline')
+                time.sleep(0.2)
+        self.cases.append('independent-committed-v4-acquisition-and-readback')
+        self.stop(publisher)
+        retained = {str(path.relative_to(self.work / 'publisher-state')): path.read_bytes()
+                    for path in (self.work / 'publisher-state').rglob('*') if path.is_file()}
+        require(retained, 'durable archive publication records absent')
+        self.fixture.restart()
+        self.launch_publisher()
+        require(contract.readback(self.config['first_height'], readers) == baseline, 'restart changed committed archive')
+        for name, data in retained.items():
+            require((self.work / 'publisher-state' / name).read_bytes().startswith(data), 'restart replaced durable publication history')
+        self.cases.append('paxd-publisher-and-consumer-restart')
+        self.fixture.stop()
+        verifier = self.inputs['verifier_config']
+        verifier_config = json.loads(evidence.protected(verifier))
+        require([row['kind'] for row in verifier_config['sources']] == ['ethereum', 'solana'],
+                'both independent Ethereum and Solana archive consumers required')
+        original = bytes.fromhex(self.inputs['receipt_canonical'])
+        require(original and original in baseline[1], 'offline receipt must be in the acquired native archive')
+        corrupt = original[:-1] + bytes([original[-1] ^ 1])
+        for source in range(len(verifier_config['sources'])):
+            for canonical, expected in ((original.hex(), True), (corrupt.hex(), False)):
+                request = {'batch_number': str(self.config['first_height']), 'evidence': {'kind': 'receipt', 'canonical_hex': canonical},
+                           'policy': {'kind': 'exact', 'candidate': {'source': source, 'commitment_hex': baseline[0]}}}
+                result = subprocess.run([self.binaries['layerx-mirror-verify']['path'], verifier], input=json.dumps(request),
+                                        text=True, capture_output=True, timeout=90)
+                require(result.returncode == 0 and json.loads(result.stdout)['ok'] is expected, 'offline archive evidence verdict')
+        self.cases.append('offline-current-verifier-valid-and-corrupted-receipt')
 
     def close(self):
-        if self.proxy is not None:
-            self.proxy.close()
         for process in reversed(self.children):
             self.stop(process)
-        for output in self.logs:
-            output.close()
+        self.fixture.stop()
+        for log in self.logs:
+            log.close()
 
 
 def mirror_checkpoint_main(manifest):
@@ -1729,20 +633,16 @@ def mirror_checkpoint_main(manifest):
     try:
         contract = MirrorCheckpointContract(manifest)
         contract.run()
-        contract.save(contract.work / "result.json", {"status": "passed", "revision": contract.revision,
-                      "case": "mirror-checkpoint-acquisition", "cases": contract.cases})
-        print("RESULT passed case=mirror-checkpoint-acquisition")
+        contract.save(contract.work / 'result.json', {'status': 'passed', 'revision': contract.revision, 'cases': contract.cases})
+        print('RESULT passed case=mirror-checkpoint-acquisition')
         return 0
     except (Failure, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
-        print("FAIL mirror-checkpoint-acquisition " + type(error).__name__)
-        if contract is not None:
-            contract.save(contract.work / "result.json", {"status": "failed", "cases": contract.cases,
-                          "failure_type": type(error).__name__, "assertion": str(error)})
+        print('FAIL mirror-checkpoint-acquisition ' + str(error))
         return 1
     finally:
         if contract is not None:
             contract.close()
-            print("Evidence: " + str(contract.work))
+            print('Evidence: ' + str(contract.work))
 
 
 class ReadinessInterposer:
@@ -1857,7 +757,7 @@ class InteropReadinessContract:
         from candidate import catalogue, load_private, validate
         self.private = load_private
         candidate = load_private(manifest)
-        validate(candidate, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
+        validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
         self.revision = candidate["source"]["revision"]
         require(self.revision == revision(), "interop candidate revision differs from checkout")
         services = {item["id"]: item for item in candidate["services"]}
@@ -1929,8 +829,8 @@ class InteropReadinessContract:
         require(self.credential and "\n" not in self.credential, "authentication input absent")
         dependencies = self.inputs["dependencies"]
         require(isinstance(dependencies, list) and {item["id"] for item in dependencies}
-                == {"core_agent_boundary", "receipt_authority", "redis"} and len(dependencies) == 3,
-                "owned real core, receipt authority and Redis processes are required")
+                == {"core_agent_boundary", "redis"} and len(dependencies) == 2,
+                "owned real core and Redis processes are required")
         for spec in dependencies:
             self.fields(spec, {"id", "binary", "binary_sha256", "source_revision", "argv", "environment",
                               "state_paths"}, "dependency")
@@ -2112,7 +1012,7 @@ class InteropReadinessContract:
         return dict(evidence, receipt_digest=verified["receipt_digest"])
 
     def run(self):
-        for name in ("redis", "core_agent_boundary", "receipt_authority", "gateway"):
+        for name in ("redis", "core_agent_boundary", "gateway"):
             self.start(name)
         self.proxy = ReadinessInterposer(self)
         self.start("interop")
@@ -2205,7 +1105,7 @@ class InteropReadinessContract:
         self.passed("real-pending-during-dependency-loss", http_status=code, funded_dispatches=0)
         self.proxy.mode = "pass"
         self.until(lambda: self.agreement(True), "actual gateway restoration")
-        for name in ("gateway", "core_agent_boundary", "receipt_authority", "redis"):
+        for name in ("gateway", "core_agent_boundary", "redis"):
             self.stop(name)
             self.until(lambda: self.agreement(False), name + " loss")
             self.stop("interop")
@@ -2222,7 +1122,7 @@ class InteropReadinessContract:
             require(code == 200 and body["result"] == result, "restart lost retained exact external state")
         self.passed("real-persistence-retains-distinct-external-outcomes")
         self.configuration_refusals()
-        require(len(self.cases) == 44, "required interop execution cases absent")
+        require(len(self.cases) == 42, "required interop execution cases absent")
 
     def operation(self, operation):
         require(isinstance(operation, str) and len(operation) == 64
@@ -2230,15 +1130,14 @@ class InteropReadinessContract:
         return self.request("/v1/operations/" + operation)
 
     def configuration_refusals(self):
-        required = {"ap2-assets", "ap2-roots", "visa-identities", "fiat-roots", "redis", "receipt-authority"}
+        required = {"ap2-assets", "ap2-roots", "visa-identities", "fiat-roots", "redis"}
         self.fields(self.inputs["configuration_refusals"], required, "protected configuration refusals")
         self.stop("interop")
         for name, path in self.inputs["configuration_refusals"].items():
             environment = self.private(path)
             base = self.environment["interop"]
             changed = {key for key in set(environment) | set(base) if environment.get(key) != base.get(key)}
-            expected = {"LAYERX_INTEROP_CONFIG"} if name in {"ap2-assets", "ap2-roots", "visa-identities", "fiat-roots"} else {
-                "LAYERX_INTEROP_REDIS_PASSWORD_FILE" if name == "redis" else "LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE"}
+            expected = {"LAYERX_INTEROP_REDIS_PASSWORD_FILE"} if name == "redis" else {"LAYERX_INTEROP_CONFIG"}
             require(changed == expected, "refusal environment changes unrelated authority")
             if expected == {"LAYERX_INTEROP_CONFIG"}:
                 document = self.private(environment["LAYERX_INTEROP_CONFIG"])
@@ -2288,8 +1187,6 @@ def main():
     parser = argparse.ArgumentParser(prog="interop-archive-contract")
     parser.add_argument("--case", required=True, choices=CASES)
     parser.add_argument("--candidate-manifest", required=True)
-    parser.add_argument("--build-dir", default=str(ROOT / "build"))
-    parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     arguments = parser.parse_args()
     if arguments.case == "interop-settlement-readiness":
         return interop_readiness_main(arguments.candidate_manifest)
@@ -2297,38 +1194,6 @@ def main():
         return mirror_checkpoint_main(arguments.candidate_manifest)
     if arguments.case == "ramp-journal-readiness":
         return ramp_journal_main(arguments.candidate_manifest)
-    if not arguments.worker:
-        return isolated()
-    build = Path(arguments.build_dir).resolve()
-    contract = None
-    try:
-        require(bool(arguments.candidate_manifest), "candidate manifest path is empty")
-        candidate = load_candidate(arguments.candidate_manifest)
-        for path in ("bin/layerxd", "bin/layerx-genesis-build", "bin/layerx-archive-codec",
-                     "tests/relay-archive-sign"):
-            require((build / path).is_file() and os.access(build / path, os.X_OK),
-                    f"required built executable {path} is absent; run make relay-archive-build")
-        relay = arguments.case == "relay-railway-assembly"
-        contract = (RelayRailwayContract if relay else Contract)(build, candidate)
-        contract.run()
-        expected = 8 if relay else 17
-        require(len(contract.cases) == expected, f"expected {expected} executed cases, ran {len(contract.cases)}")
-        result = {"status": "passed", "case": arguments.case, "revision": revision(),
-                  "candidate": candidate, "cases": contract.cases, "config_refusals": contract.refusals,
-                  "binaries": "built from this checkout; candidate archive bindings are recorded as declared"}
-        write_json(contract.work / "result.json", result)
-        print(f"RESULT passed case={arguments.case} cases={len(contract.cases)}", flush=True)
-        return 0
-    except Failure as error:
-        print("FAIL " + str(error), flush=True)
-        if contract is not None:
-            write_json(contract.work / "result.json", {"status": "failed", "case": arguments.case,
-                       "revision": revision(), "cases": contract.cases, "failure": str(error)})
-        return 1
-    finally:
-        if contract is not None:
-            contract.close()
-            print("Evidence: " + str(contract.work), flush=True)
 
 
 if __name__ == "__main__":

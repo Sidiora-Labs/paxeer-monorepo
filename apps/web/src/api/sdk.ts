@@ -13,13 +13,15 @@ export {
 } from "../../../../services/agent/sdk/typescript/src/exchange.ts";
 export {
   PERPS_PRECOMPILE,
+  perpsCall,
   perpsCancelOrderCall,
   perpsClosePositionCall,
   perpsDepositCall,
   perpsOpenPositionCall,
   perpsWithdrawCall,
-  type PerpsOpenPosition,
+  type PerpsWrite,
 } from "../../../../services/agent/sdk/typescript/src/perps.ts";
+export type { PerpsOpenPosition } from "../../../../services/agent/sdk/typescript/src/perps.ts";
 export {
   BRIDGE_EVENTS,
   LAYERX_BRIDGE_PRECOMPILE,

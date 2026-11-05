@@ -1,0 +1,489 @@
+[reconcile.r8-36]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-36.1]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckmissingsignature"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 40
+symbol = "ReceiptCheckMissingSignature"
+evidence = "Declaration moved from generated receipt_generated.go:20 into verify.go:40; the ReceiptCheckMissingSignature identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckMissingSignature ReceiptCheck = \"missing-signature\""
+
+[row.r8-36.2]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckprotocolversion"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 41
+symbol = "ReceiptCheckProtocolVersion"
+evidence = "Declaration moved from generated receipt_generated.go:21 into verify.go:41; the ReceiptCheckProtocolVersion identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckProtocolVersion ReceiptCheck = \"protocol-version\""
+
+[row.r8-36.3]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckresultcode"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 42
+symbol = "ReceiptCheckResultCode"
+evidence = "Declaration moved from generated receipt_generated.go:22 into verify.go:42; the ReceiptCheckResultCode identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckResultCode ReceiptCheck = \"result-code\""
+
+[row.r8-36.4]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckoperation"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 43
+symbol = "ReceiptCheckOperation"
+evidence = "Declaration moved from generated receipt_generated.go:23 into verify.go:43; the ReceiptCheckOperation identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckOperation ReceiptCheck = \"operation\""
+
+[row.r8-36.5]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckactivityid"
+verdict = "served"
+path = "sdk/platform/go/receipt_generated.go"
+line = 16
+symbol = "ReceiptCheckActivityID"
+evidence = "Declaration relocated to sdk/platform/go/receipt_generated.go:16; signature unchanged. Current declaration: ReceiptCheckActivityID ReceiptCheck = \"activity-id\""
+
+[row.r8-36.6]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckglobalsequence"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 44
+symbol = "ReceiptCheckGlobalSequence"
+evidence = "Declaration moved from generated receipt_generated.go:25 into verify.go:44; the ReceiptCheckGlobalSequence identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckGlobalSequence ReceiptCheck = \"global-sequence\""
+
+[row.r8-36.7]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckmoduleid"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 45
+symbol = "ReceiptCheckModuleID"
+evidence = "Declaration moved from generated receipt_generated.go:26 into verify.go:45; the ReceiptCheckModuleID identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckModuleID ReceiptCheck = \"module-id\""
+
+[row.r8-36.8]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckmoduleversion"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 46
+symbol = "ReceiptCheckModuleVersion"
+evidence = "Declaration moved from generated receipt_generated.go:27 into verify.go:46; the ReceiptCheckModuleVersion identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckModuleVersion ReceiptCheck = \"module-version\""
+
+[row.r8-36.9]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptchecktimestamp"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 47
+symbol = "ReceiptCheckTimestamp"
+evidence = "Declaration moved from generated receipt_generated.go:28 into verify.go:47; the ReceiptCheckTimestamp identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckTimestamp ReceiptCheck = \"timestamp\""
+
+[row.r8-36.10]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckbatchid"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 48
+symbol = "ReceiptCheckBatchID"
+evidence = "Declaration moved from generated receipt_generated.go:29 into verify.go:48; the ReceiptCheckBatchID identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckBatchID ReceiptCheck = \"batch-id\""
+
+[row.r8-36.11]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckasset"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 49
+symbol = "ReceiptCheckAsset"
+evidence = "Declaration moved from generated receipt_generated.go:30 into verify.go:49; the ReceiptCheckAsset identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckAsset ReceiptCheck = \"asset\""
+
+[row.r8-36.12]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckpreviousstateroot"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 50
+symbol = "ReceiptCheckPreviousStateRoot"
+evidence = "Declaration moved from generated receipt_generated.go:31 into verify.go:50; the ReceiptCheckPreviousStateRoot identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckPreviousStateRoot ReceiptCheck = \"previous-state-root\""
+
+[row.r8-36.13]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckresultingstateroot"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 51
+symbol = "ReceiptCheckResultingStateRoot"
+evidence = "Declaration moved from generated receipt_generated.go:32 into verify.go:51; the ReceiptCheckResultingStateRoot identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckResultingStateRoot ReceiptCheck = \"resulting-state-root\""
+
+[row.r8-36.14]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckdebitbalance"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 52
+symbol = "ReceiptCheckDebitBalance"
+evidence = "Declaration moved from generated receipt_generated.go:33 into verify.go:52; the ReceiptCheckDebitBalance identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckDebitBalance ReceiptCheck = \"debit-balance\""
+
+[row.r8-36.15]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckcreditbalance"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 53
+symbol = "ReceiptCheckCreditBalance"
+evidence = "Declaration moved from generated receipt_generated.go:34 into verify.go:53; the ReceiptCheckCreditBalance identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckCreditBalance ReceiptCheck = \"credit-balance\""
+
+[row.r8-36.16]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckprogramoutcome"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 54
+symbol = "ReceiptCheckProgramOutcome"
+evidence = "Declaration moved from generated receipt_generated.go:35 into verify.go:54; the ReceiptCheckProgramOutcome identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckProgramOutcome ReceiptCheck = \"program-outcome\""
+
+[row.r8-36.17]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptchecksequencersignature"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 55
+symbol = "ReceiptCheckSequencerSignature"
+evidence = "Declaration moved from generated receipt_generated.go:36 into verify.go:55; the ReceiptCheckSequencerSignature identifier, ReceiptCheck type and value are unchanged. Current declaration: ReceiptCheckSequencerSignature ReceiptCheck = \"sequencer-signature\""
+
+[row.r8-36.18]
+interface = "interface.8.go-sdkgo-requirednonzerochecks"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 58
+symbol = "RequiredNonzeroChecks"
+evidence = "Declaration relocated to sdk/platform/go/verify.go:58; signature unchanged. Current declaration: var RequiredNonzeroChecks = [...]ReceiptCheck{"
+
+[row.r8-36.19]
+interface = "interface.8.go-sdkgo-verificationerror"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 67
+symbol = "VerificationError"
+evidence = "The Check ReceiptCheck field and the VerificationError struct signature are unchanged. Current declaration at sdk/platform/go/verify.go:67: type VerificationError struct{ Check ReceiptCheck }"
+
+[row.r8-36.20]
+interface = "interface.8.go-sdkgo-verificationerror-error"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 69
+symbol = "Error"
+evidence = "The receiver, string result and Local verification failed. error message are unchanged. Current declaration at sdk/platform/go/verify.go:69: func (*VerificationError) Error() string { return \"Local verification failed.\" }"
+
+[row.r8-36.21]
+interface = "interface.8.go-sdkgo-verificationerror-unwrap"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 70
+symbol = "Unwrap"
+evidence = "The receiver and error result are unchanged; Unwrap still returns ErrVerification. Current declaration at sdk/platform/go/verify.go:70: func (*VerificationError) Unwrap() error { return ErrVerification }"
+
+[row.r8-36.22]
+interface = "interface.8.go-sdkgo-protocolreceiptfacts"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 90
+symbol = "ProtocolReceiptFacts"
+evidence = "The type-only registry signature is unchanged; fields remain ResultCode int32, Asset [32]byte, Amount Uint128 and FeeCharged Uint128. Current declaration at sdk/platform/go/verify.go:90: type ProtocolReceiptFacts struct {"
+
+[row.r8-36.23]
+interface = "interface.8.go-sdkgo-receipteffect"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 97
+symbol = "ReceiptEffect"
+evidence = "The type-only registry signature is unchanged; the current effect exposes ModuleID, Ordinal, EventType, Kind, Monetary, TransferSetRoot and Body. Current declaration at sdk/platform/go/verify.go:97: type ReceiptEffect struct {"
+
+[row.r8-36.24]
+interface = "interface.8.go-sdkgo-programreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 107
+symbol = "ProgramReceiptOutcome"
+evidence = "The type-only registry signature is unchanged; the current outcome includes MeteringScheduleVersion uint32 and AppliedLegsDigest [32]byte. Current declaration at sdk/platform/go/verify.go:107: type ProgramReceiptOutcome struct {"
+
+[row.r8-36.25]
+interface = "interface.8.go-sdkgo-protocolreceipt"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 134
+symbol = "ProtocolReceipt"
+evidence = "The type-only registry signature is unchanged; ProtocolReceipt retains kernel protocol fields and SequencerSignature [64]byte, alongside the separate sequencer receipt JSON verifier. Current declaration at sdk/platform/go/verify.go:134: type ProtocolReceipt struct {"
+
+[row.r8-36.26]
+interface = "interface.8.go-sdkgo-verifiedreceipt"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 166
+symbol = "VerifiedReceipt"
+evidence = "The type-only registry signature is unchanged; VerifiedReceipt contains Level, Receipt, CanonicalBytes, ReceiptDigest and Facts. Current declaration at sdk/platform/go/verify.go:166: type VerifiedReceipt struct {"
+
+[row.r8-36.27]
+interface = "interface.8.go-sdkgo-verifyreceiptoutcome"
+verdict = "retired"
+path = "sdk/platform/go/verify.go"
+line = 149
+symbol = "VerifyReceiptOutcome"
+evidence = "The exported VerifyReceiptOutcome(canonicalReceipt []byte, authorized AuthorizedBatch, selectedProtocol ...uint16) (VerifiedReceipt, error) is absent from verify.go. Repository-wide word search excluding spec and docs found no remaining references. Sequencer receipts are handled by VerifySequencerReceipt at verify.go:639."
+remaining_refs = 0
+remaining = []
+
+[row.r8-36.28]
+interface = "interface.8.go-sdkgo-verifyprogramlifecyclereceipt"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 194
+symbol = "VerifyProgramLifecycleReceipt"
+evidence = "Signature unchanged; the lifecycle verifier still takes canonical bytes, expectedActivity [32]byte and sequencer [32]byte, returning (VerifiedReceipt, error). Current declaration at sdk/platform/go/verify.go:194: func VerifyProgramLifecycleReceipt(canonical []byte, expectedActivity [32]byte, sequencer [32]byte) (VerifiedReceipt, error) {"
+
+[row.r8-36.29]
+interface = "interface.8.go-sdkgo-verifyreceipt"
+verdict = "retired"
+path = "sdk/platform/go/verify.go"
+line = 248
+symbol = "VerifyReceipt"
+evidence = "The package-level VerifyReceipt(canonicalReceipt []byte, authorized AuthorizedBatch, selectedProtocol ...uint16) (VerifiedReceipt, error) is absent from verify.go. Repository-wide word search excluding spec and docs found six other files: their references belong to ReceiptKeys.VerifyReceipt and MirrorVerifier.VerifyReceipt, whose receivers and signatures differ from the retired function. VerifySequencerReceipt at verify.go:639 handles sequencer receipts."
+remaining_refs = 6
+remaining = ["daemon/committed-fixture/vector_v3.go:117", "modules/sequencer/keeper/proof_sequencer_module_test.go:256", "modules/sequencer/keeper/receipt_keys.go:111", "modules/sequencer/keeper/receipt_keys_test.go:288", "rpc/sequencer_receipt_hosted_test.go:115", "sdk/platform/go/mirror.go:175"]
+
+[row.r8-36.30]
+interface = "interface.8.go-sdkgo-decodeprogramreceiptoutcome"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 395
+symbol = "DecodeProgramReceiptOutcome"
+evidence = "Signature unchanged; canonicalOutcome []byte and protocolVersion uint16 still return (ProgramReceiptOutcome, error). Current declaration at sdk/platform/go/verify.go:395: func DecodeProgramReceiptOutcome(canonicalOutcome []byte, protocolVersion uint16) (ProgramReceiptOutcome, error) {"
+
+[row.r8-36.31]
+interface = "interface.8.go-sdkgo-merkleproof"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 407
+symbol = "MerkleProof"
+evidence = "The type-only registry signature is unchanged; MerkleProof contains LeafIndex uint32, LeafCount uint32 and Siblings [][32]byte. Current declaration at sdk/platform/go/verify.go:407: type MerkleProof struct {"
+
+[row.r8-36.32]
+interface = "interface.8.go-sdkgo-verifymerkleinclusion"
+verdict = "served"
+path = "sdk/platform/go/verify.go"
+line = 413
+symbol = "VerifyMerkleInclusion"
+evidence = "Signature unchanged; canonicalLeaf []byte, proof MerkleProof and expectedRoot [32]byte still return error. Current declaration at sdk/platform/go/verify.go:413: func VerifyMerkleInclusion(canonicalLeaf []byte, proof MerkleProof, expectedRoot [32]byte) error {"
+
+[row.r8-36.33]
+interface = "interface.8.go-sdkjvm-internal-generatedcontract-9"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java"
+line = 9
+symbol = "GeneratedContract"
+evidence = "Class signature unchanged: final class GeneratedContract. The generated class still declares AGENT_OPERATIONS and HUMAN_ROUTES; its constructor remains private. Current declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:9: final class GeneratedContract {"
+
+[row.r8-36.34]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-bounds"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 11
+symbol = "BOUNDS"
+evidence = "BOUNDS remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:11. Current enum declaration line: TARGET_MISMATCH, SOURCE_MISMATCH, MALFORMED, BOUNDS, COMMITMENT,"
+
+[row.r8-36.35]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-commitment"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 11
+symbol = "COMMITMENT"
+evidence = "COMMITMENT remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:11. Current enum declaration line: TARGET_MISMATCH, SOURCE_MISMATCH, MALFORMED, BOUNDS, COMMITMENT,"
+
+[row.r8-36.36]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-malformed"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 11
+symbol = "MALFORMED"
+evidence = "MALFORMED remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:11. Current enum declaration line: TARGET_MISMATCH, SOURCE_MISMATCH, MALFORMED, BOUNDS, COMMITMENT,"
+
+[row.r8-36.37]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-source-mismatch"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 11
+symbol = "SOURCE_MISMATCH"
+evidence = "SOURCE_MISMATCH remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:11. Current enum declaration line: TARGET_MISMATCH, SOURCE_MISMATCH, MALFORMED, BOUNDS, COMMITMENT,"
+
+[row.r8-36.38]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-target-mismatch"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 11
+symbol = "TARGET_MISMATCH"
+evidence = "TARGET_MISMATCH remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:11. Current enum declaration line: TARGET_MISMATCH, SOURCE_MISMATCH, MALFORMED, BOUNDS, COMMITMENT,"
+
+[row.r8-36.39]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-authorization"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 12
+symbol = "AUTHORIZATION"
+evidence = "AUTHORIZATION remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:12. Current enum declaration line: AUTHORIZATION, PROOF, CHECKPOINT_UNAVAILABLE, DIVERGENT,"
+
+[row.r8-36.40]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-checkpoint-unavailable"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 12
+symbol = "CHECKPOINT_UNAVAILABLE"
+evidence = "CHECKPOINT_UNAVAILABLE remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:12. Current enum declaration line: AUTHORIZATION, PROOF, CHECKPOINT_UNAVAILABLE, DIVERGENT,"
+
+[row.r8-36.41]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-divergent"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 12
+symbol = "DIVERGENT"
+evidence = "DIVERGENT remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:12. Current enum declaration line: AUTHORIZATION, PROOF, CHECKPOINT_UNAVAILABLE, DIVERGENT,"
+
+[row.r8-36.42]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-proof"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 12
+symbol = "PROOF"
+evidence = "PROOF remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:12. Current enum declaration line: AUTHORIZATION, PROOF, CHECKPOINT_UNAVAILABLE, DIVERGENT,"
+
+[row.r8-36.43]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-insufficient-agreement"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 13
+symbol = "INSUFFICIENT_AGREEMENT"
+evidence = "INSUFFICIENT_AGREEMENT remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:13. Current enum declaration line: INSUFFICIENT_AGREEMENT, REORGED }"
+
+[row.r8-36.44]
+interface = "interface.8.go-sdkjvm-generatedmirror-error-reorged"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java"
+line = 13
+symbol = "REORGED"
+evidence = "REORGED remains an Error enum member at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java:13. Current enum declaration line: INSUFFICIENT_AGREEMENT, REORGED }"
+
+[row.r8-36.45]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-faucetgrant"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 277
+symbol = "FaucetGrant"
+evidence = "GeneratedSchema.java no longer declares or references the Java FaucetGrant record with funded, funding_id, transaction_id, amount and network fields. Repository-wide word search excluding spec and docs found two other files, declaring and consuming the separate Rust rpc::FaucetGrant type; no relocated Java record was found."
+remaining_refs = 2
+remaining = ["services/agent/crates/layerx-mcp/src/tools/faucet.rs:137", "services/agent/crates/layerx-sdk/src/rpc.rs:266"]
+
+[row.r8-36.46]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-mcpexternalsignaturev1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 384
+symbol = "McpExternalSignatureV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 370 to line 384. Current declaration: public record McpExternalSignatureV1(JsonNode variant, JsonNode preparation_ref, JsonNode signature) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.47]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-mcpnativewritev1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 397
+symbol = "McpNativeWriteV1"
+evidence = "Signature changed: preparation was JsonNode and is now AgentModels.NativePrepareResultV1; variant, intent, canonical_bytes, signature and signer_public_key remain JsonNode. Current declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:397: public record McpNativeWriteV1(JsonNode variant, JsonNode intent, AgentModels.NativePrepareResultV1 preparation, JsonNode canonical_bytes, JsonNode signature, JsonNode signer_public_key) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.48]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeactivityv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 407
+symbol = "NativeActivityV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 393 to line 407. Current declaration: public record NativeActivityV1(String version, String module, String ordinal) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.49]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeapprovaldecisionv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 414
+symbol = "NativeApprovalDecisionV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 400 to line 414. Current declaration: public record NativeApprovalDecisionV1(String variant, String approval_id, String held_digest, String current_sequence) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.50]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeapprovalgetv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 422
+symbol = "NativeApprovalGetV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 408 to line 422. Current declaration: public record NativeApprovalGetV1(String variant, String approval_id) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.51]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeapprovallistresultv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 428
+symbol = "NativeApprovalListResultV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 414 to line 428. Current declaration: public record NativeApprovalListResultV1(String version, List<AgentModels.NativeApprovalResultV1> approvals) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.52]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeapprovallistv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 434
+symbol = "NativeApprovalListV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 420 to line 434. Current declaration: public record NativeApprovalListV1(String variant) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.53]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeapprovalresultv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 439
+symbol = "NativeApprovalResultV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 425 to line 439. Current declaration: public record NativeApprovalResultV1(String version, String approval_id, String held_digest, AgentModels.NativeActivityV1 activity, String state, String submission_ref) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.54]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativedisclosurerequestv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 448
+symbol = "NativeDisclosureRequestV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 434 to line 448. Current declaration: public record NativeDisclosureRequestV1(String variant, String canonical_bytes) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.55]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativedisclosureresultv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 454
+symbol = "NativeDisclosureResultV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 440 to line 454. Current declaration: public record NativeDisclosureResultV1(String version, String preparation_id, String canonical_bytes, String disclosure_digest, String activity_type, String actor, String authority, String asset, String fee_limit, String not_before, String not_after, String payload_expires_at, String idempotency_key) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.56]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeeffectpreparerequestv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 471
+symbol = "NativeEffectPrepareRequestV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 457 to line 471. Current declaration: public record NativeEffectPrepareRequestV1(String variant, AgentModels.NativeActivityV1 activity, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id, AgentModels.SignedNativePreparationPurposeV1 purpose, AgentModels.NativeLocalGrantConsentV1 local_grant) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.57]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativelocalgrantconsentv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 488
+symbol = "NativeLocalGrantConsentV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 474 to line 488. Current declaration: public record NativeLocalGrantConsentV1(String version, String capability, String session_scope, String expires_at_ms, String owner_public_key, String signature) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.58]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativepreparationpurposev1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 498
+symbol = "NativePreparationPurposeV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 484 to line 498. Current declaration: public record NativePreparationPurposeV1(String version, String tenant, String agent_did, String session_id, String generation, String expires_at_ms, String capability_id, String preparation_id, String canonical_digest, String commitment) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.59]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativepreparerequestv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 512
+symbol = "NativePrepareRequestV1"
+evidence = "Signature unchanged from the registered Java record; declaration moved from line 498 to line 512. Current declaration: public record NativePrepareRequestV1(String variant, AgentModels.NativeActivityV1 activity, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id, AgentModels.SignedNativePreparationPurposeV1 purpose, AgentModels.NativeLocalGrantConsentV1 local_grant) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-36.60]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeprepareresultv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 529
+symbol = "NativePrepareResultV1"
+evidence = "Signature changed from version, preparation_id, canonical_bytes, signing_preimage, activity, approval_required and approval_id to unsigned transaction fields: BigInteger chainId, BigInteger nonce, BigInteger gas, String to and String data; still implements SchemaTypes.GeneratedResponse. Current declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:529: public record NativePrepareResultV1(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse {"

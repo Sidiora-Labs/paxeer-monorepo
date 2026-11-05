@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full layerx-platform-identity qualification: every test target, then strict
 # clippy over all targets. Counts are summed over every test binary.
-# paxeer-x-services: identity
+# paxeer-x-services: platform-identity
 set -uo pipefail
 if (($#)); then
     echo "usage: $0 (no arguments)" >&2

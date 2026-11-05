@@ -1,15 +1,76 @@
 use layerx_client::budget::{
     budget_state_key, ProtocolBudgetRecord, ReconcileError, BUDGET_MODULE_ID,
 };
-use layerx_client::grants::{grant_state_key, CommittedGrant, GRANT_MODULE_ID};
 use serde_json::Value;
+use std::os::unix::fs::DirBuilderExt;
+use std::path::Path;
+use std::process::Command;
+use std::sync::OnceLock;
 
 fn vectors() -> Value {
-    let path =
-        std::env::var("LAYERX_CAPS_VECTORS").expect("native vector producer output required");
-    serde_json::from_slice(&std::fs::read(path).expect("native vectors readable"))
-        .expect("native JSON")
+    static VECTORS: OnceLock<Value> = OnceLock::new();
+    VECTORS
+        .get_or_init(|| {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../..")
+                .canonicalize()
+                .expect("repository root");
+            let directory =
+                std::env::temp_dir().join(format!("layerx-caps-vectors-{}", std::process::id()));
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&directory)
+                .expect("private native producer directory");
+            let executable = directory.join("lxp_wallet_caps_vectors");
+            let compiled = Command::new("cc")
+                .current_dir(&root)
+                .args([
+                    "-std=c17",
+                    "-pedantic",
+                    "-Werror",
+                    "-Wall",
+                    "-Wextra",
+                    "-Wconversion",
+                    "-Wshadow",
+                    "-Wvla",
+                    "-fno-strict-aliasing",
+                    "-ffp-contract=off",
+                    "-O2",
+                    "-ffunction-sections",
+                    "-fdata-sections",
+                    "-Iinclude",
+                    "tests/qualification/lxp_wallet_caps_vectors.c",
+                    "src/modules/budget/lx_budget_codec.c",
+                    "src/modules/budget/lx_budget_create.c",
+                    "src/protocol/lxp_u128.c",
+                    "src/crypto/lxp_ct.c",
+                    "-Wl,--gc-sections",
+                    "-o",
+                ])
+                .arg(&executable)
+                .output()
+                .expect("compile native vector producer");
+            assert!(
+                compiled.status.success(),
+                "native vector producer compile failed: {}",
+                String::from_utf8_lossy(&compiled.stderr)
+            );
+            let produced = Command::new(&executable)
+                .output()
+                .expect("run native vector producer");
+            assert!(
+                produced.status.success(),
+                "native vector producer failed: {}",
+                String::from_utf8_lossy(&produced.stderr)
+            );
+            let vectors = serde_json::from_slice(&produced.stdout).expect("native JSON");
+            std::fs::remove_file(executable).expect("remove native vector producer");
+            std::fs::remove_dir(directory).expect("remove native producer directory");
+            vectors
+        })
+        .clone()
 }
+
 fn bytes(v: &Value, name: &str) -> Vec<u8> {
     let s = v[name].as_str().expect("native field");
     assert_eq!(s.len() % 2, 0);
@@ -130,104 +191,4 @@ fn budget_refuses_malformed_and_arithmetic_bounds() {
         ProtocolBudgetRecord::decode(b"bad"),
         Err(ReconcileError::ProtocolStateSchemaUnavailable)
     );
-}
-
-#[test]
-fn native_grant_signatures_and_every_committed_field() {
-    let v = vectors();
-    assert_eq!(GRANT_MODULE_ID, 1);
-    for name in ["grant_once", "grant_recurring", "grant_extreme"] {
-        let b = bytes(&v, name);
-        let key = bytes(&v, &format!("{name}_key"));
-        let r = CommittedGrant::decode(&key, &b).expect("real native signed grant and grant_save");
-        assert_eq!(key, grant_state_key(r.grant.id));
-        assert_eq!(
-            (
-                r.grant.from,
-                r.grant.recipient,
-                r.grant.asset,
-                r.grant.purpose_hash,
-                r.grant.reference_hash
-            ),
-            ([2; 32], [3; 32], [4; 32], [5; 32], [6; 32])
-        );
-        assert!(r.grant.has_reference);
-        assert_eq!(r.grant.recurring, name != "grant_once");
-        assert_eq!(
-            r.grant.window_length,
-            if name == "grant_once" { 0 } else { u64::MAX }
-        );
-        assert_eq!(
-            (r.grant.expiration, r.grant.revocation_sequence),
-            (u64::MAX, u64::MAX)
-        );
-        if name == "grant_extreme" {
-            assert_eq!(
-                (
-                    r.grant.per_draw_maximum,
-                    r.grant.allowance,
-                    r.drawn_total,
-                    r.drawn_this_period
-                ),
-                (u128::MAX, u128::MAX, u128::MAX, u128::MAX)
-            );
-            assert_eq!(
-                (r.window_start, r.revoked_at_sequence),
-                (u64::MAX, u64::MAX)
-            );
-            assert!(r.revoked && r.invoice_settled);
-        } else {
-            assert_eq!(
-                (
-                    r.grant.per_draw_maximum,
-                    r.grant.allowance,
-                    r.drawn_total,
-                    r.drawn_this_period
-                ),
-                (10, 100, 7, 7)
-            );
-            assert_eq!((r.window_start, r.revoked_at_sequence), (9, 11));
-            assert!(!r.revoked && !r.invoice_settled);
-        }
-    }
-}
-
-#[test]
-fn grant_refuses_key_signature_identity_lengths_and_booleans() {
-    let v = vectors();
-    let b = bytes(&v, "grant_once");
-    let key = bytes(&v, "grant_once_key");
-    for length in 0..b.len() {
-        assert!(CommittedGrant::decode(&key, &b[..length]).is_err());
-    }
-    let mut x = b.clone();
-    x.push(0);
-    assert!(CommittedGrant::decode(&key, &x).is_err());
-    for offset in [
-        0, 32, 64, 96, 128, 144, 160, 161, 169, 177, 209, 210, 242, 250, 282, 345,
-    ] {
-        let mut x = b.clone();
-        x[offset] ^= 1;
-        assert!(
-            CommittedGrant::decode(&key, &x).is_err(),
-            "signed offset {offset}"
-        );
-    }
-    for offset in [160, 209, 394, 395] {
-        let mut x = b.clone();
-        x[offset] = 2;
-        assert!(CommittedGrant::decode(&key, &x).is_err());
-    }
-    for length in 0..key.len() {
-        assert!(CommittedGrant::decode(&key[..length], &b).is_err());
-    }
-    let mut k = key.clone();
-    k[6] ^= 1;
-    assert!(CommittedGrant::decode(&k, &b).is_err());
-    let mut k = key.clone();
-    k[0] ^= 1;
-    assert!(CommittedGrant::decode(&k, &b).is_err());
-    let mut k = key;
-    k.push(0);
-    assert!(CommittedGrant::decode(&k, &b).is_err());
 }

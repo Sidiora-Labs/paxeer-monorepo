@@ -5,12 +5,38 @@
 //! we need convert functions for CompilerInput and CompilerOutput.
 
 use super::solc_compiler::SolcInput;
-use foundry_compilers::{
-    artifacts::solc,
-    error::{SolcError, SolcIoError},
+use foundry_compilers::{artifacts::solc, error::SolcError};
+use std::{
+    collections::BTreeMap,
+    path::{Component, Path},
 };
-use std::{collections::BTreeMap, path::Path, process::Stdio};
 use tokio::process::Command;
+
+pub(crate) fn validate_source_name(name: &Path) -> Result<(), SolcError> {
+    let text = name.as_os_str().to_string_lossy();
+    let bytes = text.as_bytes();
+    let windows_prefix = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+    if text.is_empty()
+        || text.contains('\0')
+        || name.has_root()
+        || text.starts_with('\\')
+        || windows_prefix
+        || text.split(['/', '\\']).any(|part| part == "..")
+        || name.components().any(|component| {
+            matches!(
+                component,
+                Component::Prefix(_) | Component::RootDir | Component::ParentDir
+            )
+        })
+        || !matches!(name.components().next_back(), Some(Component::Normal(_)))
+    {
+        return Err(SolcError::Message(format!(
+            "invalid source name {}: expected a relative file path without root, prefix or parent components",
+            name.display()
+        )));
+    }
+    Ok(())
+}
 
 pub async fn compile_using_cli(
     compiler_path: &Path,
@@ -19,23 +45,43 @@ pub async fn compile_using_cli(
     let input = &input.0;
     let input_args = types::InputArgs::from(input);
     let input_files = types::InputFiles::try_from_compiler_input(input).await?;
-    let output = Command::new(compiler_path)
-        .args(input_args.build())
-        .args(input_files.build()?)
-        .stderr(Stdio::piped())
-        .stdout(Stdio::piped())
-        .output()
+    let mut command = Command::new(compiler_path);
+    command.args(input_args.build()).args(input_files.build()?);
+    let output = super::compiler_process::run_command(command, None)
         .await
-        .map_err(|err| SolcError::Io(SolcIoError::new(err, compiler_path)))?;
+        .map_err(|error| SolcError::Message(error.to_string()))?;
 
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let compiler_output = if output.stderr.is_empty() {
-        let output_json: types::OutputJson = serde_json::from_slice(output.stdout.as_slice())?;
-        solc::CompilerOutput::try_from(types::ConvertibleOutput {
+    let compiler_output = if output.status.success() && !output.stdout.is_empty() {
+        let output_json: serde_json::Value = serde_json::from_slice(output.stdout.as_slice())?;
+        if output_json.get("contracts").is_none() {
+            return Ok(solc::CompilerOutput {
+                errors: vec![compiler_error(format!(
+                    "Compiler produced no contracts: {stderr}"
+                ))],
+                sources: BTreeMap::new(),
+                contracts: BTreeMap::new(),
+            });
+        }
+        let output_json: types::OutputJson = serde_json::from_value(output_json)?;
+        if output_json.contracts.is_empty() {
+            return Ok(solc::CompilerOutput {
+                errors: vec![compiler_error(stderr)],
+                sources: BTreeMap::new(),
+                contracts: BTreeMap::new(),
+            });
+        }
+        let mut compiler_output = solc::CompilerOutput::try_from(types::ConvertibleOutput {
             output_json,
             parent_dir: input_files.files_dir.path(),
             file_names: input_files.file_names,
-        })?
+        })?;
+        if !stderr.is_empty() {
+            let mut warning = compiler_error(stderr);
+            warning.severity = solc::Severity::Warning;
+            compiler_output.errors.push(warning);
+        }
+        compiler_output
     } else {
         solc::CompilerOutput {
             errors: vec![compiler_error(stderr)],
@@ -60,12 +106,12 @@ fn compiler_error(message: String) -> solc::error::Error {
 }
 
 mod types {
-    use super::serde_helpers;
+    use super::{serde_helpers, validate_source_name};
     use foundry_compilers::{artifacts::solc, error::SolcError};
     use serde::{Deserialize, Serialize};
     use std::{
         collections::{BTreeMap, HashMap},
-        path::{Component, Path, PathBuf},
+        path::{Path, PathBuf},
     };
     use tempfile::TempDir;
     use tokio::io::AsyncWriteExt;
@@ -133,29 +179,40 @@ mod types {
     impl InputFiles {
         pub async fn try_from_compiler_input(input: &solc::SolcInput) -> Result<Self, SolcError> {
             if !input.sources.is_empty() {
+                for name in input.sources.0.keys() {
+                    validate_source_name(name)?;
+                }
                 let files_dir =
                     tempfile::tempdir().map_err(|e| SolcError::Message(e.to_string()))?;
                 let mut file_names = Vec::new();
                 for (name, source) in input.sources.iter() {
                     let file_path = files_dir.path().join(name);
 
-                    // we don't allow any parent dir components,
-                    // as otherwise user may create something outside temporary files_dir
-                    if Self::contains_parent_dir(&file_path) {
-                        return Err(SolcError::Message(format!(
-                            "{} contains parent dir component",
-                            file_path.to_string_lossy()
-                        )));
+                    if let Some(parent) = name.parent() {
+                        let mut directory = files_dir.path().to_path_buf();
+                        for component in parent.components() {
+                            directory.push(component);
+                            match tokio::fs::create_dir(&directory).await {
+                                Ok(()) => {}
+                                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                                    let metadata = tokio::fs::symlink_metadata(&directory)
+                                        .await
+                                        .map_err(|e| SolcError::Message(e.to_string()))?;
+                                    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                                        return Err(SolcError::Message(format!(
+                                            "source directory is not a real directory: {}",
+                                            directory.display()
+                                        )));
+                                    }
+                                }
+                                Err(error) => return Err(SolcError::Message(error.to_string())),
+                            }
+                        }
                     }
-
-                    // name itself may contain some paths inside
-                    let prefix = file_path.parent();
-                    if let Some(prefix) = prefix {
-                        tokio::fs::create_dir_all(prefix)
-                            .await
-                            .map_err(|e| SolcError::Message(e.to_string()))?;
-                    }
-                    let mut file = tokio::fs::File::create(&file_path)
+                    let mut file = tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(&file_path)
                         .await
                         .map_err(|e| SolcError::Message(e.to_string()))?;
                     file_names.push(file_path);
@@ -181,11 +238,6 @@ mod types {
                 .ok_or_else(|| {
                     SolcError::Message("temp dir with contracts doesn't exist".to_string())
                 })
-        }
-
-        fn contains_parent_dir(path: &Path) -> bool {
-            path.components()
-                .any(|comp| matches!(comp, Component::ParentDir))
         }
     }
 
@@ -581,6 +633,24 @@ mod tests {
             let expected_names = HashSet::from_iter(["A".into()]);
             assert_eq!(names, expected_names);
 
+            let input = SolcInput(solc::SolcInput {
+                language: solc::SolcLanguage::Solidity,
+                sources: solc::Sources(BTreeMap::from_iter([source(
+                    "main.sol",
+                    "contract A { function get_a() public returns (uint256) { return 1; } }",
+                )])),
+                settings: solc::Settings::default(),
+            });
+            let output = compile_using_cli(&solc, &input)
+                .await
+                .expect("should compile contracts with warnings");
+            assert!(!output.has_error(), "{:?}", output.errors);
+            assert!(output.errors.iter().any(|error| {
+                error.severity == solc::Severity::Warning
+                    && error.message.contains("compiler version")
+            }));
+            assert!(output.contracts[Path::new("main.sol")].contains_key("A"));
+
             for sources in [
                 BTreeMap::from_iter([source("main.sol", "")]),
                 BTreeMap::from_iter([source("main.sol", "some string")]),
@@ -594,6 +664,7 @@ mod tests {
                     .await
                     .expect("shouldn't return Err, but Ok with errors field");
                 assert!(output.has_error());
+                assert!(output.contracts.is_empty());
             }
 
             let input = SolcInput(solc::SolcInput {

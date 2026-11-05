@@ -87,6 +87,14 @@ func LoadMultiTree(ctx context.Context, dir string, opts Options) (*MultiTree, e
 	}
 
 	treeMap := make(map[string]*Tree, len(entries))
+	loaded := false
+	defer func() {
+		if !loaded {
+			for _, tree := range treeMap {
+				_ = tree.Close()
+			}
+		}
+	}()
 	treeNames := make([]string, 0, len(entries))
 	for _, e := range entries {
 		// Check for cancellation
@@ -131,6 +139,7 @@ func LoadMultiTree(ctx context.Context, dir string, opts Options) (*MultiTree, e
 	}
 	// initial version is necessary for rlog index conversion
 	mtree.setInitialVersion(metadata.InitialVersion)
+	loaded = true
 	return mtree, nil
 }
 
@@ -232,53 +241,71 @@ func (t *MultiTree) ApplyUpgrades(upgrades []*proto.TreeNameUpgrade) error {
 		return nil
 	}
 
-	t.treesByName = nil // rebuild in the end
-
+	staged := make(map[string]*Tree, len(t.trees))
+	for _, entry := range t.trees {
+		staged[entry.Name] = entry.Tree
+	}
 	for _, upgrade := range upgrades {
+		if upgrade == nil {
+			return fmt.Errorf("nil tree name upgrade")
+		}
 		switch {
 		case upgrade.Delete:
-			i := slices.IndexFunc(t.trees, func(entry NamedTree) bool {
-				return entry.Name == upgrade.Name
-			})
-			if i < 0 {
-				return fmt.Errorf("unknown tree name %s", upgrade.Name)
-			}
-			// swap deletion
-			t.trees[i], t.trees[len(t.trees)-1] = t.trees[len(t.trees)-1], t.trees[i]
-			t.trees = t.trees[:len(t.trees)-1]
+			delete(staged, upgrade.Name)
 		case upgrade.RenameFrom != "":
-			// rename tree
-			i := slices.IndexFunc(t.trees, func(entry NamedTree) bool {
-				return entry.Name == upgrade.RenameFrom
-			})
-			if i < 0 {
+			tree, found := staged[upgrade.RenameFrom]
+			if !found {
+				if _, satisfied := staged[upgrade.Name]; satisfied {
+					continue
+				}
 				return fmt.Errorf("unknown tree name %s", upgrade.RenameFrom)
 			}
-			t.trees[i].Name = upgrade.Name
+			if upgrade.RenameFrom == upgrade.Name {
+				continue
+			}
+			if _, exists := staged[upgrade.Name]; exists {
+				return fmt.Errorf("memiavl tree name conflicts: %s", upgrade.Name)
+			}
+			delete(staged, upgrade.RenameFrom)
+			staged[upgrade.Name] = tree
 		default:
-			// add tree
+			if _, satisfied := staged[upgrade.Name]; satisfied {
+				continue
+			}
 			v := utils.NextVersion(t.Version(), t.initialVersion.Load())
 			if v < 0 || v > math.MaxUint32 {
 				return fmt.Errorf("version overflows uint32: %d", v)
 			}
-			version := uint32(v)
-			tree := NewWithInitialVersion(version)
-			t.trees = append(t.trees, NamedTree{Tree: tree, Name: upgrade.Name})
+			staged[upgrade.Name] = NewWithInitialVersion(uint32(v))
 		}
 	}
 
-	sort.SliceStable(t.trees, func(i, j int) bool {
-		return t.trees[i].Name < t.trees[j].Name
+	trees := make([]NamedTree, 0, len(staged))
+	for name, tree := range staged {
+		trees = append(trees, NamedTree{Tree: tree, Name: name})
+	}
+	sort.SliceStable(trees, func(i, j int) bool {
+		return trees[i].Name < trees[j].Name
 	})
-	t.treesByName = make(map[string]int, len(t.trees))
-	for i, tree := range t.trees {
-		if _, ok := t.treesByName[tree.Name]; ok {
-			return fmt.Errorf("memiavl tree name conflicts: %s", tree.Name)
+	treesByName := make(map[string]int, len(trees))
+	for i, tree := range trees {
+		treesByName[tree.Name] = i
+	}
+	retained := make(map[*Tree]bool, len(trees))
+	for _, tree := range trees {
+		retained[tree.Tree] = true
+	}
+	previous := t.trees
+	t.trees, t.treesByName = trees, treesByName
+	var errs []error
+	for _, tree := range previous {
+		if !retained[tree.Tree] {
+			tree.WaitToCompleteAsyncWrite()
+			errs = append(errs, tree.Close())
 		}
-		t.treesByName[tree.Name] = i
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // ApplyChangeSet applies change set for a single tree.
@@ -294,6 +321,14 @@ func (t *MultiTree) ApplyChangeSet(name string, changeSet proto.ChangeSet) error
 
 // ApplyChangeSets applies change sets for multiple trees.
 func (t *MultiTree) ApplyChangeSets(changeSets []*proto.NamedChangeSet) error {
+	for _, cs := range changeSets {
+		if cs == nil {
+			return fmt.Errorf("nil named changeset")
+		}
+		if t.TreeByName(cs.Name) == nil {
+			return fmt.Errorf("unknown tree name %s", cs.Name)
+		}
+	}
 	for _, cs := range changeSets {
 		if err := t.ApplyChangeSet(cs.Name, cs.Changeset); err != nil {
 			return err
@@ -375,8 +410,8 @@ func (t *MultiTree) Catchup(ctx context.Context, stream wal.ChangelogWAL, delta 
 	currentVersion := t.Version()
 
 	// Calculate start index: walIndex = version - delta
-	// We want to start from currentVersion + 1
-	startIndexSigned := currentVersion + 1 - delta
+	// Start from the next version, including the initial-height boundary.
+	startIndexSigned := utils.NextVersion(currentVersion, t.initialVersion.Load()) - delta
 
 	// Ensure startIndex is within valid range (handle negative case before uint64 conversion)
 	var startIndex uint64
@@ -388,6 +423,25 @@ func (t *MultiTree) Catchup(ctx context.Context, stream wal.ChangelogWAL, delta 
 	if startIndex > lastIndex {
 		// Nothing to replay - tree is already caught up
 		return nil
+	}
+
+	// Validate continuity before publishing any part of this catchup.
+	validatedVersion := currentVersion
+	if err := stream.Replay(startIndex, lastIndex, func(index uint64, entry proto.ChangelogEntry) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if entry.Version <= validatedVersion || (endVersion != 0 && entry.Version > endVersion) {
+			return nil
+		}
+		expected := utils.NextVersion(validatedVersion, t.initialVersion.Load())
+		if entry.Version != expected {
+			return fmt.Errorf("changelog version gap at WAL index %d: expected %d, got %d", index, expected, entry.Version)
+		}
+		validatedVersion = entry.Version
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	var replayCount = 0
@@ -407,6 +461,11 @@ func (t *MultiTree) Catchup(ctx context.Context, stream wal.ChangelogWAL, delta 
 		// If endVersion is specified, stop at that version
 		if endVersion != 0 && entry.Version > endVersion {
 			return nil
+		}
+
+		expected := utils.NextVersion(t.Version(), t.initialVersion.Load())
+		if entry.Version != expected {
+			return fmt.Errorf("changelog version gap at WAL index %d: expected %d, got %d", index, expected, entry.Version)
 		}
 
 		if err := t.ApplyUpgrades(entry.Upgrades); err != nil {

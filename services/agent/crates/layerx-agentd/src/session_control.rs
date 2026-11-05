@@ -1,5 +1,9 @@
 //! Shared ordering authority for session-gated daemon effects.
 
+mod mcp_history;
+pub(crate) use mcp_history::McpInvocationIndex;
+pub use mcp_history::{McpHistoryStats, MCP_RETAINED_TERMINAL_LIMIT};
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -684,7 +688,14 @@ impl SessionControl {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        match managed_agent::rotation::prepare(&store, &registry, tenant, agent_id, request)? {
+        let prepared =
+            managed_agent::rotation::prepare(&store, &registry, tenant, agent_id, request)
+                .map_err(|refusal| match refusal {
+                    managed_agent::rotation::OwnerRotation::Unsupported => {
+                        HumanOperationError::Refused
+                    }
+                })?;
+        match prepared {
             managed_agent::rotation::Prepared::Replay(response) => Ok(response),
             managed_agent::rotation::Prepared::Commit {
                 event,
@@ -3838,13 +3849,8 @@ fn mcp_generation_readback(
     let live = registry
         .get(tenant, session)
         .ok_or(McpInvocationError::Corrupt)?;
-    let mut durable = SessionRegistry::default();
-    durable
-        .restore_tenant(store, tenant)
+    let restored = session::load_record(store, tenant, session)
         .map_err(|error| McpInvocationError::Control(SessionControlError::Session(error)))?;
-    let restored = durable
-        .get(tenant, session)
-        .ok_or(McpInvocationError::Corrupt)?;
     if live.generation != restored.generation
         || live.open != restored.open
         || restored.request.agent != permit.principal.agent
@@ -3930,28 +3936,22 @@ pub fn mcp_store_evidence_for_tool(
     idempotency_key: [u8; 32],
     tool_name: Option<&str>,
 ) -> Result<Option<serde_json::Value>, McpInvocationError> {
+    let keys = store.mcp_index.lookup(tenant, idempotency_key, tool_name);
+    if keys.len() > 1 {
+        return Err(McpInvocationError::Conflict);
+    }
     let mut found = None;
-    for id in store.list_object_ids(tenant, ObjectKind::Idempotency) {
-        if !id.starts_with(b"mcp-invocation-v1/") {
-            continue;
-        }
-        let key = TenantKey::new(tenant.clone(), ObjectKind::Idempotency, id)
-            .map_err(|_| McpInvocationError::Unavailable)?;
+    for key in keys {
         let value = store.get(&key).ok_or(McpInvocationError::Corrupt)?;
         if value.class() != crate::store::StorageClass::LocalOnly {
             return Err(McpInvocationError::Corrupt);
         }
         let record = McpInvocationRecord::decode(value.bytes())?;
-        if record.tenant != tenant.as_str() {
-            return Err(McpInvocationError::Corrupt);
-        }
-        if record.idempotency_key != idempotency_key
+        if record.tenant != tenant.as_str()
+            || record.idempotency_key != idempotency_key
             || tool_name.is_some_and(|tool| record.tool_name.as_deref() != Some(tool))
         {
-            continue;
-        }
-        if found.is_some() {
-            return Err(McpInvocationError::Conflict);
+            return Err(McpInvocationError::Corrupt);
         }
         found = Some(serde_json::to_value(record).map_err(|_| McpInvocationError::Unavailable)?);
     }
@@ -3998,27 +3998,19 @@ pub(crate) fn mcp_transition_updates(
     previous: &Store,
     current: &Store,
     transition: Option<(&str, u64)>,
+    candidates: &BTreeSet<TenantKey>,
 ) -> Result<Vec<(TenantKey, Vec<u8>)>, crate::store::StoreError> {
     use crate::store::{StorageClass, StoreError};
     let corrupt = || StoreError::Corrupt("invalid MCP generation transition");
     let mut updates = Vec::new();
-    for tenant in previous.tenant_ids_for_kind(ObjectKind::Idempotency) {
-        let ids: Vec<_> = current
-            .list_object_ids(&tenant, ObjectKind::Idempotency)
-            .into_iter()
-            .filter(|id| id.starts_with(b"mcp-invocation-v1/"))
-            .collect();
-        if ids.is_empty() {
-            continue;
-        }
-        let mut old_sessions = SessionRegistry::default();
-        let mut new_sessions = SessionRegistry::default();
-        old_sessions
-            .restore_tenant(previous, &tenant)
-            .map_err(|_| corrupt())?;
-        new_sessions
-            .restore_tenant(current, &tenant)
-            .map_err(|_| corrupt())?;
+    let mut by_tenant: BTreeMap<TenantId, Vec<TenantKey>> = BTreeMap::new();
+    for key in candidates {
+        by_tenant
+            .entry(key.tenant().clone())
+            .or_default()
+            .push(key.clone());
+    }
+    for (tenant, keys) in by_tenant {
         let counter_key = TenantKey::new(
             tenant.clone(),
             ObjectKind::Configuration,
@@ -4032,16 +4024,15 @@ pub(crate) fn mcp_transition_updates(
             None => return Err(corrupt()),
         };
         let first_order = order;
-        for id in ids {
-            let key = TenantKey::new(tenant.clone(), ObjectKind::Idempotency, id)?;
+        for key in keys {
             let stored = current.get(&key).ok_or_else(corrupt)?;
             if stored.class() != StorageClass::LocalOnly {
                 return Err(corrupt());
             }
             let mut record = McpInvocationRecord::decode(stored.bytes()).map_err(|_| corrupt())?;
             let session = SessionId(record.session);
-            let old = old_sessions.get(&tenant, session).ok_or_else(corrupt)?;
-            let new = new_sessions.get(&tenant, session).ok_or_else(corrupt)?;
+            let old = session::load_record(previous, &tenant, session).map_err(|_| corrupt())?;
+            let new = session::load_record(current, &tenant, session).map_err(|_| corrupt())?;
             if record.tenant != tenant.as_str()
                 || record.actor != old.request.agent.as_bytes()
                 || old.request.agent != new.request.agent

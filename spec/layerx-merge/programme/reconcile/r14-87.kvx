@@ -1,0 +1,175 @@
+[reconcile.r14-87]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 21
+
+[row.r14-87.1]
+interface = "interface.14.ts-bridge-components-bridge-bridge-card-bridgecard"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/bridge-card.tsx"
+line = 95
+symbol = "BridgeCard"
+evidence = "export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () => void }) remains the declaring signature; no parameter change from the registry, but the declaration moved from line 61 to 95. Submissions now pass through recordBridgeSubmission before notifying the page."
+
+[row.r14-87.2]
+interface = "interface.14.ts-bridge-components-bridge-transfer-actions-transferlive"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 31
+symbol = "TransferLive"
+evidence = "export type TransferLive = { now occurs at line 31 instead of 28. The registry records only the type name; the current shape declares confirmations and requiredConfirmations as number, and credited, released, attestationReady and sourceFailed as boolean."
+
+[row.r14-87.3]
+interface = "interface.14.ts-bridge-components-bridge-transfer-actions-readtransferlive"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 88
+symbol = "readTransferLive"
+evidence = "export async function readTransferLive(transfer: BridgeTransfer): Promise<TransferLive> retains the registered parameter and return types; the declaration moved from line 37 to 88. The implementation rejects unknown or mismatched bridge chains before reading live state."
+
+[row.r14-87.4]
+interface = "interface.14.ts-bridge-components-bridge-transfer-actions-buildverifiedclaim"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 155
+symbol = "buildVerifiedClaim"
+evidence = "export async function buildVerifiedClaim(transfer: BridgeTransfer, attestation: DepositAttestation): Promise<VerifiedClaim> is declared across lines 155-158 instead of line 84. Parameter and return types are unchanged; the implementation refuses non-deposits and attestations without ready status and signatures before assertClaimMatches."
+
+[row.r14-87.5]
+interface = "interface.14.ts-bridge-components-bridge-transfer-actions-buildverifiedrelease"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfer-actions.ts"
+line = 253
+symbol = "buildVerifiedRelease"
+evidence = "export async function buildVerifiedRelease(transfer: BridgeTransfer, attestation: ReleaseAttestation): Promise<VerifiedRelease> is declared across lines 253-256 instead of line 168. Parameter and return types are unchanged; non-withdrawals, unready attestations and routes lacking an EVM chain or vault are refused."
+
+[row.r14-87.6]
+interface = "interface.14.ts-bridge-components-bridge-transfers-panel-transferspanel"
+verdict = "served"
+path = "apps/bridge/src/components/bridge/transfers-panel.tsx"
+line = 286
+symbol = "TransfersPanel"
+evidence = "export function TransfersPanel({ refreshKey }: { refreshKey: number }) retains the registered props signature; the declaration moved from line 261 to 286. The component obtains transfers through transferListOptions and constructs live queries through transferLiveOptions."
+
+[row.r14-87.7]
+interface = "interface.14.ts-bridge-components-trading-deposit-status-transferstep"
+verdict = "served"
+path = "apps/bridge/src/components/trading/deposit-status.tsx"
+line = 21
+symbol = "TransferStep"
+evidence = "export type TransferStep = 'submitted' | 'confirming' | 'attesting' | 'ready' | 'credited' | 'failed'; remains at line 21. The signature adds the attesting and ready union members to the registry's submitted, confirming, credited and failed states."
+
+[row.r14-87.8]
+interface = "interface.14.ts-bridge-lib-bridge-amount-parseamount"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/amount.ts"
+line = 10
+symbol = "parseAmount"
+evidence = "export function parseAmount(input: string, decimals: number): bigint | undefined remains at line 10 with no signature change. The body validates integer decimals in the range 0-255, accepts correctly grouped thousands separators, and returns undefined for malformed input or excess precision."
+
+[row.r14-87.9]
+interface = "interface.14.ts-bridge-lib-bridge-attestation-api-fetchdepositattestation"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/attestation-api.ts"
+line = 146
+symbol = "fetchDepositAttestation"
+evidence = "export async function fetchDepositAttestation(args: { chainId: bigint; txHash: Hex; logIndex: bigint; }, base = bridgeConfig.attestationApiUrl): Promise<DepositAttestation | null> is declared at lines 146-150. The signature adds an optional base argument to the registered args-only function; results pass through parseDepositAttestation."
+
+[row.r14-87.10]
+interface = "interface.14.ts-bridge-lib-bridge-attestation-api-fetchreleaseattestation"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/attestation-api.ts"
+line = 196
+symbol = "fetchReleaseAttestation"
+evidence = "export async function fetchReleaseAttestation(args: { chainId: bigint; paxeerTxHash: Hex; paxeerNonce: bigint; }, base = bridgeConfig.attestationApiUrl): Promise<ReleaseAttestation | null> is declared at lines 196-200. The signature adds an optional base argument to the registered args-only function; results pass through parseReleaseAttestation."
+
+[row.r14-87.11]
+interface = "interface.14.ts-bridge-lib-bridge-chains-bridge-chains"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/chains.ts"
+line = 257
+symbol = "BRIDGE_CHAINS"
+evidence = "export const BRIDGE_CHAINS: BridgeChain[] = buildBridgeChains(bridgeConfig); now declares the registry at line 257 instead of 130. The exported name and BridgeChain[] type remain unchanged, while the registered array-literal initializer is replaced by a configuration-driven builder call."
+
+[row.r14-87.12]
+interface = "interface.14.ts-bridge-lib-bridge-config-bridgeconfig"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/config.ts"
+line = 71
+symbol = "bridgeConfig"
+evidence = "export const bridgeConfig = readConfig({ is declared at line 71 instead of 30. The registry's untyped const declaration prefix remains unchanged; its initializer now delegates to readConfig, which returns normalized RPC and explorer URLs, vault addresses and Solana configuration as const."
+
+[row.r14-87.13]
+interface = "interface.14.ts-bridge-lib-bridge-digests-verifythresholdsignatures"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/digests.ts"
+line = 123
+symbol = "verifyThresholdSignatures"
+evidence = "export async function verifyThresholdSignatures(args: { digest: Hex; signatures: readonly Hex[]; attestors: readonly Address[]; threshold: number; }): Promise<SignatureCheck> is declared at lines 123-128 instead of 122. The signature is unchanged; the implementation refuses unsafe, negative or zero thresholds and empty attestor sets."
+
+[row.r14-87.14]
+interface = "interface.14.ts-bridge-lib-bridge-errors-describewriteerror"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/errors.ts"
+line = 53
+symbol = "describeWriteError"
+evidence = "export function describeWriteError(error: unknown): string retains the registered signature; the declaration moved from line 34 to 53. It recognizes wallet rejection, vault custom errors, precompile reason codes and encoded revert data before returning generic failure text."
+
+[row.r14-87.15]
+interface = "interface.14.ts-bridge-lib-bridge-explorer-paxeeraddressurl"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/explorer.ts"
+line = 51
+symbol = "paxeerAddressUrl"
+evidence = "export function paxeerAddressUrl(address: Address, base = bridgeConfig.paxeerExplorerUrl): string | undefined now occurs at line 51 instead of 29. The signature adds an optional base argument to the registered address-only function and delegates URL validation to paxeerAddressUrlFrom."
+
+[row.r14-87.16]
+interface = "interface.14.ts-bridge-lib-bridge-transfers-listtransfers"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/transfers.ts"
+line = 112
+symbol = "listTransfers"
+evidence = "export function listTransfers(account?: Address): Array<BridgeTransfer> now occurs at line 112 instead of 69. The return annotation spells BridgeTransfer[] as the equivalent Array<BridgeTransfer>; the optional account parameter is unchanged and readAll filters stored records through isBridgeTransfer."
+
+[row.r14-87.17]
+interface = "interface.14.ts-bridge-lib-bridge-transfers-savetransfer"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/transfers.ts"
+line = 118
+symbol = "saveTransfer"
+evidence = "export function saveTransfer(transfer: BridgeTransfer): void retains the registered signature; the declaration moved from line 75 to 118. It replaces matching ids, sorts the account's transfers by submittedAt, caps that account at 50 records and preserves records belonging to other accounts."
+
+[row.r14-87.18]
+interface = "interface.14.ts-bridge-lib-bridge-transfers-deposittransferid"
+verdict = "retired"
+path = "apps/bridge/src/lib/bridge/transfers.ts"
+line = 84
+symbol = "depositTransferId"
+evidence = "depositTransferId is absent from the registered transfers.ts file. Repository-wide exact-identifier search excluding spec and docs found no remaining files mentioning it. transferIdOf(direction: TransferDirection, sourceTxHash: Hex): string at line 131 now supplies transaction-and-direction identities."
+remaining_refs = 0
+remaining = []
+
+[row.r14-87.19]
+interface = "interface.14.ts-bridge-lib-bridge-transfers-withdrawaltransferid"
+verdict = "retired"
+path = "apps/bridge/src/lib/bridge/transfers.ts"
+line = 88
+symbol = "withdrawalTransferId"
+evidence = "withdrawalTransferId is absent from the registered transfers.ts file. Repository-wide exact-identifier search excluding spec and docs found no remaining files mentioning it. transferIdOf(direction: TransferDirection, sourceTxHash: Hex): string at line 131 now supplies transaction-and-direction identities."
+remaining_refs = 0
+remaining = []
+
+[row.r14-87.20]
+interface = "interface.14.ts-bridge-lib-bridge-use-bridge-state-usedepositattestation"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/use-bridge-state.ts"
+line = 216
+symbol = "useDepositAttestation"
+evidence = "export function useDepositAttestation(transfer: BridgeTransfer | undefined, settled: boolean) retains the registered signature; the declaration moved from line 215 to 216. It polls only unsettled deposits with a logIndex and delegates the polling interval to attestationPollInterval."
+
+[row.r14-87.21]
+interface = "interface.14.ts-bridge-lib-bridge-use-bridge-state-usereleaseattestation"
+verdict = "served"
+path = "apps/bridge/src/lib/bridge/use-bridge-state.ts"
+line = 236
+symbol = "useReleaseAttestation"
+evidence = "export function useReleaseAttestation(transfer: BridgeTransfer | undefined, settled: boolean) retains the registered signature; the declaration moved from line 235 to 236. It polls only unsettled withdrawals with a bridgeOutNonce and delegates the polling interval to attestationPollInterval."

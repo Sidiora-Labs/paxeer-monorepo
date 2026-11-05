@@ -12,20 +12,17 @@ umask 077
 : "${LAYERX_TEST_DESTINATION_PUBLIC_KEY:?LAYERX_TEST_DESTINATION_PUBLIC_KEY is required}"
 : "${LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE:?LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE is required}"
 : "${LAYERX_TEST_SEQUENCER_PUBLIC_KEY:?An independent sequencer public key is required}"
-: "${LAYERX_TEST_SEND_ENCODER:?The built hosted-send example is required}"
 : "${LAYERX_TEST_ASSET:?LAYERX_TEST_ASSET is required}"
 : "${LAYERX_TEST_AMOUNT:?LAYERX_TEST_AMOUNT is required}"
-: "${LAYERX_TEST_SOURCE_KEY_FILE:?LAYERX_TEST_SOURCE_KEY_FILE is required}"
-: "${LAYERX_TEST_ESCROW_WASM:?The built reference escrow WASM is required}"
-: "${LAYERX_BIN:=layerx}"
+: "${LAYERX_TEST_ACCOUNTS_FILE:?The explicit DID/EVM smoke account bindings are required}"
+: "${LAYERX_TEST_SOURCE_EVM_KEY_FILE:?LAYERX_TEST_SOURCE_EVM_KEY_FILE is required}"
+: "${LAYERX_TEST_NODE_URL:?The HTTPS root node RPC endpoint is required}"
+: "${LAYERX_TEST_RECEIPT_KEYS_FILE:?Independent node receipt keys are required}"
 test -r "$LAYERX_TEST_AUTH_TOKEN_FILE"
 test -r "$LAYERX_TEST_CA_FILE"
-test -f "$LAYERX_TEST_ESCROW_WASM"
-test ! -L "$LAYERX_TEST_ESCROW_WASM"
-test -s "$LAYERX_TEST_ESCROW_WASM"
 command -v jq >/dev/null
 command -v openssl >/dev/null
-command -v "$LAYERX_BIN" >/dev/null
+test -r "$LAYERX_TEST_RECEIPT_KEYS_FILE"
 work=$(mktemp -d "${TMPDIR:-/tmp}/layerx-hosted-smoke.XXXXXX")
 cleanup() {
   printf '%s\n' "retained hosted smoke evidence at $work"
@@ -72,9 +69,9 @@ if test "$(cat "$work/testnet-readyz.status")" != 200 \
   exit 1
 fi
 jq -e '.service == "layerx-hosted-testnet" and .release.state == "ready"
-  and ([.dependencies[].name] | sort) == ["core","core_admin","faucet","gateway","identity","paxeer","receipt_authority","redis","registry"]
+  and ([.dependencies[].name] | sort) == ["core","core_admin","faucet","gateway","identity","paxeer","receipt_authority","redis"]
   and all(.dependencies[]; .ready == true)
-  and ([.journeys[].journey] | sort) == ["funding","payment","programs","receipt_inspection"]
+  and ([.journeys[].journey] | sort) == ["funding","payment","receipt_inspection"]
   and all(.journeys[]; .ready == true and (.failing | length) == 0)' \
   "$work/testnet-readyz.json" >/dev/null
 jq -r '.dependencies[] | "edge testnet-control -> \(.name): \(.detail)"' "$work/testnet-readyz.json"
@@ -102,7 +99,7 @@ printf '%s\n' "edge faucet -> redis: ready"
 
 fetch_document parameters "$LAYERX_TESTNET_URL/v1/parameters"
 test "$(cat "$work/parameters.status")" = 200
-jq -e '.network == "layerx-testnet" and (.network_id | type) == "number"
+jq -e '.network == "layerx-testnet" and (.network_id | type) == "number" and .evm_chain_id == 125
   and (.package_semver | type) == "string" and (.lxp_wire_protocol_version | type) == "number"' \
   "$work/parameters.json" >/dev/null
 jq -e --slurpfile ready "$work/testnet-readyz.json" \
@@ -137,80 +134,26 @@ jq -e '.funded == true and .funding_id != null' "$work/destination-faucet-respon
 
 admit_journey payment
 python3 "$(dirname "$0")/payment-journey.py" --gateway "$LAYERX_GATEWAY_URL" \
-  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_KEY_FILE" \
+  --node "$LAYERX_TEST_NODE_URL" \
+  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_EVM_KEY_FILE" \
+  --accounts "$LAYERX_TEST_ACCOUNTS_FILE" \
   --did "$LAYERX_TEST_SOURCE_DID" --destination "$LAYERX_TEST_DESTINATION_DID" \
   --asset "$LAYERX_TEST_ASSET" --amount "$LAYERX_TEST_AMOUNT" \
-  --network-id "$(jq -er '.network_id' "$work/parameters.json")" \
-  --encoder "$LAYERX_TEST_SEND_ENCODER" --sequencer-key "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY" \
+  --evm-chain-id "$(jq -er '.evm_chain_id' "$work/parameters.json")" \
+  --sequencer-key "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY" \
   --output "$work/payment"
 receipt_id=$(jq -er '.activity_id' "$work/payment/result.json")
 printf '%s\n' "payment journey: signed transfer $receipt_id executed and replayed without additional credit"
 
 admit_journey receipt-inspection
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --config "$auth_config" \
-  "$LAYERX_GATEWAY_URL/v1/receipts/$receipt_id" > "$work/receipt-response.json"
-jq -er '.result.receipt' "$work/receipt-response.json" > "$work/receipt.hex"
-batch_id=$(jq -er '.result.authority.batch_id' "$work/payment/receipt.json")
-asset=$(jq -er '.result.authority.asset' "$work/payment/receipt.json")
-previous_root=$(jq -er '.result.authority.previous_state_root' "$work/payment/receipt.json")
-resulting_root=$(jq -er '.result.authority.resulting_state_root' "$work/payment/receipt.json")
-sequencer_key=$(jq -er '.result.authority.sequencer_public_key' "$work/payment/receipt.json")
-test "$sequencer_key" = "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY"
-jq -e --arg activity "$receipt_id" --slurpfile payment "$work/payment/receipt.json" \
-  '.result.activity_id == $activity and .result.receipt == $payment[0].result.receipt' \
-  "$work/receipt-response.json" >/dev/null
-"$LAYERX_BIN" --json receipt verify --receipt "$work/receipt.hex" --batch-id "$batch_id" \
-  --asset "$asset" --previous-state-root "$previous_root" --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key" > "$work/verification.json"
-jq -e --arg activity "$receipt_id" '.ok == true and .kind == "receipt.verified" and .data.verified == true
-  and .data.activity_id == $activity and .data.result_code == 0' \
-  "$work/verification.json" >/dev/null
-printf '%s\n' "receipt inspection journey: batch $batch_id receipt $receipt_id independently verified"
+python3 "$(dirname "$0")/receipt_inspection.py" --node "$LAYERX_TEST_NODE_URL" \
+  --ca "$LAYERX_TEST_CA_FILE" --receipt-keys "$LAYERX_TEST_RECEIPT_KEYS_FILE" \
+  --payment "$work/payment" --output "$work/receipt-inspection"
+jq -e --arg activity "$receipt_id" '.verified == true and .activity_id == $activity
+  and .result_code == 0 and .rung == "committed" and .verification_level == "sequencer-signed"
+  and .replayed == true and .corruption_refused == true' \
+  "$work/receipt-inspection/verification.json" >/dev/null
+printf '%s\n' "receipt inspection journey: committed payment $receipt_id independently signature-verified"
 
-admit_journey programs
-python3 "$(dirname "$0")/program-journey.py" --gateway "$LAYERX_GATEWAY_URL" \
-  --ca "$LAYERX_TEST_CA_FILE" --auth-config "$auth_config" --signer "$LAYERX_TEST_SOURCE_KEY_FILE" \
-  --did "$LAYERX_TEST_SOURCE_DID" --asset "$LAYERX_TEST_ASSET" \
-  --network-id "$(jq -er '.network_id' "$work/parameters.json")" \
-  --sequencer-key "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY" \
-  --wasm "$LAYERX_TEST_ESCROW_WASM" --output "$work/program-custody"
-LAYERX_TEST_PROGRAM_ACTIVITY_FILE="$work/program-custody/call.lxa"
-LAYERX_TEST_PROGRAM_IDEMPOTENCY_KEY=$(cat "$work/program-custody/call-idempotency-key")
-curl --fail --silent --show-error --max-time 120 --cacert "$LAYERX_TEST_CA_FILE" \
-  --config "$auth_config" --request POST "$LAYERX_GATEWAY_URL/v1/programs/call" \
-  --header 'Content-Type: application/octet-stream' \
-  --header "Idempotency-Key: $LAYERX_TEST_PROGRAM_IDEMPOTENCY_KEY" \
-  --data-binary "@$LAYERX_TEST_PROGRAM_ACTIVITY_FILE" > "$work/program-response.json"
-jq -e '.ok == true and .result.state == "executed" and .result.result_code == 0
-  and (.result.receipt | type == "string" and length > 0)
-  and (.result.terminal_payload | type == "string" and length > 0)
-  and (.result.call_graph | type == "string" and length > 0)' "$work/program-response.json" >/dev/null
-program_activity=$(python3 - "$LAYERX_TEST_PROGRAM_ACTIVITY_FILE" <<'PYACTIVITY'
-import hashlib
-from pathlib import Path
-import sys
-print(hashlib.sha256(b'LXP/v1/activity-id\0' + Path(sys.argv[1]).read_bytes()).hexdigest())
-PYACTIVITY
-)
-jq -e --arg activity "$program_activity" '.result.activity_id == $activity' "$work/program-response.json" >/dev/null
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --config "$auth_config" "$LAYERX_GATEWAY_URL/v1/receipts/$program_activity" \
-  > "$work/program-receipt.json"
-jq -e --slurpfile submitted "$work/program-response.json" \
-  '.result.activity_id == $submitted[0].result.activity_id and .result.receipt == $submitted[0].result.receipt' \
-  "$work/program-receipt.json" >/dev/null
-jq -er '.result.receipt' "$work/program-receipt.json" > "$work/program-receipt.hex"
-test "$(jq -er '.result.authority.sequencer_public_key' "$work/program-response.json")" = "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY"
-"$LAYERX_BIN" --json receipt verify --receipt "$work/program-receipt.hex" \
-  --batch-id "$(jq -er '.result.authority.batch_id' "$work/program-response.json")" \
-  --asset "$(jq -er '.result.authority.asset' "$work/program-response.json")" \
-  --previous-state-root "$(jq -er '.result.authority.previous_state_root' "$work/program-response.json")" \
-  --resulting-state-root "$(jq -er '.result.authority.resulting_state_root' "$work/program-response.json")" \
-  --sequencer-public-key "$LAYERX_TEST_SEQUENCER_PUBLIC_KEY" \
-  > "$work/program-verification.json"
-jq -e --arg activity "$program_activity" '.ok == true and .kind == "receipt.verified" and .data.verified == true
-  and .data.activity_id == $activity and .data.result_code == 0' "$work/program-verification.json" >/dev/null
-printf '%s\n' "Programs journey: activity $program_activity executed and independently receipt-verified"
 printf '%s\n' "hosted payment $receipt_id was independently receipt-verified"
 printf '%s\n' "$cluster_identity"

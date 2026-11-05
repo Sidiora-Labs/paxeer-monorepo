@@ -79,6 +79,9 @@ func New(cfg Config) (*Metrics, error) {
 	if numGlobalLables := len(cfg.GlobalLabels); numGlobalLables > 0 {
 		parsedGlobalLabels := make([]metrics.Label, numGlobalLables)
 		for i, gl := range cfg.GlobalLabels {
+			if len(gl) != 2 {
+				return nil, fmt.Errorf("invalid telemetry configuration: global-labels row %d must contain exactly 2 elements", i+1)
+			}
 			parsedGlobalLabels[i] = NewLabel(gl[0], gl[1])
 		}
 
@@ -88,6 +91,7 @@ func New(cfg Config) (*Metrics, error) {
 	metricsConf := metrics.DefaultConfig(cfg.ServiceName)
 	metricsConf.EnableHostname = cfg.EnableHostname
 	metricsConf.EnableHostnameLabel = cfg.EnableHostnameLabel
+	metricsConf.EnableServiceLabel = cfg.EnableServiceLabel
 
 	memSink := metrics.NewInmemSink(10*time.Second, time.Minute)
 	metrics.DefaultInmemSignal(memSink)
@@ -114,21 +118,6 @@ func (m *Metrics) setupPrometheus(cfg Config) (*metricsprom.PrometheusSink, erro
 	m.prometheusEnabled = true
 	prometheusOpts := metricsprom.PrometheusOpts{
 		Expiration: time.Duration(cfg.PrometheusRetentionTime) * time.Second,
-		// Default definitions, this allows Prometheus to persist metrics between scrapes instead
-		// not reporting them if they are not updated. Please use this only if needed as it
-		// will mean the metrics are stored in memory.
-		GaugeDefinitions: []metricsprom.GaugeDefinition{
-			{
-				Name: []string{"cosmos", "upgrade", "plan", "height"},
-				Help: "Next upgrade height",
-			},
-		},
-		CounterDefinitions: []metricsprom.CounterDefinition{
-			{
-				Name: []string{"pax_cosmos_validator_slashed"},
-				Help: "Total number of validator was slashed",
-			},
-		},
 	}
 
 	promSink, err := metricsprom.NewPrometheusSinkFrom(prometheusOpts)

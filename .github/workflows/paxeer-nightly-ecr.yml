@@ -9,6 +9,9 @@ concurrency:
   group: nightly-ecr
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Publish nightly containers
@@ -55,6 +58,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/pax/pax-chain:${{ steps.tag.outputs.nightly }}
@@ -68,6 +72,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/pax/pax-chain:${{ steps.tag.outputs.mock }}
@@ -83,6 +88,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           platforms: linux/amd64
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/pax/pax-chain:${{ steps.tag.outputs.mock_chain }}

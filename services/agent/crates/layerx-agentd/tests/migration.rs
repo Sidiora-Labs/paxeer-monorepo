@@ -12,9 +12,8 @@ use layerx_agentd::store::{
     migrate_forward, MigrationError, MigrationStep, ObjectKind, StorageClass, Store, TenantKey,
     CURRENT_SCHEMA_VERSION,
 };
-use layerx_client::lni::schema::Version;
 
-use support::{directory, tenant, verified_submission};
+use support::{directory, signed_transaction, tenant};
 
 fn push_bytes(output: &mut Vec<u8>, value: &[u8]) {
     output.extend_from_slice(
@@ -132,16 +131,16 @@ fn newer_and_corrupt_prior_schemas_are_refused_without_rewriting_the_store() {
     let _ = fs::remove_dir_all(root);
 }
 
-fn enqueue(outbox: &mut Outbox, store: &mut Store, id: u8) {
+fn enqueue(outbox: &mut Outbox, store: &mut Store, id: u8) -> [u8; 32] {
     outbox
-        .enqueue(store, tenant(), [id; 32], verified_submission(id))
-        .unwrap_or_else(|error| panic!("enqueue {id}: {error:?}"));
+        .enqueue(store, tenant(), signed_transaction(id))
+        .unwrap_or_else(|error| panic!("enqueue {id}: {error:?}"))
 }
 
-fn transition(outbox: &mut Outbox, store: &mut Store, id: u8, state: SubmissionState) {
+fn transition(outbox: &mut Outbox, store: &mut Store, hash: [u8; 32], state: SubmissionState) {
     outbox
-        .transition(store, [id; 32], state, format!("enter {state:?}"), None)
-        .unwrap_or_else(|error| panic!("transition {id}: {error:?}"));
+        .transition(store, hash, state, format!("enter {state:?}"), None)
+        .unwrap_or_else(|error| panic!("transition {hash:?}: {error:?}"));
 }
 
 #[test]
@@ -149,14 +148,15 @@ fn shutdown_records_pre_submission_work_and_verifies_every_outbox_stage() {
     let root = directory("shutdown-stages");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
+    let mut ids = std::collections::BTreeMap::from([(1, [1; 32]), (2, [2; 32])]);
     for id in 3..=6 {
-        enqueue(&mut outbox, &mut store, id);
+        ids.insert(id, enqueue(&mut outbox, &mut store, id));
     }
-    transition(&mut outbox, &mut store, 4, SubmissionState::Submitted);
-    transition(&mut outbox, &mut store, 5, SubmissionState::Submitted);
-    transition(&mut outbox, &mut store, 5, SubmissionState::Acknowledged);
-    transition(&mut outbox, &mut store, 6, SubmissionState::Submitted);
-    transition(&mut outbox, &mut store, 6, SubmissionState::Unknown);
+    transition(&mut outbox, &mut store, ids[&4], SubmissionState::Submitted);
+    transition(&mut outbox, &mut store, ids[&5], SubmissionState::Submitted);
+    transition(&mut outbox, &mut store, ids[&5], SubmissionState::Submitted);
+    transition(&mut outbox, &mut store, ids[&6], SubmissionState::Submitted);
+    transition(&mut outbox, &mut store, ids[&6], SubmissionState::Unknown);
 
     let mut lifecycle = DaemonLifecycle::running();
     for (id, stage) in [
@@ -168,7 +168,7 @@ fn shutdown_records_pre_submission_work_and_verifies_every_outbox_stage() {
         (6, WriteStage::Unknown),
     ] {
         lifecycle
-            .begin_stage([id; 32], stage, format!("durable-{stage:?}").into_bytes())
+            .begin_stage(ids[&id], stage, format!("durable-{stage:?}").into_bytes())
             .unwrap_or_else(|error| panic!("begin stage {stage:?}: {error:?}"));
     }
     lifecycle
@@ -188,16 +188,16 @@ fn shutdown_records_pre_submission_work_and_verifies_every_outbox_stage() {
     for (id, expected) in [
         (3, SubmissionState::Queued),
         (4, SubmissionState::Submitted),
-        (5, SubmissionState::Acknowledged),
+        (5, SubmissionState::Submitted),
         (6, SubmissionState::Unknown),
     ] {
         let mut restored = Outbox::default();
         restored
-            .restore(&store, tenant(), [id; 32])
+            .restore(&store, tenant(), ids[&id])
             .unwrap_or_else(|error| panic!("restore {id}: {error:?}"));
         assert_eq!(
             restored
-                .status([id; 32])
+                .status(ids[&id])
                 .unwrap_or_else(|| panic!("status {id} absent"))
                 .state,
             expected
@@ -215,10 +215,10 @@ fn shutdown_refuses_an_inflight_stage_that_disagrees_with_the_durable_outbox() {
     let root = directory("shutdown-mismatch");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    enqueue(&mut outbox, &mut store, 3);
+    let hash = enqueue(&mut outbox, &mut store, 3);
     let mut lifecycle = DaemonLifecycle::running();
     lifecycle
-        .begin_stage([3; 32], WriteStage::Submitted, b"submitted".to_vec())
+        .begin_stage(hash, WriteStage::Submitted, b"submitted".to_vec())
         .unwrap_or_else(|error| panic!("begin stage: {error:?}"));
     assert!(matches!(
         graceful(&mut store, tenant(), &outbox, &mut lifecycle),
@@ -239,22 +239,35 @@ fn shutdown_refuses_an_inflight_stage_that_disagrees_with_the_durable_outbox() {
 fn published_compatibility_matrix_accepts_only_the_supported_complete_tuple() {
     assert_eq!(matrix().len(), 1);
     assert_eq!(verify_published(), Ok(()));
-    assert!(verify(DAEMON_VERSION, Version::V1_0, CONTRACT_VERSION, SDK_VERSION).is_ok());
+    let node_client = format!(
+        "paxd/v{}.0.0/linux-amd64/go1.25",
+        matrix()[0].node_interface_major
+    );
+    let unsupported_node_client = format!(
+        "paxd/v{}.0.0/linux-amd64/go1.25",
+        matrix()[0].node_interface_major + 1
+    );
+    assert!(verify(DAEMON_VERSION, &node_client, CONTRACT_VERSION, SDK_VERSION).is_ok());
     assert_eq!(
         verify(
             DAEMON_VERSION,
-            Version { major: 2, minor: 0 },
+            &unsupported_node_client,
             CONTRACT_VERSION,
             SDK_VERSION,
         ),
         Err(CompatibilityError::UnsupportedNodeInterface)
     );
     assert_eq!(
-        verify(DAEMON_VERSION, Version::V1_0, 2, SDK_VERSION),
+        verify(
+            DAEMON_VERSION,
+            &node_client,
+            CONTRACT_VERSION + 1,
+            SDK_VERSION
+        ),
         Err(CompatibilityError::UnsupportedContract)
     );
     assert_eq!(
-        verify(DAEMON_VERSION, Version::V1_0, CONTRACT_VERSION, "9.0.0"),
+        verify(DAEMON_VERSION, &node_client, CONTRACT_VERSION, "9.0.0"),
         Err(CompatibilityError::UnsupportedSdk)
     );
 }

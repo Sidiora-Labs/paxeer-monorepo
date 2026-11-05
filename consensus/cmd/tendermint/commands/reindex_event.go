@@ -27,6 +27,8 @@ const (
 	reindexFailed = "event re-index failed: "
 )
 
+var ErrAutobahnOfflineStore = errors.New("offline block and state store tooling is not supported when autobahn-config-file is set")
+
 // MakeReindexEventCommand constructs a command to re-index events in a block height interval.
 func MakeReindexEventCommand(conf *tmcfg.Config) *cobra.Command {
 	var (
@@ -62,11 +64,14 @@ either or both arguments.
 				return fmt.Errorf("%s: %w", reindexFailed, err)
 			}
 
+			defer bs.Close()
+			defer ss.Close()
+
 			cvhArgs := checkValidHeightArgs{
 				startHeight: startHeight,
 				endHeight:   endHeight,
 			}
-			if err := checkValidHeight(bs, cvhArgs); err != nil {
+			if err := checkValidHeight(bs, &cvhArgs); err != nil {
 				return fmt.Errorf("%s: %w", reindexFailed, err)
 			}
 
@@ -75,9 +80,13 @@ either or both arguments.
 				return fmt.Errorf("%s: %w", reindexFailed, err)
 			}
 
+			for _, sink := range es {
+				defer sink.Stop()
+			}
+
 			riArgs := eventReIndexArgs{
-				startHeight: startHeight,
-				endHeight:   endHeight,
+				startHeight: cvhArgs.startHeight,
+				endHeight:   cvhArgs.endHeight,
 				sinks:       es,
 				blockStore:  bs,
 				stateStore:  ss,
@@ -147,6 +156,10 @@ func loadEventSinks(cfg *tmcfg.Config) ([]indexer.EventSink, error) {
 }
 
 func loadStateAndBlockStore(cfg *tmcfg.Config) (*store.BlockStore, state.Store, error) {
+	if cfg.AutobahnConfigFile != "" {
+		return nil, nil, ErrAutobahnOfflineStore
+	}
+
 	dbType := dbm.BackendType(cfg.DBBackend)
 
 	blockstoreDir := tmcfg.ResolveDBDir("blockstore", cfg.DBDir())
@@ -251,7 +264,7 @@ type checkValidHeightArgs struct {
 	endHeight   int64
 }
 
-func checkValidHeight(bs state.BlockStore, args checkValidHeightArgs) error {
+func checkValidHeight(bs state.BlockStore, args *checkValidHeightArgs) error {
 	base := bs.Base()
 
 	if args.startHeight == 0 {

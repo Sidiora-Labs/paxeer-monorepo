@@ -1,0 +1,245 @@
+[reconcile.r8-148]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-148.1]
+interface = "interface.8.err-authority-state-persistence-unavailable"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 821
+symbol = "state_persistence_unavailable"
+evidence = "The by_activity success branch still declares return refusal(503, \"state_persistence_unavailable\", Some(5)) when human.retain fails; the registered HTTP status and retry delay are unchanged."
+
+[row.r8-148.2]
+interface = "interface.8.err-authority-withdrawal-evidence-unavailable"
+verdict = "retired"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 934
+symbol = "withdrawal_evidence_unavailable"
+evidence = "withdrawal_evidence_unavailable is absent from the entire registered authority source. A repository-wide exact-symbol search excluding spec and docs found no remaining files mentioning this error code."
+remaining_refs = 0
+remaining = []
+
+[row.r8-148.3]
+interface = "interface.8.http-authority-any-internal-v1-activities"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 1047
+symbol = "/internal/v1/activities/"
+evidence = "The route function declares path.strip_prefix(\"/internal/v1/activities/\") followed by the /authority suffix check, then authenticates and dispatches to by_activity; the banner mention at line 51 is not the route declaration."
+
+[row.r8-148.4]
+interface = "interface.8.http-authority-any-livez"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 1015
+symbol = "/livez"
+evidence = "The route function declares if path == \"/livez\" and returns HTTP 200 with live true. This is the registered conditional declaration, following the GET method guard, rather than the banner mention."
+
+[row.r8-148.5]
+interface = "interface.8.http-authority-any-readyz"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 1018
+symbol = "/readyz"
+evidence = "The route function declares if path == \"/readyz\" and dispatches to readiness(config), following the GET method guard; the earlier banner only documents the endpoint."
+
+[row.r8-148.6]
+interface = "interface.8.http-authority-any-v1-authorized-batches-wait-by-activity"
+verdict = "served"
+path = "services/platform/hosted/authority/src/main.rs"
+line = 1043
+symbol = "/v1/authorized-batches/wait-by-activity/"
+evidence = "The route function declares path.strip_prefix(\"/v1/authorized-batches/wait-by-activity/\") and maps the activity to wait_publication true before authenticated by_activity dispatch."
+
+[row.r8-148.7]
+interface = "interface.8.rs-core-layerx-platform-core-asset-registry"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 212
+symbol = "asset_registry"
+evidence = "The declaration remains pub fn asset_registry() -> Result<(ModuleRegistry, ActivityType), String>, constructing the asset SEND registry; the later asset_registry occurrence is a call from SEND construction."
+
+[row.r8-148.8]
+interface = "interface.8.rs-core-layerx-platform-core-domain-hash"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 236
+symbol = "domain_hash"
+evidence = "The declaration remains pub fn domain_hash(domain: Domain, bytes: &[u8]) -> [u8; 32], hashing the domain tag and bytes; the later occurrence computes an authorization digest by calling it."
+
+[row.r8-148.9]
+interface = "interface.8.rs-core-layerx-platform-core-hex-decode"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 454
+symbol = "hex_decode"
+evidence = "The declaration remains pub fn hex_decode(text: &str) -> Result<Vec<u8>, String>, decoding hexadecimal pairs; the occurrence in fixed_hex is a call rather than the public definition."
+
+[row.r8-148.10]
+interface = "interface.8.rs-core-layerx-platform-core-hex-encode"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 439
+symbol = "hex_encode"
+evidence = "The declaration remains pub fn hex_encode(bytes: &[u8]) -> String, encoding lowercase hexadecimal. Signer formatting and account-name construction contain calls, not additional definitions."
+
+[row.r8-148.11]
+interface = "interface.8.rs-core-layerx-platform-core-read-custody-profile"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 709
+symbol = "read_custody_profile"
+evidence = "The public read_custody_profile declaration accepts a SequencerEndpoint, network_id, committed_height and asset, returning Result<RegisteredCustodyAsset, String>; the later occurrence is its caller."
+
+[row.r8-148.12]
+interface = "interface.8.rs-core-layerx-platform-core-send-context-hash"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 224
+symbol = "send_context_hash"
+evidence = "The public send_context_hash declaration accepts source, destination, asset, amount and idempotency and returns [u8; 32]. Its body delegates to layerx_crypto::payments::send_context_hash; that call is not the declaration."
+
+[row.r8-148.13]
+interface = "interface.8.rs-core-layerx-platform-core-sendrequest"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 168
+symbol = "SendRequest"
+evidence = "pub struct SendRequest declares the owner-authorised SEND inputs, including network_id, account_sequence, validity times and fee_limit. The other occurrences are function parameter types."
+
+[row.r8-148.14]
+interface = "interface.8.rs-core-layerx-platform-core-signedsend"
+verdict = "served"
+path = "services/platform/hosted/core/src/lib.rs"
+line = 183
+symbol = "SignedSend"
+evidence = "pub struct SignedSend declares canonical bytes, activity and account identifiers, signer_public_key and idempotency_key. Other occurrences are result types or construction of this struct."
+
+[row.r8-148.15]
+interface = "interface.8.err-core-admin-unavailable"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2443
+symbol = "admin_unavailable"
+evidence = "admin_route still declares return refusal(503, \"admin_unavailable\", Some(5)) when acquiring config.admin_lock fails, preserving the registered status and retry delay."
+
+[row.r8-148.16]
+interface = "interface.8.err-core-content-type-required"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2434
+symbol = "content_type_required"
+evidence = "admin_route emits refusal(400, \"content_type_required\", None) when content-type is not application/json. The registered match fallback is now an if guard; funding_intent_route independently emits the same code at line 1797."
+
+[row.r8-148.17]
+interface = "interface.8.err-core-gateway-readiness-not-configured"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1048
+symbol = "gateway_readiness_not_configured"
+evidence = "gateway_readiness still declares return refusal(503, \"gateway_readiness_not_configured\", None) when receipt_events_token is absent; this is the error-producing branch."
+
+[row.r8-148.18]
+interface = "interface.8.err-core-invalid-argument"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 749
+symbol = "invalid_argument"
+evidence = "receipt_route declares return refusal(400, \"invalid_argument\", None) when fixed_hex cannot decode the activity identifier. The same signature also occurs for uppercase identifiers and invalid funding or reset input; this line is a live error-producing branch."
+
+[row.r8-148.19]
+interface = "interface.8.err-core-invalid-request"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1062
+symbol = "invalid_request"
+evidence = "gateway_readiness declares return refusal(400, \"invalid_request\", None) when a query or body is supplied, matching the registered readiness refusal. Other occurrences cover protocol or admin requests and reset refusal classification."
+
+[row.r8-148.20]
+interface = "interface.8.err-core-reset-failed"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2336
+symbol = "reset_failed"
+evidence = "The reset supervisor-status branch still declares refusal(503, \"reset_failed\", Some(30)) for an unexpected reply when there was no previous attempt, preserving the registered signature."
+
+[row.r8-148.21]
+interface = "interface.8.err-core-send-refused"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2151
+symbol = "send_refused"
+evidence = "funding_receipt_response still declares return Err(refusal(422, \"send_refused\", None)) when facts.result_code is nonzero; the registered error signature is unchanged."
+
+[row.r8-148.22]
+interface = "interface.8.err-core-supervisor-unavailable"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2345
+symbol = "supervisor_unavailable"
+evidence = "The reset supervisor-status failure branch declares refusal(503, \"supervisor_unavailable\", Some(30)) as registered, when there was no previous attempt. The later admission failure uses a separate return refusal statement."
+
+[row.r8-148.23]
+interface = "interface.8.http-core-any-v1-programs-receipts-by-idempotency"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1043
+symbol = "/v1/programs/receipts/by-idempotency/"
+evidence = "unavailable_capability declares the registered || path.starts_with(\"/v1/programs/receipts/by-idempotency/\") condition. protocol_route handles this prefix first at line 1077; the format expression at line 781 only constructs an upstream target."
+
+[row.r8-148.24]
+interface = "interface.8.http-core-any-v1-programs-registry"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1040
+symbol = "/v1/programs/registry"
+evidence = "unavailable_capability declares the exact registered || path == \"/v1/programs/registry\" condition. The following starts_with condition covers child paths; protocol_route returns capability_unavailable for this capability."
+
+[row.r8-148.25]
+interface = "interface.8.http-core-get-livez"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1111
+symbol = "/livez"
+evidence = "protocol_route declares the registered (\"GET\", \"/livez\") => json_response(200, &serde_json::json!({ \"live\": true })) match arm. admin_route has a separate early-return health arm at line 2408."
+
+[row.r8-148.26]
+interface = "interface.8.http-core-get-readyz"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1112
+symbol = "/readyz"
+evidence = "protocol_route declares the registered (\"GET\", \"/readyz\") => readiness(config) match arm. The separate admin_route health arm at line 2409 adds return and is not this declaration."
+
+[row.r8-148.27]
+interface = "interface.8.http-core-get-v1-sequencer"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1113
+symbol = "/v1/sequencer"
+evidence = "protocol_route declares (\"GET\", \"/v1/sequencer\") => sequencer_route(config), matching the registered signature. The later combined path arm only rejects other methods."
+
+[row.r8-148.28]
+interface = "interface.8.http-core-get-v1-state"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 1114
+symbol = "/v1/state"
+evidence = "protocol_route declares the registered (\"GET\", \"/v1/state\") => wrapped_relay_route arm, constructing a GET request to /v1/protocol/account-state/head. The later combined path arm is the method rejection."
+
+[row.r8-148.29]
+interface = "interface.8.http-core-post-admin-v1-testnet-fund"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2427
+symbol = "/admin/v1/testnet/fund"
+evidence = "admin_route declares the registered combined \"/admin/v1/testnet/fund\" | \"/admin/v1/testnet/reset\" match arm in its non-POST method guard. The actual POST fund dispatch is at line 2446; line 1651 only constructs a request."
+
+[row.r8-148.30]
+interface = "interface.8.http-core-post-admin-v1-testnet-reset"
+verdict = "served"
+path = "services/platform/hosted/core/src/main.rs"
+line = 2427
+symbol = "/admin/v1/testnet/reset"
+evidence = "admin_route declares the registered combined \"/admin/v1/testnet/fund\" | \"/admin/v1/testnet/reset\" match arm in its non-POST method guard. The actual POST reset dispatch is at line 2454 and validates an empty JSON object body."

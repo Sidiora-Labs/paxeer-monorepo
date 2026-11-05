@@ -57,6 +57,8 @@ func newHarness(t *testing.T, registered int) *harness {
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	k, ctx := xwebtestutil.NewKeeper(app, ctx)
 	k.InitGenesis(ctx, *xwebtypes.DefaultGenesis())
+	// The TEE consumer must see the exact genesis state its keeper exports.
+	require.Equal(t, *xwebtypes.DefaultGenesis(), k.ExportGenesis(ctx))
 	keys := xwebtestutil.Attestors(5)
 	if registered > len(keys) {
 		keys = xwebtestutil.Attestors(registered)

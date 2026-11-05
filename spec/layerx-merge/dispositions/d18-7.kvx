@@ -1,0 +1,124 @@
+[disposition.18.1159.1.1]
+finding = "18.1159.1.1"
+status = "resolved"
+evidence = "Commit 9d425c24b removed the retired verification Level from the human service library, and services/human/crates/layerx-human-service/src/activity/mod.rs:18 imports Rung instead."
+
+[disposition.18.1159.1.2]
+finding = "18.1159.1.2"
+status = "superseded"
+evidence = "Commit b4c8a1dfc deleted tests/provider/owner_rotation.rs and its provider test registration when the owner envelope surface was retired."
+
+[disposition.18.1162.1.1]
+finding = "18.1162.1.1"
+status = "resolved"
+evidence = "Commit e556c8b04 corrected the seller assertions, and services/interop/crates/layerx-x402/tests/seller.rs:494 accepts matching per-asset payees while line 595 rejects a redirected main-account payee."
+
+[disposition.18.1162.1.2]
+finding = "18.1162.1.2"
+status = "resolved"
+evidence = "Commit e556c8b04 restricted is_layerx_network to eip155:125, and services/interop/crates/layerx-x402/tests/seller.rs:616 retains the eip155:8453 offer and its ProfileMismatch assertion."
+
+[disposition.18.1162.1.3]
+finding = "18.1162.1.3"
+status = "resolved"
+evidence = "Commit e556c8b04 added the non-LayerX profile rejection visible at services/interop/crates/layerx-x402/src/model.rs:181, which returns ProfileMismatch when an external network carries a LayerX profile."
+
+[disposition.18.1165.1.1]
+finding = "18.1165.1.1"
+status = "resolved"
+evidence = "Commit 3daf86e53 ported the eleven test fixtures off the removed ProtocolEvidence fields, and services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:134 receives authorized_batch separately and checks tx_hash instead of verification_level."
+
+[disposition.18.1166.1.1]
+finding = "18.1166.1.1"
+status = "resolved"
+evidence = "Commit adb2e7429 ported the shared agentd support to the readiness gate, and services/agent/crates/layerx-agentd/tests/support/mod.rs:459 constructs StartupConfig with node_endpoint and expected_chain_id while real_authority.rs:5 no longer imports the removed handshake_gate."
+
+[disposition.18.1167.1.1]
+finding = "18.1167.1.1"
+status = "resolved"
+evidence = "Commit 52745fe64 added the matched pinned signing key to the expected receipt view, and services/interop/crates/layerx-committed-proof/src/lib.rs:491 includes signingKey in that exact comparison."
+
+[disposition.18.1172.1.1]
+finding = "18.1172.1.1"
+status = "resolved"
+evidence = "Commit 3daf86e53 ported the additional test targets, and services/human/crates/layerx-human-service/tests/render.rs:270 uses rung while tests/journey_faults.rs:1052 supplies ReceiptMaterial receipt_hash, tx_hash, block_height and rung."
+
+[disposition.18.1172.1.2]
+finding = "18.1172.1.2"
+status = "superseded"
+evidence = "Commit 454327498 deleted tests/support/withdraw_native.rs together with the orphaned withdraw journey and its daemon support, removing the reported ReceiptMaterial literal."
+
+[disposition.18.1172.2.1]
+finding = "18.1172.2.1"
+status = "resolved"
+evidence = "Commit 9d425c24b retired the library Level references, and services/human/crates/layerx-human-service/src/activity/mod.rs:222 stores ReceiptEvidence.rung as Rung and exposes rung() instead of level()."
+
+[disposition.18.1172.2.2]
+finding = "18.1172.2.2"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/agent_controls.rs:318 uses GrantRevokedOnChain and lines 638, 653 and 667 pass Rung::Committed as the first change_limit argument, eliminating all four reported stale callers."
+
+[disposition.18.1172.2.3]
+finding = "18.1172.2.3"
+status = "resolved"
+evidence = "Commit 7f76ae62b replaced the incompatible kernel signature attachment, and services/human/crates/layerx-human-service/tests/custody.rs:466 attaches the decoded 65-byte EVM signature to a SigningPreparation."
+
+[disposition.18.1172.2.4]
+finding = "18.1172.2.4"
+status = "resolved"
+evidence = "Commit 7f76ae62b introduced the custody EVM action path, and services/human/crates/layerx-human-service/tests/custody.rs:411 constructs SigningPreparation before sign_evm_action and attach_external_signature at lines 461 and 466."
+
+[disposition.18.1172.2.5]
+finding = "18.1172.2.5"
+status = "superseded"
+evidence = "Commit 2772a218f deleted tests/binding.rs and the wallet payout binding module, retiring InProcessAgentContract::submit_binding and both failing binding tests."
+
+[disposition.18.1172.2.6]
+finding = "18.1172.2.6"
+status = "superseded"
+evidence = "Commit 2772a218f removed the wallet payout binding module and tests/binding.rs, so the Governance payload no longer reaches the retired test contract ledger_payment_call path."
+
+[disposition.18.1172.2.7]
+finding = "18.1172.2.7"
+status = "resolved"
+evidence = "Commit 0382a02d0 refreshed the eight affected lockfiles, and services/human/Cargo.lock:897 lists layerx-agentd dependencies without the removed layerx-programs-protocol-adapter."
+
+[disposition.18.1172.2.8]
+finding = "18.1172.2.8"
+status = "resolved"
+evidence = "Commit 7f76ae62b added EnvelopeKms EVM operations and the EVM-shaped custody subject, now visible at services/human/crates/layerx-human-service/src/custody/provider.rs:1031 and tests/custody.rs:231 where unsigned EIP-1559 bytes accompany the call-bound disclosure."
+
+[disposition.18.1172.2.9]
+finding = "18.1172.2.9"
+status = "resolved"
+evidence = "Commit c552f4ca5 ported program_node.rs, ops/program.rs and human_runtime.rs to the changed chain evidence API, and services/agent/crates/layerx-agentd/src/read/program_node.rs:474 passes commitment, transaction and transaction_proof to verify_current_chain_head."
+
+[disposition.18.1173.1.1]
+finding = "18.1173.1.1"
+status = "resolved"
+evidence = "Commit d4a36a870 added the required index property to both schemas, retained at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/price_feed.ex:138 and services/explorer/swagger.yaml:18670."
+
+[disposition.18.1174.1.1]
+finding = "18.1174.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:220854 limits the task symbols to protected_bytes and private_copy, removing the unindexed FILE_VARIABLES graph requirement while docker/platform-gateway/entrypoint.sh:29 retains the staged UI bindings variable."
+
+[disposition.18.1184.1.1]
+finding = "18.1184.1.1"
+status = "resolved"
+evidence = "Commit 226cc4b2b removed the operation-equals-2 FIELDS condition, and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:133 validates the receipt fields without that operation restriction."
+
+[disposition.18.1186.1.1]
+finding = "18.1186.1.1"
+status = "resolved"
+evidence = "Commit 042dc5bcf ported the client sequencer test initializers, and services/agent/crates/layerx-client/tests/evidence_rpc.rs:133 supplies receipts_root in the SequencerBlock literal."
+
+[disposition.18.1188.1.1]
+finding = "18.1188.1.1"
+status = "resolved"
+evidence = "Commit 43f4e67ab changed archive_defund and both test registries to Budget ordinal 8, retained at services/human/crates/layerx-human-service/src/server/production_components.rs:6964, tests/journey_faults.rs:95 and tests/agent_controls_rungs.rs:1013."
+
+[disposition.18.1188.2.1]
+finding = "18.1188.2.1"
+status = "resolved"
+evidence = "Commit 43f4e67ab replaced the one-byte archive calls with disclosed EVM calls, and services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1577 binds the call disclosure and returns the matching unsigned transaction bytes at line 1582."

@@ -1,0 +1,243 @@
+[reconcile.r13-183]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r13-183.1]
+interface = "interface.13.rs-rt-calls-programresolver-program-module"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+line = 665
+symbol = "program_module"
+evidence = "ProgramResolver declares fn program_module(&self, program: ProgramId) -> Option<&ValidatedModule>; here. The occurrence at line 717 implements it for ProgramCatalog, rather than declaring the trait interface."
+
+[row.r13-183.2]
+interface = "interface.13.c-rt-layerx-programs-call-arbiter-authority-begin"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4725
+symbol = "layerx_programs_call_arbiter_authority_begin"
+evidence = "The extern C declaration returns i32 and takes token, d0, d1, d2, d3 and expected_height as u64. The final parameter is now expected_height rather than the registered expected_batch; the reader documents block-height semantics."
+
+[row.r13-183.3]
+interface = "interface.13.c-rt-layerx-programs-call-arbiter-authority-byte"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4733
+symbol = "layerx_programs_call_arbiter_authority_byte"
+evidence = "The extern C block declares fn layerx_programs_call_arbiter_authority_byte(token: u64, offset: u32) -> i32; later occurrences invoke it while reading authority bytes."
+
+[row.r13-183.4]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-activity-id"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4655
+symbol = "activity_id"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn activity_id(&self) -> [u8; 32], returning self.activity_id; the signature survives on the V2 owner."
+
+[row.r13-183.5]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-module-id"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4640
+symbol = "module_id"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn module_id(&self) -> u16, returning self.module_id; the signature survives on the V2 owner."
+
+[row.r13-183.6]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-network-id"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4634
+symbol = "network_id"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn network_id(&self) -> u32, returning self.network_id; the signature survives on the V2 owner."
+
+[row.r13-183.7]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-operation"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4643
+symbol = "operation"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn operation(&self) -> u8, returning self.operation; the signature survives on the V2 owner."
+
+[row.r13-183.8]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-previous-state-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4658
+symbol = "previous_state_root"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn previous_state_root(&self) -> [u8; 32], returning self.previous_state_root; the signature survives on the V2 owner."
+
+[row.r13-183.9]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-protocol-version"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4637
+symbol = "protocol_version"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn protocol_version(&self) -> u16, returning self.protocol_version; the signature survives on the V2 owner."
+
+[row.r13-183.10]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-receipt-digest"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4652
+symbol = "receipt_digest"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn receipt_digest(&self) -> [u8; 32], returning self.receipt_digest; the signature survives on the V2 owner."
+
+[row.r13-183.11]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-result-code"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4646
+symbol = "result_code"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn result_code(&self) -> i32, returning self.result_code; the signature survives on the V2 owner."
+
+[row.r13-183.12]
+interface = "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-resulting-state-root"
+verdict = "served"
+path = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+line = 4661
+symbol = "resulting_state_root"
+evidence = "RawNativeReceiptAuthorityV1 is absent. The current RawNativeReceiptAuthorityV2 impl declares pub const fn resulting_state_root(&self) -> [u8; 32], returning self.resulting_state_root; the signature survives on the V2 owner."
+
+[row.r13-183.13]
+interface = "interface.13.rs-sbx-expiry-destroy"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 467
+symbol = "destroy"
+evidence = "The host-ffi/test-gated pub fn destroy definition takes mutable Storage, Meter and DurableUsageState, a TeardownPlan and two [u8; 32] roots, returning Result<TerminalLeaseRecord, ExpiryRefusal>, matching the registered signature."
+
+[row.r13-183.14]
+interface = "interface.13.rs-sbx-expiry-destroyauthority"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 221
+symbol = "DestroyAuthority"
+evidence = "The pub struct DestroyAuthority declaration holds activity_id, expected_lease_root, expected_sequence and boundary. Later occurrences construct, destructure or accept this type."
+
+[row.r13-183.15]
+interface = "interface.13.rs-sbx-expiry-expiryqueue"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 621
+symbol = "ExpiryQueue"
+evidence = "The pub struct ExpiryQueue declaration owns scheduled Vec<(u64, LeaseId)> and terminal Vec<TerminalLeaseRecord> fields. Its implementation begins below this declaration."
+
+[row.r13-183.16]
+interface = "interface.13.rs-sbx-expiry-expiryqueue-canonical-state"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 714
+symbol = "canonical_state"
+evidence = "Inside impl ExpiryQueue, pub fn canonical_state(&self) -> Result<Vec<u8>, ExpiryRefusal> encodes scheduled leases and terminal records; other occurrences call the method."
+
+[row.r13-183.17]
+interface = "interface.13.rs-sbx-expiry-expiryqueue-due"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 657
+symbol = "due"
+evidence = "Inside impl ExpiryQueue, pub fn due(&self, boundary: u64, limit: u32) -> Result<SweepPage, ExpiryRefusal> selects bounded due leases and computes remaining_due, matching the registered signature."
+
+[row.r13-183.18]
+interface = "interface.13.rs-sbx-expiry-expiryqueue-record-destroyed"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 689
+symbol = "record_destroyed"
+evidence = "Inside impl ExpiryQueue, pub fn record_destroyed(&mut self, record: TerminalLeaseRecord) -> Result<(), ExpiryRefusal> verifies the record, moves it to terminal and removes its scheduled entry."
+
+[row.r13-183.19]
+interface = "interface.13.rs-sbx-expiry-expiryqueue-schedule"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 638
+symbol = "schedule"
+evidence = "Inside impl ExpiryQueue, pub fn schedule(&mut self, lease: &Lease) -> Result<(), ExpiryRefusal> inserts the expiry/id key after replay and queue-bound checks, matching the registered signature."
+
+[row.r13-183.20]
+interface = "interface.13.rs-sbx-expiry-plan-teardown"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 380
+symbol = "plan_teardown"
+evidence = "The host-ffi/test-gated pub fn plan_teardown definition accepts &DurableUsageState and DestroyAuthority and returns Result<TeardownPlan, ExpiryRefusal>; it derives the final occupancy charge and refund."
+
+[row.r13-183.21]
+interface = "interface.13.rs-sbx-expiry-settle-teardown"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 438
+symbol = "settle_teardown"
+evidence = "The host-ffi/test-gated pub fn settle_teardown definition accepts &mut DurableUsageState, TeardownPlan and two [u8; 32] roots, returning Result<TeardownSettlement, ExpiryRefusal>, matching the registered signature."
+
+[row.r13-183.22]
+interface = "interface.13.rs-sbx-expiry-sweep"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 790
+symbol = "sweep"
+evidence = "The pub fn sweep<F> definition takes &mut ExpiryQueue, boundary: u64, limit: u32 and mut destroy_due: F, returning Result<SweepPage, ExpiryRefusal>; F is FnMut(LeaseId, u64) -> Result<TerminalLeaseRecord, ExpiryRefusal>."
+
+[row.r13-183.23]
+interface = "interface.13.rs-sbx-expiry-sweeppage"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 811
+symbol = "SweepPage"
+evidence = "The pub struct SweepPage declaration contains boundary: u64, leases: Vec<LeaseId> and remaining_due: u64. Earlier occurrences name its return type or construct a page."
+
+[row.r13-183.24]
+interface = "interface.13.rs-sbx-expiry-sweeppage-boundary"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 818
+symbol = "boundary"
+evidence = "Inside impl SweepPage, pub const fn boundary(&self) -> u64 returns self.boundary. This is the accessor declaration, rather than the field or a boundary parameter elsewhere."
+
+[row.r13-183.25]
+interface = "interface.13.rs-sbx-expiry-sweeppage-leases"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 822
+symbol = "leases"
+evidence = "Inside impl SweepPage, pub fn leases(&self) -> &[LeaseId] returns &self.leases, matching the registered slice-returning accessor signature."
+
+[row.r13-183.26]
+interface = "interface.13.rs-sbx-expiry-sweeppage-remaining-due"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 826
+symbol = "remaining_due"
+evidence = "Inside impl SweepPage, pub const fn remaining_due(&self) -> u64 returns self.remaining_due. Other occurrences declare the field, compute its value or invoke the accessor."
+
+[row.r13-183.27]
+interface = "interface.13.rs-sbx-expiry-teardownplan"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 230
+symbol = "TeardownPlan"
+evidence = "The pub struct TeardownPlan declaration owns authority: DestroyAuthority, occupancy_charge: u128 and refund: u128. Later occurrences use its type or construct a plan."
+
+[row.r13-183.28]
+interface = "interface.13.rs-sbx-expiry-teardownplan-authority"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 238
+symbol = "authority"
+evidence = "Inside impl TeardownPlan, pub const fn authority(self) -> DestroyAuthority returns self.authority. The private test helper at line 1111 instead takes state and boundary and does not match this signature."
+
+[row.r13-183.29]
+interface = "interface.13.rs-sbx-expiry-teardownplan-occupancy-charge"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 242
+symbol = "occupancy_charge"
+evidence = "Inside impl TeardownPlan, pub const fn occupancy_charge(self) -> u128 returns self.occupancy_charge, matching the registered by-value accessor signature."
+
+[row.r13-183.30]
+interface = "interface.13.rs-sbx-expiry-teardownplan-refund"
+verdict = "served"
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 246
+symbol = "refund"
+evidence = "Inside impl TeardownPlan, pub const fn refund(self) -> u128 returns self.refund, matching the registered by-value accessor signature; other occurrences are fields, locals or calls."

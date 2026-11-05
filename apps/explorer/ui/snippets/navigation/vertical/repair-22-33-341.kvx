@@ -1,0 +1,28 @@
+[repair.22.33.341]
+finding = "auth-navigation-skipped"
+tests = ["authNavigationWaitsForProfile", "authNavigationRejectsFailedProfile", "authNavigationScreenshotsRemainEnabled"]
+path = "NavigationDesktop.pw.tsx"
+change = "Enable both existing authenticated screenshot cases using contextWithAuth, confirmed auth cookie installation, the committed profile fixture, profile query readiness, account link visibility, skeleton completion and font readiness."
+baseline = "No baseline gate ran: the ordered gate instructions require complete implementation before hf-build and hf-done and prohibit a manual verify run; the original auth suite is visibly describe.skip."
+evidence = "The runner records the verified candidate revision, command, exit and private log in the hf-done ledger."
+gotcha = "Vitest 4 uses a first function argument as the test name; the same function must also be supplied as the handler so its assertions execute."
+gotcha_dom = "The Chakra provider can insert style elements before the rendered scene; readiness assertions select the scene's explicit aria-busy element and assert that it exists instead of assuming the first child is the scene."
+formatter_note = "ESLint applied formatting but its vitest/valid-title and vitest/expect-expect rules reject the explicitly required named-function test registrations; no rule or assertion was disabled."
+toolchain = "Install the existing frozen yarn.lock with Yarn 1.22.22 and use pnpm 8.15.9 to execute the declared gates; no package manifest, lockfile or package-manager check is changed."
+wiring = "Domain 14 release qualification owns apps/explorer/ui/snippets/navigation/vertical/NavigationDesktop.pw.tsx: execute the authenticated screenshot cases at the default and xl viewports; browser execution is outside this task's allowed tsc/Vitest gates."
+
+[attempt.1]
+status = "implemented_not_qualified"
+revision = "0dfdd10a530bdc788befbc39f6925fe8a61b8b03"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The gate exits with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer/package.json declares Yarn; TypeScript and Vitest did not execute."
+
+[attempt.2.initial_verify]
+revision = "c9994bf6912371ac7ee9dfc30757046c92ee2f27"
+command = "cg spec done 22.33.341 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "authNavigationScreenshotsRemainEnabled passed; both profile tests reached the real loopback endpoint but selected a style element for their readiness assertions."
+repair = "Target the scene's aria-busy element explicitly, assert its presence, and preserve the pending, successful and failed profile assertions."

@@ -1,10 +1,12 @@
-use std::error::Error;
-use std::future::Future;
-use std::pin::pin;
-use std::process::{Command, Stdio};
-use std::sync::Arc;
-use std::task::{Context, Poll, Wake, Waker};
-use std::time::Duration;
+use std::{
+    error::Error,
+    future::Future,
+    pin::pin,
+    process::{Command, Stdio},
+    sync::Arc,
+    task::{Context, Poll, Wake, Waker},
+    time::Duration,
+};
 
 use ed25519_dalek::SigningKey;
 use k256::ecdsa::Signature;

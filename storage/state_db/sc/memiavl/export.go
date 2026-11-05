@@ -108,6 +108,8 @@ func (mte *MultiTreeExporter) Close() error {
 	return nil
 }
 
+// exportWorker visits nodes in post-order until callback returns true to stop.
+// A false result means continue, matching Tree.ScanPostOrder and Snapshot.export.
 type exportWorker func(callback func(*types.SnapshotNode) bool)
 
 type Exporter struct {
@@ -121,6 +123,10 @@ func newExporter(worker exportWorker) *Exporter {
 	go func() {
 		defer close(ch)
 		worker(func(enode *types.SnapshotNode) bool {
+			// Check before sending so draining Close cannot keep a canceled scan alive.
+			if ctx.Err() != nil {
+				return true
+			}
 			select {
 			case ch <- enode:
 			case <-ctx.Done():

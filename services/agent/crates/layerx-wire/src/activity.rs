@@ -245,6 +245,35 @@ pub fn decode_signed(bytes: &[u8], registry: &ModuleRegistry) -> Result<Activity
     decode_internal(bytes, registry, true)
 }
 
+/// Reads the signed envelope header and type field before registry selection.
+/// The complete envelope must still be validated with [`decode_signed`].
+///
+/// # Errors
+///
+/// Refuses malformed headers, field counts, versions, tags, and activity types.
+pub fn peek_signed_activity_type(bytes: &[u8]) -> Result<ActivityType, WireError> {
+    let mut decoder = Decoder::new(bytes, MAX_MESSAGE_BYTES);
+    let envelope_version = decoder.structure_header_version(STRUCTURE_TAG)?;
+    if decoder.u8()? != SIGNED_FIELD_COUNT {
+        return Err(WireError::known(
+            KnownResult::MalformedEnvelope,
+            decoder.offset(),
+        ));
+    }
+    field(&mut decoder, 1)?;
+    if decoder.u16()? != envelope_version {
+        return Err(WireError::known(
+            KnownResult::VersionUnsupported,
+            decoder.offset(),
+        ));
+    }
+    field(&mut decoder, 2)?;
+    let _network_id = decoder.u32()?;
+    field(&mut decoder, 3)?;
+    ActivityType::from_u32(decoder.u32()?)
+        .map_err(|_| WireError::known(KnownResult::UnknownActivity, decoder.offset()))
+}
+
 /// Decodes a canonical unsigned activity.
 ///
 /// # Errors
@@ -362,6 +391,62 @@ fn activity_from_unsigned(envelope: &UnsignedEnvelope) -> Activity {
         payload_hash: envelope.payload_hash(),
         payload: envelope.payload().as_bytes().to_vec(),
         signature: None,
+    }
+}
+
+#[cfg(test)]
+#[path = "../tests/support/corpus.rs"]
+mod replay_corpus;
+
+#[cfg(test)]
+mod replay_registry_tests {
+    use super::*;
+    use layerx_types::payload::{ModuleId, ModuleRegistration};
+    use std::path::Path;
+
+    #[test]
+    fn replay_registry_tracks_kernel_budget_and_stream_declarations() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
+        let corpus = replay_corpus::load(&root).unwrap_or_else(|error| panic!("{error:?}"));
+        let budget = std::fs::read_to_string(root.join("include/layerx/lx_budget.h"))
+            .unwrap_or_else(|error| panic!("{error}"));
+        let stream = std::fs::read_to_string(root.join("include/layerx/lx_stream.h"))
+            .unwrap_or_else(|error| panic!("{error}"));
+        for (module, ordinals, header) in [
+            (ModuleId::Budget, vec![8, 9, 10], budget),
+            (ModuleId::Stream, vec![8], stream),
+        ] {
+            let types: Vec<_> = ordinals
+                .into_iter()
+                .map(|ordinal| {
+                    let kind = ActivityType::new(module, ordinal)
+                        .unwrap_or_else(|error| panic!("{error:?}"));
+                    assert!(header.contains(&format!("= {:#010x}", kind.value())));
+                    assert!(corpus.replay.activity_types.contains(&kind));
+                    kind
+                })
+                .collect();
+            let registration =
+                ModuleRegistration::new(module, &types).unwrap_or_else(|error| panic!("{error:?}"));
+            let registry =
+                ModuleRegistry::new(&[registration]).unwrap_or_else(|error| panic!("{error:?}"));
+            for (kind, bytes) in corpus
+                .replay
+                .activity_types
+                .iter()
+                .zip(&corpus.replay.canonical_activities)
+            {
+                if types.contains(kind) {
+                    assert_eq!(
+                        decode_signed(bytes, &registry).map(|activity| activity.activity_type()),
+                        Ok(*kind)
+                    );
+                }
+            }
+        }
+        let retired =
+            ActivityType::new(ModuleId::Budget, 11).unwrap_or_else(|error| panic!("{error:?}"));
+        assert!(!corpus.replay.activity_types.contains(&retired));
     }
 }
 

@@ -77,7 +77,7 @@ impl WasmEngine {
             .wasm_multi_value(true)
             .wasm_bulk_memory(true)
             .wasm_saturating_float_to_int(false)
-            .wasm_reference_types(false)
+            .wasm_reference_types(true)
             .wasm_tail_call(false)
             .wasm_extended_const(false)
             // Consensus CPU accounting is injected into the module and routed
@@ -267,31 +267,42 @@ fn validate_deployment_bounds(
     let mut calls = BTreeMap::<u32, BTreeSet<u32>>::new();
     for payload in Parser::new(0).parse_all(wasm) {
         let payload = payload.map_err(deployment_parse_refusal)?;
-        if let ValidPayload::Func(function, body) =
-            validator.payload(&payload).map_err(deployment_parse_refusal)?
+        if let ValidPayload::Func(function, body) = validator
+            .payload(&payload)
+            .map_err(deployment_parse_refusal)?
         {
             let index = function.index;
             let mut function = function.into_validator(allocations);
             let mut reader = body.get_binary_reader();
-            function.read_locals(&mut reader).map_err(deployment_parse_refusal)?;
+            function
+                .read_locals(&mut reader)
+                .map_err(deployment_parse_refusal)?;
             if function.len_locals() > limits.max_value_stack_height() {
-                return Err(deployment_bound_refusal("declared value stack height exceeded"));
+                return Err(deployment_bound_refusal(
+                    "declared value stack height exceeded",
+                ));
             }
             let outgoing = calls.entry(index).or_default();
             while !reader.eof() {
                 let offset = reader.original_position();
                 let operator = reader.read_operator().map_err(deployment_parse_refusal)?;
-                function.op(offset, &operator).map_err(deployment_parse_refusal)?;
-                let footprint = u64::from(function.len_locals())
-                    + u64::from(function.operand_stack_height());
+                function
+                    .op(offset, &operator)
+                    .map_err(deployment_parse_refusal)?;
+                let footprint =
+                    u64::from(function.len_locals()) + u64::from(function.operand_stack_height());
                 if footprint > u64::from(limits.max_value_stack_height()) {
-                    return Err(deployment_bound_refusal("declared value stack height exceeded"));
+                    return Err(deployment_bound_refusal(
+                        "declared value stack height exceeded",
+                    ));
                 }
                 if let Operator::Call { function_index } = operator {
                     outgoing.insert(function_index);
                 }
             }
-            function.finish(reader.original_position()).map_err(deployment_parse_refusal)?;
+            function
+                .finish(reader.original_position())
+                .map_err(deployment_parse_refusal)?;
             allocations = function.into_allocations();
         }
     }
@@ -314,7 +325,9 @@ fn validate_deployment_bounds(
     while let Some(index) = ready.pop_front() {
         let depth = depths[&index];
         if depth > limits.max_call_depth() {
-            return Err(deployment_bound_refusal("declared direct call depth exceeded"));
+            return Err(deployment_bound_refusal(
+                "declared direct call depth exceeded",
+            ));
         }
         if let Some(callers) = parents.get(&index) {
             for caller in callers {
@@ -337,28 +350,33 @@ fn validate_deployment_bounds(
 mod deployment_admission_tests {
     use super::WasmEngine;
     use crate::test_support::{
-        code_section, export_section, func_body, function_section, module,
-        type_section, unsigned_leb, OP_CALL, OP_END, TYPE_I32,
+        code_section, export_section, func_body, function_section, module, type_section,
+        unsigned_leb, OP_CALL, OP_END, TYPE_I32,
     };
     use crate::{ExecutionError, ExecutionFault, Executor, FuelSchedule, ValidationLimits};
 
     #[test]
     fn deployment_admission_calls_recorded_abis() -> Result<(), Box<dyn std::error::Error>> {
         let wasm = [
-            0,97,115,109,1,0,0,0,1,12,2,96,2,127,127,1,127,96,1,127,1,127,
-            3,3,2,0,1,5,3,1,0,1,7,41,3,
-            11,b'l',b'a',b'y',b'e',b'r',b'x',b'_',b'c',b'a',b'l',b'l',0,0,
-            14,b'l',b'a',b'y',b'e',b'r',b'x',b'_',b'r',b'e',b's',b'e',b'r',b'v',b'e',0,1,
-            6,b'm',b'e',b'm',b'o',b'r',b'y',2,0,10,11,2,4,0,65,0,11,4,0,65,0,11,
+            0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 2, 96, 2, 127, 127, 1, 127, 96, 1, 127, 1, 127, 3,
+            3, 2, 0, 1, 5, 3, 1, 0, 1, 7, 41, 3, 11, b'l', b'a', b'y', b'e', b'r', b'x', b'_',
+            b'c', b'a', b'l', b'l', 0, 0, 14, b'l', b'a', b'y', b'e', b'r', b'x', b'_', b'r', b'e',
+            b's', b'e', b'r', b'v', b'e', 0, 1, 6, b'm', b'e', b'm', b'o', b'r', b'y', 2, 0, 10,
+            11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
         ];
         let engine = WasmEngine::declared()?;
         for abi in 1..=4 {
             let admitted = engine.validate_deployment_versioned_metered(
-                abi, &wasm, FuelSchedule::WASMI_0_31_2,
+                abi,
+                &wasm,
+                FuelSchedule::WASMI_0_31_2,
             )?;
             assert!(admitted.supports_interface_entrypoint("layerx_call"));
             let mut instance = admitted.instantiate()?;
-            assert_eq!(crate::entrypoint::invoke(&mut instance, "layerx_call", &[0; 4])?, 0);
+            assert_eq!(
+                crate::entrypoint::invoke(&mut instance, "layerx_call", &[0; 4])?,
+                0
+            );
         }
         Ok(())
     }
@@ -381,7 +399,8 @@ mod deployment_admission_tests {
             bodies.push(func_body(&[], &instructions));
         }
         let deep = module(&[
-            type_section(&[(&[], &[])]), function_section(&[0; 9]),
+            type_section(&[(&[], &[])]),
+            function_section(&[0; 9]),
             code_section(&bodies),
         ]);
         assert!(engine.validate(&deep).is_ok());
@@ -390,7 +409,8 @@ mod deployment_admission_tests {
             Err(crate::ValidationRefusal::RejectedByEngine { .. })
         ));
         let locals = module(&[
-            type_section(&[(&[], &[])]), function_section(&[0]),
+            type_section(&[(&[], &[])]),
+            function_section(&[0]),
             code_section(&[func_body(&[(65, TYPE_I32)], &[OP_END])]),
         ]);
         assert!(matches!(
@@ -404,7 +424,8 @@ mod deployment_admission_tests {
         operands.extend([0x1a; 65]);
         operands.push(OP_END);
         let stack = module(&[
-            type_section(&[(&[], &[])]), function_section(&[0]),
+            type_section(&[(&[], &[])]),
+            function_section(&[0]),
             code_section(&[func_body(&[], &operands)]),
         ]);
         assert!(matches!(
@@ -412,12 +433,15 @@ mod deployment_admission_tests {
             Err(crate::ValidationRefusal::RejectedByEngine { .. })
         ));
         let recursive = module(&[
-            type_section(&[(&[], &[])]), function_section(&[0]),
+            type_section(&[(&[], &[])]),
+            function_section(&[0]),
             export_section(&[("recurse", 0)]),
             code_section(&[func_body(&[], &[OP_CALL, 0, OP_END])]),
         ]);
         let admitted = engine.validate_deployment_versioned_metered(
-            1, &recursive, FuelSchedule::WASMI_0_31_2,
+            1,
+            &recursive,
+            FuelSchedule::WASMI_0_31_2,
         )?;
         assert!(matches!(
             Executor::declared().execute(&admitted, "recurse", &[]),

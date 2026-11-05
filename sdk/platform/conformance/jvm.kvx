@@ -6,8 +6,8 @@ root = "sdk/platform/jvm"
 agent_schema = "services/agent/schema/agent-api"
 human_schema = "services/human/schema/human-api"
 protocol_version = 2
-agent_operations = 54
-human_operations = 95
+agent_operations = 53
+human_operations = 84
 money_type = "java.math.BigInteger"
 typed_operations = "com.sidiora.layerx.sdk.SchemaTypes.Operation"
 typed_requests = "com.sidiora.layerx.sdk.SchemaTypes.GeneratedRequest"
@@ -19,9 +19,6 @@ stream = "atomic cursor chain with duplicate rejection"
 [verification]
 receipt = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceipt"
 receipt_outcome = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptOutcome"
-batch_inclusion = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyBatchInclusion"
-checkpoint = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyCheckpoint"
-receipt_in_batch = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptInBatch"
 merkle = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyMerkleInclusion"
 
 [golden]

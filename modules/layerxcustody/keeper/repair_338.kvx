@@ -1,0 +1,20 @@
+[task.22.31.338]
+audit = "22.30.59"
+scope = "modules/layerxcustody/keeper"
+baseline = "Not run: the explicit implementation-first order and sole hf-done verification prohibit the conflicting unchanged-tree verification step; no baseline failure is claimed."
+evidence = "The runner's private hf-build/hf-done ledger identifies the exact candidate revision, command, exit code and log; this record makes no unexecuted gate claim."
+
+[finding.1]
+tests = ["TestRepair_338_GovernanceMerge", "TestRepair_338_ExternalAuthorityAndBlockedModule"]
+repair = "The real merge releases default and explicit gov authority balances through the SDK bank module-to-module transfer; valid external authorities keep account transfers and other blocked modules still fail atomically."
+wiring = "modules/layerxcustody/types/expected_keepers.go — domain 6 (chain modules): add SendCoinsFromModuleToModule to BankKeeper and replace the keeper-local retirementBankKeeper assertion with the shared contract; the existing node SDK bank already implements it."
+
+[finding.2]
+tests = ["TestRepair_338_RetirementRecovery", "TestRepair_338_RestoredUpgradeBeforeHistoricalGenesis", "TestRepair_338_InvalidLifecycleIsAtomic"]
+repair = "Validated RetirementGenesis carries original activation height and historical state; import persists a lifecycle marker that keeps deposits/admin/release retired even after height resets, while private initialization setters permit historical loading after activation restoration."
+proof_boundary = "Real keeper export, JSON transport, app close, fresh app initialization and keeper import are exercised; the production module adapter still uses legacy GenesisState and is not claimed to retain retirement until the following wiring lands."
+wiring = "modules/layerxcustody/module.go and modules/layerxcustody/types genesis schema — domain 6 (chain modules): validate, export and import RetirementGenesis through ExportGenesisWithRetirement/InitGenesisWithRetirement, preserving the lifecycle marker in normal and streaming genesis; add the node full exported-state InitChain integration case in node/ (domain 5)."
+
+[gotcha.1]
+observed = "The proposal names shared keeper contracts, genesis schema and full node recovery outside this task's exclusive paths."
+resolution = "Implement the keeper boundary and document owning-domain wiring here; do not modify out-of-scope files or claim the missing production adapter is repaired."

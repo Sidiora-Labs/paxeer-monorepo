@@ -102,7 +102,7 @@ func CurrentFormulaManifest(files map[string]string) (FormulaManifest, string, e
 		}
 		m.Sources[name] = files[name]
 	}
-	for _, category := range []string{"trending", "breakout", "volume", "movers", "unusual", "new"} {
+	for _, category := range Categories {
 		p, err := Policy(category)
 		if err != nil {
 			return m, "", err

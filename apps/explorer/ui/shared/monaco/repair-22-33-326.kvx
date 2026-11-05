@@ -1,0 +1,49 @@
+[repair]
+task = "22.33.326"
+audit = "22.30.137"
+requirement = "22998.1"
+status = "implemented_not_qualified"
+verification = "Pending the current bounded hf-build and hf-done gates; their runner-owned ledger is the authoritative qualification evidence."
+revision_evidence = "The runner-owned hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence path."
+baseline = "Not executed: the task's explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand; no pre-change failing run is claimed."
+proof = "Production ownership and search hooks run against Monaco TextModel instances created by Monaco's real dependency-injection services; source values, matches, ranges, decorations and disposal use the real model implementation."
+wiring_requests = []
+
+[finding.editor_model_lifecycle]
+test = "editorModelLifecycle"
+path = "repair-22-33-326.spec.ts"
+closes = "Chain, contract and viewer identities isolate shared secondary paths; source updates reach existing owned models; replacement, removal and unmount dispose owned models; reopening loads current sources."
+
+[finding.editor_search_scope]
+test = "editorSearchScope"
+path = "repair-22-33-326.spec.ts"
+closes = "Sequential navigation searches only viewer-owned models and yields selectable current file paths and source ranges; old highlights clear on scope changes, empty queries and unmount, including after model disposal."
+
+[finding.editor_whole_word]
+test = "editorWholeWord"
+path = "repair-22-33-326.spec.ts"
+closes = "Monaco separator characters preserve t, r, u and e inside identifiers and recognize punctuation boundaries; toggling whole-word matching updates real results and highlights."
+
+[qualification_note]
+observed = "The current build and verification commands install the frozen explorer Yarn lock and type-check through Yarn."
+action = "Preserve the existing implementation, lint the added spec, then run hf-build and hf-done against the same candidate."
+
+[gotcha.test_registration]
+observed = "Vitest 4 accepts a named function as the test name but still requires the executable handler as its second argument."
+action = "Use each declared proof function's name as a string title and execute the proof inside a callback with expect.hasAssertions()."
+
+[gotcha.monaco_module_types]
+observed = "Ambient declarations for Monaco core modules shadow the real API and remove StandaloneServices.get from neighboring specs."
+action = "Remove the three shadow declarations and create real TextModel instances through StandaloneServices.get(IInstantiationService), as the neighboring Monaco spec does."
+
+[gotcha.json_types]
+observed = "The repository's ts-reset types make JSON.parse return unknown."
+action = "Validate the namespace array and string identity at runtime before asserting its value."
+
+[qualification.unrelated_dependency]
+revision = "f8718a63fba225e00bd1db348fbef5cfee6cdb45"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Out-of-scope ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts imports ganache, which is absent from the explorer dependencies."
+assumption = "The owning domain must supply its test dependency; this task does not change that test, manifests or the compiler gate."

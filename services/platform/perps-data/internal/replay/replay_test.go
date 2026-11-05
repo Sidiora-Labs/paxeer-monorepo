@@ -7,8 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
+	"math/big"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,6 +36,14 @@ const (
 	replayHolder    = "replay-test"
 	testSpan        = 20
 )
+
+// Independent inventory: adding a production projection cannot silently remove
+// it from the recovery oracle or the snapshot assertions.
+var expectedProjectionTables = []string{
+	"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily",
+	"market_stats_rolling", "leaderboard", "spot_token_seen", "market_snapshots", "protocol_snapshots",
+	"spot_account_legs", "spot_leaderboard",
+}
 
 func requireEnv(t *testing.T, name string) string {
 	t.Helper()
@@ -64,7 +77,7 @@ func testDB(t *testing.T) *sql.DB {
 	for _, tb := range tables {
 		reset = append(reset, "perps."+tb.name)
 	}
-	for _, p := range projectionTables {
+	for _, p := range expectedProjectionTables {
 		reset = append(reset, "perps."+p)
 	}
 	for _, name := range reset {
@@ -116,7 +129,9 @@ func testSource(t *testing.T, db *sql.DB) (NodeSource, *source.RPC) {
 			return store.WriteBlock(ctx, tx, store.Block{Number: b.Number, Hash: b.Hash, ParentHash: b.ParentHash, Time: b.Time, Proposer: b.Proposer, TxCount: b.TxCount}, rows)
 		},
 		Rebuild: func(ctx context.Context, tx *sql.Tx, a source.Affected) error {
-			return store.Rebuild(ctx, tx, int64(a.From), int64(a.From))
+			return store.Rebuild(ctx, tx, int64(a.From), int64(a.From), store.Recovery{
+				Accounts: a.Accounts, Markets: a.Markets, FromTime: a.FromTime,
+			})
 		},
 	})
 	if err != nil {
@@ -206,7 +221,7 @@ func dump(t *testing.T, db *sql.DB, from, to int64) map[string][]string {
 	for _, tb := range tables {
 		queries["perps."+tb.name] = fmt.Sprintf(`SELECT * FROM perps.%s WHERE block BETWEEN %d AND %d`, tb.name, from, to)
 	}
-	for _, p := range projectionTables {
+	for _, p := range expectedProjectionTables {
 		queries["perps."+p] = `SELECT * FROM perps.` + p
 	}
 	out := map[string][]string{}
@@ -269,6 +284,320 @@ func (o *observed) Read(ctx context.Context, q decode.Querier, h uint64) (store.
 	o.mu.Unlock()
 	o.before(n)
 	return o.Source.Read(ctx, q, h)
+}
+
+func TestReplayRenewsLeaseWithinBatch(t *testing.T) {
+	db := testDB(t)
+	if os.Getenv(testRPCEnv) == "" || os.Getenv(testCometEnv) == "" {
+		t.Setenv("TMPDIR", t.TempDir())
+		envFile := filepath.Join(os.Getenv("TMPDIR"), "lx-localnode", "localnode.env")
+		const script = "../../../../../tools/qualification/localnode/v6120-node.sh"
+		nodeCtx, stopNode := context.WithTimeout(context.Background(), 6*time.Minute)
+		defer stopNode()
+		cmd := exec.CommandContext(nodeCtx, "bash", script, "--env-out", envFile)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("start in-tree node: %v\n%s", err, out)
+		}
+		cmd = exec.Command("bash", "-c", `. "$1" && printf '%s\n%s\n%s\n' "$PERPS_DATA_TEST_RPC" "$PERPS_DATA_TEST_COMET" "$LOCAL_NODE_HOME"`, "node-env", envFile)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("read node endpoints: %v", err)
+		}
+		endpoints := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(endpoints) != 3 || endpoints[0] == "" || endpoints[1] == "" || endpoints[2] == "" {
+			t.Fatalf("invalid node endpoints: %q", out)
+		}
+		t.Setenv(testRPCEnv, endpoints[0])
+		t.Setenv(testCometEnv, endpoints[1])
+		t.Cleanup(func() {
+			cmd := exec.Command("bash", script, "--stop", endpoints[2])
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Errorf("stop in-tree node: %v\n%s", err, out)
+			}
+		})
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	src, rpc := testSource(t, db)
+	head, err := rpc.Head(ctx)
+	if err != nil || head < 2 {
+		t.Fatalf("node head %d: %v", head, err)
+	}
+	height := int64(head) - 1
+	index(t, db, src, height, height)
+	r := runner(db, &observed{Source: src, before: func(int) {
+		timer := time.NewTimer(2 * MinLeaseTTL)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-timer.C:
+		}
+		if err := acquireLease(ctx, db, indexerHolder, MaxLeaseTTL); !errors.Is(err, errLeaseHeld) {
+			t.Fatalf("competing writer after a slow read: %v, want lease held", err)
+		}
+	}})
+	r.LeaseTTL = MinLeaseTTL
+	if err := acquireLease(ctx, db, r.Holder, r.LeaseTTL); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := releaseLease(context.Background(), db, r.Holder); err != nil {
+			t.Error(err)
+		}
+	})
+	tables, err := blockTables(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	counts, err := r.batch(ctx, tables, height, height, false)
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed <= r.LeaseTTL {
+		t.Fatalf("batch took %s, want longer than lease TTL %s", elapsed, r.LeaseTTL)
+	}
+	if n := count(t, db, `SELECT count(*) FROM perps.writer_lease WHERE name = $1 AND holder = $2 AND expires_at > clock_timestamp()`, leaseName, r.Holder); n != 1 {
+		t.Fatal("runner did not hold an unexpired writer lease at commit")
+	}
+	if err := acquireLease(ctx, db, indexerHolder, MaxLeaseTTL); !errors.Is(err, errLeaseHeld) {
+		t.Fatalf("competing writer after commit: %v, want lease held", err)
+	}
+	for _, c := range counts {
+		if c.Changed != 0 {
+			t.Errorf("%s changed %d rows", c.Table, c.Changed)
+		}
+	}
+	if got := cursorHeight(t, db); got != height {
+		t.Fatalf("committed cursor %d, want %d", got, height)
+	}
+}
+
+func TestReplaySnapshotScoped(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	tables, err := blockTables(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := common.HexToAddress("0x1001")
+	b := common.HexToAddress("0x1002")
+	tokenA := common.HexToAddress("0x2001")
+	tokenB := common.HexToAddress("0x2002")
+	at := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	begin := func(t *testing.T) *sql.Tx {
+		t.Helper()
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = tx.Rollback() })
+		return tx
+	}
+	exec := func(t *testing.T, tx *sql.Tx, query string, args ...any) {
+		t.Helper()
+		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	wantCount := func(t *testing.T, tx *sql.Tx, query string, want int64, args ...any) {
+		t.Helper()
+		var got int64
+		if err := tx.QueryRowContext(ctx, query, args...).Scan(&got); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+		if got != want {
+			t.Errorf("%s = %d, want %d", query, got, want)
+		}
+	}
+	write := func(t *testing.T, tx *sql.Tx, height uint64, account common.Address) (store.Block, *decode.Result) {
+		t.Helper()
+		hash := common.BigToHash(new(big.Int).SetUint64(height))
+		block := store.Block{Number: height, Hash: hash, ParentHash: common.BigToHash(new(big.Int).SetUint64(height - 1)),
+			Time: at.Add(time.Duration(height) * time.Second), Proposer: fmt.Sprintf("%040X", height), TxCount: 1}
+		fact := decode.Fact{Block: height, BlockHash: hash, TxHash: hash, TxIndex: 0, LogIndex: 0,
+			ReceiptKind: decode.ReceiptTx, BlockTime: block.Time, Emitter: decode.PerpsAddress, Kind: "deposited", Account: account}
+		rows := &decode.Result{Decoded: []decode.Decoded{{
+			Event: decode.Event{EventName: "CollateralDeposited", Args: map[string]any{"account": account.Hex(), "amount": "100", "newBalance": "100"}},
+			Rows:  []decode.Row{decode.CollateralDepositedRow{Fact: fact, AccountArg: account, Amount: "100", NewBalance: "100"}},
+		}}}
+		exec(t, tx, `INSERT INTO perps.blocks (number, hash, parent_hash, time, proposer, tx_count) VALUES ($1, $2, $3, $4, $5, $6)`,
+			height, hash.Bytes(), block.ParentHash.Bytes(), block.Time, block.Proposer, block.TxCount)
+		if err := store.WriteBlock(ctx, tx, block, rows); err != nil {
+			t.Fatalf("WriteBlock: %v", err)
+		}
+		return block, rows
+	}
+
+	t.Run("copies_only_range_keys", func(t *testing.T) {
+		tx := begin(t)
+		write(t, tx, 9, b)
+		write(t, tx, 10, a)
+		write(t, tx, 11, b)
+		queries := []string{
+			`INSERT INTO perps.positions_current (position_id, account, market_id, is_long, size_usd, collateral_usd, collateral_amount, collateral_token, entry_price, leverage, realized_pnl, status, opened_block)
+VALUES ($1, $2, $1, true, 1, 1, 1, $3, 1, 1, 0, 'open', 9)`,
+			`INSERT INTO perps.orders (order_id, account, market_id, order_type, is_long, trigger_price, size_usd, remaining_size_usd, status, placed_block)
+VALUES ($1, $2, 1, 0, true, 1, 1, 1, 'active', 9)`,
+			`INSERT INTO perps.spot_orders (order_id, account, kind, side, token, stablecoin, amount, status, placed_block)
+VALUES ($1, $2, 'limit', 'buy', $3, $3, 1, 'open', 9)`,
+			`INSERT INTO perps.user_stats (account, trades_count, volume_usd, fees_usd, funding_usd, realized_pnl, total_pnl, win_count, loss_count, liquidations, updated_block)
+VALUES ($2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9)`,
+			`INSERT INTO perps.user_pnl_daily (account, day, trading_pnl, fees, funding, realized_pnl, volume, trades)
+VALUES ($2, '2026-03-02', 0, 0, 0, 0, 0, 0)`,
+			`INSERT INTO perps.leaderboard ("window", rank, account, realized_pnl, volume_usd, trades_count, win_rate, avg_hold_time_seconds, open_positions)
+VALUES ('all', $1, $2, 0, 0, 0, 0, 0, 1)`,
+			`INSERT INTO perps.market_stats_rolling (market_id, volume_24h, volume_7d, volume_30d, trades_count, open_interest_long, open_interest_short, updated_block)
+VALUES ($1, 0, 0, 0, 0, 0, 0, 9)`,
+			`INSERT INTO perps.market_snapshots (market_id, hour, mark_price, volume_usd, trades_count)
+VALUES ($1, '2026-03-02 10:00:00+00', 1, 0, 0)`,
+			`INSERT INTO perps.spot_token_seen (token, first_block) VALUES ($3, 9)`,
+			`INSERT INTO perps.spot_account_legs (account, realized_usd, volume_usd, trades, updated_block)
+VALUES ($2, 1, 10, 1, 9)`,
+			`INSERT INTO perps.spot_leaderboard (kind, rank, account, value, updated_block)
+VALUES ('pnl', $1, $2, 1, 9)`,
+		}
+		for i, account := range []common.Address{a, b} {
+			token := []common.Address{tokenA, tokenB}[i]
+			for _, query := range queries {
+				// Explicit casts give unused fixture parameters their real types.
+				query = `WITH fixture AS (SELECT $1::numeric, $2::bytea, $3::bytea) ` + query
+				exec(t, tx, query, i+1, account.Bytes(), token.Bytes())
+			}
+		}
+		if err := snapshot(ctx, tx, tables, 10, 10); err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range expectedProjectionTables {
+			query := `SELECT count(*) FROM ` + snapshotProjection + p
+			want := int64(1)
+			if p == "protocol_snapshots" {
+				want = 0
+			}
+			if p == "spot_leaderboard" {
+				want = 2
+			}
+			wantCount(t, tx, query, want)
+			switch p {
+			case "positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "leaderboard":
+				wantCount(t, tx, query+` WHERE account = $1`, 1, a.Bytes())
+				wantCount(t, tx, query+` WHERE account = $1`, 0, b.Bytes())
+			case "spot_account_legs":
+				wantCount(t, tx, query+` WHERE account = $1`, 1, a.Bytes())
+				wantCount(t, tx, query+` WHERE account = $1`, 0, b.Bytes())
+			case "spot_leaderboard":
+				wantCount(t, tx, query+` WHERE account = $1`, 1, a.Bytes())
+				wantCount(t, tx, query+` WHERE account = $1`, 1, b.Bytes())
+			case "market_stats_rolling", "market_snapshots":
+				wantCount(t, tx, query+` WHERE market_id = 1`, 1)
+				wantCount(t, tx, query+` WHERE market_id = 2`, 0)
+			case "spot_token_seen":
+				wantCount(t, tx, query+` WHERE token = $1`, 1, tokenA.Bytes())
+				wantCount(t, tx, query+` WHERE token = $1`, 0, tokenB.Bytes())
+			}
+		}
+		counts, err := diff(ctx, tx, tables, 10, 10, math.MaxInt64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range counts {
+			if c.Changed != 0 {
+				t.Errorf("unchanged %s reports %d differences", c.Table, c.Changed)
+			}
+			if c.Table == "perps.account_margin" && c.Rows != 2 {
+				t.Errorf("account_margin reports %d total rows, want 2", c.Rows)
+			}
+		}
+		exec(t, tx, `UPDATE perps.account_margin SET balance = balance + 1 WHERE account = $1`, a.Bytes())
+		counts, err = diff(ctx, tx, tables, 10, 10, math.MaxInt64)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range counts {
+			if c.Table == "perps.account_margin" && c.Changed != 2 {
+				t.Errorf("changed margin reports %d differences, want 2", c.Changed)
+			}
+		}
+	})
+
+	t.Run("rewrites_identical_rows", func(t *testing.T) {
+		tx := begin(t)
+		write(t, tx, 9, b)
+		block, rows := write(t, tx, 10, a)
+		write(t, tx, 11, b)
+		if err := snapshot(ctx, tx, tables, 10, 10); err != nil {
+			t.Fatal(err)
+		}
+		maxSeq := int64(0)
+		if err := tx.QueryRowContext(ctx, `SELECT max(perps_seq) FROM perps.delivery_outbox`).Scan(&maxSeq); err != nil {
+			t.Fatal(err)
+		}
+		for _, tb := range tables {
+			exec(t, tx, `DELETE FROM perps.`+tb.name+` WHERE block = 10`)
+		}
+		if _, err := store.WriteFacts(ctx, tx, block, rows); err != nil {
+			t.Fatal(err)
+		}
+		for i, tb := range tables {
+			if tb.rowID {
+				if err := restoreRowIDs(ctx, tx, tb, snapshotName(i)); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if err := store.Rebuild(ctx, tx, 10, 10); err != nil {
+			t.Fatal(err)
+		}
+		counts, err := diff(ctx, tx, tables, 10, 10, maxSeq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range counts {
+			if c.Changed != 0 {
+				t.Errorf("%s changed %d rows after replay", c.Table, c.Changed)
+			}
+		}
+		wantCount(t, tx, `SELECT count(*) FROM perps.account_margin WHERE account = $1 AND balance = 100`, 1, b.Bytes())
+	})
+
+	t.Run("empty_range_and_transaction_lifetime", func(t *testing.T) {
+		conn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer conn.Close()
+		tx, err := conn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		if err := snapshot(ctx, tx, tables, 100, 101); err != nil {
+			t.Fatal(err)
+		}
+		names := []string{snapshotBlocks, "replay_accounts", "replay_spot_accounts", "replay_markets", "replay_tokens"}
+		for i := range tables {
+			names = append(names, snapshotName(i))
+		}
+		for _, p := range expectedProjectionTables {
+			names = append(names, snapshotProjection+p)
+		}
+		for _, name := range names {
+			wantCount(t, tx, `SELECT count(*) FROM `+name, 0)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range names {
+			var exists bool
+			if err := conn.QueryRowContext(ctx, `SELECT to_regclass($1) IS NOT NULL`, "pg_temp."+name).Scan(&exists); err != nil {
+				t.Fatal(err)
+			}
+			if exists {
+				t.Errorf("temporary table %s survived commit", name)
+			}
+		}
+	})
 }
 
 func TestReplay(t *testing.T) {

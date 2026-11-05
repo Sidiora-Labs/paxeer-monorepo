@@ -1,0 +1,16 @@
+{
+  "canonical_origin": "https://api-mainnet-beta.paxeer.network",
+  "rpc_paths": [
+    "/"
+  ],
+  "node_rpc": {
+    "origin": "https://api-mainnet-beta.paxeer.network",
+    "rpc_path": "/",
+    "chain_id": 125
+  },
+  "hosted_gateway": {
+    "location_source": "operator-provided",
+    "rpc_path": "/",
+    "catalogue_path": "/v1/routes"
+  }
+}

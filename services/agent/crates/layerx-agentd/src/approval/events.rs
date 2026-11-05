@@ -27,6 +27,18 @@ pub enum ApprovalEventKind {
     Expired = 4,
 }
 
+impl ApprovalEventKind {
+    /// Human approval is a local restriction and supplies no protocol evidence.
+    #[must_use]
+    pub const fn verification_level(self) -> VerificationLevel {
+        match self {
+            Self::Created | Self::Granted | Self::Rejected | Self::Expired => {
+                VerificationLevel::UNVERIFIED
+            }
+        }
+    }
+}
+
 /// Complete context required for one stream and audit transition.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApprovalLifecycle {
@@ -94,16 +106,19 @@ impl ApprovalEvents {
             decision: audit_decision(lifecycle.kind),
             reason,
             resulting_activity_id: None,
-            verification_level: VerificationLevel::UNVERIFIED,
+            verification_level: lifecycle.kind.verification_level(),
             protocol_authority: None,
             submitted_bytes: Some(PayloadEvidence::Digest(lifecycle.canonical_digest)),
             receipt_id: None,
+            tx_hash: None,
+            nonce: None,
+            rung: None,
         };
         let event = CoreEvent {
             global_sequence,
             canonical_bytes: canonical_event_bytes.clone(),
             receipt_reference: None,
-            receipt_verification_level: VerificationLevel::UNVERIFIED,
+            receipt_verification_level: lifecycle.kind.verification_level(),
             attributes: EventAttributes {
                 agent: String::from_utf8_lossy(lifecycle.agent.as_bytes()).into_owned(),
                 account: lifecycle.tenant.as_str().to_owned(),

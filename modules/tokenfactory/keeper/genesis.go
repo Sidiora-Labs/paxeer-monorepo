@@ -9,6 +9,21 @@ import (
 // InitGenesis initializes the tokenfactory module's state from a provided genesis
 // state.
 func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
+	// Check the complete input before creating accounts, metadata or params.
+	// Preserve the public unknown-paused-denom refusal.
+	known := make(map[string]bool, len(genState.FactoryDenoms))
+	for _, denom := range genState.FactoryDenoms {
+		known[denom.Denom] = true
+	}
+	for _, denom := range genState.PausedDenoms {
+		if !known[denom] {
+			panic(types.ErrDenomDoesNotExist)
+		}
+	}
+	if err := genState.Validate(); err != nil {
+		panic(err)
+	}
+
 	k.CreateModuleAccount(ctx)
 
 	k.SetParams(ctx, genState.Params)
@@ -24,6 +39,15 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
 		}
 		err = k.setAuthorityMetadata(ctx, genDenom.GetDenom(), genDenom.GetAuthorityMetadata())
 		if err != nil {
+			panic(err)
+		}
+	}
+
+	for _, denom := range genState.GetPausedDenoms() {
+		if _, err := k.GetAuthorityMetadata(ctx, denom); err != nil || !k.GetDenomPrefixStore(ctx, denom).Has([]byte(types.DenomAuthorityMetadataKey)) {
+			panic(types.ErrDenomDoesNotExist)
+		}
+		if err := k.setDenomPaused(ctx, denom, true); err != nil {
 			panic(err)
 		}
 	}
@@ -51,5 +75,6 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	return &types.GenesisState{
 		FactoryDenoms: genDenoms,
 		Params:        k.GetParams(ctx),
+		PausedDenoms:  k.GetPausedDenoms(ctx),
 	}
 }

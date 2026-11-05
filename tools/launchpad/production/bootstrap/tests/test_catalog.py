@@ -107,8 +107,8 @@ class ReportValidationTests(unittest.TestCase):
     def test_missing_modules_recorded_not_skipped(self):
         with tempfile.TemporaryDirectory() as directory:
             result = catalog.inventory(Path(directory))
-            self.assertEqual(len(result['go_modules']), 13)
-            self.assertEqual(sum(x.startswith('missing module') for x in result['issues']), 13)
+            self.assertEqual(len(result['go_modules']), 17)
+            self.assertEqual(sum(x.startswith('missing module') for x in result['issues']), 17)
 
 
 if __name__ == '__main__':

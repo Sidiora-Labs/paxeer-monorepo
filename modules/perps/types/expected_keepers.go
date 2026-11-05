@@ -21,7 +21,11 @@ type EVMKeeper interface {
 
 // PricefeedKeeper serves the index and mark of a market with their timestamp
 // and freshness; the venue refuses trading and liquidation while Fresh is
-// false.
+// false. MarketSymbol resolves the same identifier and reports whether the
+// producer has enabled it; callers must propagate unknown-market errors.
 type PricefeedKeeper interface {
-	GetPrice(ctx sdk.Context, marketId uint64) (pricefeedkeeper.Price, error)
+	GetPrice(ctx sdk.Context, marketID uint64) (pricefeedkeeper.Price, error)
+	MarketSymbol(ctx sdk.Context, marketID uint64) (string, bool, error)
 }
+
+var _ PricefeedKeeper = pricefeedkeeper.Keeper{}

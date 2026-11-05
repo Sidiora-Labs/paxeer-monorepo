@@ -92,20 +92,21 @@ export async function endStream(_streamId:string,_auth:AuthBody):Promise<boolean
 
 export interface StreamOperation {operationId:string;streamId:string;status:'requested'|'provisioning'|'ready'|'live'|'ending'|'ended'|'failed'|'suspended';revision:string;retryAt:string|null}
 export interface IngestCredential {providerId:string;ingestEndpoint:string;token:string;expiresAt:string}
-function operation(value:unknown):StreamOperation {
- if(!value||typeof value!=='object')throw new Error('Invalid stream operation');const o=(value as {operation?:unknown}).operation;
- if(!o||typeof o!=='object')throw new Error('Invalid stream operation');const v=o as Record<string,unknown>;
+export function parseStreamOperation(value:unknown):StreamOperation {
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Invalid stream operation');const envelope=value as {operation?:unknown;data?:unknown};const data=envelope.data;if(data!==undefined&&(!data||typeof data!=='object'||Array.isArray(data)))throw new Error('Invalid stream operation');const o=data===undefined?envelope.operation:(data as {operation?:unknown}).operation;
+ if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Invalid stream operation');const v=o as Record<string,unknown>;
+ if(data!==undefined){const response=value as Record<string,unknown>;if(typeof response.requestId!=='string'||!uuid.test(response.requestId)||response.revision!==v.revision||response.quality!=='complete'||typeof response.generatedAt!=='string'||!Number.isFinite(Date.parse(response.generatedAt)))throw new Error('Invalid stream operation envelope')}
  if(typeof v.operationId!=='string'||!uuid.test(v.operationId)||v.streamId!==v.operationId||!['requested','provisioning','ready','live','ending','ended','failed','suspended'].includes(String(v.status))||typeof v.revision!=='string'||!/^([1-9][0-9]{0,18})$/.test(v.revision)||BigInt(v.revision)>9223372036854775807n||(v.retryAt!==null&&(typeof v.retryAt!=='string'||!Number.isFinite(Date.parse(v.retryAt)))))throw new Error('Invalid stream operation');
  return {operationId:v.operationId,streamId:v.streamId as string,status:v.status as StreamOperation['status'],revision:v.revision,retryAt:v.retryAt as string|null};
 }
 function sessionHeaders(accessToken:string):Record<string,string> {if(!accessToken||accessToken.length>16384||/[\r\n]/.test(accessToken))throw new Error('Verified livestream authorization required');return {'Authorization':`Bearer ${accessToken}`,'Content-Type':'application/json'}}
 export async function requestStream(poolAddress:string,title:string,idempotencyKey:string,accessToken:string,signing?:StreamSigningContext):Promise<StreamOperation> {
  if(!address.test(poolAddress)||![...title].length||[...title].length>120||!/^[A-Za-z0-9_-]{1,128}$/.test(idempotencyKey))throw new Error('Invalid livestream request');
- const body=JSON.stringify({poolAddress,title});return operation(await read('/v2/streams',{method:'POST',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,'stream.create','POST','/v2/streams',body),'Idempotency-Key':idempotencyKey},body}));
+ const body=JSON.stringify({poolAddress,title});return parseStreamOperation(await read('/v2/streams',{method:'POST',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,'stream.create','POST','/v2/streams',body),'Idempotency-Key':idempotencyKey},body}));
 }
-export async function getStreamOperation(operationId:string,accessToken:string):Promise<StreamOperation> {if(!uuid.test(operationId))throw new Error('Invalid stream identity');return operation(await read(`/v2/streams/operations/${operationId}`,{headers:sessionHeaders(accessToken)}))}
+export async function getStreamOperation(operationId:string,accessToken:string):Promise<StreamOperation> {if(!uuid.test(operationId))throw new Error('Invalid stream identity');return parseStreamOperation(await read(`/v2/streams/operations/${operationId}`,{headers:sessionHeaders(accessToken)}))}
 export async function controlStream(streamId:string,revision:string,action:'start'|'end'|'rotate'|'restore',accessToken:string,signing?:StreamSigningContext):Promise<StreamOperation> {
- if(!uuid.test(streamId)||!/^([1-9][0-9]{0,18})$/.test(revision))throw new Error('Invalid stream revision');const path=`/v2/streams/${streamId}/${action==='start'?'go-live':action==='rotate'?'rotate-key':action}`;const body=JSON.stringify({revision});return operation(await read(path,{method:'POST',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,`stream.${action}`,'POST',path,body)},body}));
+ if(!uuid.test(streamId)||!/^([1-9][0-9]{0,18})$/.test(revision))throw new Error('Invalid stream revision');const frozen=action==='start'||action==='end';const path=frozen?`/v2/streams/${streamId}:${action}`:`/v2/streams/${streamId}/${action==='rotate'?'rotate-key':action}`;const body=JSON.stringify(frozen?{expectedRevision:revision}:{revision});return parseStreamOperation(await read(path,{method:'POST',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,`stream.${action}`,'POST',path,body)},body}));
 }
 export async function getIngestCredential(streamId:string,accessToken:string,signing?:StreamSigningContext):Promise<IngestCredential> {
  if(!uuid.test(streamId))throw new Error('Invalid stream identity');const path=`/v2/streams/${streamId}/ingest-credential`;const raw=await read(path,{method:'POST',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,'stream.credential','POST',path,'{}')},body:'{}'});
@@ -122,7 +123,7 @@ async function actionHeaders(context:StreamSigningContext|undefined,action:strin
 }
 
 export async function editStream(streamId:string,revision:string,title:string,accessToken:string,signing:StreamSigningContext,privatePlayback?:boolean):Promise<StreamOperation>{
- if(!uuid.test(streamId)||![...title].length||[...title].length>120||!/^([1-9][0-9]{0,18})$/.test(revision))throw new Error('Invalid stream edit');const path=`/v2/streams/${streamId}`;const body=JSON.stringify({title,revision,...(privatePlayback===undefined?{}:{private:privatePlayback})});return operation(await read(path,{method:'PATCH',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,'stream.edit','PATCH',path,body)},body}));
+ if(!uuid.test(streamId)||![...title].length||[...title].length>120||!/^([1-9][0-9]{0,18})$/.test(revision))throw new Error('Invalid stream edit');const path=`/v2/streams/${streamId}`;const body=JSON.stringify({title,revision,...(privatePlayback===undefined?{}:{private:privatePlayback})});return parseStreamOperation(await read(path,{method:'PATCH',headers:{...sessionHeaders(accessToken),...await actionHeaders(signing,'stream.edit','PATCH',path,body)},body}));
 }
 export interface ViewerSession{streamId:string;sessionId:string;token:string;expiresAt:string}
 export async function createViewerSession(streamId:string,accessToken?:string):Promise<ViewerSession>{

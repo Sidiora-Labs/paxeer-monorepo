@@ -1,11 +1,15 @@
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::level::achieved_rung;
 use layerx_proof::receipt::{
-    canonical_protocol_facts, verify, AuthorizedBatch, ReceiptCheck, VerificationFailure,
+    canonical_protocol_facts, verify, verify_outcome, AuthorizedBatch, ReceiptCheck, ReceiptKeys,
+    VerificationFailure,
 };
-use layerx_types::verify::VerificationLevel;
+use layerx_types::{rung::Rung, verify::VerificationLevel};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::{LEGACY_PROTOCOL_VERSION, PROTOCOL_VERSION};
+use sha2::{Digest as _, Sha256};
 
 #[derive(Clone)]
 struct Fields {
@@ -15,6 +19,8 @@ struct Fields {
     batch_id: [u8; 32],
     asset: [u8; 32],
     amount: u128,
+    fee_charged: u128,
+    effect_bodies: Vec<Vec<u8>>,
     from: [u8; 32],
     from_before: u128,
     from_after: u128,
@@ -31,6 +37,8 @@ fn fields() -> Fields {
         batch_id: [4; 32],
         asset: [5; 32],
         amount: 25,
+        fee_charged: 1,
+        effect_bodies: vec![],
         from: [6; 32],
         from_before: 100,
         from_after: 75,
@@ -57,8 +65,25 @@ fn encode_fields_version(
     assert_eq!(encoder.bytes(&fields.resulting_state_root, 32), Ok(()));
     assert_eq!(encoder.bytes(&[8; 32], 32), Ok(()));
     assert_eq!(encoder.i32(0), Ok(()));
-    assert_eq!(encoder.sequence_length(0, 512), Ok(()));
-    assert_eq!(encoder.u128(1), Ok(()));
+    assert_eq!(
+        encoder.sequence_length(fields.effect_bodies.len(), 512),
+        Ok(())
+    );
+    for (ordinal, body) in fields.effect_bodies.iter().enumerate() {
+        assert_eq!(encoder.u16(1), Ok(()));
+        assert_eq!(
+            encoder.u16(
+                u16::try_from(ordinal).unwrap_or_else(|error| panic!("effect ordinal: {error}"))
+            ),
+            Ok(())
+        );
+        assert_eq!(encoder.u16(1), Ok(()));
+        assert_eq!(encoder.tag(1, 3), Ok(()));
+        assert_eq!(encoder.u8(0), Ok(()));
+        assert_eq!(encoder.bytes(&[0; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(body, 256), Ok(()));
+    }
+    assert_eq!(encoder.u128(fields.fee_charged), Ok(()));
     assert_eq!(encoder.bytes(&fields.batch_id, 32), Ok(()));
     assert_eq!(encoder.u16(1), Ok(()));
     assert_eq!(encoder.u32(1), Ok(()));
@@ -114,6 +139,121 @@ fn authorised(fields: &Fields, signing_key: &SigningKey) -> AuthorizedBatch {
         fields.resulting_state_root,
         signing_key.verifying_key().to_bytes(),
     )
+}
+
+fn execution_effect_body(denomination: &[u8]) -> Vec<u8> {
+    let mut body = vec![0; 108];
+    body.push(
+        u8::try_from(denomination.len())
+            .unwrap_or_else(|error| panic!("fee denomination length: {error}")),
+    );
+    body.extend_from_slice(denomination);
+    body
+}
+
+#[test]
+fn debit_identity_accounts_for_the_fee_in_the_receipt_asset() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let mut fields = fields();
+    fields.asset = Sha256::digest(b"uhpx").into();
+    fields.fee_charged = 7;
+    fields.effect_bodies = vec![execution_effect_body(b"uhpx")];
+    for amount in [25, 0] {
+        fields.amount = amount;
+        fields.to_after = fields.to_before + amount;
+        fields.from_after = fields.from_before - amount - fields.fee_charged;
+        let bytes = sign(&fields, &signing_key);
+        let verified = verify(&bytes, &authorised(&fields, &signing_key))
+            .unwrap_or_else(|error| panic!("same-asset fee rejected: {error:?}"));
+        assert_eq!(verified.canonical_bytes(), bytes);
+        fields.from_after = fields.from_before - amount;
+        assert_eq!(
+            verify(
+                &sign(&fields, &signing_key),
+                &authorised(&fields, &signing_key)
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::DebitBalance
+            })
+        );
+    }
+    for (before, amount, fee) in [(24, 25, 7), (31, 25, 7), (u128::MAX, 1, u128::MAX)] {
+        fields.from_before = before;
+        fields.amount = amount;
+        fields.fee_charged = fee;
+        fields.from_after = 0;
+        fields.to_after = fields.to_before + amount;
+        assert_eq!(
+            verify(
+                &sign(&fields, &signing_key),
+                &authorised(&fields, &signing_key)
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::DebitBalance
+            })
+        );
+    }
+}
+
+#[test]
+fn debit_identity_ignores_a_fee_in_another_asset() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let mut fields = fields();
+    fields.asset = Sha256::digest(b"uhpx").into();
+    fields.fee_charged = 7;
+    fields.effect_bodies = vec![execution_effect_body(b"other")];
+    let bytes = sign(&fields, &signing_key);
+    let verified = verify(&bytes, &authorised(&fields, &signing_key))
+        .unwrap_or_else(|error| panic!("other-asset fee rejected: {error:?}"));
+    assert_eq!(verified.canonical_bytes(), bytes);
+    fields.from_after = fields.from_before - fields.amount - fields.fee_charged;
+    assert_eq!(
+        verify(
+            &sign(&fields, &signing_key),
+            &authorised(&fields, &signing_key)
+        ),
+        Err(VerificationFailure {
+            check: ReceiptCheck::DebitBalance
+        })
+    );
+}
+
+#[test]
+fn debit_identity_keeps_fee_free_identity_without_a_complete_first_denomination() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let mut fields = fields();
+    fields.asset = Sha256::digest(b"uhpx").into();
+    fields.fee_charged = 7;
+    let mut truncated = execution_effect_body(b"uhpx");
+    truncated.pop();
+    let mut overrun = execution_effect_body(b"uhpx");
+    overrun[108] = u8::MAX;
+    for bodies in [
+        vec![],
+        vec![vec![]],
+        vec![vec![0; 108]],
+        vec![truncated],
+        vec![overrun],
+        vec![
+            execution_effect_body(b"other"),
+            execution_effect_body(b"uhpx"),
+        ],
+    ] {
+        fields.effect_bodies = bodies;
+        fields.from_after = fields.from_before - fields.amount;
+        let bytes = sign(&fields, &signing_key);
+        assert!(verify(&bytes, &authorised(&fields, &signing_key)).is_ok());
+        fields.from_after -= fields.fee_charged;
+        assert_eq!(
+            verify(
+                &sign(&fields, &signing_key),
+                &authorised(&fields, &signing_key)
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::DebitBalance
+            })
+        );
+    }
 }
 
 #[test]
@@ -297,4 +437,201 @@ fn verifies_state_commitment_receipt_and_keeps_root_and_signature_checks() {
             check: ReceiptCheck::SequencerSignature
         })
     );
+}
+
+#[test]
+fn pinned_receipt_keys_authorize_the_batch_and_report_receipted() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let wrong_key = SigningKey::from_bytes(&[4; 32]);
+    let public_key = signing_key.verifying_key().to_bytes();
+    let pin = SequencerAuthorization::new([11; 32], public_key, 41, 43);
+    let keys = [
+        SequencerAuthorization::new([12; 32], wrong_key.verifying_key().to_bytes(), 41, 43),
+        pin,
+    ];
+    let mut fields = fields();
+    fields.batch_id = [0; 32];
+    fields.batch_id[24..].copy_from_slice(&42_u64.to_be_bytes());
+    let bytes = sign(&fields, &signing_key);
+    let batch = AuthorizedBatch::from_receipt_keys(
+        &bytes,
+        ReceiptKeys::HeightRanges(&keys),
+        fields.asset,
+        fields.previous_state_root,
+        fields.resulting_state_root,
+    )
+    .unwrap_or_else(|error| panic!("pinned batch rejected: {error:?}"));
+    assert_eq!(batch.batch_id(), fields.batch_id);
+    assert_eq!(batch.sequencer_public_key(), public_key);
+    assert_eq!(batch.asset(), fields.asset);
+    assert_eq!(batch.previous_state_root(), fields.previous_state_root);
+    assert_eq!(batch.resulting_state_root(), fields.resulting_state_root);
+    for verified in [verify_outcome(&bytes, &batch), verify(&bytes, &batch)] {
+        let verified =
+            verified.unwrap_or_else(|error| panic!("pinned receipt rejected: {error:?}"));
+        assert_eq!(verified.rung(), Rung::Receipted);
+        assert_eq!(verified.level(), VerificationLevel::SEQUENCER_SIGNED);
+        assert_eq!(verified.evidence().rung(), Rung::Receipted);
+        assert_eq!(achieved_rung(verified.evidence()), Rung::Receipted);
+        assert_eq!(verified.canonical_bytes(), bytes);
+        assert_eq!(
+            verified.evidence().receipt_digest(),
+            Some(
+                receipt_digest(&encode_fields(&fields, None))
+                    .unwrap_or_else(|error| panic!("receipt hashing failed: {error:?}"))
+            )
+        );
+    }
+    for height in [41_u64, 43] {
+        let mut boundary = fields.clone();
+        boundary.batch_id[24..].copy_from_slice(&height.to_be_bytes());
+        let bytes = sign(&boundary, &signing_key);
+        let batch = AuthorizedBatch::from_receipt_keys(
+            &bytes,
+            &keys,
+            boundary.asset,
+            boundary.previous_state_root,
+            boundary.resulting_state_root,
+        )
+        .unwrap_or_else(|error| panic!("inclusive boundary rejected: {error:?}"));
+        assert_eq!(
+            verify_outcome(&bytes, &batch).map(|receipt| receipt.rung()),
+            Ok(Rung::Receipted)
+        );
+    }
+    let invalid_pins = [
+        vec![],
+        vec![SequencerAuthorization::new([12; 32], public_key, 41, 43)],
+        vec![SequencerAuthorization::new(
+            [11; 32],
+            wrong_key.verifying_key().to_bytes(),
+            41,
+            43,
+        )],
+        vec![SequencerAuthorization::new([11; 32], public_key, 43, 44)],
+        vec![SequencerAuthorization::new([11; 32], public_key, 40, 41)],
+        vec![pin, pin],
+    ];
+    for invalid in invalid_pins {
+        assert_eq!(
+            AuthorizedBatch::from_receipt_keys(
+                &bytes,
+                invalid.as_slice(),
+                fields.asset,
+                fields.previous_state_root,
+                fields.resulting_state_root,
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::SequencerSignature
+            })
+        );
+    }
+    assert_eq!(
+        AuthorizedBatch::from_receipt_keys(
+            &bytes,
+            ReceiptKeys::HistoricalKernel(public_key),
+            fields.asset,
+            fields.previous_state_root,
+            fields.resulting_state_root,
+        ),
+        Err(VerificationFailure {
+            check: ReceiptCheck::SequencerSignature
+        })
+    );
+    let mut malformed = fields.clone();
+    malformed.batch_id[0] = 1;
+    assert_eq!(
+        AuthorizedBatch::from_receipt_keys(
+            &sign(&malformed, &signing_key),
+            &keys,
+            fields.asset,
+            fields.previous_state_root,
+            fields.resulting_state_root,
+        ),
+        Err(VerificationFailure {
+            check: ReceiptCheck::BatchId
+        })
+    );
+    for invalid in [sign(&fields, &wrong_key), {
+        let mut tampered = bytes.clone();
+        let last = tampered.len() - 1;
+        tampered[last] ^= 1;
+        tampered
+    }] {
+        assert_eq!(
+            AuthorizedBatch::from_receipt_keys(
+                &invalid,
+                &keys,
+                fields.asset,
+                fields.previous_state_root,
+                fields.resulting_state_root,
+            ),
+            Err(VerificationFailure {
+                check: ReceiptCheck::SequencerSignature
+            })
+        );
+        assert_eq!(
+            verify_outcome(&invalid, &batch),
+            Err(VerificationFailure {
+                check: ReceiptCheck::SequencerSignature
+            })
+        );
+    }
+    assert_eq!(
+        AuthorizedBatch::from_receipt_keys(
+            &encode_fields(&fields, None),
+            &keys,
+            fields.asset,
+            fields.previous_state_root,
+            fields.resulting_state_root,
+        ),
+        Err(VerificationFailure {
+            check: ReceiptCheck::MissingSignature
+        })
+    );
+    for (asset, previous, resulting, check) in [
+        (
+            [99; 32],
+            fields.previous_state_root,
+            fields.resulting_state_root,
+            ReceiptCheck::Asset,
+        ),
+        (
+            fields.asset,
+            [99; 32],
+            fields.resulting_state_root,
+            ReceiptCheck::PreviousStateRoot,
+        ),
+        (
+            fields.asset,
+            fields.previous_state_root,
+            [99; 32],
+            ReceiptCheck::ResultingStateRoot,
+        ),
+    ] {
+        let batch = AuthorizedBatch::from_receipt_keys(&bytes, &keys, asset, previous, resulting)
+            .unwrap_or_else(|error| {
+                panic!("signature should establish batch authority: {error:?}")
+            });
+        assert_eq!(
+            verify_outcome(&bytes, &batch),
+            Err(VerificationFailure { check })
+        );
+    }
+}
+
+#[test]
+fn authority_supplied_key_reports_only_the_submitted_rung() {
+    let signing_key = SigningKey::from_bytes(&[3; 32]);
+    let fields = fields();
+    let bytes = sign(&fields, &signing_key);
+    let batch = authorised(&fields, &signing_key);
+    for verified in [verify_outcome(&bytes, &batch), verify(&bytes, &batch)] {
+        let verified = verified.unwrap_or_else(|error| panic!("valid receipt rejected: {error:?}"));
+        assert_eq!(verified.rung(), Rung::Submitted);
+        assert_eq!(verified.level(), VerificationLevel::SEQUENCER_SIGNED);
+        assert_eq!(verified.evidence().rung(), Rung::Submitted);
+        assert_eq!(achieved_rung(verified.evidence()), Rung::Submitted);
+        assert_eq!(verified.canonical_bytes(), bytes);
+    }
 }

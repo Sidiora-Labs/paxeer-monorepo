@@ -1,0 +1,1717 @@
+[audit.22.30.62]
+task = "22.30.62"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 172
+findings = 55
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["sidiora-cap-genesis", "rewards-accepts-value"]
+
+[file.001]
+path = "modules/layerxbridge/ATTESTATION.md"
+lines = 114
+verdict = "issues"
+note = "Binary domains, 196/185-byte preimages, big-endian fields and vectors match Go and EVM vault; generic denom wording omits the canonical Sidiora exception."
+
+[file.002]
+path = "modules/layerxbridge/client/cli/tx.go"
+lines = 263
+verdict = "issues"
+note = "Generated proposal files are decoded into typed governance messages and unsigned REST transactions; inner proposal EOF validation is stricter than the outer REST envelope."
+
+[file.003]
+path = "modules/layerxbridge/client/cli/tx_test.go"
+lines = 294
+verdict = "clean"
+note = "Generated proposal, amino/protobuf transport, deposits, authority and unsigned REST response fixtures match the CLI and mounted governance handler shapes."
+
+[file.004]
+path = "modules/layerxbridge/handler.go"
+lines = 65
+verdict = "clean"
+note = "BridgeProposal unpacks registered messages, validates authority, dispatches all six supported governance operations and commits atomically through a cached context."
+
+[file.005]
+path = "modules/layerxbridge/keeper/attestation_doc_parity_test.go"
+lines = 33
+verdict = "clean"
+note = "Domain strings and named digest vectors are compared with the actual Go digest functions and both attestation documents, covering requirement 6487.4."
+
+[file.006]
+path = "modules/layerxbridge/keeper/attestation_test.go"
+lines = 42
+verdict = "clean"
+note = "Independent inbound/outbound vectors pin packed widths, domain separation, no personal-sign prefix, recipient padding and strict signer recovery."
+
+[file.007]
+path = "modules/layerxbridge/keeper/bridge.go"
+lines = 199
+verdict = "issues"
+note = "Threshold signatures, sorted unique signers, vault checks, nullifiers, cap checks and cached mint/burn agree with the precompile consumer; outbound exhaustion is unchecked."
+
+[file.008]
+path = "modules/layerxbridge/keeper/genesis.go"
+lines = 52
+verdict = "clean"
+note = "JSON export enumerates persisted bridge keys and import validates before writes; it correctly rejects invalid canonical-denom mappings created by another keeper entry point."
+
+[file.009]
+path = "modules/layerxbridge/keeper/genesis_test.go"
+lines = 46
+verdict = "issues"
+note = "Canonical Sidiora mapping, cap and in-flight structs round-trip through the real keeper; full persistent application recovery is not exercised."
+
+[file.010]
+path = "modules/layerxbridge/keeper/keeper.go"
+lines = 259
+verdict = "clean"
+note = "Store prefixes, big-endian chain/nonce keys, reverse denom mappings and deterministic iteration agree with types, genesis and bridge views; state is held in the SDK KV store."
+
+[file.011]
+path = "modules/layerxbridge/keeper/keeper_test.go"
+lines = 832
+verdict = "issues"
+note = "Real keeper and governance codec cases cover authority, signatures, mint/burn and release caps; cap-first Sidiora validity and persistent replay recovery need stronger assertions."
+
+[file.012]
+path = "modules/layerxbridge/keeper/msg_server.go"
+lines = 184
+verdict = "issues"
+note = "All six registered Msg methods forward to authority-checked keepers and emit stable events; first-cap generic denom creation disagrees with canonical Sidiora genesis."
+
+[file.013]
+path = "modules/layerxbridge/keeper/sidiora.go"
+lines = 79
+verdict = "issues"
+note = "usid creator, tokenfactory admin, reverse mapping and SID metadata are checked and cached atomically; helper accepts a noncanonical home chain."
+
+[file.014]
+path = "modules/layerxbridge/keeper/sidiora_test.go"
+lines = 222
+verdict = "issues"
+note = "Real tokenfactory mint/burn and admin refusals are exercised, but success fixtures use chain 1 instead of the canonical Solana pair."
+
+[file.015]
+path = "modules/layerxbridge/module.go"
+lines = 122
+verdict = "clean"
+note = "Application module registration installs Msg service, amino/interfaces and JSON genesis; the default stays dormant and has no standalone public mutation command."
+
+[file.016]
+path = "modules/layerxbridge/testutil/attestors.go"
+lines = 59
+verdict = "clean"
+note = "Deterministic test keys produce ascending signer sets and raw 65-byte digest signatures accepted by the strict bridge verifier; no runtime secret is configured here."
+
+[file.017]
+path = "modules/layerxbridge/testutil/store.go"
+lines = 68
+verdict = "clean"
+note = "Explicit test-only MemDB overlay branches and writes with the application CacheMultiStore; it makes no durable-restart guarantee."
+
+[file.018]
+path = "modules/layerxbridge/types/attestation.go"
+lines = 152
+verdict = "clean"
+note = "Packed uint256/uint64, address20/hash32 widths, Keccak domains, left-padded recipient checks and strict low-s/v recovery agree with the EVM vault contract."
+
+[file.019]
+path = "modules/layerxbridge/types/codec.go"
+lines = 142
+verdict = "clean"
+note = "Amino and interface registrations delegate to the generated Msg declarations and match the module and governance transport names."
+
+[file.020]
+path = "modules/layerxbridge/types/errors.go"
+lines = 22
+verdict = "clean"
+note = "Registered layerxbridge codes 2 through 17 are unique and agree with keeper refusals; the precompile maps the reachable bridge errors to the LXP registry."
+
+[file.021]
+path = "modules/layerxbridge/types/events.go"
+lines = 30
+verdict = "clean"
+note = "Event names and attribute keys match governance and bridge emitters; integer and amount values are transported as decimal strings and addresses as hex."
+
+[file.022]
+path = "modules/layerxbridge/types/expected_keepers.go"
+lines = 18
+verdict = "clean"
+note = "Bank, tokenfactory and EVM address interfaces match the real keeper signatures wired by node.NewPrecompileKeepers and the bridge constructor."
+
+[file.023]
+path = "modules/layerxbridge/types/genesis.go"
+lines = 111
+verdict = "clean"
+note = "Canonical pair/denom validation, registered-chain references, unique caps/nullifiers/nonces and nonnegative supply agree with the intended import contract."
+
+[file.024]
+path = "modules/layerxbridge/types/genesis_test.go"
+lines = 72
+verdict = "clean"
+note = "Default and malformed state cases assert the actual genesis validation contract, including canonical Sidiora versus generic denom substitution."
+
+[file.025]
+path = "modules/layerxbridge/types/keys.go"
+lines = 94
+verdict = "clean"
+note = "Prefix allocation and uint64 encoding agree with keeper storage; canonical usid creator and Solana home-chain constant match registration and deployment proposals."
+
+[file.026]
+path = "modules/layerxbridge/types/msgs.go"
+lines = 125
+verdict = "clean"
+note = "Hand-written validation methods on generated Msg types check authority, chain, threshold, caps and the canonical Sidiora home chain before real message dispatch."
+
+[file.027]
+path = "modules/layerxbridge/types/proposal.go"
+lines = 161
+verdict = "clean"
+note = "Typed protobuf Any content, six-message allowlist and gov authority validation agree with CLI producer and governance router consumers."
+
+[file.028]
+path = "modules/layerxbridge/types/state.go"
+lines = 185
+verdict = "clean"
+note = "JSON chain, attestor, asset, cap, in-flight, nullifier and nonce types agree with persisted keeper shapes and exported genesis; quantities use SDK integer encodings."
+
+[file.029]
+path = "precompiles/addr/Addr.sol"
+lines = 58
+verdict = "clean"
+note = "Solidity endpoint constant, canonical method signatures, mutability, return tuples and event indexing agree with the primary embedded ABI and registered Go method names."
+
+[file.030]
+path = "precompiles/addr/abi.json"
+lines = 1
+verdict = "clean"
+note = "Current endpoint ABI: 10 methods (associate, associatePubKey, getPaxAddr, getEvmAddr, bindLayerX, unbindLayerX, getLayerXDid, getEvmAddrByLayerX, layerXBindNonce, getUnifiedAccount) and 2 events; tuple field order, widths, mutability and output shape match the Solidity interface and dispatch, with runtime findings recorded separately."
+
+[file.031]
+path = "precompiles/addr/abi_freeze_test.go"
+lines = 74
+verdict = "clean"
+note = "Exact method and event sets, canonical selectors/topics and constructor/application ABI agreement are asserted around the real merge plan height, preserving the declared ABI freeze."
+
+[file.032]
+path = "precompiles/addr/addr.go"
+lines = 544
+verdict = "clean"
+note = "Ten selectors, two binding logs and post-merge LXP reason mapping agree with ABI and keeper; Ed25519 signatures, uint64 nonce and principal lookups use persisted EVM state."
+
+[file.033]
+path = "precompiles/addr/addr_test.go"
+lines = 606
+verdict = "clean"
+note = "Real address association and lookup transactions cover SDK/EVM mapping, signatures, balances and refusals using the ABI-shaped values."
+
+[file.034]
+path = "precompiles/addr/gas_golden_test.go"
+lines = 147
+verdict = "issues"
+note = "Every method has an estimate row and real execution on both heights; the actual dynamic execution gas lacks an independent frozen literal."
+
+[file.035]
+path = "precompiles/addr/get_evm_addr_by_layerx_keep_test.go"
+lines = 39
+verdict = "clean"
+note = "The bound-key resolver remains read-only and an unbound public key refuses, covering the funding-recipient interface of requirement 6971.1."
+
+[file.036]
+path = "precompiles/addr/layerx_binding_test.go"
+lines = 394
+verdict = "clean"
+note = "Real Ed25519 binding, reverse resolution, nonce consumption, replay refusal, unbind and EVM event encoding match the keeper interfaces."
+
+[file.037]
+path = "precompiles/addr/legacy/v552/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v552 ABI: methods getEvmAddr, getPaxAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.038]
+path = "precompiles/addr/legacy/v552/addr.go"
+lines = 151
+verdict = "clean"
+note = "Historical v552 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.039]
+path = "precompiles/addr/legacy/v555/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v555 ABI: methods getEvmAddr, getPaxAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.040]
+path = "precompiles/addr/legacy/v555/addr.go"
+lines = 157
+verdict = "clean"
+note = "Historical v555 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.041]
+path = "precompiles/addr/legacy/v562/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v562 ABI: methods getEvmAddr, getPaxAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.042]
+path = "precompiles/addr/legacy/v562/addr.go"
+lines = 125
+verdict = "clean"
+note = "Historical v562 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.043]
+path = "precompiles/addr/legacy/v575/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v575 ABI: methods associate, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.044]
+path = "precompiles/addr/legacy/v575/addr.go"
+lines = 209
+verdict = "issues"
+note = "Historical v575 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.045]
+path = "precompiles/addr/legacy/v600/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v600 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.046]
+path = "precompiles/addr/legacy/v600/addr.go"
+lines = 263
+verdict = "clean"
+note = "Historical v600 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.047]
+path = "precompiles/addr/legacy/v601/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v601 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.048]
+path = "precompiles/addr/legacy/v601/addr.go"
+lines = 270
+verdict = "clean"
+note = "Historical v601 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.049]
+path = "precompiles/addr/legacy/v603/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v603 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.050]
+path = "precompiles/addr/legacy/v603/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v603 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.051]
+path = "precompiles/addr/legacy/v605/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v605 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.052]
+path = "precompiles/addr/legacy/v605/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v605 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.053]
+path = "precompiles/addr/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v606 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.054]
+path = "precompiles/addr/legacy/v606/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v606 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.055]
+path = "precompiles/addr/legacy/v610/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v610 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.056]
+path = "precompiles/addr/legacy/v610/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v610 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.057]
+path = "precompiles/addr/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v614 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.058]
+path = "precompiles/addr/legacy/v614/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v614 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.059]
+path = "precompiles/addr/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v620 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.060]
+path = "precompiles/addr/legacy/v620/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v620 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.061]
+path = "precompiles/addr/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v630 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.062]
+path = "precompiles/addr/legacy/v630/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v630 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.063]
+path = "precompiles/addr/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v640 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.064]
+path = "precompiles/addr/legacy/v640/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v640 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI."
+
+[file.065]
+path = "precompiles/addr/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v65 ABI: methods associate, associatePubKey, getPaxAddr, getEvmAddr; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.066]
+path = "precompiles/addr/legacy/v65/addr.go"
+lines = 276
+verdict = "clean"
+note = "Historical v65 address executor matches its embedded ABI and versioned wrapper; lookup and association surface changes are kept separate from the current ten-method DID-binding ABI. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.067]
+path = "precompiles/addr/resolution_reason_test.go"
+lines = 119
+verdict = "clean"
+note = "Resolution failures are checked below and at activation for exact LXP_ADDR reason bytes without changing successful read results."
+
+[file.068]
+path = "precompiles/addr/setup.go"
+lines = 49
+verdict = "generated"
+note = "Generated version-registration file: historical constructors and version tags are listed explicitly, with the current constructor registered as latest. Generator-owned source retained."
+
+[file.069]
+path = "precompiles/distribution/Distribution.sol"
+lines = 81
+verdict = "clean"
+note = "Solidity endpoint constant, canonical method signatures, mutability, return tuples and event indexing agree with the primary embedded ABI and registered Go method names."
+
+[file.070]
+path = "precompiles/distribution/abi.json"
+lines = 1
+verdict = "clean"
+note = "Current endpoint ABI: 5 methods (rewards, setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, withdrawValidatorCommission) and 4 events; tuple field order, widths, mutability and output shape match the Solidity interface and dispatch, with runtime findings recorded separately."
+
+[file.071]
+path = "precompiles/distribution/abi_freeze_test.go"
+lines = 90
+verdict = "clean"
+note = "Exact method and event sets, canonical selectors/topics and constructor/application ABI agreement are asserted around the real merge plan height, preserving the declared ABI freeze."
+
+[file.072]
+path = "precompiles/distribution/distribution.go"
+lines = 441
+verdict = "issues"
+note = "Five methods, four EVM events and nested reward tuples agree with SDK queries and ABI; rewards omits its nonpayable guard."
+
+[file.073]
+path = "precompiles/distribution/distribution_test.go"
+lines = 1408
+verdict = "clean"
+note = "Real staking and distribution transactions cover payouts, commission, withdraw-address changes and query tuples; staking_abi.json is deliberately called at 0x1005."
+
+[file.074]
+path = "precompiles/distribution/gas_golden_test.go"
+lines = 140
+verdict = "clean"
+note = "Literal dynamic charges are compared for construction and actual serving at both heights; all three withdrawal rows transfer nonzero uhpx as required by 181327.1."
+
+[file.075]
+path = "precompiles/distribution/legacy/v552/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v552 ABI: methods setWithdrawAddress, withdrawDelegationRewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.076]
+path = "precompiles/distribution/legacy/v552/distribution.go"
+lines = 188
+verdict = "clean"
+note = "Historical v552 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.077]
+path = "precompiles/distribution/legacy/v555/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v555 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.078]
+path = "precompiles/distribution/legacy/v555/distribution.go"
+lines = 299
+verdict = "issues"
+note = "Historical v555 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.079]
+path = "precompiles/distribution/legacy/v562/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v562 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.080]
+path = "precompiles/distribution/legacy/v562/distribution.go"
+lines = 244
+verdict = "issues"
+note = "Historical v562 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.081]
+path = "precompiles/distribution/legacy/v580/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v580 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, rewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.082]
+path = "precompiles/distribution/legacy/v580/distribution.go"
+lines = 331
+verdict = "issues"
+note = "Historical v580 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.083]
+path = "precompiles/distribution/legacy/v605/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v605 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, rewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.084]
+path = "precompiles/distribution/legacy/v605/distribution.go"
+lines = 331
+verdict = "issues"
+note = "Historical v605 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.085]
+path = "precompiles/distribution/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v606 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, rewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.086]
+path = "precompiles/distribution/legacy/v606/distribution.go"
+lines = 331
+verdict = "issues"
+note = "Historical v606 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.087]
+path = "precompiles/distribution/legacy/v610/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v610 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, rewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.088]
+path = "precompiles/distribution/legacy/v610/distribution.go"
+lines = 331
+verdict = "issues"
+note = "Historical v610 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.089]
+path = "precompiles/distribution/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v614 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, withdrawValidatorCommission, rewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.090]
+path = "precompiles/distribution/legacy/v614/distribution.go"
+lines = 384
+verdict = "issues"
+note = "Historical v614 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.091]
+path = "precompiles/distribution/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v620 ABI: methods setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, withdrawValidatorCommission, rewards; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.092]
+path = "precompiles/distribution/legacy/v620/distribution.go"
+lines = 384
+verdict = "issues"
+note = "Historical v620 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.093]
+path = "precompiles/distribution/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v630 ABI: methods rewards, setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, withdrawValidatorCommission; 4 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.094]
+path = "precompiles/distribution/legacy/v630/distribution.go"
+lines = 449
+verdict = "issues"
+note = "Historical v630 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.095]
+path = "precompiles/distribution/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v640 ABI: methods rewards, setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, withdrawValidatorCommission; 4 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.096]
+path = "precompiles/distribution/legacy/v640/distribution.go"
+lines = 441
+verdict = "issues"
+note = "Historical v640 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay."
+
+[file.097]
+path = "precompiles/distribution/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v65 ABI: methods rewards, setWithdrawAddress, withdrawDelegationRewards, withdrawMultipleDelegationRewards, withdrawValidatorCommission; 4 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.098]
+path = "precompiles/distribution/legacy/v65/distribution.go"
+lines = 441
+verdict = "issues"
+note = "Historical v65 distribution executor matches its own withdrawal/query ABI, commission argument version and wrapper gas contract; recorded payment/static-call hazards must stay confined to replay. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.099]
+path = "precompiles/distribution/setup.go"
+lines = 43
+verdict = "generated"
+note = "Generated version-registration file: historical constructors and version tags are listed explicitly, with the current constructor registered as latest. Generator-owned source retained."
+
+[file.100]
+path = "precompiles/distribution/staking_abi.json"
+lines = 1
+verdict = "clean"
+note = "Three staking fixture methods have the same argument/payment shape used to prepare delegation state at staking 0x1005; this is not the distribution endpoint ABI."
+
+[file.101]
+path = "precompiles/gov/Gov.sol"
+lines = 68
+verdict = "clean"
+note = "Solidity endpoint constant, canonical method signatures, mutability, return tuples and event indexing agree with the primary embedded ABI and registered Go method names."
+
+[file.102]
+path = "precompiles/gov/abi.json"
+lines = 1
+verdict = "clean"
+note = "Current endpoint ABI: 4 methods (submitProposal, deposit, vote, voteWeighted) and 0 events; tuple field order, widths, mutability and output shape match the Solidity interface and dispatch, with runtime findings recorded separately."
+
+[file.103]
+path = "precompiles/gov/abi_freeze_test.go"
+lines = 76
+verdict = "clean"
+note = "Exact method and event sets, canonical selectors/topics and constructor/application ABI agreement are asserted around the real merge plan height, preserving the declared ABI freeze."
+
+[file.104]
+path = "precompiles/gov/gas_golden_test.go"
+lines = 82
+verdict = "clean"
+note = "All four static RequiredGas charges are literal-pinned for constructed and application-served contracts below and at activation."
+
+[file.105]
+path = "precompiles/gov/gov.go"
+lines = 294
+verdict = "clean"
+note = "Four ABI methods, payable deposit/refund conversion, real GovMsgServer calls and static/delegate refusals agree with Cosmos governance types."
+
+[file.106]
+path = "precompiles/gov/gov_test.go"
+lines = 762
+verdict = "issues"
+note = "Signed real EVM governance transactions exercise submission, voting and payments, but the named parameter-change success fixture actually defaults to Text."
+
+[file.107]
+path = "precompiles/gov/handler.go"
+lines = 310
+verdict = "clean"
+note = "Text, parameter-change, software-upgrade, cancel-upgrade and community-pool handlers produce real gov.Content; empty type selects Text and integer parameter JSON strings retain their encoding."
+
+[file.108]
+path = "precompiles/gov/legacy/v552/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v552 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.109]
+path = "precompiles/gov/legacy/v552/gov.go"
+lines = 171
+verdict = "clean"
+note = "Historical v552 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.110]
+path = "precompiles/gov/legacy/v555/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v555 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.111]
+path = "precompiles/gov/legacy/v555/gov.go"
+lines = 177
+verdict = "clean"
+note = "Historical v555 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.112]
+path = "precompiles/gov/legacy/v562/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v562 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.113]
+path = "precompiles/gov/legacy/v562/gov.go"
+lines = 150
+verdict = "clean"
+note = "Historical v562 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.114]
+path = "precompiles/gov/legacy/v580/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v580 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.115]
+path = "precompiles/gov/legacy/v580/gov.go"
+lines = 137
+verdict = "clean"
+note = "Historical v580 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.116]
+path = "precompiles/gov/legacy/v605/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v605 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.117]
+path = "precompiles/gov/legacy/v605/gov.go"
+lines = 137
+verdict = "clean"
+note = "Historical v605 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.118]
+path = "precompiles/gov/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v606 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.119]
+path = "precompiles/gov/legacy/v606/gov.go"
+lines = 137
+verdict = "clean"
+note = "Historical v606 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.120]
+path = "precompiles/gov/legacy/v610/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v610 ABI: methods deposit, vote; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.121]
+path = "precompiles/gov/legacy/v610/gov.go"
+lines = 137
+verdict = "clean"
+note = "Historical v610 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.122]
+path = "precompiles/gov/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v614 ABI: methods submitProposal, deposit, vote, voteWeighted; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.123]
+path = "precompiles/gov/legacy/v614/gov.go"
+lines = 294
+verdict = "clean"
+note = "Historical v614 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.124]
+path = "precompiles/gov/legacy/v614/handler.go"
+lines = 310
+verdict = "clean"
+note = "Historical v614 proposal handlers preserve the typed Cosmos content construction and quoted parameter-value encoding; version differences are isolated by the corresponding gov setup registration."
+
+[file.125]
+path = "precompiles/gov/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v620 ABI: methods submitProposal, deposit, vote, voteWeighted; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.126]
+path = "precompiles/gov/legacy/v620/gov.go"
+lines = 294
+verdict = "clean"
+note = "Historical v620 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.127]
+path = "precompiles/gov/legacy/v620/handler.go"
+lines = 310
+verdict = "clean"
+note = "Historical v620 proposal handlers preserve the typed Cosmos content construction and quoted parameter-value encoding; version differences are isolated by the corresponding gov setup registration."
+
+[file.128]
+path = "precompiles/gov/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v630 ABI: methods submitProposal, deposit, vote, voteWeighted; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.129]
+path = "precompiles/gov/legacy/v630/gov.go"
+lines = 294
+verdict = "clean"
+note = "Historical v630 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.130]
+path = "precompiles/gov/legacy/v630/handler.go"
+lines = 310
+verdict = "clean"
+note = "Historical v630 proposal handlers preserve the typed Cosmos content construction and quoted parameter-value encoding; version differences are isolated by the corresponding gov setup registration."
+
+[file.131]
+path = "precompiles/gov/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v640 ABI: methods submitProposal, deposit, vote, voteWeighted; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.132]
+path = "precompiles/gov/legacy/v640/gov.go"
+lines = 294
+verdict = "clean"
+note = "Historical v640 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission."
+
+[file.133]
+path = "precompiles/gov/legacy/v640/handler.go"
+lines = 310
+verdict = "clean"
+note = "Historical v640 proposal handlers preserve the typed Cosmos content construction and quoted parameter-value encoding; version differences are isolated by the corresponding gov setup registration."
+
+[file.134]
+path = "precompiles/gov/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v65 ABI: methods submitProposal, deposit, vote, voteWeighted; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.135]
+path = "precompiles/gov/legacy/v65/gov.go"
+lines = 294
+verdict = "clean"
+note = "Historical v65 governance executor agrees with its embedded voting/deposit/submission ABI, real keeper signatures, payment units and historical wrapper; newer proposal handlers are used only in versions declaring submission. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.136]
+path = "precompiles/gov/legacy/v65/handler.go"
+lines = 310
+verdict = "clean"
+note = "Historical v65 proposal handlers preserve the typed Cosmos content construction and quoted parameter-value encoding; version differences are isolated by the corresponding gov setup registration. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.137]
+path = "precompiles/gov/setup.go"
+lines = 43
+verdict = "generated"
+note = "Generated version-registration file: historical constructors and version tags are listed explicitly, with the current constructor registered as latest. Generator-owned source retained."
+
+[file.138]
+path = "precompiles/ibc/IBC.sol"
+lines = 32
+verdict = "clean"
+note = "Solidity endpoint constant, canonical method signatures, mutability, return tuples and event indexing agree with the primary embedded ABI and registered Go method names."
+
+[file.139]
+path = "precompiles/ibc/abi.json"
+lines = 1
+verdict = "clean"
+note = "Current endpoint ABI: 2 methods (transfer, transferWithDefaultTimeout) and 0 events; tuple field order, widths, mutability and output shape match the Solidity interface and dispatch, with runtime findings recorded separately."
+
+[file.140]
+path = "precompiles/ibc/abi_freeze_test.go"
+lines = 85
+verdict = "clean"
+note = "Exact method and event sets, canonical selectors/topics and constructor/application ABI agreement are asserted around the real merge plan height, preserving the declared ABI freeze."
+
+[file.141]
+path = "precompiles/ibc/gas_golden_test.go"
+lines = 120
+verdict = "issues"
+note = "Both versions and application serving are compared across heights and tracing modes, but zero-amount literals only exercise the no-op branch."
+
+[file.142]
+path = "precompiles/ibc/ibc.go"
+lines = 427
+verdict = "clean"
+note = "Two ABI methods construct validated MsgTransfer with memo and explicit/default timeouts, reject value/static/delegate calls and check connection cardinality, consensus presence and arithmetic overflow."
+
+[file.143]
+path = "precompiles/ibc/ibc_test.go"
+lines = 752
+verdict = "issues"
+note = "ABI refusal and timeout boundary cases use the current signatures; successful transfer transport is replaced by doubles and lacks real packet/recovery proof."
+
+[file.144]
+path = "precompiles/ibc/legacy/v552/abi.json"
+lines = 95
+verdict = "clean"
+note = "Historical v552 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.145]
+path = "precompiles/ibc/legacy/v552/ibc.go"
+lines = 450
+verdict = "issues"
+note = "Historical v552 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.146]
+path = "precompiles/ibc/legacy/v555/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v555 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.147]
+path = "precompiles/ibc/legacy/v555/ibc.go"
+lines = 481
+verdict = "issues"
+note = "Historical v555 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.148]
+path = "precompiles/ibc/legacy/v562/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v562 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.149]
+path = "precompiles/ibc/legacy/v562/ibc.go"
+lines = 420
+verdict = "issues"
+note = "Historical v562 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.150]
+path = "precompiles/ibc/legacy/v580/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v580 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.151]
+path = "precompiles/ibc/legacy/v580/ibc.go"
+lines = 406
+verdict = "issues"
+note = "Historical v580 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.152]
+path = "precompiles/ibc/legacy/v601/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v601 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.153]
+path = "precompiles/ibc/legacy/v601/ibc.go"
+lines = 406
+verdict = "issues"
+note = "Historical v601 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.154]
+path = "precompiles/ibc/legacy/v603/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v603 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.155]
+path = "precompiles/ibc/legacy/v603/ibc.go"
+lines = 397
+verdict = "issues"
+note = "Historical v603 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.156]
+path = "precompiles/ibc/legacy/v605/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v605 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.157]
+path = "precompiles/ibc/legacy/v605/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v605 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.158]
+path = "precompiles/ibc/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v606 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.159]
+path = "precompiles/ibc/legacy/v606/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v606 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.160]
+path = "precompiles/ibc/legacy/v610/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v610 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.161]
+path = "precompiles/ibc/legacy/v610/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v610 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.162]
+path = "precompiles/ibc/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v614 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.163]
+path = "precompiles/ibc/legacy/v614/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v614 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.164]
+path = "precompiles/ibc/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v620 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.165]
+path = "precompiles/ibc/legacy/v620/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v620 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.166]
+path = "precompiles/ibc/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v630 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.167]
+path = "precompiles/ibc/legacy/v630/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v630 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.168]
+path = "precompiles/ibc/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v640 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards."
+
+[file.169]
+path = "precompiles/ibc/legacy/v640/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v640 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation."
+
+[file.170]
+path = "precompiles/ibc/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Historical v65 ABI: methods transfer, transferWithDefaultTimeout; 0 event declarations. Names, field order, integer widths, tuple shapes and mutability match this version of the executor, subject to separately recorded execution hazards. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.171]
+path = "precompiles/ibc/legacy/v65/ibc.go"
+lines = 401
+verdict = "issues"
+note = "Historical v65 IBC executor retains its version-specific SendTransfer/MsgTransfer and memo shape; the payable-to-nonpayable ABI evolution is intentional, and timeout arithmetic limitations are recorded for replay isolation. This v65 snapshot is not selected by setup.go; it is retained source, not a currently served endpoint."
+
+[file.172]
+path = "precompiles/ibc/setup.go"
+lines = 47
+verdict = "generated"
+note = "Generated version-registration file: historical constructors and version tags are listed explicitly, with the current constructor registered as latest. Generator-owned source retained."
+
+[finding.sidiora-cap-genesis]
+file = "modules/layerxbridge/keeper/msg_server.go"
+line = 131
+class = "interface-mismatch"
+severity = "high"
+observed = "SetCap creates types.Subdenom for an absent asset, including (SidioraHomeChainID, SidioraRemoteAddress). This stores the generic lxb denom; ExportGenesis emits it, but GenesisState.Validate requires AssetDenom for that pair to equal SidioraDenom and InitGenesis panics. TestSidioraPairIsRefusedOnceACapBoundItElsewhere demonstrates that the cap-first order currently succeeds."
+expected = "The governance SetCap producer and bridge genesis consumer must agree on the canonical denom for every accepted asset. The canonical Sidiora pair must export and import as factory/<bridge>/usid, independent of a mistaken proposal order."
+proposal = "In modules/layerxbridge/keeper/msg_server.go refuse a canonical Sidiora cap before its pair is registered, before creating any denom or mapping. Retain strict genesis validation; define an explicit governed migration for any existing generic mapping and its supply. Prove both proposal orders through governance, full application export and import, including the refusal and unchanged balances."
+owner_domain = 6
+interface = "6.go-lxbridge-types-genesisstate-j36"
+
+[finding.sidiora-helper-home]
+file = "modules/layerxbridge/keeper/sidiora.go"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "EnsureSidioraDenom only checks that chainID is registered before storing usid against it. A direct call with chain 1 succeeds, although IsSidioraPair and GenesisState.Validate only permit usid on SidioraHomeChainID. RegisterSidioraPair validates the home chain, so this bypass is in the exported helper and its direct callers."
+expected = "All exported keeper entry points that can create a Sidiora asset must enforce the same Solana home-chain invariant as MsgRegisterSidioraPair and the genesis decoder."
+proposal = "In modules/layerxbridge/keeper/sidiora.go reject a non-SidioraHomeChainID before tokenfactory or bridge writes. Keep the message validation and add helper refusal, unchanged-store and exported-genesis validation assertions using the real tokenfactory keeper."
+owner_domain = 6
+interface = "6.msg-layerxbridge-registersidiorapair"
+
+[finding.sidiora-fixture-chain]
+file = "modules/layerxbridge/keeper/sidiora_test.go"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "newSidioraSuite and TestSidioraDenomAndMetadata initialize usid with chainID=1 from keeper_test.go. Their successful mint, burn and metadata assertions operate on a mapping that the real genesis consumer rejects, rather than the Solana pair accepted by MsgRegisterSidioraPair."
+expected = "Sidiora success fixtures must use the canonical pair emitted by the governance registration path; invalid foreign-chain mappings must be explicit refusal cases."
+proposal = "Change the Sidiora success fixtures in modules/layerxbridge/keeper/sidiora_test.go to register SidioraHomeChainID through the actual message or governance path, retain mint/burn assertions, and assert ExportGenesis.Validate plus import. Add chain 1 as an explicit helper refusal without weakening validation."
+owner_domain = 6
+interface = "6.msg-layerxbridge-registersidiorapair"
+
+[finding.cap-first-test-invariant]
+file = "modules/layerxbridge/keeper/keeper_test.go"
+line = 677
+class = "test-gap"
+severity = "medium"
+observed = "TestSidioraPairIsRefusedOnceACapBoundItElsewhere accepts the cap-first transaction and only asserts that the later pair registration leaves the exported object unchanged. It never calls before.Validate, so it blesses a state that cannot be re-imported."
+expected = "A successful governance mutation must preserve the bridge genesis invariants; a refusal test must also establish that the retained state is valid and recoverable."
+proposal = "Update this test in modules/layerxbridge/keeper/keeper_test.go alongside the cap-order repair to assert the early cap refusal, no created denom or supply, valid exported state and successful subsequent canonical pair registration. Keep the existing no-write checks for refused calls."
+owner_domain = 6
+interface = "6.go-lxbridge-types-genesisstate-j36"
+
+[finding.bridge-sidiora-reopen-proof]
+file = "modules/layerxbridge/keeper/genesis_test.go"
+line = 34
+class = "restart-recovery"
+severity = "medium"
+observed = "TestGenesisRoundTripsTheRegisteredSidioraPair creates a fresh bridge overlay with bridgetestutil.NewKeeper on the same application and context. The overlay is backed by NewMemDB; tokenfactory and bank state are retained from the original app, and no persistent database is closed and reopened."
+expected = "Brief check_5 and requirement 21088.1 require a real producer-to-genesis-consumer proof with persistent stop/reopen, including tokenfactory ownership, supply, balances and replay protection."
+proposal = "Add a persistent full-application export/import test owned by modules/layerxbridge/keeper/genesis_test.go. Commit a mint and burn, close the application database, reopen or import the full bank/tokenfactory/bridge genesis, then assert balances, metadata, admin, duplicate inbound refusal and the next outbound nonce."
+owner_domain = 6
+interface = "6.go-lxbridge-types-genesisstate-j36"
+
+[finding.bridge-general-reopen-proof]
+file = "modules/layerxbridge/keeper/keeper_test.go"
+line = 428
+class = "restart-recovery"
+severity = "medium"
+observed = "TestGenesisRoundTrip exports nullifiers, in-flight supply and outbound nonce into a fresh bridge overlay on the same live app. Equality of JSON state is checked, but the imported keeper is never used to reject the old deposit or produce the next release after a database restart."
+expected = "The bridge state lifecycle must preserve idempotence and release ordering through the actual durable store, not only equality of an exported struct."
+proposal = "Extend the persistent bridge recovery coverage in modules/layerxbridge/keeper/keeper_test.go to commit, close and reopen a full application, replay the original attested deposit expecting ErrNullified, and burn again expecting nonce 2 and conserved bank supply. Preserve the existing struct round-trip test."
+owner_domain = 6
+interface = "6.go-lxbridge-types-outboundnonce-j36"
+
+[finding.bridge-release-nonce-overflow]
+file = "modules/layerxbridge/keeper/bridge.go"
+line = 185
+class = "runtime-risk"
+severity = "medium"
+observed = "BridgeOut burns the bridged coins and calculates OutboundNonce+1 without checking MaxUint64. GenesisState.Validate accepts that boundary nonce; the next release wraps to 0, and GetOutboundNonces omits a zero value, erasing the exhaustion state from export."
+expected = "Outbound release nonces must remain monotonic across burns, exports and recovery. Exhaustion must refuse before coins are burned or in-flight supply is reduced."
+proposal = "In modules/layerxbridge/keeper/bridge.go check the stored nonce against MaxUint64 before any bank or tokenfactory work and return a registered refusal. Add valid-genesis boundary and reopen tests proving that the exhausted nonce, balances and in-flight amount stay unchanged."
+owner_domain = 6
+interface = "6.go-lxbridge-types-outboundnonce-j36"
+
+[finding.rewards-accepts-value]
+file = "precompiles/distribution/distribution.go"
+line = 122
+class = "interface-mismatch"
+severity = "high"
+observed = "Execute dispatches RewardsMethod to rewards without ValidateNonPayable and without forwarding value. The ABI and Solidity expose rewards(address) as view. core/deps/geth/core/vm/evm.go transfers CALL value to 0x1007 before invoking the precompile; a valid rewards query succeeds and leaves that native value at the precompile address without a refund or withdrawal path."
+expected = "Registry 6.pc-0x1007-rewards and Distribution.sol require a nonpayable view: a raw EVM CALL carrying any native value must revert and preserve caller and precompile balances."
+proposal = "Add the nonpayable check to the current rewards dispatch in precompiles/distribution/distribution.go under an explicit activation/version decision that preserves historical replay. Prove a positive-value raw EVM transaction reverts with unchanged balances, a zero-value query still returns the real rewards tuple, and historical-height behavior remains pinned."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v580]
+file = "precompiles/distribution/legacy/v580/distribution.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "The v580 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v580/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v605]
+file = "precompiles/distribution/legacy/v605/distribution.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "The v605 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v605/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v606]
+file = "precompiles/distribution/legacy/v606/distribution.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "The v606 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v606/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v610]
+file = "precompiles/distribution/legacy/v610/distribution.go"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "The v610 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v610/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v614]
+file = "precompiles/distribution/legacy/v614/distribution.go"
+line = 103
+class = "runtime-risk"
+severity = "medium"
+observed = "The v614 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v614/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v620]
+file = "precompiles/distribution/legacy/v620/distribution.go"
+line = 103
+class = "runtime-risk"
+severity = "medium"
+observed = "The v620 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v620/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v630]
+file = "precompiles/distribution/legacy/v630/distribution.go"
+line = 122
+class = "runtime-risk"
+severity = "medium"
+observed = "The v630 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v630/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v640]
+file = "precompiles/distribution/legacy/v640/distribution.go"
+line = 122
+class = "runtime-risk"
+severity = "medium"
+observed = "The v640 rewards branch discards value and calls rewards without ValidateNonPayable, although its embedded rewards ABI is view. A historical raw CALL can therefore accept value for a query. This is frozen historical behavior, not a second current executor."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v640/distribution.go byte-compatible for historical replay. In precompiles/distribution tests pin its raw CALL payment behavior at its historical activation height, verify that live dispatch uses the repaired version after the chosen activation, and document the historical value hazard for clients."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-rewards-value-v65]
+file = "precompiles/distribution/legacy/v65/distribution.go"
+line = 122
+class = "runtime-risk"
+severity = "low"
+observed = "The retained v65 rewards executor discards value and omits ValidateNonPayable despite its view ABI. No application version map selects this v65 constructor; the same omission is live in the current executor and selected older versions, where it is recorded separately."
+expected = "Historical execution must remain reproducible, while nonpayable-query hazards must be explicit and must not be copied into a newly served implementation."
+proposal = "Keep precompiles/distribution/legacy/v65/distribution.go explicitly documented as an unselected snapshot. Prevent future version registration from promoting it without the current nonpayable fix and an explicit replay/activation decision; preserve any required historical byte compatibility."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.historical-distribution-static-v555]
+file = "precompiles/distribution/legacy/v555/distribution.go"
+line = 116
+class = "runtime-risk"
+severity = "medium"
+observed = "The v555 distribution executor ignores the static-call flag and dispatches setWithdrawAddress and reward withdrawals into mutating keepers. The shared historical wrapper passes the flag through and does not enforce ABI mutability."
+expected = "A static EVM call must not change bank or distribution state. Historical violations must stay isolated to their replay version instead of returning to live dispatch."
+proposal = "Preserve precompiles/distribution/legacy/v555/distribution.go for exact replay; add historical-height STATICCALL state-diff coverage and a companion assertion that the live executor refuses the same writes. Keep this legacy constructor outside all new activation mappings."
+owner_domain = 6
+interface = "6.pc-0x1007-setwithdrawaddress"
+
+[finding.historical-distribution-static-v562]
+file = "precompiles/distribution/legacy/v562/distribution.go"
+line = 82
+class = "runtime-risk"
+severity = "medium"
+observed = "The v562 distribution executor ignores the static-call flag and dispatches setWithdrawAddress and reward withdrawals into mutating keepers. The shared historical wrapper passes the flag through and does not enforce ABI mutability."
+expected = "A static EVM call must not change bank or distribution state. Historical violations must stay isolated to their replay version instead of returning to live dispatch."
+proposal = "Preserve precompiles/distribution/legacy/v562/distribution.go for exact replay; add historical-height STATICCALL state-diff coverage and a companion assertion that the live executor refuses the same writes. Keep this legacy constructor outside all new activation mappings."
+owner_domain = 6
+interface = "6.pc-0x1007-setwithdrawaddress"
+
+[finding.historical-associate-static]
+file = "precompiles/addr/legacy/v575/addr.go"
+line = 85
+class = "runtime-risk"
+severity = "medium"
+observed = "The v575 addr executor discards the static-call flag but includes Associate, which writes address mappings and can move balances. Its shared Run wrapper forwards readOnly to Execute without adding a write guard."
+expected = "Address association is a state change and must refuse STATICCALL on the live network; a historical exception must remain confined to its original replay version."
+proposal = "Preserve precompiles/addr/legacy/v575/addr.go for historical replay, add a historical static-call state-diff fixture, and prove that current addr association refuses the same call without changing mappings or balances. Do not reuse this constructor for a new version."
+owner_domain = 6
+interface = "6.pc-0x1004-associate"
+
+[finding.historical-ibc-timeout-v552]
+file = "precompiles/ibc/legacy/v552/ibc.go"
+line = 364
+class = "runtime-risk"
+severity = "low"
+observed = "The v552 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v552/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-legacy-transferwithdefaulttimeout-23d90f7c"
+
+[finding.historical-ibc-timeout-v555]
+file = "precompiles/ibc/legacy/v555/ibc.go"
+line = 386
+class = "runtime-risk"
+severity = "low"
+observed = "The v555 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v555/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v562]
+file = "precompiles/ibc/legacy/v562/ibc.go"
+line = 325
+class = "runtime-risk"
+severity = "low"
+observed = "The v562 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v562/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v580]
+file = "precompiles/ibc/legacy/v580/ibc.go"
+line = 311
+class = "runtime-risk"
+severity = "low"
+observed = "The v580 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v580/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v601]
+file = "precompiles/ibc/legacy/v601/ibc.go"
+line = 311
+class = "runtime-risk"
+severity = "low"
+observed = "The v601 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v601/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v603]
+file = "precompiles/ibc/legacy/v603/ibc.go"
+line = 310
+class = "runtime-risk"
+severity = "low"
+observed = "The v603 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v603/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v605]
+file = "precompiles/ibc/legacy/v605/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v605 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v605/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v606]
+file = "precompiles/ibc/legacy/v606/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v606 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v606/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v610]
+file = "precompiles/ibc/legacy/v610/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v610 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v610/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v614]
+file = "precompiles/ibc/legacy/v614/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v614 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v614/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v620]
+file = "precompiles/ibc/legacy/v620/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v620 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v620/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v630]
+file = "precompiles/ibc/legacy/v630/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v630 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v630/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v640]
+file = "precompiles/ibc/legacy/v640/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The v640 GetAdjustedHeight and GetAdjustedTimestamp use unchecked uint64 addition. A consensus height or timestamp near MaxUint64 wraps the default timeout into the past instead of returning an overflow refusal; the current implementation has checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v640/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.historical-ibc-timeout-v65]
+file = "precompiles/ibc/legacy/v65/ibc.go"
+line = 314
+class = "runtime-risk"
+severity = "low"
+observed = "The unselected v65 IBC snapshot uses unchecked uint64 addition in GetAdjustedHeight and GetAdjustedTimestamp. A boundary height or timestamp wraps to the past; no application version map currently selects this constructor, and the current executor uses checkedAddUint64."
+expected = "The newly served IBC executor must refuse timeout arithmetic overflow. Frozen historical arithmetic must remain reproducible and must not become the implementation for a later activation."
+proposal = "Preserve precompiles/ibc/legacy/v65/ibc.go for replay. Add boundary replay vectors for its legacy timeout behavior beside current checked-overflow refusal cases, and assert that live precompile selection uses the checked current executor. Describe the legacy limitation in historical version documentation."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.ibc-transfer-real-path]
+file = "precompiles/ibc/ibc_test.go"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "The successful transfer fixtures use MockTransferKeeper.Transfer returning nil,nil; the memo fixture only checks msg.Memo. They do not submit a positive-amount packet through the real transfer, channel, connection and client keepers, or test acknowledgement and timeout refund after recovery."
+expected = "Brief check_7 requires the actual ABI producer, MsgTransfer transport and ICS-20 consumer to agree, including escrow, packet commitment and durable refund or acknowledgement lifecycle."
+proposal = "Add a real IBC channel/client/connection integration fixture in precompiles/ibc/ibc_test.go. Invoke both ABI methods with positive amounts and memo, assert escrow and packet commitment contents, commit and reopen, then process acknowledgement and timeout refund on separate cases. Retain existing focused refusal tests."
+owner_domain = 6
+interface = "6.msg-ibc-transfer-transfer"
+
+[finding.ibc-gas-real-transfer]
+file = "precompiles/ibc/gas_golden_test.go"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "TestIbcGasGolden explicitly uses zero amounts for both methods. transfer and transferWithDefaultTimeout return success before the real transfer keeper, so the 1123 literals exclude channel/client timeout processing, escrow and packet commitment writes."
+expected = "Requirement 6071.1 needs a meaningful frozen charge for each served method across the merge height; a no-op fixture alone cannot guard gas on an actual IBC transfer."
+proposal = "Retain the no-op goldens and add positive-amount rows in precompiles/ibc/gas_golden_test.go backed by real channel, connection and consensus state. Pin literal charged gas and packet effects for the constructed and application-served implementations below and at the merge height."
+owner_domain = 6
+interface = "6.pc-0x1009-transferwithdefaulttimeout"
+
+[finding.addr-gas-charge-literal]
+file = "precompiles/addr/gas_golden_test.go"
+line = 137
+class = "test-gap"
+severity = "medium"
+observed = "TestAddrGasGolden compares the RequiredGas helper with literal rows, but only asserts that the dynamic execution charge is positive and equal at two heights. DynamicGasPrecompile.RunAndCalculateGas charges metered execution independently of executor.RequiredGas, so both executions can drift together without failing the frozen literals."
+expected = "Requirement 6065.1 freezes the gas actually charged by every addr method, including bindings, across the merge plan height, rather than only the unused estimate helper."
+proposal = "In precompiles/addr/gas_golden_test.go retain RequiredGas coverage and add literal execution-gas expectations for every row using the real keeper fixture. Compare actual suppliedGas-minus-remainingGas for both constructed and application-served precompiles at both heights, preserving output and state assertions."
+owner_domain = 6
+interface = "6.go-pc-common-dynamicgasprecompile-runandcalculategas-j34"
+
+[finding.gov-parameter-test-is-text]
+file = "precompiles/gov/gov_test.go"
+line = 387
+class = "test-gap"
+severity = "medium"
+observed = "The success row named returns proposal id on submit parameter change proposal with multiple changes omits type from its JSON. RegisterProposalHandlers maps an empty type to TextProposalHandler, which ignores Changes; the test only checks a returned proposal ID and therefore passes after submitting a Text proposal."
+expected = "A ParameterChange success test must assert the actual typed proposal and parameter values emitted by the JSON handler and accepted by governance, including execution of those changes."
+proposal = "Set type to ParameterChange in this fixture in precompiles/gov/gov_test.go and assert stored content is ParameterChangeProposal with the intended quorum JSON. Execute the proposal through the real parameter handler and assert the resulting tally params; retain a separate explicit empty-type Text default test."
+owner_domain = 6
+interface = "6.pc-0x1006-submitproposal"
+
+[finding.bridge-rest-trailing-json]
+file = "modules/layerxbridge/client/cli/tx.go"
+line = 241
+class = "runtime-risk"
+severity = "medium"
+observed = "newBridgeProposalPostHandler enables DisallowUnknownFields but calls Decode only once and never checks for EOF. A valid envelope followed by another JSON value or trailing garbage is accepted; DecodeBridgeProposal checks EOF for the inner proposal. The standard API server already bounds the outer body with MaxBytesHandler."
+expected = "The registered POST /gov/proposals/layerxbridge route should accept exactly one request envelope and reject bytes outside it, consistent with the strict proposal-file decoder."
+proposal = "In modules/layerxbridge/client/cli/tx.go require a second decoder read to return io.EOF after the envelope. Add mounted-handler cases for whitespace, a second JSON object and trailing invalid bytes, preserving the unsigned transaction response and the API server body limit."
+owner_domain = 6
+interface = "6.rest-layerxbridge-gov-proposal"
+
+[finding.bridge-denom-doc]
+file = "modules/layerxbridge/ATTESTATION.md"
+line = 85
+class = "doc-drift"
+severity = "medium"
+observed = "The inbound documentation says the minted denom is always factory/<bridge>/lxb<hash>. The canonical Sidiora pair is instead factory/<bridge>/usid under AssetDenom and RegisterSidioraPair, with six-decimal SID metadata."
+expected = "The attestation and asset description must distinguish the canonical Sidiora denom from generic foreign-asset denoms without changing the signed binary preimage."
+proposal = "Amend modules/layerxbridge/ATTESTATION.md to state the canonical Solana/Sidiora exception, governance registration order and six-decimal units, and retain the generic formula for other pairs. Keep the digest/domain vectors identical to contracts/bridge/evm/ATTESTATION.md."
+owner_domain = 6
+interface = "6.msg-layerxbridge-registersidiorapair"
+
+[finding.readme-retired-architecture]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The README describes layerxd as a separate running daemon whose checkpoints settle through layerxAnchor, includes make layerxd, and lists custody/anchor/verify beside live precompiles without their merge refusal lifecycle."
+expected = "Brief network facts 1 and 2 define one paxd BFT network with an embedded kernel, committed-block finality and no separate layerxd sequencer service; retired addresses must be labeled as retained refusal endpoints."
+proposal = "Rewrite the architecture, build instructions and precompile overview in README.md around paxd, chain id 125 and root-path node JSON-RPC. Remove layerxd launch/build instructions and explain 0x1012-0x1014 retirement, keeping the external native bridge distinct from retired kernel custody."
+owner_domain = 1
+
+[finding.network-two-trust-domains]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "This page calls Paxeer the settlement and custody layer for another LayerX network, says ordinary activity stays on LayerX, and assigns the two sides separate release and trust boundaries; its layout still presents anchor/custody as live settlement modules."
+expected = "The finished network is a single paxd chain with an embedded kernel and block-commit finality; LayerX is no longer a separately operated settlement customer."
+proposal = "Rewrite docs/paxeer-network.md introduction, ownership table and layout for the merged chain, describe native layerxbridge as the remote-asset bridge, and label retired kernel anchor/custody paths and the replacement bank/ledger flows."
+owner_domain = 1
+
+[finding.chain-docs-two-domains]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation index explicitly says co-location does not merge the two trust boundaries and describes LayerX checkpoint settlement and custody as the purpose of Paxeer. It also distinguishes root contracts from a supposedly separate subtree contracts tree."
+expected = "The documentation entry point must describe the one merged Paxeer network and the actual root repository layout, while retaining accurate OpenAPI instructions."
+proposal = "Update docs/paxeer-chain-docs.md opening paragraphs and contract links to the merged paxd/kernel network and block-commit finality. Replace retired checkpoint/custody navigation with the native bank, ledger and external bridge entry points; preserve separately valid Swagger serving instructions."
+owner_domain = 1
+
+[finding.translated-retired-architecture-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-BR README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.pt-BR.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.translated-retired-architecture-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The fr README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.fr.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.translated-retired-architecture-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The ja README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.ja.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.translated-retired-architecture-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The ru README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.ru.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.translated-retired-architecture-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-CN README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.zh-CN.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.translated-retired-architecture-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The de README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.de.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.translated-retired-architecture-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The es README describes layerxd as a live execution daemon, directs checkpoints through layerxAnchor and depicts layerxd as an LNI server/sequencer in its architecture diagram. Its build and layout instructions retain the retired daemon."
+expected = "Translated entry points must describe the same single merged paxd network, embedded kernel and committed-block finality as brief facts 1 and 2; retired custody and anchor flows must not appear live."
+proposal = "Rewrite the introduction, build/layout sections and Mermaid architecture in docs/readme/README.es.md after correcting the English README. Show node-root JSON-RPC, native bank/ledger flows and the live external bridge, and explicitly label retained retired-address refusal behavior."
+owner_domain = 1
+
+[finding.precompile-doc-fixture-address]
+file = "docs/system/precompiles.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The generated summary and distribution (staking_abi.json) section assign delegate, redelegate and undelegate from the distribution test fixture ABI to 0x1007. TestWithdraw loads that ABI to call staking.StakingAddress, which is 0x1005; the distribution executor has none of those methods."
+expected = "The endpoint catalogue must distinguish a test dependency ABI from methods served at the containing package address; distribution has exactly the five methods of its primary abi.json."
+proposal = "Fix the classification in tools/docs/gen-system-docs.sh and regenerate docs/system/precompiles.md so staking_abi.json is identified as a test dependency for 0x1005 or omitted from the served distribution catalogue. Keep the real five-method 0x1007 ABI and four events."
+owner_domain = 6
+interface = "6.pc-0x1007-rewards"
+
+[finding.precompile-doc-retirement]
+file = "docs/system/precompiles.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The ABI catalogue lists layerxanchor, layerxcustody and layerxverify functions, including checkpoint and sequencer authorization methods, without indicating that the merge retires those executors or that anchor reads end at store deletion. Readers see source ABI presence as current availability."
+expected = "Brief check_3 requires retired references to be identified; a retained ABI and registered address are not a promise that its methods remain callable after activation."
+proposal = "Extend the system-doc generator to annotate source inventories with activation and retirement status from the served implementation. In docs/system/precompiles.md mark 0x1012/0x1013 refusals and the two-stage 0x1014 lifecycle, and link the native bridge and bank/ledger replacement paths."
+owner_domain = 6
+
+[finding.governance-doc-missing-types]
+file = "docs/system/governance.md"
+line = 7
+class = "doc-drift"
+severity = "low"
+observed = "The generated Chain proposal types table omits Text, SoftwareUpgrade and CancelSoftwareUpgrade although their ProposalType constants are declared in sdk/x/gov and sdk/x/upgrade and the gov precompile registers all three handlers."
+expected = "A table advertised as sourced from ProposalType constants in sdk/x must include the actual supported constants, with their source paths and availability scope."
+proposal = "Fix tools/docs/gen-system-docs.sh constant extraction for typed and grouped constant declarations and regenerate docs/system/governance.md with Text, SoftwareUpgrade and CancelSoftwareUpgrade. Distinguish the chain proposal catalogue from the narrower gov precompile JSON support."
+owner_domain = 6
+interface = "6.pc-0x1006-submitproposal"
+
+[finding.address-table-oracle-status]
+file = "spec/layerx-merge/contracts/address-table.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The merged address table calls oracle 0x1008 live, unchanged, but precompiles/oracle/oracle.go exposes ErrOraclePrecompileRetired and refuses its methods; docs/site/docs/protocol/sidiora.md correctly says oracle queries are retired. The two descriptions disagree for integrators choosing fee or reward data sources."
+expected = "The merged address contract and public protocol documentation must give the same availability status for each registered endpoint; retained registration must not imply live data queries."
+proposal = "Amend the oracle row of spec/layerx-merge/contracts/address-table.md through its domain-6 change-control process to state the existing retirement refusal and point consumers to the governed fee-rate or supported pricefeed path as appropriate. Keep the stable 0x1004/0x1006/0x1007/0x1009 ABI rows."
+owner_domain = 6
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.02]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.03]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "misleading"
+notes = "Canonical usid creator/admin, SID decimals and proposed native ERC20 administration agree with the bridge; line 21 conflates six-decimal bank uhpx with eighteen-decimal EVM value units."
+
+[doc.04]
+path = "docs/system/governance.md"
+status = "stale"
+notes = "Chain proposal catalogue omits Text and both software-upgrade types despite real registered handlers; existing bridge proposal row names the correct source."
+
+[doc.05]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Line 15 and the staking_abi.json section advertise test-only staking methods at the distribution address; retained retired-executor ABI sections lack activation/refusal annotations."
+
+[doc.06]
+path = "docs/system/chain-modules.md"
+status = "accurate"
+notes = "Generated source inventory accurately lists bridge module state and governance message shapes; retained module declarations are an inventory rather than a claim of post-merge endpoint availability."
+
+[doc.07]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.08]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.09]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.10]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.11]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.12]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.13]
+path = "modules/layerxbridge/ATTESTATION.md"
+status = "stale"
+notes = "Lines 85-86 omit the canonical Sidiora usid exception; binary preimages, recipient padding, signatures, nullifiers and named vectors remain consistent with Go and the EVM vault document."
+
+[doc.14]
+path = "contracts/bridge/evm/ATTESTATION.md"
+status = "accurate"
+notes = "Both domain strings and all digest vectors agree verbatim with the module attestation page and Go packed encodings; the vault-side signature and nullifier rules agree with the bridge verifier."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/address-table.md"
+status = "stale"
+notes = "Slice address, ABI-freeze and LXP error rows describe the intended unchanged 0x1004/0x1006/0x1007/0x1009 surface; line 17 incorrectly calls the retired oracle live, unlike the Sidiora page and executor."
+
+[doc.16]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[doc.17]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+
+[finding.sidiora-doc-native-units]
+file = "docs/site/docs/protocol/sidiora.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The Sidiora page says the network coin base denom uhpx carries eighteen decimals. node/params/config.go registers uhpx at exponent 6, while modules/evm/state/utils.go converts one uhpx to 10^12 EVM value units. Reading the sentence as a bank-unit conversion mis-scales amounts by 10^12."
+expected = "Sidiora remains six-decimal SID, and documentation must distinguish six-decimal bank uhpx from the eighteen-decimal native EVM value representation used by payable governance and other precompiles."
+proposal = "Clarify docs/site/docs/protocol/sidiora.md line 21 with both unit systems: one whole network coin is 10^6 uhpx and 10^18 EVM value units; one uhpx is 10^12 EVM value units. Keep SID at 10^6 base units per coin and use explicit units in bridge and fee examples."
+owner_domain = 6

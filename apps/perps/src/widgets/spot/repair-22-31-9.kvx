@@ -1,0 +1,8 @@
+[repair.22.31.9]
+finding = "f038"
+test = "apps/perps/tests/repair-22-31-9.test.ts::f038SpotUsersRestRowsRenderNativeUnitsAndExecutionPrice"
+path = "PostgreSQL facts and registry -> real SpotUsers trades/orders REST -> spotApi -> TradeHistoryTab HTML"
+coverage = "Both directions, 6/18/8/0 token decimals, fractional quantities/prices, unchanged six-decimal USD volume, keyset pages, case-insensitive metadata, unknown-token refusal, raw strings retained"
+baseline = "Not executed: the explicit ordered gate instructions require implementation before hf-build and hf-done and prohibit running verify_cmd by hand. The original dStr path visibly renders 1000000 as 1,000,000 and 2500000000000000000 as an unscaled dollar price."
+wiring_requests = "None; the Go entry point is supplied by a temporary overlay without editing the producer domain."
+evidence = "The runner hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log path."

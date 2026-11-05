@@ -185,6 +185,11 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	reader.Evidence = newFixtureCanonicalEvidence(t, cutoff, 200, fmt.Sprintf("0x%064x", 200), map[string]CanonicalPoolEvidence{
+		poolA: {Paused: boolPointer(false), PauseEvidence: strings.Repeat("a", 64)},
+		poolB: {Paused: boolPointer(false), PauseEvidence: strings.Repeat("b", 64)},
+		poolC: {Paused: boolPointer(false), PauseEvidence: strings.Repeat("c", 64)},
+	})
 	frozen, err := NewFrozenInputs(pool, reader)
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +209,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	if a.Pool.MarketCap != "1690.000000" || a.Pool.PriceChange24h != "30.000000" || a.Depth != "1355.000000" || !a.SupplyVerified || a.Paused || a.Suppressed {
 		t.Fatalf("pool A market features: %+v depth=%s", a.Pool, a.Depth)
 	}
-	if a.Activity.Confidence != "complete" || a.Activity.RawVolume != "630.000000" || a.Activity.AdjustedVolume != "370.000000" || a.NullableMetrics == nil || a.NullableMetrics.Version != MetricsVersion || a.NullableMetrics.Paused != nil {
+	if a.Activity.Confidence != "complete" || a.Activity.RawVolume != "630.000000" || a.Activity.AdjustedVolume != "630.000000" || a.NullableMetrics == nil || a.NullableMetrics.Version != MetricsVersion || (a.NullableMetrics.Paused == nil || *a.NullableMetrics.Paused) {
 		t.Fatalf("pool A activity: %+v metrics %+v", a.Activity, a.NullableMetrics)
 	}
 	b := in.Candidates[1]
@@ -228,15 +233,23 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	heavy, err := coordinator.Refresh(ctx, uuid.NewString(), cutoff, false)
-	if err != nil || len(heavy) != 5 {
+	if err != nil || len(heavy) != len(ranker.HeavyCategoryNames()) {
 		t.Fatalf("heavy run: %v", err)
 	}
+	assertHeavyMembership(t, heavy)
 	newest, err := coordinator.Refresh(ctx, uuid.NewString(), cutoff, true)
 	if err != nil || len(newest) != 1 {
 		t.Fatalf("new run: %v", err)
 	}
-	want := map[string][]string{"trending": {poolA}, "volume": {poolA}, "unusual": {poolA}, "breakout": {poolA}, "movers": {}, "new": {poolB, poolA}}
-	for category, addresses := range want {
+	want := map[string][]string{"trending": {poolA}, "volume": {poolA}, "unusual": {poolA}, "breakout": {poolA}, "movers": {}, "gainers": {poolA}, "losers": {poolA}, "new": {poolB, poolA}}
+	if len(want) != len(ranker.Categories) {
+		t.Fatal("category expectation inventory differs")
+	}
+	for _, category := range ranker.Categories {
+		addresses, exists := want[category]
+		if !exists {
+			t.Fatalf("missing category expectation %s", category)
+		}
 		head, err := publication.Current(ctx, category)
 		if err != nil {
 			t.Fatalf("%s head: %v", category, err)
@@ -276,8 +289,22 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		}
 		committed++
 	}
-	if committed != 6 {
-		t.Fatalf("committed %d ranking frames, want 6", committed)
+	if committed != len(ranker.Categories) {
+		t.Fatalf("committed %d ranking frames, want %d", committed, len(ranker.Categories))
+	}
+	for _, category := range ranker.Categories {
+		var raw []byte
+		if err := pool.QueryRow(ctx, `SELECT frame FROM api_stream.stream_projection WHERE topic=$1`, "market.rankings."+category).Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		_, err := delivery.ParseCommittedStreamFrame(raw)
+		if err != nil {
+			t.Fatalf("%s consumed frame: %v", category, err)
+		}
+		var consumed v1.RankingEvent
+		if json.Unmarshal(raw, &consumed) != nil || consumed.Topic != "market.rankings."+category || len(consumed.Payload.Items) != len(want[category]) {
+			t.Fatalf("%s consumed results differ: %s", category, raw)
+		}
 	}
 	var frame []byte
 	var streamSequence int64
@@ -292,7 +319,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatalf("trending event: %+v", event)
 	}
 	var outboxRows int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM api_stream.stream_delivery_outbox`).Scan(&outboxRows); err != nil || outboxRows != 6 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM api_stream.stream_delivery_outbox`).Scan(&outboxRows); err != nil || outboxRows != len(ranker.Categories) {
 		t.Fatalf("api_stream outbox rows %d: %v", outboxRows, err)
 	}
 	if _, err = delivery.ParseCommittedStreamFrame(frame); err != nil {
@@ -314,7 +341,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	}
 	_ = tx.Rollback(ctx)
 
-	// A later heavy run (5 heads) supersedes the first and commits as the next stream
+	// A later heavy run (all heavy heads) supersedes the first and commits as the next stream
 	// sequence; once committed and older than the 900 s cursor horizon the
 	// superseded snapshots are pruned while the current heads stay readable.
 	if _, err = coordinator.Refresh(ctx, uuid.NewString(), cutoff.Add(time.Second), false); err != nil {
@@ -333,7 +360,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatalf("trending stream sequence %d: %v", streamSequence, err)
 	}
 	pruned, err := publication.Prune(ctx, cutoff.Add(902*time.Second), 100)
-	if err != nil || pruned != 5 {
+	if err != nil || pruned != int64(len(ranker.HeavyCategoryNames())) {
 		t.Fatalf("pruned %d superseded snapshots: %v", pruned, err)
 	}
 	if _, err = publication.Current(ctx, "trending"); err != nil {
@@ -375,7 +402,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	info, err := stream.Info(ctx)
-	if err != nil || info.State.Msgs != 11 {
+	if err != nil || info.State.Msgs != uint64(len(ranker.Categories)+len(ranker.HeavyCategoryNames())) {
 		t.Fatalf("relayed messages: %v %v", info.State, err)
 	}
 	message, err := stream.GetLastMsgForSubject(ctx, "market.rankings.trending")
@@ -434,3 +461,58 @@ func TestProductionUniverseRejectsIncoherentProjection(t *testing.T) {
 		t.Fatalf("incoherent projection accepted: %v", err)
 	}
 }
+
+func boolPointer(value bool) *bool { return &value }
+
+func newFixtureCanonicalEvidence(t *testing.T, cutoff time.Time, height uint64, hash string, pools map[string]CanonicalPoolEvidence) *HTTPCanonicalEvidence {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Query().Get("cutoffHeight") != strconv.FormatUint(height, 10) || request.URL.Query().Get("cutoffTime") != strconv.FormatInt(cutoff.Unix(), 10) || request.URL.Query().Get("blockHash") != hash {
+			t.Error("evidence request is not bound to frozen cutoff")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(CanonicalRankingEvidence{Revision: strings.Repeat("d", 64), CutoffHeight: height, CutoffTime: cutoff.Unix(), BlockHash: hash, Pools: pools})
+	}))
+	t.Cleanup(server.Close)
+	reader, err := NewHTTPCanonicalEvidence(server.URL, server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return reader
+}
+
+func TestProductionUniverseActivityEvidence(t *testing.T) {
+	cutoff := time.Now().Unix()
+	u, token, decimals := "130000000", "100000000000000000000", 18
+	row := universeRow{pool: poolA, creationHeight: 100, created: cutoff - 90000, day: "630000000", hour: "630000000", five: "130000000", buys: 1, sells: 1, actors: 1, roundTrip: "260000000", boughtTokens: "1400000000000000000000", soldTokens: "100000000000000000000", reserveIn: "1485000000", reserveOut: "130000000", holders: 2, lastUSDL: &u, lastToken: &token, lastDecimals: &decimals}
+	ordinary, err := row.candidate(cutoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ordinary.Activity.RawVolume != "630.000000" || ordinary.Activity.AdjustedVolume != "630.000000" || !containsString(ordinary.Activity.Flags, "round-trip-activity") || containsString(ordinary.Activity.Flags, "evidenced-self-volume") {
+		t.Fatalf("ordinary partial sell misclassified: %+v", ordinary.Activity)
+	}
+	row.evidence.SelfVolume = &CanonicalSelfVolume{Raw: "260000000", WindowStart: cutoff - 86400, WindowEnd: cutoff, Evidence: strings.Repeat("a", 64)}
+	wash, err := row.candidate(cutoff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wash.Activity.RawVolume != ordinary.Activity.RawVolume || wash.Activity.AdjustedVolume != "370.000000" || !containsString(wash.Activity.Flags, "evidenced-self-volume") {
+		t.Fatalf("qualified wash volume not removed: %+v", wash.Activity)
+	}
+	row.evidence.SelfVolume.Raw = "630000001"
+	if _, err = row.candidate(cutoff); err == nil {
+		t.Fatal("evidence exceeding raw volume accepted")
+	}
+}
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func RepairM931UniverseSQL(r *CanonicalInputReader) string { return r.universeQuery() }

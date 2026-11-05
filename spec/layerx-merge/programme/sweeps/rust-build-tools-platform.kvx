@@ -1,0 +1,22 @@
+[sweep.rust-build-tools-platform]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p TARGET --all-targets"
+targets_total = 3
+targets_passed = 3
+targets_failed = 0
+targets_not_run = 0
+
+[target.rust-build-tools-platform.1]
+target = "layerx-platform-cli"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-tools-platform.2]
+target = "layerx-platform-emulator"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-tools-platform.3]
+target = "layerx-platform-release"
+result = "passed"
+exit_code = 0

@@ -106,19 +106,20 @@ impl OperationClass {
         Self::Write,
     ];
 
-    /// Classifies the generated Agent API operation inventory. Bootstrap operations that cannot
-    /// carry a pre-existing token are explicitly excluded. This exhaustive match makes adding a
-    /// schema operation a compile-time authorization decision.
+    /// Classifies the generated Agent API operation inventory. This exhaustive match makes
+    /// adding a schema operation a compile-time authorization decision.
     #[must_use]
     pub const fn for_operation(operation: Operation) -> Option<Self> {
         match operation {
-            Operation::AgentRegister | Operation::SessionOpen | Operation::McpInvoke => None,
+            Operation::McpInvoke => None,
             Operation::ApprovalApprove
             | Operation::ApprovalGet
             | Operation::ApprovalList
             | Operation::ApprovalReject => Some(Self::Approve),
             Operation::ExportOffline => Some(Self::Export),
-            Operation::Prepare => Some(Self::Prepare),
+            Operation::AgentRegister | Operation::SessionOpen | Operation::Prepare => {
+                Some(Self::Prepare)
+            }
             Operation::PolicyDryRun => Some(Self::Read),
             Operation::SubscriptionAcknowledge
             | Operation::SubscriptionCreate
@@ -153,7 +154,6 @@ impl OperationClass {
             | Operation::CapabilityAttenuate
             | Operation::CapabilityCreate
             | Operation::CapabilityRevoke
-            | Operation::FaucetClaim
             | Operation::ProgramCall
             | Operation::ProgramDeploy
             | Operation::ProgramUpgrade
@@ -184,7 +184,6 @@ impl OperationClass {
             Operation::ProgramDeploy => &["write", "program:deploy"],
             Operation::ProgramUpgrade => &["write", "program:upgrade"],
             Operation::ProgramWindDown => &["write", "program:wind-down"],
-            Operation::FaucetClaim => &["write", "write:faucet:claim"],
             Operation::ReadCheckpoint => &["read", "read:checkpoint"],
             Operation::ReadProofBundle => &["read", "read:proof"],
             Operation::AvailabilityFetch => &["read", "read:availability"],
@@ -690,27 +689,13 @@ mod lifecycle_scope_tests {
     }
 
     #[test]
-    fn the_faucet_alias_authorizes_the_faucet_claim_only() {
-        assert_eq!(
-            OperationClass::for_operation(Operation::FaucetClaim),
-            Some(OperationClass::Write)
-        );
-        assert_eq!(
-            OperationClass::authorized_scopes(Operation::FaucetClaim),
-            &["write", "write:faucet:claim"]
-        );
+    fn the_retired_faucet_alias_authorizes_no_operation() {
         for operation in Operation::ALL.iter().copied() {
-            if operation == Operation::FaucetClaim {
-                continue;
-            }
             assert!(
                 !OperationClass::authorized_scopes(operation).contains(&"write:faucet:claim"),
                 "{} must not be authorized by the faucet alias",
                 operation.name()
             );
-        }
-        for scope in ["write:submit", "write:sign", "write:prepare", "read"] {
-            assert!(!OperationClass::authorized_scopes(Operation::FaucetClaim).contains(&scope));
         }
     }
 

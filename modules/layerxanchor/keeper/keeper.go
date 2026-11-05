@@ -183,16 +183,6 @@ func (k Keeper) SequencerAuthorization(ctx sdk.Context, sequencerID [32]byte, ba
 	}, true
 }
 
-// AnchorReader is the read API other modules consume.
-type AnchorReader interface {
-	FinalizedStateRoot(ctx sdk.Context, batchNumber uint64) ([32]byte, bool)
-	FinalizedReceiptRoot(ctx sdk.Context, batchNumber uint64) ([32]byte, bool)
-	LatestFinalizedBatch(ctx sdk.Context) (uint64, bool)
-	SequencerAuthorization(ctx sdk.Context, sequencerID [32]byte, batchNumber uint64) (verify.SequencerAuthorization, bool)
-}
-
-var _ AnchorReader = Keeper{}
-
 func (k Keeper) FinalizedStateRoot(ctx sdk.Context, batchNumber uint64) ([32]byte, bool) {
 	checkpoint, ok := k.GetCheckpoint(ctx, batchNumber)
 	if !ok || checkpoint.Status != types.CheckpointFinal {

@@ -53,6 +53,7 @@ import (
 //	}
 type handler struct {
 	reg                  *serviceRegistry
+	denyList             map[string]struct{}
 	unsubscribeCb        *callback
 	idgen                func() ID                      // subscription ID generator
 	respWait             map[string]*requestOp          // active client requests
@@ -90,6 +91,9 @@ func newHandler(connCtx context.Context, conn jsonWriter, idgen func() ID, reg *
 		log:                  log.Root(),
 		batchRequestLimit:    batchRequestLimit,
 		batchResponseMaxSize: batchResponseMaxSize,
+	}
+	if codec, ok := conn.(*denyListCodec); ok {
+		h.denyList = codec.denyList
 	}
 	if conn.remoteAddr() != "" {
 		h.log = h.log.New("conn", conn.remoteAddr())
@@ -494,6 +498,9 @@ func (h *handler) handleCallMsg(ctx *callProc, msg *jsonrpcMessage) *jsonrpcMess
 
 // handleCall processes method calls.
 func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage) *jsonrpcMessage {
+	if _, denied := h.denyList[msg.Method]; denied {
+		return msg.errorResponse(&methodNotFoundError{method: msg.Method})
+	}
 	if msg.isSubscribe() {
 		return h.handleSubscribe(cp, msg)
 	}

@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: explorer-images-${{ github.workflow }}-${{ github.ref }}
@@ -21,6 +20,9 @@ concurrency:
 
 jobs:
   publish:
+    permissions:
+      contents: read
+      packages: write
     name: Publish ${{ matrix.image }}
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ matrix.timeout }}

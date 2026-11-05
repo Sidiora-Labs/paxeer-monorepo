@@ -52,6 +52,7 @@ func TestGenesisPoolMetadataRoundTrip(t *testing.T) {
 	require.NotEqual(t, created[0].NFTID, created[1].NFTID)
 
 	exported := e.k.ExportGenesis(e.ctx)
+	require.Equal(t, uint64(2), e.k.FactoryNonce(e.ctx, e.evmAddress(creator)))
 	require.NoError(t, exported.Validate())
 	require.Len(t, exported.PoolMetadata, 2)
 	raw, err := json.Marshal(exported)
@@ -67,6 +68,7 @@ func TestGenesisPoolMetadataRoundTrip(t *testing.T) {
 		require.False(t, found)
 	}
 	fresh.InitGenesis(ctx, decoded)
+	require.Equal(t, uint64(2), fresh.FactoryNonce(ctx, e.evmAddress(creator)))
 	for index, pool := range pools {
 		metadata, found, err := fresh.GetPoolMetadata(ctx, pool)
 		require.NoError(t, err)
@@ -77,6 +79,12 @@ func TestGenesisPoolMetadataRoundTrip(t *testing.T) {
 		require.Equal(t, pool, registered)
 	}
 	sameJSON(t, exported, fresh.ExportGenesis(ctx))
+	e.k, e.ctx = fresh, ctx
+	next := e.create(creator, types.FeeStrategyClaim)
+	require.Equal(t, uint64(3), fresh.FactoryNonce(e.ctx, e.evmAddress(creator)))
+	for _, token := range tokens {
+		require.NotEqual(t, token.Hex(), next.TokenAddress)
+	}
 }
 
 // TestGenesisRejectsPoolWithoutMetadata refuses an export whose pool

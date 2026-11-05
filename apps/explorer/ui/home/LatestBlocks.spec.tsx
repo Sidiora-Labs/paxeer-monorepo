@@ -268,4 +268,34 @@ describe('LatestBlocks', () => {
       await socket.close();
     }
   });
+
+  it('replaces the row of a block sent again once its price updates are counted', async() => {
+    const socket = await createTestSocket();
+
+    try {
+      const { container } = renderCard(socket.url);
+
+      await vi.waitFor(() => {
+        expect(heights(container)).toEqual([ String(blockMock.base.height), String(blockMock.base2.height) ]);
+      }, { timeout: 30_000, interval: 100 });
+
+      await socket.join(TOPIC);
+
+      const row = () => container.querySelector(`[data-latest-block="${ blockMock.base.height }"]`) as HTMLElement;
+      expect(row().textContent).toContain(`${ blockMock.base.transactions_count } txns`);
+
+      socket.send(TOPIC, 'new_block', {
+        average_block_time: '1000',
+        block: { ...blockMock.base, transactions_count: blockMock.base.transactions_count + 2, price_update_count: 2 },
+      });
+
+      await vi.waitFor(() => {
+        expect(row().textContent).toContain(`${ blockMock.base.transactions_count + 2 } txns`);
+      }, { timeout: 30_000, interval: 50 });
+
+      expect(heights(container)).toEqual([ String(blockMock.base.height), String(blockMock.base2.height) ]);
+    } finally {
+      await socket.close();
+    }
+  });
 });

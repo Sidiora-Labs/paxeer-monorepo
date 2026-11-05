@@ -11,27 +11,30 @@ import (
 )
 
 const (
-	EnvAddr        = "ATTESTOR_REPLICA_ADDR"
-	EnvUser        = "ATTESTOR_REPLICA_USER"
-	EnvKeyFile     = "ATTESTOR_REPLICA_KEY_FILE"
-	EnvHostKeyFile = "ATTESTOR_REPLICA_HOST_KEY_FILE"
-	EnvRemoteDir   = "ATTESTOR_REPLICA_REMOTE_DIR"
-	EnvInterval    = "ATTESTOR_REPLICA_INTERVAL"
-	LedgerFileName = "replica-ledger.json"
-	MinInterval    = time.Second
+	EnvAddr                 = "ATTESTOR_REPLICA_ADDR"
+	EnvUser                 = "ATTESTOR_REPLICA_USER"
+	EnvKeyFile              = "ATTESTOR_REPLICA_KEY_FILE"
+	EnvHostKeyFile          = "ATTESTOR_REPLICA_HOST_KEY_FILE"
+	EnvRemoteDir            = "ATTESTOR_REPLICA_REMOTE_DIR"
+	EnvInterval             = "ATTESTOR_REPLICA_INTERVAL"
+	EnvOperationTimeout     = "ATTESTOR_REPLICA_OPERATION_TIMEOUT"
+	DefaultOperationTimeout = 2 * time.Minute
+	LedgerFileName          = "replica-ledger.json"
+	MinInterval             = time.Second
 )
 
 var ErrConfig = errors.New("replica: configuration")
 
 type Config struct {
-	Addr        string
-	User        string
-	KeyFile     string
-	HostKeyFile string
-	RemoteDir   string
-	Interval    time.Duration
-	SnapshotDir string
-	LedgerPath  string
+	Addr             string
+	User             string
+	KeyFile          string
+	HostKeyFile      string
+	RemoteDir        string
+	Interval         time.Duration
+	OperationTimeout time.Duration
+	SnapshotDir      string
+	LedgerPath       string
 }
 
 func LoadConfig(getenv func(string) string, snapshotDir, dataDir string) (*Config, error) {
@@ -43,6 +46,8 @@ func LoadConfig(getenv func(string) string, snapshotDir, dataDir string) (*Confi
 		values[n] = v
 		anySet = anySet || v != ""
 	}
+	timeoutValue := strings.TrimSpace(getenv(EnvOperationTimeout))
+	anySet = anySet || timeoutValue != ""
 	if !anySet {
 		return nil, nil
 	}
@@ -73,14 +78,22 @@ func LoadConfig(getenv func(string) string, snapshotDir, dataDir string) (*Confi
 	if err != nil || interval < MinInterval {
 		return nil, fmt.Errorf("%w: %s must be a duration of at least %s", ErrConfig, EnvInterval, MinInterval)
 	}
+	operationTimeout := DefaultOperationTimeout
+	if timeoutValue != "" {
+		operationTimeout, err = time.ParseDuration(timeoutValue)
+		if err != nil || operationTimeout <= 0 {
+			return nil, fmt.Errorf("%w: %s must be a positive duration", ErrConfig, EnvOperationTimeout)
+		}
+	}
 	return &Config{
-		Addr:        values[EnvAddr],
-		User:        values[EnvUser],
-		KeyFile:     values[EnvKeyFile],
-		HostKeyFile: values[EnvHostKeyFile],
-		RemoteDir:   remote,
-		Interval:    interval,
-		SnapshotDir: snapshotDir,
-		LedgerPath:  filepath.Join(dataDir, LedgerFileName),
+		Addr:             values[EnvAddr],
+		User:             values[EnvUser],
+		KeyFile:          values[EnvKeyFile],
+		HostKeyFile:      values[EnvHostKeyFile],
+		RemoteDir:        remote,
+		Interval:         interval,
+		OperationTimeout: operationTimeout,
+		SnapshotDir:      snapshotDir,
+		LedgerPath:       filepath.Join(dataDir, LedgerFileName),
 	}, nil
 }

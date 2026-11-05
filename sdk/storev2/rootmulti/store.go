@@ -6,13 +6,11 @@ import (
 	"io"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"cosmossdk.io/errors"
-	"github.com/armon/go-metrics"
 	"github.com/paxeer-network/paxlog"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
@@ -27,7 +25,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/commitment"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/state"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	commonerrors "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
@@ -142,8 +139,6 @@ func (rs *Store) Commit(bumpVersion bool) types.CommitID {
 	commitStartTime := time.Now()
 	defer func() {
 		storev2Metrics.scCommitLatency.Record(context.Background(), time.Since(commitStartTime).Seconds())
-		// TODO(PLT-353): remove once storev2_sc_commit_latency verified
-		telemetry.MeasureSince(commitStartTime, "storeV2", "sc", "commit", "latency")
 	}()
 	if err := rs.flush(); err != nil {
 		panic(err)
@@ -215,8 +210,6 @@ func (rs *Store) flush() error {
 				return err
 			}
 			storev2Metrics.ssVersion.Record(context.Background(), currentVersion)
-			// TODO(PLT-353): remove once storev2_ss_version verified
-			telemetry.SetGauge(float32(currentVersion), "storeV2", "ss", "version")
 		}
 	} else {
 		// ensure the state store watermark advances even for empty blocks
@@ -225,8 +218,6 @@ func (rs *Store) flush() error {
 				panic(err)
 			}
 			storev2Metrics.ssVersion.Record(context.Background(), currentVersion)
-			// TODO(PLT-353): remove once storev2_ss_version verified
-			telemetry.SetGauge(float32(currentVersion), "storeV2", "ss", "version")
 		}
 	}
 	return rs.scStore.ApplyChangeSets(changeSets)
@@ -697,8 +688,12 @@ func (rs *Store) GetStoreByName(name string) types.Store {
 // Implements interface Queryable
 func (rs *Store) Query(ctx context.Context, req abci.RequestQuery) abci.ResponseQuery {
 	version := req.Height
-	if version <= 0 || version > rs.lastCommitInfo.Version {
-		version = rs.scStore.Version()
+	if version > rs.lastCommitInfo.Version {
+		return sdkerrors.QueryResult(errors.Wrapf(sdkerrors.ErrInvalidHeight,
+			"cannot query height %d above committed height %d", version, rs.lastCommitInfo.Version))
+	}
+	if version <= 0 {
+		version = rs.lastCommitInfo.Version
 	}
 
 	storeName, subPath, err := parsePath(req.Path)
@@ -734,26 +729,12 @@ func (rs *Store) Query(ctx context.Context, req abci.RequestQuery) abci.Response
 				attribute.Bool("success", false),
 				attribute.Bool("proof", needProof),
 			))
-			// TODO(PLT-353): remove once storev2_historical_abci_query verified
-			telemetry.IncrCounterWithLabels([]string{"historical", "abci", "query"},
-				1,
-				[]metrics.Label{
-					telemetry.NewLabel("success", "false"),
-					telemetry.NewLabel("proof", strconv.FormatBool(needProof)),
-				})
 			return sdkerrors.QueryResult(err)
 		} else {
 			storev2Metrics.historicalAbciQuery.Add(ctx, 1, otelmetric.WithAttributes(
 				attribute.Bool("success", true),
 				attribute.Bool("proof", needProof),
 			))
-			// TODO(PLT-353): remove once storev2_historical_abci_query verified
-			telemetry.IncrCounterWithLabels([]string{"historical", "abci", "query"},
-				1,
-				[]metrics.Label{
-					telemetry.NewLabel("success", "true"),
-					telemetry.NewLabel("proof", strconv.FormatBool(needProof)),
-				})
 		}
 		defer rs.releaseHistProofPermit()
 
@@ -926,6 +907,7 @@ func (rs *Store) Restore(
 func (rs *Store) restore(height int64, protoReader protoio.Reader) (snapshottypes.SnapshotItem, error) {
 	var (
 		ssImporter   chan paxdbtypes.SnapshotNode
+		ssResult     chan error
 		snapshotItem snapshottypes.SnapshotItem
 		storeKey     string
 		restoreErr   error
@@ -934,13 +916,13 @@ func (rs *Store) restore(height int64, protoReader protoio.Reader) (snapshottype
 	if err != nil {
 		return snapshottypes.SnapshotItem{}, err
 	}
+	ssContext, cancelSS := context.WithCancel(context.Background())
+	defer cancelSS()
 	if rs.ssStore != nil {
 		ssImporter = make(chan paxdbtypes.SnapshotNode, 10000)
+		ssResult = make(chan error, 1)
 		go func() {
-			err := rs.ssStore.Import(height, ssImporter)
-			if err != nil {
-				panic(err)
-			}
+			ssResult <- rs.importSnapshotState(ssContext, height, ssImporter)
 		}()
 	}
 loop:
@@ -998,27 +980,62 @@ loop:
 		}
 	}
 
+	if restoreErr != nil {
+		cancelSS()
+	}
 	if err = scImporter.Close(); err != nil {
-		if restoreErr == nil {
-			restoreErr = err
-		}
+		restoreErr = commonerrors.Join(restoreErr, err)
+		cancelSS()
 	}
 	if ssImporter != nil {
 		close(ssImporter)
+		restoreErr = commonerrors.Join(restoreErr, <-ssResult)
 	}
-	// Initialize SS version metadata. Without SetLatestVersion, GetLatestVersion()
-	// stays 0 until the first post-sync block commits, which is misleading to any
-	// caller that reads it in that window.
+	if restoreErr != nil {
+		return snapshotItem, restoreErr
+	}
+	// Publish restore metadata only after both import pipelines have finished.
 	if rs.ssStore != nil {
 		if err := rs.ssStore.SetEarliestVersion(height, false); err != nil {
-			logger.Error("Failed to set earliest version during DB restore", "err", err)
+			return snapshotItem, fmt.Errorf("failed to set earliest version during DB restore: %w", err)
 		}
 		if err := rs.ssStore.SetLatestVersion(height); err != nil {
-			logger.Error("Failed to set latest version during DB restore", "err", err)
+			return snapshotItem, fmt.Errorf("failed to set latest version during DB restore: %w", err)
 		}
 	}
 
 	return snapshotItem, restoreErr
+}
+
+// importSnapshotState stops forwarding on cancellation or an importer error,
+// drains the producer, and joins the backend before returning.
+func (rs *Store) importSnapshotState(ctx context.Context, height int64, input <-chan paxdbtypes.SnapshotNode) error {
+	nodes := make(chan paxdbtypes.SnapshotNode)
+	result := make(chan error, 1)
+	go func() { result <- rs.ssStore.Import(height, nodes) }()
+	var importErr error
+	stopped := false
+	for node := range input {
+		if stopped {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			stopped = true
+		case importErr = <-result:
+			if importErr == nil {
+				importErr = fmt.Errorf("SS importer stopped before snapshot input closed")
+			}
+			result = nil
+			stopped = true
+		case nodes <- node:
+		}
+	}
+	close(nodes)
+	if result != nil {
+		importErr = <-result
+	}
+	return importErr
 }
 
 // Snapshot Implements the interface from Snapshotter
@@ -1042,30 +1059,12 @@ func (rs *Store) Snapshot(height uint64, protoWriter protoio.Writer) error {
 			if err == commonerrors.ErrorExportDone {
 				for k, v := range keySizePerStore {
 					storev2Metrics.iavlTotalKeyBytes.Record(context.Background(), v, otelmetric.WithAttributes(attribute.String("store_name", k)))
-					// TODO(PLT-353): remove once storev2_iavl_total_key_bytes verified
-					telemetry.SetGaugeWithLabels(
-						[]string{"iavl", "store", "total_key_bytes"},
-						float32(v),
-						[]metrics.Label{telemetry.NewLabel("store_name", k)},
-					)
 				}
 				for k, v := range valueSizePerStore {
 					storev2Metrics.iavlTotalValueBytes.Record(context.Background(), v, otelmetric.WithAttributes(attribute.String("store_name", k)))
-					// TODO(PLT-353): remove once storev2_iavl_total_value_bytes verified
-					telemetry.SetGaugeWithLabels(
-						[]string{"iavl", "store", "total_value_bytes"},
-						float32(v),
-						[]metrics.Label{telemetry.NewLabel("store_name", k)},
-					)
 				}
 				for k, v := range numKeysPerStore {
 					storev2Metrics.iavlTotalNumKeys.Record(context.Background(), v, otelmetric.WithAttributes(attribute.String("store_name", k)))
-					// TODO(PLT-353): remove once storev2_iavl_total_num_keys verified
-					telemetry.SetGaugeWithLabels(
-						[]string{"iavl", "store", "total_num_keys"},
-						float32(v),
-						[]metrics.Label{telemetry.NewLabel("store_name", k)},
-					)
 				}
 				break
 			}
@@ -1089,8 +1088,6 @@ func (rs *Store) Snapshot(height uint64, protoWriter protoio.Writer) error {
 			valueSizePerStore[currentStoreName] += int64(len(item.Value))
 			numKeysPerStore[currentStoreName] += 1
 			storev2Metrics.stateSyncKeysExported.Add(context.Background(), 1)
-			// TODO(PLT-353): remove once storev2_state_sync_keys_exported verified
-			telemetry.IncrCounter(1, "state_sync", "num_keys_exported")
 		case string:
 			if err := protoWriter.WriteMsg(&snapshottypes.SnapshotItem{
 				Item: &snapshottypes.SnapshotItem_Store{

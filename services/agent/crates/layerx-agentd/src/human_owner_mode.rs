@@ -1,11 +1,11 @@
+use super::serve_http::{parse_request, response, DeadlineStream, Parsed};
 use super::{
-    config, connect_human_authority, connect_human_node, human_lni_limits, human_peers, optional,
-    parse_request, parse_u64, required, response, serve, start_human_owner, DeadlineStream,
-    HttpPool, Parsed, SUPERVISION_INTERVAL,
+    config, connect_human_authority, human_peers, optional, parse_u64, required, serve,
+    start_human_owner, HttpPool, SUPERVISION_INTERVAL,
 };
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use std::env;
 use std::net::TcpListener;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
@@ -39,19 +39,18 @@ pub(super) fn run() -> Result<(), String> {
     }
 }
 
+fn node_rpc_config() -> Result<NodeRpcConfig, String> {
+    NodeRpcConfig::from_environment().map_err(|error| {
+        format!(
+            "human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: {error}"
+        )
+    })
+}
+
 fn dependencies_ready() -> Result<(), String> {
     let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
-    let human_limits = human_lni_limits(deadline)?;
-    let node_limits = layerx_client::lni::transport::Limits {
-        maximum_frame_bytes: human_limits
-            .maximum_frame_bytes
-            .max(layerx_client::evidence::MINIMUM_FINALITY_FRAME_BYTES),
-        ..human_limits
-    };
-    connect_human_node(
-        PathBuf::from(required("LAYERX_AGENT_HUMAN_NODE_LNI")?),
-        node_limits,
-    )?;
+    NodeRpc::connect(&node_rpc_config()?)
+        .map_err(|error| format!("human node RPC is unavailable: {error}"))?;
     connect_human_authority(deadline, &human_peers()?)?;
     Ok(())
 }
@@ -81,6 +80,9 @@ fn serve_human_owner() -> Result<(), String> {
                 .to_owned(),
         );
     }
+    human_peers()?;
+    NodeRpc::connect(&node_rpc_config()?)
+        .map_err(|error| format!("human node RPC is unavailable: {error}"))?;
     let human = start_human_owner(None)?;
     let listener = TcpListener::bind(listen)
         .map_err(|error| format!("human health listener failed: {error}"))?;
@@ -162,7 +164,11 @@ mod tests {
                     .map_err(|e| e.to_string())?;
                 let (sender, receiver) = mpsc::channel();
                 drop(sender);
-                super::serve_health(&mut super::DeadlineStream::new(stream), &bearer, || {
+                let mut stream = super::DeadlineStream {
+                    socket: stream,
+                    expires: std::time::Instant::now() + super::super::serve_http::REQUEST_DEADLINE,
+                };
+                super::serve_health(&mut stream, &bearer, || {
                     super::owner_running(&receiver).is_ok()
                 })
             });

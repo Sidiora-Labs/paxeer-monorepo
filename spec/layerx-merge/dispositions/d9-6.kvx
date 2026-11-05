@@ -1,0 +1,31 @@
+[disposition.9.97.8.1]
+finding = "9.97.8.1"
+status = "resolved"
+evidence = "Commit 9192a4c0252081121f077c5ac6095ca488eb4b42 kept AuthorizedReceiptBatch, now exported at services/agent/sdk/typescript/src/verifier.ts:85 and imported by test/web-search.test.ts:8, removed the retired verifyProgramReceipt callers from account-bound-call.test.ts and deleted pre-runtime-refusal.test.ts and program-response-code.test.ts."
+
+[disposition.9.97.8.3]
+finding = "9.97.8.3"
+status = "open"
+evidence = "services/agent/sdk/typescript/src/ai_market.ts:3273 still defines decodeProgramsReceipt over SequencerAuthorization keys, parses the kernel-shaped 0x5201 receipt at :3306 and constructs ProtocolReceipt at :3367 for OperationJournal.resolve at :3084, so retaining the interfaces in 9192a4c0252081121f077c5ac6095ca488eb4b42 fixed the missing exports without retiring or establishing the live producer for this decoder."
+follow_up = "22.9.10"
+
+[disposition.9.97.8.4]
+finding = "9.97.8.4"
+status = "resolved"
+evidence = "Commit 9192a4c0252081121f077c5ac6095ca488eb4b42 removed the client-exchange.json dependency from web-search-sequencer.test.ts, which now reads sequencer-receipt-v1.json at services/agent/sdk/typescript/test/web-search-sequencer.test.ts:30 and builds its offer, signed canonical grant and payment at :48-70 before decoding the grant bytes."
+
+[disposition.9.97.8.5]
+finding = "9.97.8.5"
+status = "resolved"
+evidence = "Commit 39f0199fb2281a37102d9ebafdd5608bcfe4aac0 removed the MerkleProof import and RpcBatchEvidence reader from the seller, whose services/platform/middleware/seller/src/rpc.ts:1 now imports only decodeRawEip1559, keccak256 and SequencerReceiptKey from the SDK."
+
+[disposition.9.97.14.1]
+finding = "9.97.14.1"
+status = "open"
+evidence = "services/agent/sdk/python/layerx_sdk/ai_market.py:1381 still persists checkpoint without a rung, and OperationJournal at :1529 has no finalize and refuses nonempty receipts with ProgramsReceiptVerifierUnavailable at :1610, while services/agent/crates/layerx-client/src/ai_market.rs:1742 finalizes against CommitFinality; commit 67704e1b527704f5e57b535171b161e88e7e0cba ported tests and stubs without repairing this Python journal gap."
+follow_up = "22.9.11"
+
+[disposition.9.98.1.1]
+finding = "9.98.1.1"
+status = "resolved"
+evidence = "Commit 88892b19a68cfdcdd894b595b0371152d3186dc8 updated services/agent/Cargo.lock for payer_evm, and the layerx-agentd-host dependency list at services/agent/Cargo.lock:793 includes base64 0.22.1, k256, p256 and sha3 with the added p256 and primeorder package records."

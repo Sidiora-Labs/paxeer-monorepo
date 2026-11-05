@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { cn } from "@/ui/utils/cn";
@@ -6,7 +6,8 @@ import { PairHeader } from "@/widgets/trading/PairHeader";
 import { MarketWatchlist } from "@/widgets/trading/MarketSelectorPanel";
 import { MobileAppLayout } from "@/widgets/mobile/MobileAppLayout";
 import { ResizeHandle } from "@/ui/atoms/resize-handle";
-import { PERPS_MARKETS, type PerpsMarket } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useIsMobile } from "@/hooks/ui/useMobile";
@@ -29,14 +30,55 @@ const DepthPanel = dynamic(
   () => import("@/widgets/trading/Orderbook").then((m) => ({ default: m.DepthPanel })),
   { ssr: false, loading: () => <OrderbookSkeleton /> }
 );
+export function loadPerpsOrderForm() {
+  return import("@/widgets/trading/PerpsOrderForm").then((m) => ({ default: m.PerpsOrderForm }));
+}
+
 const PerpsOrderForm = dynamic(
-  () => import("@/widgets/trading/PerpsOrderForm").then((m) => ({ default: m.PerpsOrderForm })),
+  loadPerpsOrderForm,
   { ssr: false, loading: () => <OrderFormSkeleton /> }
 );
 const PerpsPositionsPanel = dynamic(
   () => import("@/widgets/trading/PerpsPositionsPanel").then((m) => ({ default: m.PerpsPositionsPanel })),
   { ssr: false, loading: () => <PositionsSkeleton /> }
 );
+
+export function tradingMarket<T extends MarketCatalogEntry>(
+  symbol: string | string[] | undefined,
+  catalog: readonly T[],
+): T | undefined {
+  if (symbol === undefined) {
+    return catalog.find((market) => market.symbol === "PAX" && market.enabled)
+      ?? catalog.find((market) => market.enabled);
+  }
+  if (typeof symbol !== "string") return undefined;
+  return catalog.find((market) => market.symbol === symbol.toUpperCase() && market.enabled);
+}
+
+export function UnavailablePerpsMarket() {
+  const { tradeable } = usePerpsMarkets();
+
+  return (
+    <section className="p-4 space-y-4">
+      <div role="alert">The selected market is unavailable.</div>
+      {tradeable.length === 0 ? (
+        <div role="status">No markets are currently available to trade.</div>
+      ) : (
+        <nav aria-label="Select an available market" className="flex flex-wrap gap-2">
+          {tradeable.map((market) => (
+            <a
+              key={market.marketId}
+              href={`/perps?market=${encodeURIComponent(market.symbol)}`}
+              className="rounded px-3 py-2 bg-surface-1 hover:bg-muted/30"
+            >
+              {market.symbol}/USD
+            </a>
+          ))}
+        </nav>
+      )}
+    </section>
+  );
+}
 
 const WATCHLIST_MIN = 160;
 const WATCHLIST_MAX = 320;
@@ -94,14 +136,16 @@ export default function TradingInterface() {
   const router = useRouter();
   const { address } = usePerpsWallet();
   const { prices } = useRealtimePrices();
+  const { tradeable, isLoading, error } = usePerpsMarkets();
   const isMobile = useIsMobile();
   const { presets, activePreset, activeId, applyPreset } = useLayoutPresets();
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
 
-  const selectedSymbol = (router.query.market as string)?.toUpperCase() || "PAX";
-  const selectedMarket = useMemo<PerpsMarket>(
-    () => PERPS_MARKETS.find((m) => m.symbol === selectedSymbol) ?? PERPS_MARKETS[0]!,
-    [selectedSymbol]
+  const selectedSymbol = router.query.market;
+  const selectedMarket = useMemo(
+    () =>
+      tradingMarket(selectedSymbol, tradeable),
+    [tradeable, selectedSymbol]
   );
 
   const selectMarket = useCallback(
@@ -156,8 +200,9 @@ export default function TradingInterface() {
 
   // Title updates: depend on the selected market's price only (not the whole
   // prices map) and throttle writes to 1 Hz max to avoid per-tick tab repaints.
-  const marketPrice = prices[selectedMarket.symbol];
+  const marketPrice = selectedMarket ? prices[selectedMarket.symbol] : undefined;
   useEffect(() => {
+    if (!selectedMarket) return;
     const formattedPrice = marketPrice
       ? new Intl.NumberFormat("en-US", {
           maximumFractionDigits: 2,
@@ -177,7 +222,13 @@ export default function TradingInterface() {
       document.title = nextTitle;
     }, 1000 - sinceLast);
     return () => window.clearTimeout(handle);
-  }, [selectedMarket.symbol, marketPrice]);
+  }, [selectedMarket?.symbol, marketPrice]);
+
+  if (isLoading) return <div role="status">Loading markets…</div>;
+  if (error) return <div role="alert">Unable to load markets: {error.message}</div>;
+  if (!selectedMarket) {
+    return <UnavailablePerpsMarket />;
+  }
 
   // ═══════════════════ MOBILE ═══════════════════
   // Shell renders MobileTradeHeader (Component.shell === "trade"). The page

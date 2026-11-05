@@ -1,0 +1,119 @@
+[sweep.rust-test-programs]
+revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p TARGET --no-fail-fast"
+targets_total = 20
+targets_passed = 14
+targets_failed = 6
+targets_not_run = 0
+
+[target.rust-test-programs.1]
+target = "layerx-interpreter-compiled-equivalent"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.2]
+target = "layerx-program-sdk"
+result = "failed"
+exit_code = 101
+observed = "emit_generated_consumers at programs/sdk/rust/tests/bindgen_conformance.rs:332:83 panicked because an explicit consumer output directory is required."
+assumption = "This is an environmental failure because PAXEER_X_BINDINGS_EMIT_DIR is unset, and the other failing conformance tests also lack their prebuilt artifact and immutable fixture directories."
+
+[target.rust-test-programs.3]
+target = "layerx-programs-registry"
+result = "failed"
+exit_code = 101
+observed = "native_receipt_authorized_interface_reads at programs/crates/layerx-programs-registry/tests/interface_protocol.rs:149:64 panicked with missing PAXEER_X_INTERFACE_FIXTURES."
+assumption = "This is an environmental failure because the native interface fixture directory is not configured, and the input producer also lacks PAXEER_X_INTERFACE_INPUTS."
+
+[target.rust-test-programs.4]
+target = "layerx-programs-runtime"
+result = "failed"
+exit_code = 101
+observed = "execute::market_tests::compiled_market_concurrent_leases_are_not_over_slashed_and_the_offer_closes_after_disputes at programs/crates/layerx-programs-runtime/src/market_tests.rs:104:29 panicked with actual compiled market: environment variable not found."
+assumption = "This is an environmental failure because LAYERX_MARKET_WASM is unset, so the compiled-market test cannot load its required WebAssembly artifact."
+
+[target.rust-test-programs.5]
+target = "wasm-instrument"
+result = "failed"
+exit_code = 101
+observed = "The binaryen-sys build script panicked at cmake-0.1.58/src/lib.rs:1132:5 because executing cmake failed with No such file or directory (OS error 2)."
+assumption = "This is an environmental failure caused by the missing cmake build tool."
+
+[target.rust-test-programs.6]
+target = "parity-wasm"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.7]
+target = "wasmi"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.8]
+target = "layerx-programs-interpreter"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.9]
+target = "layerx-programs-market"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.10]
+target = "layerx-programs-ai-market"
+result = "failed"
+exit_code = 101
+observed = "deployment_refuses_state_of_another_chain_domain in programs/crates/layerx-programs-ai-market/tests/chain_domain.rs failed with Error: ApplicationError(3)."
+assumption = "This appears to be an environmental failure because the compile-time PAXAI_CHAIN_DOMAIN variable is absent, as confirmed by the companion chain-domain assertion at programs/crates/layerx-programs-ai-market/tests/chain_domain.rs:47:5."
+
+[target.rust-test-programs.11]
+target = "layerx-programs-arbiter"
+result = "failed"
+exit_code = 101
+observed = "canonical_native_authority_matches_authenticated_historical_facts at programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:290:14 panicked with required genuine native replay corpus; no fallback: NotPresent."
+assumption = "This is an environmental failure because LAYERX_AUTHENTICATED_REPLAY_INPUTS is unset, so the test cannot load its genuine native replay corpus."
+
+[target.rust-test-programs.12]
+target = "layerx-programs-sandbox"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.13]
+target = "layerx-programs-fuzz"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.14]
+target = "layerx-porting-cosmwasm"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.15]
+target = "layerx-porting-cosmwasm-guest"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.16]
+target = "layerx-porting-evm"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.17]
+target = "layerx-porting-evm-guest"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.18]
+target = "layerx-porting-solana"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.19]
+target = "layerx-porting-solana-guest"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-programs.20]
+target = "layerx-program-lint"
+result = "passed"
+exit_code = 0

@@ -23,9 +23,10 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
@@ -129,6 +130,19 @@ func publicOf(seed []byte) [32]byte {
 	return [32]byte(ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey))
 }
 
+// assertReceiptKeySignature exercises the receipt consumer with a loaded key.
+func assertReceiptKeySignature(t *testing.T, key *sequencer.ReceiptKey, in *sequencer.ReceiptInput) []byte {
+	t.Helper()
+	signed, err := key.SignReceipt(in)
+	require.NoError(t, err)
+	verified, err := verify.ReceiptSignature(signed, key.PublicKey())
+	require.NoError(t, err)
+	unsigned, err := sequencer.BuildReceipt(in, verified.Receipt.ContextHash)
+	require.NoError(t, err)
+	require.Equal(t, codec.ReceiptDigest(unsigned), verified.Digest)
+	return signed
+}
+
 func loadKey(t *testing.T, seed []byte, pins []verify.SequencerAuthorization, height int64) (*sequencer.ReceiptKey, error) {
 	t.Helper()
 	dir := t.TempDir()
@@ -187,6 +201,7 @@ func vectorInput() *sequencer.ReceiptInput {
 		},
 		Operation:         2,
 		ReturnData:        append(make([]byte, 31), 1),
+		PaymentDenom:      "upax",
 		FeeDenom:          "upax",
 		FeeCharged:        bigInt("51234000000000"),
 		Sponsor:           sponsorAddr,
@@ -218,9 +233,14 @@ type receiptHarness struct {
 func newReceiptHarness(t *testing.T, openMs int64, setup func(ctx sdk.Context, a *app.App), funded ...utils.TestAcct) *receiptHarness {
 	t.Helper()
 	tm := time.Now().UTC()
-	valPub := secp256k1.GenPrivKey().PubKey()
+	valPub := sdked25519.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false)
 	a := tw.App
+	require.NoError(t, a.SequencerKeeper.SetLeaders(tw.Ctx, [][32]byte{[32]byte(valPub.Bytes())}))
+	public := publicOf(testKeySeed)
+	require.NoError(t, a.SequencerKeeper.SetReceiptKeys(tw.Ctx, seqkeeper.ReceiptKeys{{
+		KeyId: testKeyID[:], PublicKey: public[:], FirstHeight: 1, LastHeight: 1000,
+	}}))
 	for _, acct := range funded {
 		a.EvmKeeper.SetAddressMapping(tw.Ctx, acct.AccountAddress, acct.EvmAddress)
 		tw.FundAcc(acct.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(fundingUhpx))))
@@ -456,7 +476,7 @@ func TestReceiptFeeFields(t *testing.T) {
 	sidAfter := rh.app.BankKeeper.GetBalance(rh.openCtx(), sid.AccountAddress, denom).Amount
 	require.Equal(t, sdk.NewInt(sidConverted), sidBefore.Sub(sidAfter))
 	require.Equal(t, u128(big.NewInt(sidConverted)), rec.FeeCharged)
-	require.Equal(t, sha256.Sum256([]byte(denom)), rec.Asset)
+	require.Equal(t, sha256.Sum256([]byte("uhpx")), rec.Asset)
 	require.Equal(t, denom, string(rec.Effects[0].Body[109:]))
 	require.Equal(t, uint8(len(denom)), rec.Effects[0].Body[108])
 
@@ -762,10 +782,7 @@ func TestReceiptKeySeparateFromConsensusKey(t *testing.T) {
 	require.NotEqual(t, consensusPub, pub[:])
 	in := vectorInput()
 	in.Accepted.Height = 2
-	signed, err := key.SignReceipt(in)
-	require.NoError(t, err)
-	_, err = verify.ReceiptSignature(signed, pub)
-	require.NoError(t, err)
+	signed := assertReceiptKeySignature(t, key, in)
 	_, err = verify.ReceiptSignature(signed, [32]byte(consensusPub))
 	require.ErrorIs(t, err, verify.ErrSequencerSignature)
 }

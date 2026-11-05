@@ -1,0 +1,76 @@
+[task]
+id = "22.33.1242"
+mode = "BUILD"
+audit = "22.30.60"
+acceptance = "22998.1"
+evidence = "Runner gate ledger records the immutable candidate revision, exact command, exit and private log for hf-build and hf-done; qualification requires both on the same candidate."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and permit only hf-done after hf-build; no pre-change test failures are claimed."
+wiring_requests = []
+
+[finding.013]
+test = "TestRepairM_1242_013_FeeConservationAndRecovery"
+proof = "Signed tenant transaction crosses chain-ID admission, preprocessing/signature recovery, basic validation, fee purchase, domain nonce verification, execution and EndBlock with an empty collector; asserts exact wei conservation, zero/3333/policy-maximum 5000 bps shares and policy rejection of 10000 bps and sub-unit remainder, then commits, closes and reopens the application store and checks recovered balances, transaction index, gas usage and next fee."
+
+[finding.010]
+test = "TestRepairM_1242_010_RegisteredDelegateCall"
+proof = "RegisterPointer produces a bech32 wrapper and reverse registry entry; EncodeDelegateCallEVM and protobuf marshal/unmarshal feed the real delegate-call handler, proving missing association, successful uint256 return data and rejection of another registered pointer."
+
+[finding.022]
+test = "TestRepairM_1242_022_GenesisInstallationsAreAtomic"
+proof = "Real wasm authorization failure preserves its error cause; real gas exhaustion interrupts each of the three mandatory uploads and leaves params, associations, code sequence and pointer IDs unpublished, with RegisterPointer unusable; successful initialization installs IDs consumed by all three real wasm pointer instantiations."
+
+[finding.014]
+test = "TestRepairM_1242_014_PrecompileVersions"
+proof = "Every nonempty version-file tag resolves its directory through the registered name/address resolver (including p256Verify); assertions cover before, at and after the upgrade with a mandatory assertion count, preserving v6.4.0 at the stale v6.5 marker and additionally checking the current implementation at the node's declared LatestUpgrade."
+
+[finding.018]
+test = "TestRepairM_1242_018_ReceiptRetryContract"
+proof = "Nonpositive attempt counts, one-attempt misses, pre-cancellation and cancellation during retry never return nil success; receipt producer, flush and persistent consumer prove successful retrieval."
+
+[finding.015]
+test = "TestRepairM_1242_015_MetadataDecodeErrors"
+proof = "Actual EVM bytecode returns empty, truncated, malformed-string, reverted and valid metadata; ABI packing rejects unknown methods and missing inputs, decoding errors propagate, and output-count mismatch has an explicit error."
+
+[gotcha.baseline]
+observed = "Task step 10 requests baseline verification but the ordered instructions prohibit it and require the single verification through hf-done after implementation and build."
+resolution = "Follow the ordered gate instructions; do not claim a baseline result."
+
+[gotcha.genesis_events]
+observed = "SDK CacheContext publishes EVM events but does not merge ordinary SDK events."
+resolution = "Publish successful genesis wasm events explicitly after the atomic store publication."
+
+[gotcha.commit_api]
+observed = "The repository CommitMultiStore.Commit API requires a bumpVersion boolean; an omitted argument prevents the focused tests from compiling."
+resolution = "Commit the recovery fixture with Commit(true), matching BaseApp's production commit path."
+
+[gotcha.leveldb_close]
+observed = "BaseApp.Close closes its database and then the legacy multistore closes the same database again; LevelDB rejects a second close."
+resolution = "The recovery fixture closes application services with HandleClose and closes the owning multistore once before reopening its database."
+
+[gotcha.fee_fixture_validation]
+observed = "The previous attempt failed TestRepairM_1242_013_FeeConservationAndRecovery because its minimum fee exceeded MaxMinFeePerGas; the genesis atomicity fixture also used an invalid minimum."
+resolution = "Use the production default minimum and maximum for settlement and a valid distinct minimum for genesis; validate both parameter fixtures before use without changing any production bound."
+
+[qualification.blocker]
+revision = "50060411fd46f4ac01b507dd894dca80dfba8f16"
+command = "go build ./modules/evm/keeper/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Pre-existing SDK auth and staking CLI callers consume one result from tx.NewFactoryCLI, which returns (Factory, error); hf-build failed before verification."
+assumption = "Owning SDK domain must update sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} and sdk/x/staking/client/cli/tx.go outside this task's scope; no hf-done result or completion is claimed."
+
+[gotcha.paxdb_recovery]
+observed = "The continued base uses PaxDB SC/SS; closing its multistore leaves the separate BaseApp database open, and reopening a legacy IAVL store does not recover PaxDB state."
+resolution = "Commit through the real pre-commit hook, close the whole application, and reopen the application against the same node home and database before checking state."
+
+[gotcha.fee_share_policy]
+observed = "The default tenant policy caps fee shares at 5000 bps, so the inherited 10000 bps settlement fixture cannot create a domain."
+resolution = "Preserve the policy: prove settlement at its 5000 bps maximum and explicitly assert that 10000 bps creation is rejected without creating a domain."
+
+[gotcha.precompile_registry]
+observed = "The initialized precompile map may be empty for keeper fixtures, while GetPrecompileInfoE resolves every registered name directly from its production address and embedded ABI."
+resolution = "Use the production resolver and require its success for every directory, retaining all version and assertion-count checks."
+
+[gotcha.precompile_current_version]
+observed = "Version files end at v6.5, but GetVersioned registers current implementations under the node's LatestUpgrade and the preceding historical version is v6.4.0."
+resolution = "Retain every version-file boundary assertion with the declared historical expectation, and add boundaries for the current implementation using app.LatestUpgrade rather than a literal or dependency change."

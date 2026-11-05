@@ -42,6 +42,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use layerx_crypto::evm_transaction::Eip1559Call;
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde_json::{json, Value};
 
 use crate::abi::{
@@ -52,12 +53,16 @@ use crate::abi::{
 use crate::attestation::{
     assemble_signatures, recover_signer, OutboundAttestation, SignatureError,
 };
+use crate::attestation_api::{
+    AttestationSnapshot, AttestationView, AuthenticatedPolicy, PolicyDestination,
+};
 use crate::cosign::CosignDirectory;
 use crate::hex;
 use crate::journal::{
     Completion, Entry, Journal, JournalError, Observation, Position, Recipient, ReleaseSubmission,
-    Submission,
+    Submission, SubmissionStatus,
 };
+use crate::receipt::{Rung, SequencerReceipt};
 use crate::rpc::{JsonRpc, RpcFault};
 use crate::signer::{Attestor, FeePayer, KeyError, Submitter};
 use crate::solana::observe::{observe_deposits, AssetRecord, Finding, SolanaSettings};
@@ -223,6 +228,7 @@ pub struct ChainLink {
 
 pub struct PaxeerLink {
     pub settings: PaxeerSettings,
+    pub receipt_keys: Vec<SequencerAuthorization>,
     pub rpc: Box<dyn JsonRpc>,
     pub submitter: Submitter,
 }
@@ -415,6 +421,7 @@ pub struct Relayer {
     release: Option<SolanaRelease>,
     failures: Vec<ItemFailure>,
     journal_failure: Option<JournalError>,
+    policies: BTreeMap<PolicyDestination, AuthenticatedPolicy>,
 }
 
 fn malformed() -> RelayerError {
@@ -560,6 +567,7 @@ impl Relayer {
             release,
             failures: Vec::new(),
             journal_failure: None,
+            policies: BTreeMap::new(),
         })
     }
 
@@ -573,6 +581,82 @@ impl Relayer {
     #[must_use]
     pub fn failures(&self) -> &[ItemFailure] {
         &self.failures
+    }
+
+    #[must_use]
+    pub fn attestation_view(&self) -> AttestationView {
+        AttestationView::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
+    }
+
+    pub fn attestation_snapshot(&self) -> AttestationSnapshot {
+        AttestationSnapshot::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
+    }
+
+    fn evm_policy_destinations(&self, side: Side) -> Vec<PolicyDestination> {
+        match side {
+            Side::Paxeer => self
+                .chains
+                .iter()
+                .map(|link| (link.settings.chain_id, link.settings.vault))
+                .chain(
+                    self.solana
+                        .iter()
+                        .map(|link| (link.settings.chain_id, link.settings.vault)),
+                )
+                .map(
+                    |(source_chain_id, source_vault)| PolicyDestination::Inbound {
+                        chain_id: self.paxeer.settings.chain_id,
+                        bridge: LAYERX_BRIDGE_PRECOMPILE,
+                        source_chain_id,
+                        source_vault,
+                    },
+                )
+                .collect(),
+            Side::Chain(index) => vec![PolicyDestination::EvmRelease {
+                chain_id: self.chains[index].settings.chain_id,
+                vault: self.chains[index].settings.vault,
+            }],
+        }
+    }
+
+    /// Refreshes serving policies independently of journal progress, including
+    /// completed items and failed scans. A failed read withdraws its old policy.
+    pub fn refresh_attestation_policies(&mut self) -> Vec<Result<(), RelayerError>> {
+        self.policies.clear();
+        let mut results = vec![self.attestor_policy(Side::Paxeer).map(|_| ())];
+        for index in 0..self.chains.len() {
+            results.push(self.attestor_policy(Side::Chain(index)).map(|_| ()));
+        }
+        if self.release.is_some() {
+            results.push(self.refresh_solana_policy());
+        }
+        results
+    }
+
+    fn refresh_solana_policy(&mut self) -> Result<(), RelayerError> {
+        let settings = self.solana_link()?.settings;
+        let (_, config) = self.custody_config()?;
+        let vault =
+            vault_authority(&settings.program_id, config.vault_bump).ok_or_else(no_address)?;
+        if handle(&vault) != settings.vault {
+            return Err(RelayerError::Configuration(
+                "the custody program's vault authority is not the registered vault".to_owned(),
+            ));
+        }
+        let destination = PolicyDestination::SolanaRelease {
+            chain_id: settings.chain_id,
+            program: settings.program_id,
+            vault: settings.vault,
+        };
+        self.policies.insert(
+            destination,
+            AuthenticatedPolicy {
+                destination,
+                threshold: usize::from(config.threshold),
+                attestors: config.attestors,
+            },
+        );
+        Ok(())
     }
 
     /// One pass of every loop: inbound for each chain, inbound from Solana
@@ -762,20 +846,45 @@ impl Relayer {
             ..StepReport::default()
         };
         let releases = self.release.is_some();
-        let mut items = self.journal.state().items.iter().filter_map(|(key, item)| {
-            let Observation::Outbound { chain_id, position, paxeer_nonce, .. } = item.observation else {
-                return None;
-            };
-            if !item.is_open() || (chain_id == SOLANA_CHAIN_ID && !releases) {
-                return None;
-            }
-            let transaction = item.pending().map(|submission| {
-                (submission.submitter, submission.nonce)
-            });
-            Some((chain_id, transaction, position.block_number, paxeer_nonce, key.clone()))
-        }).collect::<Vec<_>>();
+        let mut items = self
+            .journal
+            .state()
+            .items
+            .iter()
+            .filter_map(|(key, item)| {
+                let Observation::Outbound {
+                    chain_id,
+                    position,
+                    paxeer_nonce,
+                    ..
+                } = item.observation
+                else {
+                    return None;
+                };
+                if !item.is_open() || (chain_id == SOLANA_CHAIN_ID && !releases) {
+                    return None;
+                }
+                let transaction = item
+                    .pending()
+                    .map(|submission| (submission.submitter, submission.nonce));
+                Some((
+                    chain_id,
+                    transaction,
+                    position.block_number,
+                    paxeer_nonce,
+                    key.clone(),
+                ))
+            })
+            .collect::<Vec<_>>();
         items.sort_by_key(|(chain, transaction, block, nonce, key)| {
-            (*chain, transaction.is_none(), *transaction, *block, *nonce, key.clone())
+            (
+                *chain,
+                transaction.is_none(),
+                *transaction,
+                *block,
+                *nonce,
+                key.clone(),
+            )
         });
         let mut blocked = BTreeSet::new();
         for (chain_id, _, _, _, key) in items {
@@ -836,12 +945,7 @@ impl Relayer {
 
     fn observe(&mut self, observation: Observation) -> Result<bool, RelayerError> {
         let key = observation.key();
-        let known = self
-            .journal
-            .state()
-            .items
-            .get(&key)
-            .map(|item| item.observation);
+        let known = self.journal.lookup(&key)?.map(|item| item.observation);
         if known == Some(observation) {
             return Ok(false);
         }
@@ -1066,7 +1170,11 @@ impl Relayer {
     }
 
     /// The destination's current attestor set and threshold.
-    fn attestor_policy(&self, side: Side) -> Result<(Vec<[u8; 20]>, usize), RelayerError> {
+    fn attestor_policy(&mut self, side: Side) -> Result<(Vec<[u8; 20]>, usize), RelayerError> {
+        let destinations = self.evm_policy_destinations(side);
+        for destination in &destinations {
+            self.policies.remove(destination);
+        }
         let rpc = self.rpc(side);
         let (signers, threshold) = match side {
             Side::Paxeer => {
@@ -1087,6 +1195,16 @@ impl Relayer {
             }
         };
         let threshold = usize::try_from(threshold).map_err(|_| AbiError::OutOfRange)?;
+        for destination in destinations {
+            self.policies.insert(
+                destination,
+                AuthenticatedPolicy {
+                    destination,
+                    threshold,
+                    attestors: signers.clone(),
+                },
+            );
+        }
         Ok((signers, threshold))
     }
 
@@ -1207,7 +1325,9 @@ impl Relayer {
         })?;
         // The journaled bytes are authoritative from here on: whatever this
         // broadcast returns, the next pass resolves the same transaction.
-        let broadcast = self.rpc(side).send_raw_transaction(&signed.raw, &signed.hash);
+        let broadcast = self
+            .rpc(side)
+            .send_raw_transaction(&signed.raw, &signed.hash);
         if matches!(observation, Observation::Outbound { .. }) {
             broadcast?;
         }
@@ -1307,7 +1427,12 @@ impl Relayer {
         let rpc = self.rpc(side);
         let (_, depth, _, _) = self.transaction_chain(side);
         let hash = hex::prefixed(&pending.tx_hash);
-        let receipt = rpc.call("eth_getTransactionReceipt", json!([hash]))?;
+        let receipt = match side {
+            Side::Paxeer => rpc
+                .sequencer_receipt(&pending.tx_hash)?
+                .unwrap_or(Value::Null),
+            Side::Chain(_) => rpc.call("eth_getTransactionReceipt", json!([hash]))?,
+        };
         if receipt.is_null() {
             let known = rpc.call("eth_getTransactionByHash", json!([hash]))?;
             if !known.is_null() {
@@ -1335,15 +1460,63 @@ impl Relayer {
                 Err(error) => Err(RelayerError::Rpc(error)),
             };
         }
-        if text(&receipt, "transactionHash")? != hash {
-            return Err(RelayerError::Rpc(RpcFault::Malformed));
-        }
-        let included = quantity_of(receipt.get("blockNumber").unwrap_or(&Value::Null))?;
-        let status = quantity_of(receipt.get("status").unwrap_or(&Value::Null))?;
-        let head = block_number(rpc)?;
-        if head < included || head - included < depth {
-            return Ok(Progress::Waiting);
-        }
+        let (included, status) = match side {
+            Side::Paxeer => {
+                let answer = SequencerReceipt::decode(&receipt)
+                    .map_err(|_| RelayerError::Rpc(RpcFault::Malformed))?;
+                if answer.tx_hash != pending.tx_hash || answer.nonce != pending.nonce {
+                    return Err(RelayerError::Rpc(RpcFault::Malformed));
+                }
+                if answer.rung == Rung::Submitted {
+                    return Ok(Progress::Waiting);
+                }
+                answer
+                    .verify(&self.paxeer.receipt_keys)
+                    .map_err(|_| RelayerError::Rpc(RpcFault::Malformed))?;
+                let view = answer
+                    .view
+                    .as_ref()
+                    .ok_or(RelayerError::Rpc(RpcFault::Malformed))?;
+                match pending.status {
+                    SubmissionStatus::Pending if view.status == 1 => {
+                        self.journal.append(&Entry::Receipted {
+                            item: key.to_owned(),
+                            tx_hash: pending.tx_hash,
+                            sequence: view.seq,
+                            height: view.height,
+                        })?;
+                    }
+                    SubmissionStatus::Pending if view.status == 0 => {}
+                    SubmissionStatus::Receipted { sequence, height }
+                        if sequence == view.seq && height == view.height => {}
+                    _ => return Err(RelayerError::Rpc(RpcFault::Malformed)),
+                }
+                if view.status == 1 && answer.rung == Rung::Receipted {
+                    return Ok(Progress::Waiting);
+                }
+                let included = if view.status == 0 {
+                    view.height
+                } else {
+                    answer
+                        .block
+                        .ok_or(RelayerError::Rpc(RpcFault::Malformed))?
+                        .0
+                };
+                (included, view.status)
+            }
+            Side::Chain(_) => {
+                if text(&receipt, "transactionHash")? != hash {
+                    return Err(RelayerError::Rpc(RpcFault::Malformed));
+                }
+                let included = quantity_of(receipt.get("blockNumber").unwrap_or(&Value::Null))?;
+                let status = quantity_of(receipt.get("status").unwrap_or(&Value::Null))?;
+                let head = block_number(rpc)?;
+                if head < included || head - included < depth {
+                    return Ok(Progress::Waiting);
+                }
+                (included, status)
+            }
+        };
         match status {
             1 => {
                 self.journal.append(&Entry::Completed {
@@ -1632,6 +1805,19 @@ impl Relayer {
             candidates.extend(cosign.collect(&digest));
         }
         let threshold = usize::from(config.threshold);
+        let destination = PolicyDestination::SolanaRelease {
+            chain_id: attestation.chain_id,
+            program: accounts.program_id,
+            vault: attestation.vault,
+        };
+        self.policies.insert(
+            destination,
+            AuthenticatedPolicy {
+                destination,
+                threshold,
+                attestors: config.attestors.clone(),
+            },
+        );
         let signatures =
             match assemble_signatures(&digest, candidates, &config.attestors, threshold) {
                 Ok(signatures) => signatures,
@@ -1666,7 +1852,9 @@ impl Relayer {
         })?;
         // The journaled bytes are authoritative from here on: whatever this
         // broadcast returns, the next pass resolves the same transaction.
-        self.solana_link()?.rpc.send_transaction(&raw, &fee_signature)?;
+        self.solana_link()?
+            .rpc
+            .send_transaction(&raw, &fee_signature)?;
         Ok(Progress::Submitted)
     }
 

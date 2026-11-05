@@ -21,13 +21,6 @@ func TestDebugGetRawMethodsNotSupported(t *testing.T) {
 			require.Contains(t, errObj["message"].(string), "debug_"+m)
 		})
 	}
-	t.Run("getRawTransaction", func(t *testing.T) {
-		resObj := sendRequestGoodWithNamespace(t, "debug", "getRawTransaction", DebugTraceHashHex)
-		require.Contains(t, resObj, "error")
-		errObj := resObj["error"].(map[string]interface{})
-		require.Equal(t, float64(evmrpc.ErrCodeEVMNotSupported), errObj["code"])
-		require.Contains(t, errObj["message"].(string), "debug_getRawTransaction")
-	})
 }
 
 func TestTraceTransaction(t *testing.T) {

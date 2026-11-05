@@ -1,0 +1,18 @@
+[repair.22.31.230]
+finding = "boundary-report-mismatch"
+proving_test = "tests/repair_22_31_230.rs::boundary_report_mismatch_real_producer_transport_consumer"
+implementation = "Qualification consumes the actual harness --check-report decoder for every mode, retaining exact RPC_CASE checks and strict committed-block, pending-read, UTF-8 and report-bound validation."
+proof = "Start the repository disposable sequencer; run the actual qualification CLI through all four live harness modes; bind retained signed bytes to the real receipt; mutate those emitted reports to prove strict rejection."
+baseline = "Not run: task Order 1 and 4 require complete implementation before gates and prohibit a manual verify; the declared repair target did not exist in the unchanged tree. No baseline test failure is claimed."
+wiring_request = "services/agent/tests/boundary (agent boundary harness owner, domain 9): retain --check-report MODE as the shared decoder interface; no source change is needed because this interface already exists."
+evidence = "The runner-owned hf-build/hf-done ledger records the exact candidate revision, command, exit and private log path; no qualification is claimed before those gates pass."
+
+[gotcha.report_contract]
+symptom = "Independent success-string checks rejected the live harness wording."
+cause = "The qualification consumer omitted endpoint from the producer report prefix."
+action = "Use the harness strict report decoder over stdin rather than duplicating its success format."
+
+[gotcha.dependency_cache]
+symptom = "Offline dependency preparation cannot resolve base64 because the registry cache is empty."
+cause = "This disposable sandbox has not cached the Rust dependency index."
+action = "Fetch dependencies before the locked build; do not treat the failed offline fetch as qualification evidence."

@@ -34,11 +34,13 @@ import (
 )
 
 type RPCCodeEpoch struct {
-	Deployment decode.Deployment `json:"deployment"`
-	Identity   deployment.Role   `json:"identity"`
+	Deployment             decode.Deployment `json:"deployment"`
+	Identity               deployment.Role   `json:"identity"`
+	SourceActivationHeight uint64            `json:"sourceActivationHeight,omitempty"`
 }
 type RPCDiscovery struct {
 	Role        string
+	Kind        string `json:",omitempty"`
 	ABIRevision string
 	RuntimeHash string
 	// Immutables lists the immutable-variable spans zeroed before hashing a
@@ -50,7 +52,8 @@ type RPCOptions struct {
 	CatalogJSON []byte
 	Epochs      []RPCCodeEpoch
 	Discovery   []RPCDiscovery
-	GenesisHash common.Hash `json:",omitempty"`
+	History     []RPCGeneration `json:",omitempty"`
+	GenesisHash common.Hash     `json:",omitempty"`
 	// Anchor replaces GenesisHash on pruned chains; exactly one is configured.
 	Anchor *BlockAnchor `json:",omitempty"`
 	// BlockIdentity is "keccak" (default) or "reported" (CometBFT-backed EVM).
@@ -58,14 +61,15 @@ type RPCOptions struct {
 	Timeout       time.Duration
 }
 type RPCQualification struct {
-	client         *ethclient.Client
-	options        RPCOptions
-	registry       *decode.Registry
-	manifestHash   string
-	privateFixture bool
-	reads          *rpcReadState
-	sourceMu       sync.Mutex
-	discovered     *RPCQualification
+	client           *ethclient.Client
+	options          RPCOptions
+	registry         *decode.Registry
+	manifestHash     string
+	privateFixture   bool
+	identityVerified bool
+	reads            *rpcReadState
+	sourceMu         sync.Mutex
+	discovered       *RPCQualification
 }
 
 const (
@@ -529,12 +533,20 @@ func NewRPCQualificationWithAttestation(ctx context.Context, client *ethclient.C
 	if o.Manifest.Status != "active" && o.Manifest.Status != "eligible" {
 		return nil, ErrQualification
 	}
-	approved := deployment.Current()
-	if o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ActivationHeight != approved.ActivationHeight || len(o.Manifest.Roles) != len(approved.Roles) {
+	approved, ok := deployment.Approved(o.Manifest.ActivationHeight)
+	if !ok || o.Manifest.SchemaVersion != approved.SchemaVersion || o.Manifest.DeploymentVersion != approved.DeploymentVersion || o.Manifest.SourceManifestSHA256 != approved.SourceManifestSHA256 || o.Manifest.ChainID != approved.ChainID || o.Manifest.ActivationHeight != approved.ActivationHeight || o.Manifest.Status != approved.Status || o.Manifest.Native != approved.Native || o.Manifest.Settlement != approved.Settlement || o.Manifest.CreationFeeRaw != approved.CreationFeeRaw || o.Manifest.Governance != approved.Governance || o.Manifest.MarketModel != approved.MarketModel || o.Manifest.Graduation != approved.Graduation || o.Manifest.CoreOracleRequired != approved.CoreOracleRequired || len(o.Manifest.Roles) != len(approved.Roles) {
 		return nil, ErrQualification
 	}
 	for role, id := range approved.Roles {
 		if o.Manifest.Roles[role] != id {
+			return nil, ErrQualification
+		}
+	}
+	if o.Anchor != nil {
+		if o.Anchor.Height < approved.ActivationHeight {
+			return nil, ErrQualification
+		}
+		if next, ok := deployment.NextActivationHeight(approved.ActivationHeight); ok && o.Anchor.Height >= next {
 			return nil, ErrQualification
 		}
 	}
@@ -652,15 +664,46 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	if err != nil {
 		return nil, err
 	}
+	var supplemental []RPCCodeEpoch
+	if !private {
+		supplemental, err = historicalEmitterEpochs(owned.Manifest, owned.CatalogJSON)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, epoch := range supplemental {
+		present := false
+		for _, configured := range owned.Epochs {
+			if configured.Deployment.Address == epoch.Deployment.Address {
+				want, e1 := digest(epoch)
+				actual, e2 := digest(configured)
+				if e1 != nil || e2 != nil || want != actual {
+					return nil, ErrQualification
+				}
+				present = true
+			}
+		}
+		if !present {
+			owned.Epochs = append(owned.Epochs, epoch)
+		}
+	}
+	if len(owned.Epochs) > 4096 {
+		return nil, ErrQualification
+	}
 	for _, template := range owned.Discovery {
 		if (template.Role != "SidioraPool" && template.Role != "SidioraERC20") || !rpcHash(template.RuntimeHash) || len(template.ABIRevision) != 64 || !validCodeRanges(template.Role, template.Immutables) {
+			return nil, ErrQualification
+		}
+		switch template.Kind {
+		case "", "beacon_proxy", "surface":
+		default:
 			return nil, ErrQualification
 		}
 	}
 	deployments := make([]decode.Deployment, len(owned.Epochs))
 	coverage := map[common.Address]bool{}
 	for i, e := range owned.Epochs {
-		if !validRPCIdentity(e.Identity) || e.Deployment.Address != common.HexToAddress(e.Identity.Address) || e.Deployment.From.Block < owned.Manifest.ActivationHeight {
+		if !validRPCIdentity(e.Identity) || e.Deployment.Address != common.HexToAddress(e.Identity.Address) || e.Deployment.From.Block < owned.Manifest.ActivationHeight || e.SourceActivationHeight != 0 {
 			return nil, ErrQualification
 		}
 		matched := false
@@ -675,10 +718,31 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 			coverage[e.Deployment.Address] = true
 		}
 		if !matched {
+			for _, approved := range supplemental {
+				want, e1 := digest(approved)
+				actual, e2 := digest(e)
+				if e1 == nil && e2 == nil && want == actual {
+					matched = true
+				}
+			}
+		}
+		if !matched {
 			if e.Deployment.Role == "SidioraPool" {
-				beacon := owned.Manifest.Roles["PoolBeacon"]
-				if e.Identity.Kind != "beacon_proxy" || common.HexToAddress(e.Identity.BeaconAddress) != common.HexToAddress(beacon.Address) || common.HexToAddress(e.Identity.ImplementationAddress) != common.HexToAddress(beacon.ImplementationAddress) || common.HexToHash(e.Identity.ImplementationHash) != common.HexToHash(beacon.ImplementationHash) {
-					return nil, ErrQualification
+				if e.Identity.Kind == "surface" {
+					matchedTemplate := false
+					for _, template := range owned.Discovery {
+						if template.Role == "SidioraPool" && template.Kind == "surface" && common.HexToHash(e.Identity.RuntimeHash) == common.HexToHash(template.RuntimeHash) {
+							matchedTemplate = true
+						}
+					}
+					if !matchedTemplate {
+						return nil, ErrQualification
+					}
+				} else {
+					beacon := owned.Manifest.Roles["PoolBeacon"]
+					if e.Identity.Kind != "beacon_proxy" || common.HexToAddress(e.Identity.BeaconAddress) != common.HexToAddress(beacon.Address) || common.HexToAddress(e.Identity.ImplementationAddress) != common.HexToAddress(beacon.ImplementationAddress) || common.HexToHash(e.Identity.ImplementationHash) != common.HexToHash(beacon.ImplementationHash) {
+						return nil, ErrQualification
+					}
 				}
 			} else if e.Deployment.Role != "SidioraERC20" || e.Identity.Kind != "direct" {
 				return nil, ErrQualification
@@ -689,6 +753,11 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	for _, role := range []string{"EventEmitter", "Router", "SidioraFactory", "PoolRegistry", "ProtocolConfig", "USDL"} {
 		if !coverage[common.HexToAddress(owned.Manifest.Roles[role].Address)] {
 			return nil, ErrQualification
+		}
+	}
+	if !private {
+		for i, epoch := range owned.Epochs {
+			owned.Epochs[i] = migratedRoleEpoch(owned.Manifest, epoch)
 		}
 	}
 	registry, err := decode.NewRegistry(owned.CatalogJSON, deployments)
@@ -719,6 +788,20 @@ func newRPCQualification(ctx context.Context, client *ethclient.Client, o RPCOpt
 	}
 	if err = a.verifyChainIdentity(read, attest); err != nil {
 		return nil, err
+	}
+	a.identityVerified = true
+	if len(owned.History) > 16 {
+		return nil, ErrQualification
+	}
+	seenGenerations := map[uint64]bool{}
+	for _, generation := range owned.History {
+		if seenGenerations[generation.ActivationHeight] {
+			return nil, ErrQualification
+		}
+		seenGenerations[generation.ActivationHeight] = true
+		if _, err = a.historicalAuthority(read, generation.ActivationHeight); err != nil {
+			return nil, err
+		}
 	}
 	return a, nil
 }
@@ -950,7 +1033,11 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 			return "", err
 		}
 		if e.Identity.Kind == "beacon_proxy" {
-			beacon := a.options.Manifest.Roles["PoolBeacon"]
+			manifest, err := a.epochManifest(e)
+			if err != nil {
+				return "", err
+			}
+			beacon := manifest.Roles["PoolBeacon"]
 			if impl != common.HexToAddress(beacon.Address) || impl != common.HexToAddress(e.Identity.BeaconAddress) {
 				return "", ErrQualification
 			}
@@ -984,11 +1071,39 @@ func (a *RPCQualification) validateCodeUncached(ctx context.Context, e RPCCodeEp
 	return a.codeEpochDigest(e)
 }
 func (a *RPCQualification) codeEpochDigest(e RPCCodeEpoch) (string, error) {
+	manifestHash := a.manifestHash
+	if !a.privateFixture && e.Deployment.From.Block < a.options.Manifest.ActivationHeight {
+		manifest, err := a.epochManifest(e)
+		if err != nil {
+			return "", err
+		}
+		manifestHash, err = manifest.Hash()
+		if err != nil {
+			return "", err
+		}
+		// The restored registry's admission interval can end at a successor
+		// epoch. Source provenance keeps the originally qualified interval.
+		configured := false
+		for _, generation := range a.options.History {
+			if generation.ActivationHeight != manifest.ActivationHeight {
+				continue
+			}
+			for _, original := range generation.Epochs {
+				if original.Deployment.Address == e.Deployment.Address && original.Deployment.Role == e.Deployment.Role && original.Deployment.ABIRevision == e.Deployment.ABIRevision && original.Deployment.From == e.Deployment.From && original.Identity == e.Identity {
+					e = original
+					configured = true
+				}
+			}
+		}
+		if !configured && (e.Deployment.Role == "SidioraPool" || e.Deployment.Role == "SidioraERC20") && e.Deployment.Until != nil && e.Deployment.Until.Block == a.options.Manifest.ActivationHeight && e.Deployment.Until.Transaction == 0 && e.Deployment.Until.Log == 0 {
+			e.Deployment.Until = nil
+		}
+	}
 	raw, err := json.Marshal(e)
 	if err != nil {
 		return "", err
 	}
-	return accounting.HashTuple("rpc-code-epoch-v1", a.manifestHash, string(raw)), nil
+	return accounting.HashTuple("rpc-code-epoch-v1", manifestHash, string(raw)), nil
 }
 func (a *RPCQualification) pinnedBlock(ctx context.Context, hash common.Hash) (pinnedBlock, types.Receipts, error) {
 	if cached, ok := a.reads.block(hash); ok && cached.block.Header.Number.Uint64() >= a.options.Manifest.ActivationHeight {
@@ -1104,6 +1219,9 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 	if _, err := coordinates(b); err != nil {
 		return err
 	}
+	if err := a.ValidateSignedDomain(ctx, b); err != nil {
+		return err
+	}
 	read, cancel := context.WithTimeout(ctx, a.options.Timeout)
 	defer cancel()
 	block, receipts, err := a.pinnedBlock(read, bundleBlockHash(b))
@@ -1173,38 +1291,58 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 	if err != nil || pe.Deployment.Role != "SidioraPool" {
 		return out, ErrQualification
 	}
-	poolEpoch, err := a.validateCode(read, pe, hash)
+	manifest, err := a.epochManifest(pe)
 	if err != nil {
 		return out, err
+	}
+	poolEpoch, err := a.validateCode(read, pe, hash)
+	if err != nil {
+		return out, fmt.Errorf("%w: pool code epoch: %v", ErrQualification, err)
 	}
 	token, err := a.address(read, pool, "tokenAddress()", hash)
 	if err != nil {
 		return out, err
 	}
 	settlement, err := a.address(read, pool, "usdlAddress()", hash)
-	if err != nil || settlement != common.HexToAddress(a.options.Manifest.Roles["USDL"].Address) {
+	if err != nil || settlement != common.HexToAddress(manifest.Roles["USDL"].Address) {
 		return out, ErrQualification
 	}
 	emitter, err := a.address(read, pool, "eventEmitter()", hash)
-	if err != nil || emitter != common.HexToAddress(a.options.Manifest.Roles["EventEmitter"].Address) {
-		return out, ErrQualification
+	if err != nil || emitter != common.HexToAddress(manifest.Roles["EventEmitter"].Address) {
+		return out, fmt.Errorf("%w: configured pool emitter %s: %v", ErrQualification, emitter, err)
+	}
+	if pe.Identity.Kind == "surface" {
+		// The attested native pool surface executes in the launchpad
+		// precompile, which emits Swap at its own address. The market still
+		// retains its configured EventEmitter binding, but that retired
+		// contract does not issue native economic events and may have no code.
+		native, approved := manifest.Roles[deployment.LaunchpadPrecompileRole]
+		if !approved || native.Kind != "precompile" || native.Address != deployment.LaunchpadPrecompileAddress {
+			return out, ErrQualification
+		}
+		emitter = common.HexToAddress(native.Address)
 	}
 	config, err := a.address(read, pool, "protocolConfig()", hash)
-	if err != nil || config != common.HexToAddress(a.options.Manifest.Roles["ProtocolConfig"].Address) {
+	if err != nil || config != common.HexToAddress(manifest.Roles["ProtocolConfig"].Address) {
 		return out, ErrQualification
 	}
 	emitterEpoch := ""
 	revision := ""
 	tokenEpoch := ""
 	settlementEpoch := ""
-	for _, address := range []common.Address{token, settlement, emitter, config, common.HexToAddress(a.options.Manifest.Roles["PoolRegistry"].Address)} {
+	for _, address := range []common.Address{token, settlement, emitter, config, common.HexToAddress(manifest.Roles["PoolRegistry"].Address)} {
 		e, err := a.epoch(address, order)
 		if err != nil {
-			return out, err
+			return out, fmt.Errorf("%w: metadata epoch for %s: %v", ErrQualification, address, err)
+		}
+		if address == emitter && pe.Identity.Kind == "surface" {
+			if e.Deployment.Role != deployment.LaunchpadPrecompileRole || e.Identity != manifest.Roles[deployment.LaunchpadPrecompileRole] {
+				return out, fmt.Errorf("%w: native emitter epoch differs from approved precompile identity", ErrQualification)
+			}
 		}
 		ep, err := a.validateCode(read, e, hash)
 		if err != nil {
-			return out, err
+			return out, fmt.Errorf("%w: metadata %s code epoch at %s: %v", ErrQualification, e.Deployment.Role, address, err)
 		}
 		if address == emitter {
 			emitterEpoch = ep
@@ -1217,7 +1355,7 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 			settlementEpoch = ep
 		}
 	}
-	registry := common.HexToAddress(a.options.Manifest.Roles["PoolRegistry"].Address)
+	registry := common.HexToAddress(manifest.Roles["PoolRegistry"].Address)
 	registered, err := a.word(read, registry, "isRegisteredPool(address)", hash, pool)
 	if err != nil || new(big.Int).SetBytes(registered).Cmp(big.NewInt(1)) != 0 {
 		return out, ErrQualification
@@ -1234,7 +1372,11 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 	if err != nil || new(big.Int).SetBytes(sd).Cmp(big.NewInt(6)) != 0 {
 		return out, ErrQualification
 	}
-	return StablePoolMetadata{Pool: pool, Token: token, Settlement: settlement, TokenDecimals: uint8(new(big.Int).SetBytes(td).Uint64()), SettlementDecimals: 6, DeploymentID: a.options.Manifest.DeploymentVersion, ABIRevision: revision, EmitterCodeEpoch: emitterEpoch, PoolCodeEpoch: poolEpoch, BlockHash: hash}, nil
+	sourceManifest, err := a.sourceManifest(pe)
+	if err != nil {
+		return out, err
+	}
+	return StablePoolMetadata{Pool: pool, Token: token, Settlement: settlement, TokenDecimals: uint8(new(big.Int).SetBytes(td).Uint64()), SettlementDecimals: 6, DeploymentID: sourceManifest.DeploymentVersion, ABIRevision: revision, EmitterCodeEpoch: emitterEpoch, PoolCodeEpoch: poolEpoch, BlockHash: hash}, nil
 }
 func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, address common.Address) (accounting.Provenance, error) {
 	var out accounting.Provenance
@@ -1269,7 +1411,11 @@ func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, addre
 	if err != nil {
 		return out, err
 	}
-	out = accounting.Provenance{DeploymentID: a.options.Manifest.DeploymentVersion, ABIRevision: e.Deployment.ABIRevision, EmitterCodeEpoch: ep, ReceiptSHA256: hex.EncodeToString(rd[:]), HeaderSHA256: hex.EncodeToString(hd[:])}
+	manifest, err := a.sourceManifest(e)
+	if err != nil {
+		return out, err
+	}
+	out = accounting.Provenance{DeploymentID: manifest.DeploymentVersion, ABIRevision: e.Deployment.ABIRevision, EmitterCodeEpoch: ep, ReceiptSHA256: hex.EncodeToString(rd[:]), HeaderSHA256: hex.EncodeToString(hd[:])}
 	if e.Deployment.Role == "SidioraPool" {
 		out.PoolCodeEpoch = ep
 	}
@@ -1499,7 +1645,7 @@ func (a *RPCQualification) discover(ctx context.Context, receipts types.Receipts
 	if err != nil {
 		return nil, err
 	}
-	return &RPCQualification{client: a.client, options: owned, registry: registry, manifestHash: a.manifestHash, privateFixture: a.privateFixture, reads: a.reads}, nil
+	return &RPCQualification{client: a.client, options: owned, registry: registry, manifestHash: a.manifestHash, privateFixture: a.privateFixture, identityVerified: a.identityVerified, reads: a.reads}, nil
 }
 
 type pinnedHeight struct {
@@ -1625,7 +1771,7 @@ func (a *RPCQualification) sourceBlocks(ctx context.Context, from, to uint64) (s
 				}
 				if _, err = authority.validateCode(read, e, block.Hash); err != nil {
 					cancel()
-					return b, nil, err
+					return b, nil, fmt.Errorf("%w: source log %d %s code epoch at %s: %v", ErrQualification, l.Index, e.Deployment.Role, e.Deployment.Address, err)
 				}
 				if _, err = authority.registry.Decode(*l); err != nil {
 					cancel()
@@ -1681,7 +1827,7 @@ func (a *RPCQualification) issueBatch(ctx context.Context, b store.CanonicalBatc
 		}
 		q, err := Qualify(ctx, a.registry, a, bundle)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: transaction %s: %v", ErrQualification, h, err)
 		}
 		qualified = append(qualified, q)
 	}

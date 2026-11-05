@@ -1,0 +1,44 @@
+[repair.22.33.220]
+mode = "BUILD"
+acceptance = "22998.1"
+qualification = "hf-build followed by hf-done on the unchanged candidate; the runner's private gate ledger records the exact verified revision, command, exit code and log location."
+baseline = "No earlier source implementation or gate ledger was present. No unchanged-tree verify was run: the explicit ordered gate contract forbids testing before complete implementation and forbids running verify_cmd by hand. No baseline failure is claimed."
+
+[finding.rejected-deployment-creates-entry]
+test = "rejected_deployment_creates_entry_refusals_preserve_enumeration_and_policy"
+repair = "Validate and append to an off-map candidate RegistryEntry; insert only after policy, receipt identity, contiguous history and ABI checks pass. Runtime-produced initial and upgrade receipts exercise six first-record refusals, enumeration and whole-entry invariance, and a valid retry with a different policy."
+
+[finding.chain-account-consumer-wiring]
+tests = ["chain_account_consumer_wiring_complete_range_refuses_every_omission", "chain_account_consumer_wiring_empty_range_is_proven_and_program_bound", "chain_account_consumer_wiring_balances_and_wind_down_recover_the_same_view"]
+repair = "Export the single-account evidence and add complete chain-backed account evidence, its canonical transport/recovery codec and a current-head freshness authority. Authenticate primary bindings, adjacent IAVL leaves and both exclusive range boundaries, standalone host accounts, the host activity sequence and optional profile-two/owner records under one app hash. Registry::read_value_accounts_chain and Deprecation::{transition_chain,read_chain,authorize_exit_chain} consume the same verified view for ABI two and later account-profile-two guests."
+proof = "Committed ABI-two registration vectors and the real binding/account codecs populate the in-memory IAVL/multistore fixture; canonical CommitmentProof bytes pass through the production range verifier and consumers. Persist and reopen the production account-evidence and deployment codecs, stop both registry and deprecation components, and replay the retained in-memory transition journal into fresh consumers; balances, entries, lifecycle history and exact exit activities remain equal."
+
+[finding.pool-refusal-mutates-state]
+tests = ["pool_refusal_mutates_state_boundary_preserves_entire_pool_and_allows_retry", "pool_refusal_mutates_state_real_guest_transaction_rolls_back_share_debit"]
+repair = "Compute all next reserves and shares before assigning the Pool for liquidity addition and removal. Compare the entire pool after the second-reserve overflow and other refusals, then retry successfully. Execute the committed swap guest against real runtime storage and check that a refused transfer rolls back the preceding share debit and publishes no effects."
+
+[wiring.hosted]
+request = "services/platform/hosted/registry/src (hosted registry domain): publish and reopen ChainProgramAccountProof alongside the trusted current chain head, replace custom account-tree balance/deprecation reads with read_value_accounts_chain and the Deprecation chain methods, and retain historical verified heads with transition journal entries."
+
+[wiring.agent]
+request = "services/agent/crates/layerx-agentd/src/read/program_node.rs and services/agent/crates/layerx-agentd/src/ops/program.rs (agent domain): transport complete ChainProgramAccountProof ranges instead of individual account membership lists, verify under the current trusted chain head, and consume the shared chain balance/wind-down APIs."
+
+[wiring.node]
+request = "modules/lxphost/read_program.go and node/rpc (chain host/RPC domain): serve complete binding prefix ranges with both absence boundaries, every binding inclusion, standalone 06-account inclusion, 02 activity-sequence inclusion and profile/owner inclusions from the same committed store height."
+
+[gotcha.baseline_order]
+observed = "The historical unchanged-tree baseline instruction conflicts with the explicit implementation-first gate order; the explicit order takes precedence."
+
+[gotcha.sequence_height]
+observed = "The host's key 02 activity sequence is independent of block height; authenticate it separately for immediate pre-transition sequence checks while all state proofs retain H-1 semantics."
+
+[qualification.first_verify]
+revision = "c9be26be2b85f325e9e3f0289795e6f72913050c"
+command = "cg spec done 22.33.220 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the guest rollback assertion caught a refusal before the share debit because the compatibility executor supplies no authenticated context."
+assumption = "The production versioned qualification seam supplies authenticated context through the real executor, allowing the guest to reach the share debit and then refuse the ungranted transfer; preserve every assertion."
+
+[gotcha.guest_context]
+observed = "execute_authorized_candidate deliberately omits authenticated execution context; a real SDK guest reading Context must enter execute_authorized_versioned_for_qualification or the authenticated budgeted execution route."

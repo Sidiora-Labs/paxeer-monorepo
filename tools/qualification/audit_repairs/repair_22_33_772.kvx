@@ -1,0 +1,44 @@
+[repair]
+task = "22.33.772"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Replace the whole-file Rust cfg(test) grep in scripts/explorer/test-ratio.sh with scripts/explorer/rust-test-ranges.py. Tokenize Rust literals, nested comments and balanced item delimiters; extract test-only attribute/item ranges, including nested modules, inner cfg(test), standalone test functions and cfg predicates that require test. Compare production and test token streams separately between base/head blobs and classify a changed file as source, test, mixed or neither. Materialize separate source/test bodies for the existing identifier/reference consumers. Mixed paths enter both lists; unchanged inline tests cannot satisfy a production-only change. Include private production item identifiers and require actual references for an inline test rather than accepting its identical path/stem. Preserve non-Rust classification, integration-test paths, denominator/ratio bounds and failure behavior."
+source_proof = "The pytest module imports and executes the real production helper in-process using committed Rust fixtures. It proves production-only, test-only, mixed, unchanged, removed-test and newly-added-file roles; distinct bodies and changed-test detection; literal/comment handling; nested and conditional Rust items; no automatic self-path credit; malformed-source refusal; and the real CLI's base/head file reads, stdout role transport and source/test projection file writes. Source assertions parse the shell invocation with shlex and inspect its guarded helper invocation, both list insertions, source/test projection consumers, actual Rust identifier pattern, same-path reference guard and unchanged ratio/failure checks. The declared hf-build parses the entire production shell with bash -n once before the verify gate; pytest invokes no external binary or subprocess toolchain."
+review_only = "Rust compilation and Rust test execution, feature/cfg expansion, procedural/declarative macro expansion and an end-to-end Git/shell invocation are not executed by this offline gate. Fixture Rust syntax and the helper's conservative treatment of unknown feature predicates require review; this is an item-range classifier, not a full Rust compiler. Shell producer/consumer command ordering and failure propagation are source assertions, while the Python file/CLI transport is exercised. No persistent component or network interface changes, so restart recovery and a network interface proof are not applicable. Python 3 is now required by the production shell for non-integration Rust paths and is stated in its usage."
+baseline = "No pre-change verification was run: the explicit ordered implementation-first hf-build/hf-done-only protocol prohibits the unchanged-tree manual verify requested by the older step 5. No baseline test failure is claimed. Initial git status/diff contained only runner-prepared .cgignore and spec task status changes; no scoped repair file existed. The private gate configuration reported zero builds, zero verifies and zero repairs used, and no private gates.jsonl existed."
+build_cmd = "bash -n scripts/explorer/test-ratio.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_772.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and private log. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own final hash would change that hash. The runner retains the evidence and publishes the task; no manual commit or push is performed, and no source edit follows passing hf-done."
+wiring_requests = []
+
+[finding.coverage-rust-classification]
+audit = "22.30.174"
+file = "scripts/explorer/test-ratio.sh"
+line = 177
+class = "test-gap"
+severity = "medium"
+observed = "The Rust coverage classifier treats a source file containing a cfg(test) marker as test content. A production module with an inline test module can therefore be removed from the production denominator."
+expected = "The test-ratio gate must count production code in mixed Rust modules while counting only the actual test module as test code."
+proposal = "In scripts/explorer/test-ratio.sh, classify Rust items or line ranges rather than discarding a complete mixed file; include a real mixed-module regression example in the owning gate."
+resolution = "Production code remains in the denominator when its items change, even with inline cfg(test) modules. Only changed test items count as test code and only their projection can reference production identifiers. Committed mixed-module fixtures are exercised by this task's owning pytest gate. Every requested edit is inside scope, so no out-of-path wiring request is needed."
+tests = ["test_production_change_cannot_reuse_unchanged_inline_tests", "test_mixed_changes_keep_production_and_test_items_separate", "test_inline_test_changes_do_not_add_a_production_file", "test_new_mixed_and_test_only_modules_have_correct_roles", "test_unrelated_inline_tests_cannot_claim_own_file_by_its_stem", "test_cfg_items_keep_production_scopes_and_extract_actual_tests", "test_literals_nested_comments_and_attribute_groups_do_not_hide_production", "test_only_predicates_that_require_test_exclude_an_item", "test_real_cli_reads_blobs_and_transports_separate_projection_files", "test_malformed_items_fail_closed_without_classification_or_artifacts", "test_shell_wires_blob_producer_lists_and_guarded_projection_consumers", "test_repair_record_maps_finding_and_states_gate_evidence_limits"]
+
+[format]
+policy = "After the entire implementation, format only the committed Rust fixtures with rustfmt, the formatter used by the repository's cargo fmt hook. No Python, shell or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files only. Keep the existing shell indentation."
+
+[gotcha.1]
+observed = "The baseline-test clause conflicts with the explicit implementation-first and hf-build/hf-done-only order; the repair record cannot embed its own content-derived final revision without changing that revision."
+resolution = "Claim no baseline execution and retain the exact final evidence in the private gate ledger and final JSON; finalize this record before gates."
+
+[gotcha.2]
+observed = "Broad combined reads exceeded output limits, guessed /usr/local/bin gate wrappers and a qualification conftest path did not exist, and cg brief reported unrelated cached task/change context."
+resolution = "Use actual /out/run/bin wrappers, the private gate configuration/ledger, bounded source reads and Git status/diff as authority. Keep task-local gotchas here because GOTCHA.kvx and spec files are outside scope."
+
+[qualification.repair_1]
+revision = "620ac1482e11281a2ab44c745cc8388aa0411dff"
+command = "cg spec done 22.33.772 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "26 checks passed; test_inline_test_changes_do_not_add_a_production_file exposed production projection padding that changed when an excluded test line grew."
+repair = "Remove excluded characters rather than replacing them with variable-length padding, while retaining every newline and all included characters, including meaningful whitespace inside Rust literals. Keep every assertion and bound unchanged; rerun hf-build then hf-done at the repaired candidate."

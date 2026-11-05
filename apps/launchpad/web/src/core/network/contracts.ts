@@ -30,6 +30,12 @@ const PROTOCOL_CONFIG_ABI = [
 
 // ── ERC20 hooks ─────────────────────────────────────────────
 
+export function erc20ApprovalRequest(args: { token: `0x${string}`; spender: `0x${string}`; amount: bigint }) {
+  assertActiveApprovalSpender(args.spender);
+  return { chainId: CORE_DEPLOYMENT.chainId, address: args.token, abi: ERC20_ABI,
+    functionName: 'approve', args: [args.spender, args.amount] } as const;
+}
+
 export function useWriteErc20Approve() {
   const result = useWriteContract({ mutation: { onMutate: (variables) => {
     const spender = Array.isArray(variables.args) ? variables.args[0] : undefined;
@@ -37,13 +43,7 @@ export function useWriteErc20Approve() {
     assertActiveApprovalSpender(spender);
   } } });
   const write = (args: { token: `0x${string}`; spender: `0x${string}`; amount: bigint }) =>
-    result.writeContract({
-      chainId: 125,
-      address: args.token,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [args.spender, args.amount],
-    });
+    result.writeContract(erc20ApprovalRequest(args));
   return { ...result, write };
 }
 

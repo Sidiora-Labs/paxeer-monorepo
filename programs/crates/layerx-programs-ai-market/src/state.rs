@@ -15,7 +15,8 @@ pub const CONTROL_FIXED_BYTES: usize = 10;
 pub const REPLAY_RESULT_BYTES: usize = 120;
 pub const MAX_ACTOR_RECORD_BYTES: usize = 163;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Section {
     PolicyLifecycle,
     IdentityRoster,
@@ -48,7 +49,8 @@ impl Section {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ActorSlot(u16);
 impl ActorSlot {
     pub const OWNER: Self = Self(0);
@@ -91,7 +93,8 @@ impl ActorSlot {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RetainedResult {
     pub sequence: u64,
     pub request_id: RequestId,
@@ -101,6 +104,7 @@ pub struct RetainedResult {
     pub expiry_height: u64,
 }
 impl RetainedResult {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate(self) -> CodecResult<()> {
         if self.sequence == 0 || self.applied_revision == 0 || self.expiry_height == 0 {
             Err(NON_CANONICAL)
@@ -110,14 +114,16 @@ impl RetainedResult {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ActorReplay {
     pub principal: PrincipalId,
     pub authority_version: Version,
     pub last: Option<RetainedResult>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReplayTable {
     actors: [Option<ActorReplay>; ACTOR_SLOTS],
 }
@@ -126,6 +132,15 @@ impl Default for ReplayTable {
         Self::new()
     }
 }
+impl Clone for ReplayTable {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn clone(&self) -> Self {
+        Self {
+            actors: self.actors,
+        }
+    }
+}
+
 impl ReplayTable {
     #[must_use]
     pub const fn new() -> Self {
@@ -194,6 +209,7 @@ impl ReplayTable {
     /// # Errors
     /// Returns `NON_CANONICAL` when a retained result has a zero sequence, applied revision or
     /// expiry; `ARITHMETIC` when the length overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         let mut n = 2usize;
         for actor in self.actors.iter().flatten() {
@@ -293,7 +309,8 @@ impl ReplayTable {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReplayRequest {
     pub slot: ActorSlot,
     pub principal: PrincipalId,
@@ -333,6 +350,7 @@ impl ReplayRequest {
     /// # Errors
     /// Returns `NON_CANONICAL` when the sequence or expiry is zero; `EXPIRED` when `height` is at
     /// or past the expiry.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self, height: u64) -> CodecResult<()> {
         if self.sequence == 0 || self.expiry_height == 0 {
             return Err(NON_CANONICAL);
@@ -343,13 +361,15 @@ impl ReplayRequest {
         Ok(())
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ReplayDecision {
     Apply,
     AlreadyApplied(RetainedResult),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct HeightWindow {
     pub start: u64,
     pub end: u64,
@@ -394,6 +414,7 @@ impl HeightWindow {
 /// # Errors
 /// Propagates `ReplayTable::encoded_len` refusals; returns `CAPACITY` when `out` is shorter than
 /// the encoding.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_replay(table: &ReplayTable, out: &mut [u8]) -> CodecResult<usize> {
     let n = table.encoded_len()?;
     if out.len() < n {
@@ -420,6 +441,7 @@ pub fn encode_replay(table: &ReplayTable, out: &mut [u8]) -> CodecResult<usize> 
     }
     Ok(w.len())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_replay(r: &mut Reader<'_>) -> CodecResult<ReplayTable> {
     let count = usize::from(r.u16()?);
     if count > ACTOR_SLOTS {
@@ -433,14 +455,14 @@ fn read_replay(r: &mut Reader<'_>) -> CodecResult<ReplayTable> {
             return Err(NON_CANONICAL);
         }
         previous = Some(slot.0);
-        let principal = PrincipalId::new(r.fixed()?)?;
-        let authority_version = Version::new(r.u64()?)?;
+        let principal = r.principal_id()?;
+        let authority_version = r.version()?;
         let last = if r.boolean()? {
             let last = RetainedResult {
                 sequence: r.u64()?,
-                request_id: RequestId::new(r.fixed()?)?,
-                request_digest: RequestDigest::new(r.fixed()?)?,
-                result_digest: ResultDigest::new(r.fixed()?)?,
+                request_id: r.request_id()?,
+                request_digest: r.request_digest()?,
+                result_digest: r.result_digest()?,
                 applied_revision: r.u64()?,
                 expiry_height: r.u64()?,
             };
@@ -463,6 +485,7 @@ fn read_replay(r: &mut Reader<'_>) -> CodecResult<ReplayTable> {
 /// Returns `CAPACITY` when the input or actor count exceeds the table bound; `NON_CANONICAL` for
 /// out-of-range or unordered slots, zero identities or retained fields, invalid booleans,
 /// truncation or trailing bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_replay(input: &[u8]) -> CodecResult<ReplayTable> {
     if input.len() > 2 + ACTOR_SLOTS * MAX_ACTOR_RECORD_BYTES {
         return Err(CAPACITY);
@@ -473,7 +496,8 @@ pub fn decode_replay(input: &[u8]) -> CodecResult<ReplayTable> {
     Ok(table)
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Control<'a> {
     pub replay: ReplayTable,
     pub feature_bytes: &'a [u8],
@@ -484,6 +508,7 @@ impl Control<'_> {
     /// # Errors
     /// Propagates `ReplayTable::encoded_len` refusals; returns `CAPACITY` when the payload exceeds
     /// the control section cap, `ARITHMETIC` when the length overflows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         let n = 8usize
             .checked_add(self.replay.encoded_len()?)
@@ -501,6 +526,7 @@ impl Control<'_> {
 /// # Errors
 /// Propagates `Control::encoded_len` refusals; returns `CAPACITY` when `out` is shorter than the
 /// encoding.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_control(control: &Control<'_>, out: &mut [u8]) -> CodecResult<usize> {
     let n = control.encoded_len()?;
     if out.len() < n {
@@ -519,6 +545,7 @@ pub fn encode_control(control: &Control<'_>, out: &mut [u8]) -> CodecResult<usiz
 /// Returns `CAPACITY` when the input, actor count or feature bytes exceed their caps; `BAD_VERSION`
 /// for another schema version; `NON_CANONICAL` for nonzero reserved bytes, a malformed replay
 /// table, truncation or trailing bytes.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_control(input: &[u8]) -> CodecResult<Control<'_>> {
     if input.len() > Section::Control.payload_cap() {
         return Err(CAPACITY);
@@ -539,7 +566,8 @@ pub fn decode_control(input: &[u8]) -> CodecResult<Control<'_>> {
     Ok(control)
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SharedState<'a> {
     pub revision: u64,
     pub feature_sections: [&'a [u8]; 5],
@@ -579,6 +607,7 @@ impl SharedState<'_> {
     /// Returns `NON_CANONICAL` when the revision is zero or a retained result was applied after it;
     /// `CAPACITY` when a section or the whole state exceeds its cap; `ARITHMETIC` on overflow;
     /// propagates `Control::encoded_len` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         if self.revision == 0 {
             return Err(NON_CANONICAL);
@@ -645,6 +674,7 @@ impl SharedState<'_> {
 /// # Errors
 /// Propagates `SharedState::encoded_len` refusals; returns `CAPACITY` when `out` or
 /// `control_scratch` is too short; propagates the control and state-frame encoder refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_shared_state(
     state: &SharedState<'_>,
     out: &mut [u8],
@@ -693,6 +723,7 @@ pub fn settlement_rewards<'a>(
 ///
 /// # Errors
 /// Propagates the state-frame and control decoder refusals and `SharedState::encoded_len` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_shared_state(input: &[u8]) -> CodecResult<SharedState<'_>> {
     let frame = codec::decode_state(input)?;
     let state = SharedState {

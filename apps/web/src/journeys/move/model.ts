@@ -1,3 +1,4 @@
+import { entryStatusKey, receiptBacked as activityReceiptBacked } from "../activity/model.ts";
 import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
 import {
@@ -12,7 +13,6 @@ import {
   type NativeSendAccessRequest,
 } from "../../api/index.ts";
 import { ACTIVE_ACCOUNT_STORAGE_KEY } from "../../auth/session.ts";
-import { formatExplicitCurrencyAmount } from "../../kit/a11y.ts";
 import {
   protocolAmount,
   statusKeyFromCopyKey,
@@ -27,6 +27,8 @@ export const MOVE_DECISIONS = 3;
 export const MOVE_STEP_IDS = ["who", "how-much", "review"] as const;
 export const MOVE_CURRENCY = "LXP";
 export const AMOUNT_LOCALE = "en";
+export const MOVE_AMOUNT_VALIDATION_MESSAGE =
+  "Enter a whole amount above zero, using no more than 38 digits.";
 export const OTHER_ACCOUNT_OPTION = "other-account";
 export const ACCOUNT_STORAGE_KEY = ACTIVE_ACCOUNT_STORAGE_KEY;
 export const PENDING_MOVE_STORAGE_KEY = "layerx.move.pending.v1";
@@ -37,12 +39,6 @@ const REFUSAL_CODES = [
   "refused-by-capability",
   "refused-by-protocol",
   "refused-by-limit",
-] as const;
-
-const RECEIPT_VERIFICATIONS = [
-  "receipt-verified",
-  "checkpoint-finalised",
-  "paxeer-finalised",
 ] as const;
 
 function copyMessageOr(key: string, fallbackKey: string): string {
@@ -147,12 +143,20 @@ export function moneyAmountNumber(money: Money): ProtocolAmount {
 }
 
 export function moneyWords(money: Money, locale: string = AMOUNT_LOCALE): string {
-  return formatExplicitCurrencyAmount(moneyAmountNumber(money), {
+  if (!/^[A-Z]{3}$/u.test(money.currency)) {
+    throw new Error("Currency must be an explicit uppercase ISO 4217 code");
+  }
+  const [canonicalLocale] = Intl.getCanonicalLocales(locale);
+  if (canonicalLocale === undefined) {
+    throw new Error("A locale is required for amount formatting");
+  }
+  return new Intl.NumberFormat(canonicalLocale, {
+    style: "currency",
     currency: money.currency,
-    locale,
-    decimals: 0,
-    signed: false,
-  });
+    currencyDisplay: "code",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(money.amount);
 }
 
 export function timestampWords(timestamp: string): string {
@@ -385,13 +389,7 @@ export async function commitMove(
 }
 
 export function verifiedOutcomeEvidence(item: EvidenceRef): boolean {
-  if (item.class === "layerx-receipt") {
-    return (RECEIPT_VERIFICATIONS as readonly string[]).includes(item.verification);
-  }
-  if (item.class === "paxeer-finality") {
-    return item.verification === "paxeer-finalised";
-  }
-  return false;
+  return activityReceiptBacked(item);
 }
 
 export function receiptBacked(journey: Journey): boolean {
@@ -425,7 +423,7 @@ export function moveStages(journey: Journey): readonly MoveStagePresentation[] {
       (stage.state === "done" || stage.state === "done-finalised") &&
       !stage.evidence.some(verifiedOutcomeEvidence)
         ? "processing"
-        : statusKeyFromCopyKey(stage.state),
+        : entryStatusKey(stage.state),
   }));
 }
 
@@ -496,6 +494,15 @@ export function moveResult(journey: Journey): MoveResult {
         stages,
         journeyId,
       };
+    case "closed":
+      return {
+        kind: "refused",
+        status: "refused",
+        message: copyEntry("move.result.checking.body").message,
+        moneyLeftMessage: copyEntry("move.result.checking.body").message,
+        stages,
+        journeyId,
+      };
     case "refused": {
       const refusal = journey.refusal;
       return {
@@ -514,6 +521,7 @@ export function moveResult(journey: Journey): MoveResult {
       };
     }
     case "waiting-for-you":
+    case "awaiting-approval":
       return { kind: "waiting", status: "waiting_for_you", stages, journeyId };
     case "getting-ready":
     case "sending":

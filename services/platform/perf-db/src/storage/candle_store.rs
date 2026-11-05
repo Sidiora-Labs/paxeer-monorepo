@@ -31,6 +31,7 @@ pub struct CandleStore {
     base_dir: PathBuf,
     /// Flat array: `files[market_id * TF_COUNT + tf_index]`.
     files: Vec<Option<MmapFile>>,
+    inspection: Option<Vec<Vec<CandleRecord>>>,
 }
 
 impl CandleStore {
@@ -51,12 +52,60 @@ impl CandleStore {
                 let path = file_path(&base_dir, mid, tf);
                 if path.exists() {
                     let idx = flat_index(mid, tf);
-                    files[idx] = Some(MmapFile::open(&path, false)?);
+                    files[idx] = Some(MmapFile::open_records::<CandleRecord>(&path, false)?);
                 }
             }
         }
 
-        Ok(Self { base_dir, files })
+        Ok(Self {
+            base_dir,
+            files,
+            inspection: None,
+        })
+    }
+
+    pub(crate) fn inspection() -> Self {
+        Self {
+            base_dir: PathBuf::new(),
+            files: (0..MARKET_COUNT * TF_COUNT).map(|_| None).collect(),
+            inspection: Some(vec![Vec::new(); MARKET_COUNT * TF_COUNT]),
+        }
+    }
+
+    pub(crate) fn counts(&self) -> Vec<u64> {
+        (0..MARKET_COUNT as MarketId)
+            .flat_map(|mid| {
+                Timeframe::ALL
+                    .into_iter()
+                    .map(move |tf| self.candle_count(mid, tf))
+            })
+            .collect()
+    }
+
+    pub(crate) fn rewind(&mut self, counts: &[u64]) -> Result<(), PerfDbError> {
+        if counts.len() != MARKET_COUNT * TF_COUNT {
+            return Err(PerfDbError::Corruption(
+                "invalid candle recovery counts".into(),
+            ));
+        }
+        for (idx, &count) in counts.iter().enumerate() {
+            match self.files[idx].as_mut() {
+                Some(file) => file.truncate_to(
+                    count
+                        .checked_mul(size_of::<CandleRecord>() as u64)
+                        .ok_or_else(|| {
+                            PerfDbError::Corruption("candle recovery count overflow".into())
+                        })?,
+                )?,
+                None if count != 0 => {
+                    return Err(PerfDbError::Corruption(
+                        "missing committed candle file".into(),
+                    ));
+                }
+                None => {}
+            }
+        }
+        Ok(())
     }
 
     /// Append a finalized candle. No dedup — caller must ensure this is a new bucket.
@@ -64,6 +113,13 @@ impl CandleStore {
         let tf = Timeframe::from_u8(candle.timeframe).ok_or_else(|| {
             PerfDbError::InvalidArgument(format!("invalid timeframe: {}", candle.timeframe))
         })?;
+        if let Some(markets) = &mut self.inspection {
+            let records = markets
+                .get_mut(flat_index(candle.market_id, tf))
+                .ok_or_else(|| PerfDbError::InvalidArgument("market_id out of range".into()))?;
+            records.push(*candle);
+            return Ok(());
+        }
         let file = self.ensure_file(candle.market_id, tf)?;
         file.append_record(candle)?;
         Ok(())
@@ -78,9 +134,23 @@ impl CandleStore {
         let tf = Timeframe::from_u8(candle.timeframe).ok_or_else(|| {
             PerfDbError::InvalidArgument(format!("invalid timeframe: {}", candle.timeframe))
         })?;
+        if let Some(markets) = &mut self.inspection {
+            let records = markets
+                .get_mut(flat_index(candle.market_id, tf))
+                .ok_or_else(|| PerfDbError::InvalidArgument("market_id out of range".into()))?;
+            if let Some(last) = records
+                .last_mut()
+                .filter(|last| last.timestamp_ns == candle.timestamp_ns)
+            {
+                *last = *candle;
+            } else {
+                records.push(*candle);
+            }
+            return Ok(());
+        }
         let file = self.ensure_file(candle.market_id, tf)?;
 
-        let count = file.record_count::<CandleRecord>();
+        let count = file.record_count::<CandleRecord>()?;
         if count > 0 {
             let last_offset = (count - 1) * size_of::<CandleRecord>() as u64;
             if let Some(last) = file.read_record::<CandleRecord>(last_offset) {
@@ -98,17 +168,27 @@ impl CandleStore {
     /// Zero-copy slice of all candles for a (market, timeframe) pair.
     pub fn candles(&self, market_id: MarketId, tf: Timeframe) -> &[CandleRecord] {
         let idx = flat_index(market_id, tf);
+        if let Some(markets) = &self.inspection {
+            return markets.get(idx).map_or(&[], Vec::as_slice);
+        }
         match self.files.get(idx).and_then(|f| f.as_ref()) {
-            Some(file) => file.as_slice::<CandleRecord>(),
+            Some(file) => file
+                .as_slice::<CandleRecord>()
+                .expect("candle layout validated on open and append"),
             None => &[],
         }
     }
 
     /// Number of stored candles for a (market, timeframe) pair.
     pub fn candle_count(&self, market_id: MarketId, tf: Timeframe) -> u64 {
+        if self.inspection.is_some() {
+            return self.candles(market_id, tf).len() as u64;
+        }
         let idx = flat_index(market_id, tf);
         match self.files.get(idx).and_then(|f| f.as_ref()) {
-            Some(file) => file.record_count::<CandleRecord>(),
+            Some(file) => file
+                .record_count::<CandleRecord>()
+                .expect("candle layout validated on open and append"),
             None => 0,
         }
     }
@@ -123,10 +203,17 @@ impl CandleStore {
         for file in self.files.iter().flatten() {
             file.flush()?;
         }
+        if self.inspection.is_none() {
+            crate::storage::wal::sync_directory(&self.base_dir)?;
+        }
         Ok(())
     }
 
-    fn ensure_file(&mut self, market_id: MarketId, tf: Timeframe) -> Result<&mut MmapFile, PerfDbError> {
+    fn ensure_file(
+        &mut self,
+        market_id: MarketId,
+        tf: Timeframe,
+    ) -> Result<&mut MmapFile, PerfDbError> {
         let idx = flat_index(market_id, tf);
         if idx >= self.files.len() {
             return Err(PerfDbError::InvalidArgument(format!(
@@ -136,7 +223,7 @@ impl CandleStore {
         }
         if self.files[idx].is_none() {
             let path = file_path(&self.base_dir, market_id, tf);
-            self.files[idx] = Some(MmapFile::open(&path, true)?);
+            self.files[idx] = Some(MmapFile::open_records::<CandleRecord>(&path, true)?);
         }
         Ok(self.files[idx].as_mut().unwrap())
     }
@@ -204,8 +291,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut store = CandleStore::open(dir.path().join("candles")).unwrap();
 
-        store.upsert(&make_candle(60_000_000_000, 0, Timeframe::Min1, 67_000.0)).unwrap();
-        store.upsert(&make_candle(120_000_000_000, 0, Timeframe::Min1, 67_100.0)).unwrap();
+        store
+            .upsert(&make_candle(60_000_000_000, 0, Timeframe::Min1, 67_000.0))
+            .unwrap();
+        store
+            .upsert(&make_candle(120_000_000_000, 0, Timeframe::Min1, 67_100.0))
+            .unwrap();
 
         assert_eq!(store.candle_count(0, Timeframe::Min1), 2);
     }
@@ -215,9 +306,20 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut store = CandleStore::open(dir.path().join("candles")).unwrap();
 
-        store.append(&make_candle(60_000_000_000, 0, Timeframe::Min1, 67_000.0)).unwrap();
-        store.append(&make_candle(3_600_000_000_000, 0, Timeframe::Hour1, 67_500.0)).unwrap();
-        store.append(&make_candle(60_000_000_000, 1, Timeframe::Min1, 3_500.0)).unwrap();
+        store
+            .append(&make_candle(60_000_000_000, 0, Timeframe::Min1, 67_000.0))
+            .unwrap();
+        store
+            .append(&make_candle(
+                3_600_000_000_000,
+                0,
+                Timeframe::Hour1,
+                67_500.0,
+            ))
+            .unwrap();
+        store
+            .append(&make_candle(60_000_000_000, 1, Timeframe::Min1, 3_500.0))
+            .unwrap();
 
         assert_eq!(store.candle_count(0, Timeframe::Min1), 1);
         assert_eq!(store.candle_count(0, Timeframe::Hour1), 1);
@@ -232,8 +334,12 @@ mod tests {
 
         assert!(store.latest(0, Timeframe::Min1).is_none());
 
-        store.append(&make_candle(60_000_000_000, 0, Timeframe::Min1, 67_000.0)).unwrap();
-        store.append(&make_candle(120_000_000_000, 0, Timeframe::Min1, 67_100.0)).unwrap();
+        store
+            .append(&make_candle(60_000_000_000, 0, Timeframe::Min1, 67_000.0))
+            .unwrap();
+        store
+            .append(&make_candle(120_000_000_000, 0, Timeframe::Min1, 67_100.0))
+            .unwrap();
 
         let latest = store.latest(0, Timeframe::Min1).unwrap();
         assert_eq!(latest.timestamp_ns, 120_000_000_000);
@@ -249,7 +355,9 @@ mod tests {
             let mut store = CandleStore::open(&store_dir).unwrap();
             for i in 0..50u64 {
                 let ts = i * 60_000_000_000;
-                store.append(&make_candle(ts, 0, Timeframe::Min1, 67_000.0 + i as f64)).unwrap();
+                store
+                    .append(&make_candle(ts, 0, Timeframe::Min1, 67_000.0 + i as f64))
+                    .unwrap();
             }
             store.flush().unwrap();
         }

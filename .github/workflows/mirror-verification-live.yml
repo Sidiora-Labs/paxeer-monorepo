@@ -1,7 +1,8 @@
 name: mirror-verification-live-qualification
 
 on: { workflow_dispatch: {} }
-permissions: { contents: read }
+permissions:
+  contents: read
 concurrency: { group: mirror-verification-live, cancel-in-progress: false }
 
 jobs:

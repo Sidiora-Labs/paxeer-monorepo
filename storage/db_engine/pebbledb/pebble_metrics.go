@@ -26,6 +26,8 @@ const pebbleMeterName = "paxdb_pebble"
 type PebbleMetrics struct {
 	db           *pebble.DB
 	databaseName string
+	cancel       context.CancelFunc
+	done         chan struct{}
 
 	getLatency                 metric.Float64Histogram
 	applyChangesetLatency      metric.Float64Histogram
@@ -248,7 +250,8 @@ type PebbleMetrics struct {
 
 // NewPebbleMetrics creates a PebbleMetrics that scrapes metrics from the given Pebble DB
 // and records them to OTel. A background goroutine runs every scrapeInterval until
-// ctx is cancelled. The databaseName is attached as the "db" attribute to all recorded
+// ctx is cancelled or Stop is called. Call Stop before closing db to join any
+// in-flight scrape. The databaseName is attached as the "db" attribute to all recorded
 // metrics, enabling multi-DB setups to distinguish series in Prometheus/Grafana.
 //
 // Multiple instances (e.g. one per DB) are safe: OTel returns the same instruments
@@ -259,6 +262,7 @@ func NewPebbleMetrics(
 	databaseName string,
 	scrapeInterval time.Duration,
 ) *PebbleMetrics {
+	ctx, cancel := context.WithCancel(ctx)
 	meter := otel.Meter(pebbleMeterName)
 
 	getLatency, _ := meter.Float64Histogram(
@@ -1002,6 +1006,8 @@ func NewPebbleMetrics(
 
 	pm := &PebbleMetrics{
 		db: db, databaseName: databaseName,
+		cancel: cancel,
+		done:   make(chan struct{}),
 
 		getLatency:                 getLatency,
 		applyChangesetLatency:      applyChangesetLatency,
@@ -1165,8 +1171,16 @@ func NewPebbleMetrics(
 	return pm
 }
 
+// Stop cancels collection and waits for the collector to exit. It is safe to call
+// repeatedly or concurrently, including after the parent context is cancelled.
+func (pm *PebbleMetrics) Stop() {
+	pm.cancel()
+	<-pm.done
+}
+
 // collectLoop runs a ticker that periodically calls recordFromPebble. It exits when ctx is cancelled.
 func (pm *PebbleMetrics) collectLoop(ctx context.Context, interval time.Duration) {
+	defer close(pm.done)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -1174,6 +1188,9 @@ func (pm *PebbleMetrics) collectLoop(ctx context.Context, interval time.Duration
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			pm.recordFromPebble(ctx)
 		}
 	}
@@ -1188,9 +1205,16 @@ func uint64ToInt64Clamped(v uint64) int64 {
 
 // addDelta computes the difference between current and prev, updates prev to current,
 // and adds the positive delta to the counter. Used to convert cumulative scraped
-// values into rate/counter increments.
+// values into rate/counter increments. A reset counts the new non-negative
+// snapshot from zero, as in the MVCC collector; negative snapshots are ignored.
 func addDelta(ctx context.Context, counter metric.Int64Counter, current int64, prev *int64, opts ...metric.AddOption) {
-	delta := current - *prev
+	if current < 0 {
+		return
+	}
+	delta := current
+	if current >= *prev && *prev >= 0 {
+		delta = current - *prev
+	}
 	*prev = current
 	if delta > 0 {
 		counter.Add(ctx, delta, opts...)

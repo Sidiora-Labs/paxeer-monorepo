@@ -15,7 +15,7 @@ pub fn request(did: &str, public_key: &str) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": "faucet",
-        "method": "lx_requestFunds",
+        "method": "px_requestFunds",
         "params": [did, public_key],
     })
 }
@@ -83,12 +83,19 @@ pub fn decode(response: &Value) -> Result<Value, String> {
     {
         return Err("the faucet claim names no network".into());
     }
-    Ok(claim.clone())
+    let mut claimed = claim.clone();
+    claimed["txHash"] = claim["transaction_id"].clone();
+    Ok(claimed)
 }
 
 pub fn run(arguments: &FaucetArgs) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
-    let (environment, client) = crate::active_client(&configuration)?;
+    let (environment, profile) = configuration.active_environment()?;
+    let session = crate::credential::token(environment)?.ok_or_else(|| {
+        "identity_session_required: faucet claims require a bearer identity session; configure one with layerx auth set"
+            .to_owned()
+    })?;
+    let client = crate::http::Client::new(&profile.endpoint, Some(session))?;
     let name = arguments
         .key
         .clone()
@@ -140,7 +147,7 @@ mod tests {
         let key = "ab".repeat(32);
         let envelope = request("did:layerx:alice", &key);
         assert_eq!(envelope["jsonrpc"], "2.0");
-        assert_eq!(envelope["method"], "lx_requestFunds");
+        assert_eq!(envelope["method"], "px_requestFunds");
         assert_eq!(envelope["params"][0], "did:layerx:alice");
         assert_eq!(envelope["params"][1], key);
         assert_eq!(envelope["params"].as_array().map(Vec::len), Some(2));
@@ -151,6 +158,7 @@ mod tests {
         let claim = decode(&funded()).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(claim["funded"], true);
         assert_eq!(claim["amount"], "1000000");
+        assert_eq!(claim["txHash"], "cd".repeat(32));
         assert_eq!(claim["network"], "layerx-testnet");
 
         for (response, fragment) in [

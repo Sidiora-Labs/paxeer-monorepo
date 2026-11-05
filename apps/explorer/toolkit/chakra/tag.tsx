@@ -2,11 +2,16 @@ import { chakra, Tag as ChakraTag } from '@chakra-ui/react';
 import * as React from 'react';
 
 import { TruncatedTextTooltip } from '../components/truncation/TruncatedTextTooltip';
+import { recipe as tagRecipe } from '../theme/recipes/tag.recipe';
 import { nbsp } from '../utils/htmlEntities';
 import { CloseButton } from './close-button';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
 
-export interface TagProps extends ChakraTag.RootProps {
+type RecipeRootProps = WithRecipeProps<ChakraTag.RootProps, typeof tagRecipe>;
+const RecipeRoot = withRecipe(ChakraTag.Root, tagRecipe);
+
+export interface TagProps extends RecipeRootProps {
   startElement?: React.ReactNode;
   endElement?: React.ReactNode;
   endElementProps?: ChakraTag.EndElementProps;
@@ -48,7 +53,7 @@ export const Tag = React.forwardRef<HTMLSpanElement, TagProps>(
 
     return (
       <Skeleton loading={ loading } asChild>
-        <ChakraTag.Root
+        <RecipeRoot
           ref={ ref }
           { ...(selected && !loading && { 'data-selected': true }) }
           { ...(disabled && { 'data-disabled': true }) }
@@ -68,7 +73,7 @@ export const Tag = React.forwardRef<HTMLSpanElement, TagProps>(
               </ChakraTag.CloseTrigger>
             </ChakraTag.EndElement>
           ) }
-        </ChakraTag.Root>
+        </RecipeRoot>
       </Skeleton>
     );
   },

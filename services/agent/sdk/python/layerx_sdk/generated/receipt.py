@@ -2,39 +2,24 @@
 
 from enum import Enum
 
-PROGRAMS_MODULE_ID = 9
-PROGRAM_OUTCOME_TAGS = (1347569457, 1347569458, 1347569459, 1347569460)
+RECEIPT_VERSION_V2 = 2
+RECEIPT_VERSION_V3 = 3
+RECEIPT_DOMAIN = "LXP/v1/receipt"
+SEQUENCE_DOMAIN = "PAXEER/v1/sequence"
 
 class ReceiptFailureCode(str, Enum):
     DECODE = "decode"
     CANONICAL_ENCODING = "canonical-encoding"
-    RECEIPT_SHAPE = "receipt-shape"
-    MISSING_SIGNATURE = "missing-signature"
-    PROTOCOL_VERSION = "protocol-version"
-    RESULT_CODE = "result-code"
-    OPERATION = "operation"
+    RECEIPT_VERSION = "receipt-version"
     ACTIVITY_ID = "activity-id"
-    GLOBAL_SEQUENCE = "global-sequence"
-    MODULE_ID = "module-id"
-    MODULE_VERSION = "module-version"
-    TIMESTAMP = "timestamp"
-    BATCH_ID = "batch-id"
-    ASSET = "asset"
-    PREVIOUS_STATE_ROOT = "previous-state-root"
-    RESULTING_STATE_ROOT = "resulting-state-root"
-    DEBIT_BALANCE = "debit-balance"
-    CREDIT_BALANCE = "credit-balance"
-    PROGRAM_OUTCOME = "program-outcome"
-    SEQUENCER_SIGNATURE = "sequencer-signature"
-
-REQUIRED_NONZERO_CHECKS = (
-    ReceiptFailureCode.GLOBAL_SEQUENCE,
-    ReceiptFailureCode.MODULE_ID,
-    ReceiptFailureCode.MODULE_VERSION,
-    ReceiptFailureCode.TIMESTAMP,
-    ReceiptFailureCode.ACTIVITY_ID,
-    ReceiptFailureCode.RESULTING_STATE_ROOT,
-)
+    KEY_ID = "key-id"
+    KEY_HEIGHT = "key-height"
+    RAW_TRANSACTION = "raw-transaction"
+    FIELDS = "fields"
+    RETURN_DATA = "return-data"
+    LOGS = "logs"
+    SEQUENCE_HASH = "sequence-hash"
+    SIGNATURE = "signature"
 
 PROGRAM_ABI_V1 = 1
 PROGRAM_ABI_V2 = 2

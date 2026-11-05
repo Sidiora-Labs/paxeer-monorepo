@@ -4,7 +4,7 @@
 //! tombstones and late results, all against a really opened market. Cases that need the real
 //! model runner read its executable from `PAXAI_RUNNER` and fail when it is not provisioned.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, admit, decode_acknowledgment, decode_service, encode_service,
@@ -878,7 +878,7 @@ fn capture(state: &[u8], at: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
         native_state_root: Digest32::new(ROOT)?,
         observed_sequence: 77,
         execution_height: at,
-        batch_id: Digest32::new([0xBB; 32])?,
+        block_hash: Digest32::new([0xBB; 32])?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state, &chunk_payload(0, None, 0), &mut out)?;
@@ -942,8 +942,10 @@ impl View {
         let (_, owner, _) = identities()?;
         let finality = FinalityEvidence {
             native_state_root: Digest32::new(ROOT)?,
-            checkpoint: Digest32::new([0xC1; 32])?,
-            settlement: Presence::Present(Digest32::new([0xD3; 32])?),
+            block_height: self.at,
+            block_hash: self.facts.proof.block_hash,
+            app_hash: Digest32::new([0xC1; 32])?,
+            store_proof_digest: Digest32::new([0xD3; 32])?,
             rank: knobs.rank,
         };
         FinalizedAuthority::bind(
@@ -951,10 +953,14 @@ impl View {
                 state: &self.bytes,
                 facts: &self.facts,
                 finality: &finality,
-                head: Head {
-                    chain_sequence: 77,
-                    sealed_batch: knobs.sealed,
-                    finalised_checkpoint: [0xC1; 32],
+                head: PxNetworkHead {
+                    network_id: "paxeer".to_owned(),
+                    paxeer: PxPaxeerHead {
+                        chain_id: 125,
+                        latest_block: knobs.sealed,
+                    },
+                    layerx: None,
+                    latest_committed_height: knobs.sealed,
                 },
                 owner: IdentityEvidence {
                     principal: owner,
@@ -2392,6 +2398,69 @@ fn a17_dispatch_waits_for_finalized_acceptance_and_late_results_stay_local() -> 
         JobState::Ended(Outcome::ExpiredBeforeStart)
     );
     assert_eq!(worker.store().usage()?, QueueUsage::default());
+    assert_eq!(worker.runner().invocations(), 0);
+    Ok(())
+}
+
+#[test]
+fn a18_late_completed_job_is_retained_and_later_commitments_proceed() -> Checked {
+    let fixture = admitting()?;
+    let dir = Scratch::new("a18")?;
+    let worker = service(&dir.store(), dir.absent())?;
+    let a = order_for(&fixture, 0x31, 1)?;
+    let (_, _, saved_a) = succeed(&worker, &fixture, &a, 512)?;
+    let (output_a, _) = a.output(&fixture, 512)?;
+
+    let request = 0x32;
+    let payload = vec![request ^ 0x5A; PAYLOAD_BYTES];
+    let task = TaskId::new([request; 32])?;
+    let manifest = object_manifest(
+        ArtifactKind::Input,
+        principal(9)?,
+        task,
+        fixture.authority.policy(),
+        &payload,
+    )?;
+    let input = root(&manifest)?;
+    let id = RequestId::new([request; 32])?;
+    let later_deadline = fixture.authority.work_close()?;
+    assert!(later_deadline > TASK_EXPIRY);
+    let submit = fixture.submit.with(|s| {
+        s.request.task = task;
+        s.request.input_commitment = input;
+        s.request.max_output_bytes = 2_048;
+        s.request.task_expiry = later_deadline;
+        s.context.request = id;
+        s.context.sequence = 2;
+        s.context.expiry = later_deadline;
+        s.task.task = task;
+        s.task.input = input;
+        s.task.deadline = later_deadline;
+    });
+    let b = Order {
+        signed: submit.signed(&customer())?,
+        manifest,
+        payload,
+        submit,
+    };
+    let (_, _, saved_b) = succeed(&worker, &fixture, &b, 512)?;
+    let late = authority_at(&fixture.market, TASK_EXPIRY)?;
+    let key_a = a.key()?;
+    assert_eq!(worker.commit_record_or_retain(key_a, &late), Ok(None));
+    assert_eq!(worker.commit_record_or_retain(key_a, &late), Ok(None));
+    let job = worker.store().job(key_a)?;
+    assert_eq!(job.state.state, JobState::Ended(Outcome::Succeeded));
+    assert!(job.state.late);
+    assert_eq!(job.result, Some(saved_a));
+    assert_eq!(worker.store().output(key_a)?, Some(output_a));
+    assert_eq!(
+        worker.commit_record(key_a, &late),
+        Err(ServiceError::DeadlineInvalid)
+    );
+    assert_eq!(
+        worker.commit_record_or_retain(b.key()?, &late),
+        Ok(Some(result_manifest_digest(&saved_b)?))
+    );
     assert_eq!(worker.runner().invocations(), 0);
     Ok(())
 }

@@ -36,7 +36,7 @@ use crate::{
         UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{evaluator_region, split_identity_section, FrozenEvaluator},
+        authority::{evaluator_region, FrozenEvaluator},
         codec::{check_binding, decode_signed_report, encode_signed_report, verify_signed_report},
         model::SIGNED_REPORT_MIN_BYTES,
         model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
@@ -53,7 +53,6 @@ use crate::{
         Digest32, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence, PrincipalId,
         ReportDigest, ResultDigest, Version, WorkerRosterEntry,
     },
-    workers::WorkerTable,
     MAX_EVALUATORS, MAX_WORKERS,
 };
 
@@ -92,7 +91,8 @@ pub const ADMISSION_SCRATCH_BYTES: usize = POLICY_CAP + REPORTS_CAP + CONTROL_CA
 pub const CHALLENGE_SCRATCH_BYTES: usize = POLICY_CAP + 2 * CONTROL_CAP;
 
 /// The immutable admission facts of one evaluator epoch, the reveal receipt binding.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AdmissionReceipt {
     pub evaluator: EvaluatorId,
     pub report: ReportDigest,
@@ -127,7 +127,8 @@ impl AdmissionReceipt {
 }
 
 /// One stored admitted row: its receipt and the canonical signed report.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct AdmittedReport<'a> {
     pub receipt: AdmissionReceipt,
     signed: &'a [u8],
@@ -145,10 +146,11 @@ impl<'a> AdmittedReport<'a> {
     pub fn signed(&self) -> CodecResult<SignedReport<'a>> {
         decode_signed_report(self.signed)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn read(r: &mut Reader<'a>, epoch: u64) -> CodecResult<Self> {
         let receipt = AdmissionReceipt {
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            report: ReportDigest::new(r.fixed()?)?,
+            evaluator: r.evaluator_id()?,
+            report: r.report_digest()?,
             height: r.u64()?,
             activity: r.u64()?,
         };
@@ -166,6 +168,7 @@ impl<'a> AdmittedReport<'a> {
         }
         Ok(Self { receipt, signed })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.put(self.receipt.evaluator.as_bytes())?;
         w.put(self.receipt.report.as_bytes())?;
@@ -193,7 +196,8 @@ impl<'a> Iterator for Rows<'a> {
 
 /// The F03 admitted-report region at the start of the current-reports section, then the F04
 /// bytes after it. Empty section bytes hold no row.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReportRegion<'a> {
     pub epoch: u64,
     count: usize,
@@ -207,6 +211,7 @@ impl<'a> ReportRegion<'a> {
     /// Returns `NON_CANONICAL` for a truncated, oversized, unordered or duplicate region, a row
     /// whose signed report, evaluator, epoch or digest disagree, or an empty region with
     /// nothing after it.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(section: &'a [u8]) -> CodecResult<Self> {
         if section.is_empty() {
             return Ok(Self {
@@ -281,6 +286,7 @@ impl<'a> ReportRegion<'a> {
         self.rest
     }
     /// Writes the region of `epoch` with `row` inserted, then the unchanged trailing bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_with(
         &self,
         epoch: u64,
@@ -381,44 +387,29 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
     })
 }
 
-/// The frozen worker set of the opened epoch: the F06 row (worker and frozen recipient) with
-/// the F02 identity attributes, sorted by worker.
+/// The complete immutable worker set shared by report admission and settlement.
 fn frozen_workers(
     state: &SharedState<'_>,
     rewards: &RewardState<'_>,
     row: &RewardEpoch,
 ) -> CodecResult<([WorkerRosterEntry; MAX_WORKERS], usize)> {
-    let dictionary = rewards.dictionary();
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
-    let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
-    let entry = |slot: u16| -> CodecResult<WorkerRosterEntry> {
-        let frozen = dictionary.slot(slot)?;
-        let record = live.get(frozen.worker).ok_or(NON_CANONICAL)?;
-        Ok(WorkerRosterEntry {
-            worker: frozen.worker,
-            owner: record.owner,
-            recipient: frozen.recipient,
-            generation: Version::new(record.generation)?,
-            key_version: Version::new(record.key_version)?,
-            public_key: record.delegate,
-            metadata: record.metadata,
-        })
-    };
-    let first = row.entries().first().ok_or(NON_CANONICAL)?;
-    let mut workers = [entry(first.slot)?; MAX_WORKERS];
-    let count = row.entries().len();
-    for (slot, frozen) in workers.iter_mut().zip(row.entries()) {
-        *slot = entry(frozen.slot)?;
+    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+    if captured.binding.epoch != row.epoch
+        || captured.binding.roster != row.roster
+        || rewards.row(row.epoch)?.roster != row.roster
+    {
+        return Err(WRONG_ROSTER);
     }
-    workers
-        .get_mut(..count)
-        .ok_or(CAPACITY)?
-        .sort_unstable_by_key(|w| w.worker);
-    Ok((workers, count))
+    let entries = captured.workers();
+    let first = *entries.first().ok_or(WRONG_ROSTER)?;
+    let mut workers = [first; MAX_WORKERS];
+    workers[..entries.len()].copy_from_slice(entries);
+    Ok((workers, entries.len()))
 }
 
 /// One reveal-admission request supplied by the F04 `RevealScore` operation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RevealAdmission<'a> {
     /// The revealed report body and its evaluator signature.
     pub report: SignedReport<'a>,
@@ -430,7 +421,8 @@ pub struct RevealAdmission<'a> {
     pub activity: u64,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Admission {
     /// One revision increment and one evaluator sequence were composed into `next` and the
     /// 228-byte `RevealScore` event into `event`; F04 emits it as the sole admission event.
@@ -645,7 +637,8 @@ pub(crate) fn admit_report_with<'a>(
 }
 
 /// Advisory challenge categories; none adjudicates or changes any score.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum ChallengeCategory {
     SignatureOrDomain = 1,
@@ -658,6 +651,7 @@ impl ChallengeCategory {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for an unknown category.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         Ok(match value {
             1 => Self::SignatureOrDomain,
@@ -670,7 +664,8 @@ impl ChallengeCategory {
 }
 
 /// One recorded challenge commitment (status 1, recorded; no adjudicated status in v1).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ChallengeRecord {
     pub id: Digest32,
     pub evaluator: EvaluatorId,
@@ -685,6 +680,7 @@ impl ChallengeRecord {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the record does not fill exactly 170 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self) -> CodecResult<[u8; CHALLENGE_RECORD_BYTES]> {
         let mut out = [0; CHALLENGE_RECORD_BYTES];
         let mut w = Writer::new(&mut out);
@@ -706,15 +702,16 @@ impl ChallengeRecord {
     /// # Errors
     /// Returns `NON_CANONICAL` for a wrong length, a zero identity or digest, an unknown
     /// category or a status other than recorded.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let record = Self {
-            id: Digest32::new(r.fixed()?)?,
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            report: ReportDigest::new(r.fixed()?)?,
+            id: r.digest32()?,
+            evaluator: r.evaluator_id()?,
+            report: r.report_digest()?,
             category: ChallengeCategory::decode(r.u8()?)?,
-            evidence: Digest32::new(r.fixed()?)?,
-            requester: PrincipalId::new(r.fixed()?)?,
+            evidence: r.digest32()?,
+            requester: r.principal_id()?,
             height: r.u64()?,
         };
         if r.u8()? != RECORDED {
@@ -735,7 +732,8 @@ impl ChallengeRecord {
 
 /// The challenge region after the F09 seal region of the control feature bytes, then the
 /// bytes of later control producers.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ChallengeRegion<'a> {
     pub epoch: u64,
     records: &'a [u8],
@@ -747,6 +745,7 @@ impl<'a> ChallengeRegion<'a> {
     /// # Errors
     /// Returns `NON_CANONICAL` for a truncated or oversized region, an invalid or repeated
     /// record, or an empty region with nothing after it.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &'a [u8]) -> CodecResult<Self> {
         if bytes.is_empty() {
             return Ok(Self {
@@ -818,6 +817,7 @@ impl<'a> ChallengeRegion<'a> {
         self.rest
     }
     /// Writes the region of `epoch` with `record` appended, then the unchanged trailing bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write_with(
         &self,
         epoch: u64,
@@ -861,10 +861,10 @@ impl Allegation {
         }
         let mut r = Reader::new(payload);
         let value = Self {
-            evaluator: EvaluatorId::new(r.fixed()?)?,
-            report: ReportDigest::new(r.fixed()?)?,
+            evaluator: r.evaluator_id()?,
+            report: r.report_digest()?,
             category: ChallengeCategory::decode(r.u8()?)?,
-            evidence: Digest32::new(r.fixed()?)?,
+            evidence: r.digest32()?,
         };
         r.finish()?;
         Ok(value)
@@ -890,7 +890,8 @@ impl Allegation {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ChallengeOutcome {
     /// One revision increment was composed into `next` and the `ChallengeAssessment` event
     /// into `event`; the result digest is the result digest of the record.

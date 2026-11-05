@@ -12,6 +12,9 @@ defaults:
   run:
     working-directory: .
 
+permissions:
+  contents: read
+
 jobs:
   run-tests-devnet:
     name: Run Tests on Devnet
@@ -22,6 +25,15 @@ jobs:
       DAPP_TESTS_MNEMONIC: ${{ secrets.DAPP_TESTS_MNEMONIC }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install native dependencies
+        run: sudo apt-get update && sudo apt-get install --yes build-essential libssl-dev
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+
+      - name: Build native libraries
+        run: make paxd-native-libs
 
       - name: Install paxd
         run: |
@@ -45,6 +57,15 @@ jobs:
       DAPP_TESTS_MNEMONIC: ${{ secrets.DAPP_TESTS_MNEMONIC }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Install native dependencies
+        run: sudo apt-get update && sudo apt-get install --yes build-essential libssl-dev
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+
+      - name: Build native libraries
+        run: make paxd-native-libs
 
       - name: Install paxd
         run: |

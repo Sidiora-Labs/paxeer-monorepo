@@ -1,0 +1,49 @@
+[issue.1537]
+number = 1537
+title = "[Coherence] The VerificationStatus declaration is added only by the Rust sdkgen splice, so generate_jvm.py --check now rejects the committed GeneratedSchema.java and platform-sdk-check fails"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "At revision 210639d0360c53f5c2fdd81c9c7c5e84b24b8c84, services/agent/schema/agent-api/v1.kvx:121 defines VerificationStatus only through verification_status prose, which sdk/platform/generators/generate_jvm.py:185 does not treat as fields and render_models at sdk/platform/generators/generate_jvm.py:391 therefore omits, while commit c5867b3753e6284fcd8f40e70a26376320726274 added the independent Rust renderer at sdk/platform/generators/src/main.rs:1491 and splice at sdk/platform/generators/src/main.rs:1547 with check/write callers at sdk/platform/generators/src/main.rs:1999 and sdk/platform/generators/src/main.rs:2014, leaving the 28-line declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1028 inconsistent with Python's byte comparison at sdk/platform/generators/generate_jvm.py:564, required by services/platform/Makefile.inc:233 and sdk/platform/conformance/run-jvm.sh:12, and untested by the Rust-only splice comparison at sdk/platform/generators/tests/drift.rs:837."
+close_comment = "The JVM schema generators disagree about VerificationStatus, causing the Python drift check to reject the committed schema. The follow-up task makes the Python generator the declaration's source and adds a regression check that both generators accept the same schema while retaining all status validation."
+
+[task.18.1537.1]
+title = "Issue #1537: Unify JVM VerificationStatus generation and prove both drift checks agree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181537.1"]
+capabilities = []
+interfaces = []
+do_1 = "Make render_models in sdk/platform/generators/generate_jvm.py:331 emit AgentModels.VerificationStatus from services/agent/schema/agent-api/v1.kvx:121 using one Python renderer that validates the schema contract and reproduces the existing declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1028 byte for byte in its existing position, including all four shapes, nonempty reasons, rung validation, strict achieved-below-requested ordering and null omission."
+do_2 = "Replace the independent Java template in jvm_verification_status at sdk/platform/generators/src/main.rs:1491 with delegation to the Python renderer, keeping the existing regeneration helpers and their preservation and missing-type assertions intact at sdk/platform/generators/tests/drift.rs:835 and sdk/platform/generators/tests/drift.rs:873; Python owns the declaration as spec/layerx-merge/spec.kvx:6348 decision.2206 requires, and Rust must not introduce a second rendering or silently accept an unsupported schema."
+do_3 = "Add jvm_generators_agree_on_verification_status in sdk/platform/generators/tests/drift.rs using copies of the real repository schemas, generators, generated outputs and pipeline declarations rather than the synthetic repo_fixture: prove fresh Python generation equals the committed JVM schema, contains exactly one VerificationStatus declaration and no missing nested component type, then prove Python generation followed by sdkgen writing leaves those bytes unchanged and both genuine --check paths accept them; removing the declaration must make both checks fail, with the Rust failure identifying JVM output drift. Reseal only the changed generator digest in sdk/platform/pipeline.kvx:18 without changing generated Java bytes or handwritten classifications."
+symbols = ["render_models", "jvm_verification_status", "jvm_generators_agree_on_verification_status"]
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/generators/src/main.rs", "sdk/platform/generators/tests/drift.rs", "sdk/platform/pipeline.kvx"]
+tests = ["sdk/platform/generators/tests/drift.rs::jvm_generators_agree_on_verification_status"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
+verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test drift jvm_generators_agree_on_verification_status -- --exact"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181537]
+title = "The JVM VerificationStatus declaration has one rendering accepted by both drift checks"
+ac_1 = "Given the live VerificationStatus contract at services/agent/schema/agent-api/v1.kvx:121, fresh Python generation emits exactly the committed declaration at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1028 with all shape and rung guards preserved, sdkgen writing leaves the generated schema unchanged, and both checks required by services/platform/Makefile.inc:233 and services/platform/Makefile.inc:234 accept the identical output and reject a removed declaration."
+
+[acceptance.18.1537.1]
+feature = "18"
+req = "181537.1"
+scenario = "Given the real JVM schemas and generated outputs with VerificationStatus, when Python generation and sdkgen writing run in sequence, then the schema remains byte-identical with one fully validated declaration and both drift checks accept it, while removing that declaration makes both checks fail."
+contract = "contracts/platform-sdk.md#generators"
+test = "sdk/platform/generators/tests/drift.rs::jvm_generators_agree_on_verification_status (planned)"
+qualification = "UNRUN"

@@ -154,7 +154,6 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
         )
         |> Repo.preload(:token)
 
-      metadata = %{"name" => "Super Token"}
       url = "http://metadata.endpoint.com"
       token_contract_address_hash_string = to_string(token.contract_address_hash)
 
@@ -193,7 +192,7 @@ defmodule Indexer.Fetcher.OnDemand.TokenInstanceMetadataRefetchTest do
 
       refute_receive(
         {:chain_event, :fetched_token_instance_metadata, :on_demand,
-         [^token_contract_address_hash_string, ^token_id, %{metadata: ^metadata}]}
+         [^token_contract_address_hash_string, ^token_id, _raw_metadata]}
       )
 
       assert_receive(

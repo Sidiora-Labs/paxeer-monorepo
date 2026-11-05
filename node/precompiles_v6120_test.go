@@ -20,6 +20,7 @@ import (
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
@@ -97,6 +98,75 @@ func newV6120TestContracts(t *testing.T, a *App) v6120TestContracts {
 func recordV6120TestHeights(a *App, ctx sdk.Context) {
 	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(v6120TestActivationHeight), ActivationUpgrade)
 	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(v6120TestDoneHeight), V6120Upgrade)
+}
+
+func TestFullGenesisSelectsTheV6120Set(t *testing.T) {
+	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
+	a, ctx := w.App, w.Ctx.WithBlockHeight(mergeHeight)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
+	require.Equal(t, a.mm.GetVersionMap(), versions)
+	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, V6120Upgrade))
+	require.True(t, a.v6120LiveInState(ctx))
+	require.True(t, a.v6120Live)
+	for _, addr := range v6120TestGated {
+		require.Contains(t, a.EvmKeeper.CustomPrecompiles(ctx), addr)
+	}
+	require.Empty(t, a.EvmKeeper.ActivationAddressesWithoutPrecompile())
+
+	a.setV6120Live(false)
+	a.RefreshPrecompiles(ctx)
+	require.True(t, a.v6120Live)
+	for _, tracing := range []bool{false, true} {
+		served := a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(tracing))
+		for _, addr := range v6120TestGated {
+			require.Contains(t, served, addr)
+			contract, ok := served[addr].(precompiles.IPrecompile)
+			require.True(t, ok)
+			require.Equal(t, addr, contract.Address())
+		}
+	}
+	require.Empty(t, a.EvmKeeper.ActivationAddressesWithoutPrecompile())
+	plan := upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)}
+	t.Run("wrong execution height", func(t *testing.T) {
+		cached, _ := ctx.CacheContext()
+		_, err := a.mergeUpgradePlan(cached.WithBlockHeight(mergeHeight-1), plan, versions)
+		require.ErrorContains(t, err, "is not running at height")
+		_, found := a.UpgradeKeeper.GetUpgradePlan(cached)
+		require.False(t, found)
+	})
+	t.Run("conflicting scheduled plan", func(t *testing.T) {
+		cached, _ := ctx.CacheContext()
+		other := plan
+		other.Info = "different genesis"
+		require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(cached, other))
+		_, err := a.mergeUpgradePlan(cached, plan, versions)
+		require.ErrorContains(t, err, "executing plan differs from scheduled plan")
+		scheduled, found := a.UpgradeKeeper.GetUpgradePlan(cached)
+		require.True(t, found)
+		require.Equal(t, other, scheduled)
+	})
+	_, err := a.mergeUpgradePlan(ctx, plan, versions)
+	require.NoError(t, err)
+	require.True(t, a.Sequenced(ctx, mergeHeight+1))
+	_, found := a.UpgradeKeeper.GetUpgradePlan(ctx)
+	require.False(t, found)
+
+	for _, name := range []string{pricefeedtypes.ModuleName, spottypes.ModuleName} {
+		t.Run("missing "+name, func(t *testing.T) {
+			before, _ := ctx.CacheContext()
+			before.KVStore(a.GetKey(upgradetypes.StoreKey)).Delete(append([]byte{upgradetypes.VersionMapByte}, name...))
+			require.False(t, a.v6120LiveInState(before))
+			a.UpgradeKeeper.SetDone(before.WithBlockHeight(v6120TestDoneHeight), V6120Upgrade)
+			require.True(t, a.v6120LiveInState(before))
+			below := a.EvmKeeper.CustomPrecompiles(before.WithBlockHeight(v6120TestDoneHeight - 1))
+			at := a.EvmKeeper.CustomPrecompiles(before.WithBlockHeight(v6120TestDoneHeight))
+			for _, addr := range v6120TestGated {
+				require.NotContains(t, below, addr)
+				require.Contains(t, at, addr)
+			}
+		})
+	}
 }
 
 func TestV6120PrecompileGate(t *testing.T) {
@@ -239,6 +309,10 @@ func TestV6120ExchangeVersionSwitch(t *testing.T) {
 	a.EvmKeeper.SetCustomPrecompileActivation([]evmkeeper.CustomPrecompileActivation{activationPrecompileGate(), v6120PrecompileGate()})
 	a.customPrecompiles = all
 	a.v6120Next = contracts.next
+	ctx, _ = ctx.CacheContext()
+	for _, name := range []string{pricefeedtypes.ModuleName, spottypes.ModuleName} {
+		ctx.KVStore(a.GetKey(upgradetypes.StoreKey)).Delete(append([]byte{upgradetypes.VersionMapByte}, name...))
+	}
 	require.False(t, a.v6120LiveInState(ctx))
 	a.setV6120Live(true)
 	require.True(t, a.v6120Live)

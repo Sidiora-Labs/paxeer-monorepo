@@ -1,7 +1,7 @@
 import { Icon } from '@chakra-ui/react';
 import { useCopyToClipboard } from '@uidotdev/usehooks';
-import dayjs from 'dayjs';
 import domToImage from 'dom-to-image';
+import { unparse } from 'papaparse';
 import React from 'react';
 
 import type { Resolution, TimeChartData } from '../types';
@@ -18,7 +18,7 @@ import { useColorModeValue } from '../../../chakra/color-mode';
 import { IconButton } from '../../../chakra/icon-button';
 import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from '../../../chakra/menu';
 import { useDisclosure } from '../../../hooks/useDisclosure';
-import { saveAsCsv } from '../../../utils/file';
+import { downloadBlob } from '../../../utils/file';
 import { isBrowser } from '../../../utils/isBrowser';
 import ChartFullscreenDialog from '../ChartFullscreenDialog';
 
@@ -46,6 +46,48 @@ export interface Props {
 };
 
 const DOWNLOAD_IMAGE_SCALE = 5;
+
+export function createChartCsv(charts: TimeChartData): Blob {
+  const headerRows = [
+    'Date', ...charts.map((chart) => chart.units ? `${ chart.name } (${ chart.units })` : chart.name),
+  ];
+  const rows = new Map<string, {
+    date: Date;
+    dateTo?: Date;
+    label?: string;
+    values: Array<string>;
+  }>();
+
+  charts.forEach((chart, chartIndex) => {
+    chart.items.forEach((item) => {
+      const key = `${ item.date.getTime() }:${ item.date_to?.getTime() ?? '' }`;
+      let row = rows.get(key);
+      if (!row) {
+        row = {
+          date: item.date,
+          dateTo: item.date_to,
+          label: item.dateLabel,
+          // A blank CSV cell denotes a missing observation; zero remains "0".
+          values: Array<string>(charts.length).fill(''),
+        };
+        rows.set(key, row);
+      }
+      row.label ??= item.dateLabel;
+      row.values[chartIndex] = String(item.value);
+    });
+  });
+
+  const formatDate = (date: Date) => date.toISOString().replace(/T00:00:00\.000Z$/, '');
+  const dataRows = Array.from(rows.values())
+    .sort((a, b) => a.date.getTime() - b.date.getTime() ||
+      (a.dateTo?.getTime() ?? a.date.getTime()) - (b.dateTo?.getTime() ?? b.date.getTime()))
+    .map((row) => [
+      row.label ?? (row.dateTo ? `${ formatDate(row.date) } - ${ formatDate(row.dateTo) }` : formatDate(row.date)),
+      ...row.values,
+    ]);
+
+  return new Blob([ unparse([ headerRows, ...dataRows ]) ], { type: 'text/csv;charset=utf-8;' });
+}
 
 const ChartMenu = ({
   itemIds = CHART_MENU_ITEMS_IDS,
@@ -106,14 +148,7 @@ const ChartMenu = ({
   }, [ pngBackgroundColor, title, chainPostfix, chartRef ]);
 
   const handleSVGSavingClick = React.useCallback(() => {
-    const headerRows = [
-      'Date', ...charts.map((chart) => chart.name),
-    ];
-    const dataRows = charts[0].items.map((item, index) => [
-      item.dateLabel ?? dayjs(item.date).format('YYYY-MM-DD'),
-      ...charts.map((chart) => String(chart.items[index].value)),
-    ]);
-    saveAsCsv(headerRows, dataRows, `${ title }${ chainPostfix } (Blockscout stats)`);
+    downloadBlob(createChartCsv(charts), `${ title }${ chainPostfix } (Blockscout stats)`);
   }, [ charts, title, chainPostfix ]);
 
   // TS thinks window.navigator.share can't be undefined, but it can

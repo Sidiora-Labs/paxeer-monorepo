@@ -7,7 +7,11 @@
 //! match: they are not answered with any substitute refusal.
 
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::verify::RungStatus as VerificationStatus;
+use layerx_crypto::evm_transaction::{
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -18,6 +22,7 @@ use crate::agent_rpc_wire::*;
 use crate::human::{
     HumanOperationError, HumanOperations, HumanPeer, HumanPrepare, HumanResponse, HumanSubmit,
 };
+use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
 use crate::human_runtime::{
     prepare_digest, submit_digest, HumanAuthorityBoundary, SharedAgentOwner,
 };
@@ -30,9 +35,369 @@ pub struct DispatchContext {
     pub peer: HumanPeer,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct AgentRegistrationWire {
+    tenant: String,
+    agent_did: String,
+    authority_ref: String,
+    client: String,
+    policy_version: String,
+    owner_address: String,
+    binding_consent: String,
+    fee_limit: String,
+}
+
+impl AgentRegistrationWire {
+    fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::AgentRegistration, Rejection> {
+        use layerx_agent_api::identity::*;
+        let owner_address = hex_bytes(&self.owner_address, id)?
+            .try_into()
+            .map_err(|_| malformed(id))?;
+        let binding_consent = hex_bytes(&self.binding_consent, id)?;
+        if binding_consent.len() != 64 || owner_address == [0; 20] {
+            return Err(malformed(id));
+        }
+        Ok(AgentRegistration {
+            tenant: TenantId::new(self.tenant).map_err(|_| malformed(id))?,
+            agent_did: AgentDid::new(self.agent_did).map_err(|_| malformed(id))?,
+            authority_ref: AuthorityRef::new(self.authority_ref).map_err(|_| malformed(id))?,
+            client: ClientId::new(self.client).map_err(|_| malformed(id))?,
+            policy_version: PolicyVersion::new(self.policy_version).map_err(|_| malformed(id))?,
+            owner_address,
+            binding_consent,
+            fee_limit: layerx_agent_api::Amount(decimal_u128(&self.fee_limit, id)?),
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BootstrapSessionContextWire {
+    tenant: String,
+    agent_did: String,
+    authority_ref: String,
+    permitted_activity_types: Vec<String>,
+    expiry: String,
+    client: String,
+    policy_version: String,
+}
+
+impl BootstrapSessionContextWire {
+    fn into_context(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::SessionContext, Rejection> {
+        use layerx_agent_api::identity::*;
+        let permitted = self
+            .permitted_activity_types
+            .iter()
+            .map(|value| {
+                decimal_u64(value, id)?
+                    .try_into()
+                    .map(ActivityType)
+                    .map_err(|_| malformed(id))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        SessionContext::new(
+            TenantId::new(self.tenant).map_err(|_| malformed(id))?,
+            AgentDid::new(self.agent_did).map_err(|_| malformed(id))?,
+            AuthorityRef::new(self.authority_ref).map_err(|_| malformed(id))?,
+            ExplicitSet::allow(permitted),
+            layerx_agent_api::TimestampSeconds(decimal_u64(&self.expiry, id)?),
+            ClientId::new(self.client).map_err(|_| malformed(id))?,
+            PolicyVersion::new(self.policy_version).map_err(|_| malformed(id))?,
+        )
+        .map_err(|_| malformed(id))
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct SessionOpenWire {
+    context: BootstrapSessionContextWire,
+    grant_id: String,
+    registration_payload: String,
+    expiry_sequence: String,
+    purpose: String,
+    fee_limit: String,
+}
+
+impl SessionOpenWire {
+    fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::SessionOpen, Rejection> {
+        let expiry_sequence = decimal_u64(&self.expiry_sequence, id)?;
+        if expiry_sequence == 0 {
+            return Err(malformed(id));
+        }
+        Ok(layerx_agent_api::identity::SessionOpen {
+            context: self.context.into_context(id)?,
+            grant_id: hex32(&self.grant_id, id)?,
+            registration_payload: hex_bytes(&self.registration_payload, id)?,
+            expiry_sequence,
+            purpose: hex32(&self.purpose, id)?,
+            fee_limit: layerx_agent_api::Amount(decimal_u128(&self.fee_limit, id)?),
+        })
+    }
+}
+
+fn prepare_bootstrap_transaction(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    state: crate::prepare::evm::EvmPreparationState,
+    from: [u8; 20],
+    to: [u8; 20],
+    data: Vec<u8>,
+    fee_limit: u128,
+    id: RequestId,
+) -> Result<crate::prepare::evm::Prepared, Rejection> {
+    let max_fee_per_gas = state
+        .base_fee_per_gas
+        .checked_mul(2)
+        .filter(|fee| *fee <= fee_limit)
+        .ok_or_else(|| rejection(ErrorClass::PolicyRefusal, id, "preparation.fee_limit"))?;
+    if state.chain_id == 0 || data.len() > MAX_BYTES {
+        return Err(malformed(id));
+    }
+    let gas_limit = endpoint
+        .estimate_gas(&layerx_client::sequencer::CallRequest {
+            from: Some(from),
+            to: Some(to),
+            value: 0,
+            data: data.clone(),
+        })
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    if gas_limit == 0 {
+        return Err(malformed(id));
+    }
+    let call = Eip1559Call {
+        chain_id: state.chain_id,
+        nonce: state.pending_nonce,
+        max_priority_fee_per_gas: 0,
+        max_fee_per_gas,
+        gas_limit,
+        to,
+        data,
+    };
+    let disclosure =
+        layerx_crypto::disclosure::call::bind_call(&call, from).map_err(|_| malformed(id))?;
+    let disclosure_digest = disclosure.signing_digest().map_err(|_| malformed(id))?;
+    Ok(crate::prepare::evm::Prepared {
+        from,
+        disclosure,
+        disclosure_digest,
+        signing_hash: call.signing_hash(),
+        call,
+        observed_head_height: state.head_height,
+    })
+}
+
+pub fn agent_register(
+    boundary: &crate::prepare::evm::ProductionEvmPreparationBoundary,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    request: &layerx_agent_api::identity::AgentRegistration,
+    owner_public_key: [u8; 32],
+    id: RequestId,
+) -> Result<crate::prepare::evm::Prepared, Rejection> {
+    use layerx_client::account_binding::{
+        bind_nonce_call, decode_bind_nonce, ADDR_PRECOMPILE, SELECTOR_BIND_LAYERX,
+    };
+    let state = boundary
+        .preparation_state(&request.owner_address)
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let nonce = endpoint
+        .call_pending(&ADDR_PRECOMPILE, &bind_nonce_call(&request.owner_address))
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let nonce = decode_bind_nonce(&nonce).map_err(|_| malformed(id))?;
+    let signature: [u8; 64] = request
+        .binding_consent
+        .as_slice()
+        .try_into()
+        .map_err(|_| malformed(id))?;
+    layerx_client::paxeer_binding::Binding::new(state.chain_id, request.owner_address, nonce)
+        .verify(&owner_public_key, &signature)
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "binding.invalid_consent"))?;
+    let mut data = SELECTOR_BIND_LAYERX.to_vec();
+    data.extend_from_slice(&owner_public_key);
+    let mut word = [0; 32];
+    word[31] = 64;
+    data.extend_from_slice(&word);
+    data.extend_from_slice(&word);
+    data.extend_from_slice(&signature);
+    prepare_bootstrap_transaction(
+        endpoint,
+        state,
+        request.owner_address,
+        ADDR_PRECOMPILE,
+        data,
+        request.fee_limit.0,
+        id,
+    )
+}
+
+pub fn session_open(
+    boundary: &crate::prepare::evm::ProductionEvmPreparationBoundary,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    registry: &crate::session_keys::SessionKeyRegistry,
+    request: &layerx_agent_api::identity::SessionOpen,
+    owner_public_key: [u8; 32],
+    id: RequestId,
+) -> Result<crate::prepare::evm::Prepared, Rejection> {
+    use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    let issued = layerx_crypto::session::decode_session_key(&request.registration_payload)
+        .map_err(|_| malformed(id))?;
+    let agent = layerx_types::ids::Did::new(request.context.agent_did.as_str().as_bytes())
+        .map_err(|_| malformed(id))?;
+    if issued.grant_id != request.grant_id
+        || request.expiry_sequence == 0
+        || issued.grantor
+            != layerx_wire::hash::did_id_for_protocol(&agent, 3).map_err(|_| malformed(id))?
+    {
+        return Err(malformed(id));
+    }
+    let key = registry
+        .load(request.grant_id, issued.clone())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    if issued.session_public_key[12..] != key.evm_address() {
+        return Err(malformed(id));
+    }
+    key.with_secret(|_| ())
+        .map_err(|_| rejection(ErrorClass::PolicyRefusal, id, "session.key_unavailable"))?;
+    let from = endpoint
+        .bound_address(&owner_public_key)
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?
+        .ok_or_else(|| owner_error(id, HumanOperationError::Refused))?;
+    let state = boundary
+        .preparation_state(&from)
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let mut expiry = [0; 32];
+    expiry[24..].copy_from_slice(&request.expiry_sequence.to_be_bytes());
+    let call = PrecompileCall {
+        target: PrecompileTarget::Auth,
+        selector: [0x11, 0x07, 0xb4, 0x9e],
+        arguments: vec![
+            AbiArgument::Bytes(issued.registration_payload),
+            AbiArgument::Word(expiry),
+            AbiArgument::Word(request.purpose),
+        ],
+    };
+    prepare_bootstrap_transaction(
+        endpoint,
+        state,
+        from,
+        call.target.address(),
+        call.encode().map_err(|_| malformed(id))?,
+        request.fee_limit.0,
+        id,
+    )
+}
+
+fn bootstrap_authority<A: HumanAuthorityBoundary>(
+    owner: &SharedAgentOwner<A>,
+    context: &RpcOwnerContext<'_>,
+    tenant: &str,
+    agent: &str,
+    authority_ref: &str,
+    client: &str,
+    policy: &str,
+    session_context: Option<&layerx_agent_api::identity::SessionContext>,
+    id: RequestId,
+) -> Result<layerx_agent_api::identity::AuthorityDescription, Rejection> {
+    use crate::identity::ProtocolAuthority;
+    use layerx_agent_api::identity::{AgentDid, AuthorityDescription, AuthorityRef, TenantId};
+    let principal = context.principal();
+    if tenant != principal.tenant.as_str() || agent.as_bytes() != principal.agent.as_bytes() {
+        return Err(owner_error(id, HumanOperationError::Refused));
+    }
+    let public_key = hex32(
+        agent
+            .strip_prefix("did:layerx:")
+            .ok_or_else(|| malformed(id))?,
+        id,
+    )?;
+    let head = owner
+        .current_core_sequence()
+        .map_err(|e| owner_error(id, e))?;
+    let mut guard = owner.lock().map_err(|e| owner_error(id, e))?;
+    guard
+        .native_purpose_owner(context, public_key, head)
+        .map_err(|e| owner_error(id, e))?;
+    let sessions = guard
+        .sessions
+        .read()
+        .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+    let record = sessions
+        .get(&principal.tenant, principal.session_id)
+        .ok_or_else(|| owner_error(id, HumanOperationError::Refused))?;
+    let (kind, authority_id) = match record.request.authority {
+        ProtocolAuthority::PrimaryKey(key) => (1, key),
+        ProtocolAuthority::SessionKey(key) => (2, key),
+        ProtocolAuthority::CapabilityGrant(_) => {
+            return Err(owner_error(id, HumanOperationError::Refused))
+        }
+    };
+    if !record.open
+        || record.generation != context.permit().credential().generation()
+        || authority_ref != lower_hex(&authority_id)
+        || client != record.request.opening_client
+        || policy != record.request.policy_version
+    {
+        return Err(owner_error(id, HumanOperationError::Refused));
+    }
+    if let Some(asserted) = session_context {
+        let types: Vec<_> = record
+            .request
+            .permitted_activity_types
+            .iter()
+            .copied()
+            .map(layerx_agent_api::identity::ActivityType)
+            .collect();
+        if asserted.permitted_activity_types.values() != types
+            || Some(asserted.expiry.0) != record.request.expiry_seconds
+        {
+            return Err(owner_error(id, HumanOperationError::Refused));
+        }
+    }
+    let mut protocol_authority = vec![kind];
+    protocol_authority.extend_from_slice(&authority_id);
+    AuthorityDescription::new(
+        TenantId::new(tenant).map_err(|_| malformed(id))?,
+        AgentDid::new(agent).map_err(|_| malformed(id))?,
+        AuthorityRef::new(authority_ref).map_err(|_| malformed(id))?,
+        protocol_authority,
+    )
+    .map_err(|_| malformed(id))
+}
+
+fn bootstrap_response(
+    authority: layerx_agent_api::identity::AuthorityDescription,
+    prepared: crate::prepare::evm::Prepared,
+) -> Dispatched {
+    let response = layerx_agent_api::identity::AuthorityResponse {
+        authority,
+        value: prepared,
+    };
+    let call = &response.value.call;
+    Dispatched {
+        value: serde_json::json!({
+            "authority": {"tenant": response.authority.tenant.as_str(), "agent_did": response.authority.agent_did.as_str(),
+                "authority_ref": response.authority.authority_ref.as_str(), "protocol_authority": lower_hex(&response.authority.protocol_authority)},
+            "value": {"chain_id": call.chain_id.to_string(), "nonce": call.nonce.to_string(),
+                "max_priority_fee_per_gas": call.max_priority_fee_per_gas.to_string(), "max_fee_per_gas": call.max_fee_per_gas.to_string(),
+                "gas_limit": call.gas_limit.to_string(), "to": lower_hex(&call.to), "value": "0", "data": lower_hex(&call.data),
+                "signing_hash": lower_hex(&response.value.signing_hash), "observed_head_height": response.value.observed_head_height.to_string()},
+        }),
+        verification: None,
+    }
+}
+
 /// `verification` is `Some` only when the decoded owner payload carries a verification level;
 /// payloads without one (head, approval records) report `None` and no level is invented.
-pub(crate) struct Dispatched {
+pub struct Dispatched {
     pub value: Value,
     pub verification: Option<VerificationStatus>,
 }
@@ -158,9 +523,15 @@ pub(crate) fn native_effect_variant(request: &Map<String, Value>) -> bool {
     request.get("variant").and_then(Value::as_str) == Some("native_effect_v1")
 }
 
-pub(crate) fn native_effect_prepare_digest(request: &layerx_agent_api::identity::NativeEffectPrepareRequestV1) -> Result<[u8;32], serde_json::Error> {
+pub(crate) fn native_effect_prepare_digest(
+    request: &layerx_agent_api::identity::NativeEffectPrepareRequestV1,
+) -> Result<[u8; 32], serde_json::Error> {
     use sha2::{Digest, Sha256};
-    Ok(Sha256::new().chain_update(b"LXP/agent/native-effect-prepare/v1\0").chain_update(serde_json::to_vec(&request.canonical())?).finalize().into())
+    Ok(Sha256::new()
+        .chain_update(b"LXP/agent/native-effect-prepare/v1\0")
+        .chain_update(serde_json::to_vec(&request.canonical())?)
+        .finalize()
+        .into())
 }
 
 pub(crate) fn native_registration_variant(request: &Map<String, Value>) -> bool {
@@ -338,27 +709,57 @@ fn hexv(bytes: &[u8]) -> Value {
     Value::String(lower_hex(bytes))
 }
 
-fn level(value: u8) -> Option<Level> {
+fn rung(value: u8) -> Option<Rung> {
     Some(match value {
-        0 => Level::Unverified,
-        1 => Level::SequencerSigned,
-        2 => Level::BatchIncluded,
-        3 => Level::StateProven,
-        4 => Level::CheckpointFinalised,
-        5 => Level::SettlementAnchored,
+        0 => Rung::Submitted,
+        1 => Rung::Receipted,
+        2 => Rung::Committed,
         _ => return None,
     })
 }
 
-pub(crate) fn level_name(value: Level) -> &'static str {
-    match value {
-        Level::Unverified => "Unverified",
-        Level::SequencerSigned => "SequencerSigned",
-        Level::BatchIncluded => "BatchIncluded",
-        Level::StateProven => "StateProven",
-        Level::CheckpointFinalised => "CheckpointFinalised",
-        Level::SettlementAnchored => "SettlementAnchored",
+#[cfg(test)]
+mod receipt_rung_wire_tests {
+    use super::{rung, HumanOperationError, Rung};
+    use layerx_types::verify::VerificationLevel;
+
+    #[test]
+    fn batch_included_and_state_proven_receipts_decode_as_receipted(
+    ) -> Result<(), HumanOperationError> {
+        for level in [
+            VerificationLevel::BATCH_INCLUDED,
+            VerificationLevel::STATE_PROVEN,
+        ] {
+            assert_eq!(
+                rung(crate::human_runtime::receipt_rung_code(level)?),
+                Some(Rung::Receipted)
+            );
+        }
+        Ok(())
     }
+
+    #[test]
+    fn checkpoint_finalised_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
+        assert_eq!(
+            rung(crate::human_runtime::receipt_rung_code(
+                VerificationLevel::CHECKPOINT_FINALISED
+            )?),
+            Some(Rung::Committed)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn settlement_anchored_receipt_level_is_refused() {
+        assert_eq!(
+            crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
+            Err(HumanOperationError::Refused)
+        );
+    }
+}
+
+pub(crate) fn rung_name(value: Rung) -> &'static str {
+    value.name()
 }
 
 fn state_name(value: u8) -> Option<&'static str> {
@@ -367,92 +768,69 @@ fn state_name(value: u8) -> Option<&'static str> {
         1 => "Signed",
         2 => "Queued",
         3 => "Submitted",
-        4 => "Acknowledged",
         5 => "Unknown",
         6 => "Executed",
         7 => "Failed",
         8 => "Expired",
+        9 => "Committed",
         _ => return None,
     })
 }
 
-fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
-    let mut out = Map::new();
-    out.insert("chain_sequence".into(), dec(reader.u64()?));
-    out.insert("sealed_batch".into(), dec(reader.u64()?));
-    out.insert("finalised_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    Some((Value::Object(out), None))
+fn decode_read_json(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let value: Value = serde_json::from_slice(reader.bytes()?).ok()?;
+    let freshness = value.get("freshness")?;
+    for field in ["chain_head", "value_height"] {
+        let text = freshness.get(field)?.as_str()?;
+        if text.parse::<u64>().ok()?.to_string() != text {
+            return None;
+        }
+    }
+    if !value.get("achieved_verification_level")?.is_null() {
+        return None;
+    }
+    Some((value, None))
+}
+
+fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    decode_read_json(reader)
 }
 
 fn decode_account_state(
     reader: &mut Reader<'_>,
     account_id: [u8; 32],
-) -> Option<(Value, Option<Level>)> {
-    let observed = reader.fixed::<32>()?;
-    let achieved = level(reader.u8()?)?;
-    let value = reader.bytes()?;
-    let proof = reader.bytes()?;
-    let sequence = reader.u64()?;
-    if observed != account_id || achieved < Level::StateProven || sequence == 0 {
-        return None;
-    }
-    let mut out = Map::new();
-    out.insert("account_id".into(), hexv(&observed));
-    out.insert("canonical_value".into(), hexv(value));
-    out.insert("proof".into(), hexv(proof));
-    out.insert("sequence".into(), dec(sequence));
-    Some((Value::Object(out), Some(achieved)))
+) -> Option<(Value, Option<Rung>)> {
+    let result = decode_read_json(reader)?;
+    (result.0["value"]["account"] == hexv(&account_id)).then_some(result)
 }
 
-fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
-    let mut out = Map::new();
-    let account = reader.fixed::<32>()?;
-    let asset = reader.fixed::<32>()?;
-    let currency = reader.text()?;
-    let observed_at = reader.text()?;
-    out.insert("age_seconds".into(), dec(reader.u64()?));
-    out.insert("amount".into(), dec(reader.u128()?));
-    let achieved = level(reader.u8()?)?;
-    out.insert("global_sequence".into(), dec(reader.u64()?));
-    out.insert("batch_number".into(), dec(reader.u64()?));
-    out.insert("observed_head_sequence".into(), dec(reader.u64()?));
-    out.insert("observed_checkpoint".into(), hexv(&reader.fixed::<32>()?));
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
-    out.insert("proof_material".into(), hexv(reader.bytes()?));
-    if achieved < Level::CheckpointFinalised
-        || account == [0; 32]
-        || asset == [0; 32]
-        || currency.is_empty()
-        || observed_at.is_empty()
-    {
+fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let result = decode_read_json(reader)?;
+    let text = result.0["value"]["amount"].as_str()?;
+    if text.parse::<u128>().ok()?.to_string() != text {
         return None;
     }
-    out.insert("account".into(), hexv(&account));
-    out.insert("asset".into(), hexv(&asset));
-    out.insert("currency".into(), Value::String(currency));
-    out.insert("observed_at".into(), Value::String(observed_at));
-    Some((Value::Object(out), Some(achieved)))
+    Some(result)
 }
 
-fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
-    out.insert("submission_ref".into(), Value::String(reader.text()?));
+    let tx_hash = reader.fixed::<32>()?;
+    out.insert("tx_hash".into(), hexv(&tx_hash));
+    out.insert("submission_ref".into(), hexv(&tx_hash));
     let state = reader.u8()?;
     out.insert("state".into(), Value::String(state_name(state)?.into()));
     match state {
-        6 => {
-            out.insert("receipt_ref".into(), Value::String(reader.text()?));
+        6 | 9 => {
+            out.insert("receipt_ref".into(), hexv(&reader.fixed::<32>()?));
         }
         7 => {
             out.insert("result_code".into(), dec(reader.i32()?));
         }
         _ => {}
     }
-    let achieved = level(reader.u8()?)?;
-    out.insert(
-        "verification_level".into(),
-        Value::String(level_name(achieved).into()),
-    );
+    let achieved = rung(reader.u8()?)?;
+    out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     let evidence_count = usize::from(reader.u8()?);
     if evidence_count > MAX_EVIDENCE {
         return None;
@@ -487,18 +865,30 @@ fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     Some((Value::Object(out), Some(achieved)))
 }
 
-pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let activity_id = reader.fixed::<32>()?;
     if activity_id == [0; 32] {
         return None;
     }
     let (submission, achieved) = decode_tracked(reader)?;
-    let executed = submission.get("state") == Some(&Value::String("Executed".into()));
+    if submission.get("tx_hash")? != &hexv(&activity_id) {
+        return None;
+    }
+    let executed = matches!(
+        submission.get("state").and_then(Value::as_str),
+        Some("Executed" | "Committed")
+    );
     let receipt = match reader.u8()? {
         0 => None,
         1 => Some(decode_receipt(reader)?.0),
         _ => return None,
     };
+    if receipt.as_ref().is_some_and(|value| {
+        value.get("tx_hash") != Some(&hexv(&activity_id))
+            || value.get("rung") != submission.get("rung")
+    }) {
+        return None;
+    }
     if executed != receipt.is_some() {
         return None;
     }
@@ -509,56 +899,141 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
     Some((Value::Object(out), achieved))
 }
 
-fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
-    let mut out = Map::new();
-    out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
-    let mut batch = Map::new();
-    for name in [
-        "batch_id",
-        "asset",
-        "previous_state_root",
-        "resulting_state_root",
-        "sequencer_public_key",
-    ] {
-        batch.insert(name.into(), hexv(&reader.fixed::<32>()?));
-    }
-    out.insert("authorised_batch".into(), Value::Object(batch));
-    let achieved = match reader.u8()? {
-        0 => return None,
-        value => level(value)?,
+fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let mut decoder =
+        layerx_wire::decode::Decoder::new(reader.bytes.get(reader.offset..)?, MAX_BYTES);
+    let frame = ReceiptLookupFrame::decode_from(&mut decoder).ok()?;
+    reader.offset += decoder.offset();
+    receipt_value(frame)
+}
+
+fn receipt_value(frame: ReceiptLookupFrame) -> Option<(Value, Option<Rung>)> {
+    use sha2::{Digest, Sha256};
+    let receipt = layerx_wire::receipt::decode(&frame.canonical_bytes).ok()?;
+    let protocol = receipt.protocol()?;
+    let batch = frame.authorised_batch;
+    let key = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: frame.receipt_key_id,
+        public_key: frame.public_key,
+        first_height: frame.first_height,
+        last_height: frame.last_height,
     };
+    let height = protocol.batch_id();
+    if frame.rung < Rung::Receipted
+        || frame.signed_receipt != frame.canonical_bytes
+        || frame.receipt_hash != <[u8; 32]>::from(Sha256::digest(&frame.canonical_bytes))
+        || frame.tx_hash != protocol.activity_id()
+        || frame.block_height == 0
+        || frame.inclusion_height != frame.block_height
+        || height[..24] != [0; 24]
+        || u64::from_be_bytes(height[24..].try_into().ok()?) != frame.block_height
+        || protocol.batch_id() != batch.batch_id()
+        || protocol.asset() != batch.asset()
+        || protocol.previous_state_root() != batch.previous_state_root()
+        || protocol.resulting_state_root() != batch.resulting_state_root()
+        || key.public_key != batch.sequencer_public_key()
+    {
+        return None;
+    }
+    crate::finality::VerifiedReceipt::verify(frame.tx_hash, &frame.canonical_bytes, &[key]).ok()?;
+    let mut out = Map::new();
+    out.insert("tx_hash".into(), hexv(&frame.tx_hash));
+    out.insert("canonical_bytes".into(), hexv(&frame.canonical_bytes));
+    let mut authorised = Map::new();
+    for (name, value) in [
+        ("batch_id", batch.batch_id()),
+        ("asset", batch.asset()),
+        ("previous_state_root", batch.previous_state_root()),
+        ("resulting_state_root", batch.resulting_state_root()),
+        ("sequencer_public_key", batch.sequencer_public_key()),
+    ] {
+        authorised.insert(name.into(), hexv(&value));
+    }
+    out.insert("authorised_batch".into(), Value::Object(authorised));
     out.insert(
         "verification_level".into(),
-        Value::String(level_name(achieved).into()),
+        dec(frame.verification_level.wire_rank()),
     );
+    out.insert("receipt_hash".into(), hexv(&frame.receipt_hash));
+    out.insert("block_height".into(), dec(frame.block_height));
+    out.insert("signed_receipt".into(), hexv(&frame.signed_receipt));
+    out.insert("receipt_key_id".into(), hexv(&frame.receipt_key_id));
+    out.insert("public_key".into(), hexv(&frame.public_key));
+    out.insert("first_height".into(), dec(frame.first_height));
+    out.insert("last_height".into(), dec(frame.last_height));
+    out.insert("inclusion_height".into(), dec(frame.inclusion_height));
+    let achieved = frame.rung;
+    out.insert("rung".into(), Value::String(rung_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
 }
 
-fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
-    match reader.u8()? {
-        0 => {
+fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let answer = ReceiptLookupAnswer::decode(reader.bytes.get(reader.offset..)?).ok()?;
+    reader.offset = reader.bytes.len();
+    match answer {
+        ReceiptLookupAnswer::Absent => {
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(false));
             Some((Value::Object(out), None))
         }
-        1 => {
-            let (receipt, achieved) = decode_receipt(reader)?;
+        ReceiptLookupAnswer::Found(frame) => {
+            let (receipt, achieved) = receipt_value(frame)?;
             let mut out = Map::new();
             out.insert("found".into(), Value::Bool(true));
             out.insert("receipt".into(), receipt);
             Some((Value::Object(out), achieved))
         }
-        _ => None,
+        ReceiptLookupAnswer::Submitted { tx_hash, nonce } => Some((
+            serde_json::json!({
+                "found": false,
+                "submitted": {"tx_hash": format!("0x{}", lower_hex(&tx_hash)), "nonce": dec(nonce)},
+            }),
+            Some(Rung::Submitted),
+        )),
     }
 }
 
-/// Mirrors the client prepare reader. The client additionally re-binds the disclosure against
-/// its activity registry; that registry check is not repeated here.
-pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+/// Reads a preparation reference, the type-2 call fields, and the activity disclosure.
+/// The signing hash is derived from the call rather than trusted from the owner payload.
+/// The client additionally re-binds the disclosure against its activity registry.
+pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     out.insert("preparation_ref".into(), Value::String(reader.text()?));
-    out.insert("unsigned_canonical_bytes".into(), hexv(reader.bytes()?));
-    out.insert("signing_preimage".into(), hexv(reader.bytes()?));
+    if reader.u8()? != 2 {
+        return None;
+    }
+    let transaction = Eip1559Call {
+        chain_id: reader.u64()?,
+        nonce: reader.u64()?,
+        max_priority_fee_per_gas: reader.u128()?,
+        max_fee_per_gas: reader.u128()?,
+        gas_limit: reader.u64()?,
+        to: reader.fixed::<20>()?,
+        data: {
+            let length = usize::try_from(reader.u32()?).ok()?;
+            if length > MAX_BYTES {
+                return None;
+            }
+            reader.take(length)?.to_vec()
+        },
+    };
+    if transaction.chain_id == 0
+        || transaction.gas_limit == 0
+        || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+    {
+        return None;
+    }
+    out.insert("chain_id".into(), dec(transaction.chain_id));
+    out.insert("nonce".into(), dec(transaction.nonce));
+    out.insert(
+        "max_priority_fee_per_gas".into(),
+        dec(transaction.max_priority_fee_per_gas),
+    );
+    out.insert("max_fee_per_gas".into(), dec(transaction.max_fee_per_gas));
+    out.insert("gas_limit".into(), dec(transaction.gas_limit));
+    out.insert("to".into(), hexv(&transaction.to));
+    out.insert("data".into(), hexv(&transaction.data));
+    out.insert("signing_hash".into(), hexv(&transaction.signing_hash()));
     out.insert("activity_type".into(), dec(reader.u32()?));
     out.insert("actor".into(), Value::String(reader.text()?));
     out.insert("authority".into(), Value::String(reader.text()?));
@@ -572,7 +1047,56 @@ pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Opti
     Some((Value::Object(out), None))
 }
 
-pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+/// Decodes the same bounded owner payload used by the prepare dispatch path.
+///
+/// # Errors
+/// Returns an owner fault for malformed, invalid, or trailing payload bytes.
+pub fn decode_eip1559_prepare_answer(
+    request_id: RequestId,
+    response: HumanResponse,
+) -> Result<Value, Rejection> {
+    dispatched(request_id, Ok(response), decode_preparation).map(|answer| answer.value)
+}
+
+fn decode_eip1559_submission(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let preparation_ref = reader.text()?;
+    let raw_transaction = reader.bytes()?;
+    let (transaction, signature) = decode_signed(raw_transaction).ok()?;
+    recover_sender(&transaction, &signature).ok()?;
+    let tx_hash = transaction_hash(raw_transaction);
+    let signed_receipt = reader.bytes()?;
+    let receipt = layerx_wire::receipt::decode(signed_receipt).ok()?;
+    let protocol = receipt.protocol()?;
+    if protocol.activity_id() != tx_hash
+        || protocol.sequencer_signature().is_none()
+        || layerx_wire::receipt::encode(&receipt).ok()?.as_slice() != signed_receipt
+    {
+        return None;
+    }
+    Some((
+        serde_json::json!({
+            "preparation_ref": preparation_ref,
+            "state": "Receipted",
+            "signed_receipt": lower_hex(signed_receipt),
+            "tx_hash": lower_hex(&tx_hash),
+        }),
+        None,
+    ))
+}
+
+/// Decodes a preparation reference, signed transaction, and canonical signed receipt.
+/// The receipt must name the hash of that exact signed transaction.
+///
+/// # Errors
+/// Returns an owner fault for malformed transactions, mismatched receipts, or trailing bytes.
+pub fn decode_eip1559_submit_answer(
+    request_id: RequestId,
+    response: HumanResponse,
+) -> Result<Value, Rejection> {
+    dispatched(request_id, Ok(response), decode_eip1559_submission).map(|answer| answer.value)
+}
+
+pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let outcome = reader.u8()?;
     let submission_ref = match reader.u8()? {
         0 => None,
@@ -595,10 +1119,24 @@ pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<
     };
     let mut out = Map::new();
     out.insert("status".into(), Value::String(status.into()));
+    out.insert("outcome".into(), Value::String(status.into()));
     out.insert(
         "submission_ref".into(),
         if effective == 0 {
             submission_ref.map_or(Value::Null, |reference| hexv(&reference))
+        } else {
+            Value::Null
+        },
+    );
+    let tx_hash = if effective == 0 { submission_ref } else { None };
+    out.insert(
+        "tx_hash".into(),
+        tx_hash.map_or(Value::Null, |hash| hexv(&hash)),
+    );
+    out.insert(
+        "rung".into(),
+        if tx_hash.is_some() {
+            Value::String(Rung::Submitted.name().into())
         } else {
             Value::Null
         },
@@ -665,7 +1203,7 @@ fn decode_approval(reader: &mut Reader<'_>) -> Option<Value> {
     Some(Value::Object(out))
 }
 
-fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let count = usize::from(reader.u8()?);
     if count > MAX_APPROVALS {
         return None;
@@ -685,8 +1223,37 @@ fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>
     Some((Value::Object(out), None))
 }
 
-fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     Some((decode_approval(reader)?, None))
+}
+
+pub fn merge_tracked_approval(
+    id: RequestId,
+    mut approval: Value,
+    tracked: Value,
+) -> Result<Value, Rejection> {
+    let invalid = || rejection(ErrorClass::InternalFault, id, "owner.response_malformed");
+    let reference = approval
+        .get("submission_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(invalid)?;
+    if approval.get("state").and_then(Value::as_str) != Some("Approved")
+        || hex32(reference, id).is_err()
+        || tracked.get("submission_ref").and_then(Value::as_str) != Some(reference)
+        || tracked.get("tx_hash").and_then(Value::as_str) != Some(reference)
+    {
+        return Err(invalid());
+    }
+    let rung = tracked
+        .get("rung")
+        .and_then(Value::as_str)
+        .and_then(Rung::from_name)
+        .ok_or_else(invalid)?;
+    let tx_hash = tracked.get("tx_hash").cloned().ok_or_else(invalid)?;
+    let fields = approval.as_object_mut().ok_or_else(invalid)?;
+    fields.insert("tx_hash".into(), tx_hash);
+    fields.insert("rung".into(), Value::String(rung.name().into()));
+    Ok(approval)
 }
 
 /// Decodes the owner payload with the operation's bounded decoder. A payload that does not
@@ -694,7 +1261,7 @@ fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)
 pub(crate) fn dispatched(
     request_id: RequestId,
     response: Result<HumanResponse, HumanOperationError>,
-    decoder: impl FnOnce(&mut Reader<'_>) -> Option<(Value, Option<Level>)>,
+    decoder: impl FnOnce(&mut Reader<'_>) -> Option<(Value, Option<Rung>)>,
 ) -> Result<Dispatched, Rejection> {
     let response = response.map_err(|error| owner_error(request_id, error))?;
     let mut reader = Reader {
@@ -752,7 +1319,27 @@ struct ReadAccountRequest {
     tenant: Option<String>,
     #[serde(default, skip_serializing)]
     agent: Option<String>,
+    #[serde(alias = "account")]
     account_id: String,
+    #[serde(
+        default,
+        alias = "requested_rung",
+        skip_serializing_if = "Option::is_none"
+    )]
+    requested_verification_level: Option<String>,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct ReadBalanceRequest {
+    #[serde(default, skip_serializing)]
+    tenant: Option<String>,
+    #[serde(default, skip_serializing)]
+    agent: Option<String>,
+    account: String,
+    asset: String,
+    #[serde(alias = "requested_rung")]
+    requested_verification_level: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -806,6 +1393,18 @@ struct ActivityLookupRequest {
     agent: Option<String>,
     idempotency_key: String,
     expected_activity_id: String,
+    requested_rung: String,
+}
+
+impl ActivityLookupRequest {
+    fn requested_level(&self, id: RequestId) -> Result<Rung, Rejection> {
+        match self.requested_rung.as_str() {
+            "submitted" => Ok(Rung::Submitted),
+            "receipted" => Ok(Rung::Receipted),
+            "committed" => Ok(Rung::Committed),
+            _ => Err(malformed(id)),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -843,16 +1442,39 @@ pub(crate) struct PrepareRequest {
 }
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct SubmitRequest {
-    #[serde(default)]
-    tenant: Option<String>,
-    #[serde(default)]
-    agent: Option<String>,
-    preparation_ref: String,
-    signature: String,
-    signer_public_key: String,
-    approval_release_ref: Option<String>,
+#[serde(untagged, deny_unknown_fields)]
+pub(crate) enum SubmitRequest {
+    Raw {
+        raw_transaction: String,
+    },
+    Prepared {
+        #[serde(default)]
+        tenant: Option<String>,
+        #[serde(default)]
+        agent: Option<String>,
+        preparation_ref: String,
+        signature: String,
+        signer_public_key: String,
+        approval_release_ref: Option<String>,
+    },
+}
+
+fn raw_submit_bytes(request: SubmitRequest, id: RequestId) -> Result<Vec<u8>, Rejection> {
+    let SubmitRequest::Raw { raw_transaction } = request else {
+        return Err(malformed(id));
+    };
+    let raw = hex_bytes(
+        raw_transaction
+            .strip_prefix("0x")
+            .ok_or_else(|| malformed(id))?,
+        id,
+    )?;
+    if raw.len() > MAX_BYTES {
+        return Err(malformed(id));
+    }
+    let (call, signature) = decode_signed(&raw).map_err(|_| malformed(id))?;
+    recover_sender(&call, &signature).map_err(|_| malformed(id))?;
+    Ok(raw)
 }
 
 pub(crate) fn human_prepare(
@@ -865,9 +1487,9 @@ pub(crate) fn human_prepare(
             .map_err(|_| noncanonical(request_id))?,
         actor: request.actor,
         authority: request.authority,
-        account_sequence: decimal_u64(&request.account_sequence, request_id)?,
-        not_before: decimal_u64(&request.not_before, request_id)?,
-        not_after: decimal_u64(&request.not_after, request_id)?,
+        nonce: decimal_u64(&request.account_sequence, request_id)?,
+        not_before_height: decimal_u64(&request.not_before, request_id)?,
+        not_after_height: decimal_u64(&request.not_after, request_id)?,
         idempotency_key: request.idempotency_key,
         fee_limit: decimal_u128(&request.fee_limit, request_id)?,
         payload: hex_bytes(&request.payload, request_id)?,
@@ -884,13 +1506,23 @@ pub(crate) fn human_submit(
     request: SubmitRequest,
     request_id: RequestId,
 ) -> Result<HumanSubmit, Rejection> {
-    let _ = (request.tenant, request.agent);
+    let SubmitRequest::Prepared {
+        tenant,
+        agent,
+        preparation_ref,
+        signature,
+        signer_public_key,
+        approval_release_ref,
+    } = request
+    else {
+        return Err(malformed(request_id));
+    };
+    let _ = (tenant, agent);
     Ok(HumanSubmit {
-        preparation_ref: request.preparation_ref,
-        signature: hex_bytes(&request.signature, request_id)?,
-        signer_public_key: hex32(&request.signer_public_key, request_id)?,
-        approval_release_ref: request
-            .approval_release_ref
+        preparation_ref,
+        signature: hex_bytes(&signature, request_id)?,
+        signer_public_key: hex32(&signer_public_key, request_id)?,
+        approval_release_ref: approval_release_ref
             .map(|text| hex32(&text, request_id))
             .transpose()?,
     })
@@ -944,8 +1576,13 @@ pub(crate) fn canonical_request_bytes(
         Operation::ReadAccount => {
             named(operation, &decode::<ReadAccountRequest>(request, id)?, id)?
         }
-        Operation::ReadBalance | Operation::ReadCheckpoint => {
-            named(operation, &decode::<CoordinatesOnly>(request, id)?, id)?
+        Operation::ReadBalance => {
+            named(operation, &decode::<ReadBalanceRequest>(request, id)?, id)?
+        }
+        Operation::ReadCheckpoint => {
+            let request: crate::read::CheckpointRequest = decode(request, id)?;
+            request.height().map_err(|_| malformed(id))?;
+            named(operation, &request, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
         Operation::ApprovalList => {
@@ -972,11 +1609,11 @@ pub(crate) fn canonical_request_bytes(
                 named(operation, &decode::<ApprovalGetRequest>(request, id)?, id)?
             }
         }
-        Operation::ProgramReceipt => named(
-            operation,
-            &decode::<ActivityLookupRequest>(request, id)?,
-            id,
-        )?,
+        Operation::ProgramReceipt => {
+            let request: ActivityLookupRequest = decode(request, id)?;
+            request.requested_level(id)?;
+            named(operation, &request, id)?
+        }
         Operation::ApprovalApprove | Operation::ApprovalReject => {
             if native_variant(request, id)? {
                 wire_bytes::<NativeApprovalDecisionV1Wire, _>(
@@ -995,21 +1632,30 @@ pub(crate) fn canonical_request_bytes(
         }
         Operation::Prepare => {
             if request.get("variant").and_then(Value::as_str) == Some("native_disclosure_v1") {
-                let typed = decode_wire::<crate::agent_rpc_wire::NativeDisclosureV1Wire>(request, id)?.into_request(id)?;
-                return serde_json::to_vec(&typed.canonical()).map(Some).map_err(|_| malformed(id));
+                let typed =
+                    decode_wire::<crate::agent_rpc_wire::NativeDisclosureV1Wire>(request, id)?
+                        .into_request(id)?;
+                return serde_json::to_vec(&typed.canonical())
+                    .map(Some)
+                    .map_err(|_| malformed(id));
             }
             if native_send_variant(request) {
-                let typed = decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
+                let typed =
+                    decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
                 return native_send_prepare_digest(&typed)
                     .map(|digest| Some(digest.to_vec()))
                     .map_err(|_| malformed(id));
             }
             if native_effect_variant(request) {
-                let typed = decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_request(id)?;
-                return native_effect_prepare_digest(&typed).map(|digest| Some(digest.to_vec())).map_err(|_| malformed(id));
+                let typed =
+                    decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_request(id)?;
+                return native_effect_prepare_digest(&typed)
+                    .map(|digest| Some(digest.to_vec()))
+                    .map_err(|_| malformed(id));
             }
             if native_registration_variant(request) {
-                let typed = decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_registration(id)?;
+                let typed =
+                    decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_registration(id)?;
                 return native_registration_prepare_digest(&typed)
                     .map(|digest| Some(digest.to_vec()))
                     .map_err(|_| malformed(id));
@@ -1028,7 +1674,12 @@ pub(crate) fn canonical_request_bytes(
             .to_vec()
         }
         Operation::Submit => {
-            if native_send_submit_variant(request) {
+            if request.contains_key("raw_transaction") {
+                let raw = raw_submit_bytes(decode(request, id)?, id)?;
+                let mut bytes = b"activity.submit/raw_transaction\0".to_vec();
+                bytes.extend(raw);
+                bytes
+            } else if native_send_submit_variant(request) {
                 let typed = decode_wire::<NativeSendSubmitV1Wire>(request, id)?.into_request(id)?;
                 submit_digest(&typed).to_vec()
             } else {
@@ -1123,14 +1774,23 @@ pub(crate) fn canonical_request_bytes(
             id,
             ProgramWindDownWire::into_request,
         )?,
-        Operation::AgentRegister
-        | Operation::SessionOpen
-        | Operation::AvailabilityFetch
+        Operation::AgentRegister => {
+            let wire: AgentRegistrationWire = decode(request, id)?;
+            let canonical = named(operation, &wire, id)?;
+            wire.into_request(id)?;
+            canonical
+        }
+        Operation::SessionOpen => {
+            let wire: SessionOpenWire = decode(request, id)?;
+            let canonical = named(operation, &wire, id)?;
+            wire.into_request(id)?;
+            canonical
+        }
+        Operation::AvailabilityFetch
         | Operation::BudgetList
         | Operation::BudgetReconciliation
         | Operation::CapabilityList
         | Operation::ExportOffline
-        | Operation::FaucetClaim
         | Operation::ProgramActivity
         | Operation::ProgramDiscover
         | Operation::ProgramInterface
@@ -1175,10 +1835,16 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
     match operation {
         Operation::TenantReadiness => {
             if !request.is_empty() {
-                return Err(rejection(ErrorClass::ProtocolIncompatibility, id, "envelope.unknown_field"));
+                return Err(rejection(
+                    ErrorClass::ProtocolIncompatibility,
+                    id,
+                    "envelope.unknown_field",
+                ));
             }
             let guard = shared.lock().map_err(|error| owner_error(id, error))?;
-            let value = guard.rpc_tenant_readiness(context).map_err(|error| owner_error(id, error))?;
+            let value = guard
+                .rpc_tenant_readiness(context)
+                .map_err(|error| owner_error(id, error))?;
             Ok(Dispatched {
                 value: serde_json::json!({
                     "transport_ready": value.transport_ready,
@@ -1193,27 +1859,46 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let request: ReadAccountRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
             let account_id = hex32(&request.account_id, id)?;
+            if let Some(level) = &request.requested_verification_level {
+                Rung::from_name(level).ok_or_else(|| malformed(id))?;
+            }
             dispatched(id, owner.account_state(peer, account_id), |reader| {
                 decode_account_state(reader, account_id)
             })
         }
         Operation::ReadBalance => {
-            let request: CoordinatesOnly = decode(request, id)?;
+            let request: ReadBalanceRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            dispatched(id, owner.balance(peer), decode_balance)
+            let account = hex32(&request.account, id)?;
+            let asset = hex32(&request.asset, id)?;
+            Rung::from_name(&request.requested_verification_level).ok_or_else(|| malformed(id))?;
+            dispatched(id, owner.balance(peer), |reader| {
+                let result = decode_balance(reader)?;
+                (result.0["value"]["account"] == hexv(&account)
+                    && result.0["value"]["asset"] == hexv(&asset))
+                .then_some(result)
+            })
         }
         Operation::ReadCheckpoint => {
-            let request: CoordinatesOnly = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            dispatched(id, owner.head(peer), decode_head)
+            let request: crate::read::CheckpointRequest = decode(request, id)?;
+            request.height().map_err(|_| malformed(id))?;
+            let value = shared
+                .lock()
+                .and_then(|mut guard| guard.rpc_read_checkpoint(context, request))
+                .map_err(|error| owner_error(id, error))?;
+            Ok(Dispatched {
+                value,
+                verification: Some(VerificationStatus::Achieved(Rung::Committed)),
+            })
         }
         Operation::Track => {
             let request: TrackRequest = decode(request, id)?;
             let _ = (request.tenant, request.agent);
+            submission_key(&request.submission_ref, id)?;
             dispatched(
                 id,
                 owner.track(peer, &request.submission_ref),
-                decode_observation,
+                decode_tracked,
             )
         }
         Operation::ApprovalList => {
@@ -1240,28 +1925,34 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let _ = (request.tenant, request.agent);
             let approval_id = hex32(&request.approval_id, id)?;
             let current_sequence = decimal_u64(&request.current_sequence, id)?;
-            dispatched(
+            let mut approval = dispatched(
                 id,
                 owner.approval_get(peer, approval_id, current_sequence),
                 decode_approval_get,
-            )
+            )?;
+            if approval.value.get("state").and_then(Value::as_str) == Some("Approved") {
+                let reference = approval
+                    .value
+                    .get("submission_ref")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        rejection(ErrorClass::InternalFault, id, "owner.response_malformed")
+                    })?;
+                submission_key(reference, id)?;
+                let tracked = dispatched(id, owner.track(peer, reference), decode_tracked)?;
+                approval.value = merge_tracked_approval(id, approval.value, tracked.value)?;
+            }
+            Ok(approval)
         }
-        Operation::ProgramReceipt => {
-            let request: ActivityLookupRequest = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let key = hex32(&request.idempotency_key, id)?;
-            let activity = hex32(&request.expected_activity_id, id)?;
-            dispatched(
-                id,
-                owner.receipt_by_idempotency_key(peer, key, activity),
-                decode_receipt_lookup,
-            )
-        }
+        Operation::ProgramReceipt => dispatch_program_receipt(request, id, |key, activity| {
+            owner.receipt_by_idempotency_key(peer, key, activity)
+        }),
         Operation::ApprovalApprove => adapters::approval_approve(shared, context, request, ctx),
         Operation::ApprovalReject => adapters::approval_reject(shared, context, request, ctx),
         Operation::Prepare => {
             if native_send_variant(request) {
-                let typed = decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
+                let typed =
+                    decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
                 let envelope = crate::human::MutationEnvelope {
                     request_id: id.0,
                     key: mutation_key(ctx)?,
@@ -1277,7 +1968,15 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             }
         }
         Operation::Submit => {
-            if native_send_submit_variant(request) {
+            if request.contains_key("raw_transaction") {
+                let (value, rung) = dispatch_raw_submit(request, id, |raw| {
+                    shared.lock()?.rpc_submit_raw(context, raw)
+                })?;
+                Ok(Dispatched {
+                    value,
+                    verification: Some(VerificationStatus::Achieved(rung)),
+                })
+            } else if native_send_submit_variant(request) {
                 let typed = decode_wire::<NativeSendSubmitV1Wire>(request, id)?.into_request(id)?;
                 let preparation_id = hex32(&typed.preparation_ref, id)?;
                 let envelope = crate::human::MutationEnvelope {
@@ -1292,14 +1991,19 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
                 });
                 dispatched(id, response, decode_observation)
             } else {
-                adapters::submit(shared, context, request, ctx)
+                let typed = human_submit(decode(request, id)?, id)?;
+                let envelope = crate::human::MutationEnvelope {
+                    request_id: id.0,
+                    key: mutation_key(ctx)?,
+                    body_digest: submit_digest(&typed),
+                    operation: typed,
+                };
+                let response = shared
+                    .lock()
+                    .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
+                dispatched(id, response, decode_submitted)
             }
         }
-        Operation::FaucetClaim => Err(rejection(
-            ErrorClass::UnavailableCapability,
-            id,
-            "unavailable_capability.faucet.claim",
-        )),
         Operation::BudgetCreate => adapters::budget_create(shared, context, request, ctx),
         Operation::BudgetFund => adapters::budget_fund(shared, context, request, ctx),
         Operation::BudgetList => adapters::budget_list(shared, context, request, ctx),
@@ -1352,11 +2056,97 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         Operation::ProgramSimulate => adapters::program_simulate(shared, context, request, ctx),
         Operation::ProgramUpgrade => adapters::program_upgrade(shared, context, request, ctx),
         Operation::ProgramWindDown => adapters::program_wind_down(shared, context, request, ctx),
-        Operation::AgentRegister | Operation::SessionOpen => Err(rejection(
-            ErrorClass::PolicyRefusal,
-            id,
-            "refused_pending_bootstrap_artifact",
-        )),
+        Operation::AgentRegister | Operation::SessionOpen => {
+            let registration = if operation == Operation::AgentRegister {
+                Some(decode::<AgentRegistrationWire>(request, id)?.into_request(id)?)
+            } else {
+                None
+            };
+            let session = if operation == Operation::SessionOpen {
+                Some(decode::<SessionOpenWire>(request, id)?.into_request(id)?)
+            } else {
+                None
+            };
+            let authority = if let Some(request) = &registration {
+                bootstrap_authority(
+                    shared,
+                    context,
+                    request.tenant.as_str(),
+                    request.agent_did.as_str(),
+                    request.authority_ref.as_str(),
+                    request.client.as_str(),
+                    request.policy_version.as_str(),
+                    None,
+                    id,
+                )?
+            } else {
+                let asserted = &session.as_ref().ok_or_else(|| malformed(id))?.context;
+                bootstrap_authority(
+                    shared,
+                    context,
+                    asserted.tenant.as_str(),
+                    asserted.agent_did.as_str(),
+                    asserted.authority_ref.as_str(),
+                    asserted.client.as_str(),
+                    asserted.policy_version.as_str(),
+                    Some(asserted),
+                    id,
+                )?
+            };
+            let public_key = hex32(
+                authority
+                    .agent_did
+                    .as_str()
+                    .strip_prefix("did:layerx:")
+                    .ok_or_else(|| malformed(id))?,
+                id,
+            )?;
+            let config = crate::node_rpc::NodeRpcConfig::from_environment()
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            let certificates = rustls_native_certs::load_native_certs();
+            if !certificates.errors.is_empty() {
+                return Err(owner_error(id, HumanOperationError::Unavailable));
+            }
+            let roots: Vec<&[u8]> = certificates
+                .certs
+                .iter()
+                .map(|cert| cert.as_ref())
+                .collect();
+            let endpoint = layerx_client::sequencer::SequencerEndpoint::new(&config.url, &roots)
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            if endpoint
+                .chain_id()
+                .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?
+                != config.chain_id
+            {
+                return Err(owner_error(id, HumanOperationError::Refused));
+            }
+            let boundary =
+                crate::prepare::evm::ProductionEvmPreparationBoundary::new(&config.url, &roots)
+                    .map_err(|_| owner_error(id, HumanOperationError::Unavailable))?;
+            let prepared = if let Some(request) = &registration {
+                agent_register(&boundary, &endpoint, request, public_key, id)?
+            } else {
+                let guard = shared.lock().map_err(|e| owner_error(id, e))?;
+                session_open(
+                    &boundary,
+                    &endpoint,
+                    &guard.session_keys,
+                    session.as_ref().ok_or_else(|| malformed(id))?,
+                    public_key,
+                    id,
+                )?
+            };
+            if prepared.call.chain_id != config.chain_id {
+                return Err(owner_error(id, HumanOperationError::Refused));
+            }
+            let guard = shared.lock().map_err(|e| owner_error(id, e))?;
+            context
+                .permit()
+                .boundary(&guard.session_control)
+                .map_err(|_| owner_error(id, HumanOperationError::Refused))?;
+            Ok(bootstrap_response(authority, prepared))
+        }
         Operation::ReadProofBundle => adapters::read_proof_bundle(shared, context, request, ctx),
         Operation::ProgramInterface => adapters::program_interface(shared, context, request, ctx),
         Operation::McpInvoke => Err(rejection(
@@ -1365,6 +2155,183 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             "mcp.operation_refused",
         )),
     }
+}
+
+pub fn dispatch_program_receipt(
+    request: &Map<String, Value>,
+    id: RequestId,
+    lookup: impl FnOnce([u8; 32], [u8; 32]) -> Result<HumanResponse, HumanOperationError>,
+) -> Result<Dispatched, Rejection> {
+    let request: ActivityLookupRequest = decode(request, id)?;
+    let requested = request.requested_level(id)?;
+    let key = hex32(&request.idempotency_key, id)?;
+    let activity = hex32(&request.expected_activity_id, id)?;
+    let mut receipt = dispatched(id, lookup(key, activity), decode_receipt_lookup)?;
+    if receipt.value.get("found") == Some(&Value::Bool(true)) {
+        if receipt.value["receipt"]["tx_hash"] != hexv(&activity) {
+            return Err(rejection(
+                ErrorClass::InternalFault,
+                id,
+                "owner.response_malformed",
+            ));
+        }
+        if let Some(VerificationStatus::Achieved(achieved)) = receipt.verification {
+            if achieved < requested {
+                receipt.verification = Some(VerificationStatus::Below {
+                    requested,
+                    achieved,
+                    reason: layerx_agent_api::error::ReasonCode::new("requested_rung_not_achieved")
+                        .map_err(|_| malformed(id))?,
+                });
+            }
+        }
+    }
+    Ok(receipt)
+}
+
+#[cfg(test)]
+mod verification_receipt_lookup_tests {
+    use super::*;
+    use layerx_client::rpc::receipt::Lookup;
+
+    fn answer_not_ready_lookup(lookup: &Lookup, submitted: bool) {
+        let id = RequestId(1430);
+        for (name, requested) in [
+            ("submitted", Rung::Submitted),
+            ("receipted", Rung::Receipted),
+            ("committed", Rung::Committed),
+        ] {
+            let request = serde_json::json!({
+                "idempotency_key": "ab".repeat(32),
+                "expected_activity_id": "cd".repeat(32),
+                "requested_rung": name,
+            });
+            let answer = dispatch_program_receipt(
+                request.as_object().expect("request is an object"),
+                id,
+                |key, activity| {
+                    assert_eq!(key, [0xab; 32]);
+                    assert_eq!(activity, [0xcd; 32]);
+                    let bytes = crate::human_runtime::receipt_lookup_not_ready_bytes(lookup)
+                        .expect("real owner encodes a not-ready lookup");
+                    Ok(HumanResponse::new(bytes).expect("owner response is bounded"))
+                },
+            )
+            .expect("ProgramReceipt dispatch accepts the owner lookup");
+            if submitted {
+                assert!(matches!(
+                    answer.verification,
+                    Some(VerificationStatus::Achieved(Rung::Submitted))
+                ));
+            } else {
+                assert!(answer.verification.is_none());
+            }
+            let response = crate::agent_rpc::success_body(id, &answer, Some(Some(requested)))
+                .expect("not-ready lookup is rendered without a verification failure");
+            assert_eq!(response.status, 200);
+            let body: Value = serde_json::from_slice(&response.body).expect("JSON response");
+            let (value, verification) = if submitted {
+                (
+                    serde_json::json!({
+                        "found": false,
+                        "submitted": {
+                            "tx_hash": format!("0x{}", "ab".repeat(32)),
+                            "nonce": "72623859790382856",
+                        },
+                    }),
+                    if requested == Rung::Submitted {
+                        serde_json::json!({"state": "achieved", "rung": "submitted"})
+                    } else {
+                        serde_json::json!({
+                            "state": "pending", "requested": name, "achieved": "submitted",
+                        })
+                    },
+                )
+            } else {
+                (
+                    serde_json::json!({"found": false}),
+                    serde_json::json!({"state": "absent", "requested": name}),
+                )
+            };
+            assert_eq!(
+                body,
+                serde_json::json!({
+                    "request_id": "1430", "value": value, "verification_status": verification,
+                })
+            );
+            assert!(body["verification_status"].get("reason").is_none());
+            assert!(body.get("error").is_none());
+            assert!(!String::from_utf8(response.body)
+                .expect("JSON is UTF-8")
+                .contains("verification.inconsistent"));
+        }
+    }
+
+    #[test]
+    fn program_receipt_answers_a_submitted_lookup_as_not_ready() {
+        answer_not_ready_lookup(
+            &Lookup::Submitted {
+                tx_hash: [0xab; 32],
+                nonce: 0x0102_0304_0506_0708,
+            },
+            true,
+        );
+    }
+
+    #[test]
+    fn program_receipt_answers_an_absent_lookup_without_submission_evidence() {
+        answer_not_ready_lookup(&Lookup::Absent, false);
+    }
+}
+
+#[test]
+fn program_receipt_request_requires_an_advertised_rung() {
+    let id = RequestId(13);
+    let mut request = Map::new();
+    request.insert("idempotency_key".into(), Value::String("ab".repeat(32)));
+    request.insert(
+        "expected_activity_id".into(),
+        Value::String("cd".repeat(32)),
+    );
+
+    for (name, level) in [
+        ("submitted", Rung::Submitted),
+        ("receipted", Rung::Receipted),
+        ("committed", Rung::Committed),
+    ] {
+        request.insert("requested_rung".into(), Value::String(name.into()));
+        let original = request.clone();
+        let bytes = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+            .expect("an advertised rung is accepted")
+            .expect("program.receipt has canonical request bytes");
+        let prefix = b"program.receipt\0";
+        assert!(bytes.starts_with(prefix));
+        let canonical: Value = serde_json::from_slice(&bytes[prefix.len()..])
+            .expect("canonical request contains JSON");
+        assert_eq!(canonical, Value::Object(original.clone()));
+        assert_eq!(request, original);
+        let typed: ActivityLookupRequest = decode(&request, id).expect("selector decodes");
+        assert_eq!(typed.requested_level(id).expect("rung decodes"), level);
+    }
+
+    request.remove("requested_rung");
+    let missing = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("requested_rung is required");
+    assert_eq!(missing.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(missing.reason, "envelope.malformed");
+
+    request.insert("requested_rung".into(), Value::String("pending".into()));
+    let pending = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("pending is not an advertised rung");
+    assert_eq!(pending.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(pending.reason, "envelope.malformed");
+
+    request.insert("requested_rung".into(), Value::String("submitted".into()));
+    request.insert("extra".into(), Value::Bool(true));
+    let extra = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("unknown selector fields are refused");
+    assert_eq!(extra.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(extra.reason, "envelope.unknown_field");
 }
 
 #[test]
@@ -1405,7 +2372,6 @@ fn typed_owner_refusals_keep_their_class_and_reason() {
     let id = RequestId(11);
     for refusal in [
         crate::human::HumanRefusal::StalePinnedHead,
-        crate::human::HumanRefusal::ExportSettlementAnchoringUnavailable,
         crate::human::HumanRefusal::BudgetAuthorizationRequired,
         crate::human::HumanRefusal::Policy(
             crate::policy::PolicyDryRunRefusal::LegacyProjectPayload,
@@ -1439,4 +2405,172 @@ fn canonical_decimals_and_hex_are_exact() {
     assert!(hex32(&"AB".repeat(32), id).is_err());
     assert!(hex32(&"ab".repeat(31), id).is_err());
     assert_eq!(lower_hex(&[0x0f, 0xa0]), "0fa0");
+}
+
+pub fn submission_key(text: &str, id: RequestId) -> Result<[u8; 32], Rejection> {
+    hex32(text, id)
+        .map_err(|_| rejection(ErrorClass::ProtocolIncompatibility, id, "invalid_request"))
+}
+
+pub(crate) fn decode_submitted(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
+    let (observation, rung) = decode_observation(reader)?;
+    Some((observation.get("submission")?.clone(), rung))
+}
+
+pub fn dispatch_raw_submit(
+    request: &Map<String, Value>,
+    id: RequestId,
+    submit: impl FnOnce(Vec<u8>) -> Result<HumanResponse, HumanOperationError>,
+) -> Result<(Value, Rung), Rejection> {
+    let raw = raw_submit_bytes(decode(request, id)?, id)?;
+    let response = submit(raw).map_err(|error| owner_error(id, error))?;
+    decode_write_answer(id, response)
+}
+
+pub fn decode_write_answer(
+    id: RequestId,
+    response: HumanResponse,
+) -> Result<(Value, Rung), Rejection> {
+    let answer = dispatched(id, Ok(response), decode_tracked)?;
+    let Some(VerificationStatus::Achieved(rung)) = answer.verification else {
+        return Err(malformed(id));
+    };
+    Ok((answer.value, rung))
+}
+
+pub fn track_write_answer(
+    id: RequestId,
+    outbox: &crate::outbox::Outbox,
+    reference: &str,
+) -> Result<(Value, Rung), Rejection> {
+    let hash = submission_key(reference, id)?;
+    let status = outbox.status(hash).ok_or_else(|| malformed(id))?;
+    let response = crate::human_runtime::write_submission(status, None)
+        .map_err(|error| owner_error(id, error))?;
+    decode_write_answer(id, response)
+}
+
+pub fn wait_write_answer(
+    submission: Value,
+    result: crate::finality::WaitResult,
+    id: RequestId,
+) -> Result<(Value, VerificationStatus), Rejection> {
+    if submission.get("rung").and_then(Value::as_str) != Some(result.reached.name()) {
+        return Err(malformed(id));
+    }
+    let verification = if result.reached < result.requested {
+        VerificationStatus::Below {
+            requested: result.requested,
+            achieved: result.reached,
+            reason: layerx_agent_api::error::ReasonCode::new("deadline_elapsed")
+                .map_err(|_| malformed(id))?,
+        }
+    } else {
+        VerificationStatus::Achieved(result.reached)
+    };
+    Ok((
+        serde_json::json!({"submission": submission, "actual_rung": result.reached.name(),
+        "deadline_elapsed": result.deadline_elapsed}),
+        verification,
+    ))
+}
+
+#[cfg(test)]
+mod middleware_submission_contract_tests {
+    use super::{decode_eip1559_submission, decode_observation, Reader};
+    use serde_json::Value;
+
+    // Shared serde_json output transcript for the middleware loopback transport test.
+    const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"{"raw_transaction":"02f901287d80010283030d4094000000000000000000000000000000000000101a80b8c478ea11db33333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000061a8000000000000000000000000000000000000000000000000000000000000000143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab2c001a043d7fc8901d40aa3a43790d0b77e69eefeb5ac9a5771686e3e60949a99a98276a0429fa45350cf784e01c11fd73c93ade98c13c52f062f7a08a5938ec5ea36b06f","receipt_key":{"keyId":"0x0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","firstHeight":"0x1","lastHeight":"0x3e8","publicKey":"0xea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"submit":{"preparation_ref":"repair-preparation","state":"Receipted","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f"},"pending":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Unknown","rung":"submitted","evidence":[],"transitions":[{"to":"Unknown","cause":"transport-lost","at":"1","from":"Submitted"}]},"receipt":null},"committed":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Committed","rung":"committed","evidence":[],"transitions":[],"receipt_ref":"ac73faf315ec0dd1f7a3ff5ffddf39fdedd5550696c74489038fe5153e9b6a69"},"receipt":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","canonical_bytes":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","authorised_batch":{"batch_id":"0000000000000000000000000000000000000000000000000000000000000007","asset":"1111111111111111111111111111111111111111111111111111111111111111","previous_state_root":"5555555555555555555555555555555555555555555555555555555555555555","resulting_state_root":"6666666666666666666666666666666666666666666666666666666666666666","sequencer_public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"rung":"committed"}}}"#;
+
+    fn bytes(value: &Value) -> Vec<u8> {
+        let text = value.as_str().expect("hex field");
+        text.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                u8::from_str_radix(std::str::from_utf8(pair).expect("ascii"), 16).expect("hex")
+            })
+            .collect()
+    }
+
+    fn bounded(out: &mut Vec<u8>, data: &[u8]) {
+        out.extend_from_slice(
+            &u32::try_from(data.len())
+                .expect("bounded field")
+                .to_be_bytes(),
+        );
+        out.extend_from_slice(data);
+    }
+
+    #[test]
+    fn middleware_submit_transcript_is_produced_by_dispatch() {
+        let transcript: Value =
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+        let expected = &transcript["submit"];
+        let mut wire = Vec::new();
+        bounded(
+            &mut wire,
+            expected["preparation_ref"]
+                .as_str()
+                .expect("reference")
+                .as_bytes(),
+        );
+        bounded(&mut wire, &bytes(&transcript["raw_transaction"]));
+        bounded(&mut wire, &bytes(&expected["signed_receipt"]));
+        let mut reader = Reader {
+            bytes: &wire,
+            offset: 0,
+        };
+        let (actual, _) = decode_eip1559_submission(&mut reader).expect("submit");
+        assert_eq!(&actual, expected);
+        assert_eq!(reader.finish(), Some(()));
+    }
+
+    #[test]
+    fn middleware_observation_transcripts_are_produced_by_dispatch() {
+        let transcript: Value =
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+        for (name, state, rung) in [("pending", 5, 0), ("committed", 9, 2)] {
+            let expected = &transcript[name];
+            let mut wire = bytes(&expected["activity_id"]);
+            wire.extend_from_slice(&bytes(&expected["submission"]["tx_hash"]));
+            wire.push(state);
+            if state == 9 {
+                wire.extend_from_slice(&bytes(&expected["submission"]["receipt_ref"]));
+            }
+            wire.extend_from_slice(&[rung, 0]);
+            if state == 5 {
+                wire.extend_from_slice(&[1, 3, 5]);
+                bounded(&mut wire, b"transport-lost");
+                wire.extend_from_slice(&1u64.to_be_bytes());
+                wire.push(0);
+            } else {
+                wire.extend_from_slice(&[0, 1]);
+                bounded(&mut wire, &bytes(&expected["receipt"]["canonical_bytes"]));
+                for field in [
+                    "batch_id",
+                    "asset",
+                    "previous_state_root",
+                    "resulting_state_root",
+                    "sequencer_public_key",
+                ] {
+                    wire.extend_from_slice(&bytes(&expected["receipt"]["authorised_batch"][field]));
+                }
+                wire.push(rung);
+            }
+            let mut reader = Reader {
+                bytes: &wire,
+                offset: 0,
+            };
+            let (actual, _) = decode_observation(&mut reader).expect("observation");
+            assert_eq!(&actual, expected);
+            assert_eq!(reader.finish(), Some(()));
+            wire[0] ^= 1;
+            assert!(decode_observation(&mut Reader {
+                bytes: &wire,
+                offset: 0
+            })
+            .is_none());
+        }
+    }
 }

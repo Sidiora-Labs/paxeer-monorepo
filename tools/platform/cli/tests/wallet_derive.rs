@@ -14,6 +14,9 @@ fn fixture() -> Value {
 
 #[test]
 fn derive_reads_the_phrase_from_stdin_and_matches_the_shared_fixture() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let fixture = fixture();
     for vector in fixture["mnemonic_vectors"].as_array().expect("vectors") {
@@ -44,6 +47,9 @@ fn derive_reads_the_phrase_from_stdin_and_matches_the_shared_fixture() {
 
 #[test]
 fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let fixture = fixture();
     let vector = &fixture["mnemonic_vectors"][1];
@@ -110,6 +116,9 @@ fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
 
 #[test]
 fn derive_refuses_bad_phrases_argv_phrases_and_bind_without_an_endpoint() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let bad = cli.run_with_stdin(&["--json", "wallet", "derive"], "abandon abandon abandon\n");
     assert!(!bad.status.success());

@@ -46,6 +46,9 @@ func (qp QueryPlugin) HandleOracleQuery(ctx sdk.Context, queryData json.RawMessa
 	if err := json.Unmarshal(queryData, &parsedQuery); err != nil {
 		return nil, oracletypes.ErrParsingOracleQuery
 	}
+	if parsedQuery.ExchangeRates != nil && parsedQuery.OracleTwaps != nil {
+		return nil, oracletypes.ErrParsingOracleQuery
+	}
 	switch {
 	case parsedQuery.ExchangeRates != nil:
 		res, err := qp.oracleHandler.GetExchangeRates(ctx)
@@ -101,6 +104,9 @@ func (qp QueryPlugin) HandleTokenFactoryQuery(ctx sdk.Context, queryData json.Ra
 	if err := json.Unmarshal(queryData, &parsedQuery); err != nil {
 		return nil, tokenfactorytypes.ErrParsingPaxTokenFactoryQuery
 	}
+	if err := parsedQuery.Validate(); err != nil {
+		return nil, err
+	}
 	switch {
 	case parsedQuery.DenomAuthorityMetadata != nil:
 		res, err := qp.tokenfactoryHandler.GetDenomAuthorityMetadata(ctx, parsedQuery.DenomAuthorityMetadata)
@@ -121,6 +127,17 @@ func (qp QueryPlugin) HandleTokenFactoryQuery(ctx sdk.Context, queryData json.Ra
 		bz, err := json.Marshal(res)
 		if err != nil {
 			return nil, tokenfactorytypes.ErrEncodingDenomsFromCreator
+		}
+
+		return bz, nil
+	case parsedQuery.DenomPaused != nil:
+		res, err := qp.tokenfactoryHandler.GetDenomPaused(ctx, parsedQuery.DenomPaused)
+		if err != nil {
+			return nil, err
+		}
+		bz, err := json.Marshal(res)
+		if err != nil {
+			return nil, tokenfactorytypes.ErrEncodingDenomPaused
 		}
 
 		return bz, nil
@@ -297,7 +314,7 @@ func (qp QueryPlugin) HandleStakingExtQuery(ctx sdk.Context, queryData json.RawM
 				response.Entries = append(response.Entries, UnbondingDelegationEntry{
 					CreationHeight: entry.CreationHeight,
 					CompletionTime: entry.CompletionTime.String(),
-					InitialBalance: entry.Balance,
+					InitialBalance: entry.InitialBalance,
 					Balance:        entry.Balance,
 				})
 			}

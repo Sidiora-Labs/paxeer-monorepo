@@ -1,0 +1,34 @@
+[repair]
+task = "22.33.1431"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+change = "Require SMTP URL credentials from Secret layerx-identity-smtp/url and sender from ConfigMap layerx-identity-mail/from; persist the explicitly configured shared signup outbox; resolve the scoped implicit-TLS relay through a Service and permit only its same-namespace pods on TCP 465 in addition to existing DNS egress. Operate the existing built-in consumer under mail-delivery.md rather than representing store readiness as mail delivery."
+source_proof = "Pytest parses every deployment YAML document and checks required key references, environment uniqueness, relay Service selection and ports, exact egress peers/ports, single-replica persistent outbox wiring and readiness semantics. It follows the actual Rust config parser, authenticated signup route, durable verification producer, queue publication, built-in consumer, native TLS transport, SMTP acceptance callback and queue removal order without translating or substituting the implementation. It checks the explicit retry/error/alert and deployed signup validation procedure."
+review_only = "Rust execution, signup-to-delivery runtime behavior, restart recovery, cluster NetworkPolicy enforcement, provisioned Secret/ConfigMap values, TLS trust, relay availability and mailbox receipt are not executed by this source/config gate. Review proves the interpretation of the unchanged Rust path; the domain operator must execute the documented deployed signup-to-delivery and failure/retry procedure before enabling signup. This config-drift repair changes no stateful algorithm or wire interface."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes, which were preserved. The repair files were absent; /out/run/gate.json showed zero builds and verifies and /out/run/gates.jsonl was absent. No pre-change verification was run because the explicit order requires complete implementation before gates and forbids invoking verify_cmd by hand; it overrides step 5's contradictory unchanged-tree request. No baseline failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1431.py"
+evidence = "The exact verified candidate revision, command, exit code and private log path are recorded in the final hf-done JSON and /out/run/gates.jsonl. Build and verify must share a revision. This record is finalized before the gates to avoid changing the candidate by embedding its own revision; no passing result is claimed in advance."
+wiring_requests = ["tools/bringup (domain 8 / fm-platform): provision the authenticated implicit-TLS relay selected by Service layerx-identity-smtp in layerx-testnet, its trusted service-DNS certificate and upstream delivery/ingress/egress policy, protected Secret layerx-identity-smtp/url and ConfigMap layerx-identity-mail/from; monitor the consumer logs and outbox with the 60-second alert, operate the provisioning signup pause, and retain the documented deployed signup-to-delivery and refusal/retry evidence before enabling signup."]
+
+[finding.identity-smtp-deployment]
+audit = "22.30.80"
+file = "services/platform/hosted/identity/deployment.yaml"
+audit_line = 23
+class = "config-drift"
+severity = "medium"
+owner_domain = 8
+interface = "8.env-identity-layerx-identity-smtp-url"
+proposal = "Wire SMTP credentials and sender through the identity deployment secret/config contract, allow narrowly scoped mail egress, and include delivery readiness or an explicitly operated outbox consumer. Validate signup-to-delivery behavior through the deployed configuration."
+tests = ["test_identity_smtp_required_secret_and_sender_reach_the_real_parser", "test_identity_smtp_service_and_egress_are_scoped_to_the_tls_relay", "test_identity_smtp_producer_and_consumer_share_the_persistent_outbox", "test_identity_smtp_signup_payload_reaches_delivery_before_acknowledgement", "test_identity_smtp_consumer_has_an_explicit_failure_and_operator_disposition"]
+closure = "The deployment and operated-consumer contract close the in-scope drift when hf-done qualifies the source proofs; external relay provisioning and deployed delivery evidence remain explicitly assigned to domain 8 through the wiring request."
+
+[format]
+policy = "No Python, YAML, Markdown or KVX formatter is configured for these paths; preserve local style and apply .editorconfig UTF-8/LF/final-newline/trailing-whitespace conventions after completing implementation."
+
+[gotcha.1]
+observed = "A broad GOTCHA/spec/context read exceeded tool output limits; guessing /usr/local/bin for gate wrappers failed because they live in /out/run/bin."
+resolution = "Use bounded named sections and read the wrapper paths from command -v; retain the note here because the root GOTCHA.kvx is outside this task's scope."
+
+[gotcha.2]
+observed = "The generic audit step requests unchanged-tree verification, but the task's explicit gate order prohibits testing before implementation and any direct verify_cmd run."
+resolution = "Follow the explicit bounded order, disclose the absent baseline honestly and use hf-build then hf-done only."

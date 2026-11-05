@@ -1,0 +1,45 @@
+[repair.22.31.244]
+audit = "22.30.117"
+findings = ["3", "4"]
+finding_3_tests = ["TestRepair_244_TransferAssetAndOwnedEffects", "TestRepair_244_SponsoredBatchUsesOnePinAndAggregates", "TestRepair_244_StorageFundingLegs", "TestRepair_244_BudgetCreationAndResolvedFunding", "TestRepair_244_NativeBudgetAcrossGoroutines", "TestRepair_244_StateProofAndFailClosed"]
+finding_4_tests = ["TestRepair_244_BudgetCreationAndResolvedFunding", "TestRepair_244_NativeBudgetAcrossGoroutines", "TestRepair_244_EscrowReservation", "TestRepair_244_StateProofAndFailClosed"]
+proof = "Canonical precompile ABIs produce calldata consumed by the real policy decoder; the same calldata is transported to the actual native budget/escrow modules and canonical ledger, with signed budget activities and native state-witness exports. Tests compare actual source/destination balances, asset-keyed spends, cap refusal, rolling limits and proof binding. The test adapter does not execute the Go EVM precompile wrapper; it executes its native backend."
+baseline = "No unchanged-tree verification ran: the explicit order forbids testing before complete implementation and hf-build, the supplied tree contained no repair_244_test.go, and the gate ledger was absent with builds_used=0 and verify_runs_used=0. No baseline failure is claimed."
+evidence = "The exact candidate revision, command, exit and private log are recorded by hf-build and hf-done."
+wiring_server = "services/wallet/attestor/internal/server (owning domain fm-wallet): install SetConstructStateReader using an independently authenticated header/checkpoint and the verified EVM-address-to-native-authority binding at that block; export account/budget witnesses at the same pin for every evaluation, refresh after restart, and never accept pin metadata from the signing request. Until installed, dependent construct calls refuse."
+wiring_precompile = "precompiles/layerxpay and precompiles/layerxprograms (owning domain chain): add an EVM-wrapper integration gate against the attestor's ABI transport and native balance assertions in the owning module, whose geth fork is outside this task's nested module and edit scope."
+status = "policy repair implemented; production reader and EVM-wrapper integration remain out-of-path wiring requests"
+
+[gotcha.244.1]
+observed = "The native state commitment proves kernel account/budget leaves, while a raw getBudget eth_call is not an authenticated state proof."
+resolution = "Require a trusted pin plus canonical native witnesses; never synthesize an asset or compare asset units with the EVM wei cap."
+
+[gotcha.244.2]
+observed = "The explicit ordered gate instructions conflict with the historical unchanged-tree verify step."
+resolution = "Follow the explicit hf-build/hf-done order and record that no baseline verification ran."
+
+[qualification.build_1]
+revision = "2f9d99b20d7950115467d4ccfc14918955c78013"
+command = "cd services/wallet/attestor && go build ./internal/policy/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The native test adapter used the account-name lookup with an account-ID signature; use the real registry ID index lookup and its returned slots."
+
+[qualification.verify_1]
+revision = "65cdcdf3cae998fc24ef533b80d2923b5decbbc3"
+command = "cg spec done 22.31.244 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five repair tests and the legacy budget subcase passed; the native budget fixture failed the kernel journal writer-thread check, so hold its creating OS thread throughout the fixture lifetime."
+
+[continuation.244]
+prior_result = "The supplied prior verification failed TestRepair_244_BudgetCreationAndResolvedFunding/native at the journal writer check; no unchanged gate was repeated."
+repair = "Serialize native fixture initialization, execution, proof exports and teardown on one OS-thread-bound worker; prove native creation and funding from distinct caller goroutines with unchanged source balances and daily caps."
+limitation = "The inherited real-native fixture links liblayerx and layerx_programs_sandbox; those artifacts are preinstalled in this sandbox but violate the portable gate requirement until replaced with committed execution transcripts."
+
+[qualification.continuation_verify_1]
+revision = "477429b6526b78c8bd16152e90d3ec2126b22ff4"
+command = "cg spec done 22.31.244 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Native execution now reaches payment resolution, which refuses two owned accounts with the same asset; match the canonical native-source fixture by giving the main account a distinct asset while retaining both balances and all policy assertions."

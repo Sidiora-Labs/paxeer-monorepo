@@ -1,0 +1,20 @@
+[task]
+id = "22.33.1153"
+audit = "22.30.52"
+acceptance = "22998.1"
+baseline = "Not run: the explicit gate order requires complete implementation, hf-build, then hf-done and prohibits running verify_cmd by hand; no baseline failures are claimed."
+verification = "hf-done runs the declared TestRepairM_1153_ gate and graph checks; the runner ledger records the exact candidate revision, command, exit code and private log location."
+wiring = "None: the Merkle repair and tests through the existing consensus/light/rpc/client.go consumer fit the declared scope; that consumer already rejects missing and empty proof operations."
+
+[finding.merkle-malformed-proof-panics]
+tests = ["TestRepairM_1153_MalformedProofs", "TestRepairM_1153_ValidProofVectors", "TestRepairM_1153_RemoteABCIResponses"]
+repair = "Reject nil proofs, empty operation lists and nil operator entries before dereferencing; require exactly one final root result before indexing, retaining root equality and full key-path consumption."
+proof = "Production tree and ValueOp encoders produce protobuf proof chains; signed trusted headers in an in-memory light store authenticate loopback JSON-RPC value responses, while malformed value/absence transcripts return errors without panicking."
+valid_vectors = "Proofs from trees with one, two, three, four and eight leaves, plus chained store/value proofs, retain successful verification; existing proof and RFC6962 vector files are unchanged."
+
+[qualification.initial]
+revision = "8d80548b105db3e60b3ee6fef6499b5fab5faa34"
+command = "cg spec done 22.33.1153 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The remote empty-operation fixtures used nil slices, while the production JSON codec emits empty slices; corrected the fixtures to the decoded shape, retaining exact equality and rejection assertions."

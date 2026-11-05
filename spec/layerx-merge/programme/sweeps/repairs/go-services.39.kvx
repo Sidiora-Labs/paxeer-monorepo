@@ -1,0 +1,7 @@
+[repair.go-services.39]
+target = "services/platform/perps-data/loadtest"
+command = "cd services/platform/perps-data && go vet ./loadtest/ && go test -count=1 ./loadtest/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["TestLoadProfileServedSymbols requires PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database with permission to drop and migrate the perps schema.", "TestLoadProfile requires PERPS_DATA_TEST_DATABASE_URL pointing to a PostgreSQL database with permission to drop and migrate the perps schema, and PERPS_DATA_TEST_RPC pointing to a running Ethereum JSON-RPC node for chain 125."]

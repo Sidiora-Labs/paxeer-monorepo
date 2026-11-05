@@ -9,6 +9,7 @@ public readonly record struct StreamCursor
 {
     public string Value { get; }
 
+    [System.Text.Json.Serialization.JsonConstructor]
     public StreamCursor(string value)
     {
         if (string.IsNullOrEmpty(value) || Encoding.UTF8.GetByteCount(value) > 512 || value.Contains('\0'))
@@ -23,9 +24,15 @@ public readonly record struct StreamCursor
 public sealed record StreamEvent<T>(string EventId, StreamCursor PreviousCursor, StreamCursor Cursor, T Value);
 public sealed record StreamPage<T>(StreamCursor RequestedCursor, IReadOnlyList<StreamEvent<T>> Events, StreamCursor NextCursor);
 
+public sealed record StreamRecoveryState(StreamCursor Cursor, IReadOnlyList<string> EventIds);
+
+/// <summary>Rejects replayed event IDs in the last 4096 acknowledged events. IDs are at most 512 UTF-8 bytes.
+/// Persist RecoveryState to preserve this entire replay window when reopening; a cursor alone starts a new window.</summary>
 public sealed class ResumableStream<T>
 {
+    public const int ReplayWindowCapacity = 4096;
     private readonly object _gate = new();
+    private readonly Queue<string> _replayWindow = new();
     private readonly HashSet<string> _seenEventIds = new(StringComparer.Ordinal);
     private StreamCursor _cursor;
 
@@ -35,9 +42,41 @@ public sealed class ResumableStream<T>
         _cursor = cursor;
     }
 
-    public StreamCursor Cursor { get { lock (_gate) return _cursor; } }
+    public static ResumableStream<T> Restore(StreamRecoveryState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.EventIds is null || state.EventIds.Count > ReplayWindowCapacity)
+            throw new PlatformSdkException(SdkErrorCode.InvalidArgument, RetryClass.Never);
+        var stream = new ResumableStream<T>(state.Cursor);
+        foreach (var id in state.EventIds)
+        {
+            if (!ValidEventId(id) || !stream._seenEventIds.Add(id))
+                throw new PlatformSdkException(SdkErrorCode.InvalidArgument, RetryClass.Never);
+            stream._replayWindow.Enqueue(id);
+        }
+        return stream;
+    }
 
+    public StreamCursor Cursor { get { lock (_gate) return _cursor; } }
+    public StreamRecoveryState RecoveryState
+    {
+        get { lock (_gate) return new(_cursor, Array.AsReadOnly(_replayWindow.ToArray())); }
+    }
+
+    private static bool ValidEventId(string id) => !string.IsNullOrEmpty(id) && Encoding.UTF8.GetByteCount(id) <= 512;
+
+    // Accept acknowledges a complete batch returned to a batch consumer.
     public IReadOnlyList<StreamEvent<T>> Accept(StreamPage<T> page)
+    {
+        lock (_gate)
+        {
+            var accepted = ValidatePage(page);
+            foreach (var item in accepted) Acknowledge(item);
+            return accepted;
+        }
+    }
+
+    private IReadOnlyList<StreamEvent<T>> ValidatePage(StreamPage<T> page)
     {
         ArgumentNullException.ThrowIfNull(page);
         lock (_gate)
@@ -49,7 +88,7 @@ public sealed class ResumableStream<T>
             var accepted = new List<StreamEvent<T>>(page.Events.Count);
             foreach (var item in page.Events)
             {
-                if (item is null || string.IsNullOrEmpty(item.EventId) || !item.Cursor.IsValid || !item.PreviousCursor.IsValid ||
+                if (item is null || !ValidEventId(item.EventId) || !item.Cursor.IsValid || !item.PreviousCursor.IsValid ||
                     item.PreviousCursor != expected || item.Cursor == item.PreviousCursor ||
                     _seenEventIds.Contains(item.EventId) || !pageEventIds.Add(item.EventId))
                     throw DecodeFailure();
@@ -57,10 +96,18 @@ public sealed class ResumableStream<T>
                 expected = item.Cursor;
             }
             if (page.NextCursor != expected) throw DecodeFailure();
-
-            _seenEventIds.UnionWith(pageEventIds);
-            _cursor = page.NextCursor;
             return accepted.AsReadOnly();
+        }
+    }
+
+    private void Acknowledge(StreamEvent<T> item)
+    {
+        lock (_gate)
+        {
+            if (item.PreviousCursor != _cursor || !_seenEventIds.Add(item.EventId)) throw DecodeFailure();
+            _replayWindow.Enqueue(item.EventId);
+            if (_replayWindow.Count > ReplayWindowCapacity) _seenEventIds.Remove(_replayWindow.Dequeue());
+            _cursor = item.Cursor;
         }
     }
 
@@ -78,9 +125,18 @@ public sealed class ResumableStream<T>
         Func<StreamCursor, CancellationToken, Task<StreamPage<T>>> source,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(source);
         while (!cancellationToken.IsCancellationRequested)
-            foreach (var item in await NextAsync(source, cancellationToken).ConfigureAwait(false))
+        {
+            var page = await source(Cursor, cancellationToken).ConfigureAwait(false);
+            var accepted = ValidatePage(page);
+            foreach (var item in accepted)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Acknowledge(item);
                 yield return item;
+            }
+        }
     }
 
     private static PlatformSdkException DecodeFailure() =>

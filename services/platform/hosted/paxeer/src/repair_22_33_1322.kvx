@@ -1,0 +1,69 @@
+[repair.22.33.1322]
+audit = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
+base_revision = "5fc0c55eaaa6d43868c4a2872366299b8b7e2007"
+state = "historical transport implemented; retirement and qualification not complete"
+scope = "services/platform/hosted/paxeer/src; services/platform/hosted/paxeer/tests/repair_22_33_1322.rs; services/platform/Cargo.lock"
+implementation = "Share an absolute deadline across accepted-connection TLS, client HTTP, root RPC identity validation and forwarding, consensus/genesis requests, response writes and shutdown. Return the connection permit on every handler exit. Probe eth_chainId before each root RPC on the same upstream TCP connection that receives the caller's request; reject wrong-chain, malformed, ambiguous or incomplete identities before forwarding. No identity cache or second upstream connection is used."
+retirement_limit = "Decision 2524 and task 22.31.465 restore this Cargo package for historical support. The maintained node implementation and its transport/proof tests are outside this task's scope. These source modules and their existing assertions are retained pending that owner migration; the four retired-reference findings are not claimed closed."
+baseline = "Unmeasured. The explicit gate order forbids verify_cmd before implementation or by hand, overriding the step requesting an unchanged-tree baseline. No baseline test failure or pass is claimed."
+qualification = "Only hf-build and, if build passes, hf-done. The final gate JSON and private runner ledger record the candidate revision, exact command, exit and log; no passing result is claimed here."
+
+[continuation]
+source_attempt_revision = "a6ff621a2df7c6d7904a7442b7bb818719aed136"
+source_attempt_result = "Build exited before compiling because services/platform/hosted/paxeer/Cargo.toml does not exist; verification did not run."
+review = "Preserved all six carried-over paths and their assertions. Reviewed the real TLS handler, identity probe and same-socket forwarding, connection permit lifetime, absolute client/upstream deadlines, direct/chunked genesis codecs and loopback integration peers. The current base contains the restored Cargo manifest; qualify the preserved implementation and repair only reported task-scoped failures."
+qualification_evidence = "The current bounded gate writes its exact candidate revision, command, exit and private log path to /out/run/gates.jsonl; verification requires a passing build on the same candidate."
+
+[finding.boundary-wrong-chain-forwarding]
+state = "implemented; not qualified"
+test = "repair_22_33_1322_wrong_chain_never_receives_write_and_identity_is_revalidated; repair_22_33_1322_ambiguous_identity_never_receives_write"
+proof = "Real TLS handler -> identity probe on a persistent loopback upstream socket -> caller transaction on that same socket only after validation. Peer transcripts assert no extra bytes after wrong or malformed identities; successive calls exercise wrong, correct and changed chain identity without any readiness request."
+
+[finding.boundary-cumulative-deadline]
+state = "implemented; not qualified"
+test = "repair_22_33_1322_slow_handshake_headers_and_body_release_saturated_slots; repair_22_33_1322_slow_upstream_progress_shares_client_deadline"
+proof = "The real TLS handler consumes the last of 128 real connection permits. Repeated successful progress during handshake, headers, body or upstream identity cannot refresh its deadline. The tests require the permit to become available within the cumulative budget and scheduler allowance, and prohibit a write after an incomplete identity probe."
+
+[finding.relay-retirement-15]
+state = "open; maintained-owner migration required"
+test = "repair_22_33_1322_status_transport_preserves_committed_transcript; repair_22_33_1322_custody_and_resource_refusals_do_not_contact_upstream"
+retained = "The real historical codec/transport preserves a committed status transcript and refuses custody requests before contacting upstream. Existing proved-EVM acceptance, request translation, envelope, custody and bounds assertions in comet.rs are unchanged. No fabricated proof transcript or maintained-node acceptance result is claimed."
+
+[finding.relay-retirement-16]
+state = "open; maintained-owner migration required"
+test = "repair_22_33_1322_genesis_direct_transport_preserves_committed_fixture_bytes; repair_22_33_1322_chunked_genesis_transport_preserves_committed_fixture_bytes"
+retained = "The real TLS handler and genesis codec carry the committed genesis fixture through direct and chunked loopback producers, preserving raw genesis bytes and the SHA256 header. Both routes now inherit the accepted connection's deadline, including all chunks. The historical route/configuration is not removed ahead of owner migration."
+
+[finding.relay-retirement-17]
+state = "open; maintained-owner migration required"
+test = "repair_22_33_1322_wrong_chain_never_receives_write_and_identity_is_revalidated; repair_22_33_1322_custody_and_resource_refusals_do_not_contact_upstream"
+retained = "The source-level historical process remains in the package restored by 22.31.465; this task adds no manifest, image, workspace or deployment wiring. Root-path forwarding, method refusals, consensus body bounds and legacy-path refusal are exercised through its actual TLS handler. Direct maintained-node exposure is not qualified by this task."
+
+[finding.relay-retirement-18]
+state = "open; maintained-owner migration required"
+test = "repair_22_33_1322_slow_handshake_headers_and_body_release_saturated_slots; repair_22_33_1322_slow_upstream_progress_shares_client_deadline"
+retained = "DeadlineStream is shared by all remaining historical client and upstream paths; consensus/genesis callers inherit the same absolute deadline instead of creating a new budget. Deleting the module before maintained-owner transfer would discard the behavior the proposal requires preserving."
+
+[wiring.node_interfaces]
+request = "services/platform/hosted/node, rpc and daemon/paxd — maintained native-node/platform/RPC domains 5/8/7: own the supported root EVM and consensus status/proof/genesis interfaces, port proved-EVM acceptance and custody-refusal integration coverage, and qualify genesis byte identity before deleting the historical relay sources."
+
+[wiring.node_transport]
+request = "rpc, server and services/platform/hosted/node — native-node/RPC domains 5/7/8: enforce cumulative client/upstream request lifetimes and connection/body bounds in the maintained node-facing server; qualify slow-progress slot release there, then remove the redundant historical transport."
+
+[wiring.gate]
+resolved = "Platform domain 8 restored services/platform/hosted/paxeer/Cargo.toml and its workspace membership in 22.31.465; the declared gates now address the existing historical package without an out-of-scope manifest edit."
+
+[wiring.deployment]
+request = "services/platform/Makefile.inc, docker/paxeer, services/platform/hosted/tests/beta-cluster.sh and services/platform/hosted/gateway — platform/tooling domains 8/16: finish the previously recorded workspace/image/cluster consumers' migration to services/platform/hosted/node/deployment.yaml and its configured root RPC, preserving node refusals and resource limits without a relay process."
+
+[gotcha.missing_manifest]
+observed = "Earlier attempts could not load services/platform/hosted/paxeer/Cargo.toml after its retirement; the manifest lies outside scope."
+resolution = "Resolved by 22.31.465 on the current base; use the declared bounded gates without editing manifests or substituting a gate."
+
+[gotcha.baseline_order]
+observed = "The baseline-verification step conflicts with the explicit implementation-first gate order and prohibition on hand-running verify_cmd."
+resolution = "Follow the explicit gate order and leave baseline unmeasured."
+
+[gotcha.owner_scope]
+observed = "Moving the proof, genesis and cumulative-deadline behaviors to the maintained node requires paths outside the allowed src directory; deleting their production code or assertions first would lose required coverage."
+resolution = "Retain the historical producer/transport/consumer paths and assertions, harden them in scope, and leave all four retirement findings explicitly open with owning-domain wiring requests."

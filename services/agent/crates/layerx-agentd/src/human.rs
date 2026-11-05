@@ -1,14 +1,22 @@
 //! Authenticated bounded peer for the Human-plane agent runtime.
 
-use layerx_client::lni::transport::{FrameTransport, TransportError};
+#[path = "human_frame.rs"]
+pub mod frame;
+
+use self::frame::{HumanFrameTransport, TransportError};
 
 use crate::admin::{OperatorCommand, ProtectedMutation};
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::{Read, Write};
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
+use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
 const MAGIC: &[u8; 8] = b"LXHAGT01";
@@ -54,69 +62,69 @@ fn trace_envelope(frame: Vec<u8>) -> Result<(Option<String>, Vec<u8>), HumanProt
     Ok((Some(trace.to_owned()), request))
 }
 
-const PREPARE: u8 = 1;
-const SUBMIT: u8 = 2;
-const TRACK: u8 = 3;
-const RECEIPT_LOOKUP: u8 = 4;
-const REGISTRY: u8 = 5;
-const APPROVAL_LIST: u8 = 9;
-const APPROVAL_GET: u8 = 10;
-const APPROVAL_APPROVE: u8 = 11;
-const APPROVAL_REJECT: u8 = 12;
+pub const PREPARE: u8 = 1;
+pub const SUBMIT: u8 = 2;
+pub const TRACK: u8 = 3;
+pub const RECEIPT_LOOKUP: u8 = 4;
+pub const REGISTRY: u8 = 5;
+pub const APPROVAL_LIST: u8 = 9;
+pub const APPROVAL_GET: u8 = 10;
+pub const APPROVAL_APPROVE: u8 = 11;
+pub const APPROVAL_REJECT: u8 = 12;
 // Reserved lifecycle range. These values are part of the Human peer wire
 // contract and must not be reused by ordinary activity operations.
-const IDENTITY_RESOLVE: u8 = 20;
-const LEASE_MAP: u8 = 21;
-const OWNER_VALIDATE: u8 = 22;
-const OWNER_INSTALL: u8 = 23;
-const AGENT_LIST: u8 = 24;
-const AGENT_GET: u8 = 25;
-const AGENT_CONTROL: u8 = 26;
-const AGENT_LIMIT: u8 = 27;
-const AGENT_OWNER_ROTATED: u8 = 43;
-const AGENT_JOURNEY: u8 = 28;
-const AGENT_ARCHIVE: u8 = 29;
-const CAPABILITY_INSTALL: u8 = 30;
-const AGENT_CONTEXT: u8 = 31;
-const AGENT_BUDGET_STATE: u8 = 32;
-const AGENT_KEY_POLICY: u8 = 33;
-const AGENT_SESSION_SNAPSHOT: u8 = 34;
-const AGENT_SESSION_SUSPEND: u8 = 35;
-const AGENT_SESSION_BIND: u8 = 36;
-const AGENT_LIFECYCLE_PUBLISH: u8 = 37;
-const AGENT_SESSION_RESTRICT: u8 = 38;
-const ACCOUNT_SEQUENCE: u8 = 13;
-const BALANCE: u8 = 6;
-const NATIVE_FEE_POLICY: u8 = 39;
-const SESSION_FEE_STATE: u8 = 40;
-const SESSION_SEED_PREPARE: u8 = 41;
-const ACCOUNT_STATE: u8 = 42;
-const SUBJECT: u8 = 44;
-const OPERATOR: u8 = 45;
-const APPROVAL_LIST_FACTS_V2: u8 = 46;
-const APPROVAL_GET_FACTS_V2: u8 = 47;
-const APPROVAL_BUDGET_AFTER_V2: u8 = 48;
-const MANAGED_EVIDENCE_BY_DIGEST_V2: u8 = 49;
-const NATIVE_APPROVAL_LIST_FACTS_V2: u8 = 50;
-const NATIVE_APPROVAL_GET_FACTS_V2: u8 = 51;
-const NATIVE_PROGRAM_APPROVAL_LIST_V5: u8 = 58;
-const NATIVE_PROGRAM_APPROVAL_GET_V5: u8 = 59;
-const NATIVE_PROGRAM_APPROVAL_MATERIAL_V5: u8 = 60;
-const NATIVE_PROGRAM_APPROVAL_BUDGET_V5: u8 = 61;
-const NATIVE_PROGRAM_APPROVAL_DECIDE_V5: u8 = 62;
-const NATIVE_EFFECT_APPROVAL_LIST_V3: u8 = 52;
-const NATIVE_EFFECT_APPROVAL_GET_V3: u8 = 53;
-const NATIVE_EFFECT_APPROVAL_DECIDE_V3: u8 = 54;
-const NATIVE_EFFECT_APPROVAL_MATERIAL_V4: u8 = 55;
-const NATIVE_EFFECT_APPROVAL_BUDGET_V4: u8 = 56;
-const AGENT_BUDGET_PROOF_V4: u8 = 57;
-const NATIVE_SEND_PREVIEW_V1: u8 = 63;
-const NATIVE_OWNER_CONTEXT_V1: u8 = 64;
-const NATIVE_JOURNEY_ENVELOPE_V1: u8 = 65;
-const NATIVE_SEND_OWNER_PREVIEW_V1: u8 = 66;
-const NATIVE_SEND_ENVELOPE_V1: u8 = 67;
-const HEAD: u8 = 7;
-const EVIDENCE: u8 = 8;
+pub const IDENTITY_RESOLVE: u8 = 20;
+pub const LEASE_MAP: u8 = 21;
+pub const OWNER_VALIDATE: u8 = 22;
+pub const OWNER_INSTALL: u8 = 23;
+pub const AGENT_LIST: u8 = 24;
+pub const AGENT_GET: u8 = 25;
+pub const AGENT_CONTROL: u8 = 26;
+pub const AGENT_LIMIT: u8 = 27;
+pub const AGENT_OWNER_ROTATED: u8 = 43;
+pub const AGENT_JOURNEY: u8 = 28;
+pub const AGENT_ARCHIVE: u8 = 29;
+pub const CAPABILITY_INSTALL: u8 = 30;
+pub const AGENT_CONTEXT: u8 = 31;
+pub const AGENT_BUDGET_STATE: u8 = 32;
+pub const AGENT_KEY_POLICY: u8 = 33;
+pub const AGENT_SESSION_SNAPSHOT: u8 = 34;
+pub const AGENT_SESSION_SUSPEND: u8 = 35;
+pub const AGENT_SESSION_BIND: u8 = 36;
+pub const AGENT_LIFECYCLE_PUBLISH: u8 = 37;
+pub const AGENT_SESSION_RESTRICT: u8 = 38;
+pub const ACCOUNT_SEQUENCE: u8 = 13;
+pub const BALANCE: u8 = 6;
+pub const NATIVE_FEE_POLICY: u8 = 39;
+pub const SESSION_FEE_STATE: u8 = 40;
+pub const SESSION_SEED_PREPARE: u8 = 41;
+pub const ACCOUNT_STATE: u8 = 42;
+pub const SUBJECT: u8 = 44;
+pub const OPERATOR: u8 = 45;
+pub const APPROVAL_LIST_FACTS_V2: u8 = 46;
+pub const APPROVAL_GET_FACTS_V2: u8 = 47;
+pub const APPROVAL_BUDGET_AFTER_V2: u8 = 48;
+pub const MANAGED_EVIDENCE_BY_DIGEST_V2: u8 = 49;
+pub const NATIVE_APPROVAL_LIST_FACTS_V2: u8 = 50;
+pub const NATIVE_APPROVAL_GET_FACTS_V2: u8 = 51;
+pub const NATIVE_PROGRAM_APPROVAL_LIST_V5: u8 = 58;
+pub const NATIVE_PROGRAM_APPROVAL_GET_V5: u8 = 59;
+pub const NATIVE_PROGRAM_APPROVAL_MATERIAL_V5: u8 = 60;
+pub const NATIVE_PROGRAM_APPROVAL_BUDGET_V5: u8 = 61;
+pub const NATIVE_PROGRAM_APPROVAL_DECIDE_V5: u8 = 62;
+pub const NATIVE_EFFECT_APPROVAL_LIST_V3: u8 = 52;
+pub const NATIVE_EFFECT_APPROVAL_GET_V3: u8 = 53;
+pub const NATIVE_EFFECT_APPROVAL_DECIDE_V3: u8 = 54;
+pub const NATIVE_EFFECT_APPROVAL_MATERIAL_V4: u8 = 55;
+pub const NATIVE_EFFECT_APPROVAL_BUDGET_V4: u8 = 56;
+pub const AGENT_BUDGET_PROOF_V4: u8 = 57;
+pub const NATIVE_SEND_PREVIEW_V1: u8 = 63;
+pub const NATIVE_OWNER_CONTEXT_V1: u8 = 64;
+pub const NATIVE_JOURNEY_ENVELOPE_V1: u8 = 65;
+pub const NATIVE_SEND_OWNER_PREVIEW_V1: u8 = 66;
+pub const NATIVE_SEND_ENVELOPE_V1: u8 = 67;
+pub const HEAD: u8 = 7;
+pub const EVIDENCE: u8 = 8;
 const MAX_TEXT: usize = 255;
 const MAX_BYTES: usize = 1_048_576;
 
@@ -174,14 +182,26 @@ pub struct HumanPrepare {
     pub activity_type: u32,
     pub actor: String,
     pub authority: String,
-    pub account_sequence: u64,
-    pub not_before: u64,
-    pub not_after: u64,
+    pub nonce: u64,
+    pub not_before_height: u64,
+    pub not_after_height: u64,
     pub idempotency_key: String,
     pub fee_limit: u128,
     pub payload: Vec<u8>,
     pub payload_hash: [u8; 32],
     pub capability_id: Option<[u8; 32]>,
+}
+
+impl HumanPrepare {
+    pub fn validate_pending_nonce(&self, pending: u64) -> Result<(), HumanRefusal> {
+        if self.nonce != pending {
+            return Err(HumanRefusal::StaleNonce {
+                expected: self.nonce,
+                pending,
+            });
+        }
+        Ok(())
+    }
 }
 
 pub struct HumanNativeOwnerContextRequestV1 {
@@ -351,11 +371,48 @@ pub struct HumanCapabilityInstall {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HumanFinalizationEvidence {
     pub action_key: [u8; 32],
-    pub activity_id: [u8; 32],
-    pub receipt_digest: [u8; 32],
-    pub observed_sequence: u64,
-    pub verification: u8,
+    pub tx_hash: [u8; 32],
+    pub receipt_hash: [u8; 32],
+    pub observed_height: u64,
+    pub rung: u8,
     pub finalized_at: u64,
+}
+
+impl HumanFinalizationEvidence {
+    fn validate(&self) -> Result<(), HumanProtocolError> {
+        if self.action_key == [0; 32]
+            || self.finalized_at == 0
+            || self.rung == layerx_types::rung::Rung::Submitted.wire_rank()
+        {
+            return Err(HumanProtocolError::Malformed);
+        }
+        validate_transaction_evidence(
+            self.tx_hash,
+            self.receipt_hash,
+            self.observed_height,
+            self.rung,
+        )
+    }
+}
+
+fn validate_transaction_evidence(
+    tx_hash: [u8; 32],
+    receipt_hash: [u8; 32],
+    observed_height: u64,
+    rung: u8,
+) -> Result<(), HumanProtocolError> {
+    use layerx_types::rung::Rung;
+    if tx_hash == [0; 32] || rung > Rung::Committed.wire_rank() {
+        return Err(HumanProtocolError::Malformed);
+    }
+    if rung == Rung::Submitted.wire_rank() {
+        if receipt_hash != [0; 32] || observed_height != 0 {
+            return Err(HumanProtocolError::Malformed);
+        }
+    } else if receipt_hash == [0; 32] || observed_height == 0 {
+        return Err(HumanProtocolError::Malformed);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -512,7 +569,7 @@ pub enum HumanRequest {
     Head,
     Evidence {
         idempotency_key: [u8; 32],
-        expected_activity_id: [u8; 32],
+        tx_hash: [u8; 32],
     },
     IdentityResolve {
         agent: String,
@@ -636,6 +693,31 @@ impl HumanResponse {
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    #[must_use]
+    pub fn pending_nonce(nonce: u64) -> Self {
+        Self(nonce.to_be_bytes().to_vec())
+    }
+
+    #[must_use]
+    pub fn head(height: u64) -> Self {
+        Self(height.to_be_bytes().to_vec())
+    }
+
+    pub fn evidence(
+        tx_hash: [u8; 32],
+        receipt_hash: [u8; 32],
+        observed_height: u64,
+        rung: layerx_types::rung::Rung,
+    ) -> Result<Self, HumanProtocolError> {
+        validate_transaction_evidence(tx_hash, receipt_hash, observed_height, rung.wire_rank())?;
+        let mut bytes = Vec::with_capacity(73);
+        bytes.extend_from_slice(&tx_hash);
+        bytes.extend_from_slice(&receipt_hash);
+        bytes.extend_from_slice(&observed_height.to_be_bytes());
+        bytes.push(rung.wire_rank());
+        Self::new(bytes)
     }
 }
 
@@ -941,7 +1023,7 @@ pub trait HumanOperations {
         &mut self,
         peer: &HumanPeer,
         idempotency_key: [u8; 32],
-        expected_activity_id: [u8; 32],
+        tx_hash: [u8; 32],
     ) -> Result<HumanResponse, HumanOperationError>;
     /// # Errors
     /// Returns an error if authorization or operation validation fails, or required state is unavailable.
@@ -1413,11 +1495,11 @@ impl PolicyContextField {
 /// Terminal refusals whose reason the caller must be able to distinguish.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HumanRefusal {
+    StaleNonce { expected: u64, pending: u64 },
     StalePinnedHead,
     FeeSnapshotSkew,
     ExportResponseTooLarge,
     ExportLevelUnattainable,
-    ExportSettlementAnchoringUnavailable,
     Policy(crate::policy::PolicyDryRunRefusal),
     BudgetCodec,
     BudgetExpired,
@@ -1446,11 +1528,11 @@ impl HumanRefusal {
     #[must_use]
     pub const fn reason(self) -> &'static str {
         match self {
+            Self::StaleNonce { .. } => "prepare.stale_nonce",
             Self::StalePinnedHead => "program.stale_head",
             Self::FeeSnapshotSkew => "projection.fee_snapshot_skew",
             Self::ExportResponseTooLarge => "export.response_too_large",
-            Self::ExportLevelUnattainable => "export.level_unattainable",
-            Self::ExportSettlementAnchoringUnavailable => "export.settlement_anchoring_unavailable",
+            Self::ExportLevelUnattainable => "export.rung_unattainable",
             Self::Policy(refusal) => refusal.code(),
             Self::BudgetCodec => "budget.codec",
             Self::BudgetExpired => "budget.expired",
@@ -1490,10 +1572,10 @@ impl HumanRefusal {
     pub const fn class(self) -> layerx_agent_api::error::ErrorClass {
         use layerx_agent_api::error::ErrorClass;
         match self {
-            Self::StalePinnedHead | Self::FeeSnapshotSkew | Self::ExportLevelUnattainable => {
-                ErrorClass::VerificationFailure
-            }
-            Self::ExportSettlementAnchoringUnavailable => ErrorClass::UnavailableCapability,
+            Self::StaleNonce { .. }
+            | Self::StalePinnedHead
+            | Self::FeeSnapshotSkew
+            | Self::ExportLevelUnattainable => ErrorClass::VerificationFailure,
             Self::ExportResponseTooLarge
             | Self::Policy(_)
             | Self::PolicyContextMismatch(_)
@@ -1537,6 +1619,9 @@ pub struct HumanListenerConfig {
     pub mode: u32,
     pub maximum_frame_bytes: usize,
     pub deadline: Duration,
+    pub maximum_connections: usize,
+    pub maximum_streams: usize,
+    pub maximum_queued_bytes: usize,
     pub peers: BTreeMap<u32, (String, String)>,
 }
 
@@ -1544,9 +1629,20 @@ pub struct HumanUnixServer<O> {
     listener: UnixListener,
     config: HumanListenerConfig,
     operations: O,
+    socket_identity: (u64, u64),
 }
 
-impl<O: HumanOperations> HumanUnixServer<O> {
+impl<O> Drop for HumanUnixServer<O> {
+    fn drop(&mut self) {
+        if fs::symlink_metadata(&self.config.endpoint)
+            .is_ok_and(|m| m.file_type().is_socket() && (m.dev(), m.ino()) == self.socket_identity)
+        {
+            let _ = fs::remove_file(&self.config.endpoint);
+        }
+    }
+}
+
+impl<O> HumanUnixServer<O> {
     /// # Errors
     /// Returns an error if the peer, wire data, or transport fails validation.
     pub fn bind(config: HumanListenerConfig, operations: O) -> Result<Self, HumanProtocolError> {
@@ -1554,6 +1650,9 @@ impl<O: HumanOperations> HumanUnixServer<O> {
             || config.maximum_frame_bytes == 0
             || config.maximum_frame_bytes > MAX_BYTES
             || config.deadline.is_zero()
+            || config.maximum_connections == 0
+            || config.maximum_streams == 0
+            || config.maximum_queued_bytes == 0
             || config.peers.is_empty()
             || config.mode & !0o770 != 0
         {
@@ -1564,8 +1663,26 @@ impl<O: HumanOperations> HumanUnixServer<O> {
             .parent()
             .ok_or(HumanProtocolError::Unauthenticated)?;
         validate_path(parent, config.owner_uid, config.owner_gid, true)?;
-        if config.endpoint.exists() {
-            return Err(HumanProtocolError::Unauthenticated);
+        match fs::symlink_metadata(&config.endpoint) {
+            Ok(metadata) => {
+                validate_path(&config.endpoint, config.owner_uid, config.owner_gid, false)?;
+                if metadata.mode() & 0o777 != config.mode {
+                    return Err(HumanProtocolError::Unauthenticated);
+                }
+                match UnixStream::connect(&config.endpoint) {
+                    Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => {}
+                    _ => return Err(HumanProtocolError::Unauthenticated),
+                }
+                let current = fs::symlink_metadata(&config.endpoint)
+                    .map_err(|_| HumanProtocolError::Unauthenticated)?;
+                if (current.dev(), current.ino()) != (metadata.dev(), metadata.ino()) {
+                    return Err(HumanProtocolError::Unauthenticated);
+                }
+                fs::remove_file(&config.endpoint)
+                    .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(HumanProtocolError::Unauthenticated),
         }
         let listener = UnixListener::bind(&config.endpoint)
             .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
@@ -1580,68 +1697,231 @@ impl<O: HumanOperations> HumanUnixServer<O> {
         {
             return Err(HumanProtocolError::Unauthenticated);
         }
+        let metadata = fs::symlink_metadata(&config.endpoint)
+            .map_err(|_| HumanProtocolError::Unauthenticated)?;
         Ok(Self {
             listener,
             config,
             operations,
+            socket_identity: (metadata.dev(), metadata.ino()),
         })
     }
 
-    /// # Errors
-    /// Returns an error if the peer, wire data, or transport fails validation.
-    pub fn serve(mut self) -> Result<(), HumanProtocolError> {
-        loop {
-            let (stream, _) = self
-                .listener
-                .accept()
-                .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
-            let credentials = rustix::net::sockopt::socket_peercred(&stream)
-                .map_err(|_| HumanProtocolError::Unauthenticated)?;
-            let uid = credentials.uid.as_raw();
-            let Some((principal, tenant)) = self.config.peers.get(&uid) else {
-                continue;
-            };
-            let peer = HumanPeer {
-                uid,
-                principal: principal.clone(),
-                tenant: tenant.clone(),
-                subject: None,
-            };
-            let mut transport = AcceptedTransport::new(
-                stream,
-                self.config.maximum_frame_bytes,
-                self.config.deadline,
-            )?;
-            let _ = serve_one(&mut transport, &peer, &mut self.operations);
+    /// Runs the authenticated production boundary until shutdown is requested.
+    pub fn serve_with(
+        mut self,
+        stop: &AtomicBool,
+        handler: impl Fn(&mut O, &HumanPeer, HumanRequest) -> Result<HumanResponse, HumanOperationError>
+            + Sync,
+    ) -> Result<(), HumanProtocolError>
+    where
+        O: Send,
+    {
+        self.listener
+            .set_nonblocking(true)
+            .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
+        let occupancy = Arc::new(Mutex::new(ListenerOccupancy::default()));
+        let operations = Mutex::new(&mut self.operations);
+        std::thread::scope(|scope| {
+            let mut workers: Vec<std::thread::ScopedJoinHandle<'_, ()>> = Vec::new();
+            while !stop.load(Ordering::Acquire) {
+                let mut index = 0;
+                while index < workers.len() {
+                    if workers[index].is_finished() {
+                        let _ = workers.swap_remove(index).join();
+                    } else {
+                        index += 1;
+                    }
+                }
+                let stream = match self.listener.accept() {
+                    Ok((stream, _)) => stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+                    Err(error) => return Err(HumanProtocolError::Transport(io_error(&error))),
+                };
+                let Ok(credentials) = rustix::net::sockopt::socket_peercred(&stream) else {
+                    continue;
+                };
+                let uid = credentials.uid.as_raw();
+                let Some((principal, tenant)) = self.config.peers.get(&uid) else {
+                    continue;
+                };
+                let Ok(mut active) = occupancy.lock() else {
+                    return Err(HumanProtocolError::Unauthenticated);
+                };
+                let streams = active.tenants.get(tenant).map_or(0, |v| v.0);
+                if active.connections >= self.config.maximum_connections
+                    || streams >= self.config.maximum_streams
+                {
+                    continue;
+                }
+                active.connections += 1;
+                active.tenants.entry(tenant.clone()).or_default().0 += 1;
+                drop(active);
+                let permit = ListenerPermit {
+                    occupancy: Arc::clone(&occupancy),
+                    tenant: tenant.clone(),
+                    bytes: 0,
+                };
+                let peer = HumanPeer {
+                    uid,
+                    principal: principal.clone(),
+                    tenant: tenant.clone(),
+                    subject: None,
+                };
+                let maximum = self.config.maximum_frame_bytes;
+                let queued = self.config.maximum_queued_bytes;
+                let deadline = self.config.deadline;
+                let handler = &handler;
+                let operations = &operations;
+                workers.push(scope.spawn(move || {
+                    let Ok(mut transport) = AcceptedTransport::new(stream, maximum, deadline)
+                    else {
+                        return;
+                    };
+                    transport.permit = Some(permit);
+                    transport.maximum_queued_bytes = queued;
+                    let _ = serve_one_with(&mut transport, &peer, |request| {
+                        let mut owner = operations
+                            .lock()
+                            .map_err(|_| HumanOperationError::Unavailable)?;
+                        handler(&mut owner, &peer, request)
+                    });
+                }));
+            }
+            Ok(())
+        })
+    }
+}
+
+impl<O: HumanOperations + Send> HumanUnixServer<O> {
+    pub fn serve(self) -> Result<(), HumanProtocolError> {
+        self.serve_until(&AtomicBool::new(false))
+    }
+    pub fn serve_until(self, stop: &AtomicBool) -> Result<(), HumanProtocolError> {
+        self.serve_with(stop, |owner, peer, request| {
+            dispatch_request(request, peer, owner)
+        })
+    }
+}
+
+#[derive(Default)]
+struct ListenerOccupancy {
+    connections: usize,
+    tenants: BTreeMap<String, (usize, usize)>,
+}
+struct ListenerPermit {
+    occupancy: Arc<Mutex<ListenerOccupancy>>,
+    tenant: String,
+    bytes: usize,
+}
+impl ListenerPermit {
+    fn reserve(&mut self, bytes: usize, maximum: usize) -> Result<(), TransportError> {
+        let mut active = self
+            .occupancy
+            .lock()
+            .map_err(|_| TransportError::ConnectionLimit)?;
+        let tenant = active
+            .tenants
+            .get_mut(&self.tenant)
+            .ok_or(TransportError::ConnectionLimit)?;
+        let total = tenant
+            .1
+            .checked_add(bytes)
+            .filter(|total| *total <= maximum)
+            .ok_or(TransportError::ConnectionLimit)?;
+        tenant.1 = total;
+        self.bytes += bytes;
+        Ok(())
+    }
+}
+impl Drop for ListenerPermit {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.occupancy.lock() {
+            active.connections -= 1;
+            if let Some(tenant) = active.tenants.get_mut(&self.tenant) {
+                tenant.0 -= 1;
+                tenant.1 -= self.bytes;
+                if tenant.0 == 0 {
+                    active.tenants.remove(&self.tenant);
+                }
+            }
         }
     }
 }
 
-struct AcceptedTransport {
+pub struct AcceptedTransport {
     stream: UnixStream,
     maximum: usize,
+    expires: Instant,
+    permit: Option<ListenerPermit>,
+    maximum_queued_bytes: usize,
 }
 impl AcceptedTransport {
-    fn new(
+    pub fn new(
         stream: UnixStream,
         maximum: usize,
         deadline: Duration,
     ) -> Result<Self, HumanProtocolError> {
-        stream
-            .set_read_timeout(Some(deadline))
-            .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
-        stream
-            .set_write_timeout(Some(deadline))
-            .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
-        Ok(Self { stream, maximum })
+        let expires = Instant::now()
+            .checked_add(deadline)
+            .ok_or(HumanProtocolError::Malformed)?;
+        Ok(Self {
+            stream,
+            maximum,
+            expires,
+            permit: None,
+            maximum_queued_bytes: maximum,
+        })
+    }
+    fn remaining(&self) -> std::io::Result<Duration> {
+        self.expires
+            .checked_duration_since(Instant::now())
+            .filter(|v| !v.is_zero())
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::TimedOut))
     }
 }
-impl FrameTransport for AcceptedTransport {
+impl Read for AcceptedTransport {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        self.stream.set_read_timeout(Some(self.remaining()?))?;
+        self.stream.read(bytes)
+    }
+}
+impl Write for AcceptedTransport {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.stream.set_write_timeout(Some(self.remaining()?))?;
+        self.stream.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.remaining()?;
+        self.stream.flush()
+    }
+}
+impl HumanFrameTransport for AcceptedTransport {
     fn send(&mut self, bytes: &[u8]) -> Result<(), TransportError> {
-        layerx_client::lni::framing::write_frame(&mut self.stream, bytes, self.maximum)
+        let maximum = self.maximum;
+        frame::write_frame(self, bytes, maximum)
     }
     fn receive(&mut self) -> Result<Vec<u8>, TransportError> {
-        layerx_client::lni::framing::read_frame(&mut self.stream, self.maximum)
+        let mut prefix = [0; 4];
+        self.read_exact(&mut prefix)
+            .map_err(|error| io_error(&error))?;
+        let length = u32::from_be_bytes(prefix) as usize;
+        if length > self.maximum {
+            return Err(TransportError::Frame(frame::FrameViolation::Oversized {
+                declared: u32::from_be_bytes(prefix),
+                maximum: self.maximum,
+            }));
+        }
+        if let Some(permit) = &mut self.permit {
+            permit.reserve(length, self.maximum_queued_bytes)?;
+        }
+        let mut bytes = vec![0; length];
+        self.read_exact(&mut bytes)
+            .map_err(|error| io_error(&error))?;
+        Ok(bytes)
     }
 }
 
@@ -1658,6 +1938,7 @@ fn validate_path(
         || metadata.uid() != uid
         || metadata.gid() != gid
         || metadata.mode() & 0o007 != 0
+        || (directory && metadata.mode() & 0o022 != 0)
     {
         return Err(HumanProtocolError::Unauthenticated);
     }
@@ -1674,10 +1955,21 @@ fn io_error(error: &std::io::Error) -> TransportError {
 /// response. Authentication is completed before this function by the listener.
 /// # Errors
 /// Returns an error if the peer, wire data, or transport fails validation.
-pub fn serve_one<T: FrameTransport, O: HumanOperations>(
+pub fn serve_one<T: HumanFrameTransport, O: HumanOperations>(
     transport: &mut T,
     peer: &HumanPeer,
     operations: &mut O,
+) -> Result<(), HumanProtocolError> {
+    serve_one_with(transport, peer, |request| {
+        dispatch_request(request, peer, operations)
+    })
+}
+
+/// A peer-authenticated transport adapter for a concrete operation owner.
+pub fn serve_one_with<T: HumanFrameTransport>(
+    transport: &mut T,
+    peer: &HumanPeer,
+    handler: impl FnOnce(HumanRequest) -> Result<HumanResponse, HumanOperationError>,
 ) -> Result<(), HumanProtocolError> {
     peer.validate()?;
     let frame = transport.receive().map_err(HumanProtocolError::Transport)?;
@@ -1687,23 +1979,8 @@ pub fn serve_one<T: FrameTransport, O: HumanOperations>(
     let (trace, frame) = trace_envelope(frame)?;
     let request = decode_request(frame)?;
     let _context = TraceContext(REQUEST_TRACE.with(|current| current.replace(trace.clone())));
-    let result = dispatch_request(request, peer, operations);
-    let mut response = Vec::with_capacity(64);
-    response.extend_from_slice(MAGIC);
-    match result {
-        Ok(payload) => {
-            response.push(0);
-            response.extend_from_slice(payload.bytes());
-        }
-        Err(
-            HumanOperationError::Refused
-            | HumanOperationError::CapabilityRefused(_)
-            | HumanOperationError::Typed(_),
-        ) => {
-            response.push(1);
-        }
-        Err(HumanOperationError::Unavailable) => response.push(2),
-    }
+    let result = handler(request);
+    let mut response = encode_response(result);
     if let Some(trace) = trace {
         eprintln!("human_request trace={trace} outcome={}", response[8]);
         let length = u32::try_from(response.len()).map_err(|_| HumanProtocolError::Malformed)?;
@@ -1722,7 +1999,42 @@ pub fn serve_one<T: FrameTransport, O: HumanOperations>(
         .map_err(HumanProtocolError::Transport)
 }
 
-fn decode_request(bytes: Vec<u8>) -> Result<HumanRequest, HumanProtocolError> {
+pub fn encode_response(result: Result<HumanResponse, HumanOperationError>) -> Vec<u8> {
+    let mut response = MAGIC.to_vec();
+    match result {
+        Ok(payload) => {
+            response.push(0);
+            response.extend_from_slice(payload.bytes());
+        }
+        Err(HumanOperationError::Typed(HumanRefusal::StaleNonce { expected, pending })) => {
+            response.push(1);
+            let reason = b"prepare.stale_nonce";
+            response.extend_from_slice(&(reason.len() as u32).to_be_bytes());
+            response.extend_from_slice(reason);
+            response.extend_from_slice(&expected.to_be_bytes());
+            response.extend_from_slice(&pending.to_be_bytes());
+        }
+        Err(error) => {
+            response.push(1);
+            let reason = match error {
+                HumanOperationError::Typed(refusal) => refusal.reason(),
+                HumanOperationError::CapabilityRefused(dimension) => {
+                    capability_refusal_reason(dimension)
+                }
+                HumanOperationError::Refused => "operation.refused",
+                HumanOperationError::Unavailable => {
+                    response[8] = 2;
+                    return response;
+                }
+            };
+            response.extend_from_slice(&(reason.len() as u32).to_be_bytes());
+            response.extend_from_slice(reason.as_bytes());
+        }
+    }
+    response
+}
+
+pub fn decode_request(bytes: Vec<u8>) -> Result<HumanRequest, HumanProtocolError> {
     let mut reader = Reader::new(bytes);
     if reader.fixed::<8>()? != *MAGIC {
         return Err(HumanProtocolError::Malformed);
@@ -1948,22 +2260,13 @@ fn text_list(reader: &mut Reader, maximum: usize) -> Result<Vec<String>, HumanPr
 fn finalization(reader: &mut Reader) -> Result<HumanFinalizationEvidence, HumanProtocolError> {
     let value = HumanFinalizationEvidence {
         action_key: reader.fixed()?,
-        activity_id: reader.fixed()?,
-        receipt_digest: reader.fixed()?,
-        observed_sequence: reader.u64()?,
-        verification: reader.u8()?,
+        tx_hash: reader.fixed()?,
+        receipt_hash: reader.fixed()?,
+        observed_height: reader.u64()?,
+        rung: reader.u8()?,
         finalized_at: reader.u64()?,
     };
-    if value.action_key == [0; 32]
-        || value.activity_id == [0; 32]
-        || value.receipt_digest == [0; 32]
-        || value.observed_sequence == 0
-        || value.verification < 4
-        || value.verification > 5
-        || value.finalized_at == 0
-    {
-        return Err(HumanProtocolError::Malformed);
-    }
+    value.validate()?;
     Ok(value)
 }
 
@@ -2096,7 +2399,24 @@ fn dispatch_request<O: HumanOperations>(
             operations.authorize_subject(&scoped)?;
             dispatch_request(*request, &scoped, operations)
         }
-        HumanRequest::Prepare(request) => operations.prepare(peer, request),
+        HumanRequest::Prepare(request) => {
+            let pending = operations.account_sequence(
+                peer,
+                &request.operation.actor,
+                &request.operation.authority,
+            )?;
+            let pending = u64::from_be_bytes(
+                pending
+                    .bytes()
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Unavailable)?,
+            );
+            request
+                .operation
+                .validate_pending_nonce(pending)
+                .map_err(HumanOperationError::Typed)?;
+            operations.prepare(peer, request)
+        }
         HumanRequest::Submit(request) => operations.submit_external(peer, request),
         HumanRequest::Track { submission_ref } => operations.track(peer, &submission_ref),
         HumanRequest::ReceiptLookup {
@@ -2243,8 +2563,8 @@ fn dispatch_request<O: HumanOperations>(
         HumanRequest::Head => operations.head(peer),
         HumanRequest::Evidence {
             idempotency_key,
-            expected_activity_id,
-        } => operations.evidence(peer, idempotency_key, expected_activity_id),
+            tx_hash,
+        } => operations.evidence(peer, idempotency_key, tx_hash),
         HumanRequest::IdentityResolve { agent } => operations.identity_resolve(peer, &agent),
         HumanRequest::LeaseMap {
             not_before_unix_ms,
@@ -2397,9 +2717,9 @@ fn decode_operation(
                 activity_type: reader.u32()?,
                 actor: reader.text()?,
                 authority: reader.text()?,
-                account_sequence: reader.u64()?,
-                not_before: reader.u64()?,
-                not_after: reader.u64()?,
+                nonce: reader.u64()?,
+                not_before_height: reader.u64()?,
+                not_after_height: reader.u64()?,
                 idempotency_key: reader.text()?,
                 fee_limit: reader.u128()?,
                 payload: reader.bytes()?,
@@ -2446,9 +2766,9 @@ fn decode_operation(
                 activity_type: reader.u32()?,
                 actor: reader.text()?,
                 authority: reader.text()?,
-                account_sequence: reader.u64()?,
-                not_before: reader.u64()?,
-                not_after: reader.u64()?,
+                nonce: reader.u64()?,
+                not_before_height: reader.u64()?,
+                not_after_height: reader.u64()?,
                 idempotency_key: reader.text()?,
                 fee_limit: reader.u128()?,
                 payload: reader.bytes()?,
@@ -2501,9 +2821,9 @@ fn decode_operation(
                     activity_type: reader.u32()?,
                     actor: reader.text()?,
                     authority: reader.text()?,
-                    account_sequence: reader.u64()?,
-                    not_before: reader.u64()?,
-                    not_after: reader.u64()?,
+                    nonce: reader.u64()?,
+                    not_before_height: reader.u64()?,
+                    not_after_height: reader.u64()?,
                     idempotency_key: reader.text()?,
                     fee_limit: reader.u128()?,
                     payload: reader.bytes()?,
@@ -2778,7 +3098,7 @@ fn decode_operation_1(
         HEAD => HumanRequest::Head,
         EVIDENCE => HumanRequest::Evidence {
             idempotency_key: reader.fixed()?,
-            expected_activity_id: reader.fixed()?,
+            tx_hash: reader.fixed()?,
         },
         IDENTITY_RESOLVE => HumanRequest::IdentityResolve {
             agent: reader.text()?,
@@ -2849,45 +3169,44 @@ fn decode_operation_2(
             evidence: finalization(reader)?,
         },
         AGENT_JOURNEY => {
+            if reader.fixed::<2>()? != *b"J1" {
+                return Err(HumanProtocolError::Malformed);
+            }
             let tag = reader.u8()?;
             let agent_id = reader.text()?;
-            let amount = reader.u128()?;
-            let currency = reader.text()?;
-            let challenge_delay_seconds = reader.u64()?;
-            let ready_at = reader.u64()?;
-            let pre_observation = reader.fixed()?;
-            let post_observation = reader.fixed()?;
-            let evidence = finalization(reader)?;
             let kind = match tag {
-                0 if amount > 0
-                    && !currency.is_empty()
-                    && challenge_delay_seconds == 0
-                    && ready_at == 0 =>
-                {
-                    HumanAgentJourneyKind::Reclaim { amount, currency }
-                }
-                1 if amount == 0
-                    && currency.is_empty()
-                    && challenge_delay_seconds > 0
-                    && ready_at > evidence.finalized_at =>
-                {
-                    HumanAgentJourneyKind::Rotate {
-                        challenge_delay_seconds,
-                        ready_at,
-                    }
-                }
-                2 if amount == 0
-                    && currency.is_empty()
-                    && challenge_delay_seconds > 0
-                    && ready_at > evidence.finalized_at =>
-                {
-                    HumanAgentJourneyKind::Recover {
-                        challenge_delay_seconds,
-                        ready_at,
+                0 => HumanAgentJourneyKind::Reclaim {
+                    amount: reader.u128()?,
+                    currency: reader.text()?,
+                },
+                1 | 2 => {
+                    let challenge_delay_seconds = reader.u64()?;
+                    let ready_at = reader.u64()?;
+                    if tag == 1 {
+                        HumanAgentJourneyKind::Rotate {
+                            challenge_delay_seconds,
+                            ready_at,
+                        }
+                    } else {
+                        HumanAgentJourneyKind::Recover {
+                            challenge_delay_seconds,
+                            ready_at,
+                        }
                     }
                 }
                 _ => return Err(HumanProtocolError::Malformed),
             };
+            let pre_observation = reader.fixed()?;
+            let post_observation = reader.fixed()?;
+            let evidence = finalization(reader)?;
+            HumanJourneyRequestV1 {
+                agent_id: agent_id.clone(),
+                kind: kind.clone(),
+                pre_observation,
+                post_observation,
+                evidence,
+            }
+            .validate()?;
             HumanRequest::AgentJourney {
                 agent_id,
                 kind,
@@ -3085,12 +3404,12 @@ fn operator_command(
             let expiry_sequence = reader.u64()?;
             let preparation: [u8; 32] = reader.fixed()?;
             let signer_public_key: [u8; 32] = reader.fixed()?;
-            let signature: [u8; 64] = reader.fixed()?;
+            let signature: [u8; 65] = reader.fixed()?;
             if ceiling == 0
                 || expiry_sequence == 0
                 || preparation == [0; 32]
                 || signer_public_key == [0; 32]
-                || signature == [0; 64]
+                || signature == [0; 65]
             {
                 return Err(HumanProtocolError::Malformed);
             }
@@ -3263,4 +3582,288 @@ mod trace_envelope_tests {
         invalid[12] = b'G';
         assert!(trace_envelope(invalid).is_err());
     }
+}
+
+/// Version 1 journey producer shared with Human clients. Currency exists only for reclaim.
+#[derive(Clone, Debug)]
+pub struct HumanJourneyRequestV1 {
+    pub agent_id: String,
+    pub kind: HumanAgentJourneyKind,
+    pub pre_observation: [u8; 32],
+    pub post_observation: [u8; 32],
+    pub evidence: HumanFinalizationEvidence,
+}
+impl HumanJourneyRequestV1 {
+    fn validate(&self) -> Result<(), HumanProtocolError> {
+        self.evidence.validate()?;
+        if self.agent_id.is_empty()
+            || self.agent_id.len() > MAX_TEXT
+            || self.pre_observation == [0; 32]
+        {
+            return Err(HumanProtocolError::Malformed);
+        }
+        match &self.kind {
+            HumanAgentJourneyKind::Reclaim { amount, currency }
+                if *amount > 0
+                    && !currency.is_empty()
+                    && currency.len() <= MAX_TEXT
+                    && self.post_observation != [0; 32] =>
+            {
+                Ok(())
+            }
+            HumanAgentJourneyKind::Rotate {
+                challenge_delay_seconds,
+                ready_at,
+            }
+            | HumanAgentJourneyKind::Recover {
+                challenge_delay_seconds,
+                ready_at,
+            } if *challenge_delay_seconds > 0
+                && self
+                    .evidence
+                    .finalized_at
+                    .checked_add(*challenge_delay_seconds)
+                    == Some(*ready_at)
+                && self.post_observation == [0; 32] =>
+            {
+                Ok(())
+            }
+            _ => Err(HumanProtocolError::Malformed),
+        }
+    }
+    pub fn encode(&self) -> Result<Vec<u8>, HumanProtocolError> {
+        self.validate()?;
+        let mut out = MAGIC.to_vec();
+        out.push(AGENT_JOURNEY);
+        out.extend_from_slice(b"J1");
+        out.push(match self.kind {
+            HumanAgentJourneyKind::Reclaim { .. } => 0,
+            HumanAgentJourneyKind::Rotate { .. } => 1,
+            HumanAgentJourneyKind::Recover { .. } => 2,
+            _ => return Err(HumanProtocolError::Malformed),
+        });
+        let text = |out: &mut Vec<u8>, value: &str| {
+            out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+            out.extend_from_slice(value.as_bytes());
+        };
+        text(&mut out, &self.agent_id);
+        match &self.kind {
+            HumanAgentJourneyKind::Reclaim { amount, currency } => {
+                out.extend_from_slice(&amount.to_be_bytes());
+                text(&mut out, currency);
+            }
+            HumanAgentJourneyKind::Rotate {
+                challenge_delay_seconds,
+                ready_at,
+            }
+            | HumanAgentJourneyKind::Recover {
+                challenge_delay_seconds,
+                ready_at,
+            } => {
+                out.extend_from_slice(&challenge_delay_seconds.to_be_bytes());
+                out.extend_from_slice(&ready_at.to_be_bytes());
+            }
+            _ => return Err(HumanProtocolError::Malformed),
+        }
+        out.extend_from_slice(&self.pre_observation);
+        out.extend_from_slice(&self.post_observation);
+        let evidence = self.evidence;
+        out.extend_from_slice(&evidence.action_key);
+        out.extend_from_slice(&evidence.tx_hash);
+        out.extend_from_slice(&evidence.receipt_hash);
+        out.extend_from_slice(&evidence.observed_height.to_be_bytes());
+        out.push(evidence.rung);
+        out.extend_from_slice(&evidence.finalized_at.to_be_bytes());
+        Ok(out)
+    }
+}
+
+pub const fn capability_refusal_reason(dimension: crate::capability::Dimension) -> &'static str {
+    use crate::capability::Dimension;
+    match dimension {
+        Dimension::Expiry => "capability.expiry",
+        Dimension::ActivityType => "capability.activity_type",
+        Dimension::Counterparty => "capability.counterparty",
+        Dimension::Asset => "capability.asset",
+        Dimension::Amount => "capability.amount",
+        Dimension::Rate => "capability.rate",
+        Dimension::Purpose => "capability.purpose",
+    }
+}
+
+/// Bounded refusal envelope v1 (the LXHAGT01 protocol): a reason and operation-specific details.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct HumanWireRefusal {
+    pub reason: String,
+    pub nonce: Option<(u64, u64)>,
+}
+#[derive(Debug)]
+pub enum HumanWireResponse {
+    Success(HumanResponse),
+    Refused(HumanWireRefusal),
+    Unavailable,
+}
+/// Lossless consumer; rejects unknown status, oversized fields and trailing refusal details.
+pub fn decode_response(bytes: Vec<u8>) -> Result<HumanWireResponse, HumanProtocolError> {
+    if bytes.len() > MAX_BYTES {
+        return Err(HumanProtocolError::Malformed);
+    }
+    let mut reader = Reader::new(bytes);
+    if reader.fixed::<8>()? != *MAGIC {
+        return Err(HumanProtocolError::Malformed);
+    }
+    let answer = match reader.u8()? {
+        0 => {
+            let payload = reader.bytes[reader.offset..].to_vec();
+            return Ok(HumanWireResponse::Success(HumanResponse::new(payload)?));
+        }
+        1 => {
+            let reason = reader.text()?;
+            if reason.is_empty()
+                || !reason
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'_')
+            {
+                return Err(HumanProtocolError::Malformed);
+            }
+            let nonce = if reason == "prepare.stale_nonce" {
+                Some((reader.u64()?, reader.u64()?))
+            } else {
+                None
+            };
+            HumanWireResponse::Refused(HumanWireRefusal { reason, nonce })
+        }
+        2 => HumanWireResponse::Unavailable,
+        _ => return Err(HumanProtocolError::Malformed),
+    };
+    reader.finish()?;
+    Ok(answer)
+}
+
+/// Producer for lifecycle requests whose finalization fields share one wire codec.
+pub fn encode_lifecycle_request(request: &HumanRequest) -> Result<Vec<u8>, HumanProtocolError> {
+    if let HumanRequest::AgentJourney {
+        agent_id,
+        kind,
+        pre_observation,
+        post_observation,
+        evidence,
+    } = request
+    {
+        return HumanJourneyRequestV1 {
+            agent_id: agent_id.clone(),
+            kind: kind.clone(),
+            pre_observation: *pre_observation,
+            post_observation: *post_observation,
+            evidence: *evidence,
+        }
+        .encode();
+    }
+    let mut out = MAGIC.to_vec();
+    let text = |out: &mut Vec<u8>, value: &str| -> Result<(), HumanProtocolError> {
+        if value.is_empty() || value.len() > MAX_TEXT {
+            return Err(HumanProtocolError::Malformed);
+        }
+        out.extend_from_slice(&(value.len() as u32).to_be_bytes());
+        out.extend_from_slice(value.as_bytes());
+        Ok(())
+    };
+    let evidence = match request {
+        HumanRequest::AgentControl {
+            agent_id,
+            resume,
+            session_observation,
+            evidence,
+        } => {
+            out.push(AGENT_CONTROL);
+            text(&mut out, agent_id)?;
+            out.push(u8::from(*resume));
+            out.extend_from_slice(session_observation);
+            evidence
+        }
+        HumanRequest::AgentLimit {
+            agent_id,
+            monthly_limit,
+            currency,
+            replacement_budget_id,
+            evidence,
+        } => {
+            out.push(AGENT_LIMIT);
+            text(&mut out, agent_id)?;
+            out.extend_from_slice(&monthly_limit.to_be_bytes());
+            text(&mut out, currency)?;
+            out.extend_from_slice(replacement_budget_id);
+            evidence
+        }
+        HumanRequest::AgentArchive {
+            agent_id,
+            confirm_name,
+            pre_observation,
+            post_observation,
+            session_observation,
+            evidence,
+        } => {
+            out.push(AGENT_ARCHIVE);
+            text(&mut out, agent_id)?;
+            text(&mut out, confirm_name)?;
+            out.extend_from_slice(pre_observation);
+            out.extend_from_slice(post_observation);
+            out.extend_from_slice(session_observation);
+            evidence
+        }
+        _ => return Err(HumanProtocolError::Malformed),
+    };
+    evidence.validate()?;
+    out.extend_from_slice(&evidence.action_key);
+    out.extend_from_slice(&evidence.tx_hash);
+    out.extend_from_slice(&evidence.receipt_hash);
+    out.extend_from_slice(&evidence.observed_height.to_be_bytes());
+    out.push(evidence.rung);
+    out.extend_from_slice(&evidence.finalized_at.to_be_bytes());
+    Ok(out)
+}
+
+/// Explicitly refuses removed Human startup controls instead of accepting inert settings.
+pub fn refuse_retired_human_inputs(
+    names: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Result<(), String> {
+    for name in names {
+        let name = name.as_ref();
+        if matches!(
+            name,
+            "LAYERX_AGENT_MCP_CORE_SEQUENCE"
+                | "LAYERX_AGENT_MCP_EXPIRY_SEQUENCE"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT"
+                | "LAYERX_AGENT_HUMAN_EXPORT_SET_VERSION"
+        ) {
+            return Err(format!("{name} is retired"));
+        }
+    }
+    Ok(())
+}
+
+pub fn human_frame_limits(
+    deadline: Duration,
+    mut required: impl FnMut(&str) -> Result<String, String>,
+) -> Result<layerx_client::frame::transport::Limits, String> {
+    layerx_client::frame::transport::Limits {
+        maximum_frame_bytes: required("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES")?
+            .parse()
+            .map_err(|_| "human max frame is invalid")?,
+        maximum_connections: required("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS")?
+            .parse()
+            .map_err(|_| "human max connections is invalid")?,
+        maximum_streams: required("LAYERX_AGENT_HUMAN_MAX_STREAMS")?
+            .parse()
+            .map_err(|_| "human max streams is invalid")?,
+        maximum_queued_bytes: required("LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES")?
+            .parse()
+            .map_err(|_| "human max queue is invalid")?,
+        deadline,
+    }
+    .validate()
+    .map_err(|_| "human frame limits are invalid".to_owned())
 }

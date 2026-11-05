@@ -4,6 +4,7 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
+// Pause refusals use layerxgov ErrPausedScope (code 735).
 var (
 	ErrAuthScope         = sdkerrors.Register("layerxauth", 2, "LXP_AUTH_SCOPE")
 	ErrAuthRevoked       = sdkerrors.Register("layerxauth", 3, "LXP_AUTH_REVOKED")
@@ -14,5 +15,4 @@ var (
 	ErrNonCanonical      = sdkerrors.Register("layerxauth", 8, "LXP_NON_CANONICAL")
 	ErrUnauthorizedDebit = sdkerrors.Register("layerxauth", 9, "LXP_UNAUTHORIZED_DEBIT")
 	ErrIdempotentReplay  = sdkerrors.Register("layerxauth", 10, "LXP_IDEMPOTENT_REPLAY")
-	ErrPausedScope       = sdkerrors.Register("layerxauth", 11, "LXP_PAUSED_SCOPE")
 )

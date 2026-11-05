@@ -142,6 +142,69 @@ fn health_is_served_free_and_paid_routes_wait_for_handlers(
 }
 
 #[test]
+fn content_is_served_before_the_sidecar_is_serving_eligible(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut routes = filled_routes()?;
+    routes.set_serving_eligibility(|| false)?;
+    let server = start(test_limits(), routes)?;
+    let address = server.local_addr();
+
+    let content = get(address, &format!("/content/{DIGEST}"))?;
+    assert_eq!(content.status, 200);
+    assert_eq!(
+        content.header("Content-Type"),
+        Some("application/octet-stream")
+    );
+    assert_eq!(content.body, DIGEST.as_bytes());
+
+    for target in [
+        "/search?q=paxeer".to_owned(),
+        "/fetch?url=https%3A%2F%2Fpaxeer.app%2F".to_owned(),
+        "/attestations/1".to_owned(),
+        format!("/program-attestations/{DIGEST}/1"),
+    ] {
+        let reply = get(address, &target)?;
+        assert_eq!(reply.status, 503, "{target}");
+        assert_eq!(error_code(&reply)?, "service_not_ready", "{target}");
+    }
+
+    let malformed = get(address, "/content/not-a-digest")?;
+    assert_eq!(malformed.status, 400);
+    assert_eq!(error_code(&malformed)?, "malformed_digest");
+    server.shutdown()?;
+    Ok(())
+}
+
+#[test]
+fn a_content_route_without_a_handler_answers_route_unavailable(
+) -> Result<(), Box<dyn std::error::Error>> {
+    for eligible in [false, true] {
+        let mut routes = RouteTable::new();
+        routes.set_serving_eligibility(move || eligible)?;
+        let server = start(test_limits(), routes)?;
+        let address = server.local_addr();
+
+        let content = get(address, &format!("/content/{DIGEST}"))?;
+        assert_eq!(content.status, 503, "eligible={eligible}");
+        assert_eq!(
+            error_code(&content)?,
+            "route_unavailable",
+            "eligible={eligible}"
+        );
+
+        let malformed = get(address, "/content/not-a-digest")?;
+        assert_eq!(malformed.status, 400, "eligible={eligible}");
+        assert_eq!(
+            error_code(&malformed)?,
+            "malformed_digest",
+            "eligible={eligible}"
+        );
+        server.shutdown()?;
+    }
+    Ok(())
+}
+
+#[test]
 fn route_table_dispatches_filled_routes() -> Result<(), Box<dyn std::error::Error>> {
     let server = start(test_limits(), filled_routes()?)?;
     let address = server.local_addr();

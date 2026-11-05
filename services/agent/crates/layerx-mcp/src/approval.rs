@@ -1,10 +1,12 @@
 //! Threshold selection over the daemon's digest-bound approval registry.
 
 use layerx_agent_api::prepare::{Disclosure, Prepared};
+use layerx_agent_api::TimestampSeconds;
 use layerx_agentd::policy::approval::{
-    self, ApprovalAuditEntry, ApprovalChoice, ApprovalContext, ApprovalRegistry, ApprovalTicket,
-    ApproverId,
+    self, ApprovalAuditEntry, ApprovalChoice, ApprovalContext, ApprovalRegistry, ApprovalSequence,
+    ApprovalTicket, ApproverId,
 };
+use layerx_types::clock::Clock;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ApprovalPolicy {
@@ -39,6 +41,7 @@ pub fn require(
     context: ApprovalContext,
     prepared: Prepared,
     current_sequence: u64,
+    clock: &dyn Clock,
 ) -> Result<Requirement, ApprovalError> {
     let disclosed_amount =
         prepared
@@ -57,12 +60,13 @@ pub fn require(
         });
     }
     let expires_at_sequence = prepared.disclosure.expiry.0;
-    approval::hold(
+    approval::hold_at(
         registry,
         context,
         prepared,
-        current_sequence,
-        expires_at_sequence,
+        ApprovalSequence(current_sequence),
+        ApprovalSequence(expires_at_sequence),
+        decision_time(clock)?,
     )
     .map(|ticket| Requirement::Required(Box::new(ticket)))
     .map_err(ApprovalError::Daemon)
@@ -79,6 +83,7 @@ pub fn approve(
     approver: ApproverId,
     presented: &Disclosure,
     current_sequence: u64,
+    clock: &dyn Clock,
 ) -> Result<ApprovalAuditEntry, ApprovalError> {
     decide(
         registry,
@@ -87,6 +92,7 @@ pub fn approve(
         ApprovalChoice::Approve,
         presented,
         current_sequence,
+        clock,
     )
 }
 
@@ -101,6 +107,7 @@ pub fn reject(
     approver: ApproverId,
     presented: &Disclosure,
     current_sequence: u64,
+    clock: &dyn Clock,
 ) -> Result<ApprovalAuditEntry, ApprovalError> {
     decide(
         registry,
@@ -109,6 +116,7 @@ pub fn reject(
         ApprovalChoice::Reject,
         presented,
         current_sequence,
+        clock,
     )
 }
 
@@ -120,8 +128,14 @@ pub fn reject(
 pub fn expire(
     registry: &ApprovalRegistry,
     current_sequence: u64,
+    clock: &dyn Clock,
 ) -> Result<Vec<ApprovalAuditEntry>, ApprovalError> {
-    approval::expire(registry, current_sequence).map_err(ApprovalError::Daemon)
+    approval::expire_at(
+        registry,
+        ApprovalSequence(current_sequence),
+        decision_time(clock)?,
+    )
+    .map_err(ApprovalError::Daemon)
 }
 
 fn decide(
@@ -131,6 +145,7 @@ fn decide(
     choice: ApprovalChoice,
     presented: &Disclosure,
     current_sequence: u64,
+    clock: &dyn Clock,
 ) -> Result<ApprovalAuditEntry, ApprovalError> {
     let ticket = registry
         .ticket(hold_id)
@@ -139,13 +154,25 @@ fn decide(
     if &ticket.disclosure != presented {
         return Err(ApprovalError::DisclosureChanged);
     }
-    approval::decide(
+    approval::decide_at(
         registry,
         hold_id,
         approver,
         choice,
         presented.canonical_digest,
-        current_sequence,
+        ApprovalSequence(current_sequence),
+        decision_time(clock)?,
     )
     .map_err(ApprovalError::Daemon)
+}
+
+pub(crate) fn decision_time(clock: &dyn Clock) -> Result<TimestampSeconds, ApprovalError> {
+    let unavailable = || ApprovalError::Daemon(approval::ApprovalError::Unavailable);
+    let reading = clock
+        .sample(std::time::Duration::from_secs(1))
+        .map_err(|_| unavailable())?;
+    if reading.generation == [0; 16] {
+        return Err(unavailable());
+    }
+    Ok(TimestampSeconds(reading.unix_seconds()))
 }

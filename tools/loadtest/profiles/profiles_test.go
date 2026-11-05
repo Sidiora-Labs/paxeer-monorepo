@@ -80,7 +80,7 @@ func TestProfilesAlignment(t *testing.T) {
 			// Use a decoder with DisallowUnknownFields to catch any extra fields
 			decoder := json.NewDecoder(strings.NewReader(string(data)))
 			decoder.DisallowUnknownFields()
-			
+
 			var strictConfig config.LoadConfig
 			if err := decoder.Decode(&strictConfig); err != nil {
 				t.Errorf("Profile %s contains unexpected/unaligned fields: %v", file.Name(), err)
@@ -158,5 +158,55 @@ func TestProfilesRequiredFields(t *testing.T) {
 
 			t.Logf("✓ Profile %s has all required fields", file.Name())
 		})
+	}
+}
+
+func TestProfilesDeclarePerformanceBounds(t *testing.T) {
+	profilesDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+
+	files, err := os.ReadDir(profilesDir)
+	if err != nil {
+		t.Fatalf("Failed to read profiles directory: %v", err)
+	}
+
+	jsonFileCount := 0
+	for _, file := range files {
+		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+			continue
+		}
+
+		jsonFileCount++
+		filePath := filepath.Join(profilesDir, file.Name())
+		t.Run(file.Name(), func(t *testing.T) {
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Failed to read file %s: %v", file.Name(), err)
+			}
+
+			var loadConfig config.LoadConfig
+			decoder := json.NewDecoder(strings.NewReader(string(data)))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&loadConfig); err != nil {
+				t.Fatalf("Failed to decode %s into LoadConfig: %v", file.Name(), err)
+			}
+
+			var bounds *config.BoundsConfig = loadConfig.Bounds
+			if bounds == nil {
+				t.Fatalf("Profile %s is missing bounds", file.Name())
+			}
+			if !(bounds.MinAverageTPS > 0) {
+				t.Errorf("Profile %s must declare a positive minAverageTps, got %g", file.Name(), bounds.MinAverageTPS)
+			}
+			if bounds.MaxP99LatencyMs <= 0 {
+				t.Errorf("Profile %s must declare a positive maxP99LatencyMs, got %d", file.Name(), bounds.MaxP99LatencyMs)
+			}
+		})
+	}
+
+	if jsonFileCount == 0 {
+		t.Fatal("No JSON files found in profiles directory")
 	}
 }

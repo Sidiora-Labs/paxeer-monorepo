@@ -1,0 +1,9 @@
+[repair.22.31.247]
+finding = "refresh-epoch-recovery"
+proof = "TestRepair_247_RefreshEpochRecovery"
+implementation = "Authenticated descriptions expose the durable refresh identity and decision; InspectRefreshRecovery admits only the journal-bound base/base+1 transition, replay retains the session, and strict reconciliation requires completed members."
+baseline = "No baseline gate was run: the ordered implementation-first instructions and bounded gate allowance supersede the contradictory request to verify the unchanged tree; no repair tests existed initially."
+wiring_request = "Domain 12: services/wallet/ceremony/internal/migrate/migrate.go resumeCurve and refreshOriginalIdentity must call InspectRefreshRecovery with the sealed journal ceremony/import/refresh identity, public key, curve and base epoch before replaying the recorded RefreshCeremony/RefreshOriginalIdentity session, then require strict ReconcileCeremony before clearing shares."
+evidence = "The runner hf-done ledger records the exact candidate revision, command, exit code and private log; this record does not claim a gate before it runs."
+schema_wiring_request = "Domain 12: services/wallet/schema/attestor-api/v1.kvx must describe the additive keys.describe refresh object containing ExistingKey, ceremony/import/session/key identity, base epoch, curve/public key/participants, decision and completion audit sequence."
+gotcha = "The real inventory authorizes each held epoch exactly; the interruption proof uses signed per-member epoch inventories and preserves their anti-rollback sequences during recovery."

@@ -1,0 +1,9 @@
+[repair.22.31.276]
+finding = "health-error-contract"
+tests = ["health_error_contract_grpc", "health_error_contract_http"]
+test_path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_276.rs"
+proof = "Production HealthService, generated tonic server/client over TCP, and generated Actix route over HTTP: empty and Health names serve; unknown, method, case-mismatched and whitespace names return gRPC NOT_FOUND and HTTP 404."
+baseline = "Not executed: the ordered task gates require complete implementation before hf-build and prohibit running verify_cmd by hand; no baseline failure is claimed."
+registration = "Only aggregate health and the always-registered Health service are tracked; optional verifier service names are not reported healthy without registration."
+evidence = "The runner gate ledger records the exact qualified candidate revision, command, exit and private log location."
+wiring_requests = []

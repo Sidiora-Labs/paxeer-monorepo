@@ -5,11 +5,12 @@ from base64 import b64decode
 from binascii import Error as BinasciiError
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import sha256
 from os import environ
 from re import fullmatch, search
 from typing import Mapping
 
-from layerx_sdk import AuthorizedReceiptBatch
+from layerx_sdk.px import PxReceiptKeyEntry, decode_px_receipt_keys
 
 from .protocol import (
     JsonValue,
@@ -31,7 +32,7 @@ DECLARED_KEYS = (
     "LAYERX_ASSET",
     "LAYERX_PAY_TO",
     "LAYERX_PAYMENT_TIMEOUT_SECONDS",
-    "LAYERX_AUTHORIZED_BATCH_JSON",
+    "LAYERX_RECEIPT_KEYS_JSON",
     "LAYERX_WEBHOOK_PATH",
     "LAYERX_WEBHOOK_PUBLIC_KEYS_JSON",
     "LAYERX_WEBHOOK_MAX_AGE_MS",
@@ -55,11 +56,12 @@ class IntegrationErrorCode(StrEnum):
 
 
 class IntegrationError(Exception):
-    __slots__ = ("code",)
+    __slots__ = ("code", "key")
 
-    def __init__(self, code: IntegrationErrorCode) -> None:
-        super().__init__(code.value)
+    def __init__(self, code: IntegrationErrorCode, key: str | None = None) -> None:
+        super().__init__(code.value if key is None else f"{code.value}: {key}")
         self.code = code
+        self.key = key
 
 
 @dataclass(frozen=True)
@@ -84,7 +86,7 @@ class DeclaredConfig:
     protected_path: str
     payment_required: PaymentRequired
     requirements: PaymentRequirements
-    authorized_batch: AuthorizedReceiptBatch
+    receipt_keys: tuple[PxReceiptKeyEntry, ...]
     webhook: WebhookSettings
     buyer: BuyerSettings | None = None
 
@@ -101,11 +103,14 @@ def assert_no_published_secrets(environment: Mapping[str, str]) -> None:
             raise IntegrationError(IntegrationErrorCode.CLIENT_RUNTIME_REFUSED)
 
 
-def read_declared_config(environment: Mapping[str, str] | None = None) -> DeclaredConfig:
+def read_declared_config(
+    environment: Mapping[str, str] | None = None, *, purpose_hash: str | None = None
+) -> DeclaredConfig:
     values = dict(environ if environment is None else environment)
     assert_no_published_secrets(values)
     scheme = _required(values, "LAYERX_X402_SCHEME")
     network = _required(values, "LAYERX_X402_NETWORK")
+    resource_url = _required(values, "LAYERX_RESOURCE_URL")
     requirements = PaymentRequirements(
         scheme=scheme,
         network=network,
@@ -113,10 +118,17 @@ def read_declared_config(environment: Mapping[str, str] | None = None) -> Declar
         asset=_required(values, "LAYERX_ASSET"),
         pay_to=_required(values, "LAYERX_PAY_TO"),
         max_timeout_seconds=_positive_integer(_required(values, "LAYERX_PAYMENT_TIMEOUT_SECONDS")),
+        extra={"layerx": {
+            "commitment": "receipted",
+            "purposeHash": (
+                offer_purpose_hash(resource_url) if purpose_hash is None else _hex32(purpose_hash).hex()
+            ),
+        }},
+        has_extra=True,
     )
     payment_required = PaymentRequired(
         resource=ResourceInfo(
-            url=_required(values, "LAYERX_RESOURCE_URL"),
+            url=resource_url,
             description=_optional(values, "LAYERX_RESOURCE_DESCRIPTION"),
             mime_type=_optional(values, "LAYERX_RESOURCE_MIME_TYPE"),
             service_name=_optional(values, "LAYERX_RESOURCE_SERVICE_NAME"),
@@ -135,7 +147,7 @@ def read_declared_config(environment: Mapping[str, str] | None = None) -> Declar
         protected_path=_mount_path(_required(values, "LAYERX_PROTECTED_PATH")),
         payment_required=payment_required,
         requirements=requirements,
-        authorized_batch=parse_authorized_batch(_required(values, "LAYERX_AUTHORIZED_BATCH_JSON")),
+        receipt_keys=parse_receipt_keys(_required(values, "LAYERX_RECEIPT_KEYS_JSON")),
         webhook=WebhookSettings(
             path=_mount_path(_required(values, "LAYERX_WEBHOOK_PATH")),
             public_keys=parse_webhook_keys(_required(values, "LAYERX_WEBHOOK_PUBLIC_KEYS_JSON")),
@@ -146,15 +158,14 @@ def read_declared_config(environment: Mapping[str, str] | None = None) -> Declar
     )
 
 
-def parse_authorized_batch(value: str) -> AuthorizedReceiptBatch:
-    parsed = _json_object(value)
-    return AuthorizedReceiptBatch(
-        batch_id=_hex32(_required_text(parsed.get("batchId"))),
-        asset=_hex32(_required_text(parsed.get("asset"))),
-        previous_state_root=_hex32(_required_text(parsed.get("previousStateRoot"))),
-        resulting_state_root=_hex32(_required_text(parsed.get("resultingStateRoot"))),
-        sequencer_public_key=_hex32(_required_text(parsed.get("sequencerPublicKey"))),
-    )
+def parse_receipt_keys(value: str) -> tuple[PxReceiptKeyEntry, ...]:
+    try:
+        keys = decode_px_receipt_keys(json.loads(value))
+    except (TypeError, ValueError) as error:
+        raise IntegrationError(IntegrationErrorCode.INVALID_DECLARED_KEY) from error
+    if not keys:
+        raise IntegrationError(IntegrationErrorCode.INVALID_DECLARED_KEY)
+    return keys
 
 
 def parse_webhook_keys(value: str) -> dict[str, bytes]:
@@ -175,7 +186,7 @@ def parse_webhook_keys(value: str) -> dict[str, bytes]:
 def _required(environment: Mapping[str, str], key: str) -> str:
     value = environment.get(key)
     if value is None or len(value) == 0:
-        raise IntegrationError(IntegrationErrorCode.MISSING_DECLARED_KEY)
+        raise IntegrationError(IntegrationErrorCode.MISSING_DECLARED_KEY, key=key)
     return value
 
 
@@ -237,3 +248,7 @@ def _is_published_name(name: str) -> bool:
 
 def _looks_like_key_material(name: str) -> bool:
     return search(r"(^|_)(TOKEN|SECRET|PRIVATE|CREDENTIAL|PASSWORD|SIGNING_KEY|API_KEY)(_|$)", name) is not None
+
+
+def offer_purpose_hash(resource_url: str) -> str:
+    return sha256(("layerx-fastapi-purpose:" + resource_url).encode("utf-8")).hexdigest()

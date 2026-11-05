@@ -3,15 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Medal } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Loadable } from '@/core/market/unsupported';
+import { loadable, toUnsupported, type Loadable } from '@/core/market/unsupported';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
-import { Avatar, EmptyState, ErrorState, IconButton, RankBadge, SectionHeader, UnavailableState } from '@/ui/primitives';
+import { Avatar, Button, EmptyState, ErrorState, IconButton, RankBadge, SectionHeader, UnavailableState } from '@/ui/primitives';
 import { RankRowSkeleton } from '@/ui/shared/skeletons';
 import { formatUsdl, relativeAge, shortAddress } from '@/utils/format';
 import { FollowButton } from '@/widgets/social/follow-button';
 import { profileHref, RankRow } from '../rank-row';
-import { cupHighlights, metricTone, prizeForRank, type Cup, type CupStanding } from './cups-contract';
-import { useCupResults, useCupRetry, useCupStandings } from './use-cup';
+import { cupHighlights, cupOperations, metricTone, prizeForRank, type Cup, type CupStanding } from './cups-contract';
+import { useCupResults, useCupRetry, useCupStandingsPages } from './use-cup';
 
 export interface CupResultsListProps {
   cup: Cup;
@@ -76,9 +76,16 @@ function Highlights({ cup, items, identities }: HighlightsProps) {
   );
 }
 
-interface StandingsPanelProps { cup: Cup; title: string; state: Loadable<{ items: CupStanding[]; generatedAt: string }>; onRetry: () => void; highlights: boolean }
+interface StandingsPagination {
+  nextCursor: string | null;
+  loading: boolean;
+  failure: Loadable<never> | null;
+  onLoadMore: () => void;
+}
 
-function StandingsPanel({ cup, title, state, onRetry, highlights }: StandingsPanelProps) {
+interface StandingsPanelProps { cup: Cup; title: string; state: Loadable<{ items: CupStanding[]; generatedAt: string }>; onRetry: () => void; highlights: boolean; pagination?: StandingsPagination }
+
+function StandingsPanel({ cup, title, state, onRetry, highlights, pagination }: StandingsPanelProps) {
   const items = state.state === 'ready' ? state.data.items : [];
   const { identities } = useWalletIdentities(items.map(row => row.wallet));
   return (
@@ -114,6 +121,19 @@ function StandingsPanel({ cup, title, state, onRetry, highlights }: StandingsPan
               <p className="mt-3 font-mono text-2xs text-text-faint">Updated {relativeAge(state.data.generatedAt)} ago</p>
             </>
           ) : null}
+          {state.state === 'ready' && pagination && pagination.nextCursor !== null ? (
+            <div className="mt-3 flex flex-col gap-3" aria-busy={pagination.loading}>
+              {pagination.failure?.state === 'unsupported' ? (
+                <UnavailableState title="More cup standings" operation={pagination.failure.operation} status={pagination.failure.status} message="Check back soon" onRetry={pagination.onLoadMore} />
+              ) : pagination.failure?.state === 'error' ? (
+                <ErrorState title="Couldn't load more standings" message="Your loaded standings are still shown" onRetry={pagination.onLoadMore} />
+              ) : (
+                <Button onClick={pagination.onLoadMore} loading={pagination.loading} disabled={pagination.loading}>
+                  {pagination.loading ? 'Loading standings' : 'Load more standings'}
+                </Button>
+              )}
+            </div>
+          ) : null}
         </div>
       </section>
     </div>
@@ -127,9 +147,26 @@ function FinalResults({ cup }: { cup: Cup }) {
 }
 
 function LiveStandings({ cup }: { cup: Cup }) {
-  const standings = useCupStandings(cup.cupId);
+  const query = useCupStandingsPages(cup.cupId);
   const retry = useCupRetry(cup.cupId);
-  return <StandingsPanel cup={cup} title="Live standings" state={standings} onRetry={retry} highlights={false} />;
+  const pages = query.data?.pages;
+  const lastPage = pages?.[pages.length - 1];
+  const result = loadable(query, cupOperations.standings);
+  const standings = result.state === 'ready'
+    ? { state: 'ready' as const, data: { items: result.data.pages.flatMap(page => page.items), generatedAt: result.data.pages[result.data.pages.length - 1].generatedAt } }
+    : pages && lastPage && query.isFetchNextPageError
+      ? { state: 'ready' as const, data: { items: pages.flatMap(page => page.items), generatedAt: lastPage.generatedAt } }
+      : result;
+  const loadMore = () => { void query.fetchNextPage({ cancelRefetch: false }); };
+  const pagination: StandingsPagination = {
+    nextCursor: lastPage?.nextCursor ?? null,
+    loading: query.isFetching,
+    failure: query.isFetchNextPageError && query.error
+      ? toUnsupported(cupOperations.standings, query.error) ?? { state: 'error', error: query.error, retry: loadMore }
+      : null,
+    onLoadMore: loadMore,
+  };
+  return <StandingsPanel cup={cup} title="Live standings" state={standings} onRetry={retry} highlights={false} pagination={pagination} />;
 }
 
 /**

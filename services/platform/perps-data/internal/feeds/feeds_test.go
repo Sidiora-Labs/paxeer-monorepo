@@ -615,12 +615,12 @@ func TestFeeds(t *testing.T) {
 		}
 		p := providers(t, db)
 		rec := decodeJSON[map[string]any](t, subscribe(t, p, "BTC@market"))
-		if len(rec) != 23 {
+		if len(rec) != 24 {
 			t.Fatalf("record has %d fields: %v", len(rec), rec)
 		}
 		next := float64(time.Now().UTC().Truncate(time.Hour).Add(time.Hour).UnixMilli())
 		want := map[string]any{
-			"symbol": "BTC", "symbol_full": "Bitcoin", "price": 100.0, "change_24h": 0.1, "volume_24h": 250.0, "open_interest": 400.0,
+			"market_id": "0", "symbol": "BTC", "symbol_full": "Bitcoin", "price": 100.0, "change_24h": 0.1, "volume_24h": 250.0, "open_interest": 400.0,
 			"funding_8h": "0.0001", "last_funding_rate_hourly": "0.0000125", "volume_7d": 700.0, "volume_30d": 900.0, "trades_count": 7.0,
 			"last_updated": float64(time.Unix(1_700_000_005, 0).UnixMilli()), "perp_mark_price": 100.5, "perp_index_price": 100.0,
 			"perp_basis_bps": 50.0, "perp_funding_rate": "0.0000125", "perp_next_funding_ms": next, "perp_long_short_ratio": 3.0,

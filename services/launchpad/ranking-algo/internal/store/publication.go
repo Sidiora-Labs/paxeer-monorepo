@@ -45,7 +45,8 @@ func NewPublicationStore(pool *pgxpool.Pool, schema string, guard EpochGuard) (*
 	return &PublicationStore{s, guard}, nil
 }
 func (s *PublicationStore) Complete(ctx context.Context, snapshots []ranker.Snapshot) error {
-	if len(snapshots) != 1 && len(snapshots) != 5 {
+	heavyCategories := ranker.HeavyCategoryNames()
+	if len(snapshots) != 1 && len(snapshots) != len(heavyCategories) {
 		return errors.New("complete new or complete heavy run required")
 	}
 	ordered := append([]ranker.Snapshot(nil), snapshots...)
@@ -65,8 +66,8 @@ func (s *PublicationStore) Complete(ctx context.Context, snapshots []ranker.Snap
 	if len(ordered) == 1 && !categories["new"] {
 		return errors.New("new run required")
 	}
-	if len(ordered) == 5 {
-		for _, category := range ranker.HeavyCategoryNames() {
+	if len(ordered) != 1 {
+		for _, category := range heavyCategories {
 			if !categories[category] {
 				return errors.New("heavy categories incomplete")
 			}
@@ -421,12 +422,12 @@ func (s *SnapshotStore) PublicationHealth(ctx context.Context, now time.Time, ma
 	if maxAttempts < 1 || maxAttempts > 100 {
 		return health, ranker.ErrUnavailable
 	}
-	rows, err := s.pool.Query(ctx, "SELECT category,cutoff_time FROM "+s.table("category_heads")+" ORDER BY category LIMIT 6")
+	rows, err := s.pool.Query(ctx, "SELECT category,cutoff_time FROM "+s.table("category_heads")+" WHERE category=ANY($1) ORDER BY category LIMIT $2", ranker.Categories[:], len(ranker.Categories))
 	if err != nil {
 		return health, err
 	}
 	allHeavyStale := true
-	heavySeen := 0
+	heavySeen := map[string]bool{}
 	var latestStaleAt int64
 	for rows.Next() {
 		var category string
@@ -440,10 +441,14 @@ func (s *SnapshotStore) PublicationHealth(ctx context.Context, now time.Time, ma
 			rows.Close()
 			return health, ranker.ErrUnavailable
 		}
+		if _, duplicate := health.CategoryAges[category]; duplicate {
+			rows.Close()
+			return health, ranker.ErrUnavailable
+		}
 		age := now.Unix() - cutoff
 		health.CategoryAges[category] = age
 		if category != "new" {
-			heavySeen++
+			heavySeen[category] = true
 			if age <= policy.FreshnessSeconds {
 				allHeavyStale = false
 			}
@@ -457,7 +462,13 @@ func (s *SnapshotStore) PublicationHealth(ctx context.Context, now time.Time, ma
 	if err = rows.Err(); err != nil {
 		return health, err
 	}
-	if heavySeen == 5 && allHeavyStale {
+	completeHeavy := true
+	for _, category := range ranker.HeavyCategoryNames() {
+		if !heavySeen[category] {
+			completeHeavy = false
+		}
+	}
+	if completeHeavy && allHeavyStale {
 		since := time.Unix(latestStaleAt, 0).UTC()
 		health.AllHeavyStaleSince = &since
 		health.AllHeavyStaleForFiveMinutes = now.Sub(since) >= 5*time.Minute

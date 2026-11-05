@@ -3,6 +3,9 @@ package ante
 import (
 	"math/big"
 
+	chainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
+
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -43,7 +46,8 @@ func (svd *EVMSigVerifyDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 	ctx = ctx.WithPaxSenderAddress(types.MustGetEVMTransactionMessage(tx).Derived.SenderPaxAddr)
 	ctx = ctx.WithEVMTxHash(ethTx.Hash())
 
-	chainID := svd.evmKeeper.ChainID(ctx)
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	chainID := svd.evmKeeper.ChainID(readCtx)
 	txChainID := ethTx.ChainId()
 
 	fee := new(big.Int).Mul(ethTx.GasPrice(), new(big.Int).SetUint64(ethTx.Gas()))
@@ -51,25 +55,44 @@ func (svd *EVMSigVerifyDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 		fee = new(big.Int).Add(fee, ethTx.Value())
 	}
 
-	// validate chain ID on the transaction
-	switch ethTx.Type() {
-	case ethtypes.LegacyTxType:
-		// legacy either can have a zero or correct chain ID
-		if txChainID.Cmp(big.NewInt(0)) != 0 && txChainID.Cmp(chainID) != 0 {
-			logger.Debug("chainID mismatch", "txChainID", ethTx.ChainId(), "chainID", chainID)
+	// Resolve protected transactions against the registered chain before nonce checks.
+	if txChainID.Cmp(chainID) != 0 && !(ethTx.Type() == ethtypes.LegacyTxType && txChainID.Sign() == 0) {
+		id, mapped := chainstypes.DomainOfChainID(txChainID)
+		if !mapped || id == 0 {
 			return ctx, sdkerrors.ErrInvalidChainID
 		}
-	default:
-		// after legacy, all transactions must have the correct chain ID
-		if txChainID.Cmp(chainID) != 0 {
-			logger.Debug("chainID mismatch", "txChainID", ethTx.ChainId(), "chainID", chainID)
+		known := false
+		for _, key := range readCtx.MultiStore().StoreKeys() {
+			if key.Name() != chainstypes.StoreKey {
+				continue
+			}
+			chains, err := chainskeeper.NewKeeper(nil, key, svd.evmKeeper.BankKeeper(), svd.evmKeeper.GetBaseDenom)
+			if err != nil {
+				return ctx, err
+			}
+			domain, ok := chains.ResolveChainID(readCtx, txChainID)
+			if !ok {
+				return ctx, sdkerrors.ErrInvalidChainID
+			}
+			if domain.Status != chainstypes.StatusActive {
+				return ctx, chainstypes.ErrDomainNotActive
+			}
+			ctx = chainstypes.WithDomain(ctx, domain.Id)
+			known = true
+			break
+		}
+		if !known {
 			return ctx, sdkerrors.ErrInvalidChainID
 		}
 	}
 
 	if ctx.IsCheckTx() {
 		if txNonce < nextNonce {
+			evmAnteMetrics.pendingNonce.Add(ctx.Context(), 1, otelmetric.WithAttributes(attribute.String("type", "rejected")))
 			return ctx, sdkerrors.ErrWrongSequence
+		}
+		if txNonce > nextNonce {
+			evmAnteMetrics.pendingNonce.Add(ctx.Context(), 1, otelmetric.WithAttributes(attribute.String("type", "added")))
 		}
 		ctx = ctx.WithEVMRequiredBalance(fee)
 	} else if txNonce != nextNonce {

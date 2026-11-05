@@ -25,8 +25,9 @@ def main():
     token=result['contracts']['ZeroResetToken.sol']['ZeroResetToken']
     artifact=output/'ZeroResetToken.json';artifact.write_text(json.dumps({'abi':token['abi'],'bytecode':'0x'+token['evm']['bytecode']['object'],'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest()}))
     env={**os.environ,'L26_FIXTURE_JSON':str(fixture),'L26_FIXTURE_SHA256':args.fixture_sha256,'L26_RPC_URL':args.rpc_url,'L26_ZERO_RESET_ARTIFACT':str(artifact),'L26_CACHE_DIR':str(output/'vite-cache'),'WALLET_TEST_RPC_URL':args.rpc_url,'WALLET_TEST_ALLOW_CHAIN_MUTATION':'1'}
-    web=root/'client/apps/web'
-    command=['node',str(web/'node_modules/vitest/vitest.mjs'),'run','--config','src/widgets/trading/transaction-controls/vitest.phase2.config.ts','--reporter=tap','--reporter=json','--outputFile='+str(output/'vitest.json')]
+    native=json.loads((pathlib.Path(__file__).parent/'native-runner.json').read_text())
+    web=root/native['web']
+    command=['node',str(web/native['entry']),*native['arguments'],'--outputFile='+str(output/'vitest.json')]
     completed=subprocess.run(command,cwd=web,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=240)
     (output/'native.log').write_text(completed.stdout)
     sys.stdout.write(completed.stdout);sys.stdout.flush()

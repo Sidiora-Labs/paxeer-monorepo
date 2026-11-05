@@ -94,7 +94,7 @@ flags (each overrides the env file key in brackets):
   --keyring-dir DIR          directory of that keyring [CREDENTIAL_DIR]
 options:
   --env-file FILE            untracked KEY=VALUE file supplying any bracketed key
-  --receipt PATH             write the JSON receipt of contracts/release.md#post-rollout-verification
+  --receipt PATH             write the JSON receipt (default WORK/receipts/rehearsal.json) of contracts/release.md#post-rollout-verification
   --stop-after STEP          stop after the export or halt step and keep WORK for inspection
   --wait-seconds S           limit on each wait for the network (default 1800)
   --check                    validate syntax, flags, keys and tools, then exit without touching state
@@ -213,7 +213,7 @@ done
 case "$check:$stop_after" in
 	0:export) prerequisites=() ;;
 	0:halt) prerequisites=(rehearsal/rewrite_genesis.py) ;;
-	*) prerequisites=(rehearsal/rewrite_genesis.py rehearsal/pool_parity.py rehearsal/programme.py upgrade_info.py fleet_check.py feed_key.py
+	*) prerequisites=(rehearsal/rewrite_genesis.py rehearsal/pool_parity.py rehearsal/programme.py rehearsal/receipt.sh upgrade_info.py fleet_check.py feed_key.py
 		fleet-views.json snapshot.sh rollback.sh) ;;
 esac
 for script in "${prerequisites[@]}"; do
@@ -262,6 +262,7 @@ snapshots=$work/snapshots
 credentials=$work/credentials
 receipts=$work/receipts
 rehearsal_env=$work/rehearsal.env
+[ -n "$receipt" ] || receipt=$receipts/rehearsal.json
 mkdir -p "$logs" "$evidence" "$bin_dir" "$snapshots" "$credentials" "$receipts"
 unit_tag=$(printf '%s' "$work" | sha256sum | cut -c1-8)
 
@@ -276,22 +277,7 @@ evm_port() { echo $((port_base + 20 * $1 + 2)); }
 rpc_url() { echo "http://127.0.0.1:$(rpc_port "$1")"; }
 evm_url() { echo "http://127.0.0.1:$(evm_port "$1")"; }
 
-write_receipt() {
-	local result=$1
-	[ -n "$receipt" ] || return 0
-	mkdir -p "$(dirname "$receipt")"
-	if [ "$result" = pass ]; then
-		jq -n --arg version "$plan" --argjson nodes "$nodes" --argjson served "$precompiles_served" \
-			--argjson pools "$pools" --argjson markets "$markets" --argjson fresh "$oracle_fresh" \
-			--argjson feed_keys "$feed_keys" --arg sha "$new_sha" \
-			'{version: $version, plan: $version, nodes_checked: $nodes, nodes_passed: $nodes,
-			  precompiles_served: $served, pools: $pools, markets: $markets, oracle_fresh: $fresh,
-			  feed_keys: $feed_keys, rollback_rehearsed: true, new_bin_sha256: $sha, result: "pass"}' >"$receipt"
-	else
-		jq -n --arg version "$plan" --arg sha "$new_sha" \
-			'{version: $version, plan: $version, rollback_rehearsed: false, new_bin_sha256: $sha, result: "fail"}' >"$receipt"
-	fi
-}
+. "$release/rehearsal/receipt.sh"
 
 cleanup() {
 	local pid unit
@@ -552,13 +538,19 @@ check_sidecar_submissions() { run_programme_check check_sidecar_submissions; }
 check_price_freshness() { run_programme_check check_price_freshness; }
 check_price_submission_bounds() { run_programme_check check_price_submission_bounds; }
 check_plan_and_version() { run_programme_check check_plan_and_version; }
+check_merged_transaction() { run_programme_check check_merged_transaction; }
+check_current_guest_deployment() { run_programme_check check_current_guest_deployment; }
+check_native_xweb() { run_programme_check check_native_xweb; }
+check_tenant_isolation() { run_programme_check check_tenant_isolation; }
+check_persisted_restart() { run_programme_check check_persisted_restart; }
 
 run_programme_checks() {
 	local check failed=0
 	for check in check_launchpad_interface check_usdl_erc20_custody check_pool_parity check_fee_right_and_pool_token \
 		check_perps_order_types check_perps_margin check_perps_economics check_perps_markets check_perps_log_rebuild \
 		check_spot_interface check_spot_settlement check_spot_logs \
-		check_sidecar_submissions check_price_freshness check_price_submission_bounds check_plan_and_version; do
+		check_sidecar_submissions check_price_freshness check_price_submission_bounds check_plan_and_version \
+		check_merged_transaction check_current_guest_deployment check_native_xweb check_tenant_isolation check_persisted_restart; do
 		"$check" || failed=1
 	done
 	return "$failed"
@@ -605,6 +597,11 @@ fi
 h1=$((halt_height + 1))
 log "exported state at height $export_height; rehearsal halts at $halt_height"
 [ "$stop_after" != export ] || { log "stopped after the export step; work kept in $work"; exit 0; }
+
+# The disposable fork has fresh keys and a distinct consensus signing domain.
+chain_id="rehearsal_$chain_id"
+jq --arg chain "$chain_id" '.chain_id = $chain' "$exported" >"$exported.tmp"
+mv -f -- "$exported.tmp" "$exported"
 
 # --- 2. four local homes and the four-validator genesis ----------------------------------------
 for ((i = 0; i < nodes; i++)); do
@@ -653,6 +650,7 @@ for ((i = 0; i < nodes; i++)); do
 	set_toml "$config" p2p laddr "\"tcp://127.0.0.1:$(p2p_port "$i")\""
 	set_toml "$config" p2p external-address '""'
 	set_toml "$config" p2p bootstrap-peers '""'
+	set_toml "$config" p2p seeds '""'
 	set_toml "$config" p2p persistent-peers "\"$(IFS=,; echo "${others[*]}")\""
 	set_toml "$config" p2p pex false
 	set_toml "$config" p2p allow-duplicate-ip true
@@ -749,6 +747,8 @@ done
 	printf 'SIDECAR_SHA256=%s\n' "$sidecar_sha"
 	printf 'HALT_HEIGHT=%s\n' "$halt_height"
 	printf 'CHAIN_ID=%s\n' "$chain_id"
+	printf 'ROLLBACK_ISOLATED_FORK=true\n'
+	printf 'ROLLBACK_SOURCE_GENESIS=%s\n' "$source_genesis"
 	printf 'KEYRING_BACKEND=%s\n' "$keyring_backend"
 	printf 'BIN_DIR=%s\n' "$bin_dir"
 	printf 'VALIDATOR_HOSTS="%s"\n' "localhost localhost localhost localhost"
@@ -944,10 +944,15 @@ for ((i = 0; i < nodes; i++)); do
 done
 log "four price sidecars ready"
 
+rehearsal_handoff=$work/rehearsal-handoff.json
+write_rehearsal_handoff "$rehearsal_handoff" || fail "cannot write internal rehearsal handoff"
+
 # --- 6. markets, oracle and precompiles through fleet_check.py ---------------------------------
 for phase in markets precompiles oracle; do
+	handoff_args=()
+	if [ "$phase" = markets ]; then handoff_args=(--rehearsal-handoff "$rehearsal_handoff"); fi
 	deadline=$((SECONDS + wait_seconds))
-	until python3 "$release/fleet_check.py" --env-file "$rehearsal_env" --phase "$phase" \
+	until python3 "$release/fleet_check.py" --env-file "$rehearsal_env" --phase "$phase" "${handoff_args[@]}" \
 		--receipt "$receipts/$phase.json" >"$logs/fleet-check-$phase.log" 2>&1; do
 		[ "$phase" = oracle ] && [ "$SECONDS" -lt "$deadline" ] || fail "fleet_check.py --phase $phase failed; see $logs/fleet-check-$phase.log"
 		sleep 5

@@ -1,0 +1,243 @@
+[reconcile.r8-123]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-123.1]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome-agentapprovaloutcomegranted"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 751
+symbol = "AgentApprovalOutcomeGranted"
+evidence = "Const-block declaration AgentApprovalOutcomeGranted        AgentApprovalDecisionOutcome = \"Granted\" preserves the registered type and literal. Registered line 804 moved to 751; the occurrence in the Valid switch is a use."
+
+[row.r8-123.2]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome-agentapprovaloutcomerejected"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 752
+symbol = "AgentApprovalOutcomeRejected"
+evidence = "Const-block declaration AgentApprovalOutcomeRejected       AgentApprovalDecisionOutcome = \"Rejected\" preserves the registered type and literal. Registered line 805 moved to 752; the occurrence in the Valid switch is a use."
+
+[row.r8-123.3]
+interface = "interface.8.go-sdkgo-agentapprovaleventkind"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 710
+symbol = "AgentApprovalEventKind"
+evidence = "Declaration type AgentApprovalEventKind string preserves the registered string type. Registered line 763 moved to 710; const annotations and the Valid receiver are uses."
+
+[row.r8-123.4]
+interface = "interface.8.go-sdkgo-agentapprovaleventkind-agentapprovaleventcreated"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 713
+symbol = "AgentApprovalEventCreated"
+evidence = "Const-block declaration AgentApprovalEventCreated   AgentApprovalEventKind = \"Created\" preserves the registered type and literal. Registered line 766 moved to 713; the occurrence in the Valid switch is a use."
+
+[row.r8-123.5]
+interface = "interface.8.go-sdkgo-agentapprovaleventkind-agentapprovaleventdefective"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 717
+symbol = "AgentApprovalEventDefective"
+evidence = "Const-block declaration AgentApprovalEventDefective AgentApprovalEventKind = \"Defective\" preserves the registered type and literal. Registered line 770 moved to 717; the occurrence in the Valid switch is a use."
+
+[row.r8-123.6]
+interface = "interface.8.go-sdkgo-agentapprovaleventkind-agentapprovaleventexpired"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 716
+symbol = "AgentApprovalEventExpired"
+evidence = "Const-block declaration AgentApprovalEventExpired   AgentApprovalEventKind = \"Expired\" preserves the registered type and literal. Registered line 769 moved to 716; the occurrence in the Valid switch is a use."
+
+[row.r8-123.7]
+interface = "interface.8.go-sdkgo-agentapprovaleventkind-agentapprovaleventgranted"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 714
+symbol = "AgentApprovalEventGranted"
+evidence = "Const-block declaration AgentApprovalEventGranted   AgentApprovalEventKind = \"Granted\" preserves the registered type and literal. Registered line 767 moved to 714; the occurrence in the Valid switch is a use."
+
+[row.r8-123.8]
+interface = "interface.8.go-sdkgo-agentapprovaleventkind-agentapprovaleventrejected"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 715
+symbol = "AgentApprovalEventRejected"
+evidence = "Const-block declaration AgentApprovalEventRejected  AgentApprovalEventKind = \"Rejected\" preserves the registered type and literal. Registered line 768 moved to 715; the occurrence in the Valid switch is a use."
+
+[row.r8-123.9]
+interface = "interface.8.go-sdkgo-agentapprovalstate"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 729
+symbol = "AgentApprovalState"
+evidence = "Declaration type AgentApprovalState string preserves the registered string type. Registered line 782 moved to 729; const annotations and the Valid receiver are uses."
+
+[row.r8-123.10]
+interface = "interface.8.go-sdkgo-agentapprovalstate-agentapprovalstatedefective"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 736
+symbol = "AgentApprovalStateDefective"
+evidence = "Const-block declaration AgentApprovalStateDefective AgentApprovalState = \"Defective\" preserves the registered type and literal. Registered line 789 moved to 736; the occurrence in the Valid switch is a use."
+
+[row.r8-123.11]
+interface = "interface.8.go-sdkgo-agentapprovalstate-agentapprovalstateexpired"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 735
+symbol = "AgentApprovalStateExpired"
+evidence = "Const-block declaration AgentApprovalStateExpired   AgentApprovalState = \"Expired\" preserves the registered type and literal. Registered line 788 moved to 735; the occurrence in the Valid switch is a use."
+
+[row.r8-123.12]
+interface = "interface.8.go-sdkgo-agentapprovalstate-agentapprovalstategranted"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 733
+symbol = "AgentApprovalStateGranted"
+evidence = "Const-block declaration AgentApprovalStateGranted   AgentApprovalState = \"Granted\" preserves the registered type and literal. Registered line 786 moved to 733; the occurrence in the Valid switch is a use."
+
+[row.r8-123.13]
+interface = "interface.8.go-sdkgo-agentapprovalstate-agentapprovalstateheld"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 732
+symbol = "AgentApprovalStateHeld"
+evidence = "Const-block declaration AgentApprovalStateHeld      AgentApprovalState = \"Held\" preserves the registered type and literal. Registered line 785 moved to 732; the occurrence in the Valid switch is a use."
+
+[row.r8-123.14]
+interface = "interface.8.go-sdkgo-agentapprovalstate-agentapprovalstaterejected"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 734
+symbol = "AgentApprovalStateRejected"
+evidence = "Const-block declaration AgentApprovalStateRejected  AgentApprovalState = \"Rejected\" preserves the registered type and literal. Registered line 787 moved to 734; the occurrence in the Valid switch is a use."
+
+[row.r8-123.15]
+interface = "interface.8.go-sdkgo-agentdeliverykind"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 784
+symbol = "AgentDeliveryKind"
+evidence = "Declaration type AgentDeliveryKind string preserves the registered string type. Registered line 837 moved to 784; const annotations and the Valid receiver are uses."
+
+[row.r8-123.16]
+interface = "interface.8.go-sdkgo-agentdeliverykind-agentdeliveryevent"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 787
+symbol = "AgentDeliveryEvent"
+evidence = "Const-block declaration AgentDeliveryEvent     AgentDeliveryKind = \"Event\" preserves the registered type and literal. Registered line 840 moved to 787; the occurrence in the Valid switch is a use."
+
+[row.r8-123.17]
+interface = "interface.8.go-sdkgo-agentdeliverykind-agentdeliverygap"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 788
+symbol = "AgentDeliveryGap"
+evidence = "Const-block declaration AgentDeliveryGap       AgentDeliveryKind = \"Gap\" preserves the registered type and literal. Registered line 841 moved to 788; the occurrence in the Valid switch is a use."
+
+[row.r8-123.18]
+interface = "interface.8.go-sdkgo-agentdeliverykind-agentdeliverytruncated"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 789
+symbol = "AgentDeliveryTruncated"
+evidence = "Const-block declaration AgentDeliveryTruncated AgentDeliveryKind = \"Truncated\" preserves the registered type and literal. Registered line 842 moved to 789; the occurrence in the Valid switch is a use."
+
+[row.r8-123.19]
+interface = "interface.8.go-sdkgo-agentdeliverykind-valid"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 792
+symbol = "Valid"
+evidence = "Declaration func (value AgentDeliveryKind) Valid() bool { matches the AgentDeliveryKind receiver and bool return; its switch accepts Event, Gap and Truncated. Registered line 845 moved to 792; other Valid receivers are different interfaces."
+
+[row.r8-123.20]
+interface = "interface.8.go-sdkgo-agenterrorclass-agenterrorinternalfault"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 536
+symbol = "AgentErrorInternalFault"
+evidence = "Const-block declaration AgentErrorInternalFault           AgentErrorClass = \"InternalFault\" preserves the registered type and literal. Registered line 582 moved to 536; the occurrence in the Valid switch is a use."
+
+[row.r8-123.21]
+interface = "interface.8.go-sdkgo-agentretriability"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 768
+symbol = "AgentRetriability"
+evidence = "Declaration type AgentRetriability string preserves the registered string type. Registered line 821 moved to 768; const annotations and the Valid receiver are uses."
+
+[row.r8-123.22]
+interface = "interface.8.go-sdkgo-agentretriability-agentretryretriable"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 772
+symbol = "AgentRetryRetriable"
+evidence = "Const-block declaration AgentRetryRetriable AgentRetriability = \"Retriable\" preserves the registered type and literal. Registered line 825 moved to 772; the occurrence in the Valid switch is a use."
+
+[row.r8-123.23]
+interface = "interface.8.go-sdkgo-agentretriability-agentretryterminal"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 771
+symbol = "AgentRetryTerminal"
+evidence = "Const-block declaration AgentRetryTerminal  AgentRetriability = \"Terminal\" preserves the registered type and literal. Registered line 824 moved to 771; the occurrence in the Valid switch is a use."
+
+[row.r8-123.24]
+interface = "interface.8.go-sdkgo-humanapprovalstate"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 667
+symbol = "HumanApprovalState"
+evidence = "Declaration type HumanApprovalState string preserves the registered string type. Registered line 720 moved to 667; const annotations and the Valid receiver are uses."
+
+[row.r8-123.25]
+interface = "interface.8.go-sdkgo-humanapprovalstate-humanapprovalapproved"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 671
+symbol = "HumanApprovalApproved"
+evidence = "Const-block declaration HumanApprovalApproved  HumanApprovalState = \"approved\" preserves the registered type and literal. Registered line 724 moved to 671; the occurrence in the Valid switch is a use."
+
+[row.r8-123.26]
+interface = "interface.8.go-sdkgo-humanapprovalstate-humanapprovaldefective"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 674
+symbol = "HumanApprovalDefective"
+evidence = "Const-block declaration HumanApprovalDefective HumanApprovalState = \"defective\" preserves the registered type and literal. Registered line 727 moved to 674; the occurrence in the Valid switch is a use."
+
+[row.r8-123.27]
+interface = "interface.8.go-sdkgo-humanapprovalstate-humanapprovalexpired"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 673
+symbol = "HumanApprovalExpired"
+evidence = "Const-block declaration HumanApprovalExpired   HumanApprovalState = \"expired\" preserves the registered type and literal. Registered line 726 moved to 673; the occurrence in the Valid switch is a use."
+
+[row.r8-123.28]
+interface = "interface.8.go-sdkgo-humanapprovalstate-humanapprovalpending"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 670
+symbol = "HumanApprovalPending"
+evidence = "Const-block declaration HumanApprovalPending   HumanApprovalState = \"pending\" preserves the registered type and literal. Registered line 723 moved to 670; the occurrence in the Valid switch is a use."
+
+[row.r8-123.29]
+interface = "interface.8.go-sdkgo-humanapprovalstate-humanapprovalrejected"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 672
+symbol = "HumanApprovalRejected"
+evidence = "Const-block declaration HumanApprovalRejected  HumanApprovalState = \"rejected\" preserves the registered type and literal. Registered line 725 moved to 672; the occurrence in the Valid switch is a use."
+
+[row.r8-123.30]
+interface = "interface.8.go-sdkgo-humanerrorcode-humanerrorsupportconversationunknown"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 576
+symbol = "HumanErrorSupportConversationUnknown"
+evidence = "Const-block declaration HumanErrorSupportConversationUnknown HumanErrorCode = \"support-conversation-unknown\" preserves the registered type and literal. Registered line 624 moved to 576; the occurrence in the Valid switch is a use."

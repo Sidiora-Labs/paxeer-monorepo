@@ -35,7 +35,7 @@ ARG NEXT_PUBLIC_PAXEER_EXPLORER_URL=https://paxscan.io
 ARG NEXT_PUBLIC_EXPLORER_BASE=https://paxscan.io
 ARG NEXT_PUBLIC_EXPLORER_STATUS_URL
 ARG NEXT_PUBLIC_PAXEER_ATTESTOR_URL
-ARG NEXT_PUBLIC_PNS_API_BASE
+ARG NEXT_PUBLIC_PNS_API_BASE=/wallet/api/pns
 ARG NEXT_PUBLIC_POINTS_API_BASE
 ARG NEXT_PUBLIC_MARKET_DATA_API
 ARG NEXT_PUBLIC_FX_RATES_API
@@ -110,6 +110,7 @@ COPY --from=builder --chown=nextjs:nodejs /src/apps/wallet/public ./apps/wallet/
 COPY --from=builder --chown=nextjs:nodejs /src/apps/wallet/.next/static ./apps/wallet/.next/static
 COPY --chown=nextjs:nodejs apps/wallet/deployment/nginx.conf /etc/nginx/nginx.conf
 COPY --chown=nextjs:nodejs --chmod=0755 apps/wallet/deployment/start-wallet.sh /app/start-wallet.sh
+COPY --chown=nextjs:nodejs --chmod=0755 apps/wallet/deployment/render-edge-trust.sh /app/render-edge-trust.sh
 
 USER nextjs
 EXPOSE 3001

@@ -1,0 +1,36 @@
+[repair.22.33.40]
+audit = "22.30.103"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+baseline = "The regression module did not exist initially and the private gate ledger contained no earlier runs; the explicit implementation-first, hf-done-only order prohibits the conflicting pre-change verify instruction, so no baseline tests or pre-change failures are claimed."
+qualification = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and evidence location; closure requires hf-done passing with build and verify on that same revision."
+
+[finding.hosted-human-first-batch]
+tests = ["test_hosted_human_first_batch_committed_observations", "test_hosted_human_first_batch_receipt_refusal", "test_hosted_human_first_batch_bank_contract", "test_hosted_human_first_batch_migration_barriers"]
+repair = "The guide documents merged node RPC, committed account/authority observations and current bank-send receipts, distinguishes bank intents from ledger bootstrap funding, and isolates retained first-batch, movement and LNI paths as migration barriers rather than operator dependencies."
+proof = "The real owner producer and client use authenticated loopback HTTPS JSON-RPC with production EIP-155/ABI codecs; the real bundle consumer re-reads receipts, preserves committed identity/recovery in installed policy, accepts later spending and refuses a changed chain receipt. Bank documentation is checked against the committed ABI and intent contract."
+limits = "No full cluster or Rust Human runtime qualification is claimed; the committed loopback peer and existing environment fixture are reused, with no external endpoint, credential, toolchain or device. Runtime paths are unchanged by this documentation repair."
+
+[wiring]
+account_observation = "Domain 10: services/human/crates/layerx-human-identity-provider must replace the protocol-3 validate-account-head/zero-consumed contract with authenticated committed account and authority observations before the hosted Job and assembler can retire that barrier."
+owner_transport = "Domain 10: services/agent must consume merged node RPC and committed receipts before the hosted material producer can remove HUMAN_NODE_LNI and protocol-3 owner transport settings."
+movement_consumer = "Domain 10: services/human/crates must finish migration of movement-provider consumers to current bank intents and receipts before hosted movement configuration and adapter instructions can be removed together."
+node_manifest = "Domain 8: services/platform/hosted/node/deployment.yaml must remove the retained human-movement container and projections when its production consumers migrate; no separate sequencer or kernel daemon is a remedy."
+
+[gotchas]
+first_batch = "A retained consumed=0 result is a legacy Job/assembler constraint, not an observation of a merged account; documentation must not prescribe synthesizing it or resetting limits."
+bytecode = "Use a private PYTHONPYCACHEPREFIX for both bounded gates so interpreter bytecode cannot change the scoped candidate between build and verify."
+baseline_order = "A pre-change verify conflicts with the task's explicit implementation-first and hf-done-only order; retain an honest untested baseline rather than spending an unauthorized gate."
+
+[qualification.first]
+revision = "084364e4ea3b51a78f08603b78e2d762de38c7cd"
+command = "cg spec done 22.33.40 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three tests passed; the bank ABI check selected by name alone and found both committed send overloads."
+repair = "Select the exact documented four-argument signature and retain the signature, selector, codec, documentation and contract assertions."
+
+[gotcha.bank_overload]
+symptom = "The bank ABI has both four-argument send and five-argument contextHash send functions."
+remedy = "Select the documented overload by its complete input types rather than assuming the function name is unique."

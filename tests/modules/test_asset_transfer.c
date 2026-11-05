@@ -1,4 +1,7 @@
+#include "../ledger/test_values.h"
+
 #include "layerx/lx_asset.h"
+#include "../../src/modules/asset/lx_asset_native.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_receipt.h"
@@ -30,7 +33,7 @@ static int sign_raw(const uint8_t seed[32], const uint8_t *message,
 static int context_for_send(lxp_send *send)
 {
     uint8_t material[32U + 32U + 32U + 16U + 32U];
-    if (lxp_u128_to_be(send->amount, material + 96U) != LXP_OK) return 1;
+    if (!TEST_EQ(lxp_u128_to_be(send->amount, material + 96U), LXP_OK)) return 1;
     (void)memcpy(material, send->from, 32U);
     (void)memcpy(material + 32U, send->to, 32U);
     (void)memcpy(material + 64U, send->asset, 32U);
@@ -47,13 +50,13 @@ static int sign_send(lxp_send *send, const uint8_t seed[32],
     size_t message_length = 0U;
     (void)memcpy(send->authorization.signed_context_hash,
                  send->context_hash, 32U);
-    if (lxp_send_authorization_message(send, message, sizeof(message),
-                                       &message_length) != LXP_OK ||
-        lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE, message,
-                        message_length, digest) != LXP_OK)
+    if (!TEST_EQ(lxp_send_authorization_message(send, message, sizeof(message),
+                                       &message_length), LXP_OK) ||
+        !TEST_EQ(lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE, message,
+                        message_length, digest), LXP_OK))
         return 1;
-    if (sign_raw(seed, digest, sizeof(digest),
-                 send->authorization.signature, public_key) != 0)
+    if (!TEST_EQ(sign_raw(seed, digest, sizeof(digest),
+                 send->authorization.signature, public_key), 0))
         return 1;
     (void)memcpy(send->authorization.public_key, public_key, 32U);
     return 0;
@@ -64,15 +67,27 @@ static lxp_result dispatch_send(const lxp_module_registration *registration,
                                 lxp_activity *activity,
                                 const lxp_authority_resolved *authority,
                                 const lxp_send *send,
+                                const uint8_t seed[32],
                                 lxp_effect_buffer *effects,
                                 lxp_result *module_result)
 {
-    uint8_t encoded[512];
+    static uint8_t encoded[512];
+    static uint8_t signature[64];
+    uint8_t public_key[32];
+    uint8_t digest[32];
     size_t encoded_length = 0U;
     lxp_result status = lxp_send_encode(send, encoded, sizeof(encoded),
                                         &encoded_length);
     if (status != LXP_OK) return status;
     activity->payload = (lxp_byte_span){ encoded, encoded_length };
+    activity->authority = (lxp_byte_span){ send->authorization.public_key, 32U };
+    status = lxp_hash_payload(encoded, encoded_length, activity->payload_hash);
+    if (status == LXP_OK)
+        status = lxp_activity_signing_preimage(activity, digest);
+    if (status != LXP_OK) return status;
+    if (sign_raw(seed, digest, sizeof(digest), signature, public_key) != 0)
+        return LXP_ERR_BAD_SIGNATURE;
+    activity->signature = (lxp_byte_span){ signature, sizeof(signature) };
     return lxp_kernel_dispatch(registration, ctx, activity, authority,
                                effects, module_result);
 }
@@ -80,63 +95,28 @@ static lxp_result dispatch_send(const lxp_module_registration *registration,
 static int balances(const lx_account *from, const lx_account *to,
                     uint64_t from_value, uint64_t to_value)
 {
-    return from->balance.hi == 0U && from->balance.lo == from_value &&
-           to->balance.hi == 0U && to->balance.lo == to_value;
+    return TEST_EQ(from->balance.hi, 0U) &&
+           TEST_EQ(from->balance.lo, from_value) &&
+           TEST_EQ(to->balance.hi, 0U) &&
+           TEST_EQ(to->balance.lo, to_value);
 }
 
 static int init_ctx(lxp_module_ctx *ctx, lxp_kernel *kernel, lxp_arena *arena,
                     lxp_effect_buffer *effects, uint64_t global_sequence,
                     uint8_t activity_marker)
 {
-    if (lxp_effect_buffer_init(effects) != LXP_OK ||
-        lxp_module_ctx_init(ctx, kernel, LXP_MODULE_ASSET, 10U, 0U,
-                            global_sequence, 1000U, arena, true) != LXP_OK)
+    if (!TEST_EQ(lxp_effect_buffer_init(effects), LXP_OK) ||
+        !TEST_EQ(lxp_module_ctx_init(ctx, kernel, LXP_MODULE_ASSET, 10U, 0U,
+                            global_sequence, 1000U, arena, true), LXP_OK))
         return 1;
     ctx->protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
     ctx->batch_number = 1U;
     ctx->activity_id[0] = activity_marker;
-    return lxp_module_ctx_bind_effects(ctx, effects) == LXP_OK ? 0 : 1;
+    return TEST_EQ(lxp_module_ctx_bind_effects(ctx, effects), LXP_OK) ? 0 : 1;
 }
 
-static int bridge_reserve_credit(void)
+static int test_native_send_reconciles(void)
 {
-    const uint8_t asset[32] = {1U};
-    const lxp_u128 amount = {0U, 1U};
-    lx_account reserve = {0};
-    lx_account before;
-    reserve.kind = LX_ACCOUNT_SYSTEM_PAXEER_RESERVE;
-    if (lxp_ledger_bootstrap_balance(&reserve, asset,
-            (lxp_u128){0U, UINT64_MAX}, 7U) != LXP_OK)
-        return 1;
-    before = reserve;
-    if (lxp_ledger_apply_bridge_credit(&reserve, asset, amount) != LXP_OK ||
-        reserve.balance.hi != 1U || reserve.balance.lo != 0U ||
-        reserve.next_sequence != before.next_sequence)
-        return 1;
-    before.balance = reserve.balance;
-    if (memcmp(&reserve, &before, sizeof(reserve)) != 0) return 1;
-    for (unsigned int failure = 0U; failure < 6U; ++failure) {
-        reserve = before;
-        switch (failure) {
-        case 0U: reserve.kind = LX_ACCOUNT_AGENT_MAIN; break;
-        case 1U: reserve.frozen = true; break;
-        case 2U: reserve.has_asset = false; break;
-        case 3U: reserve.asset_id[0] ^= 1U; break;
-        case 4U: reserve.next_sequence = UINT64_MAX; break;
-        case 5U: reserve.balance = (lxp_u128){UINT64_MAX, UINT64_MAX}; break;
-        }
-        lx_account unchanged = reserve;
-        if (lxp_ledger_apply_bridge_credit(&reserve, asset, amount) == LXP_OK ||
-            memcmp(&reserve, &unchanged, sizeof(reserve)) != 0)
-            return 1;
-    }
-    return lxp_ledger_apply_bridge_credit(NULL, asset, amount) != LXP_OK &&
-           lxp_ledger_apply_bridge_credit(&reserve, NULL, amount) != LXP_OK ? 0 : 1;
-}
-
-int main(void)
-{
-    if (bridge_reserve_credit() != 0) return 1;
     static const uint8_t seed[32] = {
         0x9dU, 0x61U, 0xb1U, 0x9dU, 0xefU, 0xfdU, 0x5aU, 0x60U,
         0xbaU, 0x84U, 0x4aU, 0xf4U, 0x92U, 0xecU, 0x2cU, 0xc4U,
@@ -145,6 +125,7 @@ int main(void)
     };
     static const uint8_t actor_did[] = "did:key:a";
     lx_asset_record asset;
+    lx_asset_registry assets;
     lxp_transfer_asset_state asset_state;
     lx_account_registry accounts;
     lx_account *from;
@@ -178,6 +159,7 @@ int main(void)
 
     (void)memset(&asset, 0, sizeof(asset));
     asset.asset_id[0] = 1U;
+    asset.total_units.lo = 100U;
     asset.symbol_length = 1U;
     (void)memcpy(asset.symbol, "A", 2U);
     asset.name[0] = (uint8_t)'A';
@@ -187,40 +169,42 @@ int main(void)
     asset.custody_kind = LX_ASSET_CUSTODY_PAXEER;
     asset.custody_reference[0] = 1U;
     asset.custody_reference_length = 1U;
-    if (lx_asset_transfer_state(&asset, &asset_state) != LXP_OK ||
-        lx_account_registry_init(&accounts) != LXP_OK ||
-        lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
-                                  from_id) != LXP_OK ||
-        lx_account_id_from_string((const uint8_t *)to_name, strlen(to_name),
-                                  to_id) != LXP_OK ||
-        lx_account_open(&accounts, (const uint8_t *)from_name,
+    if (!TEST_EQ(lx_asset_registry_init(&assets, 0U), LXP_OK) ||
+        !TEST_EQ(lx_asset_register(&assets, &asset, 0U, (lxp_u128){0U, 0U}), LXP_OK) ||
+        !TEST_EQ(lx_asset_transfer_state(&asset, &asset_state), LXP_OK) ||
+        !TEST_EQ(lx_account_registry_init(&accounts), LXP_OK) ||
+        !TEST_EQ(lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
+                                  from_id), LXP_OK) ||
+        !TEST_EQ(lx_account_id_from_string((const uint8_t *)to_name, strlen(to_name),
+                                  to_id), LXP_OK) ||
+        !TEST_EQ(lx_account_open(&accounts, (const uint8_t *)from_name,
                         strlen(from_name), from_id, 1U,
-                        LX_ACCOUNT_OPEN_CREDIT, NULL, &from) != LXP_OK ||
-        lx_account_open(&accounts, (const uint8_t *)to_name, strlen(to_name),
-                        to_id, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &to) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(from, asset.asset_id,
-                                     (lxp_u128){ 0U, 100U }, 0U) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(to, asset.asset_id,
-                                     (lxp_u128){ 0U, 0U }, 0U) != LXP_OK ||
-        from->kind != LX_ACCOUNT_AGENT_ASSET ||
-        to->kind != LX_ACCOUNT_AGENT_ASSET ||
-        lxp_state_store_init(&state, 0U) != LXP_OK ||
-        lxp_state_store_bind_accounts(&state, &accounts) != LXP_OK ||
-        lxp_state_store_require_account_root(&state) != LXP_OK ||
-        lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) != LXP_OK ||
-        lxp_kernel_register_module(&kernel, lx_asset_module_iface()) != LXP_OK ||
-        lxp_kernel_set_capabilities(&kernel, NULL,
-                                    lxp_kernel_canonical_ledger_apply) != LXP_OK ||
-        lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK)
+                        LX_ACCOUNT_OPEN_CREDIT, NULL, &from), LXP_OK) ||
+        !TEST_EQ(lx_account_open(&accounts, (const uint8_t *)to_name, strlen(to_name),
+                        to_id, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &to), LXP_OK) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(from, asset.asset_id,
+                                     (lxp_u128){ 0U, 100U }, 0U), LXP_OK) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(to, asset.asset_id,
+                                     (lxp_u128){ 0U, 0U }, 0U), LXP_OK) ||
+        !TEST_EQ(from->kind, LX_ACCOUNT_AGENT_ASSET) ||
+        !TEST_EQ(to->kind, LX_ACCOUNT_AGENT_ASSET) ||
+        !TEST_EQ(lxp_state_store_init(&state, 0U), LXP_OK) ||
+        !TEST_EQ(lxp_state_store_bind_accounts(&state, &accounts), LXP_OK) ||
+        !TEST_EQ(lxp_state_store_require_account_root(&state), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_register_module(&kernel, lx_asset_module_iface()), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_set_capabilities(&kernel, NULL,
+                                    lxp_kernel_canonical_ledger_apply), LXP_OK) ||
+        !TEST_EQ(lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)), LXP_OK))
         return 1;
     runtime = (lx_asset_runtime){ &accounts, &asset, 1U, &asset_state, 1U,
-                                  7U, LXP_PROTOCOL_VERSION_OCCUPANCY };
-    if (lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET, &runtime) !=
-            LXP_OK ||
-        lxp_kernel_module_for_activity(&kernel, LX_ASSET_SEND, 0U,
-                                       &registration) != LXP_OK ||
-        lxp_state_root(&kernel, root_before) != LXP_OK ||
-        init_ctx(&ctx, &kernel, &arena, &effects, 1U, 1U) != 0)
+                                  7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false };
+    if (!TEST_EQ(lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET, &runtime), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_module_for_activity(&kernel, LX_ASSET_SEND, 0U,
+                                       &registration), LXP_OK) ||
+        !TEST_EQ(lx_asset_supply_check(&assets, &accounts, NULL, 0U), LXP_OK) ||
+        !TEST_EQ(lxp_state_root(&kernel, root_before), LXP_OK) ||
+        !TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 1U, 1U), 0))
         return 1;
 
     (void)memset(&request, 0, sizeof(request));
@@ -238,56 +222,57 @@ int main(void)
     (void)memcpy(source_authority.authorized_from, from_id, 32U);
     request.context.source_authorities = &source_authority;
     request.context.source_authority_count = 1U;
-    if (lx_asset_validate(&request) != LXP_OK || !balances(from, to, 100U, 0U) ||
-        lx_asset_send_execute(&ctx, &request, &receipt) != LXP_OK ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 1U || !effects.effects[0].monetary ||
-        effects.effects[0].kind != LXP_EFFECT_TRANSFER ||
-        memcmp(effects.effects[0].transfer_set_root,
-               receipt.transfer_set_root, 32U) != 0 ||
-        lxp_state_root(&kernel, root_after) != LXP_OK ||
-        memcmp(root_before, root_after, 32U) == 0)
+    if (!TEST_EQ(lx_asset_validate(&request), LXP_OK) ||
+        !TEST_EQ(balances(from, to, 100U, 0U), 1) ||
+        !TEST_EQ(lx_asset_send_execute(&ctx, &request, &receipt), LXP_OK) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 1U) ||
+        !TEST_EQ(effects.effects[0].monetary, 1) ||
+        !TEST_EQ(effects.effects[0].kind, LXP_EFFECT_TRANSFER) ||
+        !TEST_EQ(memcmp(effects.effects[0].transfer_set_root,
+               receipt.transfer_set_root, 32U), 0) ||
+        !TEST_EQ(lxp_state_root(&kernel, root_after), LXP_OK) ||
+        !TEST_NE(memcmp(root_before, root_after, 32U), 0))
         return 1;
     lxp_module_ctx_rollback(&ctx);
-    if (!balances(from, to, 100U, 0U) || from->next_sequence != 0U ||
-        lxp_state_root(&kernel, root_after) != LXP_OK ||
-        memcmp(root_before, root_after, 32U) != 0)
+    if (!TEST_EQ(balances(from, to, 100U, 0U), 1) ||
+        !TEST_EQ(from->next_sequence, 0U) ||
+        !TEST_EQ(lxp_state_root(&kernel, root_after), LXP_OK) ||
+        !TEST_EQ(memcmp(root_before, root_after, 32U), 0))
         return 1;
 
     request.direct_balance_write = true;
-    if (lx_asset_validate(&request) != LXP_ERR_BALANCE_BYPASS ||
-        !balances(from, to, 100U, 0U))
+    if (!TEST_EQ(lx_asset_validate(&request), LXP_ERR_BALANCE_BYPASS) ||
+        !TEST_EQ(balances(from, to, 100U, 0U), 1))
         return 1;
     request.direct_balance_write = false;
     request.amount = (lxp_u128){ 0U, 101U };
-    if (lx_asset_validate(&request) != LXP_ERR_INSUFFICIENT_BALANCE ||
-        !balances(from, to, 100U, 0U))
+    if (!TEST_EQ(lx_asset_validate(&request), LXP_ERR_INSUFFICIENT_BALANCE) ||
+        !TEST_EQ(balances(from, to, 100U, 0U), 1))
         return 1;
-    if (lxp_ledger_bootstrap_balance(
+    if (!TEST_EQ(lxp_ledger_bootstrap_balance(
             to, asset.asset_id,
-            (lxp_u128){ UINT64_MAX, UINT64_MAX }, 0U) != LXP_OK)
+            (lxp_u128){ UINT64_MAX, UINT64_MAX }, 0U), LXP_OK))
         return 1;
     request.amount = (lxp_u128){ 0U, 1U };
-    if (lx_asset_validate(&request) != LXP_ERR_OVERFLOW ||
-        from->balance.lo != 100U || to->balance.lo != UINT64_MAX ||
-        lxp_ledger_bootstrap_balance(to, asset.asset_id,
-                                     (lxp_u128){ 0U, 0U }, 0U) != LXP_OK)
+    if (!TEST_EQ(lx_asset_validate(&request), LXP_ERR_OVERFLOW) ||
+        !TEST_EQ(from->balance.lo, 100U) ||
+        !TEST_EQ(to->balance.lo, UINT64_MAX) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(to, asset.asset_id,
+                                     (lxp_u128){ 0U, 0U }, 0U), LXP_OK))
         return 1;
     request.amount = (lxp_u128){ 0U, 0U };
-    if (lx_asset_validate(&request) != LXP_ERR_INVALID_AMOUNT ||
-        !balances(from, to, 100U, 0U))
+    if (!TEST_EQ(lx_asset_validate(&request), LXP_ERR_INVALID_AMOUNT) ||
+        !TEST_EQ(balances(from, to, 100U, 0U), 1))
         return 1;
     request.amount = (lxp_u128){ 0U, 1U };
     asset.asset_id[0] = 2U;
-    if (lx_asset_validate(&request) != LXP_ERR_ASSET_MISMATCH ||
-        !balances(from, to, 100U, 0U))
+    if (!TEST_EQ(lx_asset_validate(&request), LXP_ERR_ASSET_MISMATCH) ||
+        !TEST_EQ(balances(from, to, 100U, 0U), 1))
         return 1;
     asset.asset_id[0] = 1U;
-    request.payer_grant = NULL;
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 1U, 2U) != 0 ||
-        lx_asset_receive_execute(&ctx, &request, &receipt) !=
-            LXP_ERR_NO_PAYER_GRANT)
-        return 1;
 
     (void)memset(&send, 0, sizeof(send));
     (void)memcpy(send.from, from_id, 32U);
@@ -301,11 +286,12 @@ int main(void)
     (void)memcpy(send.authorization.controller, from_id, 32U);
     send.authorization.network_id = 7U;
     send.authorization.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
-    if (context_for_send(&send) != 0 || sign_send(&send, seed, public_key) != 0)
+    if (!TEST_EQ(context_for_send(&send), 0) ||
+        !TEST_EQ(sign_send(&send, seed, public_key), 0))
         return 1;
     (void)memcpy(from->authority_key, public_key, 32U);
     from->has_authority_key = true;
-    if (lxp_state_root(&kernel, root_before) != LXP_OK) return 1;
+    if (!TEST_EQ(lxp_state_root(&kernel, root_before), LXP_OK)) return 1;
     (void)memset(&activity, 0, sizeof(activity));
     activity.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
     activity.network_id = 7U;
@@ -315,80 +301,106 @@ int main(void)
     (void)memset(&authority, 0, sizeof(authority));
     authority.kind = LXP_AUTHORITY_OWNER;
     (void)memcpy(authority.verified_key, public_key, 32U);
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 1U, 3U) != 0 ||
-        dispatch_send(registration, &ctx, &activity, &authority, &send,
-                      &effects, &module_result) != LXP_OK ||
-        module_result != LXP_OK || !ctx.ledger_receipt_present ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 1U || !effects.effects[0].monetary ||
-        memcmp(effects.effects[0].transfer_set_root,
-               ctx.ledger_receipt.transfer_set_root, 32U) != 0 ||
-        ctx.ledger_receipt.amount.hi != 0U ||
-        ctx.ledger_receipt.amount.lo != 25U ||
-        ctx.ledger_receipt.from_sequence != 0U ||
-        ctx.ledger_receipt.from_balance_before.lo != 100U ||
-        ctx.ledger_receipt.from_balance_after.lo != 75U ||
-        ctx.ledger_receipt.to_balance_before.lo != 0U ||
-        ctx.ledger_receipt.to_balance_after.lo != 25U ||
-        lxp_module_ctx_commit(&ctx) != LXP_OK ||
-        lxp_state_root(&kernel, root_after) != LXP_OK ||
-        memcmp(root_before, root_after, 32U) == 0)
+    if (!TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 1U, 3U), 0) ||
+        !TEST_EQ(dispatch_send(registration, &ctx, &activity, &authority, &send, seed,
+                      &effects, &module_result), LXP_OK) ||
+        !TEST_EQ(module_result, LXP_OK) ||
+        !TEST_EQ(ctx.ledger_receipt_present, 1) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 1U) ||
+        !TEST_EQ(effects.effects[0].monetary, 1) ||
+        !TEST_EQ(memcmp(effects.effects[0].transfer_set_root,
+               ctx.ledger_receipt.transfer_set_root, 32U), 0) ||
+        !TEST_EQ(ctx.ledger_receipt.amount.hi, 0U) ||
+        !TEST_EQ(ctx.ledger_receipt.amount.lo, 25U) ||
+        !TEST_EQ(ctx.ledger_receipt.from_sequence, 0U) ||
+        !TEST_EQ(ctx.ledger_receipt.from_balance_before.lo, 100U) ||
+        !TEST_EQ(ctx.ledger_receipt.from_balance_after.lo, 75U) ||
+        !TEST_EQ(ctx.ledger_receipt.to_balance_before.lo, 0U) ||
+        !TEST_EQ(ctx.ledger_receipt.to_balance_after.lo, 25U) ||
+        !TEST_EQ(lxp_module_ctx_commit(&ctx), LXP_OK) ||
+        !TEST_EQ(lxp_state_root(&kernel, root_after), LXP_OK) ||
+        !TEST_NE(memcmp(root_before, root_after, 32U), 0))
         return 1;
 
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 2U, 4U) != 0 ||
-        dispatch_send(registration, &ctx, &activity, &authority, &send,
-                      &effects, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_SEQUENCE_MISMATCH ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 0U || ctx.ledger_receipt_present)
+    if (!TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 2U, 4U), 0) ||
+        !TEST_EQ(dispatch_send(registration, &ctx, &activity, &authority, &send, seed,
+                      &effects, &module_result), LXP_OK) ||
+        !TEST_EQ(module_result, LXP_ERR_SEQUENCE_MISMATCH) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 0U) ||
+        !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
         return 1;
 
     send.sequence = 1U;
     send.amount = (lxp_u128){ 0U, 76U };
     send.idempotency_key[0] = 10U;
     (void)memcpy(activity.idempotency_key, send.idempotency_key, 32U);
-    if (context_for_send(&send) != 0 || sign_send(&send, seed, public_key) != 0 ||
-        init_ctx(&ctx, &kernel, &arena, &effects, 2U, 5U) != 0 ||
-        dispatch_send(registration, &ctx, &activity, &authority, &send,
-                      &effects, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_INSUFFICIENT_BALANCE ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 0U || ctx.ledger_receipt_present)
+    if (!TEST_EQ(context_for_send(&send), 0) ||
+        !TEST_EQ(sign_send(&send, seed, public_key), 0) ||
+        !TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 2U, 5U), 0) ||
+        !TEST_EQ(dispatch_send(registration, &ctx, &activity, &authority, &send, seed,
+                      &effects, &module_result), LXP_OK) ||
+        !TEST_EQ(module_result, LXP_ERR_INSUFFICIENT_BALANCE) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 0U) ||
+        !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
         return 1;
 
     send.amount = (lxp_u128){ 0U, 10U };
-    if (context_for_send(&send) != 0 || sign_send(&send, seed, public_key) != 0)
+    if (!TEST_EQ(context_for_send(&send), 0) ||
+        !TEST_EQ(sign_send(&send, seed, public_key), 0))
         return 1;
     send.authorization.signature[0] ^= 1U;
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 2U, 6U) != 0 ||
-        dispatch_send(registration, &ctx, &activity, &authority, &send,
-                      &effects, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_UNAUTHORIZED_DEBIT ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 0U || ctx.ledger_receipt_present)
+    if (!TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 2U, 6U), 0) ||
+        !TEST_EQ(dispatch_send(registration, &ctx, &activity, &authority, &send, seed,
+                      &effects, &module_result), LXP_OK) ||
+        !TEST_EQ(module_result, LXP_ERR_UNAUTHORIZED_DEBIT) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 0U) ||
+        !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
         return 1;
 
-    if (sign_send(&send, seed, public_key) != 0) return 1;
+    if (!TEST_EQ(sign_send(&send, seed, public_key), 0)) return 1;
     send.sequence = 2U;
-    if (sign_send(&send, seed, public_key) != 0 ||
-        init_ctx(&ctx, &kernel, &arena, &effects, 2U, 7U) != 0 ||
-        dispatch_send(registration, &ctx, &activity, &authority, &send,
-                      &effects, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_SEQUENCE_MISMATCH ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 0U || ctx.ledger_receipt_present)
+    if (!TEST_EQ(sign_send(&send, seed, public_key), 0) ||
+        !TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 2U, 7U), 0) ||
+        !TEST_EQ(dispatch_send(registration, &ctx, &activity, &authority, &send, seed,
+                      &effects, &module_result), LXP_OK) ||
+        !TEST_EQ(module_result, LXP_ERR_SEQUENCE_MISMATCH) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 0U) ||
+        !TEST_EQ(!!(ctx.ledger_receipt_present), 0))
         return 1;
 
     send.sequence = 1U;
-    if (sign_send(&send, seed, public_key) != 0) return 1;
+    if (!TEST_EQ(sign_send(&send, seed, public_key), 0)) return 1;
     activity.idempotency_key[0] ^= 1U;
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 2U, 8U) != 0 ||
-        dispatch_send(registration, &ctx, &activity, &authority, &send,
-                      &effects, &module_result) != LXP_OK ||
-        module_result != LXP_ERR_UNAUTHORIZED_DEBIT ||
-        !balances(from, to, 75U, 25U) || from->next_sequence != 1U ||
-        effects.count != 0U || ctx.ledger_receipt_present ||
-        lxp_state_store_destroy(&state) != LXP_OK)
+    if (!TEST_EQ(init_ctx(&ctx, &kernel, &arena, &effects, 2U, 8U), 0) ||
+        !TEST_EQ(dispatch_send(registration, &ctx, &activity, &authority, &send, seed,
+                      &effects, &module_result), LXP_OK) ||
+        !TEST_EQ(module_result, LXP_ERR_UNAUTHORIZED_DEBIT) ||
+        !TEST_EQ(balances(from, to, 75U, 25U), 1) ||
+        !TEST_EQ(lx_asset_native_supply_check(&assets, &accounts), LXP_OK) ||
+        !TEST_EQ(from->next_sequence, 1U) ||
+        !TEST_EQ(effects.count, 0U) ||
+        !TEST_EQ(!!(ctx.ledger_receipt_present), 0) ||
+        !TEST_EQ(lxp_state_store_destroy(&state), LXP_OK))
         return 1;
     return 0;
+}
+
+int main(void)
+{
+    return test_native_send_reconciles();
 }

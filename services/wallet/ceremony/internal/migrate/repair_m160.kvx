@@ -1,0 +1,21 @@
+[repair.22.33.160]
+audit = "22.30.118"
+findings = ["refresh-resume-order", "migration-stale-tests"]
+refresh_resume_order = "TestRepairM_160_RefreshResumeOrder; TestRepairM_160_OriginalIdentityRefreshResumeOrder; TestRepairM_160_RequireEveryMemberComplete; TestRepairM_160_RejectUnrelatedRecovery; TestRepairM_160_RecoveryPublicKeyEncodings"
+migration_stale_tests = "TestRepairM_160_MigrationStaleTests shares the assertions of the retained planner and delivery tests in migrate_test.go, including funded exclusion, schema refusal, signature and envelope mismatches, original identity retention, completion and external custody refusal."
+implementation = "Inspect the journal-bound ceremony/import/refresh transition before replay, preserve recorded sessions, and require every member's strict completion before persisting the refreshed marker. Reopen the sealed journal and client after a mixed-epoch interruption; retain all sealed shares on refusal."
+fixtures = "The gate uses production migration, encrypted journals, original binding validation, attestor client and dealer codecs with stateful in-memory wallet rows and pinned mTLS loopback peer fixtures. Rehearsal receipts come from a separate production Deliver run and its returned counts. It does not run the private attestor server/TSS implementation."
+baseline = "No baseline gate ran: the explicit implementation-first gate order and single bounded verification supersede do_6's contradictory unchanged-tree run. There were no TestRepairM_160_* functions on the initial tree; no pre-change execution or failing result is claimed."
+wiring_request = "Domain 12: services/wallet/attestor must expose an in-process real-server test harness outside its internal/ boundary so services/wallet/ceremony/internal/migrate can prove the same interruption/reopen scenarios against production TSS handlers without the subprocess overlay used by repair_247_test.go; scope forbids adding that export here."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; this source record does not claim an unexecuted gate."
+gotcha = "The retained original identity's all-equal description has the same mixed-epoch recovery ordering problem as imported keys; its journal-captured base epoch must be used for recovery inspection."
+gotcha_peer_boundary = "The existing real-server recovery proof starts a Go toolchain subprocess to cross the attestor internal-package boundary; this task's gate forbids that dependency and records the public in-process harness as a domain wiring request."
+decoder_repair = "Attempt 2 authorizes services/wallet/ceremony/internal/attestor/client.go: recovery inspection validates 65-byte uncompressed and 33-byte compressed secp256k1 keys and normalizes them to the compressed representation before comparing journal, member and refresh public keys; strict description and completion reconciliation retain their checks."
+decoder_test = "TestRepairM_160_RecoveryPublicKeyEncodings uses production PublicKeyHex, EncodePoint and journal bundle codecs across pinned mTLS after interruption/reopen; uncompressed, compressed and mixed descriptions match either expected encoding, while invalid points, unrelated keys and partial completion are refused."
+qualification_attempt = 1
+qualification_revision = "a0ebbbb2516872960349c292292d0406c34815f5"
+qualification_command = "cg spec done 22.33.160 -f layerx-merge --root /work/paxeer-monorepo"
+qualification_exit = 1
+qualification_log = "/out/logs/verify-1.log; /tmp/repair-m160.log"
+qualification_observed = "Production rehearsal delivery stops at resume secp256k1 with attestor: invalid point encoding before reaching the member inspection; the inspector's pre-existing compressed-only DecodePoint validation conflicts with the uncompressed PublicKeyHex producer."
+qualification_assumption = "Attempt 1 recorded the client decoder as outside scope; the continuation ruling expands scope to this module and explicitly requests the decoder correction and requalification. The prior failed evidence is retained above; current evidence is recorded by the runner."

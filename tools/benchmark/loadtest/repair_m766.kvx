@@ -1,0 +1,14 @@
+[repair.22.33.766]
+audit = "22.30.173"
+participant = "TestRepairM_766_Participant (audit id worker-startup-race)"
+scrape-cancellation = "TestRepairM_766_ScrapeCancellation; TestRepairM_766_Signals"
+duplicate-statistics-height = "TestRepairM_766_DuplicateStatisticsHeight"
+unbounded-rpc-input = "TestRepairM_766_UnboundedRPCInput"
+post-query-observations = "TestRepairM_766_PostQueryObservations; TestRepairM_766_PostQueryBoundsAndErrors"
+baseline = "Not run: the task's mandatory gate order forbids verification before implementation and requires hf-build before the sole hf-done run; no baseline failures are claimed."
+wiring_requests = "None; all proposals are implemented within tools/benchmark/loadtest."
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit and private evidence path; the final response copies the terminal evidence."
+
+integration = "Preserved published nonce reconciliation and bounded hash storage; propagate shared cancellation through reconciliation and record only accepted submissions for post-load receipt queries. Existing m879/m880 callers use the context interface, and m880 receipt proofs submit real signed transactions first."
+gotcha = "The continuation merged old slice-based observations and worker signatures into the published hash store and reconciliation paths; resolve these interfaces together before qualification."
+build_repair = "Removed the obsolete os/exec import left by replacing the curl-based height request; initial build evidence is /out/logs/build-1.log."

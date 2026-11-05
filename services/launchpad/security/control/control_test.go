@@ -20,9 +20,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const fixtureDSN = "postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable"
+var fixtureDSN string
+
 const custody = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 const beneficiary = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+const automationOwner = "00000000-0000-4000-8000-000000000010"
+const automationBot1 = "00000000-0000-4000-8000-000000000011"
+const automationBot2 = "00000000-0000-4000-8000-000000000012"
+const automationBot = "00000000-0000-4000-8000-000000000013"
 const fixtureManifest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 var pax = Asset{Chain: 125, Address: NativePAX, Decimals: 18}
@@ -63,6 +68,7 @@ func (i *identities) Active(ctx context.Context, p Principal) bool {
 func (i *identities) remove(c string) { i.Lock(); defer i.Unlock(); delete(i.users, c) }
 func fixture(t *testing.T, verifier EvidenceVerifier) (*Store, *identities) {
 	t.Helper()
+	ensureControlFixtures(t)
 	ctx := context.Background()
 	pool, e := pgxpool.New(ctx, fixtureDSN)
 	if e != nil {
@@ -77,7 +83,7 @@ func fixture(t *testing.T, verifier EvidenceVerifier) (*Store, *identities) {
 		i.users[role] = Principal{ID: role, Role: role, Scopes: []string{"platform", "service", "owner", "other"}}
 	}
 	i.users["operator2"] = Principal{ID: "operator2", Role: "infrastructure", Scopes: []string{"platform", "service", "owner"}}
-	i.users["owner"] = Principal{ID: "owner", Role: "user", Scopes: []string{"owner"}}
+	i.users["owner"] = Principal{ID: automationOwner, Role: "user", Scopes: []string{automationOwner}}
 	s, e := New(pool, schema, i, verifier)
 	if e != nil {
 		t.Fatal(e)
@@ -221,15 +227,15 @@ func bounty(k string, a Asset, n string) Bounty {
 	return Bounty{ID: k, Title: "funded work", Rules: "submit artifact digest for reviewer approval", FundingSource: custody, RefundDisposition: "cancel releases reserved liability to original inventory; no payout implied", Amount: n, Asset: a, Deadline: time.Now().Add(time.Hour)}
 }
 func policy(k string) Policy {
-	return Policy{ID: k, Owner: "owner", Mode: "disclosed_assistant", Disclosure: "Automated recommendation; no transaction execution", Asset: usdl, Instruments: []string{"pool1"}, Requests: 100, Spend: "100000000", QuoteAge: time.Minute, Expires: time.Now().Add(time.Hour)}
+	return Policy{ID: k, Owner: automationOwner, Mode: "disclosed_assistant", Disclosure: "Automated recommendation; no transaction execution", Asset: usdl, Instruments: []string{USDLAddress}, Requests: 100, Spend: "100000000", QuoteAge: time.Minute, Expires: time.Now().Add(time.Hour)}
 }
 func setupAutomation(t *testing.T, s *Store, requests uint64) {
 	t.Helper()
 	ctx := context.Background()
-	must(t, s.SetBudget(ctx, "owner", "owner", "opt in", Budget{Owner: "owner", Asset: usdl, Requests: requests, Spend: "100000000", Expires: time.Now().Add(time.Hour)}, 0))
-	for _, k := range []string{"bot1", "bot2"} {
-		must(t, s.CreatePolicy(ctx, "owner", "owner", "create", policy(k)))
-		must(t, s.PolicyState(ctx, "owner", "owner", k, "opt in", "enabled", 1))
+	must(t, s.SetBudget(ctx, "owner", automationOwner, "opt in", Budget{Owner: automationOwner, Asset: usdl, Requests: requests, Spend: "100000000", Expires: time.Now().Add(time.Hour)}, 0))
+	for _, k := range []string{automationBot1, automationBot2} {
+		must(t, s.CreatePolicy(ctx, "owner", automationOwner, "create", policy(k)))
+		must(t, s.PolicyState(ctx, "owner", automationOwner, k, "opt in", "enabled", 1))
 	}
 }
 func TestAutomationOwnerAggregateConcurrentOneReservation(t *testing.T) {
@@ -241,7 +247,7 @@ func TestAutomationOwnerAggregateConcurrentOneReservation(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			_, e := s.ReserveRecommendation(context.Background(), "owner", "owner", []string{"bot1", "bot2"}[n%2], fmt.Sprintf("request%d", n), "pool1", "suggest", time.Now().Add(-time.Second))
+			_, e := s.ReserveRecommendation(context.Background(), "owner", automationOwner, []string{automationBot1, automationBot2}[n%2], fmt.Sprintf("request%d", n), USDLAddress, "suggest", time.Now().Add(-time.Second))
 			if e == nil {
 				passed.Add(1)
 			} else if e != BudgetExceeded {
@@ -253,7 +259,7 @@ func TestAutomationOwnerAggregateConcurrentOneReservation(t *testing.T) {
 	if passed.Load() != 1 {
 		t.Fatal(passed.Load())
 	}
-	b := load[Budget](t, s, "budget", "owner.usdl")
+	b := load[Budget](t, s, "budget", automationOwner+".usdl")
 	if b.Used != 1 || b.Reserved != "0" {
 		t.Fatal(b)
 	}
@@ -262,9 +268,9 @@ func TestRecommendationIdempotencyRevocationNoFakeTransaction(t *testing.T) {
 	s, _ := fixture(t, nil)
 	setupAutomation(t, s, 10)
 	ctx := context.Background()
-	r, e := s.ReserveRecommendation(ctx, "owner", "owner", "bot1", "suggest1", "pool1", "suggest", time.Now().Add(-time.Second))
+	r, e := s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot1, "suggest1", USDLAddress, "suggest", time.Now().Add(-time.Second))
 	must(t, e)
-	again, e := s.ReserveRecommendation(ctx, "owner", "owner", "bot1", "suggest1", "pool1", "retry", time.Now().Add(-time.Second))
+	again, e := s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot1, "suggest1", USDLAddress, "retry", time.Now().Add(-time.Second))
 	must(t, e)
 	if r.ID != again.ID || r.Amount != "0" || r.State != "suggestion" || r.Disclosure == "" {
 		t.Fatal(r, again)
@@ -273,22 +279,22 @@ func TestRecommendationIdempotencyRevocationNoFakeTransaction(t *testing.T) {
 	if strings.Contains(strings.ToLower(string(encoded)), "transactionhash") {
 		t.Fatal("fabricated tx field")
 	}
-	p := load[Policy](t, s, "policy", "bot1")
-	must(t, s.PolicyState(ctx, "owner", "owner", "bot1", "stop", "revoked", p.Revision))
-	_, e = s.ReserveRecommendation(ctx, "owner", "owner", "bot1", "next", "pool1", "suggest", time.Now().Add(-time.Second))
+	p := load[Policy](t, s, "policy", automationBot1)
+	must(t, s.PolicyState(ctx, "owner", automationOwner, automationBot1, "stop", "revoked", p.Revision))
+	_, e = s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot1, "next", USDLAddress, "suggest", time.Now().Add(-time.Second))
 	is(t, e, Denied)
 	is(t, s.AuthorizeDelegatedExecution(ctx, "owner"), Unavailable)
 }
 func TestAutomationDefaultDisabledExpiryInstrumentAndAge(t *testing.T) {
 	s, _ := fixture(t, nil)
 	ctx := context.Background()
-	must(t, s.CreatePolicy(ctx, "owner", "owner", "create", policy("bot")))
-	_, e := s.ReserveRecommendation(ctx, "owner", "owner", "bot", "key", "pool1", "suggest", time.Now().Add(-time.Second))
+	must(t, s.CreatePolicy(ctx, "owner", automationOwner, "create", policy(automationBot)))
+	_, e := s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot, "key", USDLAddress, "suggest", time.Now().Add(-time.Second))
 	is(t, e, Denied)
-	must(t, s.PolicyState(ctx, "owner", "owner", "bot", "enable", "enabled", 1))
-	_, e = s.ReserveRecommendation(ctx, "owner", "owner", "bot", "key", "pool1", "suggest", time.Now().Add(-time.Hour))
+	must(t, s.PolicyState(ctx, "owner", automationOwner, automationBot, "enable", "enabled", 1))
+	_, e = s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot, "key", USDLAddress, "suggest", time.Now().Add(-time.Hour))
 	is(t, e, Denied)
-	_, e = s.ReserveRecommendation(ctx, "owner", "owner", "bot", "key", "notallowed", "suggest", time.Now().Add(-time.Second))
+	_, e = s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot, "key", "notallowed", "suggest", time.Now().Add(-time.Second))
 	is(t, e, Denied)
 }
 func TestAppendOnlyAuditAndRoleMinimization(t *testing.T) {
@@ -380,6 +386,7 @@ func (fixtureAward) VerifyAward(ctx context.Context, b Bounty, evidence, dest st
 }
 func chain(t *testing.T, awards AwardAuthority) *ChainVerifier {
 	t.Helper()
+	ensureControlFixtures(t)
 	url := os.Getenv("L47_ANVIL_URL")
 	if url == "" {
 		t.Fatal("owned Anvil required; use check.py")
@@ -653,11 +660,11 @@ func TestCapsExpiryAndOwnerBudgetCannotResetUsage(t *testing.T) {
 		t.Fatal(d)
 	}
 	setupAutomation(t, s, 1)
-	_, e = s.ReserveRecommendation(ctx, "owner", "owner", "bot1", "first", "pool1", "suggest", time.Now().Add(-time.Second))
+	_, e = s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot1, "first", USDLAddress, "suggest", time.Now().Add(-time.Second))
 	must(t, e)
-	b := load[Budget](t, s, "budget", "owner.usdl")
-	must(t, s.SetBudget(ctx, "owner", "owner", "same limit", Budget{Owner: "owner", Asset: usdl, Requests: 1, Spend: "100000000", Expires: time.Now().Add(time.Hour)}, b.Revision))
-	_, e = s.ReserveRecommendation(ctx, "owner", "owner", "bot2", "second", "pool1", "suggest", time.Now().Add(-time.Second))
+	b := load[Budget](t, s, "budget", automationOwner+".usdl")
+	must(t, s.SetBudget(ctx, "owner", automationOwner, "same limit", Budget{Owner: automationOwner, Asset: usdl, Requests: 1, Spend: "100000000", Expires: time.Now().Add(time.Hour)}, b.Revision))
+	_, e = s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot2, "second", USDLAddress, "suggest", time.Now().Add(-time.Second))
 	is(t, e, BudgetExceeded)
 }
 func TestStaleInventoryAndExpiredAutomationRejectNewWork(t *testing.T) {
@@ -674,12 +681,12 @@ func TestStaleInventoryAndExpiredAutomationRejectNewWork(t *testing.T) {
 	must(t, s.CreateBounty(ctx, "finance", "service", "create", bounty("stale", pax, "1")))
 	is(t, s.BountyState(ctx, "finance", "service", "stale", "reserve", "funded", "", "", 1), FundingRequired)
 	setupAutomation(t, s, 10)
-	p := load[Policy](t, s, "policy", "bot1")
+	p := load[Policy](t, s, "policy", automationBot1)
 	p.Expires = time.Now().Add(-time.Second)
 	raw, _ = json.Marshal(p)
-	_, e = s.pool.Exec(ctx, "UPDATE "+s.schema+".objects SET body=$1 WHERE kind='policy' AND id='bot1'", raw)
+	_, e = s.pool.Exec(ctx, "UPDATE "+s.schema+".objects SET body=$1 WHERE kind='policy' AND id=$2", raw, automationBot1)
 	must(t, e)
-	_, e = s.ReserveRecommendation(ctx, "owner", "owner", "bot1", "expired", "pool1", "suggest", time.Now().Add(-time.Second))
+	_, e = s.ReserveRecommendation(ctx, "owner", automationOwner, automationBot1, "expired", USDLAddress, "suggest", time.Now().Add(-time.Second))
 	is(t, e, Denied)
 }
 func TestBulkExportSingleApprovedUseAndNoForbiddenDataset(t *testing.T) {

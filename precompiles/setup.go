@@ -1,11 +1,15 @@
 package precompiles
 
 import (
+	"bytes"
+	"embed"
 	"fmt"
 	"sync"
 
+	spottypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/addr"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/bank"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/distribution"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/gov"
@@ -19,9 +23,12 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/oracle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/p256"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointerview"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/solo"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/staking"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/wasmd"
@@ -47,7 +54,7 @@ const FeeTokenUpgrade = "v6.7"
 // brings the MergeAddressTable precompiles online. It equals the plan name the
 // node registers, and the merge entries carry a version at this plan so that
 // the keeper's activation entry for the plan withholds them below its height.
-const MergeUpgrade = "v7.0"
+const MergeUpgrade = pcommon.MergeUpgrade
 
 // MergeAddress is one precompile address the merge plan brings online and the
 // name its precompile reports through GetName.
@@ -57,12 +64,13 @@ type MergeAddress struct {
 }
 
 // MergeAddressTable lists the precompiles the merge plan brings online: the
-// four construct addresses and the eight agent-function addresses.
+// five construct addresses and the eight agent-function addresses.
 var MergeAddressTable = []MergeAddress{
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101A"), "layerxledger"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101B"), "layerxpay"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101C"), "layerxauth"},
 	{ecommon.HexToAddress("0x000000000000000000000000000000000000101D"), "layerxprograms"},
+	{ecommon.HexToAddress("0x000000000000000000000000000000000000101E"), "layerxchains"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000901"), "orob"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000902"), "clearing"},
 	{ecommon.HexToAddress("0x0000000000000000000000000000000000000903"), "oracle aggregator"},
@@ -81,6 +89,18 @@ var (
 	mergeConstructorsMtx sync.RWMutex
 	mergeConstructors    = map[ecommon.Address]MergeConstructor{}
 )
+
+func MissingMergeConstructors() []MergeAddress {
+	mergeConstructorsMtx.RLock()
+	defer mergeConstructorsMtx.RUnlock()
+	missing := make([]MergeAddress, 0, len(MergeAddressTable))
+	for _, entry := range MergeAddressTable {
+		if _, registered := mergeConstructors[entry.Address]; !registered {
+			missing = append(missing, entry)
+		}
+	}
+	return missing
+}
 
 // RegisterMergeConstructor records the constructor of the precompile served at
 // a MergeAddressTable address. An address with no registered constructor is
@@ -150,6 +170,101 @@ type PrecompileInfo struct {
 // PrecompileNamesToInfo is Populated by InitializePrecompiles
 var PrecompileNamesToInfo = map[string]PrecompileInfo{}
 
+//go:embed */abi.json perps/abi/abi.json pricefeed/abi/abi.json spot/abi/*.json
+var precompileInfoABIs embed.FS
+
+type precompileInfoSource struct {
+	address string
+	file    string
+}
+
+var precompileInfoSources = map[string]precompileInfoSource{
+	"bank":            {bank.BankAddress, "bank/abi.json"},
+	"wasmd":           {wasmd.WasmdAddress, "wasmd/abi.json"},
+	"json":            {json.JSONAddress, "json/abi.json"},
+	"addr":            {addr.AddrAddress, "addr/abi.json"},
+	"staking":         {staking.StakingAddress, "staking/abi.json"},
+	"gov":             {gov.GovAddress, "gov/abi.json"},
+	"distribution":    {distribution.DistrAddress, "distribution/abi.json"},
+	"oracle":          {oracle.OracleAddress, "oracle/abi.json"},
+	"ibc":             {ibc.IBCAddress, "ibc/abi.json"},
+	"pointer":         {pointer.PointerAddress, "pointer/abi.json"},
+	"pointerview":     {pointerview.PointerViewAddress, "pointerview/abi.json"},
+	"p256Verify":      {p256.P256VerifyAddress, "p256/abi.json"},
+	"solo":            {solo.SoloAddress, "solo/abi.json"},
+	"layerxVerify":    {layerxverify.LayerXVerifyAddress, "layerxverify/abi.json"},
+	"layerxCustody":   {layerxcustody.LayerXCustodyAddress, "layerxcustody/abi.json"},
+	"layerxAnchor":    {layerxanchor.LayerXAnchorAddress, "layerxanchor/abi.json"},
+	"layerxExchange":  {layerxexchange.ExchangeAddress, "layerxexchange/abi.json"},
+	"layerxexchange":  {layerxexchange.ExchangeAddress, "layerxexchange/abi.json"},
+	"layerxBridge":    {layerxbridge.BridgeAddress, "layerxbridge/abi.json"},
+	"launchpad":       {launchpad.LaunchpadAddress, "launchpad/abi.json"},
+	"feeToken":        {feetoken.FeeTokenAddress, "feetoken/abi.json"},
+	"xweb":            {xweb.XWebAddress, "xweb/abi.json"},
+	"perps":           {perps.PerpsAddress, "perps/abi/abi.json"},
+	"pricefeed":       {pricefeed.PriceFeedAddress, "pricefeed/abi/abi.json"},
+	"spot_pecor":      {spottypes.PECORAddress, "spot/abi/pecor.json"},
+	"spot_orders":     {spottypes.PECOROrdersAddress, "spot/abi/orders.json"},
+	"spot_stoporders": {spottypes.PECORStopOrdersAddress, "spot/abi/stoporders.json"},
+	"spot_quoter":     {spottypes.PECORQuoterAddress, "spot/abi/quoter.json"},
+	"spot_vault":      {spottypes.PECORVaultAddress, "spot/abi/vault.json"},
+}
+
+var mergeAgentInfoABIs = map[string]string{
+	"orob": `[
+		{"type":"function","name":"resolveOffset","stateMutability":"pure","inputs":[{"name":"oraclePrice","type":"int256"},{"name":"offsetBps","type":"int16"}],"outputs":[{"name":"absolutePrice","type":"int256"}]},
+		{"type":"function","name":"resolveOffsetBatch","stateMutability":"pure","inputs":[{"name":"oraclePrice","type":"int256"},{"name":"offsetsBps","type":"int16[]"}],"outputs":[{"name":"absolutePrices","type":"int256[]"}]},
+		{"type":"function","name":"toOffset","stateMutability":"pure","inputs":[{"name":"oraclePrice","type":"int256"},{"name":"absolutePrice","type":"int256"}],"outputs":[{"name":"offsetBps","type":"int16"}]}
+	]`,
+	"clearing": `[{"type":"function","name":"computeClearing","stateMutability":"pure","inputs":[{"name":"oraclePrice","type":"int256"},{"name":"buyOrders","type":"tuple[]","components":[{"name":"offsetBps","type":"int16"},{"name":"size","type":"uint128"}]},{"name":"sellOrders","type":"tuple[]","components":[{"name":"offsetBps","type":"int16"},{"name":"size","type":"uint128"}]}],"outputs":[{"name":"clearingOffsetBps","type":"int16"},{"name":"clearingPrice","type":"int256"},{"name":"matchedVolume","type":"uint256"}]}]`,
+	"oracle aggregator": `[
+ {"type":"function","name":"aggregate","stateMutability":"pure","inputs":[{"name":"feeds","type":"tuple[]","components":[{"name":"price","type":"int256"},{"name":"confidence","type":"uint256"},{"name":"timestamp","type":"uint256"}]}],"outputs":[{"name":"price","type":"int256"},{"name":"confidence","type":"uint256"}]},
+ {"type":"function","name":"submitPrice","stateMutability":"nonpayable","inputs":[{"name":"feedID","type":"bytes32"},{"name":"price","type":"int256"},{"name":"confidence","type":"uint256"}],"outputs":[]},
+ {"type":"function","name":"getValidatorPrice","stateMutability":"view","inputs":[{"name":"feedID","type":"bytes32"}],"outputs":[{"name":"price","type":"int256"},{"name":"quorum","type":"uint256"},{"name":"timestamp","type":"uint256"}]}
+ ]`,
+	"pofq": `[
+	{"type":"function","name":"scoreFill","stateMutability":"pure","inputs":[{"name":"fillPrice","type":"int256"},{"name":"oraclePrice","type":"int256"}],"outputs":[{"name":"score","type":"uint256"}]},
+	{"type":"function","name":"scoreBatch","stateMutability":"pure","inputs":[{"name":"fills","type":"tuple[]","components":[{"name":"fillPrice","type":"int256"},{"name":"oraclePrice","type":"int256"},{"name":"size","type":"uint128"}]}],"outputs":[{"name":"avgScore","type":"uint256"},{"name":"totalVolume","type":"uint256"}]},
+	{"type":"function","name":"updateRollingScore","stateMutability":"pure","inputs":[{"name":"currentScore","type":"uint256"},{"name":"currentWeight","type":"uint256"},{"name":"newScore","type":"uint256"},{"name":"newWeight","type":"uint256"},{"name":"decayBps","type":"uint16"}],"outputs":[{"name":"updatedScore","type":"uint256"},{"name":"updatedWeight","type":"uint256"}]}
+]`,
+	"scheduler": `[
+{"type":"function","name":"schedule","stateMutability":"payable","inputs":[{"name":"target","type":"address"},{"name":"callData","type":"bytes"},{"name":"executeAtBlock","type":"uint64"},{"name":"gasLimit","type":"uint64"}],"outputs":[{"name":"jobId","type":"uint256"}]},
+{"type":"function","name":"cancel","stateMutability":"nonpayable","inputs":[{"name":"jobId","type":"uint256"}],"outputs":[]},
+{"type":"function","name":"reschedule","stateMutability":"nonpayable","inputs":[{"name":"jobId","type":"uint256"},{"name":"newBlock","type":"uint64"}],"outputs":[]},
+{"type":"function","name":"getJob","stateMutability":"view","inputs":[{"name":"jobId","type":"uint256"}],"outputs":[{"name":"id","type":"uint256"},{"name":"creator","type":"address"},{"name":"target","type":"address"},{"name":"callData","type":"bytes"},{"name":"executeAtBlock","type":"uint64"},{"name":"gasLimit","type":"uint64"},{"name":"deposit","type":"uint256"},{"name":"active","type":"bool"}]},
+{"type":"function","name":"pending","stateMutability":"view","inputs":[{"name":"creator","type":"address"}],"outputs":[{"name":"jobIds","type":"uint256[]"}]},
+{"type":"event","name":"JobScheduled","anonymous":false,"inputs":[{"name":"jobId","type":"uint256","indexed":true},{"name":"creator","type":"address","indexed":true},{"name":"target","type":"address","indexed":false},{"name":"executeAtBlock","type":"uint64","indexed":false},{"name":"gasLimit","type":"uint64","indexed":false},{"name":"deposit","type":"uint256","indexed":false}]},
+{"type":"event","name":"JobCancelled","anonymous":false,"inputs":[{"name":"jobId","type":"uint256","indexed":true},{"name":"creator","type":"address","indexed":true},{"name":"refund","type":"uint256","indexed":false}]},
+{"type":"event","name":"JobRescheduled","anonymous":false,"inputs":[{"name":"jobId","type":"uint256","indexed":true},{"name":"newBlock","type":"uint64","indexed":false}]},
+{"type":"event","name":"JobExecuted","anonymous":false,"inputs":[{"name":"jobId","type":"uint256","indexed":true},{"name":"creator","type":"address","indexed":true},{"name":"gasUsed","type":"uint64","indexed":false},{"name":"refund","type":"uint256","indexed":false}]},
+{"type":"event","name":"JobFailed","anonymous":false,"inputs":[{"name":"jobId","type":"uint256","indexed":true},{"name":"creator","type":"address","indexed":true},{"name":"reason","type":"string","indexed":false}]}
+]`,
+	"streams": `[
+ {"type":"function","name":"open","stateMutability":"nonpayable","inputs":[{"name":"payee","type":"address"},{"name":"token","type":"address"},{"name":"ratePerSecond","type":"uint256"},{"name":"startTime","type":"uint64"},{"name":"stopTime","type":"uint64"},{"name":"cap","type":"uint256"}],"outputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"settle","stateMutability":"nonpayable","inputs":[{"name":"streamId","type":"uint256"}],"outputs":[{"name":"paid","type":"uint256"}]},
+ {"type":"function","name":"close","stateMutability":"nonpayable","inputs":[{"name":"streamId","type":"uint256"}],"outputs":[{"name":"finalPaid","type":"uint256"}]},
+ {"type":"function","name":"updateRate","stateMutability":"nonpayable","inputs":[{"name":"streamId","type":"uint256"},{"name":"newRate","type":"uint256"}],"outputs":[]},
+ {"type":"function","name":"accrued","stateMutability":"view","inputs":[{"name":"streamId","type":"uint256"}],"outputs":[{"name":"amount","type":"uint256"}]},
+ {"type":"function","name":"getStream","stateMutability":"view","inputs":[{"name":"streamId","type":"uint256"}],"outputs":[{"name":"stream","type":"tuple","components":[{"name":"id","type":"uint256"},{"name":"payer","type":"address"},{"name":"payee","type":"address"},{"name":"token","type":"address"},{"name":"ratePerSecond","type":"uint256"},{"name":"cap","type":"uint256"},{"name":"startTime","type":"uint64"},{"name":"stopTime","type":"uint64"},{"name":"settled","type":"uint256"},{"name":"active","type":"bool"}]}]},
+ {"type":"event","name":"StreamOpened","anonymous":false,"inputs":[{"name":"streamId","type":"uint256","indexed":true},{"name":"payer","type":"address","indexed":true},{"name":"payee","type":"address","indexed":true},{"name":"token","type":"address","indexed":false},{"name":"ratePerSecond","type":"uint256","indexed":false},{"name":"cap","type":"uint256","indexed":false}]},
+ {"type":"event","name":"StreamSettled","anonymous":false,"inputs":[{"name":"streamId","type":"uint256","indexed":true},{"name":"payee","type":"address","indexed":true},{"name":"paid","type":"uint256","indexed":false},{"name":"committed","type":"uint256","indexed":false}]},
+ {"type":"event","name":"StreamClosed","anonymous":false,"inputs":[{"name":"streamId","type":"uint256","indexed":true},{"name":"finalPaid","type":"uint256","indexed":false},{"name":"refund","type":"uint256","indexed":false}]},
+ {"type":"event","name":"StreamRateUpdated","anonymous":false,"inputs":[{"name":"streamId","type":"uint256","indexed":true},{"name":"oldRate","type":"uint256","indexed":false},{"name":"newRate","type":"uint256","indexed":false}]}
+ ]`,
+	"tee attestor": `[
+    {"type":"function","name":"verify","stateMutability":"view","inputs":[{"name":"family","type":"uint8"},{"name":"quote","type":"bytes"}],"outputs":[{"name":"att","type":"tuple","components":[{"name":"family","type":"uint8"},{"name":"mrtd","type":"bytes32"},{"name":"reportData","type":"bytes32"},{"name":"timestamp","type":"uint64"},{"name":"debug","type":"bool"}]}]},
+    {"type":"function","name":"verifyAndExpect","stateMutability":"view","inputs":[{"name":"family","type":"uint8"},{"name":"quote","type":"bytes"},{"name":"expectedReportData","type":"bytes32"}],"outputs":[{"name":"att","type":"tuple","components":[{"name":"family","type":"uint8"},{"name":"mrtd","type":"bytes32"},{"name":"reportData","type":"bytes32"},{"name":"timestamp","type":"uint64"},{"name":"debug","type":"bool"}]}]},
+    {"type":"function","name":"rootOf","stateMutability":"view","inputs":[{"name":"family","type":"uint8"},{"name":"index","type":"uint256"}],"outputs":[{"name":"root","type":"bytes"}]},
+    {"type":"function","name":"rootCount","stateMutability":"view","inputs":[{"name":"family","type":"uint8"}],"outputs":[{"name":"count","type":"uint256"}]},
+    {"type":"event","name":"AttestationVerified","anonymous":false,"inputs":[{"name":"family","type":"uint8","indexed":true},{"name":"mrtd","type":"bytes32","indexed":true},{"name":"reportData","type":"bytes32","indexed":false},{"name":"timestamp","type":"uint64","indexed":false},{"name":"debug","type":"bool","indexed":false}]}
+]`,
+	"eip712": `[
+		{"type":"function","name":"hashTypedData","stateMutability":"pure","inputs":[{"name":"domainSeparator","type":"bytes32"},{"name":"structHash","type":"bytes32"}],"outputs":[{"name":"digest","type":"bytes32"}]},
+		{"type":"function","name":"domainSeparator","stateMutability":"pure","inputs":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"outputs":[{"name":"separator","type":"bytes32"}]},
+		{"type":"function","name":"recoverTypedSigner","stateMutability":"view","inputs":[{"name":"domainSeparator","type":"bytes32"},{"name":"structHash","type":"bytes32"},{"name":"signature","type":"bytes"}],"outputs":[{"name":"signer","type":"address"}]}
+	]`,
+}
+
 type IPrecompile interface {
 	vm.PrecompiledContract
 	GetABI() abi.ABI
@@ -161,6 +276,23 @@ func GetCustomPrecompiles(
 	latestUpgrade string,
 	keepers utils.Keepers,
 ) map[ecommon.Address]utils.VersionedPrecompiles {
+	custom, err := GetCustomPrecompilesE(latestUpgrade, keepers)
+	if err != nil {
+		panic(err)
+	}
+	return custom
+}
+
+// GetCustomPrecompilesE includes launchpad.GetVersioned at the direct 0x1017
+// address; surface runtime calls must reach this same registered implementation.
+func GetCustomPrecompilesE(
+	latestUpgrade string,
+	keepers utils.Keepers,
+) (map[ecommon.Address]utils.VersionedPrecompiles, error) {
+	merge, err := newMergePrecompiles(keepers)
+	if err != nil {
+		return nil, err
+	}
 	custom := map[ecommon.Address]utils.VersionedPrecompiles{
 		ecommon.HexToAddress(bank.BankAddress):                   bank.GetVersioned(latestUpgrade, keepers),
 		ecommon.HexToAddress(wasmd.WasmdAddress):                 wasmd.GetVersioned(latestUpgrade, keepers),
@@ -190,14 +322,10 @@ func GetCustomPrecompiles(
 	if semver.Compare(latestUpgrade, XWebUpgrade) >= 0 {
 		custom[ecommon.HexToAddress(xweb.XWebAddress)] = xweb.GetVersioned(latestUpgrade, keepers)
 	}
-	merge, err := newMergePrecompiles(keepers)
-	if err != nil {
-		panic(err)
-	}
 	for _, p := range merge {
 		custom[p.Address()] = utils.VersionedPrecompiles{latestUpgrade: p, MergeUpgrade: p}
 	}
-	return custom
+	return custom, nil
 }
 
 func InitializePrecompiles(
@@ -279,6 +407,18 @@ func InitializePrecompiles(
 		return err
 	}
 
+	perpsp, err := perps.NewPrecompile(keepers)
+	if err != nil {
+		return err
+	}
+
+	pricefeedp, err := pricefeed.NewPrecompile(keepers)
+	if err != nil {
+		return err
+	}
+
+	spotABIs := spot.PrecompileABIs()
+
 	// A dry run only records names and ABIs, so it builds the bridge and
 	// launchpad precompiles without their keepers; a live run requires them.
 	layerxbridgep, err := layerxbridge.NewPrecompile(keepers)
@@ -329,6 +469,14 @@ func InitializePrecompiles(
 	PrecompileNamesToInfo[layerxcustodyp.GetName()] = PrecompileInfo{ABI: layerxcustodyp.GetABI(), Address: layerxcustodyp.Address()}
 	PrecompileNamesToInfo[layerxanchorp.GetName()] = PrecompileInfo{ABI: layerxanchorp.GetABI(), Address: layerxanchorp.Address()}
 	PrecompileNamesToInfo[layerxexchangep.GetName()] = PrecompileInfo{ABI: layerxexchangep.GetABI(), Address: layerxexchangep.Address()}
+	PrecompileNamesToInfo["layerxexchange"] = PrecompileInfo{ABI: layerxexchangep.GetABI(), Address: layerxexchangep.Address()}
+	PrecompileNamesToInfo[perpsp.GetName()] = PrecompileInfo{ABI: perpsp.GetABI(), Address: perpsp.Address()}
+	PrecompileNamesToInfo[pricefeedp.GetName()] = PrecompileInfo{ABI: pricefeedp.GetABI(), Address: pricefeedp.Address()}
+	PrecompileNamesToInfo["spot_pecor"] = PrecompileInfo{ABI: spotABIs["spot_pecor"], Address: ecommon.HexToAddress(spottypes.PECORAddress)}
+	PrecompileNamesToInfo["spot_orders"] = PrecompileInfo{ABI: spotABIs["spot_orders"], Address: ecommon.HexToAddress(spottypes.PECOROrdersAddress)}
+	PrecompileNamesToInfo["spot_stoporders"] = PrecompileInfo{ABI: spotABIs["spot_stoporders"], Address: ecommon.HexToAddress(spottypes.PECORStopOrdersAddress)}
+	PrecompileNamesToInfo["spot_quoter"] = PrecompileInfo{ABI: spotABIs["spot_quoter"], Address: ecommon.HexToAddress(spottypes.PECORQuoterAddress)}
+	PrecompileNamesToInfo["spot_vault"] = PrecompileInfo{ABI: spotABIs["spot_vault"], Address: ecommon.HexToAddress(spottypes.PECORVaultAddress)}
 	PrecompileNamesToInfo[layerxbridgep.GetName()] = PrecompileInfo{ABI: layerxbridgep.GetABI(), Address: layerxbridgep.Address()}
 	PrecompileNamesToInfo[launchpadp.GetName()] = PrecompileInfo{ABI: launchpadp.GetABI(), Address: launchpadp.Address()}
 	PrecompileNamesToInfo[xwebp.GetName()] = PrecompileInfo{ABI: xwebp.GetABI(), Address: xwebp.Address()}
@@ -339,6 +487,11 @@ func InitializePrecompiles(
 	}
 	for _, p := range merge {
 		PrecompileNamesToInfo[p.GetName()] = PrecompileInfo{ABI: p.GetABI(), Address: p.Address()}
+	}
+
+	mergeActive := false
+	if provider, ok := keepers.(interface{ MergePlanActive() bool }); !dryRun && ok && len(merge) > 0 {
+		mergeActive = provider.MergePlanActive()
 	}
 
 	if !dryRun {
@@ -362,8 +515,10 @@ func InitializePrecompiles(
 		addPrecompileToVM(layerxbridgep)
 		addPrecompileToVM(launchpadp)
 		addPrecompileToVM(xwebp)
-		for _, p := range merge {
-			addPrecompileToVM(p)
+		if mergeActive {
+			for _, p := range merge {
+				addPrecompileToVM(p)
+			}
 		}
 		Initialized = true
 	}
@@ -371,15 +526,54 @@ func InitializePrecompiles(
 }
 
 func GetPrecompileInfo(name string) PrecompileInfo {
-	if !Initialized {
-		// Precompile Info does not require any keeper state
-		_ = InitializePrecompiles(true, &utils.EmptyKeepers{})
-	}
-	i, ok := PrecompileNamesToInfo[name]
-	if !ok {
-		panic(name + "doesn't exist as a precompile")
+	i, err := GetPrecompileInfoE(name)
+	if err != nil {
+		panic(err)
 	}
 	return i
+}
+
+func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
+	if info, ok := PrecompileNamesToInfo[name]; ok {
+		return validatePrecompileInfo(name, info)
+	}
+	source, found := precompileInfoSources[name]
+	if !found {
+		for _, entry := range MergeAddressTable {
+			if entry.Name == name {
+				source = precompileInfoSource{entry.Address.Hex(), name + "/abi.json"}
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		return PrecompileInfo{}, fmt.Errorf("%s doesn't exist as a precompile", name)
+	}
+	var data []byte
+	if inline, ok := mergeAgentInfoABIs[name]; ok {
+		data = []byte(inline)
+	} else {
+		var err error
+		data, err = precompileInfoABIs.ReadFile(source.file)
+		if err != nil {
+			return PrecompileInfo{}, fmt.Errorf("%s precompile ABI: %w", name, err)
+		}
+	}
+	parsed, err := abi.JSON(bytes.NewReader(data))
+	if err != nil {
+		return PrecompileInfo{}, fmt.Errorf("%s precompile ABI: %w", name, err)
+	}
+	return validatePrecompileInfo(name, PrecompileInfo{ABI: parsed, Address: ecommon.HexToAddress(source.address)})
+}
+
+// A registry entry must carry a destination before a caller can build a call.
+// Returning the zero address would silently turn it into an ordinary EVM send.
+func validatePrecompileInfo(name string, info PrecompileInfo) (PrecompileInfo, error) {
+	if info.Address == (ecommon.Address{}) {
+		return PrecompileInfo{}, fmt.Errorf("%s precompile has no address", name)
+	}
+	return info, nil
 }
 
 // This function modifies global variable in `vm` module. It should only be called once
@@ -396,8 +590,4 @@ func addPrecompileToVM(p IPrecompile) {
 	vm.PrecompiledAddressesIstanbul = append(vm.PrecompiledAddressesIstanbul, p.Address())
 	vm.PrecompiledAddressesBerlin = append(vm.PrecompiledAddressesBerlin, p.Address())
 	vm.PrecompiledAddressesCancun = append(vm.PrecompiledAddressesCancun, p.Address())
-}
-
-var PrecompileLastUpgrade = map[string]int64{
-	bank.BankAddress: 1,
 }

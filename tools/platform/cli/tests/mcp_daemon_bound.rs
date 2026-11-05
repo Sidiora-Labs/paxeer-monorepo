@@ -1,4 +1,8 @@
-use std::collections::BTreeSet;
+mod common;
+#[path = "common/daemon_gateway.rs"]
+mod daemon_gateway;
+
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
@@ -8,6 +12,9 @@ use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
 use std::time::Duration;
+
+use layerx_agentd::capability::timed::{self, NativeTimedCapabilityV1, TimedCapability};
+use layerx_types::payload::{ActivityType, ModuleId};
 
 use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
@@ -53,7 +60,7 @@ fn isolated(label: &str) -> PathBuf {
 /// Enrols the agent daemon exactly as a running daemon does: a real capability, a real identity
 /// carrying its grant, a real session opened under that grant, and the binding document the
 /// served path opens, written beside the CLI configuration.
-fn enrol(root: &Path, endpoint: &str, bearer: &str) -> PublishedBinding {
+fn enrol_legacy(root: &Path, endpoint: &str, bearer: &str) -> PublishedBinding {
     let mut store =
         Store::open(root.join("store")).unwrap_or_else(|error| panic!("store: {error}"));
     let tenant = TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"));
@@ -128,6 +135,66 @@ fn enrol(root: &Path, endpoint: &str, bearer: &str) -> PublishedBinding {
         .unwrap_or_else(|error| panic!("enrol: {error}"))
 }
 
+fn enrol(root: &Path, endpoint: &str, bearer: &str) -> PublishedBinding {
+    let published = enrol_legacy(root, endpoint, bearer);
+    let bytes = fs::read(&published.binding).expect("read enrolled binding");
+    let mut document: Value = serde_json::from_slice(&bytes).expect("enrolled binding JSON");
+    let fields = document.as_object_mut().expect("binding object");
+    let height = fields
+        .remove("core_sequence")
+        .expect("legacy publisher height");
+    assert_eq!(height.as_u64(), Some(50));
+    assert!(fields.insert("core_height".to_owned(), height).is_none());
+    fs::write(
+        &published.binding,
+        serde_json::to_vec_pretty(&document).expect("binding JSON"),
+    )
+    .expect("write current binding");
+    let mut store = Store::open(root.join("store")).expect("native capability store");
+    let tenant = TenantId::new("tenant-a").expect("native tenant");
+    let native = NativeTimedCapabilityV1 {
+        record: TimedCapability {
+            id: [9; 32],
+            parent: None,
+            tenant: tenant.clone(),
+            agent: "did:layerx:model".into(),
+            authority: ProtocolAuthority::CapabilityGrant([9; 32]),
+            activity_types: BTreeSet::new(),
+            counterparties: BTreeSet::from([[2; 32]]),
+            assets: BTreeSet::from([[3; 32]]),
+            amount_ceilings: BTreeMap::from([([3; 32], 100)]),
+            rate_ceilings: BTreeMap::from([(10, 2)]),
+            purposes: BTreeSet::new(),
+            expiry_seconds: 400,
+            grant_not_after_ms: 400_000,
+            created_at_ms: 1,
+            created_at_sequence: 1,
+            revoked: None,
+        },
+        activities: [1, 5, 6, 7, 10]
+            .into_iter()
+            .map(|ordinal| {
+                ActivityType::new(ModuleId::Asset, ordinal)
+                    .expect("native activity")
+                    .into()
+            })
+            .collect(),
+        purpose_commitments: BTreeSet::new(),
+        spend_ceilings: BTreeMap::new(),
+    };
+    store
+        .put_local(
+            timed::native_record_key(&tenant, &[9; 32]).expect("native key"),
+            native.encode().expect("native capability"),
+        )
+        .expect("persist native grant");
+    drop(store);
+    let binding = layerx_mcp::binding::Binding::open(&published.binding)
+        .unwrap_or_else(|error| panic!("current binding: {}", error.detail()));
+    assert_eq!(binding.core_height(), 50);
+    published
+}
+
 fn layerx(root: &Path) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_layerx"));
     command
@@ -152,7 +219,12 @@ fn success(output: &Output) -> Value {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    serde_json::from_slice(&output.stdout).unwrap_or_else(|error| panic!("stdout json: {error}"))
+    let value = common::envelope(output);
+    assert_eq!(value["ok"], true);
+    assert!(value["kind"].is_string());
+    assert!(value["message"].is_string());
+    assert!(value.get("data").is_some());
+    value
 }
 
 /// Answers the daemon's verified balance read for any authorized loopback caller.
@@ -232,10 +304,15 @@ fn strings(value: Option<&Value>) -> Vec<String> {
         .collect()
 }
 
-fn assert_installed_catalogue(root: &Path, binding_path: &Path) {
-    let mut server = layerx(root)
+fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool) {
+    let mut command = layerx(root);
+    command
         .args(["mcp", "serve", "--daemon-binding"])
-        .arg(binding_path)
+        .arg(binding_path);
+    if read_only {
+        command.arg("--read-only");
+    }
+    let mut server = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -247,7 +324,7 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path) {
             .stdin
             .take()
             .unwrap_or_else(|| panic!("server stdin absent"));
-        let requests = [
+        let mut requests = vec![
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".to_owned(),
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_owned(),
             "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}".to_owned(),
@@ -255,6 +332,9 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path) {
                 "{{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{{\"name\":\"balance.get\",\"arguments\":{{\"program\":\"{program}\"}}}}}}"
             ),
         ];
+        if read_only {
+            requests.push(r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"activity.submit","arguments":{}}}"#.to_owned());
+        }
         for request in requests {
             writeln!(stdin, "{request}").unwrap_or_else(|error| panic!("request: {error}"));
         }
@@ -273,7 +353,18 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path) {
             serde_json::from_str::<Value>(line).unwrap_or_else(|error| panic!("response: {error}"))
         })
         .collect::<Vec<Value>>();
-    assert_eq!(responses.len(), 3);
+    assert_eq!(responses.len(), if read_only { 4 } else { 3 });
+    if read_only {
+        assert_eq!(
+            responses[3].pointer("/error/code").and_then(Value::as_i64),
+            Some(-32602)
+        );
+        assert!(responses[3]
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .expect("read-only refusal")
+            .contains("read-only"));
+    }
     assert_eq!(
         responses[0]
             .pointer("/result/_meta/layerx~1binding")
@@ -284,14 +375,39 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path) {
         responses[0]
             .pointer("/result/_meta/layerx~1deployment_mode")
             .and_then(Value::as_str),
-        Some("full")
+        Some(if read_only { "read-only" } else { "full" })
     );
     assert_eq!(
         responses[1]
             .pointer("/result/tools")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(catalogue().len())
+        Some(
+            catalogue()
+                .iter()
+                .filter(|tool| !read_only || tool.kind == ToolKind::Read)
+                .count()
+        )
+    );
+    let served = responses[1]
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
+        .expect("served tools");
+    let expected = catalogue()
+        .iter()
+        .filter(|tool| !read_only || tool.kind == ToolKind::Read)
+        .map(|tool| tool.name)
+        .collect::<BTreeSet<_>>();
+    let names = served
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(names, expected);
+    assert_eq!(
+        responses[0]
+            .pointer("/result/_meta/layerx~1mutations_reachable")
+            .and_then(Value::as_bool),
+        Some(!read_only)
     );
     assert_eq!(
         responses[2]
@@ -319,6 +435,7 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
     let bearer = "d".repeat(48);
     let endpoint = agent_daemon(bearer.clone());
     let published = enrol(&root, &endpoint, &bearer);
+    let gateway = daemon_gateway::Gateway::start(&root, &published.binding);
     let binding_path = root.join("mcp").join("binding.json");
     assert_eq!(published.binding, binding_path);
 
@@ -413,7 +530,8 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
         Some(false)
     );
 
-    assert_installed_catalogue(&root, &binding_path);
+    assert_installed_catalogue(&root, &binding_path, false);
+    drop(gateway);
     let _ = fs::remove_dir_all(root);
 }
 
@@ -423,6 +541,7 @@ fn an_explicit_binding_path_narrows_the_installed_surface_to_read_only() {
     let bearer = "e".repeat(48);
     let endpoint = agent_daemon(bearer.clone());
     let published = enrol(&root, &endpoint, &bearer);
+    let gateway = daemon_gateway::Gateway::start(&root, &published.binding);
     let relocated = root.join("elsewhere");
     fs::create_dir_all(&relocated).unwrap_or_else(|error| panic!("relocated: {error}"));
     let binding_path = relocated.join("binding.json");
@@ -469,6 +588,8 @@ fn an_explicit_binding_path_narrows_the_installed_surface_to_read_only() {
             .filter(|tool| tool.kind == ToolKind::Read)
             .count()
     );
+    assert_installed_catalogue(&root, &binding_path, true);
+    drop(gateway);
     let _ = fs::remove_dir_all(root);
 }
 
@@ -486,4 +607,33 @@ fn installation_refuses_before_any_registration_when_the_daemon_has_not_enrolled
     );
     assert!(!root.join("mcp.json").exists());
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_retired_core_sequence_binding_is_refused_before_installation_or_serving() {
+    let root = isolated("retired-binding");
+    let published = enrol_legacy(&root, "127.0.0.1:1", &"f".repeat(48));
+    let output = install(&root, &["--host", "layerx"]);
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("mcp.binding_retired_key"),
+        "stderr: {stderr}"
+    );
+    assert!(!root.join("mcp.json").exists());
+    let served = layerx(&root)
+        .args(["--json", "mcp", "serve", "--daemon-binding"])
+        .arg(&published.binding)
+        .stdin(Stdio::null())
+        .output()
+        .expect("start MCP server with retired binding");
+    assert!(!served.status.success());
+    assert!(served.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&served.stderr);
+    assert!(
+        stderr.contains("mcp.binding_retired_key"),
+        "stderr: {stderr}"
+    );
+    assert!(!root.join("mcp.json").exists());
+    fs::remove_dir_all(root).expect("remove retired binding profile");
 }

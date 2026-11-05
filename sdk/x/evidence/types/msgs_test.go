@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
@@ -28,26 +29,39 @@ func TestMsgSubmitEvidence(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			testMsgSubmitEvidence(t, &types.Equivocation{
-				Height:           0,
-				Power:            100,
-				Time:             time.Now().UTC(),
-				ConsensusAddress: pk.PubKey().Address().String(),
-			}, submitter),
+			testMsgSubmitEvidence(t, types.FromABCIEvidence(abci.Evidence{
+				Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
+				Height:    0,
+				Time:      time.Now().UTC(),
+				Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+			}), submitter),
 			submitter,
 			true,
 		},
 		{
-			testMsgSubmitEvidence(t, &types.Equivocation{
-				Height:           10,
-				Power:            100,
-				Time:             time.Now().UTC(),
-				ConsensusAddress: pk.PubKey().Address().String(),
-			}, submitter),
+			testMsgSubmitEvidence(t, types.FromABCIEvidence(abci.Evidence{
+				Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
+				Height:    10,
+				Time:      time.Now().UTC(),
+				Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+			}), submitter),
 			submitter,
 			false,
 		},
 	}
+
+	malformed := types.FromABCIEvidence(abci.Evidence{
+		Type:      abci.MisbehaviorType_DUPLICATE_VOTE,
+		Height:    10,
+		Time:      time.Now().UTC(),
+		Validator: abci.Validator{Address: pk.PubKey().Address(), Power: 100},
+	}).(*types.Equivocation)
+	malformed.ConsensusAddress = pk.PubKey().Address().String()
+	testCases = append(testCases, struct {
+		msg       sdk.Msg
+		submitter sdk.AccAddress
+		expectErr bool
+	}{testMsgSubmitEvidence(t, malformed, submitter), submitter, true})
 
 	for i, tc := range testCases {
 		require.Equal(t, sdk.MsgTypeURL(&types.MsgSubmitEvidence{}), sdk.MsgTypeURL(tc.msg), "unexpected result for tc #%d", i)
@@ -55,6 +69,8 @@ func TestMsgSubmitEvidence(t *testing.T) {
 
 		if !tc.expectErr {
 			require.Equal(t, tc.msg.GetSigners(), []sdk.AccAddress{tc.submitter}, "unexpected result for tc #%d", i)
+			stored := repairM604MessageRoundTrip(t, tc.msg.(*types.MsgSubmitEvidence))
+			require.Equal(t, []byte(pk.PubKey().Address()), stored.GetConsensusAddress().Bytes())
 		}
 	}
 }

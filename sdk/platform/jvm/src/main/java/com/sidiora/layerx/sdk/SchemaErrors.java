@@ -44,13 +44,12 @@ public final class SchemaErrors {
         REFUSED_BY_POLICY("refused-by-policy"), REFUSED_BY_BUDGET("refused-by-budget"),
         REFUSED_BY_CAPABILITY("refused-by-capability"), REFUSED_BY_PROTOCOL("refused-by-protocol"),
         REFUSED_BY_LIMIT("refused-by-limit"), QUOTE_EXPIRED("quote-expired"),
-        WALLET_NOT_BOUND("wallet-not-bound"), EXIT_UNAVAILABLE("exit-unavailable"),
         ALREADY_DECIDED("already-decided"), HOLD_EXPIRED("hold-expired"),
         HOLD_DEFECTIVE("hold-defective"), ARCHIVE_NEEDS_DISPOSITION("archive-needs-disposition"),
         CONFIRMATION_MISMATCH("confirmation-mismatch"), NOT_SUPPRESSIBLE("not-suppressible"),
         SUPPORT_UNAVAILABLE("support-unavailable"),
         SUPPORT_CONVERSATION_UNKNOWN("support-conversation-unknown"),
-        SUPPORT_MESSAGE_UNKNOWN("support-message-unknown");
+        SUPPORT_MESSAGE_UNKNOWN("support-message-unknown"), OPERATION_RETIRED("operation-retired");
         private final String wire;
         HumanCode(String wire) { this.wire = wire; }
         @Override public String wire() { return wire; }

@@ -1,0 +1,21 @@
+[repair.22.33.1080]
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+verified_revision_source = "The final hf-done JSON and private gate ledger bind the verification command, exit and log to the candidate revision."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd manually; no unchanged-tree failure is claimed."
+wiring_requests = []
+
+[finding.impossible-anchor-fixture]
+proof = ["TestRepairM_1080_RecoveryFixtures", "TestRepairM_1080_RejectInvalidAnchorsBeforePruning/empty-range"]
+change = "Recovery fixtures use signed blocks transported through the codec, gathered lane QCs, live PushCommitQC and PushAppQC, and real persistence; an empty-range anchor is separately rejected."
+
+[finding.unverified-prune-anchor]
+proof = ["TestRepairM_1080_LiveAnchorRecovery", "TestRepairM_1080_RejectInvalidAnchorsBeforePruning"]
+change = "Startup verifies both certificates against the active committee and checks road index and global range before opening, filtering or truncating WALs; invalid authority returns ErrInvalidPruneAnchor and leaves disk data unchanged."
+
+[finding.lane-truncation-unasserted]
+proof = ["TestRepairM_1080_LaneTruncationBeyondTail", "TestRepairM_1080_LaneAnchorInsideTail", "TestRepairM_1080_RecoveryFixtures"]
+change = "A live anchor persisted at the crash boundary advances beyond the old lane tail; two reopenings assert queue bounds, retained signed blocks and CommitQC WAL entries, with a distinct anchor-inside-tail case."
+
+[notes]
+wal_lifetime = "Persistence workers are stopped and joined before reopening; CommitQC WALs are closed. BlockPersister has no exported close API and follows the existing production process-lifetime handle model."
+inspection_errors = "Initial source reads guessed block.go, commitqc.go, app.go and scope.go; actual files are blocks.go, commitqcs.go, app_qc.go and scope/start.go."

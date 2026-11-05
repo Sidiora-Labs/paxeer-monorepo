@@ -1,0 +1,62 @@
+[alert.GHSA-4374-p667-p6c8]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-2wrh-6pvc-2jm9]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-qppj-fm5r-hxr3]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-4v7x-pqxf-cx7m]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-qxp5-gwg8-xv66]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-vvgc-356p-c3xw]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-5cv4-jp36-h3mw]
+package = "golang.org/x/net"
+manifest = "core/deps/tm-db/go.mod"
+verdict = "upgraded"
+version_before = "0.7.0"
+version_after = "0.55.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

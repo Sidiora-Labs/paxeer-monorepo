@@ -6,8 +6,9 @@
 #   - money / correctness-critical modules : 90%   (env MONEY="shared protocol ...")
 #   - all other modules                    : 85%
 #
-# Modules with no measurable statements yet (empty scaffold) are reported and
-# skipped — the gate bites as soon as a module ships code.
+# MODULES is the complete expected inventory. RUN_MANIFEST and COVER_RUN_ID
+# identify the completed coverage_inventory.py run; every module must have a
+# fresh profile or an explicit empty result from successful discovery.
 set -euo pipefail
 
 COVER_DIR="${COVER_DIR:-.cover}"
@@ -20,13 +21,13 @@ if [ ! -d "$COVER_DIR" ]; then
 	exit 1
 fi
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$SCRIPT_DIR/coverage_inventory.py" check "$COVER_DIR" \
+	"${RUN_MANIFEST:?coverage-gate: RUN_MANIFEST is required}" \
+	--run-id "${COVER_RUN_ID:?coverage-gate: COVER_RUN_ID is required}" \
+	--modules "${MODULES:?coverage-gate: MODULES inventory is required}" || exit 1
+
 fail=0
-shopt -s nullglob
-profiles=("$COVER_DIR"/*.out)
-if [ ${#profiles[@]} -eq 0 ]; then
-	echo "coverage-gate: no coverage profiles found in $COVER_DIR" >&2
-	exit 1
-fi
 
 is_money() {
 	local mod="$1" m
@@ -71,14 +72,14 @@ filter_generated() {
 printf '%-26s %8s %8s   %s\n' "MODULE" "COVER" "MIN" "STATUS"
 printf '%-26s %8s %8s   %s\n' "------" "-----" "---" "------"
 
-for prof in "${profiles[@]}"; do
-	base="$(basename "$prof" .out)"
-	# Reverse the slash->underscore mapping (module directory names carry no underscore).
-	mod="${base//_//}"
+for mod in $MODULES; do
+	prof="$COVER_DIR/${mod//\//_}.out"
+	# Successful discovery of a package-free module is explicitly recorded above.
+	[ -f "$prof" ] || continue
 
-	# A profile with only the "mode:" header has no statements (empty module).
-	if [ "$(wc -l <"$prof")" -le 1 ]; then
-		printf '%-26s %8s %8s   %s\n' "$mod" "n/a" "-" "SKIP (no code yet)"
+	# Empty results include header-only profiles and zero-statement blocks.
+	if ! awk 'NR > 1 && $2 > 0 {found=1} END {exit !found}' "$prof"; then
+		printf '%-26s %8s %8s   %s\n' "$mod" "n/a" "-" "EMPTY (no measurable statements)"
 		continue
 	fi
 
@@ -88,7 +89,7 @@ for prof in "${profiles[@]}"; do
 	pct="$(go tool cover -func="$fprof" | awk '/^total:/ {gsub(/%/,"",$3); print $3}')"
 	[ "$fprof" != "$prof" ] && rm -f "$fprof"
 	if [ -z "$pct" ]; then
-		printf '%-26s %8s %8s   %s\n' "$mod" "n/a" "-" "SKIP (no statements)"
+		printf '%-26s %8s %8s   %s\n' "$mod" "n/a" "-" "EMPTY (generated code only)"
 		continue
 	fi
 

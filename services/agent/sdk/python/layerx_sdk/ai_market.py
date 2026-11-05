@@ -40,12 +40,13 @@ from .native_program_call import (
 )
 from .production import PlatformSdkError, SdkErrorCode
 from .verifier import (
-    AuthorizedReceiptBatch,
-    CheckpointVerification,
     LocalSignatureVerifier,
+    ReceiptKey,
+    verify_sequencer_receipt,
 )
 
 if TYPE_CHECKING:
+    from .committed import CommitTrust
     from .exchange import WalletRequest
 
 FINALIZED_RANK = 4
@@ -139,7 +140,7 @@ MISMATCH_FIELDS = (
 
 _VIEW_DOMAIN = b"PAXAI/view/v1\0"
 _REQUEST_DOMAIN = b"PAXAI/request/v1\0"
-_RECORD_MAGIC = b"PAXAIOP1"
+_RECORD_MAGIC = b"PAXAIOP3"
 _RECORD_EXTENSION = ".op"
 _VIEW_MAX_RESPONSE_BYTES = 1_048_576
 _VIEW_PATH = "/v1/ai/markets/"
@@ -241,6 +242,29 @@ class SdkState(IntEnum):
 class DomainStatus(IntEnum):
     PENDING = 1
     COMPLETED = 2
+
+
+class Rung(IntEnum):
+    SUBMITTED = 0
+    RECEIPTED = 1
+    COMMITTED = 2
+
+
+@dataclass(frozen=True)
+class CommitFinality:
+    block_height: int
+    block_hash: bytes
+    app_hash: bytes
+    store_proof_digest: bytes
+
+    def __post_init__(self) -> None:
+        try:
+            _unsigned(self.block_height, 64, "block height")
+            _bytes32(self.block_hash, "block hash")
+            _bytes32(self.app_hash, "app hash")
+            _bytes32(self.store_proof_digest, "store proof digest")
+        except ValueError:
+            raise AiMarketError("FinalityUnavailable") from None
 
 
 SDK_TRANSITIONS: Mapping[SdkState, frozenset[SdkState]] = {
@@ -629,19 +653,6 @@ class SnapshotBinding:
             + struct.pack(">BQ", self.rank, self.publication_time_ms)
             + bytes(8)
         )
-
-    def require_checkpoint(self, verification: CheckpointVerification) -> None:
-        if verification.level not in ("checkpoint-finalised", "settlement-anchored"):
-            raise AiMarketError("FinalityUnavailable")
-        header = verification.header
-        if (
-            verification.checkpoint_id != self.checkpoint
-            or header.resulting_state_root != self.native_state_root
-            or not header.first_sequence
-            <= self.observed_sequence
-            <= header.last_sequence
-        ):
-            raise AiMarketError("BindingMismatch")
 
 
 @dataclass(frozen=True)
@@ -1394,6 +1405,9 @@ class OperationRecord:
     global_sequence: int | None
     checkpoint: bytes | None
     signed_bytes: bytes
+    rung: Rung | None = None
+    receipt_height: int | None = None
+    receipt_block_hash: bytes | None = None
 
     @classmethod
     def signed(
@@ -1435,9 +1449,7 @@ class OperationRecord:
             + self.signer_public_key
             + struct.pack(">QI", self.not_after, self.attempt)
             + _put_optional(
-                None
-                if self.result_code is None
-                else struct.pack(">i", self.result_code)
+                None if self.result_code is None else struct.pack(">i", self.result_code)
             )
             + _put_optional(
                 None
@@ -1445,6 +1457,13 @@ class OperationRecord:
                 else struct.pack(">Q", self.global_sequence)
             )
             + _put_optional(self.checkpoint)
+            + _put_optional(None if self.rung is None else bytes([self.rung]))
+            + _put_optional(
+                None
+                if self.receipt_height is None
+                else struct.pack(">Q", self.receipt_height)
+            )
+            + _put_optional(self.receipt_block_hash)
             + struct.pack(">I", len(self.signed_bytes))
             + self.signed_bytes
         )
@@ -1472,6 +1491,13 @@ class OperationRecord:
         result = optional(4)
         sequence = optional(8)
         checkpoint = optional(32)
+        rung_bytes = optional(1)
+        try:
+            rung = None if rung_bytes is None else Rung(rung_bytes[0])
+        except ValueError:
+            raise corrupt from None
+        receipt_height = optional(8)
+        receipt_block_hash = optional(32)
         signed_bytes = reader.take(reader.u32())
         reader.finish()
         record = cls(
@@ -1489,6 +1515,9 @@ class OperationRecord:
             None if sequence is None else int.from_bytes(sequence, "big"),
             checkpoint,
             signed_bytes,
+            rung,
+            None if receipt_height is None else int.from_bytes(receipt_height, "big"),
+            receipt_block_hash,
         )
         identity = _signed_identity(signed_bytes, key, signatures, intent)
         if (
@@ -1502,6 +1531,25 @@ class OperationRecord:
         return record
 
     def consistent(self) -> bool:
+        receipted = self.rung in (Rung.RECEIPTED, Rung.COMMITTED)
+        if (
+            (self.global_sequence is not None) != receipted
+            or (self.receipt_height is not None) != receipted
+            or (receipted and (self.global_sequence == 0 or self.receipt_height == 0))
+            or (
+                self.receipt_block_hash is not None
+                and (
+                    not receipted
+                    or self.receipt_block_hash == bytes(32)
+                )
+            )
+            or (self.rung is Rung.COMMITTED and (
+                self.state is not SdkState.FINALIZED
+                or self.receipt_block_hash is None
+                or self.checkpoint != self.receipt_block_hash
+            ))
+        ):
+            return False
         pristine = (
             self.result_code is None
             and self.global_sequence is None
@@ -1511,13 +1559,21 @@ class OperationRecord:
         if self.state in (SdkState.PREPARED, SdkState.REVIEWED):
             return False
         if self.state is SdkState.SIGNED:
-            return pristine and self.attempt == 0
-        if self.state in (SdkState.SUBMITTING, SdkState.PENDING, SdkState.UNKNOWN):
+            return pristine and self.attempt == 0 and self.rung is None
+        if self.state is SdkState.PENDING:
+            return pristine and self.attempt > 0 and self.rung is Rung.SUBMITTED
+        if self.state in (SdkState.SUBMITTING, SdkState.UNKNOWN):
             return pristine and self.attempt > 0
         if self.state is SdkState.EXECUTED:
             return executed and self.checkpoint is None and self.attempt > 0
         if self.state is SdkState.FINALIZED:
-            return executed and self.checkpoint is not None and self.attempt > 0
+            return (
+                executed
+                and self.checkpoint is not None
+                and self.checkpoint != bytes(32)
+                and self.rung is Rung.COMMITTED
+                and self.attempt > 0
+            )
         return self.checkpoint is None and (
             self.global_sequence is None
             if self.result_code is None
@@ -1541,9 +1597,13 @@ class MarketRpc(Protocol):
 
 
 class OperationJournal:
-    def __init__(self, directory: Path, signatures: LocalSignatureVerifier) -> None:
+    def __init__(self, directory: Path, signatures: LocalSignatureVerifier, *, commit_trust: CommitTrust | None = None) -> None:
+        from .committed import CommitTrust
+        if commit_trust is not None and not isinstance(commit_trust, CommitTrust):
+            raise AiMarketError("FinalityUnavailable")
         directory.mkdir(parents=True, exist_ok=True)
         self._directory = directory
+        self._commit_trust = commit_trust
         self._signatures = signatures
 
     def record_path(self, activity_id: bytes) -> Path:
@@ -1555,7 +1615,15 @@ class OperationJournal:
         partial = path.with_suffix(".partial")
         descriptor = os.open(partial, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         try:
-            os.write(descriptor, data)
+            remaining = memoryview(data)
+            while remaining:
+                try:
+                    written = os.write(descriptor, remaining)
+                except InterruptedError:
+                    continue
+                if written <= 0:
+                    raise OSError("journal write made no progress")
+                remaining = remaining[written:]
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
@@ -1608,6 +1676,7 @@ class OperationJournal:
             if outcome != "0x" + record.activity_id.hex():
                 _move(record, SdkState.UNKNOWN)
             else:
+                record.rung = Rung.SUBMITTED
                 _move(record, SdkState.PENDING)
         self.persist(record)
         return record.state
@@ -1616,18 +1685,69 @@ class OperationJournal:
         self,
         record: OperationRecord,
         receipt: bytes | None,
-        authorized: AuthorizedReceiptBatch,
+        receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
+        transaction_receipt: Mapping[str, object] | None = None,
     ) -> SdkState:
         _require(record, SdkState.PENDING, SdkState.UNKNOWN)
         if receipt is None:
             return record.state
-        raise AiMarketError("ProgramsReceiptVerifierUnavailable")
+        OperationRecord.decode(record.encode(), self._signatures)
+        verified = verify_sequencer_receipt(receipt, record.signed_bytes, receipt_keys)
+        execution = verified.receipt
+        fields = _transaction_fields(record.signed_bytes, True)
+        signature = (
+            int.from_bytes(fields[10], "big").to_bytes(32, "big")
+            + int.from_bytes(fields[11], "big").to_bytes(32, "big")
+            + bytes([27 + int.from_bytes(fields[9], "big")])
+        )
+        public = _signature_public_key(signature, keccak256(b"\x02" + _rlp(fields[:9])))
+        if (
+            execution.activity_id != record.activity_id
+            or verified.height == 0
+            or execution.module_id != 12
+            or execution.operation != 2
+            or execution.result_code not in (0, 1)
+            or execution.to_account != bytes(12) + fields[5]
+            or execution.from_account != bytes(12) + bytes.fromhex(_key_address(public)[2:])
+            or execution.from_sequence != int.from_bytes(fields[1], "big")
+        ):
+            raise AiMarketError("ReceiptMismatch")
+        rung = Rung.RECEIPTED
+        receipt_height = verified.height
+        receipt_block_hash = None
+        if transaction_receipt is not None:
+            receipt_height, receipt_block_hash = _transaction_landing(
+                record, transaction_receipt, verified.height, execution.result_code
+            )
+        record.result_code = execution.result_code
+        record.global_sequence = execution.global_sequence
+        record.receipt_height = receipt_height
+        record.receipt_block_hash = receipt_block_hash
+        record.rung = rung
+        _move(record, SdkState.EXECUTED if execution.result_code == 0 else SdkState.FAILED)
+        self.persist(record)
+        return record.state
 
-    def finalize(
-        self, record: OperationRecord, verification: CheckpointVerification
-    ) -> SdkState:
+    def finalize(self, record: OperationRecord, finality: Mapping[str, object]) -> SdkState:
         _require(record, SdkState.EXECUTED)
-        raise AiMarketError("CometCommitVerifierUnavailable")
+        OperationRecord.decode(record.encode(), self._signatures)
+        if self._commit_trust is None or not isinstance(finality, Mapping) or record.receipt_height is None:
+            raise AiMarketError("FinalityUnavailable")
+        try:
+            verified = self._commit_trust.verify(record.signed_bytes, record.receipt_height, finality)
+        except Exception as error:
+            raise AiMarketError("FinalityUnavailable") from error
+        if (verified.transaction_hash != record.activity_id
+                or record.receipt_block_hash is not None and record.receipt_block_hash != verified.block_hash
+                or record.receipt_block_hash is not None and record.receipt_height != verified.height):
+            raise AiMarketError("FinalityMismatch")
+        record.receipt_height = verified.height
+        record.receipt_block_hash = verified.block_hash
+        record.checkpoint = verified.block_hash
+        record.rung = Rung.COMMITTED
+        _move(record, SdkState.FINALIZED)
+        self.persist(record)
+        return record.state
 
     def expire(self, record: OperationRecord, now: int) -> SdkState:
         _require(record, SdkState.SIGNED)
@@ -1635,6 +1755,31 @@ class OperationJournal:
             _move(record, SdkState.FAILED)
             self.persist(record)
         return record.state
+
+
+def _transaction_landing(
+    record: OperationRecord,
+    receipt: Mapping[str, object],
+    height: int,
+    result_code: int,
+) -> tuple[int, bytes]:
+    number = receipt.get("blockNumber")
+    if (
+        receipt.get("transactionHash") != "0x" + record.activity_id.hex()
+        or receipt.get("status") != ("0x1" if result_code == 0 else "0x0")
+        or not isinstance(number, str)
+        or not number.startswith("0x")
+    ):
+        raise AiMarketError("ReceiptMismatch")
+    try:
+        parsed = int(number[2:], 16)
+        _unsigned(parsed, 64, "block number")
+        block_hash = _hex_id(receipt.get("blockHash"))
+    except (ValueError, AiMarketError):
+        raise AiMarketError("ReceiptMismatch") from None
+    if number != hex(parsed) or parsed < height:
+        raise AiMarketError("ReceiptMismatch")
+    return parsed, block_hash
 
 
 def _strict_json(encoded: bytes) -> object:
@@ -2181,3 +2326,36 @@ def _view_result(status: int, content_type: str | None, encoded: bytes) -> objec
     if isinstance(value, dict) and value.get("ok") is False and not 200 <= status < 300:
         raise _view_error(_object(value, ("ok", "error"))["error"])
     raise _integrity()
+
+
+def decode_programs_state_head(data: bytes) -> bytes:
+    """Decode the canonical ABI bytes returned by getStateHead, a storage manifest head."""
+    if type(data) is not bytes or len(data) < 64 or len(data) % 32:
+        raise _integrity()
+    length = int.from_bytes(data[32:64], "big")
+    if length > _VIEW_MAX_RESPONSE_BYTES:
+        raise AiMarketError("ResponseTooLarge")
+    if (int.from_bytes(data[:32], "big") != 32
+            or len(data) != 64 + (length + 31) // 32 * 32
+            or any(data[64 + length:])):
+        raise _integrity()
+    return data[64:64 + length]
+
+
+def decode_programs_call_result(data: bytes, response_capacity: int) -> tuple[int, int, bytes]:
+    """Decode call/simulateCall terminal output, refusing noncanonical ABI and capacity overflow."""
+    if (type(data) is not bytes or type(response_capacity) is not int
+            or not 0 <= response_capacity <= 1_048_576
+            or len(data) < 128 or len(data) % 32):
+        raise AiMarketError("ReceiptMismatch")
+    result = int.from_bytes(data[:32], "big", signed=True)
+    kind = int.from_bytes(data[32:64], "big")
+    length = int.from_bytes(data[96:128], "big")
+    if (not -(1 << 31) <= result < (1 << 31) or kind not in (1, 2, 3)
+            or (kind == 1) != (result == 0)
+            or int.from_bytes(data[64:96], "big") != 96
+            or length > response_capacity
+            or len(data) != 128 + (length + 31) // 32 * 32
+            or any(data[128 + length:])):
+        raise AiMarketError("ReceiptMismatch")
+    return result, kind, data[128:128 + length]

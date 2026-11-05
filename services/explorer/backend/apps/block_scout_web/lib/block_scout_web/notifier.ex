@@ -56,7 +56,9 @@ defmodule BlockScoutWeb.Notifier do
   import Explorer.Chain.SmartContract.Proxy.Models.Implementation, only: [proxy_implementations_association: 0]
 
   @check_broadcast_sequence_period 500
+  @max_broadcast_sequence_checks 4
   @api_true [api?: true]
+  @price_update_live_window 10
 
   case @chain_type do
     :arbitrum ->
@@ -557,7 +559,7 @@ defmodule BlockScoutWeb.Notifier do
         last_broadcasted_block_number == BlockNumberHelper.previous_block_number(block.number) ||
           last_broadcasted_block_number < block.number - 4 ->
         broadcast_block(block)
-        :ets.insert(:last_broadcasted_block, {:number, block.number})
+        advance_broadcast_watermark(block.number)
 
       last_broadcasted_block_number > BlockNumberHelper.previous_block_number(block.number) ->
         broadcast_block(block)
@@ -569,16 +571,24 @@ defmodule BlockScoutWeb.Notifier do
     end
   end
 
-  defp schedule_broadcasting(block) do
+  defp schedule_broadcasting(block, checks_left \\ @max_broadcast_sequence_checks) do
     :timer.sleep(@check_broadcast_sequence_period)
     last_broadcasted_block_number = Helper.fetch_from_ets_cache(:last_broadcasted_block, :number)
 
-    if last_broadcasted_block_number == BlockNumberHelper.previous_block_number(block.number) do
+    if last_broadcasted_block_number >= BlockNumberHelper.previous_block_number(block.number) || checks_left == 1 do
       broadcast_block(block)
-      :ets.insert(:last_broadcasted_block, {:number, block.number})
+      advance_broadcast_watermark(block.number)
     else
-      schedule_broadcasting(block)
+      schedule_broadcasting(block, checks_left - 1)
     end
+  end
+
+  defp advance_broadcast_watermark(number) do
+    :ets.insert_new(:last_broadcasted_block, {:number, number})
+
+    :ets.select_replace(:last_broadcasted_block, [
+      {{:number, :"$1"}, [{:<, :"$1", number}], [{{:number, number}}]}
+    ])
   end
 
   defp broadcast_address_coin_balance(%{address_hash: address_hash, block_number: block_number}) do
@@ -695,7 +705,9 @@ defmodule BlockScoutWeb.Notifier do
         FeedView.prepare_update(update, symbols, block_height)
       )
 
-      Enum.each(update.observations, fn observation ->
+      update.observations
+      |> Enum.filter(fn observation -> update.status == 1 and observation.accepted end)
+      |> Enum.each(fn observation ->
         Endpoint.broadcast(
           "paxeer_x_feed:market:#{observation.market_id}",
           "new_update",
@@ -704,22 +716,30 @@ defmodule BlockScoutWeb.Notifier do
       end)
     end)
 
-    Endpoint.broadcast("transactions:new_transaction", "transaction", %{transaction: length(updates)})
+    live_updates = Enum.filter(updates, &(&1.block_number >= block_height - @price_update_live_window))
 
-    average_block_time = AverageBlockTime.average_block_time()
+    if live_updates != [] do
+      Endpoint.broadcast("transactions:new_transaction", "transaction", %{transaction: length(live_updates)})
 
-    updates
-    |> Enum.map(& &1.block_hash)
-    |> Enum.uniq()
-    |> Enum.each(fn block_hash ->
-      case Repo.get_by(Block, hash: block_hash, consensus: true) do
-        nil ->
-          :ok
+      average_block_time = AverageBlockTime.average_block_time()
 
-        block ->
-          Endpoint.broadcast("blocks:new_block", "new_block", block_params_v2(preload_block(block), average_block_time))
-      end
-    end)
+      live_updates
+      |> Enum.map(& &1.block_hash)
+      |> Enum.uniq()
+      |> Enum.each(fn block_hash ->
+        case Repo.get_by(Block, hash: block_hash, consensus: true) do
+          nil ->
+            :ok
+
+          block ->
+            Endpoint.broadcast(
+              "blocks:new_block",
+              "new_block",
+              block_params_v2(preload_block(block), average_block_time)
+            )
+        end
+      end)
+    end
   end
 
   defp broadcast_rewards(rewards) do

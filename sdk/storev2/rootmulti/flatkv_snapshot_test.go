@@ -16,6 +16,95 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type snapshotUntouchedEntry struct {
+	store string
+	key   []byte
+	value []byte
+}
+
+func seedSnapshotUntouchedState(t *testing.T, store *Store, storeKeys map[string]*types.KVStoreKey) []snapshotUntouchedEntry {
+	t.Helper()
+	entries := []snapshotUntouchedEntry{
+		{"acc", []byte("snapshot-untouched-account"), []byte{0x91, 0x00, 0xff}},
+		{"bank", []byte("snapshot-untouched-balance"), []byte{0x92, 0x00, 0xff}},
+		{"evm", nonceKeyOf(0xe1), makeNonce(0x0102030405060708)},
+		{"evm", codeHashKeyOf(0xe1), makeCodeHash(0x93)},
+		{"evm", nonceKeyOf(0xe2), makeNonce(0)},
+		{"evm", codeHashKeyOf(0xe2), makeCodeHash(0x95)},
+		{"evm", nonceKeyOf(0xe5), makeNonce(9)},
+		{"evm", codeKeyOf(0xe3), []byte{0x60, 0x00, 0x60, 0xff, 0x55}},
+		{"evm", storageKeyAt(0xe4, 17), makeSlot(0x94, 0x00, 0xff)},
+	}
+	cms := store.CacheMultiStore()
+	for _, entry := range entries {
+		cms.GetKVStore(storeKeys[entry.store]).Set(entry.key, entry.value)
+	}
+	cms.Write()
+	return entries
+}
+
+func assertSnapshotHeightState(t *testing.T, source, restored *Store, untouched []snapshotUntouchedEntry, mode paxdbconfig.WriteMode) {
+	t.Helper()
+	require.Equal(t, source.LastCommitID(), restored.LastCommitID(),
+		"restore and reopen must preserve the exact source LastCommitID before another commit")
+	sourceLattice := findStoreInfo(source.lastCommitInfo.StoreInfos, "evm_lattice")
+	restoredLattice := findStoreInfo(restored.lastCommitInfo.StoreInfos, "evm_lattice")
+	if mode == paxdbconfig.MemiavlOnly {
+		require.Nil(t, sourceLattice)
+		require.Nil(t, restoredLattice)
+	} else {
+		require.NotNil(t, sourceLattice)
+		require.NotEmpty(t, sourceLattice.CommitId.Hash)
+		require.NotNil(t, restoredLattice)
+		require.Equal(t, sourceLattice.CommitId, restoredLattice.CommitId,
+			"snapshot height and lattice hash must survive restore and reopen exactly")
+	}
+	for _, store := range []*Store{source, restored} {
+		for _, entry := range untouched {
+			require.Equal(t, entry.value, store.GetKVStore(store.storeKeys[entry.store]).Get(entry.key),
+				"untouched %s key %x must survive without a subsequent write", entry.store, entry.key)
+			response := store.Query(context.Background(), abci.RequestQuery{
+				Path: "/" + entry.store + "/key", Data: entry.key, Height: store.LastCommitID().Version,
+			})
+			require.EqualValues(t, 0, response.Code, response.Log)
+			require.Equal(t, store.LastCommitID().Version, response.Height)
+			require.Equal(t, entry.value, response.Value,
+				"query must return untouched %s key %x at snapshot height", entry.store, entry.key)
+		}
+	}
+}
+
+func testSnapshotHeightHashMode(t *testing.T, mode paxdbconfig.WriteMode) {
+	t.Helper()
+	cfg := withTestMemIAVL(paxdbconfig.DefaultStateCommitConfig())
+	cfg.WriteMode = mode
+	ssCfg := paxdbconfig.DefaultStateStoreConfig()
+	ssCfg.Enable = true
+	ssCfg.AsyncWriteBuffer = 0
+	srcDir, dstDir := t.TempDir(), t.TempDir()
+	source, sourceKeys := newTestRootMultiWithSS(t, srcDir, cfg, ssCfg)
+	t.Cleanup(func() { require.NoError(t, source.Close()) })
+	untouched := seedSnapshotUntouchedState(t, source, sourceKeys)
+	workload := newEVMTestData(0x68)
+	for block := 1; block <= 5; block++ {
+		simulateBlock(t, source, sourceKeys, block, workload)
+	}
+	waitUntilSSVersion(t, source, 5)
+	require.Equal(t, int64(5), source.LastCommitID().Version)
+	assertSnapshotHeightState(t, source, source, untouched, cfg.WriteMode)
+	var snapshot bytes.Buffer
+	require.NoError(t, source.Snapshot(5, protoio.NewDelimitedWriter(&snapshot)))
+	require.NotEmpty(t, snapshot.Bytes())
+	restored, _ := newTestRootMultiWithSS(t, dstDir, cfg, ssCfg)
+	t.Cleanup(func() { require.NoError(t, restored.Close()) })
+	_, err := restored.Restore(5, 1, protoio.NewDelimitedReader(bytes.NewReader(snapshot.Bytes()), 1<<30))
+	require.NoError(t, err)
+	assertSnapshotHeightState(t, source, restored, untouched, cfg.WriteMode)
+	require.NoError(t, restored.Close())
+	restored, _ = newTestRootMultiWithSS(t, dstDir, cfg, ssCfg)
+	assertSnapshotHeightState(t, source, restored, untouched, cfg.WriteMode)
+}
+
 // ---------------------------------------------------------------------------
 // Snapshot and Restore round-trip with lattice hash
 // ---------------------------------------------------------------------------
@@ -27,6 +116,7 @@ func TestFlatKVSnapshotRestoreWithLatticeHash(t *testing.T) {
 	// Source: commit 5 blocks
 	srcDir := t.TempDir()
 	srcStore, srcKeys := newTestRootMulti(t, srcDir, cfg)
+	untouched := seedSnapshotUntouchedState(t, srcStore, srcKeys)
 	for block := 1; block <= 5; block++ {
 		simulateBlock(t, srcStore, srcKeys, block, evmData)
 	}
@@ -34,6 +124,7 @@ func TestFlatKVSnapshotRestoreWithLatticeHash(t *testing.T) {
 	srcLattice := findStoreInfo(srcStore.lastCommitInfo.StoreInfos, "evm_lattice")
 	require.NotNil(t, srcLattice)
 	require.NotEmpty(t, srcLattice.CommitId.Hash)
+	assertSnapshotHeightState(t, srcStore, srcStore, untouched, cfg.WriteMode)
 
 	// Snapshot to buffer (keep srcStore open to continue the chain below).
 	var buf bytes.Buffer
@@ -47,35 +138,16 @@ func TestFlatKVSnapshotRestoreWithLatticeHash(t *testing.T) {
 	reader := protoio.NewDelimitedReader(bytes.NewReader(buf.Bytes()), 1<<30)
 	_, err := dstStore.Restore(5, 1, reader)
 	require.NoError(t, err)
+	assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
+	require.NoError(t, dstStore.Close())
+	dstStore, _ = newTestRootMulti(t, dstDir, cfg)
+	assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
 
 	require.Equal(t, int64(5), dstStore.LastCommitID().Version)
 
 	dstLattice := findStoreInfo(dstStore.lastCommitInfo.StoreInfos, "evm_lattice")
 	require.NotNil(t, dstLattice, "evm_lattice must be present after restore")
 	require.NotEmpty(t, dstLattice.CommitId.Hash, "restored lattice hash must be non-empty")
-
-	// NOTE: exact hash equality (srcLatticeHash == dstLattice hash) is not
-	// asserted because the export/import round-trip decomposes merged account
-	// rows into separate nonce+codehash nodes and re-merges them, which
-	// produces a different serialized form and thus a different LtHash.
-	// The memiavl tree hashes (acc, bank, evm) are unchanged because
-	// the leaf key/value bytes survive the round-trip.
-	// TODO: make the round-trip lossless so that lattice hashes match exactly.
-	//
-	// Until that is fixed we still need the two following guarantees to hold,
-	// because otherwise enabling the lattice hash in consensus would fork the
-	// network between snapshot-bootstrapped and non-snapshot nodes:
-	//
-	//   (a) the restored FlatKV is internally self-consistent: a full-scan
-	//       recomputation of LtHash from disk must match the committed
-	//       CommittedRootHash. Any drift here means snapshot import produced
-	//       a corrupt LtHash state. Verified via VerifyLtHash below.
-	//
-	//   (b) nodes bootstrapped from the same snapshot continue to track each
-	//       other byte-for-byte: the app hash produced by driving identical
-	//       blocks on top of the restored state equals the app hash produced
-	//       by driving those same blocks on a node that kept running.
-	//       Verified via the "continue the chain" comparison below.
 
 	// Extract the destination store keys (must include every mounted store).
 	dstKeys := make(map[string]*types.KVStoreKey)
@@ -92,6 +164,7 @@ func TestFlatKVSnapshotRestoreWithLatticeHash(t *testing.T) {
 	for block := 6; block <= 8; block++ {
 		srcRec := simulateBlock(t, srcStore, srcKeys, block, evmData)
 		dstRec := simulateBlock(t, dstStore, dstKeys, block, evmData)
+		assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
 
 		require.Equalf(t, srcRec.version, dstRec.version,
 			"src and dst must be at the same version after block %d", block)
@@ -142,12 +215,14 @@ func TestFlatKVEVMMigratedSnapshotRestore(t *testing.T) {
 	// Source: drive 5 blocks under EVMMigrated.
 	srcDir := t.TempDir()
 	srcStore, srcKeys := newTestRootMulti(t, srcDir, cfg)
+	untouched := seedSnapshotUntouchedState(t, srcStore, srcKeys)
 	for block := 1; block <= 5; block++ {
 		simulateBlock(t, srcStore, srcKeys, block, evmData)
 	}
 	srcLattice := findStoreInfo(srcStore.lastCommitInfo.StoreInfos, "evm_lattice")
 	require.NotNil(t, srcLattice)
 	require.NotEmpty(t, srcLattice.CommitId.Hash)
+	assertSnapshotHeightState(t, srcStore, srcStore, untouched, cfg.WriteMode)
 
 	// The pre-router "memiavl evm subtree must be empty" check used to be
 	// asserted here via scStore.GetChildStoreByName("evm"), but that
@@ -169,6 +244,10 @@ func TestFlatKVEVMMigratedSnapshotRestore(t *testing.T) {
 	reader := protoio.NewDelimitedReader(bytes.NewReader(buf.Bytes()), 1<<30)
 	_, err := dstStore.Restore(5, 1, reader)
 	require.NoError(t, err)
+	assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
+	require.NoError(t, dstStore.Close())
+	dstStore, _ = newTestRootMulti(t, dstDir, cfg)
+	assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
 
 	require.Equal(t, int64(5), dstStore.LastCommitID().Version)
 
@@ -198,6 +277,7 @@ func TestFlatKVEVMMigratedSnapshotRestore(t *testing.T) {
 	for block := 6; block <= 8; block++ {
 		srcRec := simulateBlock(t, srcStore, srcKeys, block, evmData)
 		dstRec := simulateBlock(t, dstStore, dstKeys, block, evmData)
+		assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
 
 		require.Equalf(t, srcRec.version, dstRec.version,
 			"src and dst must be at the same version after block %d", block)
@@ -233,6 +313,7 @@ func TestFlatKVOnlySnapshotRestoreAppHashParity(t *testing.T) {
 
 	srcDir := t.TempDir()
 	srcStore, srcKeys := newTestRootMulti(t, srcDir, cfg)
+	untouched := seedSnapshotUntouchedState(t, srcStore, srcKeys)
 	var snapshotRecord commitRecord
 	for block := 1; block <= 8; block++ {
 		snapshotRecord = simulateFlatKVOnlyBlock(t, srcStore, srcKeys, block, evmData)
@@ -241,6 +322,7 @@ func TestFlatKVOnlySnapshotRestoreAppHashParity(t *testing.T) {
 	srcLattice := findStoreInfo(srcStore.lastCommitInfo.StoreInfos, "evm_lattice")
 	require.NotNil(t, srcLattice)
 	require.NotEmpty(t, srcLattice.CommitId.Hash)
+	assertSnapshotHeightState(t, srcStore, srcStore, untouched, cfg.WriteMode)
 	srcAppHash := append([]byte(nil), srcStore.LastCommitID().Hash...)
 
 	var buf bytes.Buffer
@@ -253,6 +335,10 @@ func TestFlatKVOnlySnapshotRestoreAppHashParity(t *testing.T) {
 	reader := protoio.NewDelimitedReader(bytes.NewReader(buf.Bytes()), 1<<30)
 	_, err := dstStore.Restore(8, 1, reader)
 	require.NoError(t, err)
+	assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
+	require.NoError(t, dstStore.Close())
+	dstStore, dstKeys = newTestRootMulti(t, dstDir, cfg)
+	assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
 
 	require.Equal(t, int64(8), dstStore.LastCommitID().Version)
 	dstLattice := findStoreInfo(dstStore.lastCommitInfo.StoreInfos, "evm_lattice")
@@ -267,6 +353,7 @@ func TestFlatKVOnlySnapshotRestoreAppHashParity(t *testing.T) {
 	for block := 9; block <= 10; block++ {
 		srcRec := simulateFlatKVOnlyBlock(t, srcStore, srcKeys, block, evmData)
 		dstRec := simulateFlatKVOnlyBlock(t, dstStore, dstKeys, block, evmData)
+		assertSnapshotHeightState(t, srcStore, dstStore, untouched, cfg.WriteMode)
 		require.Equalf(t, srcRec.version, dstRec.version,
 			"src and dst must be at the same version after block %d", block)
 		require.Equalf(t, srcRec.hash, dstRec.hash,

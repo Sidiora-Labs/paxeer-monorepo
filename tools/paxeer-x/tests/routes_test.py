@@ -16,7 +16,7 @@ import urllib.parse
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-from candidate import load_private, validate, catalogue, Invalid
+from candidate import load_private, validate, catalogue, Invalid, SERVICE_CATALOGUE
 
 MAX_BODY = 8 * 1024 * 1024
 COUNT = 0
@@ -534,7 +534,7 @@ def rpc_call_matches(route, call):
     if not isinstance(call, dict):
         return False
     method = call.get('method', '')
-    if not isinstance(method, str) or not (method.startswith(route['path'][:-1])
+    if not isinstance(method, str) or method.startswith('lx_') or not (method.startswith(route['path'][:-1])
             if route['path'].endswith('*') else method == route['path']):
         return False
     if 'contract_address' in route:
@@ -562,7 +562,7 @@ def route_matches(route, case):
     if route['transport'] == 'json-rpc':
         body = case.get('body')
         calls = body if isinstance(body, list) else [body]
-        return case['method'] == 'POST' and path in route.get('endpoint_paths', ['/rpc']) and any(rpc_call_matches(route, call) for call in calls)
+        return case['method'] == 'POST' and path == '/' and path in route.get('endpoint_paths', ['/']) and any(rpc_call_matches(route, call) for call in calls)
     if route.get('mcp_method'):
         return case['method'] == 'POST' and path == route['path'] and isinstance(case.get('body'), dict) and case['body'].get('method') == route['mcp_method']
     if route['transport'] == 'websocket':
@@ -570,11 +570,121 @@ def route_matches(route, case):
         if route['path'].startswith('/'):
             return path == route['path'] and (path != '/explorer/backend/socket/v2/websocket'
                     or case.get('websocket_protocol') == 'phoenix-v2')
-        return path == '/rpc/ws' and any(isinstance(message.get('send'), dict) and message['send'].get('method') == route['path'] for message in case.get('messages',[]))
+        return path in route.get('endpoint_paths', ['/']) and any(rpc_call_matches(route, message.get('send')) for message in case.get('messages',[]))
     pieces = []
     for part in route['path'].split('/'):
         pieces.append('[^/?#]+' if part.startswith(':') or (part.startswith('{') and part.endswith('}')) else re.escape(part))
     return case['method'] == route['method'] and re.fullmatch('/'.join(pieces),path) is not None
+
+
+def websocket_scenario(case):
+    require(case.get('websocket_protocol', 'json-rpc') in {'json-rpc', 'phoenix-v2'},
+            'unknown WebSocket protocol')
+    return ('phoenix-websocket' if case.get('websocket_protocol') == 'phoenix-v2'
+            else 'json-rpc-websocket')
+
+
+def required_websocket_scenarios(routes):
+    return {websocket_scenario(route) for route in routes if route['transport'] == 'websocket'}
+
+
+class NodeRecovery:
+    phases = ('before', 'degraded', 'recovered')
+
+    def __init__(self, product):
+        self.product = product
+        self.completed = []
+        self.baseline = None
+        self.request = None
+        self.target = None
+
+    def observe(self, phase, target, case):
+        require(len(self.completed) < 3 and phase == self.phases[len(self.completed)],
+                'node recovery phases must execute in order')
+        require(case['method'] == 'POST' and request_path(case) == '/' and case['status'] == 200
+                and isinstance(case.get('assertions'), dict) and case['assertions'],
+                'invalid current-node request contract')
+        calls = case.get('body')
+        require(isinstance(calls, list) and len(calls) == 3
+                and all(isinstance(call, dict) and call.get('jsonrpc') == '2.0'
+                        and type(call.get('id')) in {str, int} for call in calls)
+                and len({call['id'] for call in calls}) == 3,
+                'node recovery requires three distinct JSON-RPC calls')
+        require([call.get('method') for call in calls[:2]] == ['eth_chainId', 'eth_blockNumber']
+                and all(call.get('params') == [] for call in calls[:2])
+                and calls[2].get('method') in {'px_getAccount', 'px_getBalances'}
+                and isinstance(calls[2].get('params'), list) and len(calls[2]['params']) == 1
+                and isinstance(calls[2]['params'][0], str),
+                'node recovery must pair chain identity and head with a committed account read')
+        require(all(any(route['transport'] == 'json-rpc' and rpc_call_matches(route, call)
+                        for route in self.product['routes']) for call in calls),
+                'node recovery method is not published')
+        if phase == 'before':
+            self.request, self.target = canonical(calls), dict(target)
+        else:
+            require(canonical(calls) == self.request and target == self.target,
+                    'node recovery must read the same state through the same target')
+        replies = http_request(target, case)
+        require(isinstance(replies, list) and len(replies) == 3
+                and all(isinstance(reply, dict) and reply.get('jsonrpc') == '2.0'
+                        and type(reply.get('id')) in {str, int} for reply in replies)
+                and len({reply['id'] for reply in replies}) == 3,
+                'node recovery response identities missing or duplicated')
+        by_id = {reply['id']: reply for reply in replies}
+        require(set(by_id) == {call['id'] for call in calls}, 'node recovery response identity mismatch')
+        chain, head, account = [by_id[call['id']] for call in calls]
+        if phase == 'degraded':
+            error = account.get('error', {})
+            require('result' not in account and error.get('code') == -32001
+                    and error.get('message') == 'Paxeer read unavailable'
+                    and error.get('data', {}).get('code') in {
+                        'paxeer_node_unavailable', 'paxeer_state_unavailable',
+                        'paxeer_wrong_network_or_unavailable', 'invalid_paxeer_response'},
+                    'supported node read lacks a typed state-unavailable refusal')
+            require(any(path.endswith('/error/code') and value == -32001
+                        for path, value in case['assertions'].items())
+                    and any(path.endswith('/error/data/code') and value == error['data']['code']
+                            for path, value in case['assertions'].items()),
+                    'node degradation lacks exact typed refusal assertions')
+        else:
+            require(all('result' in reply and 'error' not in reply for reply in replies),
+                    'current node read has no successful result')
+            require(chain['result'] == hex(self.product['chain_id'])
+                    and isinstance(head['result'], str)
+                    and re.fullmatch(r'0x(?:0|[1-9a-f][0-9a-f]*)', head['result']),
+                    'current node chain identity or committed head mismatch')
+            state = account['result']
+            require(isinstance(state, dict) and isinstance(state.get('account'), dict),
+                    'current node account state missing')
+            snapshot = state.get('paxeer') if calls[2]['method'] == 'px_getAccount' else state
+            require(isinstance(snapshot, dict) and type(snapshot.get('height')) is int
+                    and snapshot['height'] == int(head['result'], 16),
+                    'native state is not bound to the committed head')
+            if phase == 'before':
+                self.baseline = canonical([chain['result'], head['result'], state])
+            else:
+                require(canonical([chain['result'], head['result'], state]) == self.baseline,
+                        'reopened node did not recover the committed account state')
+        self.completed.append(phase)
+        return replies
+
+
+def run_node_recovery_cases(plan, product, started):
+    global COUNT
+    groups = plan.get('node_recovery_cases')
+    require(isinstance(groups, list) and 1 <= len(groups) <= 32,
+            'connected current-node degradation and recovery cases required')
+    for group in groups:
+        require(isinstance(group, dict) and set(group) == set(NodeRecovery.phases),
+                'node recovery requires before, degraded and recovered observations')
+        recovery = NodeRecovery(product)
+        for phase in NodeRecovery.phases:
+            case = group[phase]
+            require(case['target'] in plan['targets'], 'node recovery target unavailable')
+            require(time.monotonic() - started < 870, 'routed contract time bound reached')
+            recovery.observe(phase, plan['targets'][case['target']], case)
+            COUNT += 1
+            print('ok route-case ' + str(COUNT), flush=True)
 
 
 def require_rpc_results(case, document, route_index):
@@ -646,7 +756,7 @@ def run():
     plan_path = os.environ.get('PAXEER_X_ROUTE_CASES')
     require(manifest_path and plan_path, 'real candidate manifest and PAXEER_X_ROUTE_CASES are required')
     manifest = load_private(manifest_path)
-    validate(manifest, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'), ROOT, False,
+    validate(manifest, catalogue(ROOT / SERVICE_CATALOGUE), ROOT, False,
              os.environ.get('PAXEER_X_MAINLINE', 'refs/heads/main'))
     require(not manifest['source']['dirty'], 'route evidence requires clean candidate source')
     for service in manifest['services']:
@@ -734,10 +844,10 @@ def run():
             require(any('/error/' in p for p in case['assertions']) and any('/result' in p for p in case['assertions']), 'mixed batch requires success and failure assertions')
             scenarios.add('mixed-batch')
         if case.get('transport') == 'websocket':
-            require(case.get('websocket_protocol', 'json-rpc') in {'json-rpc', 'phoenix-v2'}, 'unknown WebSocket protocol')
+            scenario = websocket_scenario(case)
             if case['kind'] == 'positive':
-                scenarios.add('phoenix-websocket' if case.get('websocket_protocol') == 'phoenix-v2' else
-                              ('evm-websocket' if request_path(case) == '/rpc/evm/ws' else 'native-websocket'))
+                require(case['status'] == 101, 'positive WebSocket coverage requires an actual upgrade')
+                scenarios.add(scenario)
         if case['method'] == 'OPTIONS' and 'Origin' in case.get('headers',{}):
             require(case.get('response_headers',{}).get('Access-Control-Allow-Origin') == case['headers']['Origin'], 'CORS case must assert exact allowed origin')
             scenarios.add('cors')
@@ -776,7 +886,7 @@ def run():
     require(set(mcp_refusals) <= mcp_observed, 'MCP owner/peer/session/bounds refusal coverage incomplete')
     require({r['id'] for r in product['routes']} <= covered_routes, 'published route corpus incomplete')
     require({'mixed-batch','identity-did','identity-evm','identity-account','node-signing-refused','private-publication-refused',
-             'tls-client-identity','native-websocket','evm-websocket','cors'} <= scenarios,
+             'tls-client-identity','cors'} | required_websocket_scenarios(product['routes']) <= scenarios,
             'required transport or identity scenarios absent')
     if any(route.get('http_protocol') == 'next-ui' for route in product['routes']):
         require({'ui-wallet-ui','ui-explorer','ui-head','ui-redirect','ui-origin-refused','ui-malformed-refused'} <= scenarios,
@@ -791,35 +901,7 @@ def run():
             document = http_request(plan['targets'][case['target']],case)
             require_rpc_results(case, document, route_index)
         print('ok route-case ' + str(COUNT), flush=True)
-    chain_only = plan.get('chain_only_cases')
-    require(isinstance(chain_only, list) and 1 <= len(chain_only) <= 32,
-            'real chain-only degradation cases required')
-    for case in chain_only:
-        require(case['target'] in plan['targets'] and case['method'] == 'POST'
-                and request_path(case) in product['rpc_paths'] and case['status'] == 200
-                and isinstance(case.get('assertions'), dict) and case['assertions'],
-                'invalid chain-only request contract')
-        calls = case.get('body')
-        require(isinstance(calls, list) and len(calls) == 2 and calls[0].get('method') == 'eth_chainId'
-                and calls[0].get('params') == [] and isinstance(calls[1].get('method'), str)
-                and calls[1]['method'].startswith('lx_get')
-                and 'id' in calls[0] and 'id' in calls[1] and calls[0]['id'] != calls[1]['id'],
-                'chain-only case must pair chain identity with an actual native read')
-        require(time.monotonic() - started < 870, 'routed contract time bound reached')
-        COUNT += 1
-        replies = http_request(plan['targets'][case['target']], case)
-        require(isinstance(replies, list) and len(replies) == 2, 'chain-only mixed response missing')
-        by_id = {reply.get('id'): reply for reply in replies if isinstance(reply, dict)}
-        chain = by_id.get(calls[0]['id'], {})
-        native = by_id.get(calls[1]['id'], {})
-        require(chain.get('jsonrpc') == '2.0' and chain.get('result') == '0x7d' and 'error' not in chain,
-                'chain-only mode lost the actual chain125 call')
-        require(native.get('jsonrpc') == '2.0' and 'result' not in native
-                and native.get('error', {}).get('code') == -32010
-                and native['error'].get('data', {}).get('code') == 'kernel_unavailable'
-                and native['error']['data'].get('reason') in {'not_configured', 'unreachable'},
-                'chain-only native read lacks typed refusal')
-        print('ok route-case ' + str(COUNT), flush=True)
+    run_node_recovery_cases(plan, product, started)
 
 
 if __name__ == '__main__':

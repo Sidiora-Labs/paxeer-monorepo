@@ -2,12 +2,12 @@ package littbuilder
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path"
 
-	commonmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/metrics"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/dbcache"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/disktable"
@@ -169,6 +169,12 @@ func buildKeymap(
 		return nil, "", nil, false,
 			fmt.Errorf("error building keymap: %w", err)
 	}
+	acquiredKeymap := kmap
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, acquiredKeymap.Stop())
+		}
+	}()
 
 	if !requiresReload {
 		// If the keymap does not need to be reloaded, then it is already fully initialized.
@@ -206,10 +212,13 @@ func buildTable(
 	if err != nil {
 		return nil, fmt.Errorf("error creating keymap: %w", err)
 	}
+	tableRuntime := *runtimeConfig
+	ctx, cancel := context.WithCancel(runtimeConfig.CTX)
+	tableRuntime.CTX = ctx
 
 	table, err = disktable.NewDiskTable(
 		config,
-		runtimeConfig,
+		&tableRuntime,
 		name,
 		tableConfig,
 		kmap,
@@ -220,7 +229,8 @@ func buildTable(
 		metrics)
 
 	if err != nil {
-		return nil, fmt.Errorf("error creating table: %w", err)
+		cancel()
+		return nil, errors.Join(fmt.Errorf("error creating table: %w", err), kmap.Stop())
 	}
 
 	writeCache := util.NewFIFOCache[string, []byte](
@@ -233,32 +243,18 @@ func buildTable(
 
 	cachedTable := dbcache.NewCachedTable(table, writeCache, readCache, metrics)
 
-	return cachedTable, nil
+	return &ownedTable{ManagedTable: cachedTable, cancel: cancel}, nil
 }
 
-// buildMetrics creates a new metrics object backed by the global OTel
-// MeterProvider. When MetricsEnabled is true, this configures the global
-// provider with a Prometheus exporter and starts an HTTP server on
-// MetricsPort that serves /metrics. The returned shutdown function flushes
-// the provider; it is the responsibility of the caller to invoke it during
-// teardown.
-func buildMetrics(
-	config *litt.Config,
-	runtimeConfig *litt.RuntimeConfig,
-) (*metrics.LittDBMetrics, func(context.Context) error) {
-	if !config.MetricsEnabled {
-		return nil, nil
+type ownedTable struct {
+	litt.ManagedTable
+	cancel context.CancelFunc
+}
+
+func (t *ownedTable) Drop() error {
+	err := t.ManagedTable.Drop()
+	if err == nil {
+		t.cancel()
 	}
-
-	reg, shutdown, err := commonmetrics.SetupOtelPrometheus()
-	if err != nil {
-		runtimeConfig.Logger.Error("failed to set up OTel Prometheus exporter", "error", err)
-		return nil, nil
-	}
-
-	addr := fmt.Sprintf(":%d", config.MetricsPort)
-	runtimeConfig.Logger.Info("Starting metrics server", "port", config.MetricsPort)
-	commonmetrics.StartMetricsServer(runtimeConfig.CTX, reg, addr)
-
-	return metrics.NewLittDBMetrics(), shutdown
+	return err
 }

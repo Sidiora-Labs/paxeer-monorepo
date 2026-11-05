@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 
@@ -18,6 +19,112 @@ JAVA_KEYWORDS = {
     "throw", "throws", "transient", "try", "void", "volatile", "while", "record", "sealed",
     "permits", "yield", "var",
 }
+
+PROGRAM_CALLS = {
+    "program.activity": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.call": ("eth_sendRawTransaction", ["call"]),
+    "program.deploy": ("eth_sendRawTransaction", ["deploy"]),
+    "program.discover": ("eth_call", ["getProgram"]),
+    "program.interface": ("eth_call", ["getInterface"]),
+    "program.receipt": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.simulate": ("eth_call", ["simulateCall"]),
+    "program.upgrade": ("eth_sendRawTransaction", ["upgrade"]),
+    "program.wind-down": (
+        "eth_sendRawTransaction", ["setExitRoute", "deprecate", "tombstone", "exitValue"]
+    ),
+}
+EIP1559_PREPARE_FIELDS = [
+    "preparation_ref:utf8", "chain_id:decimal_string", "nonce:decimal_string",
+    "max_priority_fee_per_gas:decimal_string", "max_fee_per_gas:decimal_string",
+    "gas_limit:decimal_string", "to:lowercase_hex", "data:lowercase_hex",
+    "signing_hash:hex32", "activity_type:decimal_string", "actor:utf8", "authority:utf8",
+    "account_sequence:decimal_string", "not_before:decimal_string", "not_after:decimal_string",
+    "fee_limit:decimal_string", "payload:lowercase_hex", "payload_hash:hex32",
+    "idempotency_key:hex32",
+]
+EIP1559_PREPARE_REQUEST_FIELDS = [
+    "activity_type:decimal_string", "actor:utf8", "authority:utf8",
+    "account_sequence:decimal_string", "not_before:decimal_string", "not_after:decimal_string",
+    "idempotency_key:hex32", "fee_limit:decimal_string", "payload:lowercase_hex",
+    "payload_hash:hex32",
+]
+PROGRAM_CALL_FIELDS = ["to:utf8", "data:lowercase_hex", "chainId:u64"]
+
+
+def agent_plane(repo: Path) -> Plane:
+    plane = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
+    plane.models["Eip1559PrepareResult"] = {"fields": EIP1559_PREPARE_FIELDS}
+    plane.models["McpNativeWriteV1"]["preparation"] = "NativePrepareResultV1"
+    plane.models["NativeProgramCallFields"] = {"required": PROGRAM_CALL_FIELDS}
+    for model in ("NativeProgramCallRequest", "NativeProgramDeployRequest",
+                  "NativeProgramUpgradeRequest", "NativeProgramWindDownRequest"):
+        plane.models[model] = {
+            "required": ["native_call:NativeProgramCallFields", "signed_transaction:string"]
+        }
+    plane.models["ProgramSource"] = {
+        "required": ["status:string"],
+        "optional": ["source_digest:string", "environment_digest:string", "pipeline:string",
+                     "expected_code_hash:string", "reproduced_artifact_digest:string"],
+    }
+    plane.models["VerifiedProgramDiscovery"] = {
+        "required": ["program_id", "lifecycle", "version", "code_hash", "abi_version:ProgramGuestAbi",
+                     "receipt_digest", "state_root", "observed_sequence", "observed_at",
+                     "valid_through", "verification", "deployment_receipt_digest"],
+        "optional": ["discovery_public_key", "discovery_signature"],
+    }
+    plane.models["VerifiedProgramInterface"] = {
+        "required": ["program_id", "version", "code_hash", "abi_version:ProgramGuestAbi",
+                     "interface", "interface_digest", "receipt_digest", "state_root",
+                     "observed_sequence", "observed_at", "valid_through", "source:ProgramSource",
+                     "verification"],
+    }
+    return plane
+
+
+def human_plane(repo: Path) -> Plane:
+    plane = Plane("Human", sections(repo / "services/human/schema/human-api"))
+    plane.models["NotificationClass"] = {
+        **plane.models["NotificationClass"],
+        "retired_variants": string_list(plane.models["NotificationClass"].get("retired_variants"))
+            + ["security-wallet-rebinding"],
+    }
+    plane.models["IntentDomain"] = {"variants": ["paxeer"]}
+    plane.models["IntentEndpoint"] = {
+        "required": ["kind:IntentEndpointKind"],
+        "optional": ["account:string", "layerx_public_key:string", "evm_address:string",
+                     "resolution:IntentAddressResolution"],
+    }
+    plane.models["IntentAddressResolution"] = {
+        "required": PROGRAM_CALL_FIELDS + ["result:string"]
+    }
+    plane.models["IntentPayment"] = {
+        "required": ["from:string", "to:string", "assetId:string", "amount:Amount",
+                     "sequence:u64", "paymentReference:string"]
+    }
+    plane.models["IntentLeg"] = {
+        "required": string_list(plane.models["IntentLeg"]["required"])
+            + ["payment:IntentPayment"] + PROGRAM_CALL_FIELDS
+    }
+    plane.models["IntentSubmission"] = {
+        **plane.models["IntentSubmission"],
+        "required": string_list(plane.models["IntentSubmission"]["required"])
+            + ["legs:IntentLeg[]"],
+    }
+    return plane
+
+
+def program_transports(repo: Path) -> dict[str, tuple[str, list[str]]]:
+    abi = json.loads((repo / "precompiles/layerxprograms/abi.json").read_text(encoding="utf-8"))
+    signatures = {}
+    for entry in abi:
+        if entry["type"] not in {"function", "event"}:
+            continue
+        parameters = ",".join(parameter["type"] for parameter in entry["inputs"])
+        signatures[entry["name"]] = f'layerxprograms.{entry["name"]}({parameters})'
+    return {
+        operation: (rpc, [signatures[call] for call in calls])
+        for operation, (rpc, calls) in PROGRAM_CALLS.items()
+    }
 
 
 def sections(root: Path) -> dict[str, dict[str, object]]:
@@ -75,7 +182,7 @@ class Plane:
         self.models = {
             key.split(".", 1)[1]: entries
             for key, entries in values.items()
-            if key.startswith(("type.", "record."))
+            if key.startswith(("type.", "record.")) and entries.get("retired") != "true"
         }
         self.scalars = {
             key.split(".", 1)[1]: entries
@@ -95,6 +202,8 @@ class Plane:
             (item, True) for item in raw_optional
         ]:
             name, separator, declared = encoded.partition(":")
+            if entries.get(f"{name}.retired") == "true":
+                continue
             field_type = declared if separator else self.declared_field_type(entries, name)
             if field_type and field_type.endswith("?"):
                 field_type = field_type[:-1]
@@ -135,15 +244,24 @@ class Plane:
         if declared == "object":
             return "JsonNode"
         if declared in self.models:
-            return f"{self.name}Models.{java_name(declared)}"
+            return f"{self.name}Models.{self.model_name(declared)}"
         return "String"
+
+    def model_name(self, model: str) -> str:
+        if self.name == "Human" and model == "VerificationLevel":
+            return "HumanVerificationLevel"
+        return java_name(model)
+
+    def variants(self, entries: dict[str, object]) -> list[str]:
+        retired = set(string_list(entries.get("retired_variants")))
+        return [variant for variant in string_list(entries.get("variants")) if variant not in retired]
 
 
 def operation_specs(plane: Plane) -> list[dict[str, object]]:
     mutations = {key.split(".", 1)[1] for key in plane.values if key.startswith("mutation.")}
     result = []
     for section, entries in sorted(plane.values.items()):
-        if not section.startswith("operation."):
+        if not section.startswith("operation.") or entries.get("retired") == "true":
             continue
         wire = section.split(".", 1)[1]
         request_model = entries.get("request") if isinstance(entries.get("request"), str) else None
@@ -172,6 +290,8 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
     parameters = []
     for wire, declared, optional in fields:
         annotation = f'@JsonProperty("{wire}") ' if field_name(wire) != wire else ""
+        if plane.name == "Agent" and name in {"NativePrepareResultV1", "NativeActivityV1"}:
+            annotation = f'@JsonProperty(value = "{wire}", required = true) '
         if plane.scalars.get(declared or "", {}).get("wire") == "decimal_string" and plane.java_type(declared, optional) == "BigInteger":
             annotation += "@JsonSerialize(using = ToStringSerializer.class) "
             annotation += "@JsonDeserialize(using = SchemaTypes.DecimalU64Deserializer.class) "
@@ -202,6 +322,12 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
             validations.append(f"Objects.requireNonNull({field}, \"{wire}\");")
         if declared in {"Sequence", "TimestampSeconds", "u64"}:
             validations.append(f"SchemaTypes.protocolU64({field});")
+    if plane.name == "Agent" and name == "NativeProgramCallFields":
+        validations.append('if (!ProgramsClient.PROGRAMS_ADDRESS.equals(to)) throw new IllegalArgumentException("invalid program target");')
+    if plane.name == "Agent" and name in {"NativePrepareResultV1", "NativeActivityV1"}:
+        validations.append('if (!"1".equals(version)) throw new IllegalArgumentException("invalid native version");')
+    if plane.name == "Agent" and name == "NativePrepareResultV1":
+        validations.append('if (approval_required != (approval_id != null)) throw new IllegalArgumentException("invalid native approval reference");')
     if validations:
         if delegating:
             lines.append(f"{indent}    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)")
@@ -219,21 +345,63 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
     return lines
 
 
+def render_verification_status(plane: Plane) -> list[str]:
+    entries = plane.models.get("VerificationStatus")
+    if entries is None:
+        raise SystemExit("missing record.VerificationStatus.verification_status")
+    supported = 'Either {state:"achieved",rung:R}, {state:"unverified",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested, {state:"pending",requested:R,achieved:R} with achieved strictly below requested for a submitted-but-unreceipted lookup, or {state:"absent",requested:R} when no submission is known; R is one of submitted, receipted, committed. An unverified or pending status that violates the ordering is refused as VerificationFailure verification.inconsistent.'
+    if entries != {"verification_status": supported}:
+        raise SystemExit("unsupported VerificationStatus contract")
+    return """        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        public record VerificationStatus(String state, String rung, String requested, String achieved, String reason) implements SchemaTypes.GeneratedResponse {
+            @JsonCreator
+            public VerificationStatus {
+                Objects.requireNonNull(state, "state");
+                boolean valid = switch (state) {
+                    case "achieved" -> rung != null && requested == null && achieved == null && reason == null;
+                    case "unverified" -> rung == null && requested != null && achieved != null && reason != null && !reason.isEmpty();
+                    case "pending" -> rung == null && requested != null && achieved != null && reason == null;
+                    case "absent" -> rung == null && requested != null && achieved == null && reason == null;
+                    default -> false;
+                };
+                if (!valid) throw new IllegalArgumentException("invalid verification status shape");
+                if (rung != null) rank(rung);
+                if (requested != null) rank(requested);
+                if (achieved != null && rank(achieved) >= rank(requested)) {
+                    throw new IllegalArgumentException("verification.inconsistent");
+                }
+            }
+            private static int rank(String rung) {
+                return switch (rung) {
+                    case "submitted" -> 0;
+                    case "receipted" -> 1;
+                    case "committed" -> 2;
+                    default -> throw new IllegalArgumentException("unknown verification rung");
+                };
+            }
+        }
+""".splitlines()
+
+
 def render_models(plane: Plane) -> list[str]:
     lines = [f"    public static final class {plane.name}Models {{", f"        private {plane.name}Models() {{}}"]
     for model, entries in sorted(plane.models.items()):
-        name = java_name(model)
-        variants = string_list(entries.get("variants"))
+        if plane.name == "Agent" and model == "VerificationStatus":
+            continue
+        name = plane.model_name(model)
+        variants = plane.variants(entries)
         payload_variant = any(f"{variant}.required" in entries for variant in variants)
         if variants and not payload_variant:
-            declared_wires = entries.get("wire_values", variants)
+            declared_wires = entries.get("wire_values", string_list(entries.get("variants")))
             wire_values = string_list(declared_wires)
             if (
                 not isinstance(declared_wires, list)
                 or len(wire_values) != len(declared_wires)
-                or len(wire_values) != len(variants)
+                or len(wire_values) != len(string_list(entries.get("variants")))
             ):
                 raise SystemExit(f"{plane.name} {model}: wire_values must pair one string with each variant")
+            wire_values = [wire for variant, wire in zip(string_list(entries.get("variants")), wire_values)
+                           if variant in variants]
             if "wire_values" in entries and all(re.fullmatch(r"0|[1-9][0-9]{0,8}", wire) for wire in wire_values):
                 lines.append(f"        public enum {name} {{")
                 for index, (variant, wire) in enumerate(zip(variants, wire_values)):
@@ -280,11 +448,14 @@ def render_models(plane: Plane) -> list[str]:
         elif fields:
             marker = "GeneratedEvent" if "Event" in name else "GeneratedResponse"
             lines.extend(record_source(name, fields, plane, marker, "        "))
+    if plane.name == "Agent":
+        lines.extend(render_verification_status(plane))
     lines.append("    }")
     return lines
 
 
-def render_operations(plane: Plane, specs: list[dict[str, object]]) -> list[str]:
+def render_operations(plane: Plane, specs: list[dict[str, object]],
+                      transports: dict[str, tuple[str, list[str]]] | None = None) -> list[str]:
     lines = [f"    public static final class {plane.name}Operations {{", f"        private {plane.name}Operations() {{}}"]
     for spec in specs:
         request = f"{spec['name']}Request"
@@ -302,15 +473,53 @@ def render_operations(plane: Plane, specs: list[dict[str, object]]) -> list[str]
             f"new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.{plane.name.upper()}, \"{spec['wire']}\", "
             f"{str(spec['idempotency']).lower()}, {request}.class, {response}.class);"
         )
+        if plane.name == "Agent" and str(spec["wire"]).startswith("program."):
+            if transports is None or spec["wire"] not in transports:
+                raise SystemExit(f"missing layerxprograms transport for {spec['wire']}")
+            rpc, calls = transports[spec["wire"]]
+            arguments = ", ".join(json.dumps(call) for call in calls)
+            lines.append(
+                f"        public static final ProgramTransport {constant_name(spec['wire'])}_TRANSPORT = "
+                f'new ProgramTransport("{rpc}", "0x000000000000000000000000000000000000101d", '
+                f"List.of({arguments}));"
+            )
+    if plane.name == "Agent":
+        prepare = next(spec for spec in specs if spec["wire"] == "prepare")
+        lines.extend(record_source(
+            "NativePrepareRequest", plane.fields("NativePrepareRequestV1", []),
+            plane, "GeneratedRequest", "        ",
+        ))
+        evm_request = {
+            "required": EIP1559_PREPARE_REQUEST_FIELDS, "optional": ["capability_id:hex32"]
+        }
+        request_plane = Plane("Agent", {"type.Eip1559PrepareRequest": evm_request})
+        lines.extend(record_source(
+            "Eip1559PrepareRequest", request_plane.fields("Eip1559PrepareRequest", []),
+            plane, "GeneratedRequest", "        ",
+        ))
+        for constant, request, response in [
+            ("NATIVE_PREPARE", "NativePrepareRequest", "NativePrepareResultV1"),
+            ("EIP1559_PREPARE", "Eip1559PrepareRequest", "Eip1559PrepareResult"),
+        ]:
+            lines.append(
+                f"        public static final SchemaTypes.TypedOperation<{request}, AgentModels.{response}> {constant} = "
+                f'new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "prepare", '
+                f"{str(prepare['idempotency']).lower()}, {request}.class, AgentModels.{response}.class);"
+            )
     lines.append("    }")
     return lines
 
 
-def generate(repo: Path) -> str:
-    agent = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
-    human = Plane("Human", sections(repo / "services/human/schema/human-api"))
+def generate_jvm(repo: Path) -> str:
+    agent = agent_plane(repo)
+    human = human_plane(repo)
+    transports = program_transports(repo)
+    agent_specs, human_specs = operation_specs(agent), operation_specs(human)
+    programs = {str(spec["wire"]) for spec in agent_specs if str(spec["wire"]).startswith("program.")}
+    if programs != transports.keys():
+        raise SystemExit("program operations and layerxprograms transports differ")
     output = [
-        "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.",
+        "// Code generated by sdk/platform/generators/generate_jvm.py from the LayerX API schemas. DO NOT EDIT.",
         "", "package com.sidiora.layerx.sdk;", "",
         "import com.fasterxml.jackson.annotation.JsonCreator;",
         "import com.fasterxml.jackson.annotation.JsonProperty;",
@@ -323,11 +532,28 @@ def generate(repo: Path) -> str:
         "import java.math.BigInteger;", "import java.util.List;", "import java.util.Map;",
         "import java.util.Objects;", "import java.util.Set;", "", "public final class GeneratedSchema {",
         "    private GeneratedSchema() {}",
+        "    public record ProgramTransport(String rpcMethod, String to, List<String> calls) {",
+        "        public ProgramTransport {",
+        "            Objects.requireNonNull(rpcMethod, \"rpcMethod\");",
+        "            Objects.requireNonNull(to, \"to\");",
+        "            calls = List.copyOf(Objects.requireNonNull(calls, \"calls\"));",
+        "        }",
+        "    }",
+        "    public static ProgramTransport programTransport(SchemaTypes.Operation operation) {",
+        "        Objects.requireNonNull(operation, \"operation\");",
+        "        if (operation.plane() != OperationCatalog.Plane.AGENT) throw PlatformSdkException.invalidArgument();",
+        "        return switch (operation.wireName()) {",
     ]
+    for operation in transports:
+        output.append(f'            case "{operation}" -> AgentOperations.{constant_name(operation)}_TRANSPORT;')
+    output.extend([
+        "            default -> throw PlatformSdkException.invalidArgument();",
+        "        };",
+        "    }",
+    ])
     output.extend(render_models(agent))
     output.extend(render_models(human))
-    agent_specs, human_specs = operation_specs(agent), operation_specs(human)
-    output.extend(render_operations(agent, agent_specs))
+    output.extend(render_operations(agent, agent_specs, transports))
     output.extend(render_operations(human, human_specs))
     output.append("    public static final Map<String, SchemaTypes.TypedOperation<?, ?>> AGENT = Map.ofEntries(")
     for index, spec in enumerate(agent_specs):
@@ -341,23 +567,94 @@ def generate(repo: Path) -> str:
     return "\n".join(output)
 
 
+def generate_contract(repo: Path) -> str:
+    agent = agent_plane(repo)
+    human = human_plane(repo)
+    agent_specs = operation_specs(agent)
+    output = [
+        "// Code generated by sdk/platform/generators/generate_jvm.py from the LayerX API schemas. DO NOT EDIT.",
+        "", "package com.sidiora.layerx.sdk;", "",
+        "import java.util.List;", "import java.util.Map;", "import java.util.Set;", "",
+        "final class GeneratedContract {", "    private GeneratedContract() {}",
+        "    static final Set<String> AGENT_OPERATIONS = Set.of(",
+    ]
+    for index, spec in enumerate(agent_specs):
+        suffix = ");" if index + 1 == len(agent_specs) else ","
+        output.append(f'        "{spec["wire"]}"{suffix}')
+    sets = {
+        "AGENT_IDEMPOTENT": [str(spec["wire"]) for spec in agent_specs if spec["idempotency"]],
+        "AGENT_ERROR_CLASSES": string_list(agent.values["type.ErrorClass"]["variants"]),
+        "AGENT_RETRIABILITY": string_list(agent.values["type.Retriability"]["variants"]),
+        "HUMAN_ERROR_CODES": human.variants(human.values["type.ErrorCode"]),
+        "HUMAN_RETRIABILITY": string_list(human.values["type.Retriability"]["variants"]),
+    }
+    for name, values in sets.items():
+        output.append(f"    static final Set<String> {name} = Set.of(")
+        for index, value in enumerate(values):
+            suffix = ");" if index + 1 == len(values) else ","
+            output.append(f"        {json.dumps(value)}{suffix}")
+    output.append("    static final Map<String, OperationCatalog.Route> HUMAN_ROUTES = Map.ofEntries(")
+    human_specs = operation_specs(human)
+    for index, spec in enumerate(human_specs):
+        wire = str(spec["wire"])
+        entries = human.values[f"operation.{wire}"]
+        path = str(entries["path"])
+        parameters = ", ".join(json.dumps(value) for value in re.findall(r"\{([^}]+)\}", path))
+        idempotency = str(bool(entries.get("idempotency"))).lower()
+        bodyless = str(entries.get("request") == "Empty").lower()
+        suffix = ");" if index + 1 == len(human_specs) else ","
+        output.append(
+            f'        Map.entry("{wire}", new OperationCatalog.Route({json.dumps(entries["method"])}, '
+            f'{json.dumps(path)}, List.of({parameters}), {idempotency}, {bodyless})){suffix}'
+        )
+    output.extend(["}", ""])
+    return "\n".join(output)
+
+
+def retain_human_schema(expected: str, current: str) -> str:
+    for start, end in [
+        ("    public static final class HumanModels {", "    public static final class AgentOperations {"),
+        ("    public static final class HumanOperations {", "    public static final Map<String, SchemaTypes.TypedOperation<?, ?>> AGENT ="),
+    ]:
+        expected = (expected[:expected.index(start)] + current[current.index(start):current.index(end)]
+                    + expected[expected.index(end):])
+    return expected
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--stdout", action="store_true")
+    parser.add_argument("--agent-only", action="store_true")
+    parser.add_argument("--verification-status", action="store_true")
     arguments = parser.parse_args()
-    repo = Path(arguments.repo).resolve()
+    repo = Path(os.path.expandvars(arguments.repo)).resolve()
+    if arguments.verification_status:
+        plane = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
+        print("\n".join(render_verification_status(plane)))
+        return 0
     destination = repo / "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
-    expected = generate(repo)
+    expected = generate_jvm(repo)
+    contract = destination.parent / "GeneratedContract.java"
+    expected_contract = generate_contract(repo)
+    if arguments.agent_only:
+        expected = retain_human_schema(expected, destination.read_text(encoding="utf-8"))
+        human_start = "    static final Set<String> HUMAN_ERROR_CODES ="
+        current_contract = contract.read_text(encoding="utf-8")
+        expected_contract = (expected_contract[:expected_contract.index(human_start)]
+                             + current_contract[current_contract.index(human_start):])
     if arguments.stdout:
         print(expected, end="")
         return 0
     if arguments.check:
         if not destination.is_file() or destination.read_text(encoding="utf-8") != expected:
             raise SystemExit("generated JVM schema is stale; run make platform-sdk-generate")
+        if not contract.is_file() or contract.read_text(encoding="utf-8") != expected_contract:
+            raise SystemExit("generated JVM contract is stale; run generate_jvm.py")
         return 0
     destination.write_text(expected, encoding="utf-8")
+    contract.write_text(expected_contract, encoding="utf-8")
     return 0
 
 

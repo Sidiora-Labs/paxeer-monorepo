@@ -1,0 +1,165 @@
+[sweep.go-modules-2]
+revision = "8b703ec72e65d1ee56c9e5c5c56ddefc2c1de22b"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 21
+targets_passed = 18
+targets_failed = 3
+targets_not_run = 0
+inventory_note = "The task title says twenty-two packages, but its explicit list contains 21 unique targets; all 21 were run once at the header revision, replacing every earlier row."
+target_time_limit_seconds = 600
+environment = "CGO_ENABLED=1; GOMAXPROCS=2; GOFLAGS=-p=2; at most four concurrent per-target commands; initially empty Go build cache."
+qualification_record = "/out/logs/go-modules-2-closure/results.jsonl"
+producer_input_note = "No Go tests were excluded; the sequencer keeper repair names a Rust producer-input test outside this sweep."
+
+[target.go-modules-2.1]
+target = "modules/epoch"
+result = "failed"
+exit_code = 124
+observed = "The per-target command for modules/epoch reached its 600-second limit and exited 124 without emitting a failing test name or file:line diagnostic."
+assumption = "Cold dependency downloads and compilation appear to have exhausted the command budget; the output does not establish a product-code failure or a passing test run."
+elapsed_seconds = 600.053
+log = "/out/logs/go-modules-2-closure/01-modules-epoch.log"
+
+[target.go-modules-2.2]
+target = "modules/pricefeed/keeper"
+result = "failed"
+exit_code = 124
+observed = "The per-target command for modules/pricefeed/keeper reached its 600-second limit and exited 124 without emitting a failing test name or file:line diagnostic."
+assumption = "Cold dependency downloads and compilation appear to have exhausted the command budget; the output does not establish a product-code failure or a passing test run."
+elapsed_seconds = 600.088
+log = "/out/logs/go-modules-2-closure/02-modules-pricefeed-keeper.log"
+
+[target.go-modules-2.3]
+target = "modules/pricefeed/types"
+result = "failed"
+exit_code = 124
+observed = "The per-target command for modules/pricefeed/types reached its 600-second limit and exited 124 without emitting a failing test name or file:line diagnostic."
+assumption = "Cold dependency downloads and compilation appear to have exhausted the command budget; the output does not establish a product-code failure or a passing test run."
+elapsed_seconds = 600.075
+log = "/out/logs/go-modules-2-closure/03-modules-pricefeed-types.log"
+
+[target.go-modules-2.4]
+target = "modules/sequencer"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 430.974
+log = "/out/logs/go-modules-2-closure/04-modules-sequencer.log"
+
+[target.go-modules-2.5]
+target = "modules/sequencer/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 475.783
+log = "/out/logs/go-modules-2-closure/05-modules-sequencer-keeper.log"
+
+[target.go-modules-2.6]
+target = "modules/sequencer/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 14.275
+log = "/out/logs/go-modules-2-closure/06-modules-sequencer-types.log"
+
+[target.go-modules-2.7]
+target = "modules/spot"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 304.949
+log = "/out/logs/go-modules-2-closure/07-modules-spot.log"
+
+[target.go-modules-2.8]
+target = "modules/spot/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 402.448
+log = "/out/logs/go-modules-2-closure/08-modules-spot-keeper.log"
+
+[target.go-modules-2.9]
+target = "modules/spot/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 22.245
+log = "/out/logs/go-modules-2-closure/09-modules-spot-types.log"
+
+[target.go-modules-2.10]
+target = "modules/store"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 3.246
+log = "/out/logs/go-modules-2-closure/10-modules-store.log"
+
+[target.go-modules-2.11]
+target = "modules/tokenfactory"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 7.749
+log = "/out/logs/go-modules-2-closure/11-modules-tokenfactory.log"
+
+[target.go-modules-2.12]
+target = "modules/tokenfactory/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 179.617
+log = "/out/logs/go-modules-2-closure/12-modules-tokenfactory-client-cli.log"
+
+[target.go-modules-2.13]
+target = "modules/tokenfactory/client/wasm"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 10.394
+log = "/out/logs/go-modules-2-closure/13-modules-tokenfactory-client-wasm.log"
+
+[target.go-modules-2.14]
+target = "modules/tokenfactory/client/wasm/bindings"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 4.311
+log = "/out/logs/go-modules-2-closure/14-modules-tokenfactory-client-wasm-bindings.log"
+
+[target.go-modules-2.15]
+target = "modules/tokenfactory/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 293.61
+log = "/out/logs/go-modules-2-closure/15-modules-tokenfactory-keeper.log"
+
+[target.go-modules-2.16]
+target = "modules/tokenfactory/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 28.635
+log = "/out/logs/go-modules-2-closure/16-modules-tokenfactory-types.log"
+
+[target.go-modules-2.17]
+target = "modules/xweb"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 45.696
+log = "/out/logs/go-modules-2-closure/17-modules-xweb.log"
+
+[target.go-modules-2.18]
+target = "modules/xweb/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 10.259
+log = "/out/logs/go-modules-2-closure/18-modules-xweb-client-cli.log"
+
+[target.go-modules-2.19]
+target = "modules/xweb/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 251.347
+log = "/out/logs/go-modules-2-closure/19-modules-xweb-keeper.log"
+
+[target.go-modules-2.20]
+target = "modules/xweb/testutil"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 6.281
+log = "/out/logs/go-modules-2-closure/20-modules-xweb-testutil.log"
+
+[target.go-modules-2.21]
+target = "modules/xweb/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 28.776
+log = "/out/logs/go-modules-2-closure/21-modules-xweb-types.log"

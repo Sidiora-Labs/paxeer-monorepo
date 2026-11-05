@@ -17,23 +17,43 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	atypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
+	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	tmed25519 "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
+	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/tcp"
+	tmnode "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	rpclocal "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/local"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	cryptocodec "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/codec"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
+	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	occutils "github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestSubscribeNewHeads(t *testing.T) {
@@ -98,6 +118,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 					}
 				}
 			}
+			assertNewHeadStateRootMatchesBlock(t, resultMap)
 			// Event validated successfully, no need to wait further
 			return
 		case <-timer.C:
@@ -117,7 +138,6 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	defer func() { done <- struct{}{} }()
 
 	hash := common.HexToHash("0x4242424242424242424242424242424242424242424242424242424242424242").Bytes()
-	appHash := common.HexToHash("0x3131313131313131313131313131313131313131313131313131313131313131").Bytes()
 	parentHash := common.HexToHash("0x5252525252525252525252525252525252525252525252525252525252525252").Bytes()
 	dataHash := common.HexToHash("0x6363636363636363636363636363636363636363636363636363636363636363").Bytes()
 	resultsHash := common.HexToHash("0x7474747474747474747474747474747474747474747474747474747474747474").Bytes()
@@ -126,6 +146,10 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 	// The served receiptsRoot is the results root of block H, the value
 	// header H+1 commits as LastResultsHash, not header H's own field.
 	blockHeight := int64(MockHeight8)
+	block, err := (&MockClient{}).Block(context.Background(), &blockHeight)
+	require.NoError(t, err)
+	appHash := block.Block.AppHash
+	require.Len(t, appHash, common.HashLength)
 	blockResults, err := (&MockClient{}).BlockResults(context.Background(), &blockHeight)
 	require.NoError(t, err)
 	resultLeaves, err := abci.MarshalTxResults(blockResults.TxsResults)
@@ -160,6 +184,7 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 					LastBlockId:     tmproto.BlockID{Hash: parentHash},
 					DataHash:        dataHash,
 					LastResultsHash: resultsHash,
+					AppHash:         appHash,
 					ProposerAddress: proposer,
 				}, &abci.ResponseFinalizeBlock{
 					AppHash: appHash,
@@ -177,6 +202,7 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			paramMap := resObj["params"].(map[string]interface{})
 			require.Equal(t, subscriptionId, paramMap["subscription"])
 			resultMap := paramMap["result"].(map[string]interface{})
+			assertNewHeadStateRootMatchesBlock(t, resultMap)
 			for _, k := range expectedKeys {
 				_, ok := resultMap[k]
 				require.Truef(t, ok, "missing key %q in header", k)
@@ -186,7 +212,6 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.Equal(t, common.BytesToAddress(proposer).Hex(), resultMap["miner"])
 			require.Equal(t, common.BytesToHash(appHash).Hex(), resultMap["stateRoot"])
 			require.Equal(t, fmt.Sprintf("0x%x", ts.Unix()), resultMap["timestamp"])
-			require.Equal(t, fmt.Sprintf("0x%x", 21000+50000), resultMap["gasUsed"])
 			// gasLimit comes from the SDK ConsensusParams that the test
 			// runtime sets; just assert it's a non-zero hex string.
 			gasLimitStr, _ := resultMap["gasLimit"].(string)
@@ -194,12 +219,155 @@ func TestSubscribeNewHeadsAutobahn(t *testing.T) {
 			require.NotEqual(t, "0x0", gasLimitStr)
 			require.Equal(t, common.BytesToHash(parentHash).Hex(), resultMap["parentHash"])
 			require.Equal(t, sameBlockRoot.Hex(), resultMap["receiptsRoot"])
-			require.Equal(t, common.BytesToHash(dataHash).Hex(), resultMap["transactionsRoot"])
+			t.Run("committed block roots", testSubscribeNewHeadsAutobahnCommit)
 			return
 		case <-timer.C:
 			t.Fatal("No event received within 5 seconds")
 		}
 	}
+}
+
+func testSubscribeNewHeadsAutobahnCommit(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	defer cancel()
+	cfg, err := tmconfig.ResetTestRoot(t.TempDir(), "subscribe-committed-roots")
+	require.NoError(t, err)
+	p2pAddress := fmt.Sprintf("127.0.0.1:%d", seqReceiptFreePort9005(t))
+	cfg.P2P.ListenAddress = "tcp://" + p2pAddress
+	cfg.RPC.ListenAddress = ""
+	pv, err := privval.LoadFilePV(cfg.PrivValidator.KeyFile(), cfg.PrivValidator.StateFile())
+	require.NoError(t, err)
+	nodeKey, err := tmtypes.LoadOrGenNodeKey(cfg.NodeKeyFile())
+	require.NoError(t, err)
+	address, err := tcp.ParseHostPort(p2pAddress)
+	require.NoError(t, err)
+	validator := tmconfig.AutobahnValidator{
+		ValidatorKey: atypes.SecretKeyFromED25519(pv.Key.PrivKey).Public(),
+		Address:      address,
+	}
+	require.NoError(t, validator.NodeKey.UnmarshalText([]byte(fmt.Sprintf("node:%s", nodeKey.PubKey()))))
+	fc := tmconfig.AutobahnFileConfig{
+		Validators: []tmconfig.AutobahnValidator{validator}, MaxTxsPerBlock: 1,
+		AllowEmptyBlocks: true, BlockInterval: tmutils.Duration(400 * time.Millisecond),
+		ViewTimeout: tmutils.Duration(1500 * time.Millisecond), DialInterval: tmutils.Duration(time.Second),
+		PersistentStateDir: tmutils.Some(t.TempDir()),
+	}
+	encoded, err := json.Marshal(fc)
+	require.NoError(t, err)
+	cfg.AutobahnConfigFile = filepath.Join(t.TempDir(), "autobahn.json")
+	require.NoError(t, os.WriteFile(cfg.AutobahnConfigFile, encoded, 0600))
+	a := app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, t.TempDir(), 1, true, cfg,
+		app.MakeEncodingConfig(), wasm.EnableAllProposals, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	gen, err := tmtypes.GenesisDocFromFile(cfg.GenesisFile())
+	require.NoError(t, err)
+	gen.ChainID = "pax-test"
+	gen.GenesisTime = time.Now().UTC()
+	gen.ConsensusParams.Block.MaxGas = 50_000_000
+	genesis := app.NewDefaultGenesisState(a.AppCodec())
+	pubkey, err := cryptocodec.FromTmPubKeyInterface(pv.Key.PubKey)
+	require.NoError(t, err)
+	pkAny, err := codectypes.NewAnyWithValue(pubkey)
+	require.NoError(t, err)
+	valAddress := sdk.ValAddress(pv.Key.PubKey.Address())
+	bond := sdk.NewInt(1_000_000)
+	stakingGenesis := stakingtypes.NewGenesisState(stakingtypes.DefaultParams(), []stakingtypes.Validator{{
+		OperatorAddress: valAddress.String(), ConsensusPubkey: pkAny, Status: stakingtypes.Bonded,
+		Tokens: bond, DelegatorShares: sdk.OneDec(), UnbondingTime: time.Unix(0, 0).UTC(),
+		Commission: stakingtypes.NewCommission(sdk.ZeroDec(), sdk.ZeroDec(), sdk.ZeroDec()), MinSelfDelegation: sdk.ZeroInt(),
+	}}, []stakingtypes.Delegation{stakingtypes.NewDelegation(sdk.AccAddress(valAddress), valAddress, sdk.OneDec())})
+	genesis[stakingtypes.ModuleName] = a.AppCodec().MustMarshalJSON(stakingGenesis)
+	coins := sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, bond))
+	bankGenesis := banktypes.NewGenesisState(banktypes.DefaultGenesisState().Params, []banktypes.Balance{{
+		Address: authtypes.NewModuleAddress(stakingtypes.BondedPoolName).String(), Coins: coins,
+	}}, coins, []banktypes.Metadata{}, []banktypes.WeiBalance{})
+	genesis[banktypes.ModuleName] = a.AppCodec().MustMarshalJSON(bankGenesis)
+	gen.AppState, err = json.Marshal(genesis)
+	require.NoError(t, err)
+	var commitsMu sync.Mutex
+	commits := make(map[int64]common.Hash)
+	a.SetCommitListener(func(height int64, hash []byte) error {
+		commitsMu.Lock()
+		commits[height] = common.BytesToHash(hash)
+		commitsMu.Unlock()
+		return nil
+	})
+	n, err := tmnode.New(ctx, cfg, func() {}, a, gen, nil, tmnode.NoOpMetricsProvider(), tmtypes.DefaultConsensusPolicy())
+	require.NoError(t, err)
+	require.NoError(t, n.Start(ctx))
+	t.Cleanup(func() { n.Stop(); n.Wait() })
+	tmClient, err := rpclocal.New(n)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		commitsMu.Lock()
+		defer commitsMu.Unlock()
+		return len(commits) > 0
+	}, 5*time.Second, 10*time.Millisecond)
+	wsConfig := evmrpcconfig.DefaultConfig
+	wsConfig.WSPort, wsConfig.IPRateLimitRPS = 0, 0
+	server, err := evmrpc.NewEVMWebSocketServer(wsConfig, tmClient, &a.EvmKeeper, a.BeginBlockKeepers,
+		a.BaseApp, a.TracerAnteHandler, a.RPCContextProvider, func(int64) client.TxConfig { return a.GetTxConfig() },
+		"", a.GetStateStore(), a.BlockHeaderNotifier())
+	require.NoError(t, err)
+	t.Cleanup(server.Stop)
+	ws, _ := dialWSPipe(t, server.(http.Handler))
+	id := wsSubscribe(t, ws, "newHeads")
+	head := wsNotification(t, ws, id)
+	heightValue, err := hexutil.DecodeUint64(head["number"].(string))
+	require.NoError(t, err)
+	height := int64(heightValue) //nolint:gosec // heights are produced by the bounded test node.
+	block, err := tmClient.Block(ctx, &height)
+	require.NoError(t, err)
+	results, err := tmClient.BlockResults(ctx, &height)
+	require.NoError(t, err)
+	leaves, err := abci.MarshalTxResults(results.TxsResults)
+	require.NoError(t, err)
+	var stateRoot common.Hash
+	require.Eventually(t, func() bool {
+		commitsMu.Lock()
+		defer commitsMu.Unlock()
+		var ok bool
+		stateRoot, ok = commits[height]
+		return ok
+	}, time.Second, time.Millisecond)
+	roots := map[string]common.Hash{
+		"receiptsRoot":     common.BytesToHash(merkle.HashFromByteSlices(leaves)),
+		"stateRoot":        stateRoot,
+		"transactionsRoot": ethtypes.EmptyTxsHash,
+	}
+	require.Empty(t, block.Block.Txs)
+	for key, root := range roots {
+		require.NotEqual(t, common.Hash{}, root, key)
+		require.Equal(t, root.Hex(), head[key], key)
+	}
+	require.Equal(t, common.BytesToHash(block.BlockID.Hash).Hex(), head["hash"])
+}
+
+func assertNewHeadStateRootMatchesBlock(t *testing.T, head map[string]interface{}) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	client, err := gethrpc.DialHTTP(fmt.Sprintf("http://%s:%d", TestAddr, TestPort))
+	require.NoError(t, err)
+	defer client.Close()
+	var block map[string]interface{}
+	require.NoError(t, client.CallContext(ctx, &block, "eth_getBlockByNumber", head["number"], false))
+	require.NotNil(t, block)
+	root, ok := head["stateRoot"].(string)
+	require.True(t, ok)
+	decoded, err := hexutil.Decode(root)
+	require.NoError(t, err)
+	require.Len(t, decoded, common.HashLength)
+	require.Equal(t, block["stateRoot"], root)
+	for _, key := range []string{"gasUsed", "logsBloom", "transactionsRoot"} {
+		require.Contains(t, block, key)
+		require.Contains(t, head, key)
+		require.Equal(t, block[key], head[key], "%s differs from block at %v", key, head["number"])
+	}
+	require.Equal(t, ethtypes.EmptyWithdrawalsHash.Hex(), head["withdrawalsRoot"])
+	require.Equal(t, "0x0", head["blobGasUsed"])
+	require.Equal(t, "0x0", head["excessBlobGas"])
+	require.Equal(t, common.Hash{}.Hex(), head["parentBeaconBlockRoot"])
 }
 
 func TestSubscribeEmptyLogs(t *testing.T) {
@@ -221,66 +389,73 @@ func TestSubscribeEmptyLogs(t *testing.T) {
 }
 
 func TestSubscribeNewLogs(t *testing.T) {
-	t.Skip()
-	data := map[string]interface{}{
-		"fromBlock": "0x0",
-		"toBlock":   "latest",
-		"address": []common.Address{
-			common.HexToAddress("0x1111111111111111111111111111111111111111"),
-		},
-		"topics": [][]common.Hash{
-			{
-				common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111"),
-				common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111112"),
-			},
-		},
+	repairM1297LogSubscription(t)
+}
+
+func repairM1297LogSubscription(t *testing.T) {
+	t.Helper()
+	sender := occutils.NewSigner()
+	q := newSubscribeSequencer(t, sender)
+	ws, peek := dialWSPipe(t, q.wsServer(t, 0).(http.Handler))
+	address := crypto.CreateAddress(sender.EvmAddress, 0)
+	topic := func(n int64) common.Hash { return common.BigToHash(big.NewInt(n)) }
+	id := wsSubscribe(t, ws, "logs", map[string]any{
+		"address": []common.Address{address, common.HexToAddress("0x1234")},
+		"topics":  [][]common.Hash{{topic(1), topic(3)}},
+	})
+	// LOG1(1), LOG1(2), LOG1(3); the creation emits these logs and
+	// installs the same runtime so a later call can test unsubscribe.
+	runtime := []byte{
+		0x60, 1, 0x60, 0, 0x60, 0, 0xa1,
+		0x60, 2, 0x60, 0, 0x60, 0, 0xa1,
+		0x60, 3, 0x60, 0, 0x60, 0, 0xa1, 0,
 	}
-	recvCh, done := sendWSRequestGood(t, "subscribe", "logs", data)
-	defer func() { done <- struct{}{} }()
+	init := append([]byte{}, runtime[:len(runtime)-1]...)
+	offset := byte(len(init) + 12)
+	init = append(init, 0x60, byte(len(runtime)), 0x60, offset, 0x60, 0, 0x39, 0x60, byte(len(runtime)), 0x60, 0, 0xf3)
+	init = append(init, runtime...)
+	raw, hash := subscribeRawTx(t, sender, 0, nil, big.NewInt(0), subscribeTwoLogsGas, init)
+	acc := q.send(t, raw, hash)
+	execution, err := sendSeqExecutionReceipt(acc)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status)
+	require.Len(t, execution.Logs, 3)
+	open := q.committed + 1
+	require.Equal(t, receiptedLogJSON(address, 1, open, hash, acc.TxIndex, 0, acc.Seq), wsNotification(t, ws, id))
+	require.Equal(t, receiptedLogJSON(address, 3, open, hash, acc.TxIndex, 2, acc.Seq), wsNotification(t, ws, id))
 
-	receivedSubMsg := false
-	receivedEvents := false
-	timer := time.NewTimer(2 * time.Second)
+	raw, hash = subscribeRawTx(t, sender, 1, nil, big.NewInt(0), subscribeTwoLogsGas, init)
+	other := q.send(t, raw, hash)
+	execution, err = sendSeqExecutionReceipt(other)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status)
+	require.Len(t, execution.Logs, 3)
+	require.NotEqual(t, address.Hex(), execution.Logs[0].Address)
+	require.False(t, peek.writing(t, 200*time.Millisecond), "wrong topics and addresses must not notify")
 
-	var subscriptionId string
-
-	for {
-		select {
-		case resObj := <-recvCh:
-			_, ok := resObj["error"]
-			if ok {
-				t.Fatal("Received error:", resObj["error"])
-			}
-			if !receivedSubMsg {
-				// get subscriptionId from first message
-				subscriptionId = resObj["result"].(string)
-				receivedSubMsg = true
-				continue
-			}
-			receivedEvents = true
-			method := resObj["method"].(string)
-			if method != "eth_subscription" {
-				t.Fatal("Method is not eth_subscription")
-			}
-			paramMap := resObj["params"].(map[string]interface{})
-			if paramMap["subscription"] != subscriptionId {
-				t.Fatal("Subscription ID does not match")
-			}
-			resultMap := paramMap["result"].(map[string]interface{})
-			if resultMap["address"] != "0x1111111111111111111111111111111111111111" && resultMap["address"] != "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" {
-				t.Fatalf("Unexpected address, got %v", resultMap["address"])
-			}
-			firstTopic := resultMap["topics"].([]interface{})[0].(string)
-			if firstTopic != "0x1111111111111111111111111111111111111111111111111111111111111111" {
-				t.Fatalf("Unexpected topic, got %v", firstTopic)
-			}
-		case <-timer.C:
-			if !receivedSubMsg || !receivedEvents {
-				t.Fatal("No message received within 5 seconds")
-			}
-			return
-		}
+	require.NoError(t, ws.WriteJSON(map[string]any{"jsonrpc": "2.0", "id": 2, "method": "eth_unsubscribe", "params": []any{id}}))
+	require.NoError(t, ws.SetReadDeadline(time.Now().Add(5*time.Second)))
+	var answer struct {
+		ID     int             `json:"id"`
+		Result bool            `json:"result"`
+		Error  json.RawMessage `json:"error"`
 	}
+	require.NoError(t, ws.ReadJSON(&answer))
+	require.Empty(t, answer.Error)
+	require.Equal(t, 2, answer.ID)
+	require.True(t, answer.Result)
+	raw, hash = subscribeRawTx(t, sender, 2, &address, big.NewInt(0), subscribeTwoLogsGas, nil)
+	after := q.send(t, raw, hash)
+	execution, err = sendSeqExecutionReceipt(after)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, execution.Status)
+	require.Len(t, execution.Logs, 3)
+	require.Equal(t, address.Hex(), execution.Logs[0].Address)
+	require.False(t, peek.writing(t, 200*time.Millisecond), "unsubscribed matching logs must not notify")
+}
+
+func repairM1297LogSubscriptionProof(t *testing.T) {
+	repairM1297LogSubscription(t)
 }
 
 func TestSubscriptionManager(t *testing.T) {
@@ -509,6 +684,7 @@ func dialWSPipe(t *testing.T, handler http.Handler) (*websocket.Conn, *subscribe
 	}
 	conn, res, err := dialer.Dial("ws://pipe/", http.Header{"Origin": []string{"localhost"}})
 	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, res.StatusCode)
 	require.NoError(t, res.Body.Close())
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn, peek
@@ -646,6 +822,212 @@ func TestSubscribeLogsFromReceipts(t *testing.T) {
 	require.False(t, peek.writing(t, evmrpc.SleepInterval+time.Second))
 }
 
+func TestSubscribeScopedLogsPreserveLag(t *testing.T) {
+	sender := occutils.NewSigner()
+	q := newPendingFilterSequencer(t, sender)
+	state, write := sdk.NewContext(q.app.CommitMultiStore(), q.ctxProvider(evmrpc.LatestCtxHeight).BlockHeader(), false).CacheContext()
+	params := q.app.LayerXChainsKeeper.GetParams(state)
+	operator := common.HexToAddress("0x1234")
+	value := params.MinBond.Add(params.CreationFee)
+	coins := sdk.NewCoins(sdk.NewCoin(q.app.EvmKeeper.GetBaseDenom(state), value))
+	require.NoError(t, q.app.BankKeeper.MintCoins(state, "evm", coins))
+	require.NoError(t, q.app.BankKeeper.SendCoinsFromModuleToAccount(state, "evm", sdk.AccAddress(operator.Bytes()), coins))
+	domain, err := q.app.LayerXChainsKeeper.Create(state, operator, "subscription-lag", 2*subscribeManyLogsGas, params.MinByteAllowance,
+		0, value, q.app.EvmKeeper.GetNextBaseFeePerGas(state))
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), domain.Id)
+	write()
+	initial, err := q.exec.Seal(q.committed + 1)
+	require.NoError(t, err)
+	q.committed++
+	require.Equal(t, q.committed, q.app.CommitMultiStore().Commit(true).Version)
+	require.NoError(t, q.feed.Committed(q.committed))
+	require.NoError(t, q.exec.Open(q.committed+1, initial.TimestampMs+1000))
+
+	pending, err := evmrpc.NewPendingOption(q.exec)
+	require.NoError(t, err)
+	cfg := evmrpcconfig.DefaultConfig
+	cfg.WSPort, cfg.IPRateLimitRPS = 0, 0
+	server, err := evmrpc.NewEVMWebSocketServer(cfg, &MockClient{latestOverride: q.committed}, &q.app.EvmKeeper,
+		q.app.BeginBlockKeepers, q.app.BaseApp, q.app.TracerAnteHandler, q.ctxProvider, q.txConfig, "", nil, nil, q.option, pending)
+	require.NoError(t, err)
+	t.Cleanup(server.Stop)
+	ws, peek := dialWSPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/chain/1"
+		server.(http.Handler).ServeHTTP(w, r)
+	}))
+	id := wsSubscribe(t, ws, "logs", map[string]any{})
+	receipt := func(chainID *big.Int, nonce, gas uint64, code []byte) (common.Hash, *sequencer.Accepted) {
+		t.Helper()
+		tx, err := ethtypes.SignNewTx(sender.EvmPrivateKey, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
+			ChainID: chainID, Nonce: nonce, GasFeeCap: big.NewInt(pendingGasPriceWei), GasTipCap: big.NewInt(0),
+			Gas: gas, Data: code,
+		})
+		require.NoError(t, err)
+		data, err := ethtx.NewTxDataFromTx(tx)
+		require.NoError(t, err)
+		msg, err := evmtypes.NewMsgEVMTransaction(data)
+		require.NoError(t, err)
+		builder := q.txConfig(0).NewTxBuilder()
+		require.NoError(t, builder.SetMsgs(msg))
+		builder.SetGasLimit(gas)
+		encoded, err := q.txConfig(0).TxEncoder()(builder.GetTx())
+		require.NoError(t, err)
+		return tx.Hash(), pendingFilterReceipt(t, q.app, q.exec, q.feed, encoded, tx.Hash())
+	}
+
+	chainID := chainstypes.ChainIDOf(domain.Id)
+	height := q.committed + 1
+	hashA, accA := receipt(chainID, 0, subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	require.Equal(t, height, accA.Height)
+	require.True(t, peek.writing(t, 10*time.Second))
+	const manyLogs = 1100
+	const buffered = 1024 - 1
+	hashB, accB := receipt(chainID, 1, subscribeManyLogsGas, subscribeManyLogsInitCode(manyLogs))
+	require.Equal(t, accA.Seq+1, accB.Seq)
+	addrA := crypto.CreateAddress(sender.EvmAddress, 0)
+	addrB := crypto.CreateAddress(sender.EvmAddress, 1)
+	require.Equal(t, receiptedLogJSON(addrA, 1, height, hashA, accA.TxIndex, 0, accA.Seq), wsNotification(t, ws, id))
+	require.Equal(t, receiptedLogJSON(addrA, 2, height, hashA, accA.TxIndex, 1, accA.Seq), wsNotification(t, ws, id))
+	for i := 0; i < buffered; i++ {
+		require.Equal(t, receiptedLogJSON(addrB, uint64(manyLogs-i), height, hashB, accB.TxIndex, uint(2+i), accB.Seq), wsNotification(t, ws, id)) //nolint:gosec // i is below manyLogs
+	}
+	require.False(t, peek.writing(t, 500*time.Millisecond))
+
+	_, excluded := receipt(big.NewInt(config.DefaultChainID), 2, subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	require.Equal(t, accB.Seq+1, excluded.Seq)
+	require.Equal(t, map[string]any{"lagged": hexutil.EncodeUint64(manyLogs - buffered)}, wsNotification(t, ws, id))
+	require.False(t, peek.writing(t, 500*time.Millisecond))
+
+	hashC, accC := receipt(chainID, 3, subscribeTwoLogsGas, subscribeTwoLogsInitCode)
+	require.Equal(t, excluded.Seq+1, accC.Seq)
+	addrC := crypto.CreateAddress(sender.EvmAddress, 3)
+	require.Equal(t, receiptedLogJSON(addrC, 1, height, hashC, accC.TxIndex, 4+manyLogs, accC.Seq), wsNotification(t, ws, id))
+	require.Equal(t, receiptedLogJSON(addrC, 2, height, hashC, accC.TxIndex, 5+manyLogs, accC.Seq), wsNotification(t, ws, id))
+	require.False(t, peek.writing(t, 500*time.Millisecond))
+}
+
+func TestSubscribeScopedLogsSurviveSealToOpen(t *testing.T) {
+	for _, drainAt := range []string{"sealed", "committed", "reopened"} {
+		t.Run(drainAt, func(t *testing.T) {
+			sender := occutils.NewSigner()
+			q := newPendingFilterSequencer(t, sender)
+			state, write := sdk.NewContext(q.app.CommitMultiStore(), q.ctxProvider(evmrpc.LatestCtxHeight).BlockHeader(), false).CacheContext()
+			params := q.app.LayerXChainsKeeper.GetParams(state)
+			operator := common.HexToAddress("0x1234")
+			value := params.MinBond.Add(params.CreationFee)
+			coins := sdk.NewCoins(sdk.NewCoin(q.app.EvmKeeper.GetBaseDenom(state), value))
+			require.NoError(t, q.app.BankKeeper.MintCoins(state, "evm", coins))
+			require.NoError(t, q.app.BankKeeper.SendCoinsFromModuleToAccount(state, "evm", sdk.AccAddress(operator.Bytes()), coins))
+			domain, err := q.app.LayerXChainsKeeper.Create(state, operator, "seal-window", 4*pendingFilterDeployGas, params.MinByteAllowance,
+				0, value, q.app.EvmKeeper.GetNextBaseFeePerGas(state))
+			require.NoError(t, err)
+			require.Equal(t, uint32(1), domain.Id)
+			write()
+			initial, err := q.exec.Seal(q.committed + 1)
+			require.NoError(t, err)
+			q.committed++
+			require.Equal(t, q.committed, q.app.CommitMultiStore().Commit(true).Version)
+			require.NoError(t, q.feed.Committed(q.committed))
+			require.NoError(t, q.exec.Open(q.committed+1, initial.TimestampMs+1000))
+
+			pending, err := evmrpc.NewPendingOption(q.exec)
+			require.NoError(t, err)
+			cfg := evmrpcconfig.DefaultConfig
+			cfg.WSPort, cfg.IPRateLimitRPS = 0, 0
+			server, err := evmrpc.NewEVMWebSocketServer(cfg, &MockClient{latestOverride: q.committed}, &q.app.EvmKeeper,
+				q.app.BeginBlockKeepers, q.app.BaseApp, q.app.TracerAnteHandler, q.ctxProvider, q.txConfig, "", nil, nil, q.option, pending)
+			require.NoError(t, err)
+			t.Cleanup(server.Stop)
+			ws, peek := dialWSPipe(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.URL.Path = "/chain/1"
+				server.(http.Handler).ServeHTTP(w, r)
+			}))
+			id := wsSubscribe(t, ws, "logs", map[string]any{})
+			receipt := func(nonce uint64) (common.Hash, *sequencer.Accepted) {
+				t.Helper()
+				chainID := chainstypes.ChainIDOf(domain.Id)
+				tx, err := ethtypes.SignNewTx(sender.EvmPrivateKey, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
+					ChainID: chainID, Nonce: nonce, GasFeeCap: big.NewInt(pendingGasPriceWei), GasTipCap: big.NewInt(0),
+					Gas: subscribeTwoLogsGas, Data: subscribeTwoLogsInitCode,
+				})
+				require.NoError(t, err)
+				data, err := ethtx.NewTxDataFromTx(tx)
+				require.NoError(t, err)
+				msg, err := evmtypes.NewMsgEVMTransaction(data)
+				require.NoError(t, err)
+				builder := q.txConfig(0).NewTxBuilder()
+				require.NoError(t, builder.SetMsgs(msg))
+				builder.SetGasLimit(subscribeTwoLogsGas)
+				encoded, err := q.txConfig(0).TxEncoder()(builder.GetTx())
+				require.NoError(t, err)
+				return tx.Hash(), pendingFilterReceipt(t, q.app, q.exec, q.feed, encoded, tx.Hash())
+			}
+
+			height := q.committed + 1
+			hash, accepted := receipt(0)
+			require.Equal(t, height, accepted.Height)
+			pendingTx, found := q.exec.PendingTx(hash)
+			require.True(t, found)
+			require.Equal(t, height, pendingTx.Height)
+			require.True(t, peek.writing(t, 10*time.Second))
+			batch, err := q.exec.Seal(height)
+			require.NoError(t, err)
+			require.Len(t, batch.Txs, 1)
+			_, found = q.exec.PendingTx(hash)
+			require.False(t, found)
+			_, err = q.exec.Snapshot()
+			require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+			require.NotContains(t, q.app.LayerXChainsKeeper.DomainTxs(q.ctxProvider(evmrpc.LatestCtxHeight), domain.Id, uint64(height)), hash)
+			commit := func() {
+				batch.Store.Write()
+				q.committed = height
+				require.Equal(t, height, q.app.CommitMultiStore().Commit(true).Version)
+				require.NoError(t, q.feed.Committed(height))
+				require.Contains(t, q.app.LayerXChainsKeeper.DomainTxs(q.ctxProvider(evmrpc.LatestCtxHeight), domain.Id, uint64(height)), hash)
+			}
+			if drainAt != "sealed" {
+				commit()
+			}
+			if drainAt == "reopened" {
+				require.NoError(t, q.exec.Open(height+1, batch.TimestampMs+1000))
+			}
+			addr := crypto.CreateAddress(sender.EvmAddress, 0)
+			require.Equal(t, receiptedLogJSON(addr, 1, height, hash, accepted.TxIndex, 0, accepted.Seq), wsNotification(t, ws, id))
+			if drainAt == "sealed" {
+				require.False(t, peek.writing(t, 500*time.Millisecond))
+				commit()
+			} else {
+				require.Equal(t, receiptedLogJSON(addr, 2, height, hash, accepted.TxIndex, 1, accepted.Seq), wsNotification(t, ws, id))
+			}
+			if drainAt != "reopened" {
+				require.NoError(t, q.exec.Open(height+1, batch.TimestampMs+1000))
+			}
+			nextHash, next := receipt(1)
+			require.Equal(t, height+1, next.Height)
+			require.Equal(t, accepted.Seq+1, next.Seq)
+			nextAddr := crypto.CreateAddress(sender.EvmAddress, 1)
+			require.Equal(t, receiptedLogJSON(nextAddr, 1, next.Height, nextHash, next.TxIndex, 0, next.Seq), wsNotification(t, ws, id))
+			require.Equal(t, receiptedLogJSON(nextAddr, 2, next.Height, nextHash, next.TxIndex, 1, next.Seq), wsNotification(t, ws, id))
+			require.False(t, peek.writing(t, 500*time.Millisecond))
+
+			require.NoError(t, ws.WriteJSON(map[string]any{
+				"jsonrpc": "2.0", "id": 2, "method": "eth_unsubscribe", "params": []string{id},
+			}))
+			require.NoError(t, ws.SetReadDeadline(time.Now().Add(10*time.Second)))
+			var unsubscribed struct {
+				ID     int             `json:"id"`
+				Result bool            `json:"result"`
+				Error  json.RawMessage `json:"error"`
+			}
+			require.NoError(t, ws.ReadJSON(&unsubscribed))
+			require.Equal(t, 2, unsubscribed.ID)
+			require.Empty(t, unsubscribed.Error)
+			require.True(t, unsubscribed.Result)
+		})
+	}
+}
+
 func TestSubscribeNewPendingTransactions(t *testing.T) {
 	sender := occutils.NewSigner()
 	recipient := occutils.NewSigner().EvmAddress
@@ -684,3 +1066,5 @@ func TestSubscribeNewPendingTransactions(t *testing.T) {
 		require.FailNow(t, "no reply within 5 seconds")
 	}
 }
+
+func init() { evmrpc.RepairM1297Proofs["log-subscription-skipped"] = repairM1297LogSubscriptionProof }

@@ -1,0 +1,31 @@
+[repair.22.31.225]
+audit = "22.30.97"
+acceptance = "22998.1"
+implementation = "Native effect carrier version 3 and native program carrier version 2 retain call bytes, sender, sender-bound disclosure audit digest, owner, session, budget and receipt-key pins; all call operations use the existing carrier types and storage keys."
+compatibility = "Existing envelope versions remain explicit legacy records; restore_call refuses them and the legacy restore_prepared API refuses call records. No envelope is synthesized from a call."
+baseline = "No earlier gate ledger or repair test existed. No baseline verification was run: the task's explicit Order requires complete implementation, then hf-build, then hf-done and forbids running verify_cmd by hand. No pre-change test failures are claimed."
+qualification = "The runner's private hf-build/hf-done gate ledger records the candidate revision, exact command, exit code and evidence location; cg spec done records the verified revision without force."
+
+[finding.effect_carrier_legacy]
+tests = ["effect_carrier_legacy_reopens_call_and_terminal_owner_decision", "effect_carrier_legacy_refuses_altered_bytes_sender_and_version_after_reopen", "effect_carrier_legacy_rejection_and_expiry_preserve_atomic_budget_release", "effect_carrier_legacy_failed_hold_does_not_publish_budget_or_carrier"]
+proof = "Real prepare_bound, call disclosure, staged budget reservation and durable Store paths; reopen retains exact call facts and terminal decisions, changed sender/bytes/version refuse, failed store writes publish neither decision nor budget release."
+
+[finding.program_carrier_legacy]
+tests = ["program_carrier_legacy_survives_restart_approval_submission_and_settlement", "program_carrier_legacy_refuses_changed_signed_call_and_recovered_sender", "program_carrier_legacy_recovers_signed_intent_after_real_outbox_refusal"]
+proof = "ProgramOperations::call_precompile and prepare_bound produce the admitted call; real secp256k1 signing, verify_before_submit, Outbox, pinned receipt signature verification and budget persistence survive component reopen; wrong calls/senders/receipts refuse and settlement consumes once."
+settlement = "Exact unsponsored fee-only debits settle from the signed EVM receipt summary; allocated or partial debits require VerifiedProgramDebitSettlement through settle_call_with_debits and retain exposure until its owning domain supplies that proof."
+
+[wiring.owner]
+request = "services/agent/crates/layerx-agentd/src/human_runtime.rs — owning domain 9: after native capability/policy admission, use hold_call/read_call/restore_call/decide_call/queue_call/recover_call_submission/settle_call with the authenticated owner, session generation, observed head/time and independently pinned receipt keys."
+
+[wiring.preparation]
+request = "services/agent/crates/layerx-agentd/src/prepare/mod.rs and src/prepare/lifecycle.rs — owning domain 9: migrate the remaining Prepared legacy re-export and durable lifecycle consumers to EvmPrepared; no legacy envelope projection is provided by the call carrier."
+
+[wiring.policy]
+request = "services/agent/crates/layerx-agentd/src/policy/native_program.rs and src/capability — owning domain 9: produce native policy/capability admission and time-window rate constraints from EvmPrepared disclosure facts before creating an owner approval hold."
+
+[wiring.budget]
+request = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs and src/budget/program_settlement.rs — owning domain 9: bind allocation/source snapshots and VerifiedProgramDebitSettlement to unsigned EVM calls and transaction-hash receipts for partial fees and program value debits."
+
+[wiring.disclosure]
+request = "services/agent/crates/layerx-crypto/src/disclosure/call.rs — owning domain 9: provide call-bound budget-mutation state context for operations whose disclosure requires a committed budget snapshot."

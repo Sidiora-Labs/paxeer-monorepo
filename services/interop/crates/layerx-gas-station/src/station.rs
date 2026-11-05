@@ -8,7 +8,7 @@ use crate::journal::{
     Admission, Completion, Entry, Item, Journal, JournalError, Key, LiabilityRelease, QuoteRecord,
     Submission,
 };
-use crate::policy::{BudgetKey, DidBudget};
+use crate::policy::{BudgetKey, DidBudget, QuotePolicy};
 use crate::price::{PriceError, PriceSource};
 use crate::quote::{address_word, keccak, word, Address, Word};
 use crate::rpc::{bytes, hex, quantity, read, JsonRpc, RpcFault};
@@ -206,9 +206,25 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
         journal: Journal,
     ) -> Result<Self, StationError> {
         let mut station = Station::new(config, signer).map_err(|_| StationError::Invalid)?;
+        // GAS_STATION_DID_GAS_LIMIT is the gas one DID may be sponsored per UTC day.
         let limit = std::env::var("GAS_STATION_DID_GAS_LIMIT").ok();
         let limit = DidGasLimit::try_from(limit.as_deref()).map_err(|_| StationError::Invalid)?;
         station.policy = station.policy.with_did_budget(DidBudget::new(limit.0));
+        if let Some(identity) = &journal.state().policy_identity {
+            let expected = crate::journal::PolicyIdentity::new(
+                &station.config,
+                station.signer.address(),
+                limit.0,
+                &identity.registered_senders,
+            )?;
+            if *identity != expected {
+                return Err(StationError::Conflict);
+            }
+            station.policy = station
+                .policy
+                .with_registered_senders(&identity.registered_senders);
+        }
+
         let chain: String = read(&rpc, "eth_chainId", json!([]))?;
         rpc.set_deadline(None)?;
         if quantity(&chain)? != u128::from(station.config.chain_id) {
@@ -222,47 +238,7 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
         {
             return Err(StationError::Conflict);
         }
-        let mut quotes: Vec<_> = journal
-            .state()
-            .items
-            .values()
-            .filter_map(|i| i.quote.as_ref())
-            .collect();
-        quotes.sort_by_key(|q| q.issued_at);
-        for quote in quotes {
-            if quote.chain_id != station.config.chain_id
-                || quote.paymaster != station.config.paymaster
-                || quote.token != station.config.token
-                || quote.key.sponsor != station.signer.address()
-            {
-                return Err(StationError::Conflict);
-            }
-            if journal.state().admissions.values().any(|(admission, key)| {
-                *key == quote.key
-                    && admission.interval != quote.issued_at / station.config.interval_seconds
-            }) {
-                return Err(StationError::Conflict);
-            }
-            let budget = quote.budget_key()?;
-            station
-                .policy
-                .restore_did_usage(budget.as_str(), quote.fees.gas_limit, quote.issued_at)
-                .map_err(|error| StationError::Quote(QuoteError::Policy(error)))?;
-            station
-                .policy
-                .restore_usage(
-                    quote.account,
-                    budget.as_str(),
-                    amount(quote.amount)?,
-                    amount(quote.gas_cost)?,
-                    quote.issued_at,
-                )
-                .map_err(|e| StationError::Quote(QuoteError::Policy(e)))?;
-        }
-        station.policy.reconcile(
-            journal.state().active_pax()?,
-            journal.state().finalized_spend()?,
-        );
+        Self::restore_policy(&mut station, journal.state())?;
         Ok(Self {
             station,
             rpc,
@@ -272,10 +248,115 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
             liability_cursor: None,
         })
     }
+    fn restore_policy(
+        station: &mut Station<S>,
+        state: &crate::journal::State,
+    ) -> Result<(), StationError> {
+        let mut tokens = state.token_usage.clone();
+        let mut gas = state.gas_usage.clone();
+        for item in state.items.values() {
+            let Some(quote) = &item.quote else {
+                continue;
+            };
+            if quote.chain_id != station.config.chain_id
+                || quote.paymaster != station.config.paymaster
+                || quote.token != station.config.token
+                || quote.key.sponsor != station.signer.address()
+                || state.admissions.values().any(|(admission, key)| {
+                    *key == quote.key
+                        && admission.interval != quote.issued_at / station.config.interval_seconds
+                })
+            {
+                return Err(StationError::Conflict);
+            }
+            let budget = quote.budget_key()?;
+            tokens.push(crate::journal::TokenUsage {
+                account: quote.account,
+                did: budget.as_str().to_owned(),
+                amount: amount(quote.amount)?,
+                issued_at: quote.issued_at,
+            });
+            gas.push(crate::journal::GasUsage {
+                did: budget.as_str().to_owned(),
+                gas: quote.fees.gas_limit,
+                issued_at: quote.issued_at,
+            });
+        }
+        tokens.sort_by_key(|usage| usage.issued_at);
+        gas.sort_by_key(|usage| usage.issued_at);
+        for usage in tokens {
+            station
+                .policy
+                .restore_usage(usage.account, &usage.did, usage.amount, 1, usage.issued_at)
+                .map_err(|error| StationError::Quote(QuoteError::Policy(error)))?;
+        }
+        for usage in gas {
+            station
+                .policy
+                .restore_did_usage(&usage.did, usage.gas, usage.issued_at)
+                .map_err(|error| StationError::Quote(QuoteError::Policy(error)))?;
+        }
+        station
+            .policy
+            .reconcile(state.active_pax()?, state.finalized_spend()?);
+        Ok(())
+    }
+
+    pub(crate) fn configure_service(
+        &mut self,
+        config: &crate::config::ServiceConfig,
+    ) -> Result<(), StationError> {
+        config.validate().map_err(|_| StationError::Invalid)?;
+        let gas_limit = self.station.policy.did_budget().gas_limit;
+        let identity = crate::journal::PolicyIdentity::new(
+            &self.station.config,
+            self.station.signer.address(),
+            gas_limit,
+            &config.registered_senders,
+        )?;
+        let expected = crate::journal::PolicyIdentity::new(
+            &config.station,
+            self.station.signer.address(),
+            gas_limit,
+            &config.registered_senders,
+        )?;
+        if identity != expected {
+            return Err(StationError::Conflict);
+        }
+        let mut policy = QuotePolicy::new(&self.station.config)
+            .map_err(|_| StationError::Invalid)?
+            .with_did_budget(DidBudget::new(gas_limit))
+            .with_registered_senders(&config.registered_senders);
+        std::mem::swap(&mut self.station.policy, &mut policy);
+        if let Err(error) = Self::restore_policy(&mut self.station, self.journal.state()) {
+            self.station.policy = policy;
+            return Err(error);
+        }
+        if let Err(error) = self.journal.bind_policy(identity) {
+            self.station.policy = policy;
+            return Err(error.into());
+        }
+        Ok(())
+    }
+
+    /// # Errors
+    /// Refuses an uncertain snapshot write or inconsistent retained accounting.
+    pub fn compact(&mut self) -> Result<(), StationError> {
+        self.journal.compact()?;
+        self.reconcile_policy()
+    }
+
     #[must_use]
     pub const fn journal(&self) -> &Journal {
         &self.journal
     }
+
+    /// The quote policy, including the current per-DID gas budget.
+    #[must_use]
+    pub const fn policy(&self) -> &QuotePolicy {
+        &self.station.policy
+    }
+
     /// # Errors
     /// Refuses an unreachable node or a malformed block.
     pub fn chain_time(&self) -> Result<u64, StationError> {
@@ -746,6 +827,9 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
             sponsor: self.station.signer.address(),
             quote_nonce: request.quote_nonce,
         };
+        if now < self.journal.state().time_high_water || self.journal.retired(key)? {
+            return Err(StationError::Conflict);
+        }
         self.validate_admission(key, request, now, admission)?;
         if let Some(item) = self.journal.state().items.get(&key) {
             if item.account != request.account {

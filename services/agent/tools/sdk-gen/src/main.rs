@@ -29,6 +29,7 @@ struct Model {
     guarantees: Vec<(String, String, String)>,
     compatibility: Compatibility,
     approval: Approval,
+    lifecycle: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -216,6 +217,7 @@ fn read_schema(schema_root: &Path) -> Result<Model, String> {
             node_interface: unquote(required(&root, "compatibility.matrix.node_interface")?)?,
             daemon: unquote(required(&root, "compatibility.matrix.daemon")?)?,
         },
+        lifecycle: lifecycle_metadata(&combined)?,
         approval: Approval {
             states: quoted_list(required(&combined, "type.ApprovalState.variants")?)?,
             outcomes: quoted_list(required(
@@ -345,19 +347,16 @@ fn validate_model(model: &Model) -> Result<(), String> {
 }
 
 fn validate_lifecycle_schema(entries: &BTreeMap<String, String>) -> Result<(), String> {
-    for (operation, request, ordinal) in [
-        ("deploy", "NativeProgramDeployRequest", "1"),
-        ("upgrade", "NativeProgramUpgradeRequest", "2"),
-        ("wind-down", "NativeProgramWindDownRequest", "7"),
+    for (operation, request) in [
+        ("deploy", "NativeProgramDeployRequest"),
+        ("upgrade", "NativeProgramUpgradeRequest"),
+        ("wind-down", "NativeProgramWindDownRequest"),
     ] {
         let prefix = format!("operation.program.{operation}");
         for (field, expected) in [
-            ("method", "POST"),
-            ("path", &format!("/v1/programs/{operation}")),
             ("request", request),
             ("response", "ProgramLifecycleResponse"),
             ("scope", &format!("program:{operation}")),
-            ("content_type", "application/octet-stream"),
         ] {
             if unquote(required(entries, &format!("{prefix}.{field}"))?)? != expected {
                 return Err(format!("invalid lifecycle schema {prefix}.{field}"));
@@ -369,27 +368,130 @@ fn validate_lifecycle_schema(entries: &BTreeMap<String, String>) -> Result<(), S
             ));
         }
         let request = format!("type.{request}");
-        if quoted_list(required(entries, &format!("{request}.required"))?)? != ["signed_activity"]
-            || required(entries, &format!("{request}.protocol_version"))? != "3"
-            || required(entries, &format!("{request}.module_id"))? != "9"
-            || required(entries, &format!("{request}.ordinal"))? != ordinal
-        {
-            return Err(format!("invalid lifecycle request binding {request}"));
+        for (field, expected) in [
+            ("signed_activity", "canonical_signed_EIP1559_transaction_bytes_at_most_1048576"),
+            ("precompile", "0x000000000000000000000000000000000000101d"),
+            ("payload", match operation {
+                "deploy" => "NativeProgramDeploy",
+                "upgrade" => "NativeProgramUpgrade",
+                _ => "NativeProgramWindDown",
+            }),
+            ("identity_binding", "exact_ABI_calldata_signed_by_the_bound_actor_and_HTTP_Idempotency_Key_equals_transaction_hash"),
+        ] {
+            if unquote(required(entries, &format!("{request}.{field}"))?)? != expected {
+                return Err(format!("invalid lifecycle request binding {request}.{field}"));
+            }
+        }
+        if quoted_list(required(entries, &format!("{request}.required"))?)? != ["signed_activity"] {
+            return Err(format!("invalid lifecycle request fields {request}"));
+        }
+        let selectors: &[(&str, &str)] = match operation {
+            "deploy" => &[("selector", "0xbde3ff66")],
+            "upgrade" => &[("selector", "0xa860929f")],
+            _ => &[
+                ("selector_route", "0x23330dd5"),
+                ("selector_deprecate", "0x86ba1a99"),
+                ("selector_tombstone", "0xa512f1a9"),
+                ("selector_exit", "0x4dc50730"),
+            ],
+        };
+        for (field, expected) in selectors {
+            let key = format!("{request}.{field}");
+            if unquote(required(entries, &key)?)? != *expected {
+                return Err(format!("invalid lifecycle call selector {key}"));
+            }
         }
     }
     for name in [
         "NativeProgramDeploy",
         "NativeProgramUpgrade",
         "NativeProgramWindDown",
-        "ProgramLifecycleResultEnvelope",
-        "ProgramLifecycleResult",
-        "ProgramLifecycleUnknown",
-        "ProgramLifecycleErrorEnvelope",
-        "ProgramLifecycleError",
     ] {
         required(entries, &format!("type.{name}.required"))?;
     }
+    for (key, expected) in [
+        (
+            "type.ProgramLifecycleResponse.variants",
+            &["ProgramSubmission"][..],
+        ),
+        (
+            "type.ProgramSubmission.required",
+            &["tx_hash", "submission_ref", "state", "rung"][..],
+        ),
+        (
+            "type.ProgramSubmission.rung",
+            &["submitted", "receipted", "committed"][..],
+        ),
+    ] {
+        if quoted_list(required(entries, key)?)? != expected {
+            return Err(format!("invalid lifecycle schema {key}"));
+        }
+    }
+    for (key, expected) in [
+        (
+            "type.ProgramLifecycleResponse.verification",
+            "achieved_rung_from_the_retained_EIP1559_transaction_progress",
+        ),
+        (
+            "type.ProgramSubmission.tx_hash",
+            "keccak256_of_exact_signed_EIP1559_transaction_bytes",
+        ),
+        ("type.ProgramSubmission.submission_ref", "transaction_hash"),
+        (
+            "type.ProgramSubmission.submitted",
+            "eth_sendRawTransaction_accepted_the_exact_transaction_hash",
+        ),
+        (
+            "type.ProgramSubmission.receipted",
+            "verified_transaction_receipt",
+        ),
+        ("type.ProgramSubmission.committed", "verified_block_commit"),
+        (
+            "type.ProgramSubmission.unknown",
+            "retain_exact_signed_EIP1559_bytes_and_resolve_by_transaction_hash",
+        ),
+    ] {
+        if unquote(required(entries, key)?)? != expected {
+            return Err(format!("invalid lifecycle schema {key}"));
+        }
+    }
     Ok(())
+}
+
+fn lifecycle_metadata(entries: &BTreeMap<String, String>) -> Result<String, String> {
+    let mut operations = Vec::new();
+    for (operation, request) in [
+        ("deploy", "NativeProgramDeployRequest"),
+        ("upgrade", "NativeProgramUpgradeRequest"),
+        ("wind-down", "NativeProgramWindDownRequest"),
+    ] {
+        let prefix = format!("type.{request}.");
+        let selectors = entries
+            .iter()
+            .filter(|(key, _)| {
+                key.strip_prefix(&prefix)
+                    .is_some_and(|field| field == "selector" || field.starts_with("selector_"))
+            })
+            .map(|(_, value)| value.clone())
+            .collect::<Vec<_>>()
+            .join(",");
+        operations.push(format!(
+            "\"program.{operation}\":{{\"precompile\":{},\"selectors\":[{selectors}]}}",
+            required(entries, &format!("{prefix}precompile"))?
+        ));
+    }
+    Ok(format!(
+        "{{\"method\":\"eth_sendRawTransaction\",\"transaction_type\":\"EIP-1559\",\"chain_id\":125,\"operations\":{{{}}},\"rungs\":{{\"submitted\":{},\"receipted\":{},\"committed\":{}}},\"unknown\":{}}}",
+        operations.join(","),
+        required(entries, "type.ProgramSubmission.submitted")?,
+        required(entries, "type.ProgramSubmission.receipted")?,
+        required(entries, "type.ProgramSubmission.committed")?,
+        required(entries, "type.ProgramSubmission.unknown")?,
+    ))
+}
+
+fn lifecycle_bindings(template: &str, model: &Model) -> String {
+    template.replace("{{LIFECYCLE_METADATA}}", &model.lifecycle)
 }
 
 fn integer_bound(rust: &str) -> Result<&'static str, String> {
@@ -529,7 +631,8 @@ export interface ApprovalLifecycleEvent {{
         .replace("{{RUNGS}}", &rungs)
         .replace("{{ERRORS}}", &errors)
         .replace("{{OPERATIONS}}", &operations)
-        .replace("{{APPROVAL}}", &approval))
+        .replace("{{APPROVAL}}", &approval)
+        + &lifecycle_bindings(include_str!("lifecycle.ts.tpl"), model))
 }
 
 fn python(model: &Model) -> Result<String, String> {
@@ -681,7 +784,8 @@ class ApprovalLifecycleEvent:
         .replace("{{RUNGS}}", &rungs)
         .replace("{{ERRORS}}", &errors)
         .replace("{{OPERATIONS}}", &operations)
-        .replace("{{APPROVAL}}", &approval))
+        .replace("{{APPROVAL}}", &approval)
+        + &lifecycle_bindings(include_str!("lifecycle.py.tpl"), model))
 }
 
 fn python_stub(model: &Model) -> Result<String, String> {
@@ -814,7 +918,8 @@ class ApprovalLifecycleEvent:
         .replace("{{RUNGS}}", &rungs)
         .replace("{{ERRORS}}", &errors)
         .replace("{{OPERATIONS}}", &operations)
-        .replace("{{APPROVAL}}", &approval))
+        .replace("{{APPROVAL}}", &approval)
+        + include_str!("lifecycle.pyi.tpl"))
 }
 
 fn guarantees(model: &Model) -> String {
@@ -954,9 +1059,10 @@ pub fn write_programs_golden(schema_root: &Path) -> Result<(), String> {
 fn run() -> Result<(), String> {
     let arguments = env::args().skip(1).collect::<Vec<_>>();
     let mode = arguments.first().map_or("--check", String::as_str);
-    let schema = arguments
-        .get(1)
-        .map_or_else(|| PathBuf::from("services/agent/schema/agent-api"), PathBuf::from);
+    let schema = arguments.get(1).map_or_else(
+        || PathBuf::from("services/agent/schema/agent-api"),
+        PathBuf::from,
+    );
     let output = arguments
         .get(2)
         .map_or_else(|| PathBuf::from("services/agent/sdk"), PathBuf::from);

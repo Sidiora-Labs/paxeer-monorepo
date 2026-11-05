@@ -1,0 +1,43 @@
+[deployment]
+implementation = "NativePaxTokensERC20 with an immutable share-specific delegate boundary installed by CreateShareToken"
+producer = "modules/spot/keeper/shares.go:CreateShareToken -> UpsertERCNativePointer -> installShareBalanceBoundary; native storage, pointer address and bank authorization are retained"
+address = "Dynamic native pointer returned by PECORVault.shareTokens(token); not a fixed spot rail."
+abi = "share.json"
+historical_abi = "share-solidity.json (historical Solidity snapshot only; never used to describe deployed native pointers)"
+constructor = "constructor(string denom_,string name_,string symbol_,uint8 decimals_)"
+erc20 = ["allowance(address,address)", "approve(address,uint256)", "balanceOf(address)", "decimals()", "name()", "symbol()", "totalSupply()", "transfer(address,uint256)", "transferFrom(address,address,uint256)"]
+metadata_getters = ["BankPrecompile()", "ddecimals()", "denom()", "nname()", "ssymbol()"]
+events = ["Approval(address,address,uint256)", "Transfer(address,address,uint256)"]
+refusal = "Unknown selectors, including all five administration selectors below, revert with zero-length returndata for every caller; owner() returns no address. There is no fallback or receive handler."
+authority = "Share mint/burn is performed only by spot keeper MintShares/BurnShares through the spot bank module account, with Transfer logs at the pointer. There is no Solidity ownership authority."
+balance_error = "ERC20InsufficientBalance(address,uint256,uint256) remains frozen at 0xe450d38c. Native transfer/transferFrom execution runs first; only the exact native transfer-failed Error(string) with an insufficient bank balance is translated into sender/balance/needed. Allowance and address error precedence and all other native refusal bytes are preserved."
+
+[interface.3.pc-spotshare-mint]
+signature = "mint(address,uint256)"
+selector = "0x40c10f19"
+status = "unsupported-on-native-share"
+refusal = "EVM execution reverted; empty returndata; no state change for holder, vault or governance. Use keeper MintShares."
+
+[interface.3.pc-spotshare-burn]
+signature = "burn(address,uint256)"
+selector = "0x9dc29fac"
+status = "unsupported-on-native-share"
+refusal = "EVM execution reverted; empty returndata; no state change for holder, vault or governance. Use keeper BurnShares."
+
+[interface.3.pc-spotshare-owner]
+signature = "owner()"
+selector = "0x8da5cb5b"
+status = "unsupported-on-native-share"
+refusal = "EVM execution reverted; empty returndata; no address result for holder, vault or governance."
+
+[interface.3.pc-spotshare-renounceownership]
+signature = "renounceOwnership()"
+selector = "0x715018a6"
+status = "unsupported-on-native-share"
+refusal = "EVM execution reverted; empty returndata; no state change for holder, vault or governance."
+
+[interface.3.pc-spotshare-transferownership]
+signature = "transferOwnership(address)"
+selector = "0xf2fde38b"
+status = "unsupported-on-native-share"
+refusal = "EVM execution reverted; empty returndata; no state change for holder, vault or governance."

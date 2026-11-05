@@ -1,0 +1,7 @@
+[issue.1524]
+number = 1524
+title = "[Coherence] The new standalone sdk/wallet/pnpm-lock.yaml makes the vitest floor pass against a lock no build uses, while the lock that is actually installed still resolves the advised vitest 3.2.7"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Commit 8dc0d37ce04f002d216ab533a297389e013f15d5 raised the wallet workspace lock: services/wallet/pnpm-workspace.yaml:3 includes sdk/wallet, services/wallet/pnpm-lock.yaml:44 resolves its Vitest importer to 4.1.12 and services/wallet/pnpm-lock.yaml:2298 and services/wallet/pnpm-lock.yaml:4340 contain only Vitest 4.1.12 package and snapshot entries, while tools/deps/floors/wallet-services.json:3 directly selects that workspace lock with the Vitest 4.1.11 floor at tools/deps/floors/wallet-services.json:20, bypassing the nearest-lock selection still used by tools/deps/floors/web-sdk-misc.json:20 through tools/deps/lockfloor.py:262 because explicit lock paths return directly at tools/deps/lockfloor.py:242."
+close_comment = "The wallet workspace lock now resolves Vitest 4.1.12 for the wallet SDK and the other workspace packages, above the required 4.1.11 minimum. The wallet dependency floors explicitly check that workspace lock, so its Vitest versions are covered independently of the standalone SDK lock."

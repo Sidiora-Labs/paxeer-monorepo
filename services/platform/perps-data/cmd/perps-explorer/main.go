@@ -19,7 +19,6 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/explorer"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
@@ -29,7 +28,6 @@ import (
 const (
 	clientRequests    = 120
 	clientWindow      = time.Minute
-	maxInFlight       = 10000
 	shutdownTimeout   = 5 * time.Second
 	readHeaderTimeout = 5 * time.Second
 	readOnlyParam     = "default_transaction_read_only"
@@ -44,9 +42,9 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	cfg, err := config.Load(config.Explorer)
+	cfg, err := config.Explorer.Load()
 	if err != nil {
-		return fmt.Errorf("config: %w", err)
+		return err
 	}
 	logger.Info("perps-explorer starting", slog.Any("config", *cfg))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -66,28 +64,25 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if err := ratelimit.Report(logger, metrics.Register); err != nil {
+	if err := ratelimit.Report(logger, metrics.Register, cfg.TrustedProxies); err != nil {
 		return err
 	}
 	srv, err := explorer.NewServer(db, explorer.Options{
-		LinkBase: cfg.ExplorerTxBase,
-		Requests: clientRequests,
-		Window:   clientWindow,
-		Metrics:  metrics,
+		LinkBase:       cfg.ExplorerTxBase,
+		TrustedProxies: cfg.TrustedProxies,
+		Requests:       clientRequests,
+		Window:         clientWindow,
+		Metrics:        metrics,
 	})
 	if err != nil {
 		return err
 	}
 
-	mux := http.NewServeMux()
-	httpx.RegisterHealth(mux, httpx.HealthDeps{Postgres: db.PingContext})
-	mux.Handle("GET /metrics", metrics)
-	mux.Handle("/api/", srv)
 	listener, err := net.Listen("tcp", ":"+strconv.FormatUint(uint64(cfg.Port), 10))
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
-	server := &http.Server{Handler: ratelimit.NewLimiter(maxInFlight).Middleware(mux), ReadHeaderTimeout: readHeaderTimeout}
+	server := &http.Server{Handler: srv.Handler(), ReadHeaderTimeout: readHeaderTimeout}
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- server.Serve(listener) }()
 

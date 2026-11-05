@@ -19,8 +19,9 @@ DEBUG=${DEBUG:-false}
 DB_BACKEND=${DB_BACKEND:-goleveldb}
 
 # --- New env vars for phase gating / multi-instance support ---
-# Final chain data dir. If != ~/.pax, init in ~/.pax then mv.
-PAX_HOME=${PAX_HOME:-"$HOME/.pax"}
+# Dedicated benchmark state; existing state needs an exact-path reset confirmation.
+PAX_HOME=${PAX_HOME-"$HOME/.pax-benchmark"}
+BENCHMARK_RESET_HOME=${BENCHMARK_RESET_HOME-""}
 # Added to all ports (RPC, P2P, pprof, gRPC, etc.)
 PORT_OFFSET=${PORT_OFFSET:-0}
 # Pre-built binary path. If set, skip build + copy to ~/go/bin/paxd.
@@ -78,8 +79,11 @@ echo "Available scenarios in $SCRIPT_DIR/scenarios/:"
 ls -1 "$SCRIPT_DIR"/scenarios/*.json 2>/dev/null | sed 's/^/    /' || echo "    (none found)"
 echo "================================"
 
-# clean up old pax directory
-rm -rf ~/.pax
+# Validate and prepare only the dedicated benchmark directory before initialization.
+PAX_HOME=$(cd "$REPO_ROOT" && go run ./tools/benchmark/home \
+  --home "$PAX_HOME" --user-home "$HOME" --protected "$REPO_ROOT" \
+  --reset "$BENCHMARK_RESET_HOME")
+export PAX_HOME
 echo "Building..."
 
 if [ -n "$PAXD_BIN" ]; then
@@ -118,50 +122,50 @@ else
 fi
 
 # initialize chain with chain ID and add the first key
-"$PAXD" init demo --chain-id pax-chain --overwrite
-"$PAXD" keys add $keyname --keyring-backend test
+"$PAXD" init demo --chain-id pax-chain --home "$PAX_HOME"
+"$PAXD" keys add $keyname --keyring-backend test --home "$PAX_HOME"
 # add the key as a genesis account with massive balances of several different tokens
-"$PAXD" add-genesis-account $("$PAXD" keys show $keyname -a --keyring-backend test) 100000000000000000000uhpx,100000000000000000000uusdc,100000000000000000000uatom --keyring-backend test
+"$PAXD" add-genesis-account $("$PAXD" keys show $keyname -a --keyring-backend test --home "$PAX_HOME") 100000000000000000000uhpx,100000000000000000000uusdc,100000000000000000000uatom --keyring-backend test --home "$PAX_HOME"
 # gentx for account
-"$PAXD" gentx $keyname 7000000000000000uhpx --chain-id pax-chain --keyring-backend test
+"$PAXD" gentx $keyname 7000000000000000uhpx --chain-id pax-chain --keyring-backend test --home "$PAX_HOME"
 # add validator information to genesis file
-KEY=$(jq '.pub_key' ~/.pax/config/priv_validator_key.json -c)
-jq '.validators = [{}]' ~/.pax/config/genesis.json > ~/.pax/config/tmp_genesis.json
-jq '.validators[0] += {"power":"7000000000"}' ~/.pax/config/tmp_genesis.json > ~/.pax/config/tmp_genesis_2.json
-jq '.validators[0] += {"pub_key":'$KEY'}' ~/.pax/config/tmp_genesis_2.json > ~/.pax/config/tmp_genesis_3.json
-mv ~/.pax/config/tmp_genesis_3.json ~/.pax/config/genesis.json && rm ~/.pax/config/tmp_genesis.json && rm ~/.pax/config/tmp_genesis_2.json
+KEY=$(jq '.pub_key' "$PAX_HOME"/config/priv_validator_key.json -c)
+jq '.validators = [{}]' "$PAX_HOME"/config/genesis.json > "$PAX_HOME"/config/tmp_genesis.json
+jq '.validators[0] += {"power":"7000000000"}' "$PAX_HOME"/config/tmp_genesis.json > "$PAX_HOME"/config/tmp_genesis_2.json
+jq '.validators[0] += {"pub_key":'$KEY'}' "$PAX_HOME"/config/tmp_genesis_2.json > "$PAX_HOME"/config/tmp_genesis_3.json
+mv "$PAX_HOME"/config/tmp_genesis_3.json "$PAX_HOME"/config/genesis.json && rm "$PAX_HOME"/config/tmp_genesis.json && rm "$PAX_HOME"/config/tmp_genesis_2.json
 
 echo "Creating Accounts"
 # create 10 test accounts + fund them
-python3  "$REPO_ROOT/tools/benchmark/loadtest/scripts/populate_genesis_accounts.py" 20 loc
+PAXD_BIN="$PAXD" python3  "$REPO_ROOT/tools/benchmark/loadtest/scripts/populate_genesis_accounts.py" 20 loc
 
-"$PAXD" collect-gentxs
+"$PAXD" collect-gentxs --home "$PAX_HOME"
 # update some params in genesis file for easier use of the chain localls (make gov props faster)
-cat ~/.pax/config/genesis.json | jq '.app_state["gov"]["deposit_params"]["max_deposit_period"]="60s"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["gov"]["voting_params"]["voting_period"]="30s"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["gov"]["voting_params"]["expedited_voting_period"]="10s"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["oracle"]["params"]["vote_period"]="2"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["evm"]["params"]["target_gas_used_per_block"]="1000000000000"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["oracle"]["params"]["whitelist"]=[{"name": "ueth"},{"name": "ubtc"},{"name": "uusdc"},{"name": "uusdt"},{"name": "uosmo"},{"name": "uatom"},{"name": "uhpx"}]' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["distribution"]["params"]["community_tax"]="0.000000000000000000"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.consensus_params["block"]["max_gas"]="100000000"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.consensus_params["block"]["min_txs_in_block"]="2"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.consensus_params["block"]["max_gas_wanted"]="150000000"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["staking"]["params"]["max_voting_power_ratio"]="1.000000000000000000"' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq '.app_state["bank"]["denom_metadata"]=[{"denom_units":[{"denom":"uhpx","exponent":0,"aliases":["UHPX"]}],"base":"uhpx","display":"uhpx","name":"UHPX","symbol":"UHPX"}]' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["gov"]["deposit_params"]["max_deposit_period"]="60s"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["gov"]["voting_params"]["voting_period"]="30s"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["gov"]["voting_params"]["expedited_voting_period"]="10s"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["oracle"]["params"]["vote_period"]="2"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["evm"]["params"]["target_gas_used_per_block"]="1000000000000"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["oracle"]["params"]["whitelist"]=[{"name": "ueth"},{"name": "ubtc"},{"name": "uusdc"},{"name": "uusdt"},{"name": "uosmo"},{"name": "uatom"},{"name": "uhpx"}]' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["distribution"]["params"]["community_tax"]="0.000000000000000000"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.consensus_params["block"]["max_gas"]="100000000"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.consensus_params["block"]["min_txs_in_block"]="2"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.consensus_params["block"]["max_gas_wanted"]="150000000"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["staking"]["params"]["max_voting_power_ratio"]="1.000000000000000000"' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq '.app_state["bank"]["denom_metadata"]=[{"denom_units":[{"denom":"uhpx","exponent":0,"aliases":["UHPX"]}],"base":"uhpx","display":"uhpx","name":"UHPX","symbol":"UHPX"}]' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
 
 # Use the Python command to get the dates
 START_DATE=$($PYTHON_CMD -c "from datetime import datetime; print(datetime.now().strftime('%Y-%m-%d'))")
 END_DATE_3DAYS=$($PYTHON_CMD -c "from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d'))")
 END_DATE_5DAYS=$($PYTHON_CMD -c "from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=5)).strftime('%Y-%m-%d'))")
 
-cat ~/.pax/config/genesis.json | jq --arg start_date "$START_DATE" --arg end_date "$END_DATE_3DAYS" '.app_state["mint"]["params"]["token_release_schedule"]=[{"start_date": $start_date, "end_date": $end_date, "token_release_amount": "999999999999"}]' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
-cat ~/.pax/config/genesis.json | jq --arg start_date "$END_DATE_3DAYS" --arg end_date "$END_DATE_5DAYS" '.app_state["mint"]["params"]["token_release_schedule"] += [{"start_date": $start_date, "end_date": $end_date, "token_release_amount": "999999999999"}]' > ~/.pax/config/tmp_genesis.json && mv ~/.pax/config/tmp_genesis.json ~/.pax/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq --arg start_date "$START_DATE" --arg end_date "$END_DATE_3DAYS" '.app_state["mint"]["params"]["token_release_schedule"]=[{"start_date": $start_date, "end_date": $end_date, "token_release_amount": "999999999999"}]' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
+cat "$PAX_HOME"/config/genesis.json | jq --arg start_date "$END_DATE_3DAYS" --arg end_date "$END_DATE_5DAYS" '.app_state["mint"]["params"]["token_release_schedule"] += [{"start_date": $start_date, "end_date": $end_date, "token_release_amount": "999999999999"}]' > "$PAX_HOME"/config/tmp_genesis.json && mv "$PAX_HOME"/config/tmp_genesis.json "$PAX_HOME"/config/genesis.json
 
 if [ ! -z "$2" ]; then
   APP_TOML_PATH="$2"
 else
-  APP_TOML_PATH="$HOME/.pax/config/app.toml"
+  APP_TOML_PATH="$PAX_HOME/config/app.toml"
 fi
 # Enable OCC and PaxDB
 sed -i.bak -e 's/# concurrency-workers = .*/concurrency-workers = 500/' "$APP_TOML_PATH"
@@ -209,13 +213,13 @@ fi
 if [ ! -z "$1" ]; then
   CONFIG_PATH="$1"
 else
-  CONFIG_PATH="$HOME/.pax/config/config.toml"
+  CONFIG_PATH="$PAX_HOME/config/config.toml"
 fi
 
 if [ ! -z "$2" ]; then
   APP_PATH="$2"
 else
-  APP_PATH="$HOME/.pax/config/app.toml"
+  APP_PATH="$PAX_HOME/config/app.toml"
 fi
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -284,13 +288,7 @@ if [ "$PORT_OFFSET" -ne 0 ] 2>/dev/null; then
   fi
 fi
 
-"$PAXD" config keyring-backend test
-
-# If PAX_HOME is not ~/.pax, move the data dir
-if [ "$PAX_HOME" != "$HOME/.pax" ]; then
-  mkdir -p "$(dirname "$PAX_HOME")"
-  mv ~/.pax "$PAX_HOME"
-fi
+"$PAXD" config keyring-backend test --home "$PAX_HOME"
 
 fi # end BENCHMARK_PHASE=init
 
@@ -313,20 +311,24 @@ echo "============================================================"
 echo ""
 
 # Build the paxd command args
-PAXD_ARGS=(start --chain-id pax-chain)
-if [ "$PAX_HOME" != "$HOME/.pax" ]; then
-  PAXD_ARGS+=(--home "$PAX_HOME")
-fi
+PAXD_ARGS=(start --chain-id pax-chain --home "$PAX_HOME")
 
 if [ -n "$LOG_FILE" ]; then
   # Redirect all output to log file
-  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH "$PAXD" "${PAXD_ARGS[@]}" > "$LOG_FILE" 2>&1
+  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH exec "$PAXD" "${PAXD_ARGS[@]}" > "$LOG_FILE" 2>&1
 elif [ "$DEBUG" = true ]; then
   # Debug mode: print all output
-  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH "$PAXD" "${PAXD_ARGS[@]}"
+  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH exec "$PAXD" "${PAXD_ARGS[@]}"
 else
-  # Normal mode: filter to benchmark-related output only
-  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH "$PAXD" "${PAXD_ARGS[@]}" 2>&1 | grep -E "(benchmark|Benchmark|deployed|transitioning)"
+  # Replace the launcher so the node owns its exit status and receives signals.
+  # Filter in a separate reader; matching output must never mask a node failure.
+  BENCHMARK_CONFIG=$BENCHMARK_CONFIG BENCHMARK_TXS_PER_BATCH=$BENCHMARK_TXS_PER_BATCH exec "$PAXD" "${PAXD_ARGS[@]}" > >(
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        *benchmark*|*Benchmark*|*deployed*|*transitioning*) printf '%s\n' "$line" ;;
+      esac
+    done
+  ) 2>&1
 fi
 
 fi # end BENCHMARK_PHASE=start

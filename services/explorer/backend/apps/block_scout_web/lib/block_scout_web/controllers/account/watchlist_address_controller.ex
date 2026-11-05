@@ -5,16 +5,16 @@ defmodule BlockScoutWeb.Account.WatchlistAddressController do
 
   alias Explorer.Account.WatchlistAddress
 
-  import BlockScoutWeb.Account.AuthController, only: [authenticate!: 1]
+  import BlockScoutWeb.Account.AuthController, only: [authenticate: 2]
+
+  plug(:authenticate)
 
   def new(conn, _params) do
-    authenticate!(conn)
-
     render(conn, "form.html", method: :create, watchlist_address: empty_watchlist_address())
   end
 
   def create(conn, %{"watchlist_address" => wa_params}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case WatchlistAddress.create(params_to_attributes(wa_params, current_user.watchlist_id)) do
       {:ok, _watchlist_address} ->
@@ -26,7 +26,7 @@ defmodule BlockScoutWeb.Account.WatchlistAddressController do
   end
 
   def edit(conn, %{"id" => id}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case WatchlistAddress.get_watchlist_address_by_id_and_watchlist_id(id, current_user.watchlist_id) do
       nil ->
@@ -38,7 +38,7 @@ defmodule BlockScoutWeb.Account.WatchlistAddressController do
   end
 
   def update(conn, %{"id" => id, "watchlist_address" => wa_params}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case wa_params
          |> params_to_attributes(current_user.watchlist_id)
@@ -53,7 +53,7 @@ defmodule BlockScoutWeb.Account.WatchlistAddressController do
   end
 
   def delete(conn, %{"id" => id}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     WatchlistAddress.delete(id, current_user.watchlist_id)
 

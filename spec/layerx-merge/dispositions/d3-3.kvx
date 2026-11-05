@@ -1,0 +1,5 @@
+[disposition.3.1.5]
+finding = "3.1.5"
+status = "resolved"
+evidence = "Commit 8fe024ea01787076e158732ca52043598cb51cfa landed the MaxLeverage refusal subtest at modules/perps/keeper/msg_server_market_test.go:199, which expects ErrInvalidParams and unchanged storage for leverage 500, while spec/layerx-merge/spec.kvx:114953 explicitly excludes MaxLeverage from mutable settings to match Market.Validate."
+follow_up = "closure"

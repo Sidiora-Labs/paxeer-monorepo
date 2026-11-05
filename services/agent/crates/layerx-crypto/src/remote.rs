@@ -12,7 +12,8 @@ use openssl::ssl::{HandshakeError, SslConnector, SslFiletype, SslMethod, SslVeri
 use crate::ed25519;
 use crate::evm_transaction::Eip1559Call;
 use crate::signer::{
-    DidSignature, SignError, SignFuture, Signer, SigningRequest, TransactionSignFuture,
+    BindMessage, BindSigner, DidSignature, SignError, SignFuture, Signer, SigningRequest,
+    TransactionSignFuture,
 };
 
 const REQUEST_MAGIC: &[u8; 4] = b"LXRS";
@@ -119,8 +120,7 @@ impl RemoteSigner {
         })
     }
 
-    fn sign_once(&self, request: SigningRequest<'_>) -> Result<DidSignature, SignRefusal> {
-        let body = encode_request(request)?;
+    fn exchange(&self, body: &[u8]) -> Result<[u8; 64], SignRefusal> {
         let stream = TcpStream::connect_timeout(&self.endpoint, self.timeout)
             .map_err(|error| io_refusal(&error))?;
         stream
@@ -135,9 +135,17 @@ impl RemoteSigner {
         tls.write_all(&length.to_be_bytes())
             .and_then(|()| tls.write_all(&body))
             .map_err(|error| io_refusal(&error))?;
-        let response = read_response(&mut tls)?;
-        ed25519::verify(&self.public_key, &response, request.message())
-            .map_err(|_| SignRefusal::InvalidSignature)?;
+        read_response(&mut tls)
+    }
+
+    fn sign_once(&self, request: SigningRequest<'_>) -> Result<DidSignature, SignRefusal> {
+        let response = self.exchange(&encode_request(request)?)?;
+        ed25519::verify_message(
+            &self.public_key,
+            &response,
+            &request.signing_bytes().map_err(|_| SignRefusal::Refused)?,
+        )
+        .map_err(|_| SignRefusal::InvalidSignature)?;
         Ok(DidSignature::new(response))
     }
 }
@@ -145,6 +153,19 @@ impl RemoteSigner {
 impl fmt::Debug for RemoteSigner {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("RemoteSigner([mutually authenticated endpoint])")
+    }
+}
+
+impl BindSigner for RemoteSigner {
+    fn sign_bind<'a>(&'a self, message: &'a BindMessage) -> SignFuture<'a> {
+        Box::pin(async move {
+            let mut body = b"LXRS\0\x02\x01".to_vec();
+            body.extend_from_slice(message.as_bytes());
+            let response = self.exchange(&body).map_err(SignError::from)?;
+            ed25519::verify_message(&self.public_key, &response, message.as_bytes())
+                .map_err(|_| SignError::ReturnedSignatureInvalid)?;
+            Ok(DidSignature::new(response))
+        })
     }
 }
 
@@ -166,8 +187,22 @@ impl Signer for RemoteSigner {
     }
 }
 
+/// Decodes the v2 retained-bind request body after the bounded length frame.
+/// Refuses v1 activity requests, unknown kinds, truncation and trailing bytes.
+pub fn decode_bind_request(body: &[u8]) -> Result<BindMessage, SignRefusal> {
+    if body.get(..7) != Some(b"LXRS\0\x02\x01".as_slice()) {
+        return Err(SignRefusal::MalformedResponse);
+    }
+    BindMessage::decode(&body[7..]).map_err(|_| SignRefusal::MalformedResponse)
+}
+
 fn encode_request(request: SigningRequest<'_>) -> Result<Vec<u8>, SignRefusal> {
-    let message = request.message();
+    // Protocol v1 transports scoped payer digests only. Raw bind consent needs
+    // a separately versioned peer contract and is explicitly refused here.
+    request
+        .external_signing_bytes()
+        .map_err(|_| SignRefusal::Refused)?;
+    let message = request.message().ok_or(SignRefusal::Refused)?;
     let canonical = message.canonical();
     let disclosure = request
         .disclosure()

@@ -11,48 +11,62 @@ const NftImage = ({ src, srcSet, onLoad, onError, transport, onClick, ...rest }:
   const ref = React.useRef<HTMLImageElement>(null);
   const [ isLoaded, setIsLoaded ] = React.useState(false);
 
-  const handleLoad = React.useCallback(() => {
-    setIsLoaded(true);
-    onLoad?.();
-  }, [ onLoad ]);
-
   const loadImageViaIpfs = useLoadImageViaIpfs();
 
-  const loadViaHttp = React.useCallback(async() => {
-    if (!ref.current) {
+  React.useEffect(() => {
+    const image = ref.current;
+    if (!image) {
       return;
     }
 
-    ref.current.src = src;
-    srcSet && (ref.current.srcset = srcSet);
-    ref.current.onload = handleLoad;
-    onError && (ref.current.onerror = onError);
-  }, [ src, srcSet, handleLoad, onError ]);
+    const controller = new AbortController();
+    setIsLoaded(false);
 
-  const loadViaIpfs = React.useCallback(() => {
-    loadImageViaIpfs(src)
-      .then((src) => {
-        if (src && ref.current) {
-          ref.current.src = src;
-          handleLoad();
-        }
-      })
-      .catch(onError);
-  }, [ handleLoad, loadImageViaIpfs, onError, src ]);
+    const handleLoad = () => {
+      if (!controller.signal.aborted) {
+        setIsLoaded(true);
+        onLoad?.();
+      }
+    };
+    const handleError = () => {
+      if (!controller.signal.aborted) {
+        onError?.();
+      }
+    };
 
-  React.useEffect(() => {
     switch (transport) {
-      case 'ipfs':
-        loadViaIpfs();
+      case 'ipfs': {
+        loadImageViaIpfs(src, controller.signal)
+          .then((objectUrl) => {
+            if (!controller.signal.aborted) {
+              image.src = objectUrl;
+              handleLoad();
+            }
+          })
+          .catch(handleError);
         break;
-      case 'http':
-        loadViaHttp();
+      }
+      case 'http': {
+        image.onload = handleLoad;
+        image.onerror = handleError;
+        image.srcset = srcSet || '';
+        image.src = src;
         break;
+      }
     }
-  }, [ loadViaHttp, loadViaIpfs, transport ]);
+
+    return () => {
+      controller.abort();
+      image.onload = null;
+      image.onerror = null;
+      image.removeAttribute('src');
+      image.removeAttribute('srcset');
+    };
+  }, [ loadImageViaIpfs, onError, onLoad, src, srcSet, transport ]);
 
   return (
     <Image
+      key={ `${ transport }:${ src }` }
       ref={ ref }
       w="100%"
       h="100%"

@@ -2,6 +2,7 @@
 #define LAYERX_LXP_RESULT_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #define lxp_result int32_t
@@ -25,6 +26,10 @@ typedef enum lxp_result_domain_id {
 /*
  * Result numbers are embedded in canonical receipts and are consensus data.
  * Renumbering any value is a protocol-version change, never a refactor.
+ * Service arbitration results -737..-739 cross into LXPCodeName/LXPRevert
+ * in precompiles/common/lxp_errors.go and layerx_sdk.revert in Python.
+ * They are terminal refusals, not retryable transport failures.
+ * -804 is permanently reserved (retired DA-missing result).
  */
 #define LXP_RESULT_CODE_LIST(X) \
     X(LXP_OK, 0) \
@@ -139,11 +144,13 @@ typedef enum lxp_result_domain_id {
     X(LXP_ERR_PARAMETER_BOUNDS, -734) \
     X(LXP_ERR_PAUSED_SCOPE, -735) \
     X(LXP_ERR_PROGRAM_REFUSED, -736) \
+    X(LXP_ERR_ARBITER_REQUIRED, -737) \
+    X(LXP_ERR_UNAUTHORIZED_ARBITER, -738) \
+    X(LXP_ERR_ESCROW_LINK_MISMATCH, -739) \
     X(LXP_ERR_BATCH_GAP, -800) \
     X(LXP_ERR_ROOT_MISMATCH, -801) \
     X(LXP_ERR_TIMESTAMP_REGRESSION, -802) \
     X(LXP_ERR_ATTESTATION_THRESHOLD, -803) \
-    X(LXP_ERR_DA_MISSING, -804) \
     X(LXP_ERR_EQUIVOCATION, -805) \
     X(LXP_ERR_LOG_CORRUPT, -900) \
     X(LXP_ERR_LOG_TRUNCATED, -901) \
@@ -162,6 +169,15 @@ LXP_RESULT_CODE_LIST(LXP_DECLARE_RESULT)
 
 const char *lxp_result_name(lxp_result result);
 lxp_result_domain_id lxp_result_domain(lxp_result result);
+/* Membership is exact: unused numbers within a result domain are refused. */
+bool lxp_result_is_registered(lxp_result result);
 bool lxp_result_is_fatal(lxp_result result);
+/* The process-local, immutable registry follows LXP_RESULT_CODE_LIST order. */
+size_t lxp_result_registry_count(void);
+/* On success, both outputs are written; name has static storage duration.
+ * An index at or past count returns LXP_ERR_UNKNOWN_FIELD, checked before
+ * NULL outputs (LXP_ERR_NON_CANONICAL). Failure leaves outputs unchanged. */
+lxp_result lxp_result_registry_at(size_t index, lxp_result *value,
+                                  const char **name);
 
 #endif

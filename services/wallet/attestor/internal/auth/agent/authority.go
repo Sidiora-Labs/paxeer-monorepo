@@ -24,7 +24,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var ErrAuthority = errors.New("custody authority unavailable or refused")
@@ -39,6 +41,7 @@ type AuthorityConfig struct {
 	Tenant        string
 	Store         *store.Store
 	ChainID       uint64
+	Paymaster     common.Address
 }
 
 type SignedClaims struct {
@@ -424,98 +427,134 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 	if p.Frozen || p.Policy.Mode == "read_only" {
 		return ErrFrozen
 	}
-	if kind == policy.KindPersonalMessage || kind == policy.KindTypedData {
+	var value *big.Int
+	var destination *common.Address
+	var data []byte
+	var chainID *big.Int
+	var signingDigest common.Hash
+	var permits []policy.Spend
+	switch kind {
+	case policy.KindTypedData:
+		typed, ok := view.(*evm.TypedData)
+		if !ok || typed == nil {
+			return ErrAuthority
+		}
+		inspection, err := policy.InspectTypedData(policy.Context{ChainID: new(big.Int).SetUint64(a.config.ChainID)}, typed)
+		if err != nil {
+			return ErrAuthority
+		}
+		verifier := common.HexToAddress(typed.Data.Domain.VerifyingContract)
+		value, destination = new(big.Int), &verifier
+		chainID, signingDigest = new(big.Int).SetUint64(a.config.ChainID), typed.Digest
+		permits = inspection.Spends
+	case policy.KindPersonalMessage:
+		message, ok := view.(*evm.PersonalMessage)
+		if !ok || message == nil || message.Message == nil || evm.PersonalDigest(message.Message) != message.Digest {
+			return ErrAuthority
+		}
+		if p.Policy.Mode != "full" || p.Policy.WithdrawalOnly {
+			return ErrAuthority
+		}
+		for _, rule := range p.Rules {
+			if rule.Effect == "deny" || (rule.Effect == "allow" && rule.Subject == "token" && rule.MaxValue != nil) {
+				return ErrAuthority
+			}
+		}
+		value = new(big.Int)
+		chainID, signingDigest = new(big.Int).SetUint64(a.config.ChainID), message.Digest
+	case policy.KindSponsoredBatch:
+		claim, ok := view.(*evm.SponsoredBatchClaim)
+		if !ok || claim == nil || a.config.Store == nil {
+			return ErrAuthority
+		}
+		record, err := a.config.Store.Get(keyID)
+		if err != nil || record.Curve != store.CurveSecp256k1 {
+			return ErrAuthority
+		}
+		var publicKey *ecdsa.PublicKey
+		if len(record.PublicKey) == 33 {
+			publicKey, err = crypto.DecompressPubkey(record.PublicKey)
+		} else {
+			publicKey, err = crypto.UnmarshalPubkey(record.PublicKey)
+		}
+		if err != nil || claim.Batch.Account != crypto.PubkeyToAddress(*publicKey) {
+			return ErrAuthority
+		}
+		bind, _ := evm.PrecompileAddress("addr")
+		bindABI, err := evm.PrecompileABI("addr")
+		if err != nil {
+			return ErrAuthority
+		}
+		selector := bindABI.Methods["bindLayerX"].ID
+		for _, call := range claim.Batch.Calls {
+			if call.To != bind || call.Value == nil || call.Value.Sign() != 0 || len(call.Data) < 4 || !bytes.Equal(call.Data[:4], selector) {
+				return ErrAuthority
+			}
+		}
+		quote := claim.Batch.Quote
+		maxTx, err := amount256(p.Policy.MaxTx)
+		if err != nil || quote.MaxTokenAmount == nil || quote.TokenAmount == nil || quote.TokenAmount.Cmp(quote.MaxTokenAmount) > 0 || quote.MaxTokenAmount.Cmp(maxTx) > 0 {
+			return ErrAuthority
+		}
+		batchPolicy := policy.New(&policy.Document{Version: policy.Version, Defaults: policy.Rules{
+			ChainID:       &a.config.ChainID,
+			Kinds:         []string{policy.KindSponsoredBatch},
+			RatePerMinute: &p.Policy.Rate,
+			Selectors:     map[string][]string{bind.Hex(): {"0x" + hex.EncodeToString(selector)}},
+			Caps:          map[string]policy.Cap{policy.TokenAsset(quote.Token): {PerTransaction: p.Policy.MaxTx, Daily: p.Policy.MaxDaily}},
+		}})
+		if !batchPolicy.Evaluate(claim.Batch.Account.Hex(), policy.Request{Kind: kind, View: claim}, policy.NewMemoryLedger(time.Now)).Allowed {
+			return ErrAuthority
+		}
+		value, destination, data = quote.TokenAmount, &bind, claim.Batch.Calls[0].Data
+		chainID, signingDigest = claim.Batch.ChainID, claim.ClaimedDigest
+	case policy.KindAuthorization:
+		claim, ok := view.(*evm.AuthorizationClaim)
+		if !ok || claim == nil || a.config.Paymaster == (common.Address{}) || claim.Address != a.config.Paymaster || claim.ChainID == nil || claim.ChainID.Cmp(new(big.Int).SetUint64(a.config.ChainID)) != 0 {
+			return ErrAuthority
+		}
+		if _, err := claim.Verify(); err != nil {
+			return ErrAuthority
+		}
 		return nil
-	}
-	tx, ok := view.(*evm.Transaction)
-	if !ok || tx == nil || kind != policy.KindEVMTransaction {
+	case policy.KindEVMTransaction:
+		tx, ok := view.(*evm.Transaction)
+		if !ok || tx == nil || len(tx.Authorizations) != 0 {
+			return ErrAuthority
+		}
+		value, destination, data = tx.Value, tx.To, tx.Data
+		chainID, signingDigest = tx.ChainID, tx.SigningDigest
+	default:
 		return ErrAuthority
 	}
-	if len(tx.Authorizations) != 0 {
-		return ErrAuthority
-	}
-	value := tx.Value
 	if value == nil || value.Sign() < 0 {
 		return ErrAuthority
 	}
-	var to, selector, token, recipient string
-	var tokenAmount *big.Int
-	approve := false
-	if tx.To == nil {
-		if p.Policy.Mode != "full" {
-			return ErrAuthority
-		}
-	} else {
-		to = strings.ToLower(tx.To.Hex())
-		if len(tx.Data) > 0 && len(tx.Data) < 4 {
-			return ErrAuthority
-		}
-		if len(tx.Data) >= 4 {
-			selector = "0x" + hex.EncodeToString(tx.Data[:4])
-		}
-		if selector == "0x095ea7b3" || selector == "0xa9059cbb" || selector == "0x23b872dd" {
-			call, err := evm.DecodeCalldata(*tx.To, tx.Data)
-			if err != nil || call.Kind != evm.CallERC20 {
+	to := ""
+	if destination != nil {
+		to = strings.ToLower(destination.Hex())
+	}
+	if permits != nil {
+		totals := make(map[string]*big.Int)
+		for _, spend := range permits {
+			if spend.Spender == nil || spend.Amount == nil || !common.IsHexAddress(spend.Asset) {
 				return ErrAuthority
 			}
-			arg := "to"
-			if selector == "0x095ea7b3" {
-				arg = "spender"
-				approve = true
+			if totals[spend.Asset] == nil {
+				totals[spend.Asset] = new(big.Int)
 			}
-			address, ok := call.Args[arg].(common.Address)
-			if !ok {
-				return ErrAuthority
-			}
-			recipient = strings.ToLower(address.Hex())
-			tokenAmount, ok = call.Args["value"].(*big.Int)
-			if !ok {
-				return ErrAuthority
-			}
-			token = to
+			totals[spend.Asset].Add(totals[spend.Asset], spend.Amount)
 		}
-	}
-	allowedContract := false
-	hasAllowedContract := false
-	allowedWithdrawal := false
-	withdrawal := recipient
-	if value.Sign() > 0 && len(tx.Data) == 0 {
-		withdrawal = to
-	}
-	for _, r := range p.Rules {
-		if r.Effect == "deny" && ((r.Subject == "contract" && r.Value == to) || (r.Subject == "selector" && r.Value == selector) || (r.Subject == "token" && r.Value == token) || (r.Subject == "address" && (r.Value == recipient || r.Value == withdrawal))) {
-			return ErrAuthority
-		}
-		if r.Effect == "allow" && r.Subject == "contract" {
-			hasAllowedContract = true
-			allowedContract = allowedContract || r.Value == to
-		}
-		if r.Effect == "allow" && r.Subject == "withdrawal" && r.Value == withdrawal {
-			allowedWithdrawal = true
-		}
-		if r.Effect == "allow" && r.Subject == "token" && r.Value == token && r.MaxValue != nil && tokenAmount != nil {
-			cap, _ := amount256(*r.MaxValue)
-			if tokenAmount.Cmp(cap) > 0 {
-				return ErrAuthority
+		for _, spend := range permits {
+			if err := checkAgentSpend(p, to, "0x095ea7b3", strings.ToLower(spend.Asset), strings.ToLower(spend.Spender.Hex()), value, totals[spend.Asset], true, false); err != nil {
+				return err
 			}
 		}
+	} else if err := checkAgentCallSpend(p, destination, data, value, 0); err != nil {
+		return err
 	}
-	if p.Policy.Mode == "trade_only" && hasAllowedContract && !allowedContract {
-		return ErrAuthority
-	}
-	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal {
-		return ErrAuthority
-	}
-	if value.Sign() > 0 && len(tx.Data) == 0 && !p.Policy.AllowNative {
-		return ErrAuthority
-	}
-	if approve {
-		cap, _ := amount256(p.Policy.MaxApprove)
-		if tokenAmount.Cmp(cap) > 0 {
-			return ErrAuthority
-		}
-	}
-	digest := tx.SigningDigest.Hex()
+
+	digest := signingDigest.Hex()
 	now := time.Now()
 	start := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), p.Policy.ResetHour, 0, 0, 0, time.UTC)
 	if start.After(now) {
@@ -532,11 +571,11 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 		if err != nil {
 			return ErrAuthority
 		}
-		granted, err := evm.DecodeTransaction(raw, tx.ChainID)
+		granted, err := evm.DecodeTransaction(raw, chainID)
 		if err != nil {
 			return ErrAuthority
 		}
-		if granted.SigningDigest == tx.SigningDigest && reservation.Value == value.String() {
+		if granted.SigningDigest == signingDigest && reservation.Value == value.String() {
 			binding = &p.Reservations[n]
 		}
 	}
@@ -545,20 +584,26 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 		if raw != nil && strictJSON(raw, &entries) != nil {
 			return nil, ErrAuthority
 		}
-		kept := make([]policyReservation, 0, len(entries)+1)
-		spent, _ := amount256(p.LegacySpent)
-		requests := p.LegacyRecent
-		unaccounted := map[string]*big.Int{}
 		already := false
 		for _, e := range entries {
 			if e.Request == requestID && e.Digest != digest {
 				return nil, ErrAuthority
 			}
 			if e.Digest == digest {
+				if e.Value != value.String() {
+					return nil, ErrAuthority
+				}
 				already = true
-				kept = append(kept, e)
-				continue
 			}
+		}
+		if already {
+			return append([]byte(nil), raw...), nil
+		}
+		kept := make([]policyReservation, 0, len(entries)+1)
+		spent, _ := amount256(p.LegacySpent)
+		requests := p.LegacyRecent
+		unaccounted := map[string]*big.Int{}
+		for _, e := range entries {
 			if e.At < now.Add(-24*time.Hour).Unix() {
 				continue
 			}
@@ -613,12 +658,187 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 				return nil, ErrAuthority
 			}
 		}
-		if already {
-			return append([]byte(nil), raw...), nil
-		}
 		kept = append(kept, policyReservation{Request: requestID, Digest: digest, At: now.Unix(), Value: value.String(), Budget: budgetID, Reservation: reservationID})
 		return json.Marshal(kept)
 	})
+}
+
+// These input ABIs match the served scheduler and streams contracts. Unknown
+// or noncanonical calls cannot grant authority, including through scheduled jobs.
+const agentSchedulerABI = `[
+ {"type":"function","name":"schedule","inputs":[{"name":"target","type":"address"},{"name":"callData","type":"bytes"},{"name":"executeAtBlock","type":"uint64"},{"name":"gasLimit","type":"uint64"}]},
+ {"type":"function","name":"cancel","inputs":[{"name":"jobId","type":"uint256"}]},
+ {"type":"function","name":"reschedule","inputs":[{"name":"jobId","type":"uint256"},{"name":"newBlock","type":"uint64"}]},
+ {"type":"function","name":"getJob","inputs":[{"name":"jobId","type":"uint256"}]},
+ {"type":"function","name":"pending","inputs":[{"name":"creator","type":"address"}]}
+]`
+const agentStreamsABI = `[
+ {"type":"function","name":"open","inputs":[{"name":"payee","type":"address"},{"name":"token","type":"address"},{"name":"ratePerSecond","type":"uint256"},{"name":"startTime","type":"uint64"},{"name":"stopTime","type":"uint64"},{"name":"cap","type":"uint256"}]},
+ {"type":"function","name":"settle","inputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"close","inputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"updateRate","inputs":[{"name":"streamId","type":"uint256"},{"name":"newRate","type":"uint256"}]},
+ {"type":"function","name":"accrued","inputs":[{"name":"streamId","type":"uint256"}]},
+ {"type":"function","name":"getStream","inputs":[{"name":"streamId","type":"uint256"}]}
+]`
+
+var loadAgentPrecompileABIs = sync.OnceValues(func() (map[common.Address]abi.ABI, error) {
+	contracts := make(map[common.Address]abi.ABI)
+	for address, source := range map[string]string{
+		"0x0000000000000000000000000000000000000905": agentSchedulerABI,
+		"0x0000000000000000000000000000000000000906": agentStreamsABI,
+	} {
+		parsed, err := abi.JSON(strings.NewReader(source))
+		if err != nil {
+			return nil, err
+		}
+		contracts[common.HexToAddress(address)] = parsed
+	}
+	return contracts, nil
+})
+
+func checkAgentCallSpend(p AuthorityPrincipal, destination *common.Address, data []byte, value *big.Int, depth int) error {
+	if destination == nil {
+		if p.Policy.Mode != "full" {
+			return ErrAuthority
+		}
+		return nil
+	}
+	to := strings.ToLower(destination.Hex())
+	selector, token, recipient := "", "", ""
+	var tokenAmount *big.Int
+	approve := false
+	contracts, err := loadAgentPrecompileABIs()
+	if err != nil {
+		return ErrAuthority
+	}
+	if contract, found := contracts[*destination]; found {
+		if depth >= 16 || len(data) < 4 {
+			return ErrAuthority
+		}
+		method, err := contract.MethodById(data[:4])
+		if err != nil {
+			return ErrAuthority
+		}
+		args, err := method.Inputs.Unpack(data[4:])
+		if err != nil {
+			return ErrAuthority
+		}
+		canonical, err := method.Inputs.Pack(args...)
+		if err != nil || !bytes.Equal(canonical, data[4:]) {
+			return ErrAuthority
+		}
+		selector = "0x" + hex.EncodeToString(data[:4])
+		switch method.Name {
+		case "schedule":
+			target, ok := args[0].(common.Address)
+			if !ok {
+				return ErrAuthority
+			}
+			nested, ok := args[1].([]byte)
+			if !ok {
+				return ErrAuthority
+			}
+			if err := checkAgentSpend(p, to, selector, "", strings.ToLower(target.Hex()), value, nil, false, false); err != nil {
+				return err
+			}
+			return checkAgentCallSpend(p, &target, nested, new(big.Int), depth+1)
+		case "open":
+			payee, ok := args[0].(common.Address)
+			if !ok {
+				return ErrAuthority
+			}
+			asset, ok := args[1].(common.Address)
+			if !ok {
+				return ErrAuthority
+			}
+			cap, ok := args[5].(*big.Int)
+			if !ok || cap.Sign() == 0 {
+				return ErrAuthority
+			}
+			return checkAgentSpend(p, to, selector, strings.ToLower(asset.Hex()), strings.ToLower(payee.Hex()), value, cap, false, false)
+		case "reschedule", "settle", "close", "updateRate":
+			// IDs alone do not prove the current destination, payee or token cap.
+			return ErrAuthority
+		default:
+			return checkAgentSpend(p, to, selector, "", "", value, nil, false, false)
+		}
+	}
+	if len(data) > 0 && len(data) < 4 {
+		return ErrAuthority
+	}
+	if len(data) >= 4 {
+		selector = "0x" + hex.EncodeToString(data[:4])
+	}
+	if selector == "0x095ea7b3" || selector == "0xa9059cbb" || selector == "0x23b872dd" {
+		call, err := evm.DecodeCalldata(*destination, data)
+		if err != nil || call.Kind != evm.CallERC20 {
+			return ErrAuthority
+		}
+		arg := "to"
+		if selector == "0x095ea7b3" {
+			arg, approve = "spender", true
+		}
+		address, ok := call.Args[arg].(common.Address)
+		if !ok {
+			return ErrAuthority
+		}
+		tokenAmount, ok = call.Args["value"].(*big.Int)
+		if !ok {
+			return ErrAuthority
+		}
+		recipient, token = strings.ToLower(address.Hex()), to
+	} else if depth > 0 {
+		// Known opaque movers cannot hide inside a scheduled call.
+		switch selector {
+		case "0xac9650d8", "0x5ae401dc", "0x39509351", "0x3177029f", "0xcae9ca51", "0xa22cb465", "0x1296ee62", "0x4000aea0", "0x42842e0e", "0xb88d4fde", "0xf242432a", "0x2eb2c2d6":
+			return ErrAuthority
+		}
+	}
+	return checkAgentSpend(p, to, selector, token, recipient, value, tokenAmount, approve, len(data) == 0)
+}
+
+func checkAgentSpend(p AuthorityPrincipal, to, selector, token, recipient string, value, tokenAmount *big.Int, approve, native bool) error {
+	allowedContract := false
+	hasAllowedContract := false
+	allowedWithdrawal := false
+	withdrawal := recipient
+	if value.Sign() > 0 && native {
+		withdrawal = to
+	}
+	for _, r := range p.Rules {
+		if r.Effect == "deny" && ((r.Subject == "contract" && r.Value == to) || (r.Subject == "selector" && r.Value == selector) || (r.Subject == "token" && r.Value == token) || (r.Subject == "address" && (r.Value == recipient || r.Value == withdrawal)) || (r.Subject == "withdrawal" && r.Value == withdrawal)) {
+			return ErrAuthority
+		}
+		if r.Effect == "allow" && r.Subject == "contract" {
+			hasAllowedContract = true
+			allowedContract = allowedContract || r.Value == to
+		}
+		if r.Effect == "allow" && r.Subject == "withdrawal" && r.Value == withdrawal {
+			allowedWithdrawal = true
+		}
+		if r.Effect == "allow" && r.Subject == "token" && r.Value == token && r.MaxValue != nil && tokenAmount != nil {
+			cap, _ := amount256(*r.MaxValue)
+			if tokenAmount.Cmp(cap) > 0 {
+				return ErrAuthority
+			}
+		}
+	}
+	if p.Policy.Mode == "trade_only" && hasAllowedContract && !allowedContract {
+		return ErrAuthority
+	}
+	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal {
+		return ErrAuthority
+	}
+	if value.Sign() > 0 && native && !p.Policy.AllowNative {
+		return ErrAuthority
+	}
+	if approve {
+		cap, _ := amount256(p.Policy.MaxApprove)
+		if tokenAmount.Cmp(cap) > 0 {
+			return ErrAuthority
+		}
+	}
+	return nil
 }
 
 func (a *Authority) Ready() error {

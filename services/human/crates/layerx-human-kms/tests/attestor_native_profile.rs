@@ -1,3 +1,7 @@
+#[path = "support/attestor_cluster.rs"]
+mod attestor_cluster;
+
+use attestor_cluster::{ClockAuthority, StepClock};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_agent_api::identity::{NativeLocalGrantConsentV1, NativePreparationPurposeV1};
@@ -16,7 +20,7 @@ use layerx_human_service::store::{
     AgentTenantId, PrincipalId, PrincipalStore, RetentionPeriod, RetentionPolicy, TenancyMap,
 };
 use layerx_human_service::trace::TraceId;
-use layerx_types::payload::ModuleRegistry;
+use layerx_types::clock::{Clock, Deadline};
 use serde::Deserialize;
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -30,9 +34,24 @@ use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChainSnapshot {
+    chain_id: u32,
+}
+
+impl ChainSnapshot {
+    fn native_registry(&self) -> Result<layerx_types::payload::ModuleRegistry> {
+        if self.chain_id != 125 {
+            return Err("native profile chain id refused".into());
+        }
+        layerx_types::payload::ModuleRegistry::new(&[]).map_err(|error| format!("{error:?}").into())
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -93,10 +112,10 @@ fn write_private(path: &Path, value: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-fn wait(path: &Path) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(120);
+fn wait(path: &Path, clock: &dyn Clock) -> Result<()> {
+    let mut deadline = Deadline::start(clock, Duration::from_secs(120))?;
     while !path.exists() {
-        if Instant::now() >= deadline {
+        if deadline.remaining(clock)?.is_zero() {
             return Err("actual provider authority handshake deadline".into());
         }
         std::thread::sleep(Duration::from_millis(20));
@@ -205,17 +224,77 @@ impl Drop for Authenticator {
     }
 }
 
-fn current_time() -> Result<u64> {
-    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+fn current_time(clock: &dyn Clock) -> Result<u64> {
+    Ok(clock.sample(Duration::from_secs(1))?.unix_seconds())
+}
+
+fn run_native_cluster() -> Result<()> {
+    if std::env::var_os("LAYERX_NATIVE_PROFILE_CLUSTER_PARENT").is_some() {
+        return Err("native cluster did not supply its live fixture".into());
+    }
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../services/wallet/attestor");
+    eprintln!("starting the real native custody cluster and Rust provider handshake");
+    let clock = StepClock::new()?;
+    let authority = ClockAuthority::start(clock)?;
+    let output = Command::new("go")
+        .current_dir(source)
+        .args([
+            "test",
+            "-mod=readonly",
+            "-count=1",
+            "-run=^TestNativeCustodyRealProfiles$",
+            "-v",
+            "-timeout=5m",
+            "./internal/server",
+        ])
+        .env(
+            "PAXEER_X_NATIVE_CUSTODY_RUST_TEST",
+            std::env::current_exe()?,
+        )
+        .env("LAYERX_NATIVE_PROFILE_CLUSTER_PARENT", "1")
+        .env("LAYERX_RUNTIME_CLOCK_SOCKET", &authority.socket)
+        .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
+        .env(
+            "LAYERX_RUNTIME_CLOCK_UID",
+            rustix::process::geteuid().as_raw().to_string(),
+        )
+        .stdin(Stdio::null())
+        .output()?;
+    let stdout = String::from_utf8(output.stdout)?;
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(
+        output.status.success(),
+        "real native custody cluster failed ({}):\n{stdout}\n{stderr}",
+        output.status
+    );
+    for evidence in [
+        "--- PASS: TestNativeCustodyRealProfiles",
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out",
+        "native custody genuine passkey issuance and grant consent verified",
+        "native custody principal digest forgery ceremony-replay and consumed-evidence refusals verified",
+        "native custody real provider handshake complete",
+    ] {
+        assert!(stdout.contains(evidence), "missing native evidence {evidence}:\n{stdout}");
+    }
+    assert!(
+        !stdout.contains("SKIP"),
+        "native profile was skipped:\n{stdout}"
+    );
+    print!("{stdout}");
+    Ok(())
 }
 
 #[test]
 fn native_provider_and_sdk_real_cluster() -> Result<()> {
-    let path = std::env::var("PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE")?;
+    let snapshot: ChainSnapshot = serde_json::from_slice(br#"{"chain_id":125}"#)?;
+    let Some(path) = std::env::var_os("PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE") else {
+        return run_native_cluster();
+    };
     let fixture: Fixture = serde_json::from_slice(&read_private(Path::new(&path))?)?;
     if fixture.schema != "layerx-human-native-custody-live.v1" {
         return Err("closed genuine live fixture profile".into());
     }
+    let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
     let directory = Path::new(&fixture.directory);
     let nodes: Vec<_> = fixture
         .nodes
@@ -236,7 +315,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     let key = KeyId::new("primary")?;
     let binding = PrincipalKeyBinding::new(
         b"layerx-human-custody/v1\0native-owner\0primary\0human-primary".to_vec(),
-        125,
+        snapshot.chain_id,
         KeyClass::HumanPrimary,
         "attestor-quorum/v1",
     )?;
@@ -251,8 +330,12 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         &directory.join("provision.json"),
         json!({"key_id":provider_key}),
     )?;
-    wait(&directory.join("provision-ready"))?;
-    let keystore = Keystore::open_production(directory.join("custody"), 125, provider.clone())?;
+    wait(&directory.join("provision-ready"), clock.as_ref())?;
+    let keystore = Keystore::open_production(
+        directory.join("custody"),
+        snapshot.chain_id,
+        provider.clone(),
+    )?;
     let public = provider.create_owned_key(
         &keystore,
         &principal,
@@ -265,7 +348,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         &directory.join("generated.json"),
         json!({"public":public.to_vec()}),
     )?;
-    wait(&directory.join("signing.json"))?;
+    wait(&directory.join("signing.json"), clock.as_ref())?;
     let material: Material =
         serde_json::from_slice(&read_private(&directory.join("signing.json"))?)?;
     let purpose =
@@ -303,10 +386,10 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             },
             tenancy_digest,
         )?)),
-        ModuleRegistry::new(&[]).map_err(|error| format!("{error:?}"))?,
+        snapshot.native_registry()?,
         SigningLimits::new(32, 60)?,
     );
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let now = current_time(clock.as_ref())?;
     let mut trace_entropy = [0; 16];
     getrandom::fill(&mut trace_entropy)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
@@ -353,7 +436,13 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     ))?;
     assert!(matches!(missing, Err(CustodyError::StepUpRequired)));
     let signers: Vec<_> = fixture.signers.iter().map(String::as_str).collect();
-    let sdk = AttestorSigner::new(client(&fixture)?, &provider_key, public, &signers, 125)?;
+    let sdk = AttestorSigner::new(
+        client(&fixture)?,
+        &provider_key,
+        public,
+        &signers,
+        snapshot.chain_id,
+    )?;
     let signature =
         sdk.sign_native_local_grant(&grant, "rust-genuine-grant", &fixture.second_assertion)?;
     let grant_digest: [u8; 32] = Sha256::digest(native_local_grant_signing_bytes(&grant)?).into();
@@ -378,28 +467,32 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
     })?;
     let account = AccountIdentity::new(principal.as_str(), "Native consent qualification")?;
     let mut authenticator = Authenticator::open()?;
-    let registration =
-        passkeys.begin_registration(&mut scope, &account, "Disposable passkey", current_time()?)?;
+    let registration = passkeys.begin_registration(
+        &mut scope,
+        &account,
+        "Disposable passkey",
+        current_time(clock.as_ref())?,
+    )?;
     let credential = authenticator.credential("register", &registration.ceremony)?;
     passkeys.finish_registration(
         &mut scope,
         &registration.registration_id,
         &credential,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
-    let assertion = passkeys.begin_assertion(&mut scope, current_time()?)?;
+    let assertion = passkeys.begin_assertion(&mut scope, current_time(clock.as_ref())?)?;
     let credential = authenticator.credential("assert", &assertion.ceremony)?;
     passkeys.finish_assertion(
         &mut scope,
         &assertion.assertion_id,
         &credential,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     let session = passkeys.open_session(
         &mut scope,
         &assertion.assertion_id,
         Device::mint("Disposable authenticator", "qualification")?,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     let confirms = OperationDigest::new(grant_digest);
     let challenge = passkeys.begin_step_up(
@@ -407,7 +500,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         session.access_token().expose(),
         session.csrf_token().expose(),
         confirms,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     let credential = authenticator.credential("assert", &challenge.ceremony)?;
     let mut forged: serde_json::Value =
@@ -425,21 +518,21 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             &mut scope,
             &challenge.challenge_id,
             &forged,
-            current_time()?
+            current_time(clock.as_ref())?
         )
         .is_err());
     let authenticated = passkeys.finish_step_up(
         &mut scope,
         &challenge.challenge_id,
         &credential,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     assert!(passkeys
         .finish_step_up(
             &mut scope,
             &challenge.challenge_id,
             &credential,
-            current_time()?
+            current_time(clock.as_ref())?
         )
         .is_err());
     let capability_digest: [u8; 32] = Sha256::digest(&grant.capability).into();
@@ -452,7 +545,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             Operation::SecuritySettings,
             grant_digest,
             capability_digest,
-            current_time()?
+            current_time(clock.as_ref())?
         ),
         Err(CustodyError::InvalidEvidence)
     ));
@@ -477,7 +570,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             Operation::SecuritySettings,
             grant_digest,
             capability_digest,
-            current_time()?
+            current_time(clock.as_ref())?
         ),
         Err(CustodyError::InvalidEvidence)
     ));
@@ -489,12 +582,10 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
         Operation::SecuritySettings,
         grant_digest,
         capability_digest,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
-    let changed_grant = NativeLocalGrantConsentV1 {
-        expires_at_ms: grant.expires_at_ms - 1,
-        ..grant.clone()
-    };
+    let mut changed_grant = grant.clone();
+    changed_grant.owner_public_key[0] ^= 1;
     let mismatched = ready(custody.sign_native_consent_in_scope(
         &mut scope,
         NativeConsentRequest::new(
@@ -502,11 +593,30 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             &key,
             NativeConsent::LocalGrant(&changed_grant),
             SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time()?,
+            current_time(clock.as_ref())?,
             trace.clone(),
         ),
     ))?;
     assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
+    let expiry_skewed_grant = NativeLocalGrantConsentV1 {
+        expires_at_ms: grant.expires_at_ms - 1,
+        ..grant.clone()
+    };
+    let invalid_evidence = ready(custody.sign_native_consent_in_scope(
+        &mut scope,
+        NativeConsentRequest::new(
+            &principal,
+            &key,
+            NativeConsent::LocalGrant(&expiry_skewed_grant),
+            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
+            current_time(clock.as_ref())?,
+            trace.clone(),
+        ),
+    ))?;
+    assert!(matches!(
+        invalid_evidence,
+        Err(CustodyError::InvalidEvidence)
+    ));
     provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
     let signed = ready(custody.sign_native_consent_in_scope(
         &mut scope,
@@ -515,7 +625,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             &key,
             NativeConsent::LocalGrant(&grant),
             SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time()?,
+            current_time(clock.as_ref())?,
             trace.clone(),
         ),
     ))??;
@@ -531,7 +641,7 @@ fn native_provider_and_sdk_real_cluster() -> Result<()> {
             &key,
             NativeConsent::LocalGrant(&grant),
             SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time()?,
+            current_time(clock.as_ref())?,
             trace.clone(),
         ),
     ))?;

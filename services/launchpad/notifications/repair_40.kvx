@@ -1,0 +1,46 @@
+[repair.22.31.40]
+audit = "22.30.28"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+qualification = "Runner-owned hf-build and hf-done evidence identifies the candidate revision; no gate is claimed before it runs."
+baseline = "Not run: the explicit ordered implementation-first and hf-done-only instructions prohibit the conflicting unchanged-tree verification step; no pre-change test failure is claimed."
+
+[finding.notification-wallet-boundary]
+test = "TestRepair_40_NotificationWalletBoundary"
+repair = "Resolve account and wallet together from the authenticated principal in both API registration paths; accept session-only frozen requests and refuse conflicting or duplicate identity headers."
+proof = "In-process CA-verified TLS principals drive the real HTTPRuntime handler and Store.CommitTrigger/ListPage/SetReadV2 path; generated frozen Go codecs consume list/read envelopes, assert wallet binding and foreign-account denial, then repeat after the HTTP consumer and SQL store close and reopen."
+existing_tests = "Existing HTTP fixtures now supply the authoritative principal; malformed-wallet assertions test the resolver input, retaining all validation assertions."
+
+[finding.runtime-authorities-unwired]
+test = "TestRepair_40_RuntimeAuthorities"
+repair = "The API injects canonical indexer pool reads and the owned SQL L16 interval authority with D11 account attribution; validate owner schemas, permissions, quote configuration and required authorities at startup, and bind owned clients to the running credential refresh lifecycle."
+proof = "Exercise the production authority constructor, real pool resolution and discovery projection, HTTPRuntime.Run and Ready, feed and SQL leaderboard handlers, and refusal for absent pool or interval authorities and missing owner interfaces."
+limits = "The declared notifications gate does not launch the full production API deployment or D12 moderation service; it exercises their mounted notification/discovery runtime."
+
+[wiring.api-runtime]
+request = "services/launchpad/api deployment runtime document — launchpad API owner: bind quoteTokenAddress to the admitted network USDL token and rebind the document digest."
+
+[wiring.owner-permissions]
+request = "spec/production-system/integration/migrations — launchpad indexer and PnL owners: grant the API runtime SELECT on indexer.indexer_canonical_creations_v1 and pnl.inventory_l16_wallet_ranges_v3/inventory_l16_wallet_intervals_v3; startup refuses missing interfaces or permissions."
+
+[wiring.milestones]
+request = "services/launchpad/indexer — launchpad indexer owner: publish an owned canonical milestone source interface before enabling milestone discovery; unsupported milestone resolution remains unavailable."
+
+[qualification.initial]
+revision = "ce46ae01364084cda1187efd56fd891f4c1072c6"
+command = "cg spec done 22.31.40 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Attempt 1 failed before either repair proof could run because its Go subprocess resolved an identity helper as a nonexistent notifications package; this is historical evidence, not a qualified revision."
+
+[attempt.2]
+base_revision = "b034a05fda5d0bb049e3b941849ba8f12d6944e9"
+repair = "Replace Go/Node/npm helper execution with in-process real TLS authentication, the package HTTP handler and generated frozen Go consumers; retain both named repair tests and the list/read, request-ID, spoof, foreign-account, restart, replay, startup and dependency-refusal assertions."
+database = "Use the package gate's existing PostgreSQL fixture through its real driver, with per-test isolated databases; repair tests start no subprocesses and require no added service, toolchain install, RPC endpoint or credentials."
+gotcha = "A helper copied to another module still leaves the proof dependent on a subprocess toolchain; exercise the declared package's real handler, store and frozen consumer in-process (gotcha 2962)."
+
+[wiring.sdk-session]
+request = "sdk/launchpad/packages/sdk — launchpad SDK owner: run Operations IF_NOTIFICATIONS and IF_NOTIFICATION_READ with the deployed identity session; the notifications-only Go gate proves the frozen envelopes through generated Go consumers and CA-verified principals, and does not claim to execute the JavaScript SDK."
+
+[gotcha.parsed-connection]
+symptom = "pgx ConnConfig.ConnString returns the original input string even after its Database field changes."
+repair = "Register the modified parsed configuration with stdlib and use its registered DSN for both initial open and restart, preserving the isolated test database."

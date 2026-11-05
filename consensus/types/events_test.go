@@ -50,6 +50,14 @@ func TestTryUnmarshalForEvent(t *testing.T) {
 	eventData := EventDataTx{
 		TxResultV2: types.TxResultV2{
 			Height: 123,
+			Index:  2,
+			Tx:     []byte("nonzero-result"),
+			Result: types.ExecTxResult{
+				Code: 37, Data: []byte{0, 255, 1}, GasWanted: 100, GasUsed: 73,
+				Events: []types.Event{{Type: "execution", Attributes: []types.EventAttribute{
+					{Key: []byte("outcome"), Value: []byte("failed"), Index: true},
+				}}},
+			},
 		},
 	}
 	garbage := json.RawMessage("stuff")
@@ -60,6 +68,17 @@ func TestTryUnmarshalForEvent(t *testing.T) {
 	unmarshaled, err := TryUnmarshalEventData(json.RawMessage(bz))
 	require.NoError(t, err)
 	assert.Equal(t, eventData, unmarshaled)
+	legacy := eventData.ToLegacy().(LegacyEventDataTx)
+	legacyBytes, err := jsontypes.Marshal(legacy)
+	require.NoError(t, err)
+	var decoded LegacyEventData
+	require.NoError(t, jsontypes.Unmarshal(legacyBytes, &decoded))
+	require.Equal(t, legacy, decoded)
+	require.Equal(t, eventData.Result.Code, legacy.TxResult.Result.Code)
+	require.Equal(t, eventData.Result.Data, legacy.TxResult.Result.Data)
+	require.Equal(t, "100", legacy.TxResult.Result.GasWanted)
+	require.Equal(t, "73", legacy.TxResult.Result.GasUsed)
+	require.Equal(t, eventData.Result.Events, legacy.TxResult.Result.Events)
 
 	_, err = TryUnmarshalEventData(garbage)
 	require.Error(t, err)

@@ -1,0 +1,7 @@
+[repair.go-services.14]
+target = "services/platform/perps-data/internal/auth"
+command = "cd services/platform/perps-data && go vet ./internal/auth/ && go test -count=1 ./internal/auth/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = ["TestAuth: PERPS_DATA_TEST_DATABASE_URL pointing to a writable PostgreSQL database for store migrations and perps.auth_challenges", "TestAuth/challenge_single_use: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/verify_recovers_signer: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/verify_refuses_wrong_signer: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/verify_refuses_expired_nonce: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/refresh_valid: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/refresh_refuses_expired: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/iat_clock_skew: PERPS_DATA_TEST_DATABASE_URL", "TestAuth/middleware_401: PERPS_DATA_TEST_DATABASE_URL"]

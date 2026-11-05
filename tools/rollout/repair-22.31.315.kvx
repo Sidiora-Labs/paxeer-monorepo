@@ -1,0 +1,20 @@
+[repair.22.31.315]
+audit = "22.30.171"
+finding = "004"
+path = "tools/rollout/box-apply.sh"
+repair = "Restart errors and health failures share rollback; fsynced atomic image replacements preserve the previous image before deployment and retain it through recovery."
+proving_tests = ["test_finding_004_failure_restores_image_and_recovers_after_reopen", "test_finding_004_failed_recovery_retains_previous_image_and_reports_failure", "test_finding_004_success_keeps_new_image_and_durable_previous_image"]
+proof_path = "Real rollout.apply_box sends the unchanged script over OpenSSH to a disposable systemd box; the real Docker CLI uses an in-process Docker Engine transcript, and real systemctl restarts a real HTTP service reading the image file."
+baseline_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+baseline = "Not executed: the test module was absent, and the explicit ordered instructions prohibit verification before implementation and outside hf-done. No pre-change test failure is claimed."
+verified_revision_record = "The final hf-done JSON evidence row in the private /out/run/gates.jsonl records the exact candidate revision, command, exit and log; qualification is claimed only if that row exits zero."
+wiring_requests = []
+scope_note = "Spec and root gotcha ledgers are outside the authorized scope; this in-scope task record carries the baseline conflict and finding-to-test mapping."
+prerequisites = "The regression requires a running Docker daemon able to start a privileged private-cgroup container and access Ubuntu package repositories; it never substitutes fake ssh, docker, systemctl, curl or filesystem commands."
+
+[qualification.initial]
+revision = "f6994389de30e82f185188c04249bef9406bd018"
+command = "cg spec done 22.31.315 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Fixture setup tried to reset an unloaded inactive unit; reset failed states across the isolated manager instead before seeding the unit."

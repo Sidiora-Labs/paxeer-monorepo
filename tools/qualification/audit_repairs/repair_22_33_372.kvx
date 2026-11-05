@@ -1,0 +1,55 @@
+[repair]
+task = "22.33.372"
+audit = "22.30.140"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Publish maintained SDK package and integration contract anchors, link the bridge runbook to its encodings and lifecycle contracts, correct the documented CosmJS version, preserve working runtime exports and add offline source regression checks plus a package README compiler test."
+source_proof = "The pytest module parses the production package manifest and typesVersions, checks every wildcard export target in the shipped runtime/declaration trees, resolves the new Markdown contract links and anchors, follows the documented bank codec through namespace/registry/declarations and the REST query through fetch and JSON/error handling, checks signing guards and imports, and maps each finding to executed test functions."
+review_only = "This doc-drift task changes no runtime interface or persisted state, so restart/recovery and interface execution exercises are not applicable. Python source checks do not execute JavaScript, compile TypeScript, sign, broadcast, run a device, deploy a bridge or establish endpoint availability. The package compiler test uses the real TypeScript compiler and public package resolution for every README TypeScript block; its execution is deferred to SDK CI because only the Python gates are allowed here. No shell script, unit file or build file is changed."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec status changes; both scoped repair files and /out/run/gates.jsonl were absent. No unchanged-tree verification was run and no pre-change failing tests are claimed: the explicit implementation-first order and hf-done-only verification rule supersede step 7's conflicting baseline request. The base README already qualified the bank codec, imported AminoTypes and replaced Arctic with operator-supplied Cosmos configuration."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_372.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger retain the exact content-derived candidate revision, command, exit code and log location. Build and verify must identify the same revision. This record is finalized before gating because embedding its own candidate hash would change that revision. The runner commits; no manual commit or push is made."
+
+[finding.registry-contract-pages-missing]
+file = "sdk/js/README.md"
+owner_domain = 17
+resolution = "SDK Package and Integration contracts and bridge Interface contracts provide reachable documentation of the maintained entries, fields, encodings, errors and lifecycle. Registry and explorer schema changes outside scope are explicit wiring requests below; existing obsolete registry links are not claimed fixed here."
+tests = ["test_registry_contract_pages_missing_links_resolve", "test_registry_contract_pages_missing_bridge_and_explorer_sources"]
+
+[finding.sdk-examples]
+file = "sdk/js/README.md"
+owner_domain = 14
+resolution = "Preserve the base's declared Encoder codec, AminoTypes import and explicit Cosmos chain/denom/fee configuration; correct CosmJS documentation to match both maintained manifest dependencies and add an independent compiler test for every complete example."
+tests = ["test_sdk_examples_codec_and_registry_match_production", "test_sdk_examples_signing_uses_explicit_cosmos_identity_and_denoms", "test_sdk_examples_rest_transport_matches_production", "test_sdk_examples_dependency_version_and_compiler_contract"]
+
+[finding.registry-sdk-package]
+file = "sdk/js/package.json"
+owner_domain = 14
+resolution = "The manifest already satisfies req 14001 and remains unchanged. Its runtime subpaths and typesVersions are documented exactly at sdk/js/README.md#package, which explicitly retires root and vendor declarations. The six registry row edits are out of scope and requested below."
+tests = ["test_registry_sdk_package_exports_and_typesversions", "test_registry_sdk_package_retired_root_and_vendor_metadata"]
+
+[wiring]
+package_main = "spec/layerx-merge/interfaces.kvx: domain 14 retire 14.cfg-sdkjs-package-main; the manifest has no main field or root export; use sdk/js/README.md#package."
+package_module = "spec/layerx-merge/interfaces.kvx: domain 14 retire 14.cfg-sdkjs-package-module; the manifest has no module field or root export; use sdk/js/README.md#package."
+exports_types = "spec/layerx-merge/interfaces.kvx: domain 14 reconcile 14.cfg-sdkjs-package-exports-types to import ./dist/esm/types/*/index.js, require ./dist/cjs/types/*/index.js and types ./dist/types/types/*/index.d.ts; use sdk/js/README.md#package."
+vendor_ref = "spec/layerx-merge/interfaces.kvx: domain 14 retire 14.cfg-sdkjs-vendor-ref and its absent sdk/js/VENDOR.kvx ref declaration; use sdk/js/README.md#provenance."
+vendor_sha = "spec/layerx-merge/interfaces.kvx: domain 14 retire 14.cfg-sdkjs-vendor-sha and its absent sdk/js/VENDOR.kvx sha declaration; use sdk/js/README.md#provenance."
+vendor_url = "spec/layerx-merge/interfaces.kvx: domain 14 retire 14.cfg-sdkjs-vendor-url and its absent sdk/js/VENDOR.kvx url declaration; use sdk/js/README.md#provenance."
+sdk_contracts = "spec/layerx-merge/interfaces.kvx: domain 14 rebind active contracts/sdk-js.md#package links (including encoding, rest and typesVersions rows) to sdk/js/README.md#package and other SDK contracts to the maintained encoding/rest headings."
+bridge_contracts = "spec/layerx-merge/interfaces.kvx: domain 17 rebind obsolete contracts/bridge-deploy.md and contracts/bridge-vectors.md targets to contracts/bridge/README.md#interface-contracts and its linked maintained attestation/vector sources."
+explorer_contracts = "spec/layerx-merge/interfaces.kvx: domain 14 reconcile absent contracts/explorer-http-api.md, contracts/explorer-ws.md and contracts/explorer-config.md targets with apps/explorer/public/openapi.yaml, apps/explorer/lib/socket/types.ts and services/explorer/backend/config/runtime.exs; preserve per-route fields/errors and socket lifecycle anchors in maintained explorer documentation."
+explorer_schemas = "apps/explorer/public/openapi.yaml and apps/explorer/lib/socket/types.ts: domain 14 owns any required HTTP/WS schema reconciliation; SDK and bridge docs now link the maintained schemas, endpoint declarations and channel lifecycle without modifying them."
+example_compilation = "sdk/js/test/readme-examples.test.cjs: domain 14 SDK CI must execute the README compiler test through the maintained npm test harness after locked dependency installation; no JavaScript toolchain gate is permitted in this task."
+
+[format]
+policy = "No formatter is configured for these Python, KVX, Markdown or SDK CommonJS paths. Follow existing SDK tab indentation and repository .editorconfig UTF-8/LF/final-newline conventions after implementation."
+
+[gotcha.1]
+observed = "The unchanged-tree verify request conflicts with the explicit ordered gate protocol; a content-derived revision cannot be embedded in its own record without changing the revision."
+resolution = "Claim no unrun baseline results; use only hf-build then hf-done and retain exact evidence in the private ledger and final JSON without post-gate edits."
+
+[gotcha.2]
+observed = "Broad combined reads exceeded output limits; guessed hf wrapper locations and a socket .ts suffix were absent."
+resolution = "Read bounded named sections, locate wrappers with command -v and use actual socket .tsx and backend lib paths; local notes stay here because GOTCHA.kvx and spec files are outside scope."

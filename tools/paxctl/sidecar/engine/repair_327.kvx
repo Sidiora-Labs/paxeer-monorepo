@@ -1,0 +1,15 @@
+[task.22.31.327]
+finding = "delete-resurrection"
+proving_tests = ["TestRepair_327_DeleteLateCompletionRestart", "TestRepair_327_DeleteResubmitInterleavings", "TestRepair_327_PersistedGenerationRejectsObsoleteResult", "TestRepair_327_ShutdownRecoveryPreservesGeneration", "TestRepair_327_FailedRetryUsesNewGeneration"]
+baseline = "Not run: task gate order forbids verification before the full implementation; no pre-change test failure is claimed."
+repair = "Persist each execution generation; condition result updates on the live generation and cancellation state; atomically tombstone deleted running generations until their handlers return."
+wiring_requests = []
+gotcha = "Run counters reset after DELETE, so they cannot identify obsolete executions; the durable generation must survive reopening and differ on resubmission."
+evidence = "The bounded hf-build and hf-done runner ledger records the exact candidate revision, command, exit code and private log location."
+
+[qualification.build_environment]
+revision = "dda0a18fcd6a3b58721a71e60e397e5375d72bb7"
+command = "cd tools/paxctl && go build ./sidecar/engine/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Sandbox GOTOOLCHAIN=go1.25.8 rejects the existing module's go 1.26.0 directive before compilation; select GOTOOLCHAIN=go1.26.0 for the remaining gates."

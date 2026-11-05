@@ -48,7 +48,7 @@ func eligibleAttestation(t *testing.T, m deployment.Manifest, now time.Time) (de
 	}
 	for name, role := range m.Roles {
 		id := deployment.Identity{Role: name, Address: role.Address, RuntimeHash: role.RuntimeHash, Verified: true}
-		if role.Kind != "direct" {
+		if role.Kind == "erc1967" || role.Kind == "beacon" || role.Kind == "beacon_proxy" {
 			id.ImplementationAddress = common.HexToAddress(role.ImplementationAddress).Hex()
 			id.ImplementationHash = role.ImplementationHash
 		}
@@ -192,8 +192,18 @@ func assertWebAuthorityFields(t *testing.T, raw []byte, m deployment.Manifest) {
 	identities := obj(attestation["identities"], "attestation.identities")
 	for name, role := range m.Roles {
 		id := obj(identities[name], "attestation.identities."+name)
-		if id["role"] != name || !strings.EqualFold(str(id, "address", name), role.Address) || id["verified"] != true || !strings.EqualFold(str(id, "runtimeHash", name), role.RuntimeHash) {
+		if id["role"] != name || !strings.EqualFold(str(id, "address", name), role.Address) || id["verified"] != true {
 			t.Fatalf("identity %s = %v", name, id)
+		}
+		if role.Kind == "precompile" {
+			if name != deployment.LaunchpadPrecompileRole || role.Address != deployment.LaunchpadPrecompileAddress || role.RuntimeHash != "" {
+				t.Fatalf("invalid native precompile identity %s = %v", name, role)
+			}
+			if _, present := id["runtimeHash"]; present {
+				t.Fatalf("precompile identity %s carries an EVM runtime hash: %v", name, id)
+			}
+		} else if !strings.EqualFold(str(id, "runtimeHash", name), role.RuntimeHash) {
+			t.Fatalf("identity %s runtime hash = %v", name, id)
 		}
 		if issues, present := id["issues"]; present {
 			if list, ok := issues.([]any); !ok || len(list) != 0 {
@@ -202,10 +212,11 @@ func assertWebAuthorityFields(t *testing.T, raw []byte, m deployment.Manifest) {
 		}
 		_, hasImpl := id["implementationAddress"]
 		_, hasImplHash := id["implementationHash"]
-		if role.Kind == "direct" && (hasImpl || hasImplHash) {
-			t.Fatalf("direct identity %s carries an implementation: %v", name, id)
+		proxy := role.Kind == "erc1967" || role.Kind == "beacon" || role.Kind == "beacon_proxy"
+		if !proxy && (hasImpl || hasImplHash) {
+			t.Fatalf("%s identity %s carries an implementation: %v", role.Kind, name, id)
 		}
-		if role.Kind != "direct" && (!strings.EqualFold(str(id, "implementationAddress", name), role.ImplementationAddress) || !strings.EqualFold(str(id, "implementationHash", name), role.ImplementationHash)) {
+		if proxy && (!strings.EqualFold(str(id, "implementationAddress", name), role.ImplementationAddress) || !strings.EqualFold(str(id, "implementationHash", name), role.ImplementationHash)) {
 			t.Fatalf("identity %s implementation %v", name, id)
 		}
 	}

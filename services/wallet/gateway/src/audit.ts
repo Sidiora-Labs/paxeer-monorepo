@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { NodeAudit } from './attestor/client.js';
 
 export type AuditKind = 'transaction' | 'message' | 'typed_data';
@@ -40,7 +40,10 @@ export interface SigningAuditRow {
   nonce: string | null;
 }
 
-export async function recordSigningAudit(pool: Pool, entry: SigningAuditEntry): Promise<void> {
+export async function recordSigningAudit(
+  pool: Pool | PoolClient,
+  entry: SigningAuditEntry
+): Promise<void> {
   await pool.query(
     `insert into signing_audit
        (request_id, client_subject, account, wallet_id, route, kind, path, decision,
@@ -61,18 +64,21 @@ export async function recordSigningAudit(pool: Pool, entry: SigningAuditEntry): 
       JSON.stringify(entry.attestorAudit),
       entry.txHash,
       entry.nonce,
-    ],
+    ]
   );
 }
 
-export async function auditRowsForRequest(pool: Pool, requestId: string): Promise<SigningAuditRow[]> {
+export async function auditRowsForRequest(
+  pool: Pool,
+  requestId: string
+): Promise<SigningAuditRow[]> {
   const { rows } = await pool.query<SigningAuditRow>(
     `select id::text, request_id::text, client_subject, account, wallet_id::text, route, kind, path,
             decision, reason_code, request_hash, session_id::text, attestor_audit, tx_hash, nonce::text
        from signing_audit
       where request_id = $1
       order by id`,
-    [requestId],
+    [requestId]
   );
   return rows;
 }
@@ -117,9 +123,12 @@ export interface RateLimiterOptions {
 export class RateLimiter {
   constructor(private readonly opts: RateLimiterOptions) {}
 
-  async consume(scope: RateLimitScope, subject: string): Promise<void> {
+  async consume(scope: RateLimitScope, subject: string, connection?: PoolClient): Promise<void> {
     const limit = scope === 'client' ? this.opts.clientPerMinute : this.opts.accountPerMinute;
-    const { rows } = await this.opts.pool.query<{ hits: number; retry_after: number }>(
+    const { rows } = await (connection ?? this.opts.pool).query<{
+      hits: number;
+      retry_after: number;
+    }>(
       `insert into rate_limit_windows (scope, subject, window_start, hits)
        values ($1, $2, date_trunc('minute', now()), 1)
        on conflict (scope, subject, window_start)
@@ -127,7 +136,7 @@ export class RateLimiter {
        returning hits,
                  greatest(1, ceil(extract(epoch from (window_start + interval '1 minute' - now()))))::int
                    as retry_after`,
-      [scope, scope === 'account' ? subject.toLowerCase() : subject],
+      [scope, scope === 'account' ? subject.toLowerCase() : subject]
     );
     const row = rows[0];
     if (!row) throw new Error('rate limiter: counter upsert returned no row');

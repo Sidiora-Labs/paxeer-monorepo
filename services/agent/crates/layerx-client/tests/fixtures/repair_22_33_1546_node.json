@@ -1,0 +1,551 @@
+{
+  "receipt": {
+    "activityIds": [
+      "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+      "0xde056d8def486cb94f9f7a30d89e455d35c56fa8f58a8b0a54028384bd86c452"
+    ],
+    "appHash": "0x6fbb9c33250a0a9ce954d5f421d8272972b728c3be29feb0cb8b51f0c3722186",
+    "batch": "0x5041584545522f76312f73657175656e63652d62617463680000000000000003e900000000000000010000000000000002000000000000000000000000000000000000000000000000000000000000000088d3e7000dd051fc62ea048a8e25ceeac09603a8f401bab4c7b835615fd237b9e42958652d4becffdfd40766dd40c96785fdb0c629352b9aecef7b436ac299416b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6bf649a0a647934f7465b143d445f4a1433a83afb6c3b962987d2ce6285c02e266cf1b50b31324e0f00688cc48aa58a70a36815052e07bda14c279e65b0176d800",
+    "block": {
+      "hash": "0x00bdd48d6e13ece1cc721b1b19bbde86114dd5dc71835452474a00107fa691b1",
+      "number": "0x3e9",
+      "parentHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+      "receiptsRoot": "0x3333333333333333333333333333333333333333333333333333333333333333",
+      "timestamp": "0x3e8",
+      "transactions": [],
+      "transactionsRoot": "0xfec974d4443f2084faf3f56313c84aa4f34e8481e0ce5f739b4725511c16a460"
+    },
+    "hash": "0x00bdd48d6e13ece1cc721b1b19bbde86114dd5dc71835452474a00107fa691b1",
+    "height": 1001,
+    "key": {
+      "firstHeight": 1000,
+      "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+      "lastHeight": 1999,
+      "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e"
+    },
+    "landing": {
+      "type": "0x2",
+      "root": "0x",
+      "status": "0x1",
+      "cumulativeGasUsed": "0x0",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "logs": [],
+      "transactionHash": "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+      "contractAddress": "0x0000000000000000000000000000000000000000",
+      "gasUsed": "0x5208",
+      "effectiveGasPrice": null,
+      "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "blockNumber": "0x3e8",
+      "transactionIndex": "0x1"
+    },
+    "material": {
+      "height": "1001",
+      "signedHeader": {
+        "commit": {
+          "block_id": {
+            "hash": "00BDD48D6E13ECE1CC721B1B19BBDE86114DD5DC71835452474A00107FA691B1",
+            "parts": {
+              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+              "total": 1
+            }
+          },
+          "height": "1001",
+          "round": 0,
+          "signatures": [
+            {
+              "block_id_flag": 2,
+              "signature": "+ntkv1ZYxtHZteEMDCDnxIlRUTaCOZcGAhXIbsgU/jnAY6D89s5IO9IIELWl2F1AUKjyCM0z4dhPvAIqv3UDCA==",
+              "timestamp": "1970-01-01T00:16:40Z",
+              "validator_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC"
+            }
+          ]
+        },
+        "header": {
+          "app_hash": "6FBB9C33250A0A9CE954D5F421D8272972B728C3BE29FEB0CB8B51F0C3722186",
+          "chain_id": "hyperpax_125-1",
+          "consensus_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "data_hash": "FEC974D4443F2084FAF3F56313C84AA4F34E8481E0CE5F739B4725511C16A460",
+          "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "height": "1001",
+          "last_block_id": {
+            "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "parts": {
+              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+              "total": 1
+            }
+          },
+          "last_commit_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "last_results_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "next_validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+          "proposer_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC",
+          "time": "1970-01-01T00:16:40Z",
+          "validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+          "version": {
+            "app": "1",
+            "block": "11"
+          }
+        }
+      }
+    },
+    "proof": {
+      "total": "1",
+      "index": "0",
+      "leaf_hash": "/sl01EQ/IIT68/VjE8hKpPNOhIHgzl9zm0clURwWpGA=",
+      "aunts": []
+    },
+    "validators": {
+      "height": "1001",
+      "total": "1",
+      "validators": [
+        {
+          "address": "c0742a797bd5374378f26a371f35e61b32c0d0cc",
+          "pubKey": {
+            "type": "tendermint/PubKeyEd25519",
+            "value": "W2SJycf9Dc9QVF58FkiG70BJHsBsfxsSMEF5foEXU14="
+          },
+          "votingPower": "10"
+        }
+      ]
+    },
+    "view": {
+      "contractAddress": "0x0000000000000000000000000000000000000000",
+      "cumulativeGasUsed": "0x5208",
+      "effectiveGasPrice": "0x77359400",
+      "feeAmount": "0x2632e314a000",
+      "feeDenom": "uhpx",
+      "from": "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73",
+      "gasUsed": "0x5208",
+      "height": "0x3e8",
+      "index": "0x1",
+      "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+      "logs": [],
+      "nonce": "0x0",
+      "paymentDenom": "uhpx",
+      "receipt": "0x00025201000200000020a52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277000000000000000100000020000000000000000000000000000000000000000000000000000000000000000000000020a48065818165fb64611dff9b6de4056284bde354442b57d953ecf798a046330d00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c000000000100000000200000000000000000000000000000000000000000000000000000000000000000000000710000000000005208000000000000520800000000773594000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000000475687078000000000000000000002632e314a0000000002000000000000000000000000000000000000000000000000000000000000003e8000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000de0b6b3a764000000000020000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd7300000000000000056bc75e2d6310000000000000000000055de68146d89760000000000000000000000000200000000000000000000000008ba1f109551bd432803012645ac136ddd64dba720000000000000000000000000000000000000000000000000de0b6b3a7640000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000206b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b000001977426f6800100000040bfff5ed541997e8ce3eb29f7492d71d29689b76f85b41b422184810697d08244dcb3c8db9cfdbabd7b8fd3fd22e707f834fac3ebcb52d09be6435487f7cd190c",
+      "returnData": "0x",
+      "rung": "receipted",
+      "seq": "0x1",
+      "signingKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+      "sponsor": "0x0000000000000000000000000000000000000000",
+      "status": "0x1",
+      "timestamp": "0x1977426f680",
+      "to": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+      "txHash": "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+      "vmError": ""
+    }
+  },
+  "storage": {
+    "address": "0x0000000000000000000000000000000000001001",
+    "appHash": "0x6fbb9c33250a0a9ce954d5f421d8272972b728c3be29feb0cb8b51f0c3722186",
+    "block": {
+      "hash": "0xffda0d5270a18312f1e9f243572c9a070c0a2a93c67c866cbe56d8e7ed62b468",
+      "number": "0x4b0",
+      "parentHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+      "receiptsRoot": "0x3333333333333333333333333333333333333333333333333333333333333333",
+      "timestamp": "0x3e8",
+      "transactions": [],
+      "transactionsRoot": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "hash": "0xffda0d5270a18312f1e9f243572c9a070c0a2a93c67c866cbe56d8e7ed62b468",
+    "height": 1200,
+    "keys": [
+      "cmVjb3JkLUE=",
+      "cmVjb3JkLUI="
+    ],
+    "material": {
+      "height": "1200",
+      "signedHeader": {
+        "commit": {
+          "block_id": {
+            "hash": "FFDA0D5270A18312F1E9F243572C9A070C0A2A93C67C866CBE56D8E7ED62B468",
+            "parts": {
+              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+              "total": 1
+            }
+          },
+          "height": "1200",
+          "round": 0,
+          "signatures": [
+            {
+              "block_id_flag": 2,
+              "signature": "C6+bBz9kdP2VV/+6/kfZhVzlLV6YNUV8xNcgvLeuWvDIGWocsQdxkVSglYFR+kKLyaeZxft8W2WVGeyUv0McDA==",
+              "timestamp": "1970-01-01T00:16:40Z",
+              "validator_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC"
+            }
+          ]
+        },
+        "header": {
+          "app_hash": "6FBB9C33250A0A9CE954D5F421D8272972B728C3BE29FEB0CB8B51F0C3722186",
+          "chain_id": "hyperpax_125-1",
+          "consensus_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "data_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+          "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "height": "1200",
+          "last_block_id": {
+            "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "parts": {
+              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+              "total": 1
+            }
+          },
+          "last_commit_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "last_results_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+          "next_validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+          "proposer_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC",
+          "time": "1970-01-01T00:16:40Z",
+          "validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+          "version": {
+            "app": "1",
+            "block": "11"
+          }
+        }
+      }
+    },
+    "responses": [
+      {
+        "address": "0x0000000000000000000000000000000000001001",
+        "hexValues": [
+          "0000000000000000000000000000000000000000000000000000000000000011"
+        ],
+        "storageProof": [
+          {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "AwAAAAAAAAAAAAAAAAAAAAAAABABUAZrjBsviG3e+MrjNjihZ3Box2LlX6dO0nRhvnKLpyU=",
+                "data": "CpMBCjUDAAAAAAAAAAAAAAAAAAAAAAAAEAFQBmuMGy+Ibd74yuM2OKFncGjHYuVfp07SdGG+counJRIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEaDAgBGAEgASoEAALgEiIqCAESJgIE4BIgkIqVfbHPnYyzoJNlQWyqIYgYtA3muueZT4LAhzQrjL8g"
+              },
+              {
+                "type": "ics23:simple",
+                "key": "ZXZt",
+                "data": "CjIKA2V2bRIg3CHduOa3+DNDVfSnwGg0s4wrBMwJjoJK5gT+MJtFulQaCQgBGAEgASoBAA=="
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "address": "0x0000000000000000000000000000000000001001",
+        "hexValues": [
+          "0000000000000000000000000000000000000000000000000000000000000012"
+        ],
+        "storageProof": [
+          {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "AwAAAAAAAAAAAAAAAAAAAAAAABABQ6XgEbIKxAS970VrjT/Gax49Xb4vG8BJlidQHevVzV4=",
+                "data": "CpUBCjUDAAAAAAAAAAAAAAAAAAAAAAAAEAFDpeARsgrEBL3vRWuNP8ZrHj1dvi8bwEmWJ1Ad69XNXhIgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABIaDAgBGAEgASoEAALgEiIsCAESBQIE4BIgGiEgvhGvZew4ecXvkNe9OIIN8pnr1y+48zMoIsvOqodymPc="
+              },
+              {
+                "type": "ics23:simple",
+                "key": "ZXZt",
+                "data": "CjIKA2V2bRIg3CHduOa3+DNDVfSnwGg0s4wrBMwJjoJK5gT+MJtFulQaCQgBGAEgASoBAA=="
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "slots": [
+      "0x50066b8c1b2f886ddef8cae33638a1677068c762e55fa74ed27461be728ba725",
+      "0x43a5e011b20ac404bdef456b8d3fc66b1e3d5dbe2f1bc0499627501debd5cd5e"
+    ],
+    "storeRoot": "0xdc21ddb8e6b7f8334355f4a7c06834b38c2b04cc098e824ae604fe309b45ba54",
+    "validators": {
+      "height": "1200",
+      "total": "1",
+      "validators": [
+        {
+          "address": "c0742a797bd5374378f26a371f35e61b32c0d0cc",
+          "pubKey": {
+            "type": "tendermint/PubKeyEd25519",
+            "value": "W2SJycf9Dc9QVF58FkiG70BJHsBsfxsSMEF5foEXU14="
+          },
+          "votingPower": "10"
+        }
+      ]
+    },
+    "values": [
+      "0x0000000000000000000000000000000000000000000000000000000000000011",
+      "0x0000000000000000000000000000000000000000000000000000000000000012"
+    ]
+  },
+  "variants": {
+    "root": {
+      "activityIds": [
+        "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+        "0xde056d8def486cb94f9f7a30d89e455d35c56fa8f58a8b0a54028384bd86c452"
+      ],
+      "appHash": "0x6fbb9c33250a0a9ce954d5f421d8272972b728c3be29feb0cb8b51f0c3722186",
+      "batch": "0x5041584545522f76312f73657175656e63652d62617463680000000000000003e9000000000000000100000000000000020100000000000000000000000000000000000000000000000000000000000000784597c7b0964ad8f4bbbd624b611cd5a97afa698fb4e62af4400a58773e44d8e42958652d4becffdfd40766dd40c96785fdb0c629352b9aecef7b436ac299416b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b05e8e3d1b2979c548672f740997d4fda4b1f188570863512b7688a3ddc971de1a8ea9a23cceb7b17146ebb23685bacef2cc8feb8e2a8c4b0f77c9f41b6b9c708",
+      "block": {
+        "hash": "0xda6e06afcf3d9291069638d75642e85c0e3252d78a82eaf68622b83de73ac2ab",
+        "number": "0x3e9",
+        "parentHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+        "receiptsRoot": "0x3333333333333333333333333333333333333333333333333333333333333333",
+        "timestamp": "0x3e8",
+        "transactions": [],
+        "transactionsRoot": "0x9ec0c8873a5e477b0ef78ef0a4c94fd6c3a15d64198dfd7feb323fb0a95601ad"
+      },
+      "hash": "0xda6e06afcf3d9291069638d75642e85c0e3252d78a82eaf68622b83de73ac2ab",
+      "height": 1001,
+      "key": {
+        "firstHeight": 1000,
+        "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "lastHeight": 1999,
+        "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e"
+      },
+      "landing": {
+        "type": "0x2",
+        "root": "0x",
+        "status": "0x1",
+        "cumulativeGasUsed": "0x0",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "logs": [],
+        "transactionHash": "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+        "contractAddress": "0x0000000000000000000000000000000000000000",
+        "gasUsed": "0x5208",
+        "effectiveGasPrice": null,
+        "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "blockNumber": "0x3e8",
+        "transactionIndex": "0x1"
+      },
+      "material": {
+        "height": "1001",
+        "signedHeader": {
+          "commit": {
+            "block_id": {
+              "hash": "DA6E06AFCF3D9291069638D75642E85C0E3252D78A82EAF68622B83DE73AC2AB",
+              "parts": {
+                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                "total": 1
+              }
+            },
+            "height": "1001",
+            "round": 0,
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "signature": "sI/OcIyLoCh9vOEuCn9TFtcCTo0SGS47sVzghwMaZ4knA87Nb67j00OehB2k7ri1Ia1WHKpjQn17yBhxxdZwBA==",
+                "timestamp": "1970-01-01T00:16:40Z",
+                "validator_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC"
+              }
+            ]
+          },
+          "header": {
+            "app_hash": "6FBB9C33250A0A9CE954D5F421D8272972B728C3BE29FEB0CB8B51F0C3722186",
+            "chain_id": "hyperpax_125-1",
+            "consensus_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "data_hash": "9EC0C8873A5E477B0EF78EF0A4C94FD6C3A15D64198DFD7FEB323FB0A95601AD",
+            "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "height": "1001",
+            "last_block_id": {
+              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+              "parts": {
+                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                "total": 1
+              }
+            },
+            "last_commit_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_results_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "next_validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+            "proposer_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC",
+            "time": "1970-01-01T00:16:40Z",
+            "validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+            "version": {
+              "app": "1",
+              "block": "11"
+            }
+          }
+        }
+      },
+      "proof": {
+        "total": "1",
+        "index": "0",
+        "leaf_hash": "nsDIhzpeR3sO947wpMlP1sOhXWQZjf1/6zI/sKlWAa0=",
+        "aunts": []
+      },
+      "validators": {
+        "height": "1001",
+        "total": "1",
+        "validators": [
+          {
+            "address": "c0742a797bd5374378f26a371f35e61b32c0d0cc",
+            "pubKey": {
+              "type": "tendermint/PubKeyEd25519",
+              "value": "W2SJycf9Dc9QVF58FkiG70BJHsBsfxsSMEF5foEXU14="
+            },
+            "votingPower": "10"
+          }
+        ]
+      },
+      "view": {
+        "contractAddress": "0x0000000000000000000000000000000000000000",
+        "cumulativeGasUsed": "0x5208",
+        "effectiveGasPrice": "0x77359400",
+        "feeAmount": "0x2632e314a000",
+        "feeDenom": "uhpx",
+        "from": "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73",
+        "gasUsed": "0x5208",
+        "height": "0x3e8",
+        "index": "0x1",
+        "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "logs": [],
+        "nonce": "0x0",
+        "paymentDenom": "uhpx",
+        "receipt": "0x00025201000200000020a52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277000000000000000100000020000000000000000000000000000000000000000000000000000000000000000000000020a48065818165fb64611dff9b6de4056284bde354442b57d953ecf798a046330d00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c000000000100000000200000000000000000000000000000000000000000000000000000000000000000000000710000000000005208000000000000520800000000773594000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000000475687078000000000000000000002632e314a0000000002000000000000000000000000000000000000000000000000000000000000003e8000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000de0b6b3a764000000000020000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd7300000000000000056bc75e2d6310000000000000000000055de68146d89760000000000000000000000000200000000000000000000000008ba1f109551bd432803012645ac136ddd64dba720000000000000000000000000000000000000000000000000de0b6b3a7640000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000206b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b000001977426f6800100000040bfff5ed541997e8ce3eb29f7492d71d29689b76f85b41b422184810697d08244dcb3c8db9cfdbabd7b8fd3fd22e707f834fac3ebcb52d09be6435487f7cd190c",
+        "returnData": "0x",
+        "rung": "receipted",
+        "seq": "0x1",
+        "signingKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "sponsor": "0x0000000000000000000000000000000000000000",
+        "status": "0x1",
+        "timestamp": "0x1977426f680",
+        "to": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "txHash": "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+        "vmError": ""
+      }
+    },
+    "sequence": {
+      "activityIds": [
+        "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+        "0xde056d8def486cb94f9f7a30d89e455d35c56fa8f58a8b0a54028384bd86c452"
+      ],
+      "appHash": "0x6fbb9c33250a0a9ce954d5f421d8272972b728c3be29feb0cb8b51f0c3722186",
+      "batch": "0x5041584545522f76312f73657175656e63652d62617463680000000000000003e900000000000000020000000000000003000000000000000000000000000000000000000000000000000000000000000091b898883de8879078f52d9fd043f9f46a30434f9178c0a8d6362f50dc77d052e42958652d4becffdfd40766dd40c96785fdb0c629352b9aecef7b436ac299416b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b2f208e1fb94df1b15118fdb918cc993f29375b6818ea2ee6f09e222ec6435121c04e5f50224d348cc556b9417e52813d0eaeb0285734c46d3805fd5727f0a507",
+      "block": {
+        "hash": "0x924d39c7fdad92562a677d954a89202d8bd317b1a8939a03feab04d703d4ce3b",
+        "number": "0x3e9",
+        "parentHash": "0x3333333333333333333333333333333333333333333333333333333333333333",
+        "receiptsRoot": "0x3333333333333333333333333333333333333333333333333333333333333333",
+        "timestamp": "0x3e8",
+        "transactions": [],
+        "transactionsRoot": "0x0d8df06eb6fb58464e5aac03d8e02ebfb3ef3c07ffdb479e0b478d2f6bc5c1d7"
+      },
+      "hash": "0x924d39c7fdad92562a677d954a89202d8bd317b1a8939a03feab04d703d4ce3b",
+      "height": 1001,
+      "key": {
+        "firstHeight": 1000,
+        "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "lastHeight": 1999,
+        "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e"
+      },
+      "landing": {
+        "type": "0x2",
+        "root": "0x",
+        "status": "0x1",
+        "cumulativeGasUsed": "0x0",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "logs": [],
+        "transactionHash": "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+        "contractAddress": "0x0000000000000000000000000000000000000000",
+        "gasUsed": "0x5208",
+        "effectiveGasPrice": null,
+        "blockHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "blockNumber": "0x3e8",
+        "transactionIndex": "0x1"
+      },
+      "material": {
+        "height": "1001",
+        "signedHeader": {
+          "commit": {
+            "block_id": {
+              "hash": "924D39C7FDAD92562A677D954A89202D8BD317B1A8939A03FEAB04D703D4CE3B",
+              "parts": {
+                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                "total": 1
+              }
+            },
+            "height": "1001",
+            "round": 0,
+            "signatures": [
+              {
+                "block_id_flag": 2,
+                "signature": "zsXDZGIjAAhlkxCXfkxitO/3bgo12q8PZwZC+Yy6OzRJRHw0afGVsZcBaIDsECFaaBGJRRS4wGOJQRJUVf7qDQ==",
+                "timestamp": "1970-01-01T00:16:40Z",
+                "validator_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC"
+              }
+            ]
+          },
+          "header": {
+            "app_hash": "6FBB9C33250A0A9CE954D5F421D8272972B728C3BE29FEB0CB8B51F0C3722186",
+            "chain_id": "hyperpax_125-1",
+            "consensus_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "data_hash": "0D8DF06EB6FB58464E5AAC03D8E02EBFB3EF3C07FFDB479E0B478D2F6BC5C1D7",
+            "evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "height": "1001",
+            "last_block_id": {
+              "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+              "parts": {
+                "hash": "3333333333333333333333333333333333333333333333333333333333333333",
+                "total": 1
+              }
+            },
+            "last_commit_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "last_results_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+            "next_validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+            "proposer_address": "C0742A797BD5374378F26A371F35E61B32C0D0CC",
+            "time": "1970-01-01T00:16:40Z",
+            "validators_hash": "28C70F937A83334B14CAD61AB38EFDCE1A3CA5A8FECD3DF72BAB18027D1D6C01",
+            "version": {
+              "app": "1",
+              "block": "11"
+            }
+          }
+        }
+      },
+      "proof": {
+        "total": "1",
+        "index": "0",
+        "leaf_hash": "DY3wbrb7WEZOWqwD2OAuv7PvPAf/20eeC0eNL2vFwdc=",
+        "aunts": []
+      },
+      "validators": {
+        "height": "1001",
+        "total": "1",
+        "validators": [
+          {
+            "address": "c0742a797bd5374378f26a371f35e61b32c0d0cc",
+            "pubKey": {
+              "type": "tendermint/PubKeyEd25519",
+              "value": "W2SJycf9Dc9QVF58FkiG70BJHsBsfxsSMEF5foEXU14="
+            },
+            "votingPower": "10"
+          }
+        ]
+      },
+      "view": {
+        "contractAddress": "0x0000000000000000000000000000000000000000",
+        "cumulativeGasUsed": "0x5208",
+        "effectiveGasPrice": "0x77359400",
+        "feeAmount": "0x2632e314a000",
+        "feeDenom": "uhpx",
+        "from": "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73",
+        "gasUsed": "0x5208",
+        "height": "0x3e8",
+        "index": "0x1",
+        "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "logs": [],
+        "nonce": "0x0",
+        "paymentDenom": "uhpx",
+        "receipt": "0x00025201000200000020a52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277000000000000000100000020000000000000000000000000000000000000000000000000000000000000000000000020a48065818165fb64611dff9b6de4056284bde354442b57d953ecf798a046330d00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000001000c000000000100000000200000000000000000000000000000000000000000000000000000000000000000000000710000000000005208000000000000520800000000773594000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000000475687078000000000000000000002632e314a0000000002000000000000000000000000000000000000000000000000000000000000003e8000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000de0b6b3a764000000000020000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd7300000000000000056bc75e2d6310000000000000000000055de68146d89760000000000000000000000000200000000000000000000000008ba1f109551bd432803012645ac136ddd64dba720000000000000000000000000000000000000000000000000de0b6b3a7640000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000206b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b000001977426f6800100000040bfff5ed541997e8ce3eb29f7492d71d29689b76f85b41b422184810697d08244dcb3c8db9cfdbabd7b8fd3fd22e707f834fac3ebcb52d09be6435487f7cd190c",
+        "returnData": "0x",
+        "rung": "receipted",
+        "seq": "0x1",
+        "signingKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "sponsor": "0x0000000000000000000000000000000000000000",
+        "status": "0x1",
+        "timestamp": "0x1977426f680",
+        "to": "0x8ba1f109551bd432803012645ac136ddd64dba72",
+        "txHash": "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277",
+        "vmError": ""
+      }
+    }
+  },
+  "provenance": {
+    "producer": "services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_producer/main.go",
+    "implementation": "Real MemIAVL membership and SDK CommitInfo.ProofOp, Comet Header.Hash/VoteSignBytes, node MsgSequenceBatch encoder",
+    "generator_sha256": "5b80c4729147cde9f157dbb4690263daed6fda458c4f6506448be5cf19383e22"
+  }
+}

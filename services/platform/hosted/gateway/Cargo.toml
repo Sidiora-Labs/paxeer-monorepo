@@ -1,5 +1,6 @@
 [package]
 name = "layerx-platform-gateway"
+description = "Hosted Paxeer JSON-RPC gateway for account, balance, asset and indexed EVM history reads"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,6 +9,10 @@ license.workspace = true
 [[bin]]
 name = "layerx-gateway"
 path = "src/main.rs"
+
+[[test]]
+name = "repair_22_33_1438"
+path = "tests/repair_22_33_1438.rs"
 
 [dependencies]
 layerx-client.workspace = true
@@ -21,6 +26,7 @@ layerx-crypto = { path = "../../../../services/agent/crates/layerx-crypto" }
 layerx-indexer = { path = "../indexer" }
 layerx-types = { path = "../../../../services/agent/crates/layerx-types" }
 layerx-wire = { path = "../../../../services/agent/crates/layerx-wire" }
+# Retained for program head and interface validation in src/main.rs.
 layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
 layerx-programs = { package = "layerx-programs-registry", path = "../../../../programs/crates/layerx-programs-registry" }
 native-tls.workspace = true
@@ -32,6 +38,12 @@ subtle.workspace = true
 zeroize.workspace = true
 
 [dev-dependencies]
+rcgen = "=0.14.10"
+serde_yaml = "=0.9.34"
+serde_json = { workspace = true, features = ["raw_value"] }
+layerx-platform-authority = { path = "../authority" }
+signal-hook = "=0.3.18"
+tempfile = "3.27.0"
 layerx-indexer = { path = "../indexer" }
 
 [lints]

@@ -224,6 +224,9 @@ impl<'ctx, 'engine> Executor<'ctx, 'engine> {
                 Instr::Observe(program_counter) => {
                     let observation = self.visit_observe(program_counter).map_err(|error| {
                         if self.ctx.replay_enabled() {
+                            if matches!(error, TrapCode::StackOverflow) {
+                                self.ctx.record_replay_trap(Some(error), false);
+                            }
                             self.ctx.fail_execution_observer(crate::ExecutionObserverError::UnsupportedState);
                         }
                         error

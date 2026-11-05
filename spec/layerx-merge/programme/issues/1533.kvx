@@ -1,0 +1,7 @@
+[issue.1533]
+number = 1533
+title = "[Coherence] Capability 22.24.12 still states fast-uri>=4.2.3 after decision 2372 moved the floor to 3.1.9"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "spec-edit"
+evidence = "Task 22.24.12 is done at spec/layerx-merge/spec.kvx:119197, but decision 2372 at spec/layerx-merge/spec.kvx:7346 and do_5 at spec/layerx-merge/spec.kvx:119225 still describe a 3.1.9 floor, whereas capability 22.24.12 at spec/layerx-merge/spec.kvx:37619, tools/deps/floors/wallet-services.json:9 and ajv's resolved dependency at services/wallet/pnpm-lock.yaml:3241 use 4.2.3, so the spec must reconcile those stale 3.1.9 statements with the implemented 4.2.3 floor."
+close_comment = "The wallet dependency floor and lock now use fast-uri 4.2.3, including ajv's copy, matching capability 22.24.12. Decision 2372 and task 22.24.12's do_5 need a specification correction to reflect that current floor and dependency resolution."

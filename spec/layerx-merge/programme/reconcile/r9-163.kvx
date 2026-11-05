@@ -1,0 +1,243 @@
+[reconcile.r9-163]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r9-163.1]
+interface = "interface.9.rs-mcp-binding-open-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 562
+symbol = "open"
+evidence = "Binding declares pub fn open(path: &Path) -> Result<Self, BindingError> at line 562; it reads the protected binding document. The later Store::open call is a use of another type's method."
+
+[row.r9-163.2]
+interface = "interface.9.rs-mcp-binding-parse-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 607
+symbol = "parse"
+evidence = "Binding declares pub fn parse(document: &str) -> Result<Self, BindingError> at line 607 and validates JSON. Self::parse, numeric parsing and SidecarEndpoint::parse are calls, not this declaration."
+
+[row.r9-163.3]
+interface = "interface.9.rs-mcp-server-daemonexecutionboundary-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 921
+symbol = "DaemonExecutionBoundary"
+evidence = "Line 921 declares pub trait DaemonExecutionBoundary: ToolBoundary with a reconcile method; execute_for_release later uses the trait as a generic bound."
+
+[row.r9-163.4]
+interface = "interface.9.rs-mcp-server-daemontoolresult"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 925
+symbol = "DaemonToolResult"
+evidence = "Line 925 declares pub struct DaemonToolResult with value, permit, control and handle fields; the later impl, return types and constructors refer to this declaration."
+
+[row.r9-163.5]
+interface = "interface.9.rs-mcp-server-servererror"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 1472
+symbol = "ServerError"
+evidence = "Line 1472 declares pub enum ServerError, including MissingSession, DurableInvocation and Audit variants. Earlier Result types and variant references are uses of this enum."
+
+[row.r9-163.6]
+interface = "interface.9.rs-mcp-server-tool-operation-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 887
+symbol = "tool_operation"
+evidence = "Line 887 declares pub fn tool_operation(name: &str) -> Option<Operation> and matches tool names to operations; line 871 calls it during authorization."
+
+[row.r9-163.7]
+interface = "interface.9.rs-mcp-server-webboundary-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 1345
+symbol = "WebBoundary"
+evidence = "Line 1345 declares pub struct WebBoundary<B: ToolBoundary> with inner, route, context and observed fields; earlier construction and later impl blocks are references to the generic struct."
+
+[row.r9-163.8]
+interface = "interface.9.rs-mcp-server-webroute-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 1319
+symbol = "WebRoute"
+evidence = "Line 1319 declares pub struct WebRoute containing WebConfig, approvals, policy and payer; the constructor impl, parameter, field and destructuring occurrences are uses."
+
+[row.r9-163.9]
+interface = "interface.9.rs-mcp-tools-wallet-accounts-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/wallet.rs"
+line = 326
+symbol = "accounts"
+evidence = "Line 326 declares pub fn accounts with Server, core_sequence, Wallet and did parameters, returning Result<RpcValue, WalletToolError>; wallet.accounts and the JSON accounts key occur in its body."
+
+[row.r9-163.10]
+interface = "interface.9.rs-mcp-tools-wallet-balance-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/wallet.rs"
+line = 365
+symbol = "balance"
+evidence = "Line 365 declares pub fn balance with Server, core_sequence, NodeRpcConfig, account and optional height, returning Result<RpcValue, WalletToolError>; the later daemon read::balance is a call."
+
+[row.r9-163.11]
+interface = "interface.9.rs-mcp-tools-wallet-wait-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/wallet.rs"
+line = 393
+symbol = "wait"
+evidence = "Line 393 declares pub fn wait with Server, core_sequence, Wallet, activity, Commitment and Duration parameters, returning Result<VerifiedRpcReceipt, WalletToolError>; activity.wait is its operation literal."
+
+[row.r9-163.12]
+interface = "interface.9.rs-mcp-tools-web-canonical-bytes-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1866
+symbol = "canonical_bytes"
+evidence = "Line 1866 declares pub fn canonical_bytes(kind: u8, payload: &[u8], media_type: &str, text: &str) returning Result<Vec<u8>, WebToolError>; verify_fetch calls this encoder at line 1806."
+
+[row.r9-163.13]
+interface = "interface.9.rs-mcp-tools-web-content-digest-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1893
+symbol = "content_digest"
+evidence = "Line 1893 declares pub fn content_digest(canonical: &[u8]) -> [u8; 32] and computes Keccak256; the earlier fetch and content verification occurrences are calls."
+
+[row.r9-163.14]
+interface = "interface.9.rs-mcp-tools-web-sidecarendpoint-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 304
+symbol = "SidecarEndpoint"
+evidence = "Line 304 declares pub struct SidecarEndpoint with host, port and authority fields. The later impl, WebConfig field and parse invocation refer to this endpoint type."
+
+[row.r9-163.15]
+interface = "interface.9.rs-mcp-tools-web-untrustedhit-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 834
+symbol = "UntrustedHit"
+evidence = "Line 834 declares pub struct UntrustedHit with public url, title and snippet strings; WebResult stores a vector of hits and verify_search constructs them later."
+
+[row.r9-163.16]
+interface = "interface.9.rs-mcp-tools-web-verify-content-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1826
+symbol = "verify_content"
+evidence = "Line 1826 declares pub fn verify_content(digest: &[u8; 32], bytes: &[u8]) -> Result<WebResult, WebToolError>; it checks the digest and canonical encoding. Earlier occurrences invoke this function."
+
+[row.r9-163.17]
+interface = "interface.9.rs-mcp-tools-web-verify-fetch-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1786
+symbol = "verify_fetch"
+evidence = "Line 1786 declares pub fn verify_fetch(url: &str, body: &[u8]) -> Result<WebResult, WebToolError>, validating the answered URL, length and digest; verify_resource calls it at line 1744."
+
+[row.r9-163.18]
+interface = "interface.9.rs-mcp-tools-web-verify-search-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 1753
+symbol = "verify_search"
+evidence = "Line 1753 declares pub fn verify_search(body: &[u8]) -> Result<WebResult, WebToolError> and validates search result fields and count; line 1743 is its dispatch call."
+
+[row.r9-163.19]
+interface = "interface.9.rs-mcp-tools-web-web-tool-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 950
+symbol = "web_tool"
+evidence = "Line 950 declares pub fn web_tool(config: &WebConfig, call: &WebCall, approval: &WebApproval<'_>, payer: &mut dyn WebPayer) -> Result<WebOutcome, WebToolError>; later occurrences are test calls."
+
+[row.r9-163.20]
+interface = "interface.9.rs-mcp-tools-web-webapproval-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 445
+symbol = "WebApproval"
+evidence = "Line 445 declares pub struct WebApproval<'a> containing an ApprovalRegistry reference, policy, context and current_sequence; the impl, parameter types and test literals use this declaration."
+
+[row.r9-163.21]
+interface = "interface.9.rs-mcp-tools-web-webconfig-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 358
+symbol = "WebConfig"
+evidence = "Line 358 declares pub struct WebConfig containing the sidecar endpoint, payer, network and sequencer trust settings; other occurrences are parameter types, its impl or constructor calls."
+
+[row.r9-163.22]
+interface = "interface.9.rs-mcp-tools-web-weboutcome-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 864
+symbol = "WebOutcome"
+evidence = "Line 864 declares pub struct WebOutcome with tool, optional WebSettlement and WebResult fields; its impl, return types and value constructors occur later in the file."
+
+[row.r9-163.23]
+interface = "interface.9.rs-mcp-tools-web-webpayererror"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 495
+symbol = "WebPayerError"
+evidence = "Line 495 declares pub enum WebPayerError with Refused and Unavailable variants; the many later payer signatures and variant expressions use this enum."
+
+[row.r9-163.24]
+interface = "interface.9.rs-mcp-tools-web-webresult-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 842
+symbol = "WebResult"
+evidence = "Line 842 declares pub enum WebResult with Search, Fetch and Content variants; the outcome field, verification signatures, constructors and pattern matches reference this declaration."
+
+[row.r9-163.25]
+interface = "interface.9.rs-mcp-tools-web-websettlement-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 820
+symbol = "WebSettlement"
+evidence = "Line 820 declares pub struct WebSettlement holding scheme, currency, network, asset, pay_to, amount, payer, receipt_digest and transaction; later field, return and constructor occurrences are uses."
+
+[row.r9-163.26]
+interface = "interface.9.rs-proof-export-factverification-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 213
+symbol = "FactVerification"
+evidence = "Line 213 declares pub struct FactVerification containing FactSelector and achieved Rung; the impl, report vector, accessor return type and later constructor refer to this declaration."
+
+[row.r9-163.27]
+interface = "interface.9.rs-proof-export-offlinetrusterror"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 180
+symbol = "OfflineTrustError"
+evidence = "Line 180 declares pub enum OfflineTrustError with the NoAuthority variant; IndependentOfflineTrust::new uses this enum as its error type and rejects unverified authority history."
+
+[row.r9-163.28]
+interface = "interface.9.rs-proof-independentofflinetrust-network-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 206
+symbol = "network_id"
+evidence = "Inside impl IndependentOfflineTrust, line 206 declares pub const fn network_id(&self) -> u32; line 207 calls self.authority.network_id() to implement that accessor."
+
+[row.r9-163.29]
+interface = "interface.9.rs-proof-completeofflineartifact-decode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 820
+symbol = "decode"
+evidence = "Inside impl CompleteOfflineArtifact, line 820 declares pub fn decode<F: AsRef<str>, B: AsRef<[u8]>> with facts, receipts, proofs, certificates and headers buckets, returning Result<Self, ArtifactDecodeError>; earlier record decode methods take only bytes and return ExportCodecError."
+
+[row.r9-163.30]
+interface = "interface.9.rs-proof-completeofflineartifact-encode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 847
+symbol = "encode"
+evidence = "Inside impl CompleteOfflineArtifact, line 847 declares pub fn encode(&self) -> Result<EncodedOfflineArtifact, ArtifactDecodeError>; earlier record encode methods instead return Result<Vec<u8>, ExportCodecError>, so they do not match this signature."

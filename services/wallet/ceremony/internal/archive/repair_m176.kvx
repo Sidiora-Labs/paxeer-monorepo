@@ -1,0 +1,17 @@
+[repair.22.33.176]
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+mode = "BUILD"
+findings = ["archive-kdf-cost", "archive-incomplete-final-path"]
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and require hf-build followed by hf-done; no pre-change failing tests are claimed."
+evidence = "The runner's hf-done evidence line records the exact verified candidate revision, command, exit code and private log; no qualification is claimed by this source record."
+wiring_requests = []
+
+[finding.archive-kdf-cost]
+tests = ["TestRepairM_176_KDFCost"]
+repair = "Before derivation, bound scrypt V/B/XY memory and N*r*p work by the writer profile; keep cheaper profiles within both budgets and preserve authenticated header validation."
+
+[finding.archive-incomplete-final-path]
+tests = ["TestRepairM_176_RestartRecovery", "TestRepairM_176_StaleRowsRegenerated", "TestRepairM_176_VerifyBeforePublication", "TestRepairM_176_PublicationRace", "TestRepairM_176_StagingSymlinkRefused", "TestRepairM_176_FilesystemFailures"]
+repair = "Under an exclusive directory lock, discard only regular uncommitted staging files, create private staging data, sync and close it, authenticate and compare rows before publication, link without replacement, sync the directory, remove staging and sync cleanup."
+restart = "Close all descriptors without deferred cleanup at create, partial write, full write, sync, verification and publication boundaries; reopen a new writer and verify the recovered rows with the production codec."
+errors = "Real closed descriptors exercise write, file-sync and publication directory-sync errors; retries preserve any published complete archive and recover unpublished writes."

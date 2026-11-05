@@ -1,0 +1,16 @@
+[repair.22.31.351]
+finding = "testnet-chain-id"
+configuration_test = "testnet_chain_id_configuration_rejects_protocol_id"
+interface_test = "testnet_chain_id_parameters_to_signed_transaction"
+proof = "The real testnet HTTPS parameters response supplies evm_chain_id to the payment CLI parser and EIP-1559 signer; decoding and cryptographic verification prove chain 125, while protocol ID 402 and gateway chain mismatches are refused."
+baseline = "Not run: the explicit task order forbids verification before full implementation and allows verification only through hf-done; the repair integration target did not exist on the starting tree."
+wiring_request = "Domain 8 (fm-platform): services/platform/hosted/testnet/tests/hosted-smoke.sh must validate .evm_chain_id == 125 in /v1/parameters and pass --evm-chain-id from .evm_chain_id instead of --network-id from .network_id."
+qualification = "hf-build then hf-done; the runner's private gate ledger records the exact candidate revision, command, exit code and evidence location."
+
+[repair.22.31.351.inherited_receipt_import]
+revision = "d526efaecd510529db945261c2569d9c74747561"
+command = "cargo test --locked --manifest-path services/platform/hosted/testnet/Cargo.toml --test repair_22_31_351"
+exit = 101
+log = "/out/logs/verify-1.log"
+observed = "The existing receipt verifier imports _decode_protocol_receipt, which the current Python SDK does not export; import is now local to receipt verification so the independent chain-ID parser/signing path can load."
+assumption = "Receipt-interface repair belongs to its owning task; no receipt assertion or implementation is changed here."

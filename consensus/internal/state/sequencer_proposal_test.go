@@ -3,6 +3,7 @@ package state_test
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -30,9 +31,33 @@ type sealedSource struct {
 	activation int64
 	sealed     map[int64]sm.SealedBlock
 	sealCalls  []int64
+	admitCalls []admitCall
+	admitErr   error
+}
+
+type admitCall struct {
+	height int64
+	txs    types.Txs
 }
 
 func (s *sealedSource) Sequenced(height int64) bool { return height >= s.activation }
+
+func (s *sealedSource) Admit(_ context.Context, height int64, txs types.Txs) (int, error) {
+	owned := make(types.Txs, len(txs))
+	for i, tx := range txs {
+		owned[i] = append(types.Tx(nil), tx...)
+	}
+	s.admitCalls = append(s.admitCalls, admitCall{height: height, txs: owned})
+	if s.admitErr != nil {
+		return 0, s.admitErr
+	}
+	return len(txs), nil
+}
+
+func (s *sealedSource) AdmitWithAcknowledgements(ctx context.Context, height int64, txs types.Txs) (int, int, error) {
+	admitted, err := s.Admit(ctx, height, txs)
+	return admitted, admitted, err
+}
 
 func (s *sealedSource) Seal(_ context.Context, height int64) (sm.SealedBlock, error) {
 	s.sealCalls = append(s.sealCalls, height)
@@ -46,6 +71,7 @@ func (s *sealedSource) Seal(_ context.Context, height int64) (sm.SealedBlock, er
 // priorityApp admits every transaction at a high priority and counts rechecks.
 type priorityApp struct {
 	testApp
+	checks   atomic.Int64
 	rechecks atomic.Int32
 }
 
@@ -53,7 +79,7 @@ func (app *priorityApp) CheckTx(_ context.Context, req *abci.RequestCheckTxV2) *
 	if req.Type == abci.CheckTxTypeV2Recheck {
 		app.rechecks.Add(1)
 	}
-	return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{Priority: 1_000_000, GasWanted: 1}}
+	return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{Priority: 1_000_000 - app.checks.Add(1), GasWanted: 1}}
 }
 
 type sequencerFixture struct {
@@ -145,7 +171,7 @@ func TestSequencerProposalUsesSealedSlice(t *testing.T) {
 	batch := sequenceBatch(height, 31, 42)
 	slice := receipted(31, 42)
 	require.Len(t, slice, 12)
-	f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: time.UnixMilli(1700000000123)}
+	f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: f.state.LastBlockTime.Add(time.Second)}
 
 	block, err := f.propose(t, height)
 	require.NoError(t, err)
@@ -158,15 +184,53 @@ func TestSequencerProposalUsesSealedSlice(t *testing.T) {
 		require.Equal(t, tx, block.Txs[i+1], "tx %d", i+1)
 	}
 	require.Equal(t, types.Txs(slice).Hash(), types.Txs(block.Txs[1:]).Hash())
-	// ReapTxs was not called: the mempool transaction is neither proposed nor reaped.
-	require.Equal(t, 1, f.mempool.Size())
+	require.Equal(t, []admitCall{{height: height, txs: types.Txs{mempoolTx}}}, f.source.admitCalls)
+	require.Zero(t, f.mempool.Size())
 	require.NotContains(t, block.Txs, mempoolTx)
+}
+
+func TestSequencerProposalAdmitsMempoolTransactions(t *testing.T) {
+	const height = 1001
+	f := newSequencerFixture(t, height, height)
+	txs := types.Txs{types.Tx("first-mempool-tx"), types.Tx("second-mempool-tx")}
+	f.addToMempool(t, txs...)
+	reaped, _ := f.mempool.ReapTxs(mempool.ReapLimits{MaxBytes: utils.Some(int64(1 << 20))}, false)
+	require.Equal(t, txs, reaped)
+	batch := sequenceBatch(height, 7, 8)
+	slice := receipted(7, 8)
+	f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: f.state.LastBlockTime.Add(time.Second)}
+
+	block, err := f.propose(t, height)
+	require.NoError(t, err)
+	require.Equal(t, []admitCall{{height: height, txs: reaped}}, f.source.admitCalls)
+	require.Zero(t, f.mempool.Size())
+	require.Equal(t, append(types.Txs{batch}, slice...), types.Txs(block.Txs))
+	require.Equal(t, []int64{height}, f.source.sealCalls)
+}
+
+func TestSequencerProposalAdmitErrorFailsProposal(t *testing.T) {
+	const height = 1001
+	f := newSequencerFixture(t, height, height)
+	tx := types.Tx("mempool-tx")
+	f.addToMempool(t, tx)
+	want := errors.New("accept path fenced")
+	f.source.admitErr = want
+
+	block, err := f.propose(t, height)
+	require.ErrorIs(t, err, want)
+	require.Nil(t, block)
+	require.Equal(t, []admitCall{{height: height, txs: types.Txs{tx}}}, f.source.admitCalls)
+	require.Equal(t, 1, f.mempool.Size())
+	left, _ := f.mempool.ReapTxs(mempool.ReapLimits{}, false)
+	require.Equal(t, types.Txs{tx}, left)
+	require.Empty(t, f.source.sealCalls)
 }
 
 func TestSequencerProposalHeaderTimeIsOpenTime(t *testing.T) {
 	const height = 1001
 	f := newSequencerFixture(t, height, height)
 	open := time.UnixMilli(1700000000123)
+	f.state.LastBlockTime = open.Add(-time.Second)
 	f.source.sealed[height] = sm.SealedBlock{Batch: sequenceBatch(height, 1, 0), OpenTime: open}
 
 	block, err := f.propose(t, height)
@@ -189,12 +253,13 @@ func TestSequencerProposalIgnoresMempoolOrder(t *testing.T) {
 
 	batch := sequenceBatch(height, 7, 8)
 	slice := receipted(7, 8)
-	f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: time.UnixMilli(1700000000000)}
+	f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: f.state.LastBlockTime.Add(time.Second)}
 
 	block, err := f.propose(t, height)
 	require.NoError(t, err)
 
 	require.Equal(t, types.Txs{batch, slice[0], slice[1]}, block.Txs)
+	require.Equal(t, []admitCall{{height: height, txs: types.Txs{highPriority}}}, f.source.admitCalls)
 }
 
 func TestSequencerProposalLeavesMempoolUpdate(t *testing.T) {
@@ -212,15 +277,17 @@ func TestSequencerProposalLeavesMempoolUpdate(t *testing.T) {
 	}
 	block, err := f.propose(t, 1)
 	require.NoError(t, err)
+	require.Equal(t, []admitCall{{height: 1, txs: types.Txs{forwarded, gossiped}}}, f.source.admitCalls)
+	require.Zero(t, f.mempool.Size())
 
 	state := applyProposal(t, f, block)
 
 	require.Equal(t, int64(1), state.LastBlockHeight)
-	// Update removed the committed transaction and rechecked the one left.
-	require.Equal(t, 1, f.mempool.Size())
-	require.Equal(t, int32(1), f.app.rechecks.Load())
+	// Proposal admission removed both transactions before Update, leaving no rechecks.
+	require.Zero(t, f.mempool.Size())
+	require.Zero(t, f.app.rechecks.Load())
 	left, _ := f.mempool.ReapTxs(mempool.ReapLimits{MaxBytes: utils.Some(int64(1 << 20))}, false)
-	require.Equal(t, types.Txs{gossiped}, left)
+	require.Empty(t, left)
 }
 
 func TestSequencerProposalCommittedTxIndexed(t *testing.T) {
@@ -297,6 +364,7 @@ func TestSequencerProposalHeaderTime(t *testing.T) {
 	}
 
 	now := tmtime.Now()
+	f.state.LastBlockTime = now.Add(-time.Minute)
 	require.True(t, timely(now.Add(-2*time.Second), now))
 	require.False(t, timely(now.Add(20*time.Second), now))
 }
@@ -314,11 +382,46 @@ func TestSequencerProposalBelowActivationReaps(t *testing.T) {
 
 	batch := sequenceBatch(activation, 1, 1)
 	slice := receipted(1, 1)
-	f.source.sealed[activation] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: time.UnixMilli(1700000000000)}
+	f.source.sealed[activation] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: f.state.LastBlockTime.Add(time.Second)}
 	block, err = f.propose(t, activation)
 	require.NoError(t, err)
 	require.Equal(t, types.Txs{batch, slice[0]}, block.Txs)
 	require.Equal(t, []int64{activation}, f.source.sealCalls)
+}
+
+func TestSequencerProposalRefusesStaleOpenTime(t *testing.T) {
+	const height = 1001
+	last := time.UnixMilli(1700000000000).UTC()
+	for _, tc := range []struct {
+		name   string
+		offset time.Duration
+	}{
+		{name: "before last block", offset: -time.Nanosecond},
+		{name: "equal to last block", offset: 0},
+		{name: "after last block", offset: time.Nanosecond},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newSequencerFixture(t, height, height)
+			f.state.LastBlockTime = last
+			open := last.Add(tc.offset)
+			batch := sequenceBatch(height, 1, 1)
+			slice := receipted(1, 1)
+			f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: open}
+
+			block, err := f.propose(t, height)
+			require.Equal(t, []int64{height}, f.source.sealCalls)
+			if tc.offset <= 0 {
+				require.ErrorIs(t, err, sm.ErrOpenTimeNotAfterLastBlock)
+				require.EqualError(t, err, fmt.Sprintf("sealed block open time is not after the last block time: open %v, last %v", open, last))
+				require.Nil(t, block)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, block)
+			require.True(t, block.Time.Equal(open))
+			require.Equal(t, types.Txs{batch, slice[0]}, block.Txs)
+		})
+	}
 }
 
 func TestSequencerProposalRefusesIncompleteSeal(t *testing.T) {

@@ -21,3 +21,5 @@ var (
 	ErrParams                = sdkerrors.Register(ModuleName, 17, "invalid params")
 	ErrNotFinalizable        = sdkerrors.Register(ModuleName, 18, "checkpoint not finalizable")
 )
+
+var ErrModuleRetired = sdkerrors.Register(ModuleName, 19, "LXP_MODULE_DISABLED: layerxanchor retired")

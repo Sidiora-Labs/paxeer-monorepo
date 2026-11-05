@@ -88,7 +88,7 @@ func (s *SimulationAPI) CreateAccessList(ctx context.Context, args export.Transa
 	defer func() {
 		recordMetricsWithError(ctx, "eth_createAccessList", s.connectionType, startTime, returnErr, recover())
 	}()
-	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	bNrOrHash := s.backend.defaultEstimateTag()
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
@@ -171,8 +171,8 @@ func (s *SimulationAPI) Call(ctx context.Context, args export.TransactionArgs, b
 		}
 	}()
 	if blockNrOrHash == nil {
-		latest := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
-		blockNrOrHash = &latest
+		defaultTag := s.backend.defaultEstimateTag()
+		blockNrOrHash = &defaultTag
 	}
 	ctx = context.WithValue(ctx, CtxIsWasmdPrecompileCallKey, wasmd.IsWasmdCall(args.To))
 	callResult, err := export.DoCall(ctx, s.backend, args, *blockNrOrHash, overrides, blockOverrides, s.backend.RPCEVMTimeout(), s.backend.RPCGasCap())
@@ -312,8 +312,10 @@ func (b *Backend) SetTraceContextProvider(provider TraceContextProvider) {
 	}
 }
 
-// defaultEstimateTag is pending on the sequencer and standby, which hold the
-// open block, and latest on every other node.
+// defaultEstimateTag is the shared default for call, gas estimation and access
+// list simulation: pending when an open-state provider is wired, latest otherwise.
+// Provider capability persists during the idle seal-to-open interval; pending
+// resolution then applies its bounded wait and committed-state fallback.
 func (b *Backend) defaultEstimateTag() rpc.BlockNumberOrHash {
 	if b.watermarks != nil && b.watermarks.pending != nil {
 		return rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
@@ -326,14 +328,10 @@ func isPendingBlockNrOrHash(blockNrOrHash rpc.BlockNumberOrHash) bool {
 }
 
 // ctxAtHeight returns the open-block snapshot for the height of the open
-// block and the provider's context for every other height.
+// block, the latest committed context for a future height, and the provider's
+// context for every other height.
 func (b *Backend) ctxAtHeight(height int64) sdk.Context {
-	if b.watermarks != nil && b.watermarks.pending != nil {
-		if open, err := b.watermarks.resolvePending(); err == nil && open == height {
-			return b.ctxProvider(PendingCtxHeight)
-		}
-	}
-	return b.ctxProvider(height)
+	return simulationContextAtHeight(context.Background(), b.ctxProvider, b.watermarks, height)
 }
 
 // pendingStateAndHeader reads a snapshot of the open block. Its header carries
@@ -341,12 +339,15 @@ func (b *Backend) ctxAtHeight(height int64) sdk.Context {
 // committed parent's hash, and no hash or state root, since the block is not
 // sealed.
 func (b *Backend) pendingStateAndHeader(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *ethtypes.Header, error) {
-	height, err := b.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	snapshot, height, open, err := b.watermarks.pendingSnapshot(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+	if !open {
+		return b.StateAndHeaderByNumberOrHash(ctx, rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(height)))
+	}
 	isWasmdCall, ok := ctx.Value(CtxIsWasmdPrecompileCallKey).(bool)
-	sdkCtx := b.ctxProvider(height).WithIsEVM(true).WithEVMEntryViaWasmdPrecompile(ok && isWasmdCall)
+	sdkCtx := snapshot.WithIsEVM(true).WithEVMEntryViaWasmdPrecompile(ok && isWasmdCall)
 	openHeight := sdkCtx.BlockHeight()
 	if openHeight <= 0 {
 		return nil, nil, fmt.Errorf("open block height %d is not positive", openHeight)
@@ -385,6 +386,8 @@ func (b *Backend) pendingStateAndHeader(ctx context.Context, blockNrOrHash rpc.B
 	return state.NewDBImpl(sdkCtx, b.keeper, true), header, nil
 }
 
+// StateAndHeaderByNumberOrHash returns the requested state and header. Pending
+// reads return the latest committed block while no block is open.
 func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *ethtypes.Header, error) {
 	if isPendingBlockNrOrHash(blockNrOrHash) {
 		return b.pendingStateAndHeader(ctx, blockNrOrHash)
@@ -864,6 +867,10 @@ func (b *Backend) getBlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.
 	return block, isLatestBlock, nil
 }
 
+func (b *Backend) GetNextBaseFeePerGas(height int64) *big.Int {
+	return b.keeper.GetNextBaseFeePerGas(b.ctxProvider(height)).TruncateInt().BigInt()
+}
+
 func (b *Backend) getHeader(ctx context.Context, tmBlock *coretypes.ResultBlock) (*ethtypes.Header, error) {
 	if tmBlock == nil || tmBlock.Block == nil {
 		return nil, errors.New("cannot construct EVM header from an empty consensus block")
@@ -876,11 +883,8 @@ func (b *Backend) getHeader(ctx context.Context, tmBlock *coretypes.ResultBlock)
 		return nil, fmt.Errorf("block %d timestamp predates Unix epoch", height)
 	}
 	zeroExcessBlobGas := uint64(0)
-	baseFee := b.keeper.GetNextBaseFeePerGas(b.ctxProvider(height - 1)).TruncateInt().BigInt()
+	baseFee := b.GetNextBaseFeePerGas(height - 1)
 	sdkCtx := b.ctxProvider(height)
-	if sdkCtx.ChainID() == "pacific-1" && sdkCtx.BlockHeight() < b.keeper.UpgradeKeeper().GetDoneHeight(sdkCtx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), "6.2.0") {
-		baseFee = nil
-	}
 	cp := sdkCtx.ConsensusParams()
 	if cp == nil || cp.Block == nil {
 		return nil, fmt.Errorf("consensus block parameters are unavailable at height %d", height)
@@ -996,7 +1000,11 @@ func (b *Backend) GetBlockContext(ctx context.Context, block *ethtypes.Block, st
 	if typedStateDB == nil {
 		return vm.BlockContext{}, errors.New("unsupported EVM state database")
 	}
-	blockCtx, err := b.keeper.GetVMBlockContext(typedStateDB.Ctx(), b.keeper.GetGasPool())
+	sdkCtx := typedStateDB.Ctx()
+	if block.Number().Int64() != sdkCtx.BlockHeight() {
+		sdkCtx = sdkCtx.WithBlockHeight(block.Number().Int64()).WithBlockTime(time.Unix(int64(block.Time()), 0).UTC())
+	}
+	blockCtx, err := b.keeper.GetVMBlockContext(sdkCtx, b.keeper.GetGasPool())
 	if err != nil {
 		return vm.BlockContext{}, fmt.Errorf("failed to construct EVM block context: %w", err)
 	}

@@ -1,0 +1,124 @@
+[disposition.18.1228.1.9]
+finding = "18.1228.1.9"
+status = "resolved"
+evidence = "Commit ecf046436 submits and checks the replacement budget id as the protocol-limit action key, as retained at services/human/crates/layerx-human-service/src/agents/controls.rs:610."
+
+[disposition.18.1228.1.10]
+finding = "18.1228.1.10"
+status = "resolved"
+evidence = "Commit 7d2c6993d makes both production creation submission checks use creation_idempotency_key, which reads the budget id from PayBudgetCreate independently of the journey action key at services/human/crates/layerx-human-service/src/agents/create.rs:491."
+
+[disposition.18.1228.1.11]
+finding = "18.1228.1.11"
+status = "resolved"
+evidence = "Commit b7220cd6e completes the controls receipt port, and services/human/crates/layerx-human-service/tests/agent_controls.rs:736 now calls canonical_owner::sign_transaction with four arguments and no replacement_budget_id helper."
+
+[disposition.18.1228.1.12]
+finding = "18.1228.1.12"
+status = "resolved"
+evidence = "Commit 43f4e67ab registers budget defund as activity 0x00030008, and services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1013 now declares the Budget ordinal 8 that was refused as UndeclaredActivity(196616)."
+
+[disposition.18.1228.1.13]
+finding = "18.1228.1.13"
+status = "resolved"
+evidence = "Commit 886bdaf0f replaces the incomplete reclaim transaction preparation with disclosure-bound EVM preparation and signing, used by archive.rs through reclaim.rs and retained at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1311."
+
+[disposition.18.1230.1.1]
+finding = "18.1230.1.1"
+status = "resolved"
+evidence = "Commit 519005b56 adds ExecutedReceipt.signing_key at services/agent/crates/layerx-agentd/tests/budget_create.rs:48 and ports both support signing paths to attach_kernel_signature and verify_kernel_before_submit."
+
+[disposition.18.1230.1.2]
+finding = "18.1230.1.2"
+status = "resolved"
+evidence = "Commit b9fd53afe replaces the obsolete ReceiptLookup implementation with a sequencer endpoint used at services/agent/crates/layerx-agentd/tests/unknown.rs:61 and ports migration enqueue to its three-argument form at tests/migration.rs:136."
+
+[disposition.18.1242.1.1]
+finding = "18.1242.1.1"
+status = "resolved"
+evidence = "Commit 706b2e2ab replaces the external owner-fixture document with the self-contained OwnerFixture::new at services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:469 and admits AgentRegister and SessionOpen through target_object_owner."
+
+[disposition.18.1243.1.1]
+finding = "18.1243.1.1"
+status = "resolved"
+evidence = "Commit f328c2765 ports web payments to 32-byte ledger account and asset ids, and services/agent/crates/layerx-mcp/src/tools/web.rs:609 now passes payer_account, recipient and asset directly into payExact."
+
+[disposition.18.1243.2.1]
+finding = "18.1243.2.1"
+status = "resolved"
+evidence = "Commit 37888aa9c changes balance_json to accept ProgramBalanceRead<CommittedProgramBalanceFreshness> and exports that freshness type from read/mod.rs, removing the recorded E0308 mismatch."
+
+[disposition.18.1243.2.2]
+finding = "18.1243.2.2"
+status = "resolved"
+evidence = "Commit 37888aa9c lands the host payer GrantTerms port together with the committed balance_json signature and freshness re-export, removing the circular binary-build dependency described by the finding."
+
+[disposition.18.1275.1.1]
+finding = "18.1275.1.1"
+status = "resolved"
+evidence = "Commit dfa182a2e aligns the v1 source assertions with the signed calldata decoder, and services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:549 now expects a zero source account and zero source sequence while retaining the v2 source assertions."
+
+[disposition.18.1275.1.2]
+finding = "18.1275.1.2"
+status = "environment"
+evidence = "The qualification graph omitted the defining crate although services/agent/crates/layerx-crypto/src/evm_transaction.rs:212 declares Eip1559Call::sign and services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:279 calls it, so the reported missing symbol was an indexing limitation."
+
+[disposition.18.1279.1.1]
+finding = "18.1279.1.1"
+status = "resolved"
+evidence = "Commit ed1b9b302 ports the scope revocation event to GrantRevokedOnChain, retained at services/agent/crates/layerx-mcp/tests/scope.rs:525 with the bound-session and sibling-session assertions intact."
+
+[disposition.18.1279.1.2]
+finding = "18.1279.1.2"
+status = "resolved"
+evidence = "Commit f328c2765 makes validate_web_challenge accept the seller ledger identifiers, and services/agent/crates/layerx-mcp/src/tools/web.rs:1134 now parses both asset and payTo with parse_hex32."
+
+[disposition.18.1279.1.3]
+finding = "18.1279.1.3"
+status = "resolved"
+evidence = "Commit 7cbde78ce adds the standing-grant payment path, and services/agent/crates/layerx-mcp/tests/web.rs:971 now asserts no grant submission and reads the recorded standing grant 7130e3f7 instead of requiring a receipt for a newly issued grant."
+
+[disposition.18.1279.2.1]
+finding = "18.1279.2.1"
+status = "resolved"
+evidence = "Commit 096e161e1 ports journal replay to the chain-head-aware reader, and services/agent/crates/layerx-agentd/src/main.rs:1564 now calls verify_journal_admission with the proof and current time instead of the obsolete one-argument historical verifier."
+
+[disposition.18.1301.1.1]
+finding = "18.1301.1.1"
+status = "resolved"
+evidence = "Commit bcac10a75 adds revoked_grant_id, and services/agent/crates/layerx-agentd/src/session_revocation.rs:267 now accepts both SessionKey and CapabilityGrant authorities for GrantRevokedOnChain invalidation."
+
+[disposition.18.1306.1.1]
+finding = "18.1306.1.1"
+status = "resolved"
+evidence = "Commit e0b3ccfaa corrects the dispute test to the 99-byte payload with one nonzero evidence hash, and modules/lxphost/modules_test.go:129 now reaches the agreement lookup and asserts result -706 while the decoder retains its evidence-count check."
+
+[disposition.18.1307.1.1]
+finding = "18.1307.1.1"
+status = "superseded"
+evidence = "Commit 90bda704a retires Keeper.ResultByIdempotency and the resultByIdempotency precompile view, deleting the ReadIdempotentReceipt caller from modules/layerxauth/keeper/views.go."
+
+[disposition.18.1308.1.1]
+finding = "18.1308.1.1"
+status = "resolved"
+evidence = "Commit 90bda704a records flow-specific replay results, and modules/layerxauth/keeper/sessions_test.go:204 and modules/layerxauth/keeper/execute_test.go:97 now assert -204 for successor and revoke replays while other replay flows retain -301."
+
+[disposition.18.1308.2.1]
+finding = "18.1308.2.1"
+status = "resolved"
+evidence = "Commit ef56c7194 removes both obsolete programLifecycleOrdinals references from decodeProgramAgentEnvelope, retaining the program.receipt success arm at sdk/platform/go/http.go:178."
+
+[disposition.18.1308.2.2]
+finding = "18.1308.2.2"
+status = "environment"
+evidence = "The missing swift executable was a qualification-toolchain failure rather than repository code, and spec/layerx-merge/spec.kvx:226222 now declares the sdk-all profile for the mixed Go, Swift, dotnet and Maven gate."
+
+[disposition.18.1308.2.3]
+finding = "18.1308.2.3"
+status = "resolved"
+evidence = "Commit ef56c7194 ports both catalogue readers to keyed operation groups, and sdk/platform/go/operation_catalog_test.go:37 and sdk/platform/go/portable_catalogue_test.go:58 now decode map[string][]operation values before flattening the groups."
+
+[disposition.18.1308.2.4]
+finding = "18.1308.2.4"
+status = "resolved"
+evidence = "Commit ef56c7194 replaces the inaccessible lifecycle.activityID.hex use with inline byte formatting, retained for the transaction hash assertion at sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:267."

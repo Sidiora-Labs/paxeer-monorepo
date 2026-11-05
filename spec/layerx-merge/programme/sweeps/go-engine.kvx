@@ -1,0 +1,142 @@
+[sweep.go-engine]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 27
+targets_passed = 27
+targets_failed = 0
+targets_not_run = 0
+
+[target.go-engine.1]
+target = "engine/deps/store"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.2]
+target = "engine/deps/tasks"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.3]
+target = "engine/deps/testutil/fuzzing"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.4]
+target = "engine/deps/testutil/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.5]
+target = "engine/deps/testutil/network"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.6]
+target = "engine/deps/testutil/nullify"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.7]
+target = "engine/deps/testutil/processblock"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.8]
+target = "engine/deps/testutil/processblock/verify"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.9]
+target = "engine/deps/testutil/sample"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.10]
+target = "engine/deps/xbank/exported"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.11]
+target = "engine/deps/xbank/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.12]
+target = "engine/deps/xbank/types"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.13]
+target = "engine/deps/xevm/config"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.14]
+target = "engine/deps/xevm/derived"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.15]
+target = "engine/deps/xevm/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.16]
+target = "engine/deps/xevm/state"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.17]
+target = "engine/deps/xevm/types"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.18]
+target = "engine/deps/xevm/types/ethtx"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.19]
+target = "engine/executor"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.20]
+target = "engine/executor/config"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.21]
+target = "engine/executor/internal"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.22]
+target = "engine/executor/lib"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.23]
+target = "engine/executor/lib/gen"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.24]
+target = "engine/executor/precompiles"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.25]
+target = "engine/executor/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.26]
+target = "engine/tests"
+result = "passed"
+exit_code = 0
+
+[target.go-engine.27]
+target = "engine/tests/harness"
+result = "passed"
+exit_code = 0

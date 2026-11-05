@@ -135,7 +135,7 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
   const creatorAddressHash = data.creator_address_hash;
 
   const identities = unifiedAccountQuery.data ? listIdentities(unifiedAccountQuery.data.identities) : [];
-  const hasKernelAccount = paxeerXFeature.isEnabled && identities.length > 0;
+  const hasUnifiedAccount = paxeerXFeature.isEnabled && identities.length > 0;
 
   const overviewCard = (
     <DetailsCard title="Overview">
@@ -257,7 +257,7 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
     </DetailsCard>
   );
 
-  const kernelCard = (
+  const unifiedCard = (
     <DetailsCard title="Paxeer X account">
       { identities.map((identity) => (
         <ScanKeyValue key={ identity.kind } label={ identity.label } multiRow>
@@ -265,8 +265,8 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
           <CopyToClipboard text={ identity.value }/>
         </ScanKeyValue>
       )) }
-      <ScanKeyValue label="Unified account" hint="The kernel view of this address, with its identities, assets and activity">
-        <Link href={ route({ pathname: '/paxeer-x/account/[hash]', query: { hash: addressHash } }) } data-kernel-account-link>
+      <ScanKeyValue label="Unified account" hint="The unified account for this address, with its identities, assets and activity">
+        <Link href={ route({ pathname: '/paxeer-x/account/[hash]', query: { hash: addressHash } }) } data-unified-account-link>
           View unified account
         </Link>
       </ScanKeyValue>
@@ -329,7 +329,7 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
       >
         { overviewCard }
         { moreInfoCard }
-        { hasKernelAccount ? kernelCard : contractInfoCard }
+        { hasUnifiedAccount ? unifiedCard : contractInfoCard }
       </Grid>
     </>
   );

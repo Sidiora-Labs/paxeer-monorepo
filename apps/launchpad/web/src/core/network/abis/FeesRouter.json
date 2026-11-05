@@ -20,6 +20,16 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "InvalidRoleAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LastDefaultAdmin",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -33,6 +43,11 @@
       }
     ],
     "name": "MissingRole",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NonPayableUpgrade",
     "type": "error"
   },
   {
@@ -63,6 +78,16 @@
   {
     "inputs": [],
     "name": "UnauthorizedUpgrade",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UnsupportedSnapshotToken",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UpgradeInitializationFailed",
     "type": "error"
   },
   {
@@ -225,6 +250,19 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "bytes4",
+        "name": "selector",
+        "type": "bytes4"
+      }
+    ],
+    "name": "MirrorFailed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "bytes32",
         "name": "role",
         "type": "bytes32"
@@ -330,6 +368,30 @@
       }
     ],
     "name": "claimAirdrop",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "nftId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "epoch",
+        "type": "uint256"
+      }
+    ],
+    "name": "claimAirdropEpoch",
     "outputs": [
       {
         "internalType": "uint256",
@@ -552,6 +614,19 @@
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registeredDefaultAdminCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

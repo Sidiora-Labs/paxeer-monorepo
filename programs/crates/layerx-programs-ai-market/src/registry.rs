@@ -23,7 +23,8 @@ pub const F01_SECTION_CAP: usize = 16_384;
 pub const TASK_BINDING_DESIGN_BYTES: usize = 233;
 pub const COMMON_SECTION_HEADER_BYTES: usize = 8;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct MarketHeader {
     pub format_version: u16,
     pub market_id: MarketId,
@@ -58,9 +59,11 @@ pub struct MarketHeader {
 pub fn derive_rewards_account(program: ProgramId, asset: AssetId) -> CodecResult<AccountId> {
     #[cfg(target_arch = "wasm32")]
     {
-        static DERIVED: spin::Mutex<Option<(ProgramId, AssetId, AccountId)>> =
-            spin::Mutex::new(None);
-        let mut derived = DERIVED.lock();
+        static DERIVED: crate::guest_cell::GuestCell<Option<(ProgramId, AssetId, AccountId)>> =
+            crate::guest_cell::GuestCell::new(None);
+        let mut derived = DERIVED
+            .try_borrow_mut()
+            .ok_or(F01_ACCOUNT_BINDING_MISSING)?;
         if let Some((p, a, account)) = *derived {
             if (p, a) == (program, asset) {
                 return Ok(account);
@@ -90,6 +93,7 @@ impl MarketHeader {
     ///
     /// # Errors
     /// Returns `BAD_VERSION` when `format_version` is not 1; `F01_WRONG_LIFECYCLE` when the lifecycle is outside 1..=5; `NON_CANONICAL` when reserved, revision, version, activation, or close fields are inconsistent; `F01_PRINCIPAL_MISMATCH` when the treasury equals the owner; `WRONG_MARKET` when the market id is not derived from chain and program; `F01_ACCOUNT_BINDING_MISSING` when the rewards account is not the derived binding.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.format_version != 1 {
             return Err(BAD_VERSION);
@@ -132,6 +136,7 @@ impl MarketHeader {
     ///
     /// # Errors
     /// Propagates `validate` refusals; returns `CAPACITY` when `output` is shorter than `encoded_len`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < self.encoded_len() {
@@ -169,18 +174,19 @@ impl MarketHeader {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the input is short, has trailing bytes, holds a zero identity or digest, or a flag byte is not 0 or 1; propagates `validate` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
             format_version: r.u16()?,
-            market_id: MarketId::new(r.fixed()?)?,
-            deployment_chain_domain: ChainDomain::new(r.fixed()?)?,
-            program_id: ProgramId::new(r.fixed()?)?,
-            owner_principal: PrincipalId::new(r.fixed()?)?,
-            funding_asset: AssetId::new(r.fixed()?)?,
-            rewards_account: AccountId::new(r.fixed()?)?,
-            refund_recipient_account: AccountId::new(r.fixed()?)?,
-            treasury_principal: r.presence(|r| PrincipalId::new(r.fixed()?))?,
+            market_id: r.market_id()?,
+            deployment_chain_domain: r.chain_domain()?,
+            program_id: r.program_id()?,
+            owner_principal: r.principal_id()?,
+            funding_asset: r.asset_id()?,
+            rewards_account: r.account_id()?,
+            refund_recipient_account: r.account_id()?,
+            treasury_principal: r.presence(|r| r.principal_id())?,
             origin_height: r.u64()?,
             lifecycle: r.u8()?,
             state_revision: r.u64()?,
@@ -192,7 +198,7 @@ impl MarketHeader {
             close_phase: r.u8()?,
             close_cursor: r.u16()?,
             suspension_reason_digest: r.fixed()?,
-            metadata_digest: MetadataDigest::new(r.fixed()?)?,
+            metadata_digest: r.metadata_digest()?,
             closing_request_digest: r.fixed()?,
             reserved: r.fixed()?,
         };
@@ -202,7 +208,8 @@ impl MarketHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct OperatorGrant {
     pub principal: PrincipalId,
     pub permissions: u8,
@@ -215,6 +222,7 @@ impl OperatorGrant {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when permissions are outside 1..=3, the sequence is zero, or reserved bytes are set.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if !(1..=3).contains(&self.permissions) || self.sequence == 0 || self.reserved != [0; 8] {
             return Err(NON_CANONICAL);
@@ -225,6 +233,7 @@ impl OperatorGrant {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the grant is invalid; `CAPACITY` when `output` is shorter than `OPERATOR_GRANT_BYTES`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         if output.len() < OPERATOR_GRANT_BYTES {
@@ -242,10 +251,11 @@ impl OperatorGrant {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the input is short, has trailing bytes, holds a zero principal or a bad flag byte, or fails `validate`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = Self {
-            principal: PrincipalId::new(r.fixed()?)?,
+            principal: r.principal_id()?,
             permissions: r.u8()?,
             sequence: r.u64()?,
             revoked: r.boolean()?,
@@ -257,7 +267,8 @@ impl OperatorGrant {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct MarketClock {
     pub epoch: u64,
     pub position: u64,
@@ -281,7 +292,8 @@ pub fn market_clock(origin_height: u64, height: u64) -> CodecResult<MarketClock>
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct F01Worksheet {
     pub non_task_bytes: usize,
     pub task_bytes: usize,

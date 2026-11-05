@@ -1,0 +1,243 @@
+[reconcile.r16-208]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-208.1]
+interface = "interface.16.mk-programs-fuzz-smoke"
+verdict = "served"
+path = "Makefile"
+line = 2963
+symbol = "programs-fuzz-smoke"
+evidence = "The programs-fuzz-smoke: rule runs programs-fuzz against the validation, instantiation and execution corpora; the other occurrences are PHONY and programs-test references."
+
+[row.r16-208.2]
+interface = "interface.16.mk-programs-generate-capability-fixture"
+verdict = "served"
+path = "Makefile"
+line = 2755
+symbol = "programs-generate-capability-fixture"
+evidence = "The programs-generate-capability-fixture: declaration runs the capability_fixture example and copies its output to native-program-capabilities-v2.json; line 2753 only declares PHONY."
+
+[row.r16-208.3]
+interface = "interface.16.mk-programs-interpreter-bench"
+verdict = "served"
+path = "Makefile"
+line = 2996
+symbol = "programs-interpreter-bench"
+evidence = "The programs-interpreter-bench: rule builds the interpreter and compiled equivalent WASM before running the interpreter benchmark; programs-bench only depends on this target."
+
+[row.r16-208.4]
+interface = "interface.16.mk-programs-interpreter-conformance"
+verdict = "served"
+path = "Makefile"
+line = 2990
+symbol = "programs-interpreter-conformance"
+evidence = "The programs-interpreter-conformance: declaration builds the interpreter WASM and runs the interpreter_program test; the PHONY list and programs-test dependency are uses."
+
+[row.r16-208.5]
+interface = "interface.16.mk-programs-js-install"
+verdict = "served"
+path = "Makefile"
+line = 2726
+symbol = "programs-js-install"
+evidence = "The programs-js-install: declaration runs npm ci for the AssemblyScript SDK and paid-counter example; workspace-install invokes it and line 2725 marks it PHONY."
+
+[row.r16-208.6]
+interface = "interface.16.mk-programs-lint"
+verdict = "served"
+path = "Makefile"
+line = 2740
+symbol = "programs-lint"
+evidence = "The declaration remains programs-lint: programs-module-boundaries, followed by clippy, dependency-policy.sh and cargo deny recipes; workspace-lint only lists it as a prerequisite."
+
+[row.r16-208.7]
+interface = "interface.16.mk-programs-module-boundaries"
+verdict = "served"
+path = "Makefile"
+line = 2746
+symbol = "programs-module-boundaries"
+evidence = "The programs-module-boundaries: rule invokes tests/programs/runtime-module-boundaries.sh; its appearances in programs-lint and programs-test are dependency references."
+
+[row.r16-208.8]
+interface = "interface.16.mk-programs-native-lifecycle-fixtures"
+verdict = "served"
+path = "Makefile"
+line = 2844
+symbol = "programs-native-lifecycle-fixtures"
+evidence = "The declaration still depends on $(BUILD_DIR)/tests/programs_call_activity and invokes generate_native_lifecycle_fixtures.py --encoder $<; line 2843 only marks the target PHONY."
+
+[row.r16-208.9]
+interface = "interface.16.mk-programs-porting-v2-references"
+verdict = "served"
+path = "Makefile"
+line = 3004
+symbol = "programs-porting-v2-references"
+evidence = "The rule retains the $(BUILD_DIR)/tests/programs_call_activity prerequisite, builds and lints the EVM, Solana and CosmWasm reference-v2 guests, then runs the activity encoder against them."
+
+[row.r16-208.10]
+interface = "interface.16.mk-programs-qualify"
+verdict = "served"
+path = "Makefile"
+line = 2974
+symbol = "programs-qualify"
+evidence = "The programs-qualify: declaration invokes python3 tools/qualification/release_runner.py $@; its earlier occurrence belongs to the PHONY target list."
+
+[row.r16-208.11]
+interface = "interface.16.mk-programs-quickstart"
+verdict = "served"
+path = "Makefile"
+line = 3050
+symbol = "programs-quickstart"
+evidence = "The programs-quickstart: rule runs sh programs/sdk/rust/quickstart/build.sh all; the other occurrence is in the PHONY list."
+
+[row.r16-208.12]
+interface = "interface.16.mk-programs-reference-escrow"
+verdict = "served"
+path = "Makefile"
+line = 3027
+symbol = "programs-reference-escrow"
+evidence = "The programs-reference-escrow: declaration runs programs/sdk/rust/examples/escrow/build.sh; the preceding line is the PHONY annotation."
+
+[row.r16-208.13]
+interface = "interface.16.mk-programs-reference-fixtures"
+verdict = "served"
+path = "Makefile"
+line = 3035
+symbol = "programs-reference-fixtures"
+evidence = "The programs-reference-fixtures: declaration invokes sh scripts/programs/program-fixtures.sh; line 3034 only declares it PHONY."
+
+[row.r16-208.14]
+interface = "interface.16.mk-programs-reference-web-reader"
+verdict = "served"
+path = "Makefile"
+line = 3031
+symbol = "programs-reference-web-reader"
+evidence = "The programs-reference-web-reader: rule invokes programs/sdk/rust/examples/web-reader/build.sh; the preceding PHONY declaration is not its recipe definition."
+
+[row.r16-208.15]
+interface = "interface.16.mk-programs-sdk-assemblyscript"
+verdict = "served"
+path = "Makefile"
+line = 3046
+symbol = "programs-sdk-assemblyscript"
+evidence = "The programs-sdk-assemblyscript: rule runs the SDK test:source script and builds and lints the paid-counter example; programs-test only depends on it."
+
+[row.r16-208.16]
+interface = "interface.16.mk-programs-sdk-c"
+verdict = "served"
+path = "Makefile"
+line = 3016
+symbol = "programs-sdk-c"
+evidence = "The programs-sdk-c: declaration builds the paid-counter example with STRICT=1, compiles capability_parity.c with the C SDK sources and runs the resulting parity binary."
+
+[row.r16-208.17]
+interface = "interface.16.mk-programs-sdk-rust"
+verdict = "served"
+path = "Makefile"
+line = 3038
+symbol = "programs-sdk-rust"
+evidence = "The programs-sdk-rust: declaration installs SDK npm dependencies, builds quickstart, response-fixture, escrow and vault, then runs the bindgen_conformance test; other occurrences are references."
+
+[row.r16-208.18]
+interface = "interface.16.mk-programs-target-debug-liblayerx-programs-sandbox-a"
+verdict = "served"
+path = "Makefile"
+line = 2730
+symbol = "$(PROGRAMS_RUNTIME_LIB)"
+evidence = "The literal $(PROGRAMS_RUNTIME_LIB): is the target declaration and builds the programs workspace with host-ffi. PROGRAMS_RUNTIME_LIB resolves to programs/target/debug/liblayerx_programs_sandbox.a at line 2718; other expansions are prerequisites or link arguments."
+
+[row.r16-208.19]
+interface = "interface.16.mk-programs-test"
+verdict = "served"
+path = "Makefile"
+line = 3001
+symbol = "programs-test"
+evidence = "The programs-test: declaration retains the registered module-boundaries, ABI, core, protocol, adversarial, fuzz, differential, interpreter, SDK and porting prerequisites, then runs cargo test --locked --workspace with LAYERX_INTERPRETER_WASM."
+
+[row.r16-208.20]
+interface = "interface.16.mk-public-audit"
+verdict = "served"
+path = "Makefile"
+line = 1615
+symbol = "public-audit"
+evidence = "The public-audit: rule invokes scripts/ci/public-repo-audit.sh; appearances in the PHONY list and workspace-ci prerequisites do not define its recipe."
+
+[row.r16-208.21]
+interface = "interface.16.mk-public-tls-test-prerequisites"
+verdict = "served"
+path = "Makefile"
+line = 1879
+symbol = "public-tls-test-prerequisites"
+evidence = "The public-tls-test-prerequisites: declaration builds layerx-platform-paxeer-boundary and layerx-runtime-clock into PUBLIC_TLS_TEST_TARGET_DIR; line 1878 is its PHONY annotation."
+
+[row.r16-208.22]
+interface = "interface.16.mk-qualification-runner-test"
+verdict = "served"
+path = "Makefile"
+line = 1819
+symbol = "qualification-runner-test"
+evidence = "The current declaration is qualification-runner-test: test-mcp-binding-receipt-keys, adding that prerequisite to the registered prerequisite-free signature; its recipe still runs python3 -m unittest tools.qualification.test_release_runner."
+
+[row.r16-208.23]
+interface = "interface.16.mk-qualify-arith"
+verdict = "served"
+path = "Makefile"
+line = 1205
+symbol = "qualify-arith"
+evidence = "The qualify-arith: declaration spans lines 1205-1207 and retains the u128, u256, rounding, property, nofloat and test_qual_arith prerequisites; its recipe runs test_qual_arith and tools/lxp_arith_proof.sh."
+
+[row.r16-208.24]
+interface = "interface.16.mk-qualify-faults"
+verdict = "served"
+path = "Makefile"
+line = 1148
+symbol = "qualify-faults"
+evidence = "The declaration remains qualify-faults: $(BUILD_DIR)/tests/test_qual_recovery and runs that binary through RUN_PREFIX; references from core-test-all are dependencies rather than definitions."
+
+[row.r16-208.25]
+interface = "interface.16.mk-qualify-fuzz"
+verdict = "served"
+path = "Makefile"
+line = 1183
+symbol = "qualify-fuzz"
+evidence = "The declaration remains qualify-fuzz: qualify-fuzz-run; its recipe invokes qualify-fuzz-run again with AddressSanitizer flags in build/qualification/fuzz-asan."
+
+[row.r16-208.26]
+interface = "interface.16.mk-qualify-fuzz-run"
+verdict = "served"
+path = "Makefile"
+line = 1176
+symbol = "qualify-fuzz-run"
+evidence = "The qualify-fuzz-run: declaration retains $(BUILD_DIR)/tests/test_fuzz_smoke, checks QUALIFICATION_CORPUS and runs the binary with the input corpus, output corpus directory and FUZZ_QUAL_ITERATIONS."
+
+[row.r16-208.27]
+interface = "interface.16.mk-qualify-replay"
+verdict = "served"
+path = "Makefile"
+line = 1134
+symbol = "qualify-replay"
+evidence = "The qualify-replay: declaration invokes tools/lxp_qual_replay_matrix.sh; its occurrence in core-qualification-environment is a prerequisite reference."
+
+[row.r16-208.28]
+interface = "interface.16.mk-rocksdb-source-check"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "rocksdb-source-check belongs to PAXEER_FORWARDED_TARGETS at line 2418. Its registered signature is the shared $(PAXEER_FORWARDED_TARGETS): declaration at line 2422, whose recipe forwards $@ through PAXEER_MAKE; line 2421 only marks the targets PHONY."
+
+[row.r16-208.29]
+interface = "interface.16.mk-run-local-node"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "run-local-node belongs to PAXEER_FORWARDED_TARGETS at line 2418. Its registered signature is the shared $(PAXEER_FORWARDED_TARGETS): declaration at line 2422, whose recipe forwards $@ through PAXEER_MAKE; the variable assignment is not the rule."
+
+[row.r16-208.30]
+interface = "interface.16.mk-run-rpc-node"
+verdict = "served"
+path = "Makefile"
+line = 2422
+symbol = "$(PAXEER_FORWARDED_TARGETS)"
+evidence = "run-rpc-node belongs to PAXEER_FORWARDED_TARGETS at line 2418. Its registered signature is the shared $(PAXEER_FORWARDED_TARGETS): declaration at line 2422, whose recipe forwards $@ through PAXEER_MAKE; neither the assignment nor the PHONY annotation defines the recipe."

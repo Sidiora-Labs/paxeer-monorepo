@@ -9,11 +9,11 @@
 //! at its deletion deadline; a restore below the live revocation or retention
 //! high-water mark never becomes ready.
 //! Nothing here is a protocol receipt.
-mod authority;
-mod crypto;
-mod resolver;
-mod retention;
-mod store;
+pub(crate) mod authority;
+pub(crate) mod crypto;
+pub(crate) mod resolver;
+pub(crate) mod retention;
+pub(crate) mod store;
 
 use authority::{Config, Listener, Tenant};
 use crypto::{FrameContext, KeyProvider, LocalFileKeyProvider};
@@ -27,9 +27,7 @@ use layerx_programs_ai_market::queries::{
     bind_snapshot, CaptureFacts, FinalityEvidence, QueryError, ReadProof, SnapshotBinding,
 };
 use layerx_programs_ai_market::state::decode_shared_state;
-use layerx_programs_ai_market::types::{
-    ChainDomain, Digest32, MarketId, PolicyDigest, Presence, ProgramId,
-};
+use layerx_programs_ai_market::types::{ChainDomain, Digest32, MarketId, PolicyDigest, ProgramId};
 use layerx_programs_ai_market::{codec, MAX_CHUNK_BYTES, MAX_STATE_BYTES};
 use retention::{Ledger, PurgeReport, Refusal};
 use rustls::pki_types::pem::PemObject;
@@ -38,11 +36,14 @@ use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc::{self, SyncSender};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use store::{
     Delivery, DeliveryState, Disposition, Grant, ObjectRecord, ObjectState, Session, SessionState,
     Store, Transition, STAGING_SECS,
@@ -56,20 +57,22 @@ const MAX_LEASE_SECS: u64 = 365 * 86_400;
 const DELIVERY_DEADLINE: Duration = Duration::from_secs(10);
 const MAINTENANCE_INTERVAL: Duration = Duration::from_secs(60);
 const WRAPPED_KEY_BYTES: usize = 24 + 32 + 16;
+const CONNECTION_WORKERS: usize = 32;
+const REQUEST_DEADLINE: Duration = Duration::from_secs(10);
 const IO_TIMEOUT: Duration = Duration::from_secs(30);
 const JSON: &str = "application/json";
 
 type Reply = (u16, Vec<u8>, &'static str);
 type Op = Result<Value, ArtifactError>;
 
-struct Service {
-    config: Config,
-    kms: Box<dyn KeyProvider>,
+pub(crate) struct Service {
+    pub(crate) config: Config,
+    pub(crate) kms: Box<dyn KeyProvider>,
     // ponytail: one global lock serializes every mutation (and makes publication
     // compare-and-set trivially atomic); shard per tenant/root if throughput matters.
-    store: Mutex<Store>,
+    pub(crate) store: Mutex<Store>,
     /// Always locked after `store`, never alone before it.
-    ledger: Mutex<Ledger>,
+    pub(crate) ledger: Mutex<Ledger>,
 }
 
 struct Request {
@@ -335,6 +338,9 @@ struct StateHeadReq {
     batch_id: String,
     #[serde(alias = "checkpoint")]
     commit: String,
+    block_height: u64,
+    app_hash: String,
+    store_proof_digest: String,
     rank: u8,
     publication_time_ms: u64,
 }
@@ -603,7 +609,7 @@ impl Service {
             rid.as_bytes(),
         ]));
         let at = now();
-        store.expire_staging(at);
+        store.expire_staging(at)?;
         let used = store.state.quota_used.get(&tenant.id).copied().unwrap_or(0);
         if used.saturating_add(r.byte_length) > tenant.quota_bytes {
             return Err(ArtifactError::QuotaExceeded);
@@ -682,9 +688,30 @@ impl Service {
             "generation": record.generation,
             "observed_at": record.published_at,
             "durability": "local-fsync",
-            "state": "AVAILABLE",
+            "state": record.state.name(),
+            "acknowledgement": "HISTORICAL_PUBLICATION",
+            "authority_scope": "AT_PUBLICATION",
+            "availability_scope": "AT_PUBLICATION",
             "protocol_receipt": false,
         })
+    }
+
+    fn live_publication(&self, store: &Store, record: &ObjectRecord) -> Result<(), ArtifactError> {
+        let bytes = unhex_vec(&record.envelope, MAX_ENVELOPE_BYTES)?;
+        let envelope = decode_envelope(&bytes)?;
+        self.config.admit_publisher(
+            &record.tenant,
+            &record.publisher,
+            record.generation,
+            &hex::encode(envelope.key.0),
+            &store.state.publisher_revocations,
+        )?;
+        match record.state {
+            ObjectState::Available => Ok(()),
+            ObjectState::Tombstoned | ObjectState::Purged => Err(ArtifactError::Tombstoned),
+            ObjectState::Quarantined => Err(ArtifactError::IntegrityConflict),
+            ObjectState::Publishing => Err(ArtifactError::ContentUnavailable),
+        }
     }
 
     fn finalize(&self, store: &mut Store, tenant: &Tenant, r: FinalizeReq) -> Op {
@@ -703,14 +730,25 @@ impl Service {
             VerificationFailure::Host(_) => ArtifactError::SignatureInvalid,
         })?;
         let root = hex::encode(verified.root.bytes());
+        let manifest = decode_manifest(envelope.manifest)?;
+        let publisher = hex::encode(manifest.publisher.bytes());
+        self.config.admit_publisher(
+            &tenant.id,
+            &publisher,
+            verified.generation.get(),
+            &hex::encode(verified.key.0),
+            &store.state.publisher_revocations,
+        )?;
         if session.state == SessionState::Published {
             return match (&session.root, store.state.objects.get(&root)) {
-                (Some(bound), Some(record)) if *bound == root => Ok(Self::receipt(&root, record)),
+                (Some(bound), Some(record)) if *bound == root => {
+                    self.live_publication(store, record)?;
+                    Ok(Self::receipt(&root, record))
+                }
                 _ => Err(ArtifactError::IntegrityConflict),
             };
         }
         staging_open(&session)?;
-        let manifest = decode_manifest(envelope.manifest)?;
         if hex::encode(manifest.context.bytes()) != session.context
             || manifest.kind as u8 != session.kind
             || manifest.privacy as u8 != session.privacy
@@ -727,14 +765,6 @@ impl Service {
         {
             return Err(ArtifactError::RootMismatch);
         }
-        let publisher = hex::encode(manifest.publisher.bytes());
-        self.config.admit_publisher(
-            &tenant.id,
-            &publisher,
-            verified.generation.get(),
-            &hex::encode(verified.key.0),
-            &store.state.publisher_revocations,
-        )?;
         let declaration = match (&r.declaration, manifest.declaration_root == [0; 32]) {
             (None, true) => None,
             (Some(text), false) => {
@@ -766,10 +796,7 @@ impl Service {
                 };
                 let reader = store.chunk_reader(&session_id, manifest.chunk_count);
                 if let Err(error) = crypto::open_stream(&key, &frames, reader, |_| ()) {
-                    if let Some(s) = store.state.sessions.get_mut(&session_id) {
-                        s.state = SessionState::Quarantined;
-                    }
-                    store.release_quota(&tenant.id, session.byte_length);
+                    store.reclaim_session(&session_id, SessionState::Quarantined)?;
                     store.event(&format!("quarantine session={session_id}"))?;
                     return Err(error);
                 }
@@ -784,22 +811,22 @@ impl Service {
             .unwrap_or_default();
         let record_digest = hex::encode(sha(&[envelope.manifest, &[0], &declaration_bytes]));
         if let Some(existing) = store.state.objects.get(&root).cloned() {
-            let same = existing.record_digest == record_digest
-                && existing.state != ObjectState::Publishing;
+            let same = existing.record_digest == record_digest;
+            let live = self.live_publication(store, &existing);
+            let terminal = if same && live.is_ok() {
+                SessionState::Published
+            } else {
+                SessionState::Quarantined
+            };
             if let Some(s) = store.state.sessions.get_mut(&session_id) {
-                s.state = if same {
-                    SessionState::Published
-                } else {
-                    SessionState::Quarantined
-                };
-                s.root = same.then(|| root.clone());
+                s.root = (same && live.is_ok()).then(|| root.clone());
             }
-            store.release_quota(&tenant.id, session.byte_length);
-            if same {
-                return Ok(Self::receipt(&root, &existing));
+            store.reclaim_session(&session_id, terminal)?;
+            if !same {
+                return Err(ArtifactError::IntegrityConflict);
             }
-            store.event(&format!("quarantine session={session_id}"))?;
-            return Err(ArtifactError::IntegrityConflict);
+            live?;
+            return Ok(Self::receipt(&root, &existing));
         }
         let wrapped_key = object_key
             .map(|k| self.kms.wrap(&key_aad(&root, 1), &k).map(hex::encode))
@@ -1302,13 +1329,13 @@ impl Service {
         let Some(index) = r.index.filter(|i| *i < object.chunk_count) else {
             return json_reply(reply(Err(ArtifactError::Malformed)));
         };
-        let expected = match expected_chunk_length(object.byte_length, object.chunk_count, index) {
-            Ok(n) => n as usize,
-            Err(e) => return json_reply(reply(Err(e))),
-        };
-        match store.read_chunk(&object.session, index) {
-            Ok(Some(bytes)) if bytes.len() == expected => (200, bytes, "application/octet-stream"),
-            Ok(_) => {
+        let verified = unhex_vec(&object.manifest, MAX_MANIFEST_BYTES).and_then(|bytes| {
+            decode_manifest(&bytes)
+                .and_then(|manifest| store.verified_chunk(&object.session, &manifest, index))
+        });
+        match verified {
+            Ok(bytes) => (200, bytes, "application/octet-stream"),
+            Err(e) if e != ArtifactError::StorageFailure => {
                 // Durable bytes of an acknowledged root are absent or damaged.
                 if let Some(o) = store.state.objects.get_mut(&root) {
                     o.transition(ObjectState::Quarantined, now());
@@ -1471,7 +1498,7 @@ fn state_head(
         native_state_root: digest(&r.native_state_root)?,
         observed_sequence: r.observed_sequence,
         execution_height: r.execution_height,
-        batch_id: digest(&r.batch_id)?,
+        block_hash: digest(&r.batch_id)?,
     };
     let facts = CaptureFacts {
         proof,
@@ -1484,8 +1511,10 @@ fn state_head(
     };
     let finality = FinalityEvidence {
         native_state_root: proof.native_state_root,
-        checkpoint: digest(&r.commit)?,
-        settlement: Presence::Absent,
+        block_height: r.block_height,
+        block_hash: digest(&r.commit)?,
+        app_hash: digest(&r.app_hash)?,
+        store_proof_digest: digest(&r.store_proof_digest)?,
         rank: r.rank,
     };
     let snapshot =
@@ -1497,7 +1526,7 @@ fn state_head(
 /// chunk re-verifies, otherwise the staging disposition is durably failed;
 /// unacknowledged deliveries become unknown; due purges run on the ledger's
 /// deadlines and a failed one stays pending with an alert.
-fn reconcile(store: &mut Store, ledger: &mut Ledger, at: u64) -> Result<(), Refusal> {
+pub(crate) fn reconcile(store: &mut Store, ledger: &mut Ledger, at: u64) -> Result<(), Refusal> {
     let pending: Vec<String> = store
         .state
         .objects
@@ -1522,10 +1551,7 @@ fn reconcile(store: &mut Store, ledger: &mut Ledger, at: u64) -> Result<(), Refu
             }
         } else {
             store.state.objects.remove(&root);
-            if let Some(s) = store.state.sessions.get_mut(&record.session) {
-                s.state = SessionState::Failed;
-            }
-            store.release_quota(&record.tenant, record.byte_length);
+            store.reclaim_session(&record.session, SessionState::Failed)?;
         }
         store.event(&format!("reconcile root={root} ok={}", verified.is_ok()))?;
     }
@@ -1533,22 +1559,18 @@ fn reconcile(store: &mut Store, ledger: &mut Ledger, at: u64) -> Result<(), Refu
     if unknown > 0 {
         store.event(&format!("reconcile unknown-deliveries={unknown}"))?;
     }
-    store.expire_staging(at);
+    store.expire_staging(at)?;
     store.persist()?;
     alert(&ledger.purge(store, at)?);
     Ok(())
 }
 
 /// Periodic pass on the service clock: staging expiry and retention purge.
-fn maintain(service: &Service) {
+pub(crate) fn maintain(service: &Service) {
     let mut store = service.lock();
     let mut ledger = service.ledger();
     let at = now();
-    let durable = if store.expire_staging(at) > 0 {
-        store.persist()
-    } else {
-        Ok(())
-    };
+    let durable = store.expire_staging(at).and_then(|_| store.persist());
     match durable
         .map_err(Refusal::from)
         .and_then(|()| ledger.purge(&mut store, at))
@@ -1602,9 +1624,212 @@ fn read_request(stream: &mut impl Read) -> Result<Request, ArtifactError> {
     })
 }
 
+/// Each socket operation spends the remaining budget, rather than resetting
+/// an idle timeout whenever a slow peer supplies another byte. TLS handshakes
+/// use this same stream and therefore the same deadline.
+struct DeadlineStream {
+    socket: TcpStream,
+    deadline: Instant,
+}
+
+impl DeadlineStream {
+    fn remaining(&self) -> std::io::Result<Duration> {
+        self.deadline
+            .checked_duration_since(Instant::now())
+            .filter(|left| !left.is_zero())
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "request deadline"))
+    }
+}
+
+impl Read for DeadlineStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.socket.set_read_timeout(Some(self.remaining()?))?;
+        self.socket.read(buf)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.socket.set_write_timeout(Some(self.remaining()?))?;
+        self.socket.write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.remaining()?;
+        self.socket.flush()
+    }
+}
+
+/// The permit travels with the queued connection and is released on every
+/// return, channel error, TLS error, parse error and unwinding path.
+type ConnectionDeadlines = Arc<Mutex<BTreeMap<usize, (Instant, TcpStream)>>>;
+struct ConnectionPermit {
+    active: Arc<AtomicUsize>,
+    deadlines: ConnectionDeadlines,
+    id: usize,
+}
+impl Drop for ConnectionPermit {
+    fn drop(&mut self) {
+        self.deadlines
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(&self.id);
+        self.active.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+struct AdmittedConnection {
+    stream: DeadlineStream,
+    _permit: ConnectionPermit,
+}
+
+pub(crate) struct ConnectionPool {
+    sender: Option<SyncSender<AdmittedConnection>>,
+    workers: Vec<std::thread::JoinHandle<()>>,
+    active: Arc<AtomicUsize>,
+    limit: usize,
+    deadline: Duration,
+    plaintext: bool,
+    deadlines: ConnectionDeadlines,
+    next_id: AtomicUsize,
+    stop_deadlines: Arc<AtomicBool>,
+    deadline_worker: Option<std::thread::JoinHandle<()>>,
+}
+
+impl ConnectionPool {
+    pub(crate) fn new(
+        service: Arc<Service>,
+        tls: Option<Arc<ServerConfig>>,
+        limit: usize,
+        deadline: Duration,
+    ) -> Self {
+        assert!(limit > 0 && !deadline.is_zero());
+        let plaintext = tls.is_none();
+        let (sender, receiver) = mpsc::sync_channel::<AdmittedConnection>(limit);
+        let receiver = Arc::new(Mutex::new(receiver));
+        let mut workers = Vec::with_capacity(limit);
+        for _ in 0..limit {
+            let receiver = Arc::clone(&receiver);
+            let service = Arc::clone(&service);
+            let tls = tls.clone();
+            workers.push(std::thread::spawn(move || loop {
+                let next = receiver.lock().unwrap_or_else(|p| p.into_inner()).recv();
+                let Ok(connection) = next else {
+                    break;
+                };
+                let AdmittedConnection { stream, _permit } = connection;
+                // A bad client must not remove a worker from the fixed pool.
+                let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match &tls {
+                    None => handle(&service, stream),
+                    Some(config) => {
+                        if let Ok(conn) = ServerConnection::new(Arc::clone(config)) {
+                            handle(&service, Tls(StreamOwned::new(conn, stream)));
+                        }
+                    }
+                }));
+            }));
+        }
+        let deadlines = Arc::new(Mutex::new(BTreeMap::<usize, (Instant, TcpStream)>::new()));
+        let watched = Arc::clone(&deadlines);
+        let stop_deadlines = Arc::new(AtomicBool::new(false));
+        let stopped = Arc::clone(&stop_deadlines);
+        // One bounded supervisor enforces the transport deadline even while a
+        // worker is waiting for a store lock or performing an operation.
+        let deadline_worker = Some(std::thread::spawn(move || {
+            while !stopped.load(Ordering::Acquire) {
+                let mut watched = watched.lock().unwrap_or_else(|p| p.into_inner());
+                watched.retain(|_, (deadline, socket)| {
+                    if Instant::now() < *deadline {
+                        return true;
+                    }
+                    let _ = socket.shutdown(Shutdown::Both);
+                    false
+                });
+                drop(watched);
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }));
+        Self {
+            sender: Some(sender),
+            workers,
+            active: Arc::new(AtomicUsize::new(0)),
+            limit,
+            deadline,
+            plaintext,
+            deadlines,
+            next_id: AtomicUsize::new(0),
+            stop_deadlines,
+            deadline_worker,
+        }
+    }
+
+    pub(crate) fn admit(&self, mut socket: TcpStream) {
+        let deadline = Instant::now() + self.deadline;
+        if self
+            .active
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+                (active < self.limit).then_some(active + 1)
+            })
+            .is_err()
+        {
+            // No worker, allocation proportional to peer input, or store lock
+            // is needed to refuse overload. Bound the acceptor's write too.
+            if self.plaintext
+                && socket
+                    .set_write_timeout(Some(Duration::from_millis(10)))
+                    .is_ok()
+            {
+                let _ = socket.write_all(b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            }
+            return;
+        }
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let permit = ConnectionPermit {
+            active: Arc::clone(&self.active),
+            deadlines: Arc::clone(&self.deadlines),
+            id,
+        };
+        let Ok(watch) = socket.try_clone() else {
+            return;
+        };
+        self.deadlines
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(id, (deadline, watch));
+        let connection = AdmittedConnection {
+            stream: DeadlineStream { socket, deadline },
+            _permit: permit,
+        };
+        // The permit also covers queued connections. A closed/full channel
+        // drops its returned connection and releases admission immediately.
+        let _ = self
+            .sender
+            .as_ref()
+            .expect("pool is open")
+            .try_send(connection);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn active(&self) -> usize {
+        self.active.load(Ordering::Acquire)
+    }
+}
+
+impl Drop for ConnectionPool {
+    fn drop(&mut self) {
+        self.sender.take();
+        for worker in self.workers.drain(..) {
+            let _ = worker.join();
+        }
+        self.stop_deadlines.store(true, Ordering::Release);
+        if let Some(worker) = self.deadline_worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
 /// Server TLS stream that ends every response with close_notify. Nothing is
 /// written on a connection whose handshake never completed.
-struct Tls(StreamOwned<ServerConnection, TcpStream>);
+struct Tls(StreamOwned<ServerConnection, DeadlineStream>);
 
 impl Read for Tls {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -1634,7 +1859,10 @@ impl Drop for Tls {
     }
 }
 
-fn tls_config(certificate: &Path, private_key: &Path) -> Result<Arc<ServerConfig>, ArtifactError> {
+pub(crate) fn tls_config(
+    certificate: &Path,
+    private_key: &Path,
+) -> Result<Arc<ServerConfig>, ArtifactError> {
     let chain = CertificateDer::pem_file_iter(certificate)
         .and_then(|certs| certs.collect::<Result<Vec<_>, _>>())
         .map_err(|_| ArtifactError::Malformed)?;
@@ -1673,17 +1901,21 @@ fn handle<S: Read + Write + Send + 'static>(service: &Service, mut stream: S) {
         let _ = stream.write_all(&response).and_then(|()| stream.flush());
         return;
     };
-    let delivered = store::deliver(stream, response, DELIVERY_DEADLINE);
+    // The admitted worker owns the write; no detached writer can outlive its
+    // connection permit. Socket operations share the total request deadline.
+    let started = Instant::now();
+    let delivered = stream
+        .write_all(&response)
+        .and_then(|()| stream.flush())
+        .is_ok()
+        && started.elapsed() <= DELIVERY_DEADLINE;
     let mut store = service.lock();
-    if store
-        .settle_delivery(&id, delivered.is_some(), now())
-        .is_err()
-    {
+    if store.settle_delivery(&id, delivered, now()).is_err() {
         eprintln!("delivery acknowledgement not durable; it reconciles as unknown");
         let _ = store.reload();
     }
     drop(store);
-    drop(delivered);
+    drop(stream);
 }
 
 fn die(what: &str, e: impl Into<Refusal>) -> ! {
@@ -1703,9 +1935,16 @@ fn outside(dir: &Path, mark: &Path) -> bool {
     } else {
         parent
     };
-    parent
-        .canonicalize()
-        .is_ok_and(|p| !p.join(name).starts_with(&dir))
+    let Ok(parent) = parent.canonicalize() else {
+        return false;
+    };
+    if parent.join(name).starts_with(&dir) {
+        return false;
+    }
+    match std::fs::symlink_metadata(mark) {
+        Ok(_) => mark.canonicalize().is_ok_and(|p| !p.starts_with(&dir)),
+        Err(e) => e.kind() == std::io::ErrorKind::NotFound,
+    }
 }
 
 fn main() {
@@ -1725,6 +1964,19 @@ fn main() {
     let kms = LocalFileKeyProvider::load(&PathBuf::from(key_file))
         .unwrap_or_else(|e| die("key provider", e));
     let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap_or_else(|_| die("store", ArtifactError::StorageFailure));
+    let retention_mark = config.retention_mark();
+    for (name, mark) in [
+        (
+            "revocation mark inside the data dir",
+            &config.revocation_mark,
+        ),
+        ("retention mark inside the data dir", &retention_mark),
+    ] {
+        if !outside(&dir, mark) {
+            die(name, ArtifactError::Malformed);
+        }
+    }
     let mut store = Store::open(&dir, &config.revocation_mark).unwrap_or_else(|e| die("store", e));
     if !store.restore_ready() {
         eprintln!(
@@ -1733,13 +1985,6 @@ fn main() {
             store.live_mark()
         );
         std::process::exit(3);
-    }
-    let retention_mark = config.retention_mark();
-    if !outside(&dir, &retention_mark) {
-        die(
-            "retention mark inside the data dir",
-            ArtifactError::Malformed,
-        );
     }
     let mut ledger =
         Ledger::open(&dir, &retention_mark).unwrap_or_else(|e| die("retention ledger", e));
@@ -1777,23 +2022,8 @@ fn main() {
         std::thread::sleep(MAINTENANCE_INTERVAL);
         maintain(&maintenance);
     });
+    let pool = ConnectionPool::new(service, tls, CONNECTION_WORKERS, REQUEST_DEADLINE);
     for stream in listener.incoming().flatten() {
-        if stream
-            .set_read_timeout(Some(IO_TIMEOUT))
-            .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
-            .is_err()
-        {
-            continue;
-        }
-        let service = Arc::clone(&service);
-        let tls = tls.clone();
-        std::thread::spawn(move || match tls {
-            None => handle(&service, stream),
-            Some(config) => {
-                if let Ok(conn) = ServerConnection::new(config) {
-                    handle(&service, Tls(StreamOwned::new(conn, stream)));
-                }
-            }
-        });
+        pool.admit(stream);
     }
 }

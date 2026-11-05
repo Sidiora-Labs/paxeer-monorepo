@@ -8,6 +8,7 @@ use layerx_agentd::budget::{
     UnknownReservation, BUDGET_MODULE_ID,
 };
 use layerx_agentd::outbox::{recover, RecoveryInputs};
+use layerx_agentd::receipt;
 use layerx_agentd::store::Store;
 
 use support::{directory, tenant};
@@ -58,7 +59,7 @@ fn verified_core_budget_record_reconciles_local_accounting() {
         Err(ReconcileError::ProtocolStateSchemaUnavailable)
     );
 
-    let verifier = support::evidence_verifier();
+    let verifier = support::pinned_evidence_verifier();
     let mut local = LocalAccounting {
         consumed: 11,
         window_start_sequence: 70,
@@ -96,11 +97,24 @@ fn verified_core_budget_record_reconciles_local_accounting() {
 fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
     let root = directory("budget-schema-restart");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    let verifier = support::evidence_verifier();
+    let verifier = support::pinned_evidence_verifier();
     let receipts = [PersistedReceipt {
         expected_activity_id: [0x61; 32],
         evidence: support::raw_receipt([0x61; 32], 0, 25),
     }];
+    let retained = verifier
+        .verify_receipt_for_export(&receipts[0].evidence)
+        .expect("verify durable receipt");
+    receipt::store(
+        &mut store,
+        tenant(),
+        [0x61; 32],
+        receipts[0].evidence.canonical_receipt(),
+        retained.authorized_batch(),
+    )
+    .expect("persist receipt");
+    receipt::persist_evidence(&mut store, tenant(), [0x61; 32], &receipts[0].evidence)
+        .expect("persist receipt proof");
     hold_unknown(
         &mut store,
         &UnknownReservation {
@@ -112,7 +126,33 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
         },
     )
     .unwrap_or_else(|error| panic!("hold: {error:?}"));
-    let unknown_ids = [[0x62; 32]];
+    drop(receipts);
+    drop(retained);
+    drop(verifier);
+    drop(store);
+    let mut store = Store::open(&root).expect("reopen durable receipt and hold store");
+    let verifier = support::pinned_evidence_verifier();
+    let inventory =
+        receipt::evidence_inventory(&store, &tenant()).expect("reload durable receipt inputs");
+    assert!(inventory.without_evidence.is_empty());
+    assert_eq!(inventory.with_evidence.len(), 1);
+    let receipts: Vec<_> = inventory
+        .with_evidence
+        .into_iter()
+        .map(|record| PersistedReceipt {
+            expected_activity_id: record.activity_id,
+            evidence: record.evidence,
+        })
+        .collect();
+    let unknown_ids: Vec<[u8; 32]> = store
+        .list_object_ids(&tenant(), layerx_agentd::store::ObjectKind::Budget)
+        .into_iter()
+        .filter_map(|id| {
+            id.strip_prefix(b"unknown-budget:")
+                .map(|id| id.try_into().expect("hold identity"))
+        })
+        .collect();
+    assert_eq!(unknown_ids, vec![[0x62; 32]]);
 
     let executed_unknown = rebuild(
         &store,
@@ -165,5 +205,34 @@ fn restart_recovery_reconciles_receipts_and_held_unknowns_against_core_state() {
     .unwrap_or_else(|error| panic!("recover: {error:?}"));
     assert_eq!(recovered.budget_accounting.protocol_consumed, Some(25));
     assert!(recovered.budget_accounting.reconciled);
-    let _ = fs::remove_dir_all(root);
+    assert_eq!(recovered.budget_accounting.receipt_consumed, 25);
+    assert_eq!(recovered.budget_accounting.held_unresolved, 15);
+    assert_eq!(recovered.budget_accounting.unresolved_count, 1);
+    recovered
+        .require_write_ready()
+        .expect("recovered write admission");
+    let first = recovered.budget_accounting;
+    drop(recovered);
+    let second = recover(
+        &mut store,
+        &tenant(),
+        &RecoveryInputs {
+            verifier,
+            unknown_budget_ids: &unknown_ids,
+            budget_receipts: &receipts,
+            protocol_budget: protocol(500, 25),
+            ceiling_maximum: 1_000,
+            ceiling_receipts: &[],
+            unknown_ceiling_reservations: &[],
+            current_sequence: 1,
+        },
+    )
+    .expect("second recovery");
+    assert_eq!(second.budget_accounting, first);
+    second
+        .require_write_ready()
+        .expect("idempotent write admission");
+    drop(second);
+    drop(store);
+    fs::remove_dir_all(root).expect("remove store");
 }

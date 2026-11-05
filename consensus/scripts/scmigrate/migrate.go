@@ -115,52 +115,39 @@ func getAllSeenCommits(ctx context.Context, db dbm.DB) ([]toMigrate, error) {
 	return scData, nil
 }
 
-func renameRecord(db dbm.DB, keep toMigrate) error {
+func migrateRecords(db dbm.DB, scData []toMigrate) (err error) {
 	wantKey := makeKeyFromPrefix(prefixSeenCommit)
-	if bytes.Equal(keep.key, wantKey) {
-		return nil // we already did this conversion
-	}
+	keep := scData[0]
 
-	// This record's key has already been converted to the "new" format, we just
-	// now need to trim off the tail.
+	// Preserve the winning record's original encoding at the canonical key.
 	val, err := db.Get(keep.key)
 	if err != nil {
 		return err
 	}
 
 	batch := db.NewBatch()
-	if err := batch.Delete(keep.key); err != nil {
-		return err
-	}
+	defer func() {
+		if closeErr := batch.Close(); err == nil {
+			err = closeErr
+		}
+	}()
+
 	if err := batch.Set(wantKey, val); err != nil {
 		return err
 	}
-	werr := batch.Write()
-	cerr := batch.Close()
-	if werr != nil {
-		return werr
-	}
-	return cerr
-}
-
-func deleteRecords(db dbm.DB, scData []toMigrate) error {
-	// delete all the remaining stale values in a single batch
-	batch := db.NewBatch()
 
 	for _, mg := range scData {
+		// The canonical key can have held an older commit before this batch.
+		// Never delete it, even when it was among the records being replaced.
+		if bytes.Equal(mg.key, wantKey) {
+			continue
+		}
 		if err := batch.Delete(mg.key); err != nil {
 			return err
 		}
 	}
 
-	if err := batch.WriteSync(); err != nil {
-		return err
-	}
-
-	if err := batch.Close(); err != nil {
-		return err
-	}
-	return nil
+	return batch.WriteSync()
 }
 
 func Migrate(ctx context.Context, db dbm.DB) error {
@@ -177,19 +164,8 @@ func Migrate(ctx context.Context, db dbm.DB) error {
 	// Keep and rename the newest seen commit, delete the rest.
 	// In TM < v0.35 we kept a last-seen commit for each height; in v0.35 we
 	// retain only the latest.
-	keep, remove := scData[0], scData[1:]
-
-	if err := renameRecord(db, keep); err != nil {
-		return fmt.Errorf("renaming seen commit record: %w", err)
-	}
-
-	if len(remove) == 0 {
-		return nil
-	}
-
-	// Remove any older seen commits. Prior to v0.35, we kept these records for
-	// all heights, but v0.35 keeps only the latest.
-	if err := deleteRecords(db, remove); err != nil {
+	// Publish the winner and remove its source and all stale records atomically.
+	if err := migrateRecords(db, scData); err != nil {
 		return fmt.Errorf("writing data: %w", err)
 	}
 

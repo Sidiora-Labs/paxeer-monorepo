@@ -111,7 +111,8 @@ type AppModule struct {
 	hostKeeper       *hostkeeper.Keeper
 }
 
-// NewAppModule creates a new IBC interchain accounts module
+// NewAppModule creates a library IBC interchain accounts module. The mainnet
+// paxd application does not mount ICA; see README.md for the availability contract.
 func NewAppModule(controllerKeeper *controllerkeeper.Keeper, hostKeeper *hostkeeper.Keeper) AppModule {
 	return AppModule{
 		controllerKeeper: controllerKeeper,
@@ -209,11 +210,10 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 }
 
 func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-chan json.RawMessage {
-	ch := make(chan json.RawMessage)
-	go func() {
-		ch <- am.ExportGenesis(ctx, cdc)
-		close(ch)
-	}()
+	// Capture and marshal while ctx is valid, independently of the consumer.
+	ch := make(chan json.RawMessage, 1)
+	ch <- am.ExportGenesis(ctx, cdc)
+	close(ch)
 	return ch
 }
 

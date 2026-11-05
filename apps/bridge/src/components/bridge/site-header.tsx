@@ -1,27 +1,38 @@
-"use client";
+'use client';
 
-import { ArrowLeftRightIcon, CheckIcon, CopyIcon, TriangleAlertIcon, WalletIcon } from "lucide-react";
-import { useState } from "react";
-import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from "wagmi";
+import { ArrowLeftRightIcon, CheckIcon, CopyIcon, TriangleAlertIcon, WalletIcon } from 'lucide-react';
+import { useState } from 'react';
+import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 
-import { ThemeToggle } from "@/components/dx/theme-toggle";
-import { ChainList } from "@/components/trading/chain-selector";
-import { ChainIcon } from "@/components/trading/token-icon";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Spinner } from "@/components/ui/spinner";
-import { toast } from "@/components/ui/sonner";
-import { BRIDGE_CHAINS, paxeer, PAXEER_ROUTE_KEY } from "@/lib/bridge/chains";
-import { describeWriteError } from "@/lib/bridge/errors";
-import { shortenAddress } from "@/lib/trading";
+import { ThemeToggle } from '@/components/dx/theme-toggle';
+import { ChainList } from '@/components/trading/chain-selector';
+import { ChainIcon } from '@/components/trading/token-icon';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Spinner } from '@/components/ui/spinner';
+import { toast } from '@/components/ui/sonner';
+import { walletBridgeChains, paxeer, PAXEER_ROUTE_KEY } from '@/lib/bridge/chains';
+import { describeWriteError } from '@/lib/bridge/errors';
+import { shortenAddress } from '@/lib/trading';
+
+export function notifyWalletError(title: string, error: unknown) {
+  return toast.error(title, { description: describeWriteError(error) });
+}
+
+export function walletNetworks() {
+  return [
+    { id: PAXEER_ROUTE_KEY, name: 'Paxeer', chainId: paxeer.id },
+    ...walletBridgeChains().map((chain) => ({ id: chain.key, name: chain.label, chainId: chain.viemChain.id })),
+  ];
+}
 
 function WalletButton() {
   const { address, isConnected, connector } = useAccount();
   const { connectors, connect, isPending } = useConnect();
   const { disconnect } = useDisconnect();
-  const [copied, setCopied] = useState(false);
+  const [ copied, setCopied ] = useState(false);
 
   if (!isConnected || !address) {
     if (connectors.length === 0) {
@@ -39,7 +50,7 @@ function WalletButton() {
           onClick={() =>
             connect(
               { connector: connectors[0] },
-              { onError: (error) => toast.error("Could not connect", { description: describeWriteError(error) }) },
+              { onError: (error) => notifyWalletError('Could not connect', error) },
             )
           }
         >
@@ -67,7 +78,7 @@ function WalletButton() {
                 onClick={() =>
                   connect(
                     { connector: c },
-                    { onError: (error) => toast.error("Could not connect", { description: describeWriteError(error) }) },
+                    { onError: (error) => notifyWalletError('Could not connect', error) },
                   )
                 }
               >
@@ -84,7 +95,7 @@ function WalletButton() {
     <Popover>
       <PopoverTrigger
         render={
-          <Button variant="tonal" size="sm" aria-label={`Wallet ${address}`}>
+          <Button variant="tonal" size="sm" aria-label={`Wallet ${ address }`}>
             <span aria-hidden="true" className="size-1.5 rounded-full bg-emerald-500" />
             <span className="font-mono">{shortenAddress(address)}</span>
           </Button>
@@ -92,7 +103,7 @@ function WalletButton() {
       />
       <PopoverContent align="end" className="w-64 p-3">
         <div className="flex flex-col gap-2">
-          <span className="text-xs text-muted-foreground">Connected{connector ? ` via ${connector.name}` : ""}</span>
+          <span className="text-xs text-muted-foreground">Connected{connector ? ` via ${ connector.name }` : ''}</span>
           <span className="font-mono text-xs break-all">{address}</span>
           <div className="flex gap-2 pt-1">
             <Button
@@ -102,7 +113,7 @@ function WalletButton() {
                 void navigator.clipboard?.writeText(address).then(() => setCopied(true)).catch(() => setCopied(false));
               }}
             >
-              {copied ? <CheckIcon /> : <CopyIcon />} {copied ? "Copied" : "Copy"}
+              {copied ? <CheckIcon /> : <CopyIcon />} {copied ? 'Copied' : 'Copy'}
             </Button>
             <Button variant="outline" size="xs" onClick={() => disconnect()}>
               Disconnect
@@ -117,22 +128,19 @@ function WalletButton() {
 function NetworkSwitcher() {
   const chainId = useChainId();
   const { switchChain, isPending } = useSwitchChain();
-  const [open, setOpen] = useState(false);
+  const [ open, setOpen ] = useState(false);
 
-  const known: { id: string; name: string; chainId: number }[] = [
-    { id: PAXEER_ROUTE_KEY, name: "Paxeer", chainId: paxeer.id },
-    ...BRIDGE_CHAINS.flatMap((c) => (c.viemChain ? [{ id: c.key, name: c.label, chainId: c.viemChain.id }] : [])),
-  ];
+  const known = walletNetworks();
   const current = known.find((k) => k.chainId === chainId);
 
   return (
     <>
       <Button
-        variant={current ? "tonal" : "outline"}
+        variant={current ? 'tonal' : 'outline'}
         size="sm"
         onClick={() => setOpen(true)}
-        aria-label={current ? `Network: ${current.name}. Switch network` : "Unsupported network. Switch network"}
-        className={current ? undefined : "border-amber-500/40 text-warning"}
+        aria-label={current ? `Network: ${ current.name }. Switch network` : 'Unsupported network. Switch network'}
+        className={current ? undefined : 'border-amber-500/40 text-warning'}
       >
         {isPending ? (
           <Spinner />
@@ -141,7 +149,7 @@ function NetworkSwitcher() {
         ) : (
           <TriangleAlertIcon />
         )}
-        <span className="hidden sm:inline">{current ? current.name : "Wrong network"}</span>
+        <span className="hidden sm:inline">{current ? current.name : 'Wrong network'}</span>
       </Button>
       <Dialog open={open} onOpenChange={(o) => setOpen(o)}>
         <DialogContent className="gap-4 p-5 sm:max-w-md">
@@ -162,7 +170,7 @@ function NetworkSwitcher() {
               setOpen(false);
               switchChain(
                 { chainId: target.chainId },
-                { onError: (error) => toast.error("Could not switch network", { description: describeWriteError(error) }) },
+                { onError: (error) => notifyWalletError('Could not switch network', error) },
               );
             }}
           />

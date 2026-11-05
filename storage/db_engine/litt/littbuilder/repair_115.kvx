@@ -1,0 +1,7 @@
+[repair.22.31.115]
+finding = "build-after-close"
+tests = ["TestRepair_115_BuildAfterClose", "TestRepair_115_BuildAfterCloseWithReopenedDB"]
+change = "Reject table creation under the lifecycle mutex when the database is stopped or closed."
+baseline = "Not run: the task's ordered gate instructions require complete implementation before hf-build and hf-done and prohibit a separate verify run."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location."

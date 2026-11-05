@@ -1,0 +1,47 @@
+[disposition.21.142.1.1]
+finding = "21.142.1.1"
+status = "resolved"
+evidence = "Commit 92c427182 restricts classifyPerformanceRoute to exact EXPLORER_NAVIGATION matches at apps/web/src/perf/budgets.ts:96, so linked receipt, transaction and address paths fall through to undefined and the admission proof also rejects retired routes."
+follow_up = "closure"
+
+[disposition.21.63.1.1]
+finding = "21.63.1.1"
+status = "resolved"
+evidence = "Commit be701395c ports the KMS provider fixtures and signing tests to EVM calls and bind_call, removing decode_unsigned_activity, unsigned_envelope_bytes, Activity and OwnerRotation dependencies from the affected tests, with the current signing path at services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:443."
+follow_up = "closure"
+
+[disposition.21.130.1.2]
+finding = "21.130.1.2"
+status = "resolved"
+evidence = "Commit 33e42cbd3 implements decision 2324 with a pure Rust proof at programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs:8 that does not call extern C functions, while the landed C authority proof exercises both real host symbols at tests/proof/lxp_proof_lxp_receipt_h.c:291 and tests/proof/lxp_proof_lxp_receipt_h.c:333."
+follow_up = "closure"
+
+[disposition.21.11.1.3]
+finding = "21.11.1.3"
+status = "resolved"
+evidence = "Commit 8fc4a07ff replaces Keeper.IssueGrant's retired kernel activity submission with ErrNoPayerGrant at modules/layerxledger/keeper/grants.go:14 and updates the real precompile proof to assert the decision 2340 refusal without grant state or logs."
+follow_up = "closure"
+
+[disposition.21.18.1.2]
+finding = "21.18.1.2"
+status = "resolved"
+evidence = "Commit 3f20303a2 retains err.Error() in the livestreamd startup log at services/launchpad/livestream/cmd/livestreamd/main.go:16, supplies database, Redis, schema and one TLS material source in the proof, and asserts the missing-certificate diagnostic at services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go:663."
+follow_up = "closure"
+
+[disposition.21.92.1.3]
+finding = "21.92.1.3"
+status = "resolved"
+evidence = "Commit 18b6fe13a replaces pending_nonce in the boundary producer with block_number followed by nonce_at at services/agent/tests/boundary/src/production.rs:94, reading the sender nonce from the latest committed block instead of the proposing node's pending state."
+follow_up = "closure"
+
+[disposition.21.11.1.4]
+finding = "21.11.1.4"
+status = "superseded"
+evidence = "Commit 8fc4a07ff removes payerGrantIssueActivity and the payer-grant execution helper when retiring issuance and revocation, leaving typed refusals at modules/layerxledger/keeper/grants.go:14 and documenting decision 2340 and the absence of kernel submissions at spec/layerx-merge/contracts/ledger-auth.md:76."
+follow_up = "closure"
+
+[disposition.21.18.1.3]
+finding = "21.18.1.3"
+status = "resolved"
+evidence = "Commit 3f20303a2 makes the malformed moderation and ticket proof assert HTTP 400 with INVALID_REQUEST at services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go:873, matching writeV2VoiceError at services/launchpad/social/internal/social/voice_v2_wire.go:100 and the web consumer's invalidCodes at apps/launchpad/web/src/core/user-facing-error.ts:40."
+follow_up = "closure"

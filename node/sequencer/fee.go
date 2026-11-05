@@ -30,11 +30,13 @@ type FeeFloor struct {
 	feeChecker   ante.TxFeeChecker
 
 	mu      sync.Mutex
+	fenced  bool
 	baseFee *sdk.Dec
 }
 
 // NewFeeFloor wraps exec with the node floor minGasPrices, given in the
-// minimum-gas-prices config form (for example "0.01uhpx").
+// minimum-gas-prices config form (for example "0.01uhpx"). Replay must use this
+// same wrapper so that a recovered block fixes its base fee at Open as before.
 func NewFeeFloor(exec Executor, host Host, minGasPrices string, params paramskeeper.Keeper, oracle oraclekeeper.Keeper, pricefeed pricefeedkeeper.Keeper, evm *evmkeeper.Keeper) (*FeeFloor, error) {
 	if exec == nil {
 		return nil, errors.New("sequencer: nil executor")
@@ -101,6 +103,12 @@ func (f *FeeFloor) Open(height int64, timestampMs int64) error {
 // Accept applies the node floor against the open block, then accepts. A
 // refusal here takes no seq. Undecodable bytes go to Accept, which refuses them.
 func (f *FeeFloor) Accept(txBytes []byte) (*Accepted, error) {
+	f.mu.Lock()
+	fenced := f.fenced
+	f.mu.Unlock()
+	if fenced {
+		return nil, ErrLeaseFenced
+	}
 	if tx, err := f.host.GetTxConfig().TxDecoder()(txBytes); err == nil {
 		ctx, err := f.Executor.Snapshot()
 		if err != nil {
@@ -111,6 +119,16 @@ func (f *FeeFloor) Accept(txBytes []byte) (*Accepted, error) {
 		}
 	}
 	return f.Executor.Accept(txBytes)
+}
+
+func (f *FeeFloor) Fence() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.Executor.Fence(); err != nil {
+		return err
+	}
+	f.fenced = true
+	return nil
 }
 
 // Seal seals the open block and releases its base fee.

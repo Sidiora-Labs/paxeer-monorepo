@@ -14,7 +14,7 @@ const (
 	TypeMsgBurn             = "burn"
 	TypeMsgChangeAdmin      = "change_admin"
 	TypeMsgSetDenomMetadata = "set_denom_metadata"
-	TypeMsgSetDenomPaused   = "set_denom_paused"
+	TypeMsgSetDenomPaused   = set_denom_paused
 )
 
 var _ sdk.Msg = &MsgCreateDenom{}
@@ -175,9 +175,12 @@ func (m MsgChangeAdmin) ValidateBasic() error {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "Invalid sender address (%s)", err)
 	}
 
-	_, err = sdk.AccAddressFromBech32(m.NewAdmin)
-	if err != nil {
-		return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "Invalid address (%s)", err)
+	// An empty admin renounces admin authority; nonempty admins must be valid addresses.
+	if m.NewAdmin != "" {
+		_, err = sdk.AccAddressFromBech32(m.NewAdmin)
+		if err != nil {
+			return sdkerrors.Wrapf(sdkerrors.ErrInvalidAddress, "Invalid address (%s)", err)
+		}
 	}
 
 	_, _, err = DeconstructDenom(m.Denom)

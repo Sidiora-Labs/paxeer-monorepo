@@ -4,6 +4,20 @@ import { compileOrigin } from './cors.js';
 
 export { compileOrigin };
 
+export const WALLET_AUTHORIZATION_DELEGATES = z
+  .string()
+  .default('')
+  .transform((s) =>
+    s
+      .split(',')
+      .map((address) => address.trim().toLowerCase())
+      .filter(Boolean)
+  )
+  .refine(
+    (addresses) => addresses.every((address) => /^0x[0-9a-f]{40}$/.test(address)),
+    'WALLET_AUTHORIZATION_DELEGATES must be a comma-separated list of 0x addresses'
+  );
+
 /**
  * Parse LAYERX_TRUSTED_PROXIES: a comma-separated list of proxy addresses or
  * CIDR ranges whose X-Forwarded-For hops are trusted. The client address is
@@ -26,11 +40,27 @@ export function parseTrustedProxies(value: string): string[] {
     });
 }
 
+export const RPC_URLS = z
+  .string()
+  .default('https://api-mainnet-beta.paxeer.network')
+  .transform((s) => s.split(',').map((url) => url.trim()).filter(Boolean))
+  .refine(
+    (urls) => urls.length > 0 && urls.every((value) => {
+      try {
+        const url = new URL(value);
+        return ['http:', 'https:'].includes(url.protocol) && !/\s/.test(value);
+      } catch {
+        return false;
+      }
+    }),
+    'RPC_URLS must be a non-empty comma-separated list of http(s) URLs'
+  );
+
 /**
  * Environment schema. Validated once at startup; every other module imports
  * the parsed `env` object instead of touching `process.env` directly.
  */
-const Env = z
+export const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(8787),
@@ -153,29 +183,10 @@ const Env = z
     // -- Agent durable actions (high-level intent orchestrator) ---------------
     //
     // The agent-actions lane turns a one-shot signing request into a durable,
-    // server-driven, idempotent operation: one POST (e.g. layerx/deposit) whose
-    // approve → confirm → deposit → confirm → verify sequence is owned by the
+    // server-driven, idempotent operation: one POST (allowance-and-call) whose
+    // approve → confirm → call → confirm sequence is owned by the
     // wallet, survives a client disconnect, and is polled via GET
     // /v1/agent/actions/:id. Every knob below is safe to leave at its default.
-
-    // LayerX custody vault (depositUSDL target + approve spender). Required only
-    // for the /v1/agent/actions/layerx/deposit route; unset → that route 503s.
-    LAYERX_VAULT_ADDRESS: z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'LAYERX_VAULT_ADDRESS must be a 20-byte hex address')
-      .optional(),
-    LAYERX_USDL_ADDRESS: z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'LAYERX_USDL_ADDRESS must be a 20-byte hex address')
-      .default('0x7c69c84daAEe90B21eeCABDb8f0387897E9B7B37'),
-    LAYERX_USDL_DECIMALS: z.coerce.number().int().nonnegative().default(6),
-
-    // Read-only connection to the LayerX sequencer Postgres (whitelisted). Used
-    // to (a) authoritatively verify a deposit credited (deposits.deposit_tx =
-    // our on-chain call hash) and (b) mirror per-DID escrow/balance into the
-    // wallet DB. Unset → credit verification degrades to on-chain-only and the
-    // mirror sync worker stays disabled. NEVER logged.
-    LAYER_X_DB_URI: z.string().min(1).optional(),
 
     // Block confirmations before an approval or call tx is treated as final.
     // Paxeer has instant CometBFT finality (no reorgs) so 1 is correct; kept
@@ -192,16 +203,13 @@ const Env = z
     // Deterministic fee-bump (percent) applied when REPLACING a provably-pending
     // stuck tx at a wedged nonce. 12% clears most min-bump rules in one step.
     ACTION_FEE_BUMP_PERCENT: z.coerce.number().int().min(10).max(100).default(12),
-    // How often the LayerX mirror-sync worker pulls accounts/claims (ms). Only
-    // runs when LAYER_X_DB_URI is set.
-    LAYERX_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(120_000),
-
     // Bearer token for the operator-only admin routes (legacy wallet import).
     // When unset the admin routes are not mounted.
     GATEWAY_ADMIN_TOKEN: z.string().min(32, 'GATEWAY_ADMIN_TOKEN must be >=32 chars').optional(),
 
     WALLET_CUSTODY_INVENTORY_FILE: z.string().min(1).optional(),
     WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE: z.string().min(1).optional(),
+    WALLET_AUTHORIZATION_DELEGATES,
     ATTESTOR_ENDPOINTS: z
       .string()
       .optional()
@@ -222,19 +230,12 @@ const Env = z
     ATTESTOR_HEALTH_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
     ATTESTOR_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
 
-    RPC_URLS: z
+    RPC_URLS,
+    SEQUENCER_RPC_URL: z
       .string()
-      .default('https://api-mainnet-beta.paxeer.network')
-      .transform((s) =>
-        s
-          .split(',')
-          .map((u) => u.trim())
-          .filter(Boolean)
-      )
-      .refine(
-        (urls) => urls.length > 0 && urls.every((u) => /^https?:\/\/[^\s/]+/.test(u)),
-        'RPC_URLS must be a non-empty comma-separated list of http(s) URLs'
-      ),
+      .url('SEQUENCER_RPC_URL must be an http(s) URL')
+      .refine((url) => /^https?:\/\/\S+$/i.test(url), 'SEQUENCER_RPC_URL must be an http(s) URL')
+      .optional(),
     RPC_LAG_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(20),
     RPC_HEALTH_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
     RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(8_000),
@@ -281,15 +282,19 @@ const Env = z
         message: 'wallet custody requires exactly five endpoints and threshold three',
       });
     }
-  });
+  })
+  .transform((v) => ({
+    ...v,
+    SEQUENCER_RPC_URL: v.SEQUENCER_RPC_URL ?? v.RPC_URLS[0]!,
+  }));
 
-export type Env = z.infer<typeof Env>;
+export type Env = z.infer<typeof EnvSchema>;
 
 let parsed: Env | null = null;
 
 export function loadEnv(): Env {
   if (parsed) return parsed;
-  const result = Env.safeParse(process.env);
+  const result = EnvSchema.safeParse(process.env);
   if (!result.success) {
     const issues = result.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)

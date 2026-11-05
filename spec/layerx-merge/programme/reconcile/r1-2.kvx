@@ -1,0 +1,595 @@
+[reconcile.r1-2]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r1-2.1]
+interface = "interface.1.c-lxp-daemon-protocol-replay-fn"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 501
+symbol = "lxp_daemon_protocol_replay_fn"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_replay_fn declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.2]
+interface = "interface.1.c-lxp-daemon-protocol-owner-attach"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 555
+symbol = "lxp_daemon_protocol_owner_attach"
+evidence = "Registered daemon header and cmd/layerxd/lxp_daemon_protocol.c are absent. The only remaining identifier mention is the attach-body regex in tests/daemon/test_protocol_owner_binds_state_feed.py:19; it is a stale test reference, not an implementation."
+remaining_refs = 1
+remaining = ["tests/daemon/test_protocol_owner_binds_state_feed.py:19"]
+
+[row.r1-2.3]
+interface = "interface.1.c-lxp-daemon-protocol-owner-detach"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 566
+symbol = "lxp_daemon_protocol_owner_detach"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_owner_detach declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.4]
+interface = "interface.1.c-lxp-daemon-protocol-owner-bind-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 568
+symbol = "lxp_daemon_protocol_owner_bind_evidence"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_owner_bind_evidence declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.5]
+interface = "interface.1.c-lxp-daemon-protocol-publish-receipt"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 571
+symbol = "lxp_daemon_protocol_publish_receipt"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_publish_receipt declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.6]
+interface = "interface.1.c-lxp-daemon-protocol-route"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 577
+symbol = "lxp_daemon_protocol_route"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_route declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.7]
+interface = "interface.1.c-lxp-daemon-protocol-listener-start"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 581
+symbol = "lxp_daemon_protocol_listener_start"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_listener_start declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.8]
+interface = "interface.1.c-lxp-daemon-protocol-listener-stop"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 584
+symbol = "lxp_daemon_protocol_listener_stop"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_protocol_listener_stop declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.9]
+interface = "interface.1.c-lxp-daemon-role-kind"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 610
+symbol = "lxp_daemon_role_kind"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_role_kind declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.10]
+interface = "interface.1.c-lxp-daemon-configuration"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 616
+symbol = "lxp_daemon_configuration"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_configuration declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.11]
+interface = "interface.1.c-lxp-daemon-activity"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 625
+symbol = "lxp_daemon_activity"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_activity declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.12]
+interface = "interface.1.c-lxp-daemon-admission-persist-fn"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 633
+symbol = "lxp_daemon_admission_persist_fn"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_admission_persist_fn declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.13]
+interface = "interface.1.c-lxp-daemon-apply-fn"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 638
+symbol = "lxp_daemon_apply_fn"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_apply_fn declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.14]
+interface = "interface.1.c-lxp-daemon-apply-batch-fn"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 642
+symbol = "lxp_daemon_apply_batch_fn"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_apply_batch_fn declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.15]
+interface = "interface.1.c-lxp-daemon-queue-sequence-locked"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 647
+symbol = "lxp_daemon_queue_sequence_locked"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_queue_sequence_locked declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.16]
+interface = "interface.1.c-lxp-daemon-reserve-batch-maintenance"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 649
+symbol = "lxp_daemon_reserve_batch_maintenance"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_reserve_batch_maintenance declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.17]
+interface = "interface.1.c-lxp-daemon-refuse-ordering"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 650
+symbol = "lxp_daemon_refuse_ordering"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_refuse_ordering declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.18]
+interface = "interface.1.c-lxp-daemon"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 653
+symbol = "lxp_daemon"
+evidence = "Registered daemon header is absent. Six other files mention lxp_daemon only as part of the old header filename: absence checks, retirement metadata, a header-scan exclusion and stale C includes; no daemon struct declaration remains."
+remaining_refs = 6
+remaining = ["modules/lxphost/headers_test.go:34", "services/agent/tests/retired/test_boundary_node_retired.py:28", "tests/codec/lxp_test_daemon_header_absent.c:8", "tests/codec/lxp_test_kernel_complete.c:607", "tests/codec/lxp_test_queue_disposition_retired.c:3", "tests/qualification/lxp_wallet_caps_discovery.c:7"]
+
+[row.r1-2.19]
+interface = "interface.1.c-lxp-daemon-config-load"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 682
+symbol = "lxp_daemon_config_load"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_config_load declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.20]
+interface = "interface.1.c-lxp-daemon-config"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 684
+symbol = "lxp_daemon_config"
+evidence = "Registered daemon header is absent. The only remaining mentions are lxp_daemon_config.c filenames in the two cmd/retirement path inventories, which assert that the source file is absent."
+remaining_refs = 2
+remaining = ["cmd/retirement/test_kernel_symbol_consumers_retired.py:39", "cmd/retirement/test_layerxd_core.py:10"]
+
+[row.r1-2.21]
+interface = "interface.1.c-lxp-daemon-role"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 686
+symbol = "lxp_daemon_role"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_role declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.22]
+interface = "interface.1.c-lxp-daemon-effective-verify-workers"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 689
+symbol = "lxp_daemon_effective_verify_workers"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_effective_verify_workers declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.23]
+interface = "interface.1.c-lxp-daemon-concurrency-report"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 691
+symbol = "lxp_daemon_concurrency_report"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_concurrency_report declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.24]
+interface = "interface.1.c-lxp-daemon-start"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 693
+symbol = "lxp_daemon_start"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_start declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.25]
+interface = "interface.1.c-lxp-daemon-start-batch"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 696
+symbol = "lxp_daemon_start_batch"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_start_batch declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.26]
+interface = "interface.1.c-lxp-daemon-start-protocol"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 699
+symbol = "lxp_daemon_start_protocol"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_start_protocol declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.27]
+interface = "interface.1.c-lxp-daemon-start-protocol-batch"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 704
+symbol = "lxp_daemon_start_protocol_batch"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_start_protocol_batch declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.28]
+interface = "interface.1.c-lxp-daemon-submit"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 709
+symbol = "lxp_daemon_submit"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_submit declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.29]
+interface = "interface.1.c-lxp-daemon-shutdown"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 711
+symbol = "lxp_daemon_shutdown"
+evidence = "Registered daemon header is absent. The only remaining mentions are lxp_daemon_shutdown.c filenames in the two cmd/retirement path inventories, which assert that the source file is absent."
+remaining_refs = 2
+remaining = ["cmd/retirement/test_kernel_symbol_consumers_retired.py:62", "cmd/retirement/test_layerxd_core.py:14"]
+
+[row.r1-2.30]
+interface = "interface.1.c-lxp-daemon-main"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 712
+symbol = "lxp_daemon_main"
+evidence = "Registered daemon header is absent. The only remaining mentions are lxp_daemon_main.c filenames in the two cmd/retirement path inventories, which assert that the source file is absent."
+remaining_refs = 2
+remaining = ["cmd/retirement/test_kernel_symbol_consumers_retired.py:55", "cmd/retirement/test_layerxd_core.py:8"]
+
+[row.r1-2.31]
+interface = "interface.1.c-lxp-daemon-process-open"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 713
+symbol = "lxp_daemon_process_open"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_process_open declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.32]
+interface = "interface.1.c-lxp-daemon-process-owner"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 715
+symbol = "lxp_daemon_process_owner"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_process_owner declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.33]
+interface = "interface.1.c-lxp-daemon-process-close"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 717
+symbol = "lxp_daemon_process_close"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_process_close declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.34]
+interface = "interface.1.c-lxp-daemon-serve"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 718
+symbol = "lxp_daemon_serve"
+evidence = "Registered header include/layerx/lxp_daemon.h is absent, removing the lxp_daemon_serve declaration. Repository-wide identifier search excluding spec/docs found no remaining mention and no relocated declaration or implementation."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.35]
+interface = "interface.1.c-enum-lxp-queue-disposition-magic"
+verdict = "retired"
+path = "include/layerx/lxp_fee.h"
+line = 113
+symbol = "LXP_QUEUE_DISPOSITION_MAGIC"
+evidence = "LXP_QUEUE_DISPOSITION_MAGIC and its framing enum are absent from lxp_fee.h. The lxp_queue_disposition data struct remains, but repository-wide identifier search excluding spec/docs finds no mention of this enum constant."
+remaining_refs = 0
+remaining = []
+
+[row.r1-2.36]
+interface = "interface.1.c-lxp-gateway-grant-bounds-check"
+verdict = "retired"
+path = "include/layerx/lxp_gateway.h"
+line = 97
+symbol = "lxp_gateway_grant_bounds_check"
+evidence = "The grant-bounds prototype is absent from lxp_gateway.h; modules/lxphost/retired_gateway_test.go lists the identifier only to assert its absence from the kernel archive."
+remaining_refs = 1
+remaining = ["modules/lxphost/retired_gateway_test.go:11"]
+
+[row.r1-2.37]
+interface = "interface.1.c-lxp-gateway-receive-claim"
+verdict = "retired"
+path = "include/layerx/lxp_gateway.h"
+line = 102
+symbol = "lxp_gateway_receive_claim"
+evidence = "The receive-claim prototype is absent from lxp_gateway.h. Remaining mentions are an archive-symbol absence assertion and a retired-test source scan; neither provides an implementation."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_gateway_test.go:10", "tests/ci/test_retired_gateway_receive.py:26"]
+
+[row.r1-2.38]
+interface = "interface.1.c-lxp-genesis-handover-trust-build"
+verdict = "retired"
+path = "include/layerx/lxp_genesis_builder.h"
+line = 27
+symbol = "lxp_genesis_handover_trust_build"
+evidence = "The handover-trust builder prototype is absent from lxp_genesis_builder.h. A stale custody-header test still takes its address; the newer genesis-header test uses a conflicting typedef and text check to prove removal. No builder implementation remains."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_custody_builder_header.c:39", "tests/codec/lxp_test_genesis_builder_header.c:6"]
+
+[row.r1-2.39]
+interface = "interface.1.c-lxp-genesis-build-fresh-custody"
+verdict = "retired"
+path = "include/layerx/lxp_genesis_builder.h"
+line = 31
+symbol = "lxp_genesis_build_fresh_custody"
+evidence = "The fresh-custody builder prototype is absent from lxp_genesis_builder.h. Its sole remaining identifier mention is a strstr absence check in the custody-header test; the retained builder is lxp_genesis_build_fresh_empty."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_custody_builder_header.c:70"]
+
+[row.r1-2.40]
+interface = "interface.1.c-lxp-genesis-build-fresh-custody-registry"
+verdict = "retired"
+path = "include/layerx/lxp_genesis_builder.h"
+line = 40
+symbol = "lxp_genesis_build_fresh_custody_registry"
+evidence = "The fresh-custody-registry builder prototype is absent from lxp_genesis_builder.h. Its sole remaining identifier mention is a strstr absence check in the custody-header test; no relocated declaration or implementation was found."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_custody_builder_header.c:71"]
+
+[row.r1-2.41]
+interface = "interface.1.c-lxp-history-send-fn"
+verdict = "retired"
+path = "include/layerx/lxp_history.h"
+line = 61
+symbol = "lxp_history_send_fn"
+evidence = "The history-send callback typedef is absent from lxp_history.h, which retains only query and result data types. Its sole remaining identifier mention is the retired-surface metadata in lxp_test_kernel_complete.c."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:902"]
+
+[row.r1-2.42]
+interface = "interface.1.c-lxp-history-serve-range"
+verdict = "retired"
+path = "include/layerx/lxp_history.h"
+line = 73
+symbol = "lxp_history_serve_range"
+evidence = "The range-serving prototype is absent from lxp_history.h. Remaining identifier mentions are retired-surface metadata and an archive-symbol absence assertion in retired_history_test.go; no service implementation remains."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_history_test.go:21", "tests/codec/lxp_test_kernel_complete.c:905"]
+
+[row.r1-2.43]
+interface = "interface.1.c-enum-lxp-kernel-max-module-registrations"
+verdict = "served"
+path = "include/layerx/lxp_kernel.h"
+line = 16
+symbol = "LXP_KERNEL_MAX_MODULE_REGISTRATIONS"
+evidence = "The enum still declares LXP_KERNEL_MAX_MODULE_REGISTRATIONS = 32 at line 16. Compared with the registered enum signature, LXP_KERNEL_MAX_MODULE_KV increased from 512 to 4096 and LXP_MODULE_MAX_STAGED_WRITES from 64 to 512; the other enumerators are unchanged."
+
+[row.r1-2.44]
+interface = "interface.1.c-lxp-module-ctx"
+verdict = "served"
+path = "include/layerx/lxp_kernel.h"
+line = 173
+symbol = "lxp_module_ctx"
+evidence = "struct lxp_module_ctx now begins at line 173. Compared with the registered struct signature it adds lxp_applied_transfers applied_transfers after transfer_applied and removes unsigned int bridge_credit_fail_stage after commit_prepared."
+
+[row.r1-2.45]
+interface = "interface.1.c-lxp-kernel"
+verdict = "served"
+path = "include/layerx/lxp_kernel.h"
+line = 252
+symbol = "lxp_kernel"
+evidence = "typedef struct lxp_kernel now begins at line 252. The registered lxp_handover_state handover is replaced by lxp_governance_authority governance_authority; struct lxp_capacity_ledger *capacity is removed and lxp_applied_transfers *applied_transfers_out is added."
+
+[row.r1-2.46]
+interface = "interface.1.c-lxp-kernel-idempotency-state-value"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 345
+symbol = "lxp_kernel_idempotency_state_value"
+evidence = "The idempotency-state-value prototype is absent from lxp_kernel.h. The remaining file declares it weakly and checks NULL and archive-symbol absence; this is a retirement probe, not a relocated kernel entry point."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_entry_retired.c:17"]
+
+[row.r1-2.47]
+interface = "interface.1.c-lxp-kernel-execution"
+verdict = "served"
+path = "include/layerx/lxp_kernel.h"
+line = 395
+symbol = "lxp_kernel_execution"
+evidence = "typedef struct lxp_kernel_execution now begins at line 395. Compared with the registered signature it appends bool binding_authority and lxp_applied_transfers applied_transfers. The lxp_fee_meter fee_meter member remains; override.J21.10 changes its entry contract rather than deleting the type."
+
+[row.r1-2.48]
+interface = "interface.1.c-lxp-kernel-finalize-batch-maintenance"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 581
+symbol = "lxp_kernel_finalize_batch_maintenance"
+evidence = "The batch-maintenance finalizer prototype is absent from lxp_kernel.h. The remaining weak extern in lxp_test_kernel_entry_retired.c is checked for NULL and archive-symbol absence; no finalizer implementation remains."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_entry_retired.c:16"]
+
+[row.r1-2.49]
+interface = "interface.1.c-lxp-determinism-guard-check"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 658
+symbol = "lxp_determinism_guard_check"
+evidence = "The determinism-guard check prototype is absent from lxp_kernel.h. The sole remaining file uses a weak extern and a NULL assertion in determinism_guard_removed; it does not implement the retired process-global guard."
+remaining_refs = 1
+remaining = ["tests/fuzz/lxp_prop_reexecution.c:6"]
+
+[row.r1-2.50]
+interface = "interface.1.c-lxp-determinism-guard-trip"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 659
+symbol = "lxp_determinism_guard_trip"
+evidence = "The determinism-guard trip prototype is absent from lxp_kernel.h. The sole remaining file uses a weak extern and a NULL assertion in determinism_guard_removed; it does not implement the retired process-global guard."
+remaining_refs = 1
+remaining = ["tests/fuzz/lxp_prop_reexecution.c:7"]
+
+[row.r1-2.51]
+interface = "interface.1.c-lxp-determinism-guard-reset"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 660
+symbol = "lxp_determinism_guard_reset"
+evidence = "The determinism-guard reset prototype is absent from lxp_kernel.h. The sole remaining file uses a weak extern and a NULL assertion in determinism_guard_removed; it does not implement the retired process-global guard."
+remaining_refs = 1
+remaining = ["tests/fuzz/lxp_prop_reexecution.c:9"]
+
+[row.r1-2.52]
+interface = "interface.1.c-lxp-kernel-replay"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 661
+symbol = "lxp_kernel_replay"
+evidence = "The kernel-replay prototype is absent from lxp_kernel.h. The sole remaining file uses a weak extern and a NULL assertion in determinism_guard_removed; its real reexecution test uses the current execution path instead."
+remaining_refs = 1
+remaining = ["tests/fuzz/lxp_prop_reexecution.c:10"]
+
+[row.r1-2.53]
+interface = "interface.1.c-enum-lxp-capacity-format-version"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 725
+symbol = "LXP_CAPACITY_FORMAT_VERSION"
+evidence = "The capacity framing enum is absent from lxp_kernel.h. The only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records the removed API for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:38"]
+
+[row.r1-2.54]
+interface = "interface.1.c-lxp-capacity-kind"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 740
+symbol = "lxp_capacity_kind"
+evidence = "The lxp_capacity_kind type is absent from lxp_kernel.h. Its only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records removed interfaces for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:404"]
+
+[row.r1-2.55]
+interface = "interface.1.c-lxp-capacity-state"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 745
+symbol = "lxp_capacity_state"
+evidence = "The lxp_capacity_state type is absent from lxp_kernel.h. Its only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records removed interfaces for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:449"]
+
+[row.r1-2.56]
+interface = "interface.1.c-lxp-capacity-demand"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 753
+symbol = "lxp_capacity_demand"
+evidence = "The lxp_capacity_demand type is absent from lxp_kernel.h. Its only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records removed interfaces for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:401"]
+
+[row.r1-2.57]
+interface = "interface.1.c-lxp-capacity-profile"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 759
+symbol = "lxp_capacity_profile"
+evidence = "The lxp_capacity_profile type is absent from lxp_kernel.h. Its only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records removed interfaces for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:425"]
+
+[row.r1-2.58]
+interface = "interface.1.c-lxp-capacity-request"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 766
+symbol = "lxp_capacity_request"
+evidence = "The lxp_capacity_request type is absent from lxp_kernel.h. Its only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records removed interfaces for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:437"]
+
+[row.r1-2.59]
+interface = "interface.1.c-lxp-capacity-reservation"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 780
+symbol = "lxp_capacity_reservation"
+evidence = "The lxp_capacity_reservation type is absent from lxp_kernel.h. Its only remaining identifier mention is in the retired_surfaces table of lxp_test_kernel_complete.c, which records removed interfaces for absence checks."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:443"]
+
+[row.r1-2.60]
+interface = "interface.1.c-lxp-capacity-ledger"
+verdict = "retired"
+path = "include/layerx/lxp_kernel.h"
+line = 799
+symbol = "lxp_capacity_ledger"
+evidence = "The capacity-ledger struct is absent from lxp_kernel.h. Remaining identifier mentions are the retired_surfaces table and a source assertion that blob admission does not depend on lxp_capacity_ledger; no relocated type declaration remains."
+remaining_refs = 2
+remaining = ["tests/ci/test_programs_capacity_feed_removed.py:11", "tests/codec/lxp_test_kernel_complete.c:407"]

@@ -447,44 +447,8 @@ defmodule Explorer.Utility.MissingBlockRange do
       # if no priority ranges inside the requested interval, fill the full range
       insert_or_update_adjacent_ranges(from, to, priority, :both)
     else
-      full_range_map_set =
-        from
-        |> Range.new(to)
-        |> Enum.to_list()
-        |> MapSet.new()
-
       priority_ranges
-      |> Enum.reduce(full_range_map_set, fn range, acc ->
-        map_set =
-          range.from_number
-          |> Range.new(range.to_number)
-          |> Enum.to_list()
-          |> MapSet.new()
-
-        acc
-        |> MapSet.difference(map_set)
-      end)
-      |> MapSet.to_list()
-      |> Enum.sort_by(& &1, :desc)
-      |> Enum.reduce({[], {nil, nil}}, fn num, {ranges, {start_range, end_range}} ->
-        if is_nil(start_range) do
-          {ranges, {num, num}}
-        else
-          # credo:disable-for-next-line Credo.Check.Refactor.Nesting
-          if end_range - num > 1 do
-            {[Range.new(start_range, end_range) | ranges], {num, num}}
-          else
-            {ranges, {start_range, num}}
-          end
-        end
-      end)
-      |> then(fn {ranges, {start_range, end_range}} ->
-        if not is_nil(start_range) && not is_nil(end_range) do
-          [Range.new(start_range, end_range) | ranges]
-        else
-          ranges
-        end
-      end)
+      |> subtract_priority_ranges(from, to)
       |> then(fn
         [range | []] ->
           insert_or_update_adjacent_ranges(range.first, range.last, priority, :both)
@@ -510,6 +474,25 @@ defmodule Explorer.Utility.MissingBlockRange do
   end
 
   defp fill_ranges_between(_all_ranges, _from, _to, _priority), do: :ok
+
+  # Walk the priority intervals from high to low. Only interval boundaries are
+  # stored, so both memory and work are independent of the number of heights.
+  # Prepending gaps returns them low to high, as required by the adjacency code.
+  defp subtract_priority_ranges(priority_ranges, from, to) do
+    {cursor, gaps} =
+      Enum.reduce(priority_ranges, {from, []}, fn range, {cursor, gaps} ->
+        gaps =
+          if cursor > range.from_number do
+            [Range.new(cursor, range.from_number + 1, -1) | gaps]
+          else
+            gaps
+          end
+
+        {min(cursor, range.to_number - 1), gaps}
+      end)
+
+    if cursor >= to, do: [Range.new(cursor, to, -1) | gaps], else: gaps
+  end
 
   defp insert_or_update_adjacent_ranges(from, to, priority, :both) do
     upper_range = get_range_by_block_number(from + 1, priority)
@@ -568,14 +551,31 @@ defmodule Explorer.Utility.MissingBlockRange do
   end
 
   def sanitize_missing_block_ranges do
-    __MODULE__
-    |> where([r], r.from_number < r.to_number)
-    |> update([r], set: [from_number: r.to_number, to_number: r.from_number])
-    |> Repo.update_all([], timeout: :infinity)
+    result =
+      Repo.transaction(
+        fn ->
+          __MODULE__
+          |> where([r], r.from_number < r.to_number)
+          |> update([r], set: [from_number: r.to_number, to_number: r.from_number])
+          |> Repo.update_all([], timeout: :infinity)
 
-    {last_range, merged_ranges} = delete_and_merge_ranges()
+          {last_range, merged_ranges} = delete_and_merge_ranges()
 
-    save_batch((last_range && [last_range | merged_ranges]) || [])
+          ((last_range && [last_range | merged_ranges]) || [])
+          |> Enum.map(fn from..to//_ ->
+            case insert_range(%{from_number: from, to_number: to}) do
+              {:ok, range} -> range
+              {:error, changeset} -> Repo.rollback(changeset)
+            end
+          end)
+        end,
+        timeout: :infinity
+      )
+
+    case result do
+      {:ok, ranges} -> ranges
+      {:error, changeset} -> raise Ecto.InvalidChangesetError, action: :insert, changeset: changeset
+    end
   end
 
   defp delete_and_merge_ranges do
@@ -591,7 +591,7 @@ defmodule Explorer.Utility.MissingBlockRange do
   end
 
   defp delete_intersecting_ranges do
-    {_, intersecting_ranges} =
+    intersecting_ids =
       __MODULE__
       |> join(:inner, [r], r1 in __MODULE__,
         on:
@@ -600,8 +600,20 @@ defmodule Explorer.Utility.MissingBlockRange do
              (r.from_number <= r1.from_number and r.from_number >= r1.to_number) or
              (r.to_number <= r1.from_number and r.to_number >= r1.to_number)) and r1.id != r.id
       )
-      |> select([r, r1], r)
-      |> Repo.delete_all(timeout: :infinity)
+      |> select([r, _r1], r.id)
+
+    intersecting_ranges =
+      __MODULE__
+      |> where([r], r.id in subquery(intersecting_ids))
+      |> order_by([r], r.id)
+      |> lock("FOR UPDATE")
+      |> Repo.all(timeout: :infinity)
+
+    ids = Enum.map(intersecting_ranges, & &1.id)
+
+    __MODULE__
+    |> where([r], r.id in ^ids)
+    |> Repo.delete_all(timeout: :infinity)
 
     intersecting_ranges
   end

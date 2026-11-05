@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/url"
 	"strconv"
@@ -52,16 +53,8 @@ type Authorization struct {
 	Allowed   bool
 	ExpiresAt time.Time
 }
-type Credential struct {
-	Token          string `json:"token"`
-	ProviderID     string `json:"providerId"`
-	IngestEndpoint string `json:"ingestEndpoint"`
-	ExpiresAt      string `json:"expiresAt"`
-}
-type CredentialAuthority interface {
-	Credential(context.Context, Operation) (Credential, error)
-}
 type Deps struct {
+	StudioWebhook         bool
 	PlaybackWebhookSecret string
 	ObserveOutcome        func(string)
 	IngestKeys            *EncryptedCredentials
@@ -72,7 +65,6 @@ type Deps struct {
 	Lifecycle             *LifecycleStore
 	Authorize             func(context.Context, *http.Request, string, Operation) (Authorization, error)
 	ProviderReady         func(context.Context) error
-	Credentials           CredentialAuthority
 	Viewers               *ViewerCounter
 	Playback              func(context.Context, Operation) (PlaybackSources, error)
 	MarketCaps            *MarketCapReader
@@ -94,6 +86,7 @@ type Deps struct {
 
 // Handlers serves the stream routes.
 type Handlers struct {
+	studioWebhook         bool
 	playbackWebhookSecret string
 	observeOutcome        func(string)
 	ingestKeys            *EncryptedCredentials
@@ -104,7 +97,6 @@ type Handlers struct {
 	lifecycle             *LifecycleStore
 	authorize             func(context.Context, *http.Request, string, Operation) (Authorization, error)
 	providerReady         func(context.Context) error
-	credentials           CredentialAuthority
 	viewers               *ViewerCounter
 	playback              func(context.Context, Operation) (PlaybackSources, error)
 	marketCaps            *MarketCapReader
@@ -132,11 +124,12 @@ func New(d Deps) *Handlers {
 		maxStreams = 3
 	}
 	return &Handlers{
+		studioWebhook:         d.StudioWebhook,
 		playbackWebhookSecret: d.PlaybackWebhookSecret,
 		observeOutcome:        d.ObserveOutcome,
 		ingestKeys:            d.IngestKeys,
 		operationLedger:       d.OperationLedger, operationVerifier: d.OperationVerifier, restrictions: d.Restrictions, viewerTokens: d.ViewerTokens,
-		lifecycle: d.Lifecycle, authorize: d.Authorize, providerReady: d.ProviderReady, credentials: d.Credentials, viewers: d.Viewers, playback: d.Playback, marketCaps: d.MarketCaps, decodeWebhook: d.DecodeWebhook, webhookMilliseconds: d.WebhookMilliseconds, unprovisioned: d.BroadcastUnprovisioned,
+		lifecycle: d.Lifecycle, authorize: d.Authorize, providerReady: d.ProviderReady, viewers: d.Viewers, playback: d.Playback, marketCaps: d.MarketCaps, decodeWebhook: d.DecodeWebhook, webhookMilliseconds: d.WebhookMilliseconds, unprovisioned: d.BroadcastUnprovisioned,
 		q:             d.Queries,
 		redis:         d.Redis,
 		livepeer:      d.Livepeer,
@@ -157,10 +150,12 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 	r.Get("/streams/live", legacy)
 	r.Get("/streams/pool/{poolAddress}", legacy)
 	r.Get("/streams/{id}", legacy)
-	r.Post("/webhooks/livepeer", h.provisioned(h.webhook))
+	r.Post("/webhooks/livepeer", provisioned(h, h.webhook))
 	r.Post("/webhooks/livepeer/playback-access", h.provisioned(h.playbackAccess))
 	r.Route("/v2", func(v chi.Router) {
-		v.Post("/streams", h.provisioned(h.connectedCreate))
+		v.Post("/provider-webhooks/livepeer", provisioned(h, h.normalizedWebhook))
+		v.Get("/streams", h.listV2)
+		v.Post("/streams", provisioned(h, h.connectedCreate))
 		v.Patch("/streams/{id}", h.provisioned(h.connectedEdit))
 		v.Post("/streams/{id}/rotate-key", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "rotate") }))
 		v.Post("/streams/{id}/restore", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "restore") }))
@@ -169,22 +164,43 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 		v.Post("/streams/{id}/viewer-session", h.viewerSession)
 		v.Get("/streams/live", h.listLive)
 		v.Get("/streams/pool/{poolAddress}", h.listByPool)
-		v.Get("/streams/operations/{id}", h.provisioned(h.operationStatus))
-		v.Post("/streams/{id}/ingest-credential", h.provisioned(h.connectedCredential))
-		v.Post("/streams/{id}/ingest-key", h.provisioned(h.connectedCredential))
+		v.Get("/streams/operations/{id}", provisioned(h, h.operationStatus))
+		v.Post("/streams/{id}/ingest-credential", provisioned(h, h.retiredIngestCredential))
+		v.Post("/streams/{id}/ingest-key", provisioned(h, h.connectedCredential))
 		v.Post("/streams/{id}/go-live", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "start") }))
 		v.Post("/streams/{id}/end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "end") }))
 		v.Post("/streams/{id}/heartbeat", h.connectedHeartbeat)
+		v.Post("/streams/{id}:start", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "start") }))
+		v.Post("/streams/{id}:end", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "end") }))
+		v.Post("/streams/{id}/viewers:heartbeat", alias(h.frozenHeartbeat))
 		v.Get("/streams/{id}", h.getByID)
 	})
 }
 
+// alias prevents an intermediary from reusing a frozen lifecycle observation,
+// including refusals, for a later request.
+func alias(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next(w, r)
+	}
+}
+
+func provisioned(h *Handlers, next http.HandlerFunc) http.HandlerFunc {
+	return alias(h.provisioned(next))
+}
+
 // ── POST /streams ───────────────────────────────────────────────────────────
 
+var ErrInvalidRequest = errors.New("invalid livestream request")
+
 // lifecycleError writes every lifecycle failure as the v2 Error envelope.
-// Provisioned (connected), platform and development runtimes share this one
-// writer: contractError owns the status/code table.
+// Provisioned (connected), platform and development runtimes share this writer.
 func (h *Handlers) lifecycleError(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrInvalidRequest) {
+		writeContractError(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid livestream request", false, nil, nil)
+		return
+	}
 	h.contractError(w, err)
 }
 func (h *Handlers) authorization(r *http.Request, action string, o Operation) (Authorization, error) {
@@ -296,55 +312,28 @@ func (h *Handlers) operationStatus(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, err)
 		return
 	}
-	result, err := AdaptV2Operation(o)
+	requestID, err := randomID()
+	if err != nil {
+		h.lifecycleError(w, err)
+		return
+	}
+	raw, err := AdaptV2StreamOperationGet(requestID, o, h.clock())
 	if err != nil {
 		h.lifecycleError(w, err)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]any{"operation": result})
+	writeJSON(w, http.StatusOK, json.RawMessage(raw))
 }
-func (h *Handlers) ingestCredential(w http.ResponseWriter, r *http.Request) {
+
+// Studio issues long-lived stream keys, not expiring ingest credentials. The
+// replacement deliberately exposes visibilityUntil rather than a false expiry.
+func (h *Handlers) retiredIngestCredential(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	if h.lifecycle == nil || h.credentials == nil {
-		h.lifecycleError(w, ErrUnavailable)
-		return
-	}
-	o, err := h.lifecycle.Get(r.Context(), chi.URLParam(r, "id"))
-	if err != nil {
-		h.lifecycleError(w, err)
-		return
-	}
-	if _, err = h.authorization(r, "stream.credential", o); err != nil {
-		h.lifecycleError(w, err)
-		return
-	}
-	if (o.State != "READY" && o.State != "LIVE") || o.ProviderID == "" {
-		h.lifecycleError(w, ErrUnavailable)
-		return
-	}
-	c, err := h.credentials.Credential(r.Context(), o)
-	if err != nil {
-		h.lifecycleError(w, err)
-		return
-	}
-	expiry, err := time.Parse(time.RFC3339, c.ExpiresAt)
-	if err != nil || !expiry.After(h.clock()) || expiry.After(h.clock().Add(5*time.Minute)) || c.Token == "" || len(c.Token) > 4096 || c.ProviderID != o.ProviderID || len(c.ProviderID) > 80 {
-		h.lifecycleError(w, ErrUnavailable)
-		return
-	}
-	endpoint, endpointErr := url.Parse(c.IngestEndpoint)
-	if endpointErr != nil || endpoint.Scheme != "https" || endpoint.User != nil || endpoint.Hostname() == "" || len(c.IngestEndpoint) > 2048 {
-		h.lifecycleError(w, ErrUnavailable)
-		return
-	}
-	current, err := h.lifecycle.Get(r.Context(), o.ID)
-	if err != nil || current.Revision != o.Revision || current.ProviderID != o.ProviderID || (current.State != "READY" && current.State != "LIVE") {
-		h.lifecycleError(w, ErrConflict)
-		return
-	}
-	writeJSON(w, 200, map[string]any{"streamId": o.ID, "ingestCredential": c})
+	w.Header().Set("Link", "</v2/streams/"+url.PathEscape(chi.URLParam(r, "id"))+"/ingest-key>; rel=\"successor-version\"")
+	writeContractError(w, http.StatusGone, "INGEST_CREDENTIAL_RETIRED", "Use the creator-authorized private ingest-key operation", false, nil, nil)
 }
+
 func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 	if h.restrictions == nil {
 		return V2Stream{}, ErrUnavailable
@@ -397,6 +386,75 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 	}
 	return withThumbnail(view, sources), nil
 }
+func (h *Handlers) listV2(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		h.lifecycleError(w, ErrInvalidRequest)
+		return
+	}
+	limit := "50"
+	for key, values := range query {
+		valid := len(values) == 1
+		if valid {
+			switch key {
+			case "status":
+				valid = values[0] == "live"
+			case "poolAddress":
+				valid = addressPattern.MatchString(values[0])
+			case "cursor":
+				valid = len(values[0]) >= 1 && len(values[0]) <= 256
+			case "limit":
+				n, parseErr := strconv.Atoi(values[0])
+				valid = parseErr == nil && n >= 1 && n <= 100 && strconv.Itoa(n) == values[0]
+				limit = values[0]
+			default:
+				valid = false
+			}
+		}
+		if !valid {
+			h.lifecycleError(w, ErrInvalidRequest)
+			return
+		}
+	}
+	if h.lifecycle == nil {
+		h.lifecycleError(w, ErrUnavailable)
+		return
+	}
+	live := query.Get("status") == "live"
+	operations, nextCursor, err := h.lifecycle.Page(r.Context(), query.Get("poolAddress"), live, query.Get("cursor"), limit)
+	if err != nil {
+		if errors.Is(err, ErrInvalid) {
+			err = ErrInvalidRequest
+		}
+		h.lifecycleError(w, err)
+		return
+	}
+	items := make([]V2Stream, 0, len(operations))
+	for _, operation := range operations {
+		item, err := h.public(r.Context(), operation)
+		if err != nil {
+			h.lifecycleError(w, err)
+			return
+		}
+		if live && item.Status != "live" {
+			continue
+		}
+		items = append(items, item)
+	}
+	requestID, err := randomID()
+	if err != nil {
+		h.lifecycleError(w, err)
+		return
+	}
+	raw, err := AdaptV2StreamList(requestID, items, nextCursor, h.clock())
+	if err != nil {
+		h.lifecycleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, json.RawMessage(raw))
+}
+
 func (h *Handlers) list(w http.ResponseWriter, r *http.Request, pool string, live bool) {
 	if h.lifecycle == nil {
 		h.lifecycleError(w, ErrUnavailable)
@@ -454,6 +512,10 @@ func (h *Handlers) getByID(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) webhook(w http.ResponseWriter, r *http.Request) {
 	if h.lifecycle == nil {
 		h.lifecycleError(w, ErrUnavailable)
+		return
+	}
+	if h.studioWebhook {
+		h.providerWebhookAdapter().Studio(w, r)
 		return
 	}
 	body, ok := VerifyProviderWebhook(w, r, h.webhookSecret, h.clock(), h.webhookMilliseconds)

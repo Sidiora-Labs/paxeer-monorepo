@@ -1,0 +1,124 @@
+[disposition.14.23.1]
+finding = "14.23.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184420 declares an empty symbols list for task 14.23.1, removing the unsupported Elixir and ExUnit graph assertions while the archive schemas and frozen-marker test introduced by b07fa373b remain present."
+
+[disposition.14.23.1.2]
+finding = "14.23.1.2"
+status = "resolved"
+evidence = "021f2b075 inlined the anchor and receipt schema bodies into archive_anchor.ex and archive_receipt.ex before deleting the live schemas, so neither archive schema calls the removed Anchor.schema or Receipt.Details.schema."
+
+[disposition.14.23.2]
+finding = "14.23.2"
+status = "superseded"
+evidence = "fbf2ad202 deleted the retired anchor_controller.ex containing the undefined UnifiedAccount.anchors call, and its archive replacement introduced by eab05523b queries Anchor.only_consensus_query directly at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex:37."
+
+[disposition.14.25.2]
+finding = "14.25.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184701 declares an empty symbols list for task 14.25.2, removing the unsupported graph assertions while 71be389da retains the fetcher implementation and its two-key import-options test."
+
+[disposition.14.25.5]
+finding = "14.25.5"
+status = "resolved"
+evidence = "8de991ebb added the read-only precompiles mount and PAXEER_PRECOMPILES_DIR forwarding in mix-in-builder.sh and made paxeer_x_logs_abi_test.exs read that environment variable, so the ABI files are accessible inside the builder."
+
+[disposition.14.25.5.1]
+finding = "14.25.5.1"
+status = "resolved"
+evidence = "8de991ebb made the launchpad conformance test use the union of the current and legacy/v610 ABI files at services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs:29, and 449d01e32 added all twelve v6.12.0 event definitions alongside the ten legacy definitions."
+
+[disposition.14.25.6]
+finding = "14.25.6"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184827 declares an empty symbols list for task 14.25.6, removing the unsupported Elixir graph assertions while the launchpad decoder and both version-specific tests introduced by 449d01e32 remain present."
+
+[disposition.14.26.2]
+finding = "14.26.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184888 declares an empty symbols list for task 14.26.2, removing the unsupported ExUnit graph assertion while the finality_config_is_not_set test introduced by 6ca253fbe remains present."
+
+[disposition.14.27.2]
+finding = "14.27.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184949 declares an empty symbols list for task 14.27.2, removing the unsupported ExUnit graph assertion while 9b4b52d2b retains the view-absence test and deletes the uncalled UnifiedAccountView."
+
+[disposition.14.29.2]
+finding = "14.29.2"
+status = "resolved"
+evidence = "465829782 moved authorization_matches and lxp_batch_verify_signature into src/sequencer/lxp_batch_header.c:143, where the verifier remains defined in the library sources independently of the retired lxp_batch_seal.c."
+
+[disposition.14.30.1]
+finding = "14.30.1"
+status = "environment"
+evidence = "services/explorer/services/sig-provider/sig-provider-proto/build.rs:15 still invokes the OpenAPI protobuf generator through prost-build, making protoc and protoc-gen-openapiv2 qualification-toolchain prerequisites, while .gitignore:167 now excludes the sig-provider target directory that previously caused build-output scope reports."
+
+[disposition.14.30.2]
+finding = "14.30.2"
+status = "resolved"
+evidence = "976b64a7d added precompiles to the public sources re-export at services/explorer/services/sig-provider/sig-provider/src/lib.rs:6, allowing the server to import sig_provider::precompiles::PrecompileSource."
+
+[disposition.14.30.3]
+finding = "14.30.3"
+status = "resolved"
+evidence = "1eec7c40a added precompiles: Default::default() to the SourcesSettings literal at services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs:16, removing the missing-field condition shared with finding 14.30.4."
+
+[disposition.14.30.4]
+finding = "14.30.4"
+status = "resolved"
+evidence = "1eec7c40a added precompiles: Default::default() to the SourcesSettings literal at services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs:16, so that initializer supplies the newly required field."
+
+[disposition.14.31.1.1]
+finding = "14.31.1.1"
+status = "resolved"
+evidence = "bf6ce667a changed the ActivityList fixture and assertions from instant/sealed/final to submitted/receipted/committed and aligned StatusLadderBadge expectations with the three remaining rungs, including the fixture at apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx:56."
+
+[disposition.14.32.1.1]
+finding = "14.32.1.1"
+status = "resolved"
+evidence = "72906c15f replaced the removed status assertion with frozen at apps/explorer/lib/api/services/general/paxeerX.spec.ts:59, and cac32b02a, 3a2da0ec6, 4daddd039 and 795da2561 ported the anchor and receipt consumers and tests to the archive types."
+
+[disposition.14.32.1.2]
+finding = "14.32.1.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:185454 includes nextjs/nextjs-routes.d.ts in task 14.32.1 build roots, bringing the Route export declared at apps/explorer/nextjs/nextjs-routes.d.ts:8 into the narrowed typecheck."
+
+[disposition.14.32.2.1]
+finding = "14.32.2.1"
+status = "resolved"
+evidence = "cac32b02a replaced the removed PaxeerXAnchorsItem import and items type with PaxeerXArchiveAnchor at apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx:3."
+
+[disposition.14.32.4.1]
+finding = "14.32.4.1"
+status = "resolved"
+evidence = "4daddd039 retyped PaxeerXReceiptDetails.spec.tsx to PaxeerXArchiveReceipt, replaced the fixture status with frozen, and removed the retired settlement-status expectations while retaining verification-status assertions."
+
+[disposition.14.32.5.1]
+finding = "14.32.5.1"
+status = "resolved"
+evidence = "a5d0b3b60 changed both stale Kernel group expectations to Kernel archive at apps/explorer/lib/hooks/useNavItems.spec.tsx:56 and :101, retaining the Anchor checkpoints and Kernel receipts children."
+
+[disposition.14.32.6.1]
+finding = "14.32.6.1"
+status = "resolved"
+evidence = "795da2561 added the Batch table header and item.batch_number cell at apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx:29 and changed the stale sealed expectation to receipted in its spec."
+
+[disposition.14.36.1]
+finding = "14.36.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:185946 declares an empty symbols list for task 14.36.1, removing the unsupported Elixir and ExUnit graph assertions while the three-rung schema and focused test retained by b61bd716f remain present."
+
+[disposition.14.38.1]
+finding = "14.38.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:186006 declares an empty symbols list for task 14.38.1, removing the unsupported ExUnit graph assertions while both market and binding parser tests introduced by 81fa3e72d remain present."
+
+[disposition.14.41.1]
+finding = "14.41.1"
+status = "resolved"
+evidence = "646a1205d aligned the bridge plugin and Vitest Vite resolutions, raised the TypeScript target to ES2020 and generated Next route types before typechecking, while b8dc932dc removed the copied OpenTelemetry dependencies responsible for the duplicate types."
+
+[disposition.14.41.2]
+finding = "14.41.2"
+status = "resolved"
+evidence = "de0a994d2 removed the nonexistent globalSetup and setupFiles entries from apps/bridge/vitest.config.ts:15 and selected the node environment, leaving no reference to either missing setup file."

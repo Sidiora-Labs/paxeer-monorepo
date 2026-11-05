@@ -1,0 +1,8 @@
+[repair.22.31.306]
+audit = "22.30.167"
+finding = "slash-height"
+tests = ["TestRepair_306_SlashHeightRange", "TestRepair_306_SlashHeightOffsetPagination", "TestRepair_306_SlashHeightKeyPagination"]
+proof = "Real validator creation and distribution slash hooks persist events; the generated query client uses the BaseApp protobuf query router to read height-filtered events, totals and cursors."
+baseline = "Not run: the explicit bounded gate order prohibits running verify_cmd by hand or before implementation. No baseline test failure is claimed."
+wiring_requests = []
+qualification = "The runner records the verified candidate revision, command, exit code and private evidence location through hf-build and hf-done."

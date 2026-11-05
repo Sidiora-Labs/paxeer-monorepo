@@ -28,7 +28,7 @@ SOURCE_PATHS = (
     'src/protocol/lxp_kernel.c', 'src/modules/programs/fee.c',
     'src/modules/programs/fees.c',
     'include/layerx/lxp_governance.h', 'src/modules/governance/lxp_governance.c',
-    'src/modules/programs/registration.c', 'cmd/layerxd/lxp_daemon_process.c',
+    'src/modules/programs/registration.c',
 )
 OPERATIONS = ('valid_import', 'unknown_abi', 'downgrade', 'wrong_code_hash',
               'wrong_prior_hash', 'unauthorized_upgrader', 'invalid_export',
@@ -188,9 +188,8 @@ def build(directory):
             and stat.S_ISDIR(cargo_info.st_mode) and cargo_info.st_uid == os.geteuid()
             and not cargo_info.st_mode & 0o022, 'protected caller-owned build target required')
     library = native / 'liblayerx.a'
-    header = native / 'generated/lxp_checkpoint_settlement.h'
+    generated = native / 'generated'
     sandbox = cargo / 'debug/liblayerx_programs_sandbox.a'
-    daemon_process = native / 'obj/cmd/layerxd/lxp_daemon_process.o'
     binary = native / 'tests/programs_lifecycle'
     binary.parent.mkdir(mode=0o700)
     jobs = int(os.environ.get(PREFIX + 'BUILD_JOBS', '4'))
@@ -200,10 +199,10 @@ def build(directory):
     commands = [
         ['make', '--no-print-directory', '-j' + str(jobs),
          'BUILD_DIR=' + str(native), 'LXP_REVISION=' + source['revision'],
-         str(library), str(header), str(daemon_process)],
+         str(library)],
         ['cargo', 'build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
          '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
-        [compiler, '-Iinclude', '-I' + str(header.parent), '-std=c17', '-pedantic',
+        [compiler, '-Iinclude', '-I' + str(generated), '-std=c17', '-pedantic',
          '-Werror', '-Wall', '-Wextra', '-Wconversion', '-Wshadow', '-Wvla',
          '-fno-strict-aliasing', '-ffp-contract=off', '-O2',
          'tests/programs/test_lifecycle.c', '-Wl,--start-group', str(library),
@@ -230,9 +229,7 @@ def build(directory):
             require(code == 0, 'candidate build failed; log=' + str(log))
         require(identity() == source, 'source changed during build')
         record['artifacts'] = {'programs_lifecycle': artifact(binary, executable=True),
-            'native_library': artifact(library), 'sandbox_library': artifact(sandbox),
-            'checkpoint_header': artifact(header),
-            'daemon_process_object': artifact(daemon_process)}
+            'native_library': artifact(library), 'sandbox_library': artifact(sandbox)}
         record['completed_ns'] = time.time_ns()
     finally:
         write_private(directory / 'artifacts.json', record)
@@ -476,14 +473,8 @@ def verify(directory, manifest_path, authority_path, governor_path, legacy_path,
                 and step['command'] == command and step['exit_code'] == 0
                 and artifact(step['log']['path']) == step['log'], 'unverifiable build step')
     artifacts = manifest['artifacts']
-    require(set(artifacts) == {'programs_lifecycle', 'native_library', 'sandbox_library',
-                               'checkpoint_header', 'daemon_process_object'}, 'candidate artifacts missing')
-    object_path = Path(artifacts['native_library']['path']).parent / 'obj/cmd/layerxd/lxp_daemon_process.o'
-    require(artifacts['daemon_process_object']['path'] == str(object_path)
-            and str(object_path) in manifest['commands'][0],
-            'actual generic-owner daemon object compile is absent')
-    with object_path.open('rb') as stream:
-        require(stream.read(4) == b'\x7fELF', 'genuine compiled native process object required')
+    require(set(artifacts) == {'programs_lifecycle', 'native_library', 'sandbox_library'},
+            'candidate artifacts missing')
     for name, saved in artifacts.items():
         require(artifact(saved['path'], executable=name == 'programs_lifecycle') == saved,
                 'candidate artifact changed')

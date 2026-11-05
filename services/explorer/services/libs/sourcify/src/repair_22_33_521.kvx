@@ -1,0 +1,24 @@
+[repair.22.33.521]
+audit = "22.30.153"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+verified_revision = "The authoritative candidate revision is emitted by hf-done and retained in its private gate evidence; no qualification is claimed before that command passes."
+verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/sourcify/Cargo.toml --test repair_22_33_521"
+baseline = "Not executed: the explicit implementation-first order and prohibition on invoking verify_cmd by hand take precedence over the contradictory baseline instruction; no baseline failures are claimed. The integration target did not exist at the base revision."
+peer = "Disposable loopback HTTP service in test_service.rs pins the v2 request/response contract at base_revision; it checks methods, complete prefixed routes, field selectors and submission JSON while exercising the real Client, retry middleware and source decoder without external tools or live services."
+wiring_requests = []
+
+[finding.sourcify-base-url-panic]
+tests = ["sourcify_base_url_rejects_invalid_endpoints", "sourcify_successful_submission_job_sources_and_libraries_preserve_prefix", "sourcify_existing_verification_retrieves_full_match_without_polling"]
+repair = "Reject non-HTTP(S), hostless and opaque bases; append a trailing path segment without losing the configured prefix; propagate route-join errors as InvalidConfiguration."
+
+[finding.sourcify-operation-deadline]
+tests = ["sourcify_operation_deadline_bounds_submission", "sourcify_operation_deadline_bounds_poll_transport", "sourcify_operation_deadline_bounds_pending_poll_sleep", "sourcify_operation_deadline_bounds_retrieval_body", "sourcify_operation_deadline_is_shared_across_legs", "sourcify_operation_deadline_bounds_retry_backoff", "sourcify_existing_verification_keeps_deadline_through_chains", "sourcify_source_lookup_has_total_deadline"]
+repair = "One configurable deadline covers each full public operation, middleware/retries, body decoding, polling sleeps and sources/chains requests; every request receives remaining time and timeout errors describe the configured operation budget."
+
+[finding.sourcify-success-path-coverage]
+tests = ["sourcify_successful_submission_job_sources_and_libraries_preserve_prefix", "sourcify_existing_verification_retrieves_full_match_without_polling", "sourcify_typed_submission_and_completed_job_refusals", "sourcify_source_lookup_distinguishes_not_found_and_unsupported_chain", "sourcify_connection_refusal_is_reported"]
+repair = "Executing integration cases prove submission, pending/completed jobs, full and partial matches, decoded sources/metadata/libraries/constructor arguments/immutables, existing verification, deadlines and typed refusals. client.rs also restores its previously commented success test with its complete original expected response against the shared disposable HTTP peer."
+
+[gotcha.body-deadline]
+observed = "Response body decoding can win the race with the outer deadline and return a reqwest timeout instead of the operation timeout."
+resolution = "Normalize reqwest timeout errors at both public workflow boundaries; the delayed retrieval-body test checks the public error."

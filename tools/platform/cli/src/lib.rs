@@ -1,3 +1,5 @@
+pub mod chains;
+pub mod commands;
 pub mod http;
 pub mod rpc;
 pub mod wallet_encoding;

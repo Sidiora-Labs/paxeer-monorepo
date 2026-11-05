@@ -427,6 +427,47 @@ func agentEnvelopeLocalTransport(t *testing.T, authorizer RequestAuthorizer) *Ag
 	return transport
 }
 
+func TestAgentEnvelopeCarriesOwnerCredentialForBootstrapOperations(t *testing.T) {
+	authorizer, err := NewLayerXKeyAuthorizer("key-1", "lxp_live_"+strings.Repeat("0f", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := agentEnvelopeLocalTransport(t, authorizer)
+	withoutCredential, err := NewAgentEnvelopeHTTPTransport("https://localhost", nil, authorizer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := NewIdempotencyKey(strings.Repeat("12", 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedCredential := `{"tenant":"tenant-a","session_id":"` + strings.Repeat("cd", 32) + `","token_id":"` + strings.Repeat("ab", 32) + `","generation":"7"}`
+	for _, operation := range []AgentOperation{AgentOperationAgentRegister, AgentOperationSessionOpen} {
+		t.Run(string(operation), func(t *testing.T) {
+			call := TransportCall{Plane: PlaneAgent, Operation: string(operation), Request: json.RawMessage(`{}`), IdempotencyKey: key}
+			encoded, err := transport.encode(call, "42")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fields map[string]json.RawMessage
+			if err := decodeStrict(encoded, &fields); err != nil {
+				t.Fatal(err)
+			}
+			if string(fields["credential"]) != expectedCredential {
+				t.Fatal("bootstrap envelope must carry the configured owner credential")
+			}
+			if string(fields["idempotency_key"]) != `"`+key.String()+`"` {
+				t.Fatal("bootstrap envelope must carry its idempotency key")
+			}
+			_, err = withoutCredential.encode(call, "42")
+			var sdkError *SDKError
+			if !errors.As(err, &sdkError) || sdkError.Code != ErrorCapabilityRefusal {
+				t.Fatalf("missing owner credential must be refused with %s: %v", ErrorCapabilityRefusal, err)
+			}
+		})
+	}
+}
+
 func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 	authorizer, err := NewLayerXKeyAuthorizer("key-1", "lxp_live_"+strings.Repeat("0f", 32))
 	if err != nil {
@@ -450,13 +491,8 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstrap, err := transport.encode(TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationSessionOpen), Request: json.RawMessage(`{}`), IdempotencyKey: key}, "1")
-	if err != nil || decodeStrict(bootstrap, &fields) != nil || string(fields["credential"]) != "null" || string(fields["idempotency_key"]) != `"`+strings.Repeat("12", 32)+`"` {
-		t.Fatalf("session.open bootstrap envelope must carry a null credential and its key: %s", bootstrap)
-	}
-
-	faucet, err := transport.encode(TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationFaucetClaim), Request: json.RawMessage(`{}`)}, "2")
-	if err != nil || decodeStrict(faucet, &fields) != nil || string(fields["operation"]) != `"faucet.claim"` || string(fields["idempotency_key"]) != "null" {
-		t.Fatalf("faucet.claim must reach the daemon refusal as a plain envelope: %s", faucet)
+	if err != nil || decodeStrict(bootstrap, &fields) != nil || string(fields["credential"]) != `{"tenant":"tenant-a","session_id":"`+strings.Repeat("cd", 32)+`","token_id":"`+strings.Repeat("ab", 32)+`","generation":"7"}` || string(fields["idempotency_key"]) != `"`+strings.Repeat("12", 32)+`"` {
+		t.Fatalf("session.open envelope must carry the owner credential and its key: %s", bootstrap)
 	}
 
 	refusals := []struct {
@@ -466,6 +502,7 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 	}{
 		{"mutation without key", TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationSubmit), Request: json.RawMessage(`{}`)}, ErrorIdempotencyRequired},
 		{"read with key", TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationReadAccount), Request: json.RawMessage(`{}`), IdempotencyKey: key}, ErrorInvalidArgument},
+		{"retired faucet.claim", TransportCall{Plane: PlaneAgent, Operation: "faucet.claim", Request: json.RawMessage(`{}`)}, ErrorInvalidArgument},
 		{"unknown operation", TransportCall{Plane: PlaneAgent, Operation: "read.everything", Request: json.RawMessage(`{}`)}, ErrorInvalidArgument},
 		{"human plane", TransportCall{Plane: PlaneHuman, Operation: string(AgentOperationReadAccount), Request: json.RawMessage(`{}`)}, ErrorInvalidArgument},
 		{"non-object request", TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationReadAccount), Request: json.RawMessage(`[1]`)}, ErrorInvalidArgument},
@@ -477,6 +514,9 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 		var sdkError *SDKError
 		if !errors.As(err, &sdkError) || sdkError.Code != refusal.code {
 			t.Fatalf("%s: expected %s, got %v", refusal.name, refusal.code, err)
+		}
+		if refusal.name == "retired faucet.claim" && sdkError.Retry != RetryNever {
+			t.Fatalf("%s: expected retry %s, got %s", refusal.name, RetryNever, sdkError.Retry)
 		}
 	}
 

@@ -71,8 +71,24 @@ fn full_requires_journal_and_probe_even_when_transport_inputs_are_present(
             .env("LAYERX_AGENT_NODE_ENDPOINT", "http://127.0.0.1:1")
             .env("LAYERX_AGENT_AUTHORITY_ENDPOINT", "https://localhost:2")
             .env("LAYERX_AGENT_AUTHORITY_CA_DER", &ca)
-            .env("LAYERX_AGENT_AUTHORITY_REPLICA_ID", "01".repeat(32))
-            .env("LAYERX_AGENT_SEQUENCER_TRUST_HISTORY", root.join("history"));
+            .env("LAYERX_AGENT_AUTHORITY_REPLICA_ID", "01".repeat(32));
+        if mode == "full" {
+            command
+                .env(
+                    "LAYERX_AGENT_HUMAN_PEERS",
+                    "uid=4020;tenant=beta;principal=did:layerx:beta:alice",
+                )
+                .env(
+                    "LAYERX_POLICY_SOURCES",
+                    format!("beta:{}", root.join("policy").display()),
+                )
+                .env(
+                    "LAYERX_NATIVE_POLICY_SOURCES",
+                    format!("beta:{}", root.join("native-policy").display()),
+                )
+                .env("LAYERX_EXPECTED_CHAIN_ID", "125")
+                .env("LAYERX_AGENT_CHAIN_TRUST_ROOT", root.join("chain-trust"));
+        }
         let output = command.output()?;
         assert_eq!(output.status.code(), Some(2));
         let stderr = String::from_utf8(output.stderr)?;
@@ -126,5 +142,80 @@ fn human_owner_refuses_ambiguous_peer_configuration_before_connecting() -> Resul
         );
         assert!(!stderr.contains(peers));
     }
+    Ok(())
+}
+
+#[test]
+fn human_owner_mode_lists_node_rpc_variables() -> Result<(), Box<dyn Error>> {
+    let root = std::env::temp_dir().join(format!("layerx-agentd-rpc-mode-{}", std::process::id()));
+    std::fs::create_dir(&root)?;
+    let unserved_socket = root.join("node.sock");
+    assert!(!unserved_socket.exists());
+    let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-agentd"));
+    command
+        .env_clear()
+        .env("LAYERX_AGENT_MODE", "human-owner")
+        .env("LAYERX_AGENT_HUMAN_NODE_LNI", &unserved_socket)
+        .env("LAYERX_AGENT_PROGRAM_LISTEN", "127.0.0.1:0")
+        .env("LAYERX_AGENT_PROGRAM_BEARER_TOKEN", "h".repeat(32))
+        .env("LAYERX_AGENT_HUMAN_AUTHORITY_BEARER", "a".repeat(32))
+        .env(
+            "LAYERX_AGENT_HUMAN_PEERS",
+            "uid=4020;tenant=beta;principal=did:layerx:beta:alice",
+        );
+    for (url, chain_id, expected) in [
+        (None, None, "missing LAYERX_AGENT_NODE_RPC_URL"),
+        (
+            Some("http://127.0.0.1:1"),
+            None,
+            "missing LAYERX_AGENT_NODE_CHAIN_ID",
+        ),
+        (
+            Some("http://127.0.0.1:1"),
+            Some("invalid"),
+            "invalid LAYERX_AGENT_NODE_CHAIN_ID",
+        ),
+    ] {
+        command.env_remove("LAYERX_AGENT_NODE_RPC_URL");
+        command.env_remove("LAYERX_AGENT_NODE_CHAIN_ID");
+        if let Some(url) = url {
+            command.env("LAYERX_AGENT_NODE_RPC_URL", url);
+        }
+        if let Some(chain_id) = chain_id {
+            command.env("LAYERX_AGENT_NODE_CHAIN_ID", chain_id);
+        }
+        let output = command.output()?;
+        assert_eq!(output.status.code(), Some(2));
+        let stderr = String::from_utf8(output.stderr)?;
+        assert!(stderr.contains(expected), "{stderr}");
+        assert!(stderr.contains("LAYERX_AGENT_NODE_RPC_URL"), "{stderr}");
+        assert!(stderr.contains("LAYERX_AGENT_NODE_CHAIN_ID"), "{stderr}");
+        assert!(!stderr.contains("LNI"), "{stderr}");
+        assert!(
+            !stderr.contains("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION"),
+            "{stderr}"
+        );
+        assert!(
+            !stderr.contains("LAYERX_AGENT_HUMAN_NETWORK_ID"),
+            "{stderr}"
+        );
+    }
+    for lni_value in [std::path::Path::new(""), unserved_socket.as_path()] {
+        let output = command
+            .env_remove("LAYERX_AGENT_NODE_RPC_URL")
+            .env("LAYERX_AGENT_NODE_CHAIN_ID", "42")
+            .env("LAYERX_AGENT_HUMAN_NODE_LNI", lni_value)
+            .output()?;
+        assert_eq!(output.status.code(), Some(2));
+        let stderr = String::from_utf8(output.stderr)?;
+        assert!(
+            stderr.contains("missing LAYERX_AGENT_NODE_RPC_URL"),
+            "{stderr}"
+        );
+        assert!(stderr.contains("LAYERX_AGENT_NODE_RPC_URL"), "{stderr}");
+        assert!(stderr.contains("LAYERX_AGENT_NODE_CHAIN_ID"), "{stderr}");
+        assert!(!stderr.contains("LNI"), "{stderr}");
+    }
+    std::fs::remove_dir(root)?;
     Ok(())
 }

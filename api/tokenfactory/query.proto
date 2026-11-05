@@ -21,7 +21,10 @@ service Query {
   // DenomAuthorityMetadata defines a gRPC query method for fetching
   // DenomAuthorityMetadata for a particular denom.
   rpc DenomAuthorityMetadata(QueryDenomAuthorityMetadataRequest) returns (QueryDenomAuthorityMetadataResponse) {
-    option (google.api.http).get = "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/authority_metadata";
+    option (google.api.http) = {
+      get: "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/authority_metadata"
+      additional_bindings: {get: "/pax-protocol/paxchain/tokenfactory/denom_authority_metadata"}
+    };
   }
 
   // DenomsMetadata defines a gRPC query method for fetching
@@ -39,6 +42,14 @@ service Query {
   // DenomAllowList defines a gRPC query method for fetching the denom allow list
   rpc DenomAllowList(QueryDenomAllowListRequest) returns (QueryDenomAllowListResponse) {
     option (google.api.http).get = "/pax-protocol/paxchain/tokenfactory/denoms/allow_list";
+  }
+
+  // DenomPaused queries the pause status and issuer DID of a denom.
+  rpc DenomPaused(QueryDenomPausedRequest) returns (QueryDenomPausedResponse) {
+    option (google.api.http) = {
+      get: "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/paused"
+      additional_bindings: {get: "/pax-protocol/paxchain/tokenfactory/denom_paused"}
+    };
   }
 }
 
@@ -104,4 +115,15 @@ message QueryDenomAllowListRequest {
 message QueryDenomAllowListResponse {
   // allow_list provides addresses allowed for the requested token.
   cosmos.bank.v1beta1.AllowList allow_list = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryDenomPausedRequest is the request type for the DenomPaused gRPC method.
+message QueryDenomPausedRequest {
+  string denom = 1;
+}
+
+// QueryDenomPausedResponse is the response type for the DenomPaused gRPC method.
+message QueryDenomPausedResponse {
+  bool paused = 1;
+  string issuer_did = 2;
 }

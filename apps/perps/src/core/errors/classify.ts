@@ -12,6 +12,7 @@
 
 import { decodeErrorResult, isHex, type Hex } from "viem";
 
+import { FetchPolicyError } from "../net/fetch";
 import { PerpsPrecompileABI } from "../network/abi/PerpsPrecompile";
 import {
   pecorAbi,
@@ -93,6 +94,19 @@ interface MatchInput {
 type Matcher = (i: MatchInput) => ErrorCode | null;
 
 const matchers: Matcher[] = [
+  ({ raw }) => {
+    if (!(raw instanceof FetchPolicyError)) return null;
+    switch (raw.kind) {
+      case "timeout":
+        return "API_TIMEOUT";
+      case "abort":
+        return "RUNTIME_ABORTED";
+      case "network":
+        return "API_OFFLINE";
+      default:
+        return null;
+    }
+  },
   // Abort / cancellation — must come first; AbortError is benign.
   ({ name, lower }) => {
     if (name === "AbortError") return "RUNTIME_ABORTED";
@@ -288,6 +302,10 @@ const SLIPPAGE: PrecompileErrorEntry = { code: "TRADE_SLIPPAGE_EXCEEDED" };
 const LIQUIDITY: PrecompileErrorEntry = { code: "TRADE_INSUFFICIENT_LIQUIDITY" };
 const TP_SL: PrecompileErrorEntry = { code: "TRADE_TP_SL_INVALID" };
 const MARGIN: PrecompileErrorEntry = { code: "TRADE_POSITION_LIQUIDATABLE" };
+const PRECISION: PrecompileErrorEntry = { code: "VALIDATION_PRECISION" };
+const ABOVE_MAX: PrecompileErrorEntry = { code: "VALIDATION_ABOVE_MAX" };
+const BELOW_MIN: PrecompileErrorEntry = { code: "VALIDATION_BELOW_MIN" };
+const HALTED: PrecompileErrorEntry = { code: "TRADE_MARKET_HALTED" };
 const REVERT: PrecompileErrorEntry = { code: "RPC_REVERT" };
 const DEADLINE: PrecompileErrorEntry = {
   code: "RPC_REVERT",
@@ -312,25 +330,25 @@ export const PRECOMPILE_ERROR_CODES: Readonly<Record<PrecompileErrorName, Precom
   // ── Perpetuals, contracts/perps.md section 19 ──────────────────────
   PerpsInvalidParams: REVERT,
   PerpsUnknownMarket: REVERT,
-  PerpsMarketDisabled: REVERT,
+  PerpsMarketDisabled: HALTED,
   PerpsPriceStale: STALE_PRICE,
   PerpsZeroAmount: INPUT,
   PerpsUnsupportedCollateral: INPUT,
   PerpsInsufficientCollateral: REVERT,
   PerpsInsufficientMargin: MARGIN,
-  PerpsLeverageTooHigh: REVERT,
-  PerpsTickSize: REVERT,
-  PerpsLotSize: REVERT,
-  PerpsMinOrderValue: REVERT,
-  PerpsMaxOrderValue: REVERT,
+  PerpsLeverageTooHigh: ABOVE_MAX,
+  PerpsTickSize: PRECISION,
+  PerpsLotSize: PRECISION,
+  PerpsMinOrderValue: BELOW_MIN,
+  PerpsMaxOrderValue: ABOVE_MAX,
   PerpsOpenInterestCap: REVERT,
   PerpsInvalidTimeInForce: REVERT,
   PerpsInvalidOrderType: REVERT,
   PerpsPostOnlyWouldCross: REVERT,
   PerpsFokNotFilled: REVERT,
-  PerpsNoLiquidity: REVERT,
+  PerpsNoLiquidity: LIQUIDITY,
   PerpsSlippageExceeded: SLIPPAGE,
-  PerpsDeadlineExpired: SLIPPAGE,
+  PerpsDeadlineExpired: DEADLINE,
   PerpsReduceOnlyViolation: REVERT,
   PerpsDuplicateCloid: REVERT,
   PerpsUnknownOrder: REVERT,
@@ -404,7 +422,7 @@ export const PRECOMPILE_ERROR_CODES: Readonly<Record<PrecompileErrorName, Precom
   SafeERC20FailedOperation: REVERT,
   TokenIsStablecoin: REVERT,
   TokenNotRegistered: REVERT,
-  TokenPaused: REVERT,
+  TokenPaused: HALTED,
   TooManyActiveOrders: REVERT,
   TwapWindowInvalid: REVERT,
 };
@@ -466,6 +484,10 @@ function decodePrecompileError(raw: unknown): DecodedPrecompileError | null {
  * @param ctx   Optional context tag — passed through unchanged.
  */
 export function classifyError(raw: unknown, ctx?: ErrorContext): UserFacingError {
+  if (isUserFacingError(raw)) {
+    if (ctx === undefined || ctx === raw.context) return raw;
+    return { ...raw, context: ctx, fingerprint: joinFingerprint([raw.code, ctx]) };
+  }
   const message = asString(raw);
   const lower = message.toLowerCase();
   const name = getErrorName(raw);
@@ -527,11 +549,15 @@ export function makeError(code: ErrorCode, ctx?: ErrorContext, cause?: unknown):
  * avoid re-classifying them.
  */
 export function isUserFacingError(v: unknown): v is UserFacingError {
+  if (!v || typeof v !== "object") return false;
+  const error = v as Record<string, unknown>;
   return (
-    !!v &&
-    typeof v === "object" &&
-    typeof (v as Record<string, unknown>).code === "string" &&
-    typeof (v as Record<string, unknown>).title === "string" &&
-    typeof (v as Record<string, unknown>).message === "string"
+    typeof error.code === "string" && Object.hasOwn(ERROR_CATALOG, error.code) &&
+    typeof error.title === "string" && typeof error.message === "string" &&
+    (error.suggestedFix === null || typeof error.suggestedFix === "string") &&
+    (error.severity === "info" || error.severity === "warning" || error.severity === "error" || error.severity === "fatal") &&
+    typeof error.isReportable === "boolean" && typeof error.isRetryable === "boolean" &&
+    (error.context === undefined || typeof error.context === "string") &&
+    (error.fingerprint === undefined || (Array.isArray(error.fingerprint) && error.fingerprint.every((part) => typeof part === "string")))
   );
 }

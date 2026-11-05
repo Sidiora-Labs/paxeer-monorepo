@@ -1,6 +1,5 @@
 [profile.default]
 src = "contracts"
-test = "tests/solidity"
 out = "build/forge-artifacts"
 cache_path = "build/forge-cache"
 solc_version = "0.8.27"
@@ -15,8 +14,30 @@ extra_output = ["storageLayout"]
 # contracts/node_modules); keep them out of this one.
 skip = ["contracts/src/**", "contracts/test/**", "contracts/lib/**", "contracts/node_modules/**", "contracts/bridge/**", "contracts/launchpad/**"]
 fs_permissions = [
-    { access = "read", path = "./contracts/config" },
-    { access = "read", path = "./tests/vectors/checkpoint" },
+    { access = "read-write", path = "./tests/vectors/names" },
+    { access = "write", path = "./build" },
+]
+
+[profile.names]
+src = "contracts/names"
+test = "tests/solidity/names"
+script = "contracts/names"
+out = "build/forge-artifacts-names"
+cache_path = "build/forge-cache-names"
+fs_permissions = [
+    { access = "read-write", path = "./tests/vectors/names" },
+    { access = "write", path = "./build" },
+]
+
+[profile.governance]
+src = "contracts/governance"
+test = "tests/solidity/governance"
+script = "contracts/governance"
+out = "build/forge-artifacts-governance"
+cache_path = "build/forge-cache-governance"
+fs_permissions = [
+    { access = "read-write", path = "./tests/vectors/names" },
+    { access = "write", path = "./build" },
 ]
 
 [fmt]

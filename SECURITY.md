@@ -4,7 +4,9 @@ Paxeer X Network handles authorization, accounting, custody, bridging and settle
 
 ## Report privately
 
-Do not open a public issue, discussion or pull request for a suspected vulnerability. Report it through GitHub private vulnerability reporting: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/Paxeer-X-Network/security/advisories/new>. Only the maintainers see the report.
+Report suspected vulnerabilities by email to <security@sidioralabs.com>. A reporter seeking a bounty must submit by email only, with the full report and credentials required under Bug bounty below.
+
+GitHub private vulnerability reporting remains available: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/Paxeer-X-Network/security/advisories/new>. Only the maintainers see a private report. Reports made through GitHub, including private vulnerability reporting, or any other public surface (issue, discussion, pull request, advisory or social post) are taken up by the repair programme and fixed without attribution or reward. Do not disclose suspected vulnerabilities publicly.
 
 Include:
 
@@ -18,9 +20,29 @@ Test only against systems and assets you own or have written permission to test.
 
 ## Handling and disclosure
 
-The maintainers confirm receipt in the advisory, assess scope and severity, and work on the fix in a private advisory fork when one is needed. The fix lands on `main`, and when it changes the chain node it ships in a release as described in [RELEASE.md](RELEASE.md). The advisory is published once the fix is available, crediting the reporter unless they ask otherwise. A report found to be out of scope is closed with the reason given in the advisory. Please keep details private until the advisory is published.
+The maintainers confirm receipt by email or in the private advisory, assess scope and severity, and work on the fix in a private advisory fork when one is needed. The fix lands on `main`, and when it changes the chain node it ships in a release as described in [RELEASE.md](RELEASE.md). The advisory is published once the fix is available, crediting reporters who submitted by email only unless they ask otherwise. Reports through GitHub or another public surface are fixed without attribution or reward. A report found to be out of scope is closed with the reason given by email or in the advisory. Please keep details private until the advisory is published.
 
-There is no bug bounty.
+## Response targets
+
+These response targets are best-effort commitments. The maintainers aim to acknowledge a report within three business days of receipt and complete triage with a scope and severity decision within ten business days of receipt. While remediation is in progress, they provide a status update at least every fourteen days.
+
+Remediation targets, counted from the severity decision, are thirty days for Critical issues, sixty days for High issues, ninety days for Medium issues and the next scheduled release for Low issues. Coordinated disclosure is targeted within fourteen days of the fix being available.
+
+If a target is missed, follow up by email or comment in the private advisory. After two further business days without a response, email <security@sidioralabs.com> with the report or advisory identifier.
+
+## Bug bounty
+
+This repository text is the bug bounty policy. The programme rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. Rewards range from $500 to $100,000 USD per unique vulnerability, paid once to the first reporter. The amount is determined by the affected subsystem, its role in the network, the severity and effect on core functions, and the risk to user funds.
+
+Bounty eligibility requires all three of the following:
+
+1. Submission by email to <security@sidioralabs.com> only.
+2. A full and clear report covering every item in the Include list under Report privately above, including an end-to-end reproduction.
+3. Credentials demonstrating that the submitter is legitimate and competent, for example prior published disclosures or CVE credits, a professional or audit-firm affiliation, a verifiable identity, and an account of how the issue was found.
+
+A report missing any of these three requirements is handled as an ordinary report with no reward. Reports submitted through GitHub or another public surface are taken up by the repair programme and fixed without attribution or reward.
+
+Stop testing at a proof of concept. Never move funds that are not your own, and follow the testing restrictions above. Keep the issue private until it is fixed and the advisory is published.
 
 ## Supported versions
 
@@ -40,6 +62,9 @@ The root directories of the chain node and the kernel move under `core/` in a la
 
 Out of scope:
 
+- third-party services and integrations
+- issues already known or reported
+- social engineering
 - defects that need a compromised validator, governance or operator key, unless the code fails to enforce a limit it claims to enforce
 - denial of service by sheer traffic volume against hosted endpoints
 - findings from automated scanners without a demonstrated impact

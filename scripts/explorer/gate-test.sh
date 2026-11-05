@@ -287,6 +287,8 @@ run_leg frontend-tsc 'frontend type check' "$frontend_dir" \
   env HUSKY=0 yarn lint:tsc
 run_leg frontend-vitest 'frontend vitest' "$frontend_dir" \
   env HUSKY=0 yarn test:vitest run
+run_leg sig-provider 'sig-provider workspace tests' "$repo_root" \
+  cargo test --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml --workspace
 
-log 'the backend Paxeer X suites, the frontend type check and the frontend vitest suite passed'
+log 'the backend Paxeer X suites, the frontend type check, the frontend vitest suite and the sig-provider workspace tests passed'
 log "logs: $log_dir"

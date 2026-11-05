@@ -18,7 +18,7 @@ use crate::store::{Store, TransferRow, EXPLORER_SOURCE};
 use crate::transport::Endpoint;
 use crate::IndexError;
 
-/// The most explorer pages one feed walk reads before giving up.
+/// The most explorer feed pages one import reads before saving its progress.
 pub const MAXIMUM_PAGES: usize = 2_000;
 const BLOCK_LIMIT: u64 = (1 << 26) - 1;
 const INDEX_LIMIT: u64 = 1 << 34;
@@ -261,12 +261,18 @@ fn next_query(document: &Value) -> Result<Option<String>, IndexError> {
 }
 
 impl ExplorerApi {
-    fn walk<F>(&self, path: &str, mut each: F) -> Result<(), IndexError>
+    fn walk<F>(
+        &self,
+        path: &str,
+        start: Option<String>,
+        budget: usize,
+        mut each: F,
+    ) -> Result<Option<String>, IndexError>
     where
         F: FnMut(&Value) -> Result<(), IndexError>,
     {
-        let mut query: Option<String> = None;
-        for _ in 0..MAXIMUM_PAGES {
+        let mut query = start;
+        for _ in 0..budget {
             let target = query
                 .as_ref()
                 .map_or_else(|| path.to_owned(), |query| format!("{path}?{query}"));
@@ -280,12 +286,10 @@ impl ExplorerApi {
             }
             match next_query(&document)? {
                 Some(next) => query = Some(next),
-                None => return Ok(()),
+                None => return Ok(None),
             }
         }
-        Err(IndexError::Source(format!(
-            "explorer feed {path} exceeds {MAXIMUM_PAGES} pages"
-        )))
+        Ok(Some(query.unwrap_or_default()))
     }
 
     /// Imports `account`'s explorer history below the floor once; later
@@ -294,27 +298,50 @@ impl ExplorerApi {
     /// # Errors
     /// Returns the explorer or store failure; nothing is marked imported
     /// unless both feeds were read to their end.
-    pub fn import(&self, store: &Store, account: &str) -> Result<(), IndexError> {
+    pub fn import(&self, store: &Store, account: &str) -> Result<bool, IndexError> {
+        self.import_with_budget(store, account, MAXIMUM_PAGES)
+    }
+
+    /// Imports up to `budget` pages per unfinished feed, saving rows and cursors together.
+    ///
+    /// # Errors
+    /// Returns the explorer or store failure without advancing the saved progress.
+    pub fn import_with_budget(
+        &self,
+        store: &Store,
+        account: &str,
+        budget: usize,
+    ) -> Result<bool, IndexError> {
         if address(Some(&Value::String(account.to_owned()))).as_deref() != Some(account)
             || store.explorer_imported(account)?
         {
-            return Ok(());
+            return Ok(true);
         }
+        let transactions_complete = store.explorer_feed_complete(account, "transactions")?;
+        let tokens_complete = store.explorer_feed_complete(account, "token-transfers")?;
+        let unfinished = usize::from(!transactions_complete) + usize::from(!tokens_complete);
+        let budget = budget.min(MAXIMUM_PAGES / unfinished.max(1));
         let mut rows = Vec::new();
         let mut positions: HashMap<String, (u64, u32)> = HashMap::new();
-        self.walk(
-            &format!("/api/v2/addresses/{account}/transactions"),
-            |item| {
-                if let (Some(hash), Some(position)) = (
-                    item.get("hash").and_then(Value::as_str),
-                    transaction_position(item),
-                ) {
-                    positions.insert(hash.to_ascii_lowercase(), position);
-                }
-                rows.extend(transaction_rows(account, self.floor, item)?);
-                Ok(())
-            },
-        )?;
+        let transactions = if transactions_complete {
+            None
+        } else {
+            self.walk(
+                &format!("/api/v2/addresses/{account}/transactions"),
+                store.explorer_progress(account, "transactions")?,
+                budget,
+                |item| {
+                    if let (Some(hash), Some(position)) = (
+                        item.get("hash").and_then(Value::as_str),
+                        transaction_position(item),
+                    ) {
+                        positions.insert(hash.to_ascii_lowercase(), position);
+                    }
+                    rows.extend(transaction_rows(account, self.floor, item)?);
+                    Ok(())
+                },
+            )?
+        };
         let mut transaction_index = |hash: &str, height: u64| -> Result<u32, IndexError> {
             let (block, index) = if let Some(position) = positions.get(hash) {
                 *position
@@ -334,20 +361,33 @@ impl ExplorerApi {
             }
             Ok(index)
         };
-        self.walk(
-            &format!("/api/v2/addresses/{account}/token-transfers"),
-            |item| {
-                rows.extend(token_transfer_rows(
-                    store,
-                    account,
-                    self.floor,
-                    item,
-                    &mut transaction_index,
-                )?);
-                Ok(())
-            },
+        let tokens = if tokens_complete {
+            None
+        } else {
+            self.walk(
+                &format!("/api/v2/addresses/{account}/token-transfers"),
+                store.explorer_progress(account, "token-transfers")?,
+                budget,
+                |item| {
+                    rows.extend(token_transfer_rows(
+                        store,
+                        account,
+                        self.floor,
+                        item,
+                        &mut transaction_index,
+                    )?);
+                    Ok(())
+                },
+            )?
+        };
+        let complete = transactions.is_none() && tokens.is_none();
+        store.import_explorer(
+            account,
+            &rows,
+            &[("transactions", transactions), ("token-transfers", tokens)],
+            complete,
         )?;
-        store.import_explorer(account, &rows, true)
+        Ok(complete)
     }
 }
 
@@ -368,9 +408,14 @@ mod tests {
     const TOKEN_PAGE_ONE: &str = include_str!("explorer_fixtures/token_transfers_page1.json");
     const TOKEN_PAGE_TWO: &str = include_str!("explorer_fixtures/token_transfers_page2.json");
     const TRANSACTIONS: &str = include_str!("explorer_fixtures/transactions.json");
-    const RELAY: &str = include_str!("../fixtures/relay_archive_batches.json");
 
     fn explorer_server() -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        explorer_server_with_transactions(0)
+    }
+
+    fn explorer_server_with_transactions(
+        pages: usize,
+    ) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
         let address = listener
             .local_addr()
@@ -410,7 +455,31 @@ mod tests {
                             "{{\"hash\":\"0xaa{hash}\",\"block_number\":{block},\"position\":{position}}}"
                         ))
                     });
-                let body = if target == token {
+                let transactions = format!("/api/v2/addresses/{ACCOUNT}/transactions");
+                let page = if target == transactions {
+                    Some(1)
+                } else {
+                    target
+                        .strip_prefix(&format!("{transactions}?page="))
+                        .and_then(|page| page.parse::<usize>().ok())
+                };
+                let body = if pages > 0 && page.is_some_and(|page| (1..=pages).contains(&page)) {
+                    let page = page.unwrap_or_else(|| panic!("missing page"));
+                    serde_json::json!({
+                        "items": [{
+                            "block_number": page,
+                            "position": 0,
+                            "status": "ok",
+                            "value": page.to_string(),
+                            "hash": format!("0x{page:064x}"),
+                            "from": "0x1111111111111111111111111111111111111111",
+                            "to": ACCOUNT,
+                        }],
+                        "next_page_params": if page < pages { serde_json::json!({"page": page + 1}) } else { Value::Null },
+                    }).to_string()
+                } else if pages > 0 && target == token {
+                    serde_json::json!({"items": [], "next_page_params": null}).to_string()
+                } else if target == token {
                     TOKEN_PAGE_ONE.to_owned()
                 } else if target == format!("{token}?block_number=1200&index=4") {
                     TOKEN_PAGE_TWO.to_owned()
@@ -459,6 +528,7 @@ mod tests {
                 decoded,
             }],
             events: Vec::new(),
+            name_events: Vec::new(),
             holders: Vec::new(),
             assets: Vec::new(),
             accounts: vec![ACCOUNT.to_owned()],
@@ -512,6 +582,7 @@ mod tests {
             "evm:0x21f7cf8e59a3f3c3b2c3f0c5e8b5e43e8b1d6a0b"
         );
         assert_eq!(items[0]["final_basis"], "explorer_api");
+        assert_eq!(items[1]["final_basis"], "explorer_api");
         assert_eq!(items[1]["height_or_seq"], "1200");
         assert_eq!(items[1]["tx_index"], "0");
         assert_eq!(items[1]["direction"], "in");
@@ -546,6 +617,9 @@ mod tests {
             .filter_map(|item| item["height_or_seq"].as_str())
             .collect();
         assert_eq!(heights, vec!["1250", "1300"]);
+        assert!(items
+            .iter()
+            .all(|item| item["final_basis"] == "explorer_api"));
         assert_eq!(items[0]["kind"], "native_transfer");
         assert_eq!(items[0]["direction"], "in");
         assert_eq!(items[0]["tx_index"], "3");
@@ -570,7 +644,7 @@ mod tests {
             .unwrap_or_else(|| panic!("no items"));
         assert_eq!(items.len(), 1);
         assert_eq!(items[0]["tx_id"], "0xnode");
-        assert_eq!(items[0]["final_basis"], "local_finality_depth");
+        assert_eq!(items[0]["final_basis"], "block_commit");
         assert_eq!(third["next_cursor"], Value::Null);
         assert_eq!(served.load(std::sync::atomic::Ordering::SeqCst), requests);
 
@@ -587,6 +661,119 @@ mod tests {
             .filter_map(|item| item["height_or_seq"].as_str())
             .collect();
         assert_eq!(heights, vec!["1250", "5000"]);
+    }
+
+    #[test]
+    fn a_feed_longer_than_the_page_budget_resumes_and_serves_indexed_rows() {
+        let (base, served) = explorer_server_with_transactions(3);
+        let explorer = ExplorerApi {
+            endpoint: Endpoint::parse(
+                &base,
+                Security::Plaintext {
+                    allow_remote: false,
+                },
+                Duration::from_secs(5),
+            )
+            .unwrap_or_else(|error| panic!("{error}")),
+            floor: 5000,
+        };
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        for page in 1..=3 {
+            assert_eq!(
+                explorer
+                    .import_with_budget(&store, ACCOUNT, 1)
+                    .unwrap_or_else(|error| panic!("{error}")),
+                page == 3
+            );
+            assert_eq!(
+                store
+                    .explorer_imported(ACCOUNT)
+                    .unwrap_or_else(|error| panic!("{error}")),
+                page == 3
+            );
+            let history = store
+                .merged_history(ACCOUNT, None, 10, None)
+                .unwrap_or_else(|error| panic!("{error}"));
+            assert_eq!(history.items.len(), page);
+            for (index, item) in history.items.iter().enumerate() {
+                assert_eq!(item["height_or_seq"], (index + 1).to_string());
+                assert_eq!(item["amount"], (index + 1).to_string());
+                assert_eq!(item["tx_id"], format!("0x{:064x}", index + 1));
+            }
+            assert_eq!(
+                store
+                    .explorer_progress(ACCOUNT, "transactions")
+                    .unwrap_or_else(|error| panic!("{error}")),
+                if page < 3 {
+                    Some(format!("page={}", page + 1))
+                } else {
+                    None
+                }
+            );
+            assert_eq!(
+                store
+                    .explorer_feed_complete(ACCOUNT, "token-transfers")
+                    .unwrap_or_else(|error| panic!("{error}")),
+                page < 3
+            );
+            assert_eq!(served.load(std::sync::atomic::Ordering::SeqCst), page + 1);
+        }
+        let readiness = Readiness {
+            explorer: Some(explorer),
+            ..Readiness::default()
+        };
+        let response = route_with(&store, &readiness, "GET", &format!("/v1/history/{ACCOUNT}"));
+        assert_eq!(response.status, 200);
+        assert_eq!(body(&response)["explorerComplete"], true);
+        assert_eq!(
+            body(&response)["items"]
+                .as_array()
+                .unwrap_or_else(|| panic!("no items"))
+                .len(),
+            3
+        );
+        assert_eq!(served.load(std::sync::atomic::Ordering::SeqCst), 4);
+
+        let (base, served) = explorer_server_with_transactions(super::MAXIMUM_PAGES + 1);
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        let readiness = Readiness {
+            explorer: Some(ExplorerApi {
+                endpoint: Endpoint::parse(
+                    &base,
+                    Security::Plaintext {
+                        allow_remote: false,
+                    },
+                    Duration::from_secs(5),
+                )
+                .unwrap_or_else(|error| panic!("{error}")),
+                floor: 5000,
+            }),
+            ..Readiness::default()
+        };
+        let response = route_with(&store, &readiness, "GET", &format!("/v1/history/{ACCOUNT}"));
+        assert_eq!(response.status, 200);
+        assert_eq!(body(&response)["explorerComplete"], false);
+        assert_eq!(body(&response)["items"][0]["height_or_seq"], "1");
+        assert!(!store
+            .explorer_imported(ACCOUNT)
+            .unwrap_or_else(|error| panic!("{error}")));
+        assert!(served.load(std::sync::atomic::Ordering::SeqCst) <= super::MAXIMUM_PAGES);
+        let response = route_with(&store, &readiness, "GET", &format!("/v1/history/{ACCOUNT}"));
+        assert_eq!(response.status, 200);
+        assert_eq!(body(&response)["explorerComplete"], true);
+        assert!(store
+            .explorer_imported(ACCOUNT)
+            .unwrap_or_else(|error| panic!("{error}")));
+        assert_eq!(
+            served.load(std::sync::atomic::Ordering::SeqCst),
+            super::MAXIMUM_PAGES + 2
+        );
+        assert_eq!(
+            store
+                .explorer_progress(ACCOUNT, "transactions")
+                .unwrap_or_else(|error| panic!("{error}")),
+            None
+        );
     }
 
     #[test]
@@ -619,46 +806,5 @@ mod tests {
         assert_eq!(response.status, 503);
         assert_eq!(body(&response)["error"]["code"], "explorer_unavailable");
         assert!(!store.explorer_imported(ACCOUNT).unwrap_or(true));
-    }
-
-    #[test]
-    fn kernel_receipts_from_the_history_route_page_per_account() {
-        let relay: Value = serde_json::from_str(RELAY).unwrap_or_else(|error| panic!("{error}"));
-        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
-        let batches = relay["canonical"]["batches"]
-            .as_object()
-            .unwrap_or_else(|| panic!("no batches"));
-        let mut numbers: Vec<u64> = batches.keys().filter_map(|key| key.parse().ok()).collect();
-        numbers.sort_unstable();
-        let mut account = None;
-        for number in numbers {
-            let unit = crate::layerx::decode_batch(&batches[&number.to_string()])
-                .unwrap_or_else(|error| panic!("{error}"));
-            if account.is_none() {
-                account = unit.transfers.first().map(|row| row.account.clone());
-            }
-            store
-                .commit(&unit, 1)
-                .unwrap_or_else(|error| panic!("{error}"));
-        }
-        let account = account.unwrap_or_else(|| panic!("the kernel fixture carries no transfer"));
-        let all = store
-            .merged_history(&account, None, 500, None)
-            .unwrap_or_else(|error| panic!("{error}"));
-        assert!(!all.items.is_empty());
-        assert!(all
-            .items
-            .iter()
-            .all(|item| item["chain"] == "layerx" && item["account"] == account.as_str()));
-        let response = route_with(
-            &store,
-            &Readiness::default(),
-            "GET",
-            &format!("/v1/history/{account}?limit=1"),
-        );
-        assert_eq!(response.status, 200);
-        let page = body(&response);
-        assert_eq!(page["items"][0], all.items[0]);
-        assert_eq!(page["next_cursor"].is_string(), all.items.len() > 1);
     }
 }

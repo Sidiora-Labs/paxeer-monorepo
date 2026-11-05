@@ -3,6 +3,8 @@
 //! adapters depend on the gateway core, while the executable composition crate
 //! depends on both sides and therefore cannot create a Cargo cycle.
 
+use crate::error::GatewayError;
+
 /// Ingress transports carried by the production interoperability service.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IngressTransport {
@@ -108,8 +110,10 @@ impl InteropRoute<'_> {
             Self::UcpComplete => Some(HostedAdapter::Ucp),
             Self::VisaVerifyIntent | Self::VisaExecuteIntent => Some(HostedAdapter::VisaTap),
             Self::FiatCallback { adapter } => Some(*adapter),
-            Self::MigrationAccountV2 | Self::MigrationAssetV2
-                | Self::MigrationHistoryImportV2 | Self::MigrationHistoryReadV2 => Some(HostedAdapter::MigrationV2),
+            Self::MigrationAccountV2
+            | Self::MigrationAssetV2
+            | Self::MigrationHistoryImportV2
+            | Self::MigrationHistoryReadV2 => Some(HostedAdapter::MigrationV2),
         }
     }
 
@@ -169,6 +173,7 @@ impl EvidencePolicy {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ExternalState {
     Pending,
+    Submitted,
     ReversalPending,
     Refused,
     ReceiptVerified,
@@ -181,10 +186,24 @@ impl ExternalState {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Pending => "pending",
+            Self::Submitted => "submitted",
             Self::ReversalPending => "reversal-pending",
             Self::Refused => "refused",
             Self::ReceiptVerified => "receipt-verified",
             Self::Reversed => "reversed",
+        }
+    }
+
+    /// Maps a submitted settlement to its shared protocol response.
+    ///
+    /// # Errors
+    /// Preserves every other gateway error for the protocol's error responder.
+    pub const fn settlement_error_response(
+        error: GatewayError,
+    ) -> Result<(u16, Self), GatewayError> {
+        match error {
+            GatewayError::ReceiptPending => Ok((202, Self::Submitted)),
+            other => Err(other),
         }
     }
 }
@@ -306,7 +325,11 @@ mod migration_v2_route_tests {
     fn mapping_v2_refuses_method_version_and_asset_aliases() {
         for (method, path, refusal) in [
             ("GET", "/v2/migration/accounts", RouteError::Unknown),
-            ("POST", "/v1/migration/accounts", RouteError::UnknownTransport),
+            (
+                "POST",
+                "/v1/migration/accounts",
+                RouteError::UnknownTransport,
+            ),
             ("POST", "/v2/migration/accounts/", RouteError::Unknown),
             ("GET", "/v2/migration/assets", RouteError::Unknown),
         ] {
@@ -325,9 +348,19 @@ mod migration_v2_route_tests {
         assert!(import.state_changing());
         assert!(!read.state_changing());
         assert_eq!(import.adapter(), read.adapter());
-        for path in ["/v2/migration/history/", "/v2/migration/history/read/", "/v2/migration/history?principal=other"] {
-            assert_eq!(interop_gateway_routes("POST", path), Err(RouteError::Unknown));
+        for path in [
+            "/v2/migration/history/",
+            "/v2/migration/history/read/",
+            "/v2/migration/history?principal=other",
+        ] {
+            assert_eq!(
+                interop_gateway_routes("POST", path),
+                Err(RouteError::Unknown)
+            );
         }
-        assert_eq!(interop_gateway_routes("GET", "/v2/migration/history/read"), Err(RouteError::Unknown));
+        assert_eq!(
+            interop_gateway_routes("GET", "/v2/migration/history/read"),
+            Err(RouteError::Unknown)
+        );
     }
 }

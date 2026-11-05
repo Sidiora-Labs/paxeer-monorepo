@@ -1,138 +1,386 @@
 # Hosted Human service
 
-This directory holds the Kubernetes manifests and provisioning scripts that run
-the Human services (API, components, identity/security/movement providers, KMS,
-owner and agentd) inside the LayerX kernel node pod, plus the separate
-`layerx-human-web` website Deployment ([`web-deployment.yaml`](web-deployment.yaml)).
-The service crates themselves live under [`services/human/crates`](../../../human/crates).
-Shell entry points are [`material.sh`](material.sh), [`provision.sh`](provision.sh)
-and [`onboarding_provision.sh`](onboarding_provision.sh); they are sourced by the
-cluster script. Python helpers ([`material.py`](material.py),
-[`provision.py`](provision.py) and the onboarding/owner modules) implement the
-checks, and `test_*.py` hold their tests.
+This directory contains Kubernetes manifests and provisioning helpers for the
+off-chain Human API, components, identity/security providers, KMS and owner
+agent, including retained adapters awaiting runtime migration. Service crates
+live under
+[`services/human/crates`](../../../human/crates). Shell entry points are
+[`material.sh`](material.sh), [`provision.sh`](provision.sh) and
+[`onboarding_provision.sh`](onboarding_provision.sh), sourced by the
+[cluster script](../tests/beta-cluster.sh). The website has its own
+[`layerx-human-web` Deployment](web-deployment.yaml).
 
-Cluster material, retained inventories, and evidence assembly are also
-summarized on [HostedHuman.md](../../../../docs/wiki/HostedHuman.md). The
-owner Job consumes registry journal `pairs/` documented on
-[RegistryDeploymentJournal.md](../../../../docs/wiki/RegistryDeploymentJournal.md).
+Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
+(`0x7d`). The kernel is part of the network and proposes blocks. A receipt is
+final when its block is committed. Human provisioning registers identity and
+recovery state, opens an asset account and funds it on this same chain.
+The pre-merge execution/settlement split, standalone `layerxd` daemon, router and guarantor finality are retired.
 
-The API, components, identity/security/movement providers, KMS and Human owner run in the node pod. The `layerx-human` Service forwards HTTPS to the node pod. Provider binaries run as UID/GID 4020 and admit component UID 4020. Their sockets are `/run/layerx/human/{identity,security,movement}.sock`, in a 4020-owned 0750 directory. The Human owner runs as UID 4021/GID 4020, matching the native LNI admission policy, with its socket in the separately owned 0750 directory `/run/layerx/human/owner`. The shared process namespace preserves real peer PID checks. The pod is one trusted local boundary; same-UID processes are not isolated from each other.
+Use HTTPS JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or
+`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`;
+check `eth_chainId` before signing. See
+[Public RPC endpoints](../../../../docs/site/docs/reference/public-rpc.md).
+Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+Hosted gateway `px_` methods are defined by
+[`gateway/openrpc.json`](../gateway/openrpc.json), not implied by the public
+node contract. `node.hyperpaxeer.com` is only the hpx library mirror.
+Sub-chains are tenant domains in the database, launchable without new chain
+infrastructure or a separate public endpoint.
 
-The retained `layerx-human-state` PVC is mounted by the node. The cluster script deletes the old standalone Human Deployment before applying the node workload and retains the PVC. Private state directories belong to each process; KMS uses UID 4026. The authority state directory belongs to UID 4021. Runtime containers drop all capabilities and use read-only root filesystems. The directory initializer has only CHOWN, FOWNER and DAC_OVERRIDE. It does not read credentials.
+The checked-in [node manifest](../node/deployment.yaml) co-locates Human
+containers with the merged node. The [`layerx-human` Service](deployment.yaml)
+forwards HTTPS port `9443` to `human-https` (`9447`). Components and
+identity/security providers run as UID/GID `4020`; their local sockets are
+`/run/layerx/human/{identity,security}.sock`. The owner runs as UID
+`4021`, GID `4020`, with its socket under `/run/layerx/human/owner`; KMS uses UID
+`4026` and listens on `127.0.0.1:9450`. These sockets connect local services.
+The manifest sets `shareProcessNamespace: false`; it does not establish shared
+peer-PID visibility or successful owner transport admission.
 
-Each runtime entrypoint stages its projected Secret material as regular 0600 files in a private memory volume. Identity receives its established recovery policy; security receives sequencer trust history; movement receives the cluster CA and a distinct KMS executor certificate/key. KMS pins that executor independently of the components certificate. The authority initializer stages the Human token, principal policy and the same module registry ConfigMap consumed by the gateway, as UID 4021. The Human token is absent from the legacy authority token list.
+The retained `layerx-human-state` PVC holds separate process state subPaths.
+Runtime containers drop capabilities and use read-only root filesystems.
+Projected credentials are staged into private memory volumes as regular `0600`
+files. KMS separately pins its client and executor identities.
+Preserve the seal, keys, recovery policy and matching encrypted state together;
+regenerating bootstrap secrets is not a state or key migration.
 
-Agentd explicitly uses `human-owner` mode and the cluster DER CA for both authority settings. Its authenticated health endpoint verifies the node LNI handshake and each peer's authority registry. This mode does not start the Programs reader. HTTPS hostname checks remain enabled. Movement uses both `paxeer-boundary` and `paxeer-observer-boundary` HTTPS Services with minimum agreement 2. `test_material.py` exercises the real observer renderer and topology evaluator, including removal of observer egress.
+See [HostedHuman.md](../../../../docs/wiki/HostedHuman.md) for related cluster
+material and [RegistryDeploymentJournal.md](../../../../docs/wiki/RegistryDeploymentJournal.md)
+for journal `pairs/`. The producer contracts below describe the merged owner
+path; remaining cluster integration limits are called out explicitly.
+
+## Committed account observations and bank receipts
+
+Use the merged node's root JSON-RPC endpoint for chain observations. Owner
+bootstrap checks `eth_chainId`, reads the sender nonce with
+`eth_getTransactionCount` at `pending`, submits signed bytes through
+`eth_sendRawTransaction` and checks `eth_getTransactionReceipt` against
+`eth_getBlockByNumber`. A transaction hash alone does not establish completion.
+A successful receipt must belong to its canonical block and contain the exact
+expected events. Committed blocks are final on this network.
+
+Account and authority evidence comes from the committed identity/recovery
+snapshot, `getLayerXDid(address)`, the asset-specific
+`accountId(bytes32,bytes32)` and `balanceOf(bytes32,bytes32)` reads. Bootstrap
+requires a funded balance before first publication; later balance observations
+can change after spending. Re-reading retained receipts proves the original
+effect, not a permanently unchanged balance or zero consumed limits. Missing,
+stale or mismatched observations must refuse provisioning or planning.
+
+Current Human intent sends use the bank precompile
+`0x0000000000000000000000000000000000001001`:
+`send(address,address,string,uint256)` (selector `0x5c05961b`) binds the sender,
+resolved recipient, denomination and amount. The service matches the requested
+asset to the gateway's `denom:<denomination>` inventory and balance row; it
+never accepts a caller-supplied balance as authority. Plans expose chain ID,
+calldata and pending EVM nonce, and submission re-plans against current state
+and checks the signed digest. These bank sends are distinct from the ledger
+`payExact` transaction used by the owner bootstrap below.
+
+Read progress through `GET /v1/journeys/{journey_id}`: `submitted` acknowledges
+submission, `receipted` verifies execution and `committed` verifies block
+inclusion. The retained `checkpoint-finalised` label means committed evidence
+on this same chain; it does not require another finality service. The production
+EVM intent path waits for a verified committed receipt for each leg before
+advancing. See the [intent contract](../../../human/schema/human-api/intent.kvx)
+and [journey contract](../../../human/schema/human-api/journeys.kvx).
 
 ## Material generation
 
-`material.sh` generates bootstrap cryptographic material, including separately pinned KMS clients. `bootstrap.py` renders the node's initial genesis/settlement workload without Human runtime containers or the optional Human authority configuration group. After contract deployment, `human_policy_publish` assembles `$WORK_DIR/human-policy.json`, assigns `LAYERX_BETA_HUMAN_POLICY_FILE`, generates runtime configuration, publishes Secrets and applies the complete node manifest. It never starts Human from an incomplete policy. Retained encrypted state requires preservation of its matching cryptographic material; the existing cluster-wide secret-regeneration lifecycle is not a key migration mechanism.
+[`material.py`](material.py) assembles and verifies the
+`layerx.human.owner-bundle.v3` bundle from protected evidence, the
+network/chain-bound `paxeer/deployment.json` and a version-2 module registry.
+The deployment record is still checked for `network_id` and `chain_id`;
+payment addresses come from the live ledger and payment precompiles, rather
+than vault, checkpoint, withdrawal-claims or emergency-exit contracts.
 
-`material.py --assemble EVIDENCE_DIR DEPLOYMENT REGISTRY OUTPUT NETWORK CHAIN` takes contract addresses from the actual deployment record and translates the rendered version-2 registry to the KMS module snapshot. It requires these protected, owner-owned 0600 JSON evidence files under `$WORK_DIR/human-evidence`:
+```sh
+python3 services/platform/hosted/human/material.py --assemble \
+  "$WORK_DIR/human-evidence" "$WORK_DIR/paxeer/deployment.json" \
+  "$SECRETS_DIR/module-registry.json" "$WORK_DIR/human-policy/policy.json" \
+  "$NODE_NETWORK_ID" "$PAXEER_CHAIN_ID"
+```
 
-- `components.json`: `AGENT_ACTOR`, `AGENT_AUTHORITY`, `AGENT_OWNER_ACCOUNT`, `AGENT_RECOVERY_ROOT` (unpadded base64url), `AGENT_RECOVERY_THRESHOLD`.
-- `agent.json`: `HUMAN_PEERS`, `HUMAN_LIMIT_SCOPE`, `HUMAN_LIMIT_SCOPE_ID`, `HUMAN_LIMIT_ID`, `HUMAN_LIMIT_NAME`, `HUMAN_LIMIT_CEILING`, `HUMAN_LIMIT_CONSUMED`. The single peer must exactly match `uid=4020;tenant=<tenant>;principal=<principal>` from the authority binding, in that field order. Tenant is 1–128 ASCII letters, digits, hyphens or underscores. Principal requires `did:<method>:<id>` with a nonempty lowercase ASCII letter/digit method and nonempty identifier, at most 255 UTF-8 bytes. Whitespace, control characters, commas, semicolons, extra or duplicate fields, positional entries and additional peers are refused.
-- `authority.json`: `tenant`, `principal`, `core-clock-horizon` (positive sequence horizon).
-- `principal-policy.json`: the [receipt authority README](../authority/README.md)'s complete principal-policy schema. It must contain the scoped tenant/principal.
-- `recovery-policy.json`: the identity README's established recovery `root` (32-byte integer array), positive `threshold` and `delay_seconds`. Root and threshold must match components.
-- `purpose-catalog.json`: the real `PurposePresetCatalog` accepted by components.
-- `movement-policy.json`: `PAXEER_CHECKPOINT_AUTHORITY` and `CUSTODY_REFERENCE` (nonzero 0x-prefixed 32-byte values), positive `PAXEER_CONFIRMATIONS`, `CHECKPOINT_INTERVAL_SECONDS`, `PAXEER_BLOCK_SECONDS`, `REMINDER_INTERVAL_SECONDS`.
-- `journal/`: the actual protected Programs admission/deployment pairs. Packaging retains the existing 128-record/512-KiB bounds. Human-owner mode does not load this journal.
+The output directory must already exist, be owned by the invoking UID and have
+mode `0700`; the output filename must be `policy.json`. The bundle contains
+`policy.json`, `bundle-manifest.json`, copied `inputs/`, paired `journal/`
+records and optional `onboarding/` material. Verification checks hashes and
+bindings and re-reads owner receipts from the authenticated chain. An unavailable
+RPC or changed retained receipt refuses assembly.
 
-Contract fields are derived from `paxeer/deployment.json`: vault, checkpoint registry, withdrawal claims and emergency exit. Missing source files, mismatched network/chain, unversioned registry, missing policy bindings or unsafe files refuse generation. Component limits and movement finality remain enforced by the real consumers. The assembly utility does not establish state proofs or checkpoint finality.
+`human_policy_publish` uses
+`LAYERX_BETA_HUMAN_POLICY_FILE="$WORK_DIR/human-policy/policy.json"`, verifies the
+bundle, projects it into Secret `layerx-human-policy`, generates per-process
+configuration and applies the Human Secrets. [`bootstrap.py`](bootstrap.py)
+removes Human runtime containers and the optional authority configuration group
+from the initial node workload. An incomplete evidence set cannot produce a
+usable runtime policy.
 
 ## Integrated evidence production
 
-The cluster script generates the version-2 module registry and protected journal pair, prepares a fresh LXIP owner request and dedicated recovery guardians, and obtains the bootstrap custody profile before native genesis. After identity provisioning, `human_evidence_provision` creates the durable LXIP owner, admits that exact DID to native genesis, records the custody deposit, and runs the native Governance identity, rotation, recovery, custody, sequencer-receipt, and independent receipt-authority producer. Evidence assembly starts only after the generated owner registration and complete input set pass the protected-file validators.
+[`owner_native.py`](owner_native.py)'s `produce` delegates to
+[`merged_owner.py`](merged_owner.py). `human_native_owner_prepare` copies
+protected `human-evidence-input/owner-evm.json` to `owner-native.json` after
+validating the exact schema, network/chain bounds, HTTPS CA and protected
+signing/funding keys; retained configuration must match exactly. The workload,
+private mounts and recovery policy are returned unchanged; owner preparation
+does not add a daemon, seed account state or edit genesis. The producer
+is exposed through:
 
-The image builds all real providers, components, service, KMS and agentd. API readiness requires the real component graph; provider probes use real binaries; KMS readiness is exercised through LXKP. `apps/web` remains a separate website and is not deployed by this pod.
+```sh
+python3 services/platform/hosted/human/provision.py \
+  --produce-owner-registration --work-dir "$WORK_DIR"
+```
+
+This command submits real transactions. Prepare the original owner result,
+recovery policy and signed guardian set first. `owner-native.json` has exactly
+these keys:
+
+| Keys | Meaning |
+| --- | --- |
+| `rpc_url`, `rpc_ca_file` | Authenticated HTTPS node JSON-RPC URL and protected PEM CA file, at most 64 KiB |
+| `network_id`, `chain_id`, `confirmations` | Positive network ID, EVM chain ID and receipt observation depth; mainnet uses chain ID `125` |
+| `owner_seed_file`, `evm_key_file` | Protected 32-byte Ed25519 owner seed and EVM signing-key file |
+| `asset_id`, `funding_source`, `funding_amount`, `funding_key_file` | Registered asset, existing ledger source account, positive U128 funding amount and funder's EVM signing-key file |
+
+Asset and source IDs are nonzero lowercase 64-digit hex strings without a
+prefix. Key and CA paths must satisfy protected-file checks. The original
+`human-owner-result.json` DID must equal `did:layerx:<owner public key>`.
+`recovery-policy.json` must equal the original result's root, threshold and
+delay. `recovery-guardians.json` must prove the same root from signed, separately
+enrolled guardians. Mismatched identity or recovery material refuses provisioning.
+
+The producer uses these EVM precompiles with zero native transaction value:
+
+| Address | Bootstrap operation |
+| --- | --- |
+| `0x0000000000000000000000000000000000001004` | `bindLayerX(bytes32,bytes)` binds the EVM sender to the owner's Ed25519 key |
+| `0x000000000000000000000000000000000000101c` | `recordLifecycle(bytes,bytes32)` records identity and recovery policy |
+| `0x000000000000000000000000000000000000101a` | `openAccount(bytes32)` opens the asset account; `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)` funds it from the configured ledger source |
+
+Signers need transaction gas; the funder also needs authority over its ledger
+source. The producer checks successful receipts, canonical block inclusion,
+exact events, owner binding and the asset account. Before first registration
+publication it also checks the funded balance. `confirmations` adds an
+observation-depth check; finality still comes from BFT block commitment.
+
+Signed transactions are saved under `human-evidence-input/owner-native-run`
+before broadcast. A restart reuses each retained transaction and checks its
+intent, hash and receipt. Preserve this directory after a timeout or refusal;
+do not reset it or create a new owner to retry an uncertain submission.
 
 ## Offline owner provisioning
 
-With the identity provider stopped, `layerx-human-identity-provider provision-owner` uses the same `LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT` and `LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE` as `bind-device`. Supply stdin JSON with exactly `email`, `display_name`, `idempotency_key`, and `now` (unsigned seconds), at most 16384 bytes. The command acquires the existing exclusive state lock and calls the LXIP operation-1 implementation. Repeating the same idempotency key and identity returns the durable owner; conflicting inputs refuse.
+With the identity provider stopped, `layerx-human-identity-provider provision-owner`
+uses `LAYERX_HUMAN_IDENTITY_PROVIDER_STATE_ROOT` and
+`LAYERX_HUMAN_IDENTITY_PROVIDER_RECOVERY_POLICY_FILE`, as does `bind-device`.
+It acquires the provider's exclusive state lock and calls LXIP operation 1.
+Stdin JSON has exactly `email`, `display_name`, `idempotency_key` and `now`
+(unsigned seconds), at most `16384` bytes. Repeating the same idempotency key
+and identity returns the durable owner; conflicting inputs refuse.
 
-Compact JSON stdout contains exactly `principal`, `did`, `recovery_root` (32-byte array), `recovery_threshold`, and `recovery_delay_seconds`. These are all five fields returned by LXIP op 1. It does not return an authority reference, protocol owner account, capability evidence or rotation/recovery key-policy receipts because the underlying operation creates none. Its output therefore cannot by itself produce `components.json` or `principal-policy.json`. Preserve the same state for the runtime provider; a host-only state root is not a deployed identity.
+Single-line JSON stdout has exactly `principal`, `did`, `recovery_root`
+(a 32-byte integer array), `recovery_threshold` and `recovery_delay_seconds`.
+The established recovery policy has exactly `root`, `threshold` and
+`delay_seconds`; threshold and delay are positive. Preserve these values and
+the provider state for runtime use. This local operation does not create a
+ledger account, registration receipt or authority policy. The merged producer
+independently checks that the original DID matches its binding key.
 
-Recovery receipt ingest verifies signed historical receipt inclusion; no operator key-set derivation is required for provisioning. The provisioning hook runs after identity provisioning and verified registry journal export, before policy publication. Identity principal responses echo the required tenant. The catalog uses treasury and sequencer authority accounts, and the native producer supplies the authenticated registration evidence.
+[`provision.py`](provision.py)'s `--validate-job-input` validates the protected
+request and recovery policy. `--validate-owner-result --request RESULT`
+checks the exact single-line five-field result and policy equality. Both take
+`--work-dir "$WORK_DIR"`. Its `--preserve-binding` mode takes `--request`,
+`--response` and `--output` paths and preserves the response tenant and matching
+subject only after checking them against the creation request. Output creation
+is exclusive.
 
 ## Owner registration input contract
 
-The protocol registration producer must write `$WORK_DIR/human-evidence-input/owner-registration.json` before evidence assembly. It must be an absolute canonical path to an invoking-UID-owned regular file, mode 0600, one link, at most 1 MiB. Missing, malformed, duplicate-field or unprotected JSON refuses with that exact path; input values are never printed. Validate it with `python3 services/platform/hosted/human/provision.py --validate-owner-registration --work-dir "$WORK_DIR"`.
+The merged producer publishes `human-evidence-input/owner-registration.json`
+with exactly `schema`, `owner_account`, `authority` and `identity`.
+`schema` is `layerx.human.merged-owner.v1`. The account and authority are nonzero
+lowercase 64-digit hex strings; authority is the owner's Ed25519 public key.
+The account is the ledger's asset-specific account derived from
+`agent:did:layerx:<public key>:asset:<asset id>`, not the old protocol-account
+derivation used for bootstrap counterparty exports.
 
-The object has exactly `owner_account`, `authority`, and `identity`. `owner_account` is a nonzero lowercase 64-digit hexadecimal H32. `authority` is the producer's complete AuthorityRef string, passed through unchanged; the current AuthorityRef constructor only requires nonempty text. This input additionally refuses control characters. Do not invent an authority encoding or derive it from the LXIP principal. `identity` is the complete `identities[]` object documented in the [receipt authority README](../authority/README.md): exactly `did`, `authorities`, `revocation_sequence`, `frozen`, `evidence`, `capabilities`, `rotation`, `recovery`, including every nested field. H32s use lowercase canonical text; capabilities use U16 activity types, U64 expiry, and a decimal U128 amount string. Nested unknown fields, duplicate capability bindings, unlisted capability authorities and invalid key delays refuse. `owner_registration` can additionally check evidence activity membership against the principal policy and DID equality against the LXIP result. Standalone validation does not verify receipt inclusion or establish live registration.
+The identity object has exactly `did`, `authorities`, `revocation_sequence`,
+`frozen`, `evidence`, `capabilities` and `recovery`. It contains one
+`primary_key` authority matching the public key, `frozen: false`, and an empty
+capability list. The bootstrap proves recovery through the committed
+`IdentityStateUpdated` event. It does not advertise a rotation policy that this
+producer cannot establish. Recovery has `policy_revision`,
+`required_delay_seconds`, `maximum_delay_seconds`, `effective_sequence` and
+`evidence`; evidence references have `activity_id` and `receipt_digest`.
+See the [receipt authority](../authority/README.md) for the consuming service;
+the merged registration schema is enforced in `merged_owner.validate_registration`.
 
-Recovery root, threshold and delay must be copied exactly from `provision-owner`; no operator key-set derivation is required or provided. The registration input supplies protocol account and authority policy independently of those LXIP fields.
+Alongside registration, the producer writes `merged-owner-evidence.json`
+(raw signed transactions and receipts for `binding`, `identity`, `recovery`,
+`account`, `funding`), `native-context.json` (network, chain, URL, CA SHA-256
+and observation depth) and `rpc-ca.pem`. Consumers re-query the authenticated
+RPC and compare retained receipts and event payloads. Structural validation:
 
-## Protected catalog and Job staging
+```sh
+python3 services/platform/hosted/human/provision.py \
+  --validate-owner-registration --work-dir "$WORK_DIR"
+```
 
-`provision.py --catalog --work-dir "$WORK_DIR" --registry "$SECRETS_DIR/module-registry.json" --treasury "$WORK_DIR/human-evidence-input/treasury.json" --sequencer "$WORK_DIR/human-evidence-input/sequencer.json" --asset "$LAYERX_NODE_ASSET_ID" --output "$WORK_DIR/purpose-catalog.json"` generates the runtime catalog from its identifier-free template. Inputs must satisfy the protected-file checks; the v2 registry must contain the selected asset. Account IDs come from the existing protocol derivation. The checked-in template is not itself a loadable catalog.
+does not perform those chain checks. Bundle assembly and verification do.
+Protected JSON inputs must use absolute canonical paths, be regular files owned
+by the invoking UID, have mode `0600` and one link, and be nonempty and at most
+1 MiB. Duplicate and unknown schema fields refuse validation.
 
-The provisioning Job converts the exported treasury and sequencer DIDs through the real protocol account function and saves separate protected `treasury.json` and `sequencer.json` files. It does not modify node bootstrap.
+## Purpose catalog
 
-Source `provision.sh` and invoke `human_owner_provision` in the cluster script's environment to stage the real `provision-owner-job.yaml`. Before any cluster mutation it validates protected `human-evidence-input/owner-request.json` and `human-evidence-input/recovery-policy.json`; the latter is the provider's established policy, not a derived operator key set. The request has exactly the four fields documented above. The function refuses existing result files, enabled Human runtime containers, multiple bootstrap pods and unscheduled bootstrap pods. It pins the Job to the bootstrap pod's node to use its ReadWriteOnce PVC and uses the runtime's identical `identity` subPath and state-root environment. The provider's exclusive state lock remains authoritative. Job retries are disabled. It waits for completion, captures the result privately, checks the exact five-field single-line result and recovery-policy equality, then publishes `$WORK_DIR/human-owner-result.json`. No Job logs or input values are printed. Failed or repeated attempts require explicit state reconciliation; the function does not delete a Job or overwrite a result.
+Generate the catalog from [`beta-purpose-catalog.json`](beta-purpose-catalog.json),
+the v2 module registry, selected asset and protected treasury/sequencer
+counterparty account exports:
 
-The Job requires the bootstrap initializer to have created the PVC identity directory. Its input Secret is `layerx-human-provision-owner-input`; its image comes from `image_ref layerx-human`. The established recovery policy is required before LXIP opens state.
+```sh
+python3 services/platform/hosted/human/provision.py --catalog \
+  --work-dir "$WORK_DIR" --registry "$SECRETS_DIR/module-registry.json" \
+  --treasury "$WORK_DIR/human-evidence-input/treasury.json" \
+  --sequencer "$WORK_DIR/human-evidence-input/sequencer.json" \
+  --asset "$NODE_ASSET_ID" --output "$WORK_DIR/purpose-catalog.json"
+```
 
-`provision.py --preserve-binding --work-dir "$WORK_DIR" --request REQUEST --response RESPONSE --output OUTPUT` preserves the response tenant and matching sub only after checking both against the creation request. All files must be protected and output creation is exclusive.
+The identifier-free template is not a loadable runtime catalog. Generation
+adds counterparties and asset IDs as 32-byte integer arrays and preserves
+`call_selectors` and bounded amount, rate, session and budget settings.
+`material.authorize_call` checks selector, recipient, asset and amount.
+Counterparty export filenames do not imply another execution service.
+Payments use the merged ledger at `0x101a`; budgets use the payment precompile
+at `0x000000000000000000000000000000000000101b`.
 
 ## Evidence provisioning
 
-`human_evidence_provision` runs after identity provisioning and verified registry
-journal export, before
-`human_policy_publish` and enabling the Human node containers. The owner Job uses
-the same PVC subPath and identity state root as the runtime. It refuses an already
-enabled Human runtime. Recovery is taken unchanged from the established input
-policy and LXIP result; no recovery key-set derivation is performed.
+`human_evidence_provision` orders merged owner preparation and registration,
+authenticated ledger funding validation, naming/registry deployment and journal
+export, producer-manifest validation, evidence assembly and the policy graph
+input check. It runs before `human_policy_publish`. The remaining cluster
+migration barriers are listed below; applying manifests alone does not qualify
+the full Human service path.
 
-The cluster prepares the protected `owner-request.json`, recovery policy, guardian
-bindings, and custody inputs. The native protocol producer writes
-`human-evidence-input/owner-registration.json` only after its live operations and
-evidence checks succeed. The assembler validates the registration's complete
-identity entry, DID binding and evidence references. The authority currently has
-no independent config-validation command: the Python validator reparses the exact
-serialized principal policy against its documented schema. It does not certify
-registration receipt evidence.
+The assembled `$WORK_DIR/human-evidence` set contains:
 
-| Published file | Source |
+| Published file | Source and meaning |
 | --- | --- |
-| `components.json` | LXIP owner DID/recovery plus registration authority/account |
-| `authority.json` | Identity response binding and beta owner clock horizon |
-| `agent.json` | Same binding, beta owner limit, registration account and verified first-batch head |
-| `principal-policy.json` | Registration identity and its evidence activities, configured budgets, deployed asset |
-| `recovery-policy.json` | Unchanged LXIP root, threshold and delay |
-| `purpose-catalog.json` | Identifier-free template, v2 module registry, node asset and treasury/sequencer accounts |
-| `movement-policy.json` | Protected movement custody reference, guarantor public key and owner timing policy |
-| `journal/` | Unmodified pairs from `LAYERX_REGISTRY_JOURNAL` |
+| `components.json` | `AGENT_ACTOR`, `AGENT_AUTHORITY`, `AGENT_OWNER_ACCOUNT`, unpadded-base64url `AGENT_RECOVERY_ROOT` and `AGENT_RECOVERY_THRESHOLD` |
+| `authority.json` | Identity response tenant/principal binding and positive `core-clock-horizon` |
+| `agent.json` | Same binding in `HUMAN_PEERS`, agent-scoped limit and bootstrap consumed result described above |
+| `principal-policy.json` | Registration identity/recovery evidence, configured budgets, account and registered asset |
+| `recovery-policy.json` | Unchanged original owner root, threshold and delay |
+| `purpose-catalog.json` | Template plus actual registry asset and counterparty exports |
+| `movement-policy.json` | Only `LEDGER_ASSET_ID` and `LEDGER_OWNER_ACCOUNT`, both 0x-prefixed H32s |
+| `producer-records/` | Original binding/result/registration, naming deployment, counterparty exports, RPC context, CA and merged receipts |
+| `journal/` | Unmodified paired admission/deployment records from `LAYERX_REGISTRY_JOURNAL` |
 
-`beta-owner-policy.json` defines an agent-scoped limit with the registration account
-as scope ID. Its limit ID names configuration, not a deployed budget. Its activity
-selector includes only activity IDs supplied by registration evidence; the empty
-budget allowlist grants no budgets.
+The `movement-policy.json` filename is retained, but its contents bind the
+merged ledger account. The material builder adds `PAXEER_LEDGER_CONTRACT` and
+`PAXEER_PAYMENT_CONTRACT`. Retired custody references, checkpoint timing,
+guarantor keys and settlement contract addresses are not assembly inputs.
 
-`provision-account` reads `{"did":"did:layerx:<public key>"}` on stdin and calls
-`layerx_wire::hash::account_id_for_protocol` with protocol 3. The Job invokes it
-separately for the treasury and sequencer keys from the bootstrap exports; it
-writes no key material to logs. `validate-account-head` verifies the head's receipt
-inclusion and signed header against the bootstrap sequencer pin, network and first
-batch. It emits only `{"consumed":0}`; later batches refuse. The fetch uses the
-agent boundary `/v1/protocol/account-state/head` with the registry bearer token.
+`HUMAN_PEERS` must be exactly
+`uid=4020;tenant=<tenant>;principal=<principal>`, matching the authority binding.
+The producer accepts tenants of 1–128 lowercase ASCII letters, digits, hyphens
+or underscores. Principals use `did:<method>:<id>`, with a nonempty method of
+lowercase ASCII letters or digits and a nonempty identifier, at most 255 UTF-8
+bytes overall; whitespace, control characters, commas and semicolons refuse.
+Tenancy must remain explicit through the identity, policy and peer binding.
 
-Custody is read from
-`$SECRETS_DIR/human/movement-config/LAYERX_HUMAN_MOVEMENT_PROVIDER_CUSTODY_REFERENCE`.
-If absent, `deployment.json` must contain a produced `custody_reference`; contract
-addresses are not converted into references. The guarantor source is Secret
-`layerx-guarantor-checkpoint-authority`, key `public.hex`. Missing journal pairs,
-custody, registration or first-batch evidence refuse without publishing a partial
-`human-evidence` directory. Existing sets are never overwritten. Publication uses
-a private sibling staging directory, fsync and one rename under an exclusive lock.
+[`beta-owner-policy.json`](beta-owner-policy.json) defines an agent-scoped
+configuration limit whose scope ID is the registration account. The limit ID
+is 16 bytes encoded as 32 lowercase hex digits. Activity membership comes from
+registration evidence; the default empty budget allowlist grants no budgets.
+A configuration limit is not a deployed on-chain budget.
 
-Check a complete generated input set locally with:
+Journal packaging accepts 2–128 records with paired
+`<receipt-digest>.admission` and `.deployment` names and at most 512 KiB total.
+Evidence publication uses a private sibling directory, fsync and rename under
+an exclusive lock. Identical retained sets can be reused; changed or incomplete
+sets refuse rather than overwriting protected bindings.
+
+Verify an already assembled bundle with:
 
 ```sh
-python3 services/platform/hosted/human/provision.py --qualify-generated-set \
-  --work-dir "$WORK_DIR" --registry "$SECRETS_DIR/module-registry.json" \
-  --secrets-dir "$SECRETS_DIR" --network "$NODE_NETWORK_ID" --chain "$PAXEER_CHAIN_ID"
+python3 services/platform/hosted/human/material.py --verify-bundle \
+  "$WORK_DIR/human-policy" "$NODE_NETWORK_ID" "$PAXEER_CHAIN_ID"
 ```
 
-This runs the unchanged material assembler and reader on the generated set, followed
-by `test_material.py`. A missing input is a failure, not a skipped test.
+The broader `provision.py --qualify-generated-set` helper also runs the material
+installer and `test_material.py`; it is separate from structural registration
+validation and requires all live producer inputs. Its arguments are
+`--work-dir`, `--registry`, `--secrets-dir`, `--network` and `--chain`.
+
+## Pinned chain receipt material and recovery
+
+`history_material.py WORK_DIR MATERIAL_DIR NETWORK_ID CHAIN_ID` validates the
+merged funding receipts against `human-evidence-input/owner-native.json`,
+including the independently supplied HTTPS URL, CA fingerprint, network, chain
+and observation depth. It publishes only `native-context.json`,
+`merged-owner-evidence.json`, `rpc-ca.pem` and `owner-registration.json` into the
+private `agent`, `security` and `authority` directories. The material installer
+compares these files with the verified bundle, validates the actual receipt
+path again and refuses partial or mismatched retained projections.
+
+`provision.py --funding-evidence --work-dir WORK_DIR` validates these same
+receipts, the configured funder, asset and exact amount. The producer manifest
+calls this input `ledger-funding`; it points to `merged-owner-evidence.json`.
+There is no separate movement-source input. The retained `movement-policy.json`
+output is an adapter projection derived from the verified owner account and
+asset; its exact schema is enforced before bundling. Changing the funder or
+amount requires reconciliation with the original retained transactions.
+
+Pre-merge `trust-history`, `genesis-handover-trust.lxt`, `handover-finality.conf`,
+custody inputs and movement-source files are explicit migration cases. Their
+presence refuses current publication; no history is translated into receipt
+evidence. Preserve those originals with the seal, private keys, encrypted
+provider state, guardian bindings and recovery policy until the owning domains
+have reconciled them. Current material must be built in a separate protected
+location from authenticated chain evidence. A resumed secrets-generation call
+validates the full retained inventory and never regenerates the KMS seal.
+
+`owner_kms.prepare` gives its real `prepare` child ten seconds and at most
+65536 bytes of combined stdout/stderr. It kills and reaps the process group on
+expiry, excess output or failure, and publishes no owner result from that run.
+The error instructs the operator to retain custody and retry the same request.
+The KMS's private state and original idempotency key remain the recovery source;
+a timeout does not authorize a new owner or regenerated keys.
+
+## Remaining cluster migration barriers
+
+The following retained paths require migration by their production owners;
+they are not a provisioning recipe for merged accounts. Do not deploy a
+separate sequencer, kernel daemon, movement custody service or guarantor to
+satisfy them. Track the owning paths in [the repair record](repair_22_33_40.kvx).
+
+- [`provision-owner-job.yaml`](provision-owner-job.yaml) and
+  `human_owner_provision` still stage the offline identity Job and
+  `validate-account-head`. That validator requires a signed protocol-3
+  batch-number-one head and emits `consumed=0`; the evidence assembler still
+  requires its result. This legacy bootstrap restriction cannot describe an
+  existing merged account. Never synthesize the result from a balance, reset
+  consumed limits or replace missing evidence with zero. The Job uses the
+  identity state subPath and exclusive provider state; keep that state and the
+  original recovery binding during migration.
+- [`material.py`](material.py) still emits
+  `LAYERX_HUMAN_MOVEMENT_PROVIDER_` configuration and the
+  [node manifest](../node/deployment.yaml) still runs `human-movement` on
+  `/run/layerx/human/movement.sock`, with a separately pinned KMS executor.
+  These retained names do not establish support for retired deposit/withdraw
+  journeys. Remove the adapter instructions and projections together when
+  their runtime consumers migrate to current bank and receipt interfaces.
+- Generated owner-agent settings retain `HUMAN_NODE_LNI` pointing at
+  `/run/layerx/node/layerxd.lni.sock`, in the retained owner runtime. Those settings cannot establish merged node
+  readiness. Their owners must wire authenticated node RPC and committed
+  evidence before full cluster provisioning can be qualified.
+- `registry_kernel_material` validates an explicitly retained/imported signed
+  registry generation and its network and signer pins. It never executes a
+  separate daemon or edits genesis. Fresh registry generation remains an owning
+  domain wiring request in [this task's repair record](repair_22_33_1401.kvx).
+- The node manifest's security provider still requests legacy trust history.
+  Its production owner must migrate that consumer to authenticated committed
+  receipts before deployment; the Human material producer no longer manufactures
+  or copies that history.

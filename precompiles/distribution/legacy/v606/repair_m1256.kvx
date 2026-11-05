@@ -1,0 +1,31 @@
+[repair.22.33.1256]
+finding = "historical-rewards-value-v606"
+tests = ["TestRepairM_1256_HistoricalRawCALL", "TestRepairM_1256_LiveRoutingActivation", "TestRepairM_1256_ZeroValueQueries"]
+implementation = "Preserve distribution.go and abi.json byte-for-byte. Pin the v606 historical payment hazard through real keeper version selection at height 151573570, and prove current live and tracing routes reject positive value from the recorded v7.0 done height inclusive."
+proof = "The production staking message server creates a validator and self-delegation in an isolated SDK cache store, the distribution keeper produces nonzero rewards, the ABI encodes query calldata, and the real EVM dispatches it through keeper-selected precompiles. Decode the entire keeper rewards tuple and assert exact caller/precompile balances, including after Finalize and reopening the state DB. Cover one wei, one bank unit, a mixed amount, zero-value CALL and STATICCALL."
+baseline = "Not run: the explicit implementation-first order and hf-build then hf-done gate order prohibit the embedded step requesting verification on the unchanged tree. No earlier gate ledger or in-scope implementation was present; no pre-existing test failure is claimed."
+client_documentation = "precompiles/distribution/legacy/v606/README.md describes the accepted-value hazard, lack of refund, safe zero-value queries, replay preservation and activation boundary."
+wiring_request = "precompiles/distribution/distribution_test.go and docs/system/precompiles.md — owner domain 6 (fm-chain-modules): include the v606 regression cases in parent distribution test ownership and link the historical value warning from the public precompile reference; both paths are outside this task scope."
+evidence = "The runner's private hf-build/hf-done ledger and final JSON record the exact candidate revision, command, exit code and evidence location; the runner publishes the qualified candidate."
+gotcha = "An external v606_test package allows importing the production version registry without a distribution-to-v606 import cycle. ABI decoder structs follow tuple wire order rather than executor struct field order. Every test assembles production keepers over a private in-memory SDK store and records its own upgrade done heights."
+scope_conflict = "Root GOTCHA.kvx and spec task/qualification records are outside the explicit scope; this in-scope repair record holds the task mapping, wiring request and encountered gotchas."
+
+[qualification.1]
+revision = "015c48c89a1dc98d043b61d18a5065347b259f3b"
+command = "cg spec done 22.33.1256 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The whole-node fixture imports unrelated SDK auth/staking and tokenfactory CLI callers that fail compilation because tx.NewFactoryCLI now returns two values."
+assumption = "Replace the task's fixture dependency with directly assembled production keepers and the production distribution version registry; leave all unrelated CLI files untouched and preserve every behavioral assertion."
+
+[qualification.2]
+revision = "320f7b2a3a09cd00b9fb3c3203bc57e979163a6e"
+command = "cg spec done 22.33.1256 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three test functions failed: the first historical case re-registered the production uhpx denomination, and live rejection and zero-value CALL cases compared unequal internal representations of numeric zero after reopening."
+assumption = "Validate the production denomination and its exact six-decimal unit, and compare exact 32-byte EVM balances before and after reopening; retain every behavior assertion and historical executor byte."
+
+[gotcha.fixture-initialization]
+observed = "Production dependencies already register uhpx, and big.Int zero can have nil or empty internal words."
+resolution = "Assert the existing registered denomination and unit; compare the complete canonical 256-bit balance representation."

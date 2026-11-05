@@ -1,29 +1,16 @@
 // @vitest-environment jsdom
 
-import React from 'react';
-
-import type * as stats from '@blockscout/stats-types';
-
-import { render } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { screen, waitFor } from 'vitest/lib';
 
-import NumberWidgetsList, { formatCounterUnits, formatCounterValue, getCounterDeltaDirection } from './NumberWidgetsList';
+import { counters, counterSemantics, negativeChangeCounter, positiveChangeCounter, utilizationCounter } from './numberWidgetsFixtures';
+import { formatCounterUnits, formatCounterValue, getCounterDeltaDirection } from './NumberWidgetsList';
+import { renderNumberWidgets, startCountersServer } from './numberWidgetsTestServer';
 
-const counters: stats.Counters = {
-  counters: [
-    { id: 'totalAddresses', title: 'Total addresses', value: '1804523', description: 'Addresses that ever appeared on chain' },
-    { id: 'totalTxns', title: 'Total transactions', value: '196150000', description: 'Every transaction the chain carries' },
-    { id: 'averageBlockTime', title: 'Average block time', value: '0.175', units: 's', description: 'Mean time between two blocks' },
-    { id: 'networkUtilization', title: 'Network utilization', value: '12.5', units: '%', description: 'Share of the gas limit in use' },
-    { id: 'newAddresses24h', title: 'New addresses change', value: '-4.25', units: '%', description: 'Change over the last day' },
-  ],
-};
-
-const responseInit = { headers: { 'Content-Type': 'application/json' } };
+let server: Awaited<ReturnType<typeof startCountersServer>>;
 
 const renderList = async() => {
-  const result = render(<NumberWidgetsList/>);
+  const result = renderNumberWidgets(server.endpoint, { counterSemantics });
 
   await screen.findByText('Total addresses');
 
@@ -47,21 +34,30 @@ describe('formatCounterUnits', () => {
 });
 
 describe('getCounterDeltaDirection', () => {
-  it('reads a percentage counter as a rising or a falling change', () => {
-    expect(getCounterDeltaDirection({ id: 'a', title: 'a', value: '12.5', units: '%', description: '' })).toBe('up');
-    expect(getCounterDeltaDirection({ id: 'b', title: 'b', value: '-4.25', units: '%', description: '' })).toBe('down');
+  it('reads an explicitly declared change as rising or falling', () => {
+    expect(getCounterDeltaDirection(positiveChangeCounter, 'change')).toBe('up');
+    expect(getCounterDeltaDirection(negativeChangeCounter, 'change')).toBe('down');
+    expect(getCounterDeltaDirection({ ...negativeChangeCounter, units: 'PAX' }, 'change')).toBe('down');
   });
 
   it('leaves an absolute counter without a change tone', () => {
     expect(getCounterDeltaDirection({ id: 'c', title: 'c', value: '42', description: '' })).toBeUndefined();
     expect(getCounterDeltaDirection({ id: 'd', title: 'd', value: 'not a number', units: '%', description: '' })).toBeUndefined();
+    expect(getCounterDeltaDirection(utilizationCounter)).toBeUndefined();
+    expect(getCounterDeltaDirection(utilizationCounter, 'absolute')).toBeUndefined();
+    expect(getCounterDeltaDirection({ ...positiveChangeCounter, value: 'not a number' }, 'change')).toBeUndefined();
   });
 });
 
 describe('NumberWidgetsList', () => {
-  beforeEach(() => {
-    fetchMock.resetMocks();
-    fetchMock.mockResponse(() => Promise.resolve({ body: JSON.stringify(counters), ...responseInit }));
+  beforeAll(async() => {
+    fetchMock.disableMocks();
+    server = await startCountersServer();
+  });
+
+  afterAll(async() => {
+    await server.close();
+    fetchMock.enableMocks();
   });
 
   it('lays the counters out as a grid of stat cards', async() => {
@@ -97,8 +93,16 @@ describe('NumberWidgetsList', () => {
     const { container } = await renderList();
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-stat="Network utilization"] [data-delta="up"]')?.textContent).toBe('12.5%');
+      expect(container.querySelector('[data-scan-stat="Coin price increase"] [data-delta="up"]')?.textContent).toBe('42%');
     });
-    expect(container.querySelector('[data-scan-stat="New addresses change"] [data-delta="down"]')?.textContent).toBe('-4.3%');
+    expect(container.querySelector('[data-scan-stat="Coin price decrease"] [data-delta="down"]')?.textContent).toBe('-7.4%');
+  });
+
+  it('keeps the producer utilization percentage neutral', async() => {
+    const { container } = await renderList();
+    const card = container.querySelector('[data-scan-stat="Network utilization"]');
+
+    expect(card?.querySelector('[data-value]')?.textContent).toBe('1.554%');
+    expect(card?.querySelector('[data-delta]')).toBeNull();
   });
 });

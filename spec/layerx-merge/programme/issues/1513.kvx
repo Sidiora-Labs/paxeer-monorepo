@@ -1,0 +1,48 @@
+[issue.1513]
+number = 1513
+title = "[P2] Invalidate native archives when their source membership shrinks"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 84502fe9152dcf794ce55bbef2916dd29ead3803 deletes the DA service source without changing the Makefile or remaining C inputs, and at this revision Makefile:46 derives only current objects, Makefile:185 and Makefile:194 depend only on those objects, Makefile:2617 omits deleted objects' dependency files and Makefile:2416 adds no archive invalidation edge, so shrinking membership can skip the existing remove-and-recreate recipes at Makefile:187 and Makefile:196 despite the compiled retirement assertion in modules/lxphost/retired_da_service_test.go:7 and the actual archive reader in modules/lxphost/archive_symbols_test.go:17, contrary to the retirement guarantee in spec/layerx-merge/spec.kvx:892."
+close_comment = "Both native archives can retain a deleted source's member and symbols when the remaining objects are older than the archive. The follow-up task makes source membership an archive input and adds a retained-output deletion regression for production and testing archives while preserving reuse for unchanged inputs."
+
+[task.18.1513.1]
+title = "Issue #1513: Invalidate native archives when source membership changes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181513.1"]
+capabilities = []
+interfaces = []
+do_1 = "Make the sorted, filtered source membership at Makefile:46 an effective normal prerequisite of both archive rules at Makefile:185 and Makefile:194 using membership state scoped to BUILD_DIR that changes only when the source list changes; preserve source exclusions, production/testing flags, deterministic archive creation and the existing removal of the old archive before ar, so deletion or rename invalidates each archive without cleaning or touching unrelated objects and unchanged membership preserves reuse."
+do_2 = "Add tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership using an isolated copy of the real repository sources and unchanged production Makefile with real make, compiler, ar and nm: build both archives in a non-default BUILD_DIR, assert a selected real source's member and defined symbols are initially present, make only that source deletion while retaining all outputs and timestamps, rebuild both archives and assert the member and its definitions are absent while retained members and symbols remain; assert surviving object timestamps do not change, both archives regenerate, and subsequent unchanged invocations preserve archive timestamps and contents; never substitute recipes, prebuilt objects or fake tools."
+symbols = ["test_native_archives_track_source_membership"]
+touches = ["Makefile", "tests/ci/test_native_archive_membership.py"]
+tests = ["tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership"]
+planned_paths = ["tests/ci/test_native_archive_membership.py"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 -m pytest tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181513]
+title = "Incremental native archives reflect current source membership"
+ac_1 = "Given production and testing archives built from Makefile:46 source membership with remaining objects older than the archives, deleting a source alone makes the next invocations of the rules at Makefile:185 and Makefile:194 regenerate both archives without cleaning, removing its member and defined symbols while preserving retained members and symbols, and subsequent invocations with unchanged inputs reuse both archives and surviving objects."
+
+[acceptance.18.1513.1]
+feature = "18"
+req = "181513.1"
+scenario = "Given both native archives and their objects retained from a successful build in a non-default BUILD_DIR, when one real C source is deleted and the same archive targets are requested without cleaning, then both archives regenerate without the deleted member or its definitions, retained symbols remain, surviving objects are reused and a further unchanged invocation reuses both archives."
+contract = "contracts/kernel.md#kernel-retirement"
+test = "tests/ci/test_native_archive_membership.py::test_native_archives_track_source_membership (planned)"
+qualification = "UNRUN"

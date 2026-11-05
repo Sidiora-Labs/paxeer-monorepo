@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,11 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/migrations"
 )
+
+var marketIDs = map[string]int64{
+	"BTC": 0, "ETH": 1, "SOL": 2, "AVAX": 3, "LINK": 4, "TSLA": 5, "NVDA": 6, "NAS100": 7, "XAU": 8,
+	"SPX500": 9, "GOOGL": 10, "PAX": 11, "SID": 12, "HYPE": 13, "XRP": 14, "ASTER": 15, "TRUMP": 16, "BNB": 17,
+}
 
 var (
 	perpsAddr = addr(0x15, 0x10)
@@ -271,6 +277,73 @@ func perpTradeCount(t *testing.T, s *Symbol, path string) int {
 		t.Fatalf("count %d with %d trades", count, n)
 	}
 	return count
+}
+
+func TestSymbolRoutesChainMarket(t *testing.T) {
+	db := openDB(t)
+	s, err := NewSymbol(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, body := get(t, s, "/api/DOGE/price")
+	if rec.Code != http.StatusNotFound || field[string](t, body, "error") != "Unknown symbol: DOGE" {
+		t.Fatalf("unlisted DOGE: %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := db.Exec(`INSERT INTO perps.markets
+		(market_id, symbol, name, oracle_symbol, sz_decimals, px_decimals,
+		max_leverage, maintenance_margin_bps, max_open_interest, enabled, source, refreshed_block)
+		VALUES (18, 'DOGE', 'Dogecoin', 'DOGE', NULL, NULL, 1000, 5, 1000000, true, 'chain', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().UTC().Truncate(time.Millisecond)
+	markPrice(t, db, 18, 1, at, "0.25", "0.24")
+	insert(t, db, row{table: "index_prices", kind: "aggregate", block: 2, at: at, emitter: addr(0x20, 0x10), account: addr(0x20, 0x10),
+		args:   []string{"market_id", "index_price", "mark_price", "basis", "timestamp_ms", "sources", "required"},
+		values: []any{18, e18(t, "0.26"), e18(t, "0.25"), "0", at.UnixMilli(), 3, 2}})
+	for _, path := range []string{"/api/DOGE/price", "/api/doge/price"} {
+		body := getOK(t, s, path)
+		if got := field[string](t, body, "symbol"); got != "DOGE" {
+			t.Fatalf("%s: symbol %q, want DOGE", path, got)
+		}
+		wantNumber(t, body, "price", 0.26)
+		if got := field[string](t, body, "timestamp"); got != at.Format("2006-01-02T15:04:05.000Z") {
+			t.Fatalf("%s: timestamp %q, want %s", path, got, at)
+		}
+	}
+	for _, route := range []string{"price", "stats", "perp_stats", "trades", "perp_trades", "health"} {
+		getOK(t, s, "/api/DOGE/"+route)
+		rec, body := get(t, s, "/api/NOPE/"+route)
+		if rec.Code != http.StatusNotFound || field[string](t, body, "error") != "Unknown symbol: NOPE" {
+			t.Fatalf("unlisted symbol %s: %d %s", route, rec.Code, rec.Body.String())
+		}
+		wantKeys(t, body, "error")
+	}
+	users := &SpotUsers{db: db}
+	symbol, decimals := "DOGE", 6
+	mark, ok, err := users.mark(context.Background(), spotToken{symbol: &symbol, decimals: &decimals})
+	if err != nil || !ok || mark != e18(t, "0.26") {
+		t.Fatalf("spot DOGE mark = %q, %v, %v; want %s, true, nil", mark, ok, err, e18(t, "0.26"))
+	}
+	symbol = "NOPE"
+	if mark, ok, err := users.mark(context.Background(), spotToken{symbol: &symbol, decimals: &decimals}); err != nil || ok || mark != "" {
+		t.Fatalf("spot unlisted mark = %q, %v, %v; want empty, false, nil", mark, ok, err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = NewSymbol(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec, body = get(t, s, "/api/DOGE/price")
+	if rec.Code != http.StatusInternalServerError || field[string](t, body, "error") != "internal error" {
+		t.Fatalf("database error: %d %s", rec.Code, rec.Body.String())
+	}
+	users = &SpotUsers{db: db}
+	symbol = "DOGE"
+	if _, _, err := users.mark(context.Background(), spotToken{symbol: &symbol, decimals: &decimals}); err == nil {
+		t.Fatal("spot mark hid the MarketSet database error")
+	}
 }
 
 func TestSymbolREST(t *testing.T) {
@@ -638,5 +711,38 @@ func TestSymbolREST(t *testing.T) {
 				t.Fatalf("/api/btc/%s: error %q", route, got)
 			}
 		})
+	}
+}
+
+func ProofRESTObserveSymbol(t *testing.T, client *http.Client, base string, index float64) {
+	t.Helper()
+	price := ProofRESTGet(t, client, base, "/api/btc/price", http.StatusOK)
+	wantNumber(t, price, "price", index)
+	stats := ProofRESTGet(t, client, base, "/api/btc/stats", http.StatusOK)
+	wantNumber(t, stats, "volume_24h", 140000)
+	perp := ProofRESTGet(t, client, base, "/api/btc/perp_stats", http.StatusOK)
+	wantNumber(t, perp, "index_price", index)
+	trades := ProofRESTGet(t, client, base, "/api/btc/perp_trades?limit=1", http.StatusOK)
+	rows := field[[]map[string]json.RawMessage](t, trades, "trades")
+	if len(rows) != 1 {
+		t.Fatalf("perp trades: %s", trades)
+	}
+	wantNumber(t, rows[0], "price", 70000)
+	wantNumber(t, rows[0], "notional", 140000)
+	spot := ProofRESTGet(t, client, base, "/api/pax/trades?limit=1", http.StatusOK)
+	if len(field[[]map[string]json.RawMessage](t, spot, "trades")) != 1 {
+		t.Fatalf("spot tape: %s", spot)
+	}
+	health := ProofRESTGet(t, client, base, "/api/btc/health", http.StatusOK)
+	if field[string](t, health, "status") != "ok" || field[string](t, health, "symbol") != "BTC" {
+		t.Fatal(health)
+	}
+	for path, status := range map[string]int{
+		"/api/unknown/price":                http.StatusNotFound,
+		"/api/btc/trades?limit=bad":         http.StatusBadRequest,
+		"/api/btc/trades?limit=1&limit=bad": http.StatusBadRequest,
+		"/api/btc/perp_trades/eth":          http.StatusNotFound,
+	} {
+		ProofRESTGet(t, client, base, path, status)
 	}
 }

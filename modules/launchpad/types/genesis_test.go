@@ -2,6 +2,9 @@ package types_test
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 
@@ -95,7 +98,71 @@ func contractGenesis() types.GenesisState {
 	return gs
 }
 
+func TestGenesisRefusesGenerationOneState(t *testing.T) {
+	require.NoError(t, types.DefaultGenesis().Validate())
+	cases := []struct {
+		field string
+		entry string
+	}{
+		{"airdrop_epochs", `{"denom":"legacy","epoch":1,"amount":"10"}`},
+		{"airdrop_claims", `{"denom":"legacy","holder":"` + sdk.AccAddress(common.HexToAddress(holder).Bytes()).String() + `","epoch":1}`},
+		{"protocol_fees", `{"token":"legacy","amount":"10"}`},
+		{"airdrop_bases", `{"denom":"legacy","epoch":1,"supply":"100","payout_token":"` + usdl + `","height":1,"paid":"0"}`},
+		{"holding_histories", `{"denom":"legacy","first_epoch":1,"current_epoch":1}`},
+		{"holding_checkpoints", `{"denom":"legacy","holder":"` + sdk.AccAddress(common.HexToAddress(holder).Bytes()).String() + `","index":0,"epoch":1,"balance":"100"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			for _, empty := range []string{"[]", "null"} {
+				gs := contractGenesis()
+				require.NoError(t, json.Unmarshal([]byte(`{"`+tc.field+`":`+empty+`}`), &gs))
+				require.NoError(t, gs.Validate())
+			}
+			for _, entry := range []string{"{}", tc.entry} {
+				gs := contractGenesis()
+				require.NoError(t, json.Unmarshal([]byte(`{"`+tc.field+`":[`+entry+`]}`), &gs))
+				err := gs.Validate()
+				require.ErrorIs(t, err, types.ErrInvalidGenesis)
+				require.Contains(t, err.Error(), tc.field)
+			}
+		})
+	}
+}
+
 func TestGenesisValidate(t *testing.T) {
+	t.Run("generation one key space remains reserved", func(t *testing.T) {
+		file, err := parser.ParseFile(token.NewFileSet(), "keys.go", nil, 0)
+		require.NoError(t, err)
+		functions := make(map[string]bool)
+		for _, declaration := range file.Decls {
+			if function, ok := declaration.(*ast.FuncDecl); ok {
+				functions[function.Name.Name] = true
+			}
+		}
+		for _, name := range []string{
+			"ProtocolFeesKey", "AirdropEpochKey", "AirdropClaimKey", "ParseAirdropClaimKey",
+			"HoldingHistoryKey", "HoldingCountKey", "HoldingEntryKey", "AirdropBasisKey",
+			"ParseHoldingHistoryKey", "ParseHoldingEntryKey",
+		} {
+			require.NotContains(t, functions, name)
+		}
+		for _, prefix := range []struct {
+			name  string
+			value []byte
+			want  byte
+		}{
+			{"ProtocolFeesPrefix", types.ProtocolFeesPrefix, 0x03},
+			{"AirdropEpochPrefix", types.AirdropEpochPrefix, 0x20},
+			{"AirdropClaimPrefix", types.AirdropClaimPrefix, 0x21},
+			{"HoldingHistoryPrefix", types.HoldingHistoryPrefix, 0x22},
+			{"HoldingCountPrefix", types.HoldingCountPrefix, 0x23},
+			{"HoldingEntryPrefix", types.HoldingEntryPrefix, 0x24},
+			{"AirdropBasisPrefix", types.AirdropBasisPrefix, 0x25},
+		} {
+			require.Equal(t, []byte{prefix.want}, prefix.value, prefix.name)
+		}
+	})
+
 	require.NoError(t, types.DefaultGenesis().Validate())
 
 	valid := contractGenesis()

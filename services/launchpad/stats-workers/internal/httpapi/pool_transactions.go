@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -19,10 +20,18 @@ func RegisterPoolTransactions(r chi.Router, st *store.Store) {
 // filtered by side (type=buy|sell|all). Ports the TS pool-transactions route.
 func poolTransactions(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := strings.ToLower(chi.URLParam(r, "poolAddress"))
 		q := r.URL.Query()
-		limit := parseIntDefault(q.Get("limit"), 50)
-		offset := parseIntDefault(q.Get("offset"), 0)
+		page, err := boundedPage(q, 50, legacyPageMaximum, 1, "transactions:"+poolAddress+":"+q.Get("type"))
+		if err != nil {
+			sharedhttp.WriteError(w, 400, "Bad Request", err.Error())
+			return
+		}
+		if page.After != nil {
+			sharedhttp.WriteError(w, 400, "Bad Request", "cursor is not supported on this route")
+			return
+		}
+		limit, offset := page.Limit, page.Offset
 		txType := q.Get("type")
 		if txType == "" {
 			txType = "all"

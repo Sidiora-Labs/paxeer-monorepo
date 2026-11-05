@@ -93,7 +93,8 @@ func (s *pendingSequencer) ctxProvider(height int64) sdk.Context {
 		}
 		return ctx
 	}
-	return sdk.NewContext(s.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: pendingChainID, Height: s.committed}, false)
+	ctx := sdk.NewContext(s.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: pendingChainID, Height: s.committed}, false)
+	return ctx.WithConsensusParams(s.app.GetConsensusParams(ctx))
 }
 
 func (s *pendingSequencer) weiBalance(ctx sdk.Context, addr common.Address) *big.Int {
@@ -168,6 +169,8 @@ func TestPendingStateResolvesOpenHeight(t *testing.T) {
 	accepted, err := s.exec.Accept(pendingTransfer(t, sender, 0, recipient, value))
 	require.NoError(t, err)
 	require.Equal(t, committed+1, accepted.Height)
+	require.Equal(t, abci.CodeTypeOK, accepted.Result.Code, accepted.Result.Log)
+	require.Equal(t, committed+1, accepted.ReceiptContext.BlockHeight())
 	fee := new(big.Int).Mul(big.NewInt(pendingTransferGas), big.NewInt(pendingGasPriceWei))
 	requireWeiEqual(t, new(big.Int).Sub(new(big.Int).Sub(funded, value), fee), s.pendingBalance(t, sender.EvmAddress))
 	requireWeiEqual(t, value, s.pendingBalance(t, recipient))
@@ -176,13 +179,16 @@ func TestPendingStateResolvesOpenHeight(t *testing.T) {
 	requireWeiEqual(t, funded, s.weiBalance(s.ctxProvider(latest), sender.EvmAddress))
 	require.Zero(t, s.weiBalance(s.ctxProvider(latest), recipient).Sign())
 
-	// Once the open block is sealed there is no pending block to read.
+	// Once sealed, pending reads resolve to the committed state.
 	_, err = s.exec.Seal(committed + 1)
 	require.NoError(t, err)
-	_, err = s.wm.ResolveHeight(ctx, pending)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
-	_, err = evmrpc.GetBlockNumberByNrOrHash(ctx, nil, s.wm, pending)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	resolved, err = s.wm.ResolveHeight(ctx, pending)
+	require.NoError(t, err)
+	require.Equal(t, committed, resolved)
+	height, err = evmrpc.GetBlockNumberByNrOrHash(ctx, nil, s.wm, pending)
+	require.NoError(t, err)
+	require.NotNil(t, height)
+	require.Equal(t, committed, *height)
 }
 
 func TestPendingStateRefusedOffSequencer(t *testing.T) {

@@ -1,4 +1,16 @@
-import { concat, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, parseAbi, recoverAddress, recoverMessageAddress, hashMessage, keccak256, toHex, toRlp } from 'viem';
+import {
+  concat,
+  encodeAbiParameters,
+  recoverAddress,
+  recoverMessageAddress,
+  recoverTypedDataAddress,
+  hashMessage,
+  keccak256,
+  toHex,
+  toRlp,
+} from 'viem';
+import { readSequencerReceipt, waitForSequencerReceipt } from './receipt.js';
+import { parseReceiptKeyResponse } from './rpc.js';
 import {
   ChainDisconnectedError,
   DisconnectedError,
@@ -20,8 +32,8 @@ import type {
   ProviderListener,
   PublicWallet,
   RequestArguments,
+  SequencerReceiptAnswer,
   SendTxResponse,
-  SignCustodyResponse,
   SignDigestResponse,
   SignMessageResponse,
   SignTypedDataResponse,
@@ -33,10 +45,14 @@ import type {
   WireSponsoredBatch,
 } from './types.js';
 
+import { assertSendTxResponse } from './types.js';
+
 export const PAXEER_CHAIN_ID = 125;
 
 // Paxeer mainnet v6.12.0 upgrade plan activation height (the ledger precompile is gated on a plan applied after it).
-export const LEDGER_PRECOMPILE_LOG_FLOOR: Readonly<Record<number, bigint>> = Object.freeze({ [PAXEER_CHAIN_ID]: 37_333_101n });
+export const LEDGER_PRECOMPILE_LOG_FLOOR: Readonly<Record<number, bigint>> = Object.freeze({
+  [PAXEER_CHAIN_ID]: 37_333_101n,
+});
 
 export function ledgerLogFloor(chainId: number): bigint | undefined {
   return LEDGER_PRECOMPILE_LOG_FLOOR[chainId];
@@ -64,22 +80,30 @@ const UNSUPPORTED_METHODS = new Set([
   'eth_signTypedData_v3',
   'eth_signTransaction',
   'wallet_addEthereumChain',
+  'paxeer_prepareCustody',
+  'paxeer_custodyStatus',
+  'paxeer_restoreCustody',
+  'paxeer_recoverCustody',
+  'paxeer_signCustody',
 ]);
 
 const SIGNING_METHODS = new Set([
   'eth_sendTransaction',
+  'paxeer_sendTransactionReceipted',
   'eth_signTypedData_v4',
   'personal_sign',
   'eth_sign',
-  'paxeer_signCustody',
+  'paxeer_submitSponsored',
 ]);
 
 const QUOTE_TYPEHASH = keccak256(
   toHex(
-    'Quote(uint256 chainId,address account,address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost)',
-  ),
+    'Quote(uint256 chainId,address account,address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost)'
+  )
 );
-const BATCH_TYPEHASH = keccak256(toHex('SponsoredBatch(uint256 nonce,bytes32 callsHash,bytes32 quoteDigest)'));
+const BATCH_TYPEHASH = keccak256(
+  toHex('SponsoredBatch(uint256 nonce,bytes32 callsHash,bytes32 quoteDigest)')
+);
 
 const UINT256_MAX = (1n << 256n) - 1n;
 const UINT64_MAX = (1n << 64n) - 1n;
@@ -90,32 +114,44 @@ const QUANTITY = /^0x[0-9a-fA-F]+$/;
 export class BindingRefusedError extends ProviderRpcError {
   constructor(
     message: string,
-    public readonly boundDid: string | null,
+    public readonly boundDid: string | null
   ) {
-    super(PROVIDER_ERROR_CODES.internal, message, { reason: 'binding_refused', bound_did: boundDid });
+    super(PROVIDER_ERROR_CODES.internal, message, {
+      reason: 'binding_refused',
+      bound_did: boundDid,
+    });
     this.name = 'BindingRefusedError';
   }
+}
+
+interface SigningContext {
+  readonly account: Hex;
+  readonly chain: number;
+  readonly generation: number;
+  readonly token: string;
 }
 
 export class PaxeerProvider implements Eip1193Provider {
   readonly isPaxeer = true;
   private readonly gatewayUrl: string;
-  private readonly rpcUrl: string;
+  private rpcUrl: string;
   private readonly token: TokenSupplier;
   private readonly confirm?: PaxeerProviderConfig['confirm'];
   private readonly fetchImpl: typeof fetch;
   private readonly listeners = new Map<ProviderEvent, Set<ProviderListener>>();
   private accounts: Hex[] = [];
   private chainId: number;
+  private activeChainSelected = false;
   private connected = false;
   private rpcId = 0;
-  private readonly custodyApprovals = new Map<string, { bytes: Hex; signature: Hex }>();
   private capsGeneration = 0;
+  private accountToken: string | null = null;
 
   constructor(config: PaxeerProviderConfig) {
     if (!config.gatewayUrl) throw new Error('PaxeerProvider: gatewayUrl required');
     if (!config.rpcUrl) throw new Error('PaxeerProvider: rpcUrl required');
-    if (typeof config.token !== 'function') throw new Error('PaxeerProvider: token supplier required');
+    if (typeof config.token !== 'function')
+      throw new Error('PaxeerProvider: token supplier required');
     this.gatewayUrl = config.gatewayUrl.replace(/\/$/, '');
     this.rpcUrl = config.rpcUrl;
     this.token = config.token;
@@ -148,39 +184,64 @@ export class PaxeerProvider implements Eip1193Provider {
     this.emit('message', { type: 'wallet_caps_invalidated' });
   }
 
+  protected switchActiveChain(chainId: number, rpcUrl: string): void {
+    const chainChanged = chainId !== this.chainId;
+    this.chainId = chainId;
+    this.rpcUrl = rpcUrl;
+    this.activeChainSelected = true;
+    this.invalidateCapsSession();
+    if (chainChanged) this.emit('chainChanged', toQuantity(BigInt(chainId)));
+  }
+
   disconnect(): void {
     this.invalidateCapsSession();
     const hadAccounts = this.accounts.length > 0;
     this.accounts = [];
-    this.custodyApprovals.clear();
     this.connected = false;
+    this.accountToken = null;
     if (hadAccounts) this.emit('accountsChanged', []);
     this.emit('disconnect', new DisconnectedError('the embedded wallet was disconnected'));
   }
 
   async request(args: RequestArguments): Promise<unknown> {
-    if (!args || typeof args !== 'object' || typeof args.method !== 'string' || args.method.length === 0) {
+    if (
+      !args ||
+      typeof args !== 'object' ||
+      typeof args.method !== 'string' ||
+      args.method.length === 0
+    ) {
       throw new InvalidParamsError('method', 'request requires a method name');
     }
     const method = args.method;
     let params = positional(args.params);
     if (SIGNING_METHODS.has(method)) {
-      try { params = freezeRequest(structuredClone(params)); } catch { throw new InvalidParamsError('params', 'signing parameters must be immutable data'); }
+      try {
+        params = freezeRequest(structuredClone(params));
+      } catch {
+        throw new InvalidParamsError('params', 'signing parameters must be immutable data');
+      }
     }
     if (UNSUPPORTED_METHODS.has(method)) throw new UnsupportedMethodError(method);
-    if (SIGNING_METHODS.has(method) && this.confirm) {
+    const context = SIGNING_METHODS.has(method) ? await this.captureSigningContext() : undefined;
+    if (context && this.confirm) {
       const approved = await this.confirm({ method, params });
       if (!approved) throw new UserRejectedRequestError();
     }
+    if (context) await this.assertSigningContext(context);
     switch (method) {
+      case 'pax_sequencerReceipt': {
+        if (typeof params[0] !== 'string' || params.length !== 1)
+          throw new InvalidParamsError('hash', 'one transaction hash required');
+        return readSequencerReceipt(this.proxy.bind(this), params[0]);
+      }
       case 'eth_requestAccounts':
         return this.requestAccounts();
       case 'eth_accounts':
         return [...this.accounts];
       case 'paxeer_submitSponsored':
-        return this.sponsoredGateway(params, false);
+        return this.sponsoredGateway(params, false, context!);
       case 'paxeer_sponsoredStatus':
-        return this.sponsoredGateway(params, true);
+        return this.paxeer_sponsoredStatus(params);
       case 'eth_chainId':
         return toQuantity(BigInt(this.chainId));
       case 'net_version':
@@ -188,32 +249,32 @@ export class PaxeerProvider implements Eip1193Provider {
       case 'wallet_switchEthereumChain':
         return this.switchChain(params);
       case 'eth_sendTransaction':
-        return this.sendTransaction(params);
+        return this.sendTransaction(params, context!);
+      case 'paxeer_sendTransactionReceipted':
+        return this.paxeer_sendTransactionReceipted(params, context!);
       case 'eth_signTypedData_v4':
-        return this.signTypedData(params);
+        return this.signTypedData(params, context!);
       case 'personal_sign':
-        return this.personalSign(params);
+        return this.personalSign(params, context!);
       case 'eth_sign':
-        return this.ethSign(params);
-      case 'paxeer_prepareCustody':
-        return this.prepareCustody(params);
-      case 'paxeer_custodyStatus':
-        return this.custodyStatus(params);
-      case 'paxeer_restoreCustody':
-        return this.restoreCustody(params);
-      case 'paxeer_recoverCustody':
-        return this.recoverCustody(params);
-      case 'paxeer_signCustody':
-        return this.signCustody(params);
+        return this.ethSign(params, context!);
       default:
         return this.proxy(method, args.params);
     }
   }
 
   private async requestAccounts(): Promise<Hex[]> {
+    const generation = this.capsGeneration;
+    const sessionToken = await this.token();
+    if (!sessionToken) throw new UnauthorizedError('no_token', 'no signed-in session');
     let me: { wallet: PublicWallet; chain: ChainInfo } | null;
     try {
-      me = await this.gateway<{ wallet: PublicWallet; chain: ChainInfo }>('GET', '/v1/wallet/me');
+      me = await this.gateway<{ wallet: PublicWallet; chain: ChainInfo }>(
+        'GET',
+        '/v1/wallet/me',
+        undefined,
+        sessionToken
+      );
     } catch (error) {
       if (!(error instanceof ProviderRpcError) || !isNoWallet(error)) throw error;
       me = null;
@@ -222,18 +283,30 @@ export class PaxeerProvider implements Eip1193Provider {
     let chainId = this.chainId;
     if (me) {
       address = me.wallet.address;
-      chainId = me.chain.id;
-      if (needsBinding(me.wallet)) await this.completeBinding();
+      if (!this.activeChainSelected) chainId = me.chain.id;
+      if (needsBinding(me.wallet)) await this.completeBinding(sessionToken);
     } else {
-      const provisioned = await this.gateway<{ wallet: PublicWallet }>('POST', '/v1/wallet/provision');
+      const provisioned = await this.gateway<{ wallet: PublicWallet }>(
+        'POST',
+        '/v1/wallet/provision',
+        undefined,
+        sessionToken
+      );
       address = provisioned.wallet.address;
-      chainId = provisioned.wallet.chain_id;
+      if (!this.activeChainSelected) chainId = provisioned.wallet.chain_id;
     }
-    if (!ADDRESS.test(address)) throw new InvalidParamsError('wallet.address', 'the gateway returned an invalid address');
+    if (!ADDRESS.test(address))
+      throw new InvalidParamsError('wallet.address', 'the gateway returned an invalid address');
+    const currentToken = await this.token();
+    if (sessionToken !== currentToken || generation !== this.capsGeneration)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
     const wasConnected = this.connected;
-    const accountsChanged = this.accounts.length !== 1 || this.accounts[0]?.toLowerCase() !== address.toLowerCase();
+    const accountsChanged =
+      this.accounts.length !== 1 || this.accounts[0]?.toLowerCase() !== address.toLowerCase();
     const chainChanged = chainId !== this.chainId;
-    if (accountsChanged || chainChanged) this.invalidateCapsSession();
+    if (accountsChanged || chainChanged || this.accountToken !== sessionToken)
+      this.invalidateCapsSession();
+    this.accountToken = sessionToken;
     this.accounts = [address];
     this.chainId = chainId;
     this.connected = true;
@@ -243,15 +316,20 @@ export class PaxeerProvider implements Eip1193Provider {
     return [...this.accounts];
   }
 
-  private async completeBinding(): Promise<void> {
+  private async completeBinding(sessionToken: string): Promise<void> {
     try {
-      await this.gateway<{ wallet: PublicWallet }>('POST', '/v1/wallet/provision');
+      await this.gateway<{ wallet: PublicWallet }>(
+        'POST',
+        '/v1/wallet/provision',
+        undefined,
+        sessionToken
+      );
     } catch (error) {
       if (error instanceof ProviderRpcError && isBindingRefused(error)) {
         const body = (error.data as { body: Record<string, unknown> }).body;
         throw new BindingRefusedError(
           typeof body.message === 'string' ? body.message : 'the account binding was refused',
-          typeof body.bound_did === 'string' ? body.bound_did : null,
+          typeof body.bound_did === 'string' ? body.bound_did : null
         );
       }
       throw error;
@@ -268,12 +346,13 @@ export class PaxeerProvider implements Eip1193Provider {
     return null;
   }
 
-  private async sendTransaction(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
+  private async sendTransaction(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     const tx = params[0];
-    if (!isRecord(tx)) throw new InvalidParamsError('tx', 'eth_sendTransaction requires a transaction object');
+    if (!isRecord(tx))
+      throw new InvalidParamsError('tx', 'eth_sendTransaction requires a transaction object');
     if (tx.from !== undefined) this.requireSameAccount(tx.from, account, 'from');
-    const wire: Record<string, unknown> = {};
+    const wire: Record<string, unknown> = { chainId: context.chain, from: account };
     if (tx.to !== undefined && tx.to !== null) wire.to = addressField(tx.to, 'to');
     if (tx.data !== undefined) wire.data = bytesField(tx.data, 'data');
     else if (tx.input !== undefined) wire.data = bytesField(tx.input, 'input');
@@ -281,34 +360,38 @@ export class PaxeerProvider implements Eip1193Provider {
       const value = tx[field] ?? (field === 'gas' ? tx.gasLimit : undefined);
       if (value !== undefined) wire[field] = uintField(value as UintInput, field).toString();
     }
-    if (tx.nonce !== undefined) wire.nonce = safeInteger(uintField(tx.nonce as UintInput, 'nonce'), 'nonce');
+    if (tx.nonce !== undefined)
+      wire.nonce = safeInteger(uintField(tx.nonce as UintInput, 'nonce'), 'nonce');
     if (tx.chainId !== undefined) {
       const chainId = safeInteger(uintField(tx.chainId as UintInput, 'chainId'), 'chainId');
       if (chainId !== this.chainId) throw new ChainDisconnectedError(chainId, this.chainId);
       wire.chainId = chainId;
     }
-    let custody: { bytes: Hex; signature: Hex } | undefined;
-    if (typeof wire.to === 'string' && wire.to.toLowerCase() === CUSTODY_TARGET) {
-      custody = this.custodyApprovals.get(custodyCallKey(account, BigInt(this.chainId), wire.to as Hex,
-        BigInt(String(wire.value ?? '0')), (wire.data ?? '0x') as Hex));
-      if (!custody) throw new UnauthorizedError('missing_construction', 'approve this exact custody call before sending');
-      const approved = decodeCustodyAuthorization(custody.bytes);
-      for (const field of ['nonce', 'gas', 'maxFeePerGas', 'maxPriorityFeePerGas'] as const) {
-        if (wire[field] !== undefined && BigInt(String(wire[field])) !== approved[field]) {
-          throw new InvalidParamsError(field, 'transaction differs from the signed custody authorization');
-        }
-      }
-      wire.chainId = this.chainId; wire.nonce = safeInteger(approved.nonce, 'nonce');
-      wire.gas = approved.gas.toString(); wire.maxFeePerGas = approved.maxFeePerGas.toString();
-      wire.maxPriorityFeePerGas = approved.maxPriorityFeePerGas.toString();
+    const response = await this.signingGateway<SendTxResponse>(context, '/v1/wallet/send', {
+      tx: wire,
+    });
+    try {
+      assertSendTxResponse(response, { chainId: context.chain, account });
+    } catch (error) {
+      throw new InvalidParamsError('response', (error as Error).message);
     }
-    const response = await this.gateway<SendTxResponse>('POST', '/v1/wallet/send', { tx: wire, ...(custody ? { custody } : {}) });
-    if (!/^0x[0-9a-fA-F]{64}$/.test(response.tx_hash)) throw new InvalidParamsError('tx_hash', 'gateway returned an invalid transaction hash');
     return response.tx_hash;
   }
 
-  private async signTypedData(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
+  private async paxeer_sendTransactionReceipted(
+    params: readonly unknown[],
+    context: SigningContext
+  ): Promise<SequencerReceiptAnswer> {
+    const hash = await this.sendTransaction(params, context);
+    const receipt = await waitForSequencerReceipt(this.proxy.bind(this), hash, {
+      rung: 'receipted',
+    });
+    await this.assertSigningContext(context);
+    return receipt;
+  }
+
+  private async signTypedData(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     this.requireSameAccount(params[0], account, 'address');
     const raw = params[1];
     let parsed: unknown = raw;
@@ -327,53 +410,149 @@ export class PaxeerProvider implements Eip1193Provider {
       !isRecord(parsed.message) ||
       (parsed.domain !== undefined && !isRecord(parsed.domain))
     ) {
-      throw new InvalidParamsError('typedData', 'typed data requires types, primaryType and message');
+      throw new InvalidParamsError(
+        'typedData',
+        'typed data requires types, primaryType and message'
+      );
     }
     if (isRecord(parsed.domain) && parsed.domain.chainId !== undefined) {
-      const chainId = safeInteger(uintField(parsed.domain.chainId as UintInput, 'domain.chainId'), 'domain.chainId');
+      const chainId = safeInteger(
+        uintField(parsed.domain.chainId as UintInput, 'domain.chainId'),
+        'domain.chainId'
+      );
       if (chainId !== this.chainId) throw new ChainDisconnectedError(chainId, this.chainId);
     }
     const typedData = parsed as unknown as TypedDataPayload;
-    const response = await this.gateway<SignTypedDataResponse>('POST', '/v1/wallet/sign-typed-data', { typedData });
-    return response.signature;
+    const response = await this.signingGateway<SignTypedDataResponse>(
+      context,
+      '/v1/wallet/sign-typed-data',
+      { typedData }
+    );
+    const signature = signatureField(response.signature);
+    this.requireSameAccount(response.address, account, 'response.address');
+    this.requireSameAccount(
+      await recoverTypedDataAddress({ ...typedData, signature } as Parameters<
+        typeof recoverTypedDataAddress
+      >[0]),
+      account,
+      'signature'
+    );
+    await this.assertSigningContext(context);
+    return signature;
   }
 
-  private async personalSign(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
+  private async personalSign(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
     const [first, second] = params;
-    if (typeof first !== 'string') throw new InvalidParamsError('message', 'personal_sign requires a message');
+    if (typeof first !== 'string')
+      throw new InvalidParamsError('message', 'personal_sign requires a message');
     this.requireSameAccount(second, account, 'address');
     const message = decodeMessage(first);
-    const response = await this.gateway<SignMessageResponse>('POST', '/v1/wallet/sign-message', { message });
-    return response.signature;
+    const response = await this.signingGateway<SignMessageResponse>(
+      context,
+      '/v1/wallet/sign-message',
+      {
+        message,
+      }
+    );
+    const signature = signatureField(response.signature);
+    this.requireSameAccount(response.address, account, 'response.address');
+    this.requireSameAccount(
+      await recoverMessageAddress({ message, signature }),
+      account,
+      'signature'
+    );
+    await this.assertSigningContext(context);
+    return signature;
   }
 
-  private async sponsoredGateway(params:readonly unknown[],readOnly:boolean):Promise<unknown> {
-    const account=this.requireAccount();const generation=this.capsGeneration;const chain=this.chainId;const token=await this.token();
-    if(!token)throw new UnauthorizedError('no_token','no signed-in session');
-    if(params.length!==1||!isRecord(params[0]))throw new InvalidParamsError('sponsored','complete sponsored construction required');
-    let body:Record<string,unknown>;try{body=freezeRequest(structuredClone(params[0]));}catch{throw new InvalidParamsError('sponsored','immutable construction required');}
-    this.requireSameAccount(body.account,account,'account');
-    if(readOnly){exactKeys(body,['account','sponsor','quoteNonce','relayerSignature'],'status');addressField(body.sponsor,'sponsor');uintField(body.quoteNonce as UintInput,'quoteNonce');signatureField(body.relayerSignature);}
-    else {
-      exactKeys(body,['chain_id','account','to','data','value','construction','account_signature','relayer_signature','authorization','quote_decimals'],'sponsored');
-      if(!isRecord(body.construction)||body.construction.kind!=='sponsored_batch'||!isRecord(body.authorization)||body.quote_decimals!==6)throw new InvalidParamsError('sponsored','complete batch and authorization required');
-      this.wireConstruction(body.construction,account);this.requireChain(String(body.chain_id));this.requireSameAccount(body.to,account,'to');
-      signatureField(body.account_signature);signatureField(body.relayer_signature);bytesField(body.data,'data');
-      if(uintField(body.value as UintInput,'value')!==0n)throw new InvalidParamsError('value','sponsored adapter value must be zero');
-      this.requireChain(String(body.authorization.chainId));addressField(body.authorization.address,'authorization.address');
+  private async paxeer_sponsoredStatus(
+    params: readonly unknown[]
+  ): Promise<Record<string, unknown> & { rung: SequencerReceiptAnswer['rung'] | null }> {
+    const answer = await this.sponsoredGateway(params, true);
+    if (!isRecord(answer) || (answer.tx_hash !== null && typeof answer.tx_hash !== 'string')) {
+      throw new InvalidParamsError('tx_hash', 'gateway returned an invalid sponsored status');
     }
-    if(generation!==this.capsGeneration||token!==await this.token()||account!==this.accounts[0]||chain!==this.chainId)throw new UnauthorizedError('session_changed','the wallet session changed');
-    const answer=await this.gateway<unknown>('POST',readOnly?'/v1/wallet/sponsored/status':'/v1/wallet/sponsored/submit',body);
-    if(generation!==this.capsGeneration||token!==await this.token()||account!==this.accounts[0]||chain!==this.chainId)throw new UnauthorizedError('session_changed','the wallet session changed');
+    const receipt =
+      answer.tx_hash === null
+        ? null
+        : await readSequencerReceipt(this.proxy.bind(this), answer.tx_hash);
+    return { ...answer, rung: receipt === null ? null : receipt.rung };
+  }
+
+  private async sponsoredGateway(
+    params: readonly unknown[],
+    readOnly: boolean,
+    captured?: SigningContext
+  ): Promise<unknown> {
+    const context = captured ?? (await this.captureSigningContext());
+    const { account } = context;
+    if (params.length !== 1 || !isRecord(params[0]))
+      throw new InvalidParamsError('sponsored', 'complete sponsored construction required');
+    let body: Record<string, unknown>;
+    try {
+      body = freezeRequest(structuredClone(params[0]));
+    } catch {
+      throw new InvalidParamsError('sponsored', 'immutable construction required');
+    }
+    this.requireSameAccount(body.account, account, 'account');
+    if (readOnly) {
+      exactKeys(body, ['account', 'sponsor', 'quoteNonce', 'relayerSignature'], 'status');
+      addressField(body.sponsor, 'sponsor');
+      uintField(body.quoteNonce as UintInput, 'quoteNonce');
+      signatureField(body.relayerSignature);
+    } else {
+      exactKeys(
+        body,
+        [
+          'chain_id',
+          'account',
+          'to',
+          'data',
+          'value',
+          'construction',
+          'account_signature',
+          'relayer_signature',
+          'authorization',
+          'quote_decimals',
+        ],
+        'sponsored'
+      );
+      if (
+        !isRecord(body.construction) ||
+        body.construction.kind !== 'sponsored_batch' ||
+        !isRecord(body.authorization) ||
+        body.quote_decimals !== 6
+      )
+        throw new InvalidParamsError('sponsored', 'complete batch and authorization required');
+      this.wireConstruction(body.construction, account);
+      this.requireChain(String(body.chain_id));
+      this.requireSameAccount(body.to, account, 'to');
+      signatureField(body.account_signature);
+      signatureField(body.relayer_signature);
+      bytesField(body.data, 'data');
+      if (uintField(body.value as UintInput, 'value') !== 0n)
+        throw new InvalidParamsError('value', 'sponsored adapter value must be zero');
+      this.requireChain(String(body.authorization.chainId));
+      addressField(body.authorization.address, 'authorization.address');
+    }
+    await this.assertSigningContext(context);
+    const answer = await this.signingGateway<unknown>(
+      context,
+      readOnly ? '/v1/wallet/sponsored/status' : '/v1/wallet/sponsored/submit',
+      body
+    );
+    await this.assertSigningContext(context);
     return answer;
   }
 
-  private async ethSign(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount();
-    const generation=this.capsGeneration;const chain=this.chainId;const sessionToken=await this.token();
-    if(!sessionToken)throw new UnauthorizedError("no_token","no signed-in session");
-    if (params.length !== 3) throw new InvalidParamsError('params', 'eth_sign requires account, digest and complete construction');
+  private async ethSign(params: readonly unknown[], context: SigningContext): Promise<Hex> {
+    const { account } = context;
+    if (params.length !== 3)
+      throw new InvalidParamsError(
+        'params',
+        'eth_sign requires account, digest and complete construction'
+      );
     const [address, digest, construction] = params;
     this.requireSameAccount(address, account, 'address');
     if (typeof digest !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(digest)) {
@@ -382,155 +561,61 @@ export class PaxeerProvider implements Eip1193Provider {
     if (!isRecord(construction)) {
       throw new UnauthorizedError(
         'missing_construction',
-        'eth_sign is accepted only with a sponsored batch or EIP-7702 authorisation construction',
+        'eth_sign is accepted only with a sponsored batch or EIP-7702 authorisation construction'
       );
     }
     const wire = this.wireConstruction(construction, account);
-    if (wire.kind === 'sponsored_batch' && BigInt(wire.quote.deadline) <= BigInt(Math.floor(Date.now() / 1000))) throw new InvalidParamsError('deadline', 'sponsored consent has expired');
+    if (
+      wire.kind === 'sponsored_batch' &&
+      BigInt(wire.quote.deadline) <= BigInt(Math.floor(Date.now() / 1000))
+    )
+      throw new InvalidParamsError('deadline', 'sponsored consent has expired');
     const recomputed = constructionDigest(wire);
     if (recomputed.toLowerCase() !== digest.toLowerCase()) {
-      throw new UnauthorizedError('digest_mismatch', 'the supplied digest does not match its construction');
+      throw new UnauthorizedError(
+        'digest_mismatch',
+        'the supplied digest does not match its construction'
+      );
     }
-    if(generation!==this.capsGeneration||sessionToken!==await this.token()||account!==this.accounts[0]||chain!==this.chainId)throw new UnauthorizedError('session_changed','the wallet session changed');
-    const response = await this.gateway<SignDigestResponse>('POST', '/v1/wallet/sign-digest', { construction: wire });
-    if(generation!==this.capsGeneration||sessionToken!==await this.token()||account!==this.accounts[0]||chain!==this.chainId)throw new UnauthorizedError('session_changed','the wallet session changed');
-    if(wire.kind==='sponsored_batch'&&BigInt(wire.quote.deadline)<=BigInt(Math.floor(Date.now()/1000)))throw new InvalidParamsError('deadline','sponsored consent has expired');
+    await this.assertSigningContext(context);
+    const response = await this.signingGateway<SignDigestResponse>(
+      context,
+      '/v1/wallet/sign-digest',
+      {
+        construction: wire,
+      }
+    );
+    await this.assertSigningContext(context);
+    if (
+      wire.kind === 'sponsored_batch' &&
+      BigInt(wire.quote.deadline) <= BigInt(Math.floor(Date.now() / 1000))
+    )
+      throw new InvalidParamsError('deadline', 'sponsored consent has expired');
     this.requireSameAccount(response.address, account, 'response.address');
     const signature = signatureField(response.signature);
-    this.requireSameAccount(await recoverAddress({ hash: recomputed, signature }), account, 'signature');
+    this.requireSameAccount(
+      await recoverAddress({ hash: recomputed, signature }),
+      account,
+      'signature'
+    );
+    await this.assertSigningContext(context);
     return signature;
   }
 
-  private wireConstruction(construction: Record<string, unknown>, account: Hex): WireDigestConstruction {
+  private wireConstruction(
+    construction: Record<string, unknown>,
+    account: Hex
+  ): WireDigestConstruction {
     if (construction.kind !== 'sponsored_batch' && construction.kind !== 'eip7702_authorization') {
       throw new UnauthorizedError(
         'unknown_construction',
-        'eth_sign construction must be sponsored_batch or eip7702_authorization',
+        'eth_sign construction must be sponsored_batch or eip7702_authorization'
       );
     }
     const wire = toWireConstruction(construction as unknown as DigestConstruction);
     if (wire.kind === 'sponsored_batch') this.requireSameAccount(wire.account, account, 'account');
     this.requireChain(wire.chainId);
     return wire;
-  }
-
-  private async prepareCustody(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount(); const call = params[0];
-    if (params.length !== 1 || !isRecord(call)) throw new InvalidParamsError('custody', 'a custody call is required');
-    exactKeys(call, ['account', 'chainId', 'to', 'value', 'data'], 'custody');
-    if (call.account !== undefined) this.requireSameAccount(call.account, account, 'account');
-    const chainId = call.chainId === undefined ? BigInt(this.chainId) : uintField(call.chainId as UintInput, 'chainId');
-    this.requireChain(chainId.toString());
-    const to = addressField(call.to, 'to'); const value = uintField(call.value as UintInput, 'value');
-    const data = bytesField(call.data, 'data');
-    if (to.toLowerCase() !== CUSTODY_TARGET) throw new InvalidParamsError('to', 'custody target required');
-    validateCustodyCall(value, data);
-    const network = await this.proxy('eth_chainId', []);
-    if (typeof network !== 'string' || !QUANTITY.test(network)) throw new InvalidParamsError('chainId', 'RPC returned an invalid chain');
-    if (BigInt(network) !== chainId) throw new ChainDisconnectedError(Number(chainId), Number(BigInt(network)));
-    const [nonceRaw, gasRaw, priorityRaw, head] = await Promise.all([
-      this.proxy('eth_getTransactionCount', [account, 'latest']),
-      this.proxy('eth_estimateGas', [{ from: account, to, value: toQuantity(value), data }]),
-      this.proxy('eth_maxPriorityFeePerGas', []), this.proxy('eth_getBlockByNumber', ['latest', false]),
-    ]);
-    const quantity = (v: unknown, field: string): bigint => {
-      if (typeof v !== 'string' || !QUANTITY.test(v)) throw new InvalidParamsError(field, 'RPC returned an invalid quantity');
-      return uintField(v, field);
-    };
-    if (!isRecord(head)) throw new InvalidParamsError('block', 'RPC returned no fee block');
-    const maxPriorityFeePerGas = quantity(priorityRaw, 'maxPriorityFeePerGas');
-    const maxFeePerGas = quantity(head.baseFeePerGas, 'baseFeePerGas') * 2n + maxPriorityFeePerGas;
-    return encodeCustodyAuthorization({ account, chainId, to, value, data, nonce: quantity(nonceRaw, 'nonce'),
-      gas: quantity(gasRaw, 'gas'), maxFeePerGas, maxPriorityFeePerGas, deadline: BigInt(Math.floor(Date.now() / 1000) + 600) });
-  }
-
-  private async custodyStatus(params: readonly unknown[]): Promise<CustodySubmissionStatus> {
-    const input = params[0]; const account = this.requireAccount();
-    if (params.length !== 1 || !isRecord(input)) throw new InvalidParamsError('custody', 'custody bytes required');
-    exactKeys(input, ['custody'], 'custody');
-    const bytes = bytesField(input.custody, 'custody'); const authorization = decodeCustodyAuthorization(bytes);
-    this.requireSameAccount(authorization.account, account, 'account'); this.requireChain(authorization.chainId.toString());
-    const id = keccak256(bytes);
-    const response = await this.gateway<unknown>('GET', `/v1/wallet/custody/${id}`);
-    return decodeCustodyStatus(response, id);
-  }
-
-  private async restoreCustody(params: readonly unknown[]): Promise<null> {
-    const account = this.requireAccount(); const input = params[0];
-    if (params.length !== 1 || !isRecord(input)) throw new InvalidParamsError('custody', 'retained custody proof is required');
-    exactKeys(input, ['custody', 'signature'], 'custody');
-    const bytes = bytesField(input.custody, 'custody'); const authorization = decodeCustodyAuthorization(bytes);
-    this.requireSameAccount(authorization.account, account, 'account'); this.requireChain(authorization.chainId.toString());
-    const signature = signatureField(input.signature);
-    this.requireSameAccount(await recoverMessageAddress({ message: { raw: bytes }, signature }), account, 'signature');
-    this.custodyApprovals.set(custodyCallKey(account, authorization.chainId, authorization.to, authorization.value, authorization.data), { bytes, signature });
-    return null;
-  }
-
-  private async recoverCustody(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount(); const input = params[0];
-    if (params.length !== 1 || !isRecord(input)) throw new InvalidParamsError('custody', 'exact retained custody bytes are required');
-    exactKeys(input, ['custody'], 'custody');
-    const custody = bytesField(input.custody, 'custody').toLowerCase() as Hex;
-    const authorization = decodeCustodyAuthorization(custody);
-    this.requireSameAccount(authorization.account, account, 'account'); this.requireChain(authorization.chainId.toString());
-    const generation = this.capsGeneration; const chain = this.chainId; const token = await this.token();
-    if (!token) throw new UnauthorizedError('no_token', 'no signed-in session');
-    const session = async (): Promise<void> => {
-      if (generation !== this.capsGeneration || token !== await this.token() || account !== this.accounts[0] || chain !== this.chainId) {
-        throw new UnauthorizedError('session_changed', 'the wallet session changed');
-      }
-    };
-    await session();
-    const id = keccak256(custody);
-    const response = await this.gateway<unknown>('GET', `/v1/wallet/custody-authorization/${id}`);
-    await session();
-    if (!isRecord(response)) throw new InvalidParamsError('custody', 'the gateway returned no custody authorization');
-    exactKeys(response, ['signature', 'address', 'custody_id', 'custody', 'state'], 'custody');
-    if (response.state !== 'signed' || response.custody_id !== id || response.custody !== custody) {
-      throw new InvalidParamsError('custody', 'retained authorization does not match the exact custody bytes');
-    }
-    this.requireSameAccount(response.address, account, 'response.address');
-    const signature = signatureField(response.signature);
-    this.requireSameAccount(await recoverMessageAddress({ message: { raw: custody }, signature }), account, 'signature');
-    await session();
-    this.custodyApprovals.set(custodyCallKey(account, authorization.chainId, authorization.to, authorization.value, authorization.data), { bytes: custody, signature });
-    return signature;
-  }
-
-  private async signCustody(params: readonly unknown[]): Promise<Hex> {
-    const account = this.requireAccount(); const first = params[0];
-    if (params.length !== 1) throw new InvalidParamsError('custody', 'one custody authorization is required');
-    const custody = bytesField(isRecord(first) ? first.custody : first, 'custody').toLowerCase() as Hex;
-    if (isRecord(first)) exactKeys(first, ['custody'], 'custody');
-    const authorization = decodeCustodyAuthorization(custody);
-    this.requireSameAccount(authorization.account, account, 'account'); this.requireChain(authorization.chainId.toString());
-    const generation = this.capsGeneration; const chain = this.chainId; const token = await this.token();
-    const session = async (): Promise<void> => {
-      if (generation !== this.capsGeneration || token !== await this.token() || account !== this.accounts[0] || chain !== this.chainId) {
-        throw new UnauthorizedError('session_changed', 'the wallet session changed');
-      }
-    };
-    try { return await this.recoverCustody([{ custody }]); } catch (error) {
-      if (!(error instanceof ProviderRpcError) || !isRecord(error.data) || error.data.status !== 404 ||
-        !isRecord(error.data.body) || error.data.body.error !== 'custody_authorization_not_found') throw error;
-    }
-    await session();
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    if (authorization.deadline <= now || authorization.deadline > now + 600n) throw new InvalidParamsError('deadline', 'custody consent is expired or exceeds ten minutes');
-    let response: SignCustodyResponse;
-    try { response = await this.gateway<SignCustodyResponse>('POST', '/v1/wallet/sign-custody', { custody }); } catch (error) {
-      if (!(error instanceof DisconnectedError)) throw error;
-      await session();
-      return this.recoverCustody([{ custody }]);
-    }
-    await session();
-    this.requireSameAccount(response.address, account, 'response.address');
-    const signature = signatureField(response.signature);
-    this.requireSameAccount(await recoverMessageAddress({ message: { raw: custody }, signature }), account, 'signature');
-    await session();
-    this.custodyApprovals.set(custodyCallKey(account, authorization.chainId, authorization.to, authorization.value, authorization.data), { bytes: custody, signature });
-    return signature;
   }
 
   private async proxy(method: string, params: RequestArguments['params']): Promise<unknown> {
@@ -540,34 +625,59 @@ export class PaxeerProvider implements Eip1193Provider {
       res = await this.fetchImpl(this.rpcUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: this.rpcId, method, params: params ?? [] }),
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: this.rpcId,
+          method,
+          params: params ?? [],
+        }),
       });
     } catch (error) {
-      throw new DisconnectedError('the RPC base is unreachable', { cause: (error as Error).message });
+      throw new DisconnectedError('the RPC base is unreachable', {
+        cause: (error as Error).message,
+      });
     }
     let payload: unknown;
     try {
-      payload = await res.json();
+      payload =
+        method === 'px_getReceiptKeys'
+          ? parseReceiptKeyResponse(await res.text())
+          : await res.json();
     } catch {
-      throw new RpcResponseError(-32603, `the RPC base returned a non-JSON response: ${res.status}`);
+      throw new RpcResponseError(
+        -32603,
+        `the RPC base returned a non-JSON response: ${res.status}`
+      );
     }
-    if (!isRecord(payload)) throw new RpcResponseError(-32603, 'the RPC base returned a malformed response');
+    if (!isRecord(payload))
+      throw new RpcResponseError(-32603, 'the RPC base returned a malformed response');
     if (isRecord(payload.error)) {
       const code = typeof payload.error.code === 'number' ? payload.error.code : -32603;
-      const message = typeof payload.error.message === 'string' ? payload.error.message : 'RPC error';
+      const message =
+        typeof payload.error.message === 'string' ? payload.error.message : 'RPC error';
       throw new RpcResponseError(code, message, payload.error.data);
     }
     if (!res.ok) throw new RpcResponseError(-32603, `the RPC base failed: ${res.status}`);
-    if (!('result' in payload)) throw new RpcResponseError(-32603, 'the RPC base returned no result');
+    if (!('result' in payload))
+      throw new RpcResponseError(-32603, 'the RPC base returned no result');
     return payload.result;
   }
 
-  private async gateway<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  private async gateway<T>(
+    method: 'GET' | 'POST',
+    path: string,
+    body?: unknown,
+    expectedToken?: string,
+    context?: SigningContext
+  ): Promise<T> {
     const token = await this.token();
     if (!token) {
       this.dropAccounts();
       throw new UnauthorizedError('no_token', 'no signed-in session');
     }
+    if (expectedToken !== undefined && token !== expectedToken)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+    if (context) this.assertSigningContextNow(context);
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let res: Response;
@@ -578,7 +688,16 @@ export class PaxeerProvider implements Eip1193Provider {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     } catch (error) {
-      throw new DisconnectedError('the wallet gateway is unreachable', { cause: (error as Error).message });
+      if (error instanceof ProviderRpcError) throw error;
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error.code === 'SESSION_CHANGED' || error.code === 'NO_SESSION' || error.code === 4100)
+      )
+        throw new UnauthorizedError('session_changed', error.message);
+      throw new DisconnectedError('the wallet gateway is unreachable', {
+        cause: (error as Error).message,
+      });
     }
     let payload: unknown;
     try {
@@ -593,8 +712,49 @@ export class PaxeerProvider implements Eip1193Provider {
     return payload as T;
   }
 
+  private async captureSigningContext(): Promise<SigningContext> {
+    const account = this.requireAccount();
+    const generation = this.capsGeneration;
+    const chain = this.chainId;
+    const token = await this.token();
+    if (!token || token !== this.accountToken)
+      throw new UnauthorizedError('session_changed', 'reconnect the authenticated wallet session');
+    const context = Object.freeze({ account, generation, chain, token });
+    this.assertSigningContextNow(context);
+    return context;
+  }
+
+  private assertSigningContextNow(context: SigningContext): void {
+    if (
+      context.generation !== this.capsGeneration ||
+      context.account !== this.accounts[0] ||
+      context.chain !== this.chainId ||
+      context.token !== this.accountToken
+    )
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+  }
+
+  private async assertSigningContext(context: SigningContext): Promise<void> {
+    const token = await this.token();
+    this.assertSigningContextNow(context);
+    if (token !== context.token)
+      throw new UnauthorizedError('session_changed', 'the wallet session changed');
+  }
+
+  private async signingGateway<T>(
+    context: SigningContext,
+    path: string,
+    body: unknown
+  ): Promise<T> {
+    await this.assertSigningContext(context);
+    const response = await this.gateway<T>('POST', path, body, context.token, context);
+    await this.assertSigningContext(context);
+    return response;
+  }
+
   private dropAccounts(): void {
-    this.custodyApprovals.clear();
+    this.invalidateCapsSession();
+    this.accountToken = null;
     if (this.accounts.length === 0) return;
     this.accounts = [];
     this.emit('accountsChanged', []);
@@ -652,8 +812,8 @@ export function sponsoredBatchDigest(batch: WireSponsoredBatch): Hex {
           BigInt(batch.quote.deadline),
           BigInt(batch.quote.quoteNonce),
           BigInt(batch.quote.gasCost),
-        ],
-      ),
+        ]
+      )
     ),
   });
   const callsHash = keccak256(
@@ -668,15 +828,21 @@ export function sponsoredBatchDigest(batch: WireSponsoredBatch): Hex {
           ],
         },
       ],
-      [batch.calls.map((call) => ({ to: call.to, value: BigInt(call.value), data: call.data }))],
-    ),
+      [
+        batch.calls.map((call) => ({
+          to: call.to,
+          value: BigInt(call.value),
+          data: call.data,
+        })),
+      ]
+    )
   );
   return hashMessage({
     raw: keccak256(
       encodeAbiParameters(
         [{ type: 'bytes32' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'bytes32' }],
-        [BATCH_TYPEHASH, BigInt(batch.nonce), callsHash, quoteDigest],
-      ),
+        [BATCH_TYPEHASH, BigInt(batch.nonce), callsHash, quoteDigest]
+      )
     ),
   });
 }
@@ -690,7 +856,7 @@ export function eip7702AuthorizationDigest(authorization: WireEip7702Authorizati
         authorization.address.toLowerCase() as Hex,
         rlpInteger(BigInt(authorization.nonce)),
       ]),
-    ]),
+    ])
   );
 }
 
@@ -701,21 +867,30 @@ export function constructionDigest(construction: WireDigestConstruction): Hex {
 }
 
 export function wireSponsoredBatch(construction: SponsoredBatchConstruction): WireSponsoredBatch {
-  exactKeys(construction as unknown as Record<string, unknown>, ['kind','chainId','account','nonce','calls','quote'], 'construction');
+  exactKeys(
+    construction as unknown as Record<string, unknown>,
+    ['kind', 'chainId', 'account', 'nonce', 'calls', 'quote'],
+    'construction'
+  );
   if (!Array.isArray(construction.calls) || construction.calls.length === 0) {
     throw new InvalidParamsError('calls', 'a sponsored batch requires at least one call');
   }
   const quote = construction.quote;
   if (!isRecord(quote)) throw new InvalidParamsError('quote', 'a sponsored batch requires a quote');
-  exactKeys(quote, ['sponsor','token','maxTokenAmount','tokenAmount','deadline','quoteNonce','gasCost'], 'quote');
+  exactKeys(
+    quote,
+    ['sponsor', 'token', 'maxTokenAmount', 'tokenAmount', 'deadline', 'quoteNonce', 'gasCost'],
+    'quote'
+  );
   return {
     kind: 'sponsored_batch',
     chainId: uintField(construction.chainId, 'chainId').toString(),
     account: addressField(construction.account, 'account'),
     nonce: uintField(construction.nonce, 'nonce').toString(),
     calls: construction.calls.map((call, index) => {
-      if (!isRecord(call)) throw new InvalidParamsError(`calls.${index}`, 'each call must be an object');
-      exactKeys(call, ['to','value','data'], `calls.${index}`);
+      if (!isRecord(call))
+        throw new InvalidParamsError(`calls.${index}`, 'each call must be an object');
+      exactKeys(call, ['to', 'value', 'data'], `calls.${index}`);
       return {
         to: addressField(call.to, `calls.${index}.to`),
         value: uintField(call.value as UintInput, `calls.${index}.value`).toString(),
@@ -736,10 +911,16 @@ export function wireSponsoredBatch(construction: SponsoredBatchConstruction): Wi
 
 export function toWireConstruction(construction: DigestConstruction): WireDigestConstruction {
   if (construction.kind === 'sponsored_batch') return wireSponsoredBatch(construction);
-  if (construction.kind !== 'eip7702_authorization') throw new InvalidParamsError('kind', 'unknown digest construction');
-  exactKeys(construction as unknown as Record<string, unknown>, ['kind','chainId','address','nonce'], 'construction');
+  if (construction.kind !== 'eip7702_authorization')
+    throw new InvalidParamsError('kind', 'unknown digest construction');
+  exactKeys(
+    construction as unknown as Record<string, unknown>,
+    ['kind', 'chainId', 'address', 'nonce'],
+    'construction'
+  );
   const nonce = uintField(construction.nonce, 'nonce');
-  if (nonce >= UINT64_MAX) throw new InvalidParamsError('nonce', 'authorisation nonce exceeds 2^64 - 2');
+  if (nonce >= UINT64_MAX)
+    throw new InvalidParamsError('nonce', 'authorisation nonce exceeds 2^64 - 2');
   return {
     kind: 'eip7702_authorization',
     chainId: uintField(construction.chainId, 'chainId').toString(),
@@ -804,94 +985,52 @@ function uintField(value: UintInput | undefined, field: string): bigint {
   let parsed: bigint;
   if (typeof value === 'bigint') parsed = value;
   else if (typeof value === 'number' && Number.isSafeInteger(value)) parsed = BigInt(value);
-  else if (typeof value === 'string' && (QUANTITY.test(value) || /^(0|[1-9][0-9]*)$/.test(value))) parsed = BigInt(value);
+  else if (typeof value === 'string' && (QUANTITY.test(value) || /^(0|[1-9][0-9]*)$/.test(value)))
+    parsed = BigInt(value);
   else throw new InvalidParamsError(field, `${field} must be an unsigned integer`);
-  if (parsed < 0n || parsed > UINT256_MAX) throw new InvalidParamsError(field, `${field} is out of range`);
+  if (parsed < 0n || parsed > UINT256_MAX)
+    throw new InvalidParamsError(field, `${field} is out of range`);
   return parsed;
 }
 
 function safeInteger(value: bigint, field: string): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new InvalidParamsError(field, `${field} is out of range`);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new InvalidParamsError(field, `${field} is out of range`);
   return Number(value);
 }
 
 function decodeMessage(message: string): string {
-  if (!BYTES.test(message) || message.length <= 2) return message;
+  if (!message.startsWith('0x')) return message;
+  if (!BYTES.test(message))
+    throw new InvalidParamsError('message', 'personal_sign requires complete even-length hex');
   const bytes = new Uint8Array((message.length - 2) / 2);
-  for (let i = 0; i < bytes.length; i += 1) bytes[i] = Number.parseInt(message.slice(2 + i * 2, 4 + i * 2), 16);
+  for (let i = 0; i < bytes.length; i += 1)
+    bytes[i] = Number.parseInt(message.slice(2 + i * 2, 4 + i * 2), 16);
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new InvalidParamsError('message', 'personal_sign bytes must be UTF-8 text');
   }
 }
 
-export const CUSTODY_TARGET = '0x0000000000000000000000000000000000001013' as const;
-const CUSTODY_DOMAIN = toHex('LX:CUSTODY:v2');
-const CUSTODY_FIELDS = [
-  { type: 'address' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'bytes' },
-  { type: 'uint64' }, { type: 'uint64' }, { type: 'uint64' }, { type: 'uint256' }, { type: 'uint256' },
-] as const;
-const CUSTODY_ABI = parseAbi(['function deposit(bytes32 beneficiary) payable returns (bytes32 depositId)',
-  'function depositToken(address pointer,uint256 amount,bytes32 beneficiary) returns (bytes32 depositId)']);
-export interface CustodyAuthorization {
-  readonly account: Hex; readonly chainId: bigint; readonly to: Hex; readonly value: bigint; readonly data: Hex;
-  readonly nonce: bigint; readonly deadline: bigint; readonly gas: bigint;
-  readonly maxFeePerGas: bigint; readonly maxPriorityFeePerGas: bigint;
-}
-export function encodeCustodyAuthorization(input: CustodyAuthorization): Hex {
-  const account = addressField(input.account, 'account'); const to = addressField(input.to, 'to');
-  if (to.toLowerCase() !== CUSTODY_TARGET || /^0x0{40}$/i.test(account)) throw new InvalidParamsError('custody', 'invalid custody account or target');
-  for (const field of ['chainId','value','nonce','deadline','gas','maxFeePerGas','maxPriorityFeePerGas'] as const) uintField(input[field], field);
-  if (input.chainId === 0n || input.gas === 0n || input.maxFeePerGas === 0n || input.maxPriorityFeePerGas > input.maxFeePerGas ||
-    input.nonce >= UINT64_MAX || input.deadline > UINT64_MAX || input.gas > UINT64_MAX) throw new InvalidParamsError('custody', 'invalid custody bounds');
-  validateCustodyCall(input.value, input.data);
-  return concat([CUSTODY_DOMAIN, encodeAbiParameters(CUSTODY_FIELDS, [account,input.chainId,to,input.value,input.data,
-    input.nonce,input.deadline,input.gas,input.maxFeePerGas,input.maxPriorityFeePerGas])]);
-}
-export function decodeCustodyAuthorization(bytes: Hex): CustodyAuthorization {
-  if (typeof bytes !== 'string' || !BYTES.test(bytes) || !bytes.toLowerCase().startsWith(CUSTODY_DOMAIN) || bytes.length > 4096) throw new InvalidParamsError('custody', 'canonical v2 custody bytes are required');
-  try {
-    const [account,chainId,to,value,data,nonce,deadline,gas,maxFeePerGas,maxPriorityFeePerGas] = decodeAbiParameters(CUSTODY_FIELDS, `0x${bytes.slice(CUSTODY_DOMAIN.length)}`);
-    const out = { account,chainId,to,value,data,nonce,deadline,gas,maxFeePerGas,maxPriorityFeePerGas };
-    if (encodeCustodyAuthorization(out).toLowerCase() !== bytes.toLowerCase()) throw new Error('noncanonical');
-    return Object.freeze(out);
-  } catch { throw new InvalidParamsError('custody', 'malformed or noncanonical custody authorization'); }
-}
-function validateCustodyCall(value: bigint, data: Hex): void {
-  try {
-    const call = decodeFunctionData({ abi: CUSTODY_ABI, data });
-    if (encodeFunctionData({ abi: CUSTODY_ABI, functionName: call.functionName, args: call.args }).toLowerCase() !== data.toLowerCase()) throw new Error('noncanonical');
-    const beneficiary = call.functionName === 'deposit' ? call.args[0] : call.args[2];
-    if (/^0x0{64}$/i.test(beneficiary) || (call.functionName === 'deposit' ? value <= 0n : value !== 0n || call.args[1] <= 0n || /^0x0{40}$/i.test(call.args[0]))) throw new Error('invalid deposit');
-  } catch { throw new InvalidParamsError('data', 'only canonical positive custody deposits are accepted'); }
-}
-function custodyCallKey(account: Hex, chain: bigint, to: Hex, value: bigint, data: Hex): string {
-  return keccak256(encodeAbiParameters([{type:'address'},{type:'uint256'},{type:'address'},{type:'uint256'},{type:'bytes'}], [account,chain,to,value,data]));
-}
 function signatureField(value: unknown): Hex {
-  if (typeof value !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(value)) throw new InvalidParamsError('signature', 'invalid signature');
+  if (typeof value !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(value))
+    throw new InvalidParamsError('signature', 'invalid signature');
   return value.toLowerCase() as Hex;
 }
-function exactKeys(value: Record<string, unknown>, allowed: readonly string[], field: string): void {
-  if (Object.keys(value).some(key => !allowed.includes(key))) throw new InvalidParamsError(field, 'unexpected fields are not accepted');
-}
-
-export interface CustodySubmissionStatus {
-  readonly custody_id: Hex; readonly tx_hash: Hex | null;
-  readonly status: 'pending' | 'confirmed' | 'reverted'; readonly receipt: Readonly<Record<string, unknown>> | null;
-}
-export function decodeCustodyStatus(input: unknown, expected: Hex): CustodySubmissionStatus {
-  if (!isRecord(input) || input.custody_id !== expected || (input.status !== 'pending' && input.status !== 'confirmed' && input.status !== 'reverted') ||
-    (input.tx_hash !== null && (typeof input.tx_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(input.tx_hash)))) throw new InvalidParamsError('status', 'invalid custody status');
-  const receipt = input.receipt;
-  if (receipt !== null && (input.tx_hash === null || !isRecord(receipt) || (receipt.status !== '0x0' && receipt.status !== '0x1') || receipt.transactionHash !== input.tx_hash || typeof receipt.blockHash !== 'string' ||
-    !/^0x[0-9a-fA-F]{64}$/.test(receipt.blockHash) || /^0x0{64}$/.test(receipt.blockHash) || typeof receipt.blockNumber !== 'string' || !QUANTITY.test(receipt.blockNumber))) throw new InvalidParamsError('receipt', 'invalid custody receipt evidence');
-  if (input.status !== 'pending' && (!isRecord(receipt) || receipt.status !== (input.status === 'confirmed' ? '0x1' : '0x0'))) throw new InvalidParamsError('receipt', 'completion requires matching receipt evidence');
-  return Object.freeze(input as unknown as CustodySubmissionStatus);
+function exactKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  field: string
+): void {
+  if (Object.keys(value).some((key) => !allowed.includes(key)))
+    throw new InvalidParamsError(field, 'unexpected fields are not accepted');
 }
 
 function freezeRequest<T>(value: T): T {
-  if (typeof value === 'object' && value !== null) { for (const child of Object.values(value)) freezeRequest(child); Object.freeze(value); }
+  if (typeof value === 'object' && value !== null) {
+    for (const child of Object.values(value)) freezeRequest(child);
+    Object.freeze(value);
+  }
   return value;
 }

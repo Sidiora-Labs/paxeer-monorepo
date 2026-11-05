@@ -9,7 +9,6 @@ import (
 
 	epochTypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
 )
@@ -440,18 +439,48 @@ func TestGetLastMintAmountCoin(t *testing.T) {
 	require.Equal(t, sdk.DefaultBondDenom, coin.Denom)
 }
 
+func TestReleaseAmountAboveInt64IsNotNegative(t *testing.T) {
+	for _, amount := range []uint64{uint64(math.MaxInt64) + 1, math.MaxUint64} {
+		for _, currentTime := range []time.Time{
+			time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC),
+			time.Date(2023, 4, 2, 0, 0, 0, 0, time.UTC),
+			time.Date(2023, 4, 3, 0, 0, 0, 0, time.UTC),
+		} {
+			m := types.NewMinter("2023-04-01", "2023-04-02", sdk.DefaultBondDenom, amount)
+			coins := m.GetReleaseAmountToday(currentTime)
+
+			require.Len(t, coins, 1)
+			require.Equal(t, sdk.DefaultBondDenom, coins[0].Denom)
+			require.True(t, coins[0].Amount.IsPositive())
+			require.Equal(t, amount, coins[0].Amount.Uint64())
+		}
+	}
+}
+
+func TestLastMintAmountCoinAboveInt64(t *testing.T) {
+	for _, amount := range []uint64{uint64(math.MaxInt64) + 1, math.MaxUint64} {
+		m := types.InitialMinter()
+		m.LastMintAmount = amount
+		coin := m.GetLastMintAmountCoin()
+
+		require.Equal(t, sdk.DefaultBondDenom, coin.Denom)
+		require.True(t, coin.Amount.IsPositive())
+		require.Equal(t, amount, coin.Amount.Uint64())
+	}
+}
+
 func TestRecordSuccessfulMint(t *testing.T) {
+	currentTime := time.Date(2023, 4, 1, 12, 0, 0, 0, time.UTC)
 	minter := types.NewMinter(
-		time.Now().Format(types.TokenReleaseDateFormat),
-		time.Now().Add(time.Hour*24*10).Format(types.TokenReleaseDateFormat),
+		currentTime.Format(types.TokenReleaseDateFormat),
+		currentTime.AddDate(0, 0, 10).Format(types.TokenReleaseDateFormat),
 		sdk.DefaultBondDenom,
 		1000,
 	)
-	app := app.Setup(t, false, false, false)
-	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
-	currentTime := time.Now().UTC()
+	ctx := sdk.NewContext(nil, tmproto.Header{}, false)
 
 	epoch := epochTypes.Epoch{
+		CurrentEpoch:          7,
 		CurrentEpochStartTime: currentTime,
 		CurrentEpochHeight:    100,
 	}
@@ -462,6 +491,18 @@ func TestRecordSuccessfulMint(t *testing.T) {
 	if minter.GetRemainingMintAmount() != 900 {
 		t.Errorf("Remaining mint amount was incorrect, got: %d, want: %d.", minter.GetRemainingMintAmount(), 900)
 	}
+	require.Equal(t, uint64(1000), minter.GetTotalMintAmount())
+	require.Equal(t, uint64(100), minter.GetLastMintAmount())
+	require.Equal(t, uint64(100), minter.GetLastMintHeight())
+	require.Equal(t, "2023-04-01", minter.GetLastMintDate())
+	require.Equal(t, sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeMint,
+			sdk.NewAttribute(types.AttributeMintEpoch, "7"),
+			sdk.NewAttribute(types.AttribtueMintDate, "2023-04-01"),
+			sdk.NewAttribute(sdk.AttributeKeyAmount, "100"),
+		),
+	}, ctx.EventManager().Events())
 }
 
 func TestValidateMinter(t *testing.T) {

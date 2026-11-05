@@ -110,13 +110,6 @@ typedef struct lxp_fee_transition {
 } lxp_fee_transition;
 #define lxp_fee_transition lxp_fee_transition
 
-enum { LXP_QUEUE_DISPOSITION_MAGIC = 0x4c584144,
-       LXP_QUEUE_DISPOSITION_VERSION = 1,
-       LXP_QUEUE_DISPOSITION_HEADER_BYTES = 64,
-       LXP_QUEUE_DISPOSITION_BODY_BYTES = 48,
-       LXP_QUEUE_DISPOSITION_BYTES = LXP_QUEUE_DISPOSITION_HEADER_BYTES +
-                                     LXP_QUEUE_DISPOSITION_BODY_BYTES };
-
 typedef struct lxp_queue_disposition {
     uint64_t admission_order;
     uint64_t ordering_sequence;
@@ -131,11 +124,6 @@ bool lxp_fee_two_class_active(uint32_t parameter_version);
 bool lxp_fee_ordering_refusal(lxp_result refusal);
 lxp_result lxp_fee_transition_lookup(uint32_t parameter_version,
     lxp_fee_stage stage, lxp_result result, lxp_fee_transition *transition);
-lxp_result lxp_queue_disposition_encode(const lxp_queue_disposition *disposition,
-    uint8_t bytes[LXP_QUEUE_DISPOSITION_BYTES]);
-lxp_result lxp_queue_disposition_decode(const uint8_t *bytes, size_t length,
-    lxp_queue_disposition *disposition);
-bool lxp_queue_disposition_header(const uint8_t *bytes, size_t length);
 const char *lxp_asset_fee_name(size_t index);
 const char *lxp_asset_fee_name_for_version(uint16_t version, size_t index);
 const char *lxp_module_fee_name(size_t index);

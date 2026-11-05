@@ -9,6 +9,7 @@ import (
 	keeperv610 "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/launchpad"
 	launchpadv610 "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/launchpad/legacy/v610"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
@@ -18,7 +19,7 @@ import (
 )
 
 type versionedLaunchpadKeepers struct {
-	utils.Keepers
+	*app.PrecompileKeepers
 	current *launchpadkeeper.Keeper
 	legacy  *keeperv610.Keeper
 }
@@ -26,15 +27,17 @@ type versionedLaunchpadKeepers struct {
 func (k versionedLaunchpadKeepers) LaunchpadK() *launchpadkeeper.Keeper { return k.current }
 func (k versionedLaunchpadKeepers) LaunchpadV610K() *keeperv610.Keeper  { return k.legacy }
 
+func newVersionedLaunchpadKeepers(base utils.Keepers, current *launchpadkeeper.Keeper, legacy *keeperv610.Keeper) versionedLaunchpadKeepers {
+	return versionedLaunchpadKeepers{PrecompileKeepers: base.(*app.PrecompileKeepers), current: current, legacy: legacy}
+}
+
 func TestVersionedLaunchpad(t *testing.T) {
 	app := testkeeper.EVMTestApp
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	tokenFactory := tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper)
-	keepers := versionedLaunchpadKeepers{
-		Keepers: app.GetPrecompileKeepers(),
-		current: launchpadkeeper.NewKeeper(key, app.BankKeeper, tokenFactory, &app.EvmKeeper),
-		legacy:  keeperv610.NewKeeper(key, app.BankKeeper, tokenFactory, &app.EvmKeeper),
-	}
+	keepers := newVersionedLaunchpadKeepers(app.GetPrecompileKeepers(),
+		launchpadkeeper.NewKeeper(key, app.BankKeeper, tokenFactory, &app.EvmKeeper),
+		keeperv610.NewKeeper(key, app.BankKeeper, tokenFactory, &app.EvmKeeper))
 	current, err := launchpad.NewPrecompile(keepers)
 	require.NoError(t, err)
 	legacy, err := launchpadv610.NewPrecompile(keepers)
@@ -60,6 +63,11 @@ func TestVersionedLaunchpad(t *testing.T) {
 	t.Run("versions", func(t *testing.T) {
 		data, err := os.ReadFile("versions")
 		require.NoError(t, err)
-		require.Equal(t, []string{"v6.5", "v6.12.0"}, strings.Fields(string(data)))
+		versions := strings.Fields(string(data))
+		require.Equal(t, []string{"v6.10", "v6.12.0"}, versions)
+		versioned := launchpad.GetVersioned("v6.12.0", keepers)
+		for _, version := range versions {
+			require.Contains(t, versioned, version)
+		}
 	})
 }

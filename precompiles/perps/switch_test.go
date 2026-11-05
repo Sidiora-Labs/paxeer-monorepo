@@ -26,6 +26,8 @@ import (
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	exchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	perpstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
+	spottypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxexchange"
@@ -258,10 +260,22 @@ func methodSigs(a abi.ABI) []string {
 	return sigs
 }
 
+func seedLegacyVersionSwitch(t *testing.T, a *app.App, ctx sdk.Context) {
+	t.Helper()
+	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, app.V6120Upgrade))
+	store := ctx.KVStore(a.GetKey(upgradetypes.StoreKey))
+	for _, name := range []string{pricefeedtypes.ModuleName, perpstypes.ModuleName, spottypes.ModuleName} {
+		store.Delete(append([]byte{upgradetypes.VersionMapByte}, name...))
+		require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), name)
+	}
+	a.RefreshPrecompiles(ctx)
+}
+
 // seedFromHaltExport initialises a test application from the v6.12.0 halt
 // export as a node starting from that document would, writes the activation
-// and v6.10 done heights recorded beside it into the live upgrade store and
-// returns a context at the halt height.
+// and v6.10 done heights recorded beside it into the live upgrade store,
+// restores the pre-v6.12.0 module version map and returns a context at the
+// halt height.
 func seedFromHaltExport(t *testing.T) (*app.App, sdk.Context) {
 	t.Helper()
 	path := filepath.Join("..", "..", "node", "testdata", "v6120-halt-export.json")
@@ -293,7 +307,29 @@ func seedFromHaltExport(t *testing.T) (*app.App, sdk.Context) {
 		require.LessOrEqual(t, heights[name], halt, name)
 		testApp.UpgradeKeeper.SetDone(ctx.WithBlockHeight(heights[name]), name)
 	}
+	var appState map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(doc.AppState, &appState))
+	for _, name := range []string{pricefeedtypes.ModuleName, perpstypes.ModuleName, spottypes.ModuleName} {
+		require.NotContains(t, appState, name)
+	}
+	seedLegacyVersionSwitch(t, testApp, ctx)
 	return testApp, ctx
+}
+
+func TestVersionSwitchFullGenesisSelection(t *testing.T) {
+	a := app.Setup(t, false, true, false)
+	ctx := a.GetContextForDeliverTx(nil)
+	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, app.V6120Upgrade))
+	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
+	for _, name := range []string{pricefeedtypes.ModuleName, perpstypes.ModuleName, spottypes.ModuleName} {
+		require.Contains(t, versions, name)
+	}
+	next, err := perps.NewPrecompile(a.GetPrecompileKeepers())
+	require.NoError(t, err)
+	for _, tracing := range []bool{false, true} {
+		selected := versionSwitchContract(t, a, ctx.WithIsTracing(tracing), app.LatestUpgrade)
+		requirePerpsConstructor(t, next, selected)
+	}
 }
 
 func TestVersionSwitchHeightSelection(t *testing.T) {
@@ -550,6 +586,7 @@ func TestVersionSwitchV69Vectors(t *testing.T) {
 			ctx := a.GetContextForDeliverTx(nil).
 				WithBlockHeight(vectors.Harness.BlockHeight).
 				WithBlockTime(time.Unix(vectors.Harness.BlockTimeUnix, 0).UTC())
+			seedLegacyVersionSwitch(t, a, ctx)
 			require.Equal(t, vectors.Harness.ChainID, a.EvmKeeper.ChainID(ctx).String())
 			a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(ctx.BlockHeight()-1), app.ActivationUpgrade)
 			require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, app.V6120Upgrade))
@@ -561,6 +598,9 @@ func TestVersionSwitchV69Vectors(t *testing.T) {
 			}))
 			require.NoError(t, a.LayerXCustodyKeeper.SetAsset(ctx, custodytypes.AssetMapping{
 				AssetId: custodytypes.Hash32(token), Denom: "ufoo", Pointer: common.HexToAddress("0xf00f0").Hex(), Enabled: true,
+			}))
+			require.NoError(t, a.LayerXCustodyKeeper.SetAsset(ctx, custodytypes.AssetMapping{
+				AssetId: custodytypes.Hash32([32]byte{0xee}), Denom: "ubar", Pointer: common.HexToAddress("0xf00f1").Hex(), Enabled: true,
 			}))
 			for _, market := range []exchangetypes.Market{
 				{MarketId: custodytypes.Hash32([32]byte{0x6d, 0x01}), MarginAssetId: custodytypes.Hash32(native), Enabled: true},
@@ -634,6 +674,21 @@ func TestVersionSwitchV69Vectors(t *testing.T) {
 					} else {
 						require.NoError(t, err)
 						returned = output
+						if call.Method == layerxexchange.DepositMarginMethod || call.Method == layerxexchange.DepositMarginTokenMethod {
+							method := selected.GetABI().Methods[call.Method]
+							values, err := method.Outputs.Unpack(returned)
+							require.NoError(t, err)
+							intentID := values[0].([32]byte)
+							intent, found := a.LayerXExchangeKeeper.GetIntent(db.Ctx(), intentID)
+							require.True(t, found)
+							require.Equal(t, exchangetypes.IntentID(a.EvmKeeper.ChainID(db.Ctx()), caller,
+								exchangetypes.IntentKind_INTENT_KIND_DEPOSIT, intent.Nonce), intentID)
+							require.Empty(t, intent.DepositId)
+							require.Empty(t, intent.Denom)
+							encoded, err := method.Outputs.Pack(intentID, [32]byte{})
+							require.NoError(t, err)
+							require.Equal(t, encoded, returned)
+						}
 					}
 					require.Equal(t, decodeHex(t, "return", call.Return), append([]byte{}, returned...))
 					require.Equal(t, decodeHex(t, "revert", call.Revert), append([]byte{}, reverted...))

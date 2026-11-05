@@ -63,7 +63,7 @@ Contract context `2.layerxpay-0x101b`:
 | Storage | No precompile-owned state; every write submits one kernel activity through the pay keeper on the shared layerxhost store (decision.221) and every view decodes the kernel record read back through the host |
 | Errors | Error(string) reasons LXP_&lt;CODE&gt; from kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320), the layerxpay codespace codes 4 to 6 through PayRevertCode and LXP_PAUSED_SCOPE 735 from layerxgov |
 | Events | One 0x101B log per successful write as listed in the events context layerxpay-0x101b-events |
-| Gas | methodGas rows of precompiles/layerxpay/gas.go:18-76 charged by the framework WithGasTable (decision.235): escrow writes 60000, dispute open 30000, plus DefaultGasCost of the input; views charge the read rows |
+| Gas | methodGas rows of precompiles/layerxpay/gas.go:18-76 as the base charge of the dynamic dispatch (decision.235, decision.1962) plus the store gas the call meters under its own gas meter: escrow writes 60000, dispute open 30000, plus DefaultGasCost of the input; views charge the read rows |
 | Activation | Served from the height where MergeUpgrade is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxpay module (node/upgrades.go:526) |
 | Invariants | Every write acts for the DID bound to the EVM caller (decision.236); idempotency keys and stream ids are never zero (decision.223); the ledger effect of a call equals its kernel receipt |
 | Pause | Params.Paused refuses every write except escrowRelease, escrowTimeout, budgetClose, budgetDefund, budgetRevoke, streamPause, streamClose, serviceOfferWithdraw and serviceCommitAbandon (modules/layerxgov/types/proposal.go:28-32); views always answer |
@@ -416,6 +416,10 @@ Capabilities verified against this section: 2.26.1, 2.26.2, 2.26.3, 2.26.4, 2.28
 
 ## views
 
+`BudgetRemaining` projects a detached budget at the query context's block time in milliseconds, using the kernel's period advance, configured limit and single capped carry even when several periods elapsed. Expiry is inclusive (`ExpiryMs <= now`); expired, revoked or closed budgets return zero. Timestamp regression, corrupt allowance and uint128 overflow return explicit errors. Available allowance is capped by the real budget account balance. No store bytes change; `TestRepairM_1303_BudgetTimeView` compares exact boundaries and the corresponding real spend.
+
+`Keeper.GetEscrow`, `Keeper.EscrowRemaining` and `Keeper.GetEscrowResult` return `(record-or-amount, found, error)`. Absence returns zero/false/nil; malformed holds/results, hold key/body mismatch and invalid result/hold links return `ErrEscrowCorruptState` (`LXP_NON_CANONICAL`). The 0x101B escrow handlers propagate these errors before packing output; unrelated and valid public reads remain available while paused. Production precompile escrow and service dispute consumers propagate this error contract; out-of-scope tests must consume the third return as recorded in the task wiring requests. `ValidateOwnedGenesis` and both keeper import paths validate canonical owned escrow keys/values and result links before any writes, including chunked recovery with a recomputed checksum. `TestRepairM_1303_EscrowRecovery` and `TestRepairM_1303_EscrowPublicReads` prove mutated real exports are refused atomically and valid imports and ABI reads survive a database close/reopen.
+
 The 17 0x101B views decode the kernel record read back through the host; they never check pause and never write.
 
 Contract context `2.layerxpay-payloads`:
@@ -544,7 +548,7 @@ Capabilities verified against this section: 2.21.2, 2.28.2.
 
 ## gas
 
-0x101B charges the `methodGas` rows of `precompiles/layerxpay/gas.go:17` through the framework WithGasTable (decision.235): `writeGas(flat)` sets the surcharge to the flat value minus the KV write flat cost (`precompiles/layerxpay/gas.go:77`), views charge the read row. Each row is shown in the method tables.
+0x101B charges the `methodGas` rows of `precompiles/layerxpay/gas.go:17` through the framework WithGasTable (decision.235): `writeGas(flat)` sets the surcharge to the flat value minus the KV write flat cost (`precompiles/layerxpay/gas.go:77`), views charge the read row. Each row is shown in the method tables. Under decision.1962 0x101B is a dynamic-gas precompile: each call is charged its methodGas row of `precompiles/layerxpay/gas.go:18-76` plus the store gas the call consumes under its own gas meter, so the row is the base charge and the total grows with the rows the host reads.
 
 Capabilities verified against this section: 2.40.5.
 
@@ -556,13 +560,15 @@ Capabilities verified against this section: 2.40.5.
 
 The pay keeper resolves the acting kernel identity from GetLayerXDid of msg.sender; an unbound caller is refused with ErrUnboundCaller and no ed25519 signature is required (decision.236).
 
+`CallerAuthority` contains `ActorDID []byte`, `AuthorityKey [32]byte` and `Kernel lxphost.KernelAuthority`. `AuthorityFor` derives `did:layerx:<hex key>` from the real EVM binding, derives its actor id and returns kernel Actor/Principal equal to that actor with VerifiedKey equal to the bound key. `Submit` consumes this value, resolves the main account as Principal and sets Bound before HostExecute; the caller cannot supply authority fields. For example, `EscrowOpen(ctx, callerAddress, args)` calls `Submit`, which calls `AuthorityFor(ctx, callerAddress)` before building the kernel activity. `TestRepairM_1303_DeclarationAuthority` proves this path with a real binding and stored hold.
+
 Frozen interfaces: 1 (new 1).
 
 **Other interfaces**
 
 | Interface block | Kind | Signature | Status | Defined at |
 |---|---|---|---|---|
-| `interface.2.go-layerxpay-keeper-authorityfor-j24` | go_exported | `func (k Keeper) AuthorityFor(ctx sdk.Context, caller common.Address) (Caller, error)` | new | `modules/layerxpay/keeper/authority.go` (planned) |
+| `interface.2.go-layerxpay-keeper-authorityfor-j24` | go_exported | `func (k Keeper) AuthorityFor(ctx sdk.Context, caller common.Address) (CallerAuthority, error)` | new | `modules/layerxpay/keeper/authority.go` |
 
 Capabilities verified against this section: 2.22.2.
 
@@ -605,6 +611,8 @@ Capabilities verified against this section: 2.22.4.
 
 ## pause
 
+`CheckWrite(ctx, method)` derives family identity from `types.MethodActivity[method].Module`; no caller supplies a module id. It checks the family's Params flag, the layerxgov pause/exit policy, then the corresponding shared-host module-enable record. For example, `EscrowCapture` reaches `Submit` and this two-argument gate; enabling BudgetEnabled cannot enable escrow, and an exit still requires its family and kernel enable flag. Reads and unknown method names are ungated here; `Submit` refuses unknown activities separately. `TestRepairM_1303_DeclarationGate` exercises the gate through the real writer and checks refusal leaves kernel bytes unchanged.
+
 Params.Paused and the layerxgov pause scope refuse every pay write with `LXP_PAUSED_SCOPE` except the exit paths of `modules/layerxgov/types/proposal.go:28-32`; family enable flags are checked against kernel enable records (decision.224, decision.225).
 
 Frozen interfaces: 1 (new 1).
@@ -613,7 +621,7 @@ Frozen interfaces: 1 (new 1).
 
 | Interface block | Kind | Signature | Status | Defined at |
 |---|---|---|---|---|
-| `interface.2.go-layerxpay-keeper-checkwrite-j24` | go_exported | `func (k Keeper) CheckWrite(ctx sdk.Context, method string, moduleID uint16) error` | new | `modules/layerxpay/keeper/gate.go` (planned) |
+| `interface.2.go-layerxpay-keeper-checkwrite-j24` | go_exported | `func (k Keeper) CheckWrite(ctx sdk.Context, method string) error` | new | `modules/layerxpay/keeper/gate.go` |
 
 Capabilities verified against this section: 2.22.3.
 
@@ -624,6 +632,12 @@ Capabilities verified against this section: 2.22.3.
 | 2.251.3 | 2251.3 | `modules/layerxpay/keeper/gate_test.go::TestCheckWriteViewsUngated (planned)` |
 
 ## pay-keeper
+
+`EVMBinding` declares `GetLayerXDid(ctx sdk.Context, address common.Address) ([32]byte, bool)`. `CustodyReader` declares `GetAssetByPointer(ctx sdk.Context, pointer common.Address) (custodytypes.AssetMapping, bool)` and `GetAssetByDenom(ctx sdk.Context, denom string) (custodytypes.AssetMapping, bool)`. These are read contracts; a false result is absence. Agent stream entry points consume the real custody mapping for pointer or native-denom assets, and a factory token uses the EVM reader's optional GetNativePointee contract to resolve its denom. Amounts remain uint128 kernel base units; the 0x0906 seconds-to-milliseconds conversion is unchanged.
+
+`NewKeeper` returns `(Keeper, error)` and refuses missing module/host store keys, shared host, EVM binding reader or governance authority. Custody may be absent at construction; asset-dependent calls then explicitly refuse unknown tokens. `TestRepairM_1303_DeclarationConstructor` proves construction and refusals; `TestRepairM_1303_DeclarationKeeper` passes the real EVM/custody keepers through these interfaces and opens and reads streams for pointer, native and factory mappings.
+
+`Submit(ctx, caller common.Address, method string, payload []byte, idempotencyKey [32]byte)` performs CheckWrite, resolves CallerAuthority from the address, looks up the method in MethodActivity and reads the caller's host/identity sequences. It derives the bound main-account principal and submits a protocol-v3 activity with millisecond block-time bounds to HostExecute in a cache branch. Refusal discards writes and preserves typed errors. The real path `EscrowOpen -> Submit("escrowOpen") -> AuthorityFor -> HostExecute -> GetEscrow` is covered by `TestRepairM_1303_DeclarationSubmit`, including unknown method/unbound-caller refusal and reopened result reads.
 
 The layerxpay keeper over the shared lxphost host, with the agent stream entry points that 0x0906 calls.
 
@@ -646,11 +660,11 @@ Frozen interfaces: 5 (new 5).
 
 | Interface block | Kind | Signature | Status | Defined at |
 |---|---|---|---|---|
-| `interface.2.go-layerxpay-keeper-submit-j24` | go_exported | `func (k Keeper) Submit(ctx sdk.Context, caller Caller, activityType uint32, payload []byte, idempotencyKey [32]byte) (lxphost.Receipt, error)` | new | `modules/layerxpay/keeper/execute.go` (planned) |
+| `interface.2.go-layerxpay-keeper-submit-j24` | go_exported | `func (k Keeper) Submit(ctx sdk.Context, caller common.Address, method string, payload []byte, idempotencyKey [32]byte) (lxphost.Receipt, error)` | new | `modules/layerxpay/keeper/execute.go` |
 | `interface.2.go-layerxpay-keeper-getparams-j24` | go_exported | `func (k Keeper) GetParams(ctx sdk.Context) types.Params` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxpay-keeper-j24` | go_exported | `type Keeper struct { cdc codec.BinaryCodec; storeKey, hostKey sdk.StoreKey; host *lxphost.Host; evm BindingReader; custody AssetReader; authority string }` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
+| `interface.2.go-layerxpay-keeper-j24` | go_exported | `type Keeper struct { cdc codec.BinaryCodec; storeKey, hostKey sdk.StoreKey; host *lxphost.Host; evm EVMBinding; custody CustodyReader; authority string }` | new | `modules/layerxpay/keeper/keeper.go` |
 | `interface.2.go-layerxpay-keeper-setparams-j24` | go_exported | `func (k Keeper) SetParams(ctx sdk.Context, params types.Params)` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxpay-newkeeper-j24` | go_exported | `func NewKeeper(cdc codec.BinaryCodec, storeKey, hostKey sdk.StoreKey, host *lxphost.Host, evm BindingReader, custody AssetReader, authority string) Keeper` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
+| `interface.2.go-layerxpay-newkeeper-j24` | go_exported | `func NewKeeper(cdc codec.BinaryCodec, storeKey, hostKey sdk.StoreKey, host *lxphost.Host, evm EVMBinding, custody CustodyReader, authority string) (Keeper, error)` | new | `modules/layerxpay/keeper/keeper.go` |
 
 Capabilities verified against this section: 2.22.1.
 
@@ -819,6 +833,8 @@ Capabilities verified against this section: 2.22.5, 2.27.3, 2.38.6, 2.40.9.
 
 ## queries
 
+The registered receiver is `Querier struct { Keeper }`, which implements `types.QueryServer`; registration passes `Querier{Keeper: k}` to `types.RegisterQueryServer`. `Params` refuses a nil request with gRPC `codes.InvalidArgument` ("empty request") before unwrapping the SDK context. Valid requests return stored Params without writes, including while paused. `TestRepairM_1303_DeclarationQuery` sends protobuf bytes through the registered SDK gRPC query router and decodes the response; it also proves the nil-request refusal through the QueryServer interface.
+
 The layerxpay Params gRPC query, its REST route and the params CLI command; reads of kernel records go through the 0x101B views.
 
 Frozen interfaces: 5 (new 5).
@@ -828,7 +844,7 @@ Frozen interfaces: 5 (new 5).
 | Interface block | Kind | Signature | Status | Defined at |
 |---|---|---|---|---|
 | `interface.2.cli-layerxpay-query-params-j24` | cli_command | `query layerxpay params` | new | `modules/layerxpay/client/cli/query.go` (planned) |
-| `interface.2.go-layerxpay-queryserver-j24` | go_exported | `func (k Keeper) Params(c context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error)` | new | `modules/layerxpay/keeper/grpc_query.go` (planned) |
+| `interface.2.go-layerxpay-queryserver-j24` | go_exported | `func (q Querier) Params(ctx context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error)` | new | `modules/layerxpay/keeper/grpc_query.go` |
 | `interface.2.qry-layerxpay-params-j24` | grpc_query | `rpc Params(QueryParamsRequest) returns (QueryParamsResponse) GET /paxprotocol/paxchain/layerxpay/params` | new | `api/layerxpay/query.proto` (planned) |
 | `interface.2.proto-layerxpay-queryparamsrequest-j24` | proto_message | `message QueryParamsRequest {}` | new | `api/layerxpay/query.proto` (planned) |
 | `interface.2.proto-layerxpay-queryparamsresponse-j24` | proto_message | `message QueryParamsResponse { Params params = 1; }` | new | `api/layerxpay/query.proto` (planned) |

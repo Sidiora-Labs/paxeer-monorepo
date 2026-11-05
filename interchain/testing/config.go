@@ -40,7 +40,10 @@ func (tmcfg *TendermintConfig) GetClientType() string {
 
 type ConnectionConfig struct {
 	DelayPeriod uint64
-	Version     *connectiontypes.Version
+	// Version is the open-init proposal. Nil lets the keeper propose its defaults.
+	// Open-try and open-ack relay the counterparty's committed proposal and
+	// negotiated version respectively; they do not replace it with local defaults.
+	Version *connectiontypes.Version
 }
 
 func NewConnectionConfig() *ConnectionConfig {

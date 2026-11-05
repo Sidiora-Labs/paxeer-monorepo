@@ -4,7 +4,18 @@
 #include "layerx/lxp_kernel.h"
 
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
+
+/* Task 22.33.1237, profitable-long-test: mixed_price_liquidation_case
+ * proves profitable-long refusal and adverse mixed-entry long/short settlement;
+ * scaled_reserve_order_fill_case proves quote-unit margin through dispatch.
+ * Gate wiring is resolved: the declared test-perps-book/test-perps-margin
+ * targets execute both changed test binaries (gotcha 3019).
+ * Attempt 1 failed in the unrelated test-module-registry inventory assertion
+ * before these cases ran; no baseline perps failure was measured.
+ * Baseline verification was not run: the bounded gate order requires the
+ * complete implementation before its single build and verification. */
 
 enum { FIXTURE_ARENA_BYTES = 1U << 20 };
 
@@ -116,7 +127,7 @@ static int kernel_start(void)
         return 1;
     asset_runtime = (lx_asset_runtime){ &accounts, &asset_record, 1U,
                                         &asset_state, 1U, 7U,
-                                        LXP_PROTOCOL_VERSION_OCCUPANCY };
+                                        LXP_PROTOCOL_VERSION_OCCUPANCY, false };
     return lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET,
                                           &asset_runtime) != LXP_OK;
 }
@@ -597,7 +608,11 @@ static lxp_result liquidate(const lx_account *margin_account, const char *did)
 
 static int mixed_price_liquidation_case(void)
 {
-    lx_perps_position position;
+    lx_perps_deficit deficit;
+    uint8_t market_id[32];
+    uint8_t before[32];
+    uint8_t after[32];
+    identifier(1U, market_id);
     if (account_add("agent:did:key:keeper:main", LX_ACCOUNT_OPEN_CREDIT, 0U,
                     &keeper_main) != 0 ||
         oracle_push(oracle_seed, 1U, 2U, 200U, 1000U) != LXP_OK ||
@@ -605,15 +620,165 @@ static int mixed_price_liquidation_case(void)
         oracle_push(oracle_seed, 1U, 4U, 800U, 1000U) != LXP_OK ||
         oracle_push(oracle_seed, 1U, 5U, 1600U, 1000U) != LXP_OK ||
         oracle_push(oracle_seed, 1U, 6U, 3200U, 1000U) != LXP_OK ||
-        liquidate(bob_margin_a, "did:key:keeper") != LXP_OK)
+        lxp_state_root(&kernel, before) != LXP_OK ||
+        liquidate(bob_margin_a, "did:key:keeper") !=
+            LXP_ERR_MARGIN_INSUFFICIENT ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0)
         return 1;
     if (ctx_open() != 0 ||
-        position_state(bob_margin_a, &position) != LXP_OK || position.open ||
-        position.size.lo != 7U || position.entry_notional.lo != 702U ||
-        !balance_is(bob_margin_a, 0U) || !balance_is(bob_main, 977U) ||
-        !balance_is(keeper_main, 13U) ||
-        !open_interest_is(12795U, 13497U))
+        !position_is(bob_margin_a, bob_main, LX_PERPS_SIDE_BUY, 7U, 702U,
+                     true) ||
+        !bob_margin_a->has_open_reference ||
+        !balance_is(bob_margin_a, 1000U) || !balance_is(bob_main, 0U) ||
+        !balance_is(keeper_main, 0U) || !balance_is(liquidity_account, 0U) ||
+        !balance_is(insurance_account, 0U) ||
+        !open_interest_is(13497U, 13497U))
         return 1;
+    /* Mixed-entry short: loss = 8 * 3200 - 794 = 24806. Cancel its
+     * residual order first; all collateral settles and unpaid loss persists. */
+    if (order_cancel(43U, "did:key:erin") != LXP_OK ||
+        liquidate(erin_margin, "did:key:keeper") != LXP_OK ||
+        ctx_open() != 0 ||
+        !position_is(erin_margin, erin_main, LX_PERPS_SIDE_SELL, 8U, 794U,
+                     false) ||
+        !balance_is(erin_margin, 0U) || !balance_is(erin_main, 0U) ||
+        !balance_is(liquidity_account, 1000U) ||
+        !balance_is(insurance_account, 0U) || !balance_is(keeper_main, 0U) ||
+        erin_margin->has_open_reference ||
+        lx_perps_deficit_lookup(&ctx, market_id, &deficit) != LXP_OK ||
+        deficit.amount.hi != 0U || deficit.amount.lo != 23806U ||
+        !open_interest_is(13497U, 12703U))
+        return 1;
+    /* Mixed-entry long: loss = 595 - 6 * 50 = 295, exceeding its 100
+     * collateral. The earlier short deficit remains in the same market. */
+    if (oracle_push(oracle_seed, 1U, 7U, 50U, 1000U) != LXP_OK ||
+        liquidate(last_filler, "did:key:keeper") != LXP_OK ||
+        ctx_open() != 0 ||
+        !position_is(last_filler, filler_main, LX_PERPS_SIDE_BUY, 6U, 595U,
+                     false) ||
+        !balance_is(last_filler, 0U) || !balance_is(filler_main, 0U) ||
+        last_filler->has_open_reference ||
+        !balance_is(liquidity_account, 1100U) ||
+        !balance_is(insurance_account, 0U) || !balance_is(keeper_main, 0U) ||
+        lx_perps_deficit_lookup(&ctx, market_id, &deficit) != LXP_OK ||
+        deficit.amount.hi != 0U || deficit.amount.lo != 24001U ||
+        !open_interest_is(12902U, 12703U) ||
+        !position_is(bob_margin_a, bob_main, LX_PERPS_SIDE_BUY, 7U, 702U,
+                     true) ||
+        !balance_is(bob_margin_a, 1000U) || !balance_is(bob_main, 0U) ||
+        lxp_state_root(&kernel, before) != LXP_OK ||
+        liquidate(last_filler, "did:key:keeper") != LXP_ERR_AGREEMENT_STATE ||
+        liquidate(erin_margin, "did:key:keeper") != LXP_ERR_AGREEMENT_STATE ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0)
+        return 1;
+    (void)puts("profitable-long-test: profitable long unchanged; insolvent long/short settlements passed");
+    return 0;
+}
+
+static lxp_result position_reserve(const lx_account *margin_account,
+                                   lx_perps_side side, uint64_t amount,
+                                   const char *did)
+{
+    lx_perps_open_command command;
+    uint8_t payload[LX_PERPS_OPEN_PAYLOAD_BYTES];
+    (void)memset(&command, 0, sizeof(command));
+    command.market_id[0] = 1U;
+    (void)memcpy(command.position_id, margin_account->id, 32U);
+    (void)memcpy(command.margin_account_id, margin_account->id, 32U);
+    command.side = side;
+    command.size = (lxp_u128){ 0U, 3U };
+    command.margin_amount = (lxp_u128){ 0U, amount };
+    if (lx_perps_open_command_encode(&command, payload) != LXP_OK)
+        return LXP_FATAL_INVARIANT;
+    return run(LX_PERPS_POSITION_OPEN, did, payload, sizeof(payload), NULL,
+               NULL);
+}
+
+static int scaled_reserve_order_fill_case(void)
+{
+    lx_perps_market market;
+    lx_perps_order order;
+    lx_perps_position position;
+    uint8_t before[32];
+    uint8_t after[32];
+
+    batch_timestamp = 1000U;
+    global_sequence = 1U;
+    activity_marker = 1U;
+    if (fixture_init() != 0 || kernel_start() != 0 ||
+        account_add("agent:did:key:alice:main", LX_ACCOUNT_OPEN_CREDIT,
+                    1000U, &alice_main) != 0 ||
+        account_add("agent:did:key:alice:margin:a", LX_ACCOUNT_OPEN_CREDIT,
+                    0U, &alice_margin_a) != 0 ||
+        account_add("agent:did:key:bob:main", LX_ACCOUNT_OPEN_CREDIT,
+                    1000U, &bob_main) != 0 ||
+        account_add("agent:did:key:bob:margin:a", LX_ACCOUNT_OPEN_CREDIT,
+                    0U, &bob_margin_a) != 0)
+        return 1;
+    market_defaults(1U, &market);
+    market.price_scale = (lxp_u128){ 0U, 100U };
+    /* Notional is 10100 * 3 / 100 = 303 quote units; 10% rounds to 31. */
+    if (market_create(&market, admin_did) != LXP_OK ||
+        oracle_push(oracle_seed, 1U, 1U, 10100U, 1000U) != LXP_OK ||
+        lxp_state_root(&kernel, before) != LXP_OK ||
+        position_reserve(alice_margin_a, LX_PERPS_SIDE_BUY, 30U,
+                         "did:key:alice") != LXP_ERR_MARGIN_INSUFFICIENT ||
+        position_reserve(bob_margin_a, LX_PERPS_SIDE_SELL, 30U,
+                         "did:key:bob") != LXP_ERR_MARGIN_INSUFFICIENT ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0 ||
+        position_reserve(alice_margin_a, LX_PERPS_SIDE_BUY, 31U,
+                         "did:key:alice") != LXP_OK ||
+        position_reserve(bob_margin_a, LX_PERPS_SIDE_SELL, 31U,
+                         "did:key:bob") != LXP_OK ||
+        ctx_open() != 0 ||
+        position_state(alice_margin_a, &position) != LXP_ERR_UNKNOWN_FIELD ||
+        position_state(bob_margin_a, &position) != LXP_ERR_UNKNOWN_FIELD ||
+        !open_interest_is(0U, 0U) ||
+        !balance_is(alice_main, 969U) || !balance_is(alice_margin_a, 31U) ||
+        !balance_is(bob_main, 969U) || !balance_is(bob_margin_a, 31U) ||
+        !alice_margin_a->has_open_reference ||
+        !bob_margin_a->has_open_reference)
+        return 1;
+    if (lxp_state_root(&kernel, before) != LXP_OK ||
+        order_place(1U, alice_margin_a, LX_PERPS_SIDE_BUY, 10100U, 4U,
+                    "did:key:alice") != LXP_ERR_MARGIN_INSUFFICIENT ||
+        lxp_state_root(&kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0 ||
+        ctx_open() != 0 ||
+        order_state(1U, &order) != LXP_ERR_UNKNOWN_FIELD ||
+        order_place(2U, bob_margin_a, LX_PERPS_SIDE_SELL, 10100U, 3U,
+                    "did:key:bob") != LXP_OK ||
+        ctx_open() != 0 || order_state(2U, &order) != LXP_OK ||
+        !order.active || order.remaining.hi != 0U ||
+        order.remaining.lo != 3U || order.initial_margin_required.hi != 0U ||
+        order.initial_margin_required.lo != 31U ||
+        position_state(bob_margin_a, &position) != LXP_ERR_UNKNOWN_FIELD ||
+        !open_interest_is(0U, 0U))
+        return 1;
+    /* The taker limit is higher; both entry bases must use the maker price. */
+    if (order_place(3U, alice_margin_a, LX_PERPS_SIDE_BUY, 10200U, 3U,
+                    "did:key:alice") != LXP_OK ||
+        ctx_open() != 0 ||
+        order_state(2U, &order) != LXP_ERR_UNKNOWN_FIELD ||
+        order_state(3U, &order) != LXP_ERR_UNKNOWN_FIELD ||
+        !position_is(alice_margin_a, alice_main, LX_PERPS_SIDE_BUY, 3U,
+                     303U, true) ||
+        !position_is(bob_margin_a, bob_main, LX_PERPS_SIDE_SELL, 3U,
+                     303U, true) ||
+        !open_interest_is(303U, 303U) ||
+        !balance_is(alice_main, 969U) || !balance_is(alice_margin_a, 31U) ||
+        !balance_is(bob_main, 969U) || !balance_is(bob_margin_a, 31U) ||
+        !alice_margin_a->has_open_reference ||
+        !bob_margin_a->has_open_reference ||
+        !balance_is(liquidity_account, 0U) ||
+        !balance_is(insurance_account, 0U) ||
+        lxp_state_store_destroy(&store) != LXP_OK)
+        return 1;
+    lx_account_registry_release(&accounts);
+    (void)puts("profitable-long-test: scaled reserve/order/fill margins and maker-price entry bases passed");
     return 0;
 }
 
@@ -698,5 +863,6 @@ int main(void)
         maker_skip_case() != 0 || mixed_price_liquidation_case() != 0 ||
         lxp_state_store_destroy(&store) != LXP_OK)
         return 1;
-    return 0;
+    lx_account_registry_release(&accounts);
+    return scaled_reserve_order_fill_case();
 }

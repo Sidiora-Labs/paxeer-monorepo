@@ -1,0 +1,62 @@
+[task]
+id = "22.33.1275"
+audit = "22.30.64"
+acceptance = "22998.1"
+revision_evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no unrun gate is claimed."
+baseline = "Not run: the explicit allowed-gate order requires complete implementation, hf-build, then hf-done and forbids running verify_cmd by hand; no baseline test failures are claimed."
+wiring_requests = ["Domain 6 (EVM keeper direct deployments): apply the same selector relocation to modules/evm/artifacts/{cw20,cw721,cw1155} so direct keeper and governance deployments also use getPaxAddr(address); the in-scope pointer registration path installs the corrected runtimes at merge activation."]
+
+[finding.wasmd-delegatecall-success]
+test = "TestRepairM_1275_DelegatecallSuccess"
+proof = "Deploy the production CW20/CW721/CW1155 pointers through their real registration precompile, call their approval entrypoints, trace the DELEGATECALL to 0x1002 and its ABI response, and query owner authority through those pointers; exercise batch delegates and refuse unregistered callers without writes or events."
+
+[finding.wasmd-query-selector]
+test = "TestRepairM_1275_QuerySelector"
+proof = "Execute the corrected TestQuery with QueryID on all three refusals; require the missing-contract, invalid-bech32 and unknown-query reasons and zero remaining gas, and compare the entire wasm store, Cosmos events and EVM logs."
+
+[finding.wasmd-value-success]
+test = "TestRepairM_1275_ValueSuccess"
+proof = "Execute TestExecuteBatchValueImmutability; require success, decode the batch response, verify sender/contract/precompile native balances and gas, then compare the caller-owned big.Int."
+
+[finding.wasmd-batch-rollback-proof]
+test = "TestRepairM_1275_BatchRollbackProof"
+proof = "A successful control proves token writes, native coin transfers and a real EVM log; fail the second message through EVM Call, finalize the reverted StateDB, compare storage/balances/events/logs, persist its production receipt, commit and close the application, reopen its on-disk home and recover unchanged balances/token storage and a failed receipt without logs."
+
+[qualification.external-cli-factory]
+revision = "d598335c713aa11a2f5a1efa48ec8fea2c5c9edd"
+command = "cg spec done 22.33.1275 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The test package cannot compile: auth, staking and tokenfactory CLI callers use the two-result tx.NewFactoryCLI interface in a single-value context, before any repair test can run."
+assumption = "These unchanged CLI callers are outside this task's paths; their owning SDK/auth, SDK/staking and tokenfactory domains must wire the Factory,error result without changes here."
+
+[gotcha.pointer-abi]
+observed = "The pointer package exposes its ABI through NewPrecompile(...).ABI, with no exported GetABI function."
+action = "Use the production constructor in the delegatecall proof; the task's in-scope repair corrects that call without altering any assertion."
+
+[qualification.external-pointer-artifacts]
+revision = "87215b4424be264556a8c72f6d0c178797729434"
+command = "cg spec done 22.33.1275 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "QuerySelector, ValueSuccess and BatchRollbackProof passed; all three DelegatecallSuccess pointer cases reverted on their first authority query with no method with id: 0x0c3c20ed before reaching the delegatecall assertions."
+assumption = "The unchanged out-of-scope modules/evm/artifacts/{cw20,cw721,cw1155} bytecode embeds 0x0c3c20ed while the current addr ABI serves getPaxAddr(address) as 0x7e34d1dd; domain 6 must regenerate and version those artifacts before qualification can pass."
+
+[artifact-repair]
+proof = "TestRepairM_1275_PointerArtifactProvenance compares each linked runtime with the real artifact producer, allowing only the recorded PUSH4 operand relocations; DelegatecallSuccess exercises real pointer registration, pointerview discovery, current address conversion selectors, wasmd delegates, authority state, refusals and re-registration."
+source = "contracts/src/{CW20ERC20Pointer,CW721ERC721Pointer,CW1155ERC1155Pointer}.sol; committed creation artifacts modules/evm/artifacts/{cw20,cw721,cw1155}/*.bin and their unchanged constructor/call ABIs."
+compiler = "Original solc metadata: CW20 0.8.21; CW721 and CW1155 0.8.26. No recompilation: deterministic EVM PUSH4 operand relocation changes getSeiAddr(address) 0x0c3c20ed to getPaxAddr(address) 0x7e34d1dd, retaining runtime length, storage layout, jumps and metadata."
+manifest = "precompiles/common/pointer_artifacts/manifest.json records source and runtime SHA-256 hashes, runtime offsets, original compilers and every changed selector operand offset; the sibling .bin files contain the corrected runtime hex."
+activation = "Only current pointer precompiles at the merge plan install linked code after the keeper deploys and registers the real constructor output; historical precompiles and pre-merge registration retain their code. Unknown deployed runtime hashes cause an explicit error."
+
+[gotcha.artifact-location]
+observed = "Pointer creation artifacts are owned by modules/evm/artifacts outside this task scope, despite the continuation describing artifacts under precompiles."
+action = "Keep source artifacts intact; commit hash-checked linked runtime assets in precompiles/common, consume them in current pointer registration, and record direct keeper deployment wiring for domain 6."
+
+[gotcha.address-abi]
+observed = "Like pointer, addr exposes its ABI through NewPrecompile(...).ABI rather than a package GetABI function."
+action = "Read the production constructor ABI to assert the actual address selector transported by registered pointer bytecode."
+
+[gotcha.integer-and-address-trace]
+observed = "The first bounded verify reached the corrected artifacts: CW1155 passed, CW20 exposed nil-versus-empty big.Int internals for zero, and CW721 correctly used getEvmAddr for returned operator approvals."
+action = "Assert exact integer equality with Cmp and compare the complete expected address-conversion calldata sequence, including the operator reverse conversion; retain the authority, ABI result and state assertions."

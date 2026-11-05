@@ -1,29 +1,42 @@
 # Qualification
 
-LayerX Network qualification is evidence layered by risk. A lower layer never implies a
-higher one, and no local command authorizes deployment or handling real assets.
+Qualification records evidence for the merged Paxeer network. The `paxd` node
+embeds the LayerX kernel and Programs runtime; native libraries, Go modules,
+precompiles, and hosted clients are parts of the same execution path. A passing
+component suite establishes only the behavior it exercises.
 
-The core runtime is C17 (`-std=c17` in the root `Makefile`). Agent, human, and
-platform workspaces use Rust 1.91.1 (`rust-toolchain.toml`). LayerX settlement
-contracts use Solidity 0.8.27 (`foundry.toml`). Replay qualification needs GCC
-13, Clang 18, Docker, an amd64 musl runner, and an AArch64 cross-compiler plus
-QEMU.
+Mainnet-beta uses EVM chain ID 125 (`0x7d`). The kernel is part of the network
+and proposes blocks. A transaction receipt becomes final when its block is
+committed. Transaction admission, simulation, and an estimated fee are not
+proof of a successful committed transaction. See the [network overview](../index.md).
 
 ## Evidence levels
 
-| Level | Evidence | Representative gate |
-|---|---|---|
-| Source integrity | Generated specifications are current; no local artifacts, credentials, or private infrastructure references enter the publication set | `make public-audit` |
-| Build and unit behavior | Strict C17 compilation, native tests, Solidity compilation, contract tests, and invariant suites | `make build`, `make test`, `make test-contracts` |
-| Runtime safety | Address, undefined-behaviour, thread, memory, and leak instrumentation on applicable suites; consensus symbol and floating-point exclusion | `make ci`, `make qualify-arith` |
-| Deterministic replay | Published digest reproduced across optimization levels, compilers, libc implementations, and architectures; mutations fail at the exact divergent sequence | `make qualify-replay` |
-| Fault and adversarial behavior | Write-boundary process aborts, recovery, malformed activity/signature/transfer fuzzing, DA withholding, guarantor disagreement, and reserve reconciliation | `make qualify-faults`, `make qualify-fuzz`, settlement gates |
-| Deployment evidence | Independently reviewed bytecode, deterministic deployment manifests, live custody reconciliation, sequencer-offline exit drill, and a bounded real-value canary | Owner-gated runbook; never automatic |
+| Level | Evidence | Representative gate or record |
+| --- | --- | --- |
+| Source integrity | Publication audit and generated-source checks required by the owning task | `make public-audit` |
+| Native runtime | C compilation, native behavior, and arithmetic invariants | `make build`, `make test` |
+| Contract behavior | Solidity state-surface check and offline Foundry suite | `make test-contracts` |
+| Runtime safety | Native reproducibility, consensus-symbol checks, and sanitizer suites | `make ci`, `make qualify-arith` |
+| Deterministic replay | Corpus digest agrees across optimization levels, compilers, libc implementations, and architectures | `make qualify-replay` |
+| Fault and adversarial behavior | Durable-write interruption and recovery; malformed activity, signature, and transfer-set rejection | `make qualify-faults`, `make qualify-fuzz` |
+| Integrated node | Native host, chain execution, and node RPC behavior | `make test-paxd-domain` |
+| Deployment evidence | Correct release binary, upgrade activation, committed receipts, balance conservation, recovery, and tenant isolation on the intended deployment | Reviewed deployment runbook and retained evidence |
 
-The authoritative acceptance criteria and current completion state are in the
-[task board](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/tasks.md).
+The active requirements, task state, and each task's bounded verification command
+are in
+[`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx).
+Use that task's declared gates for task qualification. Aggregate, sanitizer,
+cluster, and browser matrices belong to release qualification when required;
+the commands below are a catalogue, not a requirement to run every suite for
+every documentation or source change.
 
 ## Standard suites
+
+The C runtime uses C17 (`Makefile`). Rust workspaces use the pinned toolchain in
+`rust-toolchain.toml` (1.91.1); the Go module declares Go 1.25.8. The default
+Foundry profile pins Solidity 0.8.27 (`foundry.toml`). Use the dependency and
+native-library setup required by the target before invoking it.
 
 ```sh
 make public-audit
@@ -33,9 +46,11 @@ make test-contracts
 make ci
 ```
 
-`make ci` performs the native suite, a reproducible two-build archive comparison,
-consensus symbol checks, and ASan, UBSan, and TSan runs. ThreadSanitizer requires
-a host that permits the address-space layout used by the compiler runtime.
+`make build` produces the native library and supporting tools; it does not build
+the complete node. `make test-contracts` runs the state-surface script followed
+by offline Foundry tests. `make ci` depends on `public-audit`, `test`,
+`reproducible`, `scan-consensus`, and `test-sanitizers`. ThreadSanitizer needs a
+host compatible with its address-space requirements.
 
 ## Replay qualification
 
@@ -43,11 +58,13 @@ a host that permits the address-space layout used by the compiler runtime.
 make qualify-replay
 ```
 
-The replay matrix requires GCC 13, Clang 18, Docker, an amd64 musl runner, and
-an AArch64 cross-compiler plus QEMU runner. It generates a 10-million-activity
-corpus and root ledger under `build/qualification/replay/`; these multi-gigabyte
-artifacts are deliberately excluded from version control. Only the compact
-published digest belongs in `tests/vectors/qualification_replay_10m.digest`.
+`tools/lxp_qual_replay_matrix.sh` requires GCC 13, Clang 18, and Docker. Its
+container runners provide amd64 musl and an AArch64 cross-compiler with QEMU.
+It creates the 10-million-activity corpus and root ledger in
+`build/qualification/replay/` and compares runner digests with
+`tests/vectors/qualification_replay_10m.digest`. Keep the large generated
+corpus out of version control. This qualifies native replay; it does not by
+itself establish node recovery, transaction inclusion, or RPC correctness.
 
 ## Arithmetic qualification
 
@@ -55,11 +72,11 @@ published digest belongs in `tests/vectors/qualification_replay_10m.digest`.
 make qualify-arith
 ```
 
-This gate combines exhaustive boundary cases, checked 128-bit and 256-bit
-operations, rounding-direction and conservation assertions, CBMC/Z3 proof
-obligations, consensus floating-point and libm exclusion, and the configured
-sanitizer runners. It requires CBMC, Z3, and the compiler runtimes selected by
-`tools/lxp_arith_proof.sh`.
+This target combines checked 128-bit and 256-bit arithmetic, boundaries,
+rounding and conservation assertions, floating-point exclusion, and
+`tools/lxp_arith_proof.sh`. The proof script requires CBMC, Z3, and the selected
+Clang runtimes, and exercises address, undefined-behavior, thread, memory, and
+leak instrumentation. Preserve failed proof and sanitizer output as evidence.
 
 ## Fault and fuzz qualification
 
@@ -68,34 +85,54 @@ make qualify-faults
 make qualify-fuzz
 ```
 
-Fault qualification uses real process interruption at durable write boundaries
-and verifies restart behavior. Fuzz qualification seeds malformed activity,
-signature, and transfer-set mutations from the generated replay corpus. It must
-fail closed; a crash, sanitizer finding, non-canonical acceptance, or partially
-committed transition is a release blocker.
+The fault target runs `tests/test_qual_recovery.c` with the qualification fault
+harness and checks durable-write interruption and restart behavior. The fuzz
+target requires the replay corpus (`QUALIFICATION_CORPUS`) and runs activity,
+signature, and transfer-set mutations, including ASan and UBSan variants.
+A crash, sanitizer finding, noncanonical acceptance, or partially committed
+transition is a qualification failure.
 
-## Settlement and deployment gates
+## Network and deployment gates
 
-Settlement qualification must cover guarantor refusal, divergent replay,
-equivocation evidence, every data-availability class, exact per-asset reserve
-reconciliation, historical debit/credit conservation, and a sequencer-offline
-emergency exit from the last finalized checkpoint.
+Qualify the real node path: submit a signed chain transaction, observe its
+committed block and receipt, check status and logs, and reconcile the relevant
+native balances and module state. A committed failure remains final but does
+not establish that the requested operation succeeded.
 
-Live contract deployment, validator mutation, custody migration, or a real-value
-canary requires an explicit owner-approved runbook. Repository tests may prepare
-that evidence but cannot satisfy or authorize the live gate by themselves.
+Recovery evidence must exercise node restart and durable state, receipt lookup
+after restart, and safe retry behavior. Tenant-domain evidence must show that
+state, authority, and receipt queries remain scoped to the selected domain.
+For an upgrade, verify the intended plan and precompile activation against the
+running release. Native replay or fault harness results alone cannot establish
+these deployment properties.
 
-## Paxeer qualification
+Public JSON-RPC uses the root of `api-mainnet-beta.paxeer.network` or the public
+node names `api1` through `api14.mainnet-beta.paxeer.network`; verify chain ID
+125 before submitting transactions. Hosted `px_` methods have their contract in
+`services/platform/hosted/gateway/openrpc.json`.
 
-Paxeer Network has its own qualification gates, driven by `chain.mk` at the repository root:
+Deployment, validator changes, upgrades, and real-value canaries follow the
+approved operational runbook. Local qualification records evidence; it does
+not execute those production actions.
+
+## Paxeer node qualification
+
+From the repository root:
 
 ```sh
-make paxeer-build
-make paxeer-lint
-make paxeer-test
-make paxeer-ci
-make monorepo-ci
+make paxd-build
+make paxd-version-check
+make test-paxd-domain
 ```
 
-Paxeer evidence is a separate gate from LayerX qualification. A passing Paxeer build does not imply LayerX qualification, and vice versa. Each subsystem qualifies independently against its own specification, and co-location in this monorepo grants neither system new protocol or deployment authority over the other.
+`make paxd-build` builds native libraries and the release-stamped `build/paxd`;
+`make paxd-version-check` compares its version with `tools/release/version.json`.
+`make test-paxd-domain` runs the native host tests and the Go node, EVM keeper,
+and RPC packages with CGO enabled.
 
+The existing `make paxeer-build`, `make paxeer-lint`, `make paxeer-test`, and
+`make paxeer-ci` targets delegate to `chain.mk`; they are component build and
+qualification targets for this same network. `make monorepo-ci` delegates to
+`workspace-ci` and is an aggregate release gate. Record exactly which target
+ran, its revision, exit code, and retained log location; never infer a broader
+qualification result from a narrower passing command.

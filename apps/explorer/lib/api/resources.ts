@@ -43,16 +43,47 @@ import type { VisualizeApiResourceName, VisualizeApiResourcePayload } from './se
 import { ZETA_CHAIN_API_RESOURCES } from './services/zetaChain';
 import type { ZetaChainApiPaginationFilters, ZetaChainApiResourceName, ZetaChainApiResourcePayload } from './services/zetaChain';
 
+export const PAXEER_X_CHAIN_RESOURCES = {
+  paxeer_x_chains: {
+    api: 'paxeerXIndexer',
+    path: '/v1/chains',
+  },
+  paxeer_x_chain: {
+    api: 'paxeerXIndexer',
+    path: '/v1/chains/:id',
+    pathParams: [ 'id' as const ],
+  },
+  paxeer_x_chain_summary: {
+    api: 'paxeerXIndexer',
+    path: '/v1/chains/:id/summary',
+    pathParams: [ 'id' as const ],
+  },
+  paxeer_x_chain_transfers: {
+    api: 'paxeerXIndexer',
+    path: '/v1/chains/:id/transfers',
+    pathParams: [ 'id' as const ],
+  },
+  paxeer_x_chain_events: {
+    api: 'paxeerXIndexer',
+    path: '/v1/chains/:id/events',
+    pathParams: [ 'id' as const ],
+  },
+} satisfies Record<string, ApiResource>;
+
 export const RESOURCES = {
   admin: ADMIN_API_RESOURCES,
   bens: BENS_API_RESOURCES,
   clusters: CLUSTERS_API_RESOURCES,
   contractInfo: CONTRACT_INFO_API_RESOURCES,
-  general: GENERAL_API_RESOURCES,
+  general: {
+    ...GENERAL_API_RESOURCES,
+    ...PAXEER_X_CHAIN_RESOURCES,
+  },
   interchainIndexer: INTERCHAIN_INDEXER_API_RESOURCES,
   metadata: METADATA_API_RESOURCES,
   multichainAggregator: MULTICHAIN_AGGREGATOR_API_RESOURCES,
   multichainStats: MULTICHAIN_STATS_API_RESOURCES,
+  paxeerXIndexer: PAXEER_X_CHAIN_RESOURCES,
   rewards: REWARDS_API_RESOURCES,
   stats: STATS_API_RESOURCES,
   tac: TAC_OPERATION_LIFECYCLE_API_RESOURCES,
@@ -78,6 +109,10 @@ export type ResourcePath = string;
 
 /* eslint-disable @stylistic/indent */
 export type ResourcePayload<R extends ResourceName> =
+R extends 'general:paxeer_x_chains' ? unknown :
+R extends 'general:paxeer_x_chain' | 'general:paxeer_x_chain_summary' |
+  'general:paxeer_x_chain_transfers' | 'general:paxeer_x_chain_events' ? unknown :
+R extends `paxeerXIndexer:${ keyof typeof PAXEER_X_CHAIN_RESOURCES }` ? unknown :
 R extends AdminApiResourceName ? AdminApiResourcePayload<R> :
 R extends BensApiResourceName ? BensApiResourcePayload<R> :
 R extends ClustersApiResourceName ? ClustersApiResourcePayload<R> :

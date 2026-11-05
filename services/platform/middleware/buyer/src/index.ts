@@ -3,11 +3,12 @@ import {
   ProductionClient,
   SecretBytes,
   idempotencyKey,
-  type AuthorizedReceiptBatch,
+  decodeRawEip1559,
+  recoverEip1559Sender,
+  keccak256,
+  verifySequencerReceipt,
   type ProductionTransport,
-  type ProtocolSelection,
-  type ReceiptVerification,
-  type SelectableProtocolVersion,
+  type SequencerReceiptKey,
   type TransportCall,
 } from "@sidiora/layerx-sdk";
 import {
@@ -20,18 +21,22 @@ import {
   decodePaymentPayloadHeader,
   decodeSettlementHeader,
   encodePaymentPayloadHeader,
-  protocolSelection,
-  requireProtocolVersion,
   verifyPaymentReceipt,
   paymentAccount,
   paymentCommitment,
   paymentCurrency,
   paymentPayer,
   paymentPurpose,
-  type AuthorizedBatchResolver,
+  decodePaymentDrawnLog,
+  LAYERX_LEDGER_ADDRESS,
+  LEDGER_DRAW_SELECTOR,
+  verifyPaymentCommitment,
+  type PaymentCommitmentEvidence,
+  type PaymentDrawnEvent,
   type PaymentCommitmentResolver,
   type JsonValue,
-  type LayerXReceiptEvidence,
+  type PaymentReceiptVerification,
+  type PortableReceiptV2,
   type PaymentPayload,
   type PaymentRequired,
   type PaymentRequirements,
@@ -40,7 +45,6 @@ import {
 } from "@sidiora/layerx-seller-middleware";
 
 const MAX_U128 = 340282366920938463463374607431768211455n;
-const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
 const LEGACY_ACCOUNT_ID_DOMAIN = new TextEncoder().encode("LXP/v1/account-id\0");
 const NATIVE_ACCOUNT_ID_DOMAIN = new TextEncoder().encode("LX:ACCOUNT:v1");
 const MAXIMUM_HTTP_RESPONSE_BYTES = 8 * 1024 * 1024;
@@ -62,9 +66,8 @@ export interface BuyerRetryPolicy {
 export interface BuyerMiddlewareConfig {
   readonly client: ProductionClient;
   readonly source: string;
-  readonly protocolVersion: SelectableProtocolVersion;
   readonly supported: readonly BuyerSupportedKind[];
-  readonly authorizedBatches: AuthorizedBatchResolver;
+  readonly receiptKeys: readonly SequencerReceiptKey[];
   readonly commitments?: PaymentCommitmentResolver;
   readonly retry?: Partial<BuyerRetryPolicy>;
   readonly now?: () => number;
@@ -144,17 +147,15 @@ export interface EvidenceMaterial {
   readonly bytes_base64: string;
 }
 
-export interface PreparedPayment {
+export interface PreparedPayment extends PortableReceiptV2 {
   readonly offer: ParsedOffer;
   readonly quote: MoveQuote;
   readonly journey: Journey;
   readonly payload: PaymentPayload;
   readonly paymentHeader: string;
   readonly idempotencyKey: string;
-  readonly canonicalReceipt: Uint8Array;
-  readonly authorizedBatch: AuthorizedReceiptBatch;
-  readonly verification: ReceiptVerification;
-  readonly receiptDigest: string;
+  readonly verification: PaymentReceiptVerification;
+  readonly txHash: string;
 }
 
 export type PaymentPreparation =
@@ -163,10 +164,16 @@ export type PaymentPreparation =
   | { readonly kind: "unknown"; readonly idempotencyKey: string; readonly journey?: Journey }
   | { readonly kind: "refused"; readonly journey: Journey };
 
-export interface CapturedSettlement {
+export interface CapturedSettlement extends PortableReceiptV2 {
   readonly response: SettlementResponse;
-  readonly verification: ReceiptVerification;
-  readonly canonicalReceipt: Uint8Array;
+  readonly verification: PaymentReceiptVerification;
+  readonly txHash: string;
+}
+
+export interface CapturedGrantSettlement extends PortableReceiptV2 {
+  readonly response: SettlementResponse;
+  readonly verification: Omit<PaymentReceiptVerification, "payment"> & { readonly payment: PaymentDrawnEvent };
+  readonly txHash: string;
 }
 
 export type PaidFetchResult =
@@ -184,10 +191,8 @@ export type PaidFetchResult =
 export class BuyerMiddleware {
   readonly #client: ProductionClient;
   readonly #source: string;
-  readonly #protocolVersion: SelectableProtocolVersion;
-  readonly #protocol: ProtocolSelection;
   readonly #supported: readonly BuyerSupportedKind[];
-  readonly #authorizedBatches: AuthorizedBatchResolver;
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
   readonly #commitments: PaymentCommitmentResolver | undefined;
   readonly #retry: BuyerRetryPolicy;
   readonly #now: () => number;
@@ -200,25 +205,20 @@ export class BuyerMiddleware {
     const seen = new Set<string>();
     for (const kind of config.supported) {
       const key = `${kind.scheme}\0${kind.network}`;
-      if (kind.scheme.length === 0 || kind.network.length === 0 || seen.has(key)) {
+      const chainId = /^eip155:([1-9][0-9]{0,9})$/u.exec(kind.network)?.[1];
+      if (kind.scheme.length === 0 || chainId === undefined || Number(chainId) > 0xffff_ffff || seen.has(key)) {
         throw new MiddlewareError("unsupported-payment");
       }
       seen.add(key);
     }
     this.#client = config.client;
     this.#source = config.source;
-    this.#protocolVersion = requireProtocolVersion(config.protocolVersion);
-    this.#protocol = protocolSelection(this.#protocolVersion);
-    this.#supported = config.supported;
-    this.#authorizedBatches = config.authorizedBatches;
+    this.#supported = structuredClone(config.supported);
+    this.#receiptKeys = structuredClone(config.receiptKeys);
     this.#commitments = config.commitments;
     this.#retry = retryPolicy(config.retry);
     this.#now = config.now ?? Date.now;
     this.#fetch = config.fetch ?? globalThis.fetch;
-  }
-
-  public get protocolVersion(): SelectableProtocolVersion {
-    return this.#protocolVersion;
   }
 
   public parseOffer(paymentRequiredHeader: string): ParsedOffer {
@@ -229,7 +229,7 @@ export class BuyerMiddleware {
     if (accepted === undefined) {
       throw new MiddlewareError("unsupported-payment");
     }
-    if (paymentCommitment(accepted.extra) !== "executed" && this.#commitments === undefined) {
+    if (paymentCommitment(accepted.extra) !== "receipted" && this.#commitments === undefined) {
       throw new MiddlewareError("unsupported-payment");
     }
     return { required, accepted };
@@ -239,7 +239,7 @@ export class BuyerMiddleware {
     const offer = this.parseOffer(paymentRequiredHeader);
     if (offer.accepted.scheme !== "exact") throw new MiddlewareError("unsupported-payment");
     const terms = paymentQuoteTerms(offer.accepted);
-    if (!(await accountNamesPayTo(terms.account, offer.accepted.payTo))) {
+    if (!(await accountNamesPayTo(terms.account, offer.accepted.payTo, offer.accepted.asset))) {
       throw new MiddlewareError("requirements-mismatch");
     }
     const mutationKey = idempotencyKey(callerIdempotencyKey);
@@ -292,14 +292,17 @@ export class BuyerMiddleware {
       return { kind: "pending", journey };
     }
     const receipt = await this.#findMatchingReceipt(journey, offer.accepted);
+    if (receipt === undefined) return { kind: "pending", journey };
     const payload: PaymentPayload = {
       x402Version: X402_VERSION,
       resource: offer.required.resource,
       payload: {
-        receipt: encodeBase64(receipt.canonicalReceipt),
+        format: receipt.format,
+        rawTransaction: receipt.rawTransaction,
+        signedReceipt: receipt.signedReceipt,
         receiptDigest: receipt.receiptDigest,
-        verificationLevel: "sequencer-signed",
-        idempotencyKey: callerIdempotencyKey,
+        receiptKey: { ...receipt.receiptKey },
+        verificationLevel: receipt.verificationLevel,
       },
       accepted: offer.accepted,
       extensions: offer.required.extensions ?? {},
@@ -313,56 +316,127 @@ export class BuyerMiddleware {
         payload,
         paymentHeader: encodePaymentPayloadHeader(payload),
         idempotencyKey: callerIdempotencyKey,
-        canonicalReceipt: receipt.canonicalReceipt,
-        authorizedBatch: receipt.authorizedBatch,
-        verification: receipt.verification,
-        receiptDigest: receipt.receiptDigest,
+        ...receipt,
       },
     };
   }
 
-  public grantHeader(paymentRequiredHeader: string, receiveHex: string): string {
+  public grantHeader(paymentRequiredHeader: string, rawTransaction: string): string {
     const offer = this.parseOffer(paymentRequiredHeader);
-    return grantPaymentHeader(offer.required, offer.accepted, receiveHex);
+    return grantPaymentHeader(offer.required, offer.accepted, rawTransaction);
   }
 
-  public async fetchGrant(input: RequestInfo | URL, init: RequestInit, receiveHex: string, expectedActivity: string): Promise<{ readonly response: Response; readonly settlement?: CapturedSettlement }> {
+  public async fetchGrant(input: RequestInfo | URL, init: RequestInit, rawTransaction: string, expectedTransactionHash: string): Promise<{ readonly response: Response; readonly settlement?: CapturedGrantSettlement }> {
+    if (!/^0x[0-9a-f]{64}$/u.test(expectedTransactionHash)) throw new MiddlewareError("invalid-payment-payload");
     const initial = await this.#fetch(input, init);
     if (initial.status !== 402) return { response: initial };
     const required = initial.headers.get(PAYMENT_REQUIRED_HEADER);
     await initial.body?.cancel();
     if (required === null) throw new MiddlewareError("invalid-payment-required");
-    const paymentHeader = this.grantHeader(required, receiveHex);
-    if (!/^[0-9a-f]{64}$/u.test(expectedActivity)) throw new MiddlewareError("invalid-payment-payload");
+    const paymentHeader = this.grantHeader(required, rawTransaction);
+    if (`0x${toHex(keccak256(grantTransactionBytes(rawTransaction)))}` !== expectedTransactionHash) {
+      throw new MiddlewareError("invalid-payment-payload");
+    }
     const headers = new Headers(init.headers);
     headers.set(PAYMENT_SIGNATURE_HEADER, paymentHeader);
     const response = await this.#fetch(input, { ...init, headers });
     if (response.status === 202) return { response };
     const responseHeader = response.headers.get(PAYMENT_RESPONSE_HEADER);
     if (responseHeader === null) { await response.body?.cancel(); throw new MiddlewareError("verification-failure"); }
-    const settlement = await this.captureGrantSettlement(responseHeader, paymentHeader, expectedActivity);
+    const settlement = await this.captureGrantSettlement(responseHeader, paymentHeader, expectedTransactionHash);
     return { response, settlement };
   }
 
-  public async captureGrantSettlement(responseHeader: string, paymentHeader: string, expectedActivity: string): Promise<CapturedSettlement> {
+  public async captureGrantSettlement(responseHeader: string, paymentHeader: string, expectedTransactionHash: string): Promise<CapturedGrantSettlement> {
     const payload = decodePaymentPayloadHeader(paymentHeader);
-    const receive = payload.payload["receive"];
-    if (typeof receive !== "string" || !/^[0-9a-f]{1466}$/u.test(receive) || !/^[0-9a-f]{64}$/u.test(expectedActivity)) throw new MiddlewareError("invalid-payment-payload");
+    const rawTransaction = payload.payload["rawTransaction"];
+    if (Object.keys(payload.payload).length !== 2 || typeof rawTransaction !== "string"
+      || !/^0x[0-9a-f]{64}$/u.test(expectedTransactionHash)) throw new MiddlewareError("invalid-payment-payload");
+    const { raw, data, asset } = grantDrawTransaction(payload.accepted, rawTransaction);
+    if (payload.payload["idempotencyKey"] !== toHex(data.subarray(100, 132))) {
+      throw new MiddlewareError("invalid-payment-payload");
+    }
+    const txHash = `0x${toHex(keccak256(raw))}`;
     const response = decodeSettlementHeader(responseHeader);
     const payer = paymentPayer(payload.accepted.extra, true)!;
-    const purpose = paymentPurpose(payload.accepted.extra, true)!;
     if (!response.success || response.network !== payload.accepted.network || response.amount !== payload.accepted.amount
-      || response.payer !== payer) throw new MiddlewareError("verification-failure");
-    const evidence = parseReceiptEvidence(asObject(response.extensions?.["layerx"]));
-    if (evidence.purposeHash !== purpose) throw new MiddlewareError("verification-failure");
-    const canonicalReceipt = decodeBase64(evidence.receipt);
-    const authorizedBatch = await this.#authorizedBatches.resolve(canonicalReceipt);
-    const verification = await verifyPaymentReceipt({ canonicalReceipt, authorizedBatch }, payload.accepted, this.#commitments, this.#protocol);
-    const digest = toHex(await merkleLeafDigest(canonicalReceipt));
-    if (evidence.receiptDigest !== digest || response.transaction !== `lxp:${digest}`
-      || toHex(verification.receipt.activityId) !== expectedActivity || toHex(verification.receipt.from) !== receive.slice(8, 72)
-      || toHex(verification.receipt.from) !== payer) throw new MiddlewareError("verification-failure");
-    return { response, verification, canonicalReceipt };
+      || response.payer !== payer || response.transaction !== txHash || expectedTransactionHash !== txHash) {
+      throw new MiddlewareError("verification-failure");
+    }
+    const evidence = parseReceiptEvidence(response.extensions?.["layerx"]);
+    try {
+      const signedReceipt = grantTransactionBytes(evidence.signedReceipt);
+      const keys = this.#receiptKeys.filter((key) => `0x${toHex(key.keyId)}` === evidence.receiptKey.keyId
+        && `0x${toHex(key.publicKey)}` === evidence.receiptKey.publicKey
+        && key.first_height === BigInt(evidence.receiptKey.firstHeight)
+        && key.last_height === BigInt(evidence.receiptKey.lastHeight));
+      if (keys.length === 0 || evidence.rawTransaction !== rawTransaction
+        || (paymentCommitment(payload.accepted.extra) === "committed" && evidence.verificationLevel !== "committed")) {
+        throw new MiddlewareError("verification-failure");
+      }
+      const verified = await verifySequencerReceipt(signedReceipt, raw, keys);
+      if (!constantTimeEqualText(evidence.receiptDigest, `0x${toHex(verified.receiptDigest)}`)) {
+        throw new MiddlewareError("verification-failure");
+      }
+      const { receipt } = verified;
+      const transaction = decodeRawEip1559(raw);
+      const sender = recoverEip1559Sender(raw).slice(2).toLowerCase().padStart(64, "0");
+      if (toHex(receipt.from) !== sender
+        || !equalBytes(receipt.to, concatenate(new Uint8Array(12), transaction.to))) {
+        throw new MiddlewareError("verification-failure");
+      }
+      const summary = receipt.effects[0];
+      if (receipt.resultCode !== 0 || receipt.moduleId <= 11 || summary === undefined
+        || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0 || summary.kind !== 1
+        || summary.monetary || summary.eventType !== 0 || summary.body.length < 110
+        || summary.body[108] === 0 || summary.body[108]! > 64 || summary.body.length !== 109 + summary.body[108]!
+        || new DataView(arrayBuffer(summary.body)).getUint32(104, false) !== receipt.effects.length - 1) {
+        throw new MiddlewareError("verification-failure");
+      }
+      const eventData = concatenate(grantTransactionBytes(asset), data.subarray(68, 132), data.subarray(196, 228));
+      const digest = await sha256(eventData);
+      const topic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"));
+      const payments: PaymentDrawnEvent[] = [];
+      for (const [index, effect] of receipt.effects.slice(1).entries()) {
+        const body = effect.body;
+        const count = body[20];
+        if (effect.moduleId !== receipt.moduleId || effect.ordinal !== index + 1 || effect.kind !== 3
+          || effect.monetary || effect.eventType !== 0 || count === undefined || count > 4
+          || body.length !== 53 + count * 32) throw new MiddlewareError("verification-failure");
+        const address = `0x${toHex(body.subarray(0, 20))}`;
+        if (address !== LAYERX_LEDGER_ADDRESS || !equalBytes(body.subarray(21, 53), topic)) continue;
+        if (!equalBytes(body.subarray(body.length - 32), digest)) throw new MiddlewareError("verification-failure");
+        const payment = decodePaymentDrawnLog({ address, data: eventData,
+          topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
+        if (!equalBytes(payment.grantId, data.subarray(4, 36))
+          || toHex(payment.from) !== payer
+          || !equalBytes(payment.to, data.subarray(36, 68))
+          || `0x${toHex(payment.assetId)}` !== payload.accepted.asset
+          || payment.amount !== BigInt(payload.accepted.amount)
+          || toHex(payment.idempotencyKey) !== payload.payload["idempotencyKey"]
+          || !equalBytes(payment.contextHash, data.subarray(196, 228))) {
+          throw new MiddlewareError("verification-failure");
+        }
+        payments.push(payment);
+      }
+      const payment = payments[0];
+      if (payments.length !== 1 || payment === undefined) throw new MiddlewareError("verification-failure");
+      let commitmentEvidence: PaymentCommitmentEvidence | undefined;
+      await verifyPaymentCommitment(verified, payload.accepted.network, evidence.verificationLevel,
+        this.#commitments === undefined ? undefined : {
+          resolveValidators: (network, height) => this.#commitments!.resolveValidators(network, height),
+          resolve: async (transactionHash, network) => {
+            commitmentEvidence = structuredClone(await this.#commitments!.resolve(transactionHash, network));
+            return commitmentEvidence;
+          },
+        });
+      const verification = Object.freeze({ ...verified, rung: evidence.verificationLevel, txHash, payment,
+        ...(commitmentEvidence === undefined ? {} : { commitmentEvidence }),
+      });
+      return { response, verification, ...evidence, txHash };
+    } catch {
+      throw new MiddlewareError("verification-failure");
+    }
   }
 
   public async captureSettlement(
@@ -376,28 +450,22 @@ export class BuyerMiddleware {
     if (
       response.network !== payment.offer.accepted.network
       || response.amount !== payment.offer.accepted.amount
-      || response.transaction !== `lxp:${payment.receiptDigest}`
+      || response.transaction !== payment.txHash
     ) {
       throw new MiddlewareError("verification-failure");
     }
-    const layerx = asObject(response.extensions?.["layerx"]);
-    const evidence = parseReceiptEvidence(layerx);
-    if (!constantTimeEqualText(evidence.receiptDigest, payment.receiptDigest)) {
+    const evidence = parseReceiptEvidence(response.extensions?.["layerx"]);
+    if (!constantTimeEqualText(evidence.receiptDigest, payment.receiptDigest)
+      || !constantTimeEqualText(evidence.rawTransaction, payment.rawTransaction)
+      || !constantTimeEqualText(evidence.signedReceipt, payment.signedReceipt)) {
       throw new MiddlewareError("verification-failure");
     }
-    const canonicalReceipt = decodeBase64(evidence.receipt);
-    if (!equalBytes(canonicalReceipt, payment.canonicalReceipt)) {
-      throw new MiddlewareError("verification-failure");
-    }
-    const authorizedBatch = await this.#authorizedBatches.resolve(canonicalReceipt);
     const verification = await verifyPaymentReceipt(
-      { canonicalReceipt, authorizedBatch },
-      payment.offer.accepted,
-      this.#commitments,
-      this.#protocol,
+      evidence, payment.offer.accepted, this.#receiptKeys, this.#commitments,
     );
-    if (response.payer !== toHex(verification.receipt.from)) throw new MiddlewareError("verification-failure");
-    return { response, verification, canonicalReceipt };
+    if (response.transaction !== verification.txHash
+      || response.payer !== toHex(verification.receipt.from)) throw new MiddlewareError("verification-failure");
+    return { response, verification, ...evidence, txHash: verification.txHash };
   }
 
   public async fetch(
@@ -426,69 +494,63 @@ export class BuyerMiddleware {
       await paid.body?.cancel();
       throw new MiddlewareError("verification-failure");
     }
-    const settlement = await this.captureSettlement(responseHeader, preparation.payment);
-    return { kind: "paid", response: paid, payment: preparation.payment, settlement };
+    try {
+      const settlement = await this.captureSettlement(responseHeader, preparation.payment);
+      return { kind: "paid", response: paid, payment: preparation.payment, settlement };
+    } catch (error) {
+      await paid.body?.cancel();
+      throw error;
+    }
   }
 
   async #findMatchingReceipt(
     journey: Journey,
     requirements: PaymentRequirements,
-  ): Promise<{
-    readonly canonicalReceipt: Uint8Array;
-    readonly authorizedBatch: AuthorizedReceiptBatch;
-    readonly verification: ReceiptVerification;
-    readonly receiptDigest: string;
-  }> {
+  ): Promise<(PortableReceiptV2 & {
+    readonly verification: PaymentReceiptVerification;
+    readonly txHash: string;
+  }) | undefined> {
     const references = uniqueEvidence(journey).filter((reference) =>
       reference.class === "layerx-receipt"
-      && (reference.verification === "receipt-verified" || reference.verification === "checkpoint-finalised")
+      && evidenceRung(reference.verification) !== undefined
     );
-    let matched: {
-      readonly canonicalReceipt: Uint8Array;
-      readonly authorizedBatch: AuthorizedReceiptBatch;
-      readonly verification: ReceiptVerification;
-      readonly receiptDigest: string;
-    } | undefined;
+    let matched: (PortableReceiptV2 & {
+      readonly verification: PaymentReceiptVerification;
+      readonly txHash: string;
+    }) | undefined;
+    let hasPortableEvidence = false;
     for (const reference of references) {
       const material = parseEvidenceMaterial(await this.#retrySdk(
         () => this.#client.human("evidence.get", { evidence_id: reference.evidence_id }),
         this.#retry.maximumQuoteAttempts,
         false,
       ));
-      if (
-        material.evidence_id !== reference.evidence_id
-        || material.class !== "layerx-receipt"
-        || material.content_type !== "application/vnd.layerx.receipt"
-        || (material.verification !== "receipt-verified" && material.verification !== "checkpoint-finalised")
-      ) {
+      if (material.evidence_id !== reference.evidence_id || material.class !== "layerx-receipt") {
         throw new MiddlewareError("verification-failure");
       }
-      const canonicalReceipt = decodeBase64(material.bytes_base64);
-      const authorizedBatch = await this.#authorizedBatches.resolve(canonicalReceipt);
-      let candidate: {
-        readonly canonicalReceipt: Uint8Array;
-        readonly authorizedBatch: AuthorizedReceiptBatch;
-        readonly verification: ReceiptVerification;
-        readonly receiptDigest: string;
-      };
+      const rung = evidenceRung(material.verification);
+      if (material.content_type !== "application/vnd.layerx.receipt-proof-v2+json"
+        || rung === undefined) continue;
+      hasPortableEvidence = true;
+      let decoded: unknown;
       try {
-        const verification = await verifyPaymentReceipt({ canonicalReceipt, authorizedBatch }, requirements, this.#commitments, this.#protocol);
-        const receiptDigest = toHex(await merkleLeafDigest(canonicalReceipt));
-        candidate = { canonicalReceipt, authorizedBatch, verification, receiptDigest };
+        decoded = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64(material.bytes_base64)));
+      } catch {
+        throw new MiddlewareError("verification-failure");
+      }
+      const evidence = parseReceiptEvidence(decoded);
+      if (evidence.verificationLevel !== rung) throw new MiddlewareError("verification-failure");
+      let verification: PaymentReceiptVerification;
+      try {
+        verification = await verifyPaymentReceipt(evidence, requirements, this.#receiptKeys, this.#commitments);
       } catch (error) {
-        if (!(error instanceof MiddlewareError) || error.code !== "verification-failure") {
-          throw error;
-        }
+        if (!(error instanceof MiddlewareError) || error.code !== "verification-failure") throw error;
         continue;
       }
-      if (matched !== undefined) {
-        throw new MiddlewareError("verification-failure");
-      }
-      matched = candidate;
+      if (matched !== undefined) throw new MiddlewareError("verification-failure");
+      matched = { ...evidence, receiptDigest: `0x${toHex(verification.receiptDigest)}`, verification, txHash: verification.txHash };
     }
-    if (matched === undefined) {
-      throw new MiddlewareError("verification-failure");
-    }
+    if (hasPortableEvidence && matched === undefined) throw new MiddlewareError("verification-failure");
     return matched;
   }
 
@@ -711,6 +773,12 @@ function parseEvidenceReferences(value: unknown): readonly EvidenceReference[] {
   });
 }
 
+export function evidenceRung(label: string): "receipted" | "committed" | undefined {
+  if (label === "receipted" || label === "receipt-verified") return "receipted";
+  if (label === "committed" || label === "checkpoint-finalised") return "committed";
+  return undefined;
+}
+
 function uniqueEvidence(journey: Journey): readonly EvidenceReference[] {
   const unique = new Map<string, EvidenceReference>();
   for (const reference of [...journey.evidence, ...journey.stages.flatMap((stage) => stage.evidence)]) {
@@ -745,24 +813,39 @@ function isProgress(state: JourneyState): boolean {
   return state === "getting-ready" || state === "sending" || state === "processing";
 }
 
-function parseReceiptEvidence(value: Readonly<Record<string, JsonValue>>): LayerXReceiptEvidence {
-  if (
-    typeof value["receipt"] !== "string"
-    || typeof value["receiptDigest"] !== "string"
-    || value["verificationLevel"] !== "sequencer-signed"
-  ) {
-    throw new MiddlewareError("verification-failure");
-  }
-  const purposeHash = value["purposeHash"];
-  if (purposeHash !== undefined && (typeof purposeHash !== "string"
-    || !/^[0-9a-f]{64}$/u.test(purposeHash) || /^0+$/u.test(purposeHash))) {
-    throw new MiddlewareError("verification-failure");
-  }
+function parseReceiptEvidence(value: unknown): PortableReceiptV2 {
+  const failure = (): never => { throw new MiddlewareError("verification-failure"); };
+  const object = (input: unknown): Readonly<Record<string, unknown>> => {
+    if (input === null || typeof input !== "object" || Array.isArray(input)) return failure();
+    return input as Readonly<Record<string, unknown>>;
+  };
+  const hex = (input: unknown, size?: number): string => {
+    if (typeof input !== "string" || input.length > 128 * 1024
+      || !/^0x(?:[0-9a-f]{2})+$/u.test(input)
+      || (size !== undefined && input.length !== 2 + size * 2)) return failure();
+    return input;
+  };
+  const height = (input: unknown): string => {
+    if (typeof input !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(input)) return failure();
+    return input;
+  };
+  const proof = object(value);
+  if (proof["format"] !== "layerx-receipt-proof-v2"
+    || (proof["verificationLevel"] !== "receipted" && proof["verificationLevel"] !== "committed")) return failure();
+  const key = object(proof["receiptKey"]);
+  if (Object.keys(key).length !== 4) return failure();
+  const firstHeight = height(key["firstHeight"]);
+  const lastHeight = height(key["lastHeight"]);
+  if (BigInt(firstHeight) > BigInt(lastHeight)) return failure();
   return {
-    receipt: value["receipt"],
-    receiptDigest: value["receiptDigest"],
-    verificationLevel: "sequencer-signed",
-    ...(purposeHash === undefined ? {} : { purposeHash }),
+    format: "layerx-receipt-proof-v2",
+    verificationLevel: proof["verificationLevel"],
+    rawTransaction: hex(proof["rawTransaction"]),
+    signedReceipt: hex(proof["signedReceipt"]),
+    receiptDigest: hex(proof["receiptDigest"], 32),
+    receiptKey: {
+      keyId: hex(key["keyId"], 32), publicKey: hex(key["publicKey"], 32), firstHeight, lastHeight,
+    },
   };
 }
 
@@ -843,14 +926,6 @@ function requiredTimestamp(value: unknown): string {
   return text;
 }
 
-function encodeBase64(value: Uint8Array): string {
-  let binary = "";
-  for (let offset = 0; offset < value.length; offset += 0x8000) {
-    binary += String.fromCharCode(...value.subarray(offset, Math.min(offset + 0x8000, value.length)));
-  }
-  return btoa(binary);
-}
-
 function decodeBase64(value: string): Uint8Array {
   if (value.length === 0 || !/^[A-Za-z0-9+/]*={0,2}$/u.test(value)) {
     throw new MiddlewareError("verification-failure");
@@ -884,13 +959,19 @@ export async function accountIdentifiers(account: string): Promise<readonly Uint
   ]);
 }
 
-async function accountNamesPayTo(account: string, payTo: string): Promise<boolean> {
+async function accountNamesPayTo(account: string, payTo: string, asset: string): Promise<boolean> {
   const digits = payTo.startsWith("0x") ? payTo.slice(2) : payTo;
   if (!/^[0-9a-fA-F]{64}$/u.test(digits)) return false;
   const expected = Uint8Array.from({ length: 32 }, (_, index) => Number.parseInt(digits.slice(index * 2, index * 2 + 2), 16));
   let matched = false;
   for (const candidate of await accountIdentifiers(account)) {
     matched = equalBytes(candidate, expected) || matched;
+  }
+  const did = /^agent:([a-z0-9._:-]+):main$/u.exec(account)?.[1];
+  const assetHex = asset.replace(/^0x/u, "").toLowerCase();
+  if (did !== undefined && /^[0-9a-f]{64}$/u.test(assetHex)) {
+    const [, nativeAssetAccount] = await accountIdentifiers(`agent:${did}:asset:${assetHex}`);
+    matched = equalBytes(nativeAssetAccount!, expected) || matched;
   }
   return matched;
 }
@@ -937,29 +1018,56 @@ function concatenate(...values: readonly Uint8Array[]): Uint8Array {
   return result;
 }
 
-async function merkleLeafDigest(canonicalReceipt: Uint8Array): Promise<Uint8Array> {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    arrayBuffer(concatenate(MERKLE_LEAF_DOMAIN, canonicalReceipt)),
-  );
-  return new Uint8Array(digest);
-}
-
 function toHex(value: Uint8Array): string {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function grantPaymentHeader(required: PaymentRequired, accepted: PaymentRequirements, receiveHex: string): string {
-  const payer = paymentPayer(accepted.extra, true)!;
-  const purpose = paymentPurpose(accepted.extra, true)!;
-  if ((accepted.scheme !== "metered" && accepted.scheme !== "subscription") || !/^[0-9a-f]{1466}$/u.test(receiveHex)
-    || receiveHex.slice(0, 8) !== "5201000a" || receiveHex.slice(8, 72) !== payer
-    || receiveHex.slice(72, 136) !== accepted.payTo
-    || receiveHex.slice(136, 200) !== accepted.asset || BigInt(`0x${receiveHex.slice(200, 232)}`) !== BigInt(accepted.amount)
-    || receiveHex.slice(232, 296) !== receiveHex.slice(774, 838)
-    || receiveHex.slice(838, 902) !== payer || receiveHex.slice(902, 966) !== accepted.payTo
-    || receiveHex.slice(966, 1030) !== accepted.asset || receiveHex.slice(1128, 1192) !== purpose
-    || !required.accepts.some(value => JSON.stringify(value) === JSON.stringify(accepted))) throw new MiddlewareError("requirements-mismatch");
+export function grantPaymentHeader(required: PaymentRequired, accepted: PaymentRequirements, rawTransaction: string): string {
+  const { data } = grantDrawTransaction(accepted, rawTransaction);
+  if (!required.accepts.some(value => JSON.stringify(value) === JSON.stringify(accepted))) {
+    throw new MiddlewareError("requirements-mismatch");
+  }
   return encodePaymentPayloadHeader({ x402Version: X402_VERSION, resource: required.resource, accepted,
-    extensions: required.extensions ?? {}, payload: { receive: receiveHex, idempotencyKey: receiveHex.slice(312, 376) } });
+    extensions: required.extensions ?? {}, payload: { rawTransaction, idempotencyKey: toHex(data.subarray(100, 132)) } });
+}
+
+function grantTransactionBytes(value: string): Uint8Array {
+  if (typeof value !== "string" || value.length > 128 * 1024 || !/^0x(?:[0-9a-f]{2})+$/u.test(value)) {
+    throw new MiddlewareError("invalid-payment-payload");
+  }
+  return Uint8Array.from(value.slice(2).match(/../gu)!, (pair) => Number.parseInt(pair, 16));
+}
+
+function grantDrawTransaction(accepted: PaymentRequirements, rawTransaction: string): { readonly raw: Uint8Array; readonly data: Uint8Array; readonly asset: string } {
+  try {
+    const raw = grantTransactionBytes(rawTransaction);
+    const transaction = decodeRawEip1559(raw);
+    const data = transaction.data;
+    const layerx = asObject(asObject(accepted.extra)["layerx"]);
+    const grant = asObject(layerx["grant"]);
+    const grantId = requiredString(grant["grantId"]);
+    const asset = requiredString(grant["asset"]);
+    const contextHash = requiredString(layerx["contextHash"]);
+    paymentPayer(accepted.extra, true);
+    if ((accepted.scheme !== "metered" && accepted.scheme !== "subscription")
+      || `0x${toHex(transaction.to)}` !== LAYERX_LEDGER_ADDRESS || transaction.value !== 0n
+      || accepted.network !== `eip155:${transaction.chainId}`
+      || data.length !== 4 + 7 * 32 || !equalBytes(data.subarray(0, 4), LEDGER_DRAW_SELECTOR)
+      || !/^[0-9a-f]{64}$/u.test(grantId) || /^0+$/u.test(grantId)
+      || toHex(data.subarray(4, 36)) !== grantId
+      || `0x${toHex(data.subarray(36, 68))}` !== accepted.payTo
+      || !/^0x[0-9a-f]{64}$/u.test(asset) || asset !== accepted.asset
+      || !/^(0|[1-9][0-9]{0,38})$/u.test(accepted.amount)
+      || BigInt(`0x${toHex(data.subarray(68, 100))}`) > MAX_U128
+      || BigInt(`0x${toHex(data.subarray(68, 100))}`) !== BigInt(accepted.amount)
+      || BigInt(`0x${toHex(data.subarray(132, 164))}`) >= 1n << 64n
+      || toHex(data.subarray(164, 196)) !== paymentPurpose(accepted.extra, true)
+      || !/^[0-9a-f]{64}$/u.test(contextHash)
+      || toHex(data.subarray(196, 228)) !== contextHash) {
+      throw new MiddlewareError("requirements-mismatch");
+    }
+    return { raw, data, asset };
+  } catch {
+    throw new MiddlewareError("requirements-mismatch");
+  }
 }

@@ -1,0 +1,37 @@
+[repair.22.33.1253]
+acceptance = "22998.1"
+implementation = "Refuse exhausted outbound nonces with the registered ErrInvalidRequest before bank/tokenfactory operations; reject noncanonical Sidiora home chains before writes; preserve existing cap-order and legacy-mapping refusals."
+proof = "Real application keepers and message codec/router, disk-backed LevelDB commit/close/reopen, full application export/InitChain import, unchanged bridge/bank/tokenfactory snapshots, metadata/admin, attested-deposit replay refusal, supply conservation and next release nonce."
+baseline = "No pre-change verification was run: the explicit implementation-first gate order and prohibition on running verify_cmd by hand conflict with the baseline clause. No pre-existing test failure is claimed without an executed baseline. No previous gate ledger existed at session start."
+evidence = "The runner's hf-build/hf-done ledger and final JSON record the exact candidate revision, command, exit and private log; only a passing hf-done qualifies this task."
+wiring_requests = "None: the existing registered ErrInvalidRequest provides a typed nonce-exhaustion refusal without an out-of-scope types change."
+
+[finding.bridge-release-nonce-overflow]
+test = "TestRepairM_1253_ReleaseNonceOverflow"
+proof = "Valid full-application genesis at MaxUint64-1 and MaxUint64, final legal burn at MaxUint64, refusal before insufficient-balance handling, exact no-write snapshots before and after persistent reopen and full import."
+
+[finding.bridge-sidiora-reopen-proof]
+test = "TestRepairM_1253_SidioraReopenProof"
+proof = "genesis_test.go owns persistent Sidiora registration/mint/burn, complete application export, database close/reopen and full InitChain import, bank/tokenfactory/bridge equality, metadata/admin, replay refusal and nonce 2. The bridge genesis consumer reapplies its canonical Sidiora metadata via the real tokenfactory Msg service after tokenfactory initialization replaces it with default metadata; imported admin must still authorize that message."
+
+[finding.bridge-general-reopen-proof]
+test = "TestRepairM_1253_GeneralReopenProof"
+proof = "keeper_test.go retains TestGenesisRoundTrip and adds persistent general bridge recovery through both reopen and full import; the original signatures replay to ErrNullified and the next burn issues nonce 2 with conserved supply."
+
+[finding.cap-first-test-invariant]
+test = "TestRepairM_1253_CapFirstInvariant"
+proof = "The existing legacy mapping refusal stays intact; additional cap-first assertions prove early refusal with unchanged bridge/bank/tokenfactory/events, no generic denom or supply, valid exported state and successful canonical registration after reopen/import."
+
+[finding.sidiora-helper-home]
+test = "TestRepairM_1253_SidioraHelperHome"
+proof = "Message validation/router and exported helper both refuse chain 1 and other foreign IDs; all module snapshots/events remain unchanged and exported state validates and survives persistent reopen/full import."
+
+[finding.sidiora-fixture-chain]
+test = "TestRepairM_1253_SidioraFixtureChain"
+proof = "Updated Sidiora success fixtures register the canonical home chain and pair via the real codec/Msg service; metadata, mint/burn, authority and refusal assertions remain active, and exported genesis validates and imports."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx and spec task/qualification files are outside the task's explicit edit scope; local task findings are recorded here instead."
+
+[gotcha.context]
+observed = "cg brief reports stale graph changes unrelated to git status; use the working tree and runner ledger to identify prior implementation. The bridge testutil keeper helper is in store.go, not keeper.go."

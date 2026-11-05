@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -106,6 +107,10 @@ func validateTokenReleaseSchedule(i interface{}) error {
 
 	prevReleaseEndDate := time.Time{}
 	for _, scheduledTokenRelease := range sortedTokenReleaseSchedule {
+		if scheduledTokenRelease.GetTokenReleaseAmount() > uint64(math.MaxInt64) {
+			return fmt.Errorf("token release amount exceeds int64 bounds")
+		}
+
 		startDate, err := time.Parse(TokenReleaseDateFormat, scheduledTokenRelease.GetStartDate())
 		if err != nil {
 			return fmt.Errorf("error: invalid start date format use yyyy-mm-dd: %s", err)

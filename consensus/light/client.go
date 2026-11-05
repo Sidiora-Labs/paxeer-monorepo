@@ -25,7 +25,8 @@ const (
 	sequential mode = iota + 1
 	skipping
 
-	defaultPruningSize = 1000
+	defaultPruningSize            = 1000
+	maxBackwardsVerificationSteps = 10000
 
 	// For verifySkipping, we need an algorithm to find what height to check
 	// next to see if it has sufficient validator set overlap. The most
@@ -231,6 +232,21 @@ func NewClientFromTrustedStore(
 	blacklistTTL time.Duration,
 	options ...Option) (*Client, error) {
 
+	if len(witnesses) < 1 {
+		return nil, ErrNoWitnesses
+	}
+	if trustingPeriod <= 0 {
+		return nil, errors.New("negative or zero trusting period")
+	}
+	if primary == nil || trustedStore == nil {
+		return nil, errors.New("primary provider and trusted store are required")
+	}
+	for _, witness := range witnesses {
+		if witness == nil {
+			return nil, errors.New("nil witness provider")
+		}
+	}
+
 	c := &Client{
 		chainID:          chainID,
 		trustingPeriod:   trustingPeriod,
@@ -241,6 +257,7 @@ func NewClientFromTrustedStore(
 		blacklistTTL:     blacklistTTL,
 		primary:          primary,
 		witnesses:        witnesses,
+		blacklist:        make(map[string]time.Time),
 		trustedStore:     trustedStore,
 		pruningSize:      defaultPruningSize,
 	}
@@ -257,6 +274,9 @@ func NewClientFromTrustedStore(
 	// Check that the trusted store has at least one block and
 	if err := c.restoreTrustedLightBlock(); err != nil {
 		return nil, err
+	}
+	if err := c.latestTrustedBlock.ValidateBasic(c.chainID); err != nil {
+		return nil, fmt.Errorf("invalid restored light block: %w", err)
 	}
 
 	return c, nil
@@ -916,9 +936,12 @@ func (c *Client) backwards(
 		interimHeader  *types.Header
 	)
 
-	if verifiedHeader.Height-newHeader.Height > 10000 {
-		logger.Info("skipping backward verification process", "from", newHeader.Height, "to", verifiedHeader.Height)
-		return nil
+	if verifiedHeader.Height-newHeader.Height > maxBackwardsVerificationSteps {
+		return ErrVerificationFailed{
+			From:   verifiedHeader.Height,
+			To:     newHeader.Height,
+			Reason: fmt.Errorf("backward verification exceeds limit of %d headers", maxBackwardsVerificationSteps),
+		}
 	}
 	logger.Info("starting backward verification process", "from", newHeader.Height, "to", verifiedHeader.Height)
 	for verifiedHeader.Height > newHeader.Height {
@@ -954,6 +977,11 @@ func (c *Client) backwards(
 			return c.backwards(ctx, verifiedHeader, newPrimarysBlock.Header)
 		}
 		verifiedHeader = interimHeader
+	}
+
+	if !bytes.Equal(verifiedHeader.Hash(), newHeader.Hash()) {
+		return ErrInvalidHeader{fmt.Errorf("verified backward header %X does not match target %X",
+			verifiedHeader.Hash(), newHeader.Hash())}
 	}
 
 	return nil

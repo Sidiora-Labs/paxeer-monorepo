@@ -1,0 +1,26 @@
+[repair.22.33.1038]
+mode = "BUILD"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+findings = ["capacity_pause_slo_conflict", "risk_inputs_unwired"]
+baseline = "No baseline verify was run: the explicit task gate order prohibits testing before complete implementation and reserves verification for hf-done. The repair test file did not exist on the starting tree. No pre-change test failure is claimed."
+verification = "hf-build then hf-done; the runner gate ledger and final evidence JSON name the exact candidate revision, command, exit and private log."
+evidence_location = "/out/run/gates.jsonl"
+
+[finding.capacity_pause_slo_conflict]
+tests = ["TestRepairM_1038_CapacityPauseSLOConflict", "TestRepairM_1038_OriginAndConsumerBindingsFailClosed"]
+repair = "Verify the origin listener belongs to the pinned stats process, then pause only the configured JetStream durable's delivery. Preserve zero read failures, p95<=150ms, p99<=400ms, measured backlog growth, bounded catchup and independent durable reconciliation."
+proof = "Real publication producer and delivery codec, loopback NATS protocol peer, pgx transactional fixture store, production app projector and public HTTP handler; compare recovered durable state with uninterrupted delivery."
+
+[finding.risk_inputs_unwired]
+tests = ["TestRepairM_1038_RiskInputsAppWiringLateHoldersAndRestart", "TestRepairM_1038_RiskInputsAtomicRollbackAndConflicts", "TestRepairM_1038_RiskInputsPositionAndExpiry"]
+repair = "App constructs a canonical input producer; canonical creation, Transfer ledger coverage and committed trader facts are bound to the requested height/hash. Input persistence, model calculation and outbox share the projection transaction. Holder catchup triggers recomputation; expiry retries from durable progress after restart. Same-height coverage changes require an advancing projection revision; same-revision conflicts remain errors."
+proof = "Frozen chain-125 receipt transcripts, real Transfer decoder and holdings arithmetic, real market publication producer, pgx transport, production input producer/projector and public HTTP read path; stop and reopen the fixture store and app projector, verify recovery, rollback, late coverage, source conflicts, historical positions and expiry."
+wiring_request = "services/launchpad/stats-workers/internal/holdings (owning domain 4): expose a durable through-height coverage notification/checkpoint for consumers; within this scope app triggers RefreshTokenInputs after CatchUpCanonicalAt commits, and analytics verifies the existing Transfer ledger in both directions."
+
+[qualification.repair_1]
+revision = "69f7838f0356c8509b13c5fa67b10f7bda667fa0"
+command = "cg spec done 22.33.1038 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The protocol peer rejected an invalid altered buy amount before the production conflict check; four focused tests passed."
+repair = "Use the distinct recorded creator as the conflicting sender so the fill remains valid and the unchanged ErrConflict assertion exercises the production producer."

@@ -1,0 +1,18 @@
+{
+ "slug": "sdk-names",
+ "manifests": [
+  "sdk/names/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-j3f2-48v5-ccww",
+   "number": 4661,
+   "package": "protobufjs",
+   "ecosystem": "npm",
+   "manifest": "sdk/names/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": ">= 7.5.0, <= 7.6.4",
+   "patched": "7.6.5"
+  }
+ ]
+}

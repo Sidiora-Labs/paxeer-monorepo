@@ -2,6 +2,7 @@ pub mod aggregation;
 pub mod core;
 pub mod engine;
 pub mod error;
+pub mod formatting;
 pub mod query;
 pub mod relational;
 pub mod state;

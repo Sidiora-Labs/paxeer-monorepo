@@ -1,7 +1,7 @@
 import hashlib
 import sqlite3
 
-from .x402 import payment_commitment, payment_payer, verify_payment_receipt
+from .x402 import payment_commitment, payment_payer, refuse_payer_grant, verify_payment_receipt
 from .x402_http import validate_requirements
 from .x402_rpc import rpc_hex
 
@@ -65,9 +65,11 @@ class PaymentBudget:
 
     def verify_and_commit(self, key, digest, offer, evidence, signatures):
         validate_requirements(offer)
+        if offer["scheme"] in ("metered", "subscription") or evidence.grant_binding is not None:
+            refuse_payer_grant()
         verified = verify_payment_receipt(
             evidence.canonical_receipt,
-            evidence.authorized_batch,
+            evidence.raw_transaction,
             signatures,
             amount=offer["amount"],
             asset=offer["asset"],
@@ -76,7 +78,9 @@ class PaymentBudget:
                 offer.get("extra"), required=offer["scheme"] != "exact"
             ),
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
+            finality=evidence.finality,
+            scheme=offer["scheme"],
+            grant_binding=evidence.grant_binding,
         )
         receipt_digest = hashlib.sha256(
             b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
@@ -109,12 +113,4 @@ class AgentGrantMiddleware:
         validate_requirements(offer)
         if offer["scheme"] not in ("metered", "subscription"):
             raise ValueError("grant-offer-required")
-        key = body["idempotencyKey"]
-        self.budgets.reserve(key, request_digest, offer)
-        evidence = self.draws(principal, request_digest, body, offer)
-        if evidence is None:
-            return None
-        self.budgets.verify_and_commit(
-            key, request_digest, offer, evidence, self.signatures
-        )
-        return evidence
+        refuse_payer_grant()

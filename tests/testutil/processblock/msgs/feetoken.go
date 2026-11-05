@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxbridge"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
@@ -65,7 +66,10 @@ func RecipientWord(recipient common.Address) [32]byte {
 func SidioraBridgeIn(app *processblock.App, relayer FeeTokenSigner, nonce uint64, gasPrice *big.Int, chain uint64,
 	vault common.Address, txHash common.Hash, logIndex uint64, recipient common.Address, asset common.Address,
 	amount *big.Int, signatures [][]byte) signing.Tx {
-	info := precompiles.GetPrecompileInfo(layerxbridge.PrecompileName)
+	info, err := precompiles.GetPrecompileInfoE(layerxbridge.PrecompileName)
+	if err != nil {
+		panic(err)
+	}
 	data, err := info.ABI.Pack(layerxbridge.BridgeInMethod, chain, vault, [32]byte(txHash), logIndex,
 		RecipientWord(recipient), asset, amount, signatures)
 	if err != nil {
@@ -78,7 +82,10 @@ func SidioraBridgeIn(app *processblock.App, relayer FeeTokenSigner, nonce uint64
 // through the fee-token precompile.
 func FeeDenomPreference(app *processblock.App, payer FeeTokenSigner, nonce uint64, gasPrice *big.Int,
 	denom string) signing.Tx {
-	info := precompiles.GetPrecompileInfo(feetoken.PrecompileName)
+	info, err := precompiles.GetPrecompileInfoE(feetoken.PrecompileName)
+	if err != nil {
+		panic(err)
+	}
 	data, err := info.ABI.Pack(feetoken.SetFeeDenomMethod, denom)
 	if err != nil {
 		panic(err)
@@ -97,6 +104,9 @@ func FeeTokenTransfer(app *processblock.App, sender FeeTokenSigner, nonce uint64
 // it in the cosmos transaction a block carries.
 func EVMTransaction(app *processblock.App, signer FeeTokenSigner, nonce uint64, gasPrice *big.Int, gas uint64,
 	to common.Address, data []byte) signing.Tx {
+	if err := precompiletest.Install(app.App); err != nil {
+		panic(err)
+	}
 	ctx := app.Ctx()
 	ethCfg := evmtypes.DefaultChainConfig().EthereumConfig(app.EvmKeeper.ChainID(ctx))
 	ethSigner := ethtypes.MakeSigner(ethCfg, big.NewInt(ctx.BlockHeight()), uint64(ctx.BlockTime().Unix())) // nolint:gosec

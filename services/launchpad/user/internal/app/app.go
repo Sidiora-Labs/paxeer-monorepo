@@ -764,8 +764,11 @@ type accountDeliveryPreference struct {
 	Revision                      uint64
 	Categories, Channels          map[string]bool
 	CategoryChannels              map[string]map[string]bool
-	QuietHours                    *struct{ StartMinute, EndMinute int }
-	Linked                        bool
+	QuietHours                    *struct {
+		StartMinute, EndMinute int
+		Timezone               string
+	}
+	Linked bool
 }
 
 func accountNotificationAuthority(store account.Store, runtime *account.Runtime, token, pin string) http.Handler {
@@ -773,15 +776,31 @@ func accountNotificationAuthority(store account.Store, runtime *account.Runtime,
 	target := func(ctx context.Context, id, device uuid.UUID) (accountPushTarget, []byte, error) {
 		var out accountPushTarget
 		var raw, fingerprint []byte
-		var revoked, installationRevoked bool
+		var eligible bool
 		var revision int64
-		e := store.DB.QueryRow(ctx, `SELECT e.provider,e.fingerprint,e.ciphertext,e.consent_revision,e.validated_at,e.revoked,a.revision,i.revoked FROM account_endpoint e JOIN account_state a USING(account_id) JOIN account_device_installation i ON i.installation_id=e.device_id AND i.account_id=e.account_id WHERE e.account_id=$1 AND e.device_id=$2 AND NOT a.deleted`, id, device).Scan(&out.Provider, &fingerprint, &raw, &out.ConsentRevision, &out.LastSeen, &revoked, &revision, &installationRevoked)
+		now := time.Now().UTC()
+		if store.Clock != nil {
+			now = store.Clock().UTC()
+		}
+		// Keep the session predicate aligned with account.Store.EndpointEligible.
+		// Consent is evaluated separately by delivery-preference; target eligibility
+		// must still be checked when resolving a previously issued target.
+		e := store.DB.QueryRow(ctx, `SELECT e.provider,e.fingerprint,e.ciphertext,e.consent_revision,e.validated_at,a.revision,
+			coalesce(NOT e.revoked AND NOT i.revoked AND e.validated_at>$3 AND i.verified_at>$3 AND i.session_id=e.session_id AND EXISTS(
+				SELECT 1 FROM identity_sessions s
+				JOIN identity_accounts ia ON ia.account_id=s.account_id
+				JOIN identity_wallet_links w ON w.account_id=ia.account_id AND w.wallet=s.wallet AND w.chain_id=125 AND w.state='verified'
+				WHERE s.session_id=e.session_id AND s.account_id=e.account_id AND s.revoked_at IS NULL
+				AND s.auth_epoch=ia.auth_epoch AND s.access_expires_at>clock_timestamp()),false)
+			FROM account_endpoint e JOIN account_state a USING(account_id)
+			LEFT JOIN account_device_installation i ON i.installation_id=e.device_id AND i.account_id=e.account_id
+			WHERE e.account_id=$1 AND e.device_id=$2 AND NOT a.deleted`, id, device, now.Add(-30*24*time.Hour)).Scan(&out.Provider, &fingerprint, &raw, &out.ConsentRevision, &out.LastSeen, &revision, &eligible)
 		out.AccountID = id.String()
 		out.DeviceInstallationID = device.String()
 		out.EncryptedEndpointRef = hex.EncodeToString(fingerprint)
 		out.Revision = uint64(revision)
 		out.Status = "active"
-		if revoked || installationRevoked || out.LastSeen.Before(time.Now().Add(-30*24*time.Hour)) {
+		if !eligible {
 			out.Status = "revoked"
 		}
 		return out, raw, e
@@ -814,6 +833,12 @@ func accountNotificationAuthority(store account.Store, runtime *account.Runtime,
 			return
 		}
 		out := accountDeliveryPreference{AccountID: id.String(), Timezone: preferences.Timezone, Language: preferences.Locale, Revision: revision, Categories: map[string]bool{}, Channels: map[string]bool{}, CategoryChannels: map[string]map[string]bool{}}
+		for _, channel := range []string{"push", "inapp", "email"} {
+			out.Channels[channel] = false
+		}
+		for _, channel := range preferences.Channels {
+			out.Channels[channel] = true
+		}
 		for _, category := range []string{"trade", "watchlist", "creator", "chat", "security", "marketing"} {
 			out.CategoryChannels[category] = map[string]bool{"push": false, "inapp": false, "email": false}
 		}
@@ -834,9 +859,9 @@ func accountNotificationAuthority(store account.Store, runtime *account.Runtime,
 				account.WriteError(w, account.ErrInvalid, uuid.New())
 				return
 			}
-			out.CategoryChannels[category][channel] = enabled
-			out.Categories[category] = out.Categories[category] || enabled
-			out.Channels[channel] = out.Channels[channel] || enabled
+			effective := enabled && out.Channels[channel]
+			out.CategoryChannels[category][channel] = effective
+			out.Categories[category] = out.Categories[category] || effective
 		}
 		if e = rows.Err(); e != nil {
 			account.WriteError(w, e, uuid.New())
@@ -859,7 +884,10 @@ func accountNotificationAuthority(store account.Store, runtime *account.Runtime,
 			account.WriteError(w, account.ErrInvalid, uuid.New())
 			return
 		}
-		out.QuietHours = &struct{ StartMinute, EndMinute int }{start, end}
+		out.QuietHours = &struct {
+			StartMinute, EndMinute int
+			Timezone               string
+		}{StartMinute: start, EndMinute: end, Timezone: preferences.QuietHours.Timezone}
 		write(w, out)
 	})
 	mux.HandleFunc("GET /internal/v2/accounts/{accountId}/targets", func(w http.ResponseWriter, r *http.Request) {

@@ -1,22 +1,36 @@
+use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_human_test_support as support;
+use layerx_types::clock::Clock as _;
+use std::time::Duration;
 
-use std::fs;
+use std::ffi::OsString;
+use std::fs::{self, DirBuilder};
 use std::future::Future;
+use std::io;
+use std::os::unix::fs::DirBuilderExt as _;
+use std::path::{Path, PathBuf};
 use std::pin::pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
+use std::thread::{self, JoinHandle};
 
 use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest, Prepared,
+    DisclosureDigest, EvmPrepared, PreparationDefaults, PrepareRequest, Prepared,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
+use layerx_crypto::disclosure::{call::bind_call, Disclosure};
+use layerx_crypto::evm_transaction::decode_signed;
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
+use layerx_human_kms::attestor::unsigned_evm_transaction;
 use layerx_human_service::audit::{
     AuditChain, AuditEvent, Decision, SigningOperation, StepUpEvidence as AuditStepUpEvidence,
 };
 use layerx_human_service::custody::{
-    CustodyError, CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, KmsError,
-    Operation, SignAuthorization, SignRequest, SigningLimits, StepUpEvidence,
+    CustodyError, CustodySigner, EnvelopeKms, EvmPlanAuthorization, EvmTransaction, KeyClass,
+    KeyEntropy, KeyId, Keystore, KmsError, Operation, SignAuthorization, SignRequest,
+    SigningLimits, StepUpEvidence,
 };
 use layerx_human_service::store::{PrincipalId, PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
@@ -33,7 +47,105 @@ use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRe
 
 use support::{directory, principal, retention_uniform, tenancy};
 
+#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod clock_server;
+
 const NETWORK_ID: u32 = 77;
+
+struct TestDirectory(PathBuf);
+
+impl TestDirectory {
+    fn new() -> io::Result<Self> {
+        let mut entropy = [0_u8; 16];
+        getrandom::fill(&mut entropy).map_err(|error| io::Error::other(error.to_string()))?;
+        let path = std::env::temp_dir().join(format!("hcu-{:032x}", u128::from_be_bytes(entropy)));
+        DirBuilder::new().mode(0o700).create(&path)?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+struct RunningClock {
+    shutdown: Arc<AtomicBool>,
+    worker: Option<JoinHandle<io::Result<()>>>,
+}
+
+impl RunningClock {
+    fn start(root: &Path) -> io::Result<(Self, ClockBinding)> {
+        let mut server = clock_server::Server::bind(root)?;
+        let binding = ClockBinding {
+            socket: server.socket().to_path_buf(),
+            process: std::process::id(),
+            user: rustix::process::geteuid().as_raw(),
+        };
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let stop = Arc::clone(&shutdown);
+        let worker = thread::spawn(move || {
+            while !stop.load(Ordering::Acquire) {
+                server.poll()?;
+                thread::sleep(Duration::from_millis(1));
+            }
+            Ok(())
+        });
+        Ok((
+            Self {
+                shutdown,
+                worker: Some(worker),
+            },
+            binding,
+        ))
+    }
+}
+
+impl Drop for RunningClock {
+    fn drop(&mut self) {
+        self.shutdown.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+struct ClockEnvironment([(&'static str, Option<OsString>); 3]);
+
+impl ClockEnvironment {
+    fn install(binding: &ClockBinding) -> Self {
+        let values = [
+            (
+                "LAYERX_RUNTIME_CLOCK_SOCKET",
+                binding.socket.clone().into_os_string(),
+            ),
+            (
+                "LAYERX_RUNTIME_CLOCK_PID",
+                binding.process.to_string().into(),
+            ),
+            ("LAYERX_RUNTIME_CLOCK_UID", binding.user.to_string().into()),
+        ];
+        let previous = values
+            .each_ref()
+            .map(|(name, _)| (*name, std::env::var_os(name)));
+        for (name, value) in values {
+            std::env::set_var(name, value);
+        }
+        Self(previous)
+    }
+}
+
+impl Drop for ClockEnvironment {
+    fn drop(&mut self) {
+        for (name, value) in &self.0 {
+            match value {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
+    }
+}
 
 struct NoopWake;
 
@@ -136,7 +248,12 @@ impl CorePreparationBoundary for PreparedCore {
     }
 }
 
-fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128, idempotency: u8) -> Prepared {
+fn kernel_prepared(
+    public_key: [u8; 32],
+    seed: [u8; 32],
+    amount: u128,
+    idempotency: u8,
+) -> Prepared {
     let registry = registry();
     let compiled = compile(
         &send_intent(public_key, seed, amount, idempotency),
@@ -177,6 +294,55 @@ fn prepared(public_key: [u8; 32], seed: [u8; 32], amount: u128, idempotency: u8)
         },
     )
     .unwrap_or_else(|error| panic!("prepare: {error:?}"))
+}
+
+struct EvmSigningSubject {
+    canonical_bytes: Vec<u8>,
+    disclosure: Disclosure,
+    disclosure_digest: DisclosureDigest,
+}
+
+fn prepared(
+    public_key: [u8; 32],
+    seed: [u8; 32],
+    amount: u128,
+    idempotency: u8,
+) -> EvmSigningSubject {
+    let key = k256::ecdsa::SigningKey::from_slice(&seed)
+        .unwrap_or_else(|error| panic!("EVM key: {error}"));
+    let actor = layerx_crypto::secp256k1::evm_address(
+        key.verifying_key().to_encoded_point(false).as_bytes(),
+    )
+    .unwrap_or_else(|error| panic!("EVM address: {error:?}"));
+    let compiled = compile(
+        &send_intent(public_key, seed, amount, idempotency),
+        &registry(),
+    )
+    .unwrap_or_else(|error| panic!("compile EVM send: {error:?}"));
+    let disclosed = ledger_payment_call(
+        compiled.payload().as_bytes(),
+        &CallOptions {
+            from: actor,
+            chain_id: u64::from(NETWORK_ID),
+            nonce: 5,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            gas_limit: 100_000,
+        },
+    )
+    .unwrap_or_else(|error| panic!("EVM send call: {error:?}"));
+    let disclosure = bind_call(&disclosed.call, actor)
+        .unwrap_or_else(|error| panic!("EVM disclosure: {error:?}"));
+    assert_eq!(disclosure, disclosed.disclosure);
+    EvmSigningSubject {
+        canonical_bytes: unsigned_evm_transaction(&disclosed.call),
+        disclosure_digest: DisclosureDigest(
+            disclosure
+                .audit_digest()
+                .unwrap_or_else(|error| panic!("EVM disclosure digest: {error:?}")),
+        ),
+        disclosure,
+    }
 }
 
 struct Fixture {
@@ -321,6 +487,7 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     );
 
     let prepared = prepared(public_key, seed, 25, 4);
+    let authorization = kernel_prepared(public_key, seed, 25, 4);
     let signer = CustodySigner::new(
         keystore,
         fixture.store(),
@@ -339,9 +506,113 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     .unwrap_or_else(|error| panic!("custody sign: {error}"));
     assert_eq!(grant.signer_public_key(), public_key);
     assert_eq!(grant.disclosure_digest(), prepared.disclosure_digest.0);
-    let signed_activity = attach_external_signature(&prepared, *grant.signature())
+    let from = signer
+        .evm_wallet(&fixture.alice, &key)
+        .unwrap_or_else(|error| panic!("EVM wallet: {error}"));
+    let call = ledger_payment_call(
+        authorization.envelope.payload().as_bytes(),
+        &CallOptions {
+            from,
+            chain_id: u64::from(NETWORK_ID),
+            nonce: 5,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            gas_limit: 100_000,
+        },
+    )
+    .unwrap_or_else(|error| panic!("send call: {error:?}"))
+    .call;
+    let disclosure = bind_call(&call, from).unwrap_or_else(|error| panic!("bind call: {error:?}"));
+    assert_eq!(disclosure, prepared.disclosure);
+    let disclosure_digest = disclosure
+        .signing_digest()
+        .unwrap_or_else(|error| panic!("disclosure digest: {error:?}"));
+    let preparation = SigningPreparation {
+        transaction: EvmPrepared {
+            signing_hash: call.signing_hash(),
+            call,
+            from,
+            disclosure,
+            disclosure_digest,
+            observed_head_height: 88,
+        },
+        actor_address: from,
+    };
+    let call = &preparation.transaction.call;
+    let clock_directory =
+        TestDirectory::new().unwrap_or_else(|error| panic!("private clock directory: {error}"));
+    let (_clock_server, binding) = RunningClock::start(&clock_directory.0)
+        .unwrap_or_else(|error| panic!("runtime clock: {error}"));
+    let _clock_environment = ClockEnvironment::install(&binding);
+    let clock =
+        RuntimeClock::connect(binding).unwrap_or_else(|error| panic!("plan clock: {error}"));
+    let plan_time = clock
+        .sample(Duration::from_secs(1))
+        .unwrap_or_else(|error| panic!("plan time: {error}"))
+        .unix_seconds();
+    let authorization = EvmPlanAuthorization {
+        plan_id: prepared.disclosure_digest.0,
+        action_key: preparation.transaction.signing_hash,
+        tenant: "tenant-a".into(),
+        principal: fixture.alice.as_str().into(),
+        binding_digest: signer
+            .evm_binding(&fixture.alice, &key)
+            .unwrap_or_else(|error| panic!("EVM binding: {error}"))
+            .digest(),
+        wallet: preparation.actor_address,
+        not_before: plan_time,
+        not_after: plan_time + 60,
+        transaction: EvmTransaction {
+            chain_id: call.chain_id,
+            nonce: call.nonce,
+            max_priority_fee_per_gas: call
+                .max_priority_fee_per_gas
+                .try_into()
+                .unwrap_or_else(|error| panic!("priority fee: {error}")),
+            max_fee_per_gas: call
+                .max_fee_per_gas
+                .try_into()
+                .unwrap_or_else(|error| panic!("maximum fee: {error}")),
+            gas_limit: call.gas_limit,
+            to: call.to,
+            value: [0; 32],
+            calldata: call.data.clone(),
+        },
+    };
+    signer
+        .authorize_evm_plan(&fixture.alice, &key, &authorization)
+        .unwrap_or_else(|error| panic!("authorize EVM plan: {error}"));
+    let action = fixture
+        .keystore()
+        .sign_evm_action(&fixture.alice, &key, &preparation.transaction.signing_hash)
+        .unwrap_or_else(|error| panic!("sign EVM action: {error}"));
+    let (signed_call, signature) = decode_signed(&action.raw_transaction)
+        .unwrap_or_else(|error| panic!("decode EVM action: {error:?}"));
+    assert_eq!(signed_call, preparation.transaction.call);
+    let signed_activity = attach_external_signature(&preparation, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach signature: {error:?}"));
-    assert!(verify_before_submit(&signed_activity, &prepared, &public_key, &registry()).is_ok());
+    let verified = verify_before_submit(
+        &signed_activity,
+        &preparation,
+        &preparation.actor_address,
+        &registry(),
+    )
+    .unwrap_or_else(|error| panic!("verify custody transaction: {error:?}"));
+    assert_eq!(verified.exact_bytes(), action.raw_transaction);
+    assert_eq!(
+        verified.idempotency_key(),
+        preparation.transaction.disclosure.idempotency_key
+    );
+    assert_eq!(
+        verified.activity_id(),
+        layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction)
+    );
+    let mut wrong_signer = preparation.actor_address;
+    wrong_signer[0] ^= 1;
+    assert_eq!(
+        verify_before_submit(&signed_activity, &preparation, &wrong_signer, &registry()),
+        Err(layerx_agentd::sign::SigningError::SignerMismatch)
+    );
     drop(signer);
 
     let audits = fixture.audits(&fixture.alice);
@@ -467,7 +738,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
 
     let fresh = StepUpEvidence::new(
         "ceremony-fresh",
-        Operation::EmergencyExit,
+        Operation::WalletRebinding,
         original.disclosure_digest.0,
         90,
         110,
@@ -477,7 +748,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
         &fixture.alice,
         &key,
         &fixture.trace,
-        SignAuthorization::new(Operation::EmergencyExit, Some(&fresh)),
+        SignAuthorization::new(Operation::WalletRebinding, Some(&fresh)),
         &original.canonical_bytes,
         &original.disclosure,
         100,
@@ -487,7 +758,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
         &fixture.alice,
         &key,
         &fixture.trace,
-        SignAuthorization::new(Operation::EmergencyExit, Some(&fresh)),
+        SignAuthorization::new(Operation::WalletRebinding, Some(&fresh)),
         &original.canonical_bytes,
         &original.disclosure,
         101,
@@ -529,7 +800,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
     assert!(audits.iter().any(|event| matches!(
         event,
         AuditEvent::SigningDecision {
-            operation: SigningOperation::EmergencyExit,
+            operation: SigningOperation::EvmPayoutBinding,
             step_up: AuditStepUpEvidence::Fresh { ceremony_digest },
             outcome: Decision::Granted,
             ..

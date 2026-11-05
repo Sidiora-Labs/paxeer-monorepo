@@ -9,10 +9,20 @@
 //! Authority capabilities retain their separate codec. See [`crate::disclosure`].
 
 use layerx_types::payload::ModuleId;
-use layerx_wire::{decode::Decoder, encode::Encoder};
 use sha2::{Digest as _, Sha256};
 
 use crate::disclosure::DisclosureError;
+
+mod codec;
+use codec::{protocol_version_supported, Decoder, Encoder};
+
+pub use crate::disclosure::call::bind_call;
+pub use crate::disclosure::Disclosure;
+#[deprecated(note = "Use binding::BindAuthorization for EVM identity registration")]
+pub use crate::onboarding::{OnboardingConsent, SponsoredRegistration};
+pub use crate::send::{
+    ledger_payment_call, send_context_hash, CallOptions, DisclosedCall, SendCondition, SendDebit,
+};
 
 type Id = [u8; 32];
 
@@ -261,12 +271,12 @@ impl Payment {
             || auth.controller != *to
             || auth.signed_context_hash != *context_hash
             || auth.network_id == 0
-            || !layerx_wire::limits::protocol_version_supported(auth.protocol_version)
+            || !protocol_version_supported(auth.protocol_version)
         {
             return bad();
         }
         let mut h = Sha256::new();
-        h.update(layerx_wire::hash::Domain::ContextHash.tag());
+        h.update(codec::CONTEXT_HASH_DOMAIN);
         h.update(g.purpose_hash);
         if g.has_reference {
             h.update(g.reference_hash);
@@ -291,7 +301,7 @@ impl Payment {
         e.u32(auth.network_id)?;
         e.u16(auth.protocol_version)?;
         let mut h = Sha256::new();
-        h.update(layerx_wire::hash::Domain::SignaturePreimage.tag());
+        h.update(codec::SIGNATURE_PREIMAGE_DOMAIN);
         h.update(e.finish());
         crate::ed25519::verify_digest(&auth.public_key, &auth.signature, &h.finalize().into())
             .map_err(|_| DisclosureError::MalformedPayload)?;
@@ -406,7 +416,7 @@ impl Payment {
         payload: &[u8],
         actor: &[u8],
     ) -> Result<Self, DisclosureError> {
-        let mut d = Decoder::new(payload, 0);
+        let mut d = Decoder::new(payload);
         if module == ModuleId::Asset
             && matches!(ordinal, 1 | 2 | 3 | 4 | 8 | 10 | 11)
             && d.u16()? != 1
@@ -577,7 +587,7 @@ impl Grant {
     /// # Errors
     /// Returns `MalformedPayload` when a limit, the expiration, the recipient, the asset or
     /// the purpose hash is zero, when the recurring flag disagrees with the window length,
-    /// and a `Wire` refusal when the grant fields cannot be encoded.
+    /// or when the grant fields cannot be encoded within the payload bound.
     pub fn signing_digest(&self) -> Result<Id, DisclosureError> {
         if self.per_draw_maximum == 0
             || self.allowance == 0
@@ -593,7 +603,7 @@ impl Grant {
         encode_grant(&mut e, self)?;
         let bytes = e.finish();
         let mut h = Sha256::new();
-        h.update(layerx_wire::hash::Domain::AuthorityHash.tag());
+        h.update(codec::AUTHORITY_HASH_DOMAIN);
         h.update(b"LXP:GRANT:v1");
         h.update(&bytes[32..282]);
         Ok(h.finalize().into())

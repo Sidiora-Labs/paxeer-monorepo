@@ -1,11 +1,13 @@
 "use client";
 
+import React from "react";
+import { markPriceWad, formatWadFixed } from "@/core/perps/pnlHelpers";
 import { Skeleton } from "@/ui/atoms/skeleton";
 import {
-  PERPS_MARKETS,
   ANALYTICS_AXIS_FORMATTERS,
   TRACK_B_STRINGS,
 } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useMarketSnapshots } from "@/hooks/perps/useAnalytics";
 import { formatSignedFundingDecimalPct, fundingDecimalSign, fundingWadDecimal, parseFundingRateWad } from "@/core/perps/fundingRate";
 
@@ -21,18 +23,17 @@ function parse18(val: string | null | undefined): number {
   return parseFloat(val) / 1e18;
 }
 
-function fmtPrice(price: number): string {
-  if (price >= 10000) return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (price >= 1) return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  return price.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
-}
-
-function getMarketSymbol(marketId: number): string {
-  return PERPS_MARKETS.find((m) => m.marketId === marketId)?.symbol ?? `MKT-${marketId}`;
+export function snapshotPrice(value: string | null | undefined): string {
+  if (value == null || value === "") return "—";
+  if (!/^\d+$/.test(value)) throw new TypeError("Invalid snapshot price");
+  const wad = BigInt(value);
+  const decimals = wad >= markPriceWad(10000) ? 2 : wad >= markPriceWad(1) ? 4 : 6;
+  return `$${formatWadFixed(wad, decimals, true)}`;
 }
 
 export function MarketSnapshotTable({ marketId }: MarketSnapshotTableProps) {
   const { data, isLoading } = useMarketSnapshots(marketId, 20);
+  const { catalog } = usePerpsMarkets();
 
   if (isLoading || !data) {
     return (
@@ -62,7 +63,9 @@ export function MarketSnapshotTable({ marketId }: MarketSnapshotTableProps) {
     );
   }
 
-  const symbol = marketId !== undefined ? getMarketSymbol(marketId) : "All";
+  const symbol = marketId !== undefined
+    ? catalog.find((market) => market.marketId === marketId)?.symbol ?? String(marketId)
+    : "All";
 
   return (
     <div className="rounded-card bg-surface-1 overflow-hidden shadow-04 transition-colors ease-data duration-200">
@@ -97,10 +100,10 @@ export function MarketSnapshotTable({ marketId }: MarketSnapshotTableProps) {
                     {ANALYTICS_AXIS_FORMATTERS.shortDate(s.blockTimestamp)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono">
-                    ${fmtPrice(parse18(s.markPrice))}
+                    {snapshotPrice(s.markPrice)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono">
-                    ${fmtPrice(parse18(s.indexPrice))}
+                    {snapshotPrice(s.indexPrice)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono text-long">
                     {ANALYTICS_AXIS_FORMATTERS.compactUsd(parse18(s.longOi))}

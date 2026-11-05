@@ -1,0 +1,387 @@
+[reconcile.r6-22]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 48
+
+[row.r6-22.1]
+interface = "interface.6.msg-layerxanchor-updateparams"
+verdict = "served"
+path = "api/layerxanchor/tx.proto"
+line = 5
+symbol = "UpdateParams"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse); No removal observed."
+
+[row.r6-22.2]
+interface = "interface.6.proto-layerxanchor-msgupdateparams"
+verdict = "served"
+path = "api/layerxanchor/tx.proto"
+line = 28
+symbol = "MsgUpdateParams"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgUpdateParams { string authority = 1; Params params = 2; } No removal observed."
+
+[row.r6-22.3]
+interface = "interface.6.proto-layerxanchor-msgupdateparamsresponse"
+verdict = "served"
+path = "api/layerxanchor/tx.proto"
+line = 33
+symbol = "MsgUpdateParamsResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgUpdateParamsResponse {  } No removal observed."
+
+[row.r6-22.4]
+interface = "interface.6.proto-layerxcustody-eventcustodydeposit"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 7
+symbol = "EventCustodyDeposit"
+evidence = "Retire-marked proto remains declared in the registered file: message EventCustodyDeposit { string deposit_id = 1; string asset_id = 2; string payer = 3; string beneficiary = 4; string amount = 5; uint64 nonce = 6; uint64 index = 7; string denom = 8; } No removal observed."
+
+[row.r6-22.5]
+interface = "interface.6.proto-layerxcustody-eventclaimqueued"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 19
+symbol = "EventClaimQueued"
+evidence = "Retire-marked proto remains declared in the registered file: message EventClaimQueued { string claim_id = 1; string nullifier = 2; string kind = 3; uint64 batch_number = 4; string asset_id = 5; string recipient = 6; string amount = 7; int64 available_at = 8; } No removal observed."
+
+[row.r6-22.6]
+interface = "interface.6.proto-layerxcustody-eventclaimfinalised"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 31
+symbol = "EventClaimFinalised"
+evidence = "Retire-marked proto remains declared in the registered file: message EventClaimFinalised { string claim_id = 1; string nullifier = 2; } No removal observed."
+
+[row.r6-22.7]
+interface = "interface.6.proto-layerxcustody-eventclaimcancelled"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 37
+symbol = "EventClaimCancelled"
+evidence = "Retire-marked proto remains declared in the registered file: message EventClaimCancelled { string claim_id = 1; string nullifier = 2; } No removal observed."
+
+[row.r6-22.8]
+interface = "interface.6.proto-layerxcustody-eventcustodyrelease"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 43
+symbol = "EventCustodyRelease"
+evidence = "Retire-marked proto remains declared in the registered file: message EventCustodyRelease { string claim_id = 1; string asset_id = 2; string recipient = 3; string amount = 4; string denom = 5; } No removal observed."
+
+[row.r6-22.9]
+interface = "interface.6.proto-layerxcustody-eventforcedexitexecuted"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 52
+symbol = "EventForcedExitExecuted"
+evidence = "Retire-marked proto remains declared in the registered file: message EventForcedExitExecuted { string claim_id = 1; string nullifier = 2; string anchor = 3; string account = 4; string asset_id = 5; string recipient = 6; string amount = 7; } No removal observed."
+
+[row.r6-22.10]
+interface = "interface.6.proto-layerxcustody-eventcheckpointregistered"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 63
+symbol = "EventCheckpointRegistered"
+evidence = "Retire-marked proto remains declared in the registered file: message EventCheckpointRegistered { uint64 batch_number = 1; string state_root = 2; string receipt_root = 3; } No removal observed."
+
+[row.r6-22.11]
+interface = "interface.6.proto-layerxcustody-eventdepositrootregistered"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 70
+symbol = "EventDepositRootRegistered"
+evidence = "Retire-marked proto remains declared in the registered file: message EventDepositRootRegistered { string checkpoint_id = 1; string deposit_root = 2; string commitment = 3; } No removal observed."
+
+[row.r6-22.12]
+interface = "interface.6.proto-layerxcustody-eventemergencyset"
+verdict = "served"
+path = "api/layerxcustody/events.proto"
+line = 77
+symbol = "EventEmergencySet"
+evidence = "Retire-marked proto remains declared in the registered file: message EventEmergencySet { bool enabled = 1; } No removal observed."
+
+[row.r6-22.13]
+interface = "interface.6.proto-layerxcustody-custodyproposal"
+verdict = "served"
+path = "api/layerxcustody/proposal.proto"
+line = 17
+symbol = "CustodyProposal"
+evidence = "Retire-marked proto remains declared in the registered file: message CustodyProposal { string title = 1; string description = 2; repeated google.protobuf.Any messages = 3; } No removal observed."
+
+[row.r6-22.14]
+interface = "interface.6.msg-layerxcustody-updateparams"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 14
+symbol = "UpdateParams"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse); No removal observed."
+
+[row.r6-22.15]
+interface = "interface.6.msg-layerxcustody-setasset"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 15
+symbol = "SetAsset"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc SetAsset(MsgSetAsset) returns (MsgSetAssetResponse); No removal observed."
+
+[row.r6-22.16]
+interface = "interface.6.msg-layerxcustody-registercheckpoint"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 16
+symbol = "RegisterCheckpoint"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc RegisterCheckpoint(MsgRegisterCheckpoint) returns (MsgRegisterCheckpointResponse); No removal observed."
+
+[row.r6-22.17]
+interface = "interface.6.msg-layerxcustody-setemergency"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 17
+symbol = "SetEmergency"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc SetEmergency(MsgSetEmergency) returns (MsgSetEmergencyResponse); No removal observed."
+
+[row.r6-22.18]
+interface = "interface.6.msg-layerxcustody-cancelclaim"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 18
+symbol = "CancelClaim"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc CancelClaim(MsgCancelClaim) returns (MsgCancelClaimResponse); No removal observed."
+
+[row.r6-22.19]
+interface = "interface.6.msg-layerxcustody-requestwithdrawal"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 19
+symbol = "RequestWithdrawal"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc RequestWithdrawal(MsgRequestWithdrawal) returns (MsgRequestWithdrawalResponse); No removal observed."
+
+[row.r6-22.20]
+interface = "interface.6.msg-layerxcustody-finalisewithdrawal"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 20
+symbol = "FinaliseWithdrawal"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc FinaliseWithdrawal(MsgFinaliseWithdrawal) returns (MsgFinaliseWithdrawalResponse); No removal observed."
+
+[row.r6-22.21]
+interface = "interface.6.msg-layerxcustody-requestforcedexit"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 21
+symbol = "RequestForcedExit"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc RequestForcedExit(MsgRequestForcedExit) returns (MsgRequestForcedExitResponse); No removal observed."
+
+[row.r6-22.22]
+interface = "interface.6.msg-layerxcustody-executeforcedexit"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 22
+symbol = "ExecuteForcedExit"
+evidence = "Retire-marked Msg service method remains declared in the registered file: rpc ExecuteForcedExit(MsgExecuteForcedExit) returns (MsgExecuteForcedExitResponse); No removal observed."
+
+[row.r6-22.23]
+interface = "interface.6.proto-layerxcustody-msgupdateparams"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 26
+symbol = "MsgUpdateParams"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgUpdateParams { string authority = 1; Params params = 2; } No removal observed."
+
+[row.r6-22.24]
+interface = "interface.6.proto-layerxcustody-msgupdateparamsresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 32
+symbol = "MsgUpdateParamsResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgUpdateParamsResponse {  } No removal observed."
+
+[row.r6-22.25]
+interface = "interface.6.proto-layerxcustody-msgsetasset"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 35
+symbol = "MsgSetAsset"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgSetAsset { string authority = 1; AssetMapping asset = 2; } No removal observed."
+
+[row.r6-22.26]
+interface = "interface.6.proto-layerxcustody-msgsetassetresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 41
+symbol = "MsgSetAssetResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgSetAssetResponse {  } No removal observed."
+
+[row.r6-22.27]
+interface = "interface.6.proto-layerxcustody-msgregistercheckpoint"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 44
+symbol = "MsgRegisterCheckpoint"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgRegisterCheckpoint { string authority = 1; uint64 batch_number = 2; string state_root = 3; string receipt_root = 4; } No removal observed."
+
+[row.r6-22.28]
+interface = "interface.6.proto-layerxcustody-msgregistercheckpointresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 52
+symbol = "MsgRegisterCheckpointResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgRegisterCheckpointResponse {  } No removal observed."
+
+[row.r6-22.29]
+interface = "interface.6.proto-layerxcustody-msgsetemergency"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 55
+symbol = "MsgSetEmergency"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgSetEmergency { string authority = 1; bool enabled = 2; } No removal observed."
+
+[row.r6-22.30]
+interface = "interface.6.proto-layerxcustody-msgsetemergencyresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 61
+symbol = "MsgSetEmergencyResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgSetEmergencyResponse {  } No removal observed."
+
+[row.r6-22.31]
+interface = "interface.6.proto-layerxcustody-msgcancelclaim"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 64
+symbol = "MsgCancelClaim"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgCancelClaim { string authority = 1; string claim_id = 2; } No removal observed."
+
+[row.r6-22.32]
+interface = "interface.6.proto-layerxcustody-msgcancelclaimresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 70
+symbol = "MsgCancelClaimResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgCancelClaimResponse {  } No removal observed."
+
+[row.r6-22.33]
+interface = "interface.6.proto-layerxcustody-msgrequestwithdrawal"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 73
+symbol = "MsgRequestWithdrawal"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgRequestWithdrawal { string sender = 1; bytes receipt = 2; bytes proof = 3; bytes header = 4; bytes header_signature = 5; } No removal observed."
+
+[row.r6-22.34]
+interface = "interface.6.proto-layerxcustody-msgrequestwithdrawalresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 82
+symbol = "MsgRequestWithdrawalResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgRequestWithdrawalResponse { string claim_id = 1; int64 available_at = 2; } No removal observed."
+
+[row.r6-22.35]
+interface = "interface.6.proto-layerxcustody-msgfinalisewithdrawal"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 88
+symbol = "MsgFinaliseWithdrawal"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgFinaliseWithdrawal { string sender = 1; bytes receipt = 2; bytes proof = 3; bytes header = 4; bytes header_signature = 5; } No removal observed."
+
+[row.r6-22.36]
+interface = "interface.6.proto-layerxcustody-msgfinalisewithdrawalresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 97
+symbol = "MsgFinaliseWithdrawalResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgFinaliseWithdrawalResponse { string claim_id = 1; } No removal observed."
+
+[row.r6-22.37]
+interface = "interface.6.proto-layerxcustody-msgrequestforcedexit"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 102
+symbol = "MsgRequestForcedExit"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgRequestForcedExit { string sender = 1; bytes witness = 2; uint64 batch_number = 3; string account = 4; string asset_id = 5; string recipient = 6; bytes recipient_signature = 7; } No removal observed."
+
+[row.r6-22.38]
+interface = "interface.6.proto-layerxcustody-msgrequestforcedexitresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 113
+symbol = "MsgRequestForcedExitResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgRequestForcedExitResponse { string claim_id = 1; int64 available_at = 2; } No removal observed."
+
+[row.r6-22.39]
+interface = "interface.6.proto-layerxcustody-msgexecuteforcedexit"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 119
+symbol = "MsgExecuteForcedExit"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgExecuteForcedExit { string sender = 1; bytes witness = 2; uint64 batch_number = 3; string account = 4; string asset_id = 5; string recipient = 6; bytes recipient_signature = 7; } No removal observed."
+
+[row.r6-22.40]
+interface = "interface.6.proto-layerxcustody-msgexecuteforcedexitresponse"
+verdict = "served"
+path = "api/layerxcustody/tx.proto"
+line = 130
+symbol = "MsgExecuteForcedExitResponse"
+evidence = "Retire-marked proto remains declared in the registered file: message MsgExecuteForcedExitResponse { string claim_id = 1; } No removal observed."
+
+[row.r6-22.41]
+interface = "interface.6.proto-tokenfactory-genesisstate"
+verdict = "served"
+path = "api/tokenfactory/genesis.proto"
+line = 11
+symbol = "GenesisState"
+evidence = "GenesisState retains Params params = 1 and repeated GenesisDenom factory_denoms = 2, and adds repeated string paused_denoms = 3 at line 19, absent from the registered signature. This implements the genesis persistence change described by override.J35.1."
+
+[row.r6-22.42]
+interface = "interface.6.msg-tokenfactory-setdenompaused"
+verdict = "served"
+path = "api/tokenfactory/tx.proto"
+line = 18
+symbol = "SetDenomPaused"
+evidence = "RPC signature remains rpc SetDenomPaused(MsgSetDenomPaused) returns (MsgSetDenomPausedResponse); no request or return type change. The override.J35.3 behavior change is implemented in modules/tokenfactory/keeper/msg_server.go:228-242: missing metadata returns ErrDenomDoesNotExist and an issuer-bound denom returns ErrIssuerMismatch."
+
+[row.r6-22.43]
+interface = "interface.6.cfg-contracts-hardhat-solidity-version"
+verdict = "served"
+path = "contracts/hardhat.config.js"
+line = 8
+symbol = "0.8.27"
+evidence = "solidity.version changed from registered 0.8.28 to 0.8.27: version: '0.8.27' at line 8. This now agrees with solc_version = 0.8.27 in foundry.paxeer.toml:10."
+
+[row.r6-22.44]
+interface = "interface.6.err-governed-governanceonly-a17881e2"
+verdict = "served"
+path = "contracts/security/Governed.sol"
+line = 5
+symbol = "GovernanceOnly"
+evidence = "Retire-marked Governed custom error remains declared: error GovernanceOnly(); The registered contract source still contains the error."
+
+[row.r6-22.45]
+interface = "interface.6.err-governed-emergencycouncilonly-dda851e8"
+verdict = "served"
+path = "contracts/security/Governed.sol"
+line = 6
+symbol = "EmergencyCouncilOnly"
+evidence = "Retire-marked Governed custom error remains declared: error EmergencyCouncilOnly(); The registered contract source still contains the error."
+
+[row.r6-22.46]
+interface = "interface.6.err-governed-invalidauthority-ded4370e"
+verdict = "served"
+path = "contracts/security/Governed.sol"
+line = 7
+symbol = "InvalidAuthority"
+evidence = "Retire-marked Governed custom error remains declared: error InvalidAuthority(); The registered contract source still contains the error."
+
+[row.r6-22.47]
+interface = "interface.6.sol-governed-governance-5aa6e675"
+verdict = "served"
+path = "contracts/security/Governed.sol"
+line = 9
+symbol = "governance"
+evidence = "Retire-marked public getter remains backed by address public immutable governance; in Governed; its address and immutable public visibility are unchanged."
+
+[row.r6-22.48]
+interface = "interface.6.sol-governed-emergencycouncil-7778960e"
+verdict = "served"
+path = "contracts/security/Governed.sol"
+line = 10
+symbol = "emergencyCouncil"
+evidence = "Retire-marked public getter remains backed by address public immutable emergencyCouncil; in Governed; its address and immutable public visibility are unchanged."

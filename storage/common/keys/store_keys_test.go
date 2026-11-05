@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -95,11 +96,12 @@ func TestXWebStoreKeyFollowsTheV6120StoreKeys(t *testing.T) {
 		"perps", "spot", "pricefeed",
 		"xweb",
 		"sequencer",
+		"layerxledger", "layerxauth", "layerxpay", "layerxchains", "layerxprograms", "layerxagent", "lxphost",
 	}, MemIAVLStoreKeys)
-	n := len(MemIAVLStoreKeys)
-	require.Equal(t, SequencerStoreKey, MemIAVLStoreKeys[n-1])
-	require.Equal(t, XWebStoreKey, MemIAVLStoreKeys[n-2])
-	require.Equal(t, []string{LaunchpadStoreKey, PerpsStoreKey, SpotStoreKey, PriceFeedStoreKey}, MemIAVLStoreKeys[n-6:n-2])
+	xweb := slices.Index(MemIAVLStoreKeys, XWebStoreKey)
+	require.GreaterOrEqual(t, xweb, 4)
+	require.Equal(t, xweb+1, slices.Index(MemIAVLStoreKeys, SequencerStoreKey))
+	require.Equal(t, []string{LaunchpadStoreKey, PerpsStoreKey, SpotStoreKey, PriceFeedStoreKey}, MemIAVLStoreKeys[xweb-4:xweb])
 
 	got, err := AllModulesExcept(XWebStoreKey)
 	require.NoError(t, err)
@@ -115,7 +117,10 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 		{LayerXLedgerStoreKey, "layerxledger"},
 		{LayerXAuthStoreKey, "layerxauth"},
 		{LayerXPayStoreKey, "layerxpay"},
+		{LayerXChainsStoreKey, "layerxchains"},
 		{LayerXProgramsStoreKey, "layerxprograms"},
+		{LayerXAgentStoreKey, "layerxagent"},
+		{LayerXHostStoreKey, "lxphost"},
 		{SequencerStoreKey, "sequencer"},
 	}
 
@@ -133,7 +138,91 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 				mounted++
 			}
 		}
-		require.LessOrEqual(t, mounted, 1, "merge store key %q shares its name with another mounted store", m.got)
+		require.Equal(t, 1, mounted, "merge store key %q must be mounted exactly once", m.got)
 	}
-	require.Len(t, seen, 5)
+	require.Len(t, seen, 8)
+}
+
+// Include the existing exact inventory and consumer contract assertions in the
+// focused node-storage gate, which otherwise only selects proof tests.
+func TestProofNodeStorageKeyConsumers(t *testing.T) {
+	t.Run("inventory", TestXWebStoreKeyFollowsTheV6120StoreKeys)
+	t.Run("merge-constants", TestMergeStoreKeyConstants)
+	t.Run("membership", TestMergeStoreKeysAreMemIAVLStoreKeys)
+	t.Run("anchor-retained", TestAnchorStoreKeyStaysMountedUntilDelete)
+	t.Run("exclusion-refusal", TestAllModulesExcept_UnknownModuleAmongValidOnesReturnsError)
+	t.Run("duplicate-exclusions", TestAllModulesExcept_DuplicateExclusionsAreIdempotent)
+}
+
+func TestAnchorStoreKeyStaysMountedUntilDelete(t *testing.T) {
+	require.Equal(t, "layerxanchor", LayerXAnchorStoreKey)
+	require.Contains(t, MemIAVLStoreKeys, LayerXAnchorStoreKey)
+	require.True(t, IsMemIAVLStoreKey(LayerXAnchorStoreKey))
+
+	got, err := AllModulesExcept(LayerXAnchorStoreKey)
+	require.NoError(t, err)
+	require.NotContains(t, got, LayerXAnchorStoreKey)
+	require.Len(t, got, len(MemIAVLStoreKeys)-1)
+}
+
+func TestMergeStoreKeysAreMemIAVLStoreKeys(t *testing.T) {
+	got, err := AllModulesExcept(BankStoreKey)
+	require.NoError(t, err)
+	require.NotContains(t, got, BankStoreKey)
+	for _, key := range []string{
+		LayerXLedgerStoreKey,
+		LayerXAuthStoreKey,
+		LayerXPayStoreKey,
+		LayerXProgramsStoreKey,
+		LayerXAgentStoreKey,
+		LayerXHostStoreKey,
+	} {
+		t.Run(key, func(t *testing.T) {
+			require.True(t, IsMemIAVLStoreKey(key))
+			require.Contains(t, got, key)
+		})
+	}
+}
+
+func TestLayerXAgentStoreKeyMatchesAgentKeeper(t *testing.T) {
+	require.Equal(t, "layerxagent", LayerXAgentStoreKey)
+
+	for _, key := range []string{
+		AuthStoreKey,
+		AuthzStoreKey,
+		BankStoreKey,
+		StakingStoreKey,
+		MintStoreKey,
+		DistributionStoreKey,
+		SlashingStoreKey,
+		GovStoreKey,
+		ParamsStoreKey,
+		IBCStoreKey,
+		UpgradeStoreKey,
+		FeegrantStoreKey,
+		EvidenceStoreKey,
+		IBCTransferStoreKey,
+		CapabilityStoreKey,
+		OracleStoreKey,
+		EVMStoreKey,
+		WasmStoreKey,
+		EpochStoreKey,
+		TokenfactoryStoreKey,
+		LayerXCustodyStoreKey,
+		"layerxanchor",
+		LayerXExchangeStoreKey,
+		LayerXBridgeStoreKey,
+		LaunchpadStoreKey,
+		PerpsStoreKey,
+		SpotStoreKey,
+		PriceFeedStoreKey,
+		XWebStoreKey,
+		LayerXLedgerStoreKey,
+		LayerXAuthStoreKey,
+		LayerXPayStoreKey,
+		LayerXProgramsStoreKey,
+		SequencerStoreKey,
+	} {
+		require.NotEqual(t, key, LayerXAgentStoreKey, "agent store key must be distinct from %q", key)
+	}
 }

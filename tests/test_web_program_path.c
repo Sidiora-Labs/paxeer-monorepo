@@ -1,16 +1,15 @@
-#define OPENSSL_API_COMPAT 0x10100000L
 #define main web_program_path_reference_main
 int web_program_path_reference_main(int argc, char **argv);
 #include "programs/test_call_activity.c"
 #undef main
 
-#include "layerx/lx_batch.h"
-#include "layerx/lx_web.h"
+#include "lxp_test_harness.c"
 
-#include <openssl/bn.h>
-#include <openssl/ec.h>
-#include <openssl/ecdsa.h>
-#include <openssl/obj_mac.h>
+/* Task 22.33.892: this suite proves the guest/kernel paid-request boundary
+ * with the current registration and retains ABI-v4 compatibility explicitly.
+ * Native xweb fee escrow, attestation and committed answer consumption require
+ * the Go owner wiring recorded in test_lxgb_producers.py; no kernel web module
+ * is registered here and legacy web_read remains refusal coverage. */
 
 #define PATH_CHECK(condition) do { if (!(condition)) { \
     (void)fprintf(stderr, "web program path check failed at line %d\n", \
@@ -19,17 +18,16 @@ int web_program_path_reference_main(int argc, char **argv);
 
 enum {
     PATH_NETWORK = 7,
-    PATH_ATTESTORS = 3,
-    PATH_THRESHOLD = 2,
     PATH_WASM_CAPACITY = 262144,
     PATH_CALLDATA_BYTES = 512,
     PATH_PENDING_KEY_BYTES = 11 + 32 + 8,
-    PATH_PENDING_RECORD_BYTES = 123,
+    PATH_KIND_FETCH = 1,
     PATH_FEE = 100,
     PATH_OP_REQUEST = 1,
     PATH_OP_READ = 2
 };
 
+static const uint8_t path_request_topic[] = "PAXEERX_WEB_REQUEST_V1";
 static const uint8_t path_response[] = "Paxeer X Network";
 static const uint8_t path_payload[] = "https://paxeer.app/status";
 static const uint64_t path_request = UINT64_C(0x0102030405060708);
@@ -39,13 +37,6 @@ enum {
     PATH_RESPONSE_BYTES = sizeof(path_response) - 1U,
     PATH_PAYLOAD_BYTES = sizeof(path_payload) - 1U
 };
-
-typedef struct path_attestor {
-    uint8_t private_key[32];
-    uint8_t signer[LX_WEB_SIGNER_BYTES];
-    uint8_t payout[32];
-    lx_account *account;
-} path_attestor;
 
 static int path_read_file(const char *path, uint8_t *out, size_t capacity,
                           size_t *length)
@@ -63,80 +54,147 @@ static int path_read_file(const char *path, uint8_t *out, size_t capacity,
     return read == 0U ? 1 : 0;
 }
 
-static int path_signer(const uint8_t private_key[32],
-                       uint8_t signer[LX_WEB_SIGNER_BYTES])
+static void path_guest_const(uint8_t *out, size_t *cursor, uint32_t value)
 {
-    EC_KEY *key = EC_KEY_new_by_curve_name(NID_secp256k1);
-    BIGNUM *value = BN_bin2bn(private_key, 32, NULL);
-    const EC_GROUP *group;
-    EC_POINT *point = NULL;
-    uint8_t public_key[65];
-    int result = 1;
-    if (key != NULL && value != NULL) {
-        group = EC_KEY_get0_group(key);
-        point = EC_POINT_new(group);
-        if (point != NULL &&
-            EC_POINT_mul(group, point, value, NULL, NULL, NULL) == 1 &&
-            EC_POINT_point2oct(group, point, POINT_CONVERSION_UNCOMPRESSED,
-                               public_key, sizeof(public_key), NULL) == 65U &&
-            lxp_secp256k1_address(public_key, sizeof(public_key), signer) ==
-                LXP_OK)
-            result = 0;
-    }
-    EC_POINT_free(point);
-    BN_free(value);
-    EC_KEY_free(key);
-    return result;
+    uint8_t byte;
+    out[(*cursor)++] = 0x41U; /* i32.const, signed LEB128 */
+    do {
+        byte = (uint8_t)(value & 0x7fU);
+        value >>= 7U;
+        out[(*cursor)++] = value != 0U || (byte & 0x40U) != 0U ?
+            (uint8_t)(byte | 0x80U) : byte;
+    } while (value != 0U || (byte & 0x40U) != 0U);
 }
 
-/* Signs the observation digest with a real secp256k1 key, normalizes s to
- * the low half and appends the Ethereum recovery byte the signer recovers
- * from. */
-static int path_sign(const uint8_t private_key[32],
-                     const uint8_t signer[LX_WEB_SIGNER_BYTES],
-                     const uint8_t digest[32],
-                     uint8_t signature[LX_WEB_SIGNATURE_BYTES])
+static void path_guest_byte(uint8_t *out, size_t *cursor, uint32_t offset)
 {
-    EC_KEY *key = EC_KEY_new_by_curve_name(NID_secp256k1);
-    BIGNUM *value = BN_bin2bn(private_key, 32, NULL);
-    BIGNUM *order = BN_new();
-    BIGNUM *low = BN_new();
-    ECDSA_SIG *signed_digest = NULL;
-    const BIGNUM *r;
-    const BIGNUM *s;
-    uint8_t recovered[LX_WEB_SIGNER_BYTES];
-    uint8_t recovery;
-    int result = 1;
-    if (key == NULL || value == NULL || order == NULL || low == NULL ||
-        EC_KEY_set_private_key(key, value) != 1 ||
-        EC_GROUP_get_order(EC_KEY_get0_group(key), order, NULL) != 1)
-        goto done;
-    signed_digest = ECDSA_do_sign(digest, 32, key);
-    if (signed_digest == NULL) goto done;
-    ECDSA_SIG_get0(signed_digest, &r, &s);
-    if (BN_bn2binpad(r, signature, 32) != 32 ||
-        BN_bn2binpad(s, signature + 32U, 32) != 32)
-        goto done;
-    if (!lxp_secp256k1_sig_is_low_s(signature)) {
-        if (BN_sub(low, order, s) != 1 ||
-            BN_bn2binpad(low, signature + 32U, 32) != 32)
-            goto done;
+    out[(*cursor)++] = 0x20U; out[(*cursor)++] = 0U;
+    out[(*cursor)++] = 0x2dU; out[(*cursor)++] = 0U;
+    append_u32_leb(out, cursor, offset); /* input[offset] */
+}
+
+static void path_guest_u64(uint8_t *out, size_t *cursor, uint32_t offset)
+{
+    uint32_t index;
+    out[(*cursor)++] = 0x42U; out[(*cursor)++] = 0U;
+    for (index = 0U; index < 8U; ++index) {
+        out[(*cursor)++] = 0x42U; out[(*cursor)++] = 8U;
+        out[(*cursor)++] = 0x86U; /* i64.shl */
+        path_guest_byte(out, cursor, offset + index);
+        out[(*cursor)++] = 0xadU; /* i64.extend_i32_u */
+        out[(*cursor)++] = 0x84U; /* i64.or */
     }
-    for (recovery = 0U; recovery < 2U; ++recovery)
-        if (lxp_secp256k1_recover_address(signature, recovery, digest,
-                                          recovered) == LXP_OK &&
-            memcmp(recovered, signer, LX_WEB_SIGNER_BYTES) == 0) {
-            signature[64] = (uint8_t)(27U + recovery);
-            result = 0;
-            break;
-        }
-done:
-    ECDSA_SIG_free(signed_digest);
-    BN_free(low);
-    BN_free(order);
-    BN_free(value);
-    EC_KEY_free(key);
-    return result;
+}
+
+/* A complete byte-entry guest fixture: calldata supplies both transfer legs
+ * and the request record. The production runtime performs payment and emits
+ * the envelope; this guest has no host replacement or precomputed receipt. */
+static size_t path_guest_module(uint8_t *out)
+{
+    static const uint8_t header[] = {0U, 0x61U, 0x73U, 0x6dU, 1U, 0U, 0U, 0U};
+    static const uint8_t types[] = {
+        4U,
+        0x60U, 6U, 0x7eU, 0x7eU, 0x7fU, 0x7fU, 0x7fU, 0x7fU, 1U, 0x7fU,
+        0x60U, 4U, 0x7fU, 0x7fU, 0x7fU, 0x7fU, 1U, 0x7fU,
+        0x60U, 1U, 0x7fU, 1U, 0x7fU,
+        0x60U, 2U, 0x7fU, 0x7fU, 1U, 0x7fU
+    };
+    static const uint8_t functions[] = {2U, 2U, 3U};
+    static const uint8_t memory[] = {1U, 1U, 1U, 1U};
+    uint8_t section[2048];
+    uint8_t body[1536];
+    size_t cursor = 0U, length = 0U, body_length = 0U;
+    uint32_t index;
+    append_bytes(out, &cursor, header, sizeof(header));
+    append_section(out, &cursor, 1U, types, sizeof(types));
+    section[length++] = 3U;
+    append_name(section, &length, "layerx_v1");
+    append_name(section, &length, "transfer_402");
+    section[length++] = 0U; section[length++] = 0U;
+    append_name(section, &length, "layerx_v1");
+    append_name(section, &length, "event_emit");
+    section[length++] = 0U; section[length++] = 1U;
+    append_name(section, &length, "layerx_v4");
+    append_name(section, &length, "web_read");
+    section[length++] = 0U; section[length++] = 1U;
+    append_section(out, &cursor, 2U, section, length);
+    append_section(out, &cursor, 3U, functions, sizeof(functions));
+    append_section(out, &cursor, 5U, memory, sizeof(memory));
+    length = 0U; section[length++] = 3U;
+    append_name(section, &length, "layerx_reserve");
+    section[length++] = 0U; section[length++] = 3U;
+    append_name(section, &length, "layerx_call");
+    section[length++] = 0U; section[length++] = 4U;
+    append_name(section, &length, "memory");
+    section[length++] = 2U; section[length++] = 0U;
+    append_section(out, &cursor, 7U, section, length);
+
+    /* reserve returns an input buffer at 1024, clear of topic and output. */
+    length = 0U; section[length++] = 2U;
+    section[length++] = 5U; section[length++] = 0U;
+    path_guest_const(section, &length, 1024U); section[length++] = 0x0bU;
+    body[body_length++] = 1U; body[body_length++] = 1U;
+    body[body_length++] = 0x7fU; /* local 2: host status */
+    path_guest_byte(body, &body_length, 1U);
+    path_guest_const(body, &body_length, PATH_OP_READ);
+    body[body_length++] = 0x46U; /* i32.eq */
+    body[body_length++] = 0x04U; body[body_length++] = 0x40U;
+    /* The compatibility read reaches the real disabled web_read import. */
+    path_guest_const(body, &body_length, 0x01020304U);
+    path_guest_const(body, &body_length, 0x05060708U);
+    path_guest_const(body, &body_length, 8192U);
+    path_guest_const(body, &body_length, 4136U);
+    body[body_length++] = 0x10U; body[body_length++] = 2U;
+    body[body_length++] = 0x0fU; body[body_length++] = 0x0bU;
+    path_guest_u64(body, &body_length, 75U);
+    path_guest_u64(body, &body_length, 83U);
+    body[body_length++] = 0x20U; body[body_length++] = 0U;
+    path_guest_const(body, &body_length, 11U); body[body_length++] = 0x6aU;
+    path_guest_const(body, &body_length, 32U);
+    body[body_length++] = 0x20U; body[body_length++] = 0U;
+    path_guest_const(body, &body_length, 43U); body[body_length++] = 0x6aU;
+    path_guest_const(body, &body_length, 32U);
+    body[body_length++] = 0x10U; body[body_length++] = 0U;
+    body[body_length++] = 0x22U; body[body_length++] = 2U;
+    body[body_length++] = 0x04U; body[body_length++] = 0x40U;
+    body[body_length++] = 0x20U; body[body_length++] = 2U;
+    body[body_length++] = 0x0fU; body[body_length++] = 0x0bU;
+    for (index = 0U; index < 9U; ++index) {
+        path_guest_const(body, &body_length, 4096U + index);
+        path_guest_byte(body, &body_length, 2U + index);
+        body[body_length++] = 0x3aU;
+        body[body_length++] = 0U; body[body_length++] = 0U;
+    }
+    for (index = 0U; index < 4U; ++index) {
+        path_guest_const(body, &body_length, 4105U + index);
+        path_guest_const(body, &body_length, PATH_PAYLOAD_BYTES);
+        path_guest_const(body, &body_length, (3U - index) * 8U);
+        body[body_length++] = 0x76U; /* i32.shr_u */
+        body[body_length++] = 0x3aU;
+        body[body_length++] = 0U; body[body_length++] = 0U;
+    }
+    for (index = 0U; index < PATH_PAYLOAD_BYTES; ++index) {
+        path_guest_const(body, &body_length, 4109U + index);
+        path_guest_byte(body, &body_length, 91U + index);
+        body[body_length++] = 0x3aU;
+        body[body_length++] = 0U; body[body_length++] = 0U;
+    }
+    path_guest_const(body, &body_length, 0U);
+    path_guest_const(body, &body_length, sizeof(path_request_topic) - 1U);
+    path_guest_const(body, &body_length, 4096U);
+    path_guest_const(body, &body_length, 13U + PATH_PAYLOAD_BYTES);
+    body[body_length++] = 0x10U; body[body_length++] = 1U;
+    body[body_length++] = 0x0bU;
+    append_u32_leb(section, &length, (uint32_t)body_length);
+    append_bytes(section, &length, body, body_length);
+    append_section(out, &cursor, 10U, section, length);
+    length = 0U; section[length++] = 1U; section[length++] = 0U;
+    path_guest_const(section, &length, 0U); section[length++] = 0x0bU;
+    append_u32_leb(section, &length, sizeof(path_request_topic) - 1U);
+    append_bytes(section, &length, path_request_topic,
+                  sizeof(path_request_topic) - 1U);
+    append_section(out, &cursor, 11U, section, length);
+    return cursor;
 }
 
 static lxp_result path_fee_account(const uint8_t asset[32], uint8_t id[32])
@@ -223,12 +281,18 @@ static int path_event_list_request(const lxp_receipt *receipt,
         data_length = path_read_u32(list.bytes + cursor);
         cursor += 4U;
         PATH_CHECK(list.length - cursor >= data_length);
-        if (topic_length == LX_WEB_REQUEST_TOPIC_BYTES &&
-            memcmp(topic, LX_WEB_REQUEST_TOPIC,
-                   LX_WEB_REQUEST_TOPIC_BYTES) == 0) {
-            PATH_CHECK(lx_web_request_record_decode(list.bytes + cursor,
-                                                    data_length, request_id,
-                                                    kind, payload) == LXP_OK);
+        if (topic_length == sizeof(path_request_topic) - 1U &&
+            memcmp(topic, path_request_topic,
+                   sizeof(path_request_topic) - 1U) == 0) {
+            size_t byte;
+            const uint8_t *record = list.bytes + cursor;
+            PATH_CHECK(data_length >= 13U);
+            PATH_CHECK(path_read_u32(record + 9U) == data_length - 13U);
+            *request_id = 0U;
+            for (byte = 0U; byte < 8U; ++byte)
+                *request_id = (*request_id << 8U) | record[byte];
+            *kind = record[8];
+            *payload = (lxp_byte_span){record + 13U, data_length - 13U};
             ++found;
         }
         cursor += data_length;
@@ -273,7 +337,7 @@ static size_t path_request_calldata(uint8_t *out, uint64_t request_id,
     out[cursor++] = PATH_OP_REQUEST;
     write_u64(out + cursor, request_id);
     cursor += 8U;
-    out[cursor++] = LX_WEB_KIND_FETCH;
+    out[cursor++] = PATH_KIND_FETCH;
     (void)memcpy(out + cursor, asset, 32U);
     cursor += 32U;
     (void)memcpy(out + cursor, to, 32U);
@@ -319,6 +383,7 @@ typedef struct path_chain {
     uint8_t primary_key[32];
     uint8_t payer_id[32];
     uint8_t activity_ordinal;
+    uint16_t guest_abi;
 } path_chain;
 
 static const uint8_t path_did[] = "did:lxp:web-program-path";
@@ -337,7 +402,7 @@ static int path_call(path_chain *chain, const uint8_t program_id[32],
                                            capabilities_length, absent_access,
                                            sizeof(absent_access), calldata,
                                            calldata_length);
-    write_u16(call + 32U, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+    write_u16(call + 32U, chain->guest_abi);
     fill_activity(&activity, LX_PROGRAMS_CALL, call, length, path_did,
                   sizeof(path_did) - 1U, chain->primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -355,30 +420,18 @@ static int path_call(path_chain *chain, const uint8_t program_id[32],
     return 0;
 }
 
-static int web_program_path(const char *wasm_path, bool genesis_fee_account)
+static int web_program_path(const char *wasm_path, bool genesis_fee_account,
+                             uint16_t guest_abi)
 {
     static const uint8_t actor_name[] =
         "agent:did:lxp:web-program-path:main";
     static const uint8_t treasury_name[] = "system:fees";
-    static const char *const payout_names[PATH_ATTESTORS] = {
-        "agent:did:lxp:web-attestor-one:main",
-        "agent:did:lxp:web-attestor-two:main",
-        "agent:did:lxp:web-attestor-three:main"
-    };
     static const uint8_t actor_seed[32] = {0x33U};
     static const uint8_t grant_id[32] = {0};
     static const uint8_t no_capabilities[] = {0U, 0U};
     static path_chain chain;
     static uint8_t wasm[PATH_WASM_CAPACITY];
     static uint8_t deploy[104U + PATH_WASM_CAPACITY];
-    static uint8_t web_arena_bytes[65536];
-    static lx_web_store store;
-    static lx_web_store fresh_store;
-    static lx_web_attestor_set attestors;
-    static lx_web_observation observation;
-    static lx_web_answer answer;
-    static uint8_t observation_bytes[LX_WEB_OBSERVATION_MAX_BYTES];
-    path_attestor signers[PATH_ATTESTORS];
     uint8_t capabilities[128];
     uint8_t calldata[PATH_CALLDATA_BYTES];
     uint8_t program_id[32];
@@ -390,19 +443,9 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     uint8_t pending_key[PATH_PENDING_KEY_BYTES];
     uint8_t payload_hash[32];
     uint8_t digest[32];
-    uint8_t amount_be[16];
-    uint8_t attestor_bytes[LX_WEB_ATTESTOR_SET_MAX_BYTES];
-    lxp_arena web_arena;
-    lxp_module_ctx web_ctx;
-    lxp_effect_buffer web_effects;
-    lxp_authority_resolved governance;
-    lxp_activity web_activity;
-    const lxp_module_registration *web_registration;
-    lxp_result web_result;
     lx_account *actor;
     lx_account *treasury;
     lx_account *fee_account;
-    const lxp_module_kv_entry *entry;
     lxp_activity activity;
     lxp_receipt receipt;
     lxp_u128 actor_before;
@@ -411,14 +454,19 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     size_t accounts_before;
     size_t wasm_length;
     size_t length;
-    size_t index;
-    size_t observation_length;
-    size_t attestor_length;
 
-    PATH_CHECK(path_read_file(wasm_path, wasm, sizeof(wasm),
-                              &wasm_length) == 0);
+    PATH_CHECK(guest_abi == LX_PROGRAMS_GUEST_ABI_V4_VERSION ||
+               guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+    if (wasm_path == NULL) {
+        wasm_length = path_guest_module(wasm);
+        PATH_CHECK(wasm_length != 0U && wasm_length <= sizeof(wasm));
+    } else {
+        PATH_CHECK(path_read_file(wasm_path, wasm, sizeof(wasm),
+                                  &wasm_length) == 0);
+    }
     (void)memset(program_id, 0x71, sizeof(program_id));
     (void)memset(&chain, 0, sizeof(chain));
+    chain.guest_abi = guest_abi;
     PATH_CHECK(path_fee_account(fee_asset, fee_account_id) == LXP_OK);
     PATH_CHECK(lxp_keccak256(path_payload, PATH_PAYLOAD_BYTES,
                              payload_hash) == LXP_OK);
@@ -440,72 +488,22 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
         (lxp_u128){0U, UINT64_MAX}, 1U) == LXP_OK);
     PATH_CHECK(lxp_ledger_bootstrap_balance(treasury, fee_asset,
         (lxp_u128){0U, 0U}, 0U) == LXP_OK);
-    (void)memset(signers, 0, sizeof(signers));
-    for (index = 0U; index < PATH_ATTESTORS; ++index) {
-        size_t name_length = strlen(payout_names[index]);
-        signers[index].private_key[31] = (uint8_t)(index + 1U);
-        PATH_CHECK(path_signer(signers[index].private_key,
-                               signers[index].signer) == 0);
-        PATH_CHECK(lx_account_id_from_string(
-                       (const uint8_t *)payout_names[index], name_length,
-                       signers[index].payout) == LXP_OK);
-        PATH_CHECK(lx_account_open(&chain.accounts,
-                       (const uint8_t *)payout_names[index], name_length,
-                       signers[index].payout, 3U + index,
-                       LX_ACCOUNT_OPEN_GENESIS, NULL,
-                       &signers[index].account) == LXP_OK);
-    }
-    /* The web fee account is a programs module value account holding the fee
-     * asset. One run provisions it at genesis beside the payout accounts; the
-     * other leaves it to the first paying call to create. */
     if (genesis_fee_account) {
         static const uint8_t programs_name[] = "programs";
         lx_account_registration fee_registration;
         bool fee_created = false;
         PATH_CHECK(lx_account_module_value_prepare(&chain.accounts,
                        programs_name, sizeof(programs_name) - 1U,
-                       fee_account_id, fee_asset, 3U + PATH_ATTESTORS,
+                       fee_account_id, fee_asset, 3U,
                        &fee_registration, &fee_account,
                        &fee_created) == LXP_OK &&
                    fee_created);
         PATH_CHECK(lx_account_registration_commit(&chain.accounts,
                        &fee_registration, &fee_account) == LXP_OK);
     }
-    /* The registry may have moved while accounts were opened; resolve every
-     * balance holder again before binding balances. */
     actor = path_account(&chain.accounts, actor_id);
     treasury = path_account(&chain.accounts, treasury_id);
     PATH_CHECK(actor != NULL && treasury != NULL);
-    for (index = 0U; index < PATH_ATTESTORS; ++index) {
-        signers[index].account = path_account(&chain.accounts,
-                                               signers[index].payout);
-        PATH_CHECK(signers[index].account != NULL);
-        PATH_CHECK(lxp_ledger_bootstrap_balance(signers[index].account,
-            fee_asset, (lxp_u128){0U, 0U}, 0U) == LXP_OK);
-    }
-    /* Signers sorted ascending, as the attestor set and intake require. */
-    for (index = 1U; index < PATH_ATTESTORS; ++index) {
-        size_t cursor = index;
-        while (cursor > 0U &&
-               memcmp(signers[cursor - 1U].signer, signers[cursor].signer,
-                      LX_WEB_SIGNER_BYTES) > 0) {
-            path_attestor swap = signers[cursor];
-            signers[cursor] = signers[cursor - 1U];
-            signers[cursor - 1U] = swap;
-            --cursor;
-        }
-    }
-    (void)memset(&attestors, 0, sizeof(attestors));
-    for (index = 0U; index < PATH_ATTESTORS; ++index) {
-        (void)memcpy(attestors.attestors[index].signer, signers[index].signer,
-                     LX_WEB_SIGNER_BYTES);
-        (void)memcpy(attestors.attestors[index].payout_account,
-                     signers[index].payout, 32U);
-    }
-    attestors.count = PATH_ATTESTORS;
-    attestors.threshold = PATH_THRESHOLD;
-    PATH_CHECK(lx_web_attestor_set_validate(&attestors) == LXP_OK);
-
     PATH_CHECK(lxp_did_id_derive(path_did, sizeof(path_did) - 1U,
                                  chain.authority.principal) == LXP_OK);
     (void)memcpy(chain.authority.actor, chain.authority.principal, 32U);
@@ -546,15 +544,12 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
                                  &parameters, 0U) == LXP_OK);
     PATH_CHECK(install_metering_v1(&chain.kernel) == LXP_OK);
     PATH_CHECK(lxp_kernel_register_module(&chain.kernel,
-        programs_module_registration_v4()) == LXP_OK);
+        guest_abi == LX_PROGRAMS_GUEST_ABI_V5_VERSION ?
+            programs_module_registration_v5() :
+            programs_module_registration_v4()) == LXP_OK);
+    PATH_CHECK(lxp_programs_module_version(&chain.kernel) == guest_abi);
     PATH_CHECK(lxp_kernel_bind_module_runtime(&chain.kernel,
         LXP_MODULE_PROGRAMS, &chain.runtime) == LXP_OK);
-    PATH_CHECK(lxp_kernel_register_module(&chain.kernel,
-        lx_web_module_iface()) == LXP_OK);
-    (void)memset(&store, 0, sizeof(store));
-    store.network_id = PATH_NETWORK;
-    PATH_CHECK(lxp_kernel_bind_module_runtime(&chain.kernel, LXP_MODULE_WEB,
-                                              &store) == LXP_OK);
     PATH_CHECK(lxp_programs_bind_fee_transaction(&chain.kernel) == LXP_OK);
     PATH_CHECK(lxp_kernel_set_capabilities(&chain.kernel, NULL,
         lxp_kernel_canonical_ledger_apply) == LXP_OK);
@@ -566,8 +561,7 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     chain.execution.batch_number = 1U;
     chain.execution.batch_timestamp_ms = 10U;
     chain.execution.maximum_timestamp_window = 100U;
-    chain.execution.recorded_module_version =
-        LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION;
+    chain.execution.recorded_module_version = guest_abi;
     chain.execution.parameter_version = 1U;
     chain.execution.signature_valid = true;
     chain.execution.identities = &chain.identities;
@@ -576,11 +570,11 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     chain.execution.gas_limit = 1000000U;
     chain.execution.arena = &chain.arena;
 
-    /* Deploy the built web-reader reference program at ABI v4. */
+    /* Deploy the real web-reader guest at the selected registered ABI. */
     length = program_spend_deploy_payload(deploy, program_id,
                                           chain.authority.principal, wasm,
                                           wasm_length, code_hash);
-    write_u16(deploy + 32U, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+    write_u16(deploy + 32U, guest_abi);
     fill_activity(&activity, LX_PROGRAMS_DEPLOY, deploy, length, path_did,
                   sizeof(path_did) - 1U, chain.primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -595,14 +589,17 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     actor = path_account(&chain.accounts, actor_id);
     PATH_CHECK(actor != NULL);
 
-    /* A request whose payment goes anywhere but the web fee account is
-     * refused and records nothing. */
+    /* The retired web intake no longer restricts the event's payment target;
+     * the surviving program transfer still pays the named account. */
     length = path_capabilities(capabilities, fee_asset, treasury_id);
     PATH_CHECK(path_call(&chain, program_id, capabilities, length, calldata,
                          path_request_calldata(calldata, path_unpaid_request,
                                                fee_asset, treasury_id),
                          &receipt) == 0);
-    PATH_CHECK(receipt.result_code == LXP_ERR_PROGRAM_REFUSED);
+    PATH_CHECK(receipt.result_code == LXP_OK);
+    treasury = path_account(&chain.accounts, treasury_id);
+    PATH_CHECK(treasury != NULL && treasury->balance.hi == 0U &&
+               treasury->balance.lo >= PATH_FEE);
     path_pending_key(program_id, path_unpaid_request, pending_key);
     PATH_CHECK(path_committed(&chain.kernel, pending_key,
                               sizeof(pending_key)) == NULL);
@@ -615,8 +612,8 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
                          &receipt) == 0);
     PATH_CHECK(receipt.result_code == LXP_ERR_PROGRAM_REFUSED);
 
-    /* The paid request: transfer_402 into the fee account and the request
-     * record in one call stage the pending record. */
+    /* Payment and the emitted request survive the retirement of the kernel's
+     * pending web store. */
     actor = path_account(&chain.accounts, actor_id);
     PATH_CHECK(actor != NULL);
     actor_before = actor->balance;
@@ -646,20 +643,10 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
     actor = path_account(&chain.accounts, actor_id);
     PATH_CHECK(actor != NULL && actor->balance.lo < actor_before.lo);
     path_pending_key(program_id, path_request, pending_key);
-    entry = path_committed(&chain.kernel, pending_key, sizeof(pending_key));
-    PATH_CHECK(entry != NULL &&
-               entry->value_length == PATH_PENDING_RECORD_BYTES);
-    PATH_CHECK(entry->value[0] == 1U && entry->value[1] == LX_WEB_KIND_FETCH &&
-               memcmp(entry->value + 2U, payload_hash, 32U) == 0 &&
-               memcmp(entry->value + 34U, fee_asset, 32U) == 0 &&
-               memcmp(entry->value + 66U, fee_account_id, 32U) == 0 &&
-               entry->value[122] == 0U);
-    (void)memset(amount_be, 0, sizeof(amount_be));
-    amount_be[15] = PATH_FEE;
-    PATH_CHECK(memcmp(entry->value + 98U, amount_be, 16U) == 0);
+    PATH_CHECK(path_committed(&chain.kernel, pending_key,
+                              sizeof(pending_key)) == NULL);
     {
-        /* The request call's full event list carries the record's raw bytes,
-         * and its payload hashes to the pending request's payload hash. */
+        /* The real call's event list carries the exact request and payload. */
         uint64_t listed_request = 0U;
         uint8_t listed_kind = 0U;
         lxp_byte_span listed_payload = {NULL, 0U};
@@ -668,206 +655,30 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
                                            &listed_kind,
                                            &listed_payload) == 0);
         PATH_CHECK(listed_request == path_request &&
-                   listed_kind == LX_WEB_KIND_FETCH &&
+                   listed_kind == PATH_KIND_FETCH &&
                    listed_payload.length == PATH_PAYLOAD_BYTES &&
                    memcmp(listed_payload.bytes, path_payload,
                           PATH_PAYLOAD_BYTES) == 0);
         PATH_CHECK(lxp_keccak256(listed_payload.bytes, listed_payload.length,
                                  listed_hash) == LXP_OK &&
-                   memcmp(listed_hash, entry->value + 2U, 32U) == 0);
+                   memcmp(listed_hash, payload_hash, 32U) == 0);
     }
 #ifdef LXP_TEST_WEB_REQUEST_OBSERVER
     PATH_CHECK(LXP_TEST_WEB_REQUEST_OBSERVER(&receipt) == 0);
 #endif
 
-    /* The same request id again is refused while it is pending. */
+    /* With kernel intake retired, an event id is no longer a pending key. */
     PATH_CHECK(path_call(&chain, program_id, capabilities, length, calldata,
                          path_request_calldata(calldata, path_request,
                                                fee_asset, fee_account_id),
                          &receipt) == 0);
-    PATH_CHECK(receipt.result_code == LXP_ERR_PROGRAM_REFUSED);
-    fee_account = path_account(&chain.accounts, fee_account_id);
-    PATH_CHECK(fee_account != NULL && fee_account->balance.lo == PATH_FEE);
-
-    /* Attestation intake in the programs module context: the store has
-     * never seen the request, so the recorded request is what admits it. */
-    (void)memset(&observation, 0, sizeof(observation));
-    observation.origin = LX_WEB_ORIGIN_PROGRAM;
-    observation.network_id = PATH_NETWORK;
-    (void)memcpy(observation.program_id, program_id, 32U);
-    observation.request_id = path_request;
-    observation.kind = LX_WEB_KIND_FETCH;
-    (void)memcpy(observation.payload_hash, payload_hash, 32U);
-    (void)memcpy(observation.content_digest, digest, 32U);
-    observation.full_length = PATH_RESPONSE_BYTES;
-    observation.response_length = PATH_RESPONSE_BYTES;
-    (void)memcpy(observation.response, path_response, PATH_RESPONSE_BYTES);
-    PATH_CHECK(lx_web_observation_digest(&observation, digest) == LXP_OK);
-    observation.signature_count = PATH_ATTESTORS;
-    for (index = 0U; index < PATH_ATTESTORS; ++index)
-        PATH_CHECK(path_sign(signers[index].private_key,
-                             signers[index].signer, digest,
-                             observation.signatures[index]) == 0);
-    PATH_CHECK(lx_web_observation_encode(&observation, observation_bytes,
-                                         sizeof(observation_bytes),
-                                         &observation_length) == LXP_OK);
-
-    /* The attestor set is registered by governance through dispatch before
-     * any observation is delivered. */
-    chain.kernel.handover.enabled = true;
-    (void)memset(chain.kernel.handover.governance_public_key, 0x42, 32U);
-    (void)memset(&governance, 0, sizeof(governance));
-    governance.kind = LXP_AUTHORITY_OWNER;
-    (void)memcpy(governance.verified_key,
-                 chain.kernel.handover.governance_public_key, 32U);
-    PATH_CHECK(lx_web_attestor_set_encode(&attestors, attestor_bytes,
-                                          sizeof(attestor_bytes),
-                                          &attestor_length) == LXP_OK);
-    (void)memset(&web_activity, 0, sizeof(web_activity));
-    web_activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    web_activity.network_id = PATH_NETWORK;
-    web_activity.activity_type = LX_WEB_ATTESTOR_SET_ACTIVITY;
-    web_activity.payload = (lxp_byte_span){attestor_bytes, attestor_length};
-    PATH_CHECK(lxp_hash_payload(attestor_bytes, attestor_length,
-                                web_activity.payload_hash) == LXP_OK);
-    PATH_CHECK(lxp_kernel_module_for_activity(&chain.kernel,
-        LX_WEB_ATTESTOR_SET_ACTIVITY, chain.kernel.epoch,
-        &web_registration) == LXP_OK);
-    PATH_CHECK(lxp_state_journal_open(&chain.state, chain.state.next_sequence,
-                                      &chain.journal) == LXP_OK);
-    PATH_CHECK(lxp_arena_init(&web_arena, web_arena_bytes,
-                              sizeof(web_arena_bytes)) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_init(&web_ctx, &chain.kernel,
-        LXP_MODULE_PROGRAMS, 10U, 0U, chain.state.next_sequence, 100000U,
-        &web_arena, true) == LXP_OK);
-    web_ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    PATH_CHECK(lxp_effect_buffer_init(&web_effects) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_bind_effects(&web_ctx, &web_effects) == LXP_OK);
-    PATH_CHECK(lxp_kernel_dispatch(web_registration, &web_ctx, &web_activity,
-                                   &governance, &web_effects,
-                                   &web_result) == LXP_OK &&
-               web_result == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_prepare_commit(&web_ctx) == LXP_OK);
-    PATH_CHECK(lxp_state_journal_commit(&chain.journal) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_commit(&web_ctx) == LXP_OK);
-
-    /* The observation activity is delivered through kernel dispatch in the
-     * programs module context. */
-    web_activity.activity_type = LX_WEB_OBSERVATION_ACTIVITY;
-    web_activity.payload = (lxp_byte_span){observation_bytes,
-                                           observation_length};
-    PATH_CHECK(lxp_hash_payload(observation_bytes, observation_length,
-                                web_activity.payload_hash) == LXP_OK);
-    PATH_CHECK(lxp_kernel_module_for_activity(&chain.kernel,
-        LX_WEB_OBSERVATION_ACTIVITY, chain.kernel.epoch,
-        &web_registration) == LXP_OK);
-    PATH_CHECK(lxp_state_journal_open(&chain.state, chain.state.next_sequence,
-                                      &chain.journal) == LXP_OK);
-    PATH_CHECK(lxp_arena_init(&web_arena, web_arena_bytes,
-                              sizeof(web_arena_bytes)) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_init(&web_ctx, &chain.kernel,
-        LXP_MODULE_PROGRAMS, 10U, 0U, chain.state.next_sequence, 100000U,
-        &web_arena, true) == LXP_OK);
-    web_ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    PATH_CHECK(lxp_effect_buffer_init(&web_effects) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_bind_effects(&web_ctx, &web_effects) == LXP_OK);
-    PATH_CHECK(lxp_kernel_dispatch(web_registration, &web_ctx, &web_activity,
-                                   &chain.authority, &web_effects,
-                                   &web_result) == LXP_OK &&
-               web_result == LXP_OK);
-    PATH_CHECK(store.committed_count == 1U &&
-               store.committed[0].signer_count == PATH_ATTESTORS &&
-               store.pending_count == 1U && store.pending[0].fulfilled &&
-               store.committed_count == 1U);
-    PATH_CHECK(lxp_module_ctx_prepare_commit(&web_ctx) == LXP_OK);
-    PATH_CHECK(lxp_state_journal_commit(&chain.journal) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_commit(&web_ctx) == LXP_OK);
-    PATH_CHECK(lxp_state_root(&chain.kernel,
-                              chain.kernel.current_state_root) == LXP_OK);
-    /* The batch header carries the root of the committed observation. */
-    {
-        static lx_batch_header header;
-        uint8_t web_root[32];
-        PATH_CHECK(lxp_arena_init(&web_arena, web_arena_bytes,
-                                  sizeof(web_arena_bytes)) == LXP_OK);
-        PATH_CHECK(lx_web_root(&store, &web_arena, web_root) == LXP_OK);
-        PATH_CHECK(lxp_arena_reset(&web_arena, 0U) == LXP_OK);
-        PATH_CHECK(lx_batch_header_set_web_root(&header,
-            (const lx_web_store *)chain.kernel.module_runtime[LXP_MODULE_WEB],
-            &web_arena) == LXP_OK);
-        PATH_CHECK(memcmp(header.web_root, web_root, 32U) == 0);
-    }
-
-    /* The fee split equally, the remainder to the lowest signer. */
+    PATH_CHECK(receipt.result_code == LXP_OK);
     fee_account = path_account(&chain.accounts, fee_account_id);
     PATH_CHECK(fee_account != NULL && fee_account->balance.hi == 0U &&
-               fee_account->balance.lo == 0U);
-    for (index = 0U; index < PATH_ATTESTORS; ++index) {
-        lx_account *payout = path_account(&chain.accounts,
-                                          signers[index].payout);
-        uint64_t expected = PATH_FEE / PATH_ATTESTORS +
-            (index == 0U ? PATH_FEE % PATH_ATTESTORS : 0U);
-        PATH_CHECK(payout != NULL && payout->balance.hi == 0U &&
-                   payout->balance.lo == expected);
-    }
-    entry = path_committed(&chain.kernel, pending_key, sizeof(pending_key));
-    PATH_CHECK(entry != NULL && entry->value[122] == 1U);
+               fee_account->balance.lo == 2U * PATH_FEE);
+    PATH_CHECK(path_committed(&chain.kernel, pending_key,
+                              sizeof(pending_key)) == NULL);
 
-    /* The answer committed at intake reads back through web_read in the
-     * program, and through the committed reader. */
-    (void)memset(digest, 0x5a, sizeof(digest));
-    PATH_CHECK(path_call(&chain, program_id, no_capabilities,
-                         sizeof(no_capabilities), calldata,
-                         path_read_calldata(calldata, path_request, digest),
-                         &receipt) == 0);
-    PATH_CHECK(receipt.result_code == LXP_OK);
-    PATH_CHECK(lxp_arena_init(&web_arena, web_arena_bytes,
-                              sizeof(web_arena_bytes)) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_init(&web_ctx, &chain.kernel,
-        LXP_MODULE_PROGRAMS, 10U, 0U, chain.state.next_sequence, 100000U,
-        &web_arena, false) == LXP_OK);
-    PATH_CHECK(lx_web_committed_read(&web_ctx, program_id, path_request,
-                                     &answer) == LXP_OK);
-    PATH_CHECK(answer.full_length == PATH_RESPONSE_BYTES &&
-               answer.response_length == PATH_RESPONSE_BYTES &&
-               memcmp(answer.content_digest, digest, 32U) == 0 &&
-               memcmp(answer.response, path_response,
-                      PATH_RESPONSE_BYTES) == 0);
-
-    /* A replay against a store that never tracked the request is refused by
-     * the fulfilled record alone. */
-    (void)memset(&fresh_store, 0, sizeof(fresh_store));
-    fresh_store.network_id = PATH_NETWORK;
-    PATH_CHECK(lxp_kernel_bind_module_runtime(&chain.kernel, LXP_MODULE_WEB,
-                                              &fresh_store) == LXP_OK);
-    PATH_CHECK(lxp_state_journal_open(&chain.state, chain.state.next_sequence,
-                                      &chain.journal) == LXP_OK);
-    PATH_CHECK(lxp_arena_init(&web_arena, web_arena_bytes,
-                              sizeof(web_arena_bytes)) == LXP_OK);
-    PATH_CHECK(lxp_module_ctx_init(&web_ctx, &chain.kernel,
-        LXP_MODULE_PROGRAMS, 10U, 0U, chain.state.next_sequence, 100000U,
-        &web_arena, true) == LXP_OK);
-    web_ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    PATH_CHECK(lxp_module_ctx_bind_effects(&web_ctx, &web_effects) == LXP_OK);
-    PATH_CHECK(lxp_kernel_dispatch(web_registration, &web_ctx, &web_activity,
-                                   &chain.authority, &web_effects,
-                                   &web_result) == LXP_OK &&
-               web_result == LXP_ERR_SEQUENCE_REUSED);
-    /* An observation for a request no call recorded is unknown. */
-    observation.request_id = path_unpaid_request;
-    PATH_CHECK(lx_web_observation_encode(&observation, observation_bytes,
-                                         sizeof(observation_bytes),
-                                         &observation_length) == LXP_OK);
-    web_activity.payload = (lxp_byte_span){observation_bytes,
-                                           observation_length};
-    PATH_CHECK(lxp_hash_payload(observation_bytes, observation_length,
-                                web_activity.payload_hash) == LXP_OK);
-    PATH_CHECK(lxp_kernel_dispatch(web_registration, &web_ctx, &web_activity,
-                                   &chain.authority, &web_effects,
-                                   &web_result) == LXP_OK &&
-               web_result == LXP_ERR_UNKNOWN_FIELD);
-    PATH_CHECK(fresh_store.pending_count == 0U &&
-               fresh_store.committed_count == 0U);
     PATH_CHECK(lxp_state_store_destroy(&chain.state) == LXP_OK);
     return 0;
 }
@@ -875,12 +686,53 @@ static int web_program_path(const char *wasm_path, bool genesis_fee_account)
 #ifndef LXP_TEST_WEB_PROGRAM_PATH_MAIN
 #define LXP_TEST_WEB_PROGRAM_PATH_MAIN main
 #endif
+
+static int current_paid_web_request(void)
+{
+    return web_program_path(NULL, true, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+}
+
+static int current_paid_web_request_account_creation(void)
+{
+    return web_program_path(NULL, false, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+}
+
+static int historical_paid_web_request(void)
+{
+    return web_program_path(NULL, true, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+}
+
+static int historical_paid_web_request_account_creation(void)
+{
+    return web_program_path(NULL, false, LX_PROGRAMS_GUEST_ABI_V4_VERSION);
+}
+
 int LXP_TEST_WEB_PROGRAM_PATH_MAIN(int argc, char **argv)
 {
+    if (lxp_test_register("current_paid_web_request",
+            current_paid_web_request) != 0 ||
+        lxp_test_register("current_paid_web_request_account_creation",
+            current_paid_web_request_account_creation) != 0 ||
+        lxp_test_register("historical_paid_web_request",
+            historical_paid_web_request) != 0 ||
+        lxp_test_register("historical_paid_web_request_account_creation",
+            historical_paid_web_request_account_creation) != 0)
+        return 1;
+    if (argc == 1 || (argc > 1 && argv[1][0] == '-'))
+        return lxp_test_main(argc, argv);
     if (argc != 2) {
         (void)fprintf(stderr, "usage: %s web-reader.wasm\n", argv[0]);
         return 2;
     }
-    if (web_program_path(argv[1], true) != 0) return 1;
-    return web_program_path(argv[1], false);
+    if (web_program_path(argv[1], true,
+                         LX_PROGRAMS_GUEST_ABI_V5_VERSION) != 0 ||
+        web_program_path(argv[1], false,
+                         LX_PROGRAMS_GUEST_ABI_V5_VERSION) != 0)
+        return 1;
+    /* Explicitly historical ABI-v4 compatibility, with the same assertions. */
+    if (web_program_path(argv[1], true,
+                         LX_PROGRAMS_GUEST_ABI_V4_VERSION) != 0)
+        return 1;
+    return web_program_path(argv[1], false,
+                             LX_PROGRAMS_GUEST_ABI_V4_VERSION);
 }

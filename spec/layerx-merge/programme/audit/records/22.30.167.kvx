@@ -1,0 +1,2182 @@
+[audit.22.30.167]
+task = "22.30.167"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 224
+findings = 63
+docs_reviewed = 35
+upgrade_ready = false
+blocking = ["expedited-votes", "slash-height", "feegrant-key", "historical-single-vote", "historical-deposit-owner", "filtered-remove"]
+produces_reviewed = 400
+consumes_reviewed = 400
+requirements = ["7288.1", "15001.1", "15001.2", "15031.1", "15031.2", "15039.1", "15039.2", "15032.1", "15040.1"]
+network = "One paxd chain, chain id 125; embedded kernel, native balances and block-commit finality. Canonical gRPC/gateway shapes come from sdk/proto; EVM governance/distribution consumers are registered through node precompiles."
+inventory_note = "The package enumerates 400 producer and 400 consumer registry IDs; produces_total advertises 463. Review coverage follows the explicit lists and all 224 members."
+qualification_scope = "The declared gates qualify this audit record. Findings describe inspected code paths and do not claim a Go build, integration test, protobuf regeneration or live deployment gate."
+
+[file.001]
+path = "sdk/testutil/account.go"
+lines = 36
+verdict = "clean"
+note = "Read in full: account; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.002]
+path = "sdk/testutil/cli/cmd.go"
+lines = 27
+verdict = "clean"
+note = "Read in full: cmd; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.003]
+path = "sdk/testutil/cli/tm_mocks.go"
+lines = 44
+verdict = "clean"
+note = "Read in full: tm_mocks; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.004]
+path = "sdk/testutil/context.go"
+lines = 24
+verdict = "clean"
+note = "Read in full: context; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.005]
+path = "sdk/testutil/ioutil.go"
+lines = 79
+verdict = "clean"
+note = "Read in full: ioutil; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.006]
+path = "sdk/testutil/ioutil_test.go"
+lines = 45
+verdict = "clean"
+note = "Read in full: ioutil_test; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.007]
+path = "sdk/testutil/key.go"
+lines = 82
+verdict = "clean"
+note = "Read in full: key; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.008]
+path = "sdk/testutil/key_test.go"
+lines = 63
+verdict = "clean"
+note = "Read in full: key_test; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.009]
+path = "sdk/testutil/network/doc.go"
+lines = 65
+verdict = "clean"
+note = "Read in full: doc; checked per-validator startup, configuration/genesis propagation, persistent application state and service cleanup. Checked real callers, input/error handling and retired references."
+
+[file.010]
+path = "sdk/testutil/network/network.go"
+lines = 512
+verdict = "issues"
+note = "Read in full: network; checked per-validator startup, configuration/genesis propagation, persistent application state and service cleanup. Checked real callers, input/error handling and retired references. Findings: network-app-config."
+
+[file.011]
+path = "sdk/testutil/network/network_test.go"
+lines = 43
+verdict = "issues"
+note = "Read in full: network_test; checked per-validator startup, configuration/genesis propagation, persistent application state and service cleanup. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: network-test-config."
+
+[file.012]
+path = "sdk/testutil/network/util.go"
+lines = 210
+verdict = "issues"
+note = "Read in full: util; checked per-validator startup, configuration/genesis propagation, persistent application state and service cleanup. Checked real callers, input/error handling and retired references. Findings: network-genesis."
+
+[file.013]
+path = "sdk/testutil/oteltest/oteltest.go"
+lines = 153
+verdict = "clean"
+note = "Read in full: oteltest; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Checked real callers, input/error handling and retired references."
+
+[file.014]
+path = "sdk/testutil/oteltest/oteltest_test.go"
+lines = 107
+verdict = "clean"
+note = "Read in full: oteltest_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.015]
+path = "sdk/testutil/rest.go"
+lines = 38
+verdict = "issues"
+note = "Read in full: rest; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references. Findings: http-helper-bounds."
+
+[file.016]
+path = "sdk/testutil/server.go"
+lines = 10
+verdict = "clean"
+note = "Read in full: server; checked test helper argument/result contracts, address/key encoding, I/O errors and resource lifetime. Checked real callers, input/error handling and retired references."
+
+[file.017]
+path = "sdk/x/distribution/abci.go"
+lines = 38
+verdict = "clean"
+note = "Read in full: abci; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.018]
+path = "sdk/x/distribution/client/cli/query.go"
+lines = 321
+verdict = "clean"
+note = "Read in full: query; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.019]
+path = "sdk/x/distribution/client/cli/tx.go"
+lines = 336
+verdict = "issues"
+note = "Read in full: tx; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: negative-chunks."
+
+[file.020]
+path = "sdk/x/distribution/client/cli/tx_test.go"
+lines = 91
+verdict = "clean"
+note = "Read in full: tx_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.021]
+path = "sdk/x/distribution/client/cli/utils.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: utils; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.022]
+path = "sdk/x/distribution/client/common/common.go"
+lines = 96
+verdict = "clean"
+note = "Read in full: common; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.023]
+path = "sdk/x/distribution/client/common/common_test.go"
+lines = 39
+verdict = "clean"
+note = "Read in full: common_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.024]
+path = "sdk/x/distribution/client/proposal_handler.go"
+lines = 12
+verdict = "clean"
+note = "Read in full: proposal_handler; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.025]
+path = "sdk/x/distribution/client/rest/grpc_query_test.go"
+lines = 464
+verdict = "issues"
+note = "Read in full: grpc_query_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: distribution-gateway-disabled."
+
+[file.026]
+path = "sdk/x/distribution/client/rest/query.go"
+lines = 309
+verdict = "clean"
+note = "Read in full: query; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.027]
+path = "sdk/x/distribution/client/rest/rest.go"
+lines = 57
+verdict = "clean"
+note = "Read in full: rest; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.028]
+path = "sdk/x/distribution/client/rest/tx.go"
+lines = 222
+verdict = "clean"
+note = "Read in full: tx; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.029]
+path = "sdk/x/distribution/client/rest/utils.go"
+lines = 20
+verdict = "clean"
+note = "Read in full: utils; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.030]
+path = "sdk/x/distribution/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "Read in full: cli_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: distribution-test-config."
+
+[file.031]
+path = "sdk/x/distribution/client/testutil/helpers.go"
+lines = 33
+verdict = "clean"
+note = "Read in full: helpers; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.032]
+path = "sdk/x/distribution/client/testutil/suite.go"
+lines = 744
+verdict = "issues"
+note = "Read in full: suite; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: distribution-output-denom, distribution-default-fixture."
+
+[file.033]
+path = "sdk/x/distribution/doc.go"
+lines = 6
+verdict = "clean"
+note = "Read in full: doc; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.034]
+path = "sdk/x/distribution/handler.go"
+lines = 50
+verdict = "clean"
+note = "Read in full: handler; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.035]
+path = "sdk/x/distribution/keeper/alias_functions.go"
+lines = 27
+verdict = "clean"
+note = "Read in full: alias_functions; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.036]
+path = "sdk/x/distribution/keeper/allocation.go"
+lines = 141
+verdict = "clean"
+note = "Read in full: allocation; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.037]
+path = "sdk/x/distribution/keeper/allocation_test.go"
+lines = 205
+verdict = "clean"
+note = "Read in full: allocation_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.038]
+path = "sdk/x/distribution/keeper/common_test.go"
+lines = 21
+verdict = "clean"
+note = "Read in full: common_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.039]
+path = "sdk/x/distribution/keeper/delegation.go"
+lines = 214
+verdict = "clean"
+note = "Read in full: delegation; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.040]
+path = "sdk/x/distribution/keeper/delegation_test.go"
+lines = 621
+verdict = "clean"
+note = "Read in full: delegation_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.041]
+path = "sdk/x/distribution/keeper/fee_pool.go"
+lines = 30
+verdict = "clean"
+note = "Read in full: fee_pool; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.042]
+path = "sdk/x/distribution/keeper/genesis.go"
+lines = 185
+verdict = "clean"
+note = "Read in full: genesis; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.043]
+path = "sdk/x/distribution/keeper/grpc_query.go"
+lines = 250
+verdict = "issues"
+note = "Read in full: grpc_query; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references. Findings: slash-height."
+
+[file.044]
+path = "sdk/x/distribution/keeper/grpc_query_test.go"
+lines = 620
+verdict = "clean"
+note = "Read in full: grpc_query_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.045]
+path = "sdk/x/distribution/keeper/hooks.go"
+lines = 107
+verdict = "clean"
+note = "Read in full: hooks; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.046]
+path = "sdk/x/distribution/keeper/keeper.go"
+lines = 168
+verdict = "clean"
+note = "Read in full: keeper; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.047]
+path = "sdk/x/distribution/keeper/keeper_test.go"
+lines = 175
+verdict = "clean"
+note = "Read in full: keeper_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.048]
+path = "sdk/x/distribution/keeper/legacy_metrics_test.go"
+lines = 106
+verdict = "clean"
+note = "Read in full: legacy_metrics_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.049]
+path = "sdk/x/distribution/keeper/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Read in full: metrics; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Checked real callers, input/error handling and retired references."
+
+[file.050]
+path = "sdk/x/distribution/keeper/migrations.go"
+lines = 20
+verdict = "clean"
+note = "Read in full: migrations; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.051]
+path = "sdk/x/distribution/keeper/msg_server.go"
+lines = 137
+verdict = "clean"
+note = "Read in full: msg_server; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.052]
+path = "sdk/x/distribution/keeper/otel_metrics_test.go"
+lines = 75
+verdict = "clean"
+note = "Read in full: otel_metrics_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.053]
+path = "sdk/x/distribution/keeper/params.go"
+lines = 43
+verdict = "clean"
+note = "Read in full: params; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.054]
+path = "sdk/x/distribution/keeper/proposal_handler.go"
+lines = 27
+verdict = "clean"
+note = "Read in full: proposal_handler; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.055]
+path = "sdk/x/distribution/keeper/querier.go"
+lines = 256
+verdict = "clean"
+note = "Read in full: querier; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.056]
+path = "sdk/x/distribution/keeper/querier_test.go"
+lines = 200
+verdict = "clean"
+note = "Read in full: querier_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.057]
+path = "sdk/x/distribution/keeper/store.go"
+lines = 388
+verdict = "clean"
+note = "Read in full: store; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.058]
+path = "sdk/x/distribution/keeper/validator.go"
+lines = 107
+verdict = "clean"
+note = "Read in full: validator; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.059]
+path = "sdk/x/distribution/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Read in full: metrics; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Checked real callers, input/error handling and retired references."
+
+[file.060]
+path = "sdk/x/distribution/module.go"
+lines = 212
+verdict = "clean"
+note = "Read in full: module; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.061]
+path = "sdk/x/distribution/module_test.go"
+lines = 29
+verdict = "clean"
+note = "Read in full: module_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.062]
+path = "sdk/x/distribution/otel_metrics_test.go"
+lines = 48
+verdict = "clean"
+note = "Read in full: otel_metrics_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.063]
+path = "sdk/x/distribution/proposal_handler_test.go"
+lines = 72
+verdict = "clean"
+note = "Read in full: proposal_handler_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.064]
+path = "sdk/x/distribution/simulation/decoder.go"
+lines = 70
+verdict = "clean"
+note = "Read in full: decoder; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.065]
+path = "sdk/x/distribution/simulation/genesis.go"
+lines = 85
+verdict = "clean"
+note = "Read in full: genesis; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.066]
+path = "sdk/x/distribution/simulation/operations.go"
+lines = 247
+verdict = "clean"
+note = "Read in full: operations; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.067]
+path = "sdk/x/distribution/simulation/params.go"
+lines = 41
+verdict = "clean"
+note = "Read in full: params; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.068]
+path = "sdk/x/distribution/simulation/proposals.go"
+lines = 51
+verdict = "clean"
+note = "Read in full: proposals; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.069]
+path = "sdk/x/distribution/spec/01_concepts.md"
+lines = 34
+verdict = "clean"
+note = "The distribution 01_concepts.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[file.070]
+path = "sdk/x/distribution/spec/02_state.md"
+lines = 65
+verdict = "issues"
+note = "dist-state-doc at line 41: The state page defines ValidatorDistInfo and DelegationDistInfo, both under prefix 0x02. The implementation instead stores outstanding rewards at 0x02 and separate historical/current/starting/slash records. Findings: dist-state-doc."
+
+[file.071]
+path = "sdk/x/distribution/spec/03_begin_block.md"
+lines = 87
+verdict = "issues"
+note = "dist-proposer-doc at line 12: The begin-block page promises 1% to 5% proposer rewards and derives incentives from precommits, whereas DefaultParams sets base and bonus rates to zero and the Autobahn adapter supplies empty votes. Findings: dist-proposer-doc."
+
+[file.072]
+path = "sdk/x/distribution/spec/04_messages.md"
+lines = 122
+verdict = "issues"
+note = "dist-slash-doc at line 56: The reward pseudocode multiplies stake by F(P), defined as the fraction slashed; keeper.CalculateDelegationRewards multiplies by one minus the slash fraction. The pseudocode also replaces rather than accumulates rewards across slash periods. Findings: dist-slash-doc."
+
+[file.073]
+path = "sdk/x/distribution/spec/05_hooks.md"
+lines = 59
+verdict = "issues"
+note = "dist-hook-doc at line 23: The After hook description says delegation starting height is set to the previous period. initializeDelegation stores PreviousPeriod=currentPeriod-1 and Height=ctx.BlockHeight(), which are different units used by slash and same-block reward handling. Findings: dist-hook-doc."
+
+[file.074]
+path = "sdk/x/distribution/spec/06_events.md"
+lines = 48
+verdict = "issues"
+note = "dist-events-doc at line 14: The event page calls the proposer_reward amount attribute reward, while keeper.AllocateTokens emits sdk.AttributeKeyAmount, whose wire name is amount. Findings: dist-events-doc."
+
+[file.075]
+path = "sdk/x/distribution/spec/07_params.md"
+lines = 17
+verdict = "issues"
+note = "dist-params-doc at line 16: The parameter page requires strictly positive tax and proposer rates; the producer accepts zero and initializes all three to zero. The examples retain the upstream 2%, 1% and 4% rates without distinguishing them from network defaults. Findings: dist-params-doc."
+
+[file.076]
+path = "sdk/x/distribution/spec/README.md"
+lines = 103
+verdict = "clean"
+note = "The distribution README.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[file.077]
+path = "sdk/x/distribution/types/codec.go"
+lines = 54
+verdict = "clean"
+note = "Read in full: codec; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.078]
+path = "sdk/x/distribution/types/common_test.go"
+lines = 19
+verdict = "clean"
+note = "Read in full: common_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.079]
+path = "sdk/x/distribution/types/delegator.go"
+lines = 14
+verdict = "clean"
+note = "Read in full: delegator; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.080]
+path = "sdk/x/distribution/types/errors.go"
+lines = 21
+verdict = "clean"
+note = "Read in full: errors; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.081]
+path = "sdk/x/distribution/types/events.go"
+lines = 16
+verdict = "clean"
+note = "Read in full: events; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.082]
+path = "sdk/x/distribution/types/expected_keepers.go"
+lines = 81
+verdict = "clean"
+note = "Read in full: expected_keepers; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.083]
+path = "sdk/x/distribution/types/fee_pool.go"
+lines = 24
+verdict = "clean"
+note = "Read in full: fee_pool; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.084]
+path = "sdk/x/distribution/types/fee_pool_test.go"
+lines = 19
+verdict = "clean"
+note = "Read in full: fee_pool_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.085]
+path = "sdk/x/distribution/types/genesis.go"
+lines = 49
+verdict = "clean"
+note = "Read in full: genesis; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.086]
+path = "sdk/x/distribution/types/keys.go"
+lines = 215
+verdict = "clean"
+note = "Read in full: keys; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.087]
+path = "sdk/x/distribution/types/msg.go"
+lines = 166
+verdict = "clean"
+note = "Read in full: msg; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.088]
+path = "sdk/x/distribution/types/msg_test.go"
+lines = 95
+verdict = "clean"
+note = "Read in full: msg_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.089]
+path = "sdk/x/distribution/types/params.go"
+lines = 140
+verdict = "issues"
+note = "Read in full: params; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references. Findings: distribution-parameter-sum."
+
+[file.090]
+path = "sdk/x/distribution/types/params_internal_test.go"
+lines = 34
+verdict = "clean"
+note = "Read in full: params_internal_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.091]
+path = "sdk/x/distribution/types/params_test.go"
+lines = 49
+verdict = "clean"
+note = "Read in full: params_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.092]
+path = "sdk/x/distribution/types/proposal.go"
+lines = 67
+verdict = "clean"
+note = "Read in full: proposal; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.093]
+path = "sdk/x/distribution/types/querier.go"
+lines = 94
+verdict = "clean"
+note = "Read in full: querier; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.094]
+path = "sdk/x/distribution/types/query.go"
+lines = 39
+verdict = "clean"
+note = "Read in full: query; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.095]
+path = "sdk/x/distribution/types/validator.go"
+lines = 48
+verdict = "clean"
+note = "Read in full: validator; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.096]
+path = "sdk/x/feegrant/basic_fee.go"
+lines = 54
+verdict = "clean"
+note = "Read in full: basic_fee; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.097]
+path = "sdk/x/feegrant/basic_fee_test.go"
+lines = 150
+verdict = "clean"
+note = "Read in full: basic_fee_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.098]
+path = "sdk/x/feegrant/client/cli/query.go"
+lines = 181
+verdict = "clean"
+note = "Read in full: query; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.099]
+path = "sdk/x/feegrant/client/cli/tx.go"
+lines = 230
+verdict = "clean"
+note = "Read in full: tx; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.100]
+path = "sdk/x/feegrant/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "Read in full: cli_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: feegrant-test-config."
+
+[file.101]
+path = "sdk/x/feegrant/client/testutil/suite.go"
+lines = 941
+verdict = "issues"
+note = "Read in full: suite; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: feegrant-cli-fixtures."
+
+[file.102]
+path = "sdk/x/feegrant/codec.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: codec; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.103]
+path = "sdk/x/feegrant/doc.go"
+lines = 23
+verdict = "clean"
+note = "Read in full: doc; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.104]
+path = "sdk/x/feegrant/errors.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: errors; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.105]
+path = "sdk/x/feegrant/events.go"
+lines = 13
+verdict = "clean"
+note = "Read in full: events; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.106]
+path = "sdk/x/feegrant/expected_keepers.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: expected_keepers; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.107]
+path = "sdk/x/feegrant/fees.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: fees; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.108]
+path = "sdk/x/feegrant/filtered_fee.go"
+lines = 126
+verdict = "issues"
+note = "Read in full: filtered_fee; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references. Findings: filtered-remove."
+
+[file.109]
+path = "sdk/x/feegrant/filtered_fee_test.go"
+lines = 281
+verdict = "issues"
+note = "Read in full: filtered_fee_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: feegrant-error-assertions."
+
+[file.110]
+path = "sdk/x/feegrant/genesis.go"
+lines = 46
+verdict = "clean"
+note = "Read in full: genesis; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.111]
+path = "sdk/x/feegrant/grant.go"
+lines = 69
+verdict = "clean"
+note = "Read in full: grant; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.112]
+path = "sdk/x/feegrant/grant_test.go"
+lines = 104
+verdict = "clean"
+note = "Read in full: grant_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.113]
+path = "sdk/x/feegrant/keeper/genesis_test.go"
+lines = 113
+verdict = "clean"
+note = "Read in full: genesis_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.114]
+path = "sdk/x/feegrant/keeper/grpc_query.go"
+lines = 137
+verdict = "clean"
+note = "Read in full: grpc_query; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.115]
+path = "sdk/x/feegrant/keeper/grpc_query_test.go"
+lines = 224
+verdict = "clean"
+note = "Read in full: grpc_query_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.116]
+path = "sdk/x/feegrant/keeper/keeper.go"
+lines = 218
+verdict = "clean"
+note = "Read in full: keeper; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.117]
+path = "sdk/x/feegrant/keeper/keeper_test.go"
+lines = 261
+verdict = "clean"
+note = "Read in full: keeper_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.118]
+path = "sdk/x/feegrant/keeper/msg_server.go"
+lines = 78
+verdict = "clean"
+note = "Read in full: msg_server; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.119]
+path = "sdk/x/feegrant/keeper/msg_server_test.go"
+lines = 223
+verdict = "clean"
+note = "Read in full: msg_server_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.120]
+path = "sdk/x/feegrant/key.go"
+lines = 51
+verdict = "issues"
+note = "Read in full: key; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references. Findings: feegrant-key."
+
+[file.121]
+path = "sdk/x/feegrant/key_test.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: key_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.122]
+path = "sdk/x/feegrant/module/module.go"
+lines = 223
+verdict = "clean"
+note = "Read in full: module; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.123]
+path = "sdk/x/feegrant/msgs.go"
+lines = 142
+verdict = "clean"
+note = "Read in full: msgs; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.124]
+path = "sdk/x/feegrant/msgs_test.go"
+lines = 134
+verdict = "clean"
+note = "Read in full: msgs_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.125]
+path = "sdk/x/feegrant/periodic_fee.go"
+lines = 107
+verdict = "issues"
+note = "Read in full: periodic_fee; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references. Findings: zero-period."
+
+[file.126]
+path = "sdk/x/feegrant/periodic_fee_test.go"
+lines = 212
+verdict = "clean"
+note = "Read in full: periodic_fee_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.127]
+path = "sdk/x/feegrant/simulation/decoder.go"
+lines = 26
+verdict = "clean"
+note = "Read in full: decoder; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.128]
+path = "sdk/x/feegrant/simulation/genesis.go"
+lines = 77
+verdict = "clean"
+note = "Read in full: genesis; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.129]
+path = "sdk/x/feegrant/simulation/operations.go"
+lines = 161
+verdict = "clean"
+note = "Read in full: operations; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.130]
+path = "sdk/x/feegrant/spec/01_concepts.md"
+lines = 78
+verdict = "issues"
+note = "feegrant-types-doc at line 19: The concepts page says only BasicAllowance and PeriodicAllowance exist although AllowedMsgAllowance is registered, supported by CLI --allowed-messages and described later in the same page. Findings: feegrant-types-doc."
+
+[file.131]
+path = "sdk/x/feegrant/spec/02_state.md"
+lines = 15
+verdict = "clean"
+note = "The feegrant 02_state.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[file.132]
+path = "sdk/x/feegrant/spec/03_messages.md"
+lines = 17
+verdict = "clean"
+note = "The feegrant 03_messages.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[file.133]
+path = "sdk/x/feegrant/spec/04_events.md"
+lines = 33
+verdict = "issues"
+note = "feegrant-events-doc at line 15: The feegrant event tables advertise message.action=set_feegrant/revoke_feegrant/use_feegrant. Keeper code emits those names as event types with granter and grantee attributes, while transaction message.action comes from BaseApp. Findings: feegrant-events-doc."
+
+[file.134]
+path = "sdk/x/feegrant/spec/README.md"
+lines = 32
+verdict = "clean"
+note = "The feegrant README.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[file.135]
+path = "sdk/x/gov/abci.go"
+lines = 143
+verdict = "issues"
+note = "Read in full: abci; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references. Findings: expedited-votes."
+
+[file.136]
+path = "sdk/x/gov/abci_test.go"
+lines = 617
+verdict = "issues"
+note = "Read in full: abci_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: gov-conversion-coverage."
+
+[file.137]
+path = "sdk/x/gov/client/cli/parse.go"
+lines = 49
+verdict = "clean"
+note = "Read in full: parse; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.138]
+path = "sdk/x/gov/client/cli/parse_test.go"
+lines = 69
+verdict = "clean"
+note = "Read in full: parse_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.139]
+path = "sdk/x/gov/client/cli/query.go"
+lines = 703
+verdict = "issues"
+note = "Read in full: query; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: historical-single-vote, gov-history-cli-pagination."
+
+[file.140]
+path = "sdk/x/gov/client/cli/query_test.go"
+lines = 382
+verdict = "issues"
+note = "Read in full: query_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: gov-query-tests."
+
+[file.141]
+path = "sdk/x/gov/client/cli/tx.go"
+lines = 294
+verdict = "issues"
+note = "Read in full: tx; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: expedited-cli-flag."
+
+[file.142]
+path = "sdk/x/gov/client/cli/tx_test.go"
+lines = 369
+verdict = "clean"
+note = "Read in full: tx_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.143]
+path = "sdk/x/gov/client/proposal_handler.go"
+lines = 28
+verdict = "clean"
+note = "Read in full: proposal_handler; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.144]
+path = "sdk/x/gov/client/rest/grpc_query_test.go"
+lines = 481
+verdict = "issues"
+note = "Read in full: grpc_query_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: gov-rest-test-config."
+
+[file.145]
+path = "sdk/x/gov/client/rest/query.go"
+lines = 473
+verdict = "clean"
+note = "Read in full: query; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.146]
+path = "sdk/x/gov/client/rest/rest.go"
+lines = 60
+verdict = "clean"
+note = "Read in full: rest; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.147]
+path = "sdk/x/gov/client/rest/rest_test.go"
+lines = 168
+verdict = "clean"
+note = "Read in full: rest_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.148]
+path = "sdk/x/gov/client/rest/tx.go"
+lines = 127
+verdict = "clean"
+note = "Read in full: tx; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.149]
+path = "sdk/x/gov/client/testutil/cli_test.go"
+lines = 33
+verdict = "issues"
+note = "Read in full: cli_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: gov-cli-test-config."
+
+[file.150]
+path = "sdk/x/gov/client/testutil/deposits.go"
+lines = 193
+verdict = "issues"
+note = "Read in full: deposits; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: gov-deposit-fixture."
+
+[file.151]
+path = "sdk/x/gov/client/testutil/helpers.go"
+lines = 57
+verdict = "clean"
+note = "Read in full: helpers; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.152]
+path = "sdk/x/gov/client/testutil/suite.go"
+lines = 917
+verdict = "issues"
+note = "Read in full: suite; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: gov-params-fixture."
+
+[file.153]
+path = "sdk/x/gov/client/utils/query.go"
+lines = 410
+verdict = "issues"
+note = "Read in full: query; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references. Findings: historical-deposit-owner, historical-multi-message, historical-pagination."
+
+[file.154]
+path = "sdk/x/gov/client/utils/query_test.go"
+lines = 193
+verdict = "issues"
+note = "Read in full: query_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed. Findings: gov-history-test-shape."
+
+[file.155]
+path = "sdk/x/gov/client/utils/utils.go"
+lines = 69
+verdict = "clean"
+note = "Read in full: utils; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Checked real callers, input/error handling and retired references."
+
+[file.156]
+path = "sdk/x/gov/client/utils/utils_test.go"
+lines = 84
+verdict = "clean"
+note = "Read in full: utils_test; checked registered command/routes, flags, account/proposal identity, canonical messages, pagination and response/error encoding. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.157]
+path = "sdk/x/gov/common_test.go"
+lines = 100
+verdict = "clean"
+note = "Read in full: common_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.158]
+path = "sdk/x/gov/genesis.go"
+lines = 83
+verdict = "clean"
+note = "Read in full: genesis; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.159]
+path = "sdk/x/gov/genesis_test.go"
+lines = 174
+verdict = "clean"
+note = "Read in full: genesis_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.160]
+path = "sdk/x/gov/handler.go"
+lines = 38
+verdict = "clean"
+note = "Read in full: handler; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references."
+
+[file.161]
+path = "sdk/x/gov/handler_test.go"
+lines = 26
+verdict = "clean"
+note = "Read in full: handler_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.162]
+path = "sdk/x/gov/keeper/common_test.go"
+lines = 59
+verdict = "clean"
+note = "Read in full: common_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.163]
+path = "sdk/x/gov/keeper/deposit.go"
+lines = 179
+verdict = "clean"
+note = "Read in full: deposit; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.164]
+path = "sdk/x/gov/keeper/deposit_test.go"
+lines = 133
+verdict = "clean"
+note = "Read in full: deposit_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.165]
+path = "sdk/x/gov/keeper/grpc_query.go"
+lines = 279
+verdict = "issues"
+note = "Read in full: grpc_query; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references. Findings: failed-proposal-tally."
+
+[file.166]
+path = "sdk/x/gov/keeper/grpc_query_test.go"
+lines = 818
+verdict = "clean"
+note = "Read in full: grpc_query_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.167]
+path = "sdk/x/gov/keeper/hooks.go"
+lines = 44
+verdict = "clean"
+note = "Read in full: hooks; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.168]
+path = "sdk/x/gov/keeper/hooks_test.go"
+lines = 94
+verdict = "clean"
+note = "Read in full: hooks_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.169]
+path = "sdk/x/gov/keeper/internal_test.go"
+lines = 10
+verdict = "clean"
+note = "Read in full: internal_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.170]
+path = "sdk/x/gov/keeper/invariants.go"
+lines = 43
+verdict = "clean"
+note = "Read in full: invariants; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.171]
+path = "sdk/x/gov/keeper/keeper.go"
+lines = 172
+verdict = "clean"
+note = "Read in full: keeper; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.172]
+path = "sdk/x/gov/keeper/keeper_test.go"
+lines = 92
+verdict = "clean"
+note = "Read in full: keeper_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.173]
+path = "sdk/x/gov/keeper/legacy_metrics_test.go"
+lines = 90
+verdict = "clean"
+note = "Read in full: legacy_metrics_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.174]
+path = "sdk/x/gov/keeper/metrics.go"
+lines = 39
+verdict = "clean"
+note = "Read in full: metrics; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Checked real callers, input/error handling and retired references."
+
+[file.175]
+path = "sdk/x/gov/keeper/migrations.go"
+lines = 25
+verdict = "clean"
+note = "Read in full: migrations; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.176]
+path = "sdk/x/gov/keeper/msg_server.go"
+lines = 146
+verdict = "clean"
+note = "Read in full: msg_server; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.177]
+path = "sdk/x/gov/keeper/otel_metrics_test.go"
+lines = 82
+verdict = "clean"
+note = "Read in full: otel_metrics_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.178]
+path = "sdk/x/gov/keeper/params.go"
+lines = 42
+verdict = "clean"
+note = "Read in full: params; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.179]
+path = "sdk/x/gov/keeper/proposal.go"
+lines = 242
+verdict = "clean"
+note = "Read in full: proposal; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.180]
+path = "sdk/x/gov/keeper/proposal_test.go"
+lines = 270
+verdict = "clean"
+note = "Read in full: proposal_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.181]
+path = "sdk/x/gov/keeper/querier.go"
+lines = 234
+verdict = "issues"
+note = "Read in full: querier; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references. Findings: failed-proposal-legacy-tally."
+
+[file.182]
+path = "sdk/x/gov/keeper/querier_test.go"
+lines = 397
+verdict = "clean"
+note = "Read in full: querier_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.183]
+path = "sdk/x/gov/keeper/tally.go"
+lines = 125
+verdict = "clean"
+note = "Read in full: tally; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.184]
+path = "sdk/x/gov/keeper/tally_test.go"
+lines = 501
+verdict = "clean"
+note = "Read in full: tally_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.185]
+path = "sdk/x/gov/keeper/vote.go"
+lines = 138
+verdict = "clean"
+note = "Read in full: vote; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Checked real callers, input/error handling and retired references."
+
+[file.186]
+path = "sdk/x/gov/keeper/vote_test.go"
+lines = 94
+verdict = "clean"
+note = "Read in full: vote_test; checked persistent store prefixes, cross-module keeper arguments/results, account authority, state transitions and restart/export behavior. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.187]
+path = "sdk/x/gov/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Read in full: metrics; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Checked real callers, input/error handling and retired references."
+
+[file.188]
+path = "sdk/x/gov/module.go"
+lines = 235
+verdict = "issues"
+note = "Read in full: module; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Checked real callers, input/error handling and retired references. Findings: gov-invariant-unregistered."
+
+[file.189]
+path = "sdk/x/gov/module_test.go"
+lines = 29
+verdict = "clean"
+note = "Read in full: module_test; checked module registration, message dispatch, block hooks, migrations and persisted proposal/reward lifecycle. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.190]
+path = "sdk/x/gov/otel_metrics_test.go"
+lines = 32
+verdict = "clean"
+note = "Read in full: otel_metrics_test; checked OTel instrument names, units and attributes, process reader/sink lifetime and real keeper/block emission paths. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.191]
+path = "sdk/x/gov/simulation/decoder.go"
+lines = 54
+verdict = "issues"
+note = "Read in full: decoder; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references. Findings: gov-decoder-endian."
+
+[file.192]
+path = "sdk/x/gov/simulation/genesis.go"
+lines = 158
+verdict = "clean"
+note = "Read in full: genesis; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references."
+
+[file.193]
+path = "sdk/x/gov/simulation/operations.go"
+lines = 479
+verdict = "issues"
+note = "Read in full: operations; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references. Findings: gov-simulation-vote-id, gov-simulation-empty-operation."
+
+[file.194]
+path = "sdk/x/gov/simulation/params.go"
+lines = 76
+verdict = "issues"
+note = "Read in full: params; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references. Findings: gov-simulation-veto-field."
+
+[file.195]
+path = "sdk/x/gov/simulation/proposals.go"
+lines = 34
+verdict = "issues"
+note = "Read in full: proposals; checked simulation configuration, canonical store encodings, real transaction delivery, message validity and scheduled operations. Checked real callers, input/error handling and retired references. Findings: gov-proposal-weight."
+
+[file.196]
+path = "sdk/x/gov/spec/01_concepts.md"
+lines = 214
+verdict = "issues"
+note = "gov-lifecycle-doc at line 195: The concepts page describes software switching after proposal-ID precommit signals; the actual software-upgrade handler schedules a named height plan. It also promises a strictly positive initial deposit and a veto exception to expedited conversion, which current handlers do not enforce. Findings: gov-lifecycle-doc."
+
+[file.197]
+path = "sdk/x/gov/spec/02_state.md"
+lines = 205
+verdict = "issues"
+note = "gov-state-doc at line 34: The state page assigns No=2, NoWithVeto=3 and Abstain=4; the protobuf enum and validation code assign Abstain=2, No=3 and NoWithVeto=4. Its state sketches also omit weighted vote options and expedited proposal fields. Findings: gov-state-doc."
+
+[file.198]
+path = "sdk/x/gov/spec/03_messages.md"
+lines = 180
+verdict = "issues"
+note = "gov-message-doc at line 41: The submission pseudocode rejects empty initial deposits and treats title, type and vote counters as direct message/proposal fields; the producer accepts an empty coin list and packs proposal content in Any with weighted vote records. Findings: gov-message-doc."
+
+[file.199]
+path = "sdk/x/gov/spec/04_events.md"
+lines = 65
+verdict = "issues"
+note = "gov-events-doc at line 51: The weighted-vote table advertises message.action=vote; MsgVoteWeighted.Type returns vote_weighted and protobuf transport emits its full type URL. The page does not distinguish these transport-dependent action values. Findings: gov-events-doc."
+
+[file.200]
+path = "sdk/x/gov/spec/05_future_improvements.md"
+lines = 30
+verdict = "clean"
+note = "The page explicitly identifies speculative governance improvements rather than promising an implemented transport or upgrade mechanism."
+
+[file.201]
+path = "sdk/x/gov/spec/06_params.md"
+lines = 28
+verdict = "issues"
+note = "gov-params-doc at line 11: The parameter page uses uatom and veto, omits min_expedited_deposit, expedited_voting_period, expedited_quorum and expedited_threshold, and therefore does not describe the current parameter producer. Findings: gov-params-doc."
+
+[file.202]
+path = "sdk/x/gov/spec/07_client.md"
+lines = 1060
+verdict = "issues"
+note = "gov-client-doc at line 110: CLI and query examples omit expedited parameters, mix stake and uhpx, and retain simd/cosmos account examples even though the Paxeer command and address configuration use paxd and the pax prefix. Findings: gov-client-doc."
+
+[file.203]
+path = "sdk/x/gov/spec/README.md"
+lines = 62
+verdict = "clean"
+note = "The overview states the intended deposit, weighted-vote and expedited-to-regular lifecycle and identifies node wiring; vote retention currently violates that intended lifecycle as recorded in expedited-votes."
+
+[file.204]
+path = "sdk/x/gov/types/codec.go"
+lines = 63
+verdict = "clean"
+note = "Read in full: codec; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.205]
+path = "sdk/x/gov/types/content.go"
+lines = 55
+verdict = "clean"
+note = "Read in full: content; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.206]
+path = "sdk/x/gov/types/deposit.go"
+lines = 53
+verdict = "clean"
+note = "Read in full: deposit; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.207]
+path = "sdk/x/gov/types/errors.go"
+lines = 17
+verdict = "clean"
+note = "Read in full: errors; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.208]
+path = "sdk/x/gov/types/events.go"
+lines = 22
+verdict = "clean"
+note = "Read in full: events; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.209]
+path = "sdk/x/gov/types/expected_keepers.go"
+lines = 68
+verdict = "clean"
+note = "Read in full: expected_keepers; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.210]
+path = "sdk/x/gov/types/genesis.go"
+lines = 88
+verdict = "clean"
+note = "Read in full: genesis; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.211]
+path = "sdk/x/gov/types/genesis_test.go"
+lines = 28
+verdict = "clean"
+note = "Read in full: genesis_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.212]
+path = "sdk/x/gov/types/hooks.go"
+lines = 42
+verdict = "clean"
+note = "Read in full: hooks; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.213]
+path = "sdk/x/gov/types/keys.go"
+lines = 161
+verdict = "clean"
+note = "Read in full: keys; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.214]
+path = "sdk/x/gov/types/keys_test.go"
+lines = 61
+verdict = "clean"
+note = "Read in full: keys_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.215]
+path = "sdk/x/gov/types/msgs.go"
+lines = 286
+verdict = "clean"
+note = "Read in full: msgs; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.216]
+path = "sdk/x/gov/types/msgs_test.go"
+lines = 176
+verdict = "clean"
+note = "Read in full: msgs_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.217]
+path = "sdk/x/gov/types/params.go"
+lines = 277
+verdict = "clean"
+note = "Read in full: params; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.218]
+path = "sdk/x/gov/types/params_test.go"
+lines = 143
+verdict = "clean"
+note = "Read in full: params_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.219]
+path = "sdk/x/gov/types/proposal.go"
+lines = 263
+verdict = "clean"
+note = "Read in full: proposal; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.220]
+path = "sdk/x/gov/types/proposals_test.go"
+lines = 39
+verdict = "clean"
+note = "Read in full: proposals_test; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Reviewed test assertions and fixtures against production shapes; no source test execution is claimed."
+
+[file.221]
+path = "sdk/x/gov/types/querier.go"
+lines = 102
+verdict = "clean"
+note = "Read in full: querier; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.222]
+path = "sdk/x/gov/types/router.go"
+lines = 72
+verdict = "clean"
+note = "Read in full: router; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.223]
+path = "sdk/x/gov/types/tally.go"
+lines = 68
+verdict = "clean"
+note = "Read in full: tally; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[file.224]
+path = "sdk/x/gov/types/vote.go"
+lines = 148
+verdict = "clean"
+note = "Read in full: vote; checked declared types and constants, codec/Any registration, canonical encoding, validation and lifecycle contracts. Checked real callers, input/error handling and retired references."
+
+[finding.expedited-votes]
+file = "sdk/x/gov/abci.go"
+line = 54
+class = "runtime-risk"
+severity = "high"
+observed = "EndBlocker calls Keeper.Tally before converting a failed expedited proposal to regular voting; Tally deletes every vote at sdk/x/gov/keeper/tally.go:69. The extended proposal therefore loses the votes already cast, including after a restart."
+expected = "Expedited conversion must extend the proposal lifecycle without silently discarding the electorate's recorded votes."
+proposal = "Preserve votes during provisional tally in sdk/x/gov/keeper/tally.go and remove them only on terminal resolution; prove conversion, restart and final regular tally using the same votes."
+owner_domain = 15
+
+[finding.slash-height]
+file = "sdk/x/distribution/keeper/grpc_query.go"
+line = 101
+class = "interface-mismatch"
+severity = "high"
+observed = "ValidatorSlashes filters result.ValidatorPeriod against StartingHeight and EndingHeight. updateValidatorSlashFraction persists block height in the slash key and a separately incremented reward period in the value, so a valid block-height query can omit matching slashes or include unrelated ones."
+expected = "7.qry-cosmos-distribution-v1beta1-validatorslashes-j39 accepts a block-height range; CLI, gateway and keeper must return events selected by that range."
+proposal = "Decode the block height from each slash-store key in sdk/x/distribution/keeper/grpc_query.go and apply inclusive height filtering before pagination; cover heights deliberately different from reward periods."
+owner_domain = 15
+interface = "7.qry-cosmos-distribution-v1beta1-validatorslashes-j39"
+
+[finding.feegrant-key]
+file = "sdk/x/feegrant/key.go"
+line = 48
+class = "interface-mismatch"
+severity = "high"
+observed = "ParseAddressesFromFeeAllowanceKey starts the granter at 3+granterAddrLen instead of 3+granteeAddrLen and adds lengths through byte arithmetic. FeeAllowanceKey writes independently length-prefixed addresses, so unequal supported lengths decode incorrectly or panic in AllowancesByGranter."
+expected = "The canonical fee-allowance key must round-trip both independently length-prefixed addresses for the granter listing consumer."
+proposal = "Use integer offsets derived from the grantee length in sdk/x/feegrant/key.go, validate the complete two-prefix layout, and prove mixed address lengths through Keeper.AllowancesByGranter."
+owner_domain = 15
+interface = "15.go-x-feegrant-parse-addresses-from-fee-allowance-key-j76"
+
+[finding.negative-chunks]
+file = "sdk/x/distribution/client/cli/tx.go"
+line = 58
+class = "runtime-risk"
+severity = "medium"
+observed = "NewWithdrawAllRewardsCmd accepts a signed --max-msgs integer, and NewSplitAndApply handles zero but not negative values. With messages present, a negative chunk produces a negative slice bound and panics."
+expected = "A malformed CLI limit must return a useful validation error before building withdrawal chunks."
+proposal = "Reject negative chunk sizes in sdk/x/distribution/client/cli/tx.go and cover --max-msgs=-1 through the public withdrawal command."
+owner_domain = 15
+interface = "15.go-x-distribution-client-cli-new-split-and-apply-j76"
+
+[finding.network-test-config]
+file = "sdk/testutil/network/network_test.go"
+line = 26
+class = "test-gap"
+severity = "medium"
+observed = "SetupSuite calls network.DefaultConfig() without the *testing.T required by sdk/testutil/network/network.go:98. The norace integration suite cannot compile with the current harness."
+expected = "The checked-in network liveness suite must call the actual harness constructor signature and remain executable."
+proposal = "Pass s.T() to network.DefaultConfig in sdk/testutil/network/network_test.go and retain the real network height assertion."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.distribution-test-config]
+file = "sdk/x/distribution/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "TestIntegrationTestSuite calls network.DefaultConfig() without the *testing.T argument required by its producer, preventing the norace distribution CLI suite from compiling."
+expected = "Distribution CLI integration tests must construct the current network harness using its declared argument."
+proposal = "Pass t to network.DefaultConfig in sdk/x/distribution/client/testutil/cli_test.go and preserve every CLI assertion."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.distribution-output-denom]
+file = "sdk/x/distribution/client/testutil/suite.go"
+line = 138
+class = "test-gap"
+severity = "medium"
+observed = "The same query at the same height expects denomination uhpx in JSON but stake in text output (also commission, delegation rewards and community pool). The CLI prints the same protobuf data in either format and does not rename denominations."
+expected = "JSON and text fixtures must describe the same chain rewards and denomination emitted by the actual producer."
+proposal = "Replace stale stake expectations in sdk/x/distribution/client/testutil/suite.go with the configured bond denomination and derive numeric rewards from the real deterministic genesis and block path."
+owner_domain = 15
+
+[finding.http-helper-bounds]
+file = "sdk/testutil/rest.go"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "GetRequestWithHeaders creates an http.Client with no timeout, reads the entire body without a bound and closes it only after a successful io.ReadAll. A stalled server can hang the integration suite; a read error leaks the response body."
+expected = "Network test helpers must return within a deadline and release response resources on success and failure."
+proposal = "Use a bounded request context or client timeout and defer response-body closure immediately after Do in sdk/testutil/rest.go; bound accepted response bytes and preserve transport errors."
+owner_domain = 15
+interface = "15.go-testutil-get-request-with-headers-j76"
+
+[finding.network-genesis]
+file = "sdk/testutil/network/util.go"
+line = 50
+class = "runtime-risk"
+severity = "medium"
+observed = "startInProcess replaces the shared genesis validator list with only val.PubKey for each node. Config.NumValidators allows multiple validators, but their consensus genesis validator sets then disagree."
+expected = "Every validator of a configured test network must start from the same validator set and canonical genesis."
+proposal = "Build the complete shared validator list once in sdk/testutil/network/util.go and pass the same genesis to each node; prove block progress and identical genesis hashes with multiple validators."
+owner_domain = 15
+
+[finding.network-app-config]
+file = "sdk/testutil/network/network.go"
+line = 61
+class = "wiring-gap"
+severity = "medium"
+observed = "NewAppConstructor ignores its Validator argument and encodingCfg and returns app.Setup(t,false,false,false). The advertised network configuration therefore does not reach application home, database, pruning and other per-validator startup options."
+expected = "The network's AppConstructor should create an application from the validator configuration prepared by Network.New."
+proposal = "Construct the application using Validator.Dir, AppConfig and the configured encoding in sdk/testutil/network/network.go, and prove a custom genesis/configuration survives application restart."
+owner_domain = 15
+interface = "15.go-testutil-network-app-constructor-j76"
+
+[finding.expedited-cli-flag]
+file = "sdk/x/gov/client/cli/tx.go"
+line = 136
+class = "wiring-gap"
+severity = "medium"
+observed = "NewCmdSubmitProposal advertises --is-expedited and parseSubmitProposalFlags reads FlagIsExpedited, but the command never registers a Bool flag with that name. Flag-based expedited submission fails as an unknown flag while file-based submission can carry is_expedited."
+expected = "The advertised expedited flag must reach MsgSubmitProposalWithExpedite consistently with the JSON proposal field."
+proposal = "Register the boolean flag in sdk/x/gov/client/cli/tx.go, reject ambiguous combinations with --proposal, and prove both entry paths emit IsExpedited=true."
+owner_domain = 15
+interface = "15.cli-x-gov-client-cli-submit-proposal-j76"
+
+[finding.historical-single-vote]
+file = "sdk/x/gov/client/cli/query.go"
+line = 226
+class = "interface-mismatch"
+severity = "high"
+observed = "GetCmdQueryVote returns immediately when Query.Vote reports a missing stored vote. The keeper deletes votes at final tally and returns InvalidArgument for a missing vote, so the historical QueryVoteByTxQuery branch is unreachable. Even a successful fallback decodes into vote but prints res.Vote."
+expected = "15.cli-x-gov-client-cli-vote-j76 must return the recorded vote for a resolved proposal through the transaction-index consumer when live vote state has been removed."
+proposal = "Choose the historical path from proposal status in sdk/x/gov/client/cli/query.go, distinguish absent data from transport failure, and print the recovered vote; prove after tally and client restart."
+owner_domain = 15
+interface = "15.cli-x-gov-client-cli-vote-j76"
+
+[finding.historical-deposit-owner]
+file = "sdk/x/gov/client/utils/query.go"
+line = 248
+class = "interface-mismatch"
+severity = "high"
+observed = "QueryDepositByTxQuery returns any nonzero initialDeposit before comparing its Depositor with params.Depositor. Querying a different depositor on a finished proposal therefore returns the proposer's initial deposit."
+expected = "The declared single-depositor query must identify the requested depositor and preserve that identity across live-state removal and transaction-index recovery."
+proposal = "In sdk/x/gov/client/utils/query.go, require the initial depositor to match the request, then aggregate all matching deposits with matching proposal IDs; prove two distinct depositors across proposal finalization."
+owner_domain = 15
+interface = "15.go-x-gov-client-utils-query-deposit-by-tx-query-j76"
+
+[finding.historical-multi-message]
+file = "sdk/x/gov/client/utils/query.go"
+line = 66
+class = "runtime-risk"
+severity = "medium"
+observed = "Historical deposit, vote and proposer reconstruction selects transactions by events but then accepts every message of the matching type without checking that message's proposal ID, voter or depositor. A transaction containing messages for two proposals can be relabelled as history for just one."
+expected = "Transaction-wide event matches must be narrowed to the requested message identity before presenting governance history."
+proposal = "Filter decoded messages by proposal and requested account in sdk/x/gov/client/utils/query.go; aggregate deposits, use the last successful vote per voter, and deduplicate transaction hashes before pagination."
+owner_domain = 15
+interface = "15.go-x-gov-client-utils-query-deposit-by-tx-query-j76"
+
+[finding.historical-pagination]
+file = "sdk/x/gov/client/utils/query.go"
+line = 148
+class = "runtime-risk"
+severity = "medium"
+observed = "QueryVotesByTxQuery stops when the combined result length differs from defaultLimit, even though combineEvents fetches a separate page for each of four event groups. A combined full result of 60 or 120 transactions ends pagination early; deposits fetch only one page."
+expected = "Historical queries must return all requested records across independent event streams and preserve deterministic page order."
+proposal = "Track pagination and exhaustion per event group in sdk/x/gov/client/utils/query.go, merge in block/transaction order, and cover mixed legacy/protobuf vote streams spanning more than one page."
+owner_domain = 15
+interface = "15.go-x-gov-client-utils-query-votes-by-tx-query-j76"
+
+[finding.failed-proposal-tally]
+file = "sdk/x/gov/keeper/grpc_query.go"
+line = 270
+class = "runtime-risk"
+severity = "medium"
+observed = "TallyResult reads FinalTallyResult only for StatusPassed and StatusRejected. EndBlocker also produces StatusFailed when a passing proposal's handler errors, after Tally deleted votes; querying that status recomputes an empty tally instead of returning the stored result. The legacy querier repeats the same switch."
+expected = "Every terminal proposal status must expose the final tally saved when voting ended."
+proposal = "Include StatusFailed in the finalized-result cases in sdk/x/gov/keeper/grpc_query.go and querier.go, and cover a proposal whose execution handler fails after a nonzero tally."
+owner_domain = 15
+interface = "7.qry-cosmos-gov-v1beta1-tallyresult-j39"
+
+[finding.zero-period]
+file = "sdk/x/feegrant/periodic_fee.go"
+line = 102
+class = "security"
+severity = "medium"
+observed = "PeriodicAllowance.ValidateBasic rejects only negative durations and permits Period=0. tryResetPeriod then refills PeriodCanSpend whenever blockTime reaches PeriodReset, allowing a zero-period grant to reset for each transaction rather than enforce a recurring time window."
+expected = "Periodic allowance creation must require a strictly positive period so the approved per-period limit has a meaningful duration."
+proposal = "Reject Period<=0 in sdk/x/feegrant/periodic_fee.go and exercise a serialized zero-duration grant through validation and fee consumption."
+owner_domain = 15
+
+[finding.filtered-remove]
+file = "sdk/x/feegrant/filtered_fee.go"
+line = 77
+class = "interface-mismatch"
+severity = "high"
+observed = "AllowedMsgAllowance.Accept converts an underlying (remove=true, err=ErrFeeLimitExpired) result into (false, err). Keeper.UseGrantedFees only revokes when remove is true, so wrapping an expired BasicAllowance changes its declared removal lifecycle."
+expected = "FeeAllowanceI explicitly requires the remove flag to apply regardless of error; filtering must preserve the underlying allowance's lifetime."
+proposal = "Propagate the underlying remove value on errors in sdk/x/feegrant/filtered_fee.go and prove the same expiration and stored-grant lifecycle with basic and wrapped allowances."
+owner_domain = 15
+interface = "15.go-x-feegrant-fee-allowance-i-j76"
+
+[finding.gov-invariant-unregistered]
+file = "sdk/x/gov/module.go"
+line = 145
+class = "wiring-gap"
+severity = "medium"
+observed = "AppModule.RegisterInvariants is empty although keeper.RegisterInvariants defines the module-account balance/deposit check. The module manager therefore cannot run this governance escrow invariant through its normal registry."
+expected = "Governance escrow integrity must be reachable through the module invariant registration path."
+proposal = "Register keeper.RegisterInvariants from sdk/x/gov/module.go with am.bankKeeper and prove the registered route detects an escrow/deposit mismatch."
+owner_domain = 15
+
+[finding.feegrant-test-config]
+file = "sdk/x/feegrant/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The norace feegrant CLI suite calls network.DefaultConfig() with no argument although the constructor requires *testing.T, so the real grant/query/revoke integration coverage does not compile."
+expected = "Fee grants must have executable integration coverage using the current network harness signature."
+proposal = "Pass t to network.DefaultConfig in sdk/x/feegrant/client/testutil/cli_test.go and retain grant, query, revoke and fee-consumption assertions."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.gov-rest-test-config]
+file = "sdk/x/gov/client/rest/grpc_query_test.go"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "The norace governance gateway suite calls network.DefaultConfig() although the constructor requires *testing.T; the live gateway tests cannot compile."
+expected = "The governance protobuf gateway must be covered by an executable suite using the current network constructor."
+proposal = "Pass s.T() to network.DefaultConfig in sdk/x/gov/client/rest/grpc_query_test.go and retain the real gateway assertions."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.distribution-gateway-disabled]
+file = "sdk/x/distribution/client/rest/grpc_query_test.go"
+line = 462
+class = "test-gap"
+severity = "medium"
+observed = "TestIntegrationTestSuite unconditionally calls t.Skip before suite.Run, disabling all distribution gRPC gateway request and response assertions."
+expected = "Distribution query transport must have active coverage of the actual keeper and gateway shapes."
+proposal = "Restore the distribution gateway suite in sdk/x/distribution/client/rest/grpc_query_test.go after updating harness and genesis expectations, preserving all assertions."
+owner_domain = 15
+
+[finding.feegrant-cli-fixtures]
+file = "sdk/x/feegrant/client/testutil/suite.go"
+line = 168
+class = "test-gap"
+severity = "medium"
+observed = "The suite labels cosmos1 addresses as valid and expects fee-grant-not-found for them even though the Paxeer harness uses the pax account prefix. It also compares response Granter and Grantee with themselves, so wrong identities are accepted."
+expected = "Positive grant tests must use addresses accepted by the network and assert identities against the requested grant."
+proposal = "Generate Paxeer addresses from the configured keyring in sdk/x/feegrant/client/testutil/suite.go and compare returned identities with tc.resp and the actual granter/grantee."
+owner_domain = 15
+
+[finding.feegrant-error-assertions]
+file = "sdk/x/feegrant/filtered_fee_test.go"
+line = 256
+class = "test-gap"
+severity = "medium"
+observed = "The expired filtered-allowance fixture declares remove=true but returns immediately after require.Error, never asserting the removal flag on the error path that currently drops it."
+expected = "Allowance lifecycle tests must assert the remove flag independently of the error, as FeeAllowanceI requires."
+proposal = "Assert both error and remove for rejected allowances in sdk/x/feegrant/filtered_fee_test.go and basic_fee_test.go, then exercise wrapped expiration through the keeper."
+owner_domain = 15
+
+[finding.gov-query-tests]
+file = "sdk/x/gov/client/cli/query_test.go"
+line = 36
+class = "test-gap"
+severity = "medium"
+observed = "Every governance query case only SetArgs and inspects fmt.Sprint(cmd); none executes the command or decodes a keeper response, so historical fallback and transport failures remain uncovered."
+expected = "Governance query tests must execute the declared producer-to-consumer path and assert the returned proposal, vote, deposit or tally."
+proposal = "Execute CLI commands against the registered query server in sdk/x/gov/client/cli/query_test.go and add finalization/recovery cases preserving account identities."
+owner_domain = 15
+
+[finding.gov-history-test-shape]
+file = "sdk/x/gov/client/utils/query_test.go"
+line = 37
+class = "test-gap"
+severity = "medium"
+observed = "TxSearchMock filters only LegacyMsg.Type and ignores proposal/account event predicates; it paginates len(mock.txs), and fixtures expect duplicate votes for one voter. This differs from real event-index behavior and hides mixed-message and multi-stream history defects."
+expected = "Historical governance fixtures must model actual transaction-index predicates, pagination and the final per-voter state."
+proposal = "Exercise sdk/x/gov/client/utils/query_test.go against the real index with mixed proposals, repeat votes and more than thirty results per event stream."
+owner_domain = 15
+
+[finding.gov-cli-test-config]
+file = "sdk/x/gov/client/testutil/cli_test.go"
+line = 19
+class = "test-gap"
+severity = "medium"
+observed = "TestIntegrationTestSuite calls network.DefaultConfig() without the *testing.T required by the current constructor, preventing both governance CLI integration suites from compiling."
+expected = "Governance deposit, submission and query coverage must use the actual network harness constructor."
+proposal = "Pass t to network.DefaultConfig in sdk/x/gov/client/testutil/cli_test.go and preserve both suites and their assertions."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.gov-params-fixture]
+file = "sdk/x/gov/client/testutil/suite.go"
+line = 97
+class = "test-gap"
+severity = "medium"
+observed = "TestCmdParams puts min_expedited_deposit at the JSON root although QueryParamsResponse nests it in deposit_params. Fixtures also omit expedited voting/quorum/threshold fields and change uhpx to stake between JSON and text."
+expected = "Governance parameter fixtures must match the protobuf response emitted by the keeper, including all expedited parameters."
+proposal = "Update sdk/x/gov/client/testutil/suite.go from the actual default parameter objects and assert equivalent JSON/text representations, including expedited fields."
+owner_domain = 15
+
+[finding.gov-deposit-fixture]
+file = "sdk/x/gov/client/testutil/deposits.go"
+line = 65
+class = "test-gap"
+severity = "medium"
+observed = "TestQueryDepositsInitialDeposit expects only the initial amount for a single depositor after that same account deposits again, and expects two deposit entries. Keeper.AddDeposit aggregates amounts under one proposal/depositor key."
+expected = "Historical governance deposit queries must preserve the same cumulative per-depositor meaning as live keeper queries."
+proposal = "Replace the transaction-fragment expectations in sdk/x/gov/client/testutil/deposits.go with cumulative deposits per account and prove equal answers before finalization, after finalization and after reopening the index."
+owner_domain = 15
+
+[finding.gov-conversion-coverage]
+file = "sdk/x/gov/abci_test.go"
+line = 349
+class = "test-gap"
+severity = "medium"
+observed = "The expedited conversion cases do not cast a vote before failed expedited tally and assert its retention through regular voting; passing expedited cases cast votes but never exercise conversion."
+expected = "The extended voting lifecycle must retain existing votes across conversion, commit, reopen and final regular tally."
+proposal = "Extend TestExpeditedProposalPassAndConvertToRegular in sdk/x/gov/abci_test.go with a pre-conversion minority vote and committed-state restart; assert the same vote contributes to final tally."
+owner_domain = 15
+
+[finding.gov-decoder-endian]
+file = "sdk/x/gov/simulation/decoder.go"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "NewDecodeStore decodes queue and proposal-ID values with binary.LittleEndian.Uint64, while types.GetProposalIDBytes stores them with binary.BigEndian.PutUint64; simulation mismatch reports display incorrect proposal identities."
+expected = "Store diagnostics must decode proposal identities using the same byte order as the canonical key/value producer."
+proposal = "Use types.GetProposalIDFromBytes or binary.BigEndian in sdk/x/gov/simulation/decoder.go and cover a non-palindromic identifier through the actual store decoder."
+owner_domain = 15
+interface = "15.go-x-gov-simulation-new-decode-store-j76"
+
+[finding.gov-simulation-vote-id]
+file = "sdk/x/gov/simulation/operations.go"
+line = 179
+class = "test-gap"
+severity = "medium"
+observed = "SimulateMsgSubmitProposal reads Keeper.GetProposalID after successful delivery, when submission has already advanced the stored counter. Scheduled votes therefore target the next proposal rather than the one submitted."
+expected = "Governance simulations must schedule votes for the proposal actually accepted by the transaction handler."
+proposal = "Capture the submitted proposal ID before delivery or decode MsgSubmitProposalResponse in sdk/x/gov/simulation/operations.go, and prove scheduled votes update that proposal."
+owner_domain = 15
+
+[finding.gov-simulation-empty-operation]
+file = "sdk/x/gov/simulation/operations.go"
+line = 196
+class = "runtime-risk"
+severity = "medium"
+observed = "SimulateMsgSubmitProposal allocates numVotes+1 FutureOperation entries but fills only numVotes entries. The returned list includes an operation with nil Op and zero BlockTime."
+expected = "Every scheduled simulation operation must be callable and have its intended execution time."
+proposal = "Allocate exactly numVotes entries in sdk/x/gov/simulation/operations.go or explicitly initialize the additional operation; exercise the returned schedule through the simulation executor."
+owner_domain = 15
+
+[finding.gov-proposal-weight]
+file = "sdk/x/gov/simulation/proposals.go"
+line = 20
+class = "config-drift"
+severity = "low"
+observed = "ProposalContents uses OpWeightMsgDeposit for text proposal content although OpWeightSubmitTextProposal declares a separate configuration key; setting the documented text weight has no effect."
+expected = "Text proposal content weight must be independently configurable under its declared key."
+proposal = "Use OpWeightSubmitTextProposal in sdk/x/gov/simulation/proposals.go and demonstrate that changing text weight does not change deposit operation weight."
+owner_domain = 15
+
+[finding.failed-proposal-legacy-tally]
+file = "sdk/x/gov/keeper/querier.go"
+line = 172
+class = "runtime-risk"
+severity = "medium"
+observed = "queryTally recognizes only passed and rejected proposals as final. A StatusFailed proposal has a stored FinalTallyResult but is tallied again after terminal vote deletion, returning an empty result."
+expected = "Legacy governance tally transport must return the saved tally for every terminal proposal status."
+proposal = "Include StatusFailed in the final-result switch in sdk/x/gov/keeper/querier.go and assert parity with the gRPC tally for a failed execution handler."
+owner_domain = 15
+
+[finding.distribution-default-fixture]
+file = "sdk/x/distribution/client/testutil/suite.go"
+line = 71
+class = "test-gap"
+severity = "medium"
+observed = "Distribution parameter fixtures expect community_tax=0.02, base_proposer_reward=0.01 and bonus_proposer_reward=0.04 although types.DefaultParams sets all three rates to zero."
+expected = "Distribution integration fixtures must represent the defaults installed by the network's actual genesis producer."
+proposal = "Update sdk/x/distribution/client/testutil/suite.go from types.DefaultParams and keep exact query assertions for all distribution parameters."
+owner_domain = 15
+
+[finding.dist-state-doc]
+file = "sdk/x/distribution/spec/02_state.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The state page defines ValidatorDistInfo and DelegationDistInfo, both under prefix 0x02. The implementation instead stores outstanding rewards at 0x02 and separate historical/current/starting/slash records."
+expected = "The distribution state reference must describe the actual prefix layout and persisted reward-period lifecycle."
+proposal = "Rewrite sdk/x/distribution/spec/02_state.md from types/keys.go and keeper/store.go, including address lengths, period endianness and genesis export/import."
+owner_domain = 15
+
+[finding.dist-proposer-doc]
+file = "sdk/x/distribution/spec/03_begin_block.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The begin-block page promises 1% to 5% proposer rewards and derives incentives from precommits, whereas DefaultParams sets base and bonus rates to zero and the Autobahn adapter supplies empty votes."
+expected = "The reward explanation must distinguish configurable legacy calculations from the merged network's actual defaults and consensus inputs."
+proposal = "Rewrite sdk/x/distribution/spec/03_begin_block.md around zero default proposer rates and the votes delivered by consensus/internal/p2p/giga_router.go, with an example of actual fee allocation."
+owner_domain = 15
+
+[finding.dist-slash-doc]
+file = "sdk/x/distribution/spec/04_messages.md"
+line = 56
+class = "doc-drift"
+severity = "medium"
+observed = "The reward pseudocode multiplies stake by F(P), defined as the fraction slashed; keeper.CalculateDelegationRewards multiplies by one minus the slash fraction. The pseudocode also replaces rather than accumulates rewards across slash periods."
+expected = "A delegator must be able to reproduce withdrawal amounts from the documented slash and reward-period calculations."
+proposal = "Correct the stake remainder and reward accumulation in sdk/x/distribution/spec/04_messages.md to match keeper/delegation.go, with a worked multi-slash example."
+owner_domain = 15
+
+[finding.dist-events-doc]
+file = "sdk/x/distribution/spec/06_events.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The event page calls the proposer_reward amount attribute reward, while keeper.AllocateTokens emits sdk.AttributeKeyAmount, whose wire name is amount."
+expected = "Event consumers must receive documented event types and keys matching the actual emitted attributes."
+proposal = "Regenerate the event examples in sdk/x/distribution/spec/06_events.md from keeper/allocation.go and the real message-action producer, including the amount attribute."
+owner_domain = 15
+
+[finding.dist-params-doc]
+file = "sdk/x/distribution/spec/07_params.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The parameter page requires strictly positive tax and proposer rates; the producer accepts zero and initializes all three to zero. The examples retain the upstream 2%, 1% and 4% rates without distinguishing them from network defaults."
+expected = "Operators must see the merged network's actual defaults and valid non-negative rate bounds."
+proposal = "Document zero defaults, the non-negative individual bounds and the intended combined bound in sdk/x/distribution/spec/07_params.md, explicitly labelling any non-default example."
+owner_domain = 15
+
+[finding.feegrant-types-doc]
+file = "sdk/x/feegrant/spec/01_concepts.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page says only BasicAllowance and PeriodicAllowance exist although AllowedMsgAllowance is registered, supported by CLI --allowed-messages and described later in the same page."
+expected = "The allowance overview must enumerate the supported filtered wrapper and explain its Any payload and lifetime."
+proposal = "Update sdk/x/feegrant/spec/01_concepts.md to include AllowedMsgAllowance, message type URLs, expiration/removal and positive periodic duration expectations."
+owner_domain = 15
+
+[finding.feegrant-events-doc]
+file = "sdk/x/feegrant/spec/04_events.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The feegrant event tables advertise message.action=set_feegrant/revoke_feegrant/use_feegrant. Keeper code emits those names as event types with granter and grantee attributes, while transaction message.action comes from BaseApp."
+expected = "Fee grant indexers must subscribe to the event types and attribute keys actually emitted by the keeper and transaction transport."
+proposal = "Rewrite sdk/x/feegrant/spec/04_events.md with separate keeper event types and protobuf/legacy message action examples taken from the real grant, revoke and use paths."
+owner_domain = 15
+
+[finding.gov-lifecycle-doc]
+file = "sdk/x/gov/spec/01_concepts.md"
+line = 195
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page describes software switching after proposal-ID precommit signals; the actual software-upgrade handler schedules a named height plan. It also promises a strictly positive initial deposit and a veto exception to expedited conversion, which current handlers do not enforce."
+expected = "Governance operators must follow the height-based upgrade plan and actual deposit and expedited-conversion lifecycle."
+proposal = "Replace the precommit signaling section in sdk/x/gov/spec/01_concepts.md with the installed upgrade keeper lifecycle, and align deposit and expedited-veto prose with validated behavior."
+owner_domain = 15
+
+[finding.gov-state-doc]
+file = "sdk/x/gov/spec/02_state.md"
+line = 34
+class = "doc-drift"
+severity = "medium"
+observed = "The state page assigns No=2, NoWithVeto=3 and Abstain=4; the protobuf enum and validation code assign Abstain=2, No=3 and NoWithVeto=4. Its state sketches also omit weighted vote options and expedited proposal fields."
+expected = "Integrators must use the canonical vote enum and persisted protobuf shape to interpret governance state."
+proposal = "Rewrite sdk/x/gov/spec/02_state.md from sdk/proto/cosmos/gov/v1beta1/gov.proto and types/keys.go, including weighted votes, expedited fields and actual queue encoding."
+owner_domain = 15
+
+[finding.gov-message-doc]
+file = "sdk/x/gov/spec/03_messages.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The submission pseudocode rejects empty initial deposits and treats title, type and vote counters as direct message/proposal fields; the producer accepts an empty coin list and packs proposal content in Any with weighted vote records."
+expected = "Governance submission documentation must describe messages accepted by the current validation and keeper paths."
+proposal = "Replace stale Atom-era pseudocode in sdk/x/gov/spec/03_messages.md with actual MsgSubmitProposal, Any content, expedited selection and cumulative deposit transitions."
+owner_domain = 15
+
+[finding.gov-events-doc]
+file = "sdk/x/gov/spec/04_events.md"
+line = 51
+class = "doc-drift"
+severity = "medium"
+observed = "The weighted-vote table advertises message.action=vote; MsgVoteWeighted.Type returns vote_weighted and protobuf transport emits its full type URL. The page does not distinguish these transport-dependent action values."
+expected = "Governance history consumers must index both legacy and protobuf actions using the actual event names and account identities."
+proposal = "Update sdk/x/gov/spec/04_events.md from keeper/msg_server.go, types/msgs.go and sdk/baseapp/baseapp.go, including weighted vote actions and submission event attributes."
+owner_domain = 15
+
+[finding.gov-params-doc]
+file = "sdk/x/gov/spec/06_params.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The parameter page uses uatom and veto, omits min_expedited_deposit, expedited_voting_period, expedited_quorum and expedited_threshold, and therefore does not describe the current parameter producer."
+expected = "Governance parameter changes must use the merged network's denomination and all current field names and bounds."
+proposal = "Rewrite sdk/x/gov/spec/06_params.md from types/params.go and the canonical protobuf, including veto_threshold and all expedited defaults and constraints."
+owner_domain = 15
+
+[finding.gov-client-doc]
+file = "sdk/x/gov/spec/07_client.md"
+line = 110
+class = "doc-drift"
+severity = "medium"
+observed = "CLI and query examples omit expedited parameters, mix stake and uhpx, and retain simd/cosmos account examples even though the Paxeer command and address configuration use paxd and the pax prefix."
+expected = "Users must be able to reproduce governance requests and decode responses using paxd, Paxeer accounts and current parameter shapes."
+proposal = "Refresh sdk/x/gov/spec/07_client.md from real CLI and gateway output at a named height, covering expedited submission and historical vote/deposit behavior."
+owner_domain = 15
+
+[finding.readme-network-doc]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The repository introduction describes two execution domains, a running layerxd daemon and checkpoint settlement through layerxAnchor; the overview later says the merge remains draft."
+expected = "The finished network has one paxd chain with an embedded kernel and block-commit finality, as stated by audit brief network facts 1 and 2."
+proposal = "Rewrite README.md's architecture, build and release sections for the merged paxd network and identify historical retired precompile references explicitly."
+owner_domain = 17
+
+[finding.chain-docs-boundary]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The guide defines Paxeer as the L1 LayerX uses for custody and checkpoint settlement and says co-location does not merge the trust boundaries."
+expected = "The finished network executes the kernel inside the chain and uses native balances rather than a separate custody/settlement hop."
+proposal = "Rewrite docs/paxeer-chain-docs.md around the single chain, embedded kernel, native balances and committed-block proofs, removing the retired settlement instructions."
+owner_domain = 17
+
+[finding.network-settlement-doc]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview says ordinary activity remains on LayerX and periodic checkpoints settle on Paxeer independently of the LayerX sequencer; line 20 also calls 402LXP the only balance writer."
+expected = "The merged chain owns native bank balances, proposes blocks through its embedded kernel and finalizes receipts at block commit."
+proposal = "Rewrite docs/paxeer-network.md's execution, balance, custody and settlement descriptions to the single-network model, including the root-path public RPC endpoints."
+owner_domain = 17
+
+[finding.monorepo-daemon-doc]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The layout guide introduces layerxd as the kernel and says each subsystem retains its own qualification and trust boundary; its boundary section retains custody, bonds and checkpoint settlement."
+expected = "The merged product has an embedded kernel and one running chain; historical source directories do not imply an active daemon or separate settlement domain."
+proposal = "Revise docs/MONOREPO.md to distinguish retained source layout from merged runtime ownership and remove retired daemon/custody deployment claims."
+owner_domain = 17
+
+[finding.sidiora-interface-doc]
+file = "docs/site/docs/protocol/sidiora.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The Sidiora introduction says the chain and LayerX kernel domain sit behind one interface and links the pre-merge unified-network explanation, retaining a separate-domain model."
+expected = "The finished network exposes node JSON-RPC at the root path and has an embedded kernel, with no separate LayerX interface."
+proposal = "Rewrite the network framing in docs/site/docs/protocol/sidiora.md to describe the embedded kernel and distinguish node RPC from hosted gateway methods without a separate-domain interface."
+owner_domain = 17
+
+[finding.precompile-retirement-doc]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The ABI catalogue lists layerxanchor, layerxcustody and layerxverify operations and Solidity interfaces without their post-merge refusal or retained historical-read lifecycle, inviting users to submit retired checkpoint/custody operations."
+expected = "ABI availability must be distinguished from the merged upgrade's disabled operations and supported historical reads."
+proposal = "Update the docs/system/precompiles.md generator to label retirement activation, exact refusal errors and native balance/block-proof replacements for these addresses."
+owner_domain = 17
+
+[finding.distribution-abi-doc]
+file = "docs/system/precompiles.md"
+line = 165
+class = "doc-drift"
+severity = "medium"
+observed = "The catalogue assigns the auxiliary staking_abi.json's delegate/redelegate/undelegate calls to distribution address 0x1007. Distribution.NewPrecompile loads only abi.json and Execute handles none of those staking method names."
+expected = "The published distribution endpoint must advertise only methods dispatched by its actual constructor and executor."
+proposal = "Change the docs/system/precompiles.md generator to distinguish auxiliary decoding ABIs from served endpoints; list delegation transactions under the staking endpoint rather than 0x1007."
+owner_domain = 17
+
+[finding.module-retirement-doc]
+file = "docs/system/chain-modules.md"
+line = 132
+class = "doc-drift"
+severity = "medium"
+observed = "The chain-module reference lists layerxanchor checkpoint/guarantor and layerxcustody withdrawal/forced-exit messages without post-merge retirement or refusal guidance."
+expected = "Operators must distinguish generated legacy message inventories from operations available after the merge plan."
+proposal = "Add lifecycle metadata to the docs/system/chain-modules.md generator and describe retired message errors, historical query support and native balance/block-proof replacements."
+owner_domain = 17
+
+[finding.route-retirement-doc]
+file = "docs/system/routes.md"
+line = 839
+class = "doc-drift"
+severity = "medium"
+observed = "The route catalogue still presents kernel activities/settle/state, batch archive sync, programs deploy/call/upgrade/wind-down REST ingress and /rpc/evm/ws as product routes. Its title and services retain router and separate sequencer/settlement descriptions."
+expected = "The merged product has no router or unified /rpc surface; program writes use EVM transactions and committed blocks supply finality."
+proposal = "Regenerate docs/system/routes.md from the merged hosted gateway catalogue, remove retired ingress and batch surfaces, and distinguish hosted px_ methods from root-path node RPC."
+owner_domain = 17
+
+[finding.launchpad-governance-doc]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment Details unconditionally lists SID as governance token and an initial network multisig transitioning to token governance, while the architecture section documents administrator-only default deployment without a voting token and optional token mode."
+expected = "Launchpad operators must see an unambiguous governance mode and the actual authority that can queue upgrades."
+proposal = "Align contracts/launchpad/README.md's Deployment Details with GOVERNANCE_MODE and GOVERNANCE_ADMIN_ADDRESS, distinguishing optional token voting from administrator-only default deployments."
+owner_domain = 4
+
+[finding.distribution-parameter-sum]
+file = "sdk/x/distribution/types/params.go"
+line = 42
+class = "config-drift"
+severity = "medium"
+observed = "ParamSetPairs validates tax, base reward and bonus reward independently in [0,1]. Governance Subspace.Update and Keeper.SetParams do not call Params.ValidateBasic's combined-sum check, so a configuration such as base=0.8 and bonus=0.8 is accepted despite exceeding the allocation budget."
+expected = "All parameter mutation paths must preserve the total reward-and-tax bound used by AllocateTokens, not just genesis validation."
+proposal = "Validate the complete prospective distribution parameter set before governance changes commit, and call full validation from sdk/x/distribution/keeper/params.go; cover a combined rate above one through the actual proposal handler."
+owner_domain = 15
+
+[finding.dist-hook-doc]
+file = "sdk/x/distribution/spec/05_hooks.md"
+line = 23
+class = "doc-drift"
+severity = "low"
+observed = "The After hook description says delegation starting height is set to the previous period. initializeDelegation stores PreviousPeriod=currentPeriod-1 and Height=ctx.BlockHeight(), which are different units used by slash and same-block reward handling."
+expected = "The hook lifecycle must distinguish reward-period counters from block heights in the persisted DelegatorStartingInfo."
+proposal = "Correct sdk/x/distribution/spec/05_hooks.md to identify PreviousPeriod and Height separately and explain the same-block withdrawal rule."
+owner_domain = 15
+
+[finding.gov-history-cli-pagination]
+file = "sdk/x/gov/client/cli/query.go"
+line = 296
+class = "runtime-risk"
+severity = "medium"
+observed = "GetCmdQueryVotes reads --page and --limit with Flags().GetInt and discards errors, but AddPaginationFlagsToCmd registers those flags as Uint64. Finalized-proposal history receives zero values and cannot honor the requested page or limit."
+expected = "The same votes command must honor the caller's pagination flags for live keeper and historical transaction-index paths."
+proposal = "Read the registered unsigned flag types with checked conversions in sdk/x/gov/client/cli/query.go, propagate errors and prove page two of finalized proposal history."
+owner_domain = 15
+interface = "15.cli-x-gov-client-cli-votes-j76"
+
+[finding.gov-simulation-veto-field]
+file = "sdk/x/gov/simulation/params.go"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "ParamChanges generates a tally parameter object under subkeyVeto=\"veto\", whereas TallyParams names the field veto_threshold. The simulation therefore proposes an unsupported field instead of exercising changes to the actual veto bound."
+expected = "Simulated parameter changes must use fields accepted by the real governance parameter decoder and affect the intended stored value."
+proposal = "Use veto_threshold in sdk/x/gov/simulation/params.go and apply generated tally changes through the actual proposal handler, asserting the stored veto threshold."
+owner_domain = 15
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 145 and 181 retain two execution domains, layerxd build/run and checkpoint settlement; rewrite for the merged paxd chain."
+
+[doc.02]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "Lines 3-17 describe independent custody and checkpoint settlement boundaries; the merged network uses native balances and block commit."
+
+[doc.03]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20 and 93 preserve the separate LayerX sequencer, settlement domain and 402LXP-only balance writer."
+
+[doc.04]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 71-72 confuse retained source layout with an active separate daemon and custody/checkpoint trust boundary."
+
+[doc.05]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "stale"
+notes = "Line 5 retains chain/kernel domains behind one interface; describe embedded execution and distinguish node RPC from hosted gateway methods."
+
+[doc.06]
+path = "docs/system/governance.md"
+status = "accurate"
+notes = "Generated proposal-type inventory agrees with the gov router's registered content types; this catalogue is not execution or voting-lifecycle documentation."
+
+[doc.07]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Generated ABI inventory: gov 0x1006 and distribution 0x1007 main ABI signatures match consumers, but lines 165-173 assign an auxiliary staking ABI to distribution; retired 0x1012-0x1014 operations lack refusal lifecycle labels."
+
+[doc.08]
+path = "docs/system/chain-modules.md"
+status = "stale"
+notes = "Generated message/parameter inventory includes anchor and custody messages at lines 132-229 without their merged-network retirement lifecycle."
+
+[doc.09]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Generated hosted-route catalogue retains separate kernel/batch settlement, explorer anchor views, retired program REST ingress and /rpc/evm/ws; these are not merged node RPC endpoints."
+
+[doc.10]
+path = "contracts/launchpad/README.md"
+status = "stale"
+notes = "Administrator-only default governance is explained at line 116 but Deployment Details still unconditionally advertises SID token governance; mode-specific operator guidance must agree."
+
+[doc.11]
+path = "contracts/launchpad/docs/test/BitFlagWrapper.md"
+status = "accurate"
+notes = "Generated Solidity test-helper API reference; bitmap helper methods do not claim a governance transport or an active LayerX runtime."
+
+[doc.12]
+path = "contracts/launchpad/docs/test/MockOptical.md"
+status = "accurate"
+notes = "Generated Solidity test optical reference; its documented helper functions do not define chain governance or distribution state."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Pinned-revision generated contract: package-linked CLI, Go API, telemetry and acceptance rows remain reference contracts; UNRUN labels are not evidence of this audit's source test execution."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/proto-api.md"
+status = "accurate"
+notes = "Pinned-revision generated contract: package-linked governance/distribution/feegrant fields, enums, gRPC services and gateway paths agree with canonical protobuf declarations; runtime disagreements are findings."
+
+[doc.15]
+path = "sdk/x/distribution/spec/01_concepts.md"
+status = "accurate"
+notes = "The distribution 01_concepts.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[doc.16]
+path = "sdk/x/distribution/spec/02_state.md"
+status = "stale"
+notes = "dist-state-doc at line 41: The state page defines ValidatorDistInfo and DelegationDistInfo, both under prefix 0x02. The implementation instead stores outstanding rewards at 0x02 and separate historical/current/starting/slash records."
+
+[doc.17]
+path = "sdk/x/distribution/spec/03_begin_block.md"
+status = "stale"
+notes = "dist-proposer-doc at line 12: The begin-block page promises 1% to 5% proposer rewards and derives incentives from precommits, whereas DefaultParams sets base and bonus rates to zero and the Autobahn adapter supplies empty votes."
+
+[doc.18]
+path = "sdk/x/distribution/spec/04_messages.md"
+status = "stale"
+notes = "dist-slash-doc at line 56: The reward pseudocode multiplies stake by F(P), defined as the fraction slashed; keeper.CalculateDelegationRewards multiplies by one minus the slash fraction. The pseudocode also replaces rather than accumulates rewards across slash periods."
+
+[doc.19]
+path = "sdk/x/distribution/spec/05_hooks.md"
+status = "stale"
+notes = "dist-hook-doc at line 23: The After hook description says delegation starting height is set to the previous period. initializeDelegation stores PreviousPeriod=currentPeriod-1 and Height=ctx.BlockHeight(), which are different units used by slash and same-block reward handling."
+
+[doc.20]
+path = "sdk/x/distribution/spec/06_events.md"
+status = "stale"
+notes = "dist-events-doc at line 14: The event page calls the proposer_reward amount attribute reward, while keeper.AllocateTokens emits sdk.AttributeKeyAmount, whose wire name is amount."
+
+[doc.21]
+path = "sdk/x/distribution/spec/07_params.md"
+status = "stale"
+notes = "dist-params-doc at line 16: The parameter page requires strictly positive tax and proposer rates; the producer accepts zero and initializes all three to zero. The examples retain the upstream 2%, 1% and 4% rates without distinguishing them from network defaults."
+
+[doc.22]
+path = "sdk/x/distribution/spec/README.md"
+status = "accurate"
+notes = "The distribution README.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[doc.23]
+path = "sdk/x/feegrant/spec/01_concepts.md"
+status = "stale"
+notes = "feegrant-types-doc at line 19: The concepts page says only BasicAllowance and PeriodicAllowance exist although AllowedMsgAllowance is registered, supported by CLI --allowed-messages and described later in the same page."
+
+[doc.24]
+path = "sdk/x/feegrant/spec/02_state.md"
+status = "accurate"
+notes = "The feegrant 02_state.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[doc.25]
+path = "sdk/x/feegrant/spec/03_messages.md"
+status = "accurate"
+notes = "The feegrant 03_messages.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[doc.26]
+path = "sdk/x/feegrant/spec/04_events.md"
+status = "stale"
+notes = "feegrant-events-doc at line 15: The feegrant event tables advertise message.action=set_feegrant/revoke_feegrant/use_feegrant. Keeper code emits those names as event types with granter and grantee attributes, while transaction message.action comes from BaseApp."
+
+[doc.27]
+path = "sdk/x/feegrant/spec/README.md"
+status = "accurate"
+notes = "The feegrant README.md reference agrees with the inspected module concepts, canonical stored records and registered message paths; no separate LayerX runtime is prescribed."
+
+[doc.28]
+path = "sdk/x/gov/spec/01_concepts.md"
+status = "stale"
+notes = "gov-lifecycle-doc at line 195: The concepts page describes software switching after proposal-ID precommit signals; the actual software-upgrade handler schedules a named height plan. It also promises a strictly positive initial deposit and a veto exception to expedited conversion, which current handlers do not enforce."
+
+[doc.29]
+path = "sdk/x/gov/spec/02_state.md"
+status = "stale"
+notes = "gov-state-doc at line 34: The state page assigns No=2, NoWithVeto=3 and Abstain=4; the protobuf enum and validation code assign Abstain=2, No=3 and NoWithVeto=4. Its state sketches also omit weighted vote options and expedited proposal fields."
+
+[doc.30]
+path = "sdk/x/gov/spec/03_messages.md"
+status = "stale"
+notes = "gov-message-doc at line 41: The submission pseudocode rejects empty initial deposits and treats title, type and vote counters as direct message/proposal fields; the producer accepts an empty coin list and packs proposal content in Any with weighted vote records."
+
+[doc.31]
+path = "sdk/x/gov/spec/04_events.md"
+status = "stale"
+notes = "gov-events-doc at line 51: The weighted-vote table advertises message.action=vote; MsgVoteWeighted.Type returns vote_weighted and protobuf transport emits its full type URL. The page does not distinguish these transport-dependent action values."
+
+[doc.32]
+path = "sdk/x/gov/spec/05_future_improvements.md"
+status = "accurate"
+notes = "The page explicitly identifies speculative governance improvements rather than promising an implemented transport or upgrade mechanism."
+
+[doc.33]
+path = "sdk/x/gov/spec/06_params.md"
+status = "stale"
+notes = "gov-params-doc at line 11: The parameter page uses uatom and veto, omits min_expedited_deposit, expedited_voting_period, expedited_quorum and expedited_threshold, and therefore does not describe the current parameter producer."
+
+[doc.34]
+path = "sdk/x/gov/spec/07_client.md"
+status = "stale"
+notes = "gov-client-doc at line 110: CLI and query examples omit expedited parameters, mix stake and uhpx, and retain simd/cosmos account examples even though the Paxeer command and address configuration use paxd and the pax prefix."
+
+[doc.35]
+path = "sdk/x/gov/spec/README.md"
+status = "accurate"
+notes = "The overview states the intended deposit, weighted-vote and expedited-to-regular lifecycle and identifies node wiring; vote retention currently violates that intended lifecycle as recorded in expedited-votes."

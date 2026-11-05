@@ -22,8 +22,7 @@ import (
 const custodyGovernanceHeight = int64(20)
 
 // custodyGovernance is a fresh application with a custody asset, a finalized
-// checkpoint, a deposit and a pending withdrawal claim proven by the signed
-// withdrawal vector.
+// checkpoint and a deposit; signed withdrawal evidence is refused by the retired proof path.
 type custodyGovernance struct {
 	app        *App
 	ctx        sdk.Context
@@ -87,12 +86,19 @@ func newCustodyGovernance(t *testing.T) *custodyGovernance {
 	require.NoError(t, err)
 	_, err = k.Deposit(ctx, payer, payerAcc, asset, [32]byte{0xbe, 0xef}, sdk.NewInt(1_000))
 	require.NoError(t, err)
+	before := k.ExportGenesis(ctx)
+	events := len(ctx.EventManager().Events())
 	claim, err := k.RequestWithdrawal(ctx, layerxcustodykeeper.WithdrawalEvidence{
 		Receipt: custodyVectorBytes(t, withdrawal, "receipt"), Proof: custodyVectorBytes(t, withdrawal, "proof"),
 		Header: custodyVectorBytes(t, withdrawal, "header"), HeaderSignature: custodyVectorBytes(t, withdrawal, "header_signature")})
-	require.NoError(t, err)
-	require.Equal(t, layerxcustodytypes.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
-	return &custodyGovernance{app: testApp, ctx: ctx, k: k, withdrawal: withdrawal, batch: batch, claimID: claim.ClaimId}
+	require.ErrorIs(t, err, layerxcustodytypes.ErrModuleRetired)
+	require.EqualError(t, err, "custody module retired by the merge plan")
+	require.Zero(t, claim)
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Len(t, ctx.EventManager().Events(), events)
+	claimID := layerxcustodytypes.WithdrawalClaimID(testApp.EvmKeeper.ChainID(ctx),
+		custodyVectorArray(t, withdrawal, "nullifier"), common.BytesToAddress(custodyVectorBytes(t, withdrawal, "recipient")))
+	return &custodyGovernance{app: testApp, ctx: ctx, k: k, withdrawal: withdrawal, batch: batch, claimID: layerxcustodytypes.Hash32(claimID)}
 }
 
 // activate schedules and applies the v6.12.0 plan at the context height through
@@ -169,7 +175,7 @@ func (g *custodyGovernance) requireUnchanged(t *testing.T, ctx sdk.Context, stat
 	require.Len(t, ctx.EventManager().Events(), events)
 }
 
-func TestCustodyGovernanceRouterDispatchesAllMessages(t *testing.T) {
+func TestCustodyGovernanceRouterRetirementRefusesAllMessages(t *testing.T) {
 	g := newCustodyGovernance(t)
 	g.activate(t)
 	require.True(t, g.app.GovKeeper.Router().HasRoute(layerxcustodytypes.RouterKey))
@@ -180,36 +186,17 @@ func TestCustodyGovernanceRouterDispatchesAllMessages(t *testing.T) {
 	carried, err := content.GetMessages()
 	require.NoError(t, err)
 	require.Len(t, carried, 5)
-
+	g.app.UpgradeKeeper.SetDone(g.ctx, layerxcustodytypes.MergePlanUpgrade)
+	state := g.k.ExportGenesis(g.ctx)
 	events := len(g.ctx.EventManager().Events())
-	require.NoError(t, g.route()(g.ctx, stored.GetContent()))
-
-	require.Equal(t, custodyGovernanceRootAuthority(), g.k.GetParams(g.ctx).DepositRootAuthority)
-	assetID, err := layerxcustodytypes.ParseHash32(custodyGovernanceAsset().AssetId)
-	require.NoError(t, err)
-	asset, found := g.k.GetAsset(g.ctx, assetID)
-	require.True(t, found)
-	require.Equal(t, custodyGovernanceAsset().Denom, asset.Denom)
-	pointer, err := layerxcustodytypes.ParseAddress(custodyGovernanceAsset().Pointer)
-	require.NoError(t, err)
-	byPointer, found := g.k.GetAssetByPointer(g.ctx, pointer)
-	require.True(t, found)
-	require.Equal(t, asset.AssetId, byPointer.AssetId)
-	checkpoint, found := g.k.GetCheckpoint(g.ctx, g.batch+1)
-	require.True(t, found)
-	require.Equal(t, layerxcustodytypes.Hash32([32]byte{1}), checkpoint.StateRoot)
-	require.Equal(t, layerxcustodytypes.Hash32([32]byte{2}), checkpoint.ReceiptRoot)
-	claimID, err := layerxcustodytypes.ParseHash32(g.claimID)
-	require.NoError(t, err)
-	claim, found := g.k.GetClaim(g.ctx, claimID)
-	require.True(t, found)
-	require.Equal(t, layerxcustodytypes.ClaimStatus_CLAIM_STATUS_CANCELLED, claim.Status)
-	require.True(t, g.k.GetEmergency(g.ctx))
-	emitted := g.ctx.EventManager().Events()
-	require.Greater(t, len(emitted), events)
-	emergency, err := sdk.TypedEventToEvent(&layerxcustodytypes.EventEmergencySet{Enabled: true})
-	require.NoError(t, err)
-	require.Contains(t, emitted[events:], emergency)
+	require.ErrorIs(t, g.route()(g.ctx, stored.GetContent()), layerxcustodytypes.ErrModuleRetired)
+	g.requireUnchanged(t, g.ctx, state, events)
+	for _, msg := range carried {
+		proposal, err := layerxcustodytypes.NewCustodyProposal("Retired custody", "Refuse every governance message", msg)
+		require.NoError(t, err)
+		require.ErrorIs(t, g.route()(g.ctx, proposal), layerxcustodytypes.ErrModuleRetired, "%T", msg)
+		g.requireUnchanged(t, g.ctx, state, events)
+	}
 }
 
 func TestCustodyGovernanceRouterRefusalsAreAtomic(t *testing.T) {
@@ -294,4 +281,17 @@ func TestCustodyGovernanceMsgServiceAuthority(t *testing.T) {
 	imported, _ := g.ctx.CacheContext()
 	g.k.InitGenesis(imported, *exported)
 	require.Equal(t, exported, g.k.ExportGenesis(imported))
+}
+
+func TestCustodyGovernanceRouterRefusesTypedNilWithoutMutation(t *testing.T) {
+	testApp := Setup(t, false, false, false)
+	ctx := testApp.GetContextForDeliverTx([]byte{}).WithBlockHeight(custodyGovernanceHeight)
+	k := testApp.LayerXCustodyKeeper
+	before := k.ExportGenesis(ctx)
+	events := len(ctx.EventManager().Events())
+	var proposal *layerxcustodytypes.CustodyProposal
+	route := testApp.GovKeeper.Router().GetRoute(layerxcustodytypes.RouterKey)
+	require.ErrorIs(t, route(ctx, proposal), govtypes.ErrInvalidProposalContent)
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Len(t, ctx.EventManager().Events(), events)
 }

@@ -13,31 +13,38 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./mcp": {
       "types": "./dist/mcp.d.ts",
-      "import": "./dist/mcp.js"
+      "import": "./dist/mcp.js",
+      "default": "./dist/mcp.js"
     },
     "./a2a": {
       "types": "./dist/a2a.d.ts",
-      "import": "./dist/a2a.js"
+      "import": "./dist/a2a.js",
+      "default": "./dist/a2a.js"
     },
     "./openai": {
       "types": "./dist/openai.d.ts",
-      "import": "./dist/openai.js"
+      "import": "./dist/openai.js",
+      "default": "./dist/openai.js"
     },
     "./anthropic": {
       "types": "./dist/anthropic.d.ts",
-      "import": "./dist/anthropic.js"
+      "import": "./dist/anthropic.js",
+      "default": "./dist/anthropic.js"
     },
     "./langchain": {
       "types": "./dist/langchain.d.ts",
-      "import": "./dist/langchain.js"
+      "import": "./dist/langchain.js",
+      "default": "./dist/langchain.js"
     },
     "./vercel-ai": {
       "types": "./dist/vercel-ai.d.ts",
-      "import": "./dist/vercel-ai.js"
+      "import": "./dist/vercel-ai.js",
+      "default": "./dist/vercel-ai.js"
     }
   },
   "files": [
@@ -48,8 +55,9 @@
     "layerx-mcp-server": "./dist/mcp-server.js"
   },
   "scripts": {
+    "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-agent-integrations",
     "build": "node scripts/patch-dependencies.mjs && tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/dependency-contracts.test.mjs && node test/a2a-store.test.mjs",
+    "test": "npm run build && node --test test/dependency-contracts.test.mjs test/daemon-providers-receipts.test.mjs test/tools-receipts.test.mjs && node test/a2a-store.test.mjs",
     "integration:real": "node examples/agent-runtime/index.mjs",
     "integration:webhooks": "node examples/agent-runtime/webhook-conformance.mjs",
     "postinstall": "node scripts/patch-dependencies.mjs"
@@ -58,13 +66,13 @@
     "@a2a-js/sdk": "1.0.1",
     "@anthropic-ai/sdk": "0.120.0",
     "@langchain/core": "1.2.4",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "@sidiora/layerx-agent-middleware": "0.1.0",
     "@sidiora/layerx-sdk": "0.1.0",
     "@sidiora/layerx-seller-middleware": "0.1.0",
     "ai": "7.0.77",
     "openai": "7.5.0",
-    "zod": "4.4.3"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@types/json-schema": "7.0.15",
@@ -73,5 +81,7 @@
   },
   "engines": {
     "node": ">=22.18.0"
-  }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
 }

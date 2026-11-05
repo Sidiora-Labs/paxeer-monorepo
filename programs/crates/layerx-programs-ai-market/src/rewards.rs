@@ -60,21 +60,24 @@ pub const EPOCH_MAX_BYTES: usize = EPOCH_HEADER_BYTES + MAX_WORKERS * ENTRY_BYTE
 pub const MAX_SLOT_REFERENCES: u16 = 1056;
 pub const ALLOCATION_PREIMAGE_MAX_BYTES: usize = 228 + MAX_WORKERS * 80;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum EpochStatus {
     Reserved = 1,
     Terminal = 2,
     Expired = 3,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum RewardOutcome {
     Undecided = 0,
     Allocated = 1,
     NoEligibleScore = 2,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum Disposition {
     Unclaimed = 0,
@@ -84,6 +87,7 @@ pub enum Disposition {
 impl EpochStatus {
     /// # Errors
     /// `NON_CANONICAL` for any value other than 1, 2 or 3.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::Reserved),
@@ -96,6 +100,7 @@ impl EpochStatus {
 impl RewardOutcome {
     /// # Errors
     /// `NON_CANONICAL` for any value other than 0, 1 or 2.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             0 => Ok(Self::Undecided),
@@ -108,6 +113,7 @@ impl RewardOutcome {
 impl Disposition {
     /// # Errors
     /// `NON_CANONICAL` for any value other than 0, 1 or 2.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             0 => Ok(Self::Unclaimed),
@@ -127,6 +133,7 @@ fn digest_bytes(value: Presence<Digest32>) -> [u8; 32] {
         Presence::Absent => [0; 32],
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn read_digest(r: &mut Reader<'_>) -> CodecResult<Presence<Digest32>> {
     let bytes: [u8; 32] = r.fixed()?;
     if bytes == [0; 32] {
@@ -137,7 +144,8 @@ fn read_digest(r: &mut Reader<'_>) -> CodecResult<Presence<Digest32>> {
 }
 
 /// `RewardLedgerV1`: immutable bindings plus the D,P,X,F,R,C counters.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardLedger {
     pub asset: AssetId,
     pub account: AccountId,
@@ -179,6 +187,7 @@ impl RewardLedger {
     }
     /// # Errors
     /// `F06_REFUND_RECIPIENT_MISMATCH`, `NON_CANONICAL` for out-of-range counts, `ARITHMETIC` or `F06_LEDGER_INVARIANT_VIOLATION` when conservation or the active-reserve flag fails.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.refund_recipient == self.account {
             return Err(F06_REFUND_RECIPIENT_MISMATCH);
@@ -331,6 +340,7 @@ impl RewardLedger {
 }
 /// # Errors
 /// Any ledger validation error, or `CAPACITY` when `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_ledger(v: &RewardLedger, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     let mut w = Writer::new(out);
@@ -356,11 +366,12 @@ pub fn encode_ledger(v: &RewardLedger, out: &mut [u8]) -> CodecResult<usize> {
 }
 /// # Errors
 /// `NON_CANONICAL` for malformed bytes, `F06_FUNDING_POLICY_MISMATCH`, or any ledger validation error.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_ledger(bytes: &[u8]) -> CodecResult<RewardLedger> {
     let mut r = Reader::new(bytes);
-    let asset = AssetId::new(r.fixed()?)?;
-    let account = AccountId::new(r.fixed()?)?;
-    let refund_recipient = AccountId::new(r.fixed()?)?;
+    let asset = r.asset_id()?;
+    let account = r.account_id()?;
+    let refund_recipient = r.account_id()?;
     if r.u64()? != FUNDING_POLICY_VERSION {
         return Err(F06_FUNDING_POLICY_MISMATCH);
     }
@@ -385,7 +396,8 @@ pub fn decode_ledger(bytes: &[u8]) -> CodecResult<RewardLedger> {
 }
 
 /// One occupied (worker, frozen recipient) pair with its retained references.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RecipientSlot {
     pub worker: WorkerId,
     pub recipient: AccountId,
@@ -393,7 +405,8 @@ pub struct RecipientSlot {
 }
 /// Borrowed view over the fixed 256-slot dictionary bytes. Slot `i` occupies
 /// bytes `[67 * i, 67 * (i + 1))`; an unused slot is entirely zero.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RecipientDictionary<'a> {
     bytes: &'a [u8],
 }
@@ -414,6 +427,7 @@ impl<'a> RecipientDictionary<'a> {
     ///
     /// # Errors
     /// `NON_CANONICAL` when `out` is not exactly 17152 bytes or the index is past 255.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn write_slot(out: &mut [u8], index: u16, slot: Option<&RecipientSlot>) -> CodecResult<()> {
         if out.len() != DICTIONARY_BYTES {
             return Err(NON_CANONICAL);
@@ -462,8 +476,8 @@ impl<'a> RecipientDictionary<'a> {
             1 => {
                 let mut r = Reader::new(&bytes[1..]);
                 Ok(Some(RecipientSlot {
-                    worker: WorkerId::new(r.fixed()?)?,
-                    recipient: AccountId::new(r.fixed()?)?,
+                    worker: r.worker_id()?,
+                    recipient: r.account_id()?,
                     references: r.u16()?,
                 }))
             }
@@ -501,6 +515,7 @@ impl<'a> RecipientDictionary<'a> {
     }
     /// # Errors
     /// `NON_CANONICAL` for a malformed slot, a bad reference count or a duplicate pair, `ACCOUNT_BINDING` for a reserve-account recipient.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self, reserve: AccountId) -> CodecResult<()> {
         let mut flagged: [&[u8]; MAX_PAYOUT_IDENTITIES] = [&[]; MAX_PAYOUT_IDENTITIES];
         let mut count = 0;
@@ -545,6 +560,7 @@ impl<'a> RecipientDictionary<'a> {
 }
 /// # Errors
 /// Any dictionary validation error, or `CAPACITY` when `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_dictionary(
     v: &RecipientDictionary<'_>,
     reserve: AccountId,
@@ -559,13 +575,15 @@ pub fn encode_dictionary(
 ///
 /// # Errors
 /// `NON_CANONICAL` for malformed bytes, or any dictionary validation error.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_dictionary(bytes: &[u8], reserve: AccountId) -> CodecResult<RecipientDictionary<'_>> {
     let v = RecipientDictionary::new(bytes)?;
     v.validate(reserve)?;
     Ok(v)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardEntry {
     pub slot: u16,
     pub entitlement: Amount,
@@ -579,14 +597,16 @@ impl RewardEntry {
     };
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum ClaimDecision {
     Payable { index: usize, amount: Amount },
     AlreadyApplied(Digest32),
 }
 
 /// `RewardEpochV1`: 174-byte header followed by `entry_count` 19-byte entries.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardEpoch {
     pub epoch: u64,
     pub status: EpochStatus,
@@ -675,6 +695,7 @@ impl RewardEpoch {
     }
     /// # Errors
     /// `CAPACITY`, `F06_INVALID_AMOUNT` for a zero budget, `ARITHMETIC`, or `NON_CANONICAL` for an inconsistent row.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         let count = usize::from(self.entry_count);
         if count > MAX_WORKERS {
@@ -807,6 +828,7 @@ impl RewardEpoch {
 }
 /// # Errors
 /// Any row validation error, or `CAPACITY` when `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_epoch(v: &RewardEpoch, out: &mut [u8]) -> CodecResult<usize> {
     v.validate()?;
     let mut w = Writer::new(out);
@@ -832,6 +854,7 @@ pub fn encode_epoch(v: &RewardEpoch, out: &mut [u8]) -> CodecResult<usize> {
 }
 /// # Errors
 /// `CAPACITY`, `NON_CANONICAL` for malformed bytes, or any row validation error.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_epoch(bytes: &[u8]) -> CodecResult<RewardEpoch> {
     if bytes.len() > EPOCH_MAX_BYTES {
         return Err(CAPACITY);
@@ -850,7 +873,7 @@ pub fn decode_epoch(bytes: &[u8]) -> CodecResult<RewardEpoch> {
         budget: r.u128()?,
         paid_sum: r.u128()?,
         expired_sum: r.u128()?,
-        roster: RosterDigest::new(r.fixed()?)?,
+        roster: r.roster_digest()?,
         aggregation: read_digest(&mut r)?,
         allocation: read_digest(&mut r)?,
         entry_count: r.u16()?,
@@ -936,7 +959,8 @@ pub const EPOCH_SPAN_HEIGHTS: u64 = 128;
 pub const MAX_EPOCH_ROWS: usize = MAX_RETAINED_EPOCHS + 1;
 
 /// Fund payload: `amount || fixed_refund_recipient32 || policy:u64 || consent:u8`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FundRequest {
     pub amount: Amount,
     pub refund_recipient: AccountId,
@@ -946,6 +970,7 @@ pub struct FundRequest {
 impl FundRequest {
     /// # Errors
     /// `CAPACITY` when `out` is too short.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out);
         w.u128(self.amount)?;
@@ -956,6 +981,7 @@ impl FundRequest {
     }
     /// # Errors
     /// `NON_CANONICAL` for a length other than 57 bytes, a zero recipient or a consent byte other than 0 or 1.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         if bytes.len() != FUND_PAYLOAD_BYTES {
             return Err(NON_CANONICAL);
@@ -963,7 +989,7 @@ impl FundRequest {
         let mut r = Reader::new(bytes);
         let v = Self {
             amount: r.u128()?,
-            refund_recipient: AccountId::new(r.fixed()?)?,
+            refund_recipient: r.account_id()?,
             policy_version: r.u64()?,
             consent: r.boolean()?,
         };
@@ -972,7 +998,8 @@ impl FundRequest {
     }
 }
 /// Claim payload: `worker_id32 || fixed_recipient32 || exact_entitlement:u128`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ClaimRequest {
     pub worker: WorkerId,
     pub recipient: AccountId,
@@ -981,6 +1008,7 @@ pub struct ClaimRequest {
 impl ClaimRequest {
     /// # Errors
     /// `CAPACITY` when `out` is too short.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out);
         w.put(self.worker.as_bytes())?;
@@ -990,14 +1018,15 @@ impl ClaimRequest {
     }
     /// # Errors
     /// `NON_CANONICAL` for a length other than 80 bytes or a zero identity.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         if bytes.len() != CLAIM_PAYLOAD_BYTES {
             return Err(NON_CANONICAL);
         }
         let mut r = Reader::new(bytes);
         let v = Self {
-            worker: WorkerId::new(r.fixed()?)?,
-            recipient: AccountId::new(r.fixed()?)?,
+            worker: r.worker_id()?,
+            recipient: r.account_id()?,
             amount: r.u128()?,
         };
         r.finish()?;
@@ -1005,7 +1034,8 @@ impl ClaimRequest {
     }
 }
 /// `RefundFree` payload: `expected_refunded_total || amount || fixed_refund_recipient32`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RefundRequest {
     pub expected_refunded: Amount,
     pub amount: Amount,
@@ -1014,6 +1044,7 @@ pub struct RefundRequest {
 impl RefundRequest {
     /// # Errors
     /// `CAPACITY` when `out` is too short.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out);
         w.u128(self.expected_refunded)?;
@@ -1023,6 +1054,7 @@ impl RefundRequest {
     }
     /// # Errors
     /// `NON_CANONICAL` for a length other than 64 bytes or a zero recipient.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         if bytes.len() != REFUND_PAYLOAD_BYTES {
             return Err(NON_CANONICAL);
@@ -1031,7 +1063,7 @@ impl RefundRequest {
         let v = Self {
             expected_refunded: r.u128()?,
             amount: r.u128()?,
-            recipient: AccountId::new(r.fixed()?)?,
+            recipient: r.account_id()?,
         };
         r.finish()?;
         Ok(v)
@@ -1039,7 +1071,8 @@ impl RefundRequest {
 }
 
 /// The single retained refund cursor record (96 bytes plus presence byte).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct LastRefund {
     pub prior_refunded: Amount,
     pub amount: Amount,
@@ -1048,6 +1081,7 @@ pub struct LastRefund {
 }
 /// # Errors
 /// `CAPACITY` when `out` is too short.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_last_refund(v: Option<&LastRefund>, out: &mut [u8]) -> CodecResult<usize> {
     let mut w = Writer::new(out);
     match v {
@@ -1064,14 +1098,15 @@ pub fn encode_last_refund(v: Option<&LastRefund>, out: &mut [u8]) -> CodecResult
 }
 /// # Errors
 /// `NON_CANONICAL` for malformed bytes, a zero digest or a zero amount.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_last_refund(bytes: &[u8]) -> CodecResult<Option<LastRefund>> {
     let mut r = Reader::new(bytes);
     let v = if r.boolean()? {
         let v = LastRefund {
             prior_refunded: r.u128()?,
             amount: r.u128()?,
-            request: RequestDigest::new(r.fixed()?)?,
-            result: ResultDigest::new(r.fixed()?)?,
+            request: r.request_digest()?,
+            result: r.result_digest()?,
         };
         if v.amount == 0 {
             return Err(NON_CANONICAL);
@@ -1086,7 +1121,8 @@ pub fn decode_last_refund(bytes: &[u8]) -> CodecResult<Option<LastRefund>> {
 }
 
 /// Immutable F01 funding principals: the owner and the optional treasury.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FundingAuthority {
     pub owner: PrincipalId,
     pub treasury: Presence<PrincipalId>,
@@ -1117,7 +1153,7 @@ impl FundingAuthority {
 /// Role-sequence replay inputs of one Fund request: the shared replay table,
 /// the authenticated request, the execution height, the state revision and
 /// the result digest retained on success.
-#[derive(Debug)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct FundReplay<'a> {
     pub table: &'a mut ReplayTable,
     pub request: &'a ReplayRequest,
@@ -1127,7 +1163,8 @@ pub struct FundReplay<'a> {
 }
 
 /// Market lifecycle as seen by the reward ledger.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum FundingPhase {
     Accepting,
     Closing,
@@ -1135,7 +1172,8 @@ pub enum FundingPhase {
 
 /// The single native effect a committed transition stages; the real Program
 /// activity applies it in the same atomic commit as the returned state.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum RewardEffect {
     NoTransfer,
     Deposit {
@@ -1171,7 +1209,8 @@ fn unused(bytes: &[u8]) -> bool {
 /// Borrowed view over the fixed 33-row epoch region. Row `i` occupies bytes
 /// `[782 * i, 782 * (i + 1))`: an unused row is entirely zero, a used row is
 /// its canonical `RewardEpochV1` encoding followed by zero padding.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EpochRows<'a> {
     bytes: &'a [u8],
 }
@@ -1187,6 +1226,7 @@ impl<'a> EpochRows<'a> {
         out.fill(0);
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(out: &mut [u8], index: usize, row: Option<&RewardEpoch>) -> CodecResult<()> {
         if out.len() != EPOCH_ROWS_BYTES {
             return Err(NON_CANONICAL);
@@ -1254,7 +1294,8 @@ impl<'a> EpochRows<'a> {
 /// ledger header, frozen recipient dictionary, ascending retained epoch rows
 /// and the refund cursor record. Transitions never touch these bytes; each
 /// writes the whole next state into a caller buffer of the same size.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RewardState<'a> {
     bytes: &'a [u8],
 }
@@ -1262,6 +1303,7 @@ pub struct RewardState<'a> {
 ///
 /// # Errors
 /// `NON_CANONICAL` when `bytes` is not exactly 43261 bytes, or any state invariant error.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_reward_state(bytes: &[u8]) -> CodecResult<RewardState<'_>> {
     if bytes.len() != REWARD_STATE_BYTES {
         return Err(NON_CANONICAL);
@@ -1895,12 +1937,14 @@ pub const PRUNED_BYTES: usize = 32;
 
 /// The compact result payload of one applied F06 operation; it is also the
 /// operation event suffix.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Response {
     bytes: [u8; FUNDED_BYTES],
     len: usize,
 }
 impl Response {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn write(fill: impl FnOnce(&mut Writer<'_>) -> CodecResult<()>) -> CodecResult<Self> {
         let mut bytes = [0; FUNDED_BYTES];
         let mut w = Writer::new(&mut bytes);
@@ -1921,7 +1965,8 @@ impl Response {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[allow(
     clippy::large_enum_variant,
     reason = "no_std without alloc: Box is unavailable, and Applied is the primary result"
@@ -1950,7 +1995,8 @@ pub enum Outcome {
     Retained(RetainedResult),
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 enum Kind {
     Fund,
     Claim,

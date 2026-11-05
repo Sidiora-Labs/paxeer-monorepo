@@ -1,0 +1,73 @@
+[repair.22.33.709]
+mode = "BUILD"
+audit = "22.30.17"
+acceptance = "22998.1"
+status = "implementation_complete"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate budget supersede step 12's contradictory unchanged-tree verify request; no pre-change failure is claimed."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence location; no unexecuted gate is claimed."
+
+[finding.collateral-account-race]
+test = "apps/perps/tests/repair-22-33-709.test.ts:collateralAccountRace"
+repair = "Normalized account-keyed visible collateral and loading; each selection and request owns every completion; missing account immediately returns zero and not loading."
+path = "Real injected EIP-1193 connector and Wagmi provider -> production usePerpsWallet/useAutoCollateral/useAccount -> viem ABI eth_call over loopback -> committed in-memory account store -> production accountView/pickCollateral -> mounted hook. Late A success and ABI failure cannot affect loaded B, pending B or disconnect."
+
+[finding.registry-fee-tier]
+test = "apps/perps/tests/repair-22-33-709.test.ts:registryFeeTier"
+repair = "contracts/perps-client.md#hooks documents the actual optional address and view/isLoading/error wrapper, loading, unavailable, invalid address, ABI error, units and negative rebate behavior without changing the consumer API."
+path = "In-memory peer -> ABI producer -> HTTP/viem -> real useFeeTier -> production PortfolioFeeTierPanel, with missing, pending, successful and failing reads. The contract text is asserted against the exercised shape."
+wiring_request = "spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-usefeetier-j27: specification registry owner (fm-markets) must publish useFeeTier(address: string | undefined) -> { view: FeeTierView | undefined; isLoading: boolean; error: Error | null }, linked to contracts/perps-client.md#hooks."
+
+[finding.shared-query-selection-race]
+test = "apps/perps/tests/repair-22-33-709.test.ts:sharedQuerySelectionRace"
+repair = "Visible data/error/loading and manual refresh completions belong to the serialized endpoint/document/variables/enabled generation; manual requests capture their picker. Disable and unmount cancel all old completions."
+path = "Committed in-memory GraphQL store -> loopback HTTP -> real gqlQuery/subscribeQuery -> mounted useSharedPolledQuery; delayed success/failure after variable replacement, pending replacement, disable and unmount, plus same-selection picker replacement."
+
+[finding.indexer-selection-state]
+test = "apps/perps/tests/repair-22-33-709.test.ts:indexerSelectionState"
+repair = "All five selection-dependent streams key retained values by normalized account or market generation, expose null synchronously on replacement or missing selection, and invalidate old callbacks on cleanup."
+path = "Existing producer-captured order/trade/liquidation frames and committed in-memory price/position store -> loopback RFC6455 peer -> real subscribeStream -> all five mounted subscription hooks; account casing, wallet/market replacement with no new event, reselection and disconnect."
+
+[finding.margin-selection-race]
+test = "apps/perps/tests/repair-22-33-709.test.ts:marginSelectionRace"
+repair = "Position and summary reads use normalized account/position/token selection generations and request cancellation for both success and error; missing selections immediately expose unavailable, not prior data."
+path = "Committed in-memory margin store -> real ABI producer -> HTTP/viem -> mounted usePositionMargin/useAccountSummary; account-only replacement with an unchanged position, then out-of-order position/token replacement and missing inputs, with late success and malformed ABI failure."
+
+[finding.market-config-infinite-cache]
+test = "apps/perps/tests/repair-22-33-709.test.ts:marketConfigGovernanceRefresh"
+repair = "Config and tiers remain one query with bounded 30-second freshness/polling, five-minute unused retention, mount/focus/reconnect refetch, and shared stream-resync invalidation."
+path = "Committed mutable in-memory governance/chain store seeded from recorded node output -> governance update over loopback -> real ABI producer/HTTP/viem -> mounted useMarketConfig -> production PerpsOrderForm.orderLimitsFromConfig; actual WebSocket disconnect/reconnect resync changes tick/lot/leverage/tiers, a real unmodified 30-second timer observes disabled status without reload, and another resync restores availability."
+
+[finding.registry-market-config]
+test = "apps/perps/tests/repair-22-33-709.test.ts:registryMarketConfig"
+repair = "contracts/perps-client.md#hooks documents the required bigint argument and real React Query data.config/data.tiers result, initial unavailable/loading state, errors, retained data on refresh failure, disabled markets and freshness policy."
+path = "Committed config/tier store -> ABI producer -> HTTP/viem -> mounted useMarketConfig, asserting initial loading, nested success, refresh failure retaining data, first-read failure without data, and the restored contract text."
+wiring_request = "spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-usemarketconfig-j27: specification registry owner (fm-markets) must publish useMarketConfig(marketId: bigint) -> React Query result with data: { config: MarketConfig; tiers: readonly MarginTier[] } | undefined, linked to contracts/perps-client.md#hooks."
+
+[finding.alert-account-race]
+test = "apps/perps/tests/repair-22-33-709.test.ts:alertAccountRace"
+repair = "Normalized account-keyed alerts/error/loading use independent selection and request generations; mutations refresh only their still-active selection, and missing selections expose empty alerts without a stale error."
+path = "Committed in-memory alert store -> GraphQL loopback HTTP -> real perfdbQueryAuth -> mounted usePerfdbAlerts; late A success/failure cannot replace loaded B, clear pending B loading, introduce an A error for B, or repopulate disconnect."
+
+[qualification_constraints]
+fixtures = "No credentials, externally provided environment, live service, subprocess toolchain, native artifact or device is needed. The test sets gateway and all paxscan origins before importing any production module."
+react = "The installed real React reconciler mounts effects, context, external stores and production hooks against an in-memory host; a worker contains unavoidable production RPC-ranking timers and is terminated only after the tests and cleanup finish."
+gotcha = "React Query detects browser/server mode at module load: install the in-memory browser host before importing React Query or Wagmi so bounded mounted refresh timers execute."
+registry = "Registry edits and root GOTCHA/spec qualification ledgers are outside the explicit task scope; wiring requests and the encountered import-order gotcha are recorded here instead."
+
+[qualification.build_1]
+revision = "00bebd4a73a1e15f8c482d72d33af60a00b5b1bd"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+repair = "The harness now exposes the same exact generic state through a method instead of a getter, preventing TypeScript from carrying assert.equal narrowing across asynchronous React updates; all assertions and production types are unchanged."
+gotcha = "Node assert.equal narrows property access, including a changing React harness getter; read each new snapshot through a function so later assertions inspect its full original type."
+
+[qualification.module_loading]
+observed = "React Query publishes distinct import and require contexts; loading the worker providers with dynamic import while production hooks use the CommonJS loader could split the provider context."
+repair = "All worker runtime module loads now use the same typed localRequire loader after fixture environment/browser setup, matching the existing real React worker harness; production code, test assertions and bounds are unchanged."
+gotcha = "A React worker must load providers and production consumers from one module cache, while still installing its browser host before importing libraries that determine server mode once."
+
+[qualification.wallet_selection]
+observed = "The previous attempt's collateral account race failed waiting for the real injected connector to select an account; the other seven cases passed."
+repair = "Set up one injected connector instance and reuse it through every connect, account-change event and disconnect; subscribe to Wagmi watchAccount before the selection trigger and await its matching store signal with the original five-second bound. All eight tests and their assertions remain intact."
+gotcha = "The injected connector factory retains bound provider listeners across setup calls; setting up the same factory again after disconnect can leave account-change listeners attached to the previous connector instance."

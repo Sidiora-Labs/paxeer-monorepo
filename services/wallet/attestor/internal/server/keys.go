@@ -21,7 +21,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 	tssecdsa "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/ecdsa"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/eddsa"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/refresh"
@@ -95,25 +95,40 @@ type DescribeRequest struct {
 	KeyID     string `json:"key_id"`
 }
 
+type RefreshDescription struct {
+	ExistingKey     bool     `json:"existing_key"`
+	CeremonyID      string   `json:"ceremony_id"`
+	ImportSessionID string   `json:"import_session_id"`
+	SessionID       string   `json:"session_id"`
+	KeyID           string   `json:"key_id"`
+	BaseEpoch       uint64   `json:"base_epoch"`
+	Curve           string   `json:"curve"`
+	PublicKey       string   `json:"public_key"`
+	Participants    []string `json:"participants"`
+	Decision        string   `json:"decision"`
+	AuditSequence   uint64   `json:"audit_sequence"`
+}
+
 type DescribeResponse struct {
-	CeremonyID            string   `json:"ceremony_id,omitempty"`
-	ImportSessionID       string   `json:"import_session_id,omitempty"`
-	ImportDigest          string   `json:"import_digest,omitempty"`
-	VerificationSessionID string   `json:"verification_session_id,omitempty"`
-	VerificationState     string   `json:"verification_state,omitempty"`
-	RefreshSessionID      string   `json:"refresh_session_id,omitempty"`
-	RefreshState          string   `json:"refresh_state,omitempty"`
-	NodeID                string   `json:"node_id"`
-	KeyID                 string   `json:"key_id"`
-	Curve                 string   `json:"curve"`
-	PublicKey             string   `json:"public_key"`
-	Address               string   `json:"address,omitempty"`
-	DID                   string   `json:"did,omitempty"`
-	Owner                 string   `json:"owner"`
-	Account               string   `json:"account"`
-	Epoch                 uint64   `json:"epoch"`
-	Participants          []string `json:"participants"`
-	AuditSequence         uint64   `json:"audit_sequence"`
+	Refresh               *RefreshDescription `json:"refresh,omitempty"`
+	CeremonyID            string              `json:"ceremony_id,omitempty"`
+	ImportSessionID       string              `json:"import_session_id,omitempty"`
+	ImportDigest          string              `json:"import_digest,omitempty"`
+	VerificationSessionID string              `json:"verification_session_id,omitempty"`
+	VerificationState     string              `json:"verification_state,omitempty"`
+	RefreshSessionID      string              `json:"refresh_session_id,omitempty"`
+	RefreshState          string              `json:"refresh_state,omitempty"`
+	NodeID                string              `json:"node_id"`
+	KeyID                 string              `json:"key_id"`
+	Curve                 string              `json:"curve"`
+	PublicKey             string              `json:"public_key"`
+	Address               string              `json:"address,omitempty"`
+	DID                   string              `json:"did,omitempty"`
+	Owner                 string              `json:"owner"`
+	Account               string              `json:"account"`
+	Epoch                 uint64              `json:"epoch"`
+	Participants          []string            `json:"participants"`
+	AuditSequence         uint64              `json:"audit_sequence"`
 }
 
 type KeyResponse struct {
@@ -337,6 +352,10 @@ func (s *Server) loadShare(keyID string) (store.ShareRecord, storedShare, *Error
 }
 
 func (s *Server) saveShare(keyID string, c dealer.Curve, pub *pt.ECPoint, epoch uint64, participants []string, payload storedShare) *Error {
+	return s.saveShareUsing(keyID, c, pub, epoch, participants, payload, s.opts.Store.Put)
+}
+
+func (s *Server) saveShareUsing(keyID string, c dealer.Curve, pub *pt.ECPoint, epoch uint64, participants []string, payload storedShare, put func(store.ShareRecord, []byte) error) *Error {
 	pubBytes, err := publicKeyBytes(c, pub)
 	if err != nil {
 		return newError(CodeKeyInvalidShare, "%v", err)
@@ -351,7 +370,7 @@ func (s *Server) saveShare(keyID string, c dealer.Curve, pub *pt.ECPoint, epoch 
 		}
 	}()
 	rec := store.ShareRecord{KeyID: keyID, Curve: curveName(c), PublicKey: pubBytes, Epoch: epoch, Participants: participants}
-	if err := s.opts.Store.Put(rec, plain); err != nil {
+	if err := put(rec, plain); err != nil {
 		return newError(CodeStoreFailed, "%v", err)
 	}
 	return nil
@@ -450,6 +469,13 @@ func requireIDs(sessionID, keyID string) *Error {
 	return nil
 }
 
+func requireCeremonyID(ceremonyID string) *Error {
+	if ceremonyID == "" || strings.Contains(ceremonyID, "/") || len(ceremonyID) > 128 {
+		return newError(CodeSessionBadRequest, "ceremony_id must be 1 to 128 characters without a slash")
+	}
+	return nil
+}
+
 func ridFor(keyID string) []byte {
 	sum := sha256.Sum256([]byte("paxeer-x-attestor/rid\x00" + keyID))
 	return sum[:]
@@ -498,7 +524,7 @@ func (s *Server) doImport(body []byte) (KeyResponse, *Error) {
 	}
 	unlock := s.lockKey(req.KeyID)
 	defer unlock()
-	if e := requireIDs(req.CeremonyID, req.KeyID); e != nil {
+	if e := requireCeremonyID(req.CeremonyID); e != nil {
 		return KeyResponse{}, e
 	}
 	participants := b.ParticipantIDs()
@@ -636,7 +662,13 @@ func (s *Server) doRefresh(r *http.Request, body []byte) (KeyResponse, *Error) {
 	}
 	var durable *store.CeremonyRefresh
 	if receipt, err := s.opts.Store.ImportReceipt(req.KeyID); err == nil && receipt.Identity.CeremonyID != "" && req.CeremonyID == "" {
-		return KeyResponse{}, newError(CodeSessionBadRequest, "imported ceremony key requires durable refresh identity")
+		completed, loadErr := s.opts.Store.CeremonyRefresh(req.KeyID)
+		if loadErr != nil || completed.State != "complete" || completed.Decision != PhaseCommit || completed.CeremonyID != receipt.Identity.CeremonyID || completed.ImportSessionID != receipt.Identity.SessionID || completed.Curve != rec.Curve || !bytes.Equal(completed.PublicKey, rec.PublicKey) || rec.Epoch < completed.BaseEpoch+1 {
+			return KeyResponse{}, newError(CodeSessionBadRequest, "imported ceremony key requires durable refresh identity")
+		}
+		if e := s.requireAuditSequence(completed.AuditSequence); e != nil {
+			return KeyResponse{}, e
+		}
 	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return KeyResponse{}, newError(CodeStoreFailed, "%v", err)
 	}
@@ -812,6 +844,9 @@ func (s *Server) doRefresh(r *http.Request, body []byte) (KeyResponse, *Error) {
 		e = newError(CodeSessionFailed, "refresh aborted at epoch %d: %v", epoch, err)
 		_, _ = s.audit("keys.refresh", req.KeyID, payload.Owner, "failed", "aborted before commit", req.SessionID)
 		return KeyResponse{}, e
+	}
+	if s.beforeRefreshCommit != nil {
+		s.beforeRefreshCommit(req.KeyID)
 	}
 	if err := s.opts.Store.CommitStaged(req.KeyID, epoch); err != nil {
 		_, _ = s.audit("keys.refresh", req.KeyID, payload.Owner, "failed", "commit failed after the coordinator committed", req.SessionID)
@@ -1072,7 +1107,9 @@ func (s *Server) doAddShare(r *http.Request, body []byte) (KeyResponse, *Error) 
 	dealer.Wipe(out.Share)
 	payload.Bundle = &enc
 	participants := out.ParticipantIDs()
-	if e := s.saveShare(req.KeyID, c, pub, epoch, participants, payload); e != nil {
+	if e := s.saveShareUsing(req.KeyID, c, pub, epoch, participants, payload, func(rec store.ShareRecord, plain []byte) error {
+		return s.opts.Store.ReplaceShare(rec, plain, quorum, req.NewParticipantID)
+	}); e != nil {
 		return KeyResponse{}, e
 	}
 	seq, e := s.audit("keys.addshare", req.KeyID, payload.Owner, "allowed", "share added for "+req.NewParticipantID, req.SessionID)
@@ -1155,6 +1192,13 @@ func (s *Server) doDescribe(body []byte) (DescribeResponse, *Error) {
 		return DescribeResponse{}, newError(CodeStoreFailed, "%v", err)
 	}
 	if state, err := s.opts.Store.CeremonyRefresh(req.KeyID); err == nil {
+		response.Refresh = &RefreshDescription{
+			ExistingKey: state.ExistingKey, CeremonyID: state.CeremonyID,
+			ImportSessionID: state.ImportSessionID, SessionID: state.SessionID,
+			KeyID: state.KeyID, BaseEpoch: state.BaseEpoch, Curve: state.Curve,
+			PublicKey: hex.EncodeToString(state.PublicKey), Participants: append([]string(nil), state.Participants...),
+			Decision: state.Decision, AuditSequence: state.AuditSequence,
+		}
 		response.RefreshSessionID = state.SessionID
 		response.RefreshState = state.State
 		if state.Decision == "abort" {

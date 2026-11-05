@@ -1,0 +1,1072 @@
+{
+  "classification": "topology_document_binding_fixture_not_runtime_qualification",
+  "chain": {
+    "core": {
+      "chainId": 125,
+      "recordedStatus": "qualification_fixture",
+      "factory": "0x1111111111111111111111111111111111111111"
+    }
+  },
+  "budget": {
+    "identity": "budget_v2",
+    "targets": [
+      {
+        "id": "primary",
+        "member": "postgres_a",
+        "host": "postgres-a.internal",
+        "port": 5432,
+        "maxConnections": 600,
+        "explicitUnusedHeadroom": 0,
+        "protectedSlots": 60
+      }
+    ],
+    "poolers": [
+      {
+        "id": "pooler",
+        "target": "primary",
+        "processes": {
+          "replicas": 3,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 3
+        },
+        "maxClientConnections": 100,
+        "mode": "transaction",
+        "host": "pooler.internal",
+        "port": 6432,
+        "imageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "version": "1.24.1",
+        "configurationSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "aliases": [
+          {
+            "alias": "kindle",
+            "maxConnections": 120
+          }
+        ],
+        "users": [
+          {
+            "user": "apid_rest",
+            "maxConnections": 120
+          },
+          {
+            "user": "apid_sockets",
+            "maxConnections": 120
+          },
+          {
+            "user": "indexerd",
+            "maxConnections": 120
+          },
+          {
+            "user": "chartsd",
+            "maxConnections": 120
+          },
+          {
+            "user": "statsd",
+            "maxConnections": 120
+          },
+          {
+            "user": "pnld",
+            "maxConnections": 120
+          },
+          {
+            "user": "rankingd",
+            "maxConnections": 120
+          },
+          {
+            "user": "mediagatewayd",
+            "maxConnections": 120
+          },
+          {
+            "user": "userd",
+            "maxConnections": 120
+          },
+          {
+            "user": "sociald",
+            "maxConnections": 120
+          },
+          {
+            "user": "metadatad",
+            "maxConnections": 120
+          },
+          {
+            "user": "livestreamd",
+            "maxConnections": 120
+          }
+        ],
+        "pairs": [
+          {
+            "alias": "kindle",
+            "user": "apid_rest",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "apid_sockets",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "indexerd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "chartsd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "statsd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "pnld",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "rankingd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "mediagatewayd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "userd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "sociald",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "metadatad",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          },
+          {
+            "alias": "kindle",
+            "user": "livestreamd",
+            "poolSize": 120,
+            "reservePoolSize": 0
+          }
+        ]
+      }
+    ],
+    "clients": [
+      {
+        "role": "apid:rest",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "apid_rest",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "apid:sockets",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "apid_sockets",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "indexerd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "indexerd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "chartsd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "chartsd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "statsd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "statsd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "pnld",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "pnld",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "rankingd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "rankingd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "mediagatewayd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "mediagatewayd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "userd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "userd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "sociald",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "sociald",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "metadatad",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "metadatad",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      },
+      {
+        "role": "livestreamd",
+        "poolId": "interactive",
+        "target": "primary",
+        "transport": "transaction_pooler",
+        "pooler": "pooler",
+        "alias": "kindle",
+        "user": "livestreamd",
+        "queryClass": "interactive",
+        "processes": {
+          "replicas": 1,
+          "surge": 0,
+          "terminating": 0,
+          "maximum": 1
+        },
+        "maxConnections": 1
+      }
+    ],
+    "operational": [
+      {
+        "id": "migrator",
+        "target": "primary",
+        "category": "migration",
+        "connections": 1
+      },
+      {
+        "id": "admin",
+        "target": "primary",
+        "category": "admin",
+        "connections": 119
+      }
+    ]
+  },
+  "roles": {
+    "api": {
+      "readiness": {
+        "service": "core/api",
+        "runtime_role": "api_rest_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "api_stream": "c9af0cd6457f8416dc1af7916926d6a17c4fcbe30946622107542382eec466da"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      },
+      "accounting_read": {
+        "ChartsSchema": "candles",
+        "StatsSchema": "stats",
+        "ChartsDeliverySchema": "candles",
+        "StatsDeliverySchema": "stats",
+        "StreamSchema": "api_stream",
+        "ProjectionVersion": "accounting-market-v1",
+        "ProjectionGeneration": "g1",
+        "ChartsConsumerID": "charts",
+        "StatsConsumerID": "stats",
+        "SourceStream": "chain125-canonical",
+        "SourcePartitionSchema": "indexer"
+      }
+    },
+    "sockets": {
+      "readiness": {
+        "service": "core/api",
+        "runtime_role": "api_sockets_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "api_stream": "c9af0cd6457f8416dc1af7916926d6a17c4fcbe30946622107542382eec466da"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      }
+    },
+    "indexer": {
+      "readiness": {
+        "service": "core/indexer",
+        "runtime_role": "indexer_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "indexer": "74bcd7b72a6b7cf916d9e0dcc25f929da21d7337f80db599b91bb8ae2fcf71ad"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      },
+      "delivery": {
+        "schema": "indexer",
+        "owner": "indexer-1",
+        "epoch": 1,
+        "region": "fixture-loopback",
+        "stream": "KINDLE_INDEXER_V1",
+        "canonicalStreamId": "chain125-canonical",
+        "deploymentId": "fixture-chain125",
+        "projectionVersion": "accounting-market-v1",
+        "inventoryProjectionVersion": "",
+        "generation": "",
+        "policy": {
+          "Subjects": {
+            "accounting.market.v1": true
+          },
+          "EventTypes": {
+            "accounting.market.v1": true
+          }
+        },
+        "subjects": {
+          "accounting.market.v1": "accounting.market.v1"
+        }
+      },
+      "receipt": {
+        "realm": "production",
+        "production": {
+          "Manifest": {
+            "schemaVersion": 1,
+            "deploymentVersion": "paxeer125-v6.12.0",
+            "sourceManifestSha256": "a35ff7c6f532d2f92e4ca59e4ef2cf0a105d551ae9ac3eba68b95f79a355df4a",
+            "chainId": 125,
+            "activationHeight": 37220320,
+            "status": "active",
+            "roles": {
+              "EventEmitter": {
+                "address": "0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6",
+                "kind": "erc1967",
+                "runtimeHash": "0xb2f39d5c380b45131e836d4beb5254d4e5c410d35935bf270e8492755f7da6f7",
+                "implementationAddress": "0x6d48a32e313cc4F08acdeE1F39F7e6B56F03a1cB",
+                "implementationHash": "0xd0dc6f1aa54811dc2b9ea13e4519b6b6992ba0a082ac55c2d9e312443b289c08"
+              },
+              "ProtocolConfig": {
+                "address": "0xF3669eDc475Cb6E1F0d7635240ABD8e8FB7E20C6",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "Router": {
+                "address": "0x78FB06f525cD964388f2305A489035263E31C6e4",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "Quoter": {
+                "address": "0x793006f4F321b8863F26DBD75b11bAa01DA181dc",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "SidioraFactory": {
+                "address": "0x3993D004166738d1069B5C4e0a923f7B9D5D8830",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "PoolRegistry": {
+                "address": "0x1dC357d2B7B850332a91F06A9E66634F46fC4Ba7",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "FeeAccumulator": {
+                "address": "0x7b14808b72f61664cDb79D25E6d1587655571a66",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "SidioraNFT": {
+                "address": "0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "FeesRouter": {
+                "address": "0x05681dA6f611C2dfFD3E92611F6dE2d247647927",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "OpticalRegistry": {
+                "address": "0x0FB5E510372Bd3EddFED16A5Dd766d4473CffcF0",
+                "kind": "erc1967",
+                "runtimeHash": "0xb2f39d5c380b45131e836d4beb5254d4e5c410d35935bf270e8492755f7da6f7",
+                "implementationAddress": "0x2d9666F5CC900092Ceb7D3867b1fd7f6178C3F3E",
+                "implementationHash": "0xadf625b36b1dd5241f679fa029e66aa980eb5968f46fe557e8ae864ab157e0e5"
+              },
+              "PoolBeacon": {
+                "address": "0x0c60Ea33B1DD602A17E1EF1875eE912F3fad71BE",
+                "kind": "beacon",
+                "runtimeHash": "0xf06aa3fb14a04a50dcfbb95510fd19bfddc057f95349e63115b8495223aca447",
+                "implementationAddress": "0xd24b239df92CA233dF27676148FDe10aa51104Df",
+                "implementationHash": "0xeeadddb17507c0b32fb9c1c76f66b33b4757efd3531d86ac6a61c96d81d8bde4"
+              },
+              "USDL": {
+                "address": "0x85fcd13735f4309833a503ee804ea32395851479",
+                "kind": "direct",
+                "runtimeHash": "0xa5d84d5e9db89e88646654510a9445271bdd67c3b0e84c64e923c6b82589aaaf"
+              },
+              "Treasury": {
+                "address": "0xBb82d74E071e03d8E68F1d78Fae9EFe8b6b7A723",
+                "kind": "surface",
+                "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+              },
+              "LaunchpadPrecompile": {
+                "address": "0x0000000000000000000000000000000000001017",
+                "kind": "precompile"
+              }
+            },
+            "native": {
+              "symbol": "PAX",
+              "decimals": 18
+            },
+            "settlement": {
+              "symbol": "USDL",
+              "decimals": 6
+            },
+            "creationFeeRaw": "1000000",
+            "governance": {
+              "mode": "timelock-handoff",
+              "expectedBeaconOwner": "0xE3e71911664062753b56F72965D906295625d6c0",
+              "timelockDelaySeconds": 172800
+            },
+            "marketModel": "AMM",
+            "graduation": false,
+            "coreOracleRequired": false
+          },
+          "Anchor": {
+            "Height": 37220319,
+            "Hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "BlockIdentity": "reported",
+          "Timeout": 3000000000
+        }
+      }
+    },
+    "charts": {
+      "readiness": {
+        "service": "core/trading-charts",
+        "runtime_role": "candles_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "candles": "6bf3317faa2c65aabea98b882e4e56a57c20a672297d113306c32e5a703b968f"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      },
+      "delivery": {
+        "consumerId": "charts",
+        "consumers": [
+          {
+            "AckWait": 30000000000,
+            "Batch": 16,
+            "Durable": "stats_market",
+            "FetchWait": 250000000,
+            "MaxAckPending": 64,
+            "MaxDeliver": 100,
+            "MaxWaiting": 4,
+            "Stream": "KINDLE_INDEXER_V1",
+            "Subject": "accounting.market.v1"
+          }
+        ],
+        "epoch": 1,
+        "generation": "g1",
+        "maxReplayBlocks": 2000,
+        "maxReplayFills": 5000,
+        "owner": "charts-1",
+        "phase2": {
+          "analyticsBatch": 50,
+          "analyticsExpirySeconds": 5,
+          "cursorTtlSeconds": 600,
+          "expiryIntervalSeconds": 5,
+          "holderIntervalMs": 2000,
+          "holderSchema": "stats_transfer_holdings",
+          "holderTokenBatch": 50,
+          "holderTransferBatch": 500,
+          "outputStream": "STATS_V2",
+          "publishBatch": 50,
+          "publishMaxAttempts": 20,
+          "publishTimeoutSeconds": 5,
+          "reactionIpPerMinute": 600,
+          "reactionNamespace": "stats-reactions",
+          "reactionPolicyVersion": "reaction-v1",
+          "reactionWalletPerMinute": 6,
+          "searchConsumerId": "stats-search",
+          "searchConsumers": [
+            {
+              "consumer": {
+                "AckWait": 30000000000,
+                "Batch": 16,
+                "Durable": "stats_search_creation",
+                "FetchWait": 250000000,
+                "MaxAckPending": 64,
+                "MaxDeliver": 100,
+                "MaxWaiting": 4,
+                "Stream": "KINDLE_INDEXER_V1",
+                "Subject": "canonical.creation.v1"
+              },
+              "eventType": "canonical_creation",
+              "kind": "creation"
+            },
+            {
+              "consumer": {
+                "AckWait": 30000000000,
+                "Batch": 16,
+                "Durable": "stats_search_invalidation",
+                "FetchWait": 250000000,
+                "MaxAckPending": 64,
+                "MaxDeliver": 100,
+                "MaxWaiting": 4,
+                "Stream": "STATS_V2",
+                "Subject": "search.invalidation.v2"
+              },
+              "eventType": "search.invalidation.v2",
+              "kind": "invalidation"
+            }
+          ],
+          "searchGeneration": "g1",
+          "searchInvalidationEventType": "search.invalidation.v2",
+          "searchInvalidationSubject": "search.invalidation.v2",
+          "searchMaxFills": 64,
+          "searchSources": {},
+          "statsSubject": "stats.minute.v2",
+          "windows": [
+            300,
+            3600,
+            86400
+          ]
+        },
+        "policy": {
+          "EventTypes": {
+            "accounting.market.v1": true,
+            "canonical_creation": true,
+            "search.invalidation.v2": true,
+            "stats.minute.v2": true
+          },
+          "Subjects": {
+            "accounting.market.v1": true,
+            "canonical.creation.v1": true,
+            "search.invalidation.v2": true,
+            "stats.minute.v2": true
+          }
+        },
+        "projectionVersion": "accounting-market-v1",
+        "region": "fixture-loopback",
+        "schema": "stats",
+        "sourceStream": "chain125-canonical"
+      }
+    },
+    "stats": {
+      "readiness": {
+        "service": "core/stats-workers",
+        "runtime_role": "stats_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "stats": "244e31fe980ce2c26396295499c2241386a5c5a373f06afc55070dd206f13355"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      },
+      "delivery": {
+        "consumerId": "stats",
+        "consumers": [
+          {
+            "AckWait": 30000000000,
+            "Batch": 16,
+            "Durable": "stats_market",
+            "FetchWait": 250000000,
+            "MaxAckPending": 64,
+            "MaxDeliver": 100,
+            "MaxWaiting": 4,
+            "Stream": "KINDLE_INDEXER_V1",
+            "Subject": "accounting.market.v1"
+          }
+        ],
+        "epoch": 1,
+        "generation": "g1",
+        "maxReplayBlocks": 2000,
+        "maxReplayFills": 5000,
+        "owner": "stats-1",
+        "phase2": {
+          "analyticsBatch": 50,
+          "analyticsExpirySeconds": 5,
+          "cursorTtlSeconds": 600,
+          "expiryIntervalSeconds": 5,
+          "holderIntervalMs": 2000,
+          "holderSchema": "stats_transfer_holdings",
+          "holderTokenBatch": 50,
+          "holderTransferBatch": 500,
+          "outputStream": "STATS_V2",
+          "publishBatch": 50,
+          "publishMaxAttempts": 20,
+          "publishTimeoutSeconds": 5,
+          "reactionIpPerMinute": 600,
+          "reactionNamespace": "stats-reactions",
+          "reactionPolicyVersion": "reaction-v1",
+          "reactionWalletPerMinute": 6,
+          "searchConsumerId": "stats-search",
+          "searchConsumers": [
+            {
+              "consumer": {
+                "AckWait": 30000000000,
+                "Batch": 16,
+                "Durable": "stats_search_creation",
+                "FetchWait": 250000000,
+                "MaxAckPending": 64,
+                "MaxDeliver": 100,
+                "MaxWaiting": 4,
+                "Stream": "KINDLE_INDEXER_V1",
+                "Subject": "canonical.creation.v1"
+              },
+              "eventType": "canonical_creation",
+              "kind": "creation"
+            },
+            {
+              "consumer": {
+                "AckWait": 30000000000,
+                "Batch": 16,
+                "Durable": "stats_search_invalidation",
+                "FetchWait": 250000000,
+                "MaxAckPending": 64,
+                "MaxDeliver": 100,
+                "MaxWaiting": 4,
+                "Stream": "STATS_V2",
+                "Subject": "search.invalidation.v2"
+              },
+              "eventType": "search.invalidation.v2",
+              "kind": "invalidation"
+            }
+          ],
+          "searchGeneration": "g1",
+          "searchInvalidationEventType": "search.invalidation.v2",
+          "searchInvalidationSubject": "search.invalidation.v2",
+          "searchMaxFills": 64,
+          "searchSources": {},
+          "statsSubject": "stats.minute.v2",
+          "windows": [
+            300,
+            3600,
+            86400
+          ]
+        },
+        "policy": {
+          "EventTypes": {
+            "accounting.market.v1": true,
+            "canonical_creation": true,
+            "search.invalidation.v2": true,
+            "stats.minute.v2": true
+          },
+          "Subjects": {
+            "accounting.market.v1": true,
+            "canonical.creation.v1": true,
+            "search.invalidation.v2": true,
+            "stats.minute.v2": true
+          }
+        },
+        "projectionVersion": "accounting-market-v1",
+        "region": "fixture-loopback",
+        "schema": "stats",
+        "sourceStream": "chain125-canonical"
+      }
+    },
+    "pnl": {
+      "readiness": {
+        "service": "core/pnl-tracker",
+        "runtime_role": "pnl_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "pnl": "4f11fed58c5c35e225ee9263c41b9cc683ea09c02565e7425154205ae935a452"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      },
+      "delivery": {
+        "consumerId": "pnl",
+        "consumers": [
+          {
+            "AckWait": 30000000000,
+            "Batch": 16,
+            "Durable": "stats_market",
+            "FetchWait": 250000000,
+            "MaxAckPending": 64,
+            "MaxDeliver": 100,
+            "MaxWaiting": 4,
+            "Stream": "KINDLE_INDEXER_V1",
+            "Subject": "accounting.market.v1"
+          }
+        ],
+        "epoch": 1,
+        "generation": "g1",
+        "maxReplayBlocks": 2000,
+        "maxReplayFills": 5000,
+        "owner": "pnl-1",
+        "phase2": {
+          "analyticsBatch": 50,
+          "analyticsExpirySeconds": 5,
+          "cursorTtlSeconds": 600,
+          "expiryIntervalSeconds": 5,
+          "holderIntervalMs": 2000,
+          "holderSchema": "stats_transfer_holdings",
+          "holderTokenBatch": 50,
+          "holderTransferBatch": 500,
+          "outputStream": "STATS_V2",
+          "publishBatch": 50,
+          "publishMaxAttempts": 20,
+          "publishTimeoutSeconds": 5,
+          "reactionIpPerMinute": 600,
+          "reactionNamespace": "stats-reactions",
+          "reactionPolicyVersion": "reaction-v1",
+          "reactionWalletPerMinute": 6,
+          "searchConsumerId": "stats-search",
+          "searchConsumers": [
+            {
+              "consumer": {
+                "AckWait": 30000000000,
+                "Batch": 16,
+                "Durable": "stats_search_creation",
+                "FetchWait": 250000000,
+                "MaxAckPending": 64,
+                "MaxDeliver": 100,
+                "MaxWaiting": 4,
+                "Stream": "KINDLE_INDEXER_V1",
+                "Subject": "canonical.creation.v1"
+              },
+              "eventType": "canonical_creation",
+              "kind": "creation"
+            },
+            {
+              "consumer": {
+                "AckWait": 30000000000,
+                "Batch": 16,
+                "Durable": "stats_search_invalidation",
+                "FetchWait": 250000000,
+                "MaxAckPending": 64,
+                "MaxDeliver": 100,
+                "MaxWaiting": 4,
+                "Stream": "STATS_V2",
+                "Subject": "search.invalidation.v2"
+              },
+              "eventType": "search.invalidation.v2",
+              "kind": "invalidation"
+            }
+          ],
+          "searchGeneration": "g1",
+          "searchInvalidationEventType": "search.invalidation.v2",
+          "searchInvalidationSubject": "search.invalidation.v2",
+          "searchMaxFills": 64,
+          "searchSources": {},
+          "statsSubject": "stats.minute.v2",
+          "windows": [
+            300,
+            3600,
+            86400
+          ]
+        },
+        "policy": {
+          "EventTypes": {
+            "accounting.market.v1": true,
+            "canonical_creation": true,
+            "search.invalidation.v2": true,
+            "stats.minute.v2": true
+          },
+          "Subjects": {
+            "accounting.market.v1": true,
+            "canonical.creation.v1": true,
+            "search.invalidation.v2": true,
+            "stats.minute.v2": true
+          }
+        },
+        "projectionVersion": "accounting-market-v1",
+        "region": "fixture-loopback",
+        "schema": "stats",
+        "sourceStream": "chain125-canonical"
+      }
+    },
+    "ranking": {
+      "readiness": {
+        "service": "core/ranking-algo",
+        "runtime_role": "ranking_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "ranking": "bb893a376b4fab8536662b745146d70d03736b1c4223251b635e0ad417ee66fa"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      }
+    },
+    "gateway": {
+      "readiness": {
+        "service": "media/gateway",
+        "runtime_role": "identity_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "users": "eb5b689b6fb8059a5ecc18ecf35668163b9412f0faf3add5d9ee9c9cc3f551d8"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      },
+      "identity": {
+        "issuer": "fixture-identity",
+        "audience": "fixture-launchpad",
+        "activeKey": "fixture-key",
+        "keys": [
+          {
+            "id": "fixture-key",
+            "secretRef": "FIXTURE_SIGNING_KEY"
+          }
+        ],
+        "domain": "kindle.example.invalid",
+        "uri": "https://kindle.example.invalid",
+        "allowedOrigins": [
+          "https://kindle.example.invalid"
+        ]
+      }
+    },
+    "user": {
+      "readiness": {
+        "service": "media/user",
+        "runtime_role": "users_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "users": "eb5b689b6fb8059a5ecc18ecf35668163b9412f0faf3add5d9ee9c9cc3f551d8"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      }
+    },
+    "social": {
+      "readiness": {
+        "service": "media/social",
+        "runtime_role": "chat_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "chat": "07fdcbdfb02e5993e75de5b1b4be35e991820e56a45a082926fb38d2c130ace9"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      }
+    },
+    "metadata": {
+      "readiness": {
+        "service": "media/metadata",
+        "runtime_role": "metadata_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "metadata": "ff941d7f17bc3643c8209869405db960adcb73d4af785410651839a8d15ed715"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      }
+    },
+    "livestream": {
+      "readiness": {
+        "service": "media/livestream",
+        "runtime_role": "livestream_runtime",
+        "registry_digest": "e84b2f4acae1c6560d15cbd9cb9833d9f165e72c3e894fcacb169ed1158ea13c",
+        "interface_digest": "920143f1ebd0ba2d70e69017f584f2cd24e0df70ee9a00d648f9c4cd9fb0ec87",
+        "reader_version": 1,
+        "migrations": {
+          "160001": "3186b77d2955ca68eae0fafcc5e4eac59ed96c5a1d1d51dd21a9113d776080d1"
+        },
+        "schemas": {
+          "livestream": "50cea4b3ac4d95190c67b64e11c512a9d4e92b2f8fe882ceeb86a06a5955c05a"
+        },
+        "epoch": 1,
+        "region": "fixture-loopback"
+      }
+    }
+  },
+  "provenance": {
+    "budget": "sdk/launchpad/shared/db/production/allocation_test.go allocationFixture",
+    "readiness": "ExpectedSchema fields with fixture fingerprints; privileges read from committed launchpad/spec/production-system/integration/migrations/grants.json",
+    "delivery": "services/launchpad/stats-workers/internal/app/testdata/delivery.production.json; topology binding inputs only"
+  }
+}

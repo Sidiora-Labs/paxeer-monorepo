@@ -22,14 +22,23 @@ func finiteScore(category string, p PoolStat) (float64, error) {
 	if e != nil {
 		return 0, e
 	}
-	change.Abs(change)
 	bound := new(big.Rat).SetInt64(1000000000000)
 	if change.Cmp(bound) > 0 {
-		change = bound
+		change.Set(bound)
 	}
+	lowerBound := new(big.Rat).Neg(bound)
+	if change.Cmp(lowerBound) < 0 {
+		change.Set(lowerBound)
+	}
+	signedChange, _ := change.Float64()
+	change.Abs(change)
 	price, _ := change.Float64()
 	trades := float64(p.BuyCount24h) + float64(p.SellCount24h)
 	switch category {
+	case "gainers":
+		return math.Max(signedChange, 0), nil
+	case "losers":
+		return math.Max(-signedChange, 0), nil
 	case "trending":
 		return math.Min(velocity, 10)/10*.4 + math.Min(float64(p.UniqueTraders24h)/50, 1)*.25 + math.Min(price/100, 1)*.2 + math.Min(trades/240, 1)*.15, nil
 	case "breakout":

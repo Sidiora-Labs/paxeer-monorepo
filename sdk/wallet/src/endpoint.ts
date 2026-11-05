@@ -1,23 +1,22 @@
-import { JsonRpcClient, JsonRpcError, JsonRpcTransportError, isRecord, type JsonRpcClientOptions } from './rpc.js';
+import {
+  JsonRpcClient,
+  JsonRpcTransportError,
+  isRecord,
+  type JsonRpcClientOptions,
+} from './rpc.js';
 import type {
-  AccountBalances,
-  AnchorHead,
-  AssetMap,
+  AssetPage,
+  Balances,
   Capabilities,
-  CompletedBalance,
-  CompletionAsset,
-  CustodyAssetRecord,
+  ChainAccount,
+  ChainHistoryItem,
+  ChainHistoryPage,
+  ConsensusHead,
   HistoryItem,
   HistoryPage,
   HistoryQuery,
-  JoinedAccount,
-  JoinedAsset,
-  JoinedBalanceRow,
-  JoinedBalances,
   JsonRpcCall,
   JsonRpcOutcome,
-  KernelReason,
-  KernelStatus,
   NetworkHead,
   UnifiedAccountDocument,
 } from './types.js';
@@ -26,85 +25,117 @@ export const DEFAULT_ENDPOINT_URL = 'https://api-mainnet-beta.paxeer.network';
 
 export const ERC20_BALANCE_OF_SELECTOR = '0x70a08231';
 
-const KERNEL_REASONS: readonly KernelReason[] = ['available', 'not_configured', 'unreachable', 'no_finalised_checkpoint'];
 const HEX_QUANTITY = /^0x[0-9a-fA-F]{1,64}$/;
-const HEX_WORD = /^0x[0-9a-fA-F]{64}$/;
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const HISTORY_CURSOR = /^[0-9A-Za-z]{1,32}$/;
-const HISTORY_KIND = /^[a-z0-9_]{1,64}$/;
+
+export interface EndpointClientOptions extends Omit<JsonRpcClientOptions, 'url'> {
+  url?: string;
+  nodeUrl?: string;
+  hostedUrl?: string;
+}
 
 export class EndpointClient {
   readonly rpc: JsonRpcClient;
+  readonly hostedRpc: JsonRpcClient | null;
 
-  constructor(options: (Omit<JsonRpcClientOptions, 'url'> & { url?: string }) | JsonRpcClient = {}) {
-    this.rpc = options instanceof JsonRpcClient
-      ? options
-      : new JsonRpcClient({ ...options, url: options.url ?? DEFAULT_ENDPOINT_URL });
+  constructor(options: EndpointClientOptions | JsonRpcClient = {}) {
+    this.rpc =
+      options instanceof JsonRpcClient
+        ? options
+        : new JsonRpcClient({
+            ...options,
+            url: options.nodeUrl ?? options.url ?? DEFAULT_ENDPOINT_URL,
+          });
+    this.hostedRpc =
+      options instanceof JsonRpcClient || !options.hostedUrl
+        ? null
+        : new JsonRpcClient({
+            ...options,
+            url: options.hostedUrl,
+          });
   }
 
-  batch(calls: readonly JsonRpcCall[]): Promise<JsonRpcOutcome[]> {
-    return this.rpc.batch(calls);
+  private hosted(): JsonRpcClient {
+    if (this.hostedRpc === null)
+      throw new JsonRpcTransportError('EndpointClient: hostedUrl required for hosted px_ reads');
+    return this.hostedRpc;
   }
 
-  async resolveAccount(account: string): Promise<UnifiedAccountDocument> {
-    return decodeAccountDocument(await this.rpc.call('px_resolveAccount', [account]));
-  }
-
-  async getAccount(account: string): Promise<JoinedAccount> {
-    return decodeJoinedAccount(await this.rpc.call('px_getAccount', [account]));
-  }
-
-  async listAssets(): Promise<AssetMap> {
-    return decodeAssetMap(await this.rpc.call('px_listAssets', []));
-  }
-
-  async getRouteCatalogue(): Promise<RouteCatalogue> {
-    return decodeRouteCatalogue(await this.rpc.call('px_getRouteCatalogue', []));
-  }
-
-  async getCapabilities(): Promise<Capabilities> {
-    return decodeCapabilities(await this.rpc.call('px_getCapabilities', []));
-  }
-
-  async getNetwork(): Promise<NetworkHead> {
-    return decodeNetwork(await this.rpc.call('px_getNetwork', []));
-  }
-
-  async getBalances(account: string, assets: readonly CompletionAsset[] = []): Promise<AccountBalances> {
-    const [balancesOutcome, mapOutcome] = await this.rpc.batch([
-      { method: 'px_getBalances', params: [account] },
-      { method: 'px_listAssets', params: [] },
+  async batch(calls: readonly JsonRpcCall[]): Promise<JsonRpcOutcome[]> {
+    const hosted = calls.filter((call) => this.isHosted(call.method));
+    const node = calls.filter((call) => !this.isHosted(call.method));
+    const hostedRpc = hosted.length ? this.hosted() : null;
+    const [hostedResults, nodeResults] = await Promise.all([
+      hostedRpc ? hostedRpc.batch(hosted) : Promise.resolve([]),
+      node.length ? this.rpc.batch(node) : Promise.resolve([]),
     ]);
-    const joined = decodeJoinedBalances(unwrap(balancesOutcome));
-    const assetMap = decodeAssetMap(unwrap(mapOutcome));
-    const owner = joined.account.evm_address;
-    const unmapped = owner === null ? [] : assets.filter((asset) => !inCustodyMap(asset, assetMap));
-    const completed = owner === null ? [] : await this.complete(owner, unmapped);
-    return {
-      ...joined,
-      asset_map: assetMap,
-      join_limit_reached: assetMap.assets.length >= assetMap.joined_limit,
-      completed,
-    };
-  }
-
-  async getUnifiedHistory(account: string, cursor: string | null = null, query: HistoryQuery = {}): Promise<HistoryPage> {
-    if (cursor !== null && !HISTORY_CURSOR.test(cursor)) throw new RangeError('history cursor is malformed');
-    if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
-      throw new RangeError('history limit must be an integer from 1 to 100');
-    }
-    if (query.kind !== undefined && !HISTORY_KIND.test(query.kind)) throw new RangeError('history kind is malformed');
-    return decodeHistoryPage(
-      await this.rpc.call('px_getUnifiedHistory', [account, cursor, query.limit ?? null, query.kind ?? null]),
+    let h = 0;
+    let n = 0;
+    return calls.map((call) =>
+      this.isHosted(call.method) ? hostedResults[h++]! : nodeResults[n++]!
     );
   }
 
-  async *historyPages(account: string, query: HistoryQuery = {}): AsyncGenerator<HistoryPage, void, undefined> {
+  private isHosted(method: string): boolean {
+    return method.startsWith('px_') && method !== 'px_getReceiptKeys';
+  }
+
+  async resolveAccount(account: string): Promise<UnifiedAccountDocument> {
+    return decodeAccountDocument(await this.hosted().call('px_resolveAccount', [account]));
+  }
+
+  async getChainAccount(address: string): Promise<ChainAccount> {
+    return decodeChainAccount(await this.hosted().call('px_getAccount', [address]), address);
+  }
+
+  async listBankAssets(): Promise<AssetPage> {
+    return decodeBankAssetPage(await this.hosted().call('px_listAssets', []));
+  }
+
+  async getRouteCatalogue(): Promise<RouteCatalogue> {
+    return decodeRouteCatalogue(await this.hosted().call('px_getRouteCatalogue', []));
+  }
+
+  async getCapabilities(): Promise<Capabilities> {
+    return decodeCapabilities(await this.hosted().call('px_getCapabilities', []));
+  }
+
+  async getNetwork(): Promise<NetworkHead> {
+    return decodeNetwork(await this.hosted().call('px_getNetwork', []));
+  }
+
+  async getBankBalances(address: string): Promise<Balances> {
+    return decodeBankBalances(await this.hosted().call('px_getBalances', [address]));
+  }
+
+  async getChainHistory(
+    address: string,
+    cursor: string | null = null,
+    query: Pick<HistoryQuery, 'limit'> = {}
+  ): Promise<ChainHistoryPage> {
+    if (cursor !== null && !HISTORY_CURSOR.test(cursor))
+      throw new RangeError('history cursor is malformed');
+    if (
+      query.limit !== undefined &&
+      (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)
+    ) {
+      throw new RangeError('history limit must be an integer from 1 to 100');
+    }
+    return decodeChainHistoryPage(
+      await this.hosted().call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])
+    );
+  }
+
+  async *historyPages(
+    account: string,
+    query: Pick<HistoryQuery, 'limit'> = {}
+  ): AsyncGenerator<ChainHistoryPage, void, undefined> {
     let cursor: string | null = null;
     const seen = new Set<string>();
     for (;;) {
-      const page: HistoryPage = await this.getUnifiedHistory(account, cursor, query);
+      const page: ChainHistoryPage = await this.getChainHistory(account, cursor, query);
       yield page;
       if (page.next_cursor === null) return;
       if (seen.has(page.next_cursor)) throw new JsonRpcTransportError('history cursor repeated');
@@ -113,51 +144,19 @@ export class EndpointClient {
     }
   }
 
-  async *history(account: string, query: HistoryQuery = {}): AsyncGenerator<HistoryItem, void, undefined> {
+  async *history(
+    account: string,
+    query: Pick<HistoryQuery, 'limit'> = {}
+  ): AsyncGenerator<ChainHistoryItem, void, undefined> {
     for await (const page of this.historyPages(account, query)) {
       yield* page.items;
     }
-  }
-
-  private async complete(owner: `0x${string}`, assets: readonly CompletionAsset[]): Promise<CompletedBalance[]> {
-    const calls: JsonRpcCall[] = assets.map((asset) =>
-      asset.kind === 'native'
-        ? { method: 'eth_getBalance', params: [owner, 'latest'] }
-        : { method: 'eth_call', params: [{ to: asset.address, data: balanceOfCalldata(owner) }, 'latest'] },
-    );
-    const outcomes = await this.rpc.batch(calls);
-    return assets.map((asset, index) => {
-      const outcome = outcomes[index] as JsonRpcOutcome;
-      const source = asset.kind === 'native' ? 'eth_getBalance' : 'erc20_balanceOf';
-      if (!outcome.ok) return { asset, source, amount: null, error: outcome.error };
-      const pattern = asset.kind === 'native' ? HEX_QUANTITY : HEX_WORD;
-      if (typeof outcome.result !== 'string' || !pattern.test(outcome.result)) {
-        return { asset, source, amount: null, error: { code: -32603, message: `undecodable ${source} answer` } };
-      }
-      return { asset, source, amount: BigInt(outcome.result).toString(), error: null };
-    });
   }
 }
 
 export function balanceOfCalldata(owner: string): `0x${string}` {
   if (!EVM_ADDRESS.test(owner)) throw new RangeError('owner is not an EVM address');
   return `${ERC20_BALANCE_OF_SELECTOR}${owner.slice(2).toLowerCase().padStart(64, '0')}`;
-}
-
-export function inCustodyMap(asset: CompletionAsset, map: AssetMap): boolean {
-  if (asset.kind === 'erc20') {
-    const address = asset.address.toLowerCase();
-    return map.assets.some((entry) => entry.paxeer !== null && entry.paxeer.pointer.toLowerCase() === address);
-  }
-  const denom = asset.denom;
-  if (denom === undefined) return false;
-  return map.assets.some((entry) => entry.paxeer !== null && entry.paxeer.denom === denom);
-}
-
-function unwrap(outcome: JsonRpcOutcome | undefined): unknown {
-  if (outcome === undefined) throw new JsonRpcTransportError('batch answer missing');
-  if (!outcome.ok) throw new JsonRpcError(outcome.error);
-  return outcome.result;
 }
 
 function fail(what: string): never {
@@ -175,14 +174,16 @@ function nullableString(value: unknown, what: string): string | null {
   return value;
 }
 
-function nullableRecord(value: unknown, what: string): Record<string, unknown> | null {
-  if (value === null) return null;
-  return record(value, what);
-}
-
 function decimalString(value: unknown, what: string): string {
   if (typeof value !== 'string' || !DECIMAL.test(value)) fail(what);
   return value;
+}
+
+function chainHeight(value: unknown): string | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? value.toString() : null;
+  }
+  return typeof value === 'string' && DECIMAL.exec(value)?.[0] === value ? value : null;
 }
 
 function hexQuantity(value: unknown, what: string): `0x${string}` {
@@ -204,7 +205,8 @@ export function decodeAccountDocument(value: unknown): UnifiedAccountDocument {
   const doc = record(value, 'account document');
   if (typeof doc.bound !== 'boolean') fail('account document bound');
   return {
-    evm_address: doc.evm_address === null ? null : evmAddress(doc.evm_address, 'account evm_address'),
+    evm_address:
+      doc.evm_address === null ? null : evmAddress(doc.evm_address, 'account evm_address'),
     pax_address: nullableString(doc.pax_address, 'account pax_address'),
     layerx_did: nullableString(doc.layerx_did, 'account layerx_did'),
     layerx_account: nullableString(doc.layerx_account, 'account layerx_account'),
@@ -212,40 +214,28 @@ export function decodeAccountDocument(value: unknown): UnifiedAccountDocument {
   };
 }
 
-export function decodeJoinedAccount(value: unknown): JoinedAccount {
-  const doc = record(value, 'joined account');
-  let paxeer: JoinedAccount['paxeer'] = null;
-  if (doc.paxeer !== null) {
-    const half = record(doc.paxeer, 'paxeer half');
-    paxeer = {
-      address: evmAddress(half.address, 'paxeer address'),
-      balance: hexQuantity(half.balance, 'paxeer balance'),
-      nonce: hexQuantity(half.nonce, 'paxeer nonce'),
-    };
-  }
-  return {
-    account: decodeAccountDocument(doc.account),
-    paxeer,
-    layerx: nullableRecord(doc.layerx, 'layerx half'),
+function decodeChainAccount(value: unknown, address: string): ChainAccount {
+  const doc = record(value, 'chain account');
+  const account = decodeAccountDocument(doc.account);
+  const half = record(doc.paxeer, 'chain account paxeer');
+  const returnedAddress = evmAddress(half.address, 'chain account paxeer address');
+  if (returnedAddress.toLowerCase() !== address.toLowerCase())
+    fail('chain account paxeer address mismatch');
+  const height = chainHeight(half.height);
+  if (height === null) fail('chain account paxeer height');
+  const text = (key: string): string => {
+    const field = half[key];
+    if (typeof field !== 'string' || field.length === 0) fail(`chain account paxeer ${key}`);
+    return field;
   };
-}
-
-function decodeCustody(value: unknown): CustodyAssetRecord | null {
-  if (value === null) return null;
-  const doc = record(value, 'custody record');
-  if (typeof doc.asset_id !== 'string' || typeof doc.denom !== 'string') fail('custody record');
-  if (typeof doc.enabled !== 'boolean' || typeof doc.paused !== 'boolean') fail('custody flags');
   return {
-    asset_id: doc.asset_id,
-    denom: doc.denom,
-    pointer: evmAddress(doc.pointer, 'custody pointer'),
-    enabled: doc.enabled,
-    paused: doc.paused,
-    minimum_deposit: decimalString(doc.minimum_deposit, 'custody minimum_deposit'),
-    custody_cap: decimalString(doc.custody_cap, 'custody custody_cap'),
-    custodied: decimalString(doc.custodied, 'custody custodied'),
-    released: decimalString(doc.released, 'custody released'),
-    pending: decimalString(doc.pending, 'custody pending'),
+    account,
+    paxeer: {
+      address: returnedAddress,
+      balance: text('balance'),
+      nonce: text('nonce'),
+      height,
+    },
   };
 }
 
@@ -254,38 +244,67 @@ function joinedLimit(value: unknown): number {
   return value;
 }
 
-export function decodeAssetMap(value: unknown): AssetMap {
-  const doc = record(value, 'asset map');
-  if (!Array.isArray(doc.assets)) fail('asset map assets');
-  const assets: JoinedAsset[] = doc.assets.map((entry) => {
-    const asset = record(entry, 'joined asset');
-    if (typeof asset.asset_id !== 'string') fail('joined asset id');
-    return { asset_id: asset.asset_id, layerx: record(asset.layerx, 'joined asset layerx'), paxeer: decodeCustody(asset.paxeer) };
-  });
-  return { assets, joined_limit: joinedLimit(doc.joined_limit) };
-}
-
-export function decodeJoinedBalances(value: unknown): JoinedBalances {
-  const doc = record(value, 'joined balances');
-  if (!Array.isArray(doc.balances)) fail('joined balances rows');
-  const balances: JoinedBalanceRow[] = doc.balances.map((entry) => {
-    const row = record(entry, 'balance row');
-    if (typeof row.asset_id !== 'string') fail('balance row asset_id');
-    let paxeer: JoinedBalanceRow['paxeer'] = null;
-    if (row.paxeer !== null) {
-      const half = record(row.paxeer, 'balance row paxeer');
-      if (typeof half.denom !== 'string') fail('balance row paxeer denom');
-      paxeer = { denom: half.denom, amount: decimalString(half.amount, 'balance row paxeer amount') };
+function decodeBankAssetPage(value: unknown): AssetPage {
+  const doc = record(value, 'bank asset page');
+  const height = chainHeight(doc.height);
+  if (height === null) fail('bank asset page height');
+  if (!Array.isArray(doc.assets)) fail('bank asset page assets');
+  const assets = doc.assets.map((entry): AssetPage['assets'][number] => {
+    const asset = record(entry, 'bank asset');
+    const text = (key: string): string => {
+      const field = asset[key];
+      if (typeof field !== 'string') fail(`bank asset ${key}`);
+      return field;
+    };
+    if (
+      asset.decimals !== null &&
+      (typeof asset.decimals !== 'number' ||
+        !Number.isInteger(asset.decimals) ||
+        asset.decimals < 0 ||
+        asset.decimals > 255)
+    ) {
+      fail('bank asset decimals');
     }
+    if (
+      asset.supply !== null &&
+      (typeof asset.supply !== 'string' || DECIMAL.exec(asset.supply)?.[0] !== asset.supply)
+    )
+      fail('bank asset supply');
     return {
-      asset_id: row.asset_id,
-      denom: nullableString(row.denom, 'balance row denom'),
-      custody: decodeCustody(row.custody),
-      paxeer,
-      layerx: nullableRecord(row.layerx, 'balance row layerx'),
+      asset_id: text('asset_id'),
+      denom: nullableString(asset.denom, 'bank asset denom'),
+      kind: text('kind'),
+      name: nullableString(asset.name, 'bank asset name'),
+      symbol: nullableString(asset.symbol, 'bank asset symbol'),
+      decimals: asset.decimals,
+      supply: asset.supply,
     };
   });
-  return { account: decodeAccountDocument(doc.account), balances, joined_limit: joinedLimit(doc.joined_limit) };
+  return { height, assets, joined_limit: joinedLimit(doc.joined_limit) };
+}
+
+function decodeBankBalances(value: unknown): Balances {
+  if (!isRecord(value)) throw new TypeError('malformed bank balances');
+  let account: UnifiedAccountDocument;
+  try {
+    account = decodeAccountDocument(value.account);
+  } catch (error) {
+    if (!(error instanceof JsonRpcTransportError)) throw error;
+    throw new TypeError('malformed bank balances account', { cause: error });
+  }
+  const height = chainHeight(value.height);
+  if (height === null) throw new TypeError('malformed bank balances height');
+  if (!Array.isArray(value.balances)) throw new TypeError('malformed bank balances rows');
+  const balances = value.balances.map((row) => {
+    if (!isRecord(row) || typeof row.denom !== 'string' || row.denom.length === 0) {
+      throw new TypeError('malformed bank balance denom');
+    }
+    if (typeof row.amount !== 'string' || DECIMAL.exec(row.amount)?.[0] !== row.amount) {
+      throw new TypeError('malformed bank balance amount');
+    }
+    return { denom: row.denom, amount: row.amount };
+  });
+  return { account, height, balances };
 }
 
 export function decodeCapabilities(value: unknown): Capabilities {
@@ -293,7 +312,8 @@ export function decodeCapabilities(value: unknown): Capabilities {
   for (const key of ['exchange', 'bridge', 'launchpad'] as const) {
     if (typeof doc[key] !== 'boolean') fail(`capabilities ${key}`);
   }
-  if (typeof doc.probed_at !== 'number' || !Number.isInteger(doc.probed_at) || doc.probed_at < 0) fail('capabilities probed_at');
+  if (typeof doc.probed_at !== 'number' || !Number.isInteger(doc.probed_at) || doc.probed_at < 0)
+    fail('capabilities probed_at');
   return {
     exchange: doc.exchange as boolean,
     bridge: doc.bridge as boolean,
@@ -303,47 +323,43 @@ export function decodeCapabilities(value: unknown): Capabilities {
   };
 }
 
-export function decodeKernelStatus(value: unknown): KernelStatus {
-  const doc = record(value, 'kernel status');
-  if (typeof doc.available !== 'boolean') fail('kernel available');
-  if (typeof doc.reason !== 'string' || !(KERNEL_REASONS as readonly string[]).includes(doc.reason)) fail('kernel reason');
-  const reason = doc.reason as KernelReason;
-  if (doc.available !== (reason === 'available')) fail('kernel availability and reason disagree');
-  return { available: doc.available, reason };
-}
-
-function decodeAnchor(value: unknown): AnchorHead | null {
-  if (value === null) return null;
-  const doc = record(value, 'anchor head');
-  const batch = doc.latest_finalized_batch;
-  if (batch !== null && (typeof batch !== 'number' || !Number.isInteger(batch) || batch < 0)) fail('anchor batch');
-  const status = doc.status;
-  if (status !== null && (typeof status !== 'number' || !Number.isInteger(status))) fail('anchor status');
-  const name = doc.status_name;
-  if (name !== null && name !== 'unknown' && name !== 'submitted' && name !== 'final') fail('anchor status_name');
-  const ladder = record(doc.status_ladder, 'anchor status_ladder');
-  const statusLadder: Record<string, string> = {};
-  for (const [key, rung] of Object.entries(ladder)) {
-    if (typeof rung !== 'string') fail('anchor status_ladder');
-    statusLadder[key] = rung;
+function decodeConsensusHead(value: unknown): ConsensusHead {
+  const doc = record(value, 'consensus head');
+  const height = decimalString(doc.latest_height, 'consensus latest_height');
+  if (height !== height.trim() || BigInt(height) > 18446744073709551615n)
+    fail('consensus latest_height');
+  for (const key of ['latest_block_hash', 'latest_app_hash'] as const) {
+    const hash = doc[key];
+    if (typeof hash !== 'string' || hash.length % 2 !== 0 || /[^0-9a-fA-F]/.test(hash))
+      fail(`consensus ${key}`);
   }
-  return { latest_finalized_batch: batch, status, status_name: name, status_ladder: statusLadder };
+  if (typeof doc.catching_up !== 'boolean') fail('consensus catching_up');
+  return {
+    latest_height: height,
+    latest_block_hash: doc.latest_block_hash as string,
+    latest_app_hash: doc.latest_app_hash as string,
+    catching_up: doc.catching_up,
+  };
 }
 
 export function decodeNetwork(value: unknown): NetworkHead {
   const doc = record(value, 'network head');
   if (typeof doc.network_id !== 'string') fail('network_id');
   const paxeer = record(doc.paxeer, 'network paxeer');
-  const layerx = record(doc.layerx, 'network layerx');
+  const consensus = doc.consensus === null ? null : decodeConsensusHead(doc.consensus);
+  if (consensus === null) {
+    if (doc.reason !== 'consensus_unavailable') fail('network consensus reason');
+  } else if (Object.hasOwn(doc, 'reason')) {
+    fail('network consensus reason');
+  }
   return {
     network_id: doc.network_id,
     paxeer: {
       chain_id: hexQuantity(paxeer.chain_id, 'network chain_id'),
       latest_block: hexQuantity(paxeer.latest_block, 'network latest_block'),
     },
-    layerx: { node_info: nullableRecord(layerx.node_info, 'network node_info') },
-    anchor: decodeAnchor(doc.anchor),
-    kernel: decodeKernelStatus(doc.kernel),
+    consensus,
+    consensus_reason: consensus === null ? 'consensus_unavailable' : null,
   };
 }
 
@@ -353,16 +369,20 @@ function decodeHistoryItem(value: unknown): HistoryItem {
     if (typeof item[key] !== 'string') fail(`history item ${key}`);
     return item[key] as string;
   };
-  if (!/^[1-9][0-9]*$/.test(text('id'))) fail('history item id');
+  if (!/^(?:explorer:)?[1-9][0-9]*$/.test(text('id'))) fail('history item id');
   if (item.direction !== 'in' && item.direction !== 'out') fail('history item direction');
   if (typeof item.final !== 'boolean') fail('history item final');
   if (!('decoded' in item)) fail('history item decoded');
   let metadata: HistoryItem['asset_metadata'] = null;
   if (item.asset_metadata !== null) {
     const meta = record(item.asset_metadata, 'history asset_metadata');
-    if (typeof meta.asset !== 'string' || typeof meta.kind !== 'string') fail('history asset_metadata');
+    if (typeof meta.asset !== 'string' || typeof meta.kind !== 'string')
+      fail('history asset_metadata');
     const decimals = meta.decimals;
-    if (decimals !== null && (typeof decimals !== 'number' || !Number.isInteger(decimals) || decimals < 0)) {
+    if (
+      decimals !== null &&
+      (typeof decimals !== 'number' || !Number.isInteger(decimals) || decimals < 0)
+    ) {
       fail('history asset_metadata decimals');
     }
     metadata = {
@@ -417,27 +437,71 @@ export function decodeHistoryPage(value: unknown): HistoryPage {
   };
 }
 
+export function decodeChainHistoryPage(value: unknown): ChainHistoryPage {
+  const page = decodeHistoryPage(value);
+  if (page.account.evm_address === null) fail('chain history account');
+  return {
+    account: page.account.evm_address,
+    items: page.items
+      .filter((item) => item.chain === 'paxeer')
+      .map(({ chain, side, ...item }) => item),
+    next_cursor: page.next_cursor,
+  };
+}
+
 export interface RouteCatalogue {
   schema: 'paxeer-x.routes.v1';
   chain_id: 125;
   canonical_origin: string;
   services: ReadonlyArray<Readonly<Record<string, unknown>>>;
   routes: ReadonlyArray<Readonly<Record<string, unknown>>>;
-  readiness: { complete: boolean; services: Readonly<Record<string, { ready: boolean; reason: string }>> };
+  readiness: {
+    complete: boolean;
+    services: Readonly<Record<string, { ready: boolean; reason: string }>>;
+  };
 }
 
 export function decodeRouteCatalogue(value: unknown): RouteCatalogue {
   const doc = record(value, 'route catalogue');
-  if (doc.schema !== 'paxeer-x.routes.v1' || doc.chain_id !== 125 || typeof doc.canonical_origin !== 'string') fail('route catalogue identity');
+  if (
+    doc.schema !== 'paxeer-x.routes.v1' ||
+    doc.chain_id !== 125 ||
+    typeof doc.canonical_origin !== 'string'
+  )
+    fail('route catalogue identity');
   const origin = new URL(doc.canonical_origin);
-  if (origin.protocol !== 'https:' || origin.origin !== doc.canonical_origin || origin.username || origin.password) fail('route catalogue origin');
-  if (!Array.isArray(doc.services) || doc.services.length !== 31 || !Array.isArray(doc.routes) || doc.routes.length > 4096) fail('route catalogue inventory');
+  if (
+    origin.protocol !== 'https:' ||
+    origin.origin !== doc.canonical_origin ||
+    origin.username ||
+    origin.password
+  )
+    fail('route catalogue origin');
+  if (
+    !Array.isArray(doc.services) ||
+    doc.services.length !== 31 ||
+    !Array.isArray(doc.routes) ||
+    doc.routes.length > 4096
+  )
+    fail('route catalogue inventory');
   const ids = new Set<string>();
   const services = doc.services.map((entry) => {
     const service = record(entry, 'route service');
-    if (typeof service.id !== 'string' || ids.has(service.id) || (service.exposure !== 'product' && service.exposure !== 'private')) fail('route service identity');
+    if (
+      typeof service.id !== 'string' ||
+      ids.has(service.id) ||
+      (service.exposure !== 'product' && service.exposure !== 'private')
+    )
+      fail('route service identity');
     ids.add(service.id);
-    for (const field of ['discovery_path', 'transport', 'authentication', 'upstream', 'health_predicate', 'version']) {
+    for (const field of [
+      'discovery_path',
+      'transport',
+      'authentication',
+      'upstream',
+      'health_predicate',
+      'version',
+    ]) {
       if (typeof service[field] !== 'string' || !service[field]) fail('route service contract');
     }
     return Object.freeze({ ...service });
@@ -445,23 +509,52 @@ export function decodeRouteCatalogue(value: unknown): RouteCatalogue {
   const routeIds = new Set<string>();
   const routes = doc.routes.map((entry) => {
     const route = record(entry, 'product route');
-    if (typeof route.id !== 'string' || routeIds.has(route.id) || typeof route.service !== 'string' || !ids.has(route.service)) fail('product route identity');
+    if (
+      typeof route.id !== 'string' ||
+      routeIds.has(route.id) ||
+      typeof route.service !== 'string' ||
+      !ids.has(route.service)
+    )
+      fail('product route identity');
     routeIds.add(route.id);
-    for (const field of ['method', 'path', 'transport', 'authentication', 'upstream', 'health_predicate', 'version']) {
+    for (const field of [
+      'method',
+      'path',
+      'transport',
+      'authentication',
+      'upstream',
+      'health_predicate',
+      'version',
+    ]) {
       if (typeof route[field] !== 'string' || !route[field]) fail('product route contract');
     }
-    if (typeof route.timeout_seconds !== 'number' || route.timeout_seconds <= 0 || route.retries !== 0) fail('product route bounds');
+    if (
+      typeof route.timeout_seconds !== 'number' ||
+      route.timeout_seconds <= 0 ||
+      route.retries !== 0
+    )
+      fail('product route bounds');
     return Object.freeze({ ...route });
   });
   const ready = record(doc.readiness, 'route readiness');
   const states = record(ready.services, 'service readiness');
-  if (typeof ready.complete !== 'boolean' || Object.keys(states).length !== ids.size) fail('service readiness inventory');
+  if (typeof ready.complete !== 'boolean' || Object.keys(states).length !== ids.size)
+    fail('service readiness inventory');
   const readiness: Record<string, { ready: boolean; reason: string }> = {};
   for (const id of ids) {
     const state = record(states[id], 'service readiness state');
-    if (typeof state.ready !== 'boolean' || typeof state.reason !== 'string' || !state.reason) fail('service readiness state');
+    if (typeof state.ready !== 'boolean' || typeof state.reason !== 'string' || !state.reason)
+      fail('service readiness state');
     readiness[id] = { ready: state.ready, reason: state.reason };
   }
-  if (ready.complete !== Object.values(readiness).every((state) => state.ready)) fail('aggregate readiness');
-  return { schema: doc.schema, chain_id: doc.chain_id, canonical_origin: doc.canonical_origin, services, routes, readiness: { complete: ready.complete, services: readiness } };
+  if (ready.complete !== Object.values(readiness).every((state) => state.ready))
+    fail('aggregate readiness');
+  return {
+    schema: doc.schema,
+    chain_id: doc.chain_id,
+    canonical_origin: doc.canonical_origin,
+    services,
+    routes,
+    readiness: { complete: ready.complete, services: readiness },
+  };
 }

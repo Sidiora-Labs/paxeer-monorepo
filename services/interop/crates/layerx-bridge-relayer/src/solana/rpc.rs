@@ -18,11 +18,24 @@ pub const MAX_TRANSACTION_BYTES: usize = 1232;
 
 /// The commitment the relayer reads Solana at. `processed` is never accepted:
 /// a processed slot can still be skipped.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Commitment {
     Confirmed,
     Finalized,
+}
+
+impl<'de> Deserialize<'de> for Commitment {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "confirmed" => Ok(Self::Confirmed),
+            "finalized" => Ok(Self::Finalized),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["confirmed", "finalized"],
+            )),
+        }
+    }
 }
 
 impl Commitment {
@@ -78,6 +91,22 @@ pub struct Instruction {
     pub program: [u8; 32],
     pub accounts: Vec<[u8; 32]>,
     pub data: Vec<u8>,
+    /// Index in the transaction message, shared by all of its CPIs.
+    pub outer_index: usize,
+    /// RPC stack height, when recorded; logs must agree with it.
+    pub stack_height: Option<usize>,
+}
+
+/// One runtime invocation, identified by its entry in execution order.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Invocation {
+    pub program: [u8; 32],
+    pub parent: Option<usize>,
+    pub instruction_index: Option<usize>,
+    pub succeeded: bool,
+    /// Successful locally and through every ancestor.
+    pub committed: bool,
+    pub log_messages: Vec<String>,
 }
 
 /// A transaction as `getTransaction` returns it in `json` encoding.
@@ -93,6 +122,7 @@ pub struct SolanaTransaction {
     /// followed by the instructions it invoked.
     pub instructions: Vec<Instruction>,
     pub log_messages: Vec<String>,
+    pub invocations: Vec<Invocation>,
     pub failed: bool,
 }
 
@@ -168,7 +198,12 @@ fn contextual(value: &Value) -> Result<&Value, RpcFault> {
     field(value, "value")
 }
 
-fn instruction(value: &Value, keys: &[[u8; 32]]) -> Result<Instruction, RpcFault> {
+fn instruction(
+    value: &Value,
+    keys: &[[u8; 32]],
+    outer_index: usize,
+    top_level: bool,
+) -> Result<Instruction, RpcFault> {
     let resolve = |index: &Value| -> Result<[u8; 32], RpcFault> {
         index
             .as_u64()
@@ -183,7 +218,129 @@ fn instruction(value: &Value, keys: &[[u8; 32]]) -> Result<Instruction, RpcFault
             .map(resolve)
             .collect::<Result<_, _>>()?,
         data: base58_data(text(value, "data")?).map_err(|_| RpcFault::Malformed)?,
+        outer_index,
+        stack_height: if top_level {
+            Some(1)
+        } else {
+            value
+                .get("stackHeight")
+                .filter(|height| !height.is_null())
+                .map(|height| {
+                    height
+                        .as_u64()
+                        .and_then(|height| usize::try_from(height).ok())
+                        .filter(|height| *height > 1)
+                        .ok_or(RpcFault::Malformed)
+                })
+                .transpose()?
+        },
     })
+}
+
+/// Decode runtime boundaries before attributing program output. A successful
+/// child of a failed caller is rolled back even though its own log says success.
+pub(crate) fn invocation_logs(logs: &[String]) -> Result<Vec<Invocation>, RpcFault> {
+    let mut invocations: Vec<Invocation> = Vec::new();
+    let mut stack: Vec<usize> = Vec::new();
+    for line in logs {
+        if line == "Log truncated" {
+            return Err(RpcFault::Malformed);
+        }
+        if let Some(message) = line.strip_prefix("Program log: ") {
+            if let Some(index) = stack.last() {
+                invocations[*index].log_messages.push(message.to_owned());
+            }
+            continue;
+        }
+        let Some((id, event)) = line
+            .strip_prefix("Program ")
+            .and_then(|rest| rest.split_once(' '))
+        else {
+            continue;
+        };
+        if let Some(depth) = event
+            .strip_prefix("invoke [")
+            .and_then(|depth| depth.strip_suffix(']'))
+        {
+            if depth.parse::<usize>().ok() != Some(stack.len() + 1) {
+                return Err(RpcFault::Malformed);
+            }
+            let program = base58_fixed::<32>(id).map_err(|_| RpcFault::Malformed)?;
+            let index = invocations.len();
+            invocations.push(Invocation {
+                program,
+                parent: stack.last().copied(),
+                instruction_index: None,
+                succeeded: false,
+                committed: false,
+                log_messages: Vec::new(),
+            });
+            stack.push(index);
+        } else if event == "success" || event.starts_with("failed: ") {
+            let index = stack.pop().ok_or(RpcFault::Malformed)?;
+            if base58_encode(&invocations[index].program) != id {
+                return Err(RpcFault::Malformed);
+            }
+            invocations[index].succeeded = event == "success";
+        }
+    }
+    if !stack.is_empty() {
+        return Err(RpcFault::Malformed);
+    }
+    for index in 0..invocations.len() {
+        let invocation = &invocations[index];
+        invocations[index].committed = invocation.succeeded
+            && invocation
+                .parent
+                .is_none_or(|parent| invocations[parent].committed);
+    }
+    Ok(invocations)
+}
+
+fn bind_invocations(
+    instructions: &[Instruction],
+    invocations: &mut [Invocation],
+) -> Result<(), RpcFault> {
+    let mut next = 0;
+    let mut depths = Vec::with_capacity(invocations.len());
+    for index in 0..invocations.len() {
+        let parent = invocations[index].parent;
+        let depth = parent.map_or(1, |parent| depths[parent] + 1);
+        let instruction_index = if let Some(parent) = parent {
+            let parent_instruction = invocations[parent]
+                .instruction_index
+                .ok_or(RpcFault::Malformed)?;
+            let instruction = instructions.get(next).ok_or(RpcFault::Malformed)?;
+            if instruction.outer_index != instructions[parent_instruction].outer_index
+                || instruction.stack_height == Some(1)
+            {
+                return Err(RpcFault::Malformed);
+            }
+            next
+        } else {
+            // Native precompiles and compute-budget instructions need not emit
+            // invocation logs. Unmatched custody instructions still fail closed
+            // at the observer, rather than being inferred successful.
+            (next..instructions.len())
+                .find(|candidate| {
+                    instructions[*candidate].stack_height == Some(1)
+                        && instructions[*candidate].program == invocations[index].program
+                })
+                .ok_or(RpcFault::Malformed)?
+        };
+        let instruction = &instructions[instruction_index];
+        if instruction.program != invocations[index].program
+            || instruction
+                .stack_height
+                .is_some_and(|height| height != depth)
+        {
+            return Err(RpcFault::Malformed);
+        }
+        invocations[index].instruction_index = Some(instruction_index);
+        depths.push(depth);
+        next = instruction_index + 1;
+    }
+    Ok(())
 }
 
 fn parse_transaction(value: &Value) -> Result<SolanaTransaction, RpcFault> {
@@ -218,19 +375,21 @@ fn parse_transaction(value: &Value) -> Result<SolanaTransaction, RpcFault> {
                 return Err(RpcFault::Malformed);
             }
             for value in list(group, "instructions")? {
-                slot.push(instruction(value, &account_keys)?);
+                slot.push(instruction(value, &account_keys, index, false)?);
             }
         }
     }
     let mut instructions = Vec::new();
-    for (value, invoked) in top_level.iter().zip(inner) {
-        instructions.push(instruction(value, &account_keys)?);
+    for (index, (value, invoked)) in top_level.iter().zip(inner).enumerate() {
+        instructions.push(instruction(value, &account_keys, index, true)?);
         instructions.extend(invoked);
     }
-    let log_messages = list(meta, "logMessages")?
+    let log_messages: Vec<String> = list(meta, "logMessages")?
         .iter()
         .map(|line| line.as_str().map(str::to_owned).ok_or(RpcFault::Malformed))
         .collect::<Result<_, _>>()?;
+    let mut invocations = invocation_logs(&log_messages)?;
+    bind_invocations(&instructions, &mut invocations)?;
     Ok(SolanaTransaction {
         slot: number(value, "slot")?,
         signatures: list(transaction, "signatures")?
@@ -241,6 +400,7 @@ fn parse_transaction(value: &Value) -> Result<SolanaTransaction, RpcFault> {
         recent_blockhash: key_of(field(message, "recentBlockhash")?)?,
         instructions,
         log_messages,
+        invocations,
         failed: failed(meta)?,
     })
 }

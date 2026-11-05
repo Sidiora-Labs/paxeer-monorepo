@@ -4,7 +4,9 @@
 //! execution summary and whose effects 1..=n commit to the transaction's logs
 //! in order. The functions here read a receipt that already passed
 //! [`crate::receipt::verify_sequencer_signature`] and bind the log list served
-//! beside it to those signed effects.
+//! beside it to those signed effects. Authorize the signer with the gateway
+//! `px_getReceiptKeys` list before entering this decoder; `signingKey` in the
+//! receipt response alone does not establish authority.
 
 use layerx_wire::limits::PROTOCOL_VERSION;
 use layerx_wire::receipt::{Effect, ProtocolReceipt, Receipt};

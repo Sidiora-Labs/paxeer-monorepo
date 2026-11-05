@@ -1,0 +1,357 @@
+[sweep.go-storage]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 69
+targets_passed = 69
+targets_failed = 0
+targets_not_run = 0
+enumeration_command = "CGO_ENABLED=1 go list ./storage/..."
+enumeration_exit_code = 0
+execution_environment = "GOMAXPROCS=2; three concurrent per-target workers; CGO_ENABLED=1 throughout."
+native_archives = "The cgo dependency inventory contains no native kernel archive dependency; no additional make paxd-native-libs invocation was needed."
+evidence = "/out/logs/go-storage-closure/qualification.jsonl"
+
+[target.go-storage.1]
+target = "storage/common/errors"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.2]
+target = "storage/common/iterators"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.3]
+target = "storage/common/keys"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.4]
+target = "storage/common/metrics"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.5]
+target = "storage/common/rand"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.6]
+target = "storage/common/testutil"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.7]
+target = "storage/common/threading"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.8]
+target = "storage/common/unit"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.9]
+target = "storage/common/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.10]
+target = "storage/config"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.11]
+target = "storage/db_engine/dbcache"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.12]
+target = "storage/db_engine/litt"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.13]
+target = "storage/db_engine/litt/benchmark"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.14]
+target = "storage/db_engine/litt/benchmark/cmd"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.15]
+target = "storage/db_engine/litt/benchmark/config"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.16]
+target = "storage/db_engine/litt/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.17]
+target = "storage/db_engine/litt/dbcache"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.18]
+target = "storage/db_engine/litt/disktable"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.19]
+target = "storage/db_engine/litt/disktable/keymap"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.20]
+target = "storage/db_engine/litt/disktable/segment"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.21]
+target = "storage/db_engine/litt/littbuilder"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.22]
+target = "storage/db_engine/litt/metrics"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.23]
+target = "storage/db_engine/litt/test"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.24]
+target = "storage/db_engine/litt/types"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.25]
+target = "storage/db_engine/litt/util"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.26]
+target = "storage/db_engine/pebbledb"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.27]
+target = "storage/db_engine/pebbledb/mvcc"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.28]
+target = "storage/db_engine/test"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.29]
+target = "storage/db_engine/types"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.30]
+target = "storage/db_engine/util"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.31]
+target = "storage/ledger_db/block"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.32]
+target = "storage/ledger_db/block/block_db_test"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.33]
+target = "storage/ledger_db/block/blocksim"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.34]
+target = "storage/ledger_db/block/blocksim/cmd/blocksim"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.35]
+target = "storage/ledger_db/block/blocksim/cmd/configure-logger"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.36]
+target = "storage/ledger_db/block/mem_block_db"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.37]
+target = "storage/ledger_db/event"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.38]
+target = "storage/ledger_db/receipt"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.39]
+target = "storage/ledger_db/transaction"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.40]
+target = "storage/proto"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.41]
+target = "storage/state_db/bench"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.42]
+target = "storage/state_db/bench/cryptosim"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.43]
+target = "storage/state_db/bench/cryptosim/cmd/configure-logger"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.44]
+target = "storage/state_db/bench/cryptosim/cmd/cryptosim"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.45]
+target = "storage/state_db/bench/wrappers"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.46]
+target = "storage/state_db/sc/composite"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.47]
+target = "storage/state_db/sc/flatkv"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.48]
+target = "storage/state_db/sc/flatkv/config"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.49]
+target = "storage/state_db/sc/flatkv/ktype"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.50]
+target = "storage/state_db/sc/flatkv/lthash"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.51]
+target = "storage/state_db/sc/flatkv/vtype"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.52]
+target = "storage/state_db/sc/hashvault"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.53]
+target = "storage/state_db/sc/memiavl"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.54]
+target = "storage/state_db/sc/migration"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.55]
+target = "storage/state_db/sc/types"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.56]
+target = "storage/state_db/ss"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.57]
+target = "storage/state_db/ss/backend"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.58]
+target = "storage/state_db/ss/composite"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.59]
+target = "storage/state_db/ss/cosmos"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.60]
+target = "storage/state_db/ss/evm"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.61]
+target = "storage/state_db/ss/offload"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.62]
+target = "storage/state_db/ss/pruning"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.63]
+target = "storage/tools/bench"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.64]
+target = "storage/tools/cmd/paxdb"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.65]
+target = "storage/tools/cmd/paxdb/benchmark"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.66]
+target = "storage/tools/cmd/paxdb/operations"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.67]
+target = "storage/tools/rpc_bench"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.68]
+target = "storage/tools/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-storage.69]
+target = "storage/wal"
+result = "passed"
+exit_code = 0

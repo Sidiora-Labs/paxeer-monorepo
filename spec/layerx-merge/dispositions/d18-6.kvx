@@ -1,0 +1,124 @@
+[disposition.18.1143.1.1]
+finding = "18.1143.1.1"
+status = "resolved"
+evidence = "Landed commit adb2e7429 removed the boot::handshake_gate import and implemented the support-local handshake at services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1405."
+
+[disposition.18.1143.1.2]
+finding = "18.1143.1.2"
+status = "resolved"
+evidence = "Landed commit 9690ed5cc persists a positioned chain log before recovering it at Cursor 1/0/0 in services/agent/crates/layerx-agentd/tests/approval_events.rs:172."
+
+[disposition.18.1144.1.1]
+finding = "18.1144.1.1"
+status = "resolved"
+evidence = "Landed commit 3ed1f47aa installs the standby sequencer source and node/app.go:1836 calls its SealForFinalize hook before reading the sealed layer."
+
+[disposition.18.1144.1.2]
+finding = "18.1144.1.2"
+status = "resolved"
+evidence = "Landed commit 3ed1f47aa passes the decided transactions including transaction zero to SealForFinalize at node/app.go:1836 so the standby seals its pending replay batch before Sealed is read."
+
+[disposition.18.1147.1.1]
+finding = "18.1147.1.1"
+status = "resolved"
+evidence = "Landed commit e799e1b54 filters the attestor activity inventory to ModuleId::Asset in services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:126."
+
+[disposition.18.1149.1.1]
+finding = "18.1149.1.1"
+status = "resolved"
+evidence = "Landed commit 886bdaf0f migrates reclaim fixtures to disclosure-bound secp256k1 transaction signatures and the Budget ordinal 8 budgetDefund call at services/human/crates/layerx-human-service/tests/journey_faults.rs:242."
+
+[disposition.18.1149.1.2]
+finding = "18.1149.1.2"
+status = "resolved"
+evidence = "The reclaim fixture signs type-2 calls with sign_disclosed_call at services/human/crates/layerx-human-service/tests/journey_faults.rs:385 and the intent compiler emits BudgetDefund ordinal 8 at services/human/crates/layerx-intents/src/compile.rs:482."
+
+[disposition.18.1150.1.1]
+finding = "18.1150.1.1"
+status = "resolved"
+evidence = "Landed commit 9690ed5cc includes the recovered log exactly once after the four approval emissions in the delivery expectation at services/agent/crates/layerx-agentd/tests/approval_events.rs:413."
+
+[disposition.18.1151.1.1]
+finding = "18.1151.1.1"
+status = "resolved"
+evidence = "The ReceiptMaterial initializer supplies receipt_hash, tx_hash, block_height and rung at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:702."
+
+[disposition.18.1151.1.2]
+finding = "18.1151.1.2"
+status = "resolved"
+evidence = "Landed commit e799e1b54 derives the real custody key id and approves generation before create_owned_key and signing afterward at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1175."
+
+[disposition.18.1151.1.3]
+finding = "18.1151.1.3"
+status = "resolved"
+evidence = "Landed commit e799e1b54 configures the binding producer and tenant and passes a producer-signed wallet binding instead of DID text at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1201."
+
+[disposition.18.1151.1.4]
+finding = "18.1151.1.4"
+status = "resolved"
+evidence = "Landed commit e799e1b54 creates custody under the assertion-resolved principal and verifies both the unchanged principal and stored binding digest at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1206 and services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1223."
+
+[disposition.18.1151.1.5]
+finding = "18.1151.1.5"
+status = "resolved"
+evidence = "The service serializes EvmSendAuthorization for operation 11 at services/human/crates/layerx-human-service/src/custody/evm.rs:268 and the wallet fixture calls authorize_send_transaction at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:303."
+
+[disposition.18.1151.1.6]
+finding = "18.1151.1.6"
+status = "resolved"
+evidence = "Landed commit e799e1b54 replaces the owner kernel-send authorization with an EIP-1559 bank transfer authorized through authorize_send_transaction at services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:303."
+
+[disposition.18.1152.1.1]
+finding = "18.1152.1.1"
+status = "resolved"
+evidence = "Landed commit 7b7c22e58 adds both golang.org/x/term v0.15.0 checksums now present at go.sum:2533 and go.sum:2534."
+
+[disposition.18.1152.1.2]
+finding = "18.1152.1.2"
+status = "resolved"
+evidence = "Landed commit 7b7c22e58 adds the reported golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2/go.mod hash at go.sum:2292 together with the other missing module hashes."
+
+[disposition.18.1154.1.2]
+finding = "18.1154.1.2"
+status = "resolved"
+evidence = "Landed commit 222d58dfe ports reconstruct_session to a transaction hash and asserts tx_hash, nonce and rung instead of the removed Reconstruction fields at services/agent/crates/layerx-agentd/tests/audit_coverage.rs:154."
+
+[disposition.18.1156.1.1]
+finding = "18.1156.1.1"
+status = "resolved"
+evidence = "Landed commit b40debdd4 makes both DisclosedNativeOperation matches exhaustive at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:70 and services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:88."
+
+[disposition.18.1156.1.2]
+finding = "18.1156.1.2"
+status = "environment"
+evidence = "The provider fixture requires RuntimeClock::from_environment at services/human/crates/layerx-human-kms/tests/provider.rs:47 and the runtime-clock supervisor supplies LAYERX_RUNTIME_CLOCK_SOCKET to its child at services/platform/hosted/runtime-clock/src/main.rs:63, identifying the absent supervisor as the qualification environment failure."
+
+[disposition.18.1156.1.3]
+finding = "18.1156.1.3"
+status = "resolved"
+evidence = "Landed commit 29ec808cc replaces the fixture network words with 125, matching the chain_id 125 registry at services/human/crates/layerx-human-kms/tests/provider.rs:83 and canonical transaction at services/human/crates/layerx-human-kms/tests/provider.rs:677."
+
+[disposition.18.1156.1.4]
+finding = "18.1156.1.4"
+status = "resolved"
+evidence = "Landed commit 29ec808cc provisions the attestor cluster and signer files at services/human/crates/layerx-human-kms/tests/provider.rs:55 and replaces the chain_id 31337 transaction fixtures with chain_id 125."
+
+[disposition.18.1156.1.5]
+finding = "18.1156.1.5"
+status = "resolved"
+evidence = "Landed commit 29ec808cc sends an EIP-1559 operation-11 authorization at services/human/crates/layerx-human-kms/tests/provider.rs:686 and retains the attestor cluster and configuration on Host across stop and start at services/human/crates/layerx-human-kms/tests/provider.rs:30."
+
+[disposition.18.1156.1.6]
+finding = "18.1156.1.6"
+status = "resolved"
+evidence = "Landed commit 29ec808cc ports signing requests to type-2 calls and Keccak digests at services/human/crates/layerx-human-kms/tests/provider.rs:712, uses authorize_send_transaction for the service send case and raises provider deadlines to 30 seconds at services/human/crates/layerx-human-kms/tests/provider.rs:266."
+
+[disposition.18.1157.1.1]
+finding = "18.1157.1.1"
+status = "resolved"
+evidence = "Landed commit ffad6623f replaces the buyer network fixtures with eip155 identifiers at services/interop/crates/layerx-x402/tests/buyer.rs:101 and settlement transaction placeholders with 0x-prefixed 32-byte hashes at services/interop/crates/layerx-x402/tests/buyer.rs:838."
+
+[disposition.18.1157.1.2]
+finding = "18.1157.1.2"
+status = "resolved"
+evidence = "Landed commit e556c8b04 binds is_layerx_network to eip155:125 at services/interop/crates/layerx-x402/src/model.rs:191 and includes settlement logs in both seller JSON expectations at services/interop/crates/layerx-x402/tests/seller.rs:1081 and services/interop/crates/layerx-x402/tests/seller.rs:1140."

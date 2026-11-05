@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::{assemble, recover_sender, Eip1559Call};
+use layerx_crypto::signer::{AgentSignature, SignError};
 use layerx_types::payload::ModuleRegistry;
 
 use crate::audit::{
@@ -12,14 +15,27 @@ use crate::trace::TraceId;
 
 use super::{CustodyError, KeyId, Keystore};
 
+pub fn attach_call_signature(
+    call: &Eip1559Call,
+    signature: [u8; 65],
+    from: [u8; 20],
+) -> Result<Vec<u8>, CustodyError> {
+    bind_call(call, from).map_err(|_| CustodyError::Sign(SignError::InvalidDisclosure))?;
+    let signature = AgentSignature::new(signature)
+        .map_err(|_| CustodyError::Sign(SignError::ReturnedSignatureInvalid))?;
+    let recovered = recover_sender(call, &signature)
+        .map_err(|_| CustodyError::Sign(SignError::ReturnedSignatureInvalid))?;
+    if recovered != from {
+        return Err(CustodyError::Sign(SignError::InvalidDisclosure));
+    }
+    Ok(assemble(call, &signature))
+}
+
 const RATE_KEY: &str = "custody-sign-rate";
 const RATE_MAGIC: &[u8; 4] = b"LXRL";
 const RATE_VERSION: u8 = 1;
 const STEP_UP_KEY_PREFIX: &str = "custody-stepup-";
 const STEP_UP_ID_LIMIT: usize = 96;
-#[path = "settlement_recipient.rs"]
-mod settlement_recipient;
-pub use settlement_recipient::SettlementRecipientRequest;
 
 /// The operation class named in a custody signing decision.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -29,7 +45,6 @@ pub enum Operation {
     SecuritySettings,
     SecretReveal,
     Withdrawal,
-    EmergencyExit,
     WalletRebinding,
     AgentArchive,
 }
@@ -44,7 +59,6 @@ impl Operation {
             "security-settings" => Some(Self::SecuritySettings),
             "secret-reveal" => Some(Self::SecretReveal),
             "withdrawal" => Some(Self::Withdrawal),
-            "emergency-exit" => Some(Self::EmergencyExit),
             "wallet-rebinding" => Some(Self::WalletRebinding),
             "agent-archive" => Some(Self::AgentArchive),
             _ => None,
@@ -60,7 +74,6 @@ impl Operation {
             Self::SecuritySettings => "security-settings",
             Self::SecretReveal => "secret-reveal",
             Self::Withdrawal => "withdrawal",
-            Self::EmergencyExit => "emergency-exit",
             Self::WalletRebinding => "wallet-rebinding",
             Self::AgentArchive => "agent-archive",
         }
@@ -276,15 +289,15 @@ impl<'a> NativeConsentRequest<'a> {
 /// Public material returned after one audited custody signing grant.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub struct SignatureGrant {
-    signature: [u8; 64],
+    signature: [u8; 65],
     signer_public_key: [u8; 32],
     disclosure_digest: [u8; 32],
 }
 
 impl SignatureGrant {
-    /// Returns the Ed25519 signature bytes.
+    /// Returns the recoverable secp256k1 signature bytes.
     #[must_use]
-    pub const fn signature(&self) -> &[u8; 64] {
+    pub const fn signature(&self) -> &[u8; 65] {
         &self.signature
     }
 
@@ -305,6 +318,45 @@ impl Debug for SignatureGrant {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("SignatureGrant")
+            .field("signature", &"[public signature]")
+            .field("signer_public_key", &self.signer_public_key)
+            .field("disclosure_digest", &self.disclosure_digest)
+            .finish()
+    }
+}
+
+/// Public material returned after one audited custody signing grant.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct NativeConsentSignatureGrant {
+    signature: [u8; 64],
+    signer_public_key: [u8; 32],
+    disclosure_digest: [u8; 32],
+}
+
+impl NativeConsentSignatureGrant {
+    /// Returns the Ed25519 signature bytes.
+    #[must_use]
+    pub const fn signature(&self) -> &[u8; 64] {
+        &self.signature
+    }
+
+    /// Returns the public key that produced the signature.
+    #[must_use]
+    pub const fn signer_public_key(&self) -> [u8; 32] {
+        self.signer_public_key
+    }
+
+    /// Returns the domain-separated disclosure digest audited for the grant.
+    #[must_use]
+    pub const fn disclosure_digest(&self) -> [u8; 32] {
+        self.disclosure_digest
+    }
+}
+
+impl Debug for NativeConsentSignatureGrant {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("NativeConsentSignatureGrant")
             .field("signature", &"[public signature]")
             .field("signer_public_key", &self.signer_public_key)
             .field("disclosure_digest", &self.disclosure_digest)
@@ -472,7 +524,7 @@ impl CustodySigner {
         };
         let signer_public_key = signer.public_key();
         let signature = match signer
-            .sign_disclosed(request.canonical_bytes, request.disclosure, &self.registry)
+            .sign_call(request.canonical_bytes, request.disclosure)
             .await
         {
             Ok(signature) => signature,
@@ -538,7 +590,7 @@ impl CustodySigner {
         };
         let signer_public_key = signer.public_key();
         let signature = match signer
-            .sign_disclosed(request.canonical_bytes, request.disclosure, &self.registry)
+            .sign_call(request.canonical_bytes, request.disclosure)
             .await
         {
             Ok(signature) => signature,
@@ -823,7 +875,6 @@ fn signing_operation(request: &SignRequest<'_>) -> SigningOperation {
         Operation::SecuritySettings => SigningOperation::SecuritySettings,
         Operation::SecretReveal => SigningOperation::SecretReveal,
         Operation::Withdrawal => SigningOperation::BridgeWithdrawRequest,
-        Operation::EmergencyExit => SigningOperation::EmergencyExit,
         Operation::WalletRebinding => SigningOperation::EvmPayoutBinding,
         Operation::AgentArchive => SigningOperation::AgentArchive,
     }
@@ -929,7 +980,7 @@ impl CustodySigner {
         &self,
         scope: &mut PrincipalScope<'_>,
         request: NativeConsentRequest<'_>,
-    ) -> Result<SignatureGrant, CustodyError> {
+    ) -> Result<NativeConsentSignatureGrant, CustodyError> {
         if scope.principal() != request.principal {
             return Err(CustodyError::InvalidEvidence);
         }
@@ -972,7 +1023,7 @@ impl CustodySigner {
         scope: &mut PrincipalScope<'_>,
         request: &NativeConsentRequest<'_>,
         digest: Option<[u8; 32]>,
-    ) -> Result<SignatureGrant, CustodyError> {
+    ) -> Result<NativeConsentSignatureGrant, CustodyError> {
         let digest = digest.ok_or(CustodyError::InvalidEvidence)?;
         let expected_operation = match request.consent {
             super::NativeConsent::PreparationPurpose(_) => Operation::ProtocolMutation,
@@ -1017,7 +1068,7 @@ impl CustodySigner {
             return Err(CustodyError::InvalidEvidence);
         }
         let signature = signer.sign_native_consent(request.consent, now_ms).await?;
-        Ok(SignatureGrant {
+        Ok(NativeConsentSignatureGrant {
             signature,
             signer_public_key: signer.public_key(),
             disclosure_digest: digest,

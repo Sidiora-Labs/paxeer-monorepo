@@ -1,0 +1,47 @@
+[task.22.33.1228]
+audit = "22.30.59"
+scope = "modules/layerxcustody/keeper"
+baseline = "Not run: the explicit implementation-first order and sole hf-done verification prohibit the conflicting unchanged-tree verification step; no baseline failure is claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the verified candidate revision, command, exit code and log; no unexecuted gate is claimed here."
+
+[finding.5]
+tests = ["TestRepairM_1228_PointerAliases"]
+repair = "Canonicalize the validated pointer before scanning for conflicts. Lower-case, upper-case and EIP-55 producer spellings cannot steal another asset's pointer on creation or update; asset records and both indexes remain unchanged through keeper and message service refusals."
+
+[finding.6]
+tests = ["TestRepairM_1228_DefaultAuthorityMerge", "TestRepairM_1228_ExplicitAuthorityMerge"]
+repair = "Run the scheduled v7.0 plan through the real app upgrade and bank keepers for the default blocked governance recipient with native and production-created factory tokens, preserving the explicit-account case. Assert destination balances, cancelled claims/nullifiers, release events and repeat refusal."
+
+[finding.7]
+tests = ["TestRepairM_1228_RetirementRecovery"]
+repair = "Export actual merged application state, commit and close/reopen the app, then consume the app-produced export through fresh InitChain. Restore separately exported activation via validated InitGenesisWithRetirement, commit and close/reopen again, proving history, balances, retired deposit/admin refusals and absence of new events even at reset height."
+proof_boundary = "The legacy module adapter transports historical GenesisState only. This proof explicitly initializes the exported lifecycle with the production keeper API; full automatic app-only lifecycle transport requires the following out-of-scope wiring."
+wiring = "modules/layerxcustody/module.go and modules/layerxcustody/types genesis schema — domain 6 (chain modules): transport and validate RetirementGenesis through ExportGenesisWithRetirement/InitGenesisWithRetirement for normal and streaming genesis; node/ — domain 5 (node): prove automatic app-export/InitChain lifecycle recovery after adapter wiring."
+
+[gotcha.1]
+observed = "The task asks for an unchanged-tree verify while its explicit gate order forbids verification until implementation and hf-build are complete."
+resolution = "Follow the explicit gate order, run only hf-done verification and make no baseline failure claim."
+
+[gotcha.2]
+observed = "The inherited legacy genesis test manually set the consumer's upgrade done height, masking the module adapter's missing lifecycle transport."
+resolution = "Exercise validated keeper initialization and record the out-of-scope adapter wiring without marking the consumer's upgrade done."
+
+[gotcha.3]
+observed = "The protobuf JSON decoder represents an absent repeated deposit-root field as an empty slice while keeper export returns nil."
+resolution = "Preserve strict equality assertions and extend the recovery fixture with a real signed deposit-root registration against a validated finalized checkpoint, proving its history survives too."
+
+[qualification.1]
+revision = "ba9a45416d7e00d8dd865a09034ad63d1d61bf86"
+command = "cg spec done 22.33.1228 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Alias and both authority cases passed; recovery's app-export equality exposed the fixture's nil-versus-empty deposit-root slice."
+assumption = "A populated real registration preserves strict equality and extends historical recovery coverage without weakening checks."
+
+[gotcha.4]
+observed = "SetupWithDB chooses a new home on each call, while the real application also persists PaxDB state under its home."
+resolution = "Open the recovery applications through the production constructor with the same database and home across each close/reopen."
+
+[gotcha.5]
+observed = "The previous attempt's retirement recovery fixture registered its authority as operator, which immediately produces an active guarantor; activating it again fails with guarantor is not pending."
+resolution = "Use the real anchor UpdateParams message handler to select a distinct authority with permissioned registration, assert pending registration, then activate through the production keeper and assert the active state and bond before retirement."

@@ -14,6 +14,9 @@ pub const MAX_SESSIONS_PER_PRINCIPAL: usize = 4096;
 pub const MAX_RETAINED_SESSIONS_PER_PRINCIPAL: usize = 16_384;
 pub const SESSION_HISTORY_CAPACITY_REACHED: &str = "principal session history capacity reached";
 pub const SUBJECT_TENANT_CONFLICT: &str = "principal subject belongs to another tenant";
+pub const SUBJECT_ALREADY_EXISTS: &str = "signup subject already exists";
+pub const MAX_SIGNUP_KEYS: usize = 65_536;
+pub const SIGNUP_CAPACITY_REACHED: &str = "signup capacity reached";
 pub const PUBLICATION_KEY_BINDING_REFUSED: &str = "publication key binding refused";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,15 +65,62 @@ pub struct StarterCredit {
     pub settled_at: Option<u64>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignupDelivery {
+    pub sealed_message: String,
+    pub expires_at: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VerificationResult {
+    pub sub: String,
+    pub session_id: String,
+    pub sealed_response: String,
+    pub expires_at: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HourlyRefusal {
+    Ip,
+    Email,
+    Capacity,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 enum Record {
+    SignupDelivery {
+        signup: PendingSignup,
+        delivery: SignupDelivery,
+    },
+    DeliveryAccepted {
+        token_digest: String,
+    },
+    SignupAdmission {
+        ip: String,
+        email: String,
+        hour: u64,
+    },
+    ReclaimSignups {
+        now: u64,
+    },
+    VerifySession {
+        token_digest: String,
+        session: StoredSession,
+        result: VerificationResult,
+    },
     Signup(PendingSignup),
     Verify {
         token_digest: String,
         verified_at: u64,
     },
     Credit(StarterCredit),
+    Reissue {
+        sub: String,
+        amount: String,
+    },
     Settle {
         sub: String,
         settled_at: u64,
@@ -88,9 +138,33 @@ enum Record {
     },
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JournalRecord<T> {
+    generation: u64,
+    record: T,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum JournalEntry {
+    Versioned(JournalRecord<Record>),
+    Legacy(Record),
+}
+
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Snapshot {
+    #[serde(default)]
+    signup_email: BTreeMap<String, (u64, u32)>,
+    #[serde(default)]
+    signup_ip: BTreeMap<String, (u64, u32)>,
+    #[serde(default)]
+    verifications: BTreeMap<String, VerificationResult>,
+    #[serde(default)]
+    deliveries: BTreeMap<String, SignupDelivery>,
+    #[serde(default)]
+    generation: u64,
     #[serde(default)]
     publication_keys: BTreeMap<String, (String, bool)>,
     principals: BTreeMap<String, BTreeMap<String, Principal>>,
@@ -107,6 +181,11 @@ struct Snapshot {
 
 #[derive(Serialize)]
 struct SnapshotView<'a> {
+    signup_email: &'a BTreeMap<String, (u64, u32)>,
+    signup_ip: &'a BTreeMap<String, (u64, u32)>,
+    verifications: &'a BTreeMap<String, VerificationResult>,
+    deliveries: &'a BTreeMap<String, SignupDelivery>,
+    generation: u64,
     publication_keys: &'a BTreeMap<String, (String, bool)>,
     principals: &'a BTreeMap<String, BTreeMap<String, Principal>>,
     sessions: &'a BTreeMap<String, StoredSession>,
@@ -118,6 +197,11 @@ struct SnapshotView<'a> {
 
 #[derive(Default)]
 struct State {
+    next_signup_reclaim: u64,
+    signup_email: BTreeMap<String, (u64, u32)>,
+    signup_ip: BTreeMap<String, (u64, u32)>,
+    verifications: BTreeMap<String, VerificationResult>,
+    deliveries: BTreeMap<String, SignupDelivery>,
     publication_keys: BTreeMap<String, (String, bool)>,
     principals: BTreeMap<String, BTreeMap<String, Principal>>,
     sessions: BTreeMap<String, StoredSession>,
@@ -168,12 +252,49 @@ impl State {
             }
             state.signups.insert(token_digest, signup);
         }
+        state.deliveries = snapshot.deliveries;
+        state.verifications = snapshot.verifications;
+        state.signup_ip = snapshot.signup_ip;
+        state.signup_email = snapshot.signup_email;
         state.signup_days = snapshot.signup_days;
+        if state.signup_ip.len() > MAX_SIGNUP_KEYS
+            || state.signup_email.len() > MAX_SIGNUP_KEYS
+            || state.deliveries.len() > MAX_SIGNUP_KEYS
+            || state.verifications.len() > MAX_SIGNUP_KEYS
+        {
+            return Err("snapshot signup state exceeds its capacity".to_owned());
+        }
+        for (digest, delivery) in &state.deliveries {
+            if state
+                .signups
+                .get(digest)
+                .is_none_or(|signup| signup.expires_at != delivery.expires_at)
+            {
+                return Err("snapshot delivery references no matching signup".to_owned());
+            }
+        }
+        for result in state.verifications.values() {
+            if state
+                .sessions
+                .get(&result.session_id)
+                .is_none_or(|session| {
+                    session.principal != result.sub || result.expires_at > session.expires_at
+                })
+            {
+                return Err("snapshot verification references no matching session".to_owned());
+            }
+        }
+        state.recompute_signup_reclaim();
         Ok(state)
     }
 
-    const fn view(&self) -> SnapshotView<'_> {
+    const fn view(&self, generation: u64) -> SnapshotView<'_> {
         SnapshotView {
+            deliveries: &self.deliveries,
+            verifications: &self.verifications,
+            signup_ip: &self.signup_ip,
+            signup_email: &self.signup_email,
+            generation,
             publication_keys: &self.publication_keys,
             principals: &self.principals,
             sessions: &self.sessions,
@@ -185,6 +306,10 @@ impl State {
     }
 
     fn insert_signup(&mut self, signup: PendingSignup) {
+        self.next_signup_reclaim = self
+            .next_signup_reclaim
+            .min(signup.expires_at)
+            .min((signup.created_at / 86_400 + 1).saturating_mul(86_400));
         *self
             .signup_days
             .entry(signup.created_at / 86_400)
@@ -198,6 +323,9 @@ impl State {
             .get(token_digest)
             .ok_or_else(|| "verification references no pending signup".to_owned())?
             .clone();
+        if self.subject_tenants.contains_key(&signup.sub) {
+            return Err(SUBJECT_ALREADY_EXISTS.to_owned());
+        }
         let principal = Principal {
             tenant: signup.tenant,
             sub: signup.sub,
@@ -207,9 +335,58 @@ impl State {
         };
         self.insert_principal(principal.clone())?;
         self.signups.remove(token_digest);
+        self.deliveries.remove(token_digest);
         self.verified
             .insert(principal.sub.clone(), signup.email_digest);
         Ok(principal)
+    }
+
+    fn recompute_signup_reclaim(&mut self) {
+        self.next_signup_reclaim = self
+            .signups
+            .values()
+            .map(|s| s.expires_at)
+            .chain(self.verifications.values().map(|s| s.expires_at))
+            .chain(
+                self.signup_days
+                    .keys()
+                    .map(|day| day.saturating_add(1).saturating_mul(86_400)),
+            )
+            .chain(
+                self.signup_ip
+                    .values()
+                    .chain(self.signup_email.values())
+                    .map(|w| w.0.saturating_add(1).saturating_mul(3_600)),
+            )
+            .min()
+            .unwrap_or(u64::MAX);
+    }
+
+    fn reclaim_signups(&mut self, now: u64) {
+        self.signups.retain(|_, signup| signup.expires_at > now);
+        self.deliveries.retain(|digest, delivery| {
+            delivery.expires_at > now && self.signups.contains_key(digest)
+        });
+        self.verifications
+            .retain(|_, result| result.expires_at > now);
+        self.signup_days.retain(|day, _| *day >= now / 86_400);
+        self.signup_ip.retain(|_, window| window.0 >= now / 3_600);
+        self.signup_email
+            .retain(|_, window| window.0 >= now / 3_600);
+        self.recompute_signup_reclaim();
+    }
+
+    fn insert_admission(&mut self, ip: String, email: String, hour: u64) {
+        self.next_signup_reclaim = self
+            .next_signup_reclaim
+            .min(hour.saturating_add(1).saturating_mul(3_600));
+        for (map, key) in [(&mut self.signup_ip, ip), (&mut self.signup_email, email)] {
+            let window = map.entry(key).or_insert((hour, 0));
+            if window.0 != hour {
+                *window = (hour, 0);
+            }
+            window.1 = window.1.saturating_add(1);
+        }
     }
 
     fn insert_credit(&mut self, credit: StarterCredit) -> Result<(), String> {
@@ -226,6 +403,18 @@ impl State {
             .get_mut(sub)
             .ok_or_else(|| "settlement references no starter credit".to_owned())?;
         credit.settled_at = Some(settled_at);
+        Ok(())
+    }
+
+    fn reissue_credit(&mut self, sub: &str, amount: String) -> Result<(), String> {
+        let credit = self
+            .credits
+            .get_mut(sub)
+            .ok_or_else(|| "reissue references no starter credit".to_owned())?;
+        if credit.settled_at.is_some() {
+            return Err("starter credit already settled".to_owned());
+        }
+        credit.amount = amount;
         Ok(())
     }
 
@@ -313,6 +502,7 @@ pub struct Store {
     journal: File,
     directory_identity: (u64, u64),
     failed: bool,
+    generation: u64,
     state: State,
 }
 
@@ -330,11 +520,18 @@ impl Store {
         } else {
             Snapshot::default()
         };
+        let generation = snapshot.generation;
         let mut state = State::restore(snapshot)?;
         if journal_path.exists() {
-            replay_journal(&journal_path, &mut state)?;
+            let has_legacy = replay_journal(&journal_path, &mut state, generation)?;
+            if has_legacy {
+                migrate_journal(directory, &journal_path, generation)?;
+            }
         }
-        write_snapshot(directory, &snapshot_path, &state.view())?;
+        let generation = generation
+            .checked_add(1)
+            .ok_or_else(|| "journal generation exhausted".to_owned())?;
+        write_snapshot(directory, &snapshot_path, &state.view(generation))?;
         let journal = OpenOptions::new()
             .create(true)
             .write(true)
@@ -349,6 +546,7 @@ impl Store {
         Ok(Self {
             directory_identity: (metadata.dev(), metadata.ino()),
             failed: false,
+            generation,
             directory: directory.to_path_buf(),
             journal,
             state,
@@ -493,12 +691,209 @@ impl Store {
         self.state.credits.get(sub)
     }
 
+    #[must_use]
+    pub fn signup_state_sizes(&self) -> (usize, usize, usize, usize, usize, usize) {
+        (
+            self.state.signups.len(),
+            self.state.signup_days.len(),
+            self.state.signup_ip.len(),
+            self.state.signup_email.len(),
+            self.state.deliveries.len(),
+            self.state.verifications.len(),
+        )
+    }
+
+    pub fn verification_result(&self, digest: &str) -> Option<&VerificationResult> {
+        self.state.verifications.get(digest)
+    }
+
+    pub fn signup_deliveries(&self) -> Vec<(String, SignupDelivery)> {
+        self.state
+            .deliveries
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect()
+    }
+
+    pub fn delivery_accepted(&mut self, digest: &str) -> Result<(), String> {
+        if self.state.deliveries.contains_key(digest) {
+            self.append(&Record::DeliveryAccepted {
+                token_digest: digest.to_owned(),
+            })?;
+            self.state.deliveries.remove(digest);
+        }
+        Ok(())
+    }
+
+    pub fn reclaim_signups(&mut self, now: u64) -> Result<(), String> {
+        if now < self.state.next_signup_reclaim {
+            return Ok(());
+        }
+        let needed = self.state.signups.values().any(|s| s.expires_at <= now)
+            || self
+                .state
+                .verifications
+                .values()
+                .any(|s| s.expires_at <= now)
+            || self.state.signup_days.keys().any(|day| *day < now / 86_400)
+            || self.state.signup_ip.values().any(|w| w.0 < now / 3_600)
+            || self.state.signup_email.values().any(|w| w.0 < now / 3_600);
+        if needed {
+            self.append(&Record::ReclaimSignups { now })?;
+            self.state.reclaim_signups(now);
+            // Checkpoint reclaimed state so historical windows do not accumulate in the journal.
+            let result = self.checkpoint();
+            if result.is_err() {
+                self.failed = true;
+            }
+            result?;
+        } else {
+            self.state.recompute_signup_reclaim();
+        }
+        Ok(())
+    }
+
+    fn checkpoint(&mut self) -> Result<(), String> {
+        self.check_available()?;
+        let generation = self
+            .generation
+            .checked_add(1)
+            .ok_or("journal generation exhausted")?;
+        write_snapshot(
+            &self.directory,
+            &self.directory.join(SNAPSHOT_FILE),
+            &self.state.view(generation),
+        )?;
+        self.journal.set_len(0).map_err(|e| e.to_string())?;
+        // set_len leaves the file offset unchanged on an open journal.
+        std::io::Seek::rewind(&mut self.journal).map_err(|e| e.to_string())?;
+        self.journal.sync_all().map_err(|e| e.to_string())?;
+        self.generation = generation;
+        Ok(())
+    }
+
+    pub fn admit_signup_hour(
+        &mut self,
+        ip: &str,
+        email: &str,
+        now: u64,
+        ip_limit: u32,
+        email_limit: u32,
+    ) -> Result<Result<(), HourlyRefusal>, String> {
+        self.reclaim_signups(now)?;
+        let hour = now / 3_600;
+        let count = |map: &BTreeMap<String, (u64, u32)>, key: &str| {
+            map.get(key).filter(|w| w.0 == hour).map_or(0, |w| w.1)
+        };
+        if count(&self.state.signup_ip, ip) >= ip_limit {
+            return Ok(Err(HourlyRefusal::Ip));
+        }
+        if count(&self.state.signup_email, email) >= email_limit {
+            return Ok(Err(HourlyRefusal::Email));
+        }
+        if (!self.state.signup_ip.contains_key(ip) && self.state.signup_ip.len() >= MAX_SIGNUP_KEYS)
+            || (!self.state.signup_email.contains_key(email)
+                && self.state.signup_email.len() >= MAX_SIGNUP_KEYS)
+        {
+            return Ok(Err(HourlyRefusal::Capacity));
+        }
+        self.append(&Record::SignupAdmission {
+            ip: ip.to_owned(),
+            email: email.to_owned(),
+            hour,
+        })?;
+        self.state
+            .insert_admission(ip.to_owned(), email.to_owned(), hour);
+        Ok(Ok(()))
+    }
+
+    pub fn put_signup_delivery(
+        &mut self,
+        signup: PendingSignup,
+        delivery: SignupDelivery,
+    ) -> Result<(), String> {
+        self.check_new_signup(&signup)?;
+        if delivery.expires_at != signup.expires_at {
+            return Err("delivery expiry mismatch".to_owned());
+        }
+        self.append(&Record::SignupDelivery {
+            signup: signup.clone(),
+            delivery: delivery.clone(),
+        })?;
+        self.state
+            .deliveries
+            .insert(signup.token_digest.clone(), delivery);
+        self.state.insert_signup(signup);
+        Ok(())
+    }
+
+    fn check_new_signup(&self, signup: &PendingSignup) -> Result<(), String> {
+        if self.state.subject_tenants.contains_key(&signup.sub) {
+            return Err(SUBJECT_ALREADY_EXISTS.to_owned());
+        }
+        if self.state.signups.contains_key(&signup.token_digest)
+            || self.state.verifications.contains_key(&signup.token_digest)
+        {
+            return Err("signup token digest already exists".to_owned());
+        }
+        if self.state.signups.len() >= MAX_SIGNUP_KEYS {
+            return Err(SIGNUP_CAPACITY_REACHED.to_owned());
+        }
+        Ok(())
+    }
+
+    pub fn verify_signup_session(
+        &mut self,
+        digest: &str,
+        now: u64,
+        session: StoredSession,
+        result: VerificationResult,
+    ) -> Result<(), String> {
+        let signup = self
+            .state
+            .signups
+            .get(digest)
+            .ok_or("verification references no pending signup")?;
+        if signup.expires_at <= now {
+            return Err("verification expired".to_owned());
+        }
+        if self.state.subject_tenants.contains_key(&signup.sub) {
+            return Err(SUBJECT_ALREADY_EXISTS.to_owned());
+        }
+        if self.email_in_use(&signup.email_digest) {
+            return Err("email already verified".to_owned());
+        }
+        if self.state.verifications.len() >= MAX_SIGNUP_KEYS {
+            return Err(SIGNUP_CAPACITY_REACHED.to_owned());
+        }
+        if session.principal != signup.sub
+            || session.tenant != signup.tenant
+            || result.sub != signup.sub
+            || result.session_id != session.session_id
+            || result.expires_at > signup.expires_at
+            || result.expires_at > session.expires_at
+            || result.expires_at <= now
+            || session.revoked_at.is_some()
+            || self.state.sessions.contains_key(&session.session_id)
+        {
+            return Err("invalid verification session result".to_owned());
+        }
+        self.append(&Record::VerifySession {
+            token_digest: digest.to_owned(),
+            session: session.clone(),
+            result: result.clone(),
+        })?;
+        self.state.verify_signup(digest)?;
+        self.state.insert_session(session)?;
+        self.state.next_signup_reclaim = self.state.next_signup_reclaim.min(result.expires_at);
+        self.state.verifications.insert(digest.to_owned(), result);
+        Ok(())
+    }
+
     /// # Errors
     /// Refuses a duplicate token digest or durable write failure.
     pub fn put_signup(&mut self, signup: PendingSignup) -> Result<(), String> {
-        if self.state.signups.contains_key(&signup.token_digest) {
-            return Err("signup token digest already exists".to_owned());
-        }
+        self.check_new_signup(&signup)?;
         self.append(&Record::Signup(signup.clone()))?;
         self.state.insert_signup(signup);
         Ok(())
@@ -522,6 +917,12 @@ impl Store {
         {
             return Err(SUBJECT_TENANT_CONFLICT.to_owned());
         }
+        if self.state.subject_tenants.contains_key(&signup.sub) {
+            return Err(SUBJECT_ALREADY_EXISTS.to_owned());
+        }
+        if signup.expires_at <= verified_at || self.email_in_use(&signup.email_digest) {
+            return Err("verification expired or email already verified".to_owned());
+        }
         self.append(&Record::Verify {
             token_digest: token_digest.to_owned(),
             verified_at,
@@ -540,6 +941,22 @@ impl Store {
         }
         self.append(&Record::Credit(credit.clone()))?;
         self.state.insert_credit(credit)
+    }
+
+    pub fn reissue_starter_credit(&mut self, sub: &str, amount: &str) -> Result<(), String> {
+        let credit = self
+            .state
+            .credits
+            .get(sub)
+            .ok_or_else(|| "reissue references no starter credit".to_owned())?;
+        if credit.settled_at.is_some() {
+            return Err("starter credit already settled".to_owned());
+        }
+        self.append(&Record::Reissue {
+            sub: sub.to_owned(),
+            amount: amount.to_owned(),
+        })?;
+        self.state.reissue_credit(sub, amount.to_owned())
     }
 
     /// # Errors
@@ -610,7 +1027,11 @@ impl Store {
 
     fn append(&mut self, record: &Record) -> Result<(), String> {
         self.check_available()?;
-        let mut line = serde_json::to_vec(record).map_err(|error| error.to_string())?;
+        let mut line = serde_json::to_vec(&JournalRecord {
+            generation: self.generation,
+            record,
+        })
+        .map_err(|error| error.to_string())?;
         if line.len() >= MAX_RECORD_BYTES {
             return Err("journal record exceeds its bound".to_owned());
         }
@@ -629,12 +1050,43 @@ impl Store {
 
 fn apply(state: &mut State, record: Record) -> Result<(), String> {
     match record {
+        Record::SignupDelivery { signup, delivery } => {
+            state
+                .deliveries
+                .insert(signup.token_digest.clone(), delivery);
+            state.insert_signup(signup);
+            Ok(())
+        }
+        Record::DeliveryAccepted { token_digest } => {
+            state.deliveries.remove(&token_digest);
+            Ok(())
+        }
+        Record::SignupAdmission { ip, email, hour } => {
+            state.insert_admission(ip, email, hour);
+            Ok(())
+        }
+        Record::ReclaimSignups { now } => {
+            state.reclaim_signups(now);
+            Ok(())
+        }
+        Record::VerifySession {
+            token_digest,
+            session,
+            result,
+        } => {
+            state.verify_signup(&token_digest)?;
+            state.insert_session(session)?;
+            state.next_signup_reclaim = state.next_signup_reclaim.min(result.expires_at);
+            state.verifications.insert(token_digest, result);
+            Ok(())
+        }
         Record::Signup(signup) => {
             state.insert_signup(signup);
             Ok(())
         }
         Record::Verify { token_digest, .. } => state.verify_signup(&token_digest).map(|_| ()),
         Record::Credit(credit) => state.insert_credit(credit),
+        Record::Reissue { sub, amount } => state.reissue_credit(&sub, amount),
         Record::Settle { sub, settled_at } => state.settle_credit(&sub, settled_at),
         Record::PublicationKey {
             digest,
@@ -667,29 +1119,77 @@ fn apply(state: &mut State, record: Record) -> Result<(), String> {
     }
 }
 
-fn replay_journal(path: &Path, state: &mut State) -> Result<(), String> {
+fn read_journal_entry(reader: &mut impl BufRead) -> Result<Option<JournalEntry>, String> {
+    let mut line = Vec::new();
+    let count = reader
+        .read_until(b'\n', &mut line)
+        .map_err(|error| format!("journal read: {error}"))?;
+    if count == 0 {
+        return Ok(None);
+    }
+    if line.last() != Some(&b'\n') {
+        eprintln!("layerx-identity: discarding a torn trailing journal record");
+        return Ok(None);
+    }
+    if line.len() > MAX_RECORD_BYTES {
+        return Err("journal record exceeds its bound".to_owned());
+    }
+    serde_json::from_slice(&line[..line.len() - 1])
+        .map(Some)
+        .map_err(|error| format!("journal record is not readable: {error}"))
+}
+
+fn replay_journal(path: &Path, state: &mut State, generation: u64) -> Result<bool, String> {
     let file = File::open(path).map_err(|error| format!("journal: {error}"))?;
     let mut reader = BufReader::new(file);
-    let mut line = Vec::new();
-    loop {
-        line.clear();
-        let count = reader
-            .read_until(b'\n', &mut line)
-            .map_err(|error| format!("journal read: {error}"))?;
-        if count == 0 {
-            return Ok(());
-        }
-        if line.last() != Some(&b'\n') {
-            eprintln!("layerx-identity: discarding a torn trailing journal record");
-            return Ok(());
-        }
-        if line.len() > MAX_RECORD_BYTES {
-            return Err("journal record exceeds its bound".to_owned());
-        }
-        let record: Record = serde_json::from_slice(&line[..line.len() - 1])
-            .map_err(|error| format!("journal record is not readable: {error}"))?;
+    let mut has_legacy = false;
+    while let Some(entry) = read_journal_entry(&mut reader)? {
+        let record = match entry {
+            JournalEntry::Versioned(entry) => {
+                if entry.generation > generation {
+                    return Err("journal generation is ahead of the snapshot".to_owned());
+                }
+                if entry.generation < generation {
+                    continue;
+                }
+                entry.record
+            }
+            JournalEntry::Legacy(record) => {
+                has_legacy = true;
+                record
+            }
+        };
         apply(state, record)?;
     }
+    Ok(has_legacy)
+}
+
+fn migrate_journal(directory: &Path, path: &Path, generation: u64) -> Result<(), String> {
+    let temporary = directory.join(format!("{JOURNAL_FILE}.tmp"));
+    let mut reader = BufReader::new(File::open(path).map_err(|error| format!("journal: {error}"))?);
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&temporary)
+        .map_err(|error| format!("journal migration: {error}"))?;
+    while let Some(entry) = read_journal_entry(&mut reader)? {
+        let entry = match entry {
+            JournalEntry::Versioned(entry) => entry,
+            JournalEntry::Legacy(record) => JournalRecord { generation, record },
+        };
+        let mut line = serde_json::to_vec(&entry).map_err(|error| error.to_string())?;
+        if line.len() >= MAX_RECORD_BYTES {
+            return Err("journal record exceeds its bound".to_owned());
+        }
+        line.push(b'\n');
+        file.write_all(&line)
+            .map_err(|error| format!("journal migration write: {error}"))?;
+    }
+    file.sync_all()
+        .map_err(|error| format!("journal migration sync: {error}"))?;
+    fs::rename(&temporary, path).map_err(|error| format!("journal migration rename: {error}"))?;
+    sync_directory(directory)
 }
 
 fn write_snapshot(directory: &Path, path: &Path, state: &SnapshotView<'_>) -> Result<(), String> {

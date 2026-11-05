@@ -1,0 +1,9 @@
+[repair.22.31.294]
+finding = "stream-reader-error-loss"
+proof = "TestRepair_294_ConsumersRejectIncompleteSources; TestRepair_294_MidReadFailureDiscardsModuleState; TestRepair_294_ExportImportAndRestart; TestRepair_294_CancellationUnblocksReadAndSend; TestRepair_294_CompletionAndEarlyConsumerError"
+implementation = "Error-bearing cancellable ingestion exposes repeatable terminal completion; manager initialization stages real module state until successful source completion and a valid genesis document; node startup consumes the entire stream before using its document."
+baseline = "Not run: explicit Order forbids testing before complete implementation and allows verification only through hf-done after hf-build; no pre-change test failure is claimed."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit status and private evidence log for this repair."
+wiring_validation = "sdk/x/genutil/client/cli/validate_genesis.go — fm-cosmos-fork (domain 15): adopt IngestGenesisFileLineByLineContext and await Stream.Wait after module validators; retain existing independent open/read error handling and completion checks until wired."
+wiring_export = "sdk/server/export.go — fm-cosmos-fork (domain 15): version exports with a terminal record or authenticated record count before requiring detection of truncation exactly at a complete record boundary, which the existing unframed format cannot distinguish from successful EOF."
+wiring_module_tests = "sdk/types/module/module_test.go — fm-cosmos-fork (domain 15): migrate TestManager_InitGenesisStreamSkipsUnknownModules from a zero context and headerless mock stream to a real store context and complete exported genesis; the new atomic initialization contract requires both."

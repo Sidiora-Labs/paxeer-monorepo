@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,15 +49,17 @@ type SpendJSON struct {
 }
 
 type Announcement struct {
-	SessionID string      `json:"session_id"`
-	KeyID     string      `json:"key_id"`
-	Account   string      `json:"account"`
-	Spends    []SpendJSON `json:"spends"`
+	SessionID string             `json:"session_id"`
+	KeyID     string             `json:"key_id"`
+	Account   string             `json:"account"`
+	Spends    []SpendJSON        `json:"spends"`
+	Intent    *signIntentBinding `json:"intent,omitempty"`
 }
 
 type AnnounceAck struct {
-	NodeID   string `json:"node_id"`
-	Recorded bool   `json:"recorded"`
+	NodeID   string             `json:"node_id"`
+	Recorded bool               `json:"recorded"`
+	Intent   *signIntentBinding `json:"intent,omitempty"`
 }
 
 type RefreshVote struct {
@@ -191,6 +194,25 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 		}
 		spends = append(spends, policy.Spend{Asset: sp.Asset, Amount: amount})
 	}
+	if a.Intent != nil {
+		digest, err := hex.DecodeString(a.Intent.Digest)
+		curve, known := kindCurves[a.Intent.Kind]
+		if a.Intent.KeyID != a.KeyID || a.Intent.SessionID != a.SessionID || a.Intent.Epoch != rec.Epoch || err != nil || len(digest) != 32 || hex.EncodeToString(digest) != a.Intent.Digest || !known || curveName(curve) != rec.Curve {
+			writeError(w, newError(CodeSessionBadRequest, "announced signing intent differs from the held key or session"))
+			return
+		}
+		if _, e := s.bindSignIntent(*a.Intent); e != nil {
+			writeError(w, e)
+			return
+		}
+	} else if _, err := s.loadSignIntent(a.KeyID, a.SessionID); !errors.Is(err, store.ErrNotFound) {
+		if err != nil {
+			writeError(w, newError(CodeStoreFailed, "signing intent record unavailable"))
+		} else {
+			writeError(w, newError(CodeSessionBadRequest, "announcement omits the durable signing intent"))
+		}
+		return
+	}
 	now, err := s.spends.Now()
 	if err != nil {
 		writeError(w, newError(CodeStoreFailed, "%v", err))
@@ -200,17 +222,23 @@ func (s *Server) handleAnnounce(w http.ResponseWriter, r *http.Request) {
 		writeError(w, newError(CodeStoreFailed, "%v", err))
 		return
 	}
-	writeJSON(w, http.StatusOK, AnnounceAck{NodeID: s.opts.NodeID, Recorded: true})
+	writeJSON(w, http.StatusOK, AnnounceAck{NodeID: s.opts.NodeID, Recorded: true, Intent: a.Intent})
 }
 
 func (s *Server) Announce(ctx context.Context, keyID, sessionID, account string, participants []string, spends []policy.Spend) (int, []string) {
 	a := Announcement{SessionID: sessionID, KeyID: keyID, Account: account, Spends: make([]SpendJSON, 0, len(spends))}
+	state, err := s.loadSignIntent(keyID, sessionID)
+	if err == nil {
+		a.Intent = &state.Binding
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return 0, append([]string(nil), participants...)
+	}
 	for _, sp := range spends {
 		a.Spends = append(a.Spends, SpendJSON{Asset: sp.Asset, Amount: sp.Amount.String()})
 	}
 	body, err := json.Marshal(a)
 	if err != nil {
-		return 1, nil
+		return 0, append([]string(nil), participants...)
 	}
 	type answer struct {
 		peer string
@@ -229,7 +257,8 @@ func (s *Server) Announce(ctx context.Context, keyID, sessionID, account string,
 			defer cancel()
 			var ack AnnounceAck
 			err := s.peerCall(callCtx, p, PathPeerAnnounce, body, false, &ack)
-			answers <- answer{peer: p, ok: err == nil && ack.Recorded && ack.NodeID == p}
+			bound := a.Intent == nil || (ack.Intent != nil && *ack.Intent == *a.Intent)
+			answers <- answer{peer: p, ok: err == nil && ack.Recorded && ack.NodeID == p && bound}
 		}(p)
 	}
 	acked := 1
@@ -248,7 +277,11 @@ func (s *Server) Announce(ctx context.Context, keyID, sessionID, account string,
 
 func (s *Server) peerCall(ctx context.Context, peer, path string, body []byte, retry bool, out any) error {
 	for {
+		started := time.Now()
 		status, resp, err := s.opts.Transport.Request(ctx, peer, path, body)
+		if err == nil && s.opts.Metrics != nil {
+			s.opts.Metrics.ObservePeerRTT(peer, time.Since(started))
+		}
 		if err == nil && status == http.StatusOK {
 			if out == nil {
 				return nil
@@ -272,6 +305,17 @@ func (s *Server) peerCall(ctx context.Context, peer, path string, body []byte, r
 	}
 }
 
+func (s *Server) ceremonyRefreshForEpoch(keyID string, epoch uint64) (store.CeremonyRefresh, error) {
+	state, err := s.opts.Store.CeremonyRefresh(keyID)
+	if err == nil && state.State == "complete" && state.Decision == PhaseCommit && state.BaseEpoch+1 < epoch {
+		if e := s.requireAuditSequence(state.AuditSequence); e != nil {
+			return state, e
+		}
+		return store.CeremonyRefresh{}, store.ErrNotFound
+	}
+	return state, err
+}
+
 func (s *Server) vote(keyID, sessionID string, epoch uint64) (*refreshVote, error) {
 	key := keyID + "\x00" + sessionID
 	s.votesMu.Lock()
@@ -293,7 +337,7 @@ func (s *Server) vote(keyID, sessionID string, epoch uint64) (*refreshVote, erro
 		return nil, errVotesFull
 	}
 	v := &refreshVote{epoch: epoch, created: now, acks: make(map[string]bool), changed: make(chan struct{}, 1), done: make(chan struct{}), decision: decisionPending}
-	if state, err := s.opts.Store.CeremonyRefresh(keyID); err == nil {
+	if state, err := s.ceremonyRefreshForEpoch(keyID, epoch); err == nil {
 		if state.SessionID != sessionID || state.BaseEpoch+1 != epoch {
 			return nil, fmt.Errorf("ceremony refresh vote identity mismatch")
 		}
@@ -393,7 +437,7 @@ func (s *Server) handlePeerRefresh(w http.ResponseWriter, r *http.Request) {
 			writeError(w, newError(CodeSessionBadRequest, "only the coordinator %q decides refreshes of key %q", coordinator, req.KeyID))
 			return
 		}
-		if state, err := s.opts.Store.CeremonyRefresh(req.KeyID); err == nil {
+		if state, err := s.ceremonyRefreshForEpoch(req.KeyID, req.Epoch); err == nil {
 			if state.SessionID != req.SessionID || state.BaseEpoch+1 != req.Epoch || !sameIDs(state.Participants, rec.Participants) || !bytes.Equal(state.PublicKey, rec.PublicKey) {
 				writeError(w, newError(CodeSessionBadRequest, "ceremony decision differs from staged identity"))
 				return
@@ -442,7 +486,7 @@ func (s *Server) decideRefresh(ctx context.Context, keyID, sessionID string, epo
 		return false, fmt.Errorf("coordinator %s did not take the staged acknowledgement: %w", coordinator, err)
 	}
 	if ack.Decision == PhaseCommit || ack.Decision == PhaseAbort {
-		if state, loadErr := s.opts.Store.CeremonyRefresh(keyID); loadErr == nil {
+		if state, loadErr := s.ceremonyRefreshForEpoch(keyID, epoch); loadErr == nil {
 			if state.SessionID != sessionID {
 				return false, fmt.Errorf("ceremony decision identity mismatch")
 			}
@@ -492,7 +536,7 @@ wait:
 	if acks >= others {
 		phase = PhaseCommit
 	}
-	if state, err := s.opts.Store.CeremonyRefresh(keyID); err == nil {
+	if state, err := s.ceremonyRefreshForEpoch(keyID, epoch); err == nil {
 		if state.SessionID != sessionID {
 			return false, fmt.Errorf("ceremony coordinator identity mismatch")
 		}
@@ -532,19 +576,14 @@ wait:
 }
 
 func (s *Server) abortCeremonyAtCoordinator(keyID, sessionID string, epoch uint64, rec store.ShareRecord) (string, error) {
-	if old, err := s.opts.Store.CeremonyRefreshHistory(keyID, sessionID); err == nil {
-		if old.BaseEpoch+1 != epoch || !sameIDs(old.Participants, rec.Participants) || !bytes.Equal(old.PublicKey, rec.PublicKey) || old.Decision != PhaseAbort {
-			return "", store.ErrInvalid
-		}
-		return PhaseAbort, nil
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return "", err
-	}
 	state, err := s.opts.Store.CeremonyRefresh(keyID)
 	if err != nil {
 		return "", err
 	}
-	if state.SessionID != sessionID || state.BaseEpoch+1 != epoch || !sameIDs(state.Participants, rec.Participants) || !bytes.Equal(state.PublicKey, rec.PublicKey) {
+	if state.SessionID != sessionID {
+		return s.archivedCeremonyAbort(keyID, sessionID, epoch, rec)
+	}
+	if state.BaseEpoch+1 != epoch || !sameIDs(state.Participants, rec.Participants) || !bytes.Equal(state.PublicKey, rec.PublicKey) {
 		return "", store.ErrInvalid
 	}
 	if state.Decision == PhaseCommit {
@@ -554,6 +593,9 @@ func (s *Server) abortCeremonyAtCoordinator(keyID, sessionID string, epoch uint6
 		return "", store.ErrInvalid
 	}
 	if err := s.opts.Store.SetCeremonyRefreshDecision(keyID, sessionID, epoch, PhaseAbort); err != nil {
+		if errors.Is(err, store.ErrInvalid) {
+			return s.archivedCeremonyAbort(keyID, sessionID, epoch, rec)
+		}
 		return "", err
 	}
 	s.votesMu.Lock()
@@ -561,6 +603,17 @@ func (s *Server) abortCeremonyAtCoordinator(keyID, sessionID string, epoch uint6
 	s.votesMu.Unlock()
 	if v != nil {
 		s.acceptDurableDecision(v, PhaseAbort)
+	}
+	return PhaseAbort, nil
+}
+
+func (s *Server) archivedCeremonyAbort(keyID, sessionID string, epoch uint64, rec store.ShareRecord) (string, error) {
+	old, err := s.opts.Store.CeremonyRefreshHistory(keyID, sessionID)
+	if err != nil {
+		return "", err
+	}
+	if old.SessionID != sessionID || old.KeyID != keyID || old.BaseEpoch+1 != epoch || rec.Epoch != old.BaseEpoch || !sameIDs(old.Participants, rec.Participants) || !bytes.Equal(old.PublicKey, rec.PublicKey) || old.Curve != rec.Curve || old.Decision != PhaseAbort {
+		return "", store.ErrInvalid
 	}
 	return PhaseAbort, nil
 }

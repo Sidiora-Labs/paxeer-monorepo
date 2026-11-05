@@ -1,0 +1,10 @@
+[repair.22.31.286]
+finding = "upgrade-name-order"
+tests = ["TestRepair_286_UpgradeNameOrder", "TestRepair_286_HistoricalContextsAcrossRestart"]
+selection = "Minimum completed height greater than or equal to the request; empty name and zero height when none qualifies; equal heights retain the lexicographically greatest name."
+path_proof = "SetDone writes the actual upgrade store; real node RPCContextProvider and SnapshotAwareRPCContextProvider consume the persisted keeper lookup, including snapshot hits, misses, fallback and close/reopen recovery."
+baseline = "Not run: the explicit ordered gates require complete implementation before hf-build and hf-done and forbid running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_request = "None: node/app.go (node domain) already consumes the corrected lookup and empty/zero sentinel in both RPC providers; both interfaces are exercised from the in-scope test."
+verified_revision_source = "The passing hf-done entry in the private /out/run/gates.jsonl ledger and the task's runner evidence record name the exact verified candidate revision, command, exit and log."
+continuation = "Attempt 1 failed verification; its complete test log was not carried into this sandbox, so no individual baseline failures are claimed. Preserve the repair and qualify the continued candidate through hf-build and hf-done."
+gotcha = "The commitment KV store stages SetDone writes until commit; use the normal cache multistore context for same-block reads, then flush and commit before asserting persisted lookup results."

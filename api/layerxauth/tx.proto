@@ -31,4 +31,11 @@ message LayerXScopeAuthorization {
   uint64 revocation_epoch = 7;
   bytes grant_id = 8;
   string msg_type_url = 9;
+  uint32 kind = 10;
+  uint64 period_length = 11;
+  string max_per_period = 12;
+  bytes purpose_hash = 13;
+  uint64 not_before = 14;
+  uint64 not_after = 15;
+  string spent_total = 16;
 }

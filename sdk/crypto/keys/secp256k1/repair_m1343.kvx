@@ -1,0 +1,19 @@
+[repair.22.33.1343]
+audit = "22.30.73"
+baseline = "Not run: the explicit gate order requires complete implementation before qualification and forbids running verify_cmd by hand. No unchanged-tree failure is claimed."
+qualification_repair = "The first verification used nil for the empty-byte fixture; Amino serializes nil as JSON null and bypasses custom decoding. Use a non-nil empty byte slice to exercise empty-scalar decoding with every assertion unchanged, and retain nil rejection explicitly through both import callbacks and signing."
+wiring_requests = []
+evidence = "The runner hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location; no qualification is claimed before those gates pass."
+
+[finding.secp-private-scalar]
+tests = ["TestRepairM_1343_PrivateScalar", "TestRepairM_1343_NilPrivateScalar", "TestRepairM_1343_Libsecp256k1ScalarBoundaries"]
+repair = "Validate canonical 32-byte scalars in 1..N-1 before Amino import or signing; copy validated imports and leave an existing key unchanged on refusal."
+proof = "Real Amino binary and JSON producers and decoders feed the SDK signer and verifier, checked with crypto/ecdsa; the native backend also rejects zero, N and N+1 and cross-verifies valid boundary signatures."
+
+[finding.secp-test-high-s]
+tests = ["TestRepairM_1343_HighS"]
+repair = "The existing nonmalleability test and the bounded repair test construct N-S from a genuine signature, prove independent mathematical validity and assert SDK refusal while retaining valid-signature and wrong-message checks."
+
+[finding.secp-test-independent-verifier]
+tests = ["TestRepairM_1343_IndependentVerifier"]
+repair = "The repair test executes the restored original signing test: crypto/ecdsa verifies the actual SHA256 message and fixed-width SDK R||S; an independent crypto/ecdsa signature is normalized to low S, encoded with 32-byte R and S and verified by the SDK."

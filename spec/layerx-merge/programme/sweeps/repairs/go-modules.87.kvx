@@ -1,0 +1,7 @@
+[repair.go-modules.87]
+target = "modules/oracle"
+command = "CGO_ENABLED=1 go vet ./modules/oracle/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/oracle/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "modules/oracle/ante_test.go constructs real SDK transactions instead of importing the node package solely for its test transaction helper, removing the full node dependency from the oracle package tests."
+producer_input_tests = []

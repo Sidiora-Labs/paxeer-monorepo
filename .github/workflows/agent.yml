@@ -24,13 +24,13 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal --component clippy
       - name: Install settlement test tools
-        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.8.1
       - name: Install native fixture dependencies
@@ -41,7 +41,7 @@ jobs:
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
       - name: Install pinned settlement compiler
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned fuzz toolchain and runner
@@ -84,7 +84,7 @@ jobs:
       CARGO_PROFILE_TEST_DEBUG: "1"
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Rust toolchain and fuzz runner
@@ -93,7 +93,7 @@ jobs:
           rustup toolchain install nightly-2025-11-10 --profile minimal --component rust-src &&
           cargo install cargo-fuzz --locked
       - name: Install settlement test tools
-        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.8.1
       - name: Install native fixture dependencies
@@ -104,7 +104,7 @@ jobs:
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
       - name: Install pinned settlement compiler
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: false

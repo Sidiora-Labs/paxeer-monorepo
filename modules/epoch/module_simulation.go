@@ -2,6 +2,7 @@ package epoch
 
 import (
 	"math/rand"
+	"time"
 
 	epochsimulation "github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/simulation"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/types"
@@ -33,10 +34,9 @@ func (AppModule) GenerateGenesisState(simState *module.SimulationState) {
 	for i, acc := range simState.Accounts {
 		accs[i] = acc.Address.String()
 	}
-	epochGenesis := types.GenesisState{
-		// this line is used by starport scaffolding # simapp/module/genesisState
-	}
-	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(&epochGenesis)
+	epochGenesis := types.DefaultGenesis()
+	epochGenesis.Epoch.EpochDuration = time.Duration(simState.Rand.Intn(60)+1) * time.Minute
+	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(epochGenesis)
 }
 
 // ProposalContents doesn't return any content functions for governance proposals

@@ -191,7 +191,7 @@ func validateSkipCount(page, perPage int) int {
 }
 
 // latestHeight can be either latest committed or uncommitted (+1) height.
-func (env *Environment) getHeight(latestHeight int64, heightPtr *int64) (int64, error) {
+func (env *Environment) getHeight(latestHeight, base int64, heightPtr *int64) (int64, error) {
 	if heightPtr != nil {
 		height := *heightPtr
 		if height <= 0 {
@@ -201,7 +201,6 @@ func (env *Environment) getHeight(latestHeight int64, heightPtr *int64) (int64, 
 			return 0, fmt.Errorf("%w (requested height: %d, blockchain height: %d)",
 				coretypes.ErrHeightExceedsChainHead, height, latestHeight)
 		}
-		base := env.BlockStore.Base()
 		if height < base {
 			return 0, coretypes.WrapErrHeightNotAvailable(height, utils.Some(base))
 		}

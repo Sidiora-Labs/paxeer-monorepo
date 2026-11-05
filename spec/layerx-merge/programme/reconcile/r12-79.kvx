@@ -1,0 +1,489 @@
+[reconcile.r12-79]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r12-79.1]
+interface = "interface.12.go-att-cmd-activity-types-gate-j49"
+verdict = "served"
+path = "services/wallet/attestor/cmd/attestor/main.go"
+line = 146
+symbol = "run"
+evidence = "Go signature remains func run(ctx context.Context, getenv func(string) string, ready func(listening)) error. It calls config.Load, whose ParseActivityTypes now rejects every nonempty type except 0x10005, then constructs the lxwire registry from cfg.ActivityTypes at lines 224-230; metrics are also initialized during startup."
+
+[row.r12-79.2]
+interface = "interface.12.cli-att-loadtest"
+verdict = "served"
+path = "services/wallet/attestor/cmd/loadtest/main.go"
+line = 160
+symbol = "loadtest"
+evidence = "CLI remains flag.NewFlagSet(\"loadtest\", flag.ContinueOnError) with endpoints, client-cert, client-key, ca, chain-id, token, duration, concurrency, session-timeout and keygen-timeout flags. The changed request kind is lx_send_authorization: kernelRequest now returns KindLXSendAuth with an owner approval at line 593 instead of lx_activity."
+
+[row.r12-79.3]
+interface = "interface.12.go-att-dealer-secp256k1"
+verdict = "served"
+path = "services/wallet/attestor/dealer/dealer.go"
+line = 16
+symbol = "Secp256k1"
+evidence = "Declaration remains Secp256k1 = tss.Secp256k1; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.4]
+interface = "interface.12.go-att-dealer-ed25519"
+verdict = "served"
+path = "services/wallet/attestor/dealer/dealer.go"
+line = 17
+symbol = "Ed25519"
+evidence = "Declaration remains Ed25519   = tss.Ed25519; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.5]
+interface = "interface.12.env-att-attestor-activity-types"
+verdict = "served"
+path = "services/wallet/attestor/internal/config/config.go"
+line = 46
+symbol = "ATTESTOR_ACTIVITY_TYPES"
+evidence = "Declaration remains EnvActivityTypes = \"ATTESTOR_ACTIVITY_TYPES\". The accepted input contract now permits only asset-send type 0x10005 (or an empty list), enforced by ParseActivityTypes at lines 285-308; it no longer configures arbitrary lx_activity signing."
+
+[row.r12-79.6]
+interface = "interface.12.go-att-config-env-activity-types"
+verdict = "served"
+path = "services/wallet/attestor/internal/config/config.go"
+line = 46
+symbol = "EnvActivityTypes"
+evidence = "Constant signature remains EnvActivityTypes = \"ATTESTOR_ACTIVITY_TYPES\". Its consumer config.Load calls ParseActivityTypes at line 194; the parser now rejects non-send activity types other than 0x10005, narrowing the configured envelope registry to send authorization."
+
+[row.r12-79.7]
+interface = "interface.12.go-att-config-parse-activity-types"
+verdict = "served"
+path = "services/wallet/attestor/internal/config/config.go"
+line = 285
+symbol = "ParseActivityTypes"
+evidence = "Go signature remains func ParseActivityTypes(v string) ([]uint32, error). The changed input contract explicitly rejects n != 0x10005 at lines 297-299; empty input still returns nil, while invalid, zero and duplicate entries are refused."
+
+[row.r12-79.8]
+interface = "interface.12.met-att-attestor-sessions-started-total"
+verdict = "served"
+path = "services/wallet/attestor/internal/health/health.go"
+line = 154
+symbol = "sessions_started_total"
+evidence = "Metric declaration retains Namespace: \"attestor\", Name: \"sessions_started_total\" and protocol labels. The exposure contract changed: NewMetrics now takes refusalCodes []string, cmd/attestor/main.go:151 constructs it in production, and server.go:156 mounts its Handler at operator-authenticated GET /metrics."
+
+[row.r12-79.9]
+interface = "interface.12.met-att-attestor-sessions-completed-total"
+verdict = "served"
+path = "services/wallet/attestor/internal/health/health.go"
+line = 159
+symbol = "sessions_completed_total"
+evidence = "Metric declaration retains Namespace: \"attestor\", Name: \"sessions_completed_total\" and protocol labels. Unlike the registry note about test-only construction, production run now creates NewMetrics and passes it to server.Options.Metrics, whose Handler is mounted at operator-authenticated GET /metrics in server.go:156."
+
+[row.r12-79.10]
+interface = "interface.12.met-att-attestor-refusals-total"
+verdict = "served"
+path = "services/wallet/attestor/internal/health/health.go"
+line = 164
+symbol = "refusals_total"
+evidence = "Metric declaration retains Namespace: \"attestor\", Name: \"refusals_total\" and reason labels. NewMetrics now accepts refusalCodes []string; Refused maps unknown reasons to \"other\" at lines 199-203. Production startup constructs these metrics and server.go:156 exposes their Handler through operator-authenticated GET /metrics."
+
+[row.r12-79.11]
+interface = "interface.12.met-att-attestor-signing-latency-seconds"
+verdict = "served"
+path = "services/wallet/attestor/internal/health/health.go"
+line = 169
+symbol = "signing_latency_seconds"
+evidence = "Metric declaration retains Namespace: \"attestor\", Name: \"signing_latency_seconds\", protocol labels and exponential buckets (0.005, 2, 12). Its exposure contract changed from the registry note: production run creates the metrics and server.go:156 mounts their Handler at operator-authenticated GET /metrics."
+
+[row.r12-79.12]
+interface = "interface.12.met-att-attestor-peer-rtt-seconds"
+verdict = "served"
+path = "services/wallet/attestor/internal/health/health.go"
+line = 175
+symbol = "peer_rtt_seconds"
+evidence = "Metric declaration retains Namespace: \"attestor\", Name: \"peer_rtt_seconds\", peer labels and exponential buckets (0.001, 2, 12). Production run now creates NewMetrics and supplies it to the server, which mounts the Handler at operator-authenticated GET /metrics in server.go:156."
+
+[row.r12-79.13]
+interface = "interface.12.go-att-health-refused-label-bound-j49"
+verdict = "served"
+path = "services/wallet/attestor/internal/health/health.go"
+line = 199
+symbol = "Refused"
+evidence = "Go signature remains func (m *Metrics) Refused(reason string). The label contract changed: reasons absent from m.refusalCodes are mapped to \"other\" before WithLabelValues, bounding labels to the configured error-code set plus other rather than arbitrary strings."
+
+[row.r12-79.14]
+interface = "interface.12.go-att-lxwire-protocol-version"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 12
+symbol = "ProtocolVersion"
+evidence = "Declaration remains ProtocolVersion                uint16 = 2; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.15]
+interface = "interface.12.go-att-lxwire-state-commitment-protocol-version"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 13
+symbol = "StateCommitmentProtocolVersion"
+evidence = "Declaration remains StateCommitmentProtocolVersion uint16 = 3; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.16]
+interface = "interface.12.go-att-lxwire-max-protocol-version"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 14
+symbol = "MaxProtocolVersion"
+evidence = "Declaration remains MaxProtocolVersion                    = StateCommitmentProtocolVersion; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.17]
+interface = "interface.12.go-att-lxwire-module-asset"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 94
+symbol = "ModuleAsset"
+evidence = "Declaration remains ModuleAsset      ModuleID = 1; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.18]
+interface = "interface.12.go-att-lxwire-module-escrow"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 95
+symbol = "ModuleEscrow"
+evidence = "Declaration remains ModuleEscrow     ModuleID = 2; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.19]
+interface = "interface.12.go-att-lxwire-module-budget"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 96
+symbol = "ModuleBudget"
+evidence = "Declaration remains ModuleBudget     ModuleID = 3; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.20]
+interface = "interface.12.go-att-lxwire-module-stream"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 97
+symbol = "ModuleStream"
+evidence = "Declaration remains ModuleStream     ModuleID = 4; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.21]
+interface = "interface.12.go-att-lxwire-module-service"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 98
+symbol = "ModuleService"
+evidence = "Declaration remains ModuleService    ModuleID = 5; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.22]
+interface = "interface.12.go-att-lxwire-module-perps"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 99
+symbol = "ModulePerps"
+evidence = "Declaration remains ModulePerps      ModuleID = 6; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.23]
+interface = "interface.12.go-att-lxwire-module-governance"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 100
+symbol = "ModuleGovernance"
+evidence = "Declaration remains ModuleGovernance ModuleID = 7; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.24]
+interface = "interface.12.go-att-lxwire-module-bridge"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 101
+symbol = "ModuleBridge"
+evidence = "Declaration remains ModuleBridge     ModuleID = 8; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.25]
+interface = "interface.12.go-att-lxwire-module-programs"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 102
+symbol = "ModulePrograms"
+evidence = "Declaration remains ModulePrograms   ModuleID = 9; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.26]
+interface = "interface.12.go-att-lxwire-module-spot"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 103
+symbol = "ModuleSpot"
+evidence = "Declaration remains ModuleSpot       ModuleID = 10; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.27]
+interface = "interface.12.go-att-lxwire-module-web"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 104
+symbol = "ModuleWeb"
+evidence = "Declaration remains ModuleWeb        ModuleID = 11; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.28]
+interface = "interface.12.go-att-lxwire-authority-owner"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/activity.go"
+line = 159
+symbol = "AuthorityOwner"
+evidence = "AuthorityOwner remains the second entry in the AuthorityKind iota block, after AuthorityMalformed, so its value remains 1. Activity.AuthorityKind returns it when the authority bytes equal the owner key; the registered identifier is present."
+
+[row.r12-79.29]
+interface = "interface.12.go-att-lxwire-max-send-payload-bytes"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/send.go"
+line = 17
+symbol = "MaxSendPayloadBytes"
+evidence = "Declaration remains MaxSendPayloadBytes          = 512; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.30]
+interface = "interface.12.go-att-lxwire-owner-authorization"
+verdict = "served"
+path = "services/wallet/attestor/internal/lxwire/send.go"
+line = 20
+symbol = "OwnerAuthorization"
+evidence = "Declaration remains OwnerAuthorization    uint8  = 1; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.31]
+interface = "interface.12.go-att-evm-precompile-names"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/evm/decode.go"
+line = 71
+symbol = "PrecompileNames"
+evidence = "Go signature remains func PrecompileNames() []string. Its returned registry now includes layerxledger, layerxpay, layerxauth and layerxprograms (0x101A-0x101D), while layerxcustody and layerxanchor are absent from precompileAddresses; the names remain sorted."
+
+[row.r12-79.32]
+interface = "interface.12.go-att-evm-precompile-address"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/evm/decode.go"
+line = 80
+symbol = "PrecompileAddress"
+evidence = "Go signature remains func PrecompileAddress(name string) (common.Address, bool). The lookup map now resolves layerxledger/pay/auth/programs to 0x101A/0x101B/0x101C/0x101D and no longer maps layerxcustody or layerxanchor to retired addresses."
+
+[row.r12-79.33]
+interface = "interface.12.go-att-evm-is-precompile"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/evm/decode.go"
+line = 85
+symbol = "IsPrecompile"
+evidence = "Go signature remains func IsPrecompile(address common.Address) bool. The recognized address set now includes 0x101A-0x101D and excludes retired 0x1013/0x1014 because the function iterates the updated precompileAddresses map."
+
+[row.r12-79.34]
+interface = "interface.12.go-att-evm-decode-calldata"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/evm/decode.go"
+line = 202
+symbol = "DecodeCalldata"
+evidence = "Go signature remains func DecodeCalldata(to common.Address, data []byte) (*Call, error). The decoder now uses the updated precompile registry and embedded layerxledger/pay/auth/programs ABIs for 0x101A-0x101D; retired custody/anchor entries are no longer in that registry."
+
+[row.r12-79.35]
+interface = "interface.12.go-att-policy-kind-lxactivity"
+verdict = "retired"
+path = "services/wallet/attestor/internal/policy/kinds.go"
+line = 14
+symbol = "KindLXActivity"
+evidence = "KindLXActivity is absent from registered production kinds.go; KindLXSendAuth = \"lx_send_authorization\" replaces that policy key, and KernelKinds/RegisterKernel use it. Repository-wide literal search excluding spec and docs finds three other files, all tests, including two test-only declarations of the old rejected kind; these are not a relocated production interface."
+remaining_refs = 3
+remaining = ["services/wallet/attestor/internal/policy/kinds_test.go:16", "services/wallet/attestor/internal/policy/policy_test.go:709", "services/wallet/attestor/internal/server/lx_retired_test.go:20"]
+
+[row.r12-79.36]
+interface = "interface.12.go-att-policy-kernel-kinds"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/kinds.go"
+line = 106
+symbol = "KernelKinds"
+evidence = "Go signature remains func KernelKinds() []string. The returned list changed from lx_activity, lx_bind, lx_grant to KindLXBind, KindLXGrant, KindLXSendAuth; the live policy key is lx_send_authorization rather than the retired activity signing kind."
+
+[row.r12-79.37]
+interface = "interface.12.go-att-policy-policy-register-kernel"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/kinds.go"
+line = 110
+symbol = "RegisterKernel"
+evidence = "Declaration is now func (p *Policy) RegisterKernel(bind, grant, sendAuth Inspector) error, replacing the registered (activity, bind, grant Inspector) parameter order and meanings. The inspector map binds KindLXBind, KindLXGrant and KindLXSendAuth and requires all three inspectors."
+
+[row.r12-79.38]
+interface = "interface.12.go-att-policy-rate-window"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/ledger.go"
+line = 19
+symbol = "RateWindow"
+evidence = "Declaration remains RateWindow  = time.Minute; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.39]
+interface = "interface.12.go-att-policy-spend-window"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/ledger.go"
+line = 20
+symbol = "SpendWindow"
+evidence = "Declaration remains SpendWindow = 24 * time.Hour; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.40]
+interface = "interface.12.go-att-lx-default-rpcwait"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/lx/chain.go"
+line = 26
+symbol = "DefaultRPCWait"
+evidence = "Declaration remains DefaultRPCWait   = 10 * time.Second; the exact exported identifier is still present in its registered file with the registered type and value."
+
+[row.r12-79.41]
+interface = "interface.12.go-att-lx-activity-review"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/lx/lx.go"
+line = 1310
+symbol = "ActivityReview"
+evidence = "Declaration remains type ActivityReview struct with Activity *lxwire.Activity, Digest [32]byte and Disclosure Disclosure. The review contract now evaluates policy.KindLXSendAuth and rejects envelopes whose type is not OpAssetTransfer; EVM review has a separate /v1/evm/review route rather than replacing this type."
+
+[row.r12-79.42]
+interface = "interface.12.go-att-lx-evaluator-review-activity"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/lx/lx.go"
+line = 1325
+symbol = "ReviewActivity"
+evidence = "Go signature remains func (e *Evaluator) ReviewActivity(ctx policy.Context, envelope []byte, publicKey [32]byte, ledger policy.Ledger, authorize bool) (*ActivityReview, error). Its shared review path now evaluates KindLXSendAuth and accepts only OpAssetTransfer envelopes; EVM review is served separately."
+
+[row.r12-79.43]
+interface = "interface.12.go-att-lx-evaluator-review-native-activity"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/lx/lx.go"
+line = 1329
+symbol = "ReviewNativeActivity"
+evidence = "Go signature remains func (e *Evaluator) ReviewNativeActivity(ctx policy.Context, envelope []byte, publicKey [32]byte, ledger policy.Ledger, authorize bool) (*ActivityReview, error). It selects NativeClockProfileV1 and shares the narrowed KindLXSendAuth/OpAssetTransfer review path; it remains implemented for native send authorization."
+
+[row.r12-79.44]
+interface = "interface.12.rs-att-kernelvectors-generator-j49"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs"
+line = 224
+symbol = "encode_unsigned_envelope"
+evidence = "The registered use layerx_wire::activity::encode_unsigned_envelope import is gone. The generator now declares a local fn encode_unsigned_envelope(envelope: &UnsignedEnvelope) -> Result<Vec<u8>, WireError> at line 224, encoding eleven canonical unsigned fields with Encoder; the same file calls it at line 300."
+
+[row.r12-79.45]
+interface = "interface.12.cfg-att-policy-rules-kinds"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/policy.go"
+line = 72
+symbol = "Kinds"
+evidence = "Declaration remains Rules.Kinds []string with json:\"kinds,omitempty\". The changed policy vocabulary is lx_send_authorization instead of lx_activity: the shipped services/wallet/deploy/attestor-policy.json defaults list the former, and KernelKinds/RegisterKernel now register KindLXSendAuth."
+
+[row.r12-79.46]
+interface = "interface.12.go-att-policy-policy-evaluate"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/policy.go"
+line = 442
+symbol = "Evaluate"
+evidence = "Go signature remains func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision. Its inspection path now accounts for layerxledger.send envelope amounts, layerxauth grant allowances, layerxpay budget funding and layerxprograms funding/transfers through inspectCall; the retired layerxcustody depositToken branch is absent."
+
+[row.r12-79.47]
+interface = "interface.12.go-att-policy-inspect-construct-spends-j49"
+verdict = "served"
+path = "services/wallet/attestor/internal/policy/policy.go"
+line = 644
+symbol = "inspectCall"
+evidence = "Go signature remains func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, error). Spend cases now decode layerxledger.send, layerxauth grants, layerxpay budget funding and layerxprograms funding/transfers; the old layerxcustody depositToken case has been removed."
+
+[row.r12-79.48]
+interface = "interface.12.go-att-server-path-lxreview"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 39
+symbol = "PathLXReview"
+evidence = "Constant signature remains PathLXReview = \"/v1/lx/review\". It still registers HandleLXReview behind gatewayOnly(\"lx.review\"), but doLXReview now permits only lx_send_authorization. A separate PathEVMReview = \"/v1/evm/review\" is registered alongside it; the old review path was not renamed."
+
+[row.r12-79.49]
+interface = "interface.12.http-att-keys-generate"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 143
+symbol = "PathGenerate"
+evidence = "POST /v1/keys/generate remains registered as s.post(s.gatewayOnly(\"keys.generate\", s.inventoryRoute(\"generate\", s.HandleGenerate))). The route signature and gateway certificate boundary are unchanged, including the inventory check; the registry note proposing a different operator boundary is not implemented here."
+
+[row.r12-79.50]
+interface = "interface.12.http-att-keys-public-wallet"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 148
+symbol = "PathPublicWallet"
+evidence = "POST /v1/keys/public-wallet remains registered as s.post(s.gatewayOnly(\"keys.public-wallet\", s.HandlePublicWallet)); its method, gateway certificate boundary and handler are unchanged. The literal path is declared as PathPublicWallet in internal/server/public_identity.go:15; the registered server.go still mounts the route."
+
+[row.r12-79.51]
+interface = "interface.12.http-att-authority"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 149
+symbol = "PathAuthority"
+evidence = "POST /v1/authority remains registered as s.post(s.gatewayOnly(\"custody.authority\", s.HandleAuthority)); its route signature and gateway certificate boundary are unchanged. This is the agent authority route, which remains mounted despite retirement of the separate custody signing kind."
+
+[row.r12-79.52]
+interface = "interface.12.http-att-sign"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 150
+symbol = "PathSign"
+evidence = "POST /v1/sign remains mounted through s.post(s.signRoute()); verification.go:105 dispatches operator_verification to operatorOnly HandleVerification and all other requests to gatewayOnly HandleSign. The accepted signing vocabulary changed: SignKinds no longer includes custody or lx_activity and retains lx_bind, lx_grant, lx_send_authorization and EVM kinds."
+
+[row.r12-79.53]
+interface = "interface.12.http-att-sign-native-v2"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 151
+symbol = "PathNativeSign"
+evidence = "POST /v2/sign/native remains registered as s.post(s.gatewayOnly(\"sign.native-v2\", s.HandleNativeSign)); its route signature, gateway certificate boundary and handler are unchanged. PathNativeSign is the literal \"/v2/sign/native\" declared in internal/server/native_purpose.go:25."
+
+[row.r12-79.54]
+interface = "interface.12.http-att-lx-review"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/server.go"
+line = 152
+symbol = "PathLXReview"
+evidence = "POST /v1/lx/review remains registered as s.post(s.gatewayOnly(\"lx.review\", s.HandleLXReview)). The accepted request kind changed to only lx_send_authorization in doLXReview; EVM transaction review is a separate gateway-authenticated PathEVMReview registration immediately below, not a replacement of this route."
+
+[row.r12-79.55]
+interface = "interface.12.go-att-server-kind-custody"
+verdict = "retired"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 30
+symbol = "KindCustody"
+evidence = "KindCustody is absent from registered sign.go, kindCurves and SignKinds; custody_retired_test.go exercises rejection of the literal custody kind. Repository-wide literal search excluding spec and docs finds one other file: a demo test containing a source-absence regex for KindCustody, not a live declaration."
+remaining_refs = 1
+remaining = ["services/wallet/demo/src/components/Completion.test.tsx:68"]
+
+[row.r12-79.56]
+interface = "interface.12.go-att-server-sign-kinds"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 54
+symbol = "SignKinds"
+evidence = "Go signature remains func SignKinds() []string. Its result now contains evm_tx, eip712, personal_message, eth_sign_digest, lx_bind, lx_grant and lx_send_authorization; custody and lx_activity were removed from the accepted signing-kind list."
+
+[row.r12-79.57]
+interface = "interface.12.go-att-server-sign-request"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 73
+symbol = "SignRequest"
+evidence = "Declaration remains type SignRequest struct, but the Custody field was removed. Activity, Disclosure and Approval remain for lx_send_authorization, and ClockProfile/Origin/Construction are present; strict request decoding rejects the obsolete custody field as exercised by custody_retired_test.go."
+
+[row.r12-79.58]
+interface = "interface.12.go-att-server-server-handle-sign"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 286
+symbol = "HandleSign"
+evidence = "Go signature remains func (s *Server) HandleSign(w http.ResponseWriter, r *http.Request). It reads the request and delegates to doSign; the accepted-kind dispatch now excludes custody and lx_activity, while SignKinds/kindCurves retain the EVM kinds, lx_bind, lx_grant and lx_send_authorization."
+
+[row.r12-79.59]
+interface = "interface.12.key-att-ledger-session-custody"
+verdict = "retired"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 458
+symbol = "custody-"
+evidence = "The literal custody- ledger-session prefix is absent from registered sign.go together with the custody signing branch. Repository-wide fixed-string search of tracked text files excluding spec and docs records one first occurrence per other file; these are lexical prefix matches, including unrelated custody names and retirement tests, not evidence that the old session-key producer survives."
+remaining_refs = 174
+remaining = ["CODEMAP.md:31", "GOTCHA.kvx:1746", "Makefile:1654", "apps/wallet/e2e/send.spec.ts:764", "apps/wallet/src/account/KernelPlan.test.tsx:108", "apps/wallet/src/domains/platform/index.ts:11", "apps/wallet/src/platform/storage/registry.ts:13", "apps/wallet/src/platform/storage/repositories.ts:89", "apps/wallet/src/platform/storage/storage.acceptance.test.ts:73", "apps/web/copy/catalog.ts:564", "apps/web/copy/messages.generated.ts:533", "apps/web/e2e/explorer-account.test.ts:46", "apps/web/e2e/retired-journeys.test.ts:63", "apps/web/src/explorer/model.ts:511", "cmd/layerx-genesis/test_builder_cli.py:56", "cmd/layerx-module-registry/test_no_bridge_profile.py:55", "cmd/layerx-module-registry/test_registry.py:61", "cmd/layerx-module-registry/test_registry_cli.py:83", "cmd/retirement/test_custody_proof_daemon.py:9", "cmd/retirement/test_daemon_tests_custody.py:7", "cmd/retirement/test_kernel_symbol_consumers_retired.py:64", "contracts/config/checkpoint-settlement.json:5", "contracts/src/precompiles/ILayerXCustody.sol:22", "custodyproof/verify.go:26", "docker/ramps/files.tsv:13", "modules/layerxcustody/keeper/anchor_reader_test.go:115", "modules/layerxcustody/keeper/invariants.go:10", "modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go:64", "modules/layerxcustody/types/ids.go:18", "node/sequencer/completion_gate_test.go:31", "precompiles/layerxcustody/LayerXCustody.sol:22", "scripts/qualification/paxeer-x/reference-custody.py:14", "sdk/wallet/test/evm-review.test.ts:131", "services/agent/crates/layerx-crypto/src/settlement_recipient.rs:68", "services/agent/sdk/python/layerx_sdk/px.py:514", "services/agent/sdk/typescript/test/intent.test.ts:61", "services/agent/tests/qualify/tests/real_node_script.rs:16", "services/agent/tools/test_run_real_node_script.py:12", "services/human/crates/layerx-human-kms/tests/attestor.rs:478", "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:294", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs:456", "services/human/crates/layerx-human-service/src/custody/signer.rs:34", "services/human/crates/layerx-human-service/src/event_producer_tls.rs:610", "services/human/crates/layerx-human-service/src/journeys/move_money.rs:462", "services/human/crates/layerx-human-service/src/journeys/resolver.rs:1067", "services/human/crates/layerx-human-service/src/journeys/router.rs:114", "services/human/crates/layerx-human-service/src/onboarding/mod.rs:41", "services/human/crates/layerx-human-service/src/server/identity_dispatch.rs:358", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:2070", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs:49", "services/human/crates/layerx-human-service/tests/custody.rs:362", "services/human/crates/layerx-human-service/tests/custody_frame.rs:27", "services/human/crates/layerx-human-service/tests/intent_nonces.rs:67", "services/human/crates/layerx-human-service/tests/intent_submit.rs:139", "services/human/crates/layerx-human-service/tests/journey_faults.rs:1225", "services/human/crates/layerx-human-service/tests/journey_receipts.rs:54", "services/human/crates/layerx-human-service/tests/move_money.rs:937", "services/human/crates/layerx-human-service/tests/move_money_bank_send.rs:40", "services/human/crates/layerx-human-service/tests/production_unhooked.rs:773", "services/human/crates/layerx-human-service/tests/reclaim.rs:102", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs:45", "services/human/crates/layerx-human-service/tests/send_routes.rs:178", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1894", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:141", "services/human/schema/human-api/activity.kvx:36", "services/human/schema/human-api/baseline.kvx:66", "services/human/schema/human-api/compatibility.kvx:3", "services/human/schema/human-api/golden/deposit.start.response.json:33", "services/human/schema/human-api/golden/intent.plan.response.json:15", "services/human/schema/human-api/golden/intent.submit.request.json:15", "services/human/schema/human-api/journeys.kvx:10", "services/human/schema/human-api/movement.kvx:41", "services/human/tools/copy-lint/src/main.rs:148", "services/human/tools/schema-check/src/lib.rs:1981", "services/interop/crates/layerx-migrate/src/ethereum.rs:172", "services/interop/crates/layerx-migrate/src/lib.rs:40", "services/interop/crates/layerx-migrate/src/solana.rs:123", "services/platform/hosted/human/native_manifest.py:27", "services/platform/hosted/human/owner_native.py:339", "services/platform/hosted/human/provision.sh:383", "services/platform/hosted/human/test_owner_native.py:125", "services/platform/hosted/node/bootstrap.sh:306", "services/platform/hosted/node/supervisor.sh:552", "services/platform/hosted/node/tests/probe/src/main.rs:24", "services/platform/hosted/node/tests/test_retired_node_drivers.py:23", "services/platform/hosted/paxeer/custody-genesis.py:26", "services/platform/hosted/paxeer/deployment.yaml:25", "services/platform/hosted/paxeer/init-chain.sh:15", "services/platform/hosted/tests/beta-cluster.sh:1085", "services/platform/ramps/README.md:30", "services/platform/ramps/config.example.json:142", "services/platform/ramps/env-init.sh:63", "services/platform/ramps/reference/tests/config_validation.rs:127", "services/platform/ramps/reference/tests/plain_listener.rs:74", "services/platform/ramps/reference/tests/rebalance_routes.rs:218", "services/platform/ramps/toolkit/tests/custody_rungs.rs:14", "services/platform/ramps/toolkit/tests/recovery_settlement.rs:232", "services/wallet/attestor/internal/auth/agent/authority.go:33", "services/wallet/attestor/internal/auth/agent/authority_test.go:108", "services/wallet/attestor/internal/server/custody_retired_test.go:31", "services/wallet/attestor/internal/server/native_purpose_test.go:345", "services/wallet/demo/src/components/Completion.test.tsx:13", "services/wallet/demo/src/components/FundedAccountPanel.test.tsx:31", "services/wallet/gateway/src/agent/authority.ts:19", "services/wallet/gateway/test/attestor.test.ts:180", "services/wallet/gateway/test/backfill-command.test.ts:153", "services/wallet/gateway/test/custody-retired.test.ts:51", "services/wallet/gateway/test/e2e/attestors.ts:247", "services/wallet/gateway/test/e2e/wallet-custody-production.ts:136", "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts:299", "services/wallet/gateway/test/evm-approvals.test.ts:139", "services/wallet/gateway/test/evm-sign.test.ts:201", "services/wallet/gateway/test/lx-approvals.test.ts:129", "services/wallet/gateway/test/provisioning-station.test.ts:209", "services/wallet/gateway/test/provisioning.test.ts:237", "services/wallet/gateway/test/served-by.test.ts:311", "services/wallet/gateway/test/support/custody.ts:51", "src/modules/asset/lx_asset_registry.c:854", "src/protocol/lxp_module_ctx.c:144", "tests/agent/sdk/python/test_intent.py:54", "tests/bridge/retired/kernel_retirement.py:183", "tests/bridge/retired/test_retired_daemon_consumers.py:30", "tests/ci/test_retired_module_drivers.py:12", "tests/codec/lxp_test_kernel_complete.c:54", "tests/codec/lxp_test_modules_unregistered.c:86", "tests/fixtures/custody/paxeer-light-v1/README:8", "tests/fixtures/custody/paxeer-state-v2/history-window/history.json:1", "tests/fixtures/custody/paxeer-state-v3/state-credit.json:1", "tests/modules/test_stream_lifecycle.c:208", "tests/modules/test_stream_settle.c:219", "tests/programs/test_reference_custody.c:1", "tests/wallet/check-live.test.sh:278", "tools/bringup/check-live.sh:162", "tools/bringup/kernel-genesis.sh:72", "tools/bringup/mint-secrets.sh:89", "tools/bringup/tests/paxeer-x-fixture-foundation.py:222", "tools/bringup/tests/paxeer-x-runtime-contract.py:2334", "tools/bringup/tests/test_bringup_fixtures_retired.py:20", "tools/bringup/tests/test_kernel_genesis_retired.py:15", "tools/bringup/value-loop.sh:94", "tools/ci/tests/test_beta_deploy_retired.py:28", "tools/ci/tests/test_human_workflow.py:22", "tools/ci/tests/test_makefile_wave5.py:21", "tools/ci/tests/test_node_build_workflow.py:14", "tools/paxeer-x/gates/104.5.8.sh:4", "tools/paxeer-x/gates/108.0.7.sh:71", "tools/paxeer-x/gov/README.md:10", "tools/paxeer-x/gov/render.sh:13", "tools/paxeer-x/gov/test.sh:62", "tools/paxeer-x/retired_callers.json:29", "tools/paxeer-x/route-catalogue.json:44893", "tools/paxeer-x/tests/test_gates_custody_retired.py:18", "tools/qualification/beta_driver.py:1541", "tools/qualification/paxeer-x/caps-discovery.py:26", "tools/qualification/paxeer-x/custody-provider-producer.py:11", "tools/qualification/paxeer-x/external_custody.py:85", "tools/qualification/paxeer-x/human-movement-kms-assembly.py:734", "tools/qualification/paxeer-x/human_native_custody.py:60", "tools/qualification/paxeer-x/human_unified_custody_shapes.py:22", "tools/qualification/paxeer-x/movement-custody-profile.py:21", "tools/qualification/paxeer-x/private-human-custody.py:37", "tools/qualification/paxeer-x/wallet-402-caps.py:395", "tools/qualification/paxeer-x/wallet-ceremony-resume.py:505", "tools/qualification/paxeer-x/wallet-custody-recovery.py:19", "tools/qualification/paxeer-x/wallet-custody-routing.py:71", "tools/qualification/paxeer-x/wallet-supported-demo.py:175", "tools/qualification/release_runner.py:52", "tools/qualification/test_retired_callers_10.py:16", "tools/qualification/test_retired_callers_11.py:9", "tools/qualification/test_retired_callers_12.py:16", "tools/qualification/test_retired_callers_5.py:12", "tools/qualification/test_retired_callers_6.py:18", "tools/qualification/test_retired_callers_9.py:18", "tools/qualification/tests/test_requested_inputs_removed.py:37"]
+
+[row.r12-79.60]
+interface = "interface.12.go-att-server-lxreview-request"
+verdict = "served"
+path = "services/wallet/attestor/internal/server/sign.go"
+line = 696
+symbol = "LXReviewRequest"
+evidence = "Declaration remains type LXReviewRequest struct with ClockProfile, Kind, SessionID, KeyID and Activity. Its accepted Kind contract now defaults to and permits only lx_send_authorization in doLXReview; other kinds are rejected, and EVM review uses a separate request/route."

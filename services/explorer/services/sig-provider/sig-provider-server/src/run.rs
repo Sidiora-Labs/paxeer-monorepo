@@ -1,7 +1,8 @@
 use crate::{health::HealthService, settings::SourcesSettings, Service, Settings};
 use blockscout_service_launcher::{launcher, launcher::LaunchSettings, tracing};
 use sig_provider::{
-    eth_bytecode_db, fourbyte, sigeth, CompleteSignatureSource, SignatureSource, SourceAggregator,
+    eth_bytecode_db, fourbyte, precompiles::PrecompileSource, sigeth, CompleteSignatureSource,
+    SignatureSource, SourceAggregator,
 };
 use sig_provider_proto::blockscout::sig_provider::v1::{
     abi_service_actix::route_abi_service,
@@ -41,12 +42,20 @@ impl<S: SignatureService, A: AbiService> launcher::HttpRouter for Router<S, A> {
 }
 
 pub fn new_service(settings: SourcesSettings) -> Arc<Service> {
-    let sources: Vec<Arc<dyn SignatureSource + Send + Sync + 'static>> = vec![
+    let mut sources: Vec<Arc<dyn SignatureSource + Send + Sync + 'static>> = vec![];
+    if settings.precompiles.enabled {
+        sources.push(Arc::new(PrecompileSource::new()));
+    }
+    let import_sources: Vec<Arc<dyn SignatureSource + Send + Sync>> = vec![
         Arc::new(sigeth::Source::new(settings.sigeth)),
         Arc::new(fourbyte::Source::new(settings.fourbyte)),
     ];
+    sources.extend(import_sources.iter().cloned());
     let complete_sources = {
         let mut sources: Vec<Arc<dyn CompleteSignatureSource + Send + Sync + 'static>> = vec![];
+        if settings.precompiles.enabled {
+            sources.push(Arc::new(PrecompileSource::new()));
+        }
         if settings.eth_bytecode_db.enabled {
             sources.push(Arc::new(eth_bytecode_db::Source::new(
                 settings.eth_bytecode_db.url,
@@ -55,7 +64,7 @@ pub fn new_service(settings: SourcesSettings) -> Arc<Service> {
         sources
     };
     let aggregator = Arc::new(SourceAggregator::new(sources, complete_sources));
-    Arc::new(Service::new(aggregator))
+    Arc::new(Service::with_import_sources(aggregator, import_sources))
 }
 
 pub async fn sig_provider(settings: Settings) -> Result<(), anyhow::Error> {

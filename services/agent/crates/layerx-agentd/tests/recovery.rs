@@ -5,14 +5,14 @@ use layerx_agentd::budget::{
 };
 use layerx_agentd::capability::{CeilingError, ReceiptApplication as CeilingReceipt};
 use layerx_agentd::outbox::{
-    recover, resolve_unknown, Outbox, ReceiptLookup, RecoveryError, RecoveryInputs,
-    SubmissionState, UnknownBoundaryError, UnknownCeilingReservation, UnknownResolutionError,
+    recover, resolve_unknown, Outbox, RecoveryError, RecoveryInputs, SubmissionState,
+    UnknownCeilingReservation, UnknownResolutionError,
 };
-use layerx_agentd::protocol_evidence::RawReceiptEvidence;
 use layerx_agentd::shutdown::{graceful, DaemonLifecycle, ShutdownError};
 use layerx_agentd::store::{ObjectKind, Store};
 
-use support::{directory, tenant, verified_submission};
+use serde_json::{json, Value};
+use support::{directory, rpc_hex, sequencer_receipt, serve, signed_transaction, tenant};
 
 fn protocol(consumed: u128) -> ProtocolBudgetState {
     ProtocolBudgetState {
@@ -26,7 +26,7 @@ fn recovery_inputs<'a>(
     unknown_ceilings: &'a [UnknownCeilingReservation],
 ) -> RecoveryInputs<'a> {
     RecoveryInputs {
-        verifier: support::evidence_verifier(),
+        verifier: support::pinned_evidence_verifier(),
         unknown_budget_ids,
         budget_receipts,
         protocol_budget: protocol(0),
@@ -37,53 +37,51 @@ fn recovery_inputs<'a>(
     }
 }
 
-fn enqueue(outbox: &mut Outbox, store: &mut Store, id: u8) -> Vec<u8> {
-    let verified = verified_submission(id);
-    let exact = verified.exact_bytes().to_vec();
-    outbox
-        .enqueue(store, tenant(), [id; 32], verified)
+fn enqueue(outbox: &mut Outbox, store: &mut Store, id: u8) -> ([u8; 32], Vec<u8>) {
+    let exact = signed_transaction(id);
+    let hash = outbox
+        .enqueue(store, tenant(), exact.clone())
         .unwrap_or_else(|error| panic!("enqueue {id}: {error:?}"));
-    exact
+    (hash, exact)
 }
 
-fn transition(outbox: &mut Outbox, store: &mut Store, id: u8, to: SubmissionState) {
-    let evidence = if to == SubmissionState::Executed {
+fn transition(outbox: &mut Outbox, store: &mut Store, hash: [u8; 32], to: SubmissionState) {
+    let result = if to == SubmissionState::Executed {
         let activity_id = outbox
-            .status([id; 32])
+            .status(hash)
             .map_or_else(|| panic!("activity missing"), |status| status.activity_id);
-        Some(
-            support::evidence_verifier()
-                .verify_receipt(&support::raw_receipt(activity_id, 0, 25))
-                .unwrap_or_else(|error| panic!("receipt: {error:?}")),
-        )
+        let evidence = support::pinned_evidence_verifier()
+            .verify_receipt(&support::raw_receipt(activity_id, 0, 25))
+            .unwrap_or_else(|error| panic!("receipt: {error:?}"));
+        outbox.record_execution(store, hash, evidence, 9, 0)
     } else {
-        None
+        outbox.transition(store, hash, to, format!("advance to {to:?}"), None)
     };
-    outbox
-        .transition(store, [id; 32], to, format!("advance to {to:?}"), evidence)
-        .unwrap_or_else(|error| panic!("transition {id}: {error:?}"));
+    result.unwrap_or_else(|error| panic!("transition {hash:?}: {error:?}"));
 }
 
-fn populate_every_stage(store: &mut Store) -> (Outbox, Vec<u8>) {
+fn populate_every_stage(store: &mut Store) -> (Outbox, Vec<u8>, Vec<[u8; 32]>) {
     let mut outbox = Outbox::default();
-    let queued_exact = enqueue(&mut outbox, store, 1);
+    let (queued_id, queued_exact) = enqueue(&mut outbox, store, 1);
+    let mut ids = vec![queued_id];
     for id in 2..=5 {
-        let _ = enqueue(&mut outbox, store, id);
-        transition(&mut outbox, store, id, SubmissionState::Submitted);
+        let (hash, _) = enqueue(&mut outbox, store, id);
+        ids.push(hash);
+        transition(&mut outbox, store, hash, SubmissionState::Submitted);
     }
-    transition(&mut outbox, store, 3, SubmissionState::Acknowledged);
-    transition(&mut outbox, store, 4, SubmissionState::Unknown);
-    transition(&mut outbox, store, 5, SubmissionState::Acknowledged);
-    transition(&mut outbox, store, 5, SubmissionState::Executed);
-    (outbox, queued_exact)
+    transition(&mut outbox, store, ids[2], SubmissionState::Submitted);
+    transition(&mut outbox, store, ids[3], SubmissionState::Unknown);
+    transition(&mut outbox, store, ids[4], SubmissionState::Submitted);
+    transition(&mut outbox, store, ids[4], SubmissionState::Executed);
+    (outbox, queued_exact, ids)
 }
 
 #[test]
 fn restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema() {
     let root = directory("stages");
     let mut before = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    let (before_outbox, queued_exact) = populate_every_stage(&mut before);
-    let unknown_activity_id = before_outbox.status([4; 32]).map_or_else(
+    let (before_outbox, queued_exact, ids) = populate_every_stage(&mut before);
+    let unknown_activity_id = before_outbox.status(ids[3]).map_or_else(
         || panic!("unknown activity missing"),
         |status| status.activity_id,
     );
@@ -91,7 +89,7 @@ fn restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema() 
         &mut before,
         &UnknownReservation {
             tenant: tenant(),
-            id: [4; 32],
+            id: ids[3],
             amount: 300,
             expiry_sequence: 100,
             resolved: None,
@@ -106,10 +104,10 @@ fn restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema() 
             &mut after,
             &tenant(),
             &recovery_inputs(
-                &[[4; 32]],
+                &[ids[3]],
                 &[],
                 &[UnknownCeilingReservation {
-                    id: [4; 32],
+                    id: ids[3],
                     expected_activity_id: unknown_activity_id,
                     amount: 300,
                     expiry_sequence: 100,
@@ -118,23 +116,19 @@ fn restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema() 
         ),
         Err(RecoveryError::Ceiling(CeilingError::Unreconciled))
     ));
-    let recovered = recover(
-        &mut after,
-        &tenant(),
-        &recovery_inputs(&[[4; 32]], &[], &[]),
-    )
-    .unwrap_or_else(|error| panic!("recover: {error:?}"));
-    assert_eq!(recovered.queued_for_transmission, vec![[1; 32]]);
-    assert_eq!(
-        recovered.awaiting_receipt_resolution,
-        vec![[2; 32], [3; 32], [4; 32]]
-    );
-    assert!(!recovered.queued_for_transmission.contains(&[5; 32]));
-    assert!(!recovered.awaiting_receipt_resolution.contains(&[5; 32]));
+    let recovered = recover(&mut after, &tenant(), &recovery_inputs(&[ids[3]], &[], &[]))
+        .unwrap_or_else(|error| panic!("recover: {error:?}"));
+    assert_eq!(recovered.queued_without_authority, vec![ids[0]]);
+    assert!(recovered.queued_for_transmission.is_empty());
+    let mut awaiting = vec![ids[1], ids[2], ids[3]];
+    awaiting.sort_unstable();
+    assert_eq!(recovered.awaiting_receipt_resolution, awaiting);
+    assert!(!recovered.queued_for_transmission.contains(&ids[4]));
+    assert!(!recovered.awaiting_receipt_resolution.contains(&ids[4]));
     assert_eq!(
         recovered
             .outbox
-            .bytes_for_transmission([1; 32])
+            .bytes_for_transmission(ids[0])
             .unwrap_or_else(|error| panic!("queued bytes: {error:?}")),
         queued_exact
     );
@@ -153,71 +147,56 @@ fn restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema() 
     let _ = std::fs::remove_dir_all(root);
 }
 
-struct ExistingReceipts {
-    lookups: usize,
-    resends: usize,
-    receipts: std::collections::BTreeMap<[u8; 32], RawReceiptEvidence>,
-}
-
-impl ReceiptLookup for ExistingReceipts {
-    fn receipt_by_idempotency_key(
-        &mut self,
-        idempotency_key: [u8; 32],
-    ) -> Result<Option<RawReceiptEvidence>, UnknownBoundaryError> {
-        self.lookups += 1;
-        Ok(self.receipts.get(&idempotency_key).cloned())
-    }
-
-    fn resend_exact(
-        &mut self,
-        _idempotency_key: [u8; 32],
-        _signed_canonical_bytes: &[u8],
-    ) -> Result<(), UnknownBoundaryError> {
-        self.resends += 1;
-        Ok(())
-    }
-}
-
 #[test]
 fn restart_resolution_uses_receipts_without_duplicate_delivery() {
     let root = directory("exactly-once");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    let _ = populate_every_stage(&mut store);
+    let (_, _, ids) = populate_every_stage(&mut store);
     drop(store);
     let mut reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
     let mut recovered = recover(&mut reopened, &tenant(), &recovery_inputs(&[], &[], &[]))
         .unwrap_or_else(|error| panic!("recover: {error:?}"));
     let pending = recovered.awaiting_receipt_resolution.clone();
-    let receipts = pending
-        .iter()
-        .map(|submission_id| {
-            let activity_id = recovered
-                .outbox
-                .status(*submission_id)
-                .map_or_else(|| panic!("activity missing"), |status| status.activity_id);
-            (*submission_id, support::raw_receipt(activity_id, 0, 25))
-        })
-        .collect();
-    let mut core = ExistingReceipts {
-        lookups: 0,
-        resends: 0,
-        receipts,
-    };
+    let mut exchanges = Vec::new();
+    let mut keys = Vec::new();
+    for submission_id in &pending {
+        let exact = recovered
+            .outbox
+            .exact_signed_bytes(*submission_id)
+            .unwrap_or_else(|error| panic!("exact bytes: {error:?}"));
+        let (receipt, key) = sequencer_receipt(exact, true);
+        keys.push(key);
+        exchanges.push((
+            "pax_sequencerReceipt",
+            json!([rpc_hex(submission_id)]),
+            Some(receipt),
+        ));
+        exchanges.push((
+            "eth_getTransactionReceipt",
+            json!([rpc_hex(submission_id)]),
+            Some(Value::Null),
+        ));
+    }
+    keys.dedup();
+    let (mut endpoint, server) = serve(exchanges);
     for (attempt, submission_id) in pending.into_iter().enumerate() {
         resolve_unknown(
             &mut recovered.outbox,
             &mut reopened,
             submission_id,
             10_000 + u64::try_from(attempt).unwrap_or(0),
-            &support::evidence_verifier(),
-            &mut core,
+            &keys,
+            &mut endpoint,
         )
         .unwrap_or_else(|error| panic!("resolve {submission_id:?}: {error:?}"));
     }
+    let core = server
+        .join()
+        .unwrap_or_else(|error| panic!("server: {error:?}"));
     assert_eq!(core.lookups, 3);
     assert_eq!(core.resends, 0);
     assert_eq!(
-        recovered.outbox.status([5; 32]).map(|status| status.state),
+        recovered.outbox.status(ids[4]).map(|status| status.state),
         Some(SubmissionState::Executed)
     );
     let _ = std::fs::remove_dir_all(root);
@@ -229,7 +208,7 @@ fn unreconciled_accounting_blocks_writes_after_outbox_recovery() {
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let _ = populate_every_stage(&mut store);
     let inputs = RecoveryInputs {
-        verifier: support::evidence_verifier(),
+        verifier: support::pinned_evidence_verifier(),
         unknown_budget_ids: &[],
         budget_receipts: &[],
         protocol_budget: protocol(100),
@@ -252,10 +231,10 @@ fn graceful_shutdown_stops_admission_and_flushes_inflight_and_audit() {
     let root = directory("shutdown");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    let _ = enqueue(&mut outbox, &mut store, 1);
+    let (hash, _) = enqueue(&mut outbox, &mut store, 1);
     let mut lifecycle = DaemonLifecycle::running();
     lifecycle
-        .begin_work([1; 32], b"queued-before-exit".to_vec())
+        .begin_work(hash, b"queued-before-exit".to_vec())
         .unwrap_or_else(|error| panic!("begin: {error:?}"));
     lifecycle
         .append_audit(b"submission queued".to_vec())
@@ -283,43 +262,24 @@ fn graceful_shutdown_stops_admission_and_flushes_inflight_and_audit() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-struct NoReceipt;
-
-impl ReceiptLookup for NoReceipt {
-    fn receipt_by_idempotency_key(
-        &mut self,
-        _idempotency_key: [u8; 32],
-    ) -> Result<Option<RawReceiptEvidence>, UnknownBoundaryError> {
-        Ok(None)
-    }
-
-    fn resend_exact(
-        &mut self,
-        _idempotency_key: [u8; 32],
-        _signed_canonical_bytes: &[u8],
-    ) -> Result<(), UnknownBoundaryError> {
-        Ok(())
-    }
-}
-
 #[test]
 fn clock_regression_during_restarted_resolution_fails_closed() {
     let root = directory("clock");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    let _ = enqueue(&mut outbox, &mut store, 1);
-    transition(&mut outbox, &mut store, 1, SubmissionState::Submitted);
-    transition(&mut outbox, &mut store, 1, SubmissionState::Unknown);
-    let mut core = NoReceipt;
-    let _ = resolve_unknown(
-        &mut outbox,
-        &mut store,
-        [1; 32],
-        10_000,
-        &support::evidence_verifier(),
-        &mut core,
-    )
-    .unwrap_or_else(|error| panic!("initial resolution: {error:?}"));
+    let (hash, _) = enqueue(&mut outbox, &mut store, 1);
+    transition(&mut outbox, &mut store, hash, SubmissionState::Submitted);
+    transition(&mut outbox, &mut store, hash, SubmissionState::Unknown);
+    let (mut endpoint, server) = serve(vec![(
+        "pax_sequencerReceipt",
+        json!([rpc_hex(&hash)]),
+        None,
+    )]);
+    let _ = resolve_unknown(&mut outbox, &mut store, hash, 10_000, &[], &mut endpoint)
+        .unwrap_or_else(|error| panic!("initial resolution: {error:?}"));
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("server: {error:?}"));
     drop(outbox);
     drop(store);
     let mut reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
@@ -329,15 +289,15 @@ fn clock_regression_during_restarted_resolution_fails_closed() {
         resolve_unknown(
             &mut recovered.outbox,
             &mut reopened,
-            [1; 32],
+            hash,
             9_999,
-            &support::evidence_verifier(),
-            &mut core
+            &[],
+            &mut endpoint
         ),
         Err(UnknownResolutionError::TimeRegressed)
     ));
     assert_eq!(
-        recovered.outbox.status([1; 32]).map(|status| status.state),
+        recovered.outbox.status(hash).map(|status| status.state),
         Some(SubmissionState::Unknown)
     );
     let _ = std::fs::remove_dir_all(root);
@@ -348,22 +308,22 @@ fn queued_record_without_origin_is_restored_but_never_offered_for_transmission()
     let root = directory("queued-without-origin");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    let exact = enqueue(&mut outbox, &mut store, 1);
+    let (hash, exact) = enqueue(&mut outbox, &mut store, 1);
     drop(store);
     let mut reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
     let recovered = recover(&mut reopened, &tenant(), &recovery_inputs(&[], &[], &[]))
         .unwrap_or_else(|error| panic!("recover: {error:?}"));
-    assert_eq!(recovered.queued_without_authority, vec![[1; 32]]);
+    assert_eq!(recovered.queued_without_authority, vec![hash]);
     assert!(recovered.queued_for_transmission.is_empty());
     assert!(recovered.awaiting_receipt_resolution.is_empty());
     assert_eq!(
-        recovered.outbox.status([1; 32]).map(|status| status.state),
+        recovered.outbox.status(hash).map(|status| status.state),
         Some(SubmissionState::Queued)
     );
     assert_eq!(
         recovered
             .outbox
-            .exact_signed_bytes([1; 32])
+            .exact_signed_bytes(hash)
             .unwrap_or_else(|error| panic!("exact bytes: {error:?}")),
         exact.as_slice()
     );

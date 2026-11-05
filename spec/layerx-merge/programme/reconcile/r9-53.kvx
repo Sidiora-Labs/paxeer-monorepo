@@ -1,0 +1,503 @@
+[reconcile.r9-53]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-53.1]
+interface = "interface.9.err-http-serve-not-found"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 472
+symbol = "not_found"
+evidence = "The serve listener returns HTTP 404 with error not_found from the shared production handler in tests/proof_serve_errors.rs. main.rs:57 includes that file as serve_http and re-exports serve_read_routes."
+
+[row.r9-53.2]
+interface = "interface.9.err-http-serve-invalid-read"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 233
+symbol = "invalid_read"
+evidence = "Moved HTTP 400 invalid_read response to native_read_response in the shared serve_http module; InvalidRequest and CursorMismatch map to the same literal. main.rs includes this file as production code; the error body is unchanged."
+
+[row.r9-53.3]
+interface = "interface.9.err-http-serve-read-too-large"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 235
+symbol = "read_too_large"
+evidence = "Moved HTTP 413 read_too_large response to native_read_response in the shared serve_http module; ResultTooLarge maps to the same error literal. main.rs includes this file as production code; the error body is unchanged."
+
+[row.r9-53.4]
+interface = "interface.9.err-http-serve-verified-read-unavailable"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 236
+symbol = "verified_read_unavailable"
+evidence = "Moved HTTP 503 verified_read_unavailable response to native_read_response in the shared serve_http module. Other NativeReadError values retain this error body, while native reads now use SequencerEndpoint."
+
+[row.r9-53.5]
+interface = "interface.9.http-agentd-serve-get-v1-programs-balances"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 477
+symbol = "/v1/programs/"
+evidence = "The production serve handler now lives in tests/proof_serve_errors.rs, included by main.rs. It composes strip_prefix(\"/v1/programs/\") with strip_suffix(\"/balances\"), parses ProgramId and reads at endpoint.block_number(); the route shape and 400/503 literals remain."
+
+[row.r9-53.6]
+interface = "interface.9.err-http-serve-invalid-program"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 486
+symbol = "invalid_program"
+evidence = "Moved HTTP 400 invalid_program response to the shared production serve handler included by main.rs. ProgramId parsing still refuses malformed ids with the same literal; declaration location changed from main.rs."
+
+[row.r9-53.7]
+interface = "interface.9.err-http-serve-program-state-unavailable"
+verdict = "served_elsewhere"
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+line = 489
+symbol = "program_state_unavailable"
+evidence = "Moved HTTP 503 program_state_unavailable to the shared production serve handler included by main.rs. Receipt-key refresh failure and failed node-readiness or committed-height balance reads return this unchanged literal."
+
+[row.r9-53.8]
+interface = "interface.9.met-agentd-verificationlevel"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 11
+symbol = "VerificationLevel"
+evidence = "MetricKind::VerificationLevel is absent from obs/metrics.rs; MetricKind::Rung at line 11 uses Submitted, Receipted and Committed. The tenant metrics copy and other VerificationLevel types remain; they do not serve this obs metric."
+remaining_refs = 166
+remaining = ["GOTCHA.kvx:10031", "apps/web/e2e/activity-rungs.test.ts:8", "apps/web/e2e/agents-rungs.test.ts:13", "apps/web/e2e/proof_journeys.test.ts:16", "apps/web/e2e/proof_kit.test.ts:9", "apps/web/src/api/generated/index.ts:675", "apps/web/src/journeys/activity/model.ts:23", "apps/web/src/journeys/agents/model.ts:20", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java:81", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:193", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java:99", "sdk/platform/dotnet/PortableReceipt.cs:22", "sdk/platform/dotnet/Verifier.cs:36", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:14", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:48", "sdk/platform/generators/generate_jvm.py:240", "sdk/platform/generators/src/main.rs:1382", "sdk/platform/generators/tests/drift.rs:146", "sdk/platform/go/cmd/conformance/main.go:336", "sdk/platform/go/conformance_vectors_test.go:348", "sdk/platform/go/kernel_verifier_retired_test.go:12", "sdk/platform/go/portable_receipt.go:31", "sdk/platform/go/portable_receipt_test.go:23", "sdk/platform/go/verify.go:75", "sdk/platform/jvm/README.md:105", "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:195", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/Committed.java:34", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:41", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:23", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java:49", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java:245", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:68", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java:81", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:49", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift:8", "sdk/wallet/src/human.ts:22", "sdk/wallet/src/types.ts:515", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs:92", "services/agent/crates/layerx-agentd/src/admin.rs:8", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:723", "services/agent/crates/layerx-agentd/src/approval/events.rs:6", "services/agent/crates/layerx-agentd/src/audit/record.rs:7", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:5", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:9", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:11", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:12", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:239", "services/agent/crates/layerx-agentd/src/cache.rs:8", "services/agent/crates/layerx-agentd/src/config.rs:15", "services/agent/crates/layerx-agentd/src/enrolment.rs:1135", "services/agent/crates/layerx-agentd/src/events/ingest.rs:33", "services/agent/crates/layerx-agentd/src/export.rs:22", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:8", "services/agent/crates/layerx-agentd/src/human_runtime.rs:17", "services/agent/crates/layerx-agentd/src/identity.rs:4", "services/agent/crates/layerx-agentd/src/managed_agent.rs:6", "services/agent/crates/layerx-agentd/src/policy/approval.rs:13", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:17", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:106", "services/agent/crates/layerx-agentd/src/read/committed.rs:9", "services/agent/crates/layerx-agentd/src/receipt.rs:7", "services/agent/crates/layerx-agentd/src/session_control.rs:1431", "services/agent/crates/layerx-agentd/src/tenant/errors.rs:100", "services/agent/crates/layerx-agentd/src/tenant/isolation.rs:3", "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs:10", "services/agent/crates/layerx-agentd/tests/approval_events.rs:41", "services/agent/crates/layerx-agentd/tests/audit_coverage.rs:16", "services/agent/crates/layerx-agentd/tests/audit_export.rs:20", "services/agent/crates/layerx-agentd/tests/audit_record_v3.rs:16", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:500", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:44", "services/agent/crates/layerx-agentd/tests/budget_reconcile.rs:31", "services/agent/crates/layerx-agentd/tests/cache.rs:5", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:9", "services/agent/crates/layerx-agentd/tests/config.rs:10", "services/agent/crates/layerx-agentd/tests/delivery.rs:21", "services/agent/crates/layerx-agentd/tests/gaps.rs:40", "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs:13", "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:19", "services/agent/crates/layerx-agentd/tests/identity.rs:6", "services/agent/crates/layerx-agentd/tests/ingest.rs:9", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:546", "services/agent/crates/layerx-agentd/tests/observability.rs:15", "services/agent/crates/layerx-agentd/tests/operator.rs:15", "services/agent/crates/layerx-agentd/tests/outbox.rs:139", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs:46", "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:87", "services/agent/crates/layerx-agentd/tests/receipts.rs:12", "services/agent/crates/layerx-agentd/tests/redaction.rs:11", "services/agent/crates/layerx-agentd/tests/revocation.rs:17", "services/agent/crates/layerx-agentd/tests/rotation_refused.rs:9", "services/agent/crates/layerx-agentd/tests/session.rs:15", "services/agent/crates/layerx-agentd/tests/subscription.rs:39", "services/agent/crates/layerx-agentd/tests/support/mod.rs:41", "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs:16", "services/agent/crates/layerx-agentd/tests/tenant_leakage.rs:83", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:19", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs:29", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs:25", "services/agent/crates/layerx-agentd/tests/webhook.rs:30", "services/agent/crates/layerx-client/src/rpc/history.rs:7", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:28", "services/agent/crates/layerx-mcp/tests/faucet.rs:24", "services/agent/crates/layerx-mcp/tests/readonly.rs:23", "services/agent/crates/layerx-mcp/tests/scope.rs:24", "services/agent/crates/layerx-mcp/tests/web.rs:43", "services/agent/crates/layerx-mcp/tests/write.rs:27", "services/agent/crates/layerx-proof/src/checkpoint.rs:299", "services/agent/crates/layerx-proof/src/evidence.rs:3", "services/agent/crates/layerx-proof/src/export.rs:7", "services/agent/crates/layerx-proof/src/inclusion.rs:160", "services/agent/crates/layerx-proof/src/level.rs:3", "services/agent/crates/layerx-proof/src/receipt.rs:290", "services/agent/crates/layerx-proof/tests/checkpoint.rs:22", "services/agent/crates/layerx-proof/tests/inclusion.rs:7", "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:4", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:13", "services/agent/crates/layerx-proof/tests/offline_export.rs:9", "services/agent/crates/layerx-proof/tests/receipt.rs:8", "services/agent/crates/layerx-types/src/verify.rs:22", "services/agent/crates/layerx-types/tests/proof_types.rs:1", "services/agent/crates/layerx-types/tests/verification.rs:7", "services/agent/qualification/pay2/pay2e_test.rs:70", "services/agent/tests/parity/python.py:13", "services/agent/tests/parity/typescript.mjs:6", "services/agent/tests/qualify/fabrication.rs:94", "services/human/crates/layerx-human-service/src/activity/export.rs:1088", "services/human/crates/layerx-human-service/src/journeys/engine.rs:24", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:23", "services/human/crates/layerx-human-service/tests/activity.rs:39", "services/human/crates/layerx-human-service/tests/agent_controls.rs:51", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:53", "services/human/crates/layerx-human-service/tests/agent_create.rs:36", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs:10", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:25", "services/human/crates/layerx-human-service/tests/approvals.rs:148", "services/human/crates/layerx-human-service/tests/archive.rs:32", "services/human/crates/layerx-human-service/tests/detail.rs:20", "services/human/crates/layerx-human-service/tests/detail_rungs.rs:19", "services/human/crates/layerx-human-service/tests/journey_faults.rs:1083", "services/human/crates/layerx-human-service/tests/move_money.rs:680", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:124", "services/human/crates/layerx-human-service/tests/render.rs:256", "services/human/crates/layerx-human-service/tests/session_keys.rs:52", "services/human/crates/layerx-human-service/tests/session_rungs.rs:31", "services/human/crates/layerx-human-service/tests/spend.rs:295", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:566", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:724", "services/human/crates/layerx-human-test-support/src/lib.rs:28", "services/human/crates/layerx-human-test-support/tests/evidence_gate_rungs.rs:9", "services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs:40", "services/human/crates/layerx-human-test-support/tests/receipt_evidence_key.rs:9", "services/human/schema/human-api/agents.kvx:36", "services/human/schema/human-api/baseline.kvx:252", "services/human/schema/human-api/home.kvx:13", "services/human/schema/human-api/journeys.kvx:25", "services/human/schema/human-api/program-approvals.kvx:84", "services/human/tools/schema-check/tests/journey_vocabulary.rs:12", "services/human/tools/schema-check/tests/merged_schema_retired.rs:128", "services/human/tools/schema-check/tests/merged_schema_shapes.rs:249", "services/platform/hosted/gateway/src/lib.rs:1288", "services/platform/hosted/gateway/src/main.rs:5023", "services/platform/hosted/gateway/src/settlement.rs:93", "services/platform/hosted/gateway/tests/completion_gate.rs:91", "tools/platform/cli/tests/mcp_daemon_bound.rs:31", "tools/platform/emulator/src/settlement.rs:92"]
+
+[row.r9-53.9]
+interface = "interface.9.met-rs-layerx-agentd-obs-metric-kind-degraded-state"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 19
+symbol = "DegradedState"
+evidence = "MetricKind still declares DegradedState as a unit variant, with no declaration-shape change. Its valid_label branch now accepts BoundaryReady, NodeBehind, NodeUnavailable, ChainHalted and BlockUnavailable rather than the old core labels."
+
+[row.r9-53.10]
+interface = "interface.9.met-rs-layerx-agentd-obs-metric-label-boundary-behind"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 105
+symbol = "BoundaryBehind"
+evidence = "The former MetricLabel::BoundaryBehind variant is now declared pub const BoundaryBehind: Self = Self::NodeBehind; the compatibility identifier remains but emits the node_behind label through the canonical enum variant."
+
+[row.r9-53.11]
+interface = "interface.9.met-rs-layerx-agentd-obs-metric-label-core-halted"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 107
+symbol = "CoreHalted"
+evidence = "The former MetricLabel::CoreHalted variant is now declared pub const CoreHalted: Self = Self::ChainHalted; the compatibility identifier remains but canonical metric names emit chain_halted."
+
+[row.r9-53.12]
+interface = "interface.9.met-rs-layerx-agentd-obs-metric-label-core-emergency"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 109
+symbol = "CoreEmergency"
+evidence = "The former MetricLabel::CoreEmergency variant is now declared pub const CoreEmergency: Self = Self::ChainHalted; emergency and halted compatibility constants now resolve to the same chain_halted label."
+
+[row.r9-53.13]
+interface = "interface.9.met-rs-layerx-agentd-obs-metric-label-data-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/obs/metrics.rs"
+line = 111
+symbol = "DataUnavailable"
+evidence = "The former MetricLabel::DataUnavailable variant is now declared pub const DataUnavailable: Self = Self::BlockUnavailable; the compatibility identifier remains but emits block_unavailable."
+
+[row.r9-53.14]
+interface = "interface.9.rs-agentd-ops-program-programoperations"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 768
+symbol = "ProgramOperations"
+evidence = "The declaration is now pub struct ProgramOperations<R = LayerxdProgramBalanceReader> with reader: R. In addition to the original reader specialization, an impl for SequencerEndpoint exposes EVM program operations; override.J43.6 names task 9.10.1."
+
+[row.r9-53.15]
+interface = "interface.9.rs-agentd-programoperations-discover-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1003
+symbol = "discover"
+evidence = "pub fn discover(&mut self, program: ProgramId, now: u64, bound: &VerifiedProgramBundle) -> Result<ProgramDiscovery, ProgramOperationError> remains in the reader specialization. The registry stored only pub fn discover(; this full signature and its current line replace that incomplete anchor."
+
+[row.r9-53.16]
+interface = "interface.9.rs-agentd-programoperations-interface-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1058
+symbol = "interface"
+evidence = "pub fn interface(&mut self, program: ProgramId, now: u64, bound: &VerifiedProgramBundle) -> Result<ProgramInterfaceRead, ProgramOperationError> remains in the reader specialization and checks the bound interface against discovery. Registry pub fn interface( is an abbreviated signature; the declaration has moved."
+
+[row.r9-53.17]
+interface = "interface.9.rs-agentd-programoperations-simulate-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1085
+symbol = "simulate"
+evidence = "The reader-specialized pub fn simulate takes &mut self, a ReceiptVerifiedProgramSimulator, &ProgramCall, signed_activity, now and &VerifiedProgramBundle, returning ProgramExecution. This retained declaration moved; an additional SequencerEndpoint overload at line 1831 takes actor, NativeProgramCall and fee_limit and returns ProgramCallResult."
+
+[row.r9-53.18]
+interface = "interface.9.rs-agentd-programoperations-submit-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1119
+symbol = "submit"
+evidence = "The reader-specialized pub fn submit takes &mut self, &mut SequencerEndpoint, &ModuleRegistry, &ProgramCall, ProgramSubmission, now and &VerifiedProgramBundle and returns ProgramTransactionSubmission. A new endpoint-specialized overload at line 2040 takes NativeProgramCall, fee_limit, SigningPreparation and exact signed bytes."
+
+[row.r9-53.19]
+interface = "interface.9.rs-agentd-programoperations-simulate-native-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1145
+symbol = "simulate_native"
+evidence = "The retained pub fn simulate_native takes a ReceiptVerifiedProgramSimulator with native transport, NativeProgramCall, fee_limit, signed_activity, now and &VerifiedProgramBundle, returning ProgramExecution. The endpoint-specialized overload at line 1851 takes &self, actor, call and fee_limit and returns ProgramCallResult."
+
+[row.r9-53.20]
+interface = "interface.9.rs-agentd-programoperations-submit-native-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 1185
+symbol = "submit_native"
+evidence = "The retained pub fn submit_native takes &mut SequencerEndpoint, &ModuleRegistry, (NativeProgramCall, u128), ProgramSubmission, now and &VerifiedProgramBundle and returns ProgramTransactionSubmission. The endpoint-specialized overload at line 2063 takes &self, call, fee_limit, &SigningPreparation, signed bytes and registry."
+
+[row.r9-53.21]
+interface = "interface.9.rs-agentd-outbox-submissionstate"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/outbox/mod.rs"
+line = 30
+symbol = "SubmissionState"
+evidence = "pub enum SubmissionState now contains Prepared, Signed, Queued, Submitted, Unknown, Executed, Failed, Expired and Committed. Committed replaces the old Acknowledged/Superseded states mentioned in the registry; terminal() accepts Committed, Failed or Expired."
+
+[row.r9-53.22]
+interface = "interface.9.rs-agentd-outbox-enqueue-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/outbox/mod.rs"
+line = 155
+symbol = "enqueue"
+evidence = "pub fn enqueue(&mut self, store: &mut Store, tenant: TenantId, raw: Vec<u8>) -> Result<[u8; 32], OutboxError> now queues exact signed EVM transaction bytes and returns their keccak hash after decode_signed and recover_sender; the registry only recorded pub fn enqueue(."
+
+[row.r9-53.23]
+interface = "interface.9.fmt-unknown-resolution-state"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/outbox/unknown.rs"
+line = 336
+symbol = "LXUR"
+evidence = "The LXUR literal remains only in decode_state as an explicit StateVersion refusal. The active STATE_MAGIC changed to LXU2 at line 16 and encode_state writes it with transaction hash and retry timing; LXUR is no longer an accepted or emitted state format."
+
+[row.r9-53.24]
+interface = "interface.9.err-reason-policy-no-policy"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/policy/operation.rs"
+line = 106
+symbol = "policy.no_policy"
+evidence = "PolicyDryRunRefusal::code maps NoPolicyForTenant to the exact reason literal policy.no_policy at the registered location; the row signature described the reason rather than the literal alone."
+
+[row.r9-53.25]
+interface = "interface.9.err-reason-policy-unknown-session"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/policy/operation.rs"
+line = 107
+symbol = "policy.unknown_session"
+evidence = "PolicyDryRunRefusal::code maps UnknownSession to the exact reason literal policy.unknown_session at the registered location; the row signature described the reason rather than the literal alone."
+
+[row.r9-53.26]
+interface = "interface.9.err-reason-policy-unknown-capability"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/policy/operation.rs"
+line = 108
+symbol = "policy.unknown_capability"
+evidence = "PolicyDryRunRefusal::code maps UnknownCapability to the exact reason literal policy.unknown_capability at the registered location; the reason is still declared in this file."
+
+[row.r9-53.27]
+interface = "interface.9.err-reason-policy-capability-store"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/policy/operation.rs"
+line = 109
+symbol = "policy.capability_store"
+evidence = "PolicyDryRunRefusal::code maps CapabilityStore to the exact reason literal policy.capability_store at the registered location; the reason is still declared in this file."
+
+[row.r9-53.28]
+interface = "interface.9.rs-agentd-prepare-prepared"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 628
+symbol = "Prepared"
+evidence = "The original pub struct Prepared now lives inside pub mod legacy and remains re-exported by pub use legacy::* at line 953. It retains UnsignedEnvelope, canonical bytes, a 32-byte signing_preimage, disclosure, disclosure_digest and audit. The separate evm::Prepared at line 148 is exported as EvmPrepared and carries Eip1559Call and a 20-byte actor."
+
+[row.r9-53.29]
+interface = "interface.9.rs-agentd-read-availability-availabilityfailure-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+line = 24
+symbol = "AvailabilityFailure"
+evidence = "The daemon AvailabilityFailure struct and export are gone; availability.rs now defines AvailabilityReadError and reads sequencer blocks. The same-named proof-crate audit struct remains a separate API, not a daemon re-export."
+remaining_refs = 1
+remaining = ["services/agent/crates/layerx-proof/src/availability.rs:127"]
+
+[row.r9-53.30]
+interface = "interface.9.rs-agentd-read-availability-availabilityaudit-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+line = 37
+symbol = "AvailabilityAudit"
+evidence = "AvailabilityAudit is absent from the daemon read module and repository search outside spec and docs found no remaining mentions. The replacement availability response is Available or Pruned with block roots and transaction count."
+remaining_refs = 0
+remaining = []
+
+[row.r9-53.31]
+interface = "interface.9.rs-agentd-read-availability-replayframing-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+line = 99
+symbol = "ReplayFraming"
+evidence = "ReplayFraming is absent from availability.rs and repository search outside spec and docs found no mentions. Availability now uses SequencerEndpoint block retrieval without the old replay-framing API."
+remaining_refs = 0
+remaining = []
+
+[row.r9-53.32]
+interface = "interface.9.rs-agentd-read-availability-availability-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/availability.rs"
+line = 39
+symbol = "availability"
+evidence = "The signature changed from pub fn availability<F>( to pub fn availability(endpoint: &SequencerEndpoint, request: &AvailabilityRequest) -> Result<AvailabilityRead, AvailabilityReadError>. It retrieves a block at request.height and returns Available or Pruned instead of the old chunk/replay interface."
+
+[row.r9-53.33]
+interface = "interface.9.rs-agentd-read-balance-balance-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/balance.rs"
+line = 39
+symbol = "balance"
+evidence = "The current pub fn balance(config: &NodeRpcConfig, account: [u8; 20], height: Option<u64>) -> Result<BalanceRead, ApiError> reads eth_getBalance with pending or height freshness. The current account is an EVM address and achieved_rung is None; registry pub fn balance( omitted these signature details."
+
+[row.r9-53.34]
+interface = "interface.9.rs-agentd-read-checkpoint-headercommitments-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 14
+symbol = "HeaderCommitments"
+evidence = "HeaderCommitments is absent from checkpoint.rs and repository search outside spec and docs found no mentions. CheckpointHeader now carries Comet header fields including app_hash, validators_hash and last_results_hash."
+remaining_refs = 0
+remaining = []
+
+[row.r9-53.35]
+interface = "interface.9.rs-agentd-read-checkpoint-guarantorsignature-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 26
+symbol = "GuarantorSignature"
+evidence = "GuarantorSignature is absent from checkpoint.rs; Comet CommitVote and CommitValidator replace the old guarantor model. Remaining mentions are a Go verifier comment and a retired-export assertion, not the removed Rust struct."
+remaining_refs = 2
+remaining = ["layerxproof/exportcheck/checkpoint_exports_test.go:45", "layerxproof/verify/checkpoint.go:28"]
+
+[row.r9-53.36]
+interface = "interface.9.rs-agentd-read-checkpoint-proof-bundle-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"
+line = 653
+symbol = "proof_bundle"
+evidence = "pub fn proof_bundle(request: &ProofBundleRequest<'_>) -> Result<ServedProofBundle, CheckpointReadError> delegates to proof_bundle_owner::verify_bundle. The registry abbreviated pub fn proof_bundle(; current arguments bind receipt/account proofs to Comet commit evidence rather than the former checkpoint model."
+
+[row.r9-53.37]
+interface = "interface.9.rs-agentd-read-history-cursor-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/history.rs"
+line = 11
+symbol = "Cursor"
+evidence = "pub struct Cursor now carries block_height: u64, tx_index: u32 and log_index: u32. to_hex/from_hex encode sixteen position bytes as 32 lowercase hex characters; the cursor now identifies JSON-RPC block/log positions rather than a kernel sequence."
+
+[row.r9-53.38]
+interface = "interface.9.rs-agentd-read-mod-checkpoint-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/mod.rs"
+line = 44
+symbol = "checkpoint"
+evidence = "pub fn checkpoint now takes requested_height, expected_chain_id: &str, &CheckpointHeader, &BlockCommit and &[CommitValidator], returning Result<ServedCheckpoint, CheckpointReadError>. It verifies a Comet block and precommit quorum instead of the former checkpoint/guarantor model."
+
+[row.r9-53.39]
+interface = "interface.9.rs-agentd-read-native-nativereadroute"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 24
+symbol = "NativeReadRoute"
+evidence = "pub struct NativeReadRoute now stores SequencerEndpoint, Vec<ReceiptKeyEntry> and chain_id: u64. Its read dispatcher uses authenticated transaction receipts, sequencer block evidence, availability and JSON-RPC history rather than the LNI client described by the registry."
+
+[row.r9-53.40]
+interface = "interface.9.http-agentd-serve-get-v1-reads-receipt"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 76
+symbol = "\"receipt\""
+evidence = "The GET selector is now matched by the literal \"receipt\" after strip_prefix(\"/v1/reads/\") and split_once; no full templated route literal is declared. The selector is decoded as a transaction hash and authenticated through receipt lookup and receipt keys, replacing the old LNI receipt path."
+
+[row.r9-53.41]
+interface = "interface.9.http-agentd-serve-get-v1-reads-proof"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 77
+symbol = "\"proof\""
+evidence = "The GET selector is now matched by the literal \"proof\" after the shared /v1/reads/ prefix split. It decodes a transaction hash and requires an authenticated receipted result, returning proof_type sequencer_signature rather than the former LNI proof representation."
+
+[row.r9-53.42]
+interface = "interface.9.http-agentd-serve-get-v1-reads-checkpoint"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 78
+symbol = "\"checkpoint\""
+evidence = "The GET selector is now matched by the literal \"checkpoint\" after the shared /v1/reads/ prefix split. A numeric height calls evidence::checkpoint on SequencerEndpoint and returns block roots with verified=false and rung=null; it does not label this HTTP result a verified Comet commit."
+
+[row.r9-53.43]
+interface = "interface.9.http-agentd-serve-get-v1-reads-availability"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 79
+symbol = "\"availability\""
+evidence = "The GET selector is now matched by the literal \"availability\" after the shared /v1/reads/ prefix split. Numeric height dispatches to the sequencer block availability reader and emits Available or Pruned JSON with rung=null, replacing the old LNI chunk framing."
+
+[row.r9-53.44]
+interface = "interface.9.http-agentd-serve-get-v1-reads-history"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/native.rs"
+line = 80
+symbol = "\"history\""
+evidence = "The GET selector is now matched by the literal \"history\" after the shared /v1/reads/ prefix split. It parses account, limit and cursor, retrieves a bounded JSON-RPC history page, and returns indexed-height freshness with rung=null instead of LNI sequence history."
+
+[row.r9-53.45]
+interface = "interface.9.rs-agentd-read-program-balances-protocolprogrambalancereader-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/program_balances.rs"
+line = 10
+symbol = "ProtocolProgramBalanceReader"
+evidence = "pub struct ProtocolProgramBalanceReader now owns endpoint: SequencerEndpoint. bind takes that endpoint, and read(program, accounts, height) returns ProgramBalanceRead<CommittedProgramBalanceFreshness> through layerxprograms calls pinned to one committed block; the old protocol reader surface has changed."
+
+[row.r9-53.46]
+interface = "interface.9.rs-agentd-read-program-node-layerxdprogrambalancereader"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+line = 81
+symbol = "LayerxdProgramBalanceReader"
+evidence = "pub struct LayerxdProgramBalanceReader remains, now holding SequencerEndpoint plus node and independent receipt-authority HTTP configuration, ProtocolDeploymentVerifier, Registry and staleness_limit. override.J43.3 names task 9.5.8; the declaration moved from line 55 to 81."
+
+[row.r9-53.47]
+interface = "interface.9.fmt-receipt-metadata"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/receipt.rs"
+line = 13
+symbol = "LXRM"
+evidence = "const METADATA_MAGIC: &[u8; 4] = b\"LXRM\" is unchanged. Legacy encode_metadata still writes the 81-byte kernel record; transaction evidence now embeds LXRM plus version 2 and transaction hash, block height, tx index, gas, bloom, signature and rung. The magic is shared by both metadata layouts."
+
+[row.r9-53.48]
+interface = "interface.9.fmt-receipt-evidence"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/receipt.rs"
+line = 14
+symbol = "LXRE"
+evidence = "const EVIDENCE_MAGIC: &[u8; 4] = b\"LXRE\" remains, but EVIDENCE_VERSION at line 15 changed from the registered version 1 to 2. encode_transaction_evidence writes versioned transaction metadata and the canonical receipt; decode_transaction_evidence checks that version."
+
+[row.r9-53.49]
+interface = "interface.9.rs-agentd-receipt-store-native-owner-if-absent-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/receipt.rs"
+line = 260
+symbol = "store_native_owner_if_absent"
+evidence = "store_native_owner_if_absent is absent from receipt.rs and repository search outside spec and docs found no remaining mentions. The module instead exposes store_verified_if_absent<V: ReceiptIngress> for verified receipt ingress."
+remaining_refs = 0
+remaining = []
+
+[row.r9-53.50]
+interface = "interface.9.rs-agentd-session-keys-sessionkeyregistry"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/session_keys.rs"
+line = 13
+symbol = "SessionKeyRegistry"
+evidence = "pub struct SessionKeyRegistry remains with root, Zeroizing<Vec<u8>> operator_secret, network_id and owner_uid. The signer registry now uses secp256k1/v2 key-kind markers and EVM address-bearing session keys; override.J43.4 names task 9.7.1 rather than retiring this struct."
+
+[row.r9-53.51]
+interface = "interface.9.rs-agentd-session-revocation-revocationevent"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/session_revocation.rs"
+line = 208
+symbol = "RevocationEvent"
+evidence = "pub struct RevocationEvent now contains did: Did, authority: Option<ProtocolAuthority>, reason: InvalidationReason and observed_sequence: u64. Reasons include GrantRevokedOnChain, PrimaryKeyRotated and AccountRecovered; override.J43.5 names task 9.7.2 and the declaration moved from line 12."
+
+[row.r9-53.52]
+interface = "interface.9.rs-agentd-sign-attach-external-signature"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/sign.rs"
+line = 349
+symbol = "attach_external_signature"
+evidence = "pub fn attach_external_signature now accepts &SigningPreparation and signature: [u8; 65], returning Result<Vec<u8>, SigningError>. This replaces the registered &Prepared and 64-byte signature with EVM recoverable signing; the old kernel path is separately named attach_kernel_signature."
+
+[row.r9-53.53]
+interface = "interface.9.rs-agentd-sign-verify-before-submit"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/sign.rs"
+line = 368
+symbol = "verify_before_submit"
+evidence = "pub fn verify_before_submit now accepts signed bytes, &SigningPreparation, signer_address: &[u8; 20] and &ModuleRegistry, returning Result<VerifiedSubmission, SigningError>. The registered &Prepared and 32-byte signer_public_key have changed to EVM preparation and address recovery."
+
+[row.r9-53.54]
+interface = "interface.9.met-rs-layerx-agentd-tenant-metric-label-boundary-failure"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 130
+symbol = "BoundaryFailure"
+evidence = "MetricLabel still declares BoundaryFailure as a unit variant in tenant/errors.rs; its declaration shape is unchanged. name() now maps it to \"node_failure\" at line 162, and ErrorClass::Boundary selects it at line 306; it also exists in obs metrics today."
+
+[row.r9-53.55]
+interface = "interface.9.rs-client-ai-market-checkpointfinality-j44"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 148
+symbol = "CheckpointFinality"
+evidence = "CheckpointFinality is absent from ai_market.rs; CommitFinality at line 146 retains block_height, block_hash, app_hash and store_proof_digest. The sole remaining mention explicitly documents testing refusal of the retired path."
+remaining_refs = 1
+remaining = ["services/agent/crates/layerx-client/tests/proof_client.rs:5"]
+
+[row.r9-53.56]
+interface = "interface.9.rs-client-ai-market-observedsnapshot-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 229
+symbol = "ObservedSnapshot"
+evidence = "pub struct ObservedSnapshot remains with private state: Vec<u8> and facts: CaptureFacts. Its declaration moved from line 256 to 229; capture still reassembles a same-root ProgramRead, while finalization now binds the captured state to CommitFinality instead of CheckpointFinality."
+
+[row.r9-53.57]
+interface = "interface.9.rs-client-ai-market-finalizedsnapshot-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 323
+symbol = "FinalizedSnapshot"
+evidence = "pub struct FinalizedSnapshot now stores state, MarketHeader, SnapshotBinding, snapshot_id and commit: CommitFinality. The old checkpoint-finality type is absent; finalized views now retain exact block commit facts, with the declaration moved from line 334 to 323."
+
+[row.r9-53.58]
+interface = "interface.9.rs-client-ai-market-operationjournal-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1545
+symbol = "OperationJournal"
+evidence = "pub struct OperationJournal retains directory: PathBuf; its declaration moved from line 1474 to 1545. open takes &Path and persist takes &OperationRecord; records now use PAXAIOP2 and retain exact-byte transaction submission and receipt/block-commit lifecycle data."
+
+[row.r9-53.59]
+interface = "interface.9.rs-client-availability-availabilityselector"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/availability.rs"
+line = 29
+symbol = "AvailabilitySelector"
+evidence = "The registered client availability.rs file is deleted and repository search outside spec and docs found no remaining mentions. override.J44.77 cites decision.923 and task 9.25.2 for deleting this module; daemon block reads use AvailabilityRequest."
+remaining_refs = 0
+remaining = []
+
+[row.r9-53.60]
+interface = "interface.9.rs-client-availability-retrievallimits"
+verdict = "retired"
+path = "services/agent/crates/layerx-client/src/availability.rs"
+line = 73
+symbol = "RetrievalLimits"
+evidence = "The registered client availability.rs file is deleted and repository search outside spec and docs found no remaining mentions. override.J44.78 cites decision.923 and task 9.25.2 for deletion; the obsolete chunk retrieval limits are no longer exported."
+remaining_refs = 0
+remaining = []

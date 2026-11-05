@@ -12,6 +12,22 @@ static bool agreement_party(const lx_service_agreement *agreement,
            memcmp(agreement->buyer, identity, 32U) == 0;
 }
 
+static lxp_result agreement_escrow_link_check(
+    lxp_module_ctx *ctx, const lx_service_agreement *agreement,
+    const lx_service_escrow_link *link)
+{
+    lx_service_offer offer;
+    lxp_result status;
+    if (memcmp(link->holder, agreement->buyer, 32U) != 0 ||
+        memcmp(link->beneficiary, agreement->provider, 32U) != 0)
+        return LXP_ERR_ESCROW_LINK_MISMATCH;
+    status = lx_service_offer_lookup(ctx, agreement->offer_id, &offer);
+    if (status != LXP_OK) return status;
+    if (memcmp(link->asset_id, offer.asset_id, 32U) != 0)
+        return LXP_ERR_ESCROW_LINK_MISMATCH;
+    return LXP_OK;
+}
+
 lxp_result lx_service_dispute_open_execute(
     lxp_module_ctx *ctx, const lx_service_dispute_request *request,
     lx_service_dispute *result)
@@ -45,6 +61,11 @@ lxp_result lx_service_dispute_open_execute(
     status = lx_service_hashes_check(request->dispute.evidence_hashes,
                                      request->dispute.evidence_hash_count);
     if (status != LXP_OK) return status;
+    status = agreement_escrow_link_check(ctx, &agreement,
+                                         &request->escrow_link);
+    if (status != LXP_OK) return status;
+    if (lxp_ct_is_zero(request->escrow_link.arbiter, 32U))
+        return LXP_ERR_ARBITER_REQUIRED;
     dispute = request->dispute;
     lx_service_hashes_sort(dispute.evidence_hashes,
                            dispute.evidence_hash_count);
@@ -85,9 +106,14 @@ lxp_result lx_service_dispute_resolve_execute(
     status = lx_service_agreement_lookup(ctx, dispute.agreement_id,
                                          &agreement);
     if (status != LXP_OK ||
-        agreement.state != LX_SERVICE_AGREEMENT_DISPUTED ||
-        !agreement_party(&agreement, request->authority->principal))
+        agreement.state != LX_SERVICE_AGREEMENT_DISPUTED)
         return LXP_ERR_UNAUTHORIZED_DISPUTANT;
+    status = agreement_escrow_link_check(ctx, &agreement,
+                                         &request->escrow_link);
+    if (status != LXP_OK) return status;
+    if (memcmp(request->escrow_link.arbiter,
+               request->authority->principal, 32U) != 0)
+        return LXP_ERR_UNAUTHORIZED_ARBITER;
     dispute.resolved = true;
     dispute.ruling = request->dispute.ruling;
     dispute.provider_basis_points = request->dispute.provider_basis_points;

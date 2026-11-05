@@ -1,57 +1,69 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { parseProgramExecutionDocument, ProgramTrustContext, verifyProgramReceipt } from "../src/programs.js";
-import { decodeAndVerifyProgramTerminal } from "../src/program-wire.js";
-import { verifyReceiptOutcome } from "../src/verifier.js";
+import { test } from "node:test";
+import { parseProgramExecutionDocument } from "../src/programs.js";
+import { encodeSequencerReceipt } from "../src/sequencer-receipt-codec.js";
+import { SequencerReceiptVerificationError, verifySequencerReceipt } from "../src/verifier.js";
 
-const fixture = JSON.parse(readFileSync(new URL("../../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json", import.meta.url), "utf8")) as {
-  canonical_receipt_hex: string; program_id_hex: string; receipt_digest_hex: string; terminal_payload_hex: string; call_graph_hex: string;
-  execution_document: Readonly<Record<string, unknown>>;
-  authorized_batch: { batch_id_hex: string; asset_hex: string; previous_state_root_hex: string; resulting_state_root_hex: string; sequencer_public_key_hex: string };
-};
-const source = fixture.authorized_batch;
-const authority = {
-  batchId: Buffer.from(source.batch_id_hex, "hex"), asset: Buffer.from(source.asset_hex, "hex"),
-  previousStateRoot: Buffer.from(source.previous_state_root_hex, "hex"), resultingStateRoot: Buffer.from(source.resulting_state_root_hex, "hex"),
-  sequencerPublicKey: Buffer.from(source.sequencer_public_key_hex, "hex"),
-};
-const verified = await verifyReceiptOutcome(Buffer.from(fixture.canonical_receipt_hex, "hex"), authority, { protocolVersion: 3 });
-const receipt = verified.receipt; assert.equal(receipt.protocolVersion, 3); assert.equal(receipt.moduleVersion, 4); assert.equal(receipt.operation, 3);
-assert(receipt.programOutcome);
-const terminal = await decodeAndVerifyProgramTerminal(Buffer.from(fixture.terminal_payload_hex, "hex"), Buffer.from(fixture.call_graph_hex, "hex"), fixture.program_id_hex, receipt.programOutcome, 3);
-const document = fixture.execution_document;
-assert.deepEqual(document.usage, terminal.usage);
-assert.deepEqual(document.outcome, terminal.outcome);
-const parsed = parseProgramExecutionDocument(document);
-assert.equal(parsed.module_version, 4);
-const trust = new ProgramTrustContext(authority.sequencerPublicKey, () => 0n, 300_000n, 3);
-const execution = await verifyProgramReceipt(parsed, authority, trust);
-assert.equal(Buffer.from(execution.verification.receiptDigest).toString("hex"), fixture.receipt_digest_hex);
-await assert.rejects(verifyProgramReceipt(parseProgramExecutionDocument({ ...document, module_version: 3 }), authority, trust));
-await assert.rejects(verifyProgramReceipt(parsed, authority, new ProgramTrustContext(authority.sequencerPublicKey, () => 0n, 300_000n, 2)));
-for (const module_version of [0, 5, true]) assert.throws(() => parseProgramExecutionDocument({ ...document, module_version }));
-const corrupted = Buffer.from(fixture.canonical_receipt_hex, "hex"); corrupted[corrupted.length - 1] = corrupted[corrupted.length - 1]! ^ 1;
-await assert.rejects(verifyProgramReceipt(parseProgramExecutionDocument({ ...document, receipt: corrupted.toString("hex") }), authority, trust));
-
-for (const name of ["executed-v4", "principal-v4", "mutated-leg-v4", "executed-v3"]) {
-  const vector = JSON.parse(readFileSync(new URL(`../../../../../../sdk/platform/conformance/fixtures/receipt-programs-${name}.json`, import.meta.url), "utf8")) as typeof fixture & { signed_activity_hex: string };
-  const batch = vector.authorized_batch;
-  const authenticated = await verifyReceiptOutcome(Buffer.from(vector.canonical_receipt_hex, "hex"), {
-    batchId: Buffer.from(batch.batch_id_hex, "hex"), asset: Buffer.from(batch.asset_hex, "hex"),
-    previousStateRoot: Buffer.from(batch.previous_state_root_hex, "hex"), resultingStateRoot: Buffer.from(batch.resulting_state_root_hex, "hex"),
-    sequencerPublicKey: Buffer.from(batch.sequencer_public_key_hex, "hex"),
-  }, { protocolVersion: 3 });
-  assert.equal(Buffer.from(authenticated.receiptDigest).toString("hex"), vector.receipt_digest_hex);
-  const { createHash } = await import("node:crypto");
-  assert.deepEqual(Buffer.from(authenticated.receipt.activityId), createHash("sha256").update("LXP/v1/activity-id\0").update(Buffer.from(vector.signed_activity_hex, "hex")).digest());
-  const outcome = authenticated.receipt.programOutcome;
-  assert(outcome);
-  const payload = Buffer.from(vector.terminal_payload_hex, "hex"), graph = Buffer.from(vector.call_graph_hex, "hex");
-  const decode = (value: Uint8Array) => decodeAndVerifyProgramTerminal(value, graph, vector.program_id_hex, outcome, 3);
-  if (name === "mutated-leg-v4") await assert.rejects(decode(payload), /applied transfer root/);
-  else assert.equal((await decode(payload)).transferVerification, name === "executed-v3" ? "recorded_terminal_root_not_locally_reconstructable" : "reconstructed");
-  if (name === "executed-v4") {
-    for (let length = 0; length < payload.length; length++) await assert.rejects(decode(payload.subarray(0, length)));
-    await assert.rejects(decode(Buffer.concat([payload, Buffer.of(0)])));
+function program_execution_document_checks_module_version(): void {
+  const document = JSON.parse(readFileSync(new URL(
+    "../../../../../../tests/fixtures/programs/account-bound-call/execution.json",
+    import.meta.url,
+  ), "utf8")) as Readonly<Record<string, unknown>>;
+  const parsed = parseProgramExecutionDocument(document);
+  assert.equal(parsed.module_version, 4);
+  assert.deepEqual(parsed, document);
+  for (const module_version of [0, 5, true]) {
+    assert.throws(() => parseProgramExecutionDocument({ ...document, module_version }), TypeError);
   }
 }
+
+test(program_execution_document_checks_module_version);
+
+async function program_execution_receipt_uses_producer_encoding(): Promise<void> {
+  const corpus: {
+    readonly provenance: { readonly generator: string };
+    readonly cases: readonly {
+      readonly id: string;
+      readonly signedReceipt: string;
+      readonly rawTransaction: string;
+      readonly receiptDigest: string;
+      readonly pinnedKey: {
+        readonly keyId: string;
+        readonly publicKey: string;
+        readonly firstHeight: number;
+        readonly lastHeight: number;
+      };
+    }[];
+  } = JSON.parse(readFileSync(new URL(
+    "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+    import.meta.url,
+  ), "utf8"));
+  assert.equal(corpus.provenance.generator, "rpc/sequencer_receipt_vectors_test.go");
+  const vector = corpus.cases.find((entry) => entry.id === "V1-layerxprograms-call");
+  assert.ok(vector, "the producer corpus must include a Programs call");
+  const bytes = (value: string): Uint8Array => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
+  const signed = bytes(vector.signedReceipt);
+  const transaction = bytes(vector.rawTransaction);
+  const key = {
+    keyId: bytes(vector.pinnedKey.keyId),
+    publicKey: bytes(vector.pinnedKey.publicKey),
+    first_height: BigInt(vector.pinnedKey.firstHeight),
+    last_height: BigInt(vector.pinnedKey.lastHeight),
+  };
+  const verified = await verifySequencerReceipt(signed, transaction, [key]);
+  assert.equal(verified.level, "sequencer-signed");
+  assert.equal(verified.receipt.moduleId, 12);
+  assert.equal(verified.receipt.moduleVersion, 1);
+  assert.equal(verified.receipt.operation, 2);
+  assert.deepEqual(verified.receiptDigest, bytes(vector.receiptDigest));
+  const regenerated = encodeSequencerReceipt(verified.receipt);
+  assert.deepEqual(regenerated, signed);
+  assert.deepEqual(await verifySequencerReceipt(regenerated, transaction, [key]), verified);
+  const corrupted = regenerated.slice();
+  corrupted[corrupted.length - 1]! ^= 1;
+  await assert.rejects(verifySequencerReceipt(corrupted, transaction, [key]),
+    (error: unknown) => error instanceof SequencerReceiptVerificationError && error.check === "bad_signature");
+}
+
+test(program_execution_receipt_uses_producer_encoding);

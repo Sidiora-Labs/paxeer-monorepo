@@ -2,9 +2,9 @@
 
 use std::fmt::{Display, Formatter};
 
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_intents::{
-    BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund, BudgetFund, Intent,
-    IntentError, IntentKind, LxpSend, NativeReceive,
+    BudgetCreate, BudgetDefund, BudgetFund, Intent, IntentError, IntentKind, LxpSend, NativeReceive,
 };
 use layerx_types::account::{AccountId, AccountNamespace};
 use layerx_types::amount::Amount;
@@ -13,6 +13,34 @@ use layerx_types::intent::{
     BudgetId, ContextHash, DepositProofId, EvmAddress, NetworkId, PeriodLength, ProtocolVersion,
     PurposeHash, RolloverPolicy, SendAuthorization, Sequence, TimestampSeconds,
 };
+use sha2::{Digest as _, Sha256};
+
+/// The merged chain's canonical bank precompile.
+pub const BANK_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x01,
+];
+
+pub(super) fn abi_word(value: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn bank_send_calldata(from: [u8; 20], to: [u8; 20], denom: &str, amount: u128) -> Vec<u8> {
+    let mut data =
+        layerx_crypto::disclosure::call::ledger_selector("send(address,address,string,uint256)")
+            .to_vec();
+    for address in [from, to] {
+        data.extend([0; 12]);
+        data.extend(address);
+    }
+    data.extend(abi_word(128));
+    data.extend(abi_word(amount));
+    data.extend(abi_word(denom.len() as u128));
+    data.extend(denom.as_bytes());
+    data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+    data
+}
 
 /// The only source and destination kinds accepted by the movement API.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -100,7 +128,7 @@ impl Endpoint {
     }
 }
 
-/// Exact material needed for an authenticated 402LXP send.
+/// Exact send authority and the sender's pending EVM nonce.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SendRoute {
     pub account_sequence: Sequence,
@@ -110,6 +138,20 @@ pub struct SendRoute {
     pub authorization: SendAuthorization,
     pub network_id: NetworkId,
     pub protocol_version: ProtocolVersion,
+}
+
+impl SendRoute {
+    /// Carries the pending EVM nonce in the legacy wire slot.
+    #[must_use]
+    pub const fn with_pending_nonce(mut self, pending_nonce: u64) -> Self {
+        self.account_sequence = Sequence::from_u64(pending_nonce);
+        self
+    }
+
+    #[must_use]
+    pub const fn pending_nonce(&self) -> u64 {
+        self.account_sequence.value()
+    }
 }
 
 /// Optional first leg when a managed-agent budget does not yet exist.
@@ -160,6 +202,17 @@ pub enum CustodyRoute {
 /// Declared authority relationship. The resolver consults no ambient state.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Relationship {
+    BankTransfer {
+        from: EvmAddress,
+        to: EvmAddress,
+        route: SendRoute,
+        pointer: EvmAddress,
+        denom: String,
+        chain_id: u64,
+        max_priority_fee_per_gas: u128,
+        max_fee_per_gas: u128,
+        gas_limit: u64,
+    },
     Direct(SendRoute),
     ManagedBudget(BudgetRoute),
     AgentAuthorized(SendRoute),
@@ -206,6 +259,28 @@ impl RouteRequest {
         put_endpoint(&mut out, &self.source);
         put_endpoint(&mut out, &self.destination);
         match &self.relationship {
+            Relationship::BankTransfer {
+                from,
+                to,
+                route,
+                pointer,
+                denom,
+                chain_id,
+                max_priority_fee_per_gas,
+                max_fee_per_gas,
+                gas_limit,
+            } => {
+                out.push(10);
+                out.extend(from.bytes());
+                out.extend(to.bytes());
+                put_send(&mut out, route);
+                out.extend(pointer.bytes());
+                put_text(&mut out, denom);
+                out.extend(chain_id.to_be_bytes());
+                out.extend(max_priority_fee_per_gas.to_be_bytes());
+                out.extend(max_fee_per_gas.to_be_bytes());
+                out.extend(gas_limit.to_be_bytes());
+            }
             Relationship::Direct(v) => {
                 out.push(1);
                 put_send(&mut out, v);
@@ -282,6 +357,17 @@ impl RouteRequest {
         let source = r.endpoint()?;
         let destination = r.endpoint()?;
         let relationship = match r.u8()? {
+            10 => Relationship::BankTransfer {
+                from: EvmAddress::new(r.array()?),
+                to: EvmAddress::new(r.array()?),
+                route: r.send()?,
+                pointer: EvmAddress::new(r.array()?),
+                denom: r.text(128)?,
+                chain_id: r.u64()?,
+                max_priority_fee_per_gas: r.u128()?,
+                max_fee_per_gas: r.u128()?,
+                gas_limit: r.u64()?,
+            },
             1 => Relationship::Direct(r.send()?),
             2 => {
                 let budget_id = BudgetId::new(r.array()?);
@@ -375,7 +461,7 @@ pub(super) fn put_endpoint(out: &mut Vec<u8>, v: &Endpoint) {
     }
 }
 fn put_send(out: &mut Vec<u8>, v: &SendRoute) {
-    out.extend(v.account_sequence.value().to_be_bytes());
+    out.extend(v.pending_nonce().to_be_bytes());
     out.extend(v.idempotency_key.bytes());
     out.extend(v.expires_at.value().to_be_bytes());
     out.extend(v.context_hash.bytes());
@@ -531,8 +617,6 @@ pub enum Mechanism {
     Send,
     BudgetDefund,
     ReceiveUnderPayerGrant,
-    BridgeDepositCredit,
-    BridgeWithdrawRequest,
 }
 
 /// One automatically derived, executable journey leg.
@@ -556,7 +640,7 @@ impl RouteLeg {
         self.mechanism
     }
 
-    /// Returns the typed intent derived for this leg.
+    /// Returns the typed agent-runtime intent derived for this leg.
     #[must_use]
     pub const fn intent(&self) -> &Intent {
         &self.intent
@@ -567,13 +651,19 @@ impl RouteLeg {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Route {
     legs: Vec<RouteLeg>,
+    bank_transfers: Vec<Eip1559Call>,
 }
 
 impl Route {
-    /// Returns the non-empty ordered leg list.
+    /// Returns the ordered agent-runtime legs.
     #[must_use]
     pub fn legs(&self) -> &[RouteLeg] {
         &self.legs
+    }
+
+    #[must_use]
+    pub fn bank_transfers(&self) -> &[Eip1559Call] {
+        &self.bank_transfers
     }
 
     /// Returns the product-level action name shared by every route.
@@ -765,53 +855,53 @@ impl RouteResolver {
         ) {
             (
                 Endpoint::PaxeerWallet,
-                Endpoint::Human(recipient),
-                Relationship::Custody(CustodyRoute::Deposit {
-                    deposit_proof,
-                    checkpoint,
-                    reserve,
-                    idempotency_key,
-                }),
-            ) if reserve.namespace() == AccountNamespace::SystemTreasury => Ok(one_leg(
-                MovementTerm::Deposit,
-                Mechanism::BridgeDepositCredit,
-                BridgeDepositCredit::new(
-                    deposit_proof,
-                    checkpoint,
-                    reserve,
-                    recipient.clone(),
-                    request.asset,
-                    request.amount,
-                    idempotency_key,
-                )?,
-                IntentKind::BridgeDepositCredit,
-            )),
-            (
-                Endpoint::Human(owner),
                 Endpoint::PaxeerWallet,
-                Relationship::Custody(CustodyRoute::Withdrawal {
-                    request_anchor,
-                    fee_limit,
-                    withdrawals_account,
-                    payout_address,
-                    idempotency_key,
-                }),
-            ) if withdrawals_account.namespace() == AccountNamespace::SystemPaxeerWithdrawals => {
-                Ok(one_leg(
-                    MovementTerm::Withdrawal,
-                    Mechanism::BridgeWithdrawRequest,
-                    BridgeWithdrawRequest::new(
-                        request_anchor,
-                        fee_limit,
-                        owner.clone(),
-                        withdrawals_account,
-                        payout_address,
-                        request.asset,
-                        request.amount,
-                        idempotency_key,
-                    )?,
-                    IntentKind::BridgeWithdrawRequest,
-                ))
+                Relationship::BankTransfer {
+                    from,
+                    to,
+                    route,
+                    pointer,
+                    denom,
+                    chain_id,
+                    max_priority_fee_per_gas,
+                    max_fee_per_gas,
+                    gas_limit,
+                },
+            ) => {
+                if from == to
+                    || from.bytes() == [0; 20]
+                    || to.bytes() == [0; 20]
+                    || pointer.bytes() != BANK_ADDRESS
+                    || request.asset.bytes() != <[u8; 32]>::from(Sha256::digest(denom.as_bytes()))
+                    || request.amount == Amount::ZERO
+                    || route.expires_at.value() == 0
+                    || denom.len() < 3
+                    || denom.len() > 128
+                    || !denom.as_bytes()[0].is_ascii_alphabetic()
+                    || !denom
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"/:._-".contains(&b))
+                    || chain_id == 0
+                    || gas_limit == 0
+                    || max_fee_per_gas < max_priority_fee_per_gas
+                    || u128::from(gas_limit).checked_mul(max_fee_per_gas).is_none()
+                {
+                    return Err(unavailable(request));
+                }
+                let data =
+                    bank_send_calldata(from.bytes(), to.bytes(), &denom, request.amount.value());
+                Ok(Route {
+                    legs: Vec::new(),
+                    bank_transfers: vec![Eip1559Call {
+                        chain_id,
+                        nonce: route.pending_nonce(),
+                        max_priority_fee_per_gas,
+                        max_fee_per_gas,
+                        gas_limit,
+                        to: BANK_ADDRESS,
+                        data,
+                    }],
+                })
             }
             (
                 Endpoint::Human(owner),
@@ -894,7 +984,7 @@ fn budget_funding(
         legs.push(RouteLeg {
             term: MovementTerm::Fund,
             mechanism: Mechanism::BudgetCreate,
-            intent: Intent::v1(IntentKind::BudgetCreate(intent)),
+            intent: Intent::from(IntentKind::BudgetCreate(intent)),
         });
     }
     let fund = BudgetFund::new(
@@ -908,9 +998,12 @@ fn budget_funding(
     legs.push(RouteLeg {
         term: MovementTerm::Fund,
         mechanism: Mechanism::BudgetFund,
-        intent: Intent::v1(IntentKind::BudgetFund(fund)),
+        intent: Intent::from(IntentKind::BudgetFund(fund)),
     });
-    Ok(Route { legs })
+    Ok(Route {
+        legs,
+        bank_transfers: Vec::new(),
+    })
 }
 
 fn send(
@@ -936,7 +1029,7 @@ fn send(
             to.clone(),
             request.asset,
             request.amount,
-            route.account_sequence,
+            Sequence::from_u64(route.pending_nonce()),
             route.idempotency_key,
             route.expires_at,
             route.context_hash,
@@ -979,15 +1072,9 @@ fn one_leg<T>(
         legs: vec![RouteLeg {
             term,
             mechanism,
-            intent: {
-                let kind = wrap(value);
-                if matches!(kind, IntentKind::BridgeWithdrawRequest(_)) {
-                    Intent::v2(kind)
-                } else {
-                    Intent::v1(kind)
-                }
-            },
+            intent: Intent::from(wrap(value)),
         }],
+        bank_transfers: Vec::new(),
     }
 }
 
@@ -996,6 +1083,7 @@ fn unavailable(request: &RouteRequest) -> RouteError {
         source: request.source.kind(),
         destination: request.destination.kind(),
         relationship: match request.relationship {
+            Relationship::BankTransfer { .. } => "bank-transfer",
             Relationship::Direct(_) => "direct",
             Relationship::ManagedBudget(_) => "managed-budget",
             Relationship::AgentAuthorized(_) => "agent-authorized",

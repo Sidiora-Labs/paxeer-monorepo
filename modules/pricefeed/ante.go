@@ -4,6 +4,7 @@
 package pricefeed
 
 import (
+	"hash/fnv"
 	"sync"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
@@ -11,9 +12,14 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-// markLocks serialises the check and write of MarkSubmission per validator,
-// as CheckAndSetSpamPreventionCounter serialises the oracle vote counter.
-var markLocks sync.Map
+// markLocks bounds the locks serialising the check and write of MarkSubmission.
+var markLocks [256]sync.Mutex
+
+func markLockFor(operator sdk.ValAddress) *sync.Mutex {
+	hash := fnv.New32a()
+	_, _ = hash.Write(operator)
+	return &markLocks[hash.Sum32()%uint32(len(markLocks))]
+}
 
 // submissionOf returns the MsgSubmitPrices of a submission tx, nil for any
 // other tx.
@@ -102,8 +108,12 @@ func CheckSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error {
 // MarkSubmission repeats the rate check of a submission after signature
 // verification and writes the target height into the validator's last
 // submission height in the check state, which the next commit drops. It does
-// nothing on ReCheckTx or for a tx that is not a submission.
+// nothing on ReCheckTx or for a tx that is not a submission. Mixed submissions
+// are refused even when the caller has not run the stateless checks.
 func MarkSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error {
+	if _, err := types.CheckSubmissionAlone(tx.GetMsgs()); err != nil {
+		return err
+	}
 	msg := submissionOf(tx)
 	if ctx.IsReCheckTx() || msg == nil {
 		return nil
@@ -112,8 +122,7 @@ func MarkSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error {
 	if err != nil {
 		return err
 	}
-	lock, _ := markLocks.LoadOrStore(operator.String(), &sync.Mutex{})
-	mtx := lock.(*sync.Mutex)
+	mtx := markLockFor(operator)
 	mtx.Lock()
 	defer mtx.Unlock()
 	if err := checkRate(ctx, operator, k); err != nil {

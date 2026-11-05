@@ -2,23 +2,70 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePerpsWallet } from "./usePerpsWallet";
-import { subgraphQuery, POSITIONS_QUERY } from "./useSubgraph";
+import { subgraphQuery, POSITIONS_QUERY, rawUint256 } from "./useSubgraph";
+import { z } from "zod";
 import { buildGetAccount, type AccountState } from "@/core/perps/calls";
 import { portfolioFromAccount } from "@/core/perps/portfolio";
 import { getPublicClient } from "@/core/viem/clients";
 import { INDEXER_GRAPHQL } from "@/core/perps/config";
 import { subscribeStream } from "@/core/graphql/client";
-import { activePoll, isPageActive, onStreamResync, type CancelTask } from "@/core/net/realtime";
+import {
+  activePoll,
+  isPageActive,
+  onStreamResync,
+  type CancelTask,
+} from "@/core/net/realtime";
 
-type AccountTotals = Pick<AccountState, "collateral" | "equityUsd" | "withdrawable">;
+type AccountTotals = Pick<
+  AccountState,
+  "collateral" | "equityUsd" | "withdrawable"
+>;
 
-const EMPTY_ACCOUNT: AccountTotals = { collateral: 0n, equityUsd: 0n, withdrawable: 0n };
+const EMPTY_ACCOUNT: AccountTotals = {
+  collateral: 0n,
+  equityUsd: 0n,
+  withdrawable: 0n,
+};
+
+const portfolioPositionsSchema = z.object({
+  positions: z.array(
+    z.object({
+      positionId: rawUint256,
+      userAddress: z.string(),
+      marketId: z.number().int().nonnegative(),
+      isLong: z.boolean(),
+      sizeUsd: rawUint256,
+      leverage: rawUint256,
+      entryPrice: rawUint256,
+      collateralToken: z.string().nullable(),
+      collateralAmount: rawUint256,
+      collateralUsd: rawUint256,
+      status: z.literal("open"),
+      openedAt: z.string().nullable(),
+      openTxHash: z.string().nullable(),
+      market: z.object({ symbol: z.string() }).nullable(),
+    }),
+  ),
+});
+
+export function decodePortfolioPositions(data: unknown) {
+  return portfolioPositionsSchema.parse(data).positions;
+}
+
+export async function fetchPortfolioPositions(addr: string) {
+  return subgraphQuery(
+    POSITIONS_QUERY,
+    { userAddress: addr },
+    decodePortfolioPositions,
+  );
+}
 
 export interface PortfolioStats {
   totalVaultUsd: number;
   freeCollateral: number;
   unrealizedPnl: number;
   totalLeverage: number;
+  maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
   positions: any[];
 }
@@ -31,18 +78,28 @@ export interface PortfolioStats {
 interface RawSnapshot {
   positions: any[];
   account: AccountTotals;
+  accountAddress: string | null;
+  maintenanceMarginUsd: AccountState["maintenanceMarginUsd"] | null;
   isLoading: boolean;
 }
 
 const EMPTY_RAW: RawSnapshot = {
   positions: [],
   account: EMPTY_ACCOUNT,
+  accountAddress: null,
+  maintenanceMarginUsd: null,
   isLoading: false,
 };
 
 let _raw: RawSnapshot = EMPTY_RAW;
 const _subs = new Set<(s: RawSnapshot) => void>();
 let _activeAddress: string | null = null;
+interface PortfolioSession {
+  address: string;
+  liveVersion: number;
+  snapshotRequest: number;
+}
+let _session: PortfolioSession | null = null;
 let _accountTimer: CancelTask | null = null;
 let _resyncCleanup: CancelTask | null = null;
 let _posUnsubscribe: (() => void) | null = null;
@@ -64,14 +121,18 @@ const _LOCAL_CLOSED_SS_KEY = "perps.locallyClosed.v1";
 if (typeof window !== "undefined") {
   try {
     const saved = sessionStorage.getItem(_LOCAL_CLOSED_SS_KEY);
-    if (saved) JSON.parse(saved).forEach((id: string) => _locallyClosed.add(String(id)));
+    if (saved)
+      JSON.parse(saved).forEach((id: string) => _locallyClosed.add(String(id)));
   } catch {}
 }
 
 function _persistLocallyClosed() {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(_LOCAL_CLOSED_SS_KEY, JSON.stringify([..._locallyClosed]));
+    sessionStorage.setItem(
+      _LOCAL_CLOSED_SS_KEY,
+      JSON.stringify([..._locallyClosed]),
+    );
   } catch {}
 }
 
@@ -122,30 +183,60 @@ function _setRaw(patch: Partial<RawSnapshot>) {
   _notify();
 }
 
-async function _fetchAccount(addr: string) {
+async function _fetchAccount(session: PortfolioSession) {
+  const addr = session.address;
   if (!isPageActive()) return;
   try {
-    const account = await getPublicClient().readContract(buildGetAccount(addr as `0x${string}`));
-    if (_activeAddress !== addr) return;
-    _setRaw({ account });
-  } catch {}
+    const account = await getPublicClient().readContract(
+      buildGetAccount(addr as `0x${string}`),
+    );
+    if (_session !== session) return;
+    _setRaw({
+      account,
+      accountAddress: addr,
+      maintenanceMarginUsd: account.maintenanceMarginUsd,
+    });
+  } catch {
+    if (_session === session) _setRaw({ maintenanceMarginUsd: null });
+  }
 }
 
 const POSITION_CHANGED_QUERY = /* GraphQL */ `
   subscription PositionChanged($userAddress: String!) {
     positionChanged(userAddress: $userAddress) {
-      positionId marketId isLong sizeUsd leverage entryPrice
-      collateralToken collateralAmount collateralUsd status openedAt openTxHash
-      market { symbol }
+      positionId
+      marketId
+      isLong
+      sizeUsd
+      leverage
+      entryPrice
+      collateralToken
+      collateralAmount
+      collateralUsd
+      status
+      openedAt
+      openTxHash
+      market {
+        symbol
+      }
     }
   }
 `;
 
-async function _fetchPositionsOnce(addr: string) {
+async function _fetchPositionsOnce(session: PortfolioSession) {
+  const addr = session.address;
+  const liveVersion = session.liveVersion;
+  const request = ++session.snapshotRequest;
   try {
-    const res = await subgraphQuery<{ positions: any[] }>(POSITIONS_QUERY, { userAddress: addr });
-    if (_activeAddress !== addr) return;
-    const positions = res.positions ?? [];
+    const positions = await fetchPortfolioPositions(addr);
+    // A full-list push supersedes every snapshot already in flight. Session
+    // identity also invalidates requests across a stop/reopen of the same account.
+    if (
+      _session !== session ||
+      session.liveVersion !== liveVersion ||
+      session.snapshotRequest !== request
+    )
+      return;
     _reconcileLocallyClosed(positions);
     _setRaw({ positions });
   } catch {}
@@ -161,36 +252,56 @@ async function _fetchPositionsOnce(addr: string) {
  * processed the on-chain event, even if it lagged behind our first
  * fetch. Silent: no spinner, no UI signal.
  *
- * Reads from `_activeAddress` snapshot at call time so unmounting or
+ * Captures the active account session at call time so unmounting or
  * switching accounts mid-flight cancels remaining retries cleanly.
  */
 export function refreshPositions() {
-  const addr = _activeAddress;
-  if (!addr) return;
-  _fetchPositionsOnce(addr);
+  const session = _session;
+  if (!session) return;
+  _fetchPositionsOnce(session);
   for (const delay of [2_000, 6_000]) {
     setTimeout(() => {
-      if (_activeAddress === addr) _fetchPositionsOnce(addr);
+      if (_session === session) _fetchPositionsOnce(session);
     }, delay);
   }
 }
 
 function _stopPolling() {
-  if (_accountTimer)  { _accountTimer(); _accountTimer = null; }
-  _resyncCleanup?.(); _resyncCleanup = null;
-  if (_posUnsubscribe) { _posUnsubscribe(); _posUnsubscribe = null; }
+  _session = null;
+  if (_accountTimer) {
+    _accountTimer();
+    _accountTimer = null;
+  }
+  _resyncCleanup?.();
+  _resyncCleanup = null;
+  if (_posUnsubscribe) {
+    _posUnsubscribe();
+    _posUnsubscribe = null;
+  }
 }
 
 function _startPolling(addr: string) {
   _stopPolling();
   _activeAddress = addr;
-  _setRaw({ isLoading: true });
-  Promise.all([_fetchAccount(addr), _fetchPositionsOnce(addr)]).finally(() => {
-    if (_activeAddress === addr) _setRaw({ isLoading: false });
-  });
-  _accountTimer = activePoll(() => _fetchAccount(addr), 15_000, false);
-  _resyncCleanup = onStreamResync(url => {
-    if (url === INDEXER_GRAPHQL.wsUrl && _activeAddress === addr) { void _fetchPositionsOnce(addr); void _fetchAccount(addr); }
+  const session: PortfolioSession = {
+    address: addr,
+    liveVersion: 0,
+    snapshotRequest: 0,
+  };
+  _session = session;
+  _raw = { ...EMPTY_RAW, isLoading: true };
+  _notify();
+  Promise.all([_fetchAccount(session), _fetchPositionsOnce(session)]).finally(
+    () => {
+      if (_session === session) _setRaw({ isLoading: false });
+    },
+  );
+  _accountTimer = activePoll(() => _fetchAccount(session), 15_000, false);
+  _resyncCleanup = onStreamResync((url) => {
+    if (url === INDEXER_GRAPHQL.wsUrl && _session === session) {
+      void _fetchPositionsOnce(session);
+      void _fetchAccount(session);
+    }
   });
   // Subscribe to positionChanged — server pushes full position list on each change.
   // The initial query above fills the gap while the WS handshake completes.
@@ -199,7 +310,8 @@ function _startPolling(addr: string) {
     query: POSITION_CHANGED_QUERY,
     variables: { userAddress: addr },
     onData: (data) => {
-      if (_activeAddress !== addr) return;
+      if (_session !== session) return;
+      session.liveVersion++;
       const positions = data.positionChanged ?? [];
       _reconcileLocallyClosed(positions);
       _setRaw({ positions });
@@ -248,7 +360,10 @@ export function usePortfolioStats(): PortfolioStats {
   // indexer response intact for reconciliation, while consumers see only
   // positions that should still be open from the user's perspective.
   const visiblePositions = useMemo(
-    () => raw.positions.filter((p: any) => !_locallyClosed.has(String(p.positionId))),
+    () =>
+      raw.positions.filter(
+        (p: any) => !_locallyClosed.has(String(p.positionId)),
+      ),
     [raw],
   );
 
@@ -259,6 +374,10 @@ export function usePortfolioStats(): PortfolioStats {
 
   return {
     ...totals,
+    maintenanceMarginUsd:
+      wantedAddress !== null && raw.accountAddress === wantedAddress
+        ? raw.maintenanceMarginUsd
+        : null,
     isLoading: raw.isLoading,
     positions: visiblePositions,
   };

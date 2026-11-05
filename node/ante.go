@@ -5,9 +5,13 @@ import (
 	ibckeeper "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/keeper"
 	evmante "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/ante"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	layerxauthante "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/ante"
+	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
+	chainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle"
 	oraclekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/keeper"
 	pricefeedkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
+	appante "github.com/Sidiora-Labs/Paxeer-X-Network/node/ante"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/antedecorators"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
@@ -31,6 +35,8 @@ type HandlerOptions struct {
 	OracleKeeper      *oraclekeeper.Keeper
 	PricefeedKeeper   pricefeedkeeper.Keeper
 	EVMKeeper         *evmkeeper.Keeper
+	ChainsKeeper      *chainskeeper.Keeper
+	LayerXAuthKeeper  *layerxauthkeeper.Keeper
 	UpgradeKeeper     *upgradekeeper.Keeper
 	TXCounterStoreKey sdk.StoreKey
 	LatestCtxGetter   func() sdk.Context
@@ -66,6 +72,9 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, sdk.AnteHandler, e
 	if options.EVMKeeper == nil {
 		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "evm keeper is required for ante builder")
 	}
+	if options.LayerXAuthKeeper == nil {
+		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "layerxauth keeper is required for ante builder")
+	}
 	if options.LatestCtxGetter == nil {
 		return nil, nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "latest context getter is required for ante builder")
 	}
@@ -98,19 +107,29 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, sdk.AnteHandler, e
 		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
 		evmante.NewEVMAddressDecorator(options.EVMKeeper, options.EVMKeeper.AccountKeeper()),
 		antedecorators.NewAuthzNestedMessageDecorator(),
+		layerxauthante.NewRevocationDecorator(options.LayerXAuthKeeper, options.EVMKeeper),
 		ibcante.NewAnteDecorator(options.IBCKeeper),
 	}
 
 	anteHandler := sdk.ChainAnteDecorators(anteDecorators...)
 
+	feeDecorator := evmante.NewEVMFeeCheckDecorator(options.EVMKeeper, options.UpgradeKeeper)
+	feeDecorator.ChainsFeeReader = anteChainsFeeReader{options.ChainsKeeper, options.EVMKeeper}
+	chainDecorator := appante.EVMChainIDDecorator{EVMKeeper: options.EVMKeeper, ChainsKeeper: options.ChainsKeeper}
+	sigDecorator := appante.EVMDomainSigVerifyDecorator{EVMKeeper: options.EVMKeeper, Root: evmante.NewEVMSigVerifyDecorator(options.EVMKeeper, options.LatestCtxGetter)}
+	// Keep modules/evm/AGENTS.md's Ante Handler Pipeline in sync with this chain.
+	// Preprocessing recovers signatures; fee validation and BuyGas precede the
+	// domain signature decorator. Delivery also checks the nonce inside the fee
+	// decorator's StatelessChecks before BuyGas; CheckTx permits pending nonces.
 	evmAnteDecorators := []sdk.AnteDecorator{
 		// NOTE: NewEVMNoCosmosFieldsDecorator must come first to prevent writing state to chain without being charged.
 		// E.g. EVMPreprocessDecorator may short-circuit all the later ante handlers if AssociateTx and ignore NewEVMNoCosmosFieldsDecorator.
 		evmante.NewEVMNoCosmosFieldsDecorator(),
+		chainDecorator,
 		evmante.NewEVMPreprocessDecorator(options.EVMKeeper, options.EVMKeeper.AccountKeeper()),
 		evmante.NewBasicDecorator(options.EVMKeeper),
-		evmante.NewEVMFeeCheckDecorator(options.EVMKeeper, options.UpgradeKeeper),
-		evmante.NewEVMSigVerifyDecorator(options.EVMKeeper, options.LatestCtxGetter),
+		feeDecorator,
+		sigDecorator,
 		evmante.NewGasDecorator(options.EVMKeeper),
 	}
 	evmAnteHandler := sdk.ChainAnteDecorators(evmAnteDecorators...)
@@ -121,11 +140,29 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, sdk.AnteHandler, e
 		// NOTE: NewEVMNoCosmosFieldsDecorator must come first to prevent writing state to chain without being charged.
 		// E.g. EVMPreprocessDecorator may short-circuit all the later ante handlers if AssociateTx and ignore NewEVMNoCosmosFieldsDecorator.
 		evmante.NewEVMNoCosmosFieldsDecorator(),
+		chainDecorator,
 		evmante.NewEVMPreprocessDecorator(options.EVMKeeper, options.EVMKeeper.AccountKeeper()),
 		evmante.NewBasicDecorator(options.EVMKeeper),
-		evmante.NewEVMSigVerifyDecorator(options.EVMKeeper, options.LatestCtxGetter),
+		sigDecorator,
 	}
 	tracerAnteHandler := sdk.ChainAnteDecorators(tracerAnteDecorators...)
 
 	return router.AnteHandle, tracerAnteHandler, nil
+}
+
+type anteChainsFeeReader struct {
+	chains *chainskeeper.Keeper
+	evm    *evmkeeper.Keeper
+}
+
+func (r anteChainsFeeReader) NextBaseFee(ctx sdk.Context, id uint32) sdk.Dec {
+	chains := r.chains
+	if chains == nil {
+		var err error
+		chains, err = appante.ChainsKeeperForContext(ctx, r.evm)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return chains.NextBaseFee(ctx, id)
 }

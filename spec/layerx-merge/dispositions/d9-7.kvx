@@ -1,0 +1,149 @@
+[disposition.9.33.8.1]
+finding = "9.33.8.1"
+status = "resolved"
+evidence = "Commit 83b70a9721af7d9face055e9e7dc16bd965dc592 changed all three generator templates to Submitted, Receipted, Committed and Reverted, and f455efbe0e34e23bccacc37f178a664ca29f0d43 regenerated the clients, whose TypeScript union is at services/agent/sdk/typescript/src/generated/client.ts:71."
+follow_up = "closure"
+
+[disposition.9.33.8.2]
+finding = "9.33.8.2"
+status = "resolved"
+evidence = "services/agent/tools/sdk-gen/templates/typescript.tpl:42 now defines the four client rung states directly, emitted at services/agent/sdk/typescript/src/generated/client.ts:71 by f455efbe0e34e23bccacc37f178a664ca29f0d43, while services/agent/schema/agent-api/write.kvx:44 retains the separate daemon outbox lifecycle variants as decision 1967 specifies."
+follow_up = "closure"
+
+[disposition.9.97.8.2]
+finding = "9.97.8.2"
+status = "resolved"
+evidence = "Commit 9192a4c0252081121f077c5ac6095ca488eb4b42 removed the obsolete ProgramOperations submit and simulate cases from services/agent/sdk/typescript/test/agent-http.test.ts, whose surviving trust checks at services/agent/sdk/typescript/test/agent-http.test.ts:120 use discover instead."
+follow_up = "closure"
+
+[disposition.9.97.7.5]
+finding = "9.97.7.5"
+status = "resolved"
+evidence = "Commit efc169938a7fca1821dde1605e1bfeee4456ee5e ported verify_rpc_payment to canonical receipt, raw transaction and receipt keys at services/agent/sdk/python/layerx_sdk/x402_rpc.py:286, and acd3918b01fc58c2a0092179e2618bbc7b77c51b ported the HTTP and grant-draw callers, including services/agent/sdk/python/layerx_sdk/x402_draw.py:104."
+follow_up = "closure"
+
+[disposition.9.97.6.4]
+finding = "9.97.6.4"
+status = "resolved"
+evidence = "Commit 22bb29ae709f132e111b15c72f8a029d5de83bea removed the Rust tests' deleted receipt-positive-v2 fixture dependencies and made signed_receipt read sequencer-receipt-v1 at services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs:208, while 654fb2253d9e8352de1f5ff333f05776222817a9 made the TypeScript consumer read the same fixture at services/agent/sdk/typescript/test/px.test.ts:644."
+follow_up = "closure"
+
+[disposition.9.97.12.1]
+finding = "9.97.12.1"
+status = "resolved"
+evidence = "Commit 654fb2253d9e8352de1f5ff333f05776222817a9 put the history gateway activity inside a test, now px_history_routes at services/agent/sdk/typescript/test/px.test.ts:979 and registered at services/agent/sdk/typescript/test/px.test.ts:1399, and 7ea8a59762ab718e8d12a54621697f545151058b supplied the previously missing history fields."
+follow_up = "closure"
+
+[disposition.9.97.12.2]
+finding = "9.97.12.2"
+status = "resolved"
+evidence = "Commit 7ea8a59762ab718e8d12a54621697f545151058b added tx_hash from tx_id to every gateway history row at services/platform/hosted/gateway/src/history.rs:260 and re-recorded the web fixture, whose first row now carries the required transaction hash at apps/web/e2e/fixtures/px-get-unified-history.json:71."
+follow_up = "closure"
+
+[disposition.9.97.11.1]
+finding = "9.97.11.1"
+status = "open"
+evidence = "services/agent/sdk/python/layerx_sdk/web_search.py:913 still refuses metered sequencer receipts unless module_id is 1 and operation is 6, and services/agent/sdk/python/layerx_sdk/web_search.py:440 retains the module-1 balance checks, so the kernel discriminator removal still needs a programme-authored repair task."
+follow_up = "9.97.16"
+
+[disposition.9.99.2.1]
+finding = "9.99.2.1"
+status = "resolved"
+evidence = "Commit 1bda4331f7bf56c7d87ef2e3b8f3f9053d716499 removed the retired BridgeDepositCredit and BridgeWithdrawRequest references from both resolver.rs and intent_nonces.rs, whose current mechanism cases are at services/human/crates/layerx-human-service/tests/resolver.rs:101 and services/human/crates/layerx-human-service/tests/intent_nonces.rs:50."
+follow_up = "closure"
+
+[disposition.9.99.2.2]
+finding = "9.99.2.2"
+status = "resolved"
+evidence = "Commit 63aee3813 added services/human/crates/layerx-human-service/tests/intent_plan_evm.rs, which now declares intent_plan_answers_eip1559_legs at services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:29, so the test target missing during 9.99.2 qualification exists."
+follow_up = "closure"
+
+[disposition.9.24.3.1]
+finding = "9.24.3.1"
+status = "superseded"
+evidence = "Commit 9671c613b77af859443f886417aadb5b9c2a6a67 retired the prestate methods together with their readers and evidence types, and d911e2eb1db395c36caba1392c9f3f3ff46c65e5 subsequently deleted services/agent/crates/layerx-client/src/client.rs, leaving the sequencer and RPC surfaces exported at services/agent/crates/layerx-client/src/lib.rs:11."
+follow_up = "closure"
+
+[disposition.9.24.3.2]
+finding = "9.24.3.2"
+status = "superseded"
+evidence = "Commit 9671c613b77af859443f886417aadb5b9c2a6a67 also removed arbiter_admission_v3, the asset-execution methods and the replay-catalogue methods from services/agent/crates/layerx-client/src/client.rs before d911e2eb1db395c36caba1392c9f3f3ff46c65e5 retired that entire Client surface."
+follow_up = "closure"
+
+[disposition.9.25.2.1]
+finding = "9.25.2.1"
+status = "resolved"
+evidence = "Commit d911e2eb1db395c36caba1392c9f3f3ff46c65e5 moved ReconnectPolicy into services/agent/crates/layerx-client/src/rpc/receipt.rs:20 and fee items into services/agent/crates/layerx-client/src/fee.rs:6, removed the in-crate history dependencies and ported fee consumers, with the daemon now holding SequencerEndpoint at services/agent/crates/layerx-agentd/src/human_runtime.rs:2220."
+follow_up = "closure"
+
+[disposition.9.24.5.1]
+finding = "9.24.5.1"
+status = "resolved"
+evidence = "Commit 3d45f5298298e306d1e63f9a1689391aa69a9940 replaced VerifiedNativeExecutionPrestate with CommittedExecutionState, whose current definition at services/agent/crates/layerx-agentd/src/budget/execution_state.rs:14 carries committed balances, program records, accounts and receipt coordinates and is consumed by verify_wind_down_debits at services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:23."
+follow_up = "closure"
+
+[disposition.9.24.5.2]
+finding = "9.24.5.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:131698 now lists only the retained symbols for task 9.24.5, omitting the deleted execution_program_sources and execution_program_binding that blocked the completion check after 3d45f5298298e306d1e63f9a1689391aa69a9940."
+follow_up = "closure"
+
+[disposition.9.25.3.1]
+finding = "9.25.3.1"
+status = "resolved"
+evidence = "Commit 6060e7cdcb746eb3049ec0fdfac8f482a690929f removed the Client accessor calls from the SequencerEndpoint port, and the current health path at services/agent/crates/layerx-agentd/src/human_runtime.rs:5366 reads chain_id and STATE_COMMITMENT_PROTOCOL_VERSION instead of the retired handshake."
+follow_up = "closure"
+
+[disposition.9.25.3.2]
+finding = "9.25.3.2"
+status = "resolved"
+evidence = "Commit fcd9065b5e6485bec14ade231b3df3b998ba7323 replaced the unavailable program transports with EVM calls, now simulation at services/agent/crates/layerx-agentd/src/ops/program.rs:436 and RPC submission at services/agent/crates/layerx-agentd/src/ops/program.rs:1699, while aff111cc9 restored policy-usage reads through committed history at services/agent/crates/layerx-agentd/src/human_runtime.rs:13749."
+follow_up = "closure"
+
+[disposition.9.25.3.3]
+finding = "9.25.3.3"
+status = "resolved"
+evidence = "After 6060e7cdcb746eb3049ec0fdfac8f482a690929f removed the unsupported accessor calls, commits 0e916bb08, de059fa2e74c41e54279f9db91d4a2989740491f and 06a2baa79cbfba3e0ab5f3787fe33bc1947b0f63 restored committed inventory, fee policy and checkpoint reads, now visible at services/agent/crates/layerx-agentd/src/human_runtime.rs:183 and services/agent/crates/layerx-agentd/src/human_runtime.rs:12063."
+follow_up = "closure"
+
+[disposition.9.90.2.1]
+finding = "9.90.2.1"
+status = "environment"
+evidence = "The recorded ENOENT was a missing qualification-environment anvil executable, and commit 307c26a5dab70363841d6733b1b7141b99e9b52e removed that prerequisite from the named probe, which now uses node:http createServer to answer eth_getCode at services/wallet/gateway/test/precompiles.test.ts:394."
+follow_up = "closure"
+
+[disposition.9.25.3.4]
+finding = "9.25.3.4"
+status = "environment"
+evidence = "services/platform/tests/support/tls_boundary.rs:172 locates the real boundary executable and services/platform/tests/support/tls_boundary.rs:183 asserts that it exists, while task 9.25.3 now builds that prerequisite and supplies LAYERX_PAXEER_BOUNDARY_BIN in spec/layerx-merge/spec.kvx:131569, so the recorded failure was an unbuilt qualification dependency."
+follow_up = "closure"
+
+[disposition.9.25.4.1]
+finding = "9.25.4.1"
+status = "environment"
+evidence = "The retained TLS identity test at services/agent/crates/layerx-agentd/src/ops/program.rs:261 needs the real boundary executable checked at services/platform/tests/support/tls_boundary.rs:183, and task 9.25.4 now builds it and passes its location through LAYERX_PAXEER_BOUNDARY_BIN in spec/layerx-merge/spec.kvx:131411."
+follow_up = "closure"
+
+[disposition.9.25.2.2]
+finding = "9.25.2.2"
+status = "resolved"
+evidence = "Commit d911e2eb1db395c36caba1392c9f3f3ff46c65e5 removed the in-crate history imports and ported the fee and reconnect consumers, 633c34349512eef1ae040c43832f14afa1d5acd3 ported the SDK and daemon tests and examples, and 4aa457574 retired the authority handover trust before 036a1da1b deleted the remaining kernel-era read modules."
+follow_up = "closure"
+
+[disposition.9.25.8.1]
+finding = "9.25.8.1"
+status = "resolved"
+evidence = "Commit 9f2f0adf848cc0499ada8f5e9ec6ee4e242b4936 changed BudgetProofTrust to accept ServedCheckpoint at services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:32 and reconnected the proof sites, while 06a2baa79cbfba3e0ab5f3787fe33bc1947b0f63 replaced raw px_getCommit posting with the endpoint commit-material and validator accessors used at services/agent/crates/layerx-agentd/src/read/checkpoint.rs:197."
+follow_up = "closure"
+
+[disposition.9.25.7.1]
+finding = "9.25.7.1"
+status = "resolved"
+evidence = "Commit de059fa2e74c41e54279f9db91d4a2989740491f reads the app hash through SequencerEndpoint::state_root at services/agent/crates/layerx-agentd/src/budget/fee_policy.rs:133 and rechecks it at services/agent/crates/layerx-agentd/src/budget/fee_policy.rs:218, avoiding the nonexistent SequencerBlock.app_hash field."
+follow_up = "closure"
+
+[disposition.9.25.9.1]
+finding = "9.25.9.1"
+status = "resolved"
+evidence = "Commit de059fa2e74c41e54279f9db91d4a2989740491f landed the fee-policy implementation at services/agent/crates/layerx-agentd/src/budget/fee_policy.rs:123 and updated the preview fixture's fee-token and metadata answers, so the fee-policy Unavailable placeholder that blocked native_send_preview_is_an_unsigned_ledger_transfer_call at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:885 is gone."
+follow_up = "closure"

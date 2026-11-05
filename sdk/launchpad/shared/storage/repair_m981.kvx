@@ -1,0 +1,9 @@
+[repair.22.33.981]
+finding = "storage-buffer-bound"
+implementation = "GetBytes and Reader require a caller-approved maxBytes; reject invalid limits before I/O and known oversize before body reads; consume at most maxBytes+1 and discard partial results on failure, closing all acquired bodies. Get remains the streaming API."
+proving_tests = ["TestRepairM_981_BufferBoundaries", "TestRepairM_981_MaximumPlusOne", "TestRepairM_981_IncorrectSize", "TestRepairM_981_BudgetValidation", "TestRepairM_981_ReadFailures", "TestRepairM_981_StreamingLargerObject"]
+baseline = "Not run: step 5's unchanged-tree verify conflicts with the mandatory implementation-first, hf-build then hf-done order and prohibition on manually running verify_cmd; no pre-change failures are claimed."
+evidence = "The runner records the qualified candidate revision, exact command, exit and private log in the hf-done ledger; this record is part of that candidate."
+wiring_account_export = "services/launchpad/user/internal/account/jobs_http.go and connected_integration_test.go — fm-launchpad/account owner must pass an explicit documented encrypted-export byte budget (including sealing overhead), handle ErrObjectTooLarge and update all GetBytes call sites; use Get with a bounded streaming consumer for intentionally larger exports."
+wiring_images = "services/launchpad/user/internal/account/connected_integration_test.go (image read) and image consumers of sdk/launchpad/shared/storage.Reader — fm-launchpad/media owners must pass documented encoded-image byte budgets and handle ErrObjectTooLarge; large-object readers must use Get and close Body."
+workflow_conflict = "Task scope forbids spec/ and GOTCHA.kvx edits and commits/pushes; task-local wiring and baseline notes are retained here and the runner owns publication."

@@ -89,157 +89,9 @@ func TestHolderListRoute(t *testing.T) {
 	})
 }
 
-func TestHolderDistributionRoute(t *testing.T) {
-	ctx := context.Background()
-	st := store.New(internaltest.NewPostgres(t))
-	h := newReadRouter(st)
+func TestHolderDistributionRoute(t *testing.T) { repair1039Distribution(t) }
 
-	type walletEntry struct {
-		Address string `json:"address"`
-		Balance string `json:"balance"`
-		PctBps  int64  `json:"pctBps"`
-		Rank    int    `json:"rank"`
-	}
-	type resp struct {
-		TotalHolders int `json:"totalHolders"`
-		Brackets     []struct {
-			Label string `json:"label"`
-			Count int    `json:"count"`
-		} `json:"brackets"`
-		Top10Pct        string        `json:"top10Pct"`
-		WalletMap       []walletEntry `json:"walletMap"`
-		WalletMapTotal  int           `json:"walletMapTotal"`
-		WalletMapLimit  int           `json:"walletMapLimit"`
-		WalletMapOffset int           `json:"walletMapOffset"`
-	}
-
-	t.Run("brackets, concentration and paginated walletMap", func(t *testing.T) {
-		const pool = "0xdist"
-		seedInitial(t, ctx, st, pool, nil)
-		insertHolder(t, ctx, st, pool, "0xa", "500000000000000", "5000") // 50% -> >10%
-		insertHolder(t, ctx, st, pool, "0xb", "100000000000000", "1000") // 10% -> >10%
-		insertHolder(t, ctx, st, pool, "0xc", "010000000000000", "100")  // 1% -> 1-5%
-
-		rec := serve(t, h, http.MethodGet, "/stats/"+pool+"/holders/distribution?limit=2&offset=0", nil, nil)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d", rec.Code)
-		}
-		var got resp
-		decode(t, rec, &got)
-		if got.TotalHolders != 3 {
-			t.Fatalf("totalHolders = %d, want 3", got.TotalHolders)
-		}
-		// S-6 pagination: limit=2 returns 2 of 3 wallet entries.
-		if got.WalletMapTotal != 3 || got.WalletMapLimit != 2 || got.WalletMapOffset != 0 || len(got.WalletMap) != 2 {
-			t.Fatalf("walletMap paging = total:%d limit:%d offset:%d len:%d",
-				got.WalletMapTotal, got.WalletMapLimit, got.WalletMapOffset, len(got.WalletMap))
-		}
-		if got.WalletMap[0].Address != "0xa" || got.WalletMap[0].Rank != 1 || got.WalletMap[0].PctBps != 5000 {
-			t.Fatalf("walletMap[0] = %+v", got.WalletMap[0])
-		}
-		// top10Pct = sum(top-10 balances)*10000/supply = (5000+1000+100) bps as concentration string.
-		if got.Top10Pct != "6100" {
-			t.Errorf("top10Pct = %s, want 6100", got.Top10Pct)
-		}
-		// Two holders at >=10% land in the ">10%" bracket.
-		var over10 int
-		for _, b := range got.Brackets {
-			if b.Label == ">10%" {
-				over10 = b.Count
-			}
-		}
-		if over10 != 2 {
-			t.Errorf(">10%% bracket count = %d, want 2", over10)
-		}
-	})
-
-	t.Run("walletMap limit and offset bounds", func(t *testing.T) {
-		const pool = "0xdistlimits"
-		seedInitial(t, ctx, st, pool, nil)
-		insertHolder(t, ctx, st, pool, "0xa", "500000000000000", "5000")
-		insertHolder(t, ctx, st, pool, "0xb", "100000000000000", "1000")
-		insertHolder(t, ctx, st, pool, "0xc", "010000000000000", "100")
-
-		for _, query := range []string{"limit=-1", "limit=-1&offset=0", "offset=-1"} {
-			rec := serve(t, h, http.MethodGet, "/stats/"+pool+"/holders/distribution?"+query, nil, nil)
-			if rec.Code != http.StatusBadRequest {
-				t.Fatalf("%s: status = %d, want 400", query, rec.Code)
-			}
-		}
-		for _, c := range []struct {
-			query          string
-			limit, entries int
-		}{
-			{"", 200, 3},
-			{"limit=0", 0, 0},
-			{"limit=1&offset=1", 1, 1},
-			{"limit=900", 500, 3},
-		} {
-			rec := serve(t, h, http.MethodGet, "/stats/"+pool+"/holders/distribution?"+c.query, nil, nil)
-			if rec.Code != http.StatusOK {
-				t.Fatalf("%q: status = %d", c.query, rec.Code)
-			}
-			var got resp
-			decode(t, rec, &got)
-			if got.WalletMapLimit != c.limit || len(got.WalletMap) != c.entries || got.WalletMapTotal != 3 {
-				t.Fatalf("%q: walletMap limit:%d len:%d total:%d, want limit:%d len:%d total:3",
-					c.query, got.WalletMapLimit, len(got.WalletMap), got.WalletMapTotal, c.limit, c.entries)
-			}
-		}
-	})
-
-	t.Run("empty pool returns zeroed distribution", func(t *testing.T) {
-		rec := serve(t, h, http.MethodGet, "/stats/0xempty/holders/distribution", nil, nil)
-		var got resp
-		decode(t, rec, &got)
-		if got.TotalHolders != 0 || len(got.WalletMap) != 0 {
-			t.Fatalf("empty = %+v", got)
-		}
-	})
-}
-
-func TestWhalesRoute(t *testing.T) {
-	ctx := context.Background()
-	st := store.New(internaltest.NewPostgres(t))
-	h := newReadRouter(st)
-
-	const pool = "0xwhales"
-	seedInitial(t, ctx, st, pool, strptr("0xcreator"))
-	insertHolder(t, ctx, st, pool, "0xcreator", "500000000000000", "5000") // whale + creator
-	insertHolder(t, ctx, st, pool, "0xwhale2", "100000000000000", "1000")  // whale (>=1%)
-	insertHolder(t, ctx, st, pool, "0xminnow", "000010000000000", "10")    // 0.1% -> filtered out
-
-	type whale struct {
-		Rank          int    `json:"rank"`
-		HolderAddress string `json:"holderAddress"`
-		PctOfSupply   int64  `json:"pctOfSupply"`
-		IsCreator     bool   `json:"isCreator"`
-	}
-	type resp struct {
-		WhaleThresholdPct float64 `json:"whaleThresholdPct"`
-		WhaleCount        int     `json:"whaleCount"`
-		Whales            []whale `json:"whales"`
-	}
-
-	rec := serve(t, h, http.MethodGet, "/stats/"+pool+"/whales", nil, nil)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d", rec.Code)
-	}
-	var got resp
-	decode(t, rec, &got)
-	if got.WhaleThresholdPct != 1 {
-		t.Errorf("whaleThresholdPct = %v, want 1", got.WhaleThresholdPct)
-	}
-	if got.WhaleCount != 2 || len(got.Whales) != 2 {
-		t.Fatalf("whaleCount = %d (whales %d), want 2 (minnow filtered)", got.WhaleCount, len(got.Whales))
-	}
-	if got.Whales[0].HolderAddress != "0xcreator" || !got.Whales[0].IsCreator || got.Whales[0].Rank != 1 {
-		t.Fatalf("whale[0] = %+v, want creator flagged at rank 1", got.Whales[0])
-	}
-	if got.Whales[1].HolderAddress != "0xwhale2" || got.Whales[1].IsCreator {
-		t.Fatalf("whale[1] = %+v, want non-creator", got.Whales[1])
-	}
-}
+func TestWhalesRoute(t *testing.T) { repair1039Whales(t) }
 
 func TestCreatorActivityRoute(t *testing.T) {
 	ctx := context.Background()
@@ -381,6 +233,36 @@ func TestTransactionsRoute(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestTransactionsRouteChecksummedPool(t *testing.T) {
+	ctx := context.Background()
+	st := store.New(internaltest.NewPostgres(t))
+	h := newReadRouter(st)
+
+	const pool = "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed"
+	const checksummedPool = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+	insertTx(t, ctx, st, "older-100", pool, "0xa", true, "1", "2", 100)
+	insertTx(t, ctx, st, "newer-200", pool, "0xb", false, "3", "4", 200)
+
+	for _, address := range []string{pool, checksummedPool} {
+		t.Run(address, func(t *testing.T) {
+			rec := serve(t, h, http.MethodGet, "/stats/"+address+"/transactions", nil, nil)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			var got struct {
+				Transactions []store.TransactionRow `json:"transactions"`
+			}
+			decode(t, rec, &got)
+			if len(got.Transactions) != 2 {
+				t.Fatalf("transactions = %+v, want 2 rows", got.Transactions)
+			}
+			if got.Transactions[0].ID != "newer-200" || got.Transactions[1].ID != "older-100" {
+				t.Fatalf("transactions not newest first: %+v", got.Transactions)
+			}
+		})
+	}
 }
 
 func TestCrossTokenSwapRoutes(t *testing.T) {

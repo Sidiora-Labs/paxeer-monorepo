@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -36,18 +35,18 @@ type Surface struct {
 
 func (s Surface) validate(address common.Address) error {
 	if address == (common.Address{}) || address == common.HexToAddress(types.LaunchpadAddress) {
-		return fmt.Errorf("%w: surface address %s", types.ErrInvalidParams, address.Hex())
+		return types.ErrInvalidParams.Wrapf("surface address %s", address.Hex())
 	}
 	if s.Role == types.RolePool {
 		if s.Market == "" || (s.Generation != types.Generation1 && s.Generation != types.Generation2) {
-			return fmt.Errorf("%w: pool surface %s generation %d market %q", types.ErrInvalidParams, address.Hex(),
+			return types.ErrInvalidParams.Wrapf("pool surface %s generation %d market %q", address.Hex(),
 				s.Generation, s.Market)
 		}
 		return nil
 	}
 	expected, ok := Generation2Surfaces[s.Role]
 	if !ok || expected != address || s.Generation != types.Generation2 || s.Market != "" {
-		return fmt.Errorf("%w: role surface %s %s generation %d market %q", types.ErrInvalidParams, address.Hex(), s.Role,
+		return types.ErrInvalidParams.Wrapf("role surface %s %s generation %d market %q", address.Hex(), s.Role,
 			s.Generation, s.Market)
 	}
 	return nil
@@ -62,7 +61,26 @@ func (k *Keeper) SetSurface(ctx sdk.Context, address common.Address, surface Sur
 	}
 	bz, err := json.Marshal(surface)
 	if err != nil {
-		return fmt.Errorf("%w: surface %s: %v", types.ErrInvalidParams, address.Hex(), err)
+		return types.ErrInvalidParams.Wrapf("surface %s: %v", address.Hex(), err)
+	}
+	previous, found, err := k.GetSurface(ctx, address)
+	if err != nil {
+		return err
+	}
+	wasPool := found && previous.Role == types.RolePool
+	if surface.Role == types.RolePool && !wasPool {
+		if err := k.incrementFeeAccountingCount(ctx, feeAccountingPoolCountKey); err != nil {
+			return err
+		}
+	} else if surface.Role != types.RolePool && wasPool {
+		count, err := k.feeAccountingCount(ctx, feeAccountingPoolCountKey)
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return types.ErrOverflow.Wrap("fee accounting pool count underflow")
+		}
+		k.setUint64(ctx, feeAccountingPoolCountKey, count-1)
 	}
 	k.store(ctx).Set(types.SurfaceKey(address), bz)
 	return nil
@@ -77,7 +95,7 @@ func (k *Keeper) GetSurface(ctx sdk.Context, address common.Address) (Surface, b
 	}
 	var surface Surface
 	if err := json.Unmarshal(bz, &surface); err != nil {
-		return Surface{}, false, fmt.Errorf("%w: corrupt surface %s: %v", types.ErrInvalidParams, address.Hex(), err)
+		return Surface{}, false, types.ErrInvalidParams.Wrapf("corrupt surface %s: %v", address.Hex(), err)
 	}
 	if err := surface.validate(address); err != nil {
 		return Surface{}, false, err
@@ -110,7 +128,7 @@ func (k *Keeper) InstallRoleSurfaces(ctx sdk.Context, evm CodeWriter) error {
 		if err := k.SetSurface(ctx, address, Surface{Role: role, Generation: types.Generation2}); err != nil {
 			return err
 		}
-		evm.SetCode(ctx, address, surfaceRuntime)
+		evm.SetCode(ctx, address, SurfaceRuntime)
 	}
 	return nil
 }

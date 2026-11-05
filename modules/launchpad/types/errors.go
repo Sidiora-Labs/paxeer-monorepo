@@ -90,6 +90,7 @@ var (
 	ErrInvalidPermit                    = sdkerrors.Register(ModuleName, 73, LaunchpadCode("INVALID_PERMIT"))
 	ErrInvalidPoolBinding               = sdkerrors.Register(ModuleName, 74, LaunchpadCode("INVALID_POOL_BINDING"))
 	ErrPermitExpired                    = sdkerrors.Register(ModuleName, 75, LaunchpadCode("PERMIT_EXPIRED"))
+	ErrOpticalNotApproved               = sdkerrors.Register(ModuleName, 76, LaunchpadCode("OPTICAL_NOT_APPROVED"))
 )
 
 // KeeperOnlyErrors are the launchpad keeper errors for conditions no Launch-x
@@ -128,7 +129,7 @@ func (c ContractError) Signature() string {
 func (c ContractError) Revert(values ...interface{}) ([]byte, error) {
 	data, err := c.Inputs.Pack(values...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s arguments: %w", ErrInvalidParams, c.Signature(), err)
+		return nil, ErrInvalidParams.Wrapf("%s arguments: %v", c.Signature(), err)
 	}
 	revert := make([]byte, 0, len(c.Selector)+len(data))
 	revert = append(revert, c.Selector[:]...)
@@ -206,6 +207,7 @@ var contractErrors = []ContractError{
 	newContractError(ErrNonERC721Receiver, "NonERC721Receiver"),
 	newContractError(ErrNonPayableUpgrade, "NonPayableUpgrade"),
 	newContractError(ErrNotApproved, "NotApproved"),
+	newContractError(ErrOpticalNotApproved, "OpticalNotApproved"),
 	newContractError(ErrNotInitializing, "NotInitializing"),
 	newContractError(ErrNotTokenOwner, "NotTokenOwner"),
 	newContractError(ErrOpticalQuoteUnsupported, "OpticalQuoteUnsupported"),

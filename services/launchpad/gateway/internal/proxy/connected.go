@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -77,13 +78,17 @@ func NewConnected(d ConnectedDeps) (*Connected, error) {
 	transport := &http.Transport{TLSClientConfig: tlsConfig, Proxy: nil, MaxIdleConns: 128, MaxIdleConnsPerHost: 32, IdleConnTimeout: 90 * time.Second, ResponseHeaderTimeout: 10 * time.Second, DisableCompression: true}
 	return &Connected{u, routes, d.Identity, append(ed25519.PrivateKey(nil), d.SigningKey...), d.Name, &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil
 }
-func allowedConnectedRoute(name string, r ConnectedRoute) bool {
-	routes := map[string]map[string]string{
-		"metadata":   {"/v2/tokens/{tokenAddress}/metadata": "GET PATCH", "/v2/tokens/{tokenAddress}/media": "GET", "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT", "/v2/assets/uploads": "POST", "/v2/assets/{assetId}": "GET", "/v2/assets/{assetId}:complete": "POST"},
+func FrozenConnectedSurface() map[string]map[string]string {
+	return map[string]map[string]string{
+		"metadata":   {"/v2/tokens/{tokenAddress}/metadata": "GET PATCH", "/v2/tokens/{tokenAddress}/media": "GET", "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT"},
 		"user":       {"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE"},
 		"livestream": {"/v2/streams": "GET POST", "/v2/streams/operations/{operationId}": "GET", "/v2/streams/{streamId}:start": "POST", "/v2/streams/{streamId}:end": "POST", "/v2/streams/{streamId}/viewers:heartbeat": "POST", "/v2/streams/{streamId}/ingest-credential": "POST"},
-		"social":     {"/v2/me/following/{wallet}": "PUT DELETE", "/v2/profiles/{wallet}/followers": "GET", "/v2/profiles/{wallet}/follow-stats": "GET", "/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE", "/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET", "/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST", "/v2/rooms/{roomId}/messages": "GET POST"},
+		"social":     {"/v2/me/following/{wallet}": "PUT DELETE", "/v2/profiles/{wallet}/followers": "GET", "/v2/profiles/{wallet}/follow-stats": "GET", "/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE", "/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET", "/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST"},
 	}
+}
+
+func allowedConnectedRoute(name string, r ConnectedRoute) bool {
+	routes := FrozenConnectedSurface()
 	if r.Optional && (r.Authenticate || r.Method != "GET") {
 		return false
 	}
@@ -186,9 +191,13 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	r = r.WithContext(ctx)
 	var principal sharedauth.IdentityPrincipal
-	recovery := p.audience == "user" && selected.Template == "/v1/me/deletion-requests/{jobId}" && r.Method == http.MethodGet && r.Header.Get("X-Recovery-Receipt") != ""
-	if recovery && (len(r.Header.Values("X-Recovery-Receipt")) != 1 || len(r.Header.Get("X-Recovery-Receipt")) > 4096) {
+	recovery := p.audience == "user" && deletionStatusRoute(selected) && len(r.Header.Values("X-Recovery-Receipt")) != 0
+	if recovery && !validRecoveryHeader(r.Header, r.URL.Path[strings.LastIndexByte(r.URL.Path, '/')+1:]) {
 		connectedError(w, 400, "recovery_receipt_invalid")
+		return
+	}
+	if p.audience == "livestream" && selected.Method == http.MethodPost && selected.Template == "/v2/streams/{streamId}/ingest-key" && !sessionCredentials(r) {
+		connectedError(w, http.StatusUnauthorized, "identity_unavailable")
 		return
 	}
 	if (selected.Authenticate || (selected.Optional && sessionCredentials(r))) && !recovery {
@@ -245,9 +254,26 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 503, "upstream_unavailable")
 		return
 	}
-	for _, name := range []string{"Content-Type", "Accept", "If-None-Match", "If-Match", "Idempotency-Key", "X-Action-Signature", "X-Action-Nonce", "X-Action-Expires", "X-Action-Audience", "X-Kindle-Operation", "X-Kindle-Operation-Signature", "X-Request-ID", "Origin", "X-CSRF-Token", "X-Recovery-Receipt"} {
+	if p.audience == "user" && selected.Method == http.MethodGet && selected.Template == "/v2/me/exports/{jobId}/download" {
+		if values := r.Header.Values("X-Export-Authorization"); len(values) != 0 {
+			if len(values) != 1 || !validExportAuthorization(values[0]) {
+				connectedError(w, 400, "export_authorization_invalid")
+				return
+			}
+			req.Header.Set("X-Export-Authorization", values[0])
+		}
+	}
+	for _, name := range []string{"Content-Type", "Accept", "If-None-Match", "If-Match", "Idempotency-Key", "X-Action-Signature", "X-Action-Nonce", "X-Action-Expires", "X-Action-Audience", "X-Kindle-Operation", "X-Kindle-Operation-Signature", "X-Kindle-Signature", "X-Request-ID", "Origin", "X-CSRF-Token", "X-Recovery-Receipt"} {
 		if values := r.Header.Values(name); len(values) == 1 {
 			req.Header.Set(name, values[0])
+		} else if len(values) > 1 {
+			connectedError(w, 400, "ambiguous_header")
+			return
+		}
+	}
+	if p.audience == "livestream" && selected.Template == "/v2/provider-webhooks/livepeer" {
+		if values := r.Header.Values("Livepeer-Signature"); len(values) == 1 {
+			req.Header.Set("Livepeer-Signature", values[0])
 		} else if len(values) > 1 {
 			connectedError(w, 400, "ambiguous_header")
 			return
@@ -270,11 +296,7 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			requestID = uuid.NewString()
 			req.Header.Set("X-Request-ID", requestID)
 		}
-		audience := p.audience
-		if p.audience == "user" && (strings.HasPrefix(selected.Template, "/v1/") || strings.HasPrefix(selected.Template, "/v3/") || selected.Template == "/v2/me/preferences" || selected.Template == "/v2/me/exports/{jobId}/download") {
-			audience = "account"
-		}
-		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: audience, Key: p.key, Transport: actorAssertionTransport(p.audience)}
+		signer := sharedauth.ServiceAssertionIssuer{Issuer: "gateway", Audience: connectedAssertionAudience(p.audience, selected.Template), Key: p.key, Transport: actorAssertionTransport(p.audience)}
 		if e = signer.SignRequest(req, principal, []string{"owner"}, body); e != nil {
 			connectedError(w, 403, "actor_assertion_denied")
 			return
@@ -320,7 +342,12 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "audio/ogg")
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		_, _ = io.Copy(w, io.LimitReader(resp.Body, 64<<20))
+		if resp.ContentLength >= 0 {
+			w.Header().Set("Content-Length", strconv.FormatInt(resp.ContentLength, 10))
+		}
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			panic(http.ErrAbortHandler)
+		}
 		return
 	}
 	if p.audience == "metadata" && selected.Template == metadataLogo && resp.StatusCode == 200 {
@@ -342,9 +369,29 @@ func (p *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		connectedError(w, 502, "upstream_response_invalid")
 		return
 	}
-	if containsSecret(result) {
+	privateIngest := p.audience == "livestream" && selected.Method == http.MethodPost && selected.Template == "/v2/streams/{streamId}/ingest-key" && resp.StatusCode == http.StatusOK
+	if privateIngest && !validIngestResponse(result, strings.Split(r.URL.Path, "/")[3], time.Now()) {
+		connectedError(w, 502, "upstream_response_invalid")
+		return
+	}
+	if !privateIngest && containsSecret(result) {
 		connectedError(w, 502, "upstream_response_restricted")
 		return
+	}
+	if p.audience == "user" && deletionCreateRoute(selected) && resp.StatusCode == http.StatusAccepted {
+		var accepted struct {
+			Data struct {
+				Job struct {
+					JobID     string `json:"jobId"`
+					AccountID string `json:"accountId"`
+				} `json:"job"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(result, &accepted) != nil || !validRecoveryHeader(resp.Header, accepted.Data.Job.JobID) || recoveryAccount(resp.Header.Get("X-Recovery-Receipt")) != accepted.Data.Job.AccountID {
+			connectedError(w, 502, "upstream_recovery_receipt_invalid")
+			return
+		}
+		w.Header().Set("X-Recovery-Receipt", resp.Header.Get("X-Recovery-Receipt"))
 	}
 	for _, name := range []string{"ETag", "Retry-After"} {
 		if v := resp.Header.Get(name); len(v) <= 128 && !strings.ContainsAny(v, "\r\n") {
@@ -466,6 +513,16 @@ func connectedError(w http.ResponseWriter, status int, code string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"code": code})
 }
 
+func RetiredConnectedRoutes() []ConnectedRoute {
+	return []ConnectedRoute{
+		{Method: http.MethodPost, Template: "/v2/assets/uploads"},
+		{Method: http.MethodGet, Template: "/v2/assets/{assetId}"},
+		{Method: http.MethodPost, Template: "/v2/assets/{assetId}:complete"},
+		{Method: http.MethodGet, Template: "/v2/rooms/{roomId}/messages"},
+		{Method: http.MethodPost, Template: "/v2/rooms/{roomId}/messages"},
+	}
+}
+
 func SocialConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
 		"/v2/chat/history": "GET", "/v2/chat/conversations": "GET", "/v2/chat/read": "POST", "/v2/chat/revise": "POST",
@@ -473,6 +530,8 @@ func SocialConnectedRoutes() []ConnectedRoute {
 		"/v2/social/follow/{followee}": "PUT DELETE", "/v2/social/pool/{poolAddress}/comments": "GET POST", "/v2/social/comments/{id}": "PATCH DELETE", "/v2/social/comments/{id}/hide": "POST", "/v2/social/comments/{id}/like": "PUT DELETE", "/v2/social/callouts/{id}/references": "POST", "/v2/social/me/social/privacy": "GET PATCH", "/v2/social/me/social/blocks/{wallet}": "PUT DELETE",
 		"/v2/safety/reports": "POST", "/v2/safety/cases": "GET", "/v2/safety/cases/{caseId}": "PATCH", "/v2/safety/cases/{caseId}/bans": "POST", "/v2/safety/cases/{caseId}/restore": "POST", "/v2/safety/appeals": "POST", "/v2/safety/appeals/{appealId}": "GET", "/v2/safety/appeals/{appealId}/reverse-ban": "POST",
 		"/v2/voice-rooms": "POST", "/v2/voice-rooms/{roomId}/start": "POST", "/v2/voice-rooms/{roomId}/end": "POST", "/v2/voice-rooms/{roomId}/moderation-actions": "POST", "/v2/voice-rooms/{roomId}/prompt": "GET", "/v2/voice-rooms/{roomId}/tickets": "POST", "/v2/voice-rooms/{roomId}/recording": "GET POST", "/v2/voice-rooms/{roomId}/recording/object": "GET", "/v2/voice-rooms/{roomId}/recording/consent": "POST", "/v2/voice-rooms/{roomId}/recording/start": "POST", "/v2/voice-rooms/{roomId}/recording/stop": "POST", "/v2/voice-rooms/{roomId}/speaker-requests": "POST", "/v2/voice-rooms/{roomId}/speakers": "POST", "/v2/voice-rooms/{roomId}/leave": "POST",
+		"/v3/voice-rooms": "POST", "/v3/voice-rooms/{roomId}/moderation-actions": "POST", "/v3/voice-rooms/{roomId}/tickets": "POST",
+		"/v2/voice-rooms/{roomId}": "GET", "/v2/voice-rooms/{roomId}:end": "POST", "/v2/voice-rooms/{roomId}:leave": "POST",
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
@@ -480,6 +539,24 @@ func SocialConnectedRoutes() []ConnectedRoute {
 	}
 	sort.Strings(paths)
 	routes := SocialContractRoutes()
+	seen := map[string]bool{}
+	for _, route := range routes {
+		seen[route.Method+" "+route.Template] = true
+	}
+	frozen := FrozenConnectedSurface()["social"]
+	frozenPaths := make([]string, 0, len(frozen))
+	for path := range frozen {
+		frozenPaths = append(frozenPaths, path)
+	}
+	sort.Strings(frozenPaths)
+	for _, path := range frozenPaths {
+		for _, method := range strings.Fields(frozen[path]) {
+			if !seen[method+" "+path] {
+				routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: method != http.MethodGet, Optional: method == http.MethodGet})
+				seen[method+" "+path] = true
+			}
+		}
+	}
 	for _, path := range paths {
 		for _, method := range strings.Fields(methods[path]) {
 			routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: true})
@@ -511,13 +588,20 @@ func LivestreamConnectedRoutes() []ConnectedRoute {
 		{Method: http.MethodGet, Template: "/v2/streams/{streamId}/private-playback", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/ingest-credential", Authenticate: true},
 		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/ingest-key", Authenticate: true},
+		{Method: http.MethodGet, Template: "/v2/streams"},
+		{Method: http.MethodPost, Template: "/v2/streams/{streamId}:start", Authenticate: true},
+		{Method: http.MethodPost, Template: "/v2/streams/{streamId}:end", Authenticate: true},
+		{Method: http.MethodPost, Template: "/v2/streams/{streamId}/viewers:heartbeat"},
+		{Method: http.MethodPost, Template: "/v2/provider-webhooks/livepeer"},
 	}
 }
 
 func UserConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
-		"/v2/profiles/{wallet}": "GET", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
+		"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v3/profiles/{wallet}": "GET PATCH", "/v3/me/preferences": "GET PATCH", "/v1/me/preferences": "GET PATCH", "/v2/me/preferences": "GET PATCH", "/v1/me/devices": "GET", "/v1/me/devices/{deviceId}": "PUT DELETE", "/v1/me/exports": "POST", "/v1/me/exports/{jobId}": "GET", "/v2/me/exports/{jobId}/download": "GET", "/v1/me/deletion-requests": "POST", "/v1/me/deletion-requests/{jobId}": "GET", "/v1/profiles/{wallet}": "GET PATCH",
 		"/v1/me/watchlist": "GET", "/v1/me/watchlist/{poolAddress}": "PUT DELETE",
+		"/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE",
+		"/v2/me/devices/{deviceId}": "PUT DELETE", "/v2/me/exports": "POST", "/v2/me/exports/{jobId}": "GET", "/v2/me/deletion-requests": "POST", "/v2/me/deletion-requests/{jobId}": "GET",
 	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
@@ -546,7 +630,6 @@ func DevelopmentSocialRoutes() []ConnectedRoute {
 		"/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE",
 		"/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET",
 		"/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST",
-		"/v2/rooms/{roomId}/messages": "GET POST",
 	}
 	routes := []ConnectedRoute{}
 	seen := map[string]bool{}
@@ -631,6 +714,13 @@ func (p *Connected) slowRoute(route *ConnectedRoute) bool {
 // (internal/app metadataPrivateChannel) reads the gateway's actor assertion
 // from. Every other upstream reads the shared actor headers.
 var MetadataActorTransport = sharedauth.AssertionTransport{AssertionHeader: "X-Internal-Assertion", SignatureHeader: "X-Internal-Signature"}
+
+func connectedAssertionAudience(upstream, template string) string {
+	if upstream == "user" {
+		return "account"
+	}
+	return upstream
+}
 
 func actorAssertionTransport(upstream string) sharedauth.AssertionTransport {
 	if upstream == "metadata" {

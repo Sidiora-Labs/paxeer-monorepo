@@ -41,25 +41,6 @@ static void u64(uint64_t value)
     printf(" %016" PRIx64, value);
 }
 
-static void grant(const lxp_payer_grant *g)
-{
-    hex(g->grant_id, 32U);
-    hex(g->from, 32U);
-    hex(g->recipient, 32U);
-    hex(g->asset, 32U);
-    u128(g->per_draw_maximum);
-    u128(g->allowance);
-    printf(" %d", g->recurring ? 1 : 0);
-    u64(g->window_length);
-    u64(g->expiration);
-    hex(g->purpose_hash, 32U);
-    printf(" %d", g->has_reference ? 1 : 0);
-    hex(g->reference_hash, 32U);
-    u64(g->revocation_sequence);
-    hex(g->public_key, 32U);
-    hex(g->signature, 64U);
-}
-
 int main(int argc, char **argv)
 {
     static uint8_t payload[4096];
@@ -72,14 +53,13 @@ int main(int argc, char **argv)
     lx_budget_defund_payload defund;
     lx_budget_revoke_payload revoke;
     lx_budget_delegate_spend_payload delegate_spend;
-    lx_budget_pull_payload pull;
     lxp_result result;
     size_t length;
     unsigned long ordinal;
     char *end;
     if (argc != 2) return 2;
     if (strcmp(argv[1], "lengths") == 0) {
-        printf("%d %d %d %d %d %d %d %d %d %d %d %d\n",
+        printf("%d %d %d %d %d %d %d %d %d %d %d\n",
                LX_BUDGET_CREATE_PAYLOAD_BYTES,
                LX_BUDGET_CREATE_V2_PAYLOAD_BYTES,
                LX_BUDGET_FUND_PAYLOAD_BYTES,
@@ -90,13 +70,12 @@ int main(int argc, char **argv)
                LX_BUDGET_CLOSE_PAYLOAD_BYTES,
                LX_BUDGET_DEFUND_PAYLOAD_BYTES,
                LX_BUDGET_REVOKE_PAYLOAD_BYTES,
-               LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES,
-               LX_BUDGET_PULL_PAYLOAD_BYTES);
+               LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES);
         return 0;
     }
     errno = 0;
     ordinal = strtoul(argv[1], &end, 10);
-    if (errno != 0 || end == argv[1] || *end != '\0' || ordinal == 0UL || ordinal > 11UL)
+    if (errno != 0 || end == argv[1] || *end != '\0' || ordinal == 0UL || ordinal > 10UL)
         return 2;
     length = fread(payload, 1, sizeof(payload), stdin);
     if (ferror(stdin) || fgetc(stdin) != EOF) return 2;
@@ -111,7 +90,7 @@ int main(int argc, char **argv)
     case 8UL: result = lx_budget_defund_decode(payload, length, &defund); break;
     case 9UL: result = lx_budget_revoke_decode(payload, length, &revoke); break;
     case 10UL: result = lx_budget_delegate_spend_decode(payload, length, &delegate_spend); break;
-    default: result = lx_budget_pull_decode(payload, length, &pull); break;
+    default: return 2;
     }
     printf("%" PRId32 " %s", result, lxp_result_name(result));
     if (result == LXP_OK) {
@@ -175,14 +154,6 @@ int main(int argc, char **argv)
             u128(delegate_spend.amount);
             hex(delegate_spend.idempotency_key, 32U);
             break;
-        default:
-            printf(" %u", (unsigned)pull.encoding_version);
-            hex(pull.budget_id, 32U);
-            hex(pull.recipient, 32U);
-            u128(pull.amount);
-            hex(pull.idempotency_key, 32U);
-            grant(&pull.grant);
-            break;
         }
     }
     putchar('\n');
@@ -205,7 +176,6 @@ func budgetDecoder(t *testing.T) string {
 	args := []string{"-std=c11", "-Wall", "-Wextra", "-Werror", "-ffunction-sections", "-fdata-sections", "-I" + filepath.Join(root, "include"), source}
 	for _, path := range []string{
 		"src/modules/budget/lx_budget_codec.c",
-		"src/ledger/lxp_receive.c",
 		"src/protocol/lxp_u128.c",
 		"src/protocol/lxp_result.c",
 		"src/crypto/lxp_ct.c",
@@ -277,16 +247,6 @@ func (g budgetGrant) bytes() []byte {
 	return append(out, g.signature[:]...)
 }
 
-func (g budgetGrant) fields() string {
-	return strings.Join([]string{
-		budgetHex32(g.grantID), budgetHex32(g.from), budgetHex32(g.recipient), budgetHex32(g.asset),
-		budgetHex128(g.perDrawMaximum), budgetHex128(g.allowance), strconv.Itoa(int(g.recurring)),
-		budgetHex64(g.windowLength), budgetHex64(g.expiration), budgetHex32(g.purposeHash),
-		strconv.Itoa(int(g.hasReference)), budgetHex32(g.referenceHash), budgetHex64(g.revocationSequence),
-		budgetHex32(g.publicKey), fmt.Sprintf("%x", g.signature[:]),
-	}, " ")
-}
-
 type budgetEdit struct {
 	offset int
 	value  []byte
@@ -314,11 +274,11 @@ func TestBudgetPayloads(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read decoder lengths: %v\n%s", err, output)
 		}
-		want := fmt.Sprintf("%d %d %d %d %d %d %d %d %d %d %d %d\n",
+		want := fmt.Sprintf("%d %d %d %d %d %d %d %d %d %d %d\n",
 			BudgetCreatePayloadBytes, BudgetCreateNativePayloadBytes, BudgetFundPayloadBytes, BudgetFundNativePayloadBytes,
 			BudgetAmendPayloadBytes, BudgetDelegatePayloadBytes, BudgetSpendPayloadBytes, BudgetClosePayloadBytes,
-			BudgetDefundPayloadBytes, BudgetRevokePayloadBytes, BudgetDelegateSpendPayloadBytes, BudgetPullPayloadBytes)
-		if want != "211 251 50 58 75 66 82 42 50 42 114 460\n" || string(output) != want {
+			BudgetDefundPayloadBytes, BudgetRevokePayloadBytes, BudgetDelegateSpendPayloadBytes)
+		if want != "211 251 50 58 75 66 82 42 50 42 114\n" || string(output) != want {
 			t.Fatalf("decoder lengths = %q, Go lengths = %q", output, want)
 		}
 	})
@@ -379,8 +339,6 @@ func TestBudgetPayloads(t *testing.T) {
 		{"revoke", 9, 42, func() ([]byte, error) { return EncodeBudgetRevoke(id, math.MaxUint64) }, h(id) + " " + budgetHex64(math.MaxUint64)},
 		{"delegate_spend", 10, 114, func() ([]byte, error) { return EncodeBudgetDelegateSpend(id, recipient, amount, key) },
 			"1 " + spendFields + " " + h(key)},
-		{"pull", 11, 460, func() ([]byte, error) { return EncodeBudgetPull(id, recipient, amount, key, grantBytes) },
-			"1 " + spendFields + " " + h(key) + " " + grant.fields()},
 	}
 	for _, v := range vectors {
 		t.Run("decode/"+v.name, func(t *testing.T) {
@@ -411,6 +369,42 @@ func TestBudgetPayloads(t *testing.T) {
 		})
 	}
 
+	// Pull has no kernel decoder at HEAD. Its retained Go encoder still has a
+	// fixed legacy wire format and must reject malformed arguments.
+	t.Run("legacy_pull_encoding", func(t *testing.T) {
+		payload, err := EncodeBudgetPull(id, recipient, amount, key, grantBytes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "0001" + h(id) + h(recipient) + budgetHex128(amount) + h(key) + fmt.Sprintf("%x", grantBytes)
+		if len(payload) != 460 || fmt.Sprintf("%x", payload) != want {
+			t.Fatalf("legacy pull payload = %x, want %s (460 bytes)", payload, want)
+		}
+		badGrant := func(offset int) []byte {
+			g := bytes.Clone(grantBytes)
+			g[offset] = 2
+			return g
+		}
+		for _, refusal := range []struct {
+			name   string
+			amount codec.U128
+			grant  []byte
+			err    error
+		}{
+			{"pull_zero_amount", codec.U128{}, grantBytes, errBudgetInvalidAmount},
+			{"pull_recurring_flag", amount, badGrant(160), errBudgetNonCanonical},
+			{"pull_reference_flag", amount, badGrant(209), errBudgetNonCanonical},
+			{"pull_short_grant", amount, grantBytes[:PayerGrantBytes-1], errBudgetNonCanonical},
+		} {
+			t.Run(refusal.name, func(t *testing.T) {
+				payload, err := EncodeBudgetPull(id, recipient, refusal.amount, key, refusal.grant)
+				if !errors.Is(err, refusal.err) || payload != nil {
+					t.Fatalf("encode = %x, %v; want nil, %v", payload, err, refusal.err)
+				}
+			})
+		}
+	})
+
 	t.Run("version_crossover", func(t *testing.T) {
 		for _, c := range []struct {
 			ordinal uint16
@@ -439,11 +433,6 @@ func TestBudgetPayloads(t *testing.T) {
 
 	t.Run("refusals", func(t *testing.T) {
 		zero := [32]byte{}
-		badGrant := func(offset int, value byte) []byte {
-			g := bytes.Clone(grantBytes)
-			g[offset] = value
-			return g
-		}
 		type refusal struct {
 			name    string
 			ordinal uint16
@@ -460,7 +449,6 @@ func TestBudgetPayloads(t *testing.T) {
 		}
 		fundNative := func() ([]byte, error) { return EncodeBudgetFundNative(id, amount, sourceSequence) }
 		spend := func() ([]byte, error) { return EncodeBudgetDelegateSpend(id, recipient, amount, key) }
-		pull := func() ([]byte, error) { return EncodeBudgetPull(id, recipient, amount, key, grantBytes) }
 		zero16 := make([]byte, 16)
 		max64 := binary.BigEndian.AppendUint64(nil, math.MaxUint64)
 		const nonCanonical, invalidAmount = "-3 LXP_ERR_NON_CANONICAL", "-412 LXP_ERR_INVALID_AMOUNT"
@@ -510,16 +498,6 @@ func TestBudgetPayloads(t *testing.T) {
 				budgetMutate(spend, budgetEdit{82, zero[:]}), errBudgetNonCanonical, nonCanonical},
 			{"delegate_spend_zero_amount", 10, func() ([]byte, error) { return EncodeBudgetDelegateSpend(id, recipient, codec.U128{}, key) },
 				budgetMutate(spend, budgetEdit{66, zero16}), errBudgetInvalidAmount, invalidAmount},
-			{"pull_zero_amount", 11, func() ([]byte, error) { return EncodeBudgetPull(id, recipient, codec.U128{}, key, grantBytes) },
-				budgetMutate(pull, budgetEdit{66, zero16}), errBudgetInvalidAmount, invalidAmount},
-			{"pull_recurring_flag", 11, func() ([]byte, error) { return EncodeBudgetPull(id, recipient, amount, key, badGrant(160, 2)) },
-				budgetMutate(pull, budgetEdit{BudgetDelegateSpendPayloadBytes + 160, []byte{2}}), errBudgetNonCanonical, nonCanonical},
-			{"pull_reference_flag", 11, func() ([]byte, error) { return EncodeBudgetPull(id, recipient, amount, key, badGrant(209, 2)) },
-				budgetMutate(pull, budgetEdit{BudgetDelegateSpendPayloadBytes + 209, []byte{2}}), errBudgetNonCanonical, nonCanonical},
-			{"pull_short_grant", 11, func() ([]byte, error) {
-				return EncodeBudgetPull(id, recipient, amount, key, grantBytes[:PayerGrantBytes-1])
-			},
-				func(t *testing.T) []byte { return budgetMutate(pull)(t)[:BudgetPullPayloadBytes-1] }, errBudgetNonCanonical, nonCanonical},
 		}
 		for _, r := range refusals {
 			t.Run(r.name, func(t *testing.T) {

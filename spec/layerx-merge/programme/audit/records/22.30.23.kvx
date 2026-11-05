@@ -1,0 +1,1239 @@
+# Pre-upgrade audit. Findings propose repairs; production source is unchanged.
+
+[audit.22.30.23]
+task = "22.30.23"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 120
+findings = 40
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["heavy-publication-rejected", "snapshot-sdk-response"]
+interfaces_produced_reviewed = 100
+interfaces_consumed_reviewed = 400
+requirements = ["22998.1", "4288.1", "4289.1", "4290.1", "4291.1", "4292.1", "22076.1", "181528.1"]
+interface_notes = "Bootstrap package references to remote-domain CLI/environment/file-format rows are static inventory references, not direct runtime calls. Ranking producer/HTTP/SDK and stream schemas and terminal route consumers were compared with actual counterpart shapes. Falling-change loser scores are nonnegative magnitudes under 4289.1. RankingsResponse permits the extra freshness field. Legacy development ranking routes remain distinct from production snapshots."
+lifecycle_notes = "Production publication uses immutable artifacts, epoch fencing, transactional heads/outbox and api_stream source proofs; cursor/cache identity binds retained run and digests. The recorded count mismatch prevents that heavy path from completing. UI account reads use session transport; device preferences and recent pools are local state rather than network authority."
+evidence_boundary = "This record reports source and interface review at the audited revision. It does not claim service, browser, database, broker or security suites executed, or that previously failed inventory commands were repaired."
+
+[file.1]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/activity-tabs.test.tsx"
+lines = 303
+verdict = "clean"
+note = "Activity tab tests cover account scope, declared route identifiers, continuation and unavailable operations; no live service execution is inferred."
+
+[file.2]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/fills.ts"
+lines = 80
+verdict = "clean"
+note = "Fill mapping preserves raw accounting units and chain order, checks wallet identifiers and bounds the visible list."
+
+[file.3]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/index.tsx"
+lines = 124
+verdict = "clean"
+note = "Activity tabs mount pool-scoped trades, holders, positions and orders with explicit unsupported account states."
+
+[file.4]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/instant-trade.ts"
+lines = 43
+verdict = "clean"
+note = "Instant-trade preference validates stored input and uses a local browser event without conveying transaction authority."
+
+[file.5]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/orders-panel.tsx"
+lines = 142
+verdict = "issues"
+note = "Orders follow nextCursor using a session-specific query key and fresh cancellation idempotency keys; transaction-request wallet completion remains unwired."
+
+[file.6]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/positions-panel.tsx"
+lines = 106
+verdict = "clean"
+note = "Positions use the production portfolio types and snapshot page accumulator, preserving unavailable basis and raw PnL."
+
+[file.7]
+path = "apps/launchpad/web/src/widgets/terminal/activity-tabs/trades-panel.tsx"
+lines = 123
+verdict = "clean"
+note = "Trades filter served fills by wallet and preserve unavailable attribution and chain position identity."
+
+[file.8]
+path = "apps/launchpad/web/src/widgets/terminal/chart-card.tsx"
+lines = 110
+verdict = "clean"
+note = "Chart mounts the existing candle controller for the selected pool and exposes loading, error and unsupported states."
+
+[file.9]
+path = "apps/launchpad/web/src/widgets/terminal/coin-view.render.test.tsx"
+lines = 155
+verdict = "clean"
+note = "Resolver render tests cover redirect, not-found and stable refetch targets; production page keys this component by pool."
+
+[file.10]
+path = "apps/launchpad/web/src/widgets/terminal/coin-view.tsx"
+lines = 128
+verdict = "clean"
+note = "Pool-keyed component lifecycle prevents a settled resolver target crossing pool navigation; token-to-pool redirects use canonical terminal routes."
+
+[file.11]
+path = "apps/launchpad/web/src/widgets/terminal/column-store.test.tsx"
+lines = 94
+verdict = "clean"
+note = "Column cases exercise malformed storage, clamping, fit, collapse and reset using the real local state model."
+
+[file.12]
+path = "apps/launchpad/web/src/widgets/terminal/column-store.ts"
+lines = 169
+verdict = "clean"
+note = "Column dimensions are bounded and storage failure retains in-memory state; cross-tab events invalidate the cache."
+
+[file.13]
+path = "apps/launchpad/web/src/widgets/terminal/frame.tsx"
+lines = 294
+verdict = "clean"
+note = "Frame cleans up pointer/keyboard resize handlers and composes bounded responsive columns using the shared store."
+
+[file.14]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/discovery-panel.tsx"
+lines = 126
+verdict = "clean"
+note = "Discovery rail joins frozen ranking/discovery responses with details, stats and metadata and keeps failed enrichment explicit."
+
+[file.15]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/index.tsx"
+lines = 19
+verdict = "clean"
+note = "Left rail forwards the selected pool consistently to discovery and recent sections."
+
+[file.16]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/left-rail.render.test.tsx"
+lines = 220
+verdict = "clean"
+note = "Render cases cover categories, enrichment, recent navigation and unavailable reads; UI fixtures do not qualify backend execution."
+
+[file.17]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/left-rail.test.ts"
+lines = 128
+verdict = "clean"
+note = "Row cases check units, baseline quality, approved social origins and canonical pool navigation."
+
+[file.18]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/pair-row.tsx"
+lines = 77
+verdict = "clean"
+note = "Pair rows use terminal pool routes and upstream-filtered external origins, with explicit missing numeric values."
+
+[file.19]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/recent-panel.tsx"
+lines = 114
+verdict = "clean"
+note = "Recent list supports device-local remove and clear operations and exposes unavailable enrichment without fabricated token data."
+
+[file.20]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/rows.ts"
+lines = 93
+verdict = "clean"
+note = "Rail mapper preserves raw market values, baseline quality and unknown graduation/holder fields; social origins are allowlisted."
+
+[file.21]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/timeframe.ts"
+lines = 49
+verdict = "clean"
+note = "Timeframe parser accepts supported windows and distinguishes absent baseline quality from zero change."
+
+[file.22]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/use-now.ts"
+lines = 12
+verdict = "clean"
+note = "Display clock installs and clears its interval with the component lifecycle and carries no source authority."
+
+[file.23]
+path = "apps/launchpad/web/src/widgets/terminal/left-rail/use-recent-rows.ts"
+lines = 48
+verdict = "clean"
+note = "Recent enrichment batches at most the local list bound through details, stats and metadata."
+
+[file.24]
+path = "apps/launchpad/web/src/widgets/terminal/live-context.tsx"
+lines = 27
+verdict = "clean"
+note = "Live context is scoped by pool and shares the existing live fill hook across widgets."
+
+[file.25]
+path = "apps/launchpad/web/src/widgets/terminal/presets-store.ts"
+lines = 118
+verdict = "issues"
+note = "Preset validation is bounded; a failed first storage write is undone by the next snapshot read instead of retaining the promised in-memory value."
+
+[file.26]
+path = "apps/launchpad/web/src/widgets/terminal/recent-pools.ts"
+lines = 94
+verdict = "clean"
+note = "Recent addresses are normalized, deduplicated and capped at twenty; failed persistence does not claim durable history."
+
+[file.27]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/accordion.tsx"
+lines = 90
+verdict = "issues"
+note = "Accordion parser validates each boolean; its blocked-storage in-memory fallback is undone by the following snapshot."
+
+[file.28]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/index.tsx"
+lines = 75
+verdict = "clean"
+note = "Right rail resolves pool/token identity and composes trade, security and similar-token surfaces with explicit availability states."
+
+[file.29]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/position-summary.tsx"
+lines = 135
+verdict = "issues"
+note = "Figures preserve partial basis and raw units, but the summary only searches the first fifty-position portfolio page."
+
+[file.30]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/preset-editor.tsx"
+lines = 81
+verdict = "clean"
+note = "Preset editor uses the store validators before changing amounts, percentages or slippage and cannot bypass trade approval."
+
+[file.31]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/quick-trade-card.tsx"
+lines = 202
+verdict = "clean"
+note = "Quick trade delegates quote, approval, risk review and submission to useTradePanel; arming expires and clears on side, amount or mode changes."
+
+[file.32]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/right-rail-mapping.test.ts"
+lines = 180
+verdict = "clean"
+note = "Mapping cases cover partial portfolio basis, search identity and missing window figures."
+
+[file.33]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/right-rail.integration.test.tsx"
+lines = 205
+verdict = "clean"
+note = "Integration cases cover preset and accordion interaction, quick trade and unsupported dependencies; they are not live wallet qualification."
+
+[file.34]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/similar-tokens-list.tsx"
+lines = 74
+verdict = "clean"
+note = "Similar list preserves served identity, uses stable numeric sorting and exposes unavailable enrichment."
+
+[file.35]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/similar-tokens.ts"
+lines = 119
+verdict = "clean"
+note = "Similar search bounds and deduplicates pool hits, excludes the current pool and joins stats/listings/metadata by identity."
+
+[file.36]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/window-stats-card.tsx"
+lines = 124
+verdict = "clean"
+note = "Window cards distinguish candle coverage, retained-fill coverage and the separately timed rolling 24h source."
+
+[file.37]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/window-stats.test.ts"
+lines = 107
+verdict = "issues"
+note = "Window cases cover aligned ranges and missing older history but omit a live fill newer than the candle response."
+
+[file.38]
+path = "apps/launchpad/web/src/widgets/terminal/right-rail/window-stats.ts"
+lines = 126
+verdict = "issues"
+note = "Short-window counts have a lower position fence but no upper candle fence and can falsely mark mixed snapshots complete."
+
+[file.39]
+path = "apps/launchpad/web/src/widgets/terminal/routes.test.ts"
+lines = 88
+verdict = "clean"
+note = "Route tests cover canonical terminal views, pool paths, token resolution and unavailable/missing addresses."
+
+[file.40]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/alerts-panel.tsx"
+lines = 155
+verdict = "clean"
+note = "Alert operations use the signed-in account and fresh request keys; the list explicitly describes only alerts created during this visit."
+
+[file.41]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/balances.tsx"
+lines = 66
+verdict = "clean"
+note = "Balance panel uses the existing account transport and leaves failed or unavailable balances explicit."
+
+[file.42]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/connection.tsx"
+lines = 40
+verdict = "clean"
+note = "Connection indicator reflects shared live state and observation age without presenting disconnected data as current."
+
+[file.43]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/index.tsx"
+lines = 156
+verdict = "clean"
+note = "Status bar composes account, connection, balances and layout controls and cleans up browser listeners."
+
+[file.44]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/model.ts"
+lines = 74
+verdict = "clean"
+note = "Status model validates device preference values and centralizes event names without carrying wallet authority."
+
+[file.45]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/panels.tsx"
+lines = 162
+verdict = "clean"
+note = "Status panels expose device preferences and approved navigation without treating display settings as account permissions."
+
+[file.46]
+path = "apps/launchpad/web/src/widgets/terminal/status-bar/status-bar.test.tsx"
+lines = 346
+verdict = "clean"
+note = "Status tests cover preference persistence, local events, connection states, balances and session changes without external execution claims."
+
+[file.47]
+path = "apps/launchpad/web/src/widgets/terminal/sub-nav.test.tsx"
+lines = 33
+verdict = "clean"
+note = "Navigation tests check canonical links, selected views and pool-address normalization."
+
+[file.48]
+path = "apps/launchpad/web/src/widgets/terminal/sub-nav.tsx"
+lines = 76
+verdict = "clean"
+note = "Sub-navigation validates pool addresses and constructs only supported terminal view paths."
+
+[file.49]
+path = "apps/launchpad/web/src/widgets/terminal/token-strip.test.tsx"
+lines = 138
+verdict = "clean"
+note = "Token strip cases cover pool/stat fields, unsafe-link rejection, copy feedback and missing metadata."
+
+[file.50]
+path = "apps/launchpad/web/src/widgets/terminal/token-strip.tsx"
+lines = 197
+verdict = "clean"
+note = "Token strip joins pool/token data by identity, sanitizes external links and preserves unknown market metrics."
+
+[file.51]
+path = "apps/launchpad/web/src/widgets/terminal/views/portfolio.tsx"
+lines = 58
+verdict = "clean"
+note = "Portfolio view delegates to the existing account portfolio surface with explicit signed-out and unavailable states."
+
+[file.52]
+path = "apps/launchpad/web/src/widgets/terminal/views/rewards.tsx"
+lines = 15
+verdict = "clean"
+note = "Rewards view keeps the existing unsupported boundary visible and does not claim a missing transaction succeeded."
+
+[file.53]
+path = "apps/launchpad/web/src/widgets/terminal/views/track.tsx"
+lines = 213
+verdict = "issues"
+note = "Track validates both following envelopes and sends bearer authentication, but never consumes the continuation cursor."
+
+[file.54]
+path = "apps/launchpad/web/src/widgets/terminal/views/trenches.tsx"
+lines = 230
+verdict = "clean"
+note = "Trenches enriches and filters served discovery rows through bounded category operations with explicit loading and failure states."
+
+[file.55]
+path = "apps/launchpad/web/src/widgets/terminal/views/trending.tsx"
+lines = 58
+verdict = "clean"
+note = "Trending reuses the existing explore view and terminal pool navigation rather than maintaining another ranking decoder."
+
+[file.56]
+path = "apps/launchpad/web/src/widgets/terminal/views/views.test.tsx"
+lines = 280
+verdict = "clean"
+note = "View cases cover route identity, following shapes and unavailable surfaces without pretending unserved orders or alerts are backed by a store."
+
+[file.57]
+path = "services/launchpad/licenses/README.md"
+lines = 7
+verdict = "issues"
+note = "License guidance requests a root LICENSE without explaining the existing monorepo Apache-2.0 text or launchpad applicability."
+
+[file.58]
+path = "services/launchpad/pnl-tracker/internal/pnlcache/pnlcache.go"
+lines = 47
+verdict = "clean"
+note = "Legacy PnL cache keys normalize user identity and separate immutable cards; TTLs bound stale values and invalidation returns errors."
+
+[file.59]
+path = "services/launchpad/ranking-algo/cmd/rankingd/main.go"
+lines = 18
+verdict = "clean"
+note = "rankingd propagates configuration, startup and lifecycle errors through the process runner."
+
+[file.60]
+path = "services/launchpad/ranking-algo/internal/app/app.go"
+lines = 603
+verdict = "clean"
+note = "Production wires frozen inputs, durable publication, HMAC cursors and mTLS ingress; heavy completion is blocked by the store count mismatch."
+
+[file.61]
+path = "services/launchpad/ranking-algo/internal/app/app_test.go"
+lines = 527
+verdict = "issues"
+note = "Application cases skip the publication success path without a social peer, check only six successful categories and retain retired RPC fixtures."
+
+[file.62]
+path = "services/launchpad/ranking-algo/internal/config/config.go"
+lines = 360
+verdict = "clean"
+note = "Configuration validates pinned runtime documents, schema/budget ownership, peer identities and secret references before production startup."
+
+[file.63]
+path = "services/launchpad/ranking-algo/internal/config/config_test.go"
+lines = 133
+verdict = "issues"
+note = "Configuration tests cover bounds and required bindings but use a retired /rpc endpoint as their valid RPC fixture."
+
+[file.64]
+path = "services/launchpad/ranking-algo/internal/httpapi/bounds_test.go"
+lines = 30
+verdict = "clean"
+note = "Legacy pagination bounds cases reject malformed and excessive requests while retaining declared default behavior."
+
+[file.65]
+path = "services/launchpad/ranking-algo/internal/httpapi/rankings.go"
+lines = 222
+verdict = "clean"
+note = "Legacy development route retains its six-category numeric-score/offset envelope; production registers Snapshots, exposing the recorded SDK mismatch."
+
+[file.66]
+path = "services/launchpad/ranking-algo/internal/httpapi/rankings_frozen_test.go"
+lines = 75
+verdict = "clean"
+note = "Frozen route test compares actual snapshotCategory acceptance with the generated IF_RANKINGS enum."
+
+[file.67]
+path = "services/launchpad/ranking-algo/internal/httpapi/rankings_test.go"
+lines = 159
+verdict = "clean"
+note = "Legacy Redis route cases verify compatibility enrichment and pagination, without qualifying the production snapshot envelope."
+
+[file.68]
+path = "services/launchpad/ranking-algo/internal/httpapi/snapshots.go"
+lines = 240
+verdict = "issues"
+note = "Snapshot route serves frozen envelopes, visibility fences and signed cursors; its declared legacy SDK caller cannot decode its production success."
+
+[file.69]
+path = "services/launchpad/ranking-algo/internal/httpapi/snapshots_guidance_test.go"
+lines = 56
+verdict = "clean"
+note = "Guidance test exercises the actual invalid-category handler against the frozen category list."
+
+[file.70]
+path = "services/launchpad/ranking-algo/internal/httpapi/snapshots_test.go"
+lines = 281
+verdict = "issues"
+note = "Snapshot query test wrongly rejects gainers and losers; other cases exercise retained cursors, visibility and cache loss."
+
+[file.71]
+path = "services/launchpad/ranking-algo/internal/internaltest/containers.go"
+lines = 217
+verdict = "clean"
+note = "Test helpers use real container or explicitly supplied external dependencies with startup/cleanup bounds and no fake database success."
+
+[file.72]
+path = "services/launchpad/ranking-algo/internal/internaltest/runtime_database.go"
+lines = 514
+verdict = "clean"
+note = "Runtime test database applies registered migrations and role/budget checks to disposable databases, keeping admin authority out of application connections."
+
+[file.73]
+path = "services/launchpad/ranking-algo/internal/ranker/comparison.go"
+lines = 166
+verdict = "clean"
+note = "Comparison binds identical frozen inputs to formula/image identities and requires an explicit promotion authority before authorizing."
+
+[file.74]
+path = "services/launchpad/ranking-algo/internal/ranker/coordinator.go"
+lines = 228
+verdict = "clean"
+note = "Coordinator derives seven heavy categories from the canonical set; persisted-page validation matches actual nonnegative magnitude scores."
+
+[file.75]
+path = "services/launchpad/ranking-algo/internal/ranker/coordinator_categories_test.go"
+lines = 109
+verdict = "clean"
+note = "Category test checks every frozen policy, independent category snapshots and formula manifest membership."
+
+[file.76]
+path = "services/launchpad/ranking-algo/internal/ranker/coordinator_test.go"
+lines = 165
+verdict = "issues"
+note = "Older coordinator tests still require five heavy results and contradict the seven-category producer."
+
+[file.77]
+path = "services/launchpad/ranking-algo/internal/ranker/finite.go"
+lines = 82
+verdict = "clean"
+note = "Finite scoring uses complete bounded decimals; gainers score positive change and losers falling magnitude, with opposite direction zero."
+
+[file.78]
+path = "services/launchpad/ranking-algo/internal/ranker/finite_signed_test.go"
+lines = 64
+verdict = "clean"
+note = "Signed-change cases include rises, falls, zeros and huge decimal strings and assert finite category-specific scores."
+
+[file.79]
+path = "services/launchpad/ranking-algo/internal/ranker/integration_test.go"
+lines = 160
+verdict = "clean"
+note = "Legacy integration uses actual SQL/Redis and the development service contract, separate from durable production publication."
+
+[file.80]
+path = "services/launchpad/ranking-algo/internal/ranker/local_redis_test.go"
+lines = 53
+verdict = "clean"
+note = "Local Redis cases check actual sorted-set replacement and cleanup rather than substituting an in-memory Redis double."
+
+[file.81]
+path = "services/launchpad/ranking-algo/internal/ranker/measurement.go"
+lines = 209
+verdict = "clean"
+note = "Measurement binds source hashes, all category policies, frozen inputs, replay digests and release identities."
+
+[file.82]
+path = "services/launchpad/ranking-algo/internal/ranker/page.go"
+lines = 156
+verdict = "clean"
+note = "Cursor HMAC binds category/run/digests, boundary item and expiry; parser rejects malformed, cross-category and expired cursors."
+
+[file.83]
+path = "services/launchpad/ranking-algo/internal/ranker/policy_frozen_test.go"
+lines = 88
+verdict = "clean"
+note = "Policy case pins the exact ordered canonical category set to the generated enum."
+
+[file.84]
+path = "services/launchpad/ranking-algo/internal/ranker/score.go"
+lines = 157
+verdict = "clean"
+note = "Legacy heuristic exports retain development callers; production finiteScore uses bounded rational parsing and never persists float accounting values."
+
+[file.85]
+path = "services/launchpad/ranking-algo/internal/ranker/score_test.go"
+lines = 219
+verdict = "clean"
+note = "Score cases cover legacy heuristic behavior and invalid decimal input without changing source accounting quantities."
+
+[file.86]
+path = "services/launchpad/ranking-algo/internal/ranker/service.go"
+lines = 356
+verdict = "clean"
+note = "Legacy Service serializes computation and atomically stages expiring Redis sets; production uses Coordinator and PublicationStore."
+
+[file.87]
+path = "services/launchpad/ranking-algo/internal/ranker/snapshot.go"
+lines = 414
+verdict = "clean"
+note = "Snapshot builder bounds and copies input, freezes order/digests and excludes observed paused or suppressed candidates across all policies."
+
+[file.88]
+path = "services/launchpad/ranking-algo/internal/ranker/snapshot_test.go"
+lines = 360
+verdict = "clean"
+note = "Snapshot cases cover finite inputs, stable ties, new-pool creation order, visibility, activity adjustment and cursor behavior."
+
+[file.89]
+path = "services/launchpad/ranking-algo/internal/ranker/write_test.go"
+lines = 171
+verdict = "clean"
+note = "Redis write cases check atomic replacement, completed-empty lists and legacy update publication."
+
+[file.90]
+path = "services/launchpad/ranking-algo/internal/store/cache.go"
+lines = 95
+verdict = "clean"
+note = "Cache identity includes namespace/run/digest/offset/limit and validates complete pages; misses and invalid cache values return to durable reads."
+
+[file.91]
+path = "services/launchpad/ranking-algo/internal/store/frozen_inputs.go"
+lines = 284
+verdict = "clean"
+note = "Frozen source uses repeatable-read completeness and moderation fences; canonical pause state is absent from its feature producer."
+
+[file.92]
+path = "services/launchpad/ranking-algo/internal/store/phase2_test.go"
+lines = 465
+verdict = "issues"
+note = "Phase-two tests assert obsolete five-category head, snapshot and outbox counts."
+
+[file.93]
+path = "services/launchpad/ranking-algo/internal/store/phase4_test.go"
+lines = 969
+verdict = "issues"
+note = "Release replay gate requires exactly six categories per cutoff instead of the frozen eight."
+
+[file.94]
+path = "services/launchpad/ranking-algo/internal/store/production_universe_test.go"
+lines = 436
+verdict = "issues"
+note = "Production universe test expects five heavy results and six public events and cannot qualify current category coverage."
+
+[file.95]
+path = "services/launchpad/ranking-algo/internal/store/publication.go"
+lines = 511
+verdict = "issues"
+note = "Publication is durable, immutable and epoch-fenced, but admission and health both retain obsolete category counts."
+
+[file.96]
+path = "services/launchpad/ranking-algo/internal/store/snapshots.go"
+lines = 73
+verdict = "clean"
+note = "Legacy snapshot Save atomically preserves immutable identity and outbox intent; missing Read artifacts remain explicit absence."
+
+[file.97]
+path = "services/launchpad/ranking-algo/internal/store/snapshots_test.go"
+lines = 101
+verdict = "clean"
+note = "Snapshot persistence cases use actual SQL to check retries, immutable conflicts and completed-empty artifacts."
+
+[file.98]
+path = "services/launchpad/ranking-algo/internal/store/store.go"
+lines = 171
+verdict = "clean"
+note = "Legacy store binds query parameters, returns accounting decimals as text and bounds recent/top-volume reads."
+
+[file.99]
+path = "services/launchpad/ranking-algo/internal/store/store_test.go"
+lines = 170
+verdict = "clean"
+note = "Store cases exercise actual SQL mapping and filtering against the development schema contract."
+
+[file.100]
+path = "services/launchpad/ranking-algo/internal/store/universe_features.go"
+lines = 206
+verdict = "issues"
+note = "Canonical feature math preserves raw integers, but pause observation is missing and ordinary wallet round trips are labelled evidenced self trades."
+
+[file.101]
+path = "services/launchpad/ranking-algo/internal/store/visibility_cutoff_test.go"
+lines = 59
+verdict = "clean"
+note = "Cutoff cases reject moderation observed after the frozen cutoff or beyond freshness rather than publishing an accidental empty run."
+
+[file.102]
+path = "tools/launchpad/production/bootstrap/README.md"
+lines = 25
+verdict = "issues"
+note = "Bootstrap guide retains former client/tools/deploy paths and the thirteen-module description."
+
+[file.103]
+path = "tools/launchpad/production/bootstrap/baseline.py"
+lines = 208
+verdict = "issues"
+note = "Baseline hashes current source and verifies modules but has an obsolete module count and excludes moved npm manifests from link checks."
+
+[file.104]
+path = "tools/launchpad/production/bootstrap/contracts/fixture.cjs"
+lines = 213
+verdict = "clean"
+note = "Fixture restricts execution to in-process chain-125 Hardhat, checks source/artifact correspondence and records actual fixture receipts and digests."
+
+[file.105]
+path = "tools/launchpad/production/bootstrap/contracts/hardhat.config.cjs"
+lines = 4
+verdict = "clean"
+note = "Hardhat configuration defines only the isolated network and uses the explicitly supplied contract tree for plugins/artifacts."
+
+[file.106]
+path = "tools/launchpad/production/bootstrap/contracts/run.sh"
+lines = 7
+verdict = "clean"
+note = "Launcher requires explicit source/output paths and selects the isolated Hardhat network without compiling or loading a production RPC."
+
+[file.107]
+path = "tools/launchpad/production/bootstrap/resources/admit.py"
+lines = 125
+verdict = "clean"
+note = "Resource admission bounds workers, slots and memory profiles against observed workspace/cgroup capacity with explicit refusal reasons."
+
+[file.108]
+path = "tools/launchpad/production/bootstrap/resources/test_admit.py"
+lines = 49
+verdict = "clean"
+note = "Resource cases cover logical/physical profiles, low memory and slot/worker bounds using the actual admission calculation."
+
+[file.109]
+path = "tools/launchpad/production/bootstrap/runner_tests.py"
+lines = 555
+verdict = "clean"
+note = "Runner cases preserve child exits, cancellation and native evidence/ownership validation; core/* scheduling labels still match qualify.py."
+
+[file.110]
+path = "tools/launchpad/production/bootstrap/security/GAPS.md"
+lines = 28
+verdict = "issues"
+note = "Security map contains a moved generator command and falsely describes the current fail-closed scanner as permissive."
+
+[file.111]
+path = "tools/launchpad/production/bootstrap/security/build_manifest.py"
+lines = 16
+verdict = "clean"
+note = "Generator emits source hashes, named tests, commands, skip policy and explicit unexecuted status; inventory is not security execution."
+
+[file.112]
+path = "tools/launchpad/production/bootstrap/security/manifest.json"
+lines = 378
+verdict = "generated"
+note = "Generated security regression inventory from security/build_manifest.py; command/hash metadata only, explicitly not a production security certificate."
+
+[file.113]
+path = "tools/launchpad/production/bootstrap/snapshot/snapshot.py"
+lines = 170
+verdict = "issues"
+note = "Source snapshot rejects symlinks and concurrent mutation, but global build/coverage exclusions hide tracked source from ownership checking."
+
+[file.114]
+path = "tools/launchpad/production/bootstrap/snapshot/test_snapshot.py"
+lines = 109
+verdict = "clean"
+note = "Snapshot cases check ownership, mutation and secret/symlink defenses but omit tracked source under build and coverage names."
+
+[file.115]
+path = "tools/launchpad/production/bootstrap/test_baseline.py"
+lines = 46
+verdict = "issues"
+note = "Baseline fixture source.go lies outside every LAUNCHPAD_HOMES traversal root while the assertion expects it to be found."
+
+[file.116]
+path = "tools/launchpad/production/bootstrap/tests/catalog.py"
+lines = 251
+verdict = "issues"
+note = "Catalog validates native completion and skip behavior but its fixed list omits four current production modules."
+
+[file.117]
+path = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+lines = 3573
+verdict = "generated"
+note = "Generated tests/catalog.py source declaration/hash catalog with source_inventory_only evidence; no test execution is inferred."
+
+[file.118]
+path = "tools/launchpad/production/bootstrap/tests/test_catalog.py"
+lines = 115
+verdict = "clean"
+note = "Catalog cases enforce named-test completion and zero-case/skip rejection but inherit the incomplete MODULES universe."
+
+[file.119]
+path = "tools/launchpad/production/bootstrap/toolchain/inventory.py"
+lines = 89
+verdict = "clean"
+note = "Offline inventory separates declarations from resolution and license approval, bounds tool probes and reports missing tools/errors."
+
+[file.120]
+path = "tools/launchpad/production/bootstrap/wallet_fixture.py"
+lines = 125
+verdict = "clean"
+note = "Wallet fixture uses loopback Anvil chain 125 and actual signed nonce/login/session routes, with bounded subprocess lifecycle."
+
+[finding.heavy-publication-rejected]
+file = "services/launchpad/ranking-algo/internal/store/publication.go"
+line = 48
+class = "interface-mismatch"
+severity = "high"
+observed = "PublicationStore.Complete accepts only one or five snapshots, but Coordinator.ComputeRun produces seven heavy categories. A five-snapshot input also cannot satisfy the loop over all seven HeavyCategoryNames. Production app.go wires this store directly to Coordinator, so every heavy refresh is rejected before its transaction starts."
+expected = "Requirements 4288.1 and 4291.1 define eight categories including seven heavy categories. A complete frozen heavy run must atomically commit every heavy head and stream intent, allowing discovery and readiness to advance after startup or restart."
+proposal = "In services/launchpad/ranking-algo/internal/store/publication.go derive admission count and exact heavy membership from ranker.HeavyCategoryNames, preserving duplicate/provenance checks. Prove Coordinator through durable heads, api_stream publication and HTTP consumption across restart for all eight categories."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.snapshot-sdk-response]
+file = "services/launchpad/ranking-algo/internal/httpapi/snapshots.go"
+line = 190
+class = "interface-mismatch"
+severity = "high"
+observed = "RegisterSnapshots emits data.snapshot, string scores, nextCursor and revision/watermark, and rejects any offset parameter. Its declared caller sdk/launchpad/packages/ranking-algo-sdk/src/index.ts:41-46 requires top-level category/items/total/limit/offset with numeric scores, sends offset and exposes the former six categories. A valid production success therefore throws Invalid rankings response in that client."
+expected = "The declared production /rankings/{category} producer and SDK consumer must round-trip the frozen envelope, all canonical categories, decimal-string scores and the snapshot cursor/error lifecycle."
+proposal = "Migrate sdk/launchpad/packages/ranking-algo-sdk/src/index.ts to the frozen snapshot contract or explicitly retire this client and migrate its callers to generated operations. Add a real production-handler HTTP client test for success, continuation, expiry and unavailable guidance; keep any development compatibility explicitly versioned."
+owner_domain = 4
+interface = "4.http-ranking-algo-get-rankings-category-snapshots"
+
+[finding.publication-health-category-count]
+file = "services/launchpad/ranking-algo/internal/store/publication.go"
+line = 424
+class = "runtime-risk"
+severity = "medium"
+observed = "PublicationHealth reads only six alphabetically ordered category_heads and sets whole-heavy staleness only when heavySeen equals five. With eight heads it omits unusual and volume and can report whole-heavy age from an incomplete subset. The separate native ready loop does still inspect every category."
+expected = "Category age reporting and whole-heavy staleness must cover the same eight heads and seven heavy categories as the coordinator, with exact membership rather than an obsolete count."
+proposal = "In services/launchpad/ranking-algo/internal/store/publication.go enumerate the canonical category set within its bounded size, require complete heavy membership and calculate staleness across all seven heavy heads. Cover missing heads and differing freshness ages without weakening runtime readiness."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.coordinator-test-category-count]
+file = "services/launchpad/ranking-algo/internal/ranker/coordinator_test.go"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "TestHeavyRunUsesOneFrozenUniverse and TestCompletedEmptyRunAndInputImmutability still require five results, while ComputeRun iterates seven heavy members derived from Categories."
+expected = "Requirement 4291.1 requires every heavy policy in one frozen run; completed-empty and provenance tests must assert the same exact category set as the actual producer."
+proposal = "Update services/launchpad/ranking-algo/internal/ranker/coordinator_test.go to assert the ordered HeavyCategoryNames set and preserve shared-digest, movers exclusion, independent-new and immutability checks. Execute the existing cases after the repair rather than suppressing them."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.snapshot-test-rejects-frozen-categories]
+file = "services/launchpad/ranking-algo/internal/httpapi/snapshots_test.go"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "TestSnapshotQueryBoundsAndCanonicalCategories lists gainers and losers with arbitrary as unsupported; snapshotCategory delegates to Policy and now accepts both frozen categories."
+expected = "Requirements 4288.1, 4290.1 and 4292.1 require every frozen category to parse, while genuinely unknown categories receive INVALID_CATEGORY with the complete supported list."
+proposal = "In services/launchpad/ranking-algo/internal/httpapi/snapshots_test.go assert acceptance of every frozen category and separate unknown-name refusals, preserving malformed-limit and actual-dependency checks."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.publication-tests-five-categories]
+file = "services/launchpad/ranking-algo/internal/store/phase2_test.go"
+line = 109
+class = "test-gap"
+severity = "medium"
+observed = "Phase-two publication cases expect five snapshots/heads/intents, five broker messages and five empty-run intents. Their coordinator input now produces seven heavy categories, which the current production admission check rejects."
+expected = "Publication tests must verify every current heavy category with atomic advancement, exact retries, fencing, persistent acknowledgements and recovery using the actual coordinator output."
+proposal = "Update services/launchpad/ranking-algo/internal/store/phase2_test.go to derive exact membership and event counts from the frozen heavy set. Preserve rollback, immutable identity, ack and exhaustion assertions and execute the actual database/broker path after fixing admission."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.production-universe-test-category-count]
+file = "services/launchpad/ranking-algo/internal/store/production_universe_test.go"
+line = 231
+class = "test-gap"
+severity = "medium"
+observed = "TestProductionUniverseCompletesAndPublishes requires len(heavy)==5, six committed/outbox events and obsolete prune/relay counts; its expected category map omits gainers and losers although ComputeRun emits them."
+expected = "The production universe test must demonstrate all seven heavy categories plus new through frozen inputs, persistence, committed stream publication and stored page reads, including later runs and pruning."
+proposal = "Update services/launchpad/ranking-algo/internal/store/production_universe_test.go to derive exact category membership and lifecycle counts from Categories, preserving hidden-pool, metrics, replay and stream assertions and including both signed-change categories in consumed results."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.historical-replay-six-category-gate]
+file = "services/launchpad/ranking-algo/internal/store/phase4_test.go"
+line = 783
+class = "test-gap"
+severity = "medium"
+observed = "phase4Replay requires at least 78 samples and exactly six distinct categories per cutoff. It can accept a six-category subset and rejects a complete eight-category cutoff even though all eight categories are valid policies."
+expected = "Historical release evidence must include the exact frozen eight-category set at each of at least thirteen cutoffs spanning 72 hours, retaining the maximum sampling gap and digest checks."
+proposal = "In services/launchpad/ranking-algo/internal/store/phase4_test.go derive sample minimum from len(ranker.Categories), require exact category membership per cutoff and retain historical execution, 72-hour span, sampling-gap and digest-equality checks."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.application-publication-proof-skipped]
+file = "services/launchpad/ranking-algo/internal/app/app_test.go"
+line = 457
+class = "test-gap"
+severity = "medium"
+observed = "The publishes and becomes ready subtest skips without RANKING_TEST_VISIBILITY_PEER_FILE. Its configured success loop checks only six categories. The default no-authority refusal path therefore does not establish working eight-category production publication."
+expected = "A publication qualification claim must execute real mTLS visibility, canonical inputs, durable heads and consumed responses for every frozen category, supplying mandatory prerequisites and executing its success assertions."
+proposal = "Provide the real social visibility peer in the declared fixture for services/launchpad/ranking-algo/internal/app/app_test.go and fail that publication qualification explicitly if prerequisites are missing. Assert every category and restart recovery while preserving the separate no-authority refusal case."
+owner_domain = 4
+interface = "4.go-ranking-algo-categories-j29"
+
+[finding.application-retired-rpc-fixtures]
+file = "services/launchpad/ranking-algo/internal/app/app_test.go"
+line = 328
+class = "retired-reference"
+severity = "low"
+observed = "Application fixtures set RPC_URL to https://rpc.example.com/rpc at lines 328 and 510, retaining the retired unified path as an ordinary configuration value; no live node probe is performed by these fixture assignments."
+expected = "Brief facts 2 and 3 retire /rpc and define root-path node JSON-RPC for chain 125; valid configuration fixtures should use the same endpoint shape operators provide."
+proposal = "Replace ordinary RPC fixtures in services/launchpad/ranking-algo/internal/app/app_test.go with a root-path node origin, retaining startup, TLS, readiness and Redis-error assertions. Name any intentional retired-endpoint rejection case explicitly."
+owner_domain = 4
+
+[finding.configuration-retired-rpc-fixture]
+file = "services/launchpad/ranking-algo/internal/config/config_test.go"
+line = 22
+class = "retired-reference"
+severity = "low"
+observed = "The valid environment fixture assigns RPC_URL=https://rpc.example.com/rpc, presenting the retired unified path as a normal node configuration."
+expected = "Current node JSON-RPC uses the root origin, and valid environment examples must not perpetuate the retired /rpc endpoint shape."
+proposal = "Use a root-path node origin in services/launchpad/ranking-algo/internal/config/config_test.go while preserving required-value, bounds and pinned-runtime checks; keep intentional legacy-path rejection tests separate."
+owner_domain = 4
+
+[finding.canonical-pause-not-wired]
+file = "services/launchpad/ranking-algo/internal/store/universe_features.go"
+line = 155
+class = "wiring-gap"
+severity = "medium"
+observed = "universeRow.candidate lists canonical-pause-unavailable, leaves NullableMetrics.Paused nil and leaves Candidate.Paused false. BuildSnapshot only checks c.Paused, so paused pools with eligible fills can be ranked, including in new, without any observed unpaused state."
+expected = "The discovery-v3 policy in ranker/snapshot.go promises visible, unpaused pools. Unknown pause evidence must remain distinct from a canonical observation that a pool is unpaused at the frozen cutoff."
+proposal = "Wire cutoff-bound canonical pause evidence into services/launchpad/ranking-algo/internal/store/universe_features.go and frozen_inputs.go, populate the observation and eligibility flag, and test paused-before-cutoff, missing evidence and recovered evidence without defaulting unknown to unpaused."
+owner_domain = 4
+
+[finding.round-trip-volume-labelled-self-trade]
+file = "services/launchpad/ranking-algo/internal/store/universe_features.go"
+line = 199
+class = "runtime-risk"
+severity = "medium"
+observed = "universeQuerySQL labels SUM(2*LEAST(b,s)) for each trader buying and selling in the same day as self volume. candidate passes it as complete evidence to AdjustActivity, which subtracts it and adds evidenced-self-volume. The ordinary partial sell fixture is discounted without manipulation or counterparty evidence."
+expected = "AdjustActivity promises to remove only evidenced self volume. An ordinary wallet buying and later selling into an AMM is not by itself proof of self trading, and heuristic suspicion must remain distinct from verified attribution."
+proposal = "In services/launchpad/ranking-algo/internal/store/universe_features.go separate round-trip heuristics from proven self-trade evidence, preserve raw volume and subtract only qualified canonical evidence. Cover normal buy/partial-sell behavior and independently evidenced wash activity in production_universe_test.go."
+owner_domain = 4
+
+[finding.position-pagination]
+file = "apps/launchpad/web/src/widgets/terminal/right-rail/position-summary.tsx"
+line = 88
+class = "wiring-gap"
+severity = "medium"
+observed = "OwnedSummary searches only usePortfolio().data.positions. That transport serves at most fifty positions and exposes data.next, but this component never requests it. A token on a later page remains No position found yet indefinitely although PositionsPanel can retrieve that page."
+expected = "The selected token summary must find holdings across the served portfolio snapshot or provide actionable incomplete/loading/error behavior until its pages have been searched."
+proposal = "In apps/launchpad/web/src/widgets/terminal/right-rail/position-summary.tsx use the existing snapshot-bound page accumulator or a supported token lookup, stopping when found. Cover a page-two holding, snapshot change, continuation failure and sign-out."
+owner_domain = 4
+interface = "4.http-pnl-tracker-get-v3-me-portfolio-app"
+
+[finding.window-snapshot-boundary]
+file = "apps/launchpad/web/src/widgets/terminal/right-rail/window-stats.ts"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "countFills excludes positions before the earliest candle firstPosition but does not exclude fills after the latest candle lastPosition. Independently advancing live fills are counted against older candle volume/trade totals, and retained>=trades can mark this mixed result complete."
+expected = "Short-window side counts and candle trade/USDL totals must refer to the same served observation range, with partial coverage when snapshot alignment or continuity has not been established."
+proposal = "In apps/launchpad/web/src/widgets/terminal/right-rail/window-stats.ts fence counts at both candle position boundaries, deduplicate event identities and keep uncertain coverage partial. Add newer-live-fill and missing-in-range-history cases while preserving raw candle totals."
+owner_domain = 4
+interface = "4.http-api-get-v2-pools-pool-address-candles-accounting-v2"
+
+[finding.window-snapshot-test-gap]
+file = "apps/launchpad/web/src/widgets/terminal/right-rail/window-stats.test.ts"
+line = 67
+class = "test-gap"
+severity = "medium"
+observed = "Window test fills stop at the final candle position and test only missing older history. They omit asynchronous fills ahead of the candle response and thus do not expose false coverage completion or counts exceeding the served candle trade total."
+expected = "UI fixtures must represent independently advancing candle and fill producers and preserve honest coverage when their latest positions differ."
+proposal = "Add newer-than-lastPosition, duplicate-event and missing-in-range-history cases to apps/launchpad/web/src/widgets/terminal/right-rail/window-stats.test.ts. Assert snapshot-aligned counts and partial coverage without weakening the existing complete, empty or partial-candle assertions."
+owner_domain = 4
+
+[finding.preset-storage-fallback]
+file = "apps/launchpad/web/src/widgets/terminal/presets-store.ts"
+line = 95
+class = "runtime-risk"
+severity = "medium"
+observed = "write catches setItem failure and promises an in-memory preset, then caches raw=readRaw()??serialized. When readRaw returns null, the next snapshot compares null with serialized and resets defaultPresets, immediately discarding the accepted edit."
+expected = "Validated preset changes should remain active during the current visit when first-write storage fails, while making no claim that failed persistence will survive reload."
+proposal = "In apps/launchpad/web/src/widgets/terminal/presets-store.ts separate the last observed storage baseline from the in-memory fallback and only advance persisted state after successful writes. Cover null reads with throwing setItem and ensure edited slippage/amounts remain active."
+owner_domain = 4
+
+[finding.accordion-storage-fallback]
+file = "apps/launchpad/web/src/widgets/terminal/right-rail/accordion.tsx"
+line = 48
+class = "runtime-risk"
+severity = "medium"
+observed = "The setter catches failed persistence as in-memory only but caches serialized raw when readRaw returns null. The following snapshot sees a different null value and reparses defaults, undoing the user toggle."
+expected = "Accordion controls must continue to open and close in the current visit when storage is blocked, matching the intended fallback behavior."
+proposal = "In apps/launchpad/web/src/widgets/terminal/right-rail/accordion.tsx preserve in-memory state independently of a failed write and the observed storage baseline. Add a blocked-storage interaction case that toggles a section and reads the next snapshot."
+owner_domain = 4
+
+[finding.following-pagination]
+file = "apps/launchpad/web/src/widgets/terminal/views/track.tsx"
+line = 73
+class = "wiring-gap"
+severity = "medium"
+observed = "fetchFollowing always requests limit=50 without a cursor. FollowingList uses a single useQuery page; parseFollowing retains nextCursor and the header renders a plus marker, but no continuation request or load-more control exists."
+expected = "The following route exposes nextCursor for further wallets, and the signed-in terminal user must be able to access those results while preserving identity enrichment and account/session isolation."
+proposal = "In apps/launchpad/web/src/widgets/terminal/views/track.tsx accept cursors and use an infinite query with explicit continuation controls and session resets. Verify two producer-shaped pages, deduplication, account changes and continuation failures."
+owner_domain = 4
+interface = "4.http-social-get-v2-social-users-wallet-following-http"
+
+[finding.order-cancel-wallet-step]
+file = "apps/launchpad/web/src/widgets/terminal/activity-tabs/orders-panel.tsx"
+line = 64
+class = "wiring-gap"
+severity = "medium"
+observed = "When the declared IF_ORDER_CANCEL response includes data.transactionRequest, OrdersList discards that request, closes the confirmation and only displays Finish cancelling it from your wallet. No wallet submission action or transaction status is wired. The development producer currently returns explicit dependency-unavailable, so this gap concerns the advertised successful transaction-request branch."
+expected = "The OrderCancelResponse transaction-request branch must give users a concrete wallet-signing and completion path before cancellation can be represented as successful."
+proposal = "In apps/launchpad/web/src/widgets/terminal/activity-tabs/orders-panel.tsx pass an admitted transactionRequest through the existing reviewed wallet/journey flow, retaining idempotency and refresh only on confirmed outcome. Cover the branch using the owning cancellation producer when available; keep its current unavailable state explicit."
+owner_domain = 4
+interface = "4.http-api-post-v2-me-orders-order-id-cancel"
+
+[finding.baseline-module-inventory]
+file = "tools/launchpad/production/bootstrap/baseline.py"
+line = 123
+class = "config-drift"
+severity = "medium"
+observed = "baseline.py requires exactly thirteen production Go modules, while its seven-home traversal includes twenty tracked go.mod files: the seventeen production modules plus test/tool modules. Its obsolete constant rejects the current module inventory."
+expected = "Requirement 181528.1 identifies seventeen production checksum files. Dependency qualification must explicitly select that reviewed production set and distinguish fixture/tool manifests rather than conflating all discovered go.mod files."
+proposal = "In tools/launchpad/production/bootstrap/baseline.py derive or pin reviewed production membership from the canonical workspace/inventory and verify test/tool modules separately. Retain immutable checksum checks, missing-module rejection and dependency verification."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-bootstrap-baseline"
+
+[finding.baseline-npm-manifest-selector]
+file = "tools/launchpad/production/bootstrap/baseline.py"
+line = 152
+class = "wiring-gap"
+severity = "medium"
+observed = "The baseline selects package.json only when its relative path contains a client directory component. Current workspace manifests under apps/launchpad and sdk/launchpad are omitted from package_manifests, bypassing their workspace:, file: and link: validation."
+expected = "Dependency integrity must inspect the moved launchpad JavaScript workspaces and validate their local edges against current package names and paths."
+proposal = "Replace the former client selector in tools/launchpad/production/bootstrap/baseline.py with actual current workspace membership, including moved SDK packages. Cover missing workspace names and file/link targets in representative monorepo paths while preserving immutable manifests."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-bootstrap-baseline"
+
+[finding.baseline-source-fixture-layout]
+file = "tools/launchpad/production/bootstrap/test_baseline.py"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "The test writes source.go directly below a temporary root and expects source_files to return it. source_files now walks only LAUNCHPAD_HOMES, and none of those directories exist in this fixture, so its expected source is outside the actual traversal."
+expected = "Secret/generated/evidence exclusion cases must operate inside real launchpad homes and separately assert that unrelated monorepo files are outside this baseline."
+proposal = "Update tools/launchpad/production/bootstrap/test_baseline.py to place source and exclusions in representative apps/launchpad and services/launchpad homes. Assert exact relative paths and retain source hash, symlink and secret checks."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-bootstrap-test-baseline"
+
+[finding.test-catalog-module-coverage]
+file = "tools/launchpad/production/bootstrap/tests/catalog.py"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "MODULES lists thirteen roots and omits services/launchpad/discovery, notifications, security and security/control despite their production manifests. Source inventory and expected native test evidence cannot require those omitted modules."
+expected = "The reviewed seventeen-module production inventory must be represented in qualification evidence, including service/security boundaries and explicit build-only treatment where a module genuinely has no tests."
+proposal = "In tools/launchpad/production/bootstrap/tests/catalog.py reconcile exact membership with the canonical production workspace, include the four omitted roots and regenerate the catalog. Retain named-test, zero-case and skip rejection and add a workspace-membership check."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-bootstrap-tests-catalog"
+
+[finding.provenance-excludes-owned-source]
+file = "tools/launchpad/production/bootstrap/snapshot/snapshot.py"
+line = 11
+class = "security"
+severity = "medium"
+observed = "EXCLUDED_DIRS drops all directories named build, coverage or runtime. This hides tracked source including tools/launchpad/production/bootstrap/build/check.py and sdk/launchpad/protocol/coverage/permissions.go from baseline and candidate, so owned_diff cannot detect changes to them."
+expected = "Content-addressed source and ownership checks must include tracked qualification and protocol code even when its directory resembles generated output; actual generated artifacts and secrets remain excluded."
+proposal = "In tools/launchpad/production/bootstrap/snapshot/snapshot.py use explicit generated-output locations or tracked-source-aware selection instead of global source-directory names. Preserve symlink/secret defenses and test mutations in bootstrap/build and protocol/coverage."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-bootstrap-snapshot-snapshot"
+
+[finding.bootstrap-instructions-layout]
+file = "tools/launchpad/production/bootstrap/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-23 instruct tools/production, cd client, a sibling ../contracts checkout, spec/production-system, deploy/production and thirteen Go modules, rather than the current monorepo launchpad paths and module set."
+expected = "Bootstrap instructions must resolve from the repository root to apps/launchpad, contracts/launchpad, tools/launchpad and deploy/launchpad and identify the actual module, specification and evidence boundaries."
+proposal = "Rewrite tools/launchpad/production/bootstrap/README.md using the current qualify.py interface and checked-in registry, monorepo contract source, pinned workspace and current evidence layout. Keep source inventory, executed baseline and later production qualification claims distinct."
+owner_domain = 4
+
+[finding.security-map-generator-path]
+file = "tools/launchpad/production/bootstrap/security/GAPS.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The map tells readers to run python3 tools/production/bootstrap/security/build_manifest.py, but the actual generator is under tools/launchpad/production/bootstrap/security."
+expected = "Regeneration instructions must resolve to the current generator from the repository root and preserve the distinction between emitted source inventory and executed security evidence."
+proposal = "Correct tools/launchpad/production/bootstrap/security/GAPS.md to name the current generator and manifest destination/reconciliation flow. Preserve its unexecuted inventory status and do not imply the listed suites ran."
+owner_domain = 4
+
+[finding.security-map-scanner-behaviour]
+file = "tools/launchpad/production/bootstrap/security/GAPS.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The Scanner fails open item says ScanBuffer returns Clean:true when unconfigured, unreachable or timed out. Current sdk/launchpad/shared/http/virusscan.go returns ScanUnavailable with Clean false and only marks clean after the exact stream: OK reply."
+expected = "The prerequisite map must describe the current fail-closed behavior and identify remaining real-scanner/quarantine proof separately from obsolete source behavior."
+proposal = "Reconcile tools/launchpad/production/bootstrap/security/GAPS.md with current ScanBuffer/ScanVerifiedBuffer and current assertions. Remove the obsolete permissive claim while retaining explicit real-scanner, failed-dependency and storage-side-effect qualification needs."
+owner_domain = 4
+
+[finding.license-boundary-instructions]
+file = "services/launchpad/licenses/README.md"
+line = 5
+class = "doc-drift"
+severity = "low"
+observed = "The README asks for a root LICENSE because the project license is not selected, but the monorepo already contains Apache License 2.0 text at LICENSE. It does not distinguish inherited repository terms from a potentially unresolved launchpad-specific decision."
+expected = "License instructions must identify existing repository terms and explicitly describe any unresolved launchpad applicability or attribution decision without assuming legal authority."
+proposal = "Clarify services/launchpad/licenses/README.md with the existing root LICENSE location and approved launchpad applicability boundary. Retain unresolved third-party notice obligations and obtain the project license decision before changing terms."
+owner_domain = 4
+
+[finding.doc-cli]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 8 and 131 require /rpc; lines 277-300 describe gateway /rpc transactions; lines 334-350 retain sequencer receipt/batch authority. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/platform/cli.md: Rewrite endpoint selection for root node JSON-RPC versus the hosted px gateway and replace separate sequencer/batch evidence with committed block/header verification. Preserve actual CLI options and label removed workflows as migration history."
+owner_domain = 8
+
+[finding.doc-hosted-node]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-13 and 39-43 describe separate layerxd sequencer/replica deployments; lines 261-303 bind retired anchor/settlement configuration; lines 433 onward describe daemon LNI ingress. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/platform/hosted-node.md: Replace the operational topology with the single paxd BFT node/kernel and its committed-block finality, current startup/recovery and root RPC interfaces. Remove separate sequencer, retired daemon and settlement startup prerequisites."
+owner_domain = 16
+
+[finding.doc-hosted-gateway]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-51 advertise a unified eth/lx/px router and /rpc, /rpc/schema and /rpc/ws; lines 617-632 still bind daemon LNI and node registry behavior. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/platform/hosted-gateway.md: Document the hosted px contract in services/platform/hosted/gateway/openrpc.json separately from root node namespaces and node names. Remove unified router paths and the retired daemon boundary from supported gateway instructions."
+owner_domain = 8
+
+[finding.doc-workspace]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "Line 15 presents the retired protocol adapter as a member; lines 121-141 describe daemon sequencer receipt vectors; lines 151-156 retain replay-golden and daemon batch-WAL dependencies. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/programs/workspace.md: Update retained program crates and test authorities to the merged-node ABI and committed-block receipt path, remove retired adapter/daemon targets and state guest build domain, release optimization and deployment payload limits where deployment is described."
+owner_domain = 13
+
+[finding.doc-hostedgateway-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-51 advertise a unified eth/lx/px router and /rpc, /rpc/schema and /rpc/ws; lines 617-632 still bind daemon LNI and node registry behavior. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/wiki/HostedGateway.md: Rewrite this wiki against the current hosted px OpenRPC contract and root-path node RPC and synchronize docs/site/docs/platform/hosted-gateway.md. Remove retired unified router endpoints and daemon LNI operation."
+owner_domain = 8
+
+[finding.doc-cli-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 8 and 131 require /rpc; lines 277-300 describe gateway /rpc transactions; lines 334-350 retain sequencer receipt/batch authority. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/wiki/Cli.md: Rewrite root node RPC and hosted px endpoint selection and committed-block receipt verification, synchronizing this wiki page with docs/site/docs/platform/cli.md. Remove supported-path instructions for retired authority workflows."
+owner_domain = 8
+
+[finding.doc-hostednode-wiki]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-13 and 39-43 describe separate layerxd sequencer/replica deployments; lines 261-303 bind retired anchor/settlement configuration; lines 433 onward describe daemon LNI ingress. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/wiki/HostedNode.md: Rewrite this wiki node topology for the single paxd BFT node/kernel and current startup, finality and recovery boundaries, synchronizing docs/site/docs/platform/hosted-node.md and removing retired daemon/settlement instructions."
+owner_domain = 16
+
+[finding.doc-programsworkspace-wiki]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "Line 15 presents the retired protocol adapter as a member; lines 121-141 describe daemon sequencer receipt vectors; lines 151-156 retain replay-golden and daemon batch-WAL dependencies. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/wiki/ProgramsWorkspace.md: Update the wiki workspace/test matrix to current merged-node ABI and receipt authorities and synchronize docs/site/docs/programs/workspace.md, removing retired adapter, daemon and replay-target instructions."
+owner_domain = 13
+
+[finding.doc-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20, 167-219 and 596-603 advertise /rpc or /rpc/ws router endpoints; lines 299-304 instruct custody-credit deposits; later examples retain sequencer and authorized-batch evidence. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/overview/quickstart.md: Rewrite onboarding and payments for chain-125 root node RPC, separately hosted px calls and committed-block receipt verification. Remove retired custody/router/authorized-batch workflows from the supported path and update executable examples."
+owner_domain = 8
+
+[finding.doc-paxeer-boundary]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 describe a separate TLS Paxeer boundary, paxeer-relay and custody-boundary client as the hosted chain interface; lines 117-129 describe the former settlement deployment suite. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/concepts/paxeer-boundary.md: Rewrite the integration boundary around the single chain-125 node and root JSON-RPC contract. Separate any retained private transport implementation from the retired custody/settlement architecture and remove operational instructions for retired components."
+owner_domain = 8
+
+[finding.doc-beta-cluster]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 retain daemon/relay/archive/intent-ingester topology; lines 38-52 describe custody-profile bring-up; lines 86-90 describe an explorer principal funded in the old occupancy asset. The page presents these as current supported operational instructions."
+expected = "Brief facts 1-3 specify one paxd BFT network, final receipts at block commit, root-path node JSON-RPC and separately hosted px methods. The merged network has no separate LayerX router, /rpc paths or running layerxd."
+proposal = "In docs/site/docs/operators/beta-cluster.md: Rewrite cluster images, startup, readiness, recovery and explorer access for the merged paxd network. Remove separate sequencer/daemon and retired custody/occupancy prerequisites and document the current node versus hosted gateway boundaries."
+owner_domain = 16
+
+[doc.1]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Lines 8 and 131 require /rpc; lines 277-300 describe gateway /rpc transactions; lines 334-350 retain sequencer receipt/batch authority."
+
+[doc.2]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Lines 3-13 and 39-43 describe separate layerxd sequencer/replica deployments; lines 261-303 bind retired anchor/settlement configuration; lines 433 onward describe daemon LNI ingress."
+
+[doc.3]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines 39-51 advertise a unified eth/lx/px router and /rpc, /rpc/schema and /rpc/ws; lines 617-632 still bind daemon LNI and node registry behavior."
+
+[doc.4]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Line 15 presents the retired protocol adapter as a member; lines 121-141 describe daemon sequencer receipt vectors; lines 151-156 retain replay-golden and daemon batch-WAL dependencies."
+
+[doc.5]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Lines 39-51 advertise a unified eth/lx/px router and /rpc, /rpc/schema and /rpc/ws; lines 617-632 still bind daemon LNI and node registry behavior."
+
+[doc.6]
+path = "docs/wiki/Cli.md"
+status = "stale"
+notes = "Lines 8 and 131 require /rpc; lines 277-300 describe gateway /rpc transactions; lines 334-350 retain sequencer receipt/batch authority."
+
+[doc.7]
+path = "docs/wiki/HostedNode.md"
+status = "stale"
+notes = "Lines 3-13 and 39-43 describe separate layerxd sequencer/replica deployments; lines 261-303 bind retired anchor/settlement configuration; lines 433 onward describe daemon LNI ingress."
+
+[doc.8]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Line 15 presents the retired protocol adapter as a member; lines 121-141 describe daemon sequencer receipt vectors; lines 151-156 retain replay-golden and daemon batch-WAL dependencies."
+
+[doc.9]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 167-219 and 596-603 advertise /rpc or /rpc/ws router endpoints; lines 299-304 instruct custody-credit deposits; later examples retain sequencer and authorized-batch evidence."
+
+[doc.10]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-7 describe a separate TLS Paxeer boundary, paxeer-relay and custody-boundary client as the hosted chain interface; lines 117-129 describe the former settlement deployment suite."
+
+[doc.11]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Reviewed retained Solana/EVM/CosmWasm ABI, named semantic refusals, account authority and reference-execution descriptions. No separate public RPC router is prescribed here; this page does not establish AI guest deployment payload qualification."
+
+[doc.12]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3-5 retain daemon/relay/archive/intent-ingester topology; lines 38-52 describe custody-profile bring-up; lines 86-90 describe an explorer principal funded in the old occupancy asset."
+
+[doc.13]
+path = "tools/launchpad/production/bootstrap/README.md"
+status = "stale"
+notes = "Lines 3-23 retain former client/tools/deploy paths, sibling contracts and thirteen modules; the spec and evidence paths also need reconciliation with current qualification tooling."
+
+[doc.14]
+path = "tools/launchpad/production/bootstrap/security/GAPS.md"
+status = "stale"
+notes = "Lines 3 and 17 give a moved generator command and obsolete permissive scanner behavior. Current ScanBuffer fails closed; listed inventory is still not execution evidence."
+
+[doc.15]
+path = "services/launchpad/licenses/README.md"
+status = "stale"
+notes = "Lines 5-7 request a root license without distinguishing the existing monorepo Apache-2.0 LICENSE and a potentially unresolved launchpad applicability decision."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Reviewed launchpad-pnl-tracker and launchpad-ranking-algo sections at lines 3301-3385 as a generated declaration index. Frozen category criteria agree with the requirement source; planned test references do not imply execution."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed launchpad-tools bootstrap interface rows in the section beginning at line 7040. CLI, environment and format names identify moved tools/launchpad paths; this declaration index does not certify dependency completeness or executed qualification."

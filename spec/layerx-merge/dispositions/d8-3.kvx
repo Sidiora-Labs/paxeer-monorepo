@@ -1,0 +1,127 @@
+[disposition.8.32.1.1]
+finding = "8.32.1.1"
+status = "superseded"
+evidence = "Commit 10ba36017 removed the RelayArchive import from the initializer, and 8507de9b8 subsequently deleted the initializer with the retired relay archive package."
+
+[disposition.8.33.3]
+finding = "8.33.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:156272 now builds services/agent/sdk/typescript before checking the marketplace example, producing the dist/src/index.js export required by the receipt-outcome tests landed in 24677be8e."
+
+[disposition.8.34.1]
+finding = "8.34.1"
+status = "resolved"
+evidence = "Commit 633198f73 changed layerXReceiptDigest to strip the canonical 0x prefix before validating the 64 hexadecimal digits, as retained in services/platform/middleware/merchant/src/index.ts:493."
+
+[disposition.8.34.1.1]
+finding = "8.34.1.1"
+status = "superseded"
+evidence = "Commit 45176f36b retired seller/src/checkpoint.ts and its index.ts re-export, removing the imports of the deleted CheckpointAttestation and CheckpointVerificationInput types."
+
+[disposition.8.34.7.1]
+finding = "8.34.7.1"
+status = "resolved"
+evidence = "Commit d537f9bc9 supplied --evm-key-file in the walkthrough and wrote its integration-test wallet export with mode 0600, matching the CLI requirement retained at tools/platform/cli/src/main.rs:1374."
+
+[disposition.8.41.4.1]
+finding = "8.41.4.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:19553 still requires version 2 and refusal of version 1 while sdk/platform/go/http.go:356 sends version 1, so decision 2198 and the updated schema-field tests have not corrected the literal acceptance criteria. Decision 2299 restated requirement 8484 ac_1 and ac_2 to the version-1 envelope and schema-field refusal that decision 2198 ruled; the acceptance text and the SDK now agree."
+follow_up = "decision.2299"
+
+[disposition.8.41.5.1]
+finding = "8.41.5.1"
+status = "resolved"
+evidence = "Commit 54073cb95 removed the AuthorizedBatch parameters and ProgramResponseAuthority.authorizedBatch helper, and sdk/platform/go/programs.go:2231 now validates the response authority without the retired type."
+
+[disposition.8.41.8.1]
+finding = "8.41.8.1"
+status = "resolved"
+evidence = "sdk/platform/go/generated.go:421 now declares intent.plan and intent.submit as POST requests to the same paths recorded by the Human API goldens, eliminating the EVM-versus-HTTP mismatch that task commit 623424d9b originally accommodated."
+
+[disposition.8.42.5.1]
+finding = "8.42.5.1"
+status = "open"
+evidence = "Although a54c32322 removed the ProgramsClient and test callers, sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:186 still calls LocalVerifier.verifyReceipt with the deleted AuthorizedReceiptBatch and also references the retired batch and checkpoint verifiers."
+follow_up = "22.8.7"
+
+[disposition.8.42.6.1]
+finding = "8.42.6.1"
+status = "superseded"
+evidence = "Commit 002f36072 removed ProductionClient.programs and the NativeLifecycleTransportTest route assertions together with the retired ProductionTransport.ProgramsCall REST surface."
+
+[disposition.8.42.8.1]
+finding = "8.42.8.1"
+status = "resolved"
+evidence = "Commit 226cc4b2b added receiptJson to both portable field sets and ported the Go-encoded committed evidence decoder, retained at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:24."
+
+[disposition.8.42.8.2]
+finding = "8.42.8.2"
+status = "resolved"
+evidence = "Commit 960347bb9 landed portableVectorV5Verifies after verifier repair 226cc4b2b, and sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java:33 checks both published V5 bundles without alteration and asserts their verification levels and re-exported bytes."
+
+[disposition.8.43.5.1]
+finding = "8.43.5.1"
+status = "resolved"
+evidence = "Commit 4faaf62df removed the AuthorizedReceiptBatch overloads and their ProgramsContractTests callers, while sdk/platform/dotnet/Programs.cs:328 now verifies sequencer receipts using ReceiptKeys."
+
+[disposition.8.43.6.1]
+finding = "8.43.6.1"
+status = "superseded"
+evidence = "Commit 268906288 removed NativeLifecycleCFixtures and its ProgramTransportCall construction from ReceiptFixtureTests.cs together with the retired /v1/programs REST transport."
+
+[disposition.8.43.8.2]
+finding = "8.43.8.2"
+status = "resolved"
+evidence = "Commit c04bc5d48 added PortableVectorV5Verifies using LoadConformance, and sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:464 retains that named-file helper separately from the existing LoadFixture helper."
+
+[disposition.8.44.1]
+finding = "8.44.1"
+status = "environment"
+evidence = "sdk/platform/swift/Package.swift:1 declares a Swift tools package, while the recorded libxml2.so.2 failure occurred in the host swift-build loader before package compilation and therefore belongs to the qualification image."
+
+[disposition.8.44.1.2]
+finding = "8.44.1.2"
+status = "environment"
+evidence = "sdk/platform/swift/Package.swift:1 depends on the host Swift toolchain, whose recorded inability to load libxml2.so.2 stopped attempts before repository package compilation."
+
+[disposition.8.44.1.3]
+finding = "8.44.1.3"
+status = "environment"
+evidence = "sdk/platform/swift/Package.swift:1 declares the package rather than provisioning the host toolchain libraries, and the recorded newer-libxml2 soname mismatch was a qualification-image loader failure."
+
+[disposition.8.44.1.4]
+finding = "8.44.1.4"
+status = "environment"
+evidence = "sdk/platform/swift/Package.swift:1 requires the host Swift tools, and the recorded missing libicuuc.so.74 prevented swift-build from starting before repository code was compiled."
+
+[disposition.8.44.1.5]
+finding = "8.44.1.5"
+status = "resolved"
+evidence = "Commit f01f2cdc4 added sdk/platform/swift/.gitignore:1 for .build/, and spec/layerx-merge/spec.kvx:157362 now selects the three declared SequencerReceiptTests methods with an unescaped target/class separator."
+
+[disposition.8.44.4.1]
+finding = "8.44.4.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:19651 still requires version 2 and refusal of version 1 while sdk/platform/swift/Sources/LayerXSDK/Transport.swift:436 sends version 1, so decision 2198 and the updated schema-field tests have not corrected the literal acceptance criteria. Decision 2299 restated requirement 8502 ac_1 and ac_2 to the version-1 envelope and schema-field refusal that decision 2198 ruled; the acceptance text and the SDK now agree."
+follow_up = "decision.2299"
+
+[disposition.8.44.5.1]
+finding = "8.44.5.1"
+status = "resolved"
+evidence = "Commit 73ca4abbc removed the deprecated AuthorizedReceiptBatch overloads, dead document verifiers and their test callers, while sdk/platform/swift/Sources/LayerXSDK/Programs.swift:619 retains the sequencer-receipt verifier using pinned ReceiptKeys."
+
+[disposition.8.44.6.1]
+finding = "8.44.6.1"
+status = "resolved"
+evidence = "Commit 059aa6341 removed the programRequest route assertions, and sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:26 retains testNativeLifecycleCFixtures with codec and signed-activity checks that do not call the retired transport."
+
+[disposition.8.46.2.1]
+finding = "8.46.2.1"
+status = "resolved"
+evidence = "Commit 89145e0ce made variants filter retired_variants, retained at sdk/platform/generators/src/main.rs:522, and sdk/platform/go/generated.go:578 declares HumanErrorOperationRetired from the current schema."
+
+[disposition.8.47.3]
+finding = "8.47.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:158094 now supplies PYTHONPATH=services/agent/sdk/python and pytest --import-mode=importlib for the streaming gate landed in d0ebc7e12, and the six other named conformance gates carry the same explicit runner settings."

@@ -1,10 +1,10 @@
 # Ledger and auth contract: layerxledger 0x101A and layerxauth 0x101C
 
-This contract freezes the domain 2 ledger and authority surfaces: the 0x101A layerxledger and 0x101C layerxauth precompiles, their keepers over the one shared kernel host, the params-only module genesis, the payload codecs, the bank mirror and the error and gas tables. Neither precompile is served at the pinned revision: `precompiles/layerxledger` and `precompiles/layerxauth` are planned packages, while `mergePrecompileGate` already names both addresses (`node/upgrades.go:525` and `node/upgrades.go:527`).
+The ledger and authority precompiles are implemented components of the merged Paxeer network. `layerxledger` is served at `0x000000000000000000000000000000000000101A`; `layerxauth` is served at `0x000000000000000000000000000000000000101C`, subject to the node's activation gate. Both keepers use one shared `lxphost.Host`. The on-disk host store name is **`lxphost`**, as declared by `LayerXHostStoreKey` in [store_keys.go](../../../storage/common/keys/store_keys.go).
 
-Both keepers submit kernel activities through one `lxphost.Host` over the shared host store key, keep only Params in their own stores (decision.201) and route pause through the layerxgov pause scope with revokeGrant as the exit (decision.203).
+There is one network: the kernel is part of the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses EVM chain ID **125 (`0x7d`)**. Public JSON-RPC is at the root path of `api-mainnet-beta.paxeer.network` and `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`. Ledger and authority calls use the ordinary EVM transaction and `eth_call` surfaces.
 
-Revision `2a1033aa2`. Every `path:line` below was read at that revision; `(planned)` marks a file that does not exist there.
+The source contracts are the embedded [ledger ABI](../../../precompiles/layerxledger/abi.json), [auth ABI](../../../precompiles/layerxauth/abi.json), their dispatchers and keepers. Each package registers `NewMergePrecompile` from `init`. [node/upgrades.go](../../../node/upgrades.go) imports both packages and declares `mergePrecompileGate`: upgrade `v7.0`, requiring `layerxledger` for 0x101A and `layerxauth` for 0x101C. Code availability does not establish that a particular node has activated that upgrade.
 
 ```mermaid
 flowchart LR
@@ -12,9 +12,9 @@ flowchart LR
   caller --> auth["0x101C layerxauth"]
   led --> bind["0x1004 DID binding"]
   auth --> bind
-  led --> host["lxphost.Host shared store"]
+  led --> host["lxphost.Host / lxphost store"]
   auth --> host
-  led --> bank["bank mirror layerx denom"]
+  led --> bank["bank mirror: layerx/<asset hex>"]
   auth --> authz["authz LayerXScopeAuthorization"]
   gov["layerxgov pause scope"] --> led
   gov --> auth
@@ -51,758 +51,372 @@ flowchart LR
 
 ## layerxledger-0x101a
 
-Precompile 0x000000000000000000000000000000000000101A: 18 methods and 9 events over the kernel asset, account and payer-grant records.
+The ABI declares **18 methods and 9 events**. All writes are nonpayable and require the DID bound to the EVM caller; views do not resolve a caller binding. Delegate calls are refused, and static calls cannot execute writes. See [layerxledger.go](../../../precompiles/layerxledger/layerxledger.go).
 
-| Aspect | Rule |
-|---|---|
-| Authority | Every write acts for the LayerX DID bound to msg.sender through the 0x1004 binding; an unbound caller is refused before any kernel call and no envelope signature is checked (decision.206). |
-| Effects | Each write submits one kernel activity through the ledger keeper and the shared host; the receipt carries kernel events and transfer legs (decision.207), which become the 0x101A logs and the bank mirror legs (decision.204). |
+| ABI method | Output | Current behavior | Gas surcharge |
+|---|---|---|---:|
+| `register(bytes32 assetId,bytes32 salt,string symbol,string name,uint8 decimals,uint128 supplyCap,uint8 issuerKind,bytes custodyReference)` | `bytes32 assetId` | Register asset | 18440 |
+| `pause(bytes32 assetId)` | none | Pause asset | 3080 |
+| `unpause(bytes32 assetId)` | none | Unpause asset | 3080 |
+| `openAccount(bytes32 assetId)` | `bytes32 accountId` | Open caller's asset account | 3080 |
+| `send(bytes envelope)` | none | Owner-authorized SEND | 17480 |
+| `draw(bytes32 grantId,bytes32 recipient,uint128 amount,bytes32 idempotencyKey,uint64 sequence,bytes32 purposeHash,bytes32 contextHash)` | none | Retired payment route; refuses | 8840 |
+| `payExact(bytes32 from,bytes32 to,bytes32 assetId,uint128 amount,uint64 expiresAtMs,bytes32 paymentReference)` | none | Exact owner payment through SEND | 7880 |
+| `issueGrant(bytes grant)` | `bytes32 grantId` in ABI only | Retired; refuses | 16520 |
+| `revokeGrant(bytes32 grantId,uint64 revocationSequence)` | none | Retired; refuses | 4040 |
+| `mint(bytes32 assetId,bytes32 accountId,uint128 amount)` | none | Mint through kernel | 5000 |
+| `burn(bytes32 assetId,bytes32 accountId,uint128 amount)` | none | Burn through kernel | 5000 |
+| `getAsset(bytes32 assetId)` | Asset fields listed below | View | 1108 |
+| `balanceOf(bytes32 accountId,bytes32 assetId)` | `uint128 balance` | View | 1204 |
+| `totalUnits(bytes32 assetId)` | `uint128 totalUnits` | View | 1108 |
+| `accountId(bytes32 owner,bytes32 assetId)` | `bytes32 accountId` | Derive ID from owner DID key; does not open account | 1204 |
+| `accountOwner(bytes32 accountId)` | `bytes32 owner` | Read account owner identifier | 1108 |
+| `getPayerGrant(bytes32 grantId)` | Legacy tuple in ABI only | Retired view; refuses | 1108 |
+| `nextSequence(bytes32 accountId,bytes32 assetId)` | `uint64 sequence` | Read persisted account's next SEND sequence | 1204 |
 
-Contract context `2.layerxledger-0x101a`:
+`getAsset` returns, in order: `bytes32 assetId`, `string symbol`, `string name`, `uint8 decimals`, `uint128 supplyCap`, `bytes32 issuerDid`, `bytes32 salt`, `uint8 issuerKind`, `uint8 custodyKind`, `bytes custodyReference`, `bool paused`, `uint128 totalUnits`.
 
-| Aspect | Rule |
-|---|---|
-| Interface | Precompile 0x000000000000000000000000000000000000101A named layerxledger: 18 ABI methods and 9 events of precompiles/layerxledger/abi.json (planned) |
-| Storage | Kernel asset, account and grant records in the shared layerxhost store under the host prefixes of modules/lxphost/ctx.go:62-66; layerxledger module store holds ParamsKey 0x01 only; bank mirror under layerx/&lt;asset hex&gt; |
-| Errors | Error(string) reasons LXP_&lt;CODE&gt; from the layerxledger registrations of modules/layerxledger/types/errors.go:14-30, kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320) and LXP_PAUSED_SCOPE 735 from layerxgov |
-| Events | AssetRegistered, AssetPaused, AssetUnpaused, AccountOpened, Transfer, PayerGrantIssued, PayerGrantRevoked, PaymentDrawn, PaymentExact |
-| Gas | Fixed surcharge per method plus DefaultGasCost of the input: register 18440, pause 3080, unpause 3080, openAccount 3080, send 17480, draw 8840, payExact 7880, issueGrant 16520, revokeGrant 4040, mint 5000, burn 5000, getAsset 1108, balanceOf 1204, totalUnits 1108, accountId 1204, accountOwner 1108, nextSequence 1204, getPayerGrant 1108 |
-| Activation | Served from the height where MergeUpgrade v7.0 (precompiles/setup.go:50) is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxledger module |
-| Invariants | Bank balance of every kernel account under its layerx denom equals the kernel balance; every write acts for the DID bound to the EVM caller; one idempotency key per DID across ledger and auth |
-| Pause | layerxledger params paused refuses every write except revokeGrant through CheckPauseScope (modules/layerxgov/types/proposal.go:38); views always answer |
+Decision **2340** retires the receive activity and payer-grant issue/revoke activities. The `issueGrant`, `revokeGrant` and `getPayerGrant` selectors remain for typed refusal with `Error(string)` reason **`LXP_NO_PAYER_GRANT`** (ledger SDK code 214, shared registry code -214). `draw` also refuses this way once its argument, binding and pause checks pass. These routes submit no kernel activity and create no grant, receipt, sequence or payment event. Earlier validation can still refuse a malformed or unauthorized call. `revokeGrant` retains its pause exemption; `getPayerGrant` remains a view. The seven-output legacy view tuple is defined in the ABI, but no successful grant lookup is served.
 
-Frozen interfaces: 33 (new 33).
+`payExact` is supported: `expiresAtMs` is a Unix timestamp in **milliseconds**, strictly later than the current block time. The keeper verifies ownership of `from`, reads the source account's next sequence, and constructs SEND activity `0x00010005`. Its context hash binds `from || to || assetId || amount_u128_be || paymentReference` through `DomainContextHash`. Successful execution mirrors the transfer and emits `Transfer` and `PaymentExact`. A payment reference cannot be used for a second successful SEND, even at a new sequence; see [idempotency](#idempotency).
 
-**ABI methods**
+The ABI events are:
 
-| Method | Address | Selector | Status | Gas | Defined at |
-|---|---|---|---|---|---|
-| `accountId(bytes32,bytes32) (planned)` | 0x101a | `0x3f050cbc` | new | surcharge 1204 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `accountOwner(bytes32) (planned)` | 0x101a | `0x37955ab2` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `balanceOf(bytes32,bytes32) (planned)` | 0x101a | `0xb1ffc03e` | new | surcharge 1204 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `burn(bytes32,bytes32,uint128) (planned)` | 0x101a | `0xda3c63f3` | new | surcharge 5000 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32) (planned)` | 0x101a | `0x2e89490f` | new | surcharge 8840 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `getAsset(bytes32) (planned)` | 0x101a | `0x2cc3ce80` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `getPayerGrant(bytes32) (planned)` | 0x101a | `0x423fe4b2` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `issueGrant(bytes) (planned)` | 0x101a | `0xd0d53480` | new | surcharge 16520 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `mint(bytes32,bytes32,uint128) (planned)` | 0x101a | `0xf04db938` | new | surcharge 5000 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `nextSequence(bytes32,bytes32) (planned)` | 0x101a | `0xce2f921f` | new | surcharge 1204 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `openAccount(bytes32) (planned)` | 0x101a | `0xbdf52150` | new | surcharge 3080 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `pause(bytes32) (planned)` | 0x101a | `0xed56531a` | new | surcharge 3080 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32) (planned)` | 0x101a | `0x78ea11db` | new | surcharge 7880 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes) (planned)` | 0x101a | `0xfd03012a` | new | surcharge 18440 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `revokeGrant(bytes32,uint64) (planned)` | 0x101a | `0x58d183a8` | new | surcharge 4040 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `send(bytes) (planned)` | 0x101a | `0x2bb1ae7c` | new | surcharge 17480 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `totalUnits(bytes32) (planned)` | 0x101a | `0x53a6332b` | new | surcharge 1108 (planned) | `precompiles/layerxledger/abi.json` (planned) |
-| `unpause(bytes32) (planned)` | 0x101a | `0x2f4dae9f` | new | surcharge 3080 (planned) | `precompiles/layerxledger/abi.json` (planned) |
+| Event | Indexed fields | Non-indexed fields | Current emission |
+|---|---|---|---|
+| `AssetRegistered` | `bytes32 assetId` | none | Asset registration |
+| `AssetPaused` | `bytes32 assetId` | none | Asset pause |
+| `AssetUnpaused` | `bytes32 assetId` | none | Asset unpause |
+| `AccountOpened` | `bytes32 accountId` | none | Account opening |
+| `Transfer` | `bytes32 from,bytes32 to,bytes32 assetId` | `uint128 amount,uint8 kind` | Successful transfer legs |
+| `PaymentExact` | `bytes32 paymentReference,bytes32 from,bytes32 to` | `bytes32 assetId,uint128 amount` | Successful `payExact` |
+| `PayerGrantIssued` | `bytes32 grantId` | none | Retired; declaration retained |
+| `PayerGrantRevoked` | `bytes32 grantId` | none | Retired; declaration retained |
+| `PaymentDrawn` | `bytes32 grantId,bytes32 from,bytes32 to` | `bytes32 assetId,uint128 amount,bytes32 idempotencyKey,bytes32 contextHash` | Retired; declaration retained |
 
-**Events**
-
-| Event | Address | topic0 | Status | Defined at |
-|---|---|---|---|---|
-| `AccountOpened(bytes32 indexed) (planned)` | 0x101a | `0x307d00a86fd0f97ae2d0368268bd5f047f7e8c0d13d1570e72dadd8f9e2fe22f` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `AssetPaused(bytes32 indexed) (planned)` | 0x101a | `0xe2844e7e535e938024242536fcf78585913acf68e8d61fafa5d36e63a43f4c47` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `AssetRegistered(bytes32 indexed) (planned)` | 0x101a | `0xe44622c42196b40148eee03152bf2d34e7e3180112c6a2ca51e16f864b65bd13` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `AssetUnpaused(bytes32 indexed) (planned)` | 0x101a | `0x32f3ed1bf47daea95443414fbdcb1f5df4651a2ea7bb40e4bc41ae16c6f1843d` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `PayerGrantIssued(bytes32 indexed) (planned)` | 0x101a | `0xfacf09c43b359fef8d71b96c6e4c823b1f09c539e257224245c24345fa24f66e` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `PayerGrantRevoked(bytes32 indexed) (planned)` | 0x101a | `0x841096fe471155c0948686c4e7fa3210edcc36f84f8b61f1b508b923fa6a226d` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `PaymentDrawn(bytes32 indexed,bytes32 indexed,bytes32 indexed,bytes32,uint128,bytes32,bytes32) (planned)` | 0x101a | `0x13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `PaymentExact(bytes32 indexed,bytes32 indexed,bytes32 indexed,bytes32,uint128) (planned)` | 0x101a | `0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `Transfer(bytes32 indexed,bytes32 indexed,bytes32 indexed,uint128,uint8) (planned)` | 0x101a | `0x3c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0` | new | `precompiles/layerxledger/abi.json` (planned) |
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.fmt-layerxledger-abi-j23` | file_format | `Solidity JSON ABI of 0x101a` | new | `precompiles/layerxledger/abi.json` (planned) |
-| `interface.2.go-pc-layerxledger-getabi-j23` | go_exported | `func GetABI() abi.ABI` | new | `precompiles/layerxledger/abi.go` (planned) |
-| `interface.2.go-pc-layerxledger-address-j23` | go_exported | `const LedgerAddress = "0x000000000000000000000000000000000000101A"` | new | `precompiles/layerxledger/layerxledger.go` (planned) |
-| `interface.2.go-pc-layerxledger-keepers-j23` | go_exported | `type LedgerKeepers interface { LayerXLedgerK() *keeper.Keeper }` | new | `precompiles/layerxledger/layerxledger.go` (planned) |
-| `interface.2.go-pc-layerxledger-newmergeprecompile-j23` | go_exported | `func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error)` | new | `precompiles/layerxledger/layerxledger.go` (planned) |
-| `interface.2.go-pc-layerxledger-newprecompile-j23` | go_exported | `func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error)` | new | `precompiles/layerxledger/layerxledger.go` (planned) |
-
-Capabilities verified against this section: 2.0.9, 2.2.1, 2.3.6, 2.10.1, 2.10.2, 2.10.3, 2.10.4, 2.10.5, 2.12.1, 2.12.3, 2.14.1, 2.15.2, 2.15.4.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.11.1 | 2011.1 | `precompiles/layerxledger/abi_test.go::TestLedgerABIMethods (planned)` |
-| 2.11.2 | 2011.2 | `precompiles/layerxledger/abi_test.go::TestLedgerABIEvents (planned)` |
-| 2.22.1 | 2022.1 | `modules/layerxledger/keeper/events_test.go::TestDecodeLedgerEvents (planned)` |
-| 2.45.1 | 2045.1 | `precompiles/layerxledger/surface_test.go::TestLedgerSurfaceFrozen (planned)` |
-| 2.50.1 | 2050.1 | `precompiles/layerxledger/layerxledger_test.go::TestLedgerMergeConstructorRegistered (planned)` |
-| 2.51.1 | 2051.1 | `precompiles/layerxledger/assets_test.go::TestPrecompileRegister (planned)` |
-| 2.51.2 | 2051.2 | `precompiles/layerxledger/assets_test.go::TestPrecompilePauseUnpause (planned)` |
-| 2.51.3 | 2051.3 | `precompiles/layerxledger/assets_test.go::TestPrecompileMintBurn (planned)` |
-| 2.52.1 | 2052.1 | `precompiles/layerxledger/transfers_test.go::TestPrecompileOpenAccount (planned)` |
-| 2.52.2 | 2052.2 | `precompiles/layerxledger/transfers_test.go::TestPrecompileSend (planned)` |
-| 2.53.1 | 2053.1 | `precompiles/layerxledger/payments_test.go::TestPrecompileIssueRevokeGrant (planned)` |
-| 2.53.2 | 2053.2 | `precompiles/layerxledger/payments_test.go::TestPrecompileDraw (planned)` |
-| 2.53.3 | 2053.3 | `precompiles/layerxledger/payments_test.go::TestPrecompilePayExact (planned)` |
-| 2.54.1 | 2054.1 | `precompiles/layerxledger/views_test.go::TestPrecompileLedgerViews (planned)` |
-| 2.54.2 | 2054.2 | `precompiles/layerxledger/views_test.go::TestPrecompileViewsIgnorePause (planned)` |
-| 2.60.1 | 2060.1 | `precompiles/layerxledger/activation_test.go::TestLedgerServedAfterMergeActivation (planned)` |
-| 2.60.2 | 2060.2 | `precompiles/layerxledger/activation_test.go::TestLedgerUnservedBeforeMergeActivation (planned)` |
-| 2.62.1 | 2062.1 | `precompiles/layerxledger/pause_test.go::TestGovernancePauseRefusesLedgerWrites (planned)` |
-| 2.65.1 | 2065.1 | `precompiles/layerxledger/client_test.go::TestLedgerEVMTransactionReceipt (planned)` |
-| 2.67.1 | 2067.1 | `precompiles/layerxledger/parity_test.go::TestLedgerPrecompileKernelParity (planned)` |
-| 2.999.1 | 2999.1 | `precompiles/layerxledger/completion_gate_test.go::TestLedgerCompletionRetiredSurfacesAbsent (planned)` |
+[LedgerEvents](../../../modules/layerxledger/keeper/events.go) decodes receipt events and transfer legs. `Transfer.kind` is the low activity ordinal: SEND and `payExact` use 5, mint uses 10, burn uses 11. Retained event declarations and legacy decoder branches do not make retired operations executable.
 
 ## layerxledger-errors
 
-Revert reasons of 0x101A and the layerxledger codespace. Every refusal is `Error(string)` with reason `LXP_<CODE>: <detail>`; kernel results map through `LXPCodeName` (`precompiles/common/lxp_errors.go:320`).
+Both precompiles use `WithLXPReasons`: reverts carry Solidity **`Error(string)`**. A bare code such as `LXP_NO_PAYER_GRANT` is valid; `: detail` is **optional**. The ledger [RevertError](../../../precompiles/layerxledger/errors.go) returns canonical code text for registered ledger errors and kernel codes, retaining the Go cause. [LXPReason](../../../precompiles/common/precompiles.go) preserves text already beginning `LXP_`, maps other registered errors, and uses `LXP_UNKNOWN` for an unmapped error. Clients must not require a diagnostic suffix.
 
-Frozen interfaces: 20 (stable 17, new 3).
+[types/errors.go](../../../modules/layerxledger/types/errors.go) registers these SDK codes in codespace `layerxledger`. [FromKernel](../../../modules/layerxledger/keeper/kernel_codes.go) maps the corresponding negative kernel codes; unlisted kernel codes remain `lxphost.Code` values and use the shared [LXP registry](../../../precompiles/common/lxp_errors.go).
 
-**Other interfaces**
+| SDK code | Reason |
+|---:|---|
+| 3 | `LXP_NON_CANONICAL` |
+| 107 | `LXP_MALFORMED_SEND` |
+| 207 | `LXP_UNAUTHORIZED_DEBIT` |
+| 213 | `LXP_CONTEXT_MISMATCH` |
+| 214 | `LXP_NO_PAYER_GRANT` |
+| 302 | `LXP_IDEMPOTENT_REPLAY` |
+| 303 | `LXP_EXPIRED` |
+| 305 | `LXP_SEQUENCE_MISMATCH` |
+| 307 | `LXP_SEQUENCE_EXHAUSTED` |
+| 400 | `LXP_INSUFFICIENT_BALANCE` |
+| 401 | `LXP_ZERO_AMOUNT` |
+| 402 | `LXP_ASSET_MISMATCH` |
+| 403 | `LXP_ASSET_PAUSED` |
+| 411 | `LXP_ASSET_ALREADY_REGISTERED` |
+| 735 | `LXP_PAUSED_SCOPE` |
+| 905 | `LXP_ARENA_EXHAUSTED` |
+| 1003 | `LXP_FATAL_SUPPLY_MISMATCH` |
 
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.err-sdk-layerxledger-3-non-canonical` | error_code | `ErrNonCanonical = Register("layerxledger", 3, "LXP_NON_CANONICAL")` | stable | `modules/layerxledger/types/errors.go:14` |
-| `interface.2.err-sdk-layerxledger-107-malformed-send` | error_code | `ErrMalformedSend = Register("layerxledger", 107, "LXP_MALFORMED_SEND")` | stable | `modules/layerxledger/types/errors.go:15` |
-| `interface.2.err-sdk-layerxledger-207-unauthorized-debit` | error_code | `ErrUnauthorizedDebit = Register("layerxledger", 207, "LXP_UNAUTHORIZED_DEBIT")` | stable | `modules/layerxledger/types/errors.go:16` |
-| `interface.2.err-sdk-layerxledger-213-context-mismatch` | error_code | `ErrContextMismatch = Register("layerxledger", 213, "LXP_CONTEXT_MISMATCH")` | stable | `modules/layerxledger/types/errors.go:17` |
-| `interface.2.err-sdk-layerxledger-214-no-payer-grant` | error_code | `ErrNoPayerGrant = Register("layerxledger", 214, "LXP_NO_PAYER_GRANT")` | stable | `modules/layerxledger/types/errors.go:18` |
-| `interface.2.err-sdk-layerxledger-302-idempotent-replay` | error_code | `ErrIdempotentReplay = Register("layerxledger", 302, "LXP_IDEMPOTENT_REPLAY")` | stable | `modules/layerxledger/types/errors.go:19` |
-| `interface.2.err-sdk-layerxledger-303-expired` | error_code | `ErrExpired = Register("layerxledger", 303, "LXP_EXPIRED")` | stable | `modules/layerxledger/types/errors.go:20` |
-| `interface.2.err-sdk-layerxledger-305-sequence-mismatch` | error_code | `ErrSequenceMismatch = Register("layerxledger", 305, "LXP_SEQUENCE_MISMATCH")` | stable | `modules/layerxledger/types/errors.go:21` |
-| `interface.2.err-sdk-layerxledger-307-sequence-exhausted` | error_code | `ErrSequenceExhausted = Register("layerxledger", 307, "LXP_SEQUENCE_EXHAUSTED")` | stable | `modules/layerxledger/types/errors.go:22` |
-| `interface.2.err-sdk-layerxledger-400-insufficient-balance` | error_code | `ErrInsufficientBalance = Register("layerxledger", 400, "LXP_INSUFFICIENT_BALANCE")` | stable | `modules/layerxledger/types/errors.go:23` |
-| `interface.2.err-sdk-layerxledger-401-zero-amount` | error_code | `ErrZeroAmount = Register("layerxledger", 401, "LXP_ZERO_AMOUNT")` | stable | `modules/layerxledger/types/errors.go:24` |
-| `interface.2.err-sdk-layerxledger-402-asset-mismatch` | error_code | `ErrAssetMismatch = Register("layerxledger", 402, "LXP_ASSET_MISMATCH")` | stable | `modules/layerxledger/types/errors.go:25` |
-| `interface.2.err-sdk-layerxledger-403-asset-paused` | error_code | `ErrAssetPaused = Register("layerxledger", 403, "LXP_ASSET_PAUSED")` | stable | `modules/layerxledger/types/errors.go:26` |
-| `interface.2.err-sdk-layerxledger-411-asset-already-registered` | error_code | `ErrAssetAlreadyRegistered = Register("layerxledger", 411, "LXP_ASSET_ALREADY_REGISTERED")` | stable | `modules/layerxledger/types/errors.go:27` |
-| `interface.2.err-sdk-layerxledger-735-paused-scope` | error_code | `ErrPausedScope = Register("layerxledger", 735, "LXP_PAUSED_SCOPE")` | stable | `modules/layerxledger/types/errors.go:28` |
-| `interface.2.err-sdk-layerxledger-905-arena-exhausted` | error_code | `ErrArenaExhausted = Register("layerxledger", 905, "LXP_ARENA_EXHAUSTED")` | stable | `modules/layerxledger/types/errors.go:29` |
-| `interface.2.err-sdk-layerxledger-1003-fatal-supply-mismatch` | error_code | `ErrFatalSupplyMismatch = Register("layerxledger", 1003, "LXP_FATAL_SUPPLY_MISMATCH")` | stable | `modules/layerxledger/types/errors.go:30` |
-| `interface.2.go-layerxledger-fromkernel-j23` | go_exported | `func FromKernel(code lxphost.Code) error` | new | `modules/layerxledger/keeper/kernel_codes.go` (planned) |
-| `interface.2.go-pc-layerxledger-reverterror-j23` | go_exported | `func RevertError(err error) error` | new | `precompiles/layerxledger/errors.go` (planned) |
-| `interface.2.pc-0x101a-err-lxp-j23` | precompile_error | `Error(string) carrying "LXP_<CODE>: <detail>"` | new | `precompiles/layerxledger/errors.go` (planned) |
-
-Capabilities verified against this section: 2.2.3, 2.15.1.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.1.1 | 2001.1 | `modules/layerxledger/keeper/kernel_codes_test.go::TestLedgerFromKernelCodes (planned)` |
-| 2.13.1 | 2013.1 | `precompiles/layerxledger/errors_test.go::TestLedgerRevertReasons (planned)` |
-| 2.50.2 | 2050.2 | `precompiles/layerxledger/layerxledger_test.go::TestLedgerWriteRefusals (planned)` |
+Governance pause checks use `layerxgov.ErrPausedScope` (735), which the dispatcher normalizes to `LXP_PAUSED_SCOPE`. A consumed identity sequence is a separate kernel refusal, -301 (`LXP_SEQUENCE_REUSED`); it must not be confused with the persisted SEND-reference refusal -302.
 
 ## layerxledger-gas
 
-Fixed per-method gas of 0x101A: the surcharge of the method row plus the default KV cost of the input. The rows are listed with the methods under [layerxledger-0x101a](#layerxledger-0x101a).
-
-Frozen interfaces: 1 (new 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-pc-layerxledger-gastable-j23` | go_exported | `var GasTable = pcommon.GasTable{...}` | new | `precompiles/layerxledger/gas.go` (planned) |
-
-Capabilities verified against this section: 2.2.5, 2.14.3.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.15.1 | 2015.1 | `precompiles/layerxledger/gas_test.go::TestLedgerGasTable (planned)` |
-| 2.69.1 | 2069.1 | `precompiles/layerxledger/gas_conformance_test.go::TestLedgerGasConformance (planned)` |
+[GasTable](../../../precompiles/layerxledger/gas.go) supplies the surcharges in the method table. The total is `DefaultGasCost(arguments, Write) + Surcharge`, using encoded arguments **without the four-byte selector**. Writes use the SDK KV write cost; views use the KV read cost. The sum saturates at `uint64` maximum. Retired selectors retain their table rows. Unknown selectors or methods without a gas row use `UnknownMethodCallGas` and are refused. These values are code, not governance parameters.
 
 ## layerxledger-keeper
 
-The layerxledger keeper over the shared kernel host: asset register, pause and unpause, account opening, send, draw, payExact, payer grants, mint and burn, each one kernel activity.
+[Keeper](../../../modules/layerxledger/keeper/keeper.go) is constructed with the codec, ledger store key, shared host, bank keeper, EVM keeper and governance authority. The base module store holds `ParamsKey = []byte{0x01}`; kernel assets, accounts and identity state belong to the shared host store. There is no module-local `KernelKVPrefix`.
 
-| Aspect | Rule |
+| Keeper path | Kernel activity |
 |---|---|
-| Authority | MsgUpdateParams is accepted only from the governance module account; every other write acts for the DID bound to the EVM caller (decision.206). |
+| `RegisterAsset` | `0x00010001` |
+| `PauseAsset` / `UnpauseAsset` | `0x00010002` / `0x00010003` |
+| `OpenAccount` | `0x00010004` |
+| `Send` / `PayExact` | `0x00010005` |
+| `Mint` / `Burn` | `0x0001000a` / `0x0001000b` |
+| `Draw`, `IssueGrant`, `RevokeGrant` | None; retired refusal |
 
-Frozen interfaces: 31 (new 30, retire 1).
+[execute.go](../../../modules/layerxledger/keeper/execute.go) sets the global sequence through `lxphost.NextSequence`, and separately reads the actor's identity sequence. Activities use protocol version 3 and the block timestamp. These counters differ from the source account's SEND sequence returned by the ABI's `nextSequence`.
 
-**Other interfaces**
+Writes check the module's `paused` flag through [CheckPauseScope](../../../modules/layerxgov/types/proposal.go); `revokeGrant` is the ledger pause exit. Views bypass pause checks but can still return missing-record or validation errors. [Send](../../../modules/layerxledger/keeper/send.go) verifies that the source belongs to the bound actor and is a permitted main or asset account for that actor, and that its asset matches. The kernel keeps its authority, balance, sequence and context checks.
 
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxledger-accountid-j23` | go_exported | `func AccountID(didKey, assetID [32]byte) ([32]byte, error)` | new | `modules/layerxledger/keeper/accounts.go` (planned) |
-| `interface.2.go-layerxledger-openaccount-j23` | go_exported | `func (k *Keeper) OpenAccount(ctx sdk.Context, actor Actor, assetID, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/accounts.go` (planned) |
-| `interface.2.go-layerxledger-pauseasset-j23` | go_exported | `func (k *Keeper) PauseAsset(ctx sdk.Context, actor Actor, assetID, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/assets.go` (planned) |
-| `interface.2.go-layerxledger-registerasset-j23` | go_exported | `func (k *Keeper) RegisterAsset(ctx sdk.Context, actor Actor, args types.RegisterArgs, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/assets.go` (planned) |
-| `interface.2.go-layerxledger-unpauseasset-j23` | go_exported | `func (k *Keeper) UnpauseAsset(ctx sdk.Context, actor Actor, assetID, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/assets.go` (planned) |
-| `interface.2.go-layerxledger-draw-j23` | go_exported | `func (k *Keeper) Draw(ctx sdk.Context, actor Actor, args types.DrawArgs) (Result, error)` | new | `modules/layerxledger/keeper/draw.go` (planned) |
-| `interface.2.go-layerxledger-ledgerevents-j23` | go_exported | `func LedgerEvents(activityType uint32, receipt lxphost.Receipt, args EventArgs) ([]Event, error)` | new | `modules/layerxledger/keeper/events.go` (planned) |
-| `interface.2.go-layerxledger-exportgenesis-j23` | go_exported | `func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState` | new | `modules/layerxledger/keeper/genesis.go` (planned) |
-| `interface.2.go-layerxledger-initgenesis-j23` | go_exported | `func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState)` | new | `modules/layerxledger/keeper/genesis.go` (planned) |
-| `interface.2.go-layerxledger-issuegrant-j23` | go_exported | `func (k *Keeper) IssueGrant(ctx sdk.Context, actor Actor, grant []byte, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/grants.go` (planned) |
-| `interface.2.go-layerxledger-revokegrant-j23` | go_exported | `func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, revocationSequence uint64, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/grants.go` (planned) |
-| `interface.2.go-layerxledger-getparams-j23` | go_exported | `func (k *Keeper) GetParams(ctx sdk.Context) types.Params` | new | `modules/layerxledger/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxledger-keeper-j23` | go_exported | `type Keeper struct` | new | `modules/layerxledger/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxledger-newkeeper-j23` | go_exported | `func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, host *lxphost.Host, bank types.BankKeeper, evm types.EVMKeeper, authority string) *Keeper` | new | `modules/layerxledger/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxledger-setparams-j23` | go_exported | `func (k *Keeper) SetParams(ctx sdk.Context, params types.Params) error` | new | `modules/layerxledger/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxledger-mirror-j23` | go_exported | `func (k *Keeper) Mirror(ctx sdk.Context, activityType uint32, receipt lxphost.Receipt) error` | new | `modules/layerxledger/keeper/mirror.go` (planned) |
-| `interface.2.go-layerxledger-newmsgserverimpl-j23` | go_exported | `func NewMsgServerImpl(k *Keeper) types.MsgServer` | new | `modules/layerxledger/keeper/msg_server.go` (planned) |
-| `interface.2.go-layerxledger-payexact-j23` | go_exported | `func (k *Keeper) PayExact(ctx sdk.Context, actor Actor, args types.PayExactArgs) (Result, error)` | new | `modules/layerxledger/keeper/payexact.go` (planned) |
-| `interface.2.go-layerxledger-send-j23` | go_exported | `func (k *Keeper) Send(ctx sdk.Context, actor Actor, envelope []byte, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/send.go` (planned) |
-| `interface.2.go-layerxledger-burn-j23` | go_exported | `func (k *Keeper) Burn(ctx sdk.Context, actor Actor, assetID, fromAccount [32]byte, amount sdk.Int, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/supply.go` (planned) |
-| `interface.2.go-layerxledger-mint-j23` | go_exported | `func (k *Keeper) Mint(ctx sdk.Context, actor Actor, assetID, toAccount [32]byte, amount sdk.Int, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxledger/keeper/supply.go` (planned) |
-| `interface.2.go-layerxledger-accountowner-j23` | go_exported | `func (k *Keeper) AccountOwner(ctx sdk.Context, accountID [32]byte) ([32]byte, error)` | new | `modules/layerxledger/keeper/views.go` (planned) |
-| `interface.2.go-layerxledger-balanceof-j23` | go_exported | `func (k *Keeper) BalanceOf(ctx sdk.Context, accountID, assetID [32]byte) (sdk.Int, error)` | new | `modules/layerxledger/keeper/views.go` (planned) |
-| `interface.2.go-layerxledger-getasset-j23` | go_exported | `func (k *Keeper) GetAsset(ctx sdk.Context, assetID [32]byte) (lxphost.AssetRecord, error)` | new | `modules/layerxledger/keeper/views.go` (planned) |
-| `interface.2.go-layerxledger-getpayergrant-j23` | go_exported | `func (k *Keeper) GetPayerGrant(ctx sdk.Context, grantID [32]byte) (lxphost.PayerGrantState, error)` | new | `modules/layerxledger/keeper/views.go` (planned) |
-| `interface.2.go-layerxledger-nextsequence-j23` | go_exported | `func (k *Keeper) NextSequence(ctx sdk.Context, didKey, assetID [32]byte) (uint64, error)` | new | `modules/layerxledger/keeper/views.go` (planned) |
-| `interface.2.go-layerxledger-totalunits-j23` | go_exported | `func (k *Keeper) TotalUnits(ctx sdk.Context, assetID [32]byte) (sdk.Int, error)` | new | `modules/layerxledger/keeper/views.go` (planned) |
-| `interface.2.go-layerxledger-appmodule-j23` | go_exported | `func NewAppModule(k *keeper.Keeper) AppModule` | new | `modules/layerxledger/module.go` (planned) |
-| `interface.2.go-layerxledger-appmodulebasic-j23` | go_exported | `type AppModuleBasic struct{}` | new | `modules/layerxledger/module.go` (planned) |
-| `interface.2.go-layerxledger-bankkeeper-j23` | go_exported | `type BankKeeper interface { MintCoins; BurnCoins; SendCoins; SendCoinsFromModuleToAccount; GetSupply; GetBalance }` | new | `modules/layerxledger/types/expected_keepers.go` (planned) |
-| `interface.2.key-layerxledger-kernelkvprefix-j23` | storage_key | `KernelKVPrefix = []byte{0x02}` | retire | `modules/layerxledger/types/keys.go:21` |
-
-Capabilities verified against this section: 2.3.1, 2.3.3, 2.4.1, 2.4.2, 2.4.3, 2.4.4, 2.4.5, 2.4.6, 2.4.7, 2.4.8, 2.5.2, 2.5.3, 2.14.4.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.17.1 | 2017.1 | `modules/layerxledger/keeper/keeper_test.go::TestKeeperParamsRoundTrip (planned)` |
-| 2.19.1 | 2019.1 | `modules/layerxledger/keeper/pause_test.go::TestLedgerPauseRefusesWrites (planned)` |
-| 2.19.2 | 2019.2 | `modules/layerxledger/keeper/pause_test.go::TestLedgerPauseKeepsRevokeAndViews (planned)` |
-| 2.23.1 | 2023.1 | `modules/layerxledger/keeper/assets_test.go::TestRegisterAsset (planned)` |
-| 2.23.2 | 2023.2 | `modules/layerxledger/keeper/assets_test.go::TestRegisterAssetTwiceRefused (planned)` |
-| 2.23.3 | 2023.3 | `modules/layerxledger/keeper/assets_test.go::TestPauseUnpauseAsset (planned)` |
-| 2.24.1 | 2024.1 | `modules/layerxledger/keeper/supply_test.go::TestMintWithinCap (planned)` |
-| 2.24.2 | 2024.2 | `modules/layerxledger/keeper/supply_test.go::TestBurnReducesBalance (planned)` |
-| 2.25.1 | 2025.1 | `modules/layerxledger/keeper/accounts_test.go::TestOpenAccount (planned)` |
-| 2.25.2 | 2025.2 | `modules/layerxledger/keeper/accounts_test.go::TestOpenAccountPausedAsset (planned)` |
-| 2.26.1 | 2026.1 | `modules/layerxledger/keeper/send_test.go::TestSendMovesBalance (planned)` |
-| 2.26.2 | 2026.2 | `modules/layerxledger/keeper/send_test.go::TestSendRefusals (planned)` |
-| 2.27.1 | 2027.1 | `modules/layerxledger/keeper/payexact_test.go::TestPayExact (planned)` |
-| 2.27.2 | 2027.2 | `modules/layerxledger/keeper/payexact_test.go::TestPayExactExpired (planned)` |
-| 2.28.1 | 2028.1 | `modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant (planned)` |
-| 2.28.2 | 2028.2 | `modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant (planned)` |
-| 2.29.1 | 2029.1 | `modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant (planned)` |
-| 2.29.2 | 2029.2 | `modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant (planned)` |
-| 2.30.1 | 2030.1 | `modules/layerxledger/keeper/views_test.go::TestLedgerViews (planned)` |
-| 2.30.2 | 2030.2 | `modules/layerxledger/keeper/views_test.go::TestNextSequence (planned)` |
-| 2.46.1 | 2046.1 | `modules/layerxledger/keeper/msg_server_test.go::TestLedgerUpdateParamsAuthority (planned)` |
-| 2.46.2 | 2046.2 | `modules/layerxledger/keeper/msg_server_test.go::TestLedgerUpdateParamsPauses (planned)` |
-| 2.47.1 | 2047.1 | `modules/layerxledger/module_test.go::TestLedgerModuleServices (planned)` |
-| 2.70.1 | 2070.1 | `modules/layerxledger/keeper/retire_test.go::TestLedgerModuleStoreHasNoKernelKV (planned)` |
+The native `Keeper.NextSequence(ctx, didKey, assetID)` derives an account from an owner key. ABI callers instead reach `NextSequenceByAccountID(ctx, accountID, assetID)`, which reads the existing account and checks its asset. Passing an account ID as a DID key to the native convenience API derives a different ID.
 
 ## layerxledger-genesis
 
-Params-only genesis of layerxledger: kernel records live in the host store and are not exported by the module (decision.209).
+The [genesis schema](../../../api/layerxledger/genesis.proto) is params-only:
 
-Frozen interfaces: 3 (new 3).
+```proto
+message GenesisState { Params params = 1; }
+```
 
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxledger-defaultgenesis-j23` | go_exported | `func DefaultGenesis() *GenesisState` | new | `modules/layerxledger/types/genesis.go` (planned) |
-| `interface.2.go-layerxledger-genesisstate-validate-j23` | go_exported | `func (gs GenesisState) Validate() error` | new | `modules/layerxledger/types/genesis.go` (planned) |
-| `interface.2.proto-layerxledger-genesisstate-j23` | proto_message | `message paxprotocol.paxchain.layerxledger.GenesisState { Params params = 1; }` | new | `api/layerxledger/genesis.proto` (planned) |
-
-Capabilities verified against this section: 2.1.1, 2.5.1, 2.12.5.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.2.1 | 2002.1 | `modules/layerxledger/types/genesis_test.go::TestLedgerGenesisValidate (planned)` |
-| 2.31.1 | 2031.1 | `modules/layerxledger/keeper/genesis_test.go::TestLedgerGenesisRoundTrip (planned)` |
-| 2.64.1 | 2064.1 | `modules/layerxledger/keeper/app_genesis_test.go::TestLedgerAuthGenesisExportImport (planned)` |
+[DefaultGenesis and Validate](../../../modules/layerxledger/types/genesis.go) use the module's default params and `Params.Validate`. [InitGenesis and ExportGenesis](../../../modules/layerxledger/keeper/genesis.go) write and read only params. Defaults leave the ledger unpaused; either pause value is valid. Exporting this module alone does not export kernel state. Shared-host recovery, including payment references, is described under [idempotency](#idempotency).
 
 ## msg-layerxledger-updateparams
 
-Freezes `paxprotocol.paxchain.layerxledger.Msg/UpdateParams: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse)` (cosmos_msg, change).
-
-Frozen interfaces: 1 (change 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.msg-layerxledger-updateparams` | cosmos_msg | `paxprotocol.paxchain.layerxledger.Msg/UpdateParams: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse)` | change | `api/layerxledger/tx.proto:11` |
+[tx.proto](../../../api/layerxledger/tx.proto) declares `paxprotocol.paxchain.layerxledger.Msg/UpdateParams`, taking `MsgUpdateParams` and returning `MsgUpdateParamsResponse`. [msg_server.go](../../../modules/layerxledger/keeper/msg_server.go) accepts only the keeper's configured authority, which the node sets to `layerxgovtypes.GovernanceAuthority()` (the governance module account). This is the module's only Msg service operation. Ledger financial writes enter through 0x101A; there is no gRPC Query service.
 
 ## proto-layerxledger-params
 
-Freezes `message paxprotocol.paxchain.layerxledger.Params { bool paused = 1; }` (proto_message, stable).
+```proto
+message Params { bool paused = 1; }
+```
 
-Frozen interfaces: 1 (stable 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.proto-layerxledger-params` | proto_message | `message paxprotocol.paxchain.layerxledger.Params { bool paused = 1; }` | stable | `api/layerxledger/tx.proto:15` |
+This is the complete ledger parameter message in [tx.proto](../../../api/layerxledger/tx.proto). Gas and payment-reference retention are not ledger params.
 
 ## proto-layerxledger-msgupdateparams
 
-Freezes `message paxprotocol.paxchain.layerxledger.MsgUpdateParams { string authority = 1; Params params = 2; }` (proto_message, stable).
+```proto
+message MsgUpdateParams { string authority = 1; Params params = 2; }
+```
 
-Frozen interfaces: 1 (stable 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.proto-layerxledger-msgupdateparams` | proto_message | `message paxprotocol.paxchain.layerxledger.MsgUpdateParams { string authority = 1; Params params = 2; }` | stable | `api/layerxledger/tx.proto:21` |
+`ValidateBasic` validates the Bech32 authority and params; the message server additionally checks that the authority equals its configured governance address.
 
 ## proto-layerxledger-msgupdateparamsresponse
 
-Freezes `message paxprotocol.paxchain.layerxledger.MsgUpdateParamsResponse { }` (proto_message, stable).
+```proto
+message MsgUpdateParamsResponse {}
+```
 
-Frozen interfaces: 1 (stable 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.proto-layerxledger-msgupdateparamsresponse` | proto_message | `message paxprotocol.paxchain.layerxledger.MsgUpdateParamsResponse { }` | stable | `api/layerxledger/tx.proto:27` |
+A successful parameter update returns this empty response.
 
 ## ledger-bank-mirror
 
-Each kernel asset mirrors into bank as `layerx/<64 lowercase hex of the asset id>`; register mints the cap, or 2^128-1 when unbounded, to the module account and every transfer leg moves the mirror (decision.204).
+[MirrorDenom and ParseMirrorDenom](../../../modules/layerxledger/types/denom.go) define `layerx/<64 lowercase hex digits of asset ID>`, a 71-byte native bank denomination. Uppercase hex, a different prefix or the wrong length is refused. This denomination is distinct from a tokenfactory denomination.
 
-| Aspect | Rule |
-|---|---|
-| Invariants | The bank balance of every kernel account under its layerx denom equals its kernel balance. |
+[Mirror](../../../modules/layerxledger/keeper/mirror.go) applies successful receipts only. Registration mints the cap, or **2^128 - 1** for a zero/unbounded cap, through the ledger module account and sends it to `BankAddress(IssuanceAccountID(assetID))`. The initial supply does not remain in the module account. SEND, mint and burn receipt legs move existing mirror coins with `bank.SendCoins`; each amount must be a positive u128. A failed bank operation becomes `LXP_FATAL_SUPPLY_MISMATCH`. The node grants the ledger module account `Minter` and `Burner` permissions.
 
-Frozen interfaces: 2 (new 2).
+The intended mirror invariant is that every kernel account's bank balance in this denomination equals its kernel balance. `PayExact` stages the kernel execution, mirror and event validation in a cache before publishing success. Supply writes also cache kernel and mirror changes together; an accepted kernel transfer whose mirror fails is not published.
 
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxledger-mirrordenom-j23` | go_exported | `func MirrorDenom(assetID [32]byte) string` | new | `modules/layerxledger/types/denom.go` (planned) |
-| `interface.2.go-layerxledger-parsemirrordenom-j23` | go_exported | `func ParseMirrorDenom(denom string) ([32]byte, error)` | new | `modules/layerxledger/types/denom.go` (planned) |
-
-Capabilities verified against this section: 2.1.5, 2.3.5, 2.15.3.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.6.1 | 2006.1 | `modules/layerxledger/types/denom_test.go::TestMirrorDenom (planned)` |
-| 2.21.1 | 2021.1 | `modules/layerxledger/keeper/mirror_test.go::TestMirrorRegisterMintsSupply (planned)` |
-| 2.21.2 | 2021.2 | `modules/layerxledger/keeper/mirror_test.go::TestMirrorTransferLegs (planned)` |
-| 2.59.1 | 2059.1 | `precompiles/layerxledger/mirror_app_test.go::TestBankMirrorMatchesKernelBalances (planned)` |
+[IssuerBindingKeeper](../../../modules/layerxledger/keeper/issuer_binding.go) is a separate wrapper that can create a tokenfactory denomination, associate the issuer DID and mirror asset pause. **The production node constructs the base `Keeper`, and 0x101A consumes that base keeper.** The wrapper is not wired into that path, so a normal 0x101A registration or pause does not promise tokenfactory issuer binding or tokenfactory pause propagation. Its optional mapping under ledger prefix `0x02` is not part of the base params-only genesis export.
 
 ## precompile-1-layerxledger-0x101a
 
-Client-side encoding of 0x101A ledger calls and decoding of the PaymentDrawn and PaymentExact logs used by the platform ramp (domain 8).
+The ramp toolkit's [evm.rs](../../../services/platform/ramps/toolkit/src/evm.rs) declares `LEDGER_ADDRESS` (0x101A), `encode_pay_exact`, `encode_draw`, `LedgerPayment` and `decode_ledger_payment`; [lib.rs](../../../services/platform/ramps/toolkit/src/lib.rs) declares `LedgerCall { to, data }`.
 
-Frozen interfaces: 6 (new 6).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.8.rs-ramp-toolkit-evm-decode-ledger-payment-j41` | rust_pub_item | `pub fn decode_ledger_payment(log: &SequencerLog) -> Option<LedgerPayment>` | new | `services/platform/ramps/toolkit/src/evm.rs` (planned) |
-| `interface.8.rs-ramp-toolkit-evm-encode-draw-j41` | rust_pub_item | `pub fn encode_draw(from: [u8; 32], asset: [u8; 32], amount: u128, grant: [u8; 32], receiver_sequence: u64, idempotency_key: [u8; 32], context: [u8; 32]) -> Vec<u8>` | new | `services/platform/ramps/toolkit/src/evm.rs` (planned) |
-| `interface.8.rs-ramp-toolkit-evm-encode-pay-exact-j41` | rust_pub_item | `pub fn encode_pay_exact(from: [u8; 32], to: [u8; 32], asset: [u8; 32], amount: u128, expires_at: u64, reference: [u8; 32]) -> Vec<u8>` | new | `services/platform/ramps/toolkit/src/evm.rs` (planned) |
-| `interface.8.rs-ramp-toolkit-evm-ledger-address-j41` | rust_pub_item | `pub const LEDGER_ADDRESS: [u8; 20]` | new | `services/platform/ramps/toolkit/src/evm.rs` (planned) |
-| `interface.8.rs-ramp-toolkit-evm-ledgerpayment-j41` | rust_pub_item | `pub enum LedgerPayment { Exact { from, to, reference, asset, amount }, Drawn { from, to, grant, asset, amount, idempotency_key, context } }` | new | `services/platform/ramps/toolkit/src/evm.rs` (planned) |
-| `interface.8.rs-ramp-toolkit-lib-ledgercall-j41` | rust_pub_item | `pub struct LedgerCall { pub to: [u8; 20], pub data: Vec<u8> }` | new | `services/platform/ramps/toolkit/src/lib.rs` (planned) |
-
-Capabilities verified against this section: 8.28.1.
-
-| Acceptance | Requirement | Test |
+| Client function | Arguments in ABI order | Meaning |
 |---|---|---|
-| 8.266.1 | 8266.1 | `services/platform/ramps/toolkit/tests/evm_ledger.rs::pay_exact_calldata_uses_ledger_vector_selector (planned)` |
-| 8.266.2 | 8266.2 | `services/platform/ramps/toolkit/tests/evm_ledger.rs::draw_calldata_places_seven_contract_words (planned)` |
-| 8.266.3 | 8266.3 | `services/platform/ramps/toolkit/tests/evm_ledger.rs::ledger_payment_log_from_other_address_is_ignored (planned)` |
+| `encode_pay_exact` | `from, to, asset, amount, expires_at, reference` | Supported exact payment; expiry is milliseconds; selector `0x78ea11db` |
+| `encode_draw` | `grant_id, recipient, amount, idempotency_key, sequence, purpose_hash, context_hash` | Compatibility encoding of the retired draw selector `0x2e89490f`; execution refuses |
+
+For `encode_draw`, identifiers and hashes are `[u8; 32]`, `amount` is `u128`, and `sequence` is `u64`. The second argument is the **recipient**, not the asset; the first is the **grant ID**, not the payer. The old keeper `DrawArgs` field names do not change that ABI order. The encoder's presence does not establish usable payer-grant authority.
+
+`decode_ledger_payment(&SequencerLog) -> Option<LedgerPayment>` accepts only the 0x101A emitter, exactly four topics, and the declared `PaymentExact` (64 data bytes) or historical `PaymentDrawn` (128 data bytes) shape, including the uint128 bound. It returns owned `Exact { from, to, reference, asset, amount }` or `Drawn { from, to, grant, asset, amount, idempotency_key, context }` fields. `SequencerLog` is the client type name; decoding proves the log shape, not receipt authenticity or a live draw route.
+
+The toolkit also targets the maintained payment precompile at **0x101B** (`PAY_ADDRESS`) with `encode_budget_spend`, `encode_get_budget` and `decode_budget_spent`. Its customer budget flow uses that ordinary-principal authority path. See [pay](pay.md) and [platform ramps](platform-ramps.md); retained draw encoding and decoding are historical compatibility material.
 
 ## layerxauth-0x101c
 
-Precompile 0x000000000000000000000000000000000000101C: 10 methods and 5 events over kernel session and capability grants and identity state.
+The active [auth ABI](../../../precompiles/layerxauth/abi.json) declares **10 methods and 5 events**. It includes `recordLifecycle`; **`resultByIdempotency(bytes32,bytes32)` is retired and absent**. A call using the removed selector is an unknown-method refusal, not a cached-result query.
 
-| Aspect | Rule |
-|---|---|
-| Authority | Every write acts for the LayerX DID bound to msg.sender through the 0x1004 binding; an unbound caller is refused before any kernel call and no envelope signature is checked (decision.206). |
-| Effects | grantSession and grantSessionSuccessor submit governance sub-op 5, grantCapability sub-op 8 and saves a LayerXScopeAuthorization through authz, revokeGrant revokes the kernel grant and deletes the authz grant (decision.210). |
+| ABI method | Output | Gas surcharge |
+|---|---|---:|
+| `recordLifecycle(bytes payload,bytes32 idempotencyKey)` | `uint64 globalSequence` | 36680 |
+| `grantSession(bytes grant,uint64 expirySequence,bytes32 actionKey)` | `bytes32 grantId` | 36680 |
+| `grantSessionSuccessor(bytes grant,uint64 expirySequence,bytes32 actionKey,bytes32 predecessorId,bytes32 expectedCommitment)` | `bytes32 grantId` | 38600 |
+| `grantCapability(bytes grant)` | `bytes32 grantId` | 34760 |
+| `revokeGrant(bytes32 grantId,uint8 reason,uint64 sequence)` | none | 5000 |
+| `getGrant(bytes32 grantId)` | `bytes grant,bool revoked,uint64 revokedAt` | 1108 |
+| `isLive(bytes32 grantId,uint64 sequence,uint64 timestampMs)` | `bool live,string code` | 1300 |
+| `sessionKey(bytes32 grantId)` | `bytes summary` | 1108 |
+| `capabilityScope(bytes32 grantId)` | Scope fields listed below | 1108 |
+| `checkActivity(bytes32 grantId,uint32 activityType,bytes32 assetId,uint128 amount)` | `string code` | 1396 |
 
-Contract context `2.layerxauth-0x101c`:
+Writes are nonpayable and use the current EVM DID binding; views do not require that binding. The dispatcher refuses delegate calls and writes in static calls. [Execute](../../../precompiles/layerxauth/layerxauth.go) stages handler changes in a cached context and publishes them only on success.
 
-| Aspect | Rule |
-|---|---|
-| Interface | Precompile 0x000000000000000000000000000000000000101C named layerxauth: 10 ABI methods and 5 events of precompiles/layerxauth/abi.json (planned) |
-| Storage | Kernel authority grants, identity sequences and idempotency records in the shared layerxhost store; layerxauth module store holds ParamsKey 0x01 only; capability grants mirrored as authz LayerXScopeAuthorization grants |
-| Errors | Error(string) reasons LXP_&lt;CODE&gt; from the layerxauth registrations of modules/layerxauth/types/errors.go:8-16, kernel names through LXPCodeName and LXP_PAUSED_SCOPE 735 from layerxgov |
-| Events | SessionGranted, GrantBody, CapabilityGranted, GrantRevoked, IdentityStateUpdated from kernel events 0x7145, 0x7105 and 0x7125, 0x7148, 0x7108 and 0x7128, 0x7106 and 0x7110 (GrantBody carries the 256-byte body chunks 0x7105/0x7125 of a session and 0x7108/0x7128 of a capability) |
-| Gas | Fixed surcharge per method plus DefaultGasCost of the input: grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, resultByIdempotency 1204, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396 |
-| Activation | Served from the height where MergeUpgrade v7.0 (precompiles/setup.go:50) is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxauth module |
-| Invariants | A revoked kernel grant makes the matching authz grant unusable in MsgExec; idempotency records older than IdempotencyRetention are pruned and retention 0 keeps all |
-| Pause | layerxauth params paused refuses grantSession, grantSessionSuccessor and grantCapability; revokeGrant and views always answer |
+`recordLifecycle` accepts governance payload tag `0x71`, sub-op **1 or 3**, and submits it through the shared host. It returns the actual receipt's global sequence and emits the matching `IdentityStateUpdated` event after validating that it names the actor. Session and successor grants use sub-op 5, capabilities use 8, revocation uses 6. `expirySequence` and revocation `sequence` are sequence values; `timestampMs`, grant validity timestamps and period timestamps are milliseconds.
 
-Frozen interfaces: 21 (new 21).
+`capabilityScope` returns, in order: `uint64 moduleMask`, `uint16 ordinalMin`, `uint16 ordinalMax`, `bytes32 assetId`, `uint128 maxPerActivity`, `uint128 maxTotal`, `uint128 spentTotal`, `uint64 periodLength`, `uint128 maxPerPeriod`, `uint128 spentThisPeriod`, `uint64 periodStart`, `bytes32 purposeHash`.
 
-**ABI methods**
+`getGrant` returns canonical current grant bytes plus the revocation flag and revoked-at sequence. `isLive` returns an empty code for a live grant, or a canonical refusal code with `false`. `checkActivity` returns an empty code when its current liveness and scope checks pass, or a refusal code. These are reads, not reservations or execution guarantees; malformed data and fatal read errors can still revert.
 
-| Method | Address | Selector | Status | Gas | Defined at |
-|---|---|---|---|---|---|
-| `capabilityScope(bytes32) (planned)` | 0x101c | `0xd05b2513` | new | surcharge 1108 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `checkActivity(bytes32,uint32,bytes32,uint128) (planned)` | 0x101c | `0xd825990c` | new | surcharge 1396 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `getGrant(bytes32) (planned)` | 0x101c | `0xe483ac04` | new | surcharge 1108 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `grantCapability(bytes) (planned)` | 0x101c | `0x0cb291d1` | new | surcharge 34760 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `grantSession(bytes,uint64,bytes32) (planned)` | 0x101c | `0x1107b49e` | new | surcharge 36680 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) (planned)` | 0x101c | `0x0c49a046` | new | surcharge 38600 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `isLive(bytes32,uint64,uint64) (planned)` | 0x101c | `0xd4a03b3d` | new | surcharge 1300 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `resultByIdempotency(bytes32,bytes32) (planned)` | 0x101c | `0x2eda9f2b` | new | surcharge 1204 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `revokeGrant(bytes32,uint8,uint64) (planned)` | 0x101c | `0x859615ab` | new | surcharge 5000 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-| `sessionKey(bytes32) (planned)` | 0x101c | `0x55eb131c` | new | surcharge 1108 (planned) | `precompiles/layerxauth/abi.json` (planned) |
-
-**Events**
-
-| Event | Address | topic0 | Status | Defined at |
-|---|---|---|---|---|
-| `CapabilityGranted(bytes32 indexed) (planned)` | 0x101c | `0x04898c328b1814096864087e5d20b9e11dae070d4f1820ca72f13978d3550108` | new | `precompiles/layerxauth/abi.json` (planned) |
-| `GrantBody(bytes32 indexed,uint8,uint8,bytes) (planned)` | 0x101c | `0x882911a9b00b6db8640402713cdfb0ec23798ce72304a969c61288652ef2ac26` | new | `precompiles/layerxauth/abi.json` (planned) |
-| `GrantRevoked(bytes32 indexed,bytes) (planned)` | 0x101c | `0x56ae84eff6bf7f5e201e33f3e37e1e3bf3f3470dacdb55801842589a3d156419` | new | `precompiles/layerxauth/abi.json` (planned) |
-| `IdentityStateUpdated(bytes32 indexed,bytes) (planned)` | 0x101c | `0x3c6016beeec8cc4427dbd9648f9f4e4cac68c008d10c9fa39e06e677b7ddbe1a` | new | `precompiles/layerxauth/abi.json` (planned) |
-| `SessionGranted(bytes32 indexed,bytes) (planned)` | 0x101c | `0xcd2f11433d26596e4c5d214c177bd03c817c9e19d9850ee61bda3442aa0e3b9a` | new | `precompiles/layerxauth/abi.json` (planned) |
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.fmt-layerxauth-abi-j23` | file_format | `Solidity JSON ABI of 0x101c` | new | `precompiles/layerxauth/abi.json` (planned) |
-| `interface.2.go-pc-layerxauth-getabi-j23` | go_exported | `func GetABI() abi.ABI` | new | `precompiles/layerxauth/abi.go` (planned) |
-| `interface.2.go-pc-layerxauth-address-j23` | go_exported | `const AuthAddress = "0x000000000000000000000000000000000000101C"` | new | `precompiles/layerxauth/layerxauth.go` (planned) |
-| `interface.2.go-pc-layerxauth-keepers-j23` | go_exported | `type AuthKeepers interface { LayerXAuthK() *keeper.Keeper }` | new | `precompiles/layerxauth/layerxauth.go` (planned) |
-| `interface.2.go-pc-layerxauth-newmergeprecompile-j23` | go_exported | `func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error)` | new | `precompiles/layerxauth/layerxauth.go` (planned) |
-| `interface.2.go-pc-layerxauth-newprecompile-j23` | go_exported | `func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error)` | new | `precompiles/layerxauth/layerxauth.go` (planned) |
-
-Capabilities verified against this section: 2.2.2, 2.6.5, 2.11.1, 2.11.2, 2.11.3, 2.11.4, 2.12.2, 2.13.1, 2.14.2.
-
-| Acceptance | Requirement | Test |
+| ABI event | Indexed field | Non-indexed fields |
 |---|---|---|
-| 2.12.1 | 2012.1 | `precompiles/layerxauth/abi_test.go::TestAuthABIMethods (planned)` |
-| 2.12.2 | 2012.2 | `precompiles/layerxauth/abi_test.go::TestAuthABIEvents (planned)` |
-| 2.36.1 | 2036.1 | `modules/layerxauth/keeper/events_test.go::TestDecodeAuthEvents (planned)` |
-| 2.45.2 | 2045.2 | `precompiles/layerxauth/surface_test.go::TestAuthSurfaceFrozen (planned)` |
-| 2.55.1 | 2055.1 | `precompiles/layerxauth/layerxauth_test.go::TestAuthMergeConstructorRegistered (planned)` |
-| 2.56.1 | 2056.1 | `precompiles/layerxauth/grants_test.go::TestPrecompileGrantSession (planned)` |
-| 2.56.2 | 2056.2 | `precompiles/layerxauth/grants_test.go::TestPrecompileGrantSessionSuccessor (planned)` |
-| 2.56.3 | 2056.3 | `precompiles/layerxauth/grants_test.go::TestPrecompileGrantCapability (planned)` |
-| 2.57.1 | 2057.1 | `precompiles/layerxauth/revoke_test.go::TestPrecompileAuthRevokeGrant (planned)` |
-| 2.58.1 | 2058.1 | `precompiles/layerxauth/views_test.go::TestPrecompileAuthViews (planned)` |
-| 2.58.2 | 2058.2 | `precompiles/layerxauth/views_test.go::TestPrecompileIsLive (planned)` |
-| 2.58.3 | 2058.3 | `precompiles/layerxauth/views_test.go::TestPrecompileCheckActivity (planned)` |
-| 2.58.4 | 2058.4 | `precompiles/layerxauth/views_test.go::TestPrecompileResultByIdempotency (planned)` |
-| 2.61.1 | 2061.1 | `precompiles/layerxauth/activation_test.go::TestAuthServedAfterMergeActivation (planned)` |
-| 2.61.2 | 2061.2 | `precompiles/layerxauth/activation_test.go::TestAuthUnservedBeforeMergeActivation (planned)` |
-| 2.62.2 | 2062.2 | `precompiles/layerxauth/pause_test.go::TestGovernancePauseRefusesAuthGrants (planned)` |
-| 2.66.1 | 2066.1 | `precompiles/layerxauth/client_test.go::TestAuthEVMTransactionReceipt (planned)` |
-| 2.68.1 | 2068.1 | `precompiles/layerxauth/parity_test.go::TestAuthPrecompileKernelParity (planned)` |
+| `SessionGranted` | `bytes32 grantId` | `bytes summary` |
+| `GrantBody` | `bytes32 grantId` | `uint8 sub,uint8 chunk,bytes body` |
+| `CapabilityGranted` | `bytes32 grantId` | none |
+| `GrantRevoked` | `bytes32 grantId` | `bytes record` |
+| `IdentityStateUpdated` | `bytes32 didId` | `bytes state` |
+
+[AuthEvents](../../../modules/layerxauth/keeper/events.go) maps kernel codes `0x7145` to a 209-byte `LXGS2` session summary, `0x7148` to a 32-byte capability ID, `0x7106` to a 41-byte revocation record, and `0x7110` to a 223-byte `LXGI1` identity state. Grant bodies arrive in ordered chunks of at most 256 bytes: session codes `0x7105`/`0x7125`, capability codes `0x7108`/`0x7128`. Each summary requires body chunks; continuation chunks require a preceding full-size chunk. The precompile emits these decoded events from 0x101C.
 
 ## layerxauth-errors
 
-Revert reasons of 0x101C and the layerxauth codespace in `LXP_<CODE>` form; layerxauth code 11 retires in favour of `LXP_PAUSED_SCOPE` 735 of layerxgov.
+The [auth error registrations](../../../modules/layerxauth/types/errors.go) and [FromKernel](../../../modules/layerxauth/keeper/kernel_codes.go) distinguish module SDK codes from kernel codes:
 
-Frozen interfaces: 13 (stable 9, change 1, new 3).
+| SDK code (`layerxauth`) | Kernel code | Reason |
+|---:|---:|---|
+| 2 | -204 | `LXP_AUTH_SCOPE` |
+| 3 | -203 | `LXP_AUTH_REVOKED` |
+| 4 | -202 | `LXP_AUTH_EXPIRED` |
+| 5 | -222 | `LXP_AUTH_NOT_MATURE` |
+| 6 | -304 | `LXP_NOT_YET_VALID` |
+| 7 | -301 | `LXP_SEQUENCE_REUSED` |
+| 8 | -3 | `LXP_NON_CANONICAL` |
+| 9 | -207 | `LXP_UNAUTHORIZED_DEBIT` |
+| 10 | -302 | `LXP_IDEMPOTENT_REPLAY` |
 
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.err-sdk-layerxauth-2-auth-scope` | error_code | `ErrAuthScope = Register("layerxauth", 2, "LXP_AUTH_SCOPE")` | stable | `modules/layerxauth/types/errors.go:8` |
-| `interface.2.err-sdk-layerxauth-3-auth-revoked` | error_code | `ErrAuthRevoked = Register("layerxauth", 3, "LXP_AUTH_REVOKED")` | stable | `modules/layerxauth/types/errors.go:9` |
-| `interface.2.err-sdk-layerxauth-4-auth-expired` | error_code | `ErrAuthExpired = Register("layerxauth", 4, "LXP_AUTH_EXPIRED")` | stable | `modules/layerxauth/types/errors.go:10` |
-| `interface.2.err-sdk-layerxauth-5-auth-not-mature` | error_code | `ErrAuthNotMature = Register("layerxauth", 5, "LXP_AUTH_NOT_MATURE")` | stable | `modules/layerxauth/types/errors.go:11` |
-| `interface.2.err-sdk-layerxauth-6-not-yet-valid` | error_code | `ErrNotYetValid = Register("layerxauth", 6, "LXP_NOT_YET_VALID")` | stable | `modules/layerxauth/types/errors.go:12` |
-| `interface.2.err-sdk-layerxauth-7-sequence-reused` | error_code | `ErrSequenceReused = Register("layerxauth", 7, "LXP_SEQUENCE_REUSED")` | stable | `modules/layerxauth/types/errors.go:13` |
-| `interface.2.err-sdk-layerxauth-8-non-canonical` | error_code | `ErrNonCanonical = Register("layerxauth", 8, "LXP_NON_CANONICAL")` | stable | `modules/layerxauth/types/errors.go:14` |
-| `interface.2.err-sdk-layerxauth-9-unauthorized-debit` | error_code | `ErrUnauthorizedDebit = Register("layerxauth", 9, "LXP_UNAUTHORIZED_DEBIT")` | stable | `modules/layerxauth/types/errors.go:15` |
-| `interface.2.err-sdk-layerxauth-10-idempotent-replay` | error_code | `ErrIdempotentReplay = Register("layerxauth", 10, "LXP_IDEMPOTENT_REPLAY")` | stable | `modules/layerxauth/types/errors.go:16` |
-| `interface.2.err-sdk-layerxauth-11-paused-scope` | error_code | `ErrPausedScope = Register("layerxauth", 11, "LXP_PAUSED_SCOPE")` | change | `modules/layerxauth/types/errors.go:17` |
-| `interface.2.go-layerxauth-fromkernel-j23` | go_exported | `func FromKernel(code lxphost.Code) error` | new | `modules/layerxauth/keeper/kernel_codes.go` (planned) |
-| `interface.2.go-pc-layerxauth-reverterror-j23` | go_exported | `func RevertError(err error) error` | new | `precompiles/layerxauth/errors.go` (planned) |
-| `interface.2.pc-0x101c-err-lxp-j23` | precompile_error | `Error(string) carrying "LXP_<CODE>: <detail>"` | new | `precompiles/layerxauth/errors.go` (planned) |
-
-Capabilities verified against this section: 2.1.7, 2.2.4.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.1.2 | 2001.2 | `modules/layerxauth/keeper/kernel_codes_test.go::TestAuthFromKernelCodes (planned)` |
-| 2.8.1 | 2008.1 | `modules/layerxauth/types/errors_test.go::TestErrorTexts (existing)` |
-| 2.14.1 | 2014.1 | `precompiles/layerxauth/errors_test.go::TestAuthRevertReasons (planned)` |
-| 2.55.2 | 2055.2 | `precompiles/layerxauth/layerxauth_test.go::TestAuthWriteRefusals (planned)` |
+Pause refusals use **`layerxgov` code 735**, `LXP_PAUSED_SCOPE`; the old `layerxauth` code 11 is retired. [RevertError](../../../precompiles/layerxauth/errors.go) normalizes auth, governance and kernel errors to canonical text and retains their Go causes. The same [optional-detail Error(string) rule](#layerxledger-errors) applies here. View-returned refusal strings are distinct from transaction reverts.
 
 ## layerxauth-gas
 
-Fixed per-method gas of 0x101C; the rows are listed with the methods under [layerxauth-0x101c](#layerxauth-0x101c).
-
-Frozen interfaces: 1 (new 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-pc-layerxauth-gastable-j23` | go_exported | `var GasTable = pcommon.GasTable{...}` | new | `precompiles/layerxauth/gas.go` (planned) |
-
-Capabilities verified against this section: 2.2.6.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.16.1 | 2016.1 | `precompiles/layerxauth/gas_test.go::TestAuthGasTable (planned)` |
-| 2.69.2 | 2069.2 | `precompiles/layerxauth/gas_conformance_test.go::TestAuthGasConformance (planned)` |
+[GasTable](../../../precompiles/layerxauth/gas.go) supplies the method surcharges above, including `recordLifecycle` and excluding retired `resultByIdempotency`. Total charging follows [layerxledger-gas](#layerxledger-gas): KV argument cost plus surcharge, using `Write: true` for the five writes and `false` for the five views.
 
 ## layerxauth-keeper
 
-The layerxauth keeper over the shared host, authz and EVM keepers: session and successor grants, capability grants mirrored into authz, revocation and the revocation decorator next to authz MsgExec (decision.210).
+[Keeper](../../../modules/layerxauth/keeper/keeper.go) receives the codec, auth store key, shared host, authz keeper, EVM keeper and governance authority. It holds only params in its own module store. Authority grants and identity sequences are read from the shared host. [execute.go](../../../modules/layerxauth/keeper/execute.go) requires bound authority, derives activity type `0x00070000 | payload[1]`, reads the identity sequence, allocates the global sequence and uses block time.
 
-| Aspect | Rule |
-|---|---|
-| Authority | MsgUpdateParams is accepted only from the governance module account; grants act for the DID bound to the EVM caller (decision.206). |
+Session and capability issuance check `paused`; auth `revokeGrant` remains the pause exit. **`RecordLifecycle` does not call `checkPause` in the current implementation.** Views also bypass pause checks. The pause flag therefore must not be described as blocking every auth write.
 
-Frozen interfaces: 23 (new 23).
+[GrantCapability and SaveGrant](../../../modules/layerxauth/keeper/capability.go) atomically issue a kernel grant and save its `LayerXScopeAuthorization` mirrors. The current message mapping requires asset module bit 1 and a range containing SEND ordinal 5; it names SDK bank `MsgSend` and `MsgMultiSend`. It does not authorize kernel ledger messages. Both grantor and capability key need matching EVM bindings. An occupied authz key for a grantee/granter/message type is refused rather than replaced, preserving accumulated spending. A registered message mapping still has to satisfy `LayerXScopeAuthorization.Accept` for the actual message shape.
 
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxauth-revocationdecorator-j23` | go_exported | `func NewRevocationDecorator(k *keeper.Keeper, evm types.EVMKeeper) RevocationDecorator` | new | `modules/layerxauth/ante/revocation.go` (planned) |
-| `interface.2.go-layerxauth-grantcapability-j23` | go_exported | `func (k *Keeper) GrantCapability(ctx sdk.Context, actor Actor, grant []byte, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxauth/keeper/capability.go` (planned) |
-| `interface.2.go-layerxauth-authevents-j23` | go_exported | `func AuthEvents(receipt lxphost.Receipt) ([]Event, error)` | new | `modules/layerxauth/keeper/events.go` (planned) |
-| `interface.2.go-layerxauth-exportgenesis-j23` | go_exported | `func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState` | new | `modules/layerxauth/keeper/genesis.go` (planned) |
-| `interface.2.go-layerxauth-initgenesis-j23` | go_exported | `func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState)` | new | `modules/layerxauth/keeper/genesis.go` (planned) |
-| `interface.2.go-layerxauth-getparams-j23` | go_exported | `func (k *Keeper) GetParams(ctx sdk.Context) types.Params` | new | `modules/layerxauth/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxauth-keeper-j23` | go_exported | `type Keeper struct` | new | `modules/layerxauth/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxauth-newkeeper-j23` | go_exported | `func NewKeeper(cdc codec.BinaryCodec, storeKey sdk.StoreKey, host *lxphost.Host, authz types.AuthzKeeper, evm types.EVMKeeper, authority string) *Keeper` | new | `modules/layerxauth/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxauth-setparams-j23` | go_exported | `func (k *Keeper) SetParams(ctx sdk.Context, params types.Params) error` | new | `modules/layerxauth/keeper/keeper.go` (planned) |
-| `interface.2.go-layerxauth-newmsgserverimpl-j23` | go_exported | `func NewMsgServerImpl(k *Keeper) types.MsgServer` | new | `modules/layerxauth/keeper/msg_server.go` (planned) |
-| `interface.2.go-layerxauth-revokegrant-j23` | go_exported | `func (k *Keeper) RevokeGrant(ctx sdk.Context, actor Actor, grantID [32]byte, reason uint8, sequence uint64, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxauth/keeper/revoke.go` (planned) |
-| `interface.2.go-layerxauth-grantsession-j23` | go_exported | `func (k *Keeper) GrantSession(ctx sdk.Context, actor Actor, grant []byte, expirySequence uint64, actionKey, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxauth/keeper/sessions.go` (planned) |
-| `interface.2.go-layerxauth-grantsessionsuccessor-j23` | go_exported | `func (k *Keeper) GrantSessionSuccessor(ctx sdk.Context, actor Actor, grant []byte, expirySequence uint64, actionKey, predecessorID, expectedCommitment, idempotencyKey [32]byte) (Result, error)` | new | `modules/layerxauth/keeper/sessions.go` (planned) |
-| `interface.2.go-layerxauth-capabilityscope-j23` | go_exported | `func (k *Keeper) CapabilityScope(ctx sdk.Context, grantID [32]byte) ([]byte, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-checkactivity-j23` | go_exported | `func (k *Keeper) CheckActivity(ctx sdk.Context, grantID [32]byte, activityType uint32, assetID [32]byte, amount sdk.Int) (string, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-getgrant-j23` | go_exported | `func (k *Keeper) GetGrant(ctx sdk.Context, grantID [32]byte) ([]byte, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-islive-j23` | go_exported | `func (k *Keeper) IsLive(ctx sdk.Context, grantID [32]byte, sequence, timestampMs uint64) (bool, string, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-resultbyidempotency-j23` | go_exported | `func (k *Keeper) ResultByIdempotency(ctx sdk.Context, didID, idempotencyKey [32]byte) ([]byte, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-revocationsequence-j23` | go_exported | `func (k *Keeper) RevocationSequence(ctx sdk.Context, didKey [32]byte) (uint64, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-sessionkey-j23` | go_exported | `func (k *Keeper) SessionKey(ctx sdk.Context, grantID [32]byte) ([]byte, error)` | new | `modules/layerxauth/keeper/views.go` (planned) |
-| `interface.2.go-layerxauth-appmodule-j23` | go_exported | `func NewAppModule(k *keeper.Keeper) AppModule` | new | `modules/layerxauth/module.go` (planned) |
-| `interface.2.go-layerxauth-appmodulebasic-j23` | go_exported | `type AppModuleBasic struct{}` | new | `modules/layerxauth/module.go` (planned) |
-| `interface.2.go-layerxauth-authzkeeper-j23` | go_exported | `type AuthzKeeper interface { SaveGrant; DeleteGrant; GetCleanAuthorization }` | new | `modules/layerxauth/types/expected_keepers.go` (planned) |
-
-Capabilities verified against this section: 2.6.1, 2.6.3, 2.7.1, 2.7.2, 2.7.3, 2.7.4, 2.8.2, 2.9.2, 2.9.3, 2.12.4.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.32.1 | 2032.1 | `modules/layerxauth/keeper/keeper_test.go::TestAuthKeeperParamsRoundTrip (planned)` |
-| 2.34.1 | 2034.1 | `modules/layerxauth/keeper/pause_test.go::TestAuthPauseRefusesGrants (planned)` |
-| 2.34.2 | 2034.2 | `modules/layerxauth/keeper/pause_test.go::TestAuthPauseKeepsRevoke (planned)` |
-| 2.37.1 | 2037.1 | `modules/layerxauth/keeper/sessions_test.go::TestGrantSession (planned)` |
-| 2.37.2 | 2037.2 | `modules/layerxauth/keeper/sessions_test.go::TestGrantSessionSuccessor (planned)` |
-| 2.38.1 | 2038.1 | `modules/layerxauth/keeper/capability_test.go::TestGrantCapability (planned)` |
-| 2.38.2 | 2038.2 | `modules/layerxauth/keeper/capability_test.go::TestGrantCapabilityRefusesOwnKey (planned)` |
-| 2.39.1 | 2039.1 | `modules/layerxauth/keeper/revoke_test.go::TestRevokeGrantAdvancesRevocation (planned)` |
-| 2.39.2 | 2039.2 | `modules/layerxauth/keeper/revoke_test.go::TestRevokeGrantRefusesOtherGrantor (planned)` |
-| 2.40.1 | 2040.1 | `modules/layerxauth/keeper/views_test.go::TestAuthGrantViews (planned)` |
-| 2.40.2 | 2040.2 | `modules/layerxauth/keeper/views_test.go::TestAuthIsLive (planned)` |
-| 2.40.3 | 2040.3 | `modules/layerxauth/keeper/views_test.go::TestAuthCheckActivity (planned)` |
-| 2.43.1 | 2043.1 | `modules/layerxauth/ante/revocation_test.go::TestRevocationDecoratorSetsGrantorSequence (planned)` |
-| 2.43.2 | 2043.2 | `modules/layerxauth/ante/revocation_test.go::TestRevocationDecoratorSkipsUnbound (planned)` |
-| 2.48.1 | 2048.1 | `modules/layerxauth/keeper/msg_server_test.go::TestAuthUpdateParamsAuthority (planned)` |
-| 2.48.2 | 2048.2 | `modules/layerxauth/keeper/msg_server_test.go::TestAuthUpdateParamsPauses (planned)` |
-| 2.49.1 | 2049.1 | `modules/layerxauth/module_test.go::TestAuthModuleServices (planned)` |
-| 2.63.1 | 2063.1 | `modules/layerxauth/ante/integration_test.go::TestAuthzExecRefusedAfterKernelRevoke (planned)` |
+[RevokeGrant](../../../modules/layerxauth/keeper/revoke.go) checks the bound actor is the grantor, validates the reason and sequence, executes kernel revocation and requires a matching receipt event. The normal keeper/precompile revocation path **does not call `DeleteGrant`**. That helper can delete matching authz entries, but its existence is not an automatic-deletion guarantee. Enforcement also uses the grantor's current revocation sequence: [RevocationDecorator](../../../modules/layerxauth/ante/revocation.go), wired after `AuthzNestedMessageDecorator` in [node/ante.go](../../../node/ante.go), supplies it for nested `MsgExec` messages. `Accept` refuses a missing or mismatched epoch, so stale authz records do not bypass that check.
 
 ## layerxauth-genesis
 
-Params-only genesis of layerxauth (decision.209).
+The [auth genesis schema](../../../api/layerxauth/genesis.proto) is also params-only:
 
-Frozen interfaces: 3 (new 3).
+```proto
+message GenesisState { Params params = 1; }
+```
 
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxauth-defaultgenesis-j23` | go_exported | `func DefaultGenesis() *GenesisState` | new | `modules/layerxauth/types/genesis.go` (planned) |
-| `interface.2.go-layerxauth-genesisstate-validate-j23` | go_exported | `func (gs GenesisState) Validate() error` | new | `modules/layerxauth/types/genesis.go` (planned) |
-| `interface.2.proto-layerxauth-genesisstate-j23` | proto_message | `message paxprotocol.paxchain.layerxauth.GenesisState { Params params = 1; }` | new | `api/layerxauth/genesis.proto` (planned) |
-
-Capabilities verified against this section: 2.1.2, 2.9.1.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.3.1 | 2003.1 | `modules/layerxauth/types/genesis_test.go::TestAuthGenesisValidate (planned)` |
-| 2.44.1 | 2044.1 | `modules/layerxauth/keeper/genesis_test.go::TestAuthGenesisRoundTrip (planned)` |
+[DefaultGenesis](../../../modules/layerxauth/types/genesis.go) uses `paused = false`, `idempotency_retention = 0`. [InitGenesis and ExportGenesis](../../../modules/layerxauth/keeper/genesis.go) handle only params; they do not serialize grants or recreate authz mirrors. Restoring auth params alone cannot restore authority state.
 
 ## msg-layerxauth-updateparams
 
-Freezes `paxprotocol.paxchain.layerxauth.Msg/UpdateParams: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse)` (cosmos_msg, change).
-
-Frozen interfaces: 1 (change 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.msg-layerxauth-updateparams` | cosmos_msg | `paxprotocol.paxchain.layerxauth.Msg/UpdateParams: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse)` | change | `api/layerxauth/tx.proto:9` |
+[tx.proto](../../../api/layerxauth/tx.proto) declares `paxprotocol.paxchain.layerxauth.Msg/UpdateParams`, taking `MsgUpdateParams` and returning `MsgUpdateParamsResponse`. [msg_server.go](../../../modules/layerxauth/keeper/msg_server.go) checks the configured governance authority before replacing params. The module registers this Msg service only, with no gRPC Query service or query CLI; authority reads use 0x101C.
 
 ## proto-layerxauth-params
 
-Freezes `message paxprotocol.paxchain.layerxauth.Params { bool paused = 1; uint64 idempotency_retention = 2; }` (proto_message, stable).
+```proto
+message Params { bool paused = 1; uint64 idempotency_retention = 2; }
+```
 
-Frozen interfaces: 1 (stable 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.proto-layerxauth-params` | proto_message | `message paxprotocol.paxchain.layerxauth.Params { bool paused = 1; uint64 idempotency_retention = 2; }` | stable | `api/layerxauth/tx.proto:19` |
+`IdempotencyRetention` remains a compatibility parameter. `Params.Validate` accepts every value; the current keeper does not pass it to a host retention setter. It does not prune or expire the successful-SEND reference set. Defaults and validation are in [params.go](../../../modules/layerxauth/types/params.go).
 
 ## proto-layerxauth-msgupdateparams
 
-Freezes `message paxprotocol.paxchain.layerxauth.MsgUpdateParams { string authority = 1; Params params = 2; }` (proto_message, stable).
+```proto
+message MsgUpdateParams { string authority = 1; Params params = 2; }
+```
 
-Frozen interfaces: 1 (stable 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.proto-layerxauth-msgupdateparams` | proto_message | `message paxprotocol.paxchain.layerxauth.MsgUpdateParams { string authority = 1; Params params = 2; }` | stable | `api/layerxauth/tx.proto:12` |
+As with the ledger, `ValidateBasic` checks Bech32 authority syntax, and the message server checks equality with its configured governance authority.
 
 ## proto-layerxauth-msgupdateparamsresponse
 
-Freezes `message paxprotocol.paxchain.layerxauth.MsgUpdateParamsResponse { }` (proto_message, stable).
+```proto
+message MsgUpdateParamsResponse {}
+```
 
-Frozen interfaces: 1 (stable 1).
-
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.proto-layerxauth-msgupdateparamsresponse` | proto_message | `message paxprotocol.paxchain.layerxauth.MsgUpdateParamsResponse { }` | stable | `api/layerxauth/tx.proto:17` |
+The successful update response has no fields.
 
 ## proto-layerxauth-layerxscopeauthorization
 
-LayerXScopeAuthorization gains kind 10, period_length 11, max_per_period 12, purpose_hash 13, not_before 14, not_after 15 and spent_total 16, checked by ValidateBasic and Accept (decision.211).
+[api/layerxauth/tx.proto](../../../api/layerxauth/tx.proto) declares these authorization fields:
 
-Frozen interfaces: 2 (change 1, new 1).
+| Field numbers | Fields |
+|---|---|
+| 1–4 | `uint64 module_mask`, `uint32 ordinal_min`, `uint32 ordinal_max`, `bytes asset_id` |
+| 5–9 | `string max_per_activity`, `string max_total`, `uint64 revocation_epoch`, `bytes grant_id`, `string msg_type_url` |
+| 10–13 | `uint32 kind`, `uint64 period_length`, `string max_per_period`, `bytes purpose_hash` |
+| 14–16 | `uint64 not_before`, `uint64 not_after`, `string spent_total` |
 
-**Other interfaces**
+The current [Go wire type](../../../modules/layerxauth/types/tx.pb.go) additionally serializes `period_start` at field 17 and `spent_this_period` at 18; these fields are not declared in the current `.proto` source. `Accept` uses them to retain period spending. Consumers and future schema regeneration must account for this source/generated-schema difference.
 
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxauth-scopedactivity-j23` | go_exported | `type ScopedActivity interface { LayerXScope() (moduleID uint16, ordinal uint16, assetID [32]byte, amount sdk.Int) }` | new | `modules/layerxauth/types/authorization.go` (planned) |
-| `interface.2.proto-layerxauth-layerxscopeauthorization` | proto_message | `message paxprotocol.paxchain.layerxauth.LayerXScopeAuthorization { uint64 module_mask = 1; uint32 ordinal_min = 2; uint32 ordinal_max = 3; bytes asset_id = 4; string max_per_activity = 5; string max_total = 6; uint64 revocation_epoch = 7; bytes grant_id = 8; string msg_type_url = 9; }` | change | `api/layerxauth/tx.proto:24` |
+[authorization.go](../../../modules/layerxauth/types/authorization.go) implements `authz.Authorization`. `ValidateBasic` requires a nonempty message type, a nonzero module mask within `0x3fe`, kind 2, 3 or 4, ordered uint16 ordinals, a 32-byte grant ID, bounded identifier lengths, an increasing validity interval and canonical decimal u128 budget strings (empty strings represent zero).
 
-Capabilities verified against this section: 2.1.8, 2.8.1.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.9.1 | 2009.1 | `modules/layerxauth/types/authorization_test.go::TestLayerXScopeValidateBasicModuleMask (planned)` |
-| 2.9.2 | 2009.2 | `modules/layerxauth/types/authorization_test.go::TestLayerXScopeValidateBasicKindAndPeriod (planned)` |
-| 2.42.1 | 2042.1 | `modules/layerxauth/types/authorization_test.go::TestLayerXScopeAcceptScopedActivity (planned)` |
-| 2.42.2 | 2042.2 | `modules/layerxauth/types/authorization_test.go::TestLayerXScopeAcceptSpendsTotal (planned)` |
+`Accept` refuses all `paxprotocol.paxchain.layerxledger.*` messages: ledger execution requires account-holder authority. It checks the exact message URL, one signer, the supplied current revocation epoch, validity interval, module, ordinal, asset, purpose and budgets. SDK `MsgSend` derives its asset from one canonical mirror denomination and its purpose from the marshaled payment. Other accepted shapes must implement `ScopedActivity.LayerXScope() (moduleID uint16, ordinal uint16, assetID [32]byte, amount sdk.Int)`; an optional `LayerXPurpose()` binds purpose. Accepted spending returns an updated authorization with total and, when configured, period consumption.
 
 ## did-binding
 
-Both keepers resolve the EVM caller to the DID bound through 0x1004 and use it as the kernel actor; the host passes a binding flag so the kernel skips the ed25519 envelope check (decision.206).
+The [ledger Actor](../../../modules/layerxledger/keeper/authority.go) and [auth Actor](../../../modules/layerxauth/keeper/authority.go) read `GetLayerXDid(ctx, caller)` on each write. An unbound ledger caller gets `LXP_UNAUTHORIZED_DEBIT`; an unbound auth caller gets `LXP_AUTH_SCOPE`, before kernel submission. The DID key is converted to the canonical DID and DID identifier. `KernelAuthority` carries `Bound: true`, matching actor and principal identifiers, and the verified key.
 
-Frozen interfaces: 4 (new 4).
+The [0x1004 address precompile](../../../precompiles/addr/abi.json) supplies `bindLayerX` and `getLayerXDid`. On this EVM path, verified binding authority replaces the envelope signature check; it does not remove the kernel's owner, key, payload, network, sequence or context checks. A payload encoder's empty signature slot is usable only with verified binding authority or after supplying the required signature on a signed path.
 
-**Other interfaces**
-
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxauth-actor-j23` | go_exported | `func (k *Keeper) Actor(ctx sdk.Context, caller common.Address) (Actor, error)` | new | `modules/layerxauth/keeper/authority.go` (planned) |
-| `interface.2.go-layerxauth-evmkeeper-j23` | go_exported | `type EVMKeeper interface { GetLayerXDid; GetEVMAddress }` | new | `modules/layerxauth/types/expected_keepers.go` (planned) |
-| `interface.2.go-layerxledger-actor-j23` | go_exported | `func (k *Keeper) Actor(ctx sdk.Context, caller common.Address) (Actor, error)` | new | `modules/layerxledger/keeper/authority.go` (planned) |
-| `interface.2.go-layerxledger-evmkeeper-j23` | go_exported | `type EVMKeeper interface { GetLayerXDid(ctx sdk.Context, evmAddress common.Address) ([32]byte, bool) }` | new | `modules/layerxledger/types/expected_keepers.go` (planned) |
-
-Capabilities verified against this section: 2.3.2, 2.6.2.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.18.1 | 2018.1 | `modules/layerxledger/keeper/authority_test.go::TestActorUnboundCaller (planned)` |
-| 2.18.2 | 2018.2 | `modules/layerxledger/keeper/authority_test.go::TestActorBoundCaller (planned)` |
-| 2.33.1 | 2033.1 | `modules/layerxauth/keeper/authority_test.go::TestAuthActorUnbound (planned)` |
-| 2.33.2 | 2033.2 | `modules/layerxauth/keeper/authority_test.go::TestAuthActorBound (planned)` |
+The [bank ABI at 0x1001](../../../precompiles/bank/abi.json) also retains the baseline context-bound overload `send(address fromAddress,address toAddress,string denom,uint256 amount,bytes32 contextHash)`. That bank method is a distinct ABI from ledger `send(bytes envelope)` at 0x101A.
 
 ## idempotency
 
-Idempotency records are kernel-owned under host prefix 0x04 and pruned by the kernel; the keeper-level idempotency prefixes of layerxauth retire (decision.202). One idempotency key space per DID spans ledger and auth; the global sequence comes from the host NextSequence export (decision.205).
+**Generic cached-result idempotency is retired; successful SEND payment-reference protection is active.** The old `layerxauth` module prefixes `0x02` and `0x03` and their key helpers are removed. The removed `resultByIdempotency` keeper/precompile view is not a recovery API. The same activity idempotency key can occur in auth and ledger without a generic cross-module cache, but a successful SEND reference cannot be spent twice.
 
-Frozen interfaces: 4 (retire 4).
+Decision **2337** is implemented by [ctx.go](../../../modules/lxphost/ctx.go): `checkPaymentReference` checks **host key `0x04 || reference[32]`** for every `LX_ASSET_SEND`; `commitPaymentReference` writes the encoded receipt only when that SEND succeeds. The key has no DID namespace. Grants, revocations and refused sends do not add references. A duplicate returns host code **-302**, even if the caller supplies fresh identity/account/global sequences. The ledger maps it to `LXP_IDEMPOTENT_REPLAY`; it does not return the old payment as a successful new call.
 
-**Other interfaces**
+Reference writes use the caller's KV context and follow cache rollback. Committed records survive a process/store reopen. An abandoned cache leaves no reference in its parent context. This differs from consumed-sequence protection: kernel admission still refuses a reused identity sequence with -301, and SEND validates the source account sequence separately. Clients must keep EVM nonces, kernel identity sequences, SEND account sequences and host global sequences distinct. `payExact` selects the account sequence for the caller but still requires a fresh payment reference for a new payment.
 
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxauth-idempotencykey-j23` | go_exported | `func IdempotencyKey(keyHash [32]byte) []byte` | retire | `modules/layerxauth/types/keys.go:27` |
-| `interface.2.go-layerxauth-idempotencybysequencekey-j23` | go_exported | `func IdempotencyBySequenceKey(recordedSequence uint64, keyHash [32]byte) []byte` | retire | `modules/layerxauth/types/keys.go:35` |
-| `interface.2.key-layerxauth-idempotencyprefix-j23` | storage_key | `IdempotencyPrefix = []byte{0x02}` | retire | `modules/layerxauth/types/keys.go:21` |
-| `interface.2.key-layerxauth-idempotencybysequenceprefix-j23` | storage_key | `IdempotencyBySequencePrefix = []byte{0x03}` | retire | `modules/layerxauth/types/keys.go:22` |
+Host [genesis.go](../../../modules/lxphost/genesis.go) exports and validates successful reference records. A reference key must be 33 bytes; its value must decode as a current state-commitment-version successful asset SEND receipt, with positive amount and global sequence in `1..LastSequence`. Its context hash must bind the receipt's `from`, `to`, asset, amount and the key's reference. `InitStoreGenesis` validates before restoring records and the last-sequence counter. Thus payment-reference recovery belongs to **host genesis**, not the params-only ledger/auth exports. It must preserve the successful-reference set rather than clearing it on restart or interpreting the compatibility retention param as permission to prune it.
 
-Capabilities verified against this section: 2.1.6, 2.3.4, 2.6.4, 2.14.5.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.7.1 | 2007.1 | `modules/layerxauth/types/params_test.go::TestParamsStoreKeyLayout (existing)` |
-| 2.20.1 | 2020.1 | `modules/layerxledger/keeper/execute_test.go::TestExecuteAdvancesGlobalSequence (planned)` |
-| 2.20.2 | 2020.2 | `modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay (planned)` |
-| 2.35.1 | 2035.1 | `modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay (planned)` |
-| 2.35.2 | 2035.2 | `modules/layerxauth/keeper/execute_test.go::TestAuthExecuteSequenceReused (planned)` |
-| 2.40.4 | 2040.4 | `modules/layerxauth/keeper/views_test.go::TestAuthResultByIdempotency (planned)` |
-| 2.70.2 | 2070.2 | `modules/layerxauth/keeper/retire_test.go::TestAuthModuleStoreHasNoIdempotencyKeys (planned)` |
-| 2.71.1 | 2071.1 | `modules/layerxauth/keeper/shared_host_test.go::TestSharedHostIdempotencyAcrossModules (planned)` |
+Existing source tests documenting these paths include `TestPaymentReferenceStaysRefusedAfterReopen` in [idempotency_restart_test.go](../../../modules/lxphost/idempotency_restart_test.go), host genesis tests in [genesis_test.go](../../../modules/lxphost/genesis_test.go), and ledger/auth [shared_host_test.go](../../../modules/layerxauth/keeper/shared_host_test.go).
 
 ## payload-codec
 
-Go payload encoders in the layerxledger and layerxauth types packages, the inverses of the landed kernel validators; issueGrant accepts exactly the 346-byte payer grant wire (decision.212).
+The implemented codecs live in [ledger payload.go](../../../modules/layerxledger/types/payload.go), [payload_transfer.go](../../../modules/layerxledger/types/payload_transfer.go), [ledger validators](../../../modules/layerxledger/types/msgs.go), and [auth payload.go](../../../modules/layerxauth/types/payload.go). Integers use big-endian wire encoding.
 
-Frozen interfaces: 11 (new 11).
+| Encoder or validator | Wire contract |
+|---|---|
+| `EncodeRegisterPayload` | Version 1, asset ID, salt, ASCII symbol 1–16 bytes, UTF-8 name 1–32 bytes, decimals 0–38, u128 cap, issuer kind 1 or 2, custody reference at most 128 bytes; kind 1 requires an empty reference |
+| `EncodePausePayload` / `EncodeOpenAccountPayload` | Version 1 and asset ID; exactly 34 bytes |
+| `EncodeSupplyPayload` | Version 1, asset ID, account ID and positive u128 amount; 82 bytes |
+| `EncodeSendPayload` | Tag `0x5301`, ten fields, from/to/asset, positive u128 amount, source sequence, reference, expiry, context and owner authorization; encoder emits no conditions and an empty signature slot |
+| `ValidateSendEnvelope` | Exact envelope length, at most eight conditions, each nine bytes; complete authorization, no trailing bytes |
+| `EncodeSessionPayload` | `0x71`, sub-op 5, variant 1 with three fields or successor variant 2 with five; length-prefixed grant, expiry sequence, action key and optional predecessor/commitment; bounded by 1024 bytes |
+| `EncodeCapabilityPayload` | `0x71`, sub-op 8, variant 1, one length-prefixed grant; nonempty grant, total at most 1024 bytes |
+| `EncodeRevokePayload` / `ValidateRevokePayload` | `0x71`, sub-op 6, variant 0, three fields; 45 bytes including grant ID, reason 1–5 and sequence |
 
-**Other interfaces**
+`SendArgs` carries network ID and protocol version in its authorization. The bound EVM path still requires those values and the context hash to agree with execution. `PayExactArgs.ExpiresAt` is the ABI's `expiresAtMs`, not a sequence number.
 
-| Interface block | Kind | Signature | Status | Defined at |
-|---|---|---|---|---|
-| `interface.2.go-layerxauth-encodecapabilitypayload-j23` | go_exported | `func EncodeCapabilityPayload(grant []byte) ([]byte, error)` | new | `modules/layerxauth/types/payload.go` (planned) |
-| `interface.2.go-layerxauth-encoderevokepayload-j23` | go_exported | `func EncodeRevokePayload(grantID [32]byte, reason uint8, sequence uint64) []byte` | new | `modules/layerxauth/types/payload.go` (planned) |
-| `interface.2.go-layerxauth-encodesessionpayload-j23` | go_exported | `func EncodeSessionPayload(grant []byte, expirySequence uint64, actionKey [32]byte, successor *SessionSuccessor) ([]byte, error)` | new | `modules/layerxauth/types/payload.go` (planned) |
-| `interface.2.go-layerxledger-encodeopenaccountpayload-j23` | go_exported | `func EncodeOpenAccountPayload(assetID [32]byte) []byte` | new | `modules/layerxledger/types/payload.go` (planned) |
-| `interface.2.go-layerxledger-encodepausepayload-j23` | go_exported | `func EncodePausePayload(assetID [32]byte) []byte` | new | `modules/layerxledger/types/payload.go` (planned) |
-| `interface.2.go-layerxledger-encoderegisterpayload-j23` | go_exported | `func EncodeRegisterPayload(args RegisterArgs) ([]byte, error)` | new | `modules/layerxledger/types/payload.go` (planned) |
-| `interface.2.go-layerxledger-encoderevokegrantpayload-j23` | go_exported | `func EncodeRevokeGrantPayload(grantID [32]byte, revocationSequence uint64) []byte` | new | `modules/layerxledger/types/payload.go` (planned) |
-| `interface.2.go-layerxledger-encodesupplypayload-j23` | go_exported | `func EncodeSupplyPayload(assetID, accountID [32]byte, amount sdk.Int) ([]byte, error)` | new | `modules/layerxledger/types/payload.go` (planned) |
-| `interface.2.go-layerxledger-encodereceivepayload-j23` | go_exported | `func EncodeReceivePayload(args ReceiveArgs) ([]byte, error)` | new | `modules/layerxledger/types/payload_transfer.go` (planned) |
-| `interface.2.go-layerxledger-encodesendpayload-j23` | go_exported | `func EncodeSendPayload(args SendArgs) ([]byte, error)` | new | `modules/layerxledger/types/payload_transfer.go` (planned) |
-| `interface.2.go-layerxledger-validateissuegrantpayload-j23` | go_exported | `func ValidateIssueGrantPayload(payload []byte) error` | new | `modules/layerxledger/types/payload_transfer.go` (planned) |
-
-Capabilities verified against this section: 2.1.3, 2.1.4, 2.1.9.
-
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.4.1 | 2004.1 | `modules/layerxledger/types/payload_test.go::TestEncodeRegisterPayload (planned)` |
-| 2.4.2 | 2004.2 | `modules/layerxledger/types/payload_test.go::TestEncodeFixedPayloads (planned)` |
-| 2.5.1 | 2005.1 | `modules/layerxledger/types/payload_transfer_test.go::TestEncodeSendPayload (planned)` |
-| 2.5.2 | 2005.2 | `modules/layerxledger/types/payload_transfer_test.go::TestEncodeReceivePayload (planned)` |
-| 2.5.3 | 2005.3 | `modules/layerxledger/types/payload_transfer_test.go::TestValidateIssueGrantPayload (planned)` |
-| 2.10.1 | 2010.1 | `modules/layerxauth/types/payload_test.go::TestEncodeSessionPayload (planned)` |
-| 2.10.2 | 2010.2 | `modules/layerxauth/types/payload_test.go::TestEncodeCapabilityAndRevokePayload (planned)` |
+Legacy helpers remain for wire compatibility: `EncodeReceivePayload` builds the retired receive envelope, `ValidateIssueGrantPayload` checks the **346-byte** payer-grant length and boolean encodings, and `EncodeRevokeGrantPayload` builds a 42-byte legacy revocation payload. They do not authenticate payer grants or make retired activities callable. Neither the ledger issue/revoke routes nor `draw` submit those activities.
 
 ## wiring-integration
 
-Cross-domain integration criteria of domain 2: the node wiring that constructs the keepers and registers the precompiles is verified by the acceptance rows below.
+[node/app.go](../../../node/app.go) constructs the shared host and passes it to both base keepers, with bank/EVM dependencies for ledger and authz/EVM dependencies for auth. Both modules are registered with the module manager; their `RegisterServices` methods register only `Msg/UpdateParams`. Each module genesis exports params, while host state is owned by the `lxphost` store module. The merge constructors obtain the same keepers through `LayerXLedgerK()` and `LayerXAuthK()` accessors.
 
-| Acceptance | Requirement | Test |
-|---|---|---|
-| 2.961.1 | 2961.1 | `modules/layerxledger/keeper/host_route_test.go::TestLedgerKeeperExecutesThroughHost (planned)` |
-| 2.961.2 | 2961.2 | `modules/layerxledger/keeper/host_route_test.go::TestLedgerKeeperRefusedActivityLeavesHostUnchanged (planned)` |
-| 2.962.1 | 2962.1 | `modules/layerxledger/keeper/issuer_binding_test.go::TestRegisterBindsTokenfactoryDenom (planned)` |
-| 2.962.2 | 2962.2 | `modules/layerxledger/keeper/issuer_binding_test.go::TestLedgerPauseMirrorsToDenom (planned)` |
-| 2.963.1 | 2963.1 | `precompiles/layerxledger/abi_published_views_test.go::TestPublishedLedgerAndAuthABIServeProbedViews (planned)` |
-| 2.963.2 | 2963.2 | `precompiles/layerxledger/abi_published_views_test.go::TestPublishedLedgerAndAuthABIFrozen (planned)` |
+The implemented execution path is EVM call → precompile dispatcher → bound actor → keeper → shared host → kernel receipt → decoded EVM events and, for ledger transfers, bank mirror. [kernel](kernel.md) describes the host contract; [pay](pay.md) describes ordinary-principal payment authority. The tokenfactory wrapper and authz deletion limitations are stated in [ledger-bank-mirror](#ledger-bank-mirror) and [layerxauth-keeper](#layerxauth-keeper); they are not promised side effects of node-built precompiles.
+
+Useful existing behavior sources include the precompile `abi_test.go`, `activation_test.go`, `pause_test.go`, `client_test.go` and `parity_test.go` files in [ledger](../../../precompiles/layerxledger/) and [auth](../../../precompiles/layerxauth/), plus keeper host-route, mirror, grant and revocation tests.
 
 ## decisions
 
-Rulings of the merged specification that this contract applies.
+The earlier version of this page was pinned to **`2a1033aa2`** and described implementation work as planned. That is historical provenance, not an availability statement for the current tree. The original domain-2 decisions below are retained with their current interpretation; later decisions supersede the old generic-idempotency and payer-grant claims.
 
-| Decision | Title | Value |
-|---|---|---|
-| 201 | One shared kernel host over its own host store key; module stores hold params only | node/app.go constructs one lxphost.Host over a new layerxhost store key shared by the layerxledger and layerxauth keepers; each module store keeps only ParamsKey 0x01 and KernelKVPrefix is retired. |
-| 202 | Idempotency is kernel-owned | Idempotency records live in the host store under prefix 0x04 and are pruned by the kernel; the keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired and IdempotencyRetention reaches the kernel through a host setter. |
-| 203 | Pause routing goes through the layerxgov pause scope with revokeGrant as the exit | Every keeper write calls CheckPauseScope with the ABI method name; views never check pause; revokeGrant is the only exit path of both modules; layerxauth code 11 is retired because refusals carry layerxgov code 735. |
-| 204 | Bank mirror under a native layerx denom | Each kernel asset mirrors into bank as layerx/&lt;64 lowercase hex of the asset id&gt;; register mints the cap, or 2^128-1 when unbounded, to the bank address of the issuance account; every transfer leg becomes a bank SendCoins; the layerxledger module account holds Minter and Burner. |
-| 205 | Global sequence comes from a host export | Keepers set the activity global sequence from a NextSequence export of lxphost so that two activities in one block never reuse a sequence. |
-| 206 | The EVM DID binding replaces the envelope signature | On the EVM path the actor is the DID bound to the caller through 0x1004; the host passes a binding flag in KernelAuthority so the kernel skips the ed25519 envelope signature check while keeping the controller, key and context checks. |
-| 207 | Receipts carry events and transfer legs | lxphost.Receipt gains Events and Transfers decoded from the kernel receipt so keepers can emit logs and mirror bank legs. |
-| 208 | Precompile packages self-register as merge constructors | precompiles/layerxledger and precompiles/layerxauth register NewMergePrecompile through RegisterMergeConstructor from init, declare their own keepers accessor interfaces, revert with WithLXPReasons and charge WithGasTable rows with the provisional gas numbers. |
-| 209 | No gRPC Query service; views are precompile-only and genesis carries params only | layerxledger and layerxauth expose only the Msg service UpdateParams; reads go through the 0x101A and 0x101C views; module genesis holds Params and kernel state exports through the host store. |
-| 210 | Capability grants are mirrored as authz grants and a decorator supplies revocation sequences | grantCapability saves a LayerXScopeAuthorization through authz for the grantee address and revokeGrant deletes it; a RevocationDecorator next to AuthzNestedMessageDecorator is the production caller of WithGrantorRevocation. |
-| 211 | LayerXScopeAuthorization gains the kernel scope fields | Fields kind 10, period_length 11, max_per_period 12, purpose_hash 13, not_before 14, not_after 15 and spent_total 16 are added and checked by ValidateBasic and Accept. |
-| 212 | Go payload encoders live in the types packages; issueGrant is 346 bytes | The types packages own the encoders that are the inverses of the landed validators; issueGrant accepts exactly the 346-byte payer grant wire. |
-| 213 | Bank 0x1001 context-hash send and addr 0x1004 binding are baseline | The five-argument send with a context hash and the bindLayerX and getLayerXDid methods with LXP_ADDR_ reverts are landed and get no task; the ledger tasks consume them. |
+| Decision | Current application |
+|---|---|
+| 201 | One shared host; the mounted on-disk store name is `lxphost`. Base ledger/auth stores hold params, not separate copies of kernel state. |
+| 202 | Keeper-level generic idempotency entries are retired. The later successful-SEND reference rule in 2337 applies to host prefix `0x04`. |
+| 203 | Ledger and auth issuance route pause through the governance scope; `revokeGrant` is an exit. Auth `recordLifecycle` currently bypasses that pause check. |
+| 204 | Native bank mirror denomination `layerx/<asset hex>`; initial cap goes to the issuance account, and receipt transfer legs move mirror balances. |
+| 205 | Host global sequence allocation is shared across keeper activities and differs from identity and SEND account sequences. |
+| 206 | The EVM DID binding supplies verified authority while the kernel retains its remaining authority and context checks. |
+| 207 | Receipts supply events and transfer legs for decoding, EVM logs and bank mirroring. |
+| 208 | Implemented packages self-register merge constructors and use LXP reasons and fixed gas tables. |
+| 209 | Module genesis is params-only; only UpdateParams is a Msg service operation, with no gRPC Query service. |
+| 210 | Capability issuance mirrors supported scopes into authz and the ante decorator supplies revocation epochs. Current revocation does not automatically invoke the deletion helper. |
+| 211 | Scope fields are validated and enforced by `LayerXScopeAuthorization`; see the source/generated-field distinction above. |
+| 212 | Payload encoders live in module types packages. The 346-byte payer-grant codec is historical compatibility only after 2340. |
+| 213 | Address 0x1004 provides DID binding; ledger/auth consume that binding. Bank 0x1001 retains its context-hash send overload. |
+| 2337 | Host prefix `0x04` records exactly successful SEND references, including rollback, restart and host-genesis recovery semantics. |
+| 2340 | Kernel receive and payer-grant issue/revoke activities are retired. Ledger compatibility grant selectors and draw refuse; `payExact` remains a SEND. |
+| 2354 | Describe surfaces at their served symbols and paths; removed auth result-by-idempotency and payer-grant interfaces are retired, not planned features. |
+
+
+## Ramp compatibility registry correction
+
+`interface.8.rs-ramp-toolkit-evm-encode-draw-j41` is retired for execution.
+Its retained Rust codec has the exact signature
+`encode_draw(grant_id: [u8; 32], recipient: [u8; 32], amount: u128,
+idempotency_key: [u8; 32], sequence: u64, purpose_hash: [u8; 32],
+context_hash: [u8; 32]) -> Vec<u8>`. Neither payer nor asset is an argument;
+the historical grant supplied them. Equal-sized identifiers are not interchangeable.
+
+Off-ramp compilation uses `compile_customer_payment` and the typed
+`CustomerPaymentAuthorization { budget_id, purpose_hash }`. It encodes
+`budgetSpend(budget_id, recipient, amount)` at 0x101B. `RampOrder::payment_accounts`
+derives the protocol-three customer source and operator **main** destination once
+through the shared account rule, used by compilers and receipt verification.
+The verifier binds exact signed calldata and exactly one authenticated
+`BudgetSpent` event to that destination, budget and amount. Legacy draw events
+cannot establish a maintained off-ramp payment.

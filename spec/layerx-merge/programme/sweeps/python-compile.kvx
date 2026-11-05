@@ -1,0 +1,88 @@
+[sweep.python-compile]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "python3 -m compileall -q -f TARGET"
+selection = "TARGET expands to the tracked Python file operands in each top-level directory, excluding core/deps, sdk/contrib and every node_modules directory."
+bytecode = "PYTHONPYCACHEPREFIX redirects compiler output to private evidence storage outside the repository."
+files_total = 1217
+targets_total = 13
+targets_passed = 13
+targets_failed = 0
+targets_not_run = 0
+
+[target.python-compile.1]
+target = "apps"
+result = "passed"
+exit_code = 0
+files_total = 20
+
+[target.python-compile.2]
+target = "cmd"
+result = "passed"
+exit_code = 0
+files_total = 34
+
+[target.python-compile.3]
+target = "consensus"
+result = "passed"
+exit_code = 0
+files_total = 2
+
+[target.python-compile.4]
+target = "deploy"
+result = "passed"
+exit_code = 0
+files_total = 44
+
+[target.python-compile.5]
+target = "docs"
+result = "passed"
+exit_code = 0
+files_total = 2
+
+[target.python-compile.6]
+target = "layerxproof"
+result = "passed"
+exit_code = 0
+files_total = 1
+
+[target.python-compile.7]
+target = "programs"
+result = "passed"
+exit_code = 0
+files_total = 34
+
+[target.python-compile.8]
+target = "scripts"
+result = "passed"
+exit_code = 0
+files_total = 23
+
+[target.python-compile.9]
+target = "sdk"
+result = "passed"
+exit_code = 0
+files_total = 172
+
+[target.python-compile.10]
+target = "services"
+result = "passed"
+exit_code = 0
+files_total = 217
+
+[target.python-compile.11]
+target = "spec"
+result = "passed"
+exit_code = 0
+files_total = 80
+
+[target.python-compile.12]
+target = "tests"
+result = "passed"
+exit_code = 0
+files_total = 183
+
+[target.python-compile.13]
+target = "tools"
+result = "passed"
+exit_code = 0
+files_total = 405

@@ -184,6 +184,7 @@ func newEnv(t *testing.T, chainID string, blockTime time.Time, height int64,
 		seed(ctx, key)
 	}
 	k.InitGenesis(ctx, *types.DefaultGenesis())
+	require.NoError(t, k.ExportGenesis(ctx).Validate())
 	h := &harness{t: t, keeper: k}
 	p, err := launchpad.NewPrecompile(keepers{Keepers: app.GetPrecompileKeepers(), launchpad: k})
 	require.NoError(t, err)

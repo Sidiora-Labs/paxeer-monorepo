@@ -1,0 +1,1343 @@
+# Pre-upgrade audit for task 22.30.75 (decision 2515).
+# Source review only; repair proposals do not claim implementation qualification.
+
+[audit.22.30.75]
+task = "22.30.75"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 86
+findings = 71
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["agent-request-version","agent-response-envelope","agent-verification-shapes","agent-bootstrap-credential","portable-validator-trust","stream-undelivered-cursor","wal-recovered-tail-write","tick-replay-history","snapshot-event-boundary","snapshot-durable-publish","event-redelivery-dedup","relational-state-persistence","database-writer-lease"]
+
+[file.001]
+path = "sdk/Makefile"
+lines = 500
+verdict = "issues"
+note = "Read in full; findings: sdk-make-module-root, swagger-clean-check, markdown-container-image."
+
+[file.002]
+path = "sdk/README.md"
+lines = 52
+verdict = "issues"
+note = "Read in full; findings: sdk-overview-two-domains."
+
+[file.003]
+path = "sdk/platform/dotnet/Chains.cs"
+lines = 205
+verdict = "clean"
+note = "Read in full: chain identifiers, admission and EIP-1559 endpoint rules agree with the declared chain-facing client contract."
+
+[file.004]
+path = "sdk/platform/dotnet/Committed.cs"
+lines = 576
+verdict = "clean"
+note = "Read in full: structural header/commit/inclusion verification agrees with its explicit caller-supplied validator context; independent network trust is the portable wrapper's recorded gap."
+
+[file.005]
+path = "sdk/platform/dotnet/Generated/MirrorSchema.cs"
+lines = 14
+verdict = "generated"
+note = "Generated from sdk/platform/schema/mirror-v2.kvx; classified as generated rather than manually reviewed. Repair the schema/generator when contract changes are required."
+
+[file.006]
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+lines = 718
+verdict = "generated"
+note = "Generated from sdk/platform/conformance/operations.json; classified as generated rather than manually reviewed. Catalogue changes belong to the source contract and generator."
+
+[file.007]
+path = "sdk/platform/dotnet/Generated/ReceiptContract.cs"
+lines = 56
+verdict = "generated"
+note = "Generated from sdk/platform/generators/receipt.kvx; classified as generated rather than manually reviewed. Receipt rule changes belong to that generator source."
+
+[file.008]
+path = "sdk/platform/dotnet/JsonValue.cs"
+lines = 92
+verdict = "clean"
+note = "Read in full: JSON ownership, cloning and decoding preserve values used by transport and typed consumers."
+
+[file.009]
+path = "sdk/platform/dotnet/MirrorSource.cs"
+lines = 371
+verdict = "clean"
+note = "Read in full: mirror schema versions, policy selection and bounded decoding follow the generated mirror contract."
+
+[file.010]
+path = "sdk/platform/dotnet/NativeCapabilitySet.cs"
+lines = 162
+verdict = "clean"
+note = "Read in full: capability normalization and exported feature checks match the native call consumers."
+
+[file.011]
+path = "sdk/platform/dotnet/NativeProgramCall.cs"
+lines = 104
+verdict = "clean"
+note = "Read in full: native call framing, strict ABI response/error decoding and transaction preparation use the current Programs path."
+
+[file.012]
+path = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+lines = 246
+verdict = "issues"
+note = "Read in full; findings: program-deployment-limit."
+
+[file.013]
+path = "sdk/platform/dotnet/PortableReceipt.cs"
+lines = 168
+verdict = "issues"
+note = "Read in full; findings: portable-validator-trust."
+
+[file.014]
+path = "sdk/platform/dotnet/Production.cs"
+lines = 266
+verdict = "clean"
+note = "Read in full: production client construction and exposed service wiring use the declared platform transports."
+
+[file.015]
+path = "sdk/platform/dotnet/Programs.cs"
+lines = 1604
+verdict = "issues"
+note = "Read in full; findings: programs-legacy-constructor, programs-legacy-validation."
+
+[file.016]
+path = "sdk/platform/dotnet/Stream.cs"
+lines = 131
+verdict = "issues"
+note = "Read in full; findings: stream-undelivered-cursor, stream-history-growth."
+
+[file.017]
+path = "sdk/platform/dotnet/Transport.cs"
+lines = 622
+verdict = "issues"
+note = "Read in full; findings: agent-request-version, agent-response-envelope, agent-verification-shapes, agent-bootstrap-credential."
+
+[file.018]
+path = "sdk/platform/dotnet/Verifier.cs"
+lines = 688
+verdict = "clean"
+note = "Read in full: retired kernel verification is refused explicitly and current receipt verification delegates through the typed supported path."
+
+[file.019]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentEnvelopeMajor2Tests.cs"
+lines = 76
+verdict = "issues"
+note = "Read in full; findings: agent-envelope-tests."
+
+[file.020]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"
+lines = 351
+verdict = "issues"
+note = "Read in full; findings: agent-probe-registration-gap."
+
+[file.021]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ChainsTests.cs"
+lines = 235
+verdict = "clean"
+note = "Read in full: chain selection and transaction-boundary assertions agree with supported native chain semantics."
+
+[file.022]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/CommittedReceiptTests.cs"
+lines = 385
+verdict = "clean"
+note = "Read in full: committed proof structure, hash binding and refusal assertions match the caller-supplied consensus verification contract."
+
+[file.023]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs"
+lines = 151
+verdict = "clean"
+note = "Read in full: assertions explicitly refuse retired kernel verifier capabilities rather than promising active legacy execution."
+
+[file.024]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/NativeCapabilitySetTests.cs"
+lines = 108
+verdict = "clean"
+note = "Read in full: capability names and supported/refused normalization cases match the exported capability type."
+
+[file.025]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"
+lines = 472
+verdict = "issues"
+note = "Read in full; findings: portable-consensus-test-trust, portable-positive-vector-count."
+
+[file.026]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs"
+lines = 141
+verdict = "issues"
+note = "Read in full; findings: retired-program-transport-test-path."
+
+[file.027]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs"
+lines = 410
+verdict = "issues"
+note = "Read in full; findings: programs-contract-tests-stale."
+
+[file.028]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs"
+lines = 351
+verdict = "issues"
+note = "Read in full; findings: programs-evm-producer-gap."
+
+[file.029]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs"
+lines = 73
+verdict = "clean"
+note = "Read in full: receipt fixture fields and refusal cases match the current producer corpus without the stale fixed case count found in other tests."
+
+[file.030]
+path = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs"
+lines = 192
+verdict = "issues"
+note = "Read in full; findings: receipt-positive-vector-count."
+
+[file.031]
+path = "services/platform/examples/merchant-checkout/index.mjs"
+lines = 3
+verdict = "clean"
+note = "Read in full: invokes runMerchantApplication from the live shared merchant application entry point."
+
+[file.032]
+path = "services/platform/examples/merchant-checkout/layerx.example.json"
+lines = 40
+verdict = "issues"
+note = "Read in full; findings: merchant-node-url."
+
+[file.033]
+path = "services/platform/examples/merchant-checkout/package.json"
+lines = 16
+verdict = "clean"
+note = "Read in full: package commands and workspace dependencies resolve to the shared merchant application components."
+
+[file.034]
+path = "services/platform/perf-db/.github/ISSUE_TEMPLATE/bug_report.yml"
+lines = 51
+verdict = "clean"
+note = "Read in full: issue form fields describe useful failure evidence and contain no retired runtime or endpoint instruction."
+
+[file.035]
+path = "services/platform/perf-db/.github/ISSUE_TEMPLATE/config.yml"
+lines = 5
+verdict = "clean"
+note = "Read in full: issue form configuration is self-contained and does not declare a runtime interface."
+
+[file.036]
+path = "services/platform/perf-db/.github/ISSUE_TEMPLATE/feature_request.yml"
+lines = 23
+verdict = "clean"
+note = "Read in full: feature request form has consistent fields and no unsupported product behavior claim."
+
+[file.037]
+path = "services/platform/perf-db/.github/PULL_REQUEST_TEMPLATE.md"
+lines = 16
+verdict = "clean"
+note = "Read in full: change, test and performance checklist matches the crate's review needs without asserting network behavior."
+
+[file.038]
+path = "services/platform/perf-db/.github/dependabot.yml"
+lines = 16
+verdict = "issues"
+note = "Read in full; findings: perf-dependabot-location."
+
+[file.039]
+path = "services/platform/perf-db/.github/workflows/benchmark.yml"
+lines = 19
+verdict = "issues"
+note = "Read in full; findings: perf-benchmark-workflow-location."
+
+[file.040]
+path = "services/platform/perf-db/.github/workflows/ci.yml"
+lines = 76
+verdict = "issues"
+note = "Read in full; findings: perf-ci-workflow-location."
+
+[file.041]
+path = "services/platform/perf-db/.github/workflows/security.yml"
+lines = 28
+verdict = "issues"
+note = "Read in full; findings: perf-security-workflow-location."
+
+[file.042]
+path = "services/platform/perf-db/ARCHITECTURE.md"
+lines = 398
+verdict = "issues"
+note = "Read in full; findings: perf-architecture-drift."
+
+[file.043]
+path = "services/platform/perf-db/Cargo.toml"
+lines = 76
+verdict = "clean"
+note = "Read in full: crate library/binary, benchmark targets, dependencies and Rust 1.85/edition 2024 declarations match source layout."
+
+[file.044]
+path = "services/platform/perf-db/README.md"
+lines = 363
+verdict = "issues"
+note = "Read in full; findings: perf-readme-drift."
+
+[file.045]
+path = "services/platform/perf-db/benches/candle_query.rs"
+lines = 139
+verdict = "clean"
+note = "Read in full: benchmark setup calls real candle builder/store/range-query functions with chronological input and declared record fields."
+
+[file.046]
+path = "services/platform/perf-db/benches/position_lookup.rs"
+lines = 157
+verdict = "clean"
+note = "Read in full: benchmark uses real PositionTable insertion and indexed lookup paths with consistent identifiers."
+
+[file.047]
+path = "services/platform/perf-db/benches/price_read.rs"
+lines = 103
+verdict = "clean"
+note = "Read in full: benchmark measures the real market price publication/read API using valid market ids."
+
+[file.048]
+path = "services/platform/perf-db/benches/tick_ingestion.rs"
+lines = 91
+verdict = "clean"
+note = "Read in full: benchmark drives actual tick ingestion/storage paths with declared tick records and chronological input."
+
+[file.049]
+path = "services/platform/perf-db/deny.toml"
+lines = 29
+verdict = "clean"
+note = "Read in full: dependency advisory, license and source policy fields apply to the declared crate dependencies."
+
+[file.050]
+path = "services/platform/perf-db/rustfmt.toml"
+lines = 6
+verdict = "clean"
+note = "Read in full: formatter options are valid crate-local style declarations without product interface drift."
+
+[file.051]
+path = "services/platform/perf-db/src/aggregation/candle_builder.rs"
+lines = 341
+verdict = "issues"
+note = "Read in full; findings: candle-time-rewind."
+
+[file.052]
+path = "services/platform/perf-db/src/aggregation/leaderboard.rs"
+lines = 368
+verdict = "clean"
+note = "Read in full: bounded leaderboard rebuild and read operations agree with trader statistic ordering and limit handling."
+
+[file.053]
+path = "services/platform/perf-db/src/aggregation/mod.rs"
+lines = 3
+verdict = "clean"
+note = "Read in full: module declarations and public re-exports agree with the aggregation source files and live crate callers."
+
+[file.054]
+path = "services/platform/perf-db/src/aggregation/stats.rs"
+lines = 519
+verdict = "clean"
+note = "Read in full: trader/daily aggregates and serialized view fields agree with callers; engine event-application defects are recorded at their owner."
+
+[file.055]
+path = "services/platform/perf-db/src/core/market.rs"
+lines = 84
+verdict = "clean"
+note = "Read in full: market id/name ordering and bounds agree with tick and market-state consumers, including BTC 0 and ETH 1."
+
+[file.056]
+path = "services/platform/perf-db/src/core/mod.rs"
+lines = 3
+verdict = "clean"
+note = "Read in full: module declarations and public re-exports agree with the core source files and live crate callers."
+
+[file.057]
+path = "services/platform/perf-db/src/core/timeframe.rs"
+lines = 204
+verdict = "clean"
+note = "Read in full: all sixteen timeframe values, bucket calculations and identifier conversions agree with candle storage consumers."
+
+[file.058]
+path = "services/platform/perf-db/src/core/types.rs"
+lines = 450
+verdict = "issues"
+note = "Read in full; findings: numeric-parse-zero-fallback, identifier-parse-validation."
+
+[file.059]
+path = "services/platform/perf-db/src/engine.rs"
+lines = 1393
+verdict = "issues"
+note = "Read in full; findings: tick-replay-history, snapshot-event-boundary, event-redelivery-dedup, database-writer-lease, event-application-order, position-collateral-units, open-interest-lifecycle, ignored-chain-effects, event-history-unindexed-variants."
+
+[file.060]
+path = "services/platform/perf-db/src/error.rs"
+lines = 20
+verdict = "clean"
+note = "Read in full: typed IO, serialization, argument and storage error variants are propagated consistently by the crate interfaces."
+
+[file.061]
+path = "services/platform/perf-db/src/lib.rs"
+lines = 11
+verdict = "clean"
+note = "Read in full: module and public type exports agree with the crate's library, CLI and benchmark callers."
+
+[file.062]
+path = "services/platform/perf-db/src/main.rs"
+lines = 1101
+verdict = "issues"
+note = "Read in full; findings: cli-negative-fraction."
+
+[file.063]
+path = "services/platform/perf-db/src/query/mod.rs"
+lines = 1
+verdict = "clean"
+note = "Read in full: module declarations and public re-exports agree with the query source files and live crate callers."
+
+[file.064]
+path = "services/platform/perf-db/src/query/time_range.rs"
+lines = 241
+verdict = "issues"
+note = "Read in full; findings: query-reversed-range."
+
+[file.065]
+path = "services/platform/perf-db/src/relational/alerts.rs"
+lines = 194
+verdict = "clean"
+note = "Read in full: in-memory alert CRUD, ownership and trigger operations agree with their types; absent durable integration is recorded on StateSnapshot."
+
+[file.066]
+path = "services/platform/perf-db/src/relational/api_keys.rs"
+lines = 174
+verdict = "issues"
+note = "Read in full; findings: api-key-replacement-alias."
+
+[file.067]
+path = "services/platform/perf-db/src/relational/checkpoint.rs"
+lines = 163
+verdict = "issues"
+note = "Read in full; findings: checkpoint-coherence."
+
+[file.068]
+path = "services/platform/perf-db/src/relational/competitions.rs"
+lines = 218
+verdict = "clean"
+note = "Read in full: competition store membership and result types agree with its in-memory API; restart persistence is recorded on StateSnapshot."
+
+[file.069]
+path = "services/platform/perf-db/src/relational/mod.rs"
+lines = 6
+verdict = "clean"
+note = "Read in full: module declarations and public re-exports agree with the relational source files and live crate callers."
+
+[file.070]
+path = "services/platform/perf-db/src/relational/referrals.rs"
+lines = 233
+verdict = "issues"
+note = "Read in full; findings: referral-tier-empty-config."
+
+[file.071]
+path = "services/platform/perf-db/src/relational/users.rs"
+lines = 399
+verdict = "issues"
+note = "Read in full; findings: user-referral-index."
+
+[file.072]
+path = "services/platform/perf-db/src/state/balances.rs"
+lines = 304
+verdict = "clean"
+note = "Read in full: balance keys and typed amount/locked/available views agree with the exposed cache operations; engine compound-update ordering is recorded separately."
+
+[file.073]
+path = "services/platform/perf-db/src/state/market_state.rs"
+lines = 502
+verdict = "clean"
+note = "Read in full: market slot bounds, atomic price access and snapshot fields agree with typed consumers; lifecycle exposure updates are owned by engine.rs."
+
+[file.074]
+path = "services/platform/perf-db/src/state/mod.rs"
+lines = 5
+verdict = "clean"
+note = "Read in full: module declarations and public re-exports agree with the state source files and live crate callers."
+
+[file.075]
+path = "services/platform/perf-db/src/state/orders.rs"
+lines = 540
+verdict = "issues"
+note = "Read in full; findings: order-replacement-index."
+
+[file.076]
+path = "services/platform/perf-db/src/state/positions.rs"
+lines = 383
+verdict = "issues"
+note = "Read in full; findings: position-replacement-index."
+
+[file.077]
+path = "services/platform/perf-db/src/state/pubsub.rs"
+lines = 304
+verdict = "clean"
+note = "Read in full: bounded broadcast channels and typed market/position/order/balance messages agree with their publishers and subscribers."
+
+[file.078]
+path = "services/platform/perf-db/src/storage/candle_store.rs"
+lines = 270
+verdict = "clean"
+note = "Read in full: per-market/timeframe file naming and typed record read/append operations agree with chronological caller contracts; upstream ordering/recovery gaps are separately recorded."
+
+[file.079]
+path = "services/platform/perf-db/src/storage/event_store.rs"
+lines = 438
+verdict = "clean"
+note = "Read in full: typed trader/market indexed histories agree with supplied keys; keyless events omitted by the engine are recorded at extract_event_keys."
+
+[file.080]
+path = "services/platform/perf-db/src/storage/mmap.rs"
+lines = 435
+verdict = "issues"
+note = "Read in full; findings: mmap-header-validation."
+
+[file.081]
+path = "services/platform/perf-db/src/storage/mod.rs"
+lines = 6
+verdict = "clean"
+note = "Read in full: module declarations and public re-exports agree with the storage source files and live crate callers."
+
+[file.082]
+path = "services/platform/perf-db/src/storage/snapshot.rs"
+lines = 416
+verdict = "issues"
+note = "Read in full; findings: snapshot-durable-publish, relational-state-persistence."
+
+[file.083]
+path = "services/platform/perf-db/src/storage/tick_store.rs"
+lines = 237
+verdict = "issues"
+note = "Read in full; findings: tick-chronological-admission."
+
+[file.084]
+path = "services/platform/perf-db/src/storage/wal.rs"
+lines = 532
+verdict = "issues"
+note = "Read in full; findings: wal-recovered-tail-write."
+
+[file.085]
+path = "services/platform/perf-db/tests/integration.rs"
+lines = 911
+verdict = "issues"
+note = "Read in full; findings: event-effects-test-gap."
+
+[file.086]
+path = "services/platform/perf-db/tests/recovery.rs"
+lines = 805
+verdict = "issues"
+note = "Read in full; findings: recovery-test-stale-exposure, recovery-tail-followup-test."
+
+[finding.agent-request-version]
+file = "sdk/platform/dotnet/Transport.cs"
+line = 313
+class = "interface-mismatch"
+severity = "high"
+interface = "8.go-sdkcs-internal-enveloperequest-803"
+observed = "AgentEnvelopeTransport.EnvelopeVersion is 2 and EnvelopeRequest serializes it. The real producer boundary services/agent/crates/layerx-agentd/src/agent_rpc.rs:22,224 accepts exactly 1 and returns envelope.version before dispatch."
+expected = "Decision 2198 and record.AgentHttpEnvelope in services/agent/schema/agent-api/v1.kvx require transport version 1 independently of contract major 2; registry row 8.go-sdkcs-internal-enveloperequest-803 also names version 1."
+proposal = "In sdk/platform/dotnet/Transport.cs encode the daemon's transport version 1; prove a catalogue request reaches the real daemon through the gateway with a valid session and idempotency key."
+owner_domain = 8
+
+[finding.agent-response-envelope]
+file = "sdk/platform/dotnet/Transport.cs"
+line = 477
+class = "interface-mismatch"
+severity = "high"
+interface = "8.go-sdkcs-agentenvelopetransport-sendenvelopeasync"
+observed = "DecodeResponse requires a numeric version equal to 2 and includes version in both exact-field sets. agent_rpc.rs success_body and error_body emit the schema's unversioned success and error objects, so valid daemon replies are always refused."
+expected = "Decision 2198 and AgentHttpSuccess/AgentHttpError require response validation by request_id, value, verification_status or error fields, with no response version field."
+proposal = "Align .NET DecodeResponse with the producer's exact success and error field sets and use daemon-emitted response bytes over the real HTTP path for success and typed refusal tests."
+owner_domain = 8
+
+[finding.agent-verification-shapes]
+file = "sdk/platform/dotnet/Transport.cs"
+line = 502
+class = "interface-mismatch"
+severity = "high"
+interface = "8.go-sdkcs-agentenveloperesult"
+observed = "ValidVerification accepts achieved with level and the old Unverified/SequencerSigned/BatchIncluded/StateProven/CheckpointFinalised/SettlementAnchored ordering; it has no pending or absent arms. agent_rpc.rs:576 emits achieved with rung and the schema's chain rungs."
+expected = "record.VerificationStatus declares achieved,rung; unverified with requested/achieved/reason; pending with requested/achieved; and absent with requested, using submitted, receipted, committed with strict lower-rung checks."
+proposal = "Decode all four live verification states in Transport.cs using the chain rung ordering; round-trip daemon goldens and refuse unknown fields or pending states that meet or exceed the requested rung."
+owner_domain = 8
+
+[finding.agent-bootstrap-credential]
+file = "sdk/platform/dotnet/Transport.cs"
+line = 319
+class = "interface-mismatch"
+severity = "high"
+interface = "8.go-sdkcs-agentenvelopetransport-sendenvelopeasync"
+observed = "BootstrapOperations contains agent.register and session.open, and EnvelopeRequest writes credential:null for them even when a credential was supplied. The daemon's BOOTSTRAP_OPERATIONS is empty and its decode requires a session credential for both."
+expected = "AgentHttpEnvelope.credential and decision 1844 require the owner session credential for every catalogue operation, including registration and session preparation."
+proposal = "Remove the bootstrap credential bypass from the .NET envelope transport and exercise both operations with the actual owner-session authorization path and missing-session refusals."
+owner_domain = 8
+
+[finding.agent-envelope-tests]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentEnvelopeMajor2Tests.cs"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "AgentEnvelopeEncodesVersionTwo demands 2, and AgentEnvelopeRefusesVersionOneResponse builds versioned replies with achieved,level:SequencerSigned. These tests preserve the incompatible transport and never consume the daemon's envelope."
+expected = "The current daemon serves request envelope version 1 and unversioned replies with chain-rung verification; schema major 2 does not change the HTTP envelope version."
+proposal = "Replace the invented envelope fixtures with the daemon's request and response goldens and prove the version-1 request, unversioned refusal and four verification states through the live transport."
+owner_domain = 8
+
+[finding.agent-probe-registration-gap]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs"
+line = 158
+class = "test-gap"
+severity = "medium"
+observed = "ProcessCasesReachTheDaemonThroughTheGateway covers only read.account, program.interface and approval.list; no positive registration or session.open path reaches the producer, leaving the SDK's credential:null bootstrap defect unexercised."
+expected = "Brief check 7 requires tests along the real producer, transport and consumer path for exposed interfaces, including the actual owner-session binding."
+proposal = "Extend the real daemon/gateway probe with owner-authorized agent.register and session.open and assert their returned preparation results plus refusal without the owner session."
+owner_domain = 8
+
+[finding.programs-legacy-constructor]
+file = "sdk/platform/dotnet/Programs.cs"
+line = 228
+class = "wiring-gap"
+severity = "medium"
+observed = "The public ProgramsClient(PlatformClient, sequencerPublicKey, ...) constructor discards client and never initializes _rpc. All public discovery, receipt and submission methods now access Rpc and fail UnavailableCapability for every instance built this way."
+expected = "A public client constructor must establish the transport used by its advertised operations or clearly expose an intentional retired-capability refusal; tests currently promise successful reads from this constructor."
+proposal = "Resolve the public migration in Programs.cs: retire and document the obsolete constructor or connect an explicitly supplied native Programs transport, then exercise every supported constructor through its real backend."
+owner_domain = 8
+
+[finding.programs-contract-tests-stale]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs"
+line = 26
+class = "test-gap"
+severity = "medium"
+observed = "PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity and DiscoveryClientReturnsBoundedTypedResponseWithHonestVerificationLevel create response values but never supply them to a producer, then expect success from an obsolete constructor whose Rpc always refuses. Line 162 also expects kernel signed_activity_hex to bind as an EIP-1559 transaction."
+expected = "Programs reads and lifecycle submissions must be tested through native EVM JSON-RPC and real signed transactions; fixtures for retired kernel activity envelopes cannot stand in for those outputs."
+proposal = "Port these scenarios to a real native Programs producer and transaction signer, retaining expected-activity, fee, discovery and refusal assertions; remove reliance on unreachable private legacy validation paths."
+owner_domain = 8
+
+[finding.programs-legacy-validation]
+file = "sdk/platform/dotnet/Programs.cs"
+line = 360
+class = "dead-code"
+severity = "low"
+observed = "VerifyDiscovery, VerifyTerminal, DecodeSignedCall, UnknownSubmission and the old signed-Activity encoders remain private after the public methods switched to Rpc. Reflection tests reach several of them but the running client does not."
+expected = "The merged client uses native Programs precompile calls, EIP-1559 transactions and sequencer receipts; maintained validation should protect an actual supported execution path."
+proposal = "In Programs.cs retire the unused kernel discovery/terminal/activity implementation after preserving any shared codec utility required by real consumers, and move scenario coverage to the supported public native path."
+owner_domain = 8
+
+[finding.program-deployment-limit]
+file = "sdk/platform/dotnet/NativeProgramLifecycle.cs"
+line = 208
+class = "config-drift"
+severity = "medium"
+observed = "LifecycleWire.Code accepts wasm.Length up to 1048576; NativeProgramDeploy adds 104 bytes or 108 plus interface bytes, so SDK construction accepts deployment payloads larger than the host's LXP_MAX_PAYLOAD_BYTES=524288."
+expected = "Brief network fact 6 and decision 2483 cap the complete deployment payload at 524288 bytes including its 104-byte envelope and any optional interface framing."
+proposal = "Validate the complete encoded deployment and upgrade payload against the host limit in NativeProgramLifecycle.cs before transaction preparation, with exact-boundary and optional-interface cases driven through native admission."
+owner_domain = 8
+
+[finding.portable-validator-trust]
+file = "sdk/platform/dotnet/PortableReceipt.cs"
+line = 111
+class = "security"
+severity = "high"
+observed = "verify reads blockHeader, commit and validatorSet from the untrusted bundle and passes them to Committed.Verify. ReceiptKeys pins only the receipt signer; no independently trusted chain identity or validator-set/header anchor authenticates the carried validators, allowing an attacker to promote a genuine receipted receipt using self-signed fabricated block evidence."
+expected = "A committed result means inclusion in a committed block of the selected network, authenticated to external consensus trust; a validator set hashing to the same attacker-provided header is not that trust."
+proposal = "Require an independent network/header or validator trust context in PortableReceipt.verify, authenticate the header chain and validator transitions to it before promotion, and refuse a fully self-consistent foreign validator/header/commit bundle."
+owner_domain = 8
+
+[finding.portable-consensus-test-trust]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"
+line = 373
+class = "test-gap"
+severity = "medium"
+observed = "CreateCommitted manufactures validator keys and a portable-receipt-test header around an existing signed receipt, and tests accept it as committed using only ReceiptKeys. Mutation tests change individual fields but never replace the whole consensus evidence consistently."
+expected = "Offline verification must distinguish the network's committed evidence from a coherent attacker-created validator set, header and commit, even when the carried transaction receipt is genuine."
+proposal = "Add a trusted consensus anchor to positive portable tests and an adversarial case replacing validators, both headers and both commits together; require refusal before the rung becomes committed."
+owner_domain = 8
+
+[finding.receipt-positive-vector-count]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "SequencerReceiptV1CasesVerifyReceipted asserts four V1 cases, while vector-v1-receipted-positive.json now contains five, including V1-layerxprograms-call. The fixed assertion prevents verification of the current producer corpus."
+expected = "Requirement 22085.1 adds the accepted Programs call and requires vector copies and pinning-test case counts to match the actual corpus."
+proposal = "Update the named vector inventory in SequencerReceiptTests.cs to include all five producer cases and assert the Programs outcome log, retaining every existing positive and refusal case."
+owner_domain = 8
+
+[finding.portable-positive-vector-count]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs"
+line = 76
+class = "test-gap"
+severity = "medium"
+observed = "PortableReceiptRoundTripsAtReceipted asserts four V1 cases from sequencer-receipt-v1.json, but the source now contains five after V1-layerxprograms-call was added."
+expected = "Requirement 22085.1 requires the full current sequencer receipt corpus, including the accepted Programs call, to pass the portable export and verification path."
+proposal = "Pin all five named V1 cases and round-trip the added Programs receipt through PortableReceipt.export and verify with its real key, preserving existing byte equality and refusal assertions."
+owner_domain = 8
+
+[finding.stream-undelivered-cursor]
+file = "sdk/platform/dotnet/Stream.cs"
+line = 81
+class = "restart-recovery"
+severity = "high"
+interface = "8.go-sdkcs-resumablestream-eventsasync"
+observed = "EventsAsync calls NextAsync, whose Accept advances _cursor to page.NextCursor for the entire page, before yielding its first event. If the consumer saves Cursor after one event and stops, reconnect resumes beyond every buffered event it never processed."
+expected = "The stream contract resumes from the last processed event and must not advance processing state for buffered or undelivered events; each later event must remain recoverable without gaps."
+proposal = "Separate page validation from per-event delivery acknowledgement in Stream.cs and advance the resumable cursor only for delivered/acknowledged events; prove partial-page consumption, cancellation and reopen preserve the remaining events."
+owner_domain = 8
+
+[finding.stream-history-growth]
+file = "sdk/platform/dotnet/Stream.cs"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "ResumableStream keeps every event id in _seenEventIds for its lifetime and never evicts entries, although the cursor already advances monotonically. A long-lived event consumer accumulates unbounded memory."
+expected = "Brief runtime-risk check requires bounded growth for continuously running clients while maintaining correct cursor and duplicate validation."
+proposal = "Bound replay detection to a documented cursor window or use a source-backed monotonic position contract in Stream.cs; preserve refusal of duplicates within every accepted recovery window."
+owner_domain = 8
+
+[finding.retired-program-transport-test-path]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs"
+line = 91
+class = "retired-reference"
+severity = "medium"
+observed = "sendProgram serves its synthetic node at /rpc and asserts POST /rpc HTTP/1.1, so the test explicitly endorses the retired network RPC route while checking native Programs routing."
+expected = "Brief facts 2 and 3 specify node JSON-RPC at the root path; /rpc is not a merged-network node endpoint. The separate agent-daemon envelope route has its own contract."
+proposal = "Use the root-path real node interface in ProgramTransportRetiredTests.cs and prove native Programs methods reach that producer, retaining refusal of the retired REST ingress."
+owner_domain = 8
+
+[finding.programs-evm-producer-gap]
+file = "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP simulation test records a request then disconnects and expects TransportFailure; discovery constructs head/wind-down bytes by hand and all loopback node requests target /rpc. These scenarios do not establish successful native producer output decoding."
+expected = "Brief facts 3 and 7 require root-path node transport and producer-emitted ABI outputs along the actual precompile-to-client path, rather than a third hand-built shape."
+proposal = "Drive a real node/precompile producer for successful simulation and discovery over root JSON-RPC, retain disconnected-request and malformed-output refusals, and compare returned program lifecycle and response bytes."
+owner_domain = 8
+
+[finding.wal-recovered-tail-write]
+file = "services/platform/perf-db/src/storage/wal.rs"
+line = 124
+class = "restart-recovery"
+severity = "high"
+observed = "WalWriter::open appends to the latest segment unchanged. replay stops on a short entry, bad CRC or invalid payload without truncating the tail; valid entries appended after recovery are hidden behind those same damaged bytes on the next reopen."
+expected = "The declared WAL entry header and replay lifecycle must preserve all subsequently acknowledged writes after recovery of an interrupted final append."
+proposal = "In services/platform/perf-db/src/storage/wal.rs identify the last valid offset before enabling writes, durably truncate a damaged final tail or publish a safe new segment, refuse interior corruption, and cover recovery followed by a write and second reopen."
+owner_domain = 8
+interface = "8.fmt-perf-db-wal-entry-header"
+
+[finding.tick-replay-history]
+file = "services/platform/perf-db/src/engine.rs"
+line = 604
+class = "restart-recovery"
+severity = "high"
+observed = "replay_wal_entry restores PriceTick only to market_state. It never appends missing tick records or rebuilds CandleBuilder. A crash after WAL durability but before mmap append loses recoverable history, and an unclosed live candle disappears even when its ticks survived."
+expected = "Recovery of the declared price tick record must restore the same tick history and live candle state as acknowledged ingestion without duplicating ticks already persisted."
+proposal = "In services/platform/perf-db/src/engine.rs persist an exact applied WAL position for tick files and candle state, replay unapplied ticks idempotently and reconstruct the live bucket before accepting new ingestion; cover each crash boundary."
+owner_domain = 8
+interface = "8.fmt-perf-db-price-tick-record"
+
+[finding.snapshot-event-boundary]
+file = "services/platform/perf-db/src/engine.rs"
+line = 629
+class = "restart-recovery"
+severity = "high"
+observed = "Snapshot recovery suppresses every IndexedEvent whose block_number is at or below snap_block. A snapshot taken between events of one block loses the later same-block events. snapshot() also copies checkpoint and stores separately while mutations remain enabled, allowing double application of state copied beyond the checkpoint."
+expected = "The state snapshot must represent one atomic recovery boundary including the precise last applied event or WAL offset, rather than an incomplete block-number approximation."
+proposal = "In services/platform/perf-db/src/engine.rs take snapshots under the mutation ordering barrier and persist an exact WAL/event cursor in storage/snapshot.rs; resume strictly after that cursor and prove same-block and concurrent snapshot recovery."
+owner_domain = 8
+interface = "8.fmt-perf-db-state-snapshot"
+
+[finding.snapshot-durable-publish]
+file = "services/platform/perf-db/src/storage/snapshot.rs"
+line = 120
+class = "restart-recovery"
+severity = "high"
+observed = "write_snapshot uses fs::write directly on snapshot_{block}.bin, truncating any existing same-height recovery image, without file or directory sync. load_latest_snapshot selects only the highest filename and returns an error if its interrupted write cannot decode."
+expected = "A successful snapshot must be durably and atomically published while preserving the previous usable recovery point across interrupted writes."
+proposal = "In services/platform/perf-db/src/storage/snapshot.rs serialize to a unique temporary file, sync and atomically rename it, sync the directory, and validate snapshots before selecting a recovery point; retain verified WAL coverage for safe fallback."
+owner_domain = 8
+interface = "8.fmt-perf-db-snapshot-file-name"
+
+[finding.event-redelivery-dedup]
+file = "services/platform/perf-db/src/engine.rs"
+line = 269
+class = "restart-recovery"
+severity = "high"
+observed = "process_event WAL-appends and applies every IndexedEvent without checking its block/transaction/log identity. Redelivery of a deposit adds it again, and reopening a position again increments aggregate counters although its primary record is replaced."
+expected = "The indexer recovery contract requires idempotent redelivery so one chain event affects balances, positions and statistics exactly once."
+proposal = "In services/platform/perf-db/src/engine.rs persist event identity with its canonical block binding and atomically record application with the recovery cursor; refuse inconsistent duplicates and prove repeated deposit/position delivery before and after reopen."
+owner_domain = 8
+
+[finding.relational-state-persistence]
+file = "services/platform/perf-db/src/storage/snapshot.rs"
+line = 18
+class = "restart-recovery"
+severity = "high"
+observed = "StateSnapshot omits alerts, API keys, competitions and the referral tier table; WalEntry has no mutations for them. PerfDb::open reconstructs each as empty or defaults, so public store changes disappear despite a successful shutdown and snapshot."
+expected = "The database advertises a complete snapshot and replacement of relational stores; accepted operator and user state must survive a normal restart."
+proposal = "Extend services/platform/perf-db/src/storage/snapshot.rs and storage/wal.rs with versioned durable mutations for these stores, route public mutations through engine.rs, and restore indexes and tier configuration with full shutdown/reopen coverage."
+owner_domain = 8
+interface = "8.fmt-perf-db-state-snapshot"
+
+[finding.database-writer-lease]
+file = "services/platform/perf-db/src/engine.rs"
+line = 118
+class = "runtime-risk"
+severity = "high"
+observed = "PerfDb::open acquires no data-directory or file writer lock. The CLI also opens PerfDb for queries. Two opens can retain the same mmap logical length and append at the same offsets, overwriting each other's records despite MmapFile requiring a single writer."
+expected = "The single-writer mmap storage contract must be enforced across every process and instance sharing a data directory; opening an inspection CLI must preserve the active database."
+proposal = "In services/platform/perf-db/src/engine.rs acquire an exclusive lifetime writer lease before opening writable stores, provide a safe read-only inspection path in main.rs, and prove competing writer opens are refused before mutation."
+owner_domain = 8
+interface = "8.fmt-perf-db-mmap-store-header"
+
+[finding.event-application-order]
+file = "services/platform/perf-db/src/engine.rs"
+line = 269
+class = "runtime-risk"
+severity = "medium"
+observed = "The WAL mutex is released before apply_event. Concurrent calls can apply in a different order from replay, and CollateralDeposited/Withdrawn perform separate get/set_raw operations that can overwrite each other's balance changes."
+expected = "Live state must equal ordered WAL replay under the database's concurrent public API, with each balance update applied atomically."
+proposal = "In services/platform/perf-db/src/engine.rs serialize WAL append, state application and checkpoint advance under one ordering boundary shared with snapshots; add concurrent deposits/withdrawals and live-versus-reopen comparisons."
+owner_domain = 8
+
+[finding.mmap-header-validation]
+file = "services/platform/perf-db/src/storage/mmap.rs"
+line = 88
+class = "runtime-risk"
+severity = "medium"
+observed = "MmapFile::open trusts that every nonempty file contains an eight-byte header and that its logical_len fits the allocation. Short files panic at mmap[..8]; oversized header values later drive out-of-bounds data slicing."
+expected = "An interrupted or corrupt store header must produce a typed recovery refusal or verified reconstruction, never panic while opening or querying the database."
+proposal = "In services/platform/perf-db/src/storage/mmap.rs validate header length, capacity bounds and typed-record alignment before exposing data; return PerfDbError and rebuild only from verified WAL coverage."
+owner_domain = 8
+interface = "8.fmt-perf-db-mmap-store-header"
+
+[finding.tick-chronological-admission]
+file = "services/platform/perf-db/src/storage/tick_store.rs"
+line = 65
+class = "runtime-risk"
+severity = "medium"
+observed = "TickStore::append accepts an earlier timestamp after a newer one, but ticks() and query/time_range.rs promise timestamp-sorted records and use binary search. A delayed feed tick therefore silently invalidates range results."
+expected = "The tick file's sorted timestamp contract must hold for every admitted record, including reconnects and delayed feed delivery."
+proposal = "In services/platform/perf-db/src/storage/tick_store.rs enforce a documented late-tick policy before WAL admission in engine.rs, either refusing nonmonotonic input or using an ordered correction structure; preserve that policy across reopen."
+owner_domain = 8
+interface = "8.fmt-perf-db-tick-file-name"
+
+[finding.candle-time-rewind]
+file = "services/platform/perf-db/src/aggregation/candle_builder.rs"
+line = 115
+class = "runtime-risk"
+severity = "medium"
+observed = "CandleBuilder::on_tick closes the current candle whenever bucket_start differs, including when the incoming bucket is older. A delayed tick closes a newer live bucket and rewinds aggregation, permitting unsorted or duplicate closed candles."
+expected = "Live candle time must advance monotonically unless an explicit historical correction protocol updates already published records consistently."
+proposal = "In services/platform/perf-db/src/aggregation/candle_builder.rs distinguish future and past buckets, apply the engine's explicit late-tick policy before publishing or persisting outputs, and cover late ticks both within and across bucket boundaries."
+owner_domain = 8
+interface = "8.fmt-perf-db-candle-record"
+
+[finding.query-reversed-range]
+file = "services/platform/perf-db/src/query/time_range.rs"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "The inclusive and exclusive tick/candle range functions independently binary-search start and end then slice lo..hi. A caller-supplied reversed interval with lo greater than hi panics rather than returning a query result."
+expected = "Public range queries must handle invalid interval bounds deterministically without terminating the querying process."
+proposal = "In services/platform/perf-db/src/query/time_range.rs validate start and end before slicing and return a documented empty result or typed invalid-range error consistently across all four range functions."
+owner_domain = 8
+
+[finding.position-collateral-units]
+file = "services/platform/perf-db/src/engine.rs"
+line = 303
+class = "runtime-risk"
+severity = "medium"
+observed = "PositionOpened derives collateral_usd as size_usd / leverage even though FixedI128 quantities and leverage use 18-decimal scaling. With size_usd=1000e18 and leverage=10e18 it stores 100 instead of 100e18."
+expected = "The position view must retain the same USD scale as its chain event and the rest of the database's fixed-point accounting."
+proposal = "In services/platform/perf-db/src/engine.rs use a checked rescaled fixed-point division with explicit zero/overflow refusals, and exercise real event units rather than unscaled integer-only fixtures."
+owner_domain = 8
+
+[finding.open-interest-lifecycle]
+file = "services/platform/perf-db/src/engine.rs"
+line = 390
+class = "runtime-risk"
+severity = "medium"
+observed = "PositionModified replaces size_usd without changing market open interest. Liquidation marks the position terminal without subtracting its remaining size, so market exposure continues to include resized or liquidated positions."
+expected = "Market long/short open interest must equal the sum of current open position sizes after every supported position lifecycle event."
+proposal = "In services/platform/perf-db/src/engine.rs apply checked before/after size deltas on modifications and remove remaining exposure once on liquidation, retaining idempotence and matching live and replay state."
+owner_domain = 8
+
+[finding.ignored-chain-effects]
+file = "services/platform/perf-db/src/engine.rs"
+line = 589
+class = "wiring-gap"
+severity = "medium"
+observed = "apply_event explicitly does nothing for PriceUpdated, FundingSettled, MarketCreated, ADLExecuted and VaultDeficit, then advances the checkpoint. In particular ADLExecuted cannot reduce the affected stored position or exposure."
+expected = "An accepted indexed event must update its advertised derived views or be explicitly classified as unsupported without claiming its state effects have been applied."
+proposal = "In services/platform/perf-db/src/engine.rs map each supported variant to its position, market, funding or deficit effect using chain producer semantics; explicitly refuse any unsupported effect before advancing the durable application cursor."
+owner_domain = 8
+
+[finding.event-history-unindexed-variants]
+file = "services/platform/perf-db/src/engine.rs"
+line = 783
+class = "wiring-gap"
+severity = "medium"
+observed = "extract_event_keys returns no trader and no market for PositionModified, OrderExecuted, ADLExecuted and VaultDeficit. EventStore::append increments its total counter but retains records only under trader or market keys, making these accepted events unretrievable."
+expected = "Indexed history must retain every accepted event and permit its relevant user/market or global history to be queried independently of an aggregate count."
+proposal = "In services/platform/perf-db/src/engine.rs derive missing coordinates from bound position/order state and add a global history partition where appropriate in storage/event_store.rs, preserving these records through replay."
+owner_domain = 8
+
+[finding.recovery-test-stale-exposure]
+file = "services/platform/perf-db/tests/recovery.rs"
+line = 718
+class = "test-gap"
+severity = "medium"
+observed = "The position modification recovery test changes size from 1000000 to 1500000 but explicitly asserts live_oi remains (1000000,0). It equates reopened state to the same incorrect live result and thereby preserves stale exposure."
+expected = "Recovery assertions must agree with chain position semantics as well as with live execution; increasing an open position increases its side's market exposure."
+proposal = "In services/platform/perf-db/tests/recovery.rs assert the corrected exposure after real producer lifecycle events and retain live/reopen equality for modifications, partial closes and liquidations."
+owner_domain = 8
+
+[finding.recovery-tail-followup-test]
+file = "services/platform/perf-db/tests/recovery.rs"
+line = 280
+class = "test-gap"
+severity = "medium"
+observed = "truncated_wal_recovers_valid_entries and the corrupted-tail scenario reopen and inspect the valid prefix but do not append a new acknowledged event and reopen a second time. They miss writes hidden behind the damaged tail."
+expected = "A recovery test must prove the recovered database can continue writing durably rather than only read its old valid prefix."
+proposal = "In services/platform/perf-db/tests/recovery.rs extend both interrupted and corrupt-tail cases with a fresh event, WAL durability and second reopen, asserting both prefix and fresh state without weakening corruption checks."
+owner_domain = 8
+
+[finding.event-effects-test-gap]
+file = "services/platform/perf-db/tests/integration.rs"
+line = 648
+class = "test-gap"
+severity = "medium"
+observed = "all_event_variants_process_cleanly checks event count and checkpoint after feeding all variants without asserting the effects of ignored ADL, funding, price or deficit events. snapshot_preserves_all_state also omits the relational stores and live candle."
+expected = "Integration coverage must prove semantic state effects and complete restart preservation, not merely acceptance and aggregate progress."
+proposal = "In services/platform/perf-db/tests/integration.rs assert producer-grounded effects for every event variant and round-trip alerts, API keys, referral tiers, competitions and live candle state through the real engine snapshot/reopen path."
+owner_domain = 8
+
+[finding.cli-negative-fraction]
+file = "services/platform/perf-db/src/main.rs"
+line = 243
+class = "runtime-risk"
+severity = "medium"
+observed = "format_fixed divides to a signed whole part and takes the absolute remainder. A negative subunit value such as -500000000000000000 renders as 0.5, presenting a loss or debt as a positive amount."
+expected = "CLI financial output must preserve sign and 18-decimal units for the entire FixedI128 domain, including values strictly between minus one and zero."
+proposal = "In services/platform/perf-db/src/main.rs format the sign separately from the unsigned magnitude, handle i128::MIN without overflow and retain exact fractional trimming."
+owner_domain = 8
+
+[finding.numeric-parse-zero-fallback]
+file = "services/platform/perf-db/src/core/types.rs"
+line = 378
+class = "runtime-risk"
+severity = "medium"
+observed = "parse_fixed converts every invalid or out-of-i128-range decimal string into zero with unwrap_or(0); its documentation accepts i256/u256 inputs. Callers cannot distinguish genuine zero from a rejected chain quantity."
+expected = "Malformed or unrepresentable financial values must be refused explicitly before they can affect balances, prices or query selection."
+proposal = "In services/platform/perf-db/src/core/types.rs return a typed parse/range result, define the supported numeric width explicitly, and propagate refusal through main.rs and ingestion consumers instead of substituting zero."
+owner_domain = 8
+
+[finding.identifier-parse-validation]
+file = "services/platform/perf-db/src/core/types.rs"
+line = 383
+class = "runtime-risk"
+severity = "medium"
+observed = "parse_address and parse_hash silently return zero on bad hex, pad short input and truncate long input. hex_decode slices UTF-8 at two-byte offsets, so an even-byte non-ASCII input such as euro-sign followed by a can panic."
+expected = "Addresses and hashes must be unambiguous exact-width byte identifiers; malformed external text must produce a typed refusal without aliasing a real identifier or panicking."
+proposal = "In services/platform/perf-db/src/core/types.rs require ASCII hex and exact 20/32-byte lengths after the allowed prefix, decode bytes safely and return Result through CLI and ingestion callers."
+owner_domain = 8
+
+[finding.checkpoint-coherence]
+file = "services/platform/perf-db/src/relational/checkpoint.rs"
+line = 72
+class = "runtime-risk"
+severity = "medium"
+observed = "CheckpointStore::save writes block and timestamp atomics before acquiring the hash write lock. snapshot() locks only the hash, so it can return a new block/timestamp with the old hash or interleaved values from another save."
+expected = "A checkpoint snapshot must bind block number, canonical hash and timestamp from one committed update for correct restart and fork handling."
+proposal = "In services/platform/perf-db/src/relational/checkpoint.rs publish and read the full tuple under one coherent lock or version protocol, and integrate it with the engine's atomic event/snapshot boundary."
+owner_domain = 8
+interface = "8.fmt-perf-db-checkpoint"
+
+[finding.order-replacement-index]
+file = "services/platform/perf-db/src/state/orders.rs"
+line = 140
+class = "runtime-risk"
+severity = "medium"
+observed = "OrderTable::insert advertises replacement but replaces the primary order without removing its old user, side, market or price indexes. Repeated active insertion also pushes the same id into a price level again, leaving duplicate or ghost orderbook entries."
+expected = "Replacing an order must leave one consistent user lookup and active orderbook entry matching the primary record's current coordinates and status."
+proposal = "In services/platform/perf-db/src/state/orders.rs atomically remove prior secondary entries before replacement and make identical inserts idempotent; cover changed price, market, owner, side and terminal status."
+owner_domain = 8
+
+[finding.position-replacement-index]
+file = "services/platform/perf-db/src/state/positions.rs"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "PositionTable::insert replaces the primary position and adds new owner/market indexes without removing old ones. Replacing coordinates can make an old user's lookup return the replacement position belonging to another user."
+expected = "Position secondary indexes must always match the current primary record and must not expose another owner's position under a stale user index."
+proposal = "In services/platform/perf-db/src/state/positions.rs enforce immutable owner/market coordinates or update old and new indexes atomically, and cover replacement and concurrent lookup behavior."
+owner_domain = 8
+
+[finding.user-referral-index]
+file = "services/platform/perf-db/src/relational/users.rs"
+line = 26
+class = "runtime-risk"
+severity = "medium"
+observed = "UserStore::upsert adds a new referral code mapping without removing the old code, while code collisions overwrite another user's mapping. update can subsequently remove a code now owned by someone else."
+expected = "Referral lookups must identify the unique current owner and must not keep obsolete aliases or delete another user's active mapping."
+proposal = "In services/platform/perf-db/src/relational/users.rs enforce referral-code uniqueness and atomically remove only mappings owned by the replaced user before installing its current code."
+owner_domain = 8
+
+[finding.api-key-replacement-alias]
+file = "services/platform/perf-db/src/relational/api_keys.rs"
+line = 31
+class = "security"
+severity = "medium"
+observed = "ApiKeyStore::insert overwrites a primary id without removing its old by_hash entry. get_by_hash on the superseded secret hash returns the replacement key's metadata, including a changed address, while remove only cleans the current hash."
+expected = "Rotating or replacing a key must revoke its previous hash and prevent stale credentials from resolving to a new identity or permissions."
+proposal = "In services/platform/perf-db/src/relational/api_keys.rs reject duplicate hashes and atomically clean old hash/user indexes during replacement; prove a rotated secret cannot resolve and ownership changes leave no aliases."
+owner_domain = 8
+
+[finding.referral-tier-empty-config]
+file = "services/platform/perf-db/src/relational/referrals.rs"
+line = 80
+class = "runtime-risk"
+severity = "medium"
+observed = "with_tiers and set_tiers accept an empty tier vector, while compute_tier falls through to self.tiers[0]. A valid public configuration call can therefore make later fee/reward queries panic."
+expected = "Runtime tier configuration must be validated at its boundary and every accepted table must produce a deterministic tier for a user."
+proposal = "In services/platform/perf-db/src/relational/referrals.rs validate a nonempty base tier, ordered thresholds and bounded basis points before replacing configuration, returning a typed error while preserving the last valid table."
+owner_domain = 8
+
+[finding.perf-ci-workflow-location]
+file = "services/platform/perf-db/.github/workflows/ci.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The ci workflow resides under services/platform/perf-db/.github/workflows, which GitHub does not discover. Its Cargo commands assume repository-root execution even though the crate manifest is nested; the declared automation does not qualify this crate."
+expected = "The monorepo must actually run the advertised database ci checks from root-discovered workflows with the correct crate directory and path filters."
+proposal = "Register the ci workflow under the repository-root .github/workflows and set services/platform/perf-db as its Cargo working directory; align manifest paths and filters, and pin the MSRV job to Cargo.toml's declared Rust 1.85 instead of 1.120.0."
+owner_domain = 8
+
+[finding.perf-benchmark-workflow-location]
+file = "services/platform/perf-db/.github/workflows/benchmark.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The benchmark workflow resides under services/platform/perf-db/.github/workflows, which GitHub does not discover. Its Cargo commands assume repository-root execution even though the crate manifest is nested; the declared automation does not qualify this crate."
+expected = "The monorepo must actually run the advertised database benchmark checks from root-discovered workflows with the correct crate directory and path filters."
+proposal = "Register the benchmark workflow under the repository-root .github/workflows and set services/platform/perf-db as its Cargo working directory; align manifest paths and filters."
+owner_domain = 8
+
+[finding.perf-security-workflow-location]
+file = "services/platform/perf-db/.github/workflows/security.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The security workflow resides under services/platform/perf-db/.github/workflows, which GitHub does not discover. Its Cargo commands assume repository-root execution even though the crate manifest is nested; the declared automation does not qualify this crate."
+expected = "The monorepo must actually run the advertised database security checks from root-discovered workflows with the correct crate directory and path filters."
+proposal = "Register the security workflow under the repository-root .github/workflows and set services/platform/perf-db as its Cargo working directory; align manifest paths and filters."
+owner_domain = 8
+
+[finding.perf-dependabot-location]
+file = "services/platform/perf-db/.github/dependabot.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The Dependabot configuration is nested under the crate's .github directory and its Cargo directory is /. GitHub discovers only repository-root configuration, and no Cargo.toml exists at this configured root."
+expected = "The database dependency policy must target its actual manifest from the monorepo's active dependency automation configuration."
+proposal = "Move or merge these entries into repository-root .github/dependabot.yml and target /services/platform/perf-db for Cargo updates, preserving the intended schedule and grouping."
+owner_domain = 8
+
+[finding.sdk-make-module-root]
+file = "sdk/Makefile"
+line = 117
+class = "wiring-gap"
+severity = "medium"
+observed = "The build/install targets depend on sdk/go.sum and a sdk/go.mod prerequisite, but neither file exists; this fork is part of the repository-root Go module. The linker variables at lines 60-65 also target the upstream external package paths."
+expected = "The SDK build entry points must use the checked-in module layout and bind version metadata to the actual fork packages."
+proposal = "In sdk/Makefile point dependency prerequisites at the root Go manifests and update linker package paths to the module that owns this code; verify the declared build/install targets from their supported working directory."
+owner_domain = 15
+
+[finding.swagger-clean-check]
+file = "sdk/Makefile"
+line = 167
+class = "test-gap"
+severity = "medium"
+observed = "The Swagger check uses $(git status --porcelain), which Make expands as an undefined variable instead of running git. The resulting empty value reports the tree clean even when Swagger regeneration changes tracked files."
+expected = "The Swagger synchronization check must fail when its generation step changes the declared tracked output."
+proposal = "In sdk/Makefile use an escaped shell command substitution or a scoped git diff exit status after generation, and prove changed Swagger output makes the check fail while synchronized output passes."
+owner_domain = 15
+
+[finding.markdown-container-image]
+file = "sdk/Makefile"
+line = 318
+class = "wiring-gap"
+severity = "medium"
+observed = "markdown-lint and markdown-lint-fix use markdownLintImage, but the image is declared as containerMarkdownLintImage at line 311. The undefined expansion prevents the intended lint container from being selected."
+expected = "Both Markdown targets must invoke the configured Markdown lint image with the intended mount and arguments."
+proposal = "In sdk/Makefile consistently use containerMarkdownLintImage for both targets and prove their expanded container commands select the declared image."
+owner_domain = 15
+
+[finding.merchant-node-url]
+file = "services/platform/examples/merchant-checkout/layerx.example.json"
+line = 25
+class = "config-drift"
+severity = "medium"
+observed = "The beta rpcUrl appends /rpc to a public mainnet-beta node. loadApplicationConfig passes it unchanged into the merchant application's TransactionReceipts and SequencerReceiptClient transport."
+expected = "Brief facts 2 and 3 declare public node JSON-RPC only at the root path; the old unified node /rpc route is retired."
+proposal = "In services/platform/examples/merchant-checkout/layerx.example.json use the node root URL for beta and document any separate local emulator adapter explicitly; exercise a real transaction receipt read with the configured beta transport."
+owner_domain = 8
+interface = "8.cfg-examples-merchant-checkout-environments-beta-rpcurl-j41"
+
+[finding.sdk-overview-two-domains]
+file = "sdk/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The SDK overview describes two execution domains and a standalone layerxd alongside the SDK fork. It presents the retired daemon boundary as part of the active product architecture."
+expected = "Brief facts 1 and 2 specify a single BFT network with the kernel merged into paxd and finality at committed blocks."
+proposal = "Rewrite sdk/README.md around the one-network SDK roles, current native transaction and receipt paths, and root-path node endpoints; remove standalone daemon operational instructions."
+owner_domain = 15
+
+[finding.root-network-overview]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe two execution domains, line 145 teaches make layerxd and the architecture near line 181 retains standalone daemon/checkpoint settlement roles."
+expected = "The finished product is one paxd BFT chain with the kernel in the network; no separate layerxd deployment or checkpoint settlement service is required."
+proposal = "Rewrite README.md architecture and quick-start commands for the merged chain, EIP-1559 submission and committed-block finality, and replace make layerxd with the supported node startup path."
+owner_domain = 17
+
+[finding.overview-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.overview-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.overview-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.overview-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.overview-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.overview-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.overview-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes a separate Activity log/checkpoint settlement path and no chain transaction; line 98 lists layerxd as a running component."
+expected = "The current network has one BFT chain, EIP-1559 writes and committed-block receipt finality with no standalone LayerX daemon."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md to match the current one-network overview, native transaction lifecycle and supported node startup commands, preserving accurate translated terminology."
+owner_domain = 17
+
+[finding.readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README at lines 37-39 describes two execution domains; its architecture from line 124 retains daemon, LNI, guarantor and anchor-based settlement as active components."
+expected = "The merged network uses paxd with its kernel inside the BFT chain, native transaction execution and finality at committed blocks."
+proposal = "Rewrite docs/readme/README.pt-BR.md architecture and run instructions for the single chain, removing standalone LNI/daemon/guarantor deployment and anchor-settlement claims."
+owner_domain = 17
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README at lines 37-39 describes two execution domains; its architecture from line 124 retains daemon, LNI, guarantor and anchor-based settlement as active components."
+expected = "The merged network uses paxd with its kernel inside the BFT chain, native transaction execution and finality at committed blocks."
+proposal = "Rewrite docs/readme/README.fr.md architecture and run instructions for the single chain, removing standalone LNI/daemon/guarantor deployment and anchor-settlement claims."
+owner_domain = 17
+
+[finding.agent-sdk-signing-doc]
+file = "docs/site/docs/agents/sdks.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 32-35 prescribe canonical Activity/disclosure signing as the SDK write path, whereas current merged-network writes are signed EIP-1559 transactions or the supported sponsored authorization flow."
+expected = "SDK guidance must distinguish actual native transaction signing, sponsor authorization and receipt verification using the current chain interfaces."
+proposal = "Rewrite docs/site/docs/agents/sdks.md signing and submission examples around the supported SDK transaction and sponsor APIs and committed-block verification, with real producer-backed examples."
+owner_domain = 8
+
+[finding.programs-retired-instructions]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 119-128 instruct LNI simulation and /v1/programs/call submission, while lines 248-249 prescribe lx_sendActivity. These instructions route integrators through retired Programs ingress."
+expected = "Programs simulation, lifecycle and calls use the native precompile ABI, signed EVM transactions and root-path node JSON-RPC."
+proposal = "Rewrite docs/site/docs/programs/index.md workflows and runnable commands for native Programs ABI simulation and transaction submission followed by sequencer receipt verification; remove retired LNI and Activity transport."
+owner_domain = 13
+
+[finding.programs-existing-assets-doc]
+file = "docs/site/docs/programs/index.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 17-19, 144-146 and 281-282 claim LXT20/payment examples and pay5 vectors are absent, although the named examples and fixture paths exist in this revision."
+expected = "Programs documentation must report the implemented examples and current conformance corpus accurately so integrators can use available product capabilities."
+proposal = "Update docs/site/docs/programs/index.md implementation-status tables and example links from the current native Programs source and pay5 fixtures, distinguishing any remaining unsupported behavior precisely."
+owner_domain = 13
+
+[finding.perf-readme-drift]
+file = "services/platform/perf-db/README.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The README specifies Rust 1.75 at lines 20/181 despite Cargo.toml requiring Rust 1.85 with edition 2024. Its PriceTick initializer at lines 145-153 omits required _pad and labels market 1 BTC although registry order assigns BTC 0 and ETH 1."
+expected = "Setup and ingestion examples must compile with the declared crate toolchain and represent the actual PriceTick fields and market identifiers."
+proposal = "Update services/platform/perf-db/README.md toolchain requirements and runnable tick initializer using Cargo.toml, core/types.rs and core/market.rs as the source of truth."
+owner_domain = 8
+
+[finding.perf-architecture-drift]
+file = "services/platform/perf-db/ARCHITECTURE.md"
+line = 115
+class = "doc-drift"
+severity = "medium"
+observed = "The binary-layout section omits padding and misorders PriceTick fields; Candle volume is documented as f64 instead of f32. It lists 15 rather than 16 timeframes, mmap WAL rather than BufWriter, and a server/FundingStore layout not present in this CLI crate."
+expected = "The architecture must describe the exact declared storage encodings, supported timeframes and actual executable/store lifecycle."
+proposal = "Rewrite services/platform/perf-db/ARCHITECTURE.md storage layouts from core/types.rs, list all 16 Timeframe values and actual WAL/CLI behavior, and remove nonexistent modules and server startup claims."
+owner_domain = 8
+
+[finding.clients-router-wording]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The state-read operation table calls the hosted px_* gateway path a router, even though the cited producer is services/platform/hosted/gateway and no separate network router exists."
+expected = "Brief facts 2 and 3 distinguish root-path node JSON-RPC from hosted gateway px_* methods and retire the separate router architecture."
+proposal = "Amend the source of spec/layerx-merge/contracts/clients.md to name the hosted gateway explicitly, preserve node/gateway namespace boundaries and regenerate the contract with current endpoint guidance."
+owner_domain = 8
+
+[doc.sdk-overview]
+path = "sdk/README.md"
+status = "stale"
+notes = "Lines 3 onward retain two execution domains and the standalone layerxd architecture; rewrite for the merged BFT network."
+
+[doc.root-overview]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 145 and 181 retain two-domain, layerxd and checkpoint-settlement instructions."
+
+[doc.overview-zh-cn]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.overview-ru]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.overview-es]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.overview-pt-br]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.overview-ja]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.overview-de]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.overview-fr]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Independently reviewed translation; lines 14-20 and 98 retain Activity/checkpoint separation and standalone layerxd."
+
+[doc.readme-pt-br]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 37-39 and the architecture from line 124 describe the retired two-domain and daemon/LNI settlement model."
+
+[doc.readme-fr]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 37-39 and the architecture from line 124 describe the retired two-domain and daemon/LNI settlement model."
+
+[doc.agent-sdk-guide]
+path = "docs/site/docs/agents/sdks.md"
+status = "stale"
+notes = "Lines 32-35 retain canonical Activity/disclosure signing instead of the merged-network native transaction path."
+
+[doc.programs-guide]
+path = "docs/site/docs/programs/index.md"
+status = "misleading"
+notes = "Lines 119-128 and 248-249 teach retired submission; lines 17-19, 144-146 and 281-282 also deny existing examples/vectors."
+
+[doc.perf-readme]
+path = "services/platform/perf-db/README.md"
+status = "stale"
+notes = "Lines 20/181 give the wrong minimum Rust; lines 145-153 omit PriceTick._pad and mislabel market 1."
+
+[doc.perf-architecture]
+path = "services/platform/perf-db/ARCHITECTURE.md"
+status = "stale"
+notes = "Layout drift at 115-132, timeframe count near 155, WAL mechanism near 184 and nonexistent server/module claims near 260."
+
+[doc.perf-pr-template]
+path = "services/platform/perf-db/.github/PULL_REQUEST_TEMPLATE.md"
+status = "accurate"
+notes = "The checklist accurately asks for change description, tests and performance impact; it does not claim runtime behavior."
+
+[doc.platform-sdk-contract]
+path = "spec/layerx-merge/contracts/platform-sdk.md"
+status = "accurate"
+notes = "Reviewed relevant agent-envelope and SDK contract sections as a frozen revision 2a1033aa2 baseline; its pinned version-1 request declaration exposes the current Transport.cs drift."
+
+[doc.clients-contract]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Reviewed operation, receipt and migration sections; line 20 still calls the hosted gateway a router, while native transaction and receipt-rung guidance supplies the comparison baseline."

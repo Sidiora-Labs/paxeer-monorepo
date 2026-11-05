@@ -1,0 +1,11 @@
+[repair.22.31.145]
+audit = "22.30.9"
+findings = [5, 6]
+finding_5_tests = ["TestRepair_145_CancelAdmitted", "TestRepair_145_RescheduleAdmitted"]
+finding_6_tests = ["TestRepair_145_SettlementRecovery", "TestRepair_145_RecoveryGenesisValidation", "TestRepair_145_FailedOutcomeRecovery", "TestRepair_145_SelfCancellation"]
+finding_5_change = "Reload admitted jobs before execution and refuse canceled, inactive or moved records; real 0x0905 calls prove escrow conservation and disk-reopened due indexes."
+finding_6_change = "Commit target outcome and settlement obligations atomically with removal from runnable state; commit each bank leg with its paid receipt, retain failures and retry without target execution, including while paused."
+genesis = "ExportRecoveryGenesis and InitRecoveryGenesis preserve runnable state and outstanding legs with version, identity, recipient, amount and aggregate escrow validation; legacy export refuses unpaid obligations instead of discarding them."
+baseline = "No unchanged-tree verification ran: the task's ordered gate rules prohibit tests before implementation and require the first verify invocation through hf-done; the initial gate ledger was absent and counters were zero. No baseline test failures are claimed."
+wiring_request = "Domain 2 (fm-ledger-auth-pay): wire modules/layerxagent/module.go genesis validation/export/import to the keeper recovery lifecycle and add settlement schema fields in api/layerxagent/genesis.proto with regenerated modules/layerxagent/types/genesis.pb.go."
+qualification = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and evidence log; qualification is asserted only by a passing hf-done result."

@@ -7,4 +7,4 @@
 
 **Total: 161 fixtures** (97 `.io` + 64 `.iox`) in **69** top-level method folders. See [`../RPC_IO_README.md`](../RPC_IO_README.md) for how to run them and what the outcomes mean.
 
-**Important:** this directory is **not** a direct copy of execution-apis. Do **not** replace it by copying from execution-apis (that would remove every `.iox` and restore removed `.io`). To add or update individual tests from execution-apis, copy only the files you need and avoid overwriting existing `.iox` or curated `.io`. The suite collects `.io` and `.iox` from `testdata/` and its subdirectories; if none are found, the integration test skips.
+**Important:** this directory is **not** a direct copy of execution-apis. Do **not** replace it by copying from execution-apis (that would remove every `.iox` and restore removed `.io`). To add or update individual tests from execution-apis, copy only the files you need and avoid overwriting existing `.iox` or curated `.io`. The suite collects `.io` and `.iox` from `testdata/` and its subdirectories; enabled runs fail missing or empty fixtures and require every pair identity in `../case_inventory.json` to execute.

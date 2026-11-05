@@ -1,0 +1,149 @@
+[disposition.8.98.15.4]
+finding = "8.98.15.4"
+status = "resolved"
+evidence = "dc9afac57 re-signs the TLS fixture with its pinned nonzero key ID in the receipt context hash, as services/platform/hosted/authority/tests/human_tls.rs:193 shows, and supplies the chain RPC and receipt-key configuration when launching the server."
+follow_up = "closure"
+
+[disposition.8.98.15.5]
+finding = "8.98.15.5"
+status = "resolved"
+evidence = "services/platform/hosted/authority/tests/human_tls.rs:51 places the fixture root under CARGO_TARGET_TMPDIR rather than the repository's qual-logs directory, following dc9afac57."
+follow_up = "closure"
+
+[disposition.8.7.5.1]
+finding = "8.7.5.1"
+status = "resolved"
+evidence = "dfe5532d3 removes the include of the deleted archive runtime and both ARCHIVE assertions from unified_service_paths.rs, eliminating the compilation blocker while retaining the catalogue source metadata assertion."
+follow_up = "closure"
+
+[disposition.8.98.3.6]
+finding = "8.98.3.6"
+status = "resolved"
+evidence = "fee6cbfed removes the authority's LNI socket configuration and replaces checkpoint_for with committed anchor calls through SequencerEndpoint, now visible at services/platform/hosted/authority/src/main.rs:677."
+follow_up = "closure"
+
+[disposition.8.98.16.1]
+finding = "8.98.16.1"
+status = "resolved"
+evidence = "services/platform/hosted/authority/src/trust.rs:25 compares batch_header_digest(canonical) with the committed header_digest in addition to the four field checks, as added by 0c95b305c."
+follow_up = "closure"
+
+[disposition.8.90.1.1]
+finding = "8.90.1.1"
+status = "resolved"
+evidence = "0c95b305c replaces the contradictory ordering test with block_committed_is_the_top_verification_above_receipt_verified, whose current implementation at services/platform/hosted/webhooks/src/events.rs:773 orders the three live levels and refuses both retired finality words."
+follow_up = "closure"
+
+[disposition.8.45.5.1]
+finding = "8.45.5.1"
+status = "resolved"
+evidence = "7d04cd251 deletes the Rust GeneratedContract.java renderer and its write/check calls, leaving generate_jvm.py as the contract producer invoked at services/platform/Makefile.inc:244."
+follow_up = "closure"
+
+[disposition.8.45.5.2]
+finding = "8.45.5.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:119649 declares only pipeline_lock_matches_repository as task 8.45.5's symbol, removing the unindexable Makefile target names."
+follow_up = "closure"
+
+[disposition.8.98.18.1]
+finding = "8.98.18.1"
+status = "resolved"
+evidence = "7a98308cc changes the fixture generator's OWNER to did:layerx: followed by 64 lowercase hexadecimal characters and regenerates the node answers, with the conforming constant retained at services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:456."
+follow_up = "closure"
+
+[disposition.8.46.11.1]
+finding = "8.46.11.1"
+status = "resolved"
+evidence = "4673a54d9 stops retiring operation-retired in human_plane and regenerates the JVM schema, which now includes OPERATION_RETIRED at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1365."
+follow_up = "closure"
+
+[disposition.8.23.2.2]
+finding = "8.23.2.2"
+status = "resolved"
+evidence = "39f0199fb deletes RpcBatchEvidence, rpcBatchEvidence, their re-export and conformance callers, and services/platform/middleware/seller/src/rpc.ts:1 no longer imports the retired MerkleProof type."
+follow_up = "closure"
+
+[disposition.8.22.8.1]
+finding = "8.22.8.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:117681 limits task 8.22.8's conformance grep to .mjs and .ts files, so the TypeScript retirement check no longer rejects Python SDK consumers."
+follow_up = "closure"
+
+[disposition.8.26.1.1]
+finding = "8.26.1.1"
+status = "resolved"
+evidence = "e1d8bcbef ports scenarios.ts with the receipt producer, and services/platform/middleware/conformance/src/scenarios.ts:55 now constructs BuyerMiddleware with receiptKeys and FixedReceiptKeys instead of the removed batch resolver and protocol configuration."
+follow_up = "closure"
+
+[disposition.8.34.2.1]
+finding = "8.34.2.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:159694 builds the TypeScript SDK and seller, buyer and merchant middleware packages before checking the reference runner, producing every dist entry its imports require."
+follow_up = "closure"
+
+[disposition.8.26.3.1]
+finding = "8.26.3.1"
+status = "resolved"
+evidence = "c29a45220 makes purposeHash mandatory only for metered and subscription offers at services/platform/middleware/seller/src/index.ts:395, and 64ac2af97 makes the conformance producer use a supplied purposeHash at services/platform/middleware/conformance/src/receipts.ts:108."
+follow_up = "closure"
+
+[disposition.8.26.5.1]
+finding = "8.26.5.1"
+status = "resolved"
+evidence = "services/platform/middleware/conformance/pay6/committed-rung.test.mjs:26 selects a validator whose signature is present before replacing it, so the mismatch test checks a detectable trust-set disagreement rather than replacing the unsigned validator."
+follow_up = "closure"
+
+[disposition.8.22.6.1]
+finding = "8.22.6.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:158166 omits the already-deleted checkpoint.ts from task 8.22.6's touches list, removing the impossible change requirement."
+follow_up = "closure"
+
+[disposition.8.32.2.1]
+finding = "8.32.2.1"
+status = "superseded"
+evidence = "8507de9b8 deletes services/platform/relay_archive/README.md with the retired relay archive package, so the obsolete installer and deployment instructions no longer exist."
+follow_up = "closure"
+
+[disposition.8.14.2.2]
+finding = "8.14.2.2"
+status = "open"
+evidence = "modules/layerxanchor/bringup_genesis_test.go:25 still selects the anchor-genesis.py script deleted by ec111950d and executes it at line 34, while task 6.96.6's declared deletion has not landed."
+follow_up = "6.96.6"
+
+[disposition.8.47.10.2]
+finding = "8.47.10.2"
+status = "superseded"
+evidence = "eacff83ef retires the CLI's kernel program call and simulate signing helpers and their tests, with the surviving chain path signing EIP-1559 transactions at tools/platform/cli/src/programs.rs:1584."
+follow_up = "closure"
+
+[disposition.8.51.1.2]
+finding = "8.51.1.2"
+status = "superseded"
+evidence = "ac727362a removes the emulator's kernel activity, move and program submission routes, deletes native_call.rs and program_lifecycle.rs, and removes the tests that constructed those retired activities."
+follow_up = "closure"
+
+[disposition.8.20.1.2]
+finding = "8.20.1.2"
+status = "resolved"
+evidence = "4ecbb5b86 ports core sends to ledger_payment_call and signed EIP-1559 transactions, with services/platform/hosted/core/src/main.rs:1656 validating funding through the EVM decoder, recovered sender, ledger target and transaction hash."
+follow_up = "closure"
+
+[disposition.8.7.3.1]
+finding = "8.7.3.1"
+status = "open"
+evidence = "services/platform/hosted/gateway/src/lib.rs:405 still declares verify_submission using the kernel activity decoder, services/platform/hosted/gateway/src/main.rs:2313 retains activity, and tests/local/verifier.rs:73 still decodes kernel activities pending task 8.101.4."
+follow_up = "8.101.4"
+
+[disposition.8.8.3.1]
+finding = "8.8.3.1"
+status = "superseded"
+evidence = "e926d27ec deletes the agent boundary's dead kernel journal completion helpers and their tests while retaining JournalRecord.signed_activity for persisted journal compatibility."
+follow_up = "closure"
+
+[disposition.8.0.9.1]
+finding = "8.0.9.1"
+status = "resolved"
+evidence = "145c42858 removes all three retired JVM verification keys and scopes completion_gate.rs checks to Rust production code and each owning Java enum, with those scopes retained at services/platform/hosted/gateway/tests/completion_gate.rs:69."
+follow_up = "closure"

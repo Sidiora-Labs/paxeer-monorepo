@@ -317,7 +317,9 @@ defmodule Explorer.SmartContract.Helper do
           nil
       end
 
-    # todo: Dangerous, fix with https://github.com/blockscout/blockscout/issues/12544
-    ExplorerHelper.add_0x_prefix(binary_hash)
+    case binary_hash do
+      bytes when is_binary(bytes) -> "0x" <> Base.encode16(bytes, case: :lower)
+      other -> ExplorerHelper.add_0x_prefix(other)
+    end
   end
 end

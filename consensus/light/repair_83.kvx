@@ -1,0 +1,20 @@
+[repair.22.31.83]
+audit = "22.30.46"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+mode = "BUILD"
+scope = "consensus/light"
+build = "hf-build: go build ./consensus/light/..."
+verify = "hf-done: cg spec done 22.31.83 -f layerx-merge --root /work/paxeer-monorepo; go test -count=1 ./consensus/light/"
+verified_revision_record = "/out/run/gates.jsonl: final verify row records the exact candidate revision, command, exit code and private log; qualification requires matching build and verify revisions and exit 0."
+baseline = "Not executed: the explicit task order forbids building or testing before the entire implementation is complete and permits verification only through hf-done after hf-build; the contradictory do_6 baseline request was not used to consume or bypass that gate. No baseline failures are claimed."
+wiring_requests = "None; both repairs and their real producer/transport/consumer proofs fit inside consensus/light."
+
+[finding.8]
+repair = "Refuse backward gaps above 10000 headers; compare the final verified header hash with the original target before allowing the target into the trusted store."
+tests = ["TestRepair_83_BackwardWorkLimit", "TestRepair_83_SubstitutedHistoricalHeader", "TestRepair_83_BackwardLinkedHeaders"]
+proof = "State.MakeBlockAt and MakeCommit produce signed blocks; real block/state stores feed core.Commit and core.Validators over JSON-RPC HTTP into the real provider and client. The substitution attack dispatches the first target request to a separately signed fork, then supplies canonical headers during the backward walk. Assertions require refusal and no trusted-store write, followed by successful verification of the canonical target."
+
+[finding.9]
+repair = "Initialize the restored client's quarantine map; reject missing witnesses, nonpositive trusting periods, nil dependencies and witnesses, invalid trust levels, and restored blocks inconsistent with the configured chain."
+tests = ["TestRepair_83_ReopenDivergenceQuarantine", "TestRepair_83_RestoredConfiguration"]
+proof = "Bootstrap and close a real GoLevelDB-backed trusted store; reopen through both constructors; serve a real conflicting signed witness block through core RPC handlers and the HTTP provider; assert quarantine prevents re-addition, verification advances, and all trusted blocks survive a second database reopen."

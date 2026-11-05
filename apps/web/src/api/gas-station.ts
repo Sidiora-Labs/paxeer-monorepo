@@ -11,6 +11,7 @@ import {
   type SponsoredBatch,
 } from "../../../../services/agent/sdk/typescript/src/gas-station.ts";
 import type { PrecompileSendOutcome } from "./wallet.ts";
+import { ethTransactionReceipt } from "./gateway.ts";
 
 export interface SidioraGasQuote {
   readonly batch: SponsoredBatch;
@@ -20,6 +21,7 @@ export interface SidioraGasQuote {
 
 export type GasQuoteOutcome =
   | Readonly<{ ok: true; value: SidioraGasQuote }>
+  | Readonly<{ ok: false; failure: PrecompileSendOutcome; refusal: "budget_exhausted" }>
   | Readonly<{ ok: false; failure: PrecompileSendOutcome }>;
 
 function stationConfiguration(): GasStationConfig | undefined {
@@ -41,6 +43,18 @@ export async function sidioraStationMetadata(): Promise<Readonly<{ chainId: stri
   const config = stationConfiguration();
   if (config === undefined || config.chainId >= 1n << 256n) return undefined;
   return { chainId: config.chainId.toString(), sponsor: config.sponsor.toLowerCase(), paymaster: config.paymaster.toLowerCase() };
+}
+
+export async function sidioraStationSubmitUrl(): Promise<string | undefined> {
+  const configured = process.env.PAXEER_GAS_STATION_SUBMIT_URL;
+  if (configured === undefined) return undefined;
+  try {
+    const endpoint = new URL(configured);
+    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.href.includes("#")) return undefined;
+    return endpoint.href;
+  } catch {
+    return undefined;
+  }
 }
 
 export type AccountDidOutcome =
@@ -66,6 +80,7 @@ export async function requestSidioraGasQuote(request: GasQuoteRequest, chainId: 
   const result = await requestGasQuote(config, request);
   if (!result.ok) {
     const code = result.refusal.code;
+    if (code === "budget_exhausted") return { ok: false, failure: { outcome: "rejected" }, refusal: code };
     return { ok: false, failure: { outcome: code === "unavailable" || code === "cancelled" ? code : "rejected" } };
   }
   return {
@@ -85,23 +100,16 @@ export async function sendSponsoredBatch(
   authorizationSignature: string,
 ): Promise<PrecompileSendOutcome> {
   const config = stationConfiguration();
-  const submitUrl = process.env.PAXEER_GAS_STATION_SUBMIT_URL;
+  const submitUrl = await sidioraStationSubmitUrl();
   if (config === undefined || submitUrl === undefined) return { outcome: "unavailable" };
-  if (quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
+  if (typeof quoted?.paymaster !== "string" || quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
   const call = sponsoredBatchCall(config, quoted.batch, accountSignature, quoted.relayerSignature);
   if (!call.ok) return { outcome: "rejected" };
   const authorization = assembleEip7702Authorization(config, quoted.batch.account, authorizationNonce, authorizationSignature);
   if (!authorization.ok) return { outcome: "rejected" };
-  let endpoint: URL;
-  try {
-    endpoint = new URL(submitUrl);
-    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.hash) return { outcome: "unavailable" };
-  } catch {
-    return { outcome: "unavailable" };
-  }
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetch(submitUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ call: call.value, authorization: authorization.value, batch: quoted.batch, accountSignature, relayerSignature: quoted.relayerSignature },
@@ -113,14 +121,18 @@ export async function sendSponsoredBatch(
     return { outcome: "failed" };
   }
   if (!response.ok) return { outcome: response.status >= 500 ? "failed" : "rejected" };
+  let transactionHash: string | undefined;
   try {
     const body: unknown = await response.json();
     if (typeof body === "object" && body !== null && "transactionHash" in body
       && typeof body.transactionHash === "string" && /^0x[0-9a-fA-F]{64}$/u.test(body.transactionHash)) {
-      return { outcome: "sent", transactionHash: body.transactionHash };
+      transactionHash = body.transactionHash;
+      const receipt = await ethTransactionReceipt(transactionHash);
+      if (receipt === undefined) return { outcome: "sent", transactionHash };
+      return { outcome: receipt.status === "reverted" ? "reverted" : "sent", transactionHash, receipt };
     }
   } catch {
-    return { outcome: "failed" };
+    return transactionHash === undefined ? { outcome: "failed" } : { outcome: "unconfirmed", transactionHash };
   }
   return { outcome: "failed" };
 }

@@ -18,11 +18,11 @@ version = "0.1.0"
 dependencies = [
  "layerx-agent-api",
  "layerx-agentd",
- "layerx-client",
- "layerx-proof",
  "layerx-sdk",
  "layerx-types",
- "layerx-wire",
+ "serde_json",
+ "ureq",
+ "url",
 ]
 
 [[package]]
@@ -60,6 +60,12 @@ name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
+
+[[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64"
@@ -751,8 +757,6 @@ dependencies = [
  "layerx-crypto",
  "layerx-identity-binding",
  "layerx-intents",
- "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -773,10 +777,11 @@ dependencies = [
 name = "layerx-client"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
@@ -784,6 +789,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
 ]
 
@@ -835,11 +841,9 @@ dependencies = [
 name = "layerx-mirror"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -850,17 +854,6 @@ dependencies = [
  "sha2",
  "sha3",
  "zeroize",
-]
-
-[[package]]
-name = "layerx-paxeer-verifier"
-version = "0.1.0"
-dependencies = [
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "sha3",
 ]
 
 [[package]]
@@ -881,21 +874,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
-]
-
-[[package]]
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
- "layerx-proof",
  "layerx-types",
- "layerx-wire",
+ "sha2",
 ]
 
 [[package]]
@@ -1659,7 +1646,7 @@ version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "972d7902c8735f2695410b8aed7df6ed12a47394aa1c8d7af49f0497b731a94d"
 dependencies = [
- "base64",
+ "base64 0.23.1",
  "cookie_store",
  "log",
  "percent-encoding",
@@ -1677,7 +1664,7 @@ version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b0809a01d1ca5a51ca70db32bb2a19157582a526505ef3c19e3b343a59aa5ad"
 dependencies = [
- "base64",
+ "base64 0.23.1",
  "http",
  "httparse",
  "log",

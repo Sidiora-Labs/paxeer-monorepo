@@ -12,9 +12,12 @@ path = "src/lib.rs"
 name = "layerx-receipt-authority"
 path = "src/main.rs"
 
+[[test]]
+name = "repair_22_33_1473"
+path = "tests/repair_22_33_1473.rs"
+
 [dependencies]
 layerx-client.workspace = true
-layerx-paxeer-verifier = { path = "../../../../services/agent/crates/layerx-paxeer-verifier" }
 layerx-identity-binding.workspace = true
 layerx-crypto.workspace = true
 layerx-proof.workspace = true

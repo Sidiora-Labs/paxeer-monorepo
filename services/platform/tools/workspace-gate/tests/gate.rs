@@ -18,32 +18,50 @@ fn directory(label: &str) -> PathBuf {
     ))
 }
 
-fn place(root: &Path, relative: &str, contents: &str) {
+fn place(root: &Path, relative: &str) {
     let path = root.join(relative);
     let parent = path
         .parent()
         .unwrap_or_else(|| panic!("no parent for {relative}"));
     fs::create_dir_all(parent).unwrap_or_else(|error| panic!("create {relative}: {error}"));
-    fs::write(&path, contents).unwrap_or_else(|error| panic!("write {relative}: {error}"));
+    fs::copy(repository().join(relative), &path)
+        .unwrap_or_else(|error| panic!("copy committed {relative}: {error}"));
+}
+
+fn repository() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../..")
 }
 
 fn manifest() -> String {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../workspace.kvx");
+    let path = repository().join(gate::MANIFEST_PATH);
     fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
 }
 
 fn declared_directories(source: &str) -> Vec<String> {
-    source
-        .lines()
-        .filter_map(|line| line.trim().strip_prefix("path = \""))
-        .filter_map(|value| value.strip_suffix('"'))
-        .map(str::to_owned)
+    let document = layerx_platform_kvx::parse(source)
+        .unwrap_or_else(|error| panic!("parse committed manifest: {error}"));
+    document
+        .sections()
+        .into_iter()
+        .filter(|section| section.starts_with("dir."))
+        .map(|section| declaration(source, section, "path"))
         .collect()
+}
+
+fn declaration(source: &str, section: &str, key: &str) -> String {
+    let document = layerx_platform_kvx::parse(source)
+        .unwrap_or_else(|error| panic!("parse manifest: {error}"));
+    let value = document
+        .required(section, key)
+        .unwrap_or_else(|error| panic!("read declaration: {error}"));
+    layerx_platform_kvx::unquote(value)
+        .unwrap_or_else(|error| panic!("read {section}.{key}: {error}"))
 }
 
 fn repo_fixture(label: &str) -> PathBuf {
     let root = directory(label);
-    let declared = declared_directories(&manifest());
+    let source = manifest();
+    let declared = declared_directories(&source);
     assert!(
         !declared.is_empty(),
         "committed manifest declares no workspace directory"
@@ -52,15 +70,9 @@ fn repo_fixture(label: &str) -> PathBuf {
         fs::create_dir_all(root.join(relative))
             .unwrap_or_else(|error| panic!("create {relative}: {error}"));
     }
-    place(&root, "platform/Cargo.toml", "[workspace]\n");
-    place(&root, "platform/Cargo.lock", "version = 4\n");
-    place(&root, "platform/deny.toml", "[bans]\n");
-    place(&root, "platform/clippy.toml", "msrv = \"1.91.1\"\n");
-    place(
-        &root,
-        "platform/tools/dependency-policy.sh",
-        "#!/bin/sh\nexit 0\n",
-    );
+    for key in ["manifest", "lockfile", "audit", "lint", "policy"] {
+        place(&root, &declaration(&source, "ecosystem.rust", key));
+    }
     root
 }
 
@@ -79,6 +91,16 @@ fn expect_refusal(root: &Path, source: &str, needle: &str) {
 }
 
 #[test]
+fn committed_manifest_passes_on_the_real_repository() {
+    let root = repository();
+    gate::default_workspace_gate(&root)
+        .unwrap_or_else(|error| panic!("default gate does not describe the repository: {error}"));
+    workspace_gate(&root, &manifest()).unwrap_or_else(|error| {
+        panic!("committed manifest does not describe the repository: {error}")
+    });
+}
+
+#[test]
 fn committed_manifest_passes_on_a_complete_tree() {
     let root = repo_fixture("complete");
     workspace_gate(&root, &manifest()).unwrap_or_else(|error| panic!("gate failed: {error}"));
@@ -88,35 +110,37 @@ fn committed_manifest_passes_on_a_complete_tree() {
 #[test]
 fn missing_directory_is_refused() {
     let root = repo_fixture("missing-dir");
-    fs::remove_dir_all(root.join("platform/emulator"))
-        .unwrap_or_else(|error| panic!("remove: {error}"));
-    expect_refusal(&root, &manifest(), "platform/emulator");
+    let path = declaration(&manifest(), "dir.emulator", "path");
+    fs::remove_dir_all(root.join(&path)).unwrap_or_else(|error| panic!("remove: {error}"));
+    expect_refusal(&root, &manifest(), &path);
     cleanup(&root);
 }
 
 #[test]
 fn missing_policy_file_is_refused() {
     let root = repo_fixture("missing-policy");
-    fs::remove_file(root.join("platform/deny.toml"))
-        .unwrap_or_else(|error| panic!("remove: {error}"));
-    expect_refusal(&root, &manifest(), "platform/deny.toml");
+    let path = declaration(&manifest(), "ecosystem.rust", "audit");
+    fs::remove_file(root.join(&path)).unwrap_or_else(|error| panic!("remove: {error}"));
+    expect_refusal(&root, &manifest(), &path);
     cleanup(&root);
 }
 
 #[test]
 fn missing_lockfile_is_refused() {
     let root = repo_fixture("missing-lockfile");
-    fs::remove_file(root.join("platform/Cargo.lock"))
-        .unwrap_or_else(|error| panic!("remove: {error}"));
-    expect_refusal(&root, &manifest(), "platform/Cargo.lock");
+    let path = declaration(&manifest(), "ecosystem.rust", "lockfile");
+    fs::remove_file(root.join(&path)).unwrap_or_else(|error| panic!("remove: {error}"));
+    expect_refusal(&root, &manifest(), &path);
     cleanup(&root);
 }
 
 #[test]
 fn undeclared_mandated_directory_is_refused() {
     let root = repo_fixture("undeclared");
-    let start_marker = "[dir.emulator]\npath = \"platform/emulator\"\n";
-    let source = manifest().replace(start_marker, "");
+    let path = declaration(&manifest(), "dir.emulator", "path");
+    let start_marker = format!("[dir.emulator]\npath = \"{path}\"\n");
+    assert!(manifest().contains(&start_marker));
+    let source = manifest().replace(&start_marker, "");
     expect_refusal(
         &root,
         &source,
@@ -159,7 +183,10 @@ fn unknown_declaration_is_refused() {
 #[test]
 fn directory_escaping_the_workspace_root_is_refused() {
     let root = repo_fixture("escape");
-    let source = manifest().replace("path = \"platform/middleware\"", "path = \"services/human/crates\"");
+    let path = declaration(&manifest(), "dir.middleware", "path");
+    let declaration = format!("path = \"{path}\"");
+    assert!(manifest().contains(&declaration));
+    let source = manifest().replace(&declaration, "path = \"services/human/crates\"");
     expect_refusal(&root, &source, "escapes the workspace root");
     cleanup(&root);
 }

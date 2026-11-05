@@ -1,3 +1,6 @@
+#[path = "retired_crypto_codec_2.rs"]
+mod reclaim_retired_crypto_codec_2;
+
 include!("journey_faults.rs");
 
 use layerx_human_service::activity::{ActivityKind, Feed, FilterDraft, PageRequest};
@@ -52,7 +55,7 @@ fn send_route(public_key: [u8; 32], key: u8) -> SendRoute {
         .unwrap_or_else(|error| panic!("destination account: {error:?}")),
         asset: [0x33; 32],
         amount: 1,
-        source_sequence: 7,
+        source_sequence: ACCOUNT_SEQUENCE,
         idempotency_key: [key; 32],
         expires_at: 1_010,
         context_hash: [0x61; 32],
@@ -101,6 +104,7 @@ fn reclaim_request(journey: &str, key: u8, mechanism: ReclaimMechanism) -> Recla
             custody_key: KeyId::new("human-primary")
                 .unwrap_or_else(|error| panic!("custody key: {error}")),
             account_sequence: ACCOUNT_SEQUENCE,
+            nonce: ACCOUNT_SEQUENCE,
             not_before: 995,
             not_after: 1_010,
             fee_limit: 7,
@@ -132,6 +136,7 @@ fn drive_reclaim(
             start_time.saturating_add(offset),
         ))
         .unwrap_or_else(|error| {
+            agent.record_contract_divergence(&scope);
             panic!(
                 "advance reclaim {} at transition {offset}: {error}",
                 journey_id.as_str()
@@ -181,6 +186,34 @@ fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
         let repeated = Reclaim::start(&mut scope, request, &registry(), 300)
             .unwrap_or_else(|error| panic!("repeat reclaim: {error}"));
         assert_eq!(first, repeated);
+        let records: Vec<serde_json::Value> = scope
+            .keys(Table::Journeys)
+            .iter()
+            .filter(|key| key.as_str().starts_with("journey-"))
+            .map(|key| {
+                serde_json::from_slice(
+                    scope
+                        .get(Table::Journeys, key)
+                        .unwrap_or_else(|| panic!("journey row missing"))
+                        .bytes(),
+                )
+                .unwrap_or_else(|error| panic!("stored journey JSON: {error}"))
+            })
+            .filter(|record: &serde_json::Value| {
+                record["journey_id"].as_str() == Some(request.journey_id.as_str())
+            })
+            .collect();
+        assert_eq!(records.len(), 1);
+        let legs = records[0]["legs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("journey legs missing"));
+        assert_eq!(legs.len(), 1);
+        for leg in legs {
+            assert_eq!(
+                leg["preparation"]["account_sequence"].as_u64(),
+                Some(request.agent.nonce())
+            );
+        }
         assert_eq!(
             layerx_human_service::agents::ReclaimStatus::movement_term(),
             MovementTerm::Return
@@ -217,6 +250,54 @@ fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
         assert_eq!(result.fee_charged(), 1);
         assert_ne!(result.activity_id(), [0; 32]);
         assert_ne!(result.receipt_digest(), [0; 32]);
+
+        let submission_id = agent.outbox_submissions[&request.idempotency_key];
+        let raw = agent
+            .outbox
+            .exact_signed_bytes(submission_id)
+            .unwrap_or_else(|error| panic!("reclaim raw transaction: {error:?}"));
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
+            .unwrap_or_else(|error| panic!("reclaim type-2 transaction: {error:?}"));
+        let signing = signing_preparation(
+            &agent.preparations[&request.idempotency_key],
+            agent.sender.expect("agent wallet"),
+        )
+        .unwrap_or_else(|error| panic!("reclaim signing preparation: {error:?}"));
+        assert_eq!(call, signing.transaction.call);
+        assert_eq!(
+            layerx_agentd::prepare::verify_call_binding(&signing.transaction),
+            Ok(())
+        );
+        assert_eq!(raw[0], 2);
+        assert_eq!(signature.as_bytes().len(), 65);
+        assert_eq!(call.nonce, request.agent.nonce());
+        assert_eq!(
+            u128::from(call.gas_limit) * call.max_fee_per_gas,
+            request.agent.fee_limit
+        );
+        assert_eq!(
+            layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .unwrap_or_else(|error| panic!("reclaim sender: {error:?}")),
+            agent.sender.expect("agent wallet")
+        );
+        assert_eq!(result.activity_id(), transaction_hash(raw));
+        assert_eq!(
+            agent.receipt_material[&request.idempotency_key].tx_hash,
+            transaction_hash(raw)
+        );
+        if let ReclaimMechanism::BudgetDefund { budget_id, .. } = &request.mechanism {
+            assert_eq!(
+                call.to,
+                layerx_agentd::prepare::PrecompileTarget::Pay.address()
+            );
+            assert_eq!(
+                call.data[..4],
+                layerx_crypto::disclosure::call::ledger_selector("budgetDefund(bytes32,uint128)")
+            );
+            assert_eq!(call.data[4..36], budget_id.bytes());
+            assert_eq!(call.data[36..52], [0; 16]);
+            assert_eq!(call.data[52..], request.amount.value().to_be_bytes());
+        }
         assert_eq!(agent.effects.get(&request.idempotency_key), Some(&1));
         assert_eq!(agent.submit_calls.get(&request.idempotency_key), Some(&1));
     }

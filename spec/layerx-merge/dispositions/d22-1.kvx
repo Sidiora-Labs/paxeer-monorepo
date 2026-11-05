@@ -1,0 +1,11 @@
+[disposition.22.91.22.1]
+finding = "22.91.22.1"
+status = "resolved"
+evidence = "bec75f55951a2a383ef63062d169a3a38e5f1f25 landed the empty go-cmd inventory with its enumeration command, and spec/layerx-merge/spec.kvx:185429 accepts targets_total = 0 with that command and no target block."
+follow_up = "closure"
+
+[disposition.22.5.5.1]
+finding = "22.5.5.1"
+status = "open"
+evidence = "Although bd7dc0c03e8c424d676c826c81048580a63fb47e initializes the refresh test with app keepers, precompiles/setup.go:432 still initializes cold info lookups with EmptyKeepers and precompiles/setup.go:385 invokes merge constructors that reject missing LayerXPayKeepers at precompiles/layerxpay/layerxpay.go:80."
+follow_up = "22.6.4"

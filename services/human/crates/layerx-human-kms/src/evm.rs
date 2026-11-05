@@ -1,45 +1,53 @@
+use crate::attestor::AttestorSigner;
 use crate::evm_types::{EvmAction, EvmPlanAuthorization, EvmTransaction};
 use crate::wire::{Error, Result};
-use k256::ecdsa::SigningKey;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::BTreeMap;
-use zeroize::Zeroize;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Wallet {
-    pub seed: [u8; 32],
+    pub evm_key_id: String,
     pub address: [u8; 20],
+    #[serde(default)]
+    pub tenant: String,
+    #[serde(default)]
+    pub principal: String,
+    #[serde(default)]
+    pub assertion_subject: String,
     pub next_nonce: BTreeMap<u64, u64>,
     pub actions: BTreeMap<String, EvmAction>,
-}
-impl Drop for Wallet {
-    fn drop(&mut self) {
-        self.seed.zeroize();
-    }
+    #[serde(default)]
+    pub archived: BTreeMap<String, [u8; 32]>,
 }
 impl Wallet {
-    pub fn create() -> Result<Self> {
-        let mut seed = zeroize::Zeroizing::new([0; 32]);
-        getrandom::fill(&mut *seed).map_err(|_| Error::Unavailable)?;
-        let key = SigningKey::from_bytes((&*seed).into()).map_err(|_| Error::Unavailable)?;
-        let encoded = key.verifying_key().to_encoded_point(false);
-        let digest = Keccak256::digest(&encoded.as_bytes()[1..]);
-        let address = digest[12..].try_into().map_err(|_| Error::Integrity)?;
-        Ok(Self {
-            seed: *seed,
+    pub fn create(evm_key_id: &str, address: [u8; 20]) -> Result<Self> {
+        let wallet = Self {
+            evm_key_id: evm_key_id.to_owned(),
             address,
+            tenant: String::new(),
+            principal: String::new(),
+            assertion_subject: String::new(),
             next_nonce: BTreeMap::new(),
             actions: BTreeMap::new(),
-        })
+            archived: BTreeMap::new(),
+        };
+        wallet.validate([0; 32])?;
+        Ok(wallet)
     }
     pub fn validate(&self, binding: [u8; 32]) -> Result<()> {
-        let key = SigningKey::from_bytes((&self.seed).into()).map_err(|_| Error::Integrity)?;
-        let encoded = key.verifying_key().to_encoded_point(false);
-        if Keccak256::digest(&encoded.as_bytes()[1..])[12..] != self.address
-            || self.actions.len() > 4096
+        if self.evm_key_id.trim().is_empty()
+            || self.evm_key_id.len() > 128
+            || self.evm_key_id.contains('/')
+            || self.address == [0; 20]
+            || self.actions.len() + self.archived.len() > 4096
         {
+            return Err(Error::Integrity);
+        }
+        if self.archived.iter().any(|(id, digest)| {
+            id.len() != 64 || *digest == [0; 32] || self.actions.contains_key(id)
+        }) {
             return Err(Error::Integrity);
         }
         for (id, action) in &self.actions {
@@ -78,6 +86,9 @@ impl Wallet {
                 Err(Error::Conflict)
             };
         }
+        if self.archived.contains_key(&key) {
+            return Err(Error::Conflict);
+        }
         let transaction = &authorization.transaction;
         if authorization.plan_id == [0; 32]
             || authorization.action_key == [0; 32]
@@ -95,7 +106,7 @@ impl Wallet {
             || transaction.max_fee_per_gas == 0
             || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
             || transaction.calldata.len() > 524_288
-            || self.actions.len() >= 4096
+            || self.actions.len() + self.archived.len() >= 4096
         {
             return Err(Error::Refused);
         }
@@ -123,15 +134,37 @@ impl Wallet {
         signature: &[u8],
         now: u64,
     ) -> Result<EvmAction> {
+        self.accept_external_checked(action_key, signature, || Ok(now))
+    }
+    pub fn accept_external_with_clock(
+        &mut self,
+        action_key: &[u8; 32],
+        signature: &[u8],
+        clock: &dyn layerx_types::clock::Clock,
+    ) -> Result<EvmAction> {
+        self.accept_external_checked(action_key, signature, || {
+            clock
+                .sample(std::time::Duration::from_secs(1))
+                .map(|reading| reading.unix_seconds())
+                .map_err(|_| Error::Unavailable)
+        })
+    }
+    fn accept_external_checked(
+        &mut self,
+        action_key: &[u8; 32],
+        signature: &[u8],
+        mut now: impl FnMut() -> Result<u64>,
+    ) -> Result<EvmAction> {
+        let current = now()?;
         let action = self
             .actions
             .get_mut(&crate::store::hex(action_key))
             .ok_or(Error::NotFound)?;
-        if signature.len() != 65
-            || now < action.authorization.not_before
-            || now > action.authorization.not_after
-        {
+        if signature.len() != 65 {
             return Err(Error::Refused);
+        }
+        if current < action.authorization.not_before || current > action.authorization.not_after {
+            return Err(Error::Expired);
         }
         let parity = match signature[64] {
             0 | 27 => 0,
@@ -164,6 +197,12 @@ impl Wallet {
         signed.extend(integer(&compact[32..]));
         let mut raw = vec![2];
         raw.extend(list(&signed));
+        let accepted_at = now()?;
+        if accepted_at < action.authorization.not_before
+            || accepted_at > action.authorization.not_after
+        {
+            return Err(Error::Expired);
+        }
         if !action.raw_transaction.is_empty() {
             return if action.raw_transaction == raw {
                 Ok(action.clone())
@@ -175,40 +214,58 @@ impl Wallet {
         action.raw_transaction = raw;
         Ok(action.clone())
     }
-    pub fn sign(&mut self, action_key: &[u8; 32], now: u64) -> Result<EvmAction> {
+    pub fn sign(
+        &mut self,
+        action_key: &[u8; 32],
+        clock: &dyn layerx_types::clock::Clock,
+        chain_id: u64,
+        signer: &AttestorSigner,
+        deadline: &mut layerx_types::clock::Deadline,
+    ) -> Result<EvmAction> {
         let action = self
             .actions
-            .get_mut(&crate::store::hex(action_key))
+            .get(&crate::store::hex(action_key))
             .ok_or(Error::NotFound)?;
+        if action.authorization.transaction.chain_id != chain_id {
+            return Err(Error::Refused);
+        }
         if !action.raw_transaction.is_empty() {
             return Ok(action.clone());
         }
+        let now = clock
+            .sample(std::time::Duration::from_secs(1))
+            .map_err(|_| Error::Unavailable)?
+            .unix_seconds();
         if now < action.authorization.not_before || now > action.authorization.not_after {
-            return Err(Error::Refused);
+            return Err(Error::Expired);
         }
-        let transaction = &action.authorization.transaction;
-        let fields = fields(transaction);
-        let mut preimage = vec![2];
-        preimage.extend(list(&fields));
-        let digest = Keccak256::digest(preimage);
-        let key = SigningKey::from_bytes((&self.seed).into()).map_err(|_| Error::Integrity)?;
-        let (signature, recovery) = key
-            .sign_prehash_recoverable(&digest)
-            .map_err(|_| Error::Integrity)?;
-        if recovery.is_x_reduced() {
-            return Err(Error::Integrity);
+        let mut unsigned = vec![2];
+        unsigned.extend(list(&fields(&action.authorization.transaction)));
+        let budget = deadline.remaining(clock).map_err(|_| Error::Unavailable)?;
+        let signing_at = clock
+            .sample(budget.min(std::time::Duration::from_secs(1)))
+            .map_err(|_| Error::Unavailable)?
+            .unix_seconds();
+        if signing_at < action.authorization.not_before
+            || signing_at > action.authorization.not_after
+        {
+            return Err(Error::Expired);
         }
-        let bytes = signature.to_bytes();
-        let mut signed = fields;
-        signed.extend(integer(&[recovery.to_byte()]));
-        signed.extend(integer(&bytes[..32]));
-        signed.extend(integer(&bytes[32..]));
-        let mut raw = vec![2];
-        raw.extend(list(&signed));
-        action.transaction_hash = Some(Keccak256::digest(&raw).into());
-        action.raw_transaction = raw;
-        Ok(action.clone())
+        let signature = signer
+            .sign_evm_transaction_bounded(&unsigned, chain_id, Some(budget))
+            .map_err(|error| match error {
+                crate::attestor::AttestorError::Refused { .. } => Error::Refused,
+                crate::attestor::AttestorError::SignatureInvalid { .. }
+                | crate::attestor::AttestorError::MalformedResponse { .. } => Error::Integrity,
+                _ => Error::Unavailable,
+            })?;
+        self.accept_external_with_clock(action_key, &signature, clock)
     }
+}
+pub(crate) fn transaction_digest(tx: &EvmTransaction) -> [u8; 32] {
+    let mut unsigned = vec![2];
+    unsigned.extend(list(&fields(tx)));
+    Keccak256::digest(unsigned).into()
 }
 fn fields(tx: &EvmTransaction) -> Vec<u8> {
     let mut fields = Vec::new();
@@ -264,9 +321,16 @@ fn encode(value: &[u8], short: u8, long: u8) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use k256::ecdsa::SigningKey;
     #[test]
     fn signed_transaction_recovers_bound_wallet() -> std::result::Result<(), String> {
-        let mut wallet = Wallet::create().map_err(|error| format!("{error:?}"))?;
+        let key = SigningKey::from_bytes((&[7; 32]).into()).map_err(|error| error.to_string())?;
+        let point = key.verifying_key().to_encoded_point(false);
+        let address = Keccak256::digest(&point.as_bytes()[1..])[12..]
+            .try_into()
+            .map_err(|_| "invalid address")?;
+        let mut wallet =
+            Wallet::create("external-wallet", address).map_err(|error| format!("{error:?}"))?;
         let authorization = EvmPlanAuthorization {
             plan_id: [1; 32],
             action_key: [2; 32],
@@ -293,8 +357,6 @@ mod tests {
         let unsigned = fields(&authorization.transaction);
         let mut exact = vec![2];
         exact.extend(list(&unsigned));
-        let key =
-            SigningKey::from_bytes((&wallet.seed).into()).map_err(|error| error.to_string())?;
         let (external_signature, parity) = key
             .sign_prehash_recoverable(&Keccak256::digest(exact))
             .map_err(|error| error.to_string())?;
@@ -312,7 +374,7 @@ mod tests {
             .accept_external(&authorization.action_key, &external, 10)
             .map_err(|error| format!("{error:?}"))?;
         let signed = wallet
-            .sign(&authorization.action_key, 10)
+            .accept_external(&authorization.action_key, &external, 10)
             .map_err(|error| format!("{error:?}"))?;
         assert_eq!(imported, signed);
         let body = signed.raw_transaction.get(3..).ok_or("missing RLP body")?;

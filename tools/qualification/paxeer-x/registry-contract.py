@@ -27,6 +27,10 @@ import sys
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.candidate.v1'
+sys.path.insert(0, str(Path(__file__).parent))
+import merged_qualification as merged
+import native_evidence as evidence
+
 RESULT = re.compile(r'^test (\S+) \.\.\. (\S+)$', re.M)
 
 CASES = {
@@ -435,11 +439,111 @@ DISCOVERY_CASES |= {'source-unpublished', 'source-mismatch', 'source-verified',
                     'remote-attestation'}
 
 
+class RegistryClient:
+    def __init__(self, url, token, principal, context=None):
+        merged.CHAIN.endpoint(url)
+        require(token and principal and '\n' not in token + principal, 'registry credentials required')
+        self.url, self.token, self.principal, self.context = url, token, principal, context
+
+    def request(self, method, path, body=b'', key=None, authenticated=True):
+        url = merged.CHAIN.endpoint(self.url)
+        require(path.startswith('/v1/programs/registry/') and '..' not in path, 'registry route')
+        connection = (http.client.HTTPSConnection(url.hostname, url.port, context=self.context, timeout=30)
+                      if url.scheme == 'https' else http.client.HTTPConnection(url.hostname, url.port, timeout=30))
+        headers = {'Content-Type': 'application/json', 'Connection': 'close'}
+        if authenticated:
+            headers.update(Authorization='Bearer ' + self.token, **{'LayerX-Key': self.principal})
+        if key is not None:
+            require(isinstance(key, str) and 0 < len(key) <= 256 and '\n' not in key, 'idempotency key')
+            headers['Idempotency-Key'] = key
+        try:
+            connection.request(method, path, body, headers)
+            response = connection.getresponse()
+            data = response.read(4_194_305)
+            require(len(data) <= 4_194_304, 'registry response bound')
+            return response.status, json.loads(data)
+        finally:
+            connection.close()
+
+    def read(self, program):
+        require(re.fullmatch('[0-9a-f]{64}', program), 'registry program identity')
+        status, document = self.request('GET', '/v1/programs/registry/' + program)
+        require(status == 200 and document['program_id'] == program
+                and document['receipt']['verification'] == 'receipt-verified', 'authenticated registry read')
+        return document
+
+    def publish(self, program, source, key, authenticated=True):
+        require(re.fullmatch('[0-9a-f]{64}', program), 'registry program identity')
+        require(set(source) == {'source_uri', 'source_digest'}, 'source publication fields')
+        return self.request('POST', '/v1/programs/registry/' + program + '/source',
+                            evidence.canonical(source), key, authenticated)
+
+
+def registry_client(config):
+    context = ssl.create_default_context(cafile=config['client_ca_pem'])
+    context.load_cert_chain(config['client_cert_pem'], config['client_key_pem'])
+    return RegistryClient(config['registry_url'], evidence.protected(config['publication_token_file']).decode().strip(),
+                          evidence.protected(config['principal_key_files'][0]).decode().strip(), context)
+
+
+class NativeRegistryDiscovery:
+    def __init__(self, node, registry):
+        self.node, self.registry = node, registry
+
+    def read(self, case):
+        program = bytes.fromhex(case['program_id'])
+        record = merged.decode_abi(['uint8', 'bytes32', 'bytes32', 'uint16', 'uint32', 'bool'],
+                                  self.node.program_read('getProgram', [program]))
+        interface = merged.decode_abi(['uint32', 'bytes32', 'bytes'],
+                                     self.node.program_read('getInterface', [program]))
+        head = merged.decode_abi(['bytes'], self.node.program_read('getStateHead', [program]))[0]
+        require(record[2].hex() == case['code_hash'] and record[3] == case['abi']
+                and record[4] == case['version'] and record[5], 'native program code/ABI/version mismatch')
+        require(interface == [case['version'], hashlib.sha256(bytes.fromhex(case['interface'])).digest(),
+                              bytes.fromhex(case['interface'])], 'native interface mismatch')
+        prefix = b'LayerX/program-interface/v1\0' + record[2] + case['abi'].to_bytes(2, 'big')
+        require(interface[2].startswith(prefix), 'native interface code/ABI binding')
+        require(len(head) == 38 and head[:2] == b'\0\1' and any(head[6:]), 'native storage head')
+        document = self.registry.read(case['program_id'])
+        version = document['versions'][-1]
+        require(document['latest_version'] == case['version'] and version['version'] == case['version']
+                and version['code_hash'] == case['code_hash'] and version['abi_version'] == case['abi'],
+                'registry publication differs from native program')
+        committed = self.node.committed(case['transaction_hash'])
+        require(document['receipt']['deployment_receipt_digest'] == committed['receipt_digest']
+                and version['deployment_receipt_digest'] == committed['receipt_digest'],
+                'registry publication lacks the exact committed receipt')
+        return {'program': record, 'interface': interface, 'head': head, 'registry': document, 'receipt': committed}
+
+    def qualify(self, case, restart):
+        suffix = case['id'].split('-', 1)[-1]
+        if suffix in ('deploy', 'upgrade'):
+            action = case['transaction']
+            require(action['method'] == suffix, 'declared native lifecycle action required')
+            arguments = self.node.json_arguments(suffix, action['arguments'])
+            committed = self.node.program_send(action['raw'], suffix, arguments)
+            require(committed['transaction_hash'] == case['transaction_hash'], 'native lifecycle receipt identity')
+        if case.get('refusal'):
+            try:
+                self.read(case)
+            except (ValueError, RuntimeError) as error:
+                require(case['refusal'] in str(error), 'native refusal differs')
+                return
+            raise RuntimeError('native discovery accepted refused case')
+        before = self.read(case)
+        if suffix == 'account-state':
+            require(before['head'].hex() == case['state_head'], 'native state differs from declared committed state')
+        if suffix == 'restart':
+            restart()
+            require(self.read(case) == before, 'native registry recovery changed publication')
+        return before
+
+
 def discovery_artifacts(candidate_digest):
     path = os.environ.get('PAXEER_X_REGISTRY_ARTIFACT_MANIFEST')
     require(path, 'PAXEER_X_REGISTRY_ARTIFACT_MANIFEST is required')
     document = json.loads(Path(path).read_bytes())
-    require(document.get('schema') == 'paxeer-x.registry-discovery-artifacts.v1',
+    require(document.get('schema') == 'paxeer-x.registry-discovery-artifacts.v2',
             'distinct registry discovery artifact contract required')
     require(document.get('candidate_manifest_sha256') == candidate_digest,
             'discovery artifact candidate binding')
@@ -459,16 +563,19 @@ def discovery_artifacts(candidate_digest):
         'tools/platform/emulator/src/main.rs',
         'services/platform/hosted/registry/tests/native_deployment.rs',
         'tools/qualification/paxeer-x/registry-contract.py',
-        'cmd/layerxd/lxp_daemon_protocol.c',
+        'daemon/paxd/main.go',
+        'precompiles/layerxprograms/abi.json',
+        'modules/sequencer/keeper/receipt_keys.go',
+        'tools/qualification/paxeer-x/native_evidence.py',
+        'tools/qualification/paxeer-x/merged_qualification.py',
         'services/platform/hosted/agent-boundary/src/main.rs',
-        'services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs',
     }
     require(set(document['source_files']) == paths, 'exact discovery source inventory')
     for relative, expected in document['source_files'].items():
         require(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == expected,
                 'discovery source digest: ' + relative)
-    roles = {'registry', 'emulator', 'registry-tests', 'real-node-tests', 'boundary', 'layerxd',
-             'genesis-builder', 'cli', 'sign-credit', 'test-credit', 'anvil', 'forge'}
+    roles = {'registry', 'emulator', 'registry-tests', 'real-node-tests', 'boundary', 'paxd',
+             'cli', 'sign-credit', 'test-credit', 'anvil', 'forge'}
     require(set(document['artifacts']) == roles, 'genuine discovery process artifacts required')
     for role, entry in document['artifacts'].items():
         binary = Path(entry['path']).resolve(strict=True)
@@ -551,12 +658,9 @@ def discovery_contract(artifacts):
     environment['PAXEER_X_REGISTRY_EMULATOR_BINARY'] = binaries['emulator']['path']
     environment['PAXEER_X_NATIVE_INTERFACE_BOUNDARY'] = binaries['boundary']['path']
     environment['PYTHONDONTWRITEBYTECODE'] = '1'
-    native = Path(binaries['layerxd']['path']).resolve(strict=True).parent
-    require(Path(binaries['genesis-builder']['path']).resolve(strict=True) == native / 'layerx-genesis-build',
-            'actual native fixture builder binding')
-    require(Path(binaries['layerxd']['path']).resolve(strict=True).name == 'layerxd',
-            'actual native fixture daemon binding')
-    environment['LAYERX_TEST_NATIVE_BIN_DIR'] = str(native)
+    merged.source_artifacts(artifacts, artifacts['source_revision'])
+    environment['PAXEER_X_PAXD_BINARY'] = binaries['paxd']['path']
+    environment['PAXEER_X_NATIVE_RPC_URL'] = artifacts['native']['endpoint']
     require(Path(binaries['cli']['path']).resolve(strict=True)
             == Path(binaries['emulator']['path']).resolve(strict=True),
             'emulator is the actual layerx CLI library owner')
@@ -579,22 +683,24 @@ def discovery_contract(artifacts):
     output = root / ('guest-abi-discovery-' + uuid.uuid4().hex)
     output.mkdir(mode=0o700)
     environment['PAXEER_X_NATIVE_INTERFACE_EVIDENCE'] = str(output)
-    command = [binaries['real-node-tests']['path'], '--exact',
-               'native_interfaces::guest_abi_discovery', '--nocapture', '--test-threads=1']
-    result = subprocess.run(command, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
-                            capture_output=True, text=True)
-    sys.stdout.write(result.stdout)
-    sys.stdout.write(result.stderr)
-    executions = re.findall(r'^test (\S+) \.\.\.', result.stdout, re.M)
-    summaries = re.findall(r'^test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;',
-                           result.stdout, re.M)
-    require(executions == ['native_interfaces::guest_abi_discovery']
-            and summaries == [('1', '0', '0')],
-            'the genuine focused discovery test must execute once and pass')
-    markers = re.findall(r'^REGISTRY_DISCOVERY_CASE ([A-Za-z0-9_-]+)$', result.stdout, re.M)
-    require(len(markers) == len(set(markers)) and set(markers) == DISCOVERY_CASES - {'source-unpublished', 'source-mismatch', 'source-verified'},
-            'discovery cases absent, duplicated, unexpected or skipped')
-    require(result.returncode == 0, 'genuine discovery process exited ' + str(result.returncode))
+    fixture = merged.OWNED.PaxdFixture(artifacts['native'], binaries['paxd']['path'], output)
+    fixture.start()
+    registry = ServedRegistry({'registry': binaries['registry'], 'served': artifacts['served']})
+    require(registry.environment['LAYERX_REGISTRY_NODE_ENDPOINT'].rstrip('/') == fixture.node.url.rstrip('/'),
+            'registry must consume the owned native root RPC')
+    registry.start()
+    try:
+        client = NativeRegistryDiscovery(fixture.node, registry_client(artifacts['served']))
+        markers = []
+        for case in artifacts['native']['cases']:
+            require(case['id'] in DISCOVERY_CASES, 'unknown native discovery case')
+            client.qualify(case, fixture.restart)
+            markers.append(case['id'])
+        require(len(markers) == len(set(markers)) and set(markers) == DISCOVERY_CASES - {
+            'source-unpublished', 'source-mismatch', 'source-verified'}, 'complete native discovery inventory required')
+    finally:
+        registry.stop()
+        fixture.stop()
     capture_command = [binaries['registry-tests']['path'], '--exact',
                        'guest_abi_discovery_captured_native_proofs_preserve_authority',
                        '--nocapture', '--test-threads=1']
@@ -1157,8 +1263,8 @@ class ConformanceProcess:
         self.environment.update(configured)
         fixture = Path(artifacts['fixture_root']).resolve(strict=True)
         if name == 'hosted':
-            for key in ('LAYERX_AGENT_BOUNDARY_STATE_DIR', 'LAYERX_AGENT_BOUNDARY_LNI_SOCKET'):
-                require(key in configured and Path(configured[key]).resolve().is_relative_to(fixture), 'dedicated actual hosted state/socket')
+            key = 'LAYERX_AGENT_BOUNDARY_STATE_DIR'
+            require(key in configured and Path(configured[key]).resolve().is_relative_to(fixture), 'dedicated actual hosted state')
         self.arguments = self.config['arguments']
         require(isinstance(self.arguments, list) and all(isinstance(item, str) for item in self.arguments), 'actual production process arguments')
         require(name != 'emulator' or self.arguments[:2] == ['emulator', 'up'], 'real CLI emulator owner')

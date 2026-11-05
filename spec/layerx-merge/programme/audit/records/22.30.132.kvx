@@ -1,0 +1,2587 @@
+[audit.22.30.132]
+task = "22.30.132"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 198
+findings = 27
+docs_reviewed = 17
+upgrade_ready = false
+blocking = []
+
+[review.basis]
+decision = 2515
+method = "Full review of all 17 non-generated local members. One generated copy table and 180 unchanged imported files take the explicit generated/vendored exception of brief rule 1, with exact current-tree line counts for all members."
+vendor_frontend = "All 98 unchanged frontend mock members matched complete bytes from blockscout/frontend 446c409eeb54274aab90ff371a705f9699cd84ef (v2.7.2), fetched as a pinned source archive and compared in memory."
+vendor_backend = "All 82 unchanged backend members matched complete bytes from blockscout/blockscout 90f7dd8e9348123b74dfd23f69ab7da76191a820 (v10.2.6), fetched as a pinned source archive and compared in memory."
+readiness = "Readiness withheld pending owner disposition of fixture, bridge admission/recovery, migration cache and current documentation findings. No demonstrated high-severity network failure is claimed, so blocking is empty."
+checks = "Static review covers shapes/encodings, route and caller wiring, retired references, runtime errors and bounds, durable state versus cache/replay, environment/configuration names, producer-based fixtures, authority/signature boundaries and all package pages. Offline tests are not represented as real chain or restart qualification."
+
+[file.001]
+path = "apps/explorer/mocks/account/verifiedAddresses.ts"
+lines = 164
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.002]
+path = "apps/explorer/mocks/ad/textAd.ts"
+lines = 7
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.003]
+path = "apps/explorer/mocks/address/address.ts"
+lines = 174
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.004]
+path = "apps/explorer/mocks/address/coinBalanceHistory.ts"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.005]
+path = "apps/explorer/mocks/address/counters.ts"
+lines = 29
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.006]
+path = "apps/explorer/mocks/address/epochRewards.ts"
+lines = 44
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.007]
+path = "apps/explorer/mocks/address/implementations.ts"
+lines = 11
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.008]
+path = "apps/explorer/mocks/address/tabCounters.ts"
+lines = 12
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.009]
+path = "apps/explorer/mocks/address/tag.ts"
+lines = 18
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.010]
+path = "apps/explorer/mocks/address/tokens.ts"
+lines = 214
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.011]
+path = "apps/explorer/mocks/address/widgets.ts"
+lines = 95
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.012]
+path = "apps/explorer/mocks/advancedFilter/advancedFilter.ts"
+lines = 124
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.013]
+path = "apps/explorer/mocks/apps/apps.ts"
+lines = 31
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.014]
+path = "apps/explorer/mocks/arbitrum/deposits.ts"
+lines = 46
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.015]
+path = "apps/explorer/mocks/arbitrum/txnBatch.ts"
+lines = 53
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.016]
+path = "apps/explorer/mocks/arbitrum/txnBatches.ts"
+lines = 39
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.017]
+path = "apps/explorer/mocks/arbitrum/txnWithdrawals.ts"
+lines = 36
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.018]
+path = "apps/explorer/mocks/arbitrum/withdrawals.ts"
+lines = 29
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.019]
+path = "apps/explorer/mocks/blobs/blobs.ts"
+lines = 36
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.020]
+path = "apps/explorer/mocks/blocks/block.ts"
+lines = 339
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.021]
+path = "apps/explorer/mocks/clusters/cluster.ts"
+lines = 77
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.022]
+path = "apps/explorer/mocks/clusters/directory.ts"
+lines = 77
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.023]
+path = "apps/explorer/mocks/clusters/leaderboard.ts"
+lines = 74
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.024]
+path = "apps/explorer/mocks/config/footerLinks.ts"
+lines = 97
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.025]
+path = "apps/explorer/mocks/config/network.ts"
+lines = 11
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.026]
+path = "apps/explorer/mocks/contract/audits.ts"
+lines = 16
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.027]
+path = "apps/explorer/mocks/contract/info.ts"
+lines = 151
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.028]
+path = "apps/explorer/mocks/contract/methods.ts"
+lines = 140
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.029]
+path = "apps/explorer/mocks/contract/solidityscanReport.ts"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.030]
+path = "apps/explorer/mocks/contracts/counters.ts"
+lines = 8
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.031]
+path = "apps/explorer/mocks/contracts/index.ts"
+lines = 116
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.032]
+path = "apps/explorer/mocks/crossChain/config.ts"
+lines = 27
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.033]
+path = "apps/explorer/mocks/crossChain/transfers.ts"
+lines = 73
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.034]
+path = "apps/explorer/mocks/crossChain/txs.ts"
+lines = 75
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.035]
+path = "apps/explorer/mocks/deposits/deposits.ts"
+lines = 86
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.036]
+path = "apps/explorer/mocks/ens/domain.ts"
+lines = 136
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.037]
+path = "apps/explorer/mocks/ens/events.ts"
+lines = 19
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.038]
+path = "apps/explorer/mocks/epochs/celo.ts"
+lines = 124
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.039]
+path = "apps/explorer/mocks/essentialDapps/revoke.ts"
+lines = 54
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.040]
+path = "apps/explorer/mocks/interop/interop.ts"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.041]
+path = "apps/explorer/mocks/metadata/address.ts"
+lines = 130
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.042]
+path = "apps/explorer/mocks/metadata/appActionButton.ts"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.043]
+path = "apps/explorer/mocks/metadata/publicTagTypes.ts"
+lines = 34
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.044]
+path = "apps/explorer/mocks/mud/mudTables.ts"
+lines = 94
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.045]
+path = "apps/explorer/mocks/mud/mudWorlds.ts"
+lines = 27
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.046]
+path = "apps/explorer/mocks/multichain/address.ts"
+lines = 78
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.047]
+path = "apps/explorer/mocks/multichain/chains.ts"
+lines = 129
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.048]
+path = "apps/explorer/mocks/multichain/metrics.ts"
+lines = 40
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.049]
+path = "apps/explorer/mocks/multichain/portfolio.ts"
+lines = 21
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.050]
+path = "apps/explorer/mocks/multichain/search.ts"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.051]
+path = "apps/explorer/mocks/multichain/stats.ts"
+lines = 72
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.052]
+path = "apps/explorer/mocks/multichain/tokens.ts"
+lines = 115
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.053]
+path = "apps/explorer/mocks/noves/transaction.ts"
+lines = 103
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.054]
+path = "apps/explorer/mocks/operations/tac.ts"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.055]
+path = "apps/explorer/mocks/optimism/deposits.ts"
+lines = 33
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.056]
+path = "apps/explorer/mocks/optimism/disputeGames.ts"
+lines = 26
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.057]
+path = "apps/explorer/mocks/optimism/outputRoots.ts"
+lines = 32
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.058]
+path = "apps/explorer/mocks/optimism/txnBatches.ts"
+lines = 124
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.059]
+path = "apps/explorer/mocks/optimism/withdrawals.ts"
+lines = 88
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.060]
+path = "apps/explorer/mocks/paxeerX/capabilities.spec.ts"
+lines = 26
+verdict = "clean"
+note = "Full review: declared/registered Vitest function asserts retained capability booleans and excludes custody/anchor. Optional price_feed absence remains supported; matches 14243.1."
+
+[file.061]
+path = "apps/explorer/mocks/paxeerX/capabilities.ts"
+lines = 22
+verdict = "clean"
+note = "Full review: addr/exchange/bridge/launchpad booleans match CapabilitiesController and PaxeerXCapabilities; price_feed absence represents supported disabled availability and hides feed navigation (14243.1-2)."
+
+[file.062]
+path = "apps/explorer/mocks/paxeerX/feed.ts"
+lines = 129
+verdict = "issues"
+note = "Full local review; findings: failed-observations-accepted."
+
+[file.063]
+path = "apps/explorer/mocks/paxeerX/unifiedAccount.ts"
+lines = 85
+verdict = "issues"
+note = "Full local review; findings: unified-activity-shape."
+
+[file.064]
+path = "apps/explorer/mocks/pools/pool.ts"
+lines = 27
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.065]
+path = "apps/explorer/mocks/rewards/activity.ts"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.066]
+path = "apps/explorer/mocks/rewards/balance.ts"
+lines = 10
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.067]
+path = "apps/explorer/mocks/rewards/dailyReward.ts"
+lines = 12
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.068]
+path = "apps/explorer/mocks/rewards/referrals.ts"
+lines = 7
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.069]
+path = "apps/explorer/mocks/rewards/rewardsConfig.ts"
+lines = 29
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.070]
+path = "apps/explorer/mocks/rewards/streakBadges.ts"
+lines = 71
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.071]
+path = "apps/explorer/mocks/scroll/messages.ts"
+lines = 26
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.072]
+path = "apps/explorer/mocks/scroll/txnBatches.ts"
+lines = 50
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.073]
+path = "apps/explorer/mocks/search/index.ts"
+lines = 230
+verdict = "clean"
+note = "Full review: priceUpdate1 matches SearchView.prepare_search_result type/hash/block_number/timestamp. Generic search examples are test data; native search has no EVM-only type cast."
+
+[file.074]
+path = "apps/explorer/mocks/shibarium/deposits.ts"
+lines = 61
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.075]
+path = "apps/explorer/mocks/shibarium/withdrawals.ts"
+lines = 61
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.076]
+path = "apps/explorer/mocks/stats/daily_txs.ts"
+lines = 149
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.077]
+path = "apps/explorer/mocks/stats/index.ts"
+lines = 91
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.078]
+path = "apps/explorer/mocks/stats/line.ts"
+lines = 198
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.079]
+path = "apps/explorer/mocks/stats/lines.ts"
+lines = 161
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.080]
+path = "apps/explorer/mocks/stats/main.tsx"
+lines = 71
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.081]
+path = "apps/explorer/mocks/tokens/tokenHolders.ts"
+lines = 39
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.082]
+path = "apps/explorer/mocks/tokens/tokenInfo.ts"
+lines = 226
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.083]
+path = "apps/explorer/mocks/tokens/tokenInstance.ts"
+lines = 187
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.084]
+path = "apps/explorer/mocks/tokens/tokenTransfer.ts"
+lines = 304
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.085]
+path = "apps/explorer/mocks/txs/decodedInputData.ts"
+lines = 49
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.086]
+path = "apps/explorer/mocks/txs/internalTxs.ts"
+lines = 80
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.087]
+path = "apps/explorer/mocks/txs/state.ts"
+lines = 201
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.088]
+path = "apps/explorer/mocks/txs/stats.ts"
+lines = 8
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.089]
+path = "apps/explorer/mocks/txs/tx.ts"
+lines = 505
+verdict = "issues"
+note = "Full local review; findings: price-fixture-cast, rpc-receipt-status."
+
+[file.090]
+path = "apps/explorer/mocks/txs/txInterpretation.ts"
+lines = 49
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.091]
+path = "apps/explorer/mocks/user/profile.ts"
+lines = 25
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.092]
+path = "apps/explorer/mocks/userOps/userOp.ts"
+lines = 111
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.093]
+path = "apps/explorer/mocks/userOps/userOps.ts"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.094]
+path = "apps/explorer/mocks/validators/blackfort.ts"
+lines = 41
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.095]
+path = "apps/explorer/mocks/validators/stability.ts"
+lines = 37
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.096]
+path = "apps/explorer/mocks/validators/zilliqa.ts"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.097]
+path = "apps/explorer/mocks/withdrawals/withdrawals.ts"
+lines = 53
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.098]
+path = "apps/explorer/mocks/zetaChain/zetaChainCCTX.ts"
+lines = 267
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.099]
+path = "apps/explorer/mocks/zetaChain/zetaChainCCTXConfig.ts"
+lines = 26
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.100]
+path = "apps/explorer/mocks/zkEvm/deposits.ts"
+lines = 28
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.101]
+path = "apps/explorer/mocks/zkEvm/txnBatches.ts"
+lines = 40
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.102]
+path = "apps/explorer/mocks/zkEvm/withdrawals.ts"
+lines = 28
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.103]
+path = "apps/explorer/mocks/zkSync/zkSyncTxnBatch.ts"
+lines = 20
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.104]
+path = "apps/explorer/mocks/zkSync/zkSyncTxnBatches.ts"
+lines = 49
+verdict = "vendored"
+note = "Unchanged Blockscout frontend v2.7.2 import; complete bytes match 446c409eeb54274aab90ff371a705f9699cd84ef. Generic multi-chain fixture takes the vendored exception, not a claim of deployed Paxeer service wiring."
+
+[file.105]
+path = "apps/web/copy/catalog.ts"
+lines = 907
+verdict = "issues"
+note = "Full local review; findings: separate-interface-copy, split-balances-and-settlement-copy, retired-deposit-copy, retired-exit-copy."
+
+[file.106]
+path = "apps/web/copy/format.ts"
+lines = 107
+verdict = "clean"
+note = "Full review: balanced nested ICU directives, required values, finite-number plurals and explicit unknown-key failures match catalogue usage; returns text for React, not raw HTML."
+
+[file.107]
+path = "apps/web/copy/generate-runtime.ts"
+lines = 23
+verdict = "clean"
+note = "Full review: rejects duplicate keys and writes exact JSON key/message pairs; --check compares expected bytes without regeneration. Product-copy drift belongs to catalogue findings."
+
+[file.108]
+path = "apps/web/copy/messages.generated.ts"
+lines = 860
+verdict = "generated"
+note = "Generated by generate-runtime.ts from catalogue key/message pairs. Generator and lookup reviewed; stale network vocabulary inherits catalogue findings rather than a clean runtime-content claim."
+
+[file.109]
+path = "apps/web/copy/runtime.ts"
+lines = 21
+verdict = "clean"
+note = "Full review: generated messages become frozen entry objects with explicit missing-key failure; copyEntry/human_copy_catalog shape matches authoring lookup. Stale content is traced to the catalogue."
+
+[file.110]
+path = "services/bridge/deploy/tests/checklist-check.sh"
+lines = 433
+verdict = "clean"
+note = "Full review: ABI fixture getCap ordering, getChain, caps, threshold, pause and placeholders agree with producers. Requirement 14519.1 includes matching/mismatching app env checks before endpoint calls. Offline assertions are not live qualification."
+
+[file.111]
+path = "services/bridge/deploy/tests/deploy-scripts-check.sh"
+lines = 1259
+verdict = "clean"
+note = "Full review: command doubles exercise preflight/deploy ordering, record readback, vault env arrays, Solana executable/provenance and owner handoff. Compared DeployPaxeerXVault and real record writer; no live deployment executed."
+
+[file.112]
+path = "services/bridge/deploy/tests/docs-check.sh"
+lines = 481
+verdict = "clean"
+note = "Full review: documentation assertions cover command names, chain ordering, placeholders, Sidiora proposal-before-cap and signed release instructions. HOSTNAME lexical matches are not frontend configuration reads."
+
+[file.113]
+path = "services/bridge/deploy/tests/evm-dry-run-check.sh"
+lines = 854
+verdict = "issues"
+note = "Full local review; findings: evm-recovery-proof."
+
+[file.114]
+path = "services/bridge/deploy/tests/solana-dry-run-check.sh"
+lines = 1306
+verdict = "issues"
+note = "Full local review; findings: solana-governance-bypass, solana-recovery-proof."
+
+[file.115]
+path = "services/bridge/deploy/tests/workflow-check.sh"
+lines = 862
+verdict = "issues"
+note = "Full local review; findings: workflow-typecheck-not-enforced."
+
+[file.116]
+path = "services/explorer/backend/.pre-commit-config.yaml"
+lines = 5
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.117]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/scroll/batch.ex"
+lines = 151
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.118]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/scroll/batch_bundle.ex"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.119]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/scroll/bridge.ex"
+lines = 78
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.120]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/scroll/l1_fee_param.ex"
+lines = 134
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.121]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/scroll/reader.ex"
+lines = 460
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.122]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/address_current_token_balance_token_type.ex"
+lines = 54
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.123]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/address_token_balance_token_type.ex"
+lines = 54
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.124]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/arbitrum_da_records_normalization.ex"
+lines = 65
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.125]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/backfill_metadata_url.ex"
+lines = 234
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.126]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/backfill_multichain_search_db.ex"
+lines = 195
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.127]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/celo_accounts.ex"
+lines = 68
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.128]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/celo_aggregated_election_rewards.ex"
+lines = 94
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.129]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/celo_l2_epochs.ex"
+lines = 102
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.130]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/delete_zero_value_internal_transactions.ex"
+lines = 254
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.131]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts.ex"
+lines = 152
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.132]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/empty_internal_transactions_data.ex"
+lines = 142
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.133]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/filecoin_pending_address_operations.ex"
+lines = 71
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.134]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/filling_migration.ex"
+lines = 311
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.135]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation.ex"
+lines = 274
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.136]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/README.md"
+lines = 245
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.137]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_addresses_transactions_count_asc_coin_balance_desc_hash_partial.ex"
+lines = 78
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.138]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_addresses_transactions_count_desc_partial_index.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.139]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_addresses_verified_fetched_coin_balance_desc_hash_index.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.140]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_addresses_verified_hash_index.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.141]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_addresses_verified_index.ex"
+lines = 65
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.142]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_addresses_verified_transactions_count_desc_hash_index.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.143]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_arbitrum_batch_l2_blocks_unconfirmed_blocks_index.ex"
+lines = 65
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.144]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_internal_transactions_block_number_desc_block_index_desc_index.ex"
+lines = 67
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.145]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_internal_transactions_block_number_transaction_index_index_unique_index.ex"
+lines = 68
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.146]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_logs_address_hash_block_number_desc_index_desc_index.ex"
+lines = 71
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.147]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_logs_address_hash_first_topic_block_number_index_index.ex"
+lines = 79
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.148]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_logs_block_hash_index.ex"
+lines = 66
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.149]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_logs_deposits_withdrawals_index.ex"
+lines = 69
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.150]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_smart_contract_additional_sources_unique_index.ex"
+lines = 67
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.151]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_smart_contracts_language_index.ex"
+lines = 62
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.152]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_tokens_name_partial_fts_index.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.153]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/create_transactions_operator_fee_constant_index.ex"
+lines = 66
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.154]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_addresses_verified_index.ex"
+lines = 58
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.155]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_internal_transactions_block_hash_transaction_index_index_index.ex"
+lines = 68
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.156]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_internal_transactions_created_contract_address_hash_partial_index.ex"
+lines = 62
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_internal_transactions_from_address_hash_index.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_logs_address_hash_index.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_logs_address_hash_transaction_hash_index.ex"
+lines = 72
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_logs_block_number_asc_index_asc_index.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_logs_index_index.ex"
+lines = 73
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_token_instances_token_id_index.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_token_transfers_block_number_asc_log_index_asc_index.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_token_transfers_block_number_index.ex"
+lines = 72
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_token_transfers_from_address_hash_transaction_hash_index.ex"
+lines = 63
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_token_transfers_to_address_hash_transaction_hash_index.ex"
+lines = 68
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_token_transfers_token_contract_address_hash_transaction_hash_index.ex"
+lines = 72
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_transactions_created_contract_address_hash_with_pending_index.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_transactions_from_address_hash_with_pending_index.ex"
+lines = 63
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/drop_transactions_to_address_hash_with_pending_index.ex"
+lines = 67
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/helper.ex"
+lines = 287
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/update_internal_transactions_primary_key.ex"
+lines = 190
+verdict = "issues"
+note = "Full local review; findings: migration-cache-before-commit."
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/validate_internal_transactions_block_number_transaction_index_not_null.ex"
+lines = 145
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/merge_adjacent_missing_block_ranges.ex"
+lines = 71
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/migration_status.ex"
+lines = 187
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/refetch_contract_codes.ex"
+lines = 80
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/reindex_blocks_with_missing_transactions.ex"
+lines = 85
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/reindex_duplicated_internal_transactions.ex"
+lines = 148
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/reindex_internal_transactions_with_incompatible_status.ex"
+lines = 137
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/restore_omitted_weth_transfers.ex"
+lines = 269
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_duplicate_smart_contract_additional_sources.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_duplicated_log_index_logs.ex"
+lines = 197
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_empty_contract_code_addresses.ex"
+lines = 60
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.184]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_erc_1155_token_balances_without_token_ids.ex"
+lines = 50
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_incorrect_nft_token_transfers.ex"
+lines = 166
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.186]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_incorrect_weth_token_transfers.ex"
+lines = 179
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.187]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_missing_block_ranges.ex"
+lines = 34
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.188]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_missing_token_balances.ex"
+lines = 73
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.189]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_replaced_transactions.ex"
+lines = 46
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.190]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/sanitize_verified_addresses.ex"
+lines = 151
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.191]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/shrink_internal_transactions.ex"
+lines = 63
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.192]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/smart_contract_language.ex"
+lines = 73
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.193]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/switch_pending_operations.ex"
+lines = 22
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.194]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/token_transfer_block_consensus.ex"
+lines = 54
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.195]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/token_transfer_token_type.ex"
+lines = 70
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.196]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/transaction_block_consensus.ex"
+lines = 55
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.197]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/transactions_denormalization.ex"
+lines = 56
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[file.198]
+path = "services/explorer/backend/apps/explorer/lib/explorer/migrator/unescape_quotes_in_tokens.ex"
+lines = 67
+verdict = "vendored"
+note = "Unchanged Blockscout backend v10.2.6 import; complete bytes match 90f7dd8e9348123b74dfd23f69ab7da76191a820. Upstream migration, chain-specific code or tooling takes the vendored exception; local primary-key changes are reviewed separately."
+
+[finding.price-fixture-cast]
+file = "apps/explorer/mocks/txs/tx.ts"
+line = 503
+class = "test-gap"
+severity = "medium"
+observed = "priceUpdate casts feedMock.priceUpdate through unknown to Transaction. TxsListItem.spec.tsx, TxsTableItem.spec.tsx and TxsContent.spec.tsx consume this export as a Transaction; the separate priceUpdateItem export does not remove the escape."
+expected = "Requirement 18870.2 explicitly forbids this cast. FeedView.prepare_update emits a native type-127 PriceUpdateItem without the EVM-only required Transaction fields."
+proposal = "Export the real PriceUpdateItem in apps/explorer/mocks/txs/tx.ts; update apps/explorer/ui/txs consumers and tests to narrow Transaction | PriceUpdateItem before reading EVM-only fields and drive them with backend-emitted items."
+owner_domain = 14
+
+[finding.rpc-receipt-status]
+file = "apps/explorer/mocks/txs/tx.ts"
+line = 496
+class = "test-gap"
+severity = "medium"
+observed = "rpcTxReceipt sets status to 'success' with a RpcTransactionReceipt type assertion. Home.pw.tsx returns this object directly as eth_getTransactionReceipt when exercising the RPC fallback."
+expected = "rpc/tx.go renders receipt.Status as hexutil.Uint: the JSON-RPC wire carries 0x1 or 0x0. The success string belongs to the decoded viem receipt, not its transport representation."
+proposal = "Replace this value in apps/explorer/mocks/txs/tx.ts with the real RPC hex status and remove the assertion. Exercise Home.pw.tsx through the normal viem decoder with successful and reverted receipts emitted by rpc/tx.go."
+owner_domain = 7
+
+[finding.failed-observations-accepted]
+file = "apps/explorer/mocks/paxeerX/feed.ts"
+line = 60
+class = "test-gap"
+severity = "medium"
+observed = "failedPriceUpdate changes only hash, status and result after spreading priceUpdate, retaining accepted: true on both observations. PaxeerXFeedUpdateDetails.spec.tsx uses this impossible combination for failed submissions."
+expected = "Explorer.PaxeerX.CosmosRest.decode_price_updates sets accepted to code == 0 and not refused?, so failed submissions have no accepted observation. Requirement 181173.1 excludes failed and refused observations from live markets."
+proposal = "Use a real failed producer response in apps/explorer/mocks/paxeerX/feed.ts with accepted false. Cover both failed submissions and successful submissions containing a refused observation in feed detail and live-market tests."
+owner_domain = 14
+
+[finding.unified-activity-shape]
+file = "apps/explorer/mocks/paxeerX/unifiedAccount.ts"
+line = 47
+class = "test-gap"
+severity = "medium"
+observed = "unifiedAccount.activity contains kind token_transfer and status receipted and omits result on both rows. unifiedAccountEvmOnly returns balances [], though the native producer always includes a native balance, even when zero."
+expected = "Explorer.Chain.PaxeerX.UnifiedAccount.activity emits kind transaction, status committed and result ok, error or null; UnifiedAccountController requires result. Its feed contains native EVM transactions rather than a separate token-transfer row."
+proposal = "Replace fixtures in apps/explorer/mocks/paxeerX/unifiedAccount.ts with native UnifiedAccountController responses, including zero balance and failed results; align apps/explorer/types/api/paxeerX.ts and account tests with that response."
+owner_domain = 14
+
+[finding.separate-interface-copy]
+file = "apps/web/copy/catalog.ts"
+line = 57
+class = "retired-reference"
+severity = "medium"
+observed = "application.name says LayerX Human Interface and explorer.title says LayerX Explorer. Live consumers include src/app/layout.tsx, onboarding.tsx and src/app/explorer/page.tsx, so these are current product labels."
+expected = "Brief facts 1 and 2 specify a single Paxeer network with its kernel inside paxd and no separate LayerX interface. Public application metadata and explorer headings must describe the merged product."
+proposal = "Rewrite live product names and summaries in apps/web/copy/catalog.ts for Paxeer X Network, regenerate messages.generated.ts with its existing generator and update corresponding metadata and accessibility expectations."
+owner_domain = 14
+
+[finding.split-balances-and-settlement-copy]
+file = "apps/web/copy/catalog.ts"
+line = 273
+class = "retired-reference"
+severity = "medium"
+observed = "explorer.settlement.* describes instant, sealed and final stages through anchor batches; explorer.column.on_paxeer, on_layerx and in_custody divide balances. src/app/explorer/accounts/[accountId]/page.tsx still renders these keys; lines 236-238 advertise an anchor surface."
+expected = "The merged network has one balance per asset and receipt finality at committed block inclusion. Requirements 18955.1 and 14280.1 specify unified balances and submitted, receipted, committed vocabulary rather than custody sides and anchor settlement."
+proposal = "Retarget apps/web/copy/catalog.ts and apps/web/src/explorer account renderers to total balances and native block commitment. Remove current anchor navigation and explicitly label retained historical evidence as archive material."
+owner_domain = 14
+interface = "8.http-gateway-any-explorer"
+
+[finding.retired-deposit-copy]
+file = "apps/web/copy/catalog.ts"
+line = 553
+class = "retired-reference"
+severity = "medium"
+observed = "deposit.summary promises that LayerX finishes a deposit on its side, and activity.deposit.summary calls the destination a LayerX balance. The catalogue publishes a custody-to-kernel journey as normal product behavior."
+expected = "Registry 10.http-human-deposit-start is marked retire. A native network account is funded on the same chain; historical deposits must not imply a second current balance or supported retired write route."
+proposal = "Have the Human movement owner retire or redirect the deposit journey in services/human/schema/human-api/movement.kvx and apps/web/src/journeys; replace apps/web/copy/catalog.ts deposit copy with supported same-network funding behavior."
+owner_domain = 10
+interface = "10.http-human-deposit-start"
+
+[finding.retired-exit-copy]
+file = "apps/web/copy/catalog.ts"
+line = 595
+class = "retired-reference"
+severity = "medium"
+observed = "exit.summary instructs a person to move everything in LayerX back to a Paxeer wallet while LayerX is degraded, presenting an emergency transfer between retired execution sides as available."
+expected = "Registry 10.http-human-exit-start is marked retire. Brief facts 1 and 2 allow no separately running LayerX side to exit; recovery instructions must name a supported native operation."
+proposal = "Retire the emergency exit copy and route with the Human owner in services/human/schema/human-api/movement.kvx and apps/web/src/journeys; publish native account recovery guidance in apps/web/copy/catalog.ts."
+owner_domain = 10
+interface = "10.http-human-exit-start"
+
+[finding.evm-recovery-proof]
+file = "services/bridge/deploy/tests/evm-dry-run-check.sh"
+line = 847
+class = "test-gap"
+severity = "medium"
+observed = "Duplicate release is checked before nodes stop, followed by replay of recorded JSON-RPC replies without a node. The Paxeer side uses app.Setup and direct keeper calls behind an HTTP read facade, with no persisted-chain restart."
+expected = "Brief checks 1, 5 and 7 require real admission and durable recovery where balances and nullifiers survive restart. Reply replay proves readback consistency but cannot establish single payout after reconstruction."
+proposal = "Extend services/bridge/deploy/tests/evm-dry-run-check.sh with persisted disposable paxd and remote-chain homes: submit generated governance proposals through the real route, restart both nodes after bridging, retry the signed release and assert balances, outstanding amount and nullifier."
+owner_domain = 14
+interface = "14.cli-bridge-tests-evm-dry-run-check-j55"
+
+[finding.solana-governance-bypass]
+file = "services/bridge/deploy/tests/solana-dry-run-check.sh"
+line = 1131
+class = "test-gap"
+severity = "medium"
+observed = "Embedded TestPaxeerSide calls k.EnsureSidioraDenom directly before applying raw 03-set-cap bodies. It never delivers generated 05-proposal-sidiora-cap.json, whose first message is now MsgRegisterSidioraPair, through governance."
+expected = "Bundle.Proposals in services/bridge/deploy/proposals/proposals.go pairs authorized MsgRegisterSidioraPair with Sidiora MsgSetCap after chain opening; modules/layerxbridge/keeper/msg_server.go checks governance authority before pair registration."
+proposal = "Consume generated proposal envelopes through the real module governance route in services/bridge/deploy/tests/solana-dry-run-check.sh, with RegisterSidioraPair before SetCap. Assert missing and unauthorized registration refusals without out-of-band keeper seeding."
+owner_domain = 14
+interface = "14.cli-bridge-tests-solana-dry-run-check-j55"
+
+[finding.solana-recovery-proof]
+file = "services/bridge/deploy/tests/solana-dry-run-check.sh"
+line = 1299
+class = "test-gap"
+severity = "medium"
+observed = "The Solana dry run checks repeated release against its running validator, then stops nodes and serves a recording to replay_fixture. Neither the Paxeer keeper nor validator is reconstructed to retry a release from persisted state."
+expected = "Vault authority, asset accounting, consumed burn nonces and governance registrations must survive restart. Brief check 5 requires a real recovery path, not recorded read replies."
+proposal = "Retain validator ledger and paxd home in services/bridge/deploy/tests/solana-dry-run-check.sh, restart both real nodes, re-read the deployment through checklist.sh and retry the original signed release while asserting unchanged balances and consumed-nullifier refusal."
+owner_domain = 14
+interface = "14.cli-bridge-tests-solana-dry-run-check-j55"
+
+[finding.workflow-typecheck-not-enforced]
+file = "services/bridge/deploy/tests/workflow-check.sh"
+line = 90
+class = "test-gap"
+severity = "low"
+observed = "LEGS names bridge-app Typecheck and test the bridge app but requires only pnpm test. check_commands_run_from_the_root requires frozen install and test presence, allowing deletion of the existing pnpm typecheck step under this predicate."
+expected = "The real .github/workflows/bridge-test.yml has separate pnpm typecheck and pnpm test steps. Its offline checker should protect both named behaviors alongside the five-leg and frozen-install checks of 14506.1."
+proposal = "Require pnpm typecheck and add its deletion as a mutation refusal in services/bridge/deploy/tests/workflow-check.sh, retaining the existing install and test checks and the real workflow commands."
+owner_domain = 14
+interface = "16.fmt-gh-wf-bridge-test"
+
+[finding.migration-cache-before-commit]
+file = "services/explorer/backend/apps/explorer/lib/explorer/migrator/heavy_db_index_operation/update_internal_transactions_primary_key.ex"
+line = 50
+class = "runtime-risk"
+severity = "medium"
+observed = "db_index_operation calls update_cache inside Repo.transaction before PostgreSQL commits. A commit failure or lost connection can leave BackgroundMigrations true while DDL and MigrationStatus roll back; internal transaction import selects row construction using that cache."
+expected = "Explorer.Utility.InternalTransactionHelper must expose committed schema state. Durable DDL and MigrationStatus must become visible before importers switch to the new primary-key layout, including failed commit and recovery."
+proposal = "Move cache publication in update_internal_transactions_primary_key.ex into the successful {:ok, :ok} branch after Repo.transaction returns. Extend its real-database migration test with commit rollback and cache reconstruction from durable status after restart."
+owner_domain = 14
+
+[finding.root-network-description]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The component description runs layerxd separately and settles checkpoints through layerxAnchor. Lines 79 and 181 say the merge remains a draft; build instructions still direct make layerxd."
+expected = "Brief facts 1 and 2 describe the completed merged paxd BFT chain, chain id 125, with its kernel inside the node and receipt finality at committed block inclusion."
+proposal = "Rewrite README.md component, build and specification-status sections around merged paxd. Move standalone layerxd and anchor settlement instructions to clearly historical documentation."
+owner_domain = 17
+
+[finding.monorepo-network-description]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening inventory identifies the running kernel as layerxd, and the trust-boundary discussion describes independent kernel/chain subsystems. The services inventory includes relay archive as ordinary infrastructure."
+expected = "A current layout guide must distinguish retained directories from deployed components: the kernel belongs inside paxd, and separate kernel custody, settlement and relay archive are retired."
+proposal = "Update docs/MONOREPO.md component and trust-boundary descriptions to merged paxd and explicitly label historical source trees; keep directory relocation plans separate from current deployment instructions."
+owner_domain = 17
+
+[finding.quickstart-retired-rpc]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs integrations to /rpc and later /rpc/ws, lx_* methods, separate sequencer batch evidence and custody setup including precompile 0x1013 as current onboarding."
+expected = "The brief specifies root public RPC on api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network, node namespaces debug, echo, eth, net, pax, test and txpool; px_* belongs to gateway OpenRPC."
+proposal = "Replace docs/site/docs/overview/quickstart.md connection, signing, verification and funding recipes with chain-125 root RPC and block-commit examples. Derive hosted px_* examples from served OpenRPC and remove retired custody/sequencer setup."
+owner_domain = 8
+
+[finding.boundary-settlement-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 100
+class = "doc-drift"
+severity = "medium"
+observed = "Settlement sections prescribe deploy-contracts.sh, GuarantorBond, CheckpointRegistry and Blueprint activation around standalone node genesis. The site and wiki carry identical instructions apart from their Home link."
+expected = "The merged network needs no second kernel settlement or custody system. Valid chain-id and TLS guidance must be distinguished from historical pre-merge genesis contract deployment."
+proposal = "Rewrite settlement/bootstrap sections in docs/site/docs/concepts/paxeer-boundary.md for merged paxd; label frozen contract validation material historical and synchronize site/wiki while retaining valid chain-id and TLS guidance."
+owner_domain = 8
+
+[finding.boundary-settlement-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 100
+class = "doc-drift"
+severity = "medium"
+observed = "Settlement sections prescribe deploy-contracts.sh, GuarantorBond, CheckpointRegistry and Blueprint activation around standalone node genesis. The site and wiki carry identical instructions apart from their Home link."
+expected = "The merged network needs no second kernel settlement or custody system. Valid chain-id and TLS guidance must be distinguished from historical pre-merge genesis contract deployment."
+proposal = "Rewrite settlement/bootstrap sections in docs/wiki/PaxeerBoundary.md for merged paxd; label frozen contract validation material historical and synchronize site/wiki while retaining valid chain-id and TLS guidance."
+owner_domain = 8
+
+[finding.control-router-description]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening funds public accounts by custody credit submitted to the router. The body describes hosted LayerX admission and separate core/authority journey dependencies as its operational network."
+expected = "The brief retires the router and separate LayerX interface. Private test-control facilities must be distinguished from public chain integration and native account funding."
+proposal = "Revise docs/site/docs/operators/beta-control.md to identify private disposable control explicitly, remove public router/custody funding advice and align readiness and journey dependencies with merged paxd."
+owner_domain = 8
+
+[finding.cluster-retired-topology]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Bring-up assembles separate core boundary, receipt authority and node services and deploys settlement contracts. Its custody profile section passes --custody-profile to layerxd, and explorer read funding uses custody credit."
+expected = "The finished network is one paxd chain containing the kernel, without standalone layerxd, anchor settlement bootstrap or separate LayerX custody funding. Restart guidance must describe its actual persisted topology."
+proposal = "Replace docs/site/docs/operators/beta-cluster.md bring-up and retained-material instructions with merged paxd and native explorer principal provisioning; isolate old custody and settlement recipes as historical."
+owner_domain = 8
+
+[finding.faucet-router-funding]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls custody credit through the router the public funding path and advertises lx_requestFunds via the public gateway, interleaving private faucet deployment with public integration advice."
+expected = "Brief facts 2 and 3 retire router and /rpc and distinguish node namespaces from hosted px_* methods. Current funding advice must identify supported native and private paths."
+proposal = "Update docs/site/docs/platform/faucet.md funding and CLI/SDK examples from current hosted OpenRPC and native funding contracts; label private faucet deployment separately and remove retired public router/lx_requestFunds recipes."
+owner_domain = 8
+
+[finding.cli-rpc-and-command-contradiction]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc URLs ending in /rpc. Its implemented-command table is followed by a table declaring many of those same wallet/token groups and flags unimplemented, giving contradictory integration advice."
+expected = "Current CLI guidance must describe actual commands and refusals once, use merged root-path network RPC and distinguish supported hosted px_* services from retired lx_* public methods."
+proposal = "Rewrite docs/site/docs/platform/cli.md against tools/platform/cli declarations and gateway OpenRPC; replace /rpc and standalone sequencer binding recipes and resolve contradictory implemented-versus-intended tables."
+owner_domain = 8
+
+[finding.gateway-router-description-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, assigns public nodes to an EVM-only domain and advertises /rpc, /rpc/schema and /rpc/ws. The site says 15 methods and the wiki 18."
+expected = "Brief facts 1-3 specify one network, root-path public node RPC and no router or unified /rpc path. Hosted px_* methods are defined by services/platform/hosted/gateway/openrpc.json."
+proposal = "Replace topology, endpoints and method counts in docs/site/docs/platform/hosted-gateway.md using current gateway OpenRPC and node routes; synchronize site/wiki and clearly distinguish hosted services from chain RPC."
+owner_domain = 8
+
+[finding.gateway-router-description-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, assigns public nodes to an EVM-only domain and advertises /rpc, /rpc/schema and /rpc/ws. The site says 15 methods and the wiki 18."
+expected = "Brief facts 1-3 specify one network, root-path public node RPC and no router or unified /rpc path. Hosted px_* methods are defined by services/platform/hosted/gateway/openrpc.json."
+proposal = "Replace topology, endpoints and method counts in docs/wiki/HostedGateway.md using current gateway OpenRPC and node routes; synchronize site/wiki and clearly distinguish hosted services from chain RPC."
+owner_domain = 8
+
+[finding.explorer-frontend-location]
+file = "services/explorer/README.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The component table and build instructions place the frontend in services/explorer/frontend and tell operators to cd frontend and read frontend/.nvmrc; this package frontend actually lives in apps/explorer."
+expected = "Upgrade and build instructions must resolve to apps/explorer and its real Node/lockfile/backend boundary, while backend and auxiliary Rust services remain under services/explorer."
+proposal = "Correct frontend paths and build commands throughout services/explorer/README.md, retaining the GPL process boundary and linking the current apps/explorer README and frozen dependency gates."
+owner_domain = 17
+
+[finding.explorer-upstream-location]
+file = "services/explorer/UPSTREAM.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The provenance table and import notes use frontend/ and explorer/ paths though the frontend import now lives at apps/explorer. The pinned revisions remain usable for full-byte upstream comparisons."
+expected = "An upgrade provenance manifest must map pinned source revisions to the actual imported paths so vendor comparison and identification of local changes target the right directories."
+proposal = "Update services/explorer/UPSTREAM.md mappings to apps/explorer and services/explorer/backend, retain exact upstream commits/licenses, and distinguish import-time identity from subsequent local changes."
+owner_domain = 17
+
+[finding.backend-archive-route-doc]
+file = "services/explorer/backend/README.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The API list advertises /paxeer-x/anchors and /paxeer-x/receipts as ordinary routes; api_router.ex registers historical material under /paxeer-x/archive/anchors and /paxeer-x/archive/receipts beside native account/capabilities."
+expected = "Explorer API guidance must use registered names and mark archive evidence explicitly. Native account and status integrations must not depend on retired ordinary anchor/receipt endpoints."
+proposal = "Replace services/explorer/backend/README.md route lists from api_router.ex, label archive endpoints historical and document native feed and unified-account endpoints consumed by apps/explorer."
+owner_domain = 17
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Finding root-network-description: The component description runs layerxd separately and settles checkpoints through layerxAnchor. Lines 79 and 181 say the merge remains a draft; build instructions still direct make layerxd."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Finding monorepo-network-description: The opening inventory identifies the running kernel as layerxd, and the trust-boundary discussion describes independent kernel/chain subsystems. The services inventory includes relay archive as ordinary infrastructure."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Finding quickstart-retired-rpc: The quickstart directs integrations to /rpc and later /rpc/ws, lx_* methods, separate sequencer batch evidence and custody setup including precompile 0x1013 as current onboarding."
+
+[doc.04]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Finding boundary-settlement-site: Settlement sections prescribe deploy-contracts.sh, GuarantorBond, CheckpointRegistry and Blueprint activation around standalone node genesis. The site and wiki carry identical instructions apart from their Home link."
+
+[doc.05]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Finding boundary-settlement-wiki: Settlement sections prescribe deploy-contracts.sh, GuarantorBond, CheckpointRegistry and Blueprint activation around standalone node genesis. The site and wiki carry identical instructions apart from their Home link."
+
+[doc.06]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Finding control-router-description: The opening funds public accounts by custody credit submitted to the router. The body describes hosted LayerX admission and separate core/authority journey dependencies as its operational network."
+
+[doc.07]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Finding cluster-retired-topology: Bring-up assembles separate core boundary, receipt authority and node services and deploys settlement contracts. Its custody profile section passes --custody-profile to layerxd, and explorer read funding uses custody credit."
+
+[doc.08]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Finding faucet-router-funding: The page calls custody credit through the router the public funding path and advertises lx_requestFunds via the public gateway, interleaving private faucet deployment with public integration advice."
+
+[doc.09]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Finding cli-rpc-and-command-contradiction: The CLI guide requires --rpc URLs ending in /rpc. Its implemented-command table is followed by a table declaring many of those same wallet/token groups and flags unimplemented, giving contradictory integration advice."
+
+[doc.10]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Finding gateway-router-description-site: The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, assigns public nodes to an EVM-only domain and advertises /rpc, /rpc/schema and /rpc/ws. The site says 15 methods and the wiki 18."
+
+[doc.11]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Finding gateway-router-description-wiki: The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, assigns public nodes to an EVM-only domain and advertises /rpc, /rpc/schema and /rpc/ws. The site says 15 methods and the wiki 18."
+
+[doc.12]
+path = "docs/site/docs/programs/workspace.md"
+status = "accurate"
+notes = "The workspace, frozen ABI, fixture generators and portable verification recipes describe build/test authorities. The daemon/committed-fixture material is expressly stored signed vectors, not an instruction to deploy a separate sequencer; it remains valid historical compatibility coverage."
+
+[doc.13]
+path = "services/explorer/README.md"
+status = "stale"
+notes = "Finding explorer-frontend-location: The component table and build instructions place the frontend in services/explorer/frontend and tell operators to cd frontend and read frontend/.nvmrc; this package frontend actually lives in apps/explorer."
+
+[doc.14]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Finding explorer-upstream-location: The provenance table and import notes use frontend/ and explorer/ paths though the frontend import now lives at apps/explorer. The pinned revisions remain usable for full-byte upstream comparisons."
+
+[doc.15]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "Finding backend-archive-route-doc: The API list advertises /paxeer-x/anchors and /paxeer-x/receipts as ordinary routes; api_router.ex registers historical material under /paxeer-x/archive/anchors and /paxeer-x/archive/receipts beside native account/capabilities."
+
+[doc.16]
+path = "apps/explorer/README.md"
+status = "accurate"
+notes = "Frontend location, Blockscout v2.7.2 provenance, /explorer base path, chain id 125, presets and frozen-install/typecheck commands agree with the app boundary; commands were read, not executed."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/bridge-deploy.md"
+status = "accurate"
+notes = "Complete frozen contract read: app-env, chainconfig, ci, conformance, proposals, records and scripts. It explicitly pins source 2a1033aa2 and qualification UNRUN; historical planned statuses are not current execution evidence."
+
+[interface_review.14.cli-bridge-tests-checklist-check-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/checklist-check.sh"
+signature = "bash services/bridge/deploy/tests/checklist-check.sh"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bash entry point, arguments and named refusals match the script declaration. bridge-test.yml deploy-tooling invokes checklist-check, deploy-scripts-check, docs-check and workflow-check; EVM/Solana live dry runs are separate operator invocations. Offline commands and recorded replies are not represented as executed real-network gates."
+
+[interface_review.14.cli-bridge-tests-deploy-scripts-check-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/deploy-scripts-check.sh"
+signature = "bash services/bridge/deploy/tests/deploy-scripts-check.sh"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bash entry point, arguments and named refusals match the script declaration. bridge-test.yml deploy-tooling invokes checklist-check, deploy-scripts-check, docs-check and workflow-check; EVM/Solana live dry runs are separate operator invocations. Offline commands and recorded replies are not represented as executed real-network gates."
+
+[interface_review.14.cli-bridge-tests-docs-check-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/docs-check.sh"
+signature = "bash services/bridge/deploy/tests/docs-check.sh"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bash entry point, arguments and named refusals match the script declaration. bridge-test.yml deploy-tooling invokes checklist-check, deploy-scripts-check, docs-check and workflow-check; EVM/Solana live dry runs are separate operator invocations. Offline commands and recorded replies are not represented as executed real-network gates."
+
+[interface_review.14.cli-bridge-tests-evm-dry-run-check-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/evm-dry-run-check.sh"
+signature = "bash services/bridge/deploy/tests/evm-dry-run-check.sh"
+registry_status = "stable"
+assessment = "finding"
+notes = "Bash entry point, arguments and named refusals match the script declaration. bridge-test.yml deploy-tooling invokes checklist-check, deploy-scripts-check, docs-check and workflow-check; EVM/Solana live dry runs are separate operator invocations. Offline commands and recorded replies are not represented as executed real-network gates. Related findings name missing real admission/recovery or missing typecheck protection."
+
+[interface_review.14.cli-bridge-tests-solana-dry-run-check-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/solana-dry-run-check.sh"
+signature = "bash services/bridge/deploy/tests/solana-dry-run-check.sh"
+registry_status = "stable"
+assessment = "finding"
+notes = "Bash entry point, arguments and named refusals match the script declaration. bridge-test.yml deploy-tooling invokes checklist-check, deploy-scripts-check, docs-check and workflow-check; EVM/Solana live dry runs are separate operator invocations. Offline commands and recorded replies are not represented as executed real-network gates. Related findings name missing real admission/recovery or missing typecheck protection."
+
+[interface_review.14.cli-bridge-tests-workflow-check-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/workflow-check.sh"
+signature = "bash services/bridge/deploy/tests/workflow-check.sh"
+registry_status = "stable"
+assessment = "finding"
+notes = "Bash entry point, arguments and named refusals match the script declaration. bridge-test.yml deploy-tooling invokes checklist-check, deploy-scripts-check, docs-check and workflow-check; EVM/Solana live dry runs are separate operator invocations. Offline commands and recorded replies are not represented as executed real-network gates. Related findings name missing real admission/recovery or missing typecheck protection."
+
+[interface_review.14.fmt-bridge-solana-deployment-record-j55]
+direction = "produces"
+producer = "services/bridge/deploy/tests/fixtures/records/solana.json"
+signature = "{chain, chain_id, kind, configuration, genesis_hash, program_id, program_data_account, owner, threshold, commitment, vault_authority, vault_handle, attestors, assets}"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Fixture records/solana.json and deploy-solana-program.sh writer agree on chain id 91600046870081, base58 program/PDA keys, hex20 handle, finalized commitment, attestor array and decimal-string caps. Both additionally carry loader/ELF/signature/slot/publisher/upgrade-authority provenance. appenv.LoadRecord accepts extra JSON fields and intentionally reads the chain/kind/program_id subset; checklist/deploy tests read the remaining fields with jq. Registry signature summarizes core fields, not an exact-key decoder."
+
+[interface_review.10.http-human-activity-export-evidence]
+direction = "consumes"
+producer = "services/human/schema/human-api/activity.kvx"
+signature = "POST /v1/activity/exports/evidence"
+registry_status = "change"
+assessment = "copy-only"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy."
+
+[interface_review.10.http-human-activity-export-statement]
+direction = "consumes"
+producer = "services/human/schema/human-api/activity.kvx"
+signature = "POST /v1/activity/exports/statement"
+registry_status = "stable"
+assessment = "copy-only"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy."
+
+[interface_review.10.http-human-approval-program-budget]
+direction = "consumes"
+producer = "services/human/schema/human-api/program-approvals.kvx"
+signature = "GET /v1/program-approvals/{approval_id}/budget"
+registry_status = "stable"
+assessment = "copy-only"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy."
+
+[interface_review.10.http-human-approval-program-material]
+direction = "consumes"
+producer = "services/human/schema/human-api/program-approvals.kvx"
+signature = "GET /v1/program-approvals/{approval_id}/material"
+registry_status = "stable"
+assessment = "copy-only"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy."
+
+[interface_review.10.http-human-deposit-start]
+direction = "consumes"
+producer = "services/human/schema/human-api/movement.kvx"
+signature = "POST /v1/deposits"
+registry_status = "retire"
+assessment = "finding"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy. Retired deposit/exit wording has its own domain-10 finding."
+
+[interface_review.10.http-human-exit-start]
+direction = "consumes"
+producer = "services/human/schema/human-api/movement.kvx"
+signature = "POST /v1/exit"
+registry_status = "retire"
+assessment = "finding"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy. Retired deposit/exit wording has its own domain-10 finding."
+
+[interface_review.10.http-human-security-recovery-reveal]
+direction = "consumes"
+producer = "services/human/schema/human-api/identity.kvx"
+signature = "POST /v1/security/recovery/evidence"
+registry_status = "stable"
+assessment = "copy-only"
+notes = "Only catalogue/generated labels describe this Human surface; no member performs HTTP or decodes its request/response. Export labels describe prepared artifacts, program material retained/unconfirmed, and recovery evidence step-up-gated. Runtime authorization belongs to the schema handler outside this slice and is not established by copy."
+
+[interface_review.11.fmt-xws-stage-labels]
+direction = "consumes"
+producer = "services/interop/crates/x-websearch/src/kernel.rs"
+signature = "Stage::code() -> \"awaiting_quorum\" | \"submitting\" | \"unknown\" | \"completed\" | \"refused\" | \"rejected\""
+registry_status = "retired"
+assessment = "lexical-only"
+notes = "Words pending/completed/refused/unknown in UI copy are not imports or serialized x-websearch Stage values. No member communicates with this retired kernel implementation."
+
+[interface_review.14.cfg-explorer-explorer-chain-tokentransfer]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Chain.TokenTransfer [whitelisted_weth_contracts, weth_token_transfers_filtering_enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "RestoreOmittedWETHTransfers and SanitizeIncorrectWETHTokenTransfers read TokenTransfer whitelisted_weth_contracts and weth_token_transfers_filtering_enabled keys declared by runtime.exs. Imported WETH maintenance is not native custody registration."
+
+[interface_review.14.cfg-explorer-explorer-migrator-arbitrumdarecordsnormalization]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.ArbitrumDaRecordsNormalization [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-backfillmultichainsearchdb]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.BackfillMultichainSearchDB [concurrency, batch_size]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-celoaccounts]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.CeloAccounts [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-celoaggregatedelectionrewards]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.CeloAggregatedElectionRewards [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-celol2epochs]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.CeloL2Epochs"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-deletezerovalueinternaltransactions]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.DeleteZeroValueInternalTransactions [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-emptyinternaltransactionsdata]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.EmptyInternalTransactionsData"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-filecoinpendingaddressoperations]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.FilecoinPendingAddressOperations [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-heavydbindexoperation]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.HeavyDbIndexOperation [check_interval]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-heavydbindexoperation-createarbitrumbatchl2blocksunconfirmedblocksindex]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.HeavyDbIndexOperation.CreateArbitrumBatchL2BlocksUnconfirmedBlocksIndex [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-heavydbindexoperation-createtransactionsoperatorfeeconstantindex]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.HeavyDbIndexOperation.CreateTransactionsOperatorFeeConstantIndex [enabled]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-mergeadjacentmissingblockranges]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.MergeAdjacentMissingBlockRanges"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-refetchcontractcodes]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.RefetchContractCodes [concurrency, batch_size]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-reindexduplicatedinternaltransactions]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.ReindexDuplicatedInternalTransactions"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-reindexinternaltransactionswithincompatiblestatus]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.ReindexInternalTransactionsWithIncompatibleStatus"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-restoreomittedwethtransfers]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.RestoreOmittedWETHTransfers"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-sanitizeemptycontractcodeaddresses]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.SanitizeEmptyContractCodeAddresses"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-sanitizeincorrectnfttokentransfers]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.SanitizeIncorrectNFTTokenTransfers [batch_size, concurrency, timeout]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-sanitizeincorrectwethtokentransfers]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.SanitizeIncorrectWETHTokenTransfers [batch_size, concurrency, timeout]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-sanitizeverifiedaddresses]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.SanitizeVerifiedAddresses [enabled, batch_size, concurrency, timeout]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-shrinkinternaltransactions]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.ShrinkInternalTransactions [enabled, batch_size, concurrency]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-smartcontractlanguage]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.SmartContractLanguage [enabled, batch_size, concurrency]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-tokentransfertokentype]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.TokenTransferTokenType [batch_size, concurrency]"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-explorer-migrator-transactionsdenormalization]
+direction = "consumes"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Migrator.TransactionsDenormalization"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared runtime.exs declarations with migrator/FillingMigration application-env reads: integer batch_size/concurrency, millisecond timeout/check_interval, boolean enabled. Runtime chain identity gates Arbitrum/Filecoin/Celo/Optimism. Heavy operations persist MigrationStatus, check dependency names and retry on timers. Imported code takes vendor exception; local cache-publication issue is separate."
+
+[interface_review.14.cfg-explorer-json-rpc-named-arguments]
+direction = "consumes"
+producer = "services/explorer/backend/apps/explorer/config/dev/anvil.exs"
+signature = "config :explorer, :json_rpc_named_arguments"
+registry_status = "stable"
+assessment = "aligned"
+notes = "BackfillMetadataURL, RefetchContractCodes and ReindexBlocksWithMissingTransactions read :explorer/:json_rpc_named_arguments and pass options to EthereumJSONRPC. Registry source names an Anvil development preset rather than a hardcoded production destination in these members."
+
+[interface_review.14.cfg-logger-explorer]
+direction = "consumes"
+producer = "services/explorer/backend/apps/explorer/config/config.exs"
+signature = "config :logger, :explorer [metadata, metadata_filter, path, rotate]"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match :explorer application atoms, token_instances table names, withdrawal event types or URL hostname attributes. They do not read the declared logger destination or process.env.HOSTNAME; shared tokens imply no configuration edge."
+
+[interface_review.14.cfg-logger-token-instances]
+direction = "consumes"
+producer = "services/explorer/backend/apps/explorer/config/dev.exs"
+signature = "config :logger, :token_instances [path, metadata_filter, rotate]"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match :explorer application atoms, token_instances table names, withdrawal event types or URL hostname attributes. They do not read the declared logger destination or process.env.HOSTNAME; shared tokens imply no configuration edge."
+
+[interface_review.14.cfg-logger-withdrawal]
+direction = "consumes"
+producer = "services/explorer/backend/apps/indexer/config/dev.exs"
+signature = "config :logger, :withdrawal [path, metadata_filter, rotate]"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match :explorer application atoms, token_instances table names, withdrawal event types or URL hostname attributes. They do not read the declared logger destination or process.env.HOSTNAME; shared tokens imply no configuration edge."
+
+[interface_review.14.env-fe-hostname]
+direction = "consumes"
+producer = "apps/explorer/configs/essential-dapps-chains/config.edge.ts"
+signature = "return process.env.HOSTNAME !== undefined;"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match :explorer application atoms, token_instances table names, withdrawal event types or URL hostname attributes. They do not read the declared logger destination or process.env.HOSTNAME; shared tokens imply no configuration edge."
+
+[interface_review.14.met-explorer-batch-average-time]
+direction = "consumes"
+producer = "services/explorer/backend/apps/explorer/lib/explorer/prometheus/instrumenter.ex"
+signature = "gauge batch_average_time registry=default"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Imported Scroll.Reader reports batch average time to Explorer.Prometheus.Instrumenter batch_average_time gauge on default registry. Chain-specific telemetry is not a kernel checkpoint finality transport and takes the upstream vendor exception."
+
+[interface_review.16.fmt-gh-wf-bridge-test]
+direction = "consumes"
+producer = ".github/workflows/bridge-test.yml"
+signature = "workflow Paxeer X / Bridge Test (.github/workflows/bridge-test.yml)"
+registry_status = "stable"
+assessment = "finding"
+notes = "Actual workflow has five jobs, apps/bridge filters, pinned installers, frozen pnpm install and explicit typecheck/test commands. Offline checks agree with paths/default directories but do not enforce typecheck, as recorded in workflow-typecheck-not-enforced."
+
+[interface_review.16.fmt-gh-wf-paxeer-forge-test]
+direction = "consumes"
+producer = ".github/workflows/paxeer-forge-test.yml"
+signature = "workflow Paxeer / Forge Test (.github/workflows/paxeer-forge-test.yml)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "workflow-check.sh compares neighboring workflow runner/structure as source data, not another executed build target. No deployment credential or network write is introduced by that comparison."
+
+[interface_review.3.pc-0x1021-paused]
+direction = "consumes"
+producer = "precompiles/spot/abi/pecor.json"
+signature = "paused() view returns (bool)"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match bridge pause/readback or PaxeerXVault Ownable2Step.acceptOwnership. No member invokes spot/orders/stoporders precompiles, launchpad UpgradeableBeacon or BatchCallAndSponsor. Generic method spelling does not create a transport edge."
+
+[interface_review.3.pc-0x1022-paused]
+direction = "consumes"
+producer = "precompiles/spot/abi/orders.json"
+signature = "paused() view returns (bool)"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match bridge pause/readback or PaxeerXVault Ownable2Step.acceptOwnership. No member invokes spot/orders/stoporders precompiles, launchpad UpgradeableBeacon or BatchCallAndSponsor. Generic method spelling does not create a transport edge."
+
+[interface_review.3.pc-0x1023-paused]
+direction = "consumes"
+producer = "precompiles/spot/abi/stoporders.json"
+signature = "paused() view returns (bool)"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match bridge pause/readback or PaxeerXVault Ownable2Step.acceptOwnership. No member invokes spot/orders/stoporders precompiles, launchpad UpgradeableBeacon or BatchCallAndSponsor. Generic method spelling does not create a transport edge."
+
+[interface_review.4.sol-upgradeablebeacon-acceptownership-79ba5097]
+direction = "consumes"
+producer = "contracts/launchpad/contracts/base/UpgradeableBeacon.sol"
+signature = "function acceptOwnership() external"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match bridge pause/readback or PaxeerXVault Ownable2Step.acceptOwnership. No member invokes spot/orders/stoporders precompiles, launchpad UpgradeableBeacon or BatchCallAndSponsor. Generic method spelling does not create a transport edge."
+
+[interface_review.6.env-paxeer-bridge-vault-assets]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "PAXEER_BRIDGE_VAULT_ASSETS"
+registry_status = "stable"
+assessment = "aligned"
+notes = "deploy-scripts-check.sh uses the exact DeployPaxeerXVault.s.sol env name. Addresses, uint256 threshold/caps and comma-delimited arrays agree; native zero-address asset is first and cap lengths match. Owner accepts the two-step handoff. Missing/placeholder inputs are refused before deployment."
+
+[interface_review.6.env-paxeer-bridge-vault-attestors]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "PAXEER_BRIDGE_VAULT_ATTESTORS"
+registry_status = "stable"
+assessment = "aligned"
+notes = "deploy-scripts-check.sh uses the exact DeployPaxeerXVault.s.sol env name. Addresses, uint256 threshold/caps and comma-delimited arrays agree; native zero-address asset is first and cap lengths match. Owner accepts the two-step handoff. Missing/placeholder inputs are refused before deployment."
+
+[interface_review.6.env-paxeer-bridge-vault-owner]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "PAXEER_BRIDGE_VAULT_OWNER"
+registry_status = "stable"
+assessment = "aligned"
+notes = "deploy-scripts-check.sh uses the exact DeployPaxeerXVault.s.sol env name. Addresses, uint256 threshold/caps and comma-delimited arrays agree; native zero-address asset is first and cap lengths match. Owner accepts the two-step handoff. Missing/placeholder inputs are refused before deployment."
+
+[interface_review.6.env-paxeer-bridge-vault-per-tx-caps]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "PAXEER_BRIDGE_VAULT_PER_TX_CAPS"
+registry_status = "stable"
+assessment = "aligned"
+notes = "deploy-scripts-check.sh uses the exact DeployPaxeerXVault.s.sol env name. Addresses, uint256 threshold/caps and comma-delimited arrays agree; native zero-address asset is first and cap lengths match. Owner accepts the two-step handoff. Missing/placeholder inputs are refused before deployment."
+
+[interface_review.6.env-paxeer-bridge-vault-threshold]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "PAXEER_BRIDGE_VAULT_THRESHOLD"
+registry_status = "stable"
+assessment = "aligned"
+notes = "deploy-scripts-check.sh uses the exact DeployPaxeerXVault.s.sol env name. Addresses, uint256 threshold/caps and comma-delimited arrays agree; native zero-address asset is first and cap lengths match. Owner accepts the two-step handoff. Missing/placeholder inputs are refused before deployment."
+
+[interface_review.6.env-paxeer-bridge-vault-total-caps]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "PAXEER_BRIDGE_VAULT_TOTAL_CAPS"
+registry_status = "stable"
+assessment = "aligned"
+notes = "deploy-scripts-check.sh uses the exact DeployPaxeerXVault.s.sol env name. Addresses, uint256 threshold/caps and comma-delimited arrays agree; native zero-address asset is first and cap lengths match. Owner accepts the two-step handoff. Missing/placeholder inputs are refused before deployment."
+
+[interface_review.6.err-paxeerxvault-nullifierused-4aac17bc]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "error NullifierUsed(bytes32 nullifier)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.go-bridge-vectors-findprogramaddress-j36]
+direction = "consumes"
+producer = "contracts/bridge/vectors/solana.go"
+signature = "func FindProgramAddress(programID Key32, seeds [][]byte) (Key32, uint8, error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared generated helper in solana-dry-run-check.sh with contracts/bridge/vectors/solana.go: Key validates base58 into Key32[32], Handle uses low20 keccak bytes, VaultAuthority/VaultHandle use vault-authority PDA, and FindProgramAddress returns key,bump,error after descending off-curve search. Callers preserve identities and propagate errors."
+
+[interface_review.6.go-bridge-vectors-handle-j36]
+direction = "consumes"
+producer = "contracts/bridge/vectors/solana.go"
+signature = "func Handle(key Key32) Address20"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared generated helper in solana-dry-run-check.sh with contracts/bridge/vectors/solana.go: Key validates base58 into Key32[32], Handle uses low20 keccak bytes, VaultAuthority/VaultHandle use vault-authority PDA, and FindProgramAddress returns key,bump,error after descending off-curve search. Callers preserve identities and propagate errors."
+
+[interface_review.6.go-bridge-vectors-key-j36]
+direction = "consumes"
+producer = "contracts/bridge/vectors/solana.go"
+signature = "func Key(address string) (Key32, error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared generated helper in solana-dry-run-check.sh with contracts/bridge/vectors/solana.go: Key validates base58 into Key32[32], Handle uses low20 keccak bytes, VaultAuthority/VaultHandle use vault-authority PDA, and FindProgramAddress returns key,bump,error after descending off-curve search. Callers preserve identities and propagate errors."
+
+[interface_review.6.go-bridge-vectors-key32-j36]
+direction = "consumes"
+producer = "contracts/bridge/vectors/solana.go"
+signature = "type Key32 [32]byte"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared generated helper in solana-dry-run-check.sh with contracts/bridge/vectors/solana.go: Key validates base58 into Key32[32], Handle uses low20 keccak bytes, VaultAuthority/VaultHandle use vault-authority PDA, and FindProgramAddress returns key,bump,error after descending off-curve search. Callers preserve identities and propagate errors."
+
+[interface_review.6.go-bridge-vectors-vaultauthority-j36]
+direction = "consumes"
+producer = "contracts/bridge/vectors/solana.go"
+signature = "func VaultAuthority(programID Key32) (Key32, uint8, error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared generated helper in solana-dry-run-check.sh with contracts/bridge/vectors/solana.go: Key validates base58 into Key32[32], Handle uses low20 keccak bytes, VaultAuthority/VaultHandle use vault-authority PDA, and FindProgramAddress returns key,bump,error after descending off-curve search. Callers preserve identities and propagate errors."
+
+[interface_review.6.go-bridge-vectors-vaulthandle-j36]
+direction = "consumes"
+producer = "contracts/bridge/vectors/solana.go"
+signature = "func VaultHandle(programID Key32) (Address20, error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared generated helper in solana-dry-run-check.sh with contracts/bridge/vectors/solana.go: Key validates base58 into Key32[32], Handle uses low20 keccak bytes, VaultAuthority/VaultHandle use vault-authority PDA, and FindProgramAddress returns key,bump,error after descending off-curve search. Callers preserve identities and propagate errors."
+
+[interface_review.6.pc-0x1016-getcap]
+direction = "consumes"
+producer = "precompiles/layerxbridge/abi.json"
+signature = "getCap(uint64,address) view returns (string,uint256,uint256,uint256)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "ABI and checklist fixtures agree: uint64 chain,address asset returns string denom,uint256 maxInFlight,uint256 maxPerTx,uint256 inFlight in that order. Negative cases independently mutate total/per-tx values and expect named disagreement; real admission/recovery limitations are separate findings."
+
+[interface_review.6.pc-0x1016-getchain]
+direction = "consumes"
+producer = "precompiles/layerxbridge/abi.json"
+signature = "getChain(uint64) view returns (bool,address,uint64,bool)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "ABI and checklist fixtures agree on uint64 input and registered bool,vault address20,finalityDepth uint64,enabled bool outputs. Negative cases independently mutate registration/vault/enabled. No unrelated paused() method is inferred."
+
+[interface_review.6.sol-batchcallandsponsor-acceptownership-79ba5097]
+direction = "consumes"
+producer = "contracts/src/BatchCallAndSponsor.sol"
+signature = "function acceptOwnership() external"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Candidates match bridge pause/readback or PaxeerXVault Ownable2Step.acceptOwnership. No member invokes spot/orders/stoporders precompiles, launchpad UpgradeableBeacon or BatchCallAndSponsor. Generic method spelling does not create a transport edge."
+
+[interface_review.6.sol-deploypaxeerxvault-run-c0406226]
+direction = "consumes"
+producer = "contracts/bridge/evm/script/DeployPaxeerXVault.s.sol"
+signature = "function run() external returns (PaxeerXVault vault)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-attestors-e7eb466f]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function attestors() external view returns (address[] memory)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-caps-66d97b21]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "mapping(address"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-deposit-26b3293f]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function deposit(address asset, uint256 amount, bytes32 paxeerRecipient) external whenNotPaused nonReentrant"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-depositnative-42ef5fbb]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function depositNative(bytes32 paxeerRecipient) external payable whenNotPaused nonReentrant"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-depositnonce-de35f5cb]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "uint64 public depositNonce"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-nullified-e73bdb5e]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "mapping(bytes32"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-outstanding-de58bafa]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "mapping(address"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-registered-b2dd5c07]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "mapping(address"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-release-05eb766d]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function release( address asset, uint256 amount, address recipient, bytes32 paxeerTxHash, uint64 paxeerNonce, bytes[] calldata signatures ) external whenNotPaused nonReentrant"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-releasedigest-90a99162]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function releaseDigest(bytes32 paxeerTxHash, uint64 paxeerNonce, address recipient, address asset, uint256 amount) external view returns (bytes32)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-setattestors-18c3cdb7]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function setAttestors(address[] calldata attestors_, uint256 threshold_) external onlyOwner"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-setcap-4fa55693]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "function setCap(address asset, uint256 perTx, uint256 total) external onlyOwner"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.6.sol-paxeerxvault-threshold-42cde4e8]
+direction = "consumes"
+producer = "contracts/bridge/evm/src/PaxeerXVault.sol"
+signature = "uint256 public threshold"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Compared vault/deploy ABI with cast arguments, readback and env assertions: address20 identities, bytes32 hashes/recipient words, uint64 nonces, uint256 base-unit amounts, bytes[] signatures. Native deposit is payable, token deposit carries asset/amount, releaseDigest binds burn/nonce/recipient/asset/amount and duplicate release checks NullifierUsed. Recovery coverage limitations are separate dry-run findings."
+
+[interface_review.7.rpc-eth-call]
+direction = "consumes"
+producer = "rpc/simulate.go"
+signature = "func (s *SimulationAPI) Call(ctx context.Context, args export.TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash, overrides *export.StateOverride, blockOverrides *export.BlockOverrides) (result hexutil.Bytes, returnErr error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bridge scripts use JSON-RPC 2.0 matching ids, hex ABI calldata/results, hex chain/balance quantities and 0x code bytes. Anvil calls and recorded replies share that contract. Paxeer facade implements eth_call reads rather than normal signed transaction admission; receipt wire fixture drift is separately recorded."
+
+[interface_review.7.rpc-eth-chainid]
+direction = "consumes"
+producer = "rpc/info.go"
+signature = "func (i *InfoAPI) ChainId(ctx context.Context) *hexutil.Big"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bridge scripts use JSON-RPC 2.0 matching ids, hex ABI calldata/results, hex chain/balance quantities and 0x code bytes. Anvil calls and recorded replies share that contract. Paxeer facade implements eth_call reads rather than normal signed transaction admission; receipt wire fixture drift is separately recorded."
+
+[interface_review.7.rpc-eth-getbalance]
+direction = "consumes"
+producer = "rpc/state.go"
+signature = "func (a *StateAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (result *hexutil.Big, returnErr error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bridge scripts use JSON-RPC 2.0 matching ids, hex ABI calldata/results, hex chain/balance quantities and 0x code bytes. Anvil calls and recorded replies share that contract. Paxeer facade implements eth_call reads rather than normal signed transaction admission; receipt wire fixture drift is separately recorded."
+
+[interface_review.7.rpc-eth-getcode]
+direction = "consumes"
+producer = "rpc/state.go"
+signature = "func (a *StateAPI) GetCode(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (result hexutil.Bytes, returnErr error)"
+registry_status = "stable"
+assessment = "aligned"
+notes = "Bridge scripts use JSON-RPC 2.0 matching ids, hex ABI calldata/results, hex chain/balance quantities and 0x code bytes. Anvil calls and recorded replies share that contract. Paxeer facade implements eth_call reads rather than normal signed transaction admission; receipt wire fixture drift is separately recorded."
+
+[interface_review.8.cfg-ai-evaluator-config-chain]
+direction = "consumes"
+producer = "services/platform/hosted/ai-evaluator/src/main.rs"
+signature = "chain: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ai-evaluator-config-gas-limit]
+direction = "consumes"
+producer = "services/platform/hosted/ai-evaluator/src/main.rs"
+signature = "gas_limit: u64,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ai-evaluator-config-owner]
+direction = "consumes"
+producer = "services/platform/hosted/ai-evaluator/src/main.rs"
+signature = "owner: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ai-evaluator-config-rpc-url]
+direction = "consumes"
+producer = "services/platform/hosted/ai-evaluator/src/main.rs"
+signature = "rpc_url: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-authority-principalpolicy-identities]
+direction = "consumes"
+producer = "services/platform/hosted/authority/src/human.rs"
+signature = "identities: Vec<Identity>,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-cli-environment-endpoint]
+direction = "consumes"
+producer = "tools/platform/cli/src/config.rs"
+signature = "pub endpoint: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-cli-keymetadata-did]
+direction = "consumes"
+producer = "tools/platform/cli/src/config.rs"
+signature = "pub did: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-applications-commands]
+direction = "consumes"
+producer = "services/platform/examples/reference-apps.json"
+signature = "\"commands\": {"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-applications-symbol]
+direction = "consumes"
+producer = "services/platform/examples/reference-apps.json"
+signature = "\"symbol\": \"platform_ref_buyer\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-marketplace-environments-beta-endpoint]
+direction = "consumes"
+producer = "services/platform/examples/marketplace/layerx.example.json"
+signature = "\"endpoint\": \"<url>\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-marketplace-environments-emulator-endpoint]
+direction = "consumes"
+producer = "services/platform/examples/marketplace/layerx.example.json"
+signature = "\"endpoint\": \"<url>\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-merchant-checkout-environments-beta-port]
+direction = "consumes"
+producer = "services/platform/examples/merchant-checkout/layerx.example.json"
+signature = "\"port\": 8082"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-merchant-checkout-environments-emulator-port]
+direction = "consumes"
+producer = "services/platform/examples/merchant-checkout/layerx.example.json"
+signature = "\"port\": 8082"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-merchant-shop-environments-beta-port]
+direction = "consumes"
+producer = "services/platform/examples/merchant-shop/layerx.example.json"
+signature = "\"port\": 8082"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-merchant-shop-environments-emulator-port]
+direction = "consumes"
+producer = "services/platform/examples/merchant-shop/layerx.example.json"
+signature = "\"port\": 8082"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-paid-api-environments-beta-port]
+direction = "consumes"
+producer = "services/platform/examples/paid-api/layerx.example.json"
+signature = "\"port\": 8081"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-paid-api-environments-emulator-port]
+direction = "consumes"
+producer = "services/platform/examples/paid-api/layerx.example.json"
+signature = "\"port\": 8081"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-examples-paid-api-units]
+direction = "consumes"
+producer = "services/platform/examples/paid-api/resource.json"
+signature = "\"units\": \"protocol-integer\""
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-feeder-config-chain-id]
+direction = "consumes"
+producer = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+signature = "pub chain_id: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-feeder-config-gas-limit]
+direction = "consumes"
+producer = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+signature = "pub gas_limit: u64,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-feeder-config-validator]
+direction = "consumes"
+producer = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+signature = "pub validator: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-feeder-marketconfig-market-id]
+direction = "consumes"
+producer = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+signature = "pub market_id: u64,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-feeder-marketconfig-symbol]
+direction = "consumes"
+producer = "services/platform/hosted/feeder/src/bin/price-sidecar/main.rs"
+signature = "pub symbol: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-gateway-policy-schema]
+direction = "consumes"
+producer = "services/platform/hosted/gateway/src/lib.rs"
+signature = "schema: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-paxai-worker-config-chain]
+direction = "consumes"
+producer = "services/platform/hosted/paxai-worker/src/main.rs"
+signature = "chain: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-paxai-worker-config-owner]
+direction = "consumes"
+producer = "services/platform/hosted/paxai-worker/src/main.rs"
+signature = "owner: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramp-reference-complianceconfig-endpoint]
+direction = "consumes"
+producer = "services/platform/ramps/reference/src/main.rs"
+signature = "endpoint: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramp-reference-identityconfig-endpoint]
+direction = "consumes"
+producer = "services/platform/ramps/reference/src/main.rs"
+signature = "endpoint: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramp-reference-providerconfig-endpoint]
+direction = "consumes"
+producer = "services/platform/ramps/reference/src/main.rs"
+signature = "endpoint: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramps-compliance-endpoint]
+direction = "consumes"
+producer = "services/platform/ramps/config.example.json"
+signature = "\"endpoint\": \"<url>\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramps-identity-endpoint]
+direction = "consumes"
+producer = "services/platform/ramps/config.example.json"
+signature = "\"endpoint\": \"<url>\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramps-operator-account]
+direction = "consumes"
+producer = "services/platform/ramps/config.example.json"
+signature = "\"account\": \"agent:did:layerx:market-maker-eu-1:main\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-ramps-provider-endpoint]
+direction = "consumes"
+producer = "services/platform/ramps/config.example.json"
+signature = "\"endpoint\": \"<url>\","
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-relay-archive-peer-discovery-seeds]
+direction = "consumes"
+producer = "services/platform/relay_archive/config.example.json"
+signature = "\"seeds\": ["
+registry_status = "retired"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-release-artifactmanifest-images]
+direction = "consumes"
+producer = "tools/platform/release/src/main.rs"
+signature = "pub images: Vec<ImageManifestEntry>,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.cfg-release-artifactmanifest-schema]
+direction = "consumes"
+producer = "tools/platform/release/src/main.rs"
+signature = "pub schema: String,"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Registry candidates match local object keys/helper names: chain, owner, gas_limit, endpoint, port, schema, symbol, market_id, images, seeds and similar. The slice neither instantiates the declared hosted-service config nor communicates with that producer. Solana PDA seeds do not refer to retired relay archive discovery; identical spelling is no consumption edge."
+
+[interface_review.8.err-cli-32700]
+direction = "consumes"
+producer = "tools/platform/cli/src/a2a.rs"
+signature = "return failure(Value::Null, -32700, \"the message is not valid JSON\");"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Dry-run HTTP facades emit standard JSON-RPC parse-error -32700 locally; they do not call CLI A2A parsing, hosted gateway or retired relay archive. Shared numeric error code is not a service dependency."
+
+[interface_review.8.err-gateway-32700]
+direction = "consumes"
+producer = "services/platform/hosted/gateway/src/rpc.rs"
+signature = "return json_response(200, &error(&Value::Null, -32700, \"Parse error\"));"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Dry-run HTTP facades emit standard JSON-RPC parse-error -32700 locally; they do not call CLI A2A parsing, hosted gateway or retired relay archive. Shared numeric error code is not a service dependency."
+
+[interface_review.8.err-relay-archive-32700]
+direction = "consumes"
+producer = "services/platform/relay_archive/runtime.py"
+signature = "return _rpc_error(None, -32700, \"Parse error\")"
+registry_status = "retired"
+assessment = "lexical-only"
+notes = "Dry-run HTTP facades emit standard JSON-RPC parse-error -32700 locally; they do not call CLI A2A parsing, hosted gateway or retired relay archive. Shared numeric error code is not a service dependency."
+
+[interface_review.8.fmt-perf-db-checkpoint]
+direction = "consumes"
+producer = "services/platform/perf-db/src/relational/checkpoint.rs"
+signature = "pub struct CheckpointStore {"
+registry_status = "stable"
+assessment = "lexical-only"
+notes = "Checkpoint labels in UI copy and imported chain fixtures do not construct the performance database CheckpointStore or use its storage format. No perf-db transport or restart dependency exists in these members."
+
+[interface_review.8.http-gateway-any-explorer]
+direction = "consumes"
+producer = "services/platform/hosted/gateway/src/explorer_proxy.rs"
+signature = "rest == \"/explorer\" || rest.starts_with(\"/explorer/\") || rest.starts_with(\"/explorer?\")"
+registry_status = "stable"
+assessment = "finding"
+notes = "Gateway owns /explorer prefix with explicit proxy route selection and bounded path segments. Catalogue is copy, not HTTP transport; apps/web renderers still display side balances and anchor settlement, recorded in split-balances-and-settlement-copy without conflating all explorer routes with archive endpoints."
+
+[review.requirements]
+requirements = ["22108.1", "14991.1", "14038.1", "14038.2", "14002.1", "14002.2", "14061.1", "14061.2", "14062.1", "14062.2", "14243.1", "14243.2", "14280.1", "14288.1", "14506.1", "14519.1", "18955.1", "18870.1", "18870.2", "18896.1", "181173.1"]
+source_review = "22108.1/14991.1: frozen install and tsc remain entry points, not executed here. 14002.1-2: operation-retired copy and exact generated projection retained. 14038.1-2: receipt block/revert text retained. 14061.1-2/14062.1-2: retired binding/verification keys absent, payout wallet and unavailable/receipt-verified remain. 14243.1-2: retained capabilities and optional absent feed. 14280.1/14288.1/18955.1: status ladder, evm/pax/did order and total balances compared with producer; fixture disagreement recorded. 14506.1/14519.1: five-leg and app-env agreement cases present. 18870.1-2: typed native export exists but prohibited cast persists. 18896.1: same-block higher-index cases exist in applyPriceUpdates.spec.ts. 181173.1: accepted producer filtering compared with failed fixture and market queries."
+acceptance = "22998.1 qualifies this record through the declared audit checker and graph checks in hf-done. No dependency upgrade, product suite success or unrelated failed-target repair is claimed."

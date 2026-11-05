@@ -3,6 +3,7 @@ package sequencer_test
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/big"
@@ -20,6 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	xwebprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/xweb"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -48,6 +50,7 @@ func newPrecompileHarness(t *testing.T, setup func(ctx sdk.Context, a *app.App),
 	valPub := secp256k1.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, true)
 	a := tw.App
+	require.NoError(t, precompiletest.Install(a))
 	for _, acct := range funded {
 		a.EvmKeeper.SetAddressMapping(tw.Ctx, acct.AccountAddress, acct.EvmAddress)
 		tw.FundAcc(acct.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(fundingUhpx))))
@@ -110,15 +113,19 @@ func uhpx(a *app.App, ctx sdk.Context, addr sdk.AccAddress) int64 {
 	return a.BankKeeper.GetBalance(ctx, addr, "uhpx").Amount.Int64()
 }
 
-func xwebInfo() precompiles.PrecompileInfo {
-	return precompiles.GetPrecompileInfo(xwebprecompile.PrecompileName)
+func xwebInfo(t *testing.T) precompiles.PrecompileInfo {
+	t.Helper()
+	info, err := precompiles.GetPrecompileInfoE(xwebprecompile.PrecompileName)
+	require.NoError(t, err)
+	require.Equal(t, xwebAddress, info.Address)
+	return info
 }
 
 // unknownMethodError is the error the xweb precompile fails with for a
 // selector its ABI does not carry.
 func unknownMethodError(t *testing.T) error {
 	t.Helper()
-	info := xwebInfo()
+	info := xwebInfo(t)
 	_, err := info.ABI.MethodById(unknownMethod)
 	require.Error(t, err)
 	return err
@@ -143,6 +150,29 @@ func cw20Balance(t *testing.T, a *app.App, ctx sdk.Context, contract, holder sdk
 	out, err := a.WasmKeeper.QuerySmart(ctx, contract, []byte(fmt.Sprintf(`{"balance":{"address":"%s"}}`, holder)))
 	require.NoError(t, err)
 	return string(out)
+}
+
+func TestAcceptPlacesTxWithSetTxPosition(t *testing.T) {
+	sender, recipient := utils.NewSigner(), utils.NewSigner()
+	rh := newReceiptHarness(t, 0, nil, sender)
+
+	for i := 1; i <= 3; i++ {
+		etx, bz := transfer(t, sender, uint64(i-1), recipient.EvmAddress, big.NewInt(onePaxInWei))
+		acc, rec, _ := rh.accept(t, bz)
+		require.Equal(t, uint32(0), acc.Result.Code, acc.Result.Log)
+		require.Equal(t, int32(0), rec.ResultCode)
+		require.Equal(t, i, acc.TxIndex)
+		require.NotEmpty(t, rec.Effects)
+		require.GreaterOrEqual(t, len(rec.Effects[0].Body), 28)
+		receiptTxIndex := binary.BigEndian.Uint32(rec.Effects[0].Body[24:28])
+		require.Equal(t, uint32(i), receiptTxIndex)
+
+		evmReceipt := rh.transient(t, etx, acc)
+		require.Equal(t, uint32(1), evmReceipt.Status)
+		require.Equal(t, uint32(acc.TxIndex), evmReceipt.TransactionIndex)
+		require.Equal(t, receiptTxIndex, evmReceipt.TransactionIndex)
+		requireWei(t, big.NewInt(int64(i)*onePaxInWei), rh.weiBalance(rh.openCtx(), recipient.EvmAddress))
+	}
 }
 
 func TestPositionWasmCounterMatchesBlock(t *testing.T) {
@@ -342,7 +372,7 @@ func TestPositionPrecompileSetRefreshedOnOpen(t *testing.T) {
 	}
 	rh := newPrecompileHarness(t, rewind, sender)
 	require.True(t, rh.app.UpgradeKeeper.HasHandler(precompiles.XWebUpgrade))
-	info := xwebInfo()
+	info := xwebInfo(t)
 	feeInput, err := info.ABI.Pack(xwebprecompile.FeeMethod)
 	require.NoError(t, err)
 

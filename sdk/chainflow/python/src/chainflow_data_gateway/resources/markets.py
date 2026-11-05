@@ -67,7 +67,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             "/api/markets/health",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketsHealth,
         )
@@ -102,7 +106,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             "/api/markets/markets",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListResponse,
         )
@@ -162,7 +170,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             path_template("/api/markets/markets/{symbol}", **{"symbol": symbol}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketRetrieveResponse,
         )
@@ -197,7 +209,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             "/api/markets/totals",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListTotalsResponse,
         )
@@ -232,7 +248,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             "/api/markets/tickers",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListTickersResponse,
         )
@@ -273,7 +293,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             path_template("/api/markets/ticker/{symbol}", **{"symbol": symbol}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketRetrieveTickerResponse,
         )
@@ -308,7 +332,11 @@ class MarketsResource(SyncAPIResource):
         return self._get(
             "/api/markets/open-interest",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListOpenInterestResponse,
         )
@@ -353,7 +381,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             "/api/markets/health",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketsHealth,
         )
@@ -388,7 +420,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             "/api/markets/markets",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListResponse,
         )
@@ -448,7 +484,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/markets/markets/{symbol}", **{"symbol": symbol}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketRetrieveResponse,
         )
@@ -483,7 +523,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             "/api/markets/totals",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListTotalsResponse,
         )
@@ -518,7 +562,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             "/api/markets/tickers",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListTickersResponse,
         )
@@ -559,7 +607,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             path_template("/api/markets/ticker/{symbol}", **{"symbol": symbol}),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketRetrieveTickerResponse,
         )
@@ -594,7 +646,11 @@ class AsyncMarketsResource(AsyncAPIResource):
         return await self._get(
             "/api/markets/open-interest",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=MarketListOpenInterestResponse,
         )

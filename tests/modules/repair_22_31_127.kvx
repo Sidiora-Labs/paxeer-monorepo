@@ -1,0 +1,69 @@
+[task]
+id = "22.31.127"
+audit = "22.30.6"
+base = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+test_path = "tests/modules/test_perps_position.c"
+test_cases = "tests/modules/test_perps_repairs.h is included by the existing perps position suite and every declared test is called by main."
+baseline = "Not run: the explicit ordered gate rules prohibit tests before the entire implementation and prohibit invoking verify_cmd by hand. No earlier gate ledger existed at session entry; no baseline failures are claimed."
+evidence = "The private /out/run/gates.jsonl ledger names the exact candidate revision, command, exit and log for hf-build and hf-done. The final response copies the last gate evidence."
+wiring_requests = []
+funding_deficit = "Unpaid liquidation funding is retained in the committed funding-debt:<market32>:<pool32> record as a canonical u128 liability to that pool; trading shortfalls retain the existing per-market insurance deficit used by ADL. Credits require the actual funding pool balance and fail atomically if unavailable."
+reservation_lifecycle = "A versioned reservation:<margin32> record binds owner, market and quote asset. POSITION_CLOSE releases a reservation without exposure only when no live position or active order encumbers that margin. ORDER_CANCEL removes the order; the owner then uses POSITION_CLOSE to release. IOC terminal orders do not encumber margin."
+recovery = "Tests write production kernel snapshots to a temporary file, destroy the state and kernel, initialize an empty registry and kernel, load and verify the snapshot root, resolve recovered accounts, and assert exact balances, exposure, open interest and refusal of duplicate settlements."
+formatter = "No C formatter configuration or C formatting command is declared by this repository; touched C files follow the surrounding style."
+
+[finding.order-price-scale]
+proving_tests = ["test_order_price_scale"]
+repair = "Order admission and reservation use lx_perps_fill_notional, the execution calculation, including exact scaled division and overflow refusals."
+
+[finding.close-trading-pnl]
+proving_tests = ["test_close_trading_pnl", "test_close_rollback_recovery", "test_close_with_funding"]
+repair = "Close reads the permitted fresh oracle price, values the stored entry notional, settles trading P&L and funding with collateral in one conserved transfer set, and only then closes exposure."
+
+[finding.fill-reduction-pnl]
+proving_tests = ["test_fill_reduction_pnl", "test_fill_reversal_pnl"]
+repair = "Partial reductions realize fill-price P&L against the proportional removed cost basis. Full offsets and reversals realize the entire removed basis. The matching round nets realized P&L per margin party and applies losses, profits, residual releases and funding atomically; remaining positions retain their cost basis."
+
+[finding.liquidation-equity]
+proving_tests = ["test_liquidation_equity", "test_liquidation_funding"]
+repair = "Admission and execution share signed equity: cash plus side-aware mark value minus entry basis and accrued funding. Equity equal to maintenance is not liquidatable."
+
+[finding.unfilled-margin-release]
+proving_tests = ["test_unfilled_margin_release"]
+repair = "Persist reservations separately from filled positions and use owner-authorized POSITION_CLOSE for unencumbered margin, including no-order reservations, cancelled no-fill orders, no-fill IOC and reservations reopened over a closed position."
+
+[finding.liquidation-funding]
+proving_tests = ["test_liquidation_funding"]
+repair = "Real funding ticks produce debt and credit for both sides; liquidation credits the real pool receivable, pays funding debt from collateral and insurance, preserves unpaid funding for the exact pool, pays trading losses, records remaining trading deficit, then fees and residual collateral. Recovery cannot duplicate settlement."
+
+[gotcha.1]
+symptom = "The task text requests a baseline verification while its explicit ordered gate rules forbid pre-implementation tests and manual verify_cmd runs."
+resolution = "Follow the explicit gate order and disclose that no pre-change test result is available."
+
+[gotcha.2]
+symptom = "The existing C fixtures use an in-memory asset transfer record without the issuer metadata required by the v3 committed asset codec."
+resolution = "The IOC case upgrades the real module registration and seeds its committed asset peer using the production asset-record encoder with complete fixture issuer metadata."
+
+[gotcha.3]
+symptom = "The prior attempt's recovery case passed UINT64_MAX to snapshot_write because module-only dispatch left store.next_sequence at zero."
+resolution = "Seal committed activity sequences with the production state journal before snapshotting, destroy the old account registry, and assert the next sequence and canonical root after loading fresh state."
+
+[gotcha.4]
+symptom = "The IOC setup tried to create an asset module context without registering the real asset module, returning MODULE_DISABLED."
+resolution = "Register the production asset peer before committing its fixture record, and restore the same registration when reopening the protocol-v3 kernel."
+
+[qualification.2]
+revision = "83081f1842c8667769b2793f2aa4c328063157b1"
+command = "cg spec done 22.31.127 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The scaled-order, close, rollback, funding-close, fill-reduction, reversal and liquidation-equity cases passed; the unfilled-margin IOC setup failed with MODULE_DISABLED before its asset fixture context could initialize."
+assumption = "Registering the real asset peer before fixture persistence and after restart repairs the missing test-harness dependency without changing any economic assertion."
+
+[qualification.1]
+revision = "e75a6f64521c5ad1e1053d5d6d07f15187bf8eca"
+command = "cg spec done 22.31.127 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "test-perps-book stopped verification; its mixed_price_liquidation_case expected a profitable mixed-entry long to liquidate at mark 3200."
+assumption = "This task must replace that obsolete expectation with strict profitable-long refusal, unchanged root and balances, and insolvent mixed-entry short settlement with the exact persisted deficit; no test is skipped or weakened."

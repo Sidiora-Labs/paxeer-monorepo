@@ -1,38 +1,29 @@
-/**
- * Centralised query keys for the wallet app.
- *
- * Always import keys from here so cache reads / invalidations / prefetches
- * stay aligned across files. Keys are typed as `as const` so TypeScript
- * narrows them to literal tuples — TanStack Query uses structural equality
- * on these tuples, so consistency matters.
- */
+/** Shared identities for wallet reads, invalidations and reconciliation. */
+import { scopedQueryKey } from './scope';
 
 const lower = (addr: string | undefined | null) => (addr ?? '').toLowerCase();
 
 export const queryKeys = {
-  portfolio: (address: string) => ['portfolio', lower(address)] as const,
-  balance:   (address: string) => ['balance',   lower(address)] as const,
-  paxPrice:  (symbol = 'PAX')  => ['paxPrice',  symbol] as const,
-
-  holdings:        (address: string) => ['holdings',        lower(address)] as const,
-  pnlHistory:      (address: string, days: number) => ['pnlHistory', lower(address), days] as const,
-  portfolioChart:  (address: string, period: string) => ['portfolioChart', lower(address), period] as const,
-  txHistory:       (address: string) => ['txHistory',  lower(address)] as const,
-  transfers:       (address: string) => ['transfers',  lower(address)] as const,
-  txCount:         (address: string) => ['txCount',     lower(address)] as const,
-  txDetail:        (hash: string)    => ['txDetail',    hash.toLowerCase()] as const,
-  rankings:        (category: string) => ['rankings',   category] as const,
+  portfolio: (address: string, scope?: string) =>
+    scopedQueryKey(['portfolio', lower(address)], scope),
+  balance: (address: string, scope?: string) => scopedQueryKey(['balance', lower(address)], scope),
+  paxPrice: (symbol = 'PAX', scope?: string) => scopedQueryKey(['paxPrice', symbol], scope),
+  holdings: (address: string, scope?: string) =>
+    scopedQueryKey(['holdings', lower(address)], scope),
+  pnlHistory: (address: string, days: number, scope?: string) =>
+    scopedQueryKey(['pnlHistory', lower(address), days], scope),
+  portfolioChart: (address: string, period: string, scope?: string) =>
+    scopedQueryKey(['portfolioChart', lower(address), period], scope),
+  txHistory: (address: string, limit = 50, scope?: string) =>
+    scopedQueryKey(['txHistory', lower(address), limit], scope),
+  transfers: (address: string, scope?: string) =>
+    scopedQueryKey(['transfers', lower(address)], scope),
+  txCount: (address: string, scope?: string) => scopedQueryKey(['txCount', lower(address)], scope),
+  txDetail: (hash: string, scope?: string) => scopedQueryKey(['txDetail', lower(hash)], scope),
+  txTransfers: (hash: string, scope?: string) =>
+    scopedQueryKey(['txTransfers', lower(hash)], scope),
+  rankings: (category: string, limit = 20, scope?: string) =>
+    scopedQueryKey(['rankings', category, limit], scope),
 } as const;
 
-export type WalletQueryKey =
-  | ReturnType<typeof queryKeys.portfolio>
-  | ReturnType<typeof queryKeys.balance>
-  | ReturnType<typeof queryKeys.paxPrice>
-  | ReturnType<typeof queryKeys.holdings>
-  | ReturnType<typeof queryKeys.pnlHistory>
-  | ReturnType<typeof queryKeys.portfolioChart>
-  | ReturnType<typeof queryKeys.txHistory>
-  | ReturnType<typeof queryKeys.transfers>
-  | ReturnType<typeof queryKeys.txCount>
-  | ReturnType<typeof queryKeys.txDetail>
-  | ReturnType<typeof queryKeys.rankings>;
+export type WalletQueryKey = ReturnType<(typeof queryKeys)[keyof typeof queryKeys]>;

@@ -338,7 +338,17 @@ func TestSpotResolvers(t *testing.T) {
             id marketId reason blockNumber txHash logIndex blockTimestamp } }`},
 	} {
 		t.Run(tc.root, func(t *testing.T) {
-			assertSpot(t, schema, tc.document, nil, `{"`+tc.root+`":[]}`)
+			response := schema.Exec(context.Background(), tc.document, "", nil)
+			if len(response.Errors) != 1 {
+				t.Fatalf("retired root %s: errors %v, want one unknown-field error", tc.root, response.Errors)
+			}
+			want := fmt.Sprintf("Cannot query field %q on type %q.", tc.root, "Query")
+			if !strings.HasPrefix(response.Errors[0].Message, want) {
+				t.Fatalf("retired root %s: error %q, want %q", tc.root, response.Errors[0].Message, want)
+			}
+			if len(response.Data) != 0 {
+				t.Fatalf("retired root %s reached execution: data=%s", tc.root, response.Data)
+			}
 		})
 	}
 }

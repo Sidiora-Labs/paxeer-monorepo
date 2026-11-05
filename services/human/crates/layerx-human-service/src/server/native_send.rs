@@ -152,7 +152,7 @@ impl HumanOwnerNativeSessionV1 {
             || evidence.activity_id == [0; 32]
             || evidence.receipt_digest == [0; 32]
             || evidence.observed_sequence == 0
-            || !matches!(evidence.verification, 4 | 5)
+            || !super::finalization::committed(evidence.verification)
             || evidence.action_key != request.action_key
         {
             return Err(AgentFailure::Refused("Human owner session proof differs"));
@@ -222,6 +222,7 @@ pub struct HumanOwnerNativeContextV1 {
     pub expires_at_ms: u64,
     pub consent_request_digest: [u8; 32],
     pub commitment: [u8; 32],
+    pub nonce: u64,
 }
 impl HumanOwnerNativeContextV1 {
     pub fn signed_grant(&self) -> Result<NativeLocalGrantConsentV1, AgentFailure> {
@@ -262,6 +263,9 @@ pub struct NativeSendOwnerCoordinatesV1 {
 }
 
 pub struct NativeSendPreviewV1 {
+    pub nonce: u64,
+    pub max_fee_per_gas: u128,
+    pub max_priority_fee_per_gas: u128,
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: Vec<u8>,
     pub purpose: NativePreparationPurposeV1,
@@ -456,6 +460,7 @@ pub async fn authorize_access(
         expires_at_ms: grant.expires_at_ms,
         consent_request_digest: request_digest,
         commitment: request.commitment,
+        nonce: coordinates.account_sequence,
         session,
     };
     let bytes = serde_json::to_vec(&context)
@@ -475,6 +480,7 @@ pub async fn authorize_access(
 
 pub fn load_access(
     scope: &PrincipalScope<'_>,
+    runtime: &mut AgentRuntime,
     capability_id: [u8; 32],
     now: u64,
 ) -> Result<HumanOwnerNativeContextV1, AgentFailure> {
@@ -489,6 +495,17 @@ pub fn load_access(
         return Err(AgentFailure::Refused("native access binding differs"));
     }
     context.signed_grant()?;
+    let actor = layerx_agent_api::identity::AgentDid::new(context.session.owner.clone())
+        .map_err(|_| AgentFailure::Refused("invalid native owner"))?;
+    let authority =
+        layerx_agent_api::identity::AuthorityRef::new(hex(context.session.owner_public_key))
+            .map_err(|_| AgentFailure::Refused("invalid native owner authority"))?;
+    let pending_nonce = runtime
+        .pending_nonce(&actor, &authority)
+        .map_err(|_| AgentFailure::Unavailable)?;
+    if context.nonce < pending_nonce {
+        return Err(AgentFailure::Refused("native Send access expired"));
+    }
     Ok(context)
 }
 
@@ -501,7 +518,7 @@ pub fn preview_send(
     commitment: [u8; 32],
     now: u64,
 ) -> Result<NativeSendPreviewV1, AgentFailure> {
-    let context = load_access(scope, capability_id, now)?;
+    let context = load_access(scope, runtime, capability_id, now)?;
     if request.protocol_activity_type != NATIVE_SEND
         || request.actor.as_str() != context.session.owner
         || request.authority.as_str() != hex(context.session.owner_public_key)
@@ -533,7 +550,7 @@ pub fn preview_send_v2(
     purpose_expires_ms: u64,
     now: u64,
 ) -> Result<NativeSendPreviewV2, AgentFailure> {
-    let context = load_access(scope, capability_id, now)?;
+    let context = load_access(scope, runtime, capability_id, now)?;
     if request.protocol_activity_type != NATIVE_SEND
         || request.actor.as_str() != context.session.owner
         || request.authority.as_str() != hex(context.session.owner_public_key)

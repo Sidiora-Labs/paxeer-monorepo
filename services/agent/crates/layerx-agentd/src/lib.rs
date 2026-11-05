@@ -3,10 +3,10 @@
 pub mod admin;
 pub mod agent_rpc;
 pub mod agent_rpc_adapters;
-mod agent_rpc_wire;
 pub mod agent_rpc_dispatch;
 pub mod agent_rpc_peer;
 pub mod agent_rpc_tls;
+mod agent_rpc_wire;
 pub mod approval;
 pub mod audit;
 pub mod authority;
@@ -22,11 +22,14 @@ pub mod events;
 pub mod export;
 pub mod finality;
 pub mod human;
+pub mod human_node;
+pub mod human_receipt_frame;
 pub mod human_runtime;
 pub mod idempotency;
 pub mod identity;
 pub mod limits;
 pub mod managed_agent;
+pub mod node_rpc;
 pub mod obs;
 pub mod ops;
 pub mod outbox;
@@ -45,3 +48,5 @@ pub mod store;
 pub mod tenant;
 
 mod outbound_tls;
+
+pub mod policy_history;

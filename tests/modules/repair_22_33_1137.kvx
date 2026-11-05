@@ -1,0 +1,37 @@
+[task]
+id = "22.33.1137"
+mode = "BUILD"
+base_revision = "ccd003394e03ec2e54bf3c38d1e6242ca25bd572"
+verify_cmd = "make -s test-asset-account-grant test-asset-balance test-asset-deposit test-asset-registry test-asset-reserve test-asset-transfer test-asset-withdraw test-asset-withdraw-activity"
+baseline = "Not run: the explicit implementation-first gate order prohibits tests before implementation and running verify_cmd outside hf-done; no previous gate ledger existed at session entry, and no pre-change failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the final hf-done evidence."
+
+[finding.22.30.5.23]
+repair = "Remove checkpoint-authority allocation and every custody proof/credit/request/settlement execution body. Legacy ABI boundaries explicitly return UNKNOWN_ACTIVITY without reading or changing state, so out-of-domain callers still link until their owning repair. Historical nullifiers preserve the original production hash functions, and v2 withdrawal codecs are named separately and never authorize a transfer."
+proving_tests = ["tests/modules/test_asset_deposit.c:test_retired_deposit_credit", "tests/modules/test_asset_withdraw.c:test_retired_custody_execution", "tests/modules/test_asset_withdraw.c:test_historical_withdrawal_v2_reopen", "tests/modules/test_asset_transfer.c:test_native_send_reconciles"]
+proof = "Real kernel contexts refuse deposit credit and all matching, crossed-asset, replayed, settled, full and corrupt-store withdrawal requests/settlements, preserving every balance, sequence, record, receipt, effect and root. Historical encoder output is imported through production kernel KV/journal commit and read through authenticated state proofs before and after writing a snapshot to a file, destroying the state/kernel/accounts and reopening them. Ordinary signed SEND still commits a conserved ledger transfer with a receipt."
+
+[finding.22.30.5.25]
+repair = "Remove withdrawal from the registered activity table and remove its 108-byte decoder, context, validation and execution branches. Ordinal 9 is rejected before arena allocation; historical records have an explicit version-2 compatibility reader."
+proving_tests = ["tests/modules/test_asset_registry.c:test_withdraw_dispatch", "tests/modules/test_asset_payloads.h:test_asset_payloads", "tests/modules/test_asset_withdraw_activity.c:run"]
+proof = "All 29 original activity input/admission variations still execute, now requiring exact retirement refusal and unchanged roots, balances, sequences, receipts and effects; the two corrupt admission bindings retain their earlier kernel CONTEXT_MISMATCH refusal. Valid requests and retries cannot write records. Archived v2 records retain authenticated proofs and decode identically after a real snapshot reopen, and cannot enable withdrawal dispatch after recovery."
+
+[finding.22.30.5.26]
+repair = "Current supply checking reconciles each registered asset with native account balances and, where present, its canonical issuance account and supply cap; native issuance requires that account. Reject duplicate assets/accounts, unknown assets, orphan balances, overflow and one-unit mismatches. Do not read a custody-issued bridge override. Old unversioned reserve APIs refuse use; the original backing report bytes and arithmetic remain available only through explicitly named historical v1 readers."
+proving_tests = ["tests/modules/test_asset_registry.c:test_native_supply_dispatch_reopen", "tests/modules/test_asset_reserve.c:test_native_supply_invariants", "tests/modules/test_asset_reserve.c:test_historical_reserve_v1", "tests/modules/test_asset_transfer.c:test_native_send_reconciles"]
+proof = "Real signed register, account-open, mint and burn activities are dispatched and journal-committed. Registry restoration and native reconciliation verify the bank total, committed registered supply and exact issuance remainder after mint/burn and snapshot reopen; one-unit balance and issuance corruption are fatal. Per-asset totals may independently reach UINT128_MAX, while within-asset overflow, missing/duplicate assets/accounts, cap violations and historical attestation inputs are refused. Historical reserve assertions retain their exact totals and wire lengths under the v1 reader."
+
+[wiring]
+request_1 = "include/layerx/lx_asset.h and include/layerx/lxp_bridge.h; owner kernel/bridge API: expose the native reconciliation and explicit history declarations and remove retired custody ABI declarations once bridge callers are retired."
+request_2 = "src/modules/bridge/lxp_bridge_deposit.c, src/modules/bridge/lxp_bridge_withdraw.c and src/modules/bridge/lxp_reserve.c; owner bridge: remove retired custody execution callers and use native supply reconciliation; existing ABI calls now explicitly refuse."
+request_3 = "modules/bank, modules/layerxledger and precompiles/layerxbridge; owner bank/ledger/EVM: fund derived native accounts with bank send, reconcile committed bank supply with native ledger supply and route outward transfers through bridgeOut at 0x1016; add both-side keeper/precompile proofs in their own task."
+request_4 = "src/protocol/lxp_kernel.c and src/ledger/lxp_apply.c; owner kernel/ledger: retire withdrawal-specific admission and historical custody-system debit privileges; this task removes asset execution and registration only."
+request_5 = "tests/test_bridge_deposit.c, tests/test_bridge_withdraw.c and tests/test_reserve_reconcile.c; owner bridge: migrate legacy execution expectations to retirement refusals and explicitly versioned historical reads after the corresponding bridge-domain repair."
+
+[gotcha.1]
+symptom = "The audit requests a baseline verify and edits to a spec task record while the explicit ordered rules prohibit pre-implementation tests and changes outside the two scoped directories."
+resolution = "Use this in-scope task record, disclose the absent baseline and run only hf-build followed by hf-done; leave root GOTCHA.kvx and spec files untouched."
+
+[gotcha.2]
+symptom = "Snapshot serialization requires a committed journal sequence and restores accounts in sorted ID order."
+resolution = "Historical fixture imports commit the production state journal before module commit, snapshot its exact sequence and resolve recovered accounts through the canonical ID index."

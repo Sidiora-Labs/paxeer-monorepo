@@ -4,7 +4,7 @@ import { isUserFacingError, makeError } from "@/core/errors/classify";
 import type { ErrorCode, UserFacingError } from "@/core/errors/types";
 import { OrderType, TimeInForce } from "@/core/network/abi/PerpsPrecompile";
 import type { DraftOrderLines } from "@/hooks/perps/useOrderLineStore";
-import type { OpenPositionQuote } from "@/hooks/perps/useQuoter";
+import { decodeOpenPositionQuote, type OpenPositionQuote } from "@/hooks/perps/useQuoter";
 import { deriveImpliedCollateral, safeParseUnits } from "./amounts";
 import { buildOpenPosition, buildPlaceLimitOrder, buildPlaceStopLimitOrder, ladderCloid } from "./calls";
 import { COLLATERAL_TOKENS } from "./config";
@@ -62,6 +62,12 @@ export interface OrderPlan {
   error: UserFacingError | null;
 }
 
+export interface OrderLimits {
+  tickSize: bigint;
+  lotSize: bigint;
+  maxLeverage: bigint;
+}
+
 function refusal(code: ErrorCode, message?: string): OrderPlan {
   const error = makeError(code, CONTEXT);
   return { calls: [], error: message === undefined ? error : { ...error, message } };
@@ -71,6 +77,36 @@ function refusal(code: ErrorCode, message?: string): OrderPlan {
 export function parseLeverage(value: string): bigint {
   const parsed = safeParseUnits(value, USD_DECIMALS);
   return parsed < ONE_X ? 0n : parsed;
+}
+
+export function checkOrderLimits(state: OrderFormState, limits: OrderLimits): OrderPlan | null {
+  if (limits.tickSize <= 0n || limits.lotSize <= 0n || limits.maxLeverage < ONE_X) {
+    return refusal("VALIDATION_AMOUNT_INVALID", "The market order limits are invalid.");
+  }
+  if (parseLeverage(state.leverage) > limits.maxLeverage) {
+    return refusal("VALIDATION_ABOVE_MAX", "Leverage exceeds the market maximum.");
+  }
+  const prices =
+    state.orderType === "limit"
+      ? [state.triggerPrice]
+      : state.orderType === "stop-limit"
+        ? [state.triggerPrice, state.limitPrice]
+        : [];
+  if (prices.some((price) => safeParseUnits(price, USD_DECIMALS) % limits.tickSize !== 0n)) {
+    return refusal("VALIDATION_PRECISION", "Order prices must be multiples of the market tick size.");
+  }
+  if (state.orderType !== "market" && safeParseUnits(state.sizeUsd, USD_DECIMALS) % limits.lotSize !== 0n) {
+    return refusal("VALIDATION_PRECISION", "Order sizes must be multiples of the market lot size.");
+  }
+  return null;
+}
+
+export function alignToTick(price: bigint, tickSize: bigint, side: "down" | "up"): bigint {
+  if (tickSize <= 0n) throw new RangeError("tickSize must be positive");
+  if (price < 0n) throw new RangeError("price must be non-negative");
+  const remainder = price % tickSize;
+  if (remainder === 0n) return price;
+  return side === "down" ? price - remainder : price + tickSize - remainder;
 }
 
 /** Turning one of post-only, IOC and FOK on turns the other two off. */
@@ -115,7 +151,15 @@ function parseRungs(value: string): number | ErrorCode {
   return rungs;
 }
 
-function planCalls(state: OrderFormState, quote: OpenPositionQuote | null, leverage: bigint): OrderPlan {
+function planCalls(
+  state: OrderFormState,
+  quote: OpenPositionQuote | null,
+  leverage: bigint,
+  limits: OrderLimits,
+): OrderPlan {
+  if (state.orderType === "market" && quote !== null && quote.sizeUsd % limits.lotSize !== 0n) {
+    return refusal("VALIDATION_PRECISION", "Order sizes must be multiples of the market lot size.");
+  }
   const timeInForce = timeInForceOf(state.orderType, state);
   const takeProfitPrice = state.tpslEnabled ? safeParseUnits(state.tpPrice, USD_DECIMALS) : 0n;
   const stopLossPrice = state.tpslEnabled ? safeParseUnits(state.slPrice, USD_DECIMALS) : 0n;
@@ -138,6 +182,7 @@ function planCalls(state: OrderFormState, quote: OpenPositionQuote | null, lever
         leverage,
         quote,
         timeInForce: timeInForce === TimeInForce.FOK ? TimeInForce.FOK : TimeInForce.IOC,
+        reduceOnly: state.reduceOnly,
         takeProfitPrice,
         stopLossPrice,
       });
@@ -171,7 +216,10 @@ function planCalls(state: OrderFormState, quote: OpenPositionQuote | null, lever
     case "scaled": {
       const distribution = state.scaledDistribution;
       if (distribution === "custom") {
-        return refusal("VALIDATION_REQUIRED_FIELD", "The custom distribution has no input; choose flat, ascending or descending.");
+        return refusal(
+          "VALIDATION_REQUIRED_FIELD",
+          "The custom distribution has no input; choose flat, ascending or descending.",
+        );
       }
       const rungs = parseRungs(state.scaledTotalOrders);
       if (typeof rungs === "string") {
@@ -180,12 +228,22 @@ function planCalls(state: OrderFormState, quote: OpenPositionQuote | null, lever
       const start = safeParseUnits(state.scaledStartPrice, USD_DECIMALS);
       const end = safeParseUnits(state.scaledEndPrice, USD_DECIMALS);
       const span = BigInt(rungs - 1);
-      const calls = rungSizes(sizeUsd, distribution, rungs).map((rungSize, i) =>
+      const sizes = rungSizes(sizeUsd, distribution, rungs);
+      if (sizes.some((size) => size % limits.lotSize !== 0n)) {
+        return refusal("VALIDATION_PRECISION", "Each scaled order must be a multiple of the market lot size.");
+      }
+      const calls = sizes.map((rungSize, i) =>
         buildPlaceLimitOrder({
           ...resting,
-          limitPrice: start + ((end - start) * BigInt(i)) / span,
+          limitPrice: alignToTick(
+            start + ((end - start) * BigInt(i)) / span,
+            limits.tickSize,
+            state.isLong ? "down" : "up",
+          ),
           sizeUsd: rungSize,
           collateralAmount: deriveImpliedCollateral(rungSize, leverage, COLLATERAL_DECIMALS),
+          takeProfitPrice,
+          stopLossPrice,
           cloid: ladderCloid(state.ladderId, i),
         }),
       );
@@ -197,14 +255,28 @@ function planCalls(state: OrderFormState, quote: OpenPositionQuote | null, lever
 /**
  * The ordered placeOrder calls handleSubmit sends for the form state, or no calls and the refusal.
  * `quote` is the current quoteOpenPosition of a market order; resting orders take null.
+ * `limits` enforce chain tick, lot and leverage limits and align scaled prices.
  */
-export function buildOrderPlan(state: OrderFormState, quote: OpenPositionQuote | null): OrderPlan {
+export function buildOrderPlan(state: OrderFormState, quote: OpenPositionQuote | null, limits: OrderLimits): OrderPlan {
   const leverage = parseLeverage(state.leverage);
   if (leverage === 0n) return refusal("VALIDATION_BELOW_MIN", "Leverage must be at least 1x.");
   try {
-    return planCalls(state, quote, leverage);
+    if (state.orderType === "market" && quote !== null) {
+      const decoded = decodeOpenPositionQuote(quote);
+      const collateralUsd = safeParseUnits(state.collateralAmount, COLLATERAL_DECIMALS)
+        * (10n ** BigInt(USD_DECIMALS - COLLATERAL_DECIMALS));
+      if (decoded.leverage !== leverage || decoded.collateralUsd !== collateralUsd) {
+        return refusal("VALIDATION_AMOUNT_INVALID", "The quote does not match the order inputs.");
+      }
+    }
+    const refused = checkOrderLimits(state, limits);
+    if (refused !== null) return refused;
+    return planCalls(state, quote, leverage, limits);
   } catch (err) {
     if (isUserFacingError(err)) return { calls: [], error: err };
+    if (err instanceof Error && err.name === "ZodError") {
+      return refusal("API_PAYLOAD_INVALID");
+    }
     throw err;
   }
 }

@@ -1,12 +1,11 @@
 {
-  "status": 400,
+  "status": 410,
   "body": {
     "ok": false,
     "error": {
-      "code": "invalid-request",
-      "copy_key": "error.wallet.signature-mismatch",
-      "retry": "structural",
-      "field": "signature"
+      "code": "operation-retired",
+      "copy_key": "error.operation.retired",
+      "retry": "final"
     },
     "trace": "trc_01j2h690af3q4r5s6t7v8w9x0y"
   }

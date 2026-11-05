@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
@@ -30,12 +32,14 @@ const (
 	sweepInterval   = time.Minute
 	unmatchedRoute  = "unmatched"
 	errInternal     = "internal error"
+	maxInFlight     = 10000
 )
 
 var symbolPattern = regexp.MustCompile(`^[A-Z0-9]{1,32}$`)
 
 // Options configures a Server.
 type Options struct {
+	TrustedProxies []netip.Prefix
 	// LinkBase is PERPS_EXPLORER_TX_BASE; an empty base omits every link.
 	LinkBase string
 	// Requests is the number of requests one client key may make per Window.
@@ -51,11 +55,12 @@ type Options struct {
 // and chain@transactions are served by the gateway socket, including
 // /ws/explorer.
 type Server struct {
-	db      *sql.DB
-	ex      *Explorer
-	metrics *telemetry.Metrics
-	limiter *windowLimiter
-	mux     *http.ServeMux
+	db             *sql.DB
+	ex             *Explorer
+	metrics        *telemetry.Metrics
+	limiter        *windowLimiter
+	mux            *http.ServeMux
+	trustedProxies []netip.Prefix
 }
 
 // NewServer returns the explorer routes reading db.
@@ -71,11 +76,12 @@ func NewServer(db *sql.DB, opts Options) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		db:      db,
-		ex:      ex,
-		metrics: opts.Metrics,
-		limiter: &windowLimiter{max: opts.Requests, window: opts.Window, entries: map[string]windowEntry{}},
-		mux:     http.NewServeMux(),
+		db:             db,
+		ex:             ex,
+		metrics:        opts.Metrics,
+		limiter:        &windowLimiter{max: opts.Requests, window: opts.Window, entries: map[string]windowEntry{}},
+		mux:            http.NewServeMux(),
+		trustedProxies: append([]netip.Prefix(nil), opts.TrustedProxies...),
 	}
 	s.mux.HandleFunc("GET /api/chain/blocks", s.blocks)
 	s.mux.HandleFunc("GET /api/chain/transactions", s.transactions)
@@ -90,6 +96,15 @@ func NewServer(db *sql.DB, opts Options) (*Server, error) {
 	return s, nil
 }
 
+// Handler assembles the command's API, probes, metrics and ingress limit.
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	httpx.RegisterHealth(mux, httpx.HealthDeps{Postgres: s.db.PingContext})
+	mux.Handle("GET /metrics", s.metrics)
+	mux.Handle("/api/", s)
+	return ratelimit.NewLimiter(maxInFlight).Middleware(mux)
+}
+
 // ServeHTTP applies the per-client-key rate limit, serves the route and
 // counts the answer under its route pattern.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +113,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if route == "" || route == "/" {
 		route = unmatchedRoute
 	}
-	key := ratelimit.ClientKey(r)
+	key := ratelimit.ClientKey(r, s.trustedProxies)
 	if len(key) > maxClientKeyLen {
 		writeError(sw, http.StatusBadRequest, "invalid request principal")
 	} else if ok, retry := s.limiter.allow(key, time.Now()); !ok {
@@ -170,6 +185,13 @@ func answer(w http.ResponseWriter, body any, err error) {
 const txQuery = `SELECT ` + actionColumns + ` FROM perps.tx_actions WHERE tx_hash = $1
     ORDER BY tx_index, log_index, sub`
 
+// TransactionDetail is the stored action list of GET /api/chain/tx/<hash>.
+type TransactionDetail struct {
+	Hash         string        `json:"hash"`
+	Link         string        `json:"link,omitempty"`
+	Transactions []Transaction `json:"transactions"`
+}
+
 // tx answers the stored tx_actions rows of a transaction or synthetic
 // receipt; it never asks the node, so a synthetic receipt hash renders from
 // the rows alone.
@@ -194,11 +216,7 @@ func (s *Server) tx(w http.ResponseWriter, r *http.Request) {
 	for i, row := range rows {
 		txs[i] = row.tx
 	}
-	body := struct {
-		Hash         string        `json:"hash"`
-		Link         string        `json:"link,omitempty"`
-		Transactions []Transaction `json:"transactions"`
-	}{hash.Hex(), s.ex.TxLink(hash), txs}
+	body := TransactionDetail{Hash: hash.Hex(), Link: s.ex.TxLink(hash), Transactions: txs}
 	writeRows(w, body)
 }
 
@@ -209,12 +227,10 @@ type chainStatus struct {
 	connected  bool
 }
 
-// ponytail: count(*) scans both tables on every health read; switch to a
-// maintained counter if the tables outgrow the 2 s cache.
 const chainStatusSQL = `SELECT
   (SELECT max(number) FROM perps.blocks),
-  (SELECT count(*) FROM perps.blocks),
-  (SELECT count(*) FROM perps.tx_actions),
+  (SELECT value FROM perps.chain_counters WHERE name = 'blocks'),
+  (SELECT value FROM perps.chain_counters WHERE name = 'tx_actions'),
   COALESCE((SELECT updated_at > now() - make_interval(secs => $1) FROM perps.cursors WHERE name = 'head'), false)`
 
 func (s *Server) status(ctx context.Context) (chainStatus, error) {
@@ -224,6 +240,7 @@ func (s *Server) status(ctx context.Context) (chainStatus, error) {
 }
 
 func (s *Server) chainHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	st, err := s.status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, errInternal)
@@ -233,7 +250,7 @@ func (s *Server) chainHealth(w http.ResponseWriter, r *http.Request) {
 	if !st.connected {
 		status = "degraded"
 	}
-	writeRows(w, map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"status":          status,
 		"ts":              time.Now().UnixMilli(),
 		"chain_connected": st.connected,
@@ -243,6 +260,7 @@ func (s *Server) chainHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) explorerHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	st, err := s.status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, errInternal)
@@ -252,7 +270,7 @@ func (s *Server) explorerHealth(w http.ResponseWriter, r *http.Request) {
 	if st.latest.Valid {
 		latest = &st.latest.Int64
 	}
-	writeRows(w, map[string]any{"latest_block": latest, "chain_connected": st.connected})
+	writeJSON(w, http.StatusOK, map[string]any{"latest_block": latest, "chain_connected": st.connected})
 }
 
 // parseAccount accepts the 0x hex or the pax bech32 form of an account.

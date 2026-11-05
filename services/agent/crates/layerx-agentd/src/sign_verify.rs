@@ -1,16 +1,12 @@
 //! Exact-byte signature verification gate before submission.
 
-use layerx_crypto::{ed25519, SignatureMessage};
-use layerx_types::activity::{Authority, Signature};
+use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, transaction_hash};
+use layerx_crypto::signer::AgentSignature;
 use layerx_types::payload::ModuleRegistry;
-use layerx_wire::activity::{
-    decode_signed, encode_signed, encode_signed_envelope, encode_unsigned,
-};
-use layerx_wire::hash::{activity_id, Domain};
 
-use crate::prepare::{verify_disclosure_binding, Prepared};
+use crate::prepare::verify_call_binding;
 
-use super::SigningError;
+use super::{SigningError, SigningPreparation};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SubmissionBindingAudit {
@@ -22,8 +18,9 @@ pub struct SubmissionBindingAudit {
 /// Bytes admitted to submission only after exact signature verification.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedSubmission {
-    signed_canonical_bytes: Vec<u8>,
-    audit: SubmissionBindingAudit,
+    pub(super) signed_canonical_bytes: Vec<u8>,
+    pub(super) audit: SubmissionBindingAudit,
+    recovered_sender: [u8; 20],
 }
 
 impl VerifiedSubmission {
@@ -35,6 +32,12 @@ impl VerifiedSubmission {
     #[must_use]
     pub fn into_exact_bytes(self) -> Vec<u8> {
         self.signed_canonical_bytes
+    }
+
+    /// The secp256k1 sender recovered while admitting these exact bytes.
+    #[must_use]
+    pub const fn recovered_sender(&self) -> [u8; 20] {
+        self.recovered_sender
     }
 
     #[must_use]
@@ -54,54 +57,49 @@ impl VerifiedSubmission {
 }
 
 pub(crate) fn attach_signature(
-    prepared: &Prepared,
-    signature: [u8; 64],
+    prepared: &SigningPreparation,
+    signature: [u8; 65],
 ) -> Result<Vec<u8>, SigningError> {
-    let signature = Signature::new(&signature).map_err(SigningError::SignatureEncoding)?;
-    let signed = prepared.envelope.clone().attach_signature(signature);
-    encode_signed_envelope(&signed).map_err(SigningError::Wire)
+    if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
+        return Err(SigningError::PreparedBytesChanged);
+    }
+    let signature = AgentSignature::new(signature).map_err(|_| SigningError::SignatureInvalid)?;
+    let sender = recover_sender(&prepared.transaction.call, &signature)
+        .map_err(|_| SigningError::SignatureInvalid)?;
+    if sender != prepared.actor_address {
+        return Err(SigningError::SignerMismatch);
+    }
+    Ok(assemble(&prepared.transaction.call, &signature))
 }
 
 pub(crate) fn verify_exact(
     signed_canonical_bytes: &[u8],
-    prepared: &Prepared,
-    signer_public_key: &[u8; 32],
-    registry: &ModuleRegistry,
+    prepared: &SigningPreparation,
+    signer_address: &[u8; 20],
+    _registry: &ModuleRegistry,
 ) -> Result<VerifiedSubmission, SigningError> {
-    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
-    let activity = decode_signed(signed_canonical_bytes, registry).map_err(SigningError::Wire)?;
-    if encode_signed(&activity).map_err(SigningError::Wire)? != signed_canonical_bytes {
+    if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
         return Err(SigningError::PreparedBytesChanged);
     }
-    let unsigned = encode_unsigned(&activity).map_err(SigningError::Wire)?;
-    if unsigned != prepared.canonical_bytes {
+    let (call, signature) =
+        decode_signed(signed_canonical_bytes).map_err(|_| SigningError::SignatureInvalid)?;
+    if call != prepared.transaction.call {
         return Err(SigningError::PreparedBytesChanged);
     }
-    let signature = activity.signature().ok_or(SigningError::SignatureInvalid)?;
-    let signature: &[u8; 64] = signature
-        .try_into()
-        .map_err(|_| SigningError::SignatureInvalid)?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &unsigned,
-    )
-    .map_err(|_| SigningError::SignatureInvalid)?;
-    let Authority::Owner(owner) = prepared.envelope.authority() else {
-        return Err(SigningError::AuthorityMismatch);
-    };
-    if owner.as_ref() != signer_public_key.as_slice() {
-        return Err(SigningError::AuthorityMismatch);
+    verify_call_binding(&prepared.transaction).map_err(SigningError::from)?;
+    let sender = recover_sender(&call, &signature).map_err(|_| SigningError::SignatureInvalid)?;
+    if prepared.actor_address != prepared.transaction.from
+        || sender != prepared.actor_address
+        || &sender != signer_address
+    {
+        return Err(SigningError::SignerMismatch);
     }
-    ed25519::verify(signer_public_key, signature, message)
-        .map_err(|_| SigningError::SignatureInvalid)?;
-    let activity_id = activity_id(&activity).map_err(SigningError::Wire)?;
     Ok(VerifiedSubmission {
         signed_canonical_bytes: signed_canonical_bytes.to_vec(),
+        recovered_sender: sender,
         audit: SubmissionBindingAudit {
-            activity_id,
-            idempotency_key: activity.idempotency_key(),
+            activity_id: transaction_hash(signed_canonical_bytes),
+            idempotency_key: prepared.transaction.disclosure.idempotency_key,
             signed_byte_length: signed_canonical_bytes.len(),
         },
     })

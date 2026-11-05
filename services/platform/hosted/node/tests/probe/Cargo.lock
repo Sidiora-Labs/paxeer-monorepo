@@ -50,6 +50,12 @@ checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
+name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
@@ -683,10 +689,11 @@ dependencies = [
 name = "layerx-client"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
@@ -694,6 +701,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
 ]
 
@@ -734,11 +742,9 @@ dependencies = [
 name = "layerx-mirror"
 version = "0.1.0"
 dependencies = [
- "base64",
+ "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -761,17 +767,6 @@ dependencies = [
  "layerx-types",
  "layerx-wire",
  "libc",
-]
-
-[[package]]
-name = "layerx-paxeer-verifier"
-version = "0.1.0"
-dependencies = [
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "sha3",
 ]
 
 [[package]]
@@ -827,7 +822,18 @@ dependencies = [
  "ed25519-dalek",
  "layerx-program-sdk",
  "sha2",
- "spin",
+]
+
+[[package]]
+name = "layerx-programs-registry"
+version = "0.1.0"
+dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
+ "layerx-program-sdk",
+ "layerx-programs-runtime",
+ "layerx-types",
+ "sha2",
 ]
 
 [[package]]
@@ -1213,9 +1219,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "log",
  "once_cell",
@@ -1579,7 +1585,7 @@ version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "972d7902c8735f2695410b8aed7df6ed12a47394aa1c8d7af49f0497b731a94d"
 dependencies = [
- "base64",
+ "base64 0.23.1",
  "log",
  "percent-encoding",
  "rustls",
@@ -1594,7 +1600,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da5f78b09e6941e1a0f2e30e695e4b120377b54d5e0aec11b594bb57b3971613"
 dependencies = [
- "base64",
+ "base64 0.23.1",
  "http",
  "httparse",
  "log",

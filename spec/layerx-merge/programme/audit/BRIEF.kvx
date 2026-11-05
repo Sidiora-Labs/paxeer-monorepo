@@ -1,0 +1,34 @@
+# Pre-upgrade audit brief (decision 2515). Read this before any package. Grammar: programme kvx.
+
+[brief]
+purpose = "Review every source file of the monorepo once, meticulously, against how the finished network is specified to behave, and record what is wrong, inconsistent, unwired or stale before the upgrade. The audit edits nothing but its record; every repair is a proposal that becomes a task of the owning domain."
+package = "spec/layerx-merge/programme/audit/packages/<task>.kvx lists the files of one slice (members), the requirement ids its tasks cite (requirements), the interface-registry rows whose declaration lives in the slice (produces) and the rows the slice calls (consumes), and the documentation pages that describe it (docs)."
+record = "spec/layerx-merge/programme/audit/records/<task>.kvx, checked by python3 spec/layerx-merge/programme/audit_check.py <package> <record>; the checker docstring is the record grammar."
+sources = "spec/layerx-merge/spec.kvx ([req.*] acceptance criteria, [decision.*] rulings, [task.*] history), spec/layerx-merge/interfaces.kvx (declared interfaces with path, line, signature, callers, status, contract), spec/layerx-merge/dispositions (closed findings), spec/layerx-merge/programme/data/retired.kvx (retired components), GOTCHA.kvx (known pitfalls), contracts/ and docs/ (the prose that must match the code)."
+
+[network]
+fact_1 = "There is one network. Paxeer mainnet-beta is a BFT chain (paxd) whose kernel is part of the network and proposes blocks; EVM chain id 125 (0x7d). A receipt is final once its block is committed; there is no separate sequencer service."
+fact_2 = "LayerX is merged into the network (feature layerx-merge). There is no separate LayerX interface, no router and no unified /rpc path. Pre-merge wording that describes a router, a LayerX interface, a /rpc, /rpc/ws or /rpc/schema endpoint or the retired layerxd daemon as a running component is drift to record (class retired-reference or doc-drift)."
+fact_3 = "The public JSON-RPC is served by the node names api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network at the root path (Geth client string). The node namespaces are debug, echo, eth, net, pax, test and txpool. The px_ methods are the hosted gateway's (services/platform/hosted/gateway); services/platform/hosted/gateway/openrpc.json is their declared contract."
+fact_4 = "node.hyperpaxeer.com is the hpx library mirror used by build scripts; it is not an RPC endpoint and must not be described or probed as one."
+fact_5 = "Sub-chains are tenant domains: a namespace in the database, launchable without new infrastructure. Code that assumes a single tenant where the domain work (feature 20) made tenancy a parameter is a wiring gap."
+fact_6 = "Programs: the AI market guest is built release, opt-level z, with the chain domain set at build time, and must fit the deployment payload limit of 524288 bytes including the 104-byte envelope (decision 2483). Host and guest ABI versions must agree on every registration path."
+fact_7 = "Every interface change must be proven along the real producer, transport and consumer path, including restart and recovery where state is involved (the owner's quality ruling). A test fixture whose shape differs from the producer hides a defect rather than proving the path."
+
+[checks]
+check_1 = "Interface agreement: for every row the slice produces or consumes, compare the declared signature with the producer's emitted shape and the consumer's accepted shape: field names, types, optionality, enums, error codes, encodings (hex, decimal strings, byte lengths), units and versions. Exact-field decoders that reject the producer's declared fields, and fixtures with a third shape, are interface-mismatch findings."
+check_2 = "Wiring: the code is reachable in the running system: registered routes and methods, mounted handlers, started background loops, read configuration keys, applied migrations, called hooks, exported symbols with a live caller. Unreferenced or never-registered code is dead-code or wiring-gap."
+check_3 = "Retired references: calls, configuration, scripts, documentation or tests that address a retired component, a router URL, a /rpc path, a separate LayerX interface, a sequencer service or the daemon."
+check_4 = "Runtime risk: unchecked inputs, unhandled errors that are swallowed or turned into a generic unavailable, unbounded growth, missing timeouts, lock ordering, panics on untrusted data, integer or length limits that disagree between layers."
+check_5 = "Restart and recovery: state that must survive a restart is persisted and resumed; idempotent re-delivery; recovery paths exercised by a test; nothing depends on in-memory state that a restart loses."
+check_6 = "Configuration drift: environment variable and configuration key names agree between the code, the registry env_var and config_key rows, the deployment files and the documentation; defaults are the merged-network values."
+check_7 = "Tests: a test asserting a shape, value or behaviour the producer does not have is a test-gap finding, as is an interface without a test on its real path."
+check_8 = "Security: authentication and authorisation checks on every exposed route, secrets never logged or defaulted, signature and receipt verification not skippable, input length and type checks before decoding."
+check_9 = "Documentation: every page listed in the package is read and given a status; a page that describes the pre-merge system, a wrong endpoint, a missing feature or an interface that changed is stale or misleading, with the exact lines that are wrong noted for the rewrite."
+
+[record_rules]
+rule_1 = "One [file.*] entry per package member, written after the whole file was read. A clean verdict is a claim that the file agrees with its interfaces, requirements and documentation and holds no retired reference. Generated or vendored files take that verdict with a note."
+rule_2 = "One [finding.*] per issue: file, line, class, severity, observed (what the code does, with the exact identifiers), expected (what the requirement, registry row, brief fact or page says), proposal (the change and the path that owns it), owner_domain. An interface-mismatch finding names the registry row id."
+rule_3 = "Severity high: the merged network misbehaves, loses data, or a declared interface does not round-trip between producer and consumer. Medium: wrong under a realistic condition, or a stale page that would mislead an operator or integrator. Low: hygiene, dead code, wording."
+rule_4 = "The audit changes nothing but its record. Proposals name the owning path; a repair task of that domain carries them out. The record text states product facts only."
+rule_5 = "upgrade_ready is false while any high finding exists; blocking lists exactly the high findings."

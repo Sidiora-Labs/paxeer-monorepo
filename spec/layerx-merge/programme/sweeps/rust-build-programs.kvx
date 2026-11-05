@@ -1,0 +1,107 @@
+[sweep.rust-build-programs]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cargo build --locked --manifest-path programs/Cargo.toml -p TARGET --all-targets"
+targets_total = 20
+targets_passed = 20
+targets_failed = 0
+targets_not_run = 0
+
+[target.rust-build-programs.1]
+target = "layerx-interpreter-compiled-equivalent"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.2]
+target = "layerx-porting-cosmwasm"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.3]
+target = "layerx-porting-cosmwasm-guest"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.4]
+target = "layerx-porting-evm"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.5]
+target = "layerx-porting-evm-guest"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.6]
+target = "layerx-porting-solana"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.7]
+target = "layerx-porting-solana-guest"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.8]
+target = "layerx-program-lint"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.9]
+target = "layerx-program-sdk"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.10]
+target = "layerx-programs-ai-market"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.11]
+target = "layerx-programs-arbiter"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.12]
+target = "layerx-programs-fuzz"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.13]
+target = "layerx-programs-interpreter"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.14]
+target = "layerx-programs-market"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.15]
+target = "layerx-programs-registry"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.16]
+target = "layerx-programs-runtime"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.17]
+target = "layerx-programs-sandbox"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.18]
+target = "parity-wasm"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.19]
+target = "wasm-instrument"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-programs.20]
+target = "wasmi"
+result = "passed"
+exit_code = 0

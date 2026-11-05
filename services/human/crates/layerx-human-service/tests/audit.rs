@@ -39,7 +39,7 @@ fn event_set() -> Vec<AuditEvent> {
         AuditEvent::JourneyTransition {
             journey: Label::new("journey-1")
                 .unwrap_or_else(|error| panic!("journey label: {error}")),
-            kind: JourneyKind::Deposit,
+            kind: JourneyKind::Move,
             from: JourneyState::Processing,
             to: JourneyState::Done,
         },

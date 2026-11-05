@@ -3,11 +3,13 @@
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
+use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_intents::{
     compile, BudgetCreate, BudgetFund, CompileError, DidRegistration, DisclosureCheck,
     DisclosureCheckError, Intent, IntentError, IntentKind, RecoveryRegistration,
 };
-use layerx_proof::receipt::{AuthorizedBatch, VerificationFailure};
+use layerx_proof::receipt::VerificationFailure;
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
@@ -16,7 +18,7 @@ use layerx_types::intent::{
     RolloverPolicy, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -35,7 +37,7 @@ const PURPOSE_LIMIT: usize = 64;
 mod native;
 pub use native::{
     NativeAgentCreationContract, NativeFundingEvidence, NativeFundingRequest,
-    NativeIdentityRevisionRequest, NativeOnboardingRequest,
+    NativeIdentityCreationRequest, NativeIdentityRevisionRequest, NativeOnboardingRequest,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -87,6 +89,7 @@ pub struct CreateAgentRequest {
     monthly_spend: u128,
     currency: String,
     native_fee_budget: Option<NativeFeeConsent>,
+    activity_types: Vec<u32>,
 }
 
 impl CreateAgentRequest {
@@ -120,7 +123,21 @@ impl CreateAgentRequest {
             monthly_spend,
             currency,
             native_fee_budget: None,
+            activity_types: Vec::new(),
         })
+    }
+
+    pub fn with_activity_types(
+        mut self,
+        activity_types: Vec<ActivityType>,
+    ) -> Result<Self, AgentCreationError> {
+        let activity_types = activity_types
+            .iter()
+            .map(|value| value.value())
+            .collect::<Vec<_>>();
+        validate_activity_types(&activity_types)?;
+        self.activity_types = activity_types;
+        Ok(self)
     }
 
     /// # Errors
@@ -193,9 +210,10 @@ pub struct PurposePresetCatalog {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PurposePreset {
     id: String,
-    activity_types: Vec<u32>,
+    call_selectors: Vec<String>,
     counterparties: Vec<[u8; 32]>,
     assets: Vec<[u8; 32]>,
     amount_ceiling: u128,
@@ -229,6 +247,29 @@ impl PurposePresetCatalog {
         &self.version
     }
 
+    /// # Errors
+    /// Refuses an unknown purpose or an invalid configured selector.
+    pub fn call_selectors(&self, id: &str) -> Result<Vec<[u8; 4]>, AgentCreationError> {
+        self.preset(id)
+            .ok_or(AgentCreationError::UnknownPurpose)?
+            .call_selectors
+            .iter()
+            .map(|value| parse_selector(value))
+            .collect()
+    }
+
+    pub fn activity_types(&self, id: &str) -> Result<Vec<ActivityType>, AgentCreationError> {
+        let preset = self.preset(id).ok_or(AgentCreationError::UnknownPurpose)?;
+        if preset.call_selectors.is_empty() {
+            return Err(AgentCreationError::InvalidPresetConfig);
+        }
+        let call = layerx_types::programs_activity::activity_type(
+            layerx_types::programs_activity::CALL_ORDINAL,
+        )
+        .map_err(|_| AgentCreationError::InvalidPresetConfig)?;
+        Ok(vec![call])
+    }
+
     fn preset(&self, id: &str) -> Option<&PurposePreset> {
         self.presets.iter().find(|preset| preset.id == id)
     }
@@ -241,10 +282,10 @@ impl PurposePresetCatalog {
         for preset in &self.presets {
             let unique =
                 |values: &[String]| values.iter().collect::<BTreeSet<_>>().len() == values.len();
-            let activities = preset
-                .activity_types
+            let selectors = preset
+                .call_selectors
                 .iter()
-                .copied()
+                .map(|value| value.to_ascii_lowercase())
                 .collect::<BTreeSet<_>>();
             let counterparties = preset
                 .counterparties
@@ -254,12 +295,12 @@ impl PurposePresetCatalog {
             let assets = preset.assets.iter().copied().collect::<BTreeSet<_>>();
             if preset.id.is_empty()
                 || !ids.insert(&preset.id)
-                || preset.activity_types.is_empty()
-                || activities.len() != preset.activity_types.len()
+                || preset.call_selectors.is_empty()
+                || selectors.len() != preset.call_selectors.len()
                 || preset
-                    .activity_types
+                    .call_selectors
                     .iter()
-                    .any(|value| ActivityType::from_u32(*value).is_err())
+                    .any(|value| parse_selector(value).is_err())
                 || preset.counterparties.is_empty()
                 || counterparties.len() != preset.counterparties.len()
                 || preset.assets.is_empty()
@@ -381,6 +422,7 @@ pub struct CreationProjection {
     pub status: CreationStatus,
     pub verified_evidence: Vec<[u8; 32]>,
     pub primary_public_key: Option<[u8; 32]>,
+    pub call_selectors: Vec<String>,
     pub activity_types: Vec<u32>,
     pub daemon_scopes: Vec<String>,
     pub session_expires_at: u64,
@@ -419,8 +461,8 @@ pub struct ProtocolAction {
     pub started_at: u64,
 }
 
-/// Canonical receipt, independently obtained batch authority, and the durable
-/// finality rank returned by the peer-authenticated agent boundary.
+/// Canonical transaction receipt and verified rung returned by the
+/// peer-authenticated agent boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProtocolEvidence {
     pub signed_activity: Vec<u8>,
@@ -430,52 +472,122 @@ pub struct ProtocolEvidence {
     pub action_key: [u8; 32],
     pub activity_id: [u8; 32],
     pub receipt_bytes: Vec<u8>,
-    pub authorized_batch: AuthorizedBatch,
-    pub verification_level: VerificationLevel,
+    pub tx_hash: [u8; 32],
+    pub receipt_hash: [u8; 32],
+    pub block_height: u64,
+    pub rung: Rung,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BoundLifecycleCall {
+    pub call: Eip1559Call,
+    pub sender: [u8; 20],
+    pub disclosure: Disclosure,
+    payload: Vec<u8>,
+    protocol_version: u16,
+}
+
+impl BoundLifecycleCall {
+    #[must_use]
+    pub fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    #[must_use]
+    pub const fn fee_limit(&self) -> u128 {
+        self.disclosure.fee_limit
+    }
+
+    #[must_use]
+    pub const fn protocol_version(&self) -> u16 {
+        self.protocol_version
+    }
+
+    #[must_use]
+    pub const fn activity_type(&self) -> ActivityType {
+        self.disclosure.activity_type
+    }
+
+    #[must_use]
+    pub const fn idempotency_key(&self) -> [u8; 32] {
+        self.disclosure.idempotency_key
+    }
+
+    #[must_use]
+    pub const fn sender(&self) -> [u8; 20] {
+        self.sender
+    }
 }
 
 impl ProtocolEvidence {
     /// # Errors
-    /// Refuses canonical owner activity or native receipt authority mismatches.
+    /// Refuses malformed lifecycle methods or budget identifiers.
+    pub fn creation_idempotency_key(
+        disclosure: &layerx_crypto::disclosure::Disclosure,
+        action_key: [u8; 32],
+    ) -> Result<[u8; 32], AgentFailure> {
+        Ok(
+            match disclosure
+                .construct_method()
+                .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
+            {
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate {
+                    payload,
+                }) => payload
+                    .get(2..34)
+                    .and_then(|word| word.try_into().ok())
+                    .ok_or(AgentFailure::Refused("invalid lifecycle budget id"))?,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                    budget,
+                }) => budget.budget_id,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
+                    ..
+                }) => [0; 32],
+                _ => action_key,
+            },
+        )
+    }
+
+    /// # Errors
+    /// Refuses signed transaction or native receipt authority mismatches.
     pub fn verify_outcome(
         &self,
         expected: ActivityType,
-    ) -> Result<layerx_proof::receipt::VerifiedReceipt, AgentFailure> {
-        self.bound_activity(expected)?;
-        if expected.module() == layerx_types::payload::ModuleId::Asset {
-            let verified =
-                layerx_proof::receipt::verify_outcome(&self.receipt_bytes, &self.authorized_batch)
-                    .map_err(|_| {
-                        AgentFailure::Refused("native asset receipt verification failed")
-                    })?;
-            let protocol = verified
-                .receipt()
-                .protocol()
-                .ok_or(AgentFailure::Refused("native asset receipt is missing"))?;
-            if protocol.activity_id() != self.activity_id
-                || protocol.protocol_version() != 3
-                || protocol.module_id() != 1
-                || u16::from(protocol.operation()) != expected.ordinal()
-            {
-                return Err(AgentFailure::Refused(
-                    "native asset receipt binding differs",
-                ));
-            }
-            return Ok(verified);
+    ) -> Result<layerx_wire::receipt::Receipt, AgentFailure> {
+        let bound = self.bound_activity(expected)?;
+        if self.rung != Rung::Committed {
+            return Err(AgentFailure::Unavailable);
         }
-        layerx_proof::receipt::verify_native_owner_outcome(
-            &self.receipt_bytes,
-            &self.authorized_batch,
-            &layerx_proof::receipt::NativeOwnerOutcomeContext {
-                canonical_activity: &self.signed_activity,
-                actor: &self.actor,
-                action_key: self.action_key,
-                activity_type: expected,
-                owner_public_key: self.owner_public_key,
-                network_id: self.network_id,
-            },
-        )
-        .map_err(|_| AgentFailure::Refused("lifecycle receipt verification failed"))
+        let receipt = layerx_wire::receipt::decode(&self.receipt_bytes)
+            .map_err(|_| AgentFailure::Refused("invalid transaction receipt"))?;
+        let canonical = layerx_wire::receipt::encode(&receipt)
+            .map_err(|_| AgentFailure::Refused("invalid canonical receipt"))?;
+        let hash: [u8; 32] = Sha256::digest(&canonical).into();
+        let protocol = receipt
+            .protocol()
+            .ok_or(AgentFailure::Refused("transaction receipt is missing"))?;
+        let height = protocol.batch_id();
+        if canonical != self.receipt_bytes
+            || self.tx_hash == [0; 32]
+            || protocol.activity_id() != self.tx_hash
+            || protocol.protocol_version() != 3
+            || protocol.module_id() != expected.module() as u16
+            || protocol.module_version() != 1
+            || protocol.timestamp() == 0
+            || protocol.fee_charged() > bound.disclosure.fee_limit
+            || (protocol.result_code() == 0
+                && !(bound.disclosure.expiry.not_before..=bound.disclosure.expiry.not_after)
+                    .contains(&protocol.timestamp()))
+            || self.receipt_hash != hash
+            || self.block_height == 0
+            || protocol.global_sequence() == 0
+            || protocol.sequencer_signature().is_none()
+            || height[..24] != [0; 24]
+            || height[24..] != self.block_height.to_be_bytes()
+        {
+            return Err(AgentFailure::Refused("transaction receipt binding differs"));
+        }
+        Ok(receipt)
     }
 
     /// # Errors
@@ -483,27 +595,187 @@ impl ProtocolEvidence {
     pub fn bound_activity(
         &self,
         expected: ActivityType,
-    ) -> Result<layerx_intents::canonical::Activity, AgentFailure> {
-        let registry = ModuleRegistry::new(&[layerx_types::payload::ModuleRegistration::new(
-            expected.module(),
-            &[expected],
-        )
-        .map_err(|_| AgentFailure::Refused("invalid expected lifecycle operation"))?])
-        .map_err(|_| AgentFailure::Refused("invalid lifecycle registry"))?;
-        let activity = layerx_intents::owner_activity::verify(&self.signed_activity, &registry)
-            .map_err(|_| AgentFailure::Refused("invalid signed lifecycle activity"))?;
-        if activity.activity_type() != expected
-            || activity.actor_did() != self.actor
-            || activity.authority() != self.owner_public_key
-            || activity.network_id() != self.network_id
-            || activity.idempotency_key() != self.action_key
-            || layerx_intents::canonical::activity_id(&activity)
-                .map_err(|_| AgentFailure::Refused("invalid lifecycle activity identity"))?
-                != self.activity_id
-        {
-            return Err(AgentFailure::Refused("lifecycle activity binding differs"));
+    ) -> Result<BoundLifecycleCall, AgentFailure> {
+        let (call, signature) =
+            layerx_crypto::evm_transaction::decode_signed(&self.signed_activity)
+                .map_err(|_| AgentFailure::Refused("invalid signed lifecycle transaction"))?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction signature"))?;
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, sender)
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction disclosure"))?;
+        let mut authority = [0; 32];
+        authority[12..].copy_from_slice(&sender);
+        let transaction_hash =
+            layerx_crypto::evm_transaction::transaction_hash(&self.signed_activity);
+        let expected_idempotency_key =
+            Self::creation_idempotency_key(&disclosure, self.action_key)?;
+        for (differs, binding) in [
+            (
+                disclosure.activity_type != expected,
+                "lifecycle activity_type binding differs",
+            ),
+            (
+                disclosure.actor != self.actor,
+                "lifecycle actor binding differs",
+            ),
+            (
+                authority != self.owner_public_key,
+                "lifecycle owner_public_key authority binding differs",
+            ),
+            (
+                call.chain_id != u64::from(self.network_id),
+                "lifecycle chain_id network_id binding differs",
+            ),
+            (
+                self.network_id == 0,
+                "lifecycle network_id must be non-zero",
+            ),
+            (
+                disclosure.idempotency_key != expected_idempotency_key,
+                "lifecycle idempotency_key binding differs",
+            ),
+            (
+                transaction_hash != self.activity_id,
+                "lifecycle transaction hash activity_id binding differs",
+            ),
+            (
+                transaction_hash != self.tx_hash,
+                "lifecycle transaction hash tx_hash binding differs",
+            ),
+        ] {
+            if differs {
+                return Err(AgentFailure::Refused(binding));
+            }
         }
-        Ok(activity)
+        let (payload, protocol_version) = match disclosure
+            .construct_method()
+            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
+        {
+            Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) => {
+                let scope = payload
+                    .get(
+                        payload
+                            .len()
+                            .checked_sub(6)
+                            .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?..,
+                    )
+                    .ok_or(AgentFailure::Refused("invalid lifecycle payload scope"))?;
+                if scope[..4] != self.network_id.to_be_bytes() {
+                    return Err(AgentFailure::Refused("lifecycle payload network differs"));
+                }
+                let version = u16::from_be_bytes([scope[4], scope[5]]);
+                if !layerx_wire::limits::protocol_version_supported(version) {
+                    return Err(AgentFailure::Refused("invalid lifecycle payload protocol"));
+                }
+                (payload, version)
+            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload }) => {
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreateNative {
+                budget,
+            }) => {
+                let mut payload = Vec::with_capacity(251);
+                payload.extend_from_slice(&budget.encoding_version.to_be_bytes());
+                for value in [
+                    budget.budget_id,
+                    budget.budget_account,
+                    budget.asset,
+                    budget.purpose,
+                ] {
+                    payload.extend_from_slice(&value);
+                }
+                for value in [
+                    budget.per_period_limit,
+                    budget.carry_cap,
+                    budget.initial_amount,
+                ] {
+                    payload.extend_from_slice(&value.to_be_bytes());
+                }
+                for value in [
+                    budget.period_length_ms,
+                    budget.period_start_ms,
+                    budget.expiry_ms,
+                    budget.revocation_sequence,
+                ] {
+                    payload.extend_from_slice(&value.to_be_bytes());
+                }
+                payload.push(budget.rollover);
+                payload.extend_from_slice(&budget.source_account);
+                payload.extend_from_slice(&budget.source_sequence.to_be_bytes());
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
+                budget,
+                amount,
+            }) => {
+                if amount == 0 {
+                    return Err(AgentFailure::Refused(
+                        "lifecycle budget funding amount is zero",
+                    ));
+                }
+                let mut payload = Vec::with_capacity(50);
+                payload.extend_from_slice(&1_u16.to_be_bytes());
+                payload.extend_from_slice(&budget);
+                payload.extend_from_slice(&amount.to_be_bytes());
+                (
+                    payload,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                )
+            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle {
+                payload,
+                ..
+            }) => (
+                payload,
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            ),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthSession {
+                grant, ..
+            }) => (
+                grant.registration_payload,
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            ),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "invalid lifecycle transaction method",
+                ))
+            }
+            Some(
+                layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerMint { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerBurn { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerIssueGrant { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::LedgerRevokeGrant { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::BankSend { .. },
+            ) => (disclosure.canonical_payload().to_vec(), 3),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "lifecycle transaction is a pointer transfer",
+                ))
+            }
+            None => {
+                return Err(AgentFailure::Refused(
+                    "missing lifecycle transaction method",
+                ))
+            }
+        };
+        Ok(BoundLifecycleCall {
+            call,
+            sender,
+            disclosure,
+            payload,
+            protocol_version,
+        })
     }
 }
 
@@ -545,11 +817,16 @@ pub struct AgentEvidence {
     pub action_key: [u8; 32],
     pub object_id: [u8; 32],
     pub observed_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
 impl AgentEvidence {
+    #[must_use]
+    pub const fn creation_complete(&self) -> bool {
+        matches!(self.rung, Rung::Committed)
+    }
+
     #[must_use]
     pub fn expected_digest(&self, stage: CreationStage) -> [u8; 32] {
         digest(&[
@@ -558,7 +835,7 @@ impl AgentEvidence {
             &self.action_key,
             &self.object_id,
             &self.observed_sequence.to_be_bytes(),
-            &[self.verification_level.wire_rank()],
+            &[self.rung.wire_rank()],
         ])
     }
 }
@@ -639,7 +916,7 @@ struct StoredPreset {
     config_version: String,
     config_digest: [u8; 32],
     id: String,
-    activity_types: Vec<u32>,
+    call_selectors: Vec<String>,
     counterparties: Vec<[u8; 32]>,
     assets: Vec<[u8; 32]>,
     amount_ceiling: u128,
@@ -661,6 +938,7 @@ struct JourneyRecord {
     native: Option<native::NativeCreation>,
     #[serde(default)]
     native_fee_budget: Option<NativeFeeConsent>,
+    activity_types: Vec<u32>,
     version: u8,
     agent_id: [u8; 32],
     idempotency_key: [u8; 32],
@@ -720,6 +998,7 @@ impl CreationJourney {
         native: Option<native::NativeCreation>,
     ) -> Result<Self, AgentCreationError> {
         context.validate()?;
+        validate_activity_types(&request.activity_types)?;
         let preset = catalog
             .preset(request.purpose())
             .ok_or(AgentCreationError::UnknownPurpose)?;
@@ -735,6 +1014,7 @@ impl CreationJourney {
                 && existing.record.monthly_spend == request.monthly_spend
                 && existing.record.currency == request.currency
                 && existing.record.native_fee_budget == request.native_fee_budget
+                && existing.record.activity_types == request.activity_types
                 && (existing.record.native == native
                     || (existing.record.version == RECORD_VERSION
                         && existing.record.native.is_none()))
@@ -753,7 +1033,7 @@ impl CreationJourney {
             config_version: catalog.version.clone(),
             config_digest,
             id: preset.id.clone(),
-            activity_types: preset.activity_types.clone(),
+            call_selectors: preset.call_selectors.clone(),
             counterparties: preset.counterparties.clone(),
             assets: preset.assets.clone(),
             amount_ceiling: preset.amount_ceiling,
@@ -790,9 +1070,14 @@ impl CreationJourney {
             .collect();
         let journey = Self {
             record: JourneyRecord {
-                version: if native.is_some() { 2 } else { RECORD_VERSION },
+                version: if native.is_some() {
+                    native::RECORD_VERSION
+                } else {
+                    RECORD_VERSION
+                },
                 native,
                 native_fee_budget: request.native_fee_budget.clone(),
+                activity_types: request.activity_types.clone(),
                 agent_id,
                 idempotency_key: context.idempotency_key,
                 name: request.name.clone(),
@@ -893,7 +1178,7 @@ impl CreationJourney {
     }
 
     pub(crate) fn native_resume_eligible(&self) -> bool {
-        self.record.version == 2 && self.record.native.is_some()
+        matches!(self.record.version, 2 | native::RECORD_VERSION) && self.record.native.is_some()
     }
 
     #[must_use]
@@ -947,7 +1232,8 @@ impl CreationJourney {
                 .collect::<Option<Vec<_>>>()
                 .unwrap_or_default(),
             primary_public_key: self.record.public_key,
-            activity_types: self.record.preset.activity_types.clone(),
+            call_selectors: self.record.preset.call_selectors.clone(),
+            activity_types: self.record.activity_types.clone(),
             daemon_scopes: self.record.preset.session_scopes.clone(),
             session_expires_at: self
                 .record
@@ -1084,28 +1370,27 @@ impl CreationJourney {
         let evidence = agent.submit_protocol_scoped(scope, action)?;
         if evidence.action_key != action_key
             || evidence.network_id != self.record.network_id
-            || evidence.bound_activity(kind)?.payload() != payload
+            || evidence.bound_activity(kind)?.call.data != payload
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
         let verified = evidence.verify_outcome(kind)?;
         let protocol = verified
-            .receipt()
             .protocol()
             .ok_or(AgentCreationError::EvidenceConflict)?;
-        if protocol.activity_id() != evidence.activity_id
+        if protocol.activity_id() != evidence.tx_hash
             || protocol.result_code() != 0
             || Some(u8::try_from(kind.ordinal()).map_err(|_| AgentCreationError::EvidenceConflict)?)
                 != stage.operation()
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
-        let receipt_digest: [u8; 32] = Sha256::digest(verified.canonical_bytes()).into();
+        let receipt_digest: [u8; 32] = Sha256::digest(evidence.receipt_bytes.as_slice()).into();
         put_exact(
             scope,
             evidence_row(self.record.agent_id, stage)?,
             now,
-            verified.canonical_bytes().to_vec(),
+            evidence.receipt_bytes.as_slice().to_vec(),
         )?;
         let record = self.stage_mut(stage);
         if record
@@ -1116,7 +1401,7 @@ impl CreationJourney {
         }
         record.state = StageState::ReceiptVerified;
         record.evidence_digest = Some(receipt_digest);
-        record.object_id = Some(evidence.activity_id);
+        record.object_id = Some(evidence.tx_hash);
         if stage == CreationStage::DidRegistration {
             self.stage_mut(CreationStage::Custody).state = StageState::ReceiptVerified;
             self.stage_mut(CreationStage::Custody).evidence_digest = Some(receipt_digest);
@@ -1132,15 +1417,6 @@ impl CreationJourney {
         now: u64,
     ) -> Result<(), AgentCreationError> {
         let action_key = self.stage(CreationStage::SessionProvision).action_key;
-        let activity_types = self
-            .record
-            .preset
-            .activity_types
-            .iter()
-            .map(|value| {
-                ActivityType::from_u32(*value).map_err(|_| AgentCreationError::InvalidPresetConfig)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
         let evidence = agent.provision_session_scoped(
             scope,
             registry,
@@ -1162,7 +1438,15 @@ impl CreationJourney {
                 not_before: self.record.started_at,
                 action_key,
                 did: self.did()?,
-                activity_types,
+                activity_types: self
+                    .record
+                    .activity_types
+                    .iter()
+                    .map(|value| {
+                        ActivityType::from_u32(*value)
+                            .map_err(|_| AgentCreationError::CorruptJourney)
+                    })
+                    .collect::<Result<_, _>>()?,
                 daemon_scopes: self.record.preset.session_scopes.clone(),
                 expires_at: self
                     .record
@@ -1194,12 +1478,12 @@ impl CreationJourney {
             capability_id: digest(&[b"layerx-human/agent-capability/v1", &self.record.agent_id]),
             activity_types: self
                 .record
-                .preset
                 .activity_types
                 .iter()
                 .map(|value| {
-                    u16::try_from(value & 0xffff)
-                        .map_err(|_| AgentCreationError::InvalidPresetConfig)
+                    ActivityType::from_u32(*value)
+                        .map(|value| value.ordinal())
+                        .map_err(|_| AgentCreationError::CorruptJourney)
                 })
                 .collect::<Result<_, _>>()?,
             counterparties: self.record.preset.counterparties.iter().copied().collect(),
@@ -1231,18 +1515,20 @@ impl CreationJourney {
         if evidence.action_key != self.stage(stage).action_key
             || evidence.object_id == [0; 32]
             || evidence.observed_sequence == 0
-            || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
             || (stage != CreationStage::SessionProvision
                 && evidence.receipt_digest != evidence.expected_digest(stage))
             || evidence.receipt_digest == [0; 32]
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
+        if !evidence.creation_complete() {
+            return Err(AgentFailure::Unavailable.into());
+        }
         let bytes = serde_json::to_vec(&(
             evidence.action_key,
             evidence.object_id,
             evidence.observed_sequence,
-            evidence.verification_level.wire_rank(),
+            evidence.rung.wire_rank(),
             evidence.receipt_digest,
         ))
         .map_err(|_| AgentCreationError::EvidenceConflict)?;
@@ -1320,7 +1606,7 @@ impl CreationJourney {
             | CreationStage::InitialFunding => return Err(AgentCreationError::InvalidStage),
         };
         let compiled = compile(&intent, registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         Ok(ProtocolAction {
             actor: None,
             stage,
@@ -1346,7 +1632,7 @@ impl CreationJourney {
             .map_err(|_| AgentCreationError::CorruptJourney)?;
         AccountId::parse(&format!(
             "agent:{did}:budget:{}",
-            if self.record.version == 2 {
+            if matches!(self.record.version, 2 | native::RECORD_VERSION) {
                 native::full_hex(&self.record.agent_id)
             } else {
                 short_hex(&self.record.agent_id)
@@ -1385,16 +1671,18 @@ impl CreationJourney {
 }
 
 fn validate_record(record: &JourneyRecord, expected: [u8; 32]) -> Result<(), AgentCreationError> {
+    validate_activity_types(&record.activity_types)
+        .map_err(|_| AgentCreationError::CorruptJourney)?;
     let expected_stages = match (&record.native, record.version) {
         (None, RECORD_VERSION) => CreationStage::ALL.to_vec(),
-        (Some(mode), 2) => native::stages(
+        (Some(mode), 2 | native::RECORD_VERSION) => native::stages(
             mode,
             record.native_fee_budget.as_ref(),
             record.preset.budget_asset,
         ),
         _ => return Err(AgentCreationError::CorruptJourney),
     };
-    if !matches!(record.version, 1 | 2)
+    if !matches!(record.version, 1 | 2 | native::RECORD_VERSION)
         || record.agent_id != expected
         || record.idempotency_key == [0; 32]
         || record.name.is_empty()
@@ -1445,6 +1733,32 @@ fn validate_record(record: &JourneyRecord, expected: [u8; 32]) -> Result<(), Age
         }
     }
     Ok(())
+}
+
+fn validate_activity_types(activity_types: &[u32]) -> Result<(), AgentCreationError> {
+    if activity_types.is_empty()
+        || activity_types.len() > 256
+        || activity_types
+            .iter()
+            .any(|value| ActivityType::from_u32(*value).is_err())
+        || activity_types.iter().collect::<BTreeSet<_>>().len() != activity_types.len()
+    {
+        return Err(AgentCreationError::InvalidRequest);
+    }
+    Ok(())
+}
+
+fn parse_selector(value: &str) -> Result<[u8; 4], AgentCreationError> {
+    let hex = value
+        .strip_prefix("0x")
+        .filter(|hex| hex.len() == 8 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .ok_or(AgentCreationError::InvalidPresetConfig)?;
+    let mut selector = [0; 4];
+    for (index, byte) in selector.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
+            .map_err(|_| AgentCreationError::InvalidPresetConfig)?;
+    }
+    Ok(selector)
 }
 
 fn action_key(agent_id: [u8; 32], stage: CreationStage) -> [u8; 32] {

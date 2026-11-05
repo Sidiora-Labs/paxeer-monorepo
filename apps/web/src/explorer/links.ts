@@ -1,14 +1,9 @@
 import { validExplorerIdentifier } from "./model.ts";
 
-/// The explorer surfaces the control plane links into. The Paxeer X Network explorer renders
-/// every anchor - the batch it seals and the checkpoint it commits - on one anchor surface, so
-/// the anchor, batch and checkpoint targets resolve to that surface; the receipt, transaction
-/// and address targets carry the identifier their surface takes.
+/// The explorer surfaces the control plane links into, each carrying its own identifier.
 export const EXPLORER_LINK_KINDS = [
-  "anchor",
-  "batch",
-  "checkpoint",
   "receipt",
+  "historical-receipt",
   "transaction",
   "address",
 ] as const;
@@ -16,13 +11,12 @@ export const EXPLORER_LINK_KINDS = [
 export type ExplorerLinkKind = (typeof EXPLORER_LINK_KINDS)[number];
 
 export type ExplorerLinkTarget =
-  | Readonly<{ kind: "anchor" }>
-  | Readonly<{ kind: "batch" }>
-  | Readonly<{ kind: "checkpoint" }>
-  | Readonly<{ kind: "receipt"; receiptId: string }>
+  | Readonly<{ kind: "receipt"; receiptId: string; transactionHash: string }>
+  | Readonly<{ kind: "historical-receipt"; receiptId: string; frozen: true }>
   | Readonly<{ kind: "transaction"; transactionHash: string }>
   | Readonly<{ kind: "address"; address: string }>;
 
+// Kept as the identifier of the retired surface for admission checks, never a link target.
 export const EXPLORER_ANCHOR_PATH = "/paxeer-x/anchors";
 
 const TRANSACTION_HASH_GRAMMAR = /^0x[0-9a-fA-F]{64}$/u;
@@ -30,13 +24,17 @@ const ADDRESS_GRAMMAR = /^0x[0-9a-fA-F]{40}$/u;
 
 export function explorerLinkPath(target: ExplorerLinkTarget): string {
   switch (target.kind) {
-    case "anchor":
-    case "batch":
-    case "checkpoint":
-      return EXPLORER_ANCHOR_PATH;
     case "receipt":
       if (!validExplorerIdentifier(target.receiptId)) {
         throw new TypeError("Invalid receipt identifier");
+      }
+      if (!TRANSACTION_HASH_GRAMMAR.test(target.transactionHash)) {
+        throw new TypeError("Current receipt requires its resolved native transaction hash");
+      }
+      return `/tx/${target.transactionHash.toLowerCase()}`;
+    case "historical-receipt":
+      if (target.frozen !== true || !validExplorerIdentifier(target.receiptId)) {
+        throw new TypeError("Invalid frozen historical receipt identity");
       }
       return `/paxeer-x/receipts/${target.receiptId.toLowerCase()}`;
     case "transaction":
@@ -50,6 +48,7 @@ export function explorerLinkPath(target: ExplorerLinkTarget): string {
       }
       return `/address/${target.address.toLowerCase()}`;
   }
+  throw new TypeError("Unsupported explorer link kind");
 }
 
 /// The explorer's public base URL, as the control plane reads it from its environment. A base URL
@@ -81,9 +80,33 @@ export function parseExplorerBaseUrl(configured: string | undefined): URL | unde
 }
 
 /// The control plane's own explorer routes, in the order they are offered. Every entry names a
-/// route the control plane still serves; the anchor listings it used to serve are linked to the
-/// explorer from the overview instead.
+/// route the control plane still serves.
 export const EXPLORER_NAVIGATION = [
   Object.freeze({ href: "/explorer", copyKey: "explorer.navigation.overview" }),
-  Object.freeze({ href: "/explorer/verify", copyKey: "explorer.navigation.verify" }),
 ] as const;
+
+export interface CurrentReceiptIdentity {
+  readonly receiptId: string;
+  readonly transactionHash: string;
+}
+
+export async function resolveReceiptLink(
+  receiptId: string,
+  read: (receiptId: string) => Promise<CurrentReceiptIdentity | undefined>,
+): Promise<ExplorerLinkTarget> {
+  if (!validExplorerIdentifier(receiptId)) throw new TypeError("Invalid receipt identifier");
+  const receipt = await read(receiptId.toLowerCase());
+  if (receipt === undefined || receipt.receiptId.toLowerCase() !== receiptId.toLowerCase()) {
+    throw new TypeError("Native receipt identity does not match the requested receipt");
+  }
+  const target = { kind: "receipt", receiptId: receipt.receiptId, transactionHash: receipt.transactionHash } as const;
+  explorerLinkPath(target);
+  return target;
+}
+
+export function historicalReceiptLinkPath(identity: Readonly<{ receiptId: string; frozen: true; }>): string {
+  if (identity.frozen !== true || !validExplorerIdentifier(identity.receiptId)) {
+    throw new TypeError("Historical receipt requires a frozen archive identity");
+  }
+  return `/api/v2/paxeer-x/archive/receipts/0x${identity.receiptId.toLowerCase()}`;
+}

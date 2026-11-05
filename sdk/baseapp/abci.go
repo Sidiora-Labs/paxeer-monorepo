@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -18,11 +19,9 @@ import (
 	snapshottypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/snapshots/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/tasks"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/legacytm"
-	"github.com/armon/go-metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/codes"
@@ -107,8 +106,6 @@ func (app *BaseApp) MidBlock(ctx sdk.Context, height int64) (events []abci.Event
 	start := time.Now()
 	defer func() {
 		baseappMetrics.midBlockDuration.Record(ctx.Context(), time.Since(start).Seconds())
-		// TODO(PLT-353): remove once baseapp_mid_block_duration verified
-		telemetry.MeasureSince(start, "abci", "mid_block")
 	}()
 
 	if app.midBlocker != nil {
@@ -124,8 +121,6 @@ func (app *BaseApp) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) (res abc
 	start := time.Now()
 	defer func() {
 		baseappMetrics.endBlockDuration.Record(ctx.Context(), time.Since(start).Seconds())
-		// TODO(PLT-353): remove once baseapp_end_block_duration verified
-		telemetry.MeasureSince(start, "abci", "end_block")
 	}()
 
 	if app.endBlocker != nil {
@@ -184,20 +179,10 @@ func (app *BaseApp) DeliverTx(ctx sdk.Context, req abci.RequestDeliverTxV2, tx s
 
 	defer func() {
 		baseappMetrics.deliverTxDuration.Record(ctx.Context(), time.Since(deliverTxStart).Seconds())
-		// TODO(PLT-353): remove once baseapp_deliver_tx_duration verified
-		telemetry.MeasureSince(deliverTxStart, "abci", "deliver_tx")
 		baseappMetrics.txCount.Add(ctx.Context(), 1)
-		// TODO(PLT-353): remove once baseapp_tx_count verified
-		telemetry.IncrCounter(1, "tx", "count")
 		baseappMetrics.txResult.Add(ctx.Context(), 1, otelmetric.WithAttributes(attribute.String("result", resultStr)))
-		// TODO(PLT-353): remove once baseapp_tx_result verified
-		telemetry.IncrCounter(1, "tx", resultStr)
-		baseappMetrics.txGasUsed.Record(ctx.Context(), int64(gInfo.GasUsed)) //nolint:gosec
-		// TODO(PLT-353): remove once baseapp_tx_gas_used verified
-		telemetry.SetGauge(float32(gInfo.GasUsed), "tx", "gas", "used")
+		baseappMetrics.txGasUsed.Record(ctx.Context(), int64(gInfo.GasUsed))     //nolint:gosec
 		baseappMetrics.txGasWanted.Record(ctx.Context(), int64(gInfo.GasWanted)) //nolint:gosec
-		// TODO(PLT-353): remove once baseapp_tx_gas_wanted verified
-		telemetry.SetGauge(float32(gInfo.GasWanted), "tx", "gas", "wanted")
 	}()
 
 	runTxRes, err := app.runTx(ctx.WithTxBytes(req.Tx).WithTxSum(checksum), runTxModeDeliver, tx, checksum)
@@ -259,6 +244,14 @@ func (app *BaseApp) SetDeliverStateToCommit() {
 	app.stateToCommit = app.deliverState
 }
 
+func (app *BaseApp) SetSealedStateToCommit(ctx sdk.Context, ms sdk.CacheMultiStore) error {
+	if ms == nil {
+		return errors.New("cannot commit a nil sealed multistore")
+	}
+	app.stateToCommit = &state{ms: ms, ctx: ctx.WithMultiStore(ms), mtx: &sync.RWMutex{}}
+	return nil
+}
+
 // Commit implements the ABCI interface. It will commit all state that exists in
 // the deliver state's multi-store and includes the resulting commit ID in the
 // returned abci.ResponseCommit. Commit will set the check state based on the
@@ -270,8 +263,6 @@ func (app *BaseApp) Commit(ctx context.Context) (res *abci.ResponseCommit, err e
 	commitStart := time.Now()
 	defer func() {
 		baseappMetrics.commitDuration.Record(ctx, time.Since(commitStart).Seconds())
-		// TODO(PLT-353): remove once baseapp_commit_duration verified
-		telemetry.MeasureSince(commitStart, "abci", "commit")
 	}()
 	app.commitLock.Lock()
 	defer app.commitLock.Unlock()
@@ -436,8 +427,6 @@ func (app *BaseApp) Query(ctx context.Context, req *abci.RequestQuery) (res *abc
 	defer func() {
 		route := app.abciQueryMetricRoute(req.Path)
 		baseappMetrics.abciQueryDuration.Record(ctx, time.Since(queryStart).Seconds(), otelmetric.WithAttributes(attribute.String(abciQueryMetricRouteLabel, route)))
-		// TODO(PLT-353): remove once baseapp_abci_query_duration verified
-		telemetry.MeasureSinceWithLabels([]string{"abci", "query"}, queryStart, []metrics.Label{{Name: "path", Value: req.Path}})
 	}()
 
 	// Add panic recovery for all queries.
@@ -635,6 +624,9 @@ func (app *BaseApp) handleQueryGRPC(handler GRPCQueryHandler, req abci.RequestQu
 }
 
 func gRPCErrorToSDKError(err error) error {
+	if codespace, _, _ := sdkerrors.ABCIInfo(err, false); codespace != sdkerrors.UndefinedCodespace {
+		return err
+	}
 	status, ok := grpcstatus.FromError(err)
 	if !ok {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
@@ -769,7 +761,11 @@ func (app *BaseApp) GetBlockRetentionHeight(commitHeight int64) (int64, error) {
 	// evidence parameters instead of computing an estimated nubmer of blocks based
 	// on the unbonding period and block commitment time as the two should be
 	// equivalent.
-	cp := app.GetConsensusParams(app.deliverState.ctx)
+	commitState := app.stateToCommit
+	if commitState == nil {
+		commitState = app.deliverState
+	}
+	cp := app.GetConsensusParams(commitState.ctx)
 	if cp != nil && cp.Evidence != nil && cp.Evidence.MaxAgeNumBlocks > 0 {
 		retentionHeight = commitHeight - cp.Evidence.MaxAgeNumBlocks
 	}
@@ -925,10 +921,7 @@ func handleQueryStore(ctx context.Context, app *BaseApp, path []string, req abci
 			), app.trace)
 	}
 
-	resp := queryable.Query(ctx, req)
-	resp.Height = req.Height
-
-	return resp
+	return queryable.Query(ctx, req)
 }
 
 func handleQueryCustom(app *BaseApp, path []string, req abci.RequestQuery) abci.ResponseQuery {
@@ -987,8 +980,6 @@ func (app *BaseApp) ProcessProposal(ctx context.Context, req *abci.RequestProces
 	processProposalStart := time.Now()
 	defer func() {
 		baseappMetrics.processProposalDuration.Record(ctx, time.Since(processProposalStart).Seconds())
-		// TODO(PLT-353): remove once baseapp_process_proposal_duration verified
-		telemetry.MeasureSince(processProposalStart, "abci", "process_proposal")
 	}()
 	defer func() { app.execProcessProposalMs = time.Since(processProposalStart).Milliseconds() }()
 	if app.ChainID != req.Header.ChainID {
@@ -1054,8 +1045,6 @@ func (app *BaseApp) FinalizeBlock(ctx context.Context, req *abci.RequestFinalize
 	finalizeBlockStart := time.Now()
 	defer func() {
 		baseappMetrics.finalizeBlockDuration.Record(ctx, time.Since(finalizeBlockStart).Seconds())
-		// TODO(PLT-353): remove once baseapp_finalize_block_duration verified
-		telemetry.MeasureSince(finalizeBlockStart, "abci", "finalize_block")
 	}()
 	app.execBlockTxCount = len(req.Txs)
 	defer func() { app.execFinalizeBlockMs = time.Since(finalizeBlockStart).Milliseconds() }()
@@ -1117,8 +1106,6 @@ func (app *BaseApp) GetTxPriorityHint(ctx context.Context, req *abci.RequestGetT
 	priorityHintStart := time.Now()
 	defer func() {
 		baseappMetrics.getTxPriorityHintDuration.Record(ctx, time.Since(priorityHintStart).Seconds())
-		// TODO(PLT-353): remove once baseapp_get_tx_priority_hint_duration verified
-		telemetry.MeasureSince(priorityHintStart, "abci", "get_tx_priority_hint")
 	}()
 
 	tx, err := app.txDecoder(req.Tx)

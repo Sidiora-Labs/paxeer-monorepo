@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import copy
 import hashlib
 import importlib.util
@@ -153,6 +154,25 @@ def receipt_facts(encoded, activity_id):
             'previous_state_root': previous.hex(), 'resulting_state_root': resulting.hex()}
 
 
+def committed_facts(fixture, value, tenant):
+    activity = value.get('activity_id')
+    receipt = value.get('receipt')
+    submission = value.get('submission', {})
+    require(isinstance(activity, str) and re.fullmatch('[0-9a-f]{64}', activity)
+            and submission.get('state') == 'Committed' and submission.get('rung') == 'committed'
+            and submission.get('tx_hash') == activity and isinstance(receipt, dict)
+            and receipt.get('rung') == 'committed' and receipt.get('tx_hash') == activity,
+            'tenant write lacks a committed receipt')
+    canonical = receipt.get('canonical_bytes')
+    require(isinstance(canonical, str) and re.fullmatch('(?:[0-9a-f]{2})+', canonical)
+            and len(canonical) <= 2 * 1_212_416, 'missing bounded canonical tenant receipt')
+    committed = fixture.node().committed('0x' + activity, owner=tenant['evm_address'],
+                                         canonical=canonical)
+    require(submission.get('receipt_ref') == committed['receipt_digest'], 'tenant submission receipt identity mismatch')
+    facts = receipt_facts(committed['canonical_bytes'], activity)
+    return dict(facts, **{key: committed[key] for key in ('transaction_hash', 'block_hash', 'block_number', 'receipt_digest')})
+
+
 class Corpus:
     def __init__(self, fixture, daemon, evidence):
         self.fixture, self.daemon, self.evidence = fixture, daemon, evidence
@@ -195,8 +215,9 @@ class Corpus:
                 'real authenticated operation refused: ' + envelope['operation'])
         if verified:
             value = response['verification_status']
-            require(value.get('state') == 'achieved' and value.get('level') in (
-                'StateProven', 'CheckpointFinalised', 'SettlementAnchored'),
+            require(value.get('state') == 'achieved' and (
+                value.get('rung') == 'committed' if envelope['operation'] in ('track', 'program.receipt') else value.get('level') in (
+                'StateProven', 'CheckpointFinalised')),
                 'actual authenticated operation did not achieve StateProven evidence')
         return response
 
@@ -307,35 +328,39 @@ class Corpus:
         return {'affected': failed, 'healthy': healthy, 'verified_reads': reads,
                 'write_refusal': {'http_status': status, 'reason': response['reason']}}
 
+    def receipt_outcome(self, tenant, submission):
+        activity = submission.get('tx_hash')
+        require(isinstance(activity, str) and re.fullmatch('[0-9a-f]{64}', activity), 'tracked write lost transaction identity')
+        response = self.success(self.envelope(tenant, 'program.receipt', {
+            'idempotency_key': tenant['prepare']['request']['idempotency_key'],
+            'expected_activity_id': activity, 'requested_rung': 'committed'}), verified=True)
+        lookup = response['value']
+        require(isinstance(lookup, dict) and lookup.get('found') is True and isinstance(lookup.get('receipt'), dict),
+                'committed tenant receipt lookup is missing')
+        return {'activity_id': activity, 'submission': submission, 'receipt': lookup['receipt']}
+
     def write(self, index):
         tenant = self.tenants[index]
         response = self.success(self.envelope(tenant, 'submit', tenant['submit'], True))
-        value = response['value']
-        require(isinstance(value, dict) and re.fullmatch('[0-9a-f]{64}', value.get('activity_id', ''))
-                and isinstance(value.get('submission'), dict)
-                and isinstance(value['submission'].get('submission_ref'), str), 'actual submit outcome missing')
-        activity = value['activity_id']
-        reference = value['submission']['submission_ref']
+        submission = response['value']
+        require(isinstance(submission, dict) and isinstance(submission.get('submission_ref'), str)
+                and re.fullmatch('[0-9a-f]{64}', submission.get('tx_hash', '')), 'actual submit outcome missing')
+        activity, reference = submission['tx_hash'], submission['submission_ref']
         deadline = time.monotonic() + 180
-        while value['submission'].get('state') != 'Executed':
-            require(value['submission'].get('state') in ('Queued', 'Submitted', 'Acknowledged', 'Unknown')
-                    and time.monotonic() < deadline, 'actual write did not reach a verified kernel receipt')
+        while submission.get('state') != 'Committed':
+            require(submission.get('state') in ('Queued', 'Submitted', 'Acknowledged', 'Unknown', 'Receipted')
+                    and time.monotonic() < deadline, 'actual write did not reach a committed node receipt')
             time.sleep(0.25)
             response = self.success(self.envelope(tenant, 'track', {'submission_ref': reference}))
-            value = response['value']
-            require(value.get('activity_id') == activity, 'durable write changed activity identity')
-        require(value['submission']['submission_ref'] == reference,
-                'tracked actual write changed submission identity')
+            submission = response['value']
+            require(submission.get('tx_hash') == activity, 'durable write changed transaction identity')
+        require(submission['submission_ref'] == reference, 'tracked actual write changed submission identity')
         verification = response['verification_status']
-        receipt = value.get('receipt')
-        require(verification.get('state') == 'achieved' and verification.get('level') in (
-            'StateProven', 'CheckpointFinalised', 'SettlementAnchored')
-            and isinstance(receipt, dict) and receipt.get('verification_level') in (
-                'StateProven', 'CheckpointFinalised', 'SettlementAnchored'),
-                'executed write lacks actual StateProven receipt evidence')
-        facts = receipt_facts(receipt.get('canonical_bytes'), activity)
-        self.outcomes[index] = {'activity_id': activity, 'submission_ref': reference, 'receipt': receipt,
-                                'facts': facts}
+        require(verification.get('state') == 'achieved' and verification.get('rung') == 'committed',
+                'tenant write did not achieve committed evidence')
+        value = self.receipt_outcome(tenant, submission)
+        facts = committed_facts(self.fixture, value, tenant)
+        self.outcomes[index] = {'activity_id': activity, 'submission_ref': reference, 'receipt': value['receipt'], 'facts': facts}
         self.read(tenant)
         return facts
 
@@ -492,13 +517,15 @@ class Corpus:
         expected = self.outcomes[index]
         response = self.success(self.envelope(self.tenants[index], 'track', {
             'submission_ref': expected['submission_ref']}), verified=True)
-        actual = response['value']
+        actual = self.receipt_outcome(self.tenants[index], response['value'])
         require(actual.get('activity_id') == expected['activity_id']
-                and actual.get('submission', {}).get('state') == 'Executed'
+                and actual.get('submission', {}).get('state') == 'Committed'
                 and actual.get('submission', {}).get('submission_ref') == expected['submission_ref']
                 and actual.get('receipt') == expected['receipt'],
                 'restart lost or changed the verified actual economic outcome')
-        return expected['facts']
+        facts = committed_facts(self.fixture, actual, self.tenants[index])
+        require(facts == expected['facts'], 'restart changed tenant committed block evidence')
+        return facts
 
     def restart_outcomes(self):
         self.daemon.stop()
@@ -599,14 +626,16 @@ def main():
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] == ['--worker']:
+    parser = argparse.ArgumentParser(description='Qualify per-tenant agent readiness and durable recovery.')
+    parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    if args.worker:
         def interrupted(signum, _frame):
             raise HTTP.Failure('qualification interrupted by signal ' + str(signum))
         signal.signal(signal.SIGTERM, interrupted)
         signal.signal(signal.SIGINT, interrupted)
         subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
         sys.exit(main())
-    require(not sys.argv[1:], 'unexpected qualification arguments')
     environment = dict(os.environ)
     for namespace in ('net', 'pid', 'mnt'):
         environment['PAXEER_X_HTTP_PARENT_' + namespace.upper()] = os.readlink('/proc/self/ns/' + namespace)

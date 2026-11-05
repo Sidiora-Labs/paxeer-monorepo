@@ -1,5 +1,5 @@
 {
-  "canonical_state_root": "194dca071ac042f1ce65053f1b93fff604fa193b9922fd164a0e90582458c258",
+  "canonical_state_root": "28ec1e004cdf61b1408ec34aecdfbdab9f9a711f34da00ca31754988c92dcf5f",
   "modules": [
     "budget",
     "escrow",
@@ -10,16 +10,16 @@
   "native_fee_authority_version": 2,
   "native_fee_schedule_version": 3,
   "network_id": 77,
-  "previous_canonical_state_root": "931e6e2711ca946cad467ea3ad65dcbb74611d3dbe8578ae7f06157e73fd8754",
-  "previous_receipt_state_root": "e59b387c6e31993ba6ca8d9c2397f7815e3373863127f6609f04408fdaaf15ca",
+  "previous_canonical_state_root": "931838f7568e9bfedc5ac147c03c46340e5a9d0e3a5fe7f85502baff81abd6b1",
+  "previous_receipt_state_root": "6dc4c34d538ff9acd5820c8e808018d1d5a7c5490ba1493e206dc2bd20a64eeb",
   "protocol_version": 3,
-  "receipt_state_root": "5c4473eda28947a9b7ef450615c73706b9cca7edf49d27bc965d45362add11e0",
-  "sequencer_public_key": "58a179348aa669054996e1d4ee8b71de684b7e496c5fa90cba45d1f15064f229",
+  "receipt_state_root": "fa5ecc3fe80c09040fb542d86abe54d8f0a3f81fb2ee8a7b4064b34804508186",
+  "sequencer_public_key": "5f5701cd1baceb34539735ae1e9b6adf08e153ee95003d78b4628d3ca77a1d3e",
   "sha256": {
-    "00000000000000000000.lxs": "b68d57e290ffa9ef558192641d4940c38d93186a5b870078545b91076fd69f95",
-    "genesis.manifest": "98ad80ab902e3e49f8a4e4b1fa3a7e6d3b7fc589d499803939f36193a61347f1",
-    "paxeer-deployment-descriptor.lxgd": "ea7487963c12df6ae8aeebf1105bfe82f02e9bb1287cd0403a97a2ef5c45b432",
-    "paxeer-registration-request.lxrr": "1fb46a1069cab37653d9b62cfdb1c76bc83eadb9746e5ddef3171bb5b6b752f5"
+    "00000000000000000000.lxs": "12dd57f7075dc89b7fd27e968ccee5f4d4283a6ecb99f139ca030bbe758bf655",
+    "genesis.manifest": "03e9de05b4a74ba453d781cd23e0320e6c47f785fd5f5eec2d0215005b4f2166",
+    "paxeer-deployment-descriptor.lxgd": "f3f66bdec9a346130ebda55f200f35fec7066e65d73eff4be2e65ce44cf39a19",
+    "paxeer-registration-request.lxrr": "22189a54463b57420928db14e373aad2384eb2a8ad7c1390bf57433ea733bfde"
   },
   "withdrawal_price": 0
 }

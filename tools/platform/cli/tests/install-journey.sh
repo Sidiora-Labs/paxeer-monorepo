@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Also usable by the focused subprocess proof without live payment credentials.
+check_cli_output() {
+  jq -se --arg kind "$1" '
+    length == 1 and .[0].ok == true and .[0].kind == $kind
+    and (.[0].message | type) == "string" and (.[0] | has("data"))'
+}
+if [ "${1:-}" = "--check-cli-output" ]; then
+  check_cli_output "${2:?expected command kind}"
+  exit
+fi
+
 : "${LAYERX_BIN:?set LAYERX_BIN to the built layerx executable}"
 : "${LAYERX_GATEWAY_URL:?set the hosted gateway URL}"
 : "${LAYERX_NETWORK_ID:?set the hosted protocol network id}"
@@ -199,6 +210,7 @@ printf '%s\n' "$LAYERX_IDENTITY_TOKEN" | \
     --token-stdin --source-account "$LAYERX_SOURCE_ACCOUNT" \
     --asset "$LAYERX_PAYMENT_ASSET" --listen "127.0.0.1:$a2a_port" \
     >"$journey_root/a2a-install.json"
+check_cli_output install.a2a <"$journey_root/a2a-install.json" >/dev/null
 jq -e '.data.lifecycle.state == "running"' "$journey_root/a2a-install.json" >/dev/null
 a2a_authorization_file=$(jq -er '.data.authorization.credential_file' "$journey_root/a2a-install.json")
 test "$(stat -c '%a' "$a2a_authorization_file")" = 600

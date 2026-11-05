@@ -1,0 +1,9 @@
+[repair.22.33.904]
+audit = "22.30.19"
+search_logo_projection = "repair-22-33-904.test.ts: search_logo_projection; real SdkClient search decoding and HTTP batch transport into searchEntities; approved and absent logos plus rejected media URLs and shapes."
+overlapping_dialog_focus = "use-dialog-focus.test.tsx: overlapping_dialog_focus, imported by repair-22-33-904.test.ts; real React hook with independent roots, focus containment, Tab/Shift-Tab and both closure orders."
+baseline = "Not executed: the explicit implementation-first order and bounded hf-build/hf-done gates take precedence over step 6's unchanged-tree verify request. No baseline test failure is claimed."
+prechange_observed = "Code inspection: checkedSearchMetadata omitted images, and every dialog installed active containment and claimed sibling branches."
+producer = "ProductionLegacyReads.fill/logoKey in services/launchpad/metadata/internal/metadata/legacy_reads.go projects a token-bound logo only after approval; the loopback peer uses the committed creator-metadata recording as its in-memory metadata store."
+wiring_requests = []
+evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log; no passing evidence is claimed here before that gate."

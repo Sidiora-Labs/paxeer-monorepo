@@ -2,10 +2,12 @@ package tx
 
 import (
 	"fmt"
+	"math/bits"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
 )
@@ -56,19 +58,48 @@ func SignatureDataToModeInfoAndSig(data signing.SignatureData) (*tx.ModeInfo, []
 // ModeInfoAndSigToSignatureData converts a ModeInfo and raw bytes signature to a SignatureData or returns
 // an error
 func ModeInfoAndSigToSignatureData(modeInfo *tx.ModeInfo, sig []byte) (signing.SignatureData, error) {
+	if modeInfo == nil {
+		return nil, sdkerrors.ErrTxDecode.Wrap("missing mode info")
+	}
 	switch modeInfo := modeInfo.Sum.(type) {
 	case *tx.ModeInfo_Single_:
+		if modeInfo == nil || modeInfo.Single == nil {
+			return nil, sdkerrors.ErrTxDecode.Wrap("missing single mode info")
+		}
+		if _, ok := signing.SignMode_name[int32(modeInfo.Single.Mode)]; !ok || modeInfo.Single.Mode == signing.SignMode_SIGN_MODE_UNSPECIFIED {
+			return nil, sdkerrors.ErrTxDecode.Wrapf("invalid single sign mode %d", modeInfo.Single.Mode)
+		}
 		return &signing.SingleSignatureData{
 			SignMode:  modeInfo.Single.Mode,
 			Signature: sig,
 		}, nil
 
 	case *tx.ModeInfo_Multi_:
+		if modeInfo == nil || modeInfo.Multi == nil {
+			return nil, sdkerrors.ErrTxDecode.Wrap("missing multi mode info")
+		}
 		multi := modeInfo.Multi
+		bitarray := multi.Bitarray
+		if bitarray == nil || len(bitarray.Elems) == 0 || bitarray.ExtraBitsStored > 7 {
+			return nil, sdkerrors.ErrTxDecode.Wrap("invalid multisig bitarray shape")
+		}
+		if extra := bitarray.ExtraBitsStored; extra != 0 && bitarray.Elems[len(bitarray.Elems)-1]&byte((1<<(8-extra))-1) != 0 {
+			return nil, sdkerrors.ErrTxDecode.Wrap("nonzero multisig bitarray padding")
+		}
+		selected := 0
+		for _, elem := range bitarray.Elems {
+			selected += bits.OnesCount8(elem)
+		}
+		if selected != len(multi.ModeInfos) {
+			return nil, sdkerrors.ErrTxDecode.Wrapf("multisig bit count %d does not match mode count %d", selected, len(multi.ModeInfos))
+		}
 
 		sigs, err := decodeMultisignatures(sig)
 		if err != nil {
-			return nil, err
+			return nil, sdkerrors.ErrTxDecode.Wrap(err.Error())
+		}
+		if len(sigs) != len(multi.ModeInfos) {
+			return nil, sdkerrors.ErrTxDecode.Wrapf("multisig signature count %d does not match mode count %d", len(sigs), len(multi.ModeInfos))
 		}
 
 		sigv2s := make([]signing.SignatureData, len(sigs))
@@ -85,7 +116,7 @@ func ModeInfoAndSigToSignatureData(modeInfo *tx.ModeInfo, sig []byte) (signing.S
 		}, nil
 
 	default:
-		panic(fmt.Errorf("unexpected ModeInfo data type %T", modeInfo))
+		return nil, sdkerrors.ErrTxDecode.Wrapf("unexpected ModeInfo data type %T", modeInfo)
 	}
 }
 

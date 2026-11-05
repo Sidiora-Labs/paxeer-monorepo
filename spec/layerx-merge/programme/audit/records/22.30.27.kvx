@@ -1,0 +1,934 @@
+# Pre-upgrade audit: product findings and proposed repairs only.
+
+[audit.22.30.27]
+task = "22.30.27"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 89
+findings = 32
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["native-pool-identity", "native-client-spender", "native-domain-spender", "native-cost-spender", "approval-admission-cycle"]
+
+[file.001]
+path = "apps/launchpad/web/src/widgets/create/cap-admission.ts"
+lines = 26
+verdict = "issues"
+note = "Reviewed runtime authority, account/revision binding and expiry checks; the approval-stage simulation cycle is recorded separately."
+
+[file.002]
+path = "apps/launchpad/web/src/widgets/create/coin-preview-card.tsx"
+lines = 65
+verdict = "clean"
+note = "Reviewed preview name, symbol, quote and image rendering; React text escaping and media placeholder behavior agree with the draft props."
+
+[file.003]
+path = "apps/launchpad/web/src/widgets/create/create-form-fields.tsx"
+lines = 129
+verdict = "clean"
+note = "Reviewed field values, limits, error association and callbacks against CreationDraftV2 and the shared controls."
+
+[file.004]
+path = "apps/launchpad/web/src/widgets/create/create-form.test.tsx"
+lines = 196
+verdict = "clean"
+note = "Reviewed real form interactions and accessible validation assertions; UI tests are local component evidence rather than native chain qualification."
+
+[file.005]
+path = "apps/launchpad/web/src/widgets/create/create-pristine.test.tsx"
+lines = 255
+verdict = "clean"
+note = "Reviewed pristine form, responsive disclosures and safe default assertions against the current wizard and copy."
+
+[file.006]
+path = "apps/launchpad/web/src/widgets/create/create-wizard.hydration.test.tsx"
+lines = 126
+verdict = "clean"
+note = "Reviewed hydration and draft restoration assertions, initial markup and wallet-unavailable handling against the client component."
+
+[file.007]
+path = "apps/launchpad/web/src/widgets/create/create-wizard.tsx"
+lines = 602
+verdict = "issues"
+note = "Reviewed the full draft/review/progress/publication/first-buy page; uncertain purchase recovery lacks an actionable hash-attachment control."
+
+[file.008]
+path = "apps/launchpad/web/src/widgets/create/creation-adapters.ts"
+lines = 198
+verdict = "issues"
+note = "Reviewed every funding, signing, canonical receipt, registry, metadata and purchase adapter; native allowance identity disagreement is recorded."
+
+[file.009]
+path = "apps/launchpad/web/src/widgets/create/creation-chain.config.cjs"
+lines = 2
+verdict = "issues"
+note = "Reviewed both configuration lines; the default contract artifact root selects the wrong monorepo directory."
+
+[file.010]
+path = "apps/launchpad/web/src/widgets/create/creation-chain.fixture.cjs"
+lines = 410
+verdict = "issues"
+note = "Reviewed the entire owned-chain and browser fixture, including long checkpoint lines; source-layout and current-control disagreements are recorded."
+
+[file.011]
+path = "apps/launchpad/web/src/widgets/create/creation-controller.ts"
+lines = 220
+verdict = "issues"
+note = "Reviewed the full controller, canonical metadata publication envelope and durable attempt lifecycle; unknown purchase hash recovery is missing."
+
+[file.012]
+path = "apps/launchpad/web/src/widgets/create/creation-domain.test.mjs"
+lines = 124
+verdict = "issues"
+note = "Reviewed all domain assertions including hostile receipts, reviewed purchase identity and recovery; the approval fixture uses the wrong native spender."
+
+[file.013]
+path = "apps/launchpad/web/src/widgets/create/creation-domain.ts"
+lines = 195
+verdict = "issues"
+note = "Reviewed all amount, metadata, receipt, approval, purchase and recovery helpers; Router-based approval identity disagrees with native pulls."
+
+[file.014]
+path = "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx"
+lines = 66
+verdict = "issues"
+note = "Reviewed both real-chain journey cases; direct adapter approval misses the controller admission stage used by the product."
+
+[file.015]
+path = "apps/launchpad/web/src/widgets/create/creation-storage.test.ts"
+lines = 26
+verdict = "clean"
+note = "Reviewed storage failure, lock and history assertions against the persistent attempt implementation."
+
+[file.016]
+path = "apps/launchpad/web/src/widgets/create/creation-storage.ts"
+lines = 154
+verdict = "clean"
+note = "Reviewed full stored draft/attempt decoding, snapshot binding, exclusive admission, corruption handling and bounds; missing purchase recovery belongs to controller/UI findings."
+
+[file.017]
+path = "apps/launchpad/web/src/widgets/create/fee-summary.tsx"
+lines = 69
+verdict = "clean"
+note = "Reviewed fee, gas and optional first-buy display against the supplied cost and funding state; first purchase remains separate from the creation fee."
+
+[file.018]
+path = "apps/launchpad/web/src/widgets/create/info-tip.tsx"
+lines = 15
+verdict = "clean"
+note = "Reviewed tooltip identity, accessible label and text rendering; no external transport or retired endpoint is introduced."
+
+[file.019]
+path = "apps/launchpad/web/src/widgets/create/launch-copy.ts"
+lines = 132
+verdict = "clean"
+note = "Reviewed launch copy and action-state mappings against controller phases and native PAX/USDL units."
+
+[file.020]
+path = "apps/launchpad/web/src/widgets/create/launch-progress.tsx"
+lines = 76
+verdict = "clean"
+note = "Reviewed progress step status and disclosure rendering against the wizard step contract and accessible controls."
+
+[file.021]
+path = "apps/launchpad/web/src/widgets/create/media-dropzone.tsx"
+lines = 128
+verdict = "clean"
+note = "Reviewed image selection, cancellation, error handling and descriptor callbacks against media-validation; bytes remain local until explicit upload."
+
+[file.022]
+path = "apps/launchpad/web/src/widgets/create/media-rule-legend.tsx"
+lines = 29
+verdict = "clean"
+note = "Reviewed accepted image formats, size and dimension copy against the media validator constants."
+
+[file.023]
+path = "apps/launchpad/web/src/widgets/create/media-validation.ts"
+lines = 129
+verdict = "clean"
+note = "Reviewed image byte/format/dimension checks, SHA-256 descriptor validation and staged-file identity before upload."
+
+[file.024]
+path = "apps/launchpad/web/src/widgets/create/optical-preset-picker.tsx"
+lines = 148
+verdict = "clean"
+note = "Reviewed bounded preset presentation, parameter disclosures and unavailable-schema behavior; unsupported optical execution remains refused."
+
+[file.025]
+path = "apps/launchpad/web/src/widgets/create/quote-pair-indicator.tsx"
+lines = 31
+verdict = "clean"
+note = "Reviewed fixed USDL quote asset and decimals display against the supported settlement asset contract."
+
+[file.026]
+path = "apps/launchpad/web/src/widgets/create/run-creation-chain.py"
+lines = 91
+verdict = "issues"
+note = "Reviewed all runner stages, ANVIL_BIN ownership and cleanup; contract and web workspace roots drift from the tracked monorepo."
+
+[file.027]
+path = "apps/launchpad/web/src/widgets/create/social-links-disclosure.tsx"
+lines = 134
+verdict = "clean"
+note = "Reviewed social-link disclosure, limits, validation messages and draft updates against the canonical HTTPS-only field rules."
+
+[file.028]
+path = "apps/launchpad/web/src/widgets/create/strategy-picker.tsx"
+lines = 101
+verdict = "clean"
+note = "Reviewed four strategy choices and descriptions against the bounded feeStrategy values accepted by the draft and native creation ABI."
+
+[file.029]
+path = "apps/launchpad/web/src/widgets/create/test_run_creation_chain.py"
+lines = 49
+verdict = "clean"
+note = "Reviewed absent and explicitly invalid ANVIL_BIN cases; both assert early refusal before the owned fixture is run."
+
+[file.030]
+path = "apps/launchpad/web/src/widgets/create/use-create-prefill.ts"
+lines = 28
+verdict = "clean"
+note = "Reviewed query prefill validation and one-time draft application; hostile or unsupported values do not become executable creation input."
+
+[file.031]
+path = "sdk/launchpad/shared/config/capabilities/catalog.go"
+lines = 277
+verdict = "clean"
+note = "Reviewed full capability catalogue parsing, family roles, blocked release state, resource evidence and deterministic refusal codes; pending qualification is intentional."
+
+[file.032]
+path = "sdk/launchpad/shared/config/capabilities/catalog_test.go"
+lines = 190
+verdict = "clean"
+note = "Reviewed catalogue and family qualification assertions, provenance and refusal cases; fixtures do not establish production release eligibility."
+
+[file.033]
+path = "sdk/launchpad/shared/config/capabilities/cmd/measure/main.go"
+lines = 399
+verdict = "issues"
+note = "Reviewed all pinned source/build/provider authority and report output; an absent mandatory production-system spec blocks current candidate measurement."
+
+[file.034]
+path = "sdk/launchpad/shared/config/capabilities/contract-support.json"
+lines = 57
+verdict = "clean"
+note = "Reviewed all selector signatures, selectors and event family names against the consumed Router, Quoter and fee interfaces; catalogue provenance is explicit."
+
+[file.035]
+path = "sdk/launchpad/shared/config/capabilities/frozen.json"
+lines = 309
+verdict = "clean"
+note = "Reviewed all capability rows, reasons, required identities and qualification fields; blocked actions honestly remain unavailable pending real evidence."
+
+[file.036]
+path = "sdk/launchpad/shared/config/capabilities/live_attest_test.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed live attestation test inputs and actual-provider admission; no synthetic result is advertised as live deployment eligibility."
+
+[file.037]
+path = "sdk/launchpad/shared/config/capabilities/measurement.go"
+lines = 902
+verdict = "clean"
+note = "Reviewed complete measurement report validation, source/interface/runtime bindings, capture bounds, latency and readiness obligations; generated measurements cannot independently activate a release."
+
+[file.038]
+path = "sdk/launchpad/shared/config/capabilities/measurement_test.go"
+lines = 103
+verdict = "clean"
+note = "Reviewed positive and hostile measurement bindings, missing artifacts and resource evidence checks against the complete measurement contract."
+
+[file.039]
+path = "sdk/launchpad/shared/config/capabilities/preflight.go"
+lines = 1176
+verdict = "issues"
+note = "Reviewed all pinned reader methods, quote ABI, preflight families, cost, reconciliation and HTTP handler; native pool and spender mismatches are recorded."
+
+[file.040]
+path = "sdk/launchpad/shared/config/capabilities/preflight_chain_test.go"
+lines = 1000
+verdict = "issues"
+note = "Reviewed all chain tests, actual artifact installation and surface-Treasury cases; the generic drift fixture cannot install Current role kinds."
+
+[file.041]
+path = "sdk/launchpad/shared/config/capabilities/preflight_test.go"
+lines = 93
+verdict = "clean"
+note = "Reviewed unknown family, wrong revision, resource and malformed preflight cases; these are focused refusal tests."
+
+[file.042]
+path = "sdk/launchpad/shared/config/capabilities/reported_header_test.go"
+lines = 97
+verdict = "clean"
+note = "Reviewed real JSON-RPC reported-header hash tests; chain consensus identity is not replaced by geth header recomputation."
+
+[file.043]
+path = "sdk/launchpad/shared/config/capabilities/reported_pinned_test.go"
+lines = 268
+verdict = "clean"
+note = "Reviewed all reported-hash block, transaction and receipt RPC paths and mismatch cases, preserving chain125 consensus hashes."
+
+[file.044]
+path = "sdk/launchpad/shared/config/deployment/attest.go"
+lines = 420
+verdict = "clean"
+note = "Reviewed complete committed-block attestation, native surface identity, precompile registration, wiring, Treasury and epoch validation against the manifest."
+
+[file.045]
+path = "sdk/launchpad/shared/config/deployment/attest_finalized_test.go"
+lines = 53
+verdict = "clean"
+note = "Reviewed finalized-header, canonical committed height and attestation rejection assertions against the reported hash reader."
+
+[file.046]
+path = "sdk/launchpad/shared/config/deployment/attest_reported_hash_test.go"
+lines = 102
+verdict = "clean"
+note = "Reviewed chain-reported hash acceptance and wrong/missing identity refusals against the real RPC-shaped header response."
+
+[file.047]
+path = "sdk/launchpad/shared/config/deployment/attest_surface_test.go"
+lines = 225
+verdict = "clean"
+note = "Reviewed all surface and precompile role acceptance/refusal cases, including Treasury with no Solidity implementation identity."
+
+[file.048]
+path = "sdk/launchpad/shared/config/deployment/attest_test.go"
+lines = 347
+verdict = "clean"
+note = "Reviewed complete EVM fixture, governance, fee and wiring drift tests; explicitly historical contract evidence remains distinct from native surfaces."
+
+[file.049]
+path = "sdk/launchpad/shared/config/deployment/current.json"
+lines = 102
+verdict = "generated"
+note = "Generated deployment manifest from deployment/generate.py and reviewed frozen contract inputs; records generation-2 surface identities and 0x1017, not a fresh runtime attestation."
+
+[file.050]
+path = "sdk/launchpad/shared/config/deployment/generate.py"
+lines = 150
+verdict = "clean"
+note = "Reviewed complete offline normalization, input digests, confirmed deployment records, native role kinds and activation-height constraints; no network is queried."
+
+[file.051]
+path = "sdk/launchpad/shared/config/deployment/history/paxeer125-a35ff7c6f532d2f9.json"
+lines = 109
+verdict = "generated"
+note = "Generated retained approved deployment provenance embedded by manifest.go; the historical proxy epoch is intentionally available only within its activation bounds."
+
+[file.052]
+path = "sdk/launchpad/shared/config/deployment/manifest.go"
+lines = 350
+verdict = "clean"
+note = "Reviewed full strict manifest parser, role identities, approved history, activation ordering and copy semantics; historical and current generations remain explicit."
+
+[file.053]
+path = "sdk/launchpad/shared/config/deployment/manifest_precompile_test.go"
+lines = 114
+verdict = "clean"
+note = "Reviewed current native precompile identity and implementation-field rejection tests; malformed surface identities cannot masquerade as proxies."
+
+[file.054]
+path = "sdk/launchpad/shared/config/deployment/manifest_test.go"
+lines = 279
+verdict = "issues"
+note = "Reviewed full manifest and public-export suite, historical frozen-reader paths and epoch selection; positive /rpc export fixture is retired drift."
+
+[file.055]
+path = "sdk/launchpad/shared/config/deployment/public.go"
+lines = 68
+verdict = "clean"
+note = "Reviewed full public export confidentiality and exact endpoint allowlist checks; service configuration owns reviewed RPC origins."
+
+[file.056]
+path = "sdk/launchpad/shared/config/deployment/revision.go"
+lines = 110
+verdict = "clean"
+note = "Reviewed canonical revision hashing, interface/catalogue digests and attested export consistency; outputs carry one deployment identity."
+
+[file.057]
+path = "sdk/launchpad/shared/config/deployment/revision_test.go"
+lines = 127
+verdict = "issues"
+note = "Reviewed full canonical export and mismatch assertions; the successful serial export RPC fixture retains the retired path."
+
+[file.058]
+path = "sdk/launchpad/shared/config/deployment/tests/generate.test.sh"
+lines = 13
+verdict = "clean"
+note = "Reviewed entire offline regeneration check and current monorepo v1 frozen-client path; inputs and byte comparison preserve manifest provenance."
+
+[file.059]
+path = "sdk/launchpad/shared/config/env.go"
+lines = 554
+verdict = "clean"
+note = "Reviewed full shared environment config, required secrets, inline/file fixture bounds, production refusals and manifest/address agreement across service consumers."
+
+[file.060]
+path = "sdk/launchpad/shared/config/env_test.go"
+lines = 190
+verdict = "issues"
+note = "Reviewed complete environment load/default/override and secret-redaction assertions; success RPC fixtures retain a retired host/path."
+
+[file.061]
+path = "services/launchpad/api/internal/broker/broker.go"
+lines = 216
+verdict = "clean"
+note = "Reviewed complete legacy Redis fanout, subscriber lifecycle and bounded backpressure; production app registers v2 durable routes rather than legacy handlers."
+
+[file.062]
+path = "services/launchpad/api/internal/broker/broker_test.go"
+lines = 607
+verdict = "clean"
+note = "Reviewed all Redis transform, filtering, coalescing and slow-consumer assertions against Broker and Subscription behavior."
+
+[file.063]
+path = "services/launchpad/api/internal/broker/cursor.go"
+lines = 331
+verdict = "clean"
+note = "Reviewed all cursor scope/auth epoch/filter/generation bindings, HMAC verification, expiry, resource bounds and replay/live checkpoint handling."
+
+[file.064]
+path = "services/launchpad/api/internal/broker/durable.go"
+lines = 160
+verdict = "clean"
+note = "Reviewed all frozen frame fields, integer encodings, revision/sequence tracking and durable ack-after-accept behavior against consumer interfaces."
+
+[file.065]
+path = "services/launchpad/api/internal/broker/durable_test.go"
+lines = 301
+verdict = "clean"
+note = "Reviewed full real durable boundary tests, retry/ack errors, immutable fills, revision progression and bounded live queue behavior."
+
+[file.066]
+path = "services/launchpad/api/internal/broker/frozen_stream_fixtures_test.json"
+lines = 697
+verdict = "clean"
+note = "Reviewed the complete synthetic frozen-family JSON fixture set; values are schema examples and are not actual capacity or runtime proof."
+
+[file.067]
+path = "services/launchpad/api/internal/broker/frozen_stream_schemas.json"
+lines = 2438
+verdict = "generated"
+note = "Generated/extracted reachable frozen AsyncAPI schema snapshot embedded by schema.go: 40 schema definitions retained as byte-for-value contract data. Generated verdict records provenance rather than a hand-authored implementation review."
+
+[file.068]
+path = "services/launchpad/api/internal/broker/handoff.go"
+lines = 614
+verdict = "clean"
+note = "Reviewed full trusted origin, fanout, NATS durable adapter, post-commit handoff and reconnect path against real application registration and session authority."
+
+[file.069]
+path = "services/launchpad/api/internal/broker/handoff_test.go"
+lines = 491
+verdict = "clean"
+note = "Reviewed all handoff, durable ack, fanout degradation, replay and origin-admission cases with committed transaction boundaries."
+
+[file.070]
+path = "services/launchpad/api/internal/broker/integration_test.go"
+lines = 98
+verdict = "clean"
+note = "Reviewed complete Redis/Postgres integration helper and actual broker delivery assertion; legacy transport scope is explicit."
+
+[file.071]
+path = "services/launchpad/api/internal/broker/lifecycle.go"
+lines = 107
+verdict = "clean"
+note = "Reviewed shutdown ordering, in-flight connection accounting and timeout propagation; lifecycle state is process-local connection state."
+
+[file.072]
+path = "services/launchpad/api/internal/broker/lifecycle_test.go"
+lines = 58
+verdict = "clean"
+note = "Reviewed lifecycle closure and concurrent drain assertions against graceful shutdown invariants."
+
+[file.073]
+path = "services/launchpad/api/internal/broker/postgres_stream.go"
+lines = 608
+verdict = "clean"
+note = "Reviewed all repeatable snapshot, atomic outbox/projection, scoped cursor, auth generation, replay and post-write checkpoint SQL paths."
+
+[file.074]
+path = "services/launchpad/api/internal/broker/postgres_stream_test.go"
+lines = 311
+verdict = "clean"
+note = "Reviewed complete stream SQL and real migration fixture cases, including snapshot/replay fences and invalid scope rejection."
+
+[file.075]
+path = "services/launchpad/api/internal/broker/qualify_realtime_v4.py"
+lines = 716
+verdict = "clean"
+note = "Reviewed complete four-host realtime measurement and aggregation harness; source/provider/clock bindings, real faults and private captures cannot themselves claim final capacity acceptance."
+
+[file.076]
+path = "services/launchpad/api/internal/broker/schema.go"
+lines = 271
+verdict = "clean"
+note = "Reviewed the full frozen schema evaluator, supported assertion keywords, bounds, decimal numbers, duplicate keys and topic-to-payload binding."
+
+[file.077]
+path = "services/launchpad/api/internal/broker/schema_test.go"
+lines = 126
+verdict = "clean"
+note = "Reviewed all frozen-family negatives, exact topic/timestamp patterns and hostile cursor integer/scope cases against validator and ack behavior."
+
+[file.078]
+path = "services/launchpad/api/internal/broker/subscription.go"
+lines = 224
+verdict = "clean"
+note = "Reviewed full bounded subscription queue, must-deliver event handling, state coalescing and closure semantics; slow readers fail instead of silently losing immutable events."
+
+[file.079]
+path = "services/launchpad/api/internal/broker/topics.go"
+lines = 87
+verdict = "clean"
+note = "Reviewed topic canonicalization and private/public authorization against shared auth StreamPrincipal, binding digest, endpoint and fresh session check."
+
+[file.080]
+path = "services/launchpad/api/internal/broker/topics_test.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed full topic allow/deny and replacement assertions against real shared stream-binding validation."
+
+[file.081]
+path = "services/launchpad/api/internal/broker/transform.go"
+lines = 231
+verdict = "clean"
+note = "Reviewed every legacy Redis channel transform, pool canonicalization and candle display conversion against producer channel constants; durable v2 frames use their separate exact contract."
+
+[file.082]
+path = "services/launchpad/pnl-tracker/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Reviewed complete goose migration runner, embedded filesystem selection and mutex serialization; service migration files remain the schema authority."
+
+[file.083]
+path = "tools/launchpad/delivery/measure_phase4.py"
+lines = 725
+verdict = "issues"
+note = "Reviewed complete real delivery load, broker persistence, fault restoration, archive rebuild, replay and browser identity reconciliation; receipt-observation clock assumption is recorded."
+
+[file.084]
+path = "tools/launchpad/delivery/qualify_phase2.py"
+lines = 94
+verdict = "clean"
+note = "Reviewed complete phase-specific command construction, real provider prerequisites, timeouts and evidence logs; harness preparation remains distinct from full acceptance."
+
+[file.085]
+path = "tools/launchpad/delivery/stream-manifest.json"
+lines = 58
+verdict = "clean"
+note = "Reviewed all declared stream retention/replication, TLS/principal requirements and synthetic capacity floor; configuration honestly requires measured activation gates."
+
+[file.086]
+path = "tools/launchpad/delivery/test_archive_manifest.py"
+lines = 31
+verdict = "clean"
+note = "Reviewed complete contiguous archive range, empty-block completeness and raw-count integrity assertions against archive manifest validation."
+
+[file.087]
+path = "tools/launchpad/delivery/test_manifest.py"
+lines = 40
+verdict = "clean"
+note = "Reviewed all stream manifest replica, retention, principal and capacity floor assertions against validate_manifest."
+
+[file.088]
+path = "tools/launchpad/delivery/test_measure_phase4.py"
+lines = 63
+verdict = "clean"
+note = "Reviewed all percentile, source pin, shortened burst, SQL confinement and empty receipt negative tests; these remain harness checks rather than live acceptance."
+
+[file.089]
+path = "tools/launchpad/delivery/validate_manifest.py"
+lines = 75
+verdict = "clean"
+note = "Reviewed full stream manifest validator and dry-run evidence semantics; no configuration-only result grants operated capacity qualification."
+
+[finding.native-pool-identity]
+file = "sdk/launchpad/shared/config/capabilities/preflight.go"
+line = 738
+class = "interface-mismatch"
+severity = "high"
+observed = "PreflightEngine.poolState unconditionally reads BeaconSlot and requires the PoolBeacon address, then reports the beacon implementation as the pool version. modules/launchpad/keeper/market.go:190-194 installs SurfaceRuntime and a generation-2 Pool surface record without a beacon slot; precompiles/launchpad/pool.go serves its views from that record. A genuine new native pool therefore fails identity_unverified even if its runtime hash is admitted."
+expected = "The declared Preflight interface must accept the registered native pools produced by the merged chain and bind quote and trading reads to their actual generation, role and committed state. Historical beacon pools retain their own epoch identity checks."
+proposal = "In sdk/launchpad/shared/config/capabilities/preflight.go select pool identity rules by the approved deployment generation; verify the reviewed surface runtime and native registry-bound role and pool views for generation 2, preserve historical beacon checks, and qualify quote and trade admission against a real paxd-created native pool."
+owner_domain = 4
+interface = "4.go-shared-config-capabilities-preflight-engine-preflight"
+
+[finding.native-client-spender]
+file = "apps/launchpad/web/src/widgets/create/creation-adapters.ts"
+line = 89
+class = "interface-mismatch"
+severity = "high"
+observed = "ChainCreationAdapter reads allowance, estimates approval, sends approve, verifies approvalProof and purchaseAllowance using deployment.router. The native producer modules/launchpad/keeper/custody.go:258-268 calls USDL.transferFrom as 0x1017; RunCaller.Call preserves that caller. An allowance to the Router surface cannot pay either creation or the first buy."
+expected = "The client approval, receipt proof and allowance checks must all name the actual native USDL spender, independently of the Router address used as the transaction destination."
+proposal = "Add the approved generation-specific USDL spender to launch deployment authority and use it throughout apps/launchpad/web/src/widgets/create/creation-adapters.ts for creation and first-buy approval and proof. Bind it to the native 0x1017 producer and qualify a zero-allowance creation and purchase on paxd; preserve exact amount, wallet, receipt and revision checks."
+owner_domain = 4
+interface = "4.pc-router-create-market"
+
+[finding.native-domain-spender]
+file = "apps/launchpad/web/src/widgets/create/creation-domain.ts"
+line = 24
+class = "interface-mismatch"
+severity = "high"
+observed = "verifyCost constructs approvalSpender from d.router, funding returns that Router spender, and verifyCreationApproval at line 191 rejects any other spender. The native USDL pull in modules/launchpad/keeper/custody.go uses 0x1017, so this domain contract rejects the correct native approval identity."
+expected = "A reviewed creation cost and its approval context must carry the spender that actually executes USDL.transferFrom in the selected deployment, with the Router kept as the separate createMarket destination."
+proposal = "Extend Deployment in apps/launchpad/web/src/widgets/create/creation-domain.ts with the reviewed native spender and bind verifyCost, funding and verifyCreationApproval to it. Update all owning callers and exercise approval against the native USDL transfer path while retaining the hostile-spender rejection cases."
+owner_domain = 4
+interface = "4.pc-router-create-market"
+
+[finding.native-cost-spender]
+file = "sdk/launchpad/shared/config/capabilities/preflight.go"
+line = 537
+class = "interface-mismatch"
+severity = "high"
+observed = "creationCost sets CreationCost.Spender to the selected Router or SidioraFactory transaction destination. Both native creation entries ultimately charge through Keeper.PullQuote as 0x1017, so the exported connected capability cost advertises an allowance that the producer cannot spend."
+expected = "The connected capability creationCost.spender must round-trip to the actual USDL approval consumed by native creation; the creation destination and allowance spender are separate identities."
+proposal = "In sdk/launchpad/shared/config/capabilities/preflight.go derive Spender from the approved native payment authority for the requested deployment generation and export that identity through connected capability consumers. Prove the returned spender by approving it and creating a market through each admitted entry on paxd."
+owner_domain = 4
+interface = "4.go-shared-config-capabilities-preflight-engine-preflight"
+
+[finding.approval-admission-cycle]
+file = "apps/launchpad/web/src/widgets/create/cap-admission.ts"
+line = 20
+class = "interface-mismatch"
+severity = "high"
+observed = "runtimeCreationAdmission requires supported and executionPermitted from creation preflight. CreationController.approve calls this admission before approving USDL; PreflightEngine.creationCost simulates createMarket, which charges USDL via PullQuote. A funded new wallet with zero allowance receives gas_estimate_unavailable and cannot reach its approval transaction even after capability qualification."
+expected = "A first-time creator must be able to grant the exact fee allowance after current authority checks, and creation itself must still require a fresh successful funded simulation and capability admission."
+proposal = "Introduce an explicit approval admission stage across apps/launchpad/web/src/widgets/create/cap-admission.ts, creation-controller.ts and sdk/launchpad/shared/config/capabilities/preflight.go. Keep deployment, account, capability and expiry checks for approval, simulate the approval at that stage, and require the full createMarket simulation after its canonical approval receipt; exercise the real controller path from zero allowance."
+owner_domain = 4
+interface = "4.go-shared-config-capabilities-preflight-engine-preflight"
+
+[finding.purchase-hash-recovery]
+file = "apps/launchpad/web/src/widgets/create/creation-controller.ts"
+line = 201
+class = "restart-recovery"
+severity = "medium"
+observed = "buy persists purchaseState signing_locked before wallet dispatch and changes it to outcome_unknown on an uncertain send; a crash or storage failure can leave purchaseTxHash absent. resumePurchase at line 210 requires that saved hash and there is no purchase equivalent of attachRecoveredHash, so the user cannot attach the transaction found in wallet history."
+expected = "An uncertain first purchase must remain protected against duplicate submission and be recoverable using its exact wallet transaction, reviewed pool, amount, creator, deployment and receipt after restart."
+proposal = "Add verified purchase-hash attachment in apps/launchpad/web/src/widgets/create/creation-controller.ts using the saved purchaseReview and the existing transaction and receipt verifier. Persist the recovered hash before reconciliation, retain the duplicate-send lock, and cover interruption after broadcast and before hash persistence."
+owner_domain = 4
+
+[finding.purchase-recovery-control]
+file = "apps/launchpad/web/src/widgets/create/create-wizard.tsx"
+line = 420
+class = "wiring-gap"
+severity = "medium"
+observed = "The first-buy progress body shows Approve, Get quote and Skip whenever purchaseTxHash is absent. For a saved signing_locked or outcome_unknown purchase these actions cannot resolve the send; the UI has no field or action to attach its wallet-history hash, although creation has such recovery."
+expected = "A creator returning after an uncertain buy needs a visible recovery action for the existing purchase and a way to verify its exact transaction before any new purchase can be considered."
+proposal = "In apps/launchpad/web/src/widgets/create/create-wizard.tsx render an explicit uncertain-purchase recovery state with wallet-history instructions and a hash attachment action wired to the verified controller recovery. Preserve the existing lock and add a restart journey that resolves the same purchase without a second broadcast."
+owner_domain = 4
+
+[finding.chain-runner-layout]
+file = "apps/launchpad/web/src/widgets/create/run-creation-chain.py"
+line = 77
+class = "test-gap"
+severity = "medium"
+observed = "run-creation-chain.py resolves root to the monorepo but sets CONTRACT_SOURCE_ROOT to root.parent/contracts and runs phase-2 Vitest in root/client/apps/web at line 83. This tree owns contracts at contracts/launchpad and the web app at apps/launchpad/web, so the declared real-chain journey cannot reach its sources or test runner."
+expected = "The owned creation runner must resolve the tracked monorepo contract artifacts and actual web workspace while preserving the ANVIL_BIN checks and owned-process cleanup of requirements 4488.1 and 4488.2."
+proposal = "Correct the source and workspace roots in apps/launchpad/web/src/widgets/create/run-creation-chain.py to contracts/launchpad and apps/launchpad/web, pass those same roots to every phase, and qualify the complete owned-chain journey without bypassing runtime authority or weakening its assertions."
+owner_domain = 4
+
+[finding.chain-config-layout]
+file = "apps/launchpad/web/src/widgets/create/creation-chain.config.cjs"
+line = 1
+class = "config-drift"
+severity = "medium"
+observed = "creation-chain.config.cjs defaults its contract root to repository/contracts and reads artifacts directly below it. The tracked launchpad Hardhat project and its artifact directory are under contracts/launchpad, so standalone use selects the wrong artifact tree."
+expected = "Creation chain configuration must select the actual launchpad contract project both by default and when the runner supplies an explicit source root."
+proposal = "Resolve the default in apps/launchpad/web/src/widgets/create/creation-chain.config.cjs to contracts/launchpad and share the same explicit contract root with run-creation-chain.py and creation-chain.fixture.cjs; retain isolated private cache and owned loopback chain settings."
+owner_domain = 4
+
+[finding.fixture-source-layout]
+file = "apps/launchpad/web/src/widgets/create/creation-chain.fixture.cjs"
+line = 244
+class = "test-gap"
+severity = "medium"
+observed = "The phase-4 fixture requires source-manifest paths prefixed client/apps/web, and at line 250 imports ethers from sourceRoot/../contracts/node_modules. The real files are apps/launchpad/web and contracts/launchpad within sourceRoot, so a manifest of this actual candidate is refused before browser qualification."
+expected = "A source-bound real browser fixture must bind the files and dependencies that the monorepo actually builds and must reject changed bytes without demanding a retired directory layout."
+proposal = "Update apps/launchpad/web/src/widgets/create/creation-chain.fixture.cjs source authority entries and ethers resolution to the tracked monorepo locations. Keep the source digests, realpath containment, candidate revision and dependency provenance checks, then qualify against that exact candidate."
+owner_domain = 4
+
+[finding.fixture-current-controls]
+file = "apps/launchpad/web/src/widgets/create/creation-chain.fixture.cjs"
+line = 325
+class = "test-gap"
+severity = "medium"
+observed = "The browser fixture demands an Open live pool link to /token/<pool>, exact Create token controls, and an Optical preset select with options at line 373. create-wizard.tsx now uses the native poolPath, Create coin action and optical preset disclosure controls. These checkpoints cannot qualify the current page."
+expected = "The creation qualification journey must drive the controls and canonical pool URL that the current product renders while continuing to prove receipt identity, durable recovery and safe optical admission."
+proposal = "Rewrite the accessible selectors and route assertions in apps/launchpad/web/src/widgets/create/creation-chain.fixture.cjs against the current wizard, optical-preset-picker.tsx and poolPath. Preserve the transaction and recovery invariants and bound preset-cache assertions using the actual rendered controls."
+owner_domain = 4
+
+[finding.journey-bypasses-controller]
+file = "apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx"
+line = 22
+class = "test-gap"
+severity = "medium"
+observed = "The real-chain journey calls adapter.approve directly after readFunding. The product calls CreationController.approve, which first invokes runtime creation admission. Consequently the journey does not exercise the zero-allowance approval admission cycle and can miss a failure that blocks the actual first-time creator."
+expected = "Qualification of the first-time launch path must execute the same controller and runtime admission sequence as the wizard, with a new wallet that has no creation allowance."
+proposal = "Extend apps/launchpad/web/src/widgets/create/creation-journey.integration.test.tsx to use the actual CreationController with the real runtime authority and canonical approval receipt, then complete creation and the protected first buy on the native deployment. Keep the adapter-level adversarial checks as additional coverage."
+owner_domain = 4
+
+[finding.domain-approval-fixture]
+file = "apps/launchpad/web/src/widgets/create/creation-domain.test.mjs"
+line = 88
+class = "test-gap"
+severity = "medium"
+observed = "The approval test builds its expected spender as a(2), the same address used for deployment.router, and only tests deviations from that synthetic identity. It never compares the approval context with the native producer whose USDL spender is 0x1017."
+expected = "Approval tests must distinguish the transaction Router from the native allowance spender and reject the old Router approval when the selected deployment uses native pulls."
+proposal = "Update apps/launchpad/web/src/widgets/create/creation-domain.test.mjs with separate Router and reviewed spender identities, retain all hostile account, epoch, amount and receipt assertions, and pair those cases with a real native allowance-consumption journey."
+owner_domain = 4
+
+[finding.preflight-fixture-role-kinds]
+file = "sdk/launchpad/shared/config/capabilities/preflight_chain_test.go"
+line = 585
+class = "test-gap"
+severity = "medium"
+observed = "assertActualPreflightDrift starts from deployment.Current but its role installer accepts only erc1967, beacon and direct and fatals at line 603 on any other kind. Current contains nine surface roles and LaunchpadPrecompile, so the drift qualification stops during setup before its claimed preflight assertions."
+expected = "Pinned preflight drift qualification must install the actual selected deployment representation and exercise both native generation-2 and explicitly historical identities without interpreting a surface as a Solidity proxy."
+proposal = "In sdk/launchpad/shared/config/capabilities/preflight_chain_test.go bind historical Solidity scenarios to the approved historical manifest and add native paxd surface scenarios for Current. Keep drift refusal assertions intact and qualify the real producer rather than replacing native role kinds with proxies."
+owner_domain = 4
+
+[finding.measurement-authority-layout]
+file = "sdk/launchpad/shared/config/capabilities/cmd/measure/main.go"
+line = 166
+class = "config-drift"
+severity = "medium"
+observed = "validateSource requires a pinned source-index entry for launchpad/spec/production-system/spec.kvx, which does not exist in this monorepo. Every entry must first be read and hash-verified, so no truthful index of this checkout can satisfy the mandatory authority list."
+expected = "Capability measurement must bind the current tracked deployment and qualification authority and remain executable from this repository without manufacturing an obsolete source path."
+proposal = "Replace the obsolete authority reference in sdk/launchpad/shared/config/capabilities/cmd/measure/main.go with the reviewed current programme and lane authority inputs supplied by the owning measurement contract. Update its source-index producer and fixtures together and preserve complete candidate hash verification."
+owner_domain = 4
+
+[finding.env-retired-rpc-fixture]
+file = "sdk/launchpad/shared/config/env_test.go"
+line = 19
+class = "retired-reference"
+severity = "medium"
+observed = "validEnv labels https://mainnet-beta.rpc.hyperpaxeer.com/rpc as the valid production RPC default, and the override case at line 62 uses another /rpc path. This keeps the removed unified RPC layout in the shared configuration success cases."
+expected = "Merged-network configuration examples and success fixtures use chain-125 node JSON-RPC at the root of api1 through api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network."
+proposal = "Change the success fixtures in sdk/launchpad/shared/config/env_test.go to the reviewed root node RPC origins and keep credential-bearing or malformed endpoints exclusively as negative cases. Exercise inheritance of those current keys by service configuration tests."
+owner_domain = 4
+
+[finding.public-export-rpc-fixture]
+file = "sdk/launchpad/shared/config/deployment/manifest_test.go"
+line = 72
+class = "retired-reference"
+severity = "medium"
+observed = "TestPublicExport success configuration uses https://public.example/rpc as the approved publicRPC. The test therefore records the removed unified /rpc endpoint as a valid merged client export even though the network serves public JSON-RPC at the node root."
+expected = "Public network export success evidence must advertise the reviewed root node RPC, while URL confidentiality and exact allowlist matching remain enforced."
+proposal = "Update the positive PublicEndpoints fixtures in sdk/launchpad/shared/config/deployment/manifest_test.go to current root RPC origins; preserve the credential, query, fragment, unexpected path and insecure-scheme rejection cases and assert the exported root endpoint."
+owner_domain = 4
+
+[finding.serial-export-rpc-fixture]
+file = "sdk/launchpad/shared/config/deployment/revision_test.go"
+line = 47
+class = "retired-reference"
+severity = "medium"
+observed = "TestSerialExportUsesOneCanonicalIdentityWithoutPartialExport supplies https://public.example/rpc as its canonical success RPC. This freezes a retired public path into the serial export evidence used by Go and frontend consumers."
+expected = "Canonical serial exports must identify the root JSON-RPC endpoint of the merged network and retain one consistent attested deployment revision across consumers."
+proposal = "Use an approved root node origin in sdk/launchpad/shared/config/deployment/revision_test.go and assert it survives canonical export unchanged. Retain the manifest/interface mismatch, secret URL and partial-export refusal checks."
+owner_domain = 4
+
+[finding.delivery-observation-clock]
+file = "tools/launchpad/delivery/measure_phase4.py"
+line = 429
+class = "test-gap"
+severity = "medium"
+observed = "reconcile_sources requires durable_commit_utc_ns to be at or after the workload receipt journal observed_utc_ns, then subtracts that observation to measure ingest latency. Database ingestion can commit before a client polls and records its already-committed receipt; the real producer then fails this assertion despite successful delivery."
+expected = "Ingest latency qualification must compare independently bound chain/source commit and durable database timestamps with a defined clock authority. A later client receipt observation is not the earliest possible ingestion time."
+proposal = "Define and bind the actual source-commit timestamp in tools/launchpad/delivery/measure_phase4.py and its workload receipt producer, calculate the same frozen ingest target from that authority with measured uncertainty, and cover ingestion both before and after receipt polling without clamping latency or weakening the budget."
+owner_domain = 4
+
+[finding.doc-hosted-node]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-40 describe a standalone layerxd sequencer pod and authority replica; lines 287-315 require settlement and anchor plumbing, and lines 435-459 describe public operation through an LNI socket. The page presents those components as the running hosted network."
+expected = "Hosted network operation uses the integrated paxd BFT chain; public chain JSON-RPC is on the reviewed root node origins and transaction finality follows block commit without a separate daemon, relay or anchor authority."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md around integrated paxd deployment, committed-block readiness and recovery, reviewed root RPC and hosted gateway responsibilities. Remove the retired standalone supervisor, authority-replica, LNI ingress and settlement-anchor operational instructions, and synchronize the site and wiki pages."
+owner_domain = 8
+
+[finding.doc-hosted-node-wiki]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-40 describe a standalone layerxd sequencer pod and authority replica; lines 287-315 require settlement and anchor plumbing, and lines 435-459 describe public operation through an LNI socket. The page presents those components as the running hosted network."
+expected = "Hosted network operation uses the integrated paxd BFT chain; public chain JSON-RPC is on the reviewed root node origins and transaction finality follows block commit without a separate daemon, relay or anchor authority."
+proposal = "Rewrite docs/wiki/HostedNode.md around integrated paxd deployment, committed-block readiness and recovery, reviewed root RPC and hosted gateway responsibilities. Remove the retired standalone supervisor, authority-replica, LNI ingress and settlement-anchor operational instructions, and synchronize the site and wiki pages."
+owner_domain = 8
+
+[finding.doc-precompile-lifecycle]
+file = "docs/system/precompiles.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI summary lists layerxanchor at 0x1014, layerxcustody at 0x1013 and layerxverify at 0x1012, and their function sections at lines 1170, 1285 and 1552 provide no post-upgrade retirement/refusal distinction. Lines 20-30 also assign every launchpad role ABI the single fixed dispatcher address without describing role surfaces."
+expected = "The ABI reference must distinguish callable native role surfaces from their shared dispatcher and clearly identify retired methods and their exact post-upgrade refusal and supported replacement."
+proposal = "Update tools/docs/gen-system-docs.sh and its metadata to include deployment generation, launchpad role-surface addresses and retirement/refusal annotations from the current precompile contracts; regenerate docs/system/precompiles.md and document committed block/proof, native funding and ledger replacements for the retired APIs."
+owner_domain = 16
+
+[finding.doc-assets]
+file = "docs/site/docs/concepts/assets.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 describe the retired kernel Asset activity module as the payment balance authority; the activity ordinal table and Paxeer-custody issuance flow later in the page still instruct callers to use pre-merge activity payloads and lx_sendActivity."
+expected = "The merged network obtains native asset facts through bank 0x1001 and pointerview 0x100A and funds derived subaccounts with native bank sends, without kernel custody credit or public lx_ activity submission."
+proposal = "Rewrite docs/site/docs/concepts/assets.md around native bank/token units, supported asset registration and transfer entry points, derived subaccount funding and committed receipts. Replace the old activity ordinal and custody-credit examples with the real merged producer and consumer path and update the matching site/wiki page."
+owner_domain = 2
+
+[finding.doc-beta-cluster]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operating guide at lines 3-5 provisions retired hosted boundaries; lines 36-52 configure guarantors, layerxcustody and a layerxd custody profile; lines 88-90 require a sequencer-signed explorer read principal funded by custody credit."
+expected = "A merged beta cluster runs the integrated paxd network, funds native identities through the supported ledger path and serves public chain RPC at node roots without standalone daemon or custody-credit provisioning."
+proposal = "Replace the deployment and funding runbook in docs/site/docs/operators/beta-cluster.md with the current integrated paxd cluster recipe, native funding, tenant namespaces, committed readiness and restart/recovery procedure. Remove deleted relay, guarantor, layerxd and custody-credit steps and bind all operator inputs to the current deployment."
+owner_domain = 16
+
+[finding.doc-agent-rpc]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 511-513 say the A2A tool submits eth_sendRawTransaction to /rpc. The daemon endpoint and LNI configuration sections later in the page also describe the old boundary as the network connection path."
+expected = "Agent chain submissions use JSON-RPC at the reviewed node root; hosted gateway methods follow their declared OpenRPC contract, and the kernel is part of paxd rather than a separate public LayerX boundary."
+proposal = "Update docs/site/docs/agents/running.md A2A transaction examples and network endpoint configuration to root node RPC and current hosted gateway methods. Replace standalone LNI/daemon connection and settlement defaults with the supported integrated transport while preserving the actual tool consent and receipt verification requirements."
+owner_domain = 9
+
+[finding.doc-webhooks]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment example takes its network id from router.LAYERX_GATEWAY_NETWORK_ID and the ingress trust table requires standalone sequencer batch-key and receipt-authority configuration. These are presented as the current webhook deployment contract."
+expected = "Hosted webhook deployment must bind to the current tenant/network and committed event authority of the integrated chain; operators cannot depend on a retired router service or standalone finality authority."
+proposal = "Rewrite docs/site/docs/platform/webhooks.md deployment variables, ingress authority and event examples against services/platform/hosted/webhooks and the current committed native event producer. Remove router-service interpolation and retired authority provisioning, preserve event authenticity and durable redelivery, and update the mirror in the same owning task."
+owner_domain = 8
+
+[finding.doc-x402]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The public transport section instructs POST /rpc with lx_sendActivity and activity-based uncertain-send recovery. Its finality ladder requires a guarantor checkpoint certificate in addition to sequencer evidence, describing a retired transport and finality mechanism."
+expected = "x402 payment submission and uncertain-send recovery use supported merged-network native transaction identities and committed receipts; block commit establishes finality without a guarantor checkpoint or public lx_ endpoint."
+proposal = "Rewrite docs/site/docs/interop/x402.md buyer, seller and facilitator transport and recovery examples around supported native payments or grants, exact transaction-hash recovery and committed receipt verification. Remove /rpc, lx_sendActivity and guarantor-finality instructions and synchronize the site/wiki contract examples."
+owner_domain = 11
+
+[finding.doc-sidiora-network]
+file = "docs/site/docs/protocol/sidiora.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Line 5 describes the chain and the LayerX kernel domain as sitting behind one interface and directs readers to that pre-merge architecture as an explanation of the current native EVM network."
+expected = "Sidiora users should understand one integrated paxd network with native EVM and hosted gateway responsibilities, rather than a chain joined to a separate LayerX interface."
+proposal = "Update the network paragraph and architecture link in docs/site/docs/protocol/sidiora.md to describe the integrated chain and current root node RPC; retain the independently valid SID supply, six-decimal units, governance and gas-payment explanations after checking them against their native contracts."
+owner_domain = 8
+
+[finding.doc-x402-wiki]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The public transport section instructs POST /rpc with lx_sendActivity and activity-based uncertain-send recovery. Its finality ladder requires a guarantor checkpoint certificate in addition to sequencer evidence, describing a retired transport and finality mechanism."
+expected = "x402 payment submission and uncertain-send recovery use supported merged-network native transaction identities and committed receipts; block commit establishes finality without a guarantor checkpoint or public lx_ endpoint."
+proposal = "Rewrite docs/wiki/X402Transport.md buyer, seller and facilitator transport and recovery examples around supported native payments or grants, exact transaction-hash recovery and committed receipt verification. Remove /rpc, lx_sendActivity and guarantor-finality instructions and synchronize the site/wiki contract examples."
+owner_domain = 11
+
+[finding.doc-assets-wiki]
+file = "docs/wiki/Assets.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 describe the retired kernel Asset activity module as the payment balance authority; the activity ordinal table and Paxeer-custody issuance flow later in the page still instruct callers to use pre-merge activity payloads and lx_sendActivity."
+expected = "The merged network obtains native asset facts through bank 0x1001 and pointerview 0x100A and funds derived subaccounts with native bank sends, without kernel custody credit or public lx_ activity submission."
+proposal = "Rewrite docs/wiki/Assets.md around native bank/token units, supported asset registration and transfer entry points, derived subaccount funding and committed receipts. Replace the old activity ordinal and custody-credit examples with the real merged producer and consumer path and update the matching site/wiki page."
+owner_domain = 2
+
+[finding.doc-webhooks-wiki]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment example takes its network id from router.LAYERX_GATEWAY_NETWORK_ID and the ingress trust table requires standalone sequencer batch-key and receipt-authority configuration. These are presented as the current webhook deployment contract."
+expected = "Hosted webhook deployment must bind to the current tenant/network and committed event authority of the integrated chain; operators cannot depend on a retired router service or standalone finality authority."
+proposal = "Rewrite docs/wiki/HostedWebhooks.md deployment variables, ingress authority and event examples against services/platform/hosted/webhooks and the current committed native event producer. Remove router-service interpolation and retired authority provisioning, preserve event authenticity and durable redelivery, and update the mirror in the same owning task."
+owner_domain = 8
+
+[finding.doc-client-router-vocabulary]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The client contract operations table at line 19 calls hosted px_ joined reads router methods. That vocabulary can lead a client integrator to treat the hosted gateway as a unified chain router even though these methods belong to the hosted gateway contract."
+expected = "Client documentation must distinguish public node JSON-RPC at its root from px_ methods declared by services/platform/hosted/gateway/openrpc.json and describe the integrated chain without a unified router boundary."
+proposal = "Amend spec/layerx-merge/contracts/clients.md operations table to name the hosted gateway and link its actual OpenRPC contract; show root node RPC for chain methods. Keep the launchpad inventory anchors and historical revision citations explicitly identified as inventory, and synchronize downstream client examples."
+owner_domain = 7
+
+[doc.001]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Stale at lines 3-40 (layerxd and replica), 287-315 (settlement/anchor), and 435-459 (LNI boundary); rewrite the integrated paxd operating path."
+
+[doc.002]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "Stale at lines 3-40 (layerxd and replica), 287-315 (settlement/anchor), and 435-459 (LNI boundary); rewrite the integrated paxd operating path."
+
+[doc.003]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Generated page: lines 20-30 collapse launchpad surfaces to 0x1017; lines 32, 36, 41 and sections 1170, 1285, 1552 omit retirement lifecycle. Repair its generator, not the generated page."
+
+[doc.004]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+notes = "Stale lines 3-7 (balance authority), activity ordinal table beginning at line 40 on site / 44 on wiki, and custody issuance section; show native bank and pointerview paths."
+
+[doc.005]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Stale lines 3-5, 36-52 and 88-90: retired provisioning, custody profile and explorer identity funding. Rewrite against the current integrated cluster."
+
+[doc.006]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Stale line 512 (/rpc submission) and daemon/LNI network defaults in the endpoint sections; retain valid MCP tool policy while correcting the network path."
+
+[doc.007]
+path = "docs/site/docs/platform/webhooks.md"
+status = "misleading"
+notes = "Stale router interpolation at line 77 and sequencer batch trust table at lines 97-100 (site; wiki offset +1); rewrite current network and committed-event authority."
+
+[doc.008]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Misleading public transport at lines 90-104 and activity recovery around lines 175-176; replace retired RPC and guarantor finality with native committed payments."
+
+[doc.009]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "stale"
+notes = "Stale line 5: separate kernel-domain/interface explanation; the token and gas sections do not justify retaining that network topology."
+
+[doc.010]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Misleading public transport at lines 91-105 and activity recovery around lines 175-176; replace retired RPC and guarantor finality with native committed payments."
+
+[doc.011]
+path = "docs/wiki/Assets.md"
+status = "stale"
+notes = "Stale lines 3-7 (balance authority), activity ordinal table beginning at line 40 on site / 44 on wiki, and custody issuance section; show native bank and pointerview paths."
+
+[doc.012]
+path = "docs/wiki/HostedWebhooks.md"
+status = "misleading"
+notes = "Stale router interpolation at line 78 and sequencer batch trust table at lines 97-100 (site; wiki offset +1); rewrite current network and committed-event authority."
+
+[doc.013]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Additional page read: operations lines 1-75 and launchpad shared-Go/web inventory sections 319-412 and 739-820. Line 19 retains router vocabulary; inventory citations describe their stated historical revision."

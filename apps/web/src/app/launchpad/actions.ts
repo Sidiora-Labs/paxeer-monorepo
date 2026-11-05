@@ -1,7 +1,7 @@
 "use server";
 
 import { GatewayRpcError, GatewayUnavailableError } from "../../api/gateway";
-import { launchpadQuote } from "../../api/precompiles";
+import { NoLaunchpadPoolError, launchpadQuote } from "../../api/precompiles";
 
 export type LaunchpadQuoteAnswer =
   | Readonly<{ ok: true; amountOut: string; feeAmount: string; priceImpactBps: string }>
@@ -28,7 +28,7 @@ export async function quoteLaunchpadSwap(token: string, side: string, amountIn: 
       priceImpactBps: quote.priceImpactBps.toString(),
     };
   } catch (error) {
-    if (error instanceof GatewayUnavailableError || error instanceof GatewayRpcError || error instanceof RangeError) {
+    if (error instanceof GatewayUnavailableError || error instanceof GatewayRpcError || error instanceof NoLaunchpadPoolError) {
       return { ok: false, detail: error.message };
     }
     throw error;

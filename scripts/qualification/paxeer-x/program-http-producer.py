@@ -1,38 +1,33 @@
 #!/usr/bin/env python3
 import argparse
-import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import secrets
-import shutil
-import signal
-import socket
-import ssl
 import stat
-import subprocess
 import sys
-import time
-import urllib.error
+import urllib.parse
 import urllib.request
 
+sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA = 'paxeer-x.python-program-http-artifacts.v1'
-TEST = 'native_interfaces::emit_python_program_http_fixture'
-BUILD = ['cargo', 'build', '--locked', '--manifest-path', 'services/platform/Cargo.toml',
-         '-p', 'layerx-platform-agent-boundary', '-p', 'layerx-platform-gateway',
-         '-p', 'layerx-platform-identity', '-p', 'layerx-platform-registry',
-         '-p', 'layerx-platform-authority', '--bins', '--tests', '--message-format=json']
-VERIFY = ['timeout', '20m', 'scripts/paxeer-x/verify-sdk-program-python.sh']
-ROLES = {'layerxd': 'layerxd', 'genesis-builder': 'layerx-genesis-build',
-         'module-registry': 'layerx-module-registry', 'boundary': 'layerx-agent-boundary',
-         'registry': 'layerx-program-registry', 'builder-isolation': 'bwrap',
-         'builder-supervisor': 'layerx-cgroup-exec', 'gateway': 'layerx-gateway',
-         'identity': 'layerx-identity', 'authority': 'layerx-receipt-authority', 'redis': 'redis-server'}
-COMPILED_ROLES = {'boundary', 'registry', 'builder-supervisor', 'gateway', 'identity', 'authority'}
-CACHED_ROLES = set(ROLES) - COMPILED_ROLES
+sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
+from layerx_sdk.account_derivation import _evm_address, _recover, keccak256, normalize_wallet_signature
+from layerx_sdk.evm_transaction import _rlp, _rlp_decode, decode_signed, encode_call
+from layerx_sdk.native_program_call import decode_native_program_call, encode_native_program_call
+from layerx_sdk.production import PlatformSdkError
+from layerx_sdk.program_lifecycle import NativeProgramDeploy
+from layerx_sdk.verifier import verify_sequencer_receipt
+from layerx_sdk.x402_rpc import PaymentRpcError, _decode_rpc_response, _send_result, decode_receipt_keys
+
+SCHEMA = 'paxeer-x.program-http-producer.v2'
+SOURCE_SCHEMA = 'paxeer-x.authenticated-source.v1'
+RESULT_SCHEMA = 'paxeer-x.program-http-result.v2'
+ROLES = frozenset({'paxd', 'gateway'})
+PROGRAMS = bytes.fromhex('00' * 18 + '101d')
+CALL_TYPES = ('bytes32', 'uint16', 'string', 'bytes', 'bytes', 'bytes', 'uint32', 'uint64[7]', 'uint128')
+DEPLOY_TYPES = ('bytes32', 'uint16', 'uint8', 'bytes32', 'bytes32', 'bytes', 'bytes')
 
 
 def require(value, message):
@@ -67,6 +62,13 @@ def load(path):
     return json.loads(path.read_bytes(), object_pairs_hook=unique)
 
 
+def read(path):
+    path = private(path)
+    private(path.parent, True)
+    require(0 < path.stat().st_size <= 1_048_576, 'bounded signed producer input required')
+    return path.read_bytes()
+
+
 def write(path, value):
     data = value if isinstance(value, bytes) else (json.dumps(value, indent=2) + '\n').encode()
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -78,419 +80,317 @@ def write(path, value):
 
 
 def artifact(path):
-    path = Path(path).resolve(strict=True)
-    info = path.stat()
-    require(stat.S_ISREG(info.st_mode) and info.st_size > 0, 'actual nonempty artifact required')
-    with path.open('rb') as stream:
-        digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-    return {'path': str(path), 'sha256': digest, 'bytes': info.st_size}
+    path = private(path)
+    data = read(path)
+    return {'path': str(path), 'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)}
 
 
-def identity():
-    def git(*args):
-        return subprocess.check_output(['git', *args], cwd=ROOT, text=True).strip()
-    require(not git('status', '--porcelain=v1', '--untracked-files=normal'), 'clean published candidate required')
-    return {'revision': git('rev-parse', 'HEAD^{commit}'), 'tree': git('rev-parse', 'HEAD^{tree}')}
+def source_identity(source, revision):
+    require(isinstance(source, dict) and set(source) == {'revision', 'tree'}
+            and all(isinstance(value, str) and re.fullmatch('[0-9a-f]{40}', value)
+                    for value in source.values()) and source['revision'] == revision,
+            'producer source must match the independently selected revision')
+    return dict(source)
 
 
-def compatible(value, roles, runtime=False):
-    require(set(value) == {'schema', 'source', 'artifacts', 'build_logs', 'registry_configuration',
-                          'registry_cgroup_parent', 'custody_fixture'}, 'exact cached production artifact contract required')
-    require(value['schema'] == SCHEMA and set(value['artifacts']) == roles, 'complete genuine process inventory required')
-    require(value['build_logs'], 'actual cached artifact build provenance required')
-    for log in value['build_logs']:
-        require(artifact(log['path']) == log, 'cached build provenance changed')
-    for role in roles:
-        name = ROLES[role]
-        record = value['artifacts'][role]
-        expected = {'artifact', 'source_files', 'package_provenance', 'environment'} if role in {'redis', 'builder-isolation'} else {'artifact', 'source_files'}
-        require(set(record) == expected, 'exact artifact/source compatibility record required')
-        require(artifact(record['artifact']['path']) == record['artifact'], 'cached executable changed')
-        require(Path(record['artifact']['path']).name == name and os.access(record['artifact']['path'], os.X_OK),
-                'actual production executable required')
-        require(isinstance(record['source_files'], dict), 'cached source inventory required')
-        if role in {'redis', 'builder-isolation'}:
-            require(not record['source_files'] and artifact(record['package_provenance']['path']) == record['package_provenance'],
-                    'actual external package provenance required')
-            require(set(record['environment']) <= {'LD_LIBRARY_PATH'}, 'closed external loader environment required')
-            for search in record['environment'].values():
-                require(isinstance(search, str) and search and len(search) < 4096, 'bounded actual package loader path required')
-                for component in search.split(':'):
-                    info = Path(component).stat()
-                    require(Path(component).is_absolute() and Path(component).resolve() == Path(component)
-                            and stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid() and not info.st_mode & 0o022,
-                            'owner-controlled actual package library directory required')
-        else:
-            require(record['source_files'], 'cached source inventory required')
-        for relative, digest in record['source_files'].items():
-            path = (ROOT / relative).resolve(strict=True)
-            require(ROOT in path.parents and not Path(relative).is_absolute()
-                    and hashlib.sha256(path.read_bytes()).hexdigest() == digest, 'cached production source differs from candidate')
-    if runtime:
-        require(value['custody_fixture'] and value['registry_configuration'] and value['registry_cgroup_parent'],
-                'genuine funding, registry configuration and delegated cgroup are required for behavior')
-        private(value['custody_fixture'], True)
-        load(value['registry_configuration'])
-        require(Path(value['registry_cgroup_parent']).is_dir(), 'actual delegated registry cgroup required')
+def rpc_bytes(value, size=None):
+    require(isinstance(value, str) and len(value) <= 2_097_154
+            and re.fullmatch('0x(?:[0-9a-f]{2})*', value)
+            and (size is None or len(value) == 2 + size * 2), 'canonical RPC bytes required')
+    return bytes.fromhex(value[2:])
+
+
+def quantity(value):
+    require(isinstance(value, str) and re.fullmatch('0x(?:0|[1-9a-f][0-9a-f]{0,15})', value),
+            'bounded canonical RPC quantity required')
+    return int(value, 16)
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, stream, code, message, headers, target):
+        raise ValueError('producer redirects are forbidden')
+
+
+class ProducerRpc:
+    def __init__(self, endpoint, headers):
+        require(isinstance(endpoint, str) and 0 < len(endpoint) <= 4096,
+                'bounded producer endpoint required')
+        url = urllib.parse.urlsplit(endpoint)
+        require(url.hostname and not url.username and not url.password and not url.query and not url.fragment
+                and url.path in ('', '/') and (url.scheme == 'https'
+                    or url.scheme == 'http' and url.hostname in ('localhost', '127.0.0.1', '::1')),
+                'supported root JSON-RPC producer endpoint required')
+        self.endpoint = endpoint.rstrip('/') + '/'
+        self.headers = dict(headers)
+        self.opener = urllib.request.build_opener(NoRedirect())
+        self.request_id = 0
+
+    def call(self, method, params):
+        self.request_id += 1
+        request = urllib.request.Request(self.endpoint, method='POST',
+            headers={**self.headers, 'Content-Type': 'application/json', 'Accept': 'application/json'},
+            data=json.dumps({'jsonrpc': '2.0', 'id': self.request_id, 'method': method, 'params': params},
+                            allow_nan=False, separators=(',', ':')).encode())
+        with self.opener.open(request, timeout=15) as response:
+            require(response.status == 200 and response.headers.get('Content-Type') == 'application/json',
+                    'producer must answer HTTP 200 application/json')
+            raw = response.read(8_388_609)
+        require(len(raw) <= 8_388_608, 'bounded producer response required')
+        return _decode_rpc_response(json.loads(raw, object_pairs_hook=unique), self.request_id)
+
+    def receipt_keys(self):
+        return decode_receipt_keys(self.call('px_getReceiptKeys', []))
+
+    def send(self, raw):
+        canonical = rpc_bytes(raw)
+        transaction(canonical)
+        return _send_result(self.call('eth_sendRawTransaction', [raw]), canonical)
+
+
+def transaction(raw):
+    require(isinstance(raw, bytes) and 0 < len(raw) <= 1_048_576, 'bounded signed transaction required')
+    if raw[0] == 2:
+        tx, signature = decode_signed(raw)
+        signer = bytes.fromhex(tx.recover_signer(signature)[2:])
+        return tx.chain_id, tx.nonce, tx.to, tx.value, tx.data, signer
+    # The supported paxd recorder also emits EIP-155 legacy transactions.
+    fields = _rlp_decode(raw)
+    require(len(fields) == 9 and all(isinstance(field, bytes) for field in fields),
+            'canonical EIP-155 transaction required')
+    for index, width in ((0, 8), (1, 32), (2, 8), (4, 32), (6, 8), (7, 32), (8, 32)):
+        require(len(fields[index]) <= width and fields[index][:1] != b'\0', 'noncanonical EIP-155 integer')
+    nonce, v, r, s = (int.from_bytes(fields[index], 'big') for index in (0, 6, 7, 8))
+    require(v >= 35 and len(fields[3]) == 20 and int.from_bytes(fields[2], 'big') > 0,
+            'replay-protected EIP-155 transaction required')
+    chain, parity = (v - 35) // 2, (v - 35) % 2
+    signature = r.to_bytes(32, 'big') + s.to_bytes(32, 'big') + bytes([27 + parity])
+    require(normalize_wallet_signature(signature) == signature, 'canonical low-S EIP-155 signature required')
+    digest = keccak256(_rlp(fields[:6] + (chain.to_bytes((chain.bit_length() + 7) // 8, 'big'), b'', b'')))
+    signer = bytes.fromhex(_evm_address(_recover(digest, r, s, parity))[2:])
+    return chain, nonce, fields[3], int.from_bytes(fields[4], 'big'), fields[5], signer
+
+
+def verified_receipt(row, raw, pins, network_id=125):
+    require(type(network_id) is int and 0 < network_id < 1 << 32, 'independently selected bounded paxd network required')
+    require(isinstance(row, dict), 'actual source receipt required')
+    chain, nonce, target, value, _, signer = transaction(raw)
+    require(chain == network_id, 'transaction differs from the independently selected paxd network')
+    verified = verify_sequencer_receipt(rpc_bytes(row.get('receipt')), raw, pins)
+    facts = verified.receipt
+    # Paxd binds operation to etx.Type(), including EIP-155 legacy type zero.
+    operation = 2 if raw[0] == 2 else 0
+    require(verified.height > 0 and facts.module_id == 12 and facts.operation == operation
+            and facts.result_code in (0, 1) and facts.from_sequence == nonce
+            and facts.from_account == bytes(12) + signer and facts.to_account == bytes(12) + target
+            and facts.amount == value, 'signed transaction execution binding mismatch')
+    expected = {'txHash': '0x' + keccak256(raw).hex(), 'nonce': hex(nonce),
+                'seq': hex(facts.global_sequence), 'height': hex(verified.height),
+                'timestamp': hex(facts.timestamp), 'status': hex(1 - facts.result_code),
+                'keyId': '0x' + facts.context_hash.hex(), 'from': '0x' + signer.hex(),
+                'to': '0x' + target.hex(), 'feeAmount': hex(facts.fee_charged)}
+    require(all(row.get(key) == value for key, value in expected.items()), 'source JSON differs from signed receipt')
+    require(any(key.key_id == facts.context_hash and key.first_height <= verified.height <= key.last_height
+                and row.get('signingKey') == '0x' + key.public_key.hex() for key in pins),
+            'source signing key differs from independent receipt pins')
+    result = rpc_bytes(row.get('returnData'))
+    require(hashlib.sha256(result).digest() == facts.activity_root and facts.effects,
+            'source return data differs from signed receipt')
+    summary = facts.effects[0]
+    body, logs = summary.body, row.get('logs')
+    require(summary.module_id == facts.module_id and summary.ordinal == 0 and summary.event_type == 0
+            and summary.kind == 1 and not summary.monetary and len(body) >= 110
+            and 1 <= body[108] <= 64 and len(body) == 109 + body[108]
+            and isinstance(logs, list) and len(logs) == len(facts.effects) - 1
+            and len(logs) == int.from_bytes(body[104:108], 'big'), 'signed source summary mismatch')
+    expected = {'gasUsed': hex(int.from_bytes(body[:8], 'big')),
+                'cumulativeGasUsed': hex(int.from_bytes(body[8:16], 'big')),
+                'effectiveGasPrice': hex(int.from_bytes(body[16:24], 'big')),
+                'index': hex(int.from_bytes(body[24:28], 'big')),
+                'contractAddress': '0x' + body[28:48].hex(), 'sponsor': '0x' + body[48:68].hex(),
+                'feeDenom': body[109:].decode('ascii')}
+    require(all(row.get(key) == value for key, value in expected.items())
+            and isinstance(row.get('vmError'), str)
+            and hashlib.sha256(row['vmError'].encode()).digest() == body[68:100]
+            and len(result) == int.from_bytes(body[100:104], 'big')
+            and isinstance(row.get('paymentDenom'), str)
+            and hashlib.sha256(row['paymentDenom'].encode()).digest() == facts.asset,
+            'source execution JSON differs from signed summary')
+    for index, (log, effect) in enumerate(zip(logs, facts.effects[1:], strict=True)):
+        require(isinstance(log, dict) and isinstance(log.get('topics'), list) and len(log['topics']) <= 4,
+                'bounded source log required')
+        encoded = (rpc_bytes(log.get('address'), 20) + bytes([len(log['topics'])])
+                   + b''.join(rpc_bytes(topic, 32) for topic in log['topics'])
+                   + hashlib.sha256(rpc_bytes(log.get('data'))).digest())
+        require(effect.module_id == facts.module_id and effect.ordinal == index + 1
+                and effect.event_type == 0 and effect.kind == 3 and not effect.monetary
+                and effect.body == encoded and log.get('logIndex') == hex(index),
+                'source log differs from signed effect')
+    require(row.get('rung') in ('receipted', 'committed'), 'authenticated source rung required')
+    if row['rung'] == 'committed':
+        require(quantity(row.get('blockNumber')) >= verified.height and any(rpc_bytes(row.get('blockHash'), 32)),
+                'source block commit does not cover the receipt')
     else:
-        for key in ('custody_fixture', 'registry_configuration', 'registry_cgroup_parent'):
-            require(value[key] is None or isinstance(value[key], str) and Path(value[key]).is_absolute(),
-                    'missing runtime authority must remain explicit, never manufactured')
-    native = Path(value['artifacts']['layerxd']['artifact']['path']).parent
-    for role in ('genesis-builder', 'module-registry'):
-        require(Path(value['artifacts'][role]['artifact']['path']).parent == native, 'genuine native binary directory mismatch')
+        require('blockNumber' not in row and 'blockHash' not in row, 'uncommitted source carries block evidence')
+    return verified
 
 
-def build(cache_path, output):
-    value = load(cache_path)
-    compatible(value, CACHED_ROLES)
-    source = identity()
+def consume_source(record, pins, source, network_id=125):
+    require(isinstance(record, dict) and set(record) == {'source', 'network_id', 'raw_transaction', 'receipts'}
+            and record['source'] == source and type(record['network_id']) is int
+            and record['network_id'] == network_id and set(record['receipts']) == ROLES,
+            'exact source-bound paxd/gateway receipt pair required')
+    raw = rpc_bytes(record['raw_transaction'])
+    receipts = record['receipts']
+    verified = {role: verified_receipt(receipts[role], raw, pins, network_id) for role in ROLES}
+    require(receipts['paxd'] == receipts['gateway']
+            and verified['paxd'].canonical_bytes == verified['gateway'].canonical_bytes,
+            'paxd and gateway source evidence differs')
+    return verified['paxd']
+
+
+def program_envelope(row, network_id=125):
+    require(isinstance(row, dict) and set(row) == {'name', 'operation', 'payload_file', 'transaction_file',
+            'signer', 'fee_limit', 'expected_result_code', 'expected_terminal_result'}, 'exact signed program input required')
+    require(isinstance(row['name'], str) and re.fullmatch('[a-z0-9][a-z0-9-]{0,63}', row['name']),
+            'bounded program evidence name required')
+    require(type(row['fee_limit']) is int and 0 <= row['fee_limit'] < 1 << 128
+            and type(row['expected_result_code']) is int and row['expected_result_code'] in (0, 1),
+            'explicit bounded fee and result required')
+    payload, raw = read(row['payload_file']), read(row['transaction_file'])
+    chain, _, target, value, calldata, signer = transaction(raw)
+    require(chain == network_id and target == PROGRAMS and value == 0
+            and row['signer'] == '0x' + signer.hex(), 'signed program transaction owner/network mismatch')
+    code_hash = None
+    if row['operation'] == 'deploy':
+        deploy = NativeProgramDeploy.decode(payload)
+        require(deploy.encode() == payload and row['expected_terminal_result'] is None,
+                'canonical deployment envelope required')
+        expected = encode_call('deploy', DEPLOY_TYPES, [deploy.program_id, deploy.guest_abi, deploy.policy,
+            deploy.authority, deploy.new_hash, deploy.interface or b'', deploy.wasm])
+        program, abi, code_hash = deploy.program_id, deploy.guest_abi, deploy.new_hash.hex()
+    else:
+        require(row['operation'] == 'call' and type(row['expected_terminal_result']) is int
+                and -(1 << 31) <= row['expected_terminal_result'] < 1 << 31, 'explicit program terminal result required')
+        call = decode_native_program_call(payload)
+        require(encode_native_program_call(call) == payload, 'canonical program call envelope required')
+        expected = encode_call('call', CALL_TYPES, [call.program_id, call.guest_abi, call.entrypoint,
+            call.calldata, call.capabilities, call.access_declaration, call.response_capacity,
+            call.resources, row['fee_limit']])
+        program, abi = call.program_id, call.guest_abi
+    require(calldata == expected, 'signed program calldata differs from deployment/call envelope')
+    return raw, {'name': row['name'], 'operation': row['operation'], 'program_id': program.hex(),
+                 'guest_abi': abi, 'code_hash': code_hash, 'payload': artifact(row['payload_file'])}
+
+
+class ProgramHttpProducer:
+    def __init__(self, endpoints, receipt_keys, source, revision, network_id=125):
+        self.source = source_identity(source, revision)
+        require(type(network_id) is int and 0 < network_id < 1 << 32,
+                'explicit bounded paxd network required')
+        self.network_id = network_id
+        self.pins = decode_receipt_keys(receipt_keys)
+        require(isinstance(endpoints, dict) and set(endpoints) == ROLES, 'only paxd and hosted gateway producers are supported')
+        self.peers = {}
+        for role, config in endpoints.items():
+            require(isinstance(config, dict) and set(config) == {'endpoint', 'authorization_file'},
+                    'explicit supported producer endpoint required')
+            headers = {}
+            if config['authorization_file'] is not None:
+                authorization = read(config['authorization_file']).decode('ascii')
+                require(re.fullmatch(r'(?:LayerX-Key|Bearer) [!-~]{1,512}', authorization),
+                        'bounded protected HTTP authorization required')
+                headers['Authorization'] = authorization
+            self.peers[role] = ProducerRpc(config['endpoint'], headers)
+        require(self.peers['paxd'].endpoint != self.peers['gateway'].endpoint,
+                'distinct paxd and gateway producer endpoints required')
+
+    def check_network(self):
+        for peer in self.peers.values():
+            require(peer.call('eth_chainId', []) == hex(self.network_id), 'one independently selected paxd network required')
+            require(peer.receipt_keys() == self.pins, 'endpoint receipt keys differ from independent pins')
+
+    def observe(self, raw):
+        require(transaction(raw)[0] == self.network_id, 'transaction differs from the independently selected paxd network')
+        self.check_network()
+        tx_hash = '0x' + keccak256(raw).hex()
+        receipts = {role: peer.call('pax_sequencerReceipt', [tx_hash]) for role, peer in self.peers.items()}
+        record = {'source': self.source, 'network_id': self.network_id,
+                  'raw_transaction': '0x' + raw.hex(), 'receipts': receipts}
+        consume_source(record, self.pins, self.source, self.network_id)
+        return record
+
+    def submit_program(self, row):
+        raw, envelope = program_envelope(row, self.network_id)
+        self.check_network()
+        tx_hash = self.peers['gateway'].send('0x' + raw.hex())
+        record = self.observe(raw)
+        verified = consume_source(record, self.pins, self.source, self.network_id)
+        require(verified.receipt.result_code == row['expected_result_code'], 'committed program result differs from expected result')
+        response = rpc_bytes(record['receipts']['paxd']['returnData'])
+        if row['operation'] == 'call' and verified.receipt.result_code == 0:
+            require(len(response) >= 128 and len(response) % 32 == 0, 'program terminal ABI response required')
+            result = int.from_bytes(response[:32], 'big', signed=True)
+            kind, offset, length = (int.from_bytes(response[start:start + 32], 'big') for start in (32, 64, 96))
+            require(result == row['expected_terminal_result'] and kind in (1, 2) and offset == 96
+                    and len(response) == 128 + (length + 31) // 32 * 32 and not any(response[128 + length:]),
+                    'signed program terminal result differs from expected result')
+        if row['operation'] == 'deploy' and verified.receipt.result_code == 0:
+            require(not response, 'deployment unexpectedly returned an execution envelope')
+        require(tx_hash == record['receipts']['paxd']['txHash'], 'HTTP submission and source receipt differ')
+        return {'envelope': envelope, 'evidence': record}
+
+
+def produce(manifest_path, output, revision):
+    manifest = load(manifest_path)
+    require(isinstance(manifest, dict) and set(manifest) == {'schema', 'source', 'network_id', 'endpoints', 'receipt_keys', 'programs', 'source_transactions'}
+            and manifest['schema'] == SCHEMA, 'supported paxd/gateway producer manifest required')
+    client = ProgramHttpProducer(manifest['endpoints'], manifest['receipt_keys'], manifest['source'], revision, manifest['network_id'])
+    require(isinstance(manifest['programs'], list) and isinstance(manifest['source_transactions'], list)
+            and 0 < len(manifest['programs']) + len(manifest['source_transactions']) <= 256,
+            'bounded actual program or custody source inputs required')
+    if manifest['programs']:
+        require({'deploy', 'call'} <= {row['operation'] for row in manifest['programs']},
+                'program qualification requires deployment and signed call assertions')
+        names = [row['name'] for row in manifest['programs']]
+        require(len(names) == len(set(names)), 'duplicate program evidence name')
+        envelopes = [program_envelope(row, client.network_id)[1] for row in manifest['programs']]
+        deployed = {(bound['program_id'], bound['guest_abi']) for row, bound in zip(manifest['programs'], envelopes, strict=True)
+                    if row['operation'] == 'deploy' and row['expected_result_code'] == 0}
+        require(all((bound['program_id'], bound['guest_abi']) in deployed for bound in envelopes
+                    if bound['operation'] == 'call'), 'every signed call requires its matching successful deployment')
     directory = private(output, True, True)
-    require(not any(directory.iterdir()), 'fresh build directory required')
-    log = directory / 'build.log'
-    environment = dict(os.environ, CARGO_BUILD_JOBS='4', CARGO_TARGET_DIR='/root/lx-target/platform')
-    with open('/root/lx-cargo/platform-tooling.lock', 'a') as lock, log.open('xb') as stream:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        process = subprocess.run(BUILD, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
-                                 stdout=stream, stderr=subprocess.STDOUT, timeout=1200)
-    require(process.returncode == 0, 'declared producer build failed; inspect private build.log')
-    executable = []
-    compiled = {role: [] for role in COMPILED_ROLES}
-    finished = False
-    for line in log.read_text().splitlines():
-        if not line.startswith('{'):
-            continue
-        event = json.loads(line)
-        if event.get('reason') == 'build-finished':
-            finished = event.get('success') is True
-        if event.get('reason') != 'compiler-artifact' or not event.get('executable'):
-            continue
-        target = event['target']
-        if target.get('name') == 'real_node' and target.get('kind') == ['test'] and event['profile']['test']:
-            executable.append(event['executable'])
-        for role in COMPILED_ROLES:
-            if target.get('name') == ROLES[role] and target.get('kind') == ['bin'] and not event['profile']['test']:
-                compiled[role].append(event['executable'])
-    require(finished and len(executable) == 1 and all(len(paths) == 1 for paths in compiled.values())
-            and identity() == source, 'actual source-bound producer and every production executable required')
-    tracked = subprocess.check_output(['git', 'ls-files', '-z', '--', 'services/platform', 'agent', 'programs', 'include', 'src', 'cmd'], cwd=ROOT)
-    sources = {}
-    for encoded in tracked.split(b'\0'):
-        if not encoded:
-            continue
-        relative = encoded.decode()
-        if Path(relative).name.startswith('.env'):
-            continue
-        path = ROOT / relative
-        if path.is_file() and not path.is_symlink():
-            sources[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
-    value['source'] = source
-    value['artifacts']['real-node-tests'] = {'artifact': artifact(executable[0]), 'source_files': {
-        'services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs':
-        artifact(ROOT / 'services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs')['sha256']}}
-    for role, paths in compiled.items():
-        value['artifacts'][role] = {'artifact': artifact(paths[0]), 'source_files': sources}
-    if value['registry_configuration'] is not None:
-        configuration = load(value['registry_configuration'])
-        for role, key in (('builder-isolation', 'LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME'),
-                          ('builder-supervisor', 'LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR')):
-            record = value['artifacts'][role]['artifact']
-            if role == 'builder-isolation':
-                require(configuration[key] == record['path'] and configuration[key + '_DIGEST'] == record['sha256'],
-                        'genuine cached registry isolation owner differs')
-            configuration[key] = record['path']
-            configuration[key + '_DIGEST'] = record['sha256']
-        value['registry_configuration'] = write(directory / 'registry-configuration.json', configuration)
-    value['build_logs'].append(artifact(log))
-    write(directory / 'manifest.json', value)
-    print(directory / 'manifest.json')
-
-
-def port():
-    with socket.socket() as listener:
-        listener.bind(('127.0.0.1', 0))
-        return listener.getsockname()[1]
-
-
-class Runtime:
-    def __init__(self, directory, artifacts):
-        self.directory, self.artifacts = directory, artifacts
-        self.children, self.streams = [], []
-
-    def start(self, role, environment, arguments=(), uid=None, working_directory=None, binary=None):
-        stream = (self.directory / (role + '.log')).open('xb')
-        self.streams.append(stream)
-        binary = binary or self.artifacts[role]['artifact']['path']
-        environment = dict(self.artifacts[role].get('environment', {}), **environment)
-        child = subprocess.Popen([binary, *arguments], cwd=working_directory or self.directory, env=environment,
-                                 stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT,
-                                 start_new_session=True, user=uid, group=uid,
-                                 extra_groups=[] if uid is not None else None)
-        self.children.append(child)
-        return child
-
-    def wait_file(self, path, child, seconds=120):
-        deadline = time.monotonic() + seconds
-        while not path.exists():
-            require(child.poll() is None, 'real producer exited; inspect private process log')
-            require(time.monotonic() < deadline, 'real producer readiness deadline')
-            time.sleep(0.05)
-
-    def wait_port(self, number, child):
-        deadline = time.monotonic() + 30
-        while True:
-            require(child.poll() is None, 'production service exited; inspect private process log')
-            try:
-                with socket.create_connection(('127.0.0.1', number), timeout=0.2):
-                    return
-            except OSError:
-                require(time.monotonic() < deadline, 'production service readiness deadline')
-                time.sleep(0.05)
-
-    def close(self):
-        for child in reversed(self.children):
-            if child.poll() is None:
-                os.killpg(child.pid, signal.SIGTERM)
-                try:
-                    child.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    os.killpg(child.pid, signal.SIGKILL)
-                    child.wait(timeout=5)
-        for stream in self.streams:
-            stream.close()
-
-
-def post(endpoint, path, token, value, context, expected):
-    request = urllib.request.Request(endpoint + path, data=json.dumps(value).encode(), method='POST',
-                                    headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token})
+    result = {'schema': RESULT_SCHEMA, 'source': client.source, 'network_id': client.network_id, 'programs': [],
+              'authenticated_source': None, 'passed': False, 'unqualified_criteria': ['block-commit']}
     try:
-        with urllib.request.urlopen(request, context=context, timeout=15) as response:
-            require(response.status == expected, 'actual authority admission status differs')
-            return json.loads(response.read(1_048_576), object_pairs_hook=unique)
-    except urllib.error.HTTPError as error:
-        raise ValueError('actual authority admission refused: HTTP ' + str(error.code)) from None
-
-
-def token_file(directory, name):
-    return write(directory / name, secrets.token_hex(32).encode())
-
-
-def produce(manifest_path, output, corpus_path, run_verify):
-    value = load(manifest_path)
-    require(value['source'] == identity() and set(value['artifacts']) == set(ROLES) | {'real-node-tests'},
-            'complete published producer artifact manifest required')
-    cached = {**value, 'artifacts': {role: value['artifacts'][role] for role in ROLES}}
-    compatible(cached, set(ROLES), runtime=True)
-    for record in value['artifacts'].values():
-        require(artifact(record['artifact']['path']) == record['artifact'], 'producer artifact changed')
-    source = value['source']
-    corpus = load(corpus_path)
-    require(corpus['source_revision'] == source['revision'], 'actual native corpus and HTTP candidate differ')
-    directory = private(output, True, True)
-    native_directory = private(directory / 'native', True, True)
-    runtime = Runtime(directory, value['artifacts'])
-    owner = None
-    try:
-        native_env = dict(os.environ, PAXEER_X_PROGRAM_HTTP_PRODUCER_DIR=str(native_directory),
-                          LAYERX_MULTI_ASSET_CUSTODY_FIXTURE=value['custody_fixture'],
-                          LAYERX_TEST_NATIVE_BIN_DIR=str(Path(value['artifacts']['layerxd']['artifact']['path']).parent),
-                          PAXEER_X_NATIVE_INTERFACE_BOUNDARY=value['artifacts']['boundary']['artifact']['path'],
-                          PAXEER_X_PROGRAM_HTTP_MODULE_REGISTRY_BINARY=value['artifacts']['module-registry']['artifact']['path'],
-                          PAXEER_X_REGISTRY_BINARY=value['artifacts']['registry']['artifact']['path'],
-                          PAXEER_X_REGISTRY_CONFIGURATION=value['registry_configuration'],
-                          PAXEER_X_REGISTRY_CGROUP_PARENT=value['registry_cgroup_parent'])
-        native = runtime.start('real-node-tests', native_env, ['--exact', TEST, '--nocapture', '--test-threads=1'])
-        runtime.wait_file(native_directory / 'native-owner.json', native)
-        owner = load(native_directory / 'native-owner.json')
-        require(owner['version'] == 1 and owner['protocol_version'] == 3 and owner['producer_pid'] == native.pid,
-                'actual native owner process binding required')
-        tls = owner['tls']
-        for name in tls:
-            private(tls[name])
-        context = ssl.create_default_context(cafile=tls['boundary_ca_pem'])
-        context.load_cert_chain(tls['client_certificate_pem'], tls['client_key_pem'])
-        tokens = private(directory / 'identity-tokens', True, True)
-        for name in ('gateway', 'registry', 'registrar', 'webhooks', 'dashboard', 'faucet', 'testnet', 'ramp', 'provisioning'):
-            token_file(tokens, name)
-        identity_state = private(directory / 'identity-state', True, True)
-        identity_port = port()
-        identity_env = {'LAYERX_IDENTITY_LISTEN': '127.0.0.1:' + str(identity_port),
-                        'LAYERX_IDENTITY_TLS_CERT_DER': tls['boundary_cert_der'],
-                        'LAYERX_IDENTITY_TLS_KEY_DER': tls['boundary_key_der'],
-                        'LAYERX_IDENTITY_STATE_DIR': str(identity_state),
-                        'LAYERX_IDENTITY_SERVICE_TOKENS_DIR': str(tokens),
-                        'LAYERX_IDENTITY_STORE_KEY_FILE': token_file(directory, 'identity-store-key'),
-                        'LAYERX_IDENTITY_SESSION_TTL_SECONDS': '3600'}
-        identity_child = runtime.start('identity', identity_env)
-        runtime.wait_port(identity_port, identity_child)
-        identity_endpoint = 'https://localhost:' + str(identity_port)
-        provisioning = (tokens / 'provisioning').read_text()
-        post(identity_endpoint, '/v1/principals', provisioning,
-             {'tenant': 'python-sdk-fixture', 'sub': owner['actor_did'],
-              'allowed_signer_public_keys': [owner['actor_public_key']], 'account': owner['actor_account'], 'audiences': []}, context, 200)
-        session = post(identity_endpoint, '/v1/sessions', provisioning, {'sub': owner['actor_did']}, context, 200)
-        authority_port = port()
-        authority_token = token_file(directory, 'authority-token')
-        authority_env = {'LAYERX_AUTHORITY_LISTEN': '127.0.0.1:' + str(authority_port),
-                         'LAYERX_AUTHORITY_TLS_CERT_DER': tls['boundary_cert_der'],
-                         'LAYERX_AUTHORITY_TLS_KEY_DER': tls['boundary_key_der'],
-                         'LAYERX_AUTHORITY_CLIENT_CA_DER': tls['boundary_client_ca_der'],
-                         'LAYERX_AUTHORITY_TOKEN_FILES': authority_token,
-                         'LAYERX_AUTHORITY_REPLICA_URL': owner['replica_endpoint'],
-                         'LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE': owner['replica_authorization_file'],
-                         'LAYERX_AUTHORITY_REPLICA_ID': owner['replica_id'],
-                         'LAYERX_AUTHORITY_LNI_SOCKET': owner['node_socket'],
-                         'LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID': str(owner['network_id']),
-                         'LAYERX_AUTHORITY_NETWORK_ID': str(owner['network_id']), 'LAYERX_AUTHORITY_WIRE_VERSION': '3',
-                         'LAYERX_AUTHORITY_SEQUENCER_ID': owner['sequencer_id'],
-                         'LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY': owner['sequencer_public_key'],
-                         'LAYERX_AUTHORITY_FIRST_BATCH': str(owner['first_batch']),
-                         'LAYERX_AUTHORITY_LAST_BATCH': str(owner['last_batch'])}
-        authority_directory = Path(owner['node_root']) / 'python-http-authority'
-        authority_directory.mkdir(mode=0o700)
-        os.chown(authority_directory, 65534, 65534)
-        for key in ('LAYERX_AUTHORITY_TLS_CERT_DER', 'LAYERX_AUTHORITY_TLS_KEY_DER',
-                    'LAYERX_AUTHORITY_CLIENT_CA_DER', 'LAYERX_AUTHORITY_TOKEN_FILES',
-                    'LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE'):
-            target = authority_directory / key.lower()
-            write(target, Path(authority_env[key]).read_bytes())
-            os.chown(target, 65534, 65534)
-            authority_env[key] = str(target)
-        authority_binary = Path(owner['node_root']) / 'layerx-receipt-authority'
-        shutil.copyfile(value['artifacts']['authority']['artifact']['path'], authority_binary)
-        authority_binary.chmod(0o755)
-        require(artifact(authority_binary)['sha256'] == value['artifacts']['authority']['artifact']['sha256'],
-                'accessible native-peer authority executable differs')
-        authority_child = runtime.start('authority', authority_env, uid=65534,
-                                        working_directory=authority_directory, binary=str(authority_binary))
-        runtime.wait_port(authority_port, authority_child)
-        redis_state = private(directory / 'redis', True, True)
-        redis_port = port()
-        redis_password = secrets.token_hex(32)
-        acl = write(redis_state / 'users.acl', ('user default off\nuser qualification on >' + redis_password + ' +@all ~* &*\n').encode())
-        redis_config = write(redis_state / 'redis.conf', (
-            f'bind 127.0.0.1\nport 0\ntls-port {redis_port}\ntls-cert-file {tls["boundary_cert_pem"]}\n'
-            f'tls-key-file {tls["boundary_key_pem"]}\ntls-ca-cert-file {tls["boundary_ca_pem"]}\n'
-            f'tls-auth-clients no\naclfile {acl}\nappendonly yes\nappendfsync always\ndir {redis_state}\nprotected-mode yes\n').encode())
-        redis_child = runtime.start('redis', {}, [redis_config])
-        runtime.wait_port(redis_port, redis_child)
-        gateway_port = port()
-        gateway_env = {'LAYERX_GATEWAY_LISTEN': '127.0.0.1:' + str(gateway_port),
-                       'LAYERX_GATEWAY_TLS_CERT_DER': tls['boundary_cert_der'],
-                       'LAYERX_GATEWAY_TLS_KEY_DER': tls['boundary_key_der'],
-                       'LAYERX_GATEWAY_OUTBOUND_CA_DER': tls['boundary_ca_der'],
-                       'LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12': tls['client_pkcs12'],
-                       'LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE': tls['client_password_file'],
-                       'LAYERX_GATEWAY_COMPONENT_URL': owner['boundary_endpoint'],
-                       'LAYERX_GATEWAY_COMPONENT_TOKEN_FILE': owner['boundary_authorization_file'],
-                       'LAYERX_GATEWAY_PUBLIC_CORE_URL': owner['boundary_endpoint'],
-                       'LAYERX_GATEWAY_AUTHORITY_URL': 'https://localhost:' + str(authority_port),
-                       'LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE': authority_token,
-                       'LAYERX_GATEWAY_IDENTITY_URL': identity_endpoint,
-                       'LAYERX_GATEWAY_IDENTITY_TOKEN_FILE': str(tokens / 'gateway'),
-                       'LAYERX_GATEWAY_PROGRAM_REGISTRY_URL': owner['registry_endpoint'],
-                       'LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE': owner['registry_authorization_file'],
-                       'LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE': write(directory / 'sequencer-key', owner['sequencer_public_key'].encode()),
-                       'LAYERX_GATEWAY_SEQUENCER_ID_FILE': write(directory / 'sequencer-id', owner['sequencer_id'].encode()),
-                       'LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE': write(directory / 'first-batch', str(owner['first_batch']).encode()),
-                       'LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE': write(directory / 'last-batch', str(owner['last_batch']).encode()),
-                       'LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE': token_file(directory, 'gateway-provisioning-key'),
-                       'LAYERX_GATEWAY_NETWORK_ID': str(owner['network_id']),
-                       'LAYERX_GATEWAY_PROTOCOL_NETWORK_ID': str(owner['network_id']),
-                       'LAYERX_GATEWAY_LXP_WIRE_VERSION': '3',
-                       'LAYERX_GATEWAY_MODULE_REGISTRY_FILE': owner['module_registry_file'],
-                       'LAYERX_GATEWAY_REDIS_URL': 'rediss://localhost:' + str(redis_port),
-                       'LAYERX_GATEWAY_REDIS_USERNAME_FILE': write(directory / 'redis-username', b'qualification'),
-                       'LAYERX_GATEWAY_REDIS_PASSWORD_FILE': write(directory / 'redis-password', redis_password.encode())}
-        gateway_child = runtime.start('gateway', gateway_env)
-        runtime.wait_port(gateway_port, gateway_child)
-        endpoint = 'https://localhost:' + str(gateway_port)
-        issued = post(endpoint, '/v1/keys', session['token'],
-                      {'signer_public_key': owner['actor_public_key'], 'scopes': ['program:call'],
-                       'quota_requests': 1000, 'quota_window_seconds': 60}, context, 201)
-        require(isinstance(issued.get('key'), dict) and issued['key'].get('authorization_scheme') == 'LayerX-Key'
-                and issued['key'].get('signer_public_key') == owner['actor_public_key']
-                and isinstance(issued['key'].get('id'), str) and isinstance(issued['key'].get('secret'), str),
-                'genuine LayerX key issuance required')
-        key_id, key_secret = issued['key']['id'], issued['key']['secret']
-        key_file = write(directory / 'gateway-key', key_secret.encode())
-        write(Path(owner['control']['calls_sign_request_file']), b'fresh-signed-calls')
-        runtime.wait_file(Path(owner['control']['calls_signed_file']), native, 30)
-        owner = load(native_directory / 'native-owner.json')
-        def row(record):
-            require(set(record) == {'guest_abi_version', 'program_id', 'payload_file', 'signed_activity_file', 'fee_limit', 'expected_result_code'},
-                    'exact genuine signed native call export required')
-            private(record['payload_file']); private(record['signed_activity_file'])
-            return {'guest_abi': record['guest_abi_version'], 'payload_file': record['payload_file'],
-                    'signed_activity_file': record['signed_activity_file'], 'fee_limit': record['fee_limit'],
-                    'expected_result_code': record['expected_result_code']}
-        fixture = {'version': 1, 'isolated': True, 'approved_program_calls': True,
-                   'endpoint': endpoint, 'network_id': owner['network_id'],
-                   'sequencer_public_key': owner['sequencer_public_key'], 'gateway_key_id': key_id,
-                   'gateway_key_file': key_file, 'gateway_pid': gateway_child.pid,
-                   'gateway_source_manifest': write(directory / 'gateway-source.json', {
-                       'binary_sha256': value['artifacts']['gateway']['artifact']['sha256'],
-                       'sources': {relative: artifact(ROOT / relative)['sha256'] for relative in
-                           ('services/platform/hosted/gateway/src/main.rs', 'services/platform/hosted/gateway/src/native_call.rs')}}),
-                   'programs': [row(record) for record in owner['programs']],
-                   'refused_call': row(owner['refused_call']), 'unknown_call': row(owner['unknown_call'])}
-        fixture_path = write(directory / 'http-fixture.json', fixture)
-        control_path = write(directory / 'consumer-control.json', dict(
-            {key: owner['control'][key] for key in
-             ('refused_activity_id', 'node_disconnect_request_file', 'node_disconnected_file')}, node_pid=owner['node_pid']))
-        environment = dict(os.environ, LAYERX_PYTHON_PROGRAM_HTTP_FIXTURE=fixture_path,
-                           PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS=str(Path(corpus_path).absolute()),
-                           PAXEER_X_MAINLINE=source['revision'], PAXEER_X_PROGRAM_HTTP_CONTROL=control_path,
-                           SSL_CERT_FILE=tls['boundary_ca_pem'], PYTHONDONTWRITEBYTECODE='1')
-        write(directory / 'ready.json', {'source': source, 'gateway_pid': gateway_child.pid,
-              'native_pid': native.pid, 'fixture': fixture_path, 'control': control_path,
-              'corpus': str(Path(corpus_path).absolute()), 'ssl_cert_file': tls['boundary_ca_pem']})
-        if not run_verify:
-            print(directory / 'ready.json', flush=True)
-            deadline = time.monotonic() + 1200
-            while not Path(owner['control']['stop_file']).exists():
-                require(time.monotonic() < deadline and native.poll() is None, 'producer serving deadline or native owner exit')
-                time.sleep(0.1)
-            return 0
-        log = directory / 'verify.log'
-        with log.open('xb') as stream:
-            process = subprocess.run(VERIFY, cwd=ROOT, env=environment, stdin=subprocess.DEVNULL,
-                                     stdout=stream, stderr=subprocess.STDOUT, timeout=1200)
-        write(directory / 'result.json', {'revision': source['revision'], 'command': VERIFY,
-              'exit_code': process.returncode, 'log': str(log), 'fixture': fixture_path,
-              'native_corpus': str(Path(corpus_path).absolute())})
-        return process.returncode
+        for row in manifest['programs']:
+            result['programs'].append(client.submit_program(row))
+        sources = [client.observe(read(path)) for path in manifest['source_transactions']]
+        require(len({record['raw_transaction'] for record in sources}) == len(sources),
+                'duplicate authenticated source transaction')
+        exported = {'schema': SOURCE_SCHEMA, 'source': client.source, 'network_id': client.network_id, 'records': sources}
+        result['authenticated_source'] = write(directory / 'authenticated-source.json', exported)
+        all_records = sources + [row['evidence'] for row in result['programs']]
+        require(all(record['receipts']['paxd']['rung'] == 'committed' for record in all_records),
+                'unqualified until every authenticated receipt reaches block commit')
+        result['unqualified_criteria'] = []
+        result['passed'] = True
     finally:
-        if owner is not None and not Path(owner['control']['stop_file']).exists():
-            write(Path(owner['control']['stop_file']), b'stop')
-            if runtime.children:
-                try:
-                    runtime.children[0].wait(timeout=15)
-                except subprocess.TimeoutExpired:
-                    pass
-        runtime.close()
+        write(directory / 'result.json', result)
+    return result
 
 
-def main():
+def main(argv=None):
     os.umask(0o077)
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--build', action='store_true')
-    parser.add_argument('--cache-manifest')
-    parser.add_argument('--manifest')
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    parser.add_argument('--manifest', required=True)
     parser.add_argument('--output', required=True)
-    parser.add_argument('--corpus', default=os.environ.get('PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS'))
-    parser.add_argument('--verify', action='store_true')
-    args = parser.parse_args()
+    parser.add_argument('--revision', required=True)
+    args = parser.parse_args(argv)
     try:
-        if args.build:
-            require(args.cache_manifest and not args.verify, 'explicit cache owner manifest required before declared build')
-            build(args.cache_manifest, args.output)
-            return 0
-        require(args.manifest and args.corpus, 'source-bound producer artifacts and genuine native corpus required')
-        with open('/root/lx-cargo/platform-tooling.lock', 'a') as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            return produce(args.manifest, args.output, args.corpus, args.verify)
-    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        result = produce(args.manifest, args.output, args.revision)
+        print(json.dumps(result))
+        return 0
+    except (OSError, ValueError, KeyError, TypeError, PlatformSdkError, PaymentRpcError) as error:
         print('program HTTP producer refused: ' + str(error), file=sys.stderr)
         return 78
 

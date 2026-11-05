@@ -6,5 +6,6 @@ export * from './stream.js';
 export * from './browser-stream.js';
 
 export * from './operations.js';
+export * from './served-routes.js';
 export * from './shared-snapshot.js';
 export * from './reconnect.js';

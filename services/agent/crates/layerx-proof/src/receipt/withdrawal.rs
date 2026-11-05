@@ -1,4 +1,10 @@
-//! Native withdrawal lifecycle receipts and their original signed requests.
+//! Native withdrawal outcomes from sequencer-signed receipts.
+//!
+//! Verify receipt bytes with [`super::verify_outcome`], then decode the retained
+//! facts with [`WithdrawalOutcome::from_verified`]. The activity-bound
+//! `withdrawal::verify` API was removed; no signed activity is needed here.
+//! The returned facts carry only the authority established by the verified
+//! receipt; decoding does not establish chain finality.
 
 use super::{
     encode_unsigned, receipt_digest, verify_sequencer_signature, AuthorizedBatch, Evidence,
@@ -6,12 +12,60 @@ use super::{
 };
 use layerx_types::account::AccountId;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::{decode_signed, encode_signed, encode_unsigned as unsigned_activity};
-use layerx_wire::hash::{
-    account_id_for_protocol, activity_id, payload_hash, payload_hash_for, Domain,
-};
+use layerx_wire::hash::{account_id_for_protocol, payload_hash_for};
 use layerx_wire::receipt::ProtocolReceipt;
 use sha2::{Digest as _, Sha256};
+
+/// Economic facts retained from a successfully verified native withdrawal.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WithdrawalOutcome {
+    asset: [u8; 32],
+    amount: u128,
+    recipient: [u8; 20],
+    nullifier: [u8; 32],
+}
+
+impl WithdrawalOutcome {
+    /// Decodes withdrawal facts from a value returned by [`super::verify_outcome`].
+    ///
+    /// # Errors
+    /// Refuses other receipt kinds and inconsistent withdrawal effects.
+    pub fn from_verified(verified: &VerifiedReceipt) -> Result<Self, VerificationFailure> {
+        let receipt = verified.receipt().protocol().ok_or_else(refused)?;
+        shape(receipt)?;
+        let body = effects(receipt)?;
+        Ok(Self {
+            asset: receipt.asset(),
+            amount: receipt.amount(),
+            recipient: body[130..150].try_into().map_err(|_| refused())?,
+            nullifier: receipt.context_hash(),
+        })
+    }
+
+    /// Returns the withdrawn asset identifier.
+    #[must_use]
+    pub const fn asset(self) -> [u8; 32] {
+        self.asset
+    }
+
+    /// Returns the exact withdrawn quantity in the asset's native units.
+    #[must_use]
+    pub const fn amount(self) -> u128 {
+        self.amount
+    }
+
+    /// Returns the destination address encoded in the withdrawal event.
+    #[must_use]
+    pub const fn recipient(self) -> [u8; 20] {
+        self.recipient
+    }
+
+    /// Returns the withdrawal nullifier bound by the receipt context hash.
+    #[must_use]
+    pub const fn nullifier(self) -> [u8; 32] {
+        self.nullifier
+    }
+}
 
 fn refused() -> VerificationFailure {
     VerificationFailure::at(ReceiptCheck::ReceiptShape)
@@ -169,74 +223,5 @@ pub(super) fn verify_effects(
         return Err(refused());
     }
     effects(receipt)?;
-    Ok(verified)
-}
-
-/// Verifies a withdrawal outcome against the caller's original signed activity.
-///
-/// # Errors
-/// Refuses wrong network, owner signature, activity, payload, fee, effects or batch roots.
-pub fn verify(
-    bytes: &[u8],
-    authorized: &AuthorizedBatch,
-    signed_activity: &[u8],
-    network_id: u32,
-) -> Result<VerifiedReceipt, VerificationFailure> {
-    let activity = decode_signed(signed_activity, &registry()?).map_err(|_| refused())?;
-    if activity.protocol_version() != 3
-        || activity.network_id() != network_id
-        || network_id == 0
-        || encode_signed(&activity).map_err(|_| refused())? != signed_activity
-        || activity.authority().len() != 32
-        || activity.payload().len() != 108
-        || payload_hash(&activity).map_err(|_| refused())? != activity.payload_hash()
-    {
-        return Err(refused());
-    }
-    let unsigned = unsigned_activity(&activity).map_err(|_| refused())?;
-    let message =
-        layerx_crypto::SignatureMessage::new(Domain::SignaturePreimage, 3, network_id, &unsigned)
-            .map_err(|_| refused())?;
-    layerx_crypto::ed25519::verify(
-        &activity.authority().try_into().map_err(|_| refused())?,
-        &activity
-            .signature()
-            .ok_or_else(refused)?
-            .try_into()
-            .map_err(|_| refused())?,
-        message,
-    )
-    .map_err(|_| refused())?;
-    let signing_digest = message.digest();
-    let verified = authenticate(bytes, authorized)?;
-    let receipt = verified.receipt().protocol().ok_or_else(refused)?;
-    if activity_id(&activity).map_err(|_| refused())? != receipt.activity_id()
-        || receipt.authorization_hash() != signing_digest
-        || receipt.timestamp() < activity.timestamp_bound().not_before
-        || receipt.timestamp() > activity.timestamp_bound().not_after
-        || receipt.fee_charged() > activity.fee_limit()
-        || activity.fee_limit()
-            != u128::from(u64::from_be_bytes(
-                activity.payload()[100..]
-                    .try_into()
-                    .map_err(|_| refused())?,
-            ))
-    {
-        return Err(refused());
-    }
-    if receipt.result_code() == 0 {
-        let body = effects(receipt)?;
-        let actor = std::str::from_utf8(activity.actor_did()).map_err(|_| refused())?;
-        let source = AccountId::parse(&format!("agent:{actor}:main")).map_err(|_| refused())?;
-        if body[2..6] != network_id.to_be_bytes()
-            || body[38..70] != account_id_for_protocol(&source, 3).map_err(|_| refused())?
-            || payload(body)?.as_slice() != activity.payload()
-            || body[214..246] != activity.idempotency_key()
-        {
-            return Err(refused());
-        }
-    } else if !receipt.effects().is_empty() {
-        return Err(refused());
-    }
     Ok(verified)
 }

@@ -9,31 +9,40 @@ public final class Fulfillments {
     private Fulfillments() {}
 
     public record ProposedFulfillment(String idempotencyKey, String requestDigest, byte[] canonicalReceipt,
-                                      LocalVerifier.AuthorizedReceiptBatch authorizedBatch) {}
+                                      LocalVerifier.ReceiptKey receiptKey, byte[] transactionHash) {}
 
     public record StoredFulfillment(String idempotencyKey, String requestDigest, byte[] canonicalReceipt,
-                                    LocalVerifier.AuthorizedReceiptBatch authorizedBatch, LayerXResource resource) {}
+                                    LocalVerifier.ReceiptKey receiptKey, byte[] transactionHash, LayerXResource resource) {}
 
     public interface FulfillmentRepository {
         StoredFulfillment fulfill(ProposedFulfillment proposed, ResourceRelease release) throws IOException;
     }
 
     public static final class InMemoryFulfillmentRepository implements FulfillmentRepository {
-        private final Map<String, StoredFulfillment> entries = new ConcurrentHashMap<>();
+        private static final class Admission {
+            private StoredFulfillment stored;
+        }
+
+        private final Map<String, Admission> entries = new ConcurrentHashMap<>();
 
         @Override
         public StoredFulfillment fulfill(ProposedFulfillment proposed, ResourceRelease release) throws IOException {
-            StoredFulfillment existing = entries.get(proposed.idempotencyKey());
-            if (existing != null) return require(existing, proposed);
-            LayerXResource resource = release.release();
-            StoredFulfillment stored = new StoredFulfillment(proposed.idempotencyKey(), proposed.requestDigest(),
-                proposed.canonicalReceipt(), proposed.authorizedBatch(), resource);
-            StoredFulfillment raced = entries.putIfAbsent(proposed.idempotencyKey(), stored);
-            return raced == null ? stored : require(raced, proposed);
+            Admission admission = entries.computeIfAbsent(proposed.idempotencyKey(), key -> new Admission());
+            synchronized (admission) {
+                if (admission.stored != null) return require(admission.stored, proposed);
+                LayerXResource resource = release instanceof ResourceRelease.Recoverable recoverable
+                    ? recoverable.release(proposed.idempotencyKey()) : release.release();
+                admission.stored = new StoredFulfillment(proposed.idempotencyKey(), proposed.requestDigest(),
+                    proposed.canonicalReceipt(), proposed.receiptKey(), proposed.transactionHash(), resource);
+                return admission.stored;
+            }
         }
 
         private static StoredFulfillment require(StoredFulfillment stored, ProposedFulfillment proposed) {
-            if (!stored.requestDigest().equals(proposed.requestDigest())) {
+            if (!stored.requestDigest().equals(proposed.requestDigest())
+                    || !java.util.Arrays.equals(stored.canonicalReceipt(), proposed.canonicalReceipt())
+                    || !SellerMiddleware.sameKey(stored.receiptKey(), proposed.receiptKey())
+                    || !java.util.Arrays.equals(stored.transactionHash(), proposed.transactionHash())) {
                 throw MiddlewareException.of(MiddlewareException.Code.FULFILLMENT_CONFLICT);
             }
             return stored;

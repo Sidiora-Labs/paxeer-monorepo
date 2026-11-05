@@ -1008,52 +1008,107 @@ defmodule Explorer.Chain.Import.Runner.InternalTransactions do
   end
 
   defp empty_selfdestructed_contracts_bytecode(repo, valid_internal_transactions, timestamps) do
-    # Find all selfdestruct internal transactions
-    selfdestruct_addresses =
+    addresses =
       valid_internal_transactions
       |> Enum.filter(&(&1.type == :selfdestruct))
-      |> Enum.map(&{&1.transaction_hash, &1.from_address_hash})
-      |> MapSet.new()
+      |> Enum.map(& &1.from_address_hash)
 
-    # Find all create/create2 internal transactions in the same transactions
-    created_addresses =
-      valid_internal_transactions
-      |> Enum.filter(&(&1.type in [:create, :create2]))
-      |> Enum.map(&{&1.transaction_hash, Map.get(&1, :created_contract_address_hash)})
-      |> Enum.reject(fn {_tx_hash, address_hash} -> is_nil(address_hash) end)
-      |> MapSet.new()
+    reconcile_selfdestructed_contracts_bytecode(repo, addresses, timestamps)
+  end
 
-    # Filter to find addresses that were selfdestructed but NOT created in the same transaction
-    addresses_to_empty =
-      selfdestruct_addresses
-      |> Enum.reject(fn {tx_hash, address_hash} ->
-        MapSet.member?(created_addresses, {tx_hash, address_hash})
-      end)
-      |> Enum.map(fn {_tx_hash, address_hash} -> address_hash end)
-      |> Enum.uniq()
+  @doc """
+  Reconciles a batch of SELFDESTRUCT addresses, including addresses cleared by
+  earlier imports, with the latest imported canonical state.
 
-    if Enum.empty?(addresses_to_empty) do
-      {:ok, []}
-    else
-      # Update the addresses to have empty contract_code
-      empty_contract_code = %Explorer.Chain.Data{bytes: <<>>}
-
-      update_query =
-        from(
-          address in Address,
-          where: address.hash in ^addresses_to_empty,
-          update: [set: [contract_code: ^empty_contract_code, updated_at: ^timestamps.updated_at]]
+  The committed state accounts for the active fork, transaction-local creation
+  and reverted execution. A trace alone does not establish that code was deleted.
+  Call inside a repository transaction, as the normal import runner does.
+  """
+  def reconcile_selfdestructed_contracts_bytecode(repo, address_hashes, timestamps) do
+    addresses =
+      repo.all(
+        from(address in Address,
+          where: address.hash in ^Enum.uniq(address_hashes),
+          order_by: [asc: address.hash],
+          select: address.hash,
+          lock: "FOR NO KEY UPDATE"
         )
-
-      {count, _} = repo.update_all(update_query, [])
-
-      Logger.info(
-        "Emptied contract_code for #{count} selfdestructed contracts: #{inspect(addresses_to_empty, limit: :infinity)}"
       )
+
+    case addresses do
+      [] ->
+        {:ok, 0}
+
+      _ ->
+        block_hash =
+          repo.one(
+            from(block in Block,
+              where: block.consensus == true,
+              order_by: [desc: block.number],
+              limit: 1,
+              select: block.hash
+            )
+          )
+
+        reconcile_contract_codes_at_block(repo, addresses, block_hash, timestamps)
+    end
+  end
+
+  defp reconcile_contract_codes_at_block(_repo, _addresses, nil, _timestamps),
+    do: {:error, :missing_consensus_block}
+
+  defp reconcile_contract_codes_at_block(repo, addresses, block_hash, timestamps) do
+    id_to_address = addresses |> Enum.with_index() |> Map.new(fn {address, id} -> {id, address} end)
+    block = %{blockHash: to_string(block_hash), requireCanonical: true}
+
+    requests =
+      Enum.map(id_to_address, fn {id, address} ->
+        EthereumJSONRPC.request(%{id: id, method: "eth_getCode", params: [to_string(address), block]})
+      end)
+
+    with {:ok, responses} <-
+           EthereumJSONRPC.json_rpc(requests, Application.fetch_env!(:explorer, :json_rpc_named_arguments)),
+         {:ok, codes} <- committed_contract_codes(responses, id_to_address) do
+      count =
+        codes
+        |> Enum.sort_by(fn {address, _code} -> address end)
+        |> Enum.reduce(0, fn {hash, code}, count ->
+          query =
+            from(address in Address,
+              where:
+                address.hash == ^hash and
+                  fragment("? IS DISTINCT FROM ?", address.contract_code, type(^code, Explorer.Chain.Data)),
+              update: [set: [contract_code: ^code, updated_at: ^timestamps.updated_at]]
+            )
+
+          {updated, _} = repo.update_all(query, [])
+          count + updated
+        end)
 
       {:ok, count}
     end
   end
+
+  defp committed_contract_codes(responses, id_to_address) when is_list(responses) do
+    ids = Enum.map(responses, &Map.get(&1, :id))
+
+    if length(ids) == map_size(id_to_address) and MapSet.new(ids) == MapSet.new(Map.keys(id_to_address)) do
+      Enum.reduce_while(responses, {:ok, []}, fn
+        %{id: id, result: "0x" <> _ = code}, {:ok, codes} ->
+          case Explorer.Chain.Data.cast(code) do
+            {:ok, data} -> {:cont, {:ok, [{Map.fetch!(id_to_address, id), data} | codes]}}
+            :error -> {:halt, {:error, {:invalid_contract_code, id}}}
+          end
+
+        response, _ ->
+          {:halt, {:error, {:contract_code_fetch_failed, response}}}
+      end)
+    else
+      {:error, :incomplete_contract_codes}
+    end
+  end
+
+  defp committed_contract_codes(_responses, _id_to_address), do: {:error, :invalid_contract_codes}
 
   defp traceable_blocks_dynamic_query do
     if RangesHelper.trace_ranges_present?() do

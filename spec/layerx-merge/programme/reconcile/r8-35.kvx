@@ -1,0 +1,487 @@
+[reconcile.r8-35]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-35.1]
+interface = "interface.8.cli-sdkgen-generate-portable-py"
+verdict = "served"
+path = "sdk/platform/generators/generate_portable.py"
+line = 312
+symbol = "--check"
+evidence = "CLI signature remains [--check] [repo]; optional repo defaults to dot. render now writes Swift and C# operation catalogs, not operations.json. Current declaration: parser.add_argument(\"--check\", action=\"store_true\"). Registry line 307 is now line 312."
+
+[row.r8-35.2]
+interface = "interface.8.cfg-sdk-receipt-kvx-receipt"
+verdict = "served"
+path = "sdk/platform/generators/receipt.kvx"
+line = 1
+symbol = "[receipt]"
+evidence = "The [receipt] keys changed from program_outcome, programs_module_id, program_outcome_tags and required_nonzero to receipt_versions = [\"2\", \"3\"], receipt_domain and sequence_domain; failure_checks now names sequencer receipt checks. Current declaration: [receipt]."
+
+[row.r8-35.3]
+interface = "interface.8.cli-sdkgen-write-program-contracts"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 2300
+symbol = "--write-program-contracts"
+evidence = "CLI signature remains --write-program-contracts [repo-root] [lock-path]. The dispatch now invokes write_receipt_contracts through programs_contracts; lifecycle route generation is absent and receipt_contract rejects program_lifecycle sections. Current declaration: \"--write-program-contracts\" | \"--check-program-contracts\" =>. Registry line 2564 is now line 2300."
+
+[row.r8-35.4]
+interface = "interface.8.cli-sdkgen-check-program-contracts"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 2300
+symbol = "--check-program-contracts"
+evidence = "CLI signature remains --check-program-contracts [repo-root] [lock-path]. The dispatch now invokes check_receipt_contracts through programs_contracts; lifecycle route checking is absent and receipt_contract rejects program_lifecycle sections. Current declaration: \"--write-program-contracts\" | \"--check-program-contracts\" =>. Registry line 2565 is now line 2300."
+
+[row.r8-35.5]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationfaucetclaim"
+verdict = "retired"
+path = "sdk/platform/go/generated.go"
+line = 30
+symbol = "AgentOperationFaucetClaim"
+evidence = "AgentOperationFaucetClaim is absent from the registered generated.go and its enum validation/catalog. Repository-wide exact-identifier rg search excluding spec/ and docs/ found zero remaining files; git grep over tracked files confirmed no references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-35.6]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramactivity"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 33
+symbol = "AgentOperationProgramActivity"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramActivity AgentOperation = \"program.activity\". Registry line 34 is now line 33."
+
+[row.r8-35.7]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramcall"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 34
+symbol = "AgentOperationProgramCall"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramCall AgentOperation = \"program.call\". Registry line 35 is now line 34."
+
+[row.r8-35.8]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramdeploy"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 35
+symbol = "AgentOperationProgramDeploy"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramDeploy AgentOperation = \"program.deploy\". Registry line 36 is now line 35."
+
+[row.r8-35.9]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramdiscover"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 36
+symbol = "AgentOperationProgramDiscover"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramDiscover AgentOperation = \"program.discover\". Registry line 37 is now line 36."
+
+[row.r8-35.10]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprograminterface"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 37
+symbol = "AgentOperationProgramInterface"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramInterface AgentOperation = \"program.interface\". Registry line 38 is now line 37."
+
+[row.r8-35.11]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramreceipt"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 38
+symbol = "AgentOperationProgramReceipt"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramReceipt AgentOperation = \"program.receipt\". Registry line 39 is now line 38."
+
+[row.r8-35.12]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramsimulate"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 39
+symbol = "AgentOperationProgramSimulate"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramSimulate AgentOperation = \"program.simulate\". Registry line 40 is now line 39."
+
+[row.r8-35.13]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramupgrade"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 40
+symbol = "AgentOperationProgramUpgrade"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramUpgrade AgentOperation = \"program.upgrade\". Registry line 41 is now line 40."
+
+[row.r8-35.14]
+interface = "interface.8.go-sdkgo-agentoperation-agentoperationprogramwinddown"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 41
+symbol = "AgentOperationProgramWindDown"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: AgentOperationProgramWindDown AgentOperation = \"program.wind-down\". Registry line 42 is now line 41."
+
+[row.r8-35.15]
+interface = "interface.8.go-sdkgo-humanoperation-humanoperationintentplan"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 183
+symbol = "HumanOperationIntentPlan"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: HumanOperationIntentPlan HumanOperation = \"intent.plan\". Registry line 194 is now line 183."
+
+[row.r8-35.16]
+interface = "interface.8.go-sdkgo-humanoperation-humanoperationintentsubmit"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 184
+symbol = "HumanOperationIntentSubmit"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: HumanOperationIntentSubmit HumanOperation = \"intent.submit\". Registry line 195 is now line 184."
+
+[row.r8-35.17]
+interface = "interface.8.go-sdkgo-journeykind"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 590
+symbol = "JourneyKind"
+evidence = "The JourneyKind string type declaration is unchanged; current enum values are onboarding, move, agent-create, agent-fund, agent-pause and agent-retire. Current declaration: type JourneyKind string. Registry line 637 is now line 590."
+
+[row.r8-35.18]
+interface = "interface.8.go-sdkgo-humanverificationlevel"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 632
+symbol = "HumanVerificationLevel"
+evidence = "The HumanVerificationLevel string type is unchanged; its enum now has only unverified, receipt-verified and checkpoint-finalised, with paxeer-finalised removed. Current declaration: type HumanVerificationLevel string. Registry line 683 is now line 632."
+
+[row.r8-35.19]
+interface = "interface.8.go-sdkgo-humanverificationlevel-humanverificationunverified"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 635
+symbol = "HumanVerificationUnverified"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: HumanVerificationUnverified HumanVerificationLevel = \"unverified\". Registry line 686 is now line 635."
+
+[row.r8-35.20]
+interface = "interface.8.go-sdkgo-humanverificationlevel-humanverificationreceiptverified"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 636
+symbol = "HumanVerificationReceiptVerified"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: HumanVerificationReceiptVerified HumanVerificationLevel = \"receipt-verified\". Registry line 687 is now line 636."
+
+[row.r8-35.21]
+interface = "interface.8.go-sdkgo-humanverificationlevel-humanverificationcheckpointfinalised"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 637
+symbol = "HumanVerificationCheckpointFinalised"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: HumanVerificationCheckpointFinalised HumanVerificationLevel = \"checkpoint-finalised\". Registry line 688 is now line 637."
+
+[row.r8-35.22]
+interface = "interface.8.go-sdkgo-humanverificationlevel-humanverificationpaxeerfinalised"
+verdict = "retired"
+path = "sdk/platform/go/generated.go"
+line = 689
+symbol = "HumanVerificationPaxeerFinalised"
+evidence = "HumanVerificationPaxeerFinalised is absent from the registered generated.go and its enum validation/catalog. Repository-wide exact-identifier rg search excluding spec/ and docs/ found zero remaining files; git grep over tracked files confirmed no references."
+remaining_refs = 0
+remaining = []
+
+[row.r8-35.23]
+interface = "interface.8.go-sdkgo-humanverificationlevel-valid"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 640
+symbol = "Valid"
+evidence = "The HumanVerificationLevel receiver and Valid() bool signature are unchanged; the switch now accepts only Unverified, ReceiptVerified and CheckpointFinalised. Current declaration: func (value HumanVerificationLevel) Valid() bool. Registry line 693 is now line 640."
+
+[row.r8-35.24]
+interface = "interface.8.go-sdkgo-humanhttptransport-call"
+verdict = "served"
+path = "sdk/platform/go/http.go"
+line = 139
+symbol = "Call"
+evidence = "The HumanHTTPTransport receiver, context/TransportCall parameters and json.RawMessage/error returns are unchanged; Call validates the human envelope and trace. Current declaration: func (transport *HumanHTTPTransport) Call(ctx context.Context, call TransportCall) (json.RawMessage, error). Registry line 262 is now line 139."
+
+[row.r8-35.25]
+interface = "interface.8.go-sdkgo-internal-agentenvelopeversion-529"
+verdict = "served"
+path = "sdk/platform/go/http.go"
+line = 356
+symbol = "agentEnvelopeVersion"
+evidence = "The untyped agentEnvelopeVersion constant still equals 1 and is paired with agentEnvelopePath = /v1/agent/rpc; its signature is unchanged. Current declaration: const agentEnvelopeVersion = 1. Registry line 529 is now line 356."
+
+[row.r8-35.26]
+interface = "interface.8.go-sdkgo-nativeprogramrequest"
+verdict = "served"
+path = "sdk/platform/go/native_program_call.go"
+line = 81
+symbol = "NativeProgramRequest"
+evidence = "The NativeProgramRequest struct declaration remains; current fields are From [20]byte, Call NativeProgramCall, FeeLimit Uint128 and SignedActivity []byte. Current declaration: type NativeProgramRequest struct. Registry line 78 is now line 81."
+
+[row.r8-35.27]
+interface = "interface.8.go-sdkgo-nativeprogramrequest-programcall"
+verdict = "served"
+path = "sdk/platform/go/native_program_call.go"
+line = 88
+symbol = "ProgramCall"
+evidence = "The value receiver and ProgramCall()/ProgramCall/error signature are unchanged; the method now populates From and NativeCall for EVM calldata encoding. Current declaration: func (request NativeProgramRequest) ProgramCall() (ProgramCall, error). Registry line 84 is now line 88."
+
+[row.r8-35.28]
+interface = "interface.8.go-sdkgo-nativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/go/native_program_lifecycle.go"
+line = 250
+symbol = "NativeProgramLifecycleRequest"
+evidence = "The NativeProgramLifecycleRequest struct declaration remains; current public fields are From [20]byte, TransactionHash [32]byte and FeeLimit Uint128, with private ordinal, payload, signedActivity and binding. Current declaration: type NativeProgramLifecycleRequest struct. Registry line 249 is now line 250."
+
+[row.r8-35.29]
+interface = "interface.8.go-sdkgo-newnativeprogramlifecyclerequest"
+verdict = "served"
+path = "sdk/platform/go/native_program_lifecycle.go"
+line = 260
+symbol = "NewNativeProgramLifecycleRequest"
+evidence = "Parameter types and NativeProgramLifecycleRequest/error returns are unchanged; deploy and upgrade allow empty signedActivity, while ordinal 7 still requires activity binding. Current declaration: func NewNativeProgramLifecycleRequest(ordinal uint16, payload, signedActivity []byte) (NativeProgramLifecycleRequest, error). Registry line 256 is now line 260."
+
+[row.r8-35.30]
+interface = "interface.8.go-sdkgo-programs-deploy"
+verdict = "served"
+path = "sdk/platform/go/native_program_lifecycle.go"
+line = 374
+symbol = "Deploy"
+evidence = "Return type changed from (VerifiedReceipt, error) to (ProgramSubmission, error); context, NativeProgramDeploy, signed bytes and IdempotencyKey parameters remain. Deploy prepares an EVM transaction through lifecycle. Current declaration: func (programs *Programs) Deploy(ctx context.Context, value NativeProgramDeploy, signed []byte, key IdempotencyKey) (ProgramSubmission, error). Registry line 331 is now line 374."
+
+[row.r8-35.31]
+interface = "interface.8.go-sdkgo-programs-upgrade"
+verdict = "served"
+path = "sdk/platform/go/native_program_lifecycle.go"
+line = 382
+symbol = "Upgrade"
+evidence = "Return type changed from (VerifiedReceipt, error) to (ProgramSubmission, error); context, NativeProgramUpgrade, signed bytes and IdempotencyKey parameters remain. Upgrade prepares an EVM transaction carrying FeeLimit. Current declaration: func (programs *Programs) Upgrade(ctx context.Context, value NativeProgramUpgrade, signed []byte, key IdempotencyKey) (ProgramSubmission, error). Registry line 339 is now line 382."
+
+[row.r8-35.32]
+interface = "interface.8.go-sdkgo-programs-winddown"
+verdict = "served"
+path = "sdk/platform/go/native_program_lifecycle.go"
+line = 399
+symbol = "WindDown"
+evidence = "The WindDown receiver, parameters and (VerifiedReceipt, error) return remain unchanged; the method still calls the program.wind-down agent operation and requires protocol version 3. Current declaration: func (programs *Programs) WindDown(ctx context.Context, value NativeProgramWindDown, signed []byte, key IdempotencyKey) (VerifiedReceipt, error). Registry line 347 is now line 399."
+
+[row.r8-35.33]
+interface = "interface.8.go-sdkgo-programs-lifecyclereceipt"
+verdict = "served"
+path = "sdk/platform/go/native_program_lifecycle.go"
+line = 462
+symbol = "LifecycleReceipt"
+evidence = "The context/request signature and VerifiedReceipt/error returns remain unchanged; LifecycleReceipt now requires request.TransactionHash and extracts the sequencer receipt from Activity. Current declaration: func (programs *Programs) LifecycleReceipt(ctx context.Context, request NativeProgramLifecycleRequest) (VerifiedReceipt, error). Registry line 402 is now line 462."
+
+[row.r8-35.34]
+interface = "interface.8.go-sdkgo-programcall"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 47
+symbol = "ProgramCall"
+evidence = "The ProgramCall struct declaration remains; current fields include From [20]byte, TransactionHash [32]byte, RawTransaction []byte and NativeCall *NativeProgramCall alongside legacy call fields. Current declaration: type ProgramCall struct. Registry line 44 is now line 47."
+
+[row.r8-35.35]
+interface = "interface.8.go-sdkgo-programsubmissionstate"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 283
+symbol = "ProgramSubmissionState"
+evidence = "The ProgramSubmissionState string type declaration is unchanged; the enum now also includes prepared and pending alongside refused, unknown and executed. Current declaration: type ProgramSubmissionState string. Registry line 271 is now line 283."
+
+[row.r8-35.36]
+interface = "interface.8.go-sdkgo-programsubmissionstate-programsubmissionrefused"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 288
+symbol = "ProgramSubmissionRefused"
+evidence = "The constant identifier, ProgramSubmissionState type and refused literal are unchanged; it now also represents failed sequencer receipt lookup. Current declaration: ProgramSubmissionRefused ProgramSubmissionState = \"refused\". Registry line 274 is now line 288."
+
+[row.r8-35.37]
+interface = "interface.8.go-sdkgo-programsubmissionstate-programsubmissionunknown"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 289
+symbol = "ProgramSubmissionUnknown"
+evidence = "The constant identifier, ProgramSubmissionState type and unknown literal are unchanged; Activity returns this state when eth_getTransactionByHash finds no transaction. Current declaration: ProgramSubmissionUnknown ProgramSubmissionState = \"unknown\". Registry line 275 is now line 289."
+
+[row.r8-35.38]
+interface = "interface.8.go-sdkgo-programsubmissionstate-programsubmissionexecuted"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 290
+symbol = "ProgramSubmissionExecuted"
+evidence = "The constant identifier, ProgramSubmissionState type and executed literal are unchanged; it now also represents successful sequencer receipt lookup. Current declaration: ProgramSubmissionExecuted ProgramSubmissionState = \"executed\". Registry line 276 is now line 290."
+
+[row.r8-35.39]
+interface = "interface.8.go-sdkgo-programsubmission"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 293
+symbol = "ProgramSubmission"
+evidence = "The ProgramSubmission struct declaration remains; current fields include Transaction *ProgramTransaction, TransactionHash [32]byte and SequencerReceipt *SequencerReceiptVerification alongside legacy execution fields. Current declaration: type ProgramSubmission struct. Registry line 279 is now line 293."
+
+[row.r8-35.40]
+interface = "interface.8.go-sdkgo-verifyprogramreceipt"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 475
+symbol = "VerifyProgramReceipt"
+evidence = "The authority AuthorizedBatch parameter was removed; execution and selectedProtocol ...uint16 remain, returning (VerifiedProgramReceipt, error). Verification uses execution receipt keys and raw transaction. Current declaration: func VerifyProgramReceipt(execution ProgramExecutionDocument, selectedProtocol ...uint16) (VerifiedProgramReceipt, error). Registry line 445 is now line 475."
+
+[row.r8-35.41]
+interface = "interface.8.go-sdkgo-verifyprogramreceiptwithpayers"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 482
+symbol = "VerifyProgramReceiptWithPayers"
+evidence = "The authority AuthorizedBatch parameter was removed; execution, payers []OccupancyPayer and selectedProtocol ...uint16 remain, returning (VerifiedProgramReceipt, error). The body calls VerifySequencerReceipt with execution.RawTransaction and execution.ReceiptKeys. Current declaration: func VerifyProgramReceiptWithPayers(execution ProgramExecutionDocument, payers []OccupancyPayer, selectedProtocol ...uint16) (VerifiedProgramReceipt, error). Registry line 452 is now line 482."
+
+[row.r8-35.42]
+interface = "interface.8.go-sdkgo-programs"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 1877
+symbol = "Programs"
+evidence = "The Programs struct declaration remains at the registered line; current state includes sender, didID, receiptKeys, maxFeePerGas and maxPriorityFeePerGas for transaction and sequencer receipt paths. Current declaration: type Programs struct."
+
+[row.r8-35.43]
+interface = "interface.8.go-sdkgo-programtrustoptions"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 1903
+symbol = "ProgramTrustOptions"
+evidence = "The ProgramTrustOptions struct declaration remains; current options include Sender, DIDID, ReceiptKeys, MaxFeePerGas, MaxPriorityFeePerGas and ProtocolVersion alongside clock and simulation-age settings. Current declaration: type ProgramTrustOptions struct. Registry line 1898 is now line 1903."
+
+[row.r8-35.44]
+interface = "interface.8.go-sdkgo-newprograms"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 1914
+symbol = "NewPrograms"
+evidence = "The client/trustedSequencerPublicKey signature and Programs/error returns are unchanged; construction delegates to NewProgramsWithTrustOptions with clock and simulation-age defaults. Current declaration: func NewPrograms(client *Client, trustedSequencerPublicKey [32]byte) (*Programs, error). Registry line 1904 is now line 1914."
+
+[row.r8-35.45]
+interface = "interface.8.go-sdkgo-newprogramswithtrustoptions"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 1921
+symbol = "NewProgramsWithTrustOptions"
+evidence = "The client/key/options signature and Programs/error returns are unchanged; options now supply sender, DID, receipt keys and gas fees, and protocol version must resolve to 2 or 3. Current declaration: func NewProgramsWithTrustOptions(client *Client, trustedSequencerPublicKey [32]byte, options ProgramTrustOptions) (*Programs, error). Registry line 1911 is now line 1921."
+
+[row.r8-35.46]
+interface = "interface.8.go-sdkgo-programs-discover"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 1941
+symbol = "Discover"
+evidence = "The context/program signature and ProgramDiscovery/error returns are unchanged; Discover now reads layerxProgramsAddress with programs.view and selector b1ffb3d4 instead of the program REST ingress. Current declaration: func (programs *Programs) Discover(ctx context.Context, program [32]byte) (ProgramDiscovery, error). Registry line 1930 is now line 1941."
+
+[row.r8-35.47]
+interface = "interface.8.go-sdkgo-programs-interface"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 1984
+symbol = "Interface"
+evidence = "The context/program signature and ProgramInterface/error returns are unchanged; Interface now reads layerxProgramsAddress with programs.view and selector 8efc7240 instead of the program REST ingress. Current declaration: func (programs *Programs) Interface(ctx context.Context, program [32]byte) (ProgramInterface, error). Registry line 1960 is now line 1984."
+
+[row.r8-35.48]
+interface = "interface.8.go-sdkgo-programs-simulate"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 2004
+symbol = "Simulate"
+evidence = "The context/ProgramCall signature and ProgramSimulation/error returns are unchanged; Simulate now uses EVMCalldata(true) and programs.view and decodes the uncommitted result. Current declaration: func (programs *Programs) Simulate(ctx context.Context, call ProgramCall) (ProgramSimulation, error). Registry line 1992 is now line 2004."
+
+[row.r8-35.49]
+interface = "interface.8.go-sdkgo-programs-submit"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 2039
+symbol = "Submit"
+evidence = "The context/call/key signature and ProgramSubmission/error returns are unchanged; Submit now builds an EVM transaction and returns ProgramSubmissionPrepared with Transaction instead of submitting the agent call. Current declaration: func (programs *Programs) Submit(ctx context.Context, call ProgramCall, key IdempotencyKey) (ProgramSubmission, error). Registry line 2029 is now line 2039."
+
+[row.r8-35.50]
+interface = "interface.8.go-sdkgo-programs-receipt"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 2051
+symbol = "Receipt"
+evidence = "The third parameter changed from expectedActivity [32]byte to expectedTransaction [32]byte; other parameters and ProgramSubmission/error returns are unchanged. Receipt now calls Activity with the transaction hash. Current declaration: func (programs *Programs) Receipt(ctx context.Context, key IdempotencyKey, expectedTransaction [32]byte) (ProgramSubmission, error). Registry line 2060 is now line 2051."
+
+[row.r8-35.51]
+interface = "interface.8.go-sdkgo-programs-activity"
+verdict = "served"
+path = "sdk/platform/go/programs.go"
+line = 2063
+symbol = "Activity"
+evidence = "The second parameter changed from activity [32]byte to transaction [32]byte; other parameters and ProgramSubmission/error returns are unchanged. Activity now uses eth_getTransactionByHash and pax_sequencerReceipt. Current declaration: func (programs *Programs) Activity(ctx context.Context, transaction [32]byte) (ProgramSubmission, error). Registry line 2072 is now line 2063."
+
+[row.r8-35.52]
+interface = "interface.8.go-sdkgo-programsmoduleid"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 29
+symbol = "ProgramsModuleID"
+evidence = "The registered receipt_generated.go no longer declares this symbol; it is now declared in verify.go with the same constant identifier, type and value for legacy receipt verification. Current declaration: const ProgramsModuleID uint16 = 9. Registry line 5 is now line 29."
+
+[row.r8-35.53]
+interface = "interface.8.go-sdkgo-programoutcometagv1"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 32
+symbol = "ProgramOutcomeTagV1"
+evidence = "The registered receipt_generated.go no longer declares this symbol; it is now declared in verify.go with the same constant identifier, type and value for legacy receipt verification. Current declaration: ProgramOutcomeTagV1 uint32 = 0x50524731. Registry line 8 is now line 32."
+
+[row.r8-35.54]
+interface = "interface.8.go-sdkgo-programoutcometagv2"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 33
+symbol = "ProgramOutcomeTagV2"
+evidence = "The registered receipt_generated.go no longer declares this symbol; it is now declared in verify.go with the same constant identifier, type and value for legacy receipt verification. Current declaration: ProgramOutcomeTagV2 uint32 = 0x50524732. Registry line 9 is now line 33."
+
+[row.r8-35.55]
+interface = "interface.8.go-sdkgo-programoutcometagv3"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 34
+symbol = "ProgramOutcomeTagV3"
+evidence = "The registered receipt_generated.go no longer declares this symbol; it is now declared in verify.go with the same constant identifier, type and value for legacy receipt verification. Current declaration: ProgramOutcomeTagV3 uint32 = 0x50524733. Registry line 10 is now line 34."
+
+[row.r8-35.56]
+interface = "interface.8.go-sdkgo-programoutcometagv4"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 35
+symbol = "ProgramOutcomeTagV4"
+evidence = "The registered receipt_generated.go no longer declares this symbol; it is now declared in verify.go with the same constant identifier, type and value for legacy receipt verification. Current declaration: ProgramOutcomeTagV4 uint32 = 0x50524734. Registry line 11 is now line 35."
+
+[row.r8-35.57]
+interface = "interface.8.go-sdkgo-receiptcheck"
+verdict = "served"
+path = "sdk/platform/go/receipt_generated.go"
+line = 10
+symbol = "ReceiptCheck"
+evidence = "The ReceiptCheck string type remains unchanged; generated checks now cover receipt versions, keys, raw transaction, fields, return data, logs, sequence hash and signature. Current declaration: type ReceiptCheck string. Registry line 14 is now line 10."
+
+[row.r8-35.58]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckdecode"
+verdict = "served"
+path = "sdk/platform/go/receipt_generated.go"
+line = 13
+symbol = "ReceiptCheckDecode"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: ReceiptCheckDecode ReceiptCheck = \"decode\". Registry line 17 is now line 13."
+
+[row.r8-35.59]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckcanonicalencoding"
+verdict = "served"
+path = "sdk/platform/go/receipt_generated.go"
+line = 14
+symbol = "ReceiptCheckCanonicalEncoding"
+evidence = "The constant identifier, type and literal are unchanged; the symbol remains in the generated catalog. Current declaration: ReceiptCheckCanonicalEncoding ReceiptCheck = \"canonical-encoding\". Registry line 18 is now line 14."
+
+[row.r8-35.60]
+interface = "interface.8.go-sdkgo-receiptcheck-receiptcheckreceiptshape"
+verdict = "served_elsewhere"
+path = "sdk/platform/go/verify.go"
+line = 39
+symbol = "ReceiptCheckReceiptShape"
+evidence = "The registered receipt_generated.go no longer declares this symbol; it is now declared in verify.go with the same constant identifier, type and value for legacy receipt verification. Current declaration: ReceiptCheckReceiptShape ReceiptCheck = \"receipt-shape\". Registry line 19 is now line 39."

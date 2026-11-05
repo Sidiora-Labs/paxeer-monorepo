@@ -1,0 +1,243 @@
+[reconcile.r11-174]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r11-174.1]
+interface = "interface.11.rs-mirror-solana-observation"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 537
+symbol = "SolanaObservation"
+evidence = "pub enum SolanaObservation declares Pending, Canonical, Reorged and Rejected observations; the observe return type and publisher matches are uses of this enum."
+
+[row.r11-174.2]
+interface = "interface.11.rs-mirror-source-error"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 249
+symbol = "SourceError"
+evidence = "pub enum SourceError declares archive admission failures, including Archive(ArchiveError); the earlier Result types and error mappings reference this declaration."
+
+[row.r11-174.3]
+interface = "interface.11.rs-mirror-verified-cursor"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1484
+symbol = "verified_cursor"
+evidence = "pub fn verified_cursor(archives: &[Archive]) -> MirrorCursor computes the latest batch and committed coordinate; the progress method and tests call this definition."
+
+[row.r11-174.4]
+interface = "interface.11.cfg-mirror-signer-transport-file-config"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 102
+symbol = "SignerTransportFileConfig"
+evidence = "SignerTransportFileConfig is declared as a serde enum with tag kind, snake_case names and deny_unknown_fields; Uds and MutualTls define the uds and mutual_tls transport configurations."
+
+[row.r11-174.5]
+interface = "interface.11.rs-portable-portable-receipt-v2-from-json"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 225
+symbol = "from_json"
+evidence = "Inside impl PortableReceiptV2, pub fn from_json(bytes: &[u8]) -> Result<Self, PortableReceiptError> bounds and parses JSON then decodes fields; verify_json calls this constructor."
+
+[row.r11-174.6]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-activity-id"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 400
+symbol = "activity_id"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn activity_id(&self) -> [u8; 32] returns self.activity_id; the private struct field and verification-time assignment are separate occurrences."
+
+[row.r11-174.7]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-global-sequence"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 406
+symbol = "global_sequence"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn global_sequence(&self) -> u64 returns self.global_sequence; the struct field and protocol accessor call are separate occurrences."
+
+[row.r11-174.8]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-height"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 418
+symbol = "height"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn height(&self) -> u64 returns self.height, the signed pending-block height; this is distinct from inclusion_height and verification-time values."
+
+[row.r11-174.9]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-inclusion-height"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 424
+symbol = "inclusion_height"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn inclusion_height(&self) -> u64 returns self.inclusion_height; earlier JSON fields and decoding assignments are not this accessor."
+
+[row.r11-174.10]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-receipt-digest"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 388
+symbol = "receipt_digest"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn receipt_digest(&self) -> [u8; 32] returns the verified receipt-signature digest; other occurrences are fields or verification assignments."
+
+[row.r11-174.11]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-receipt-key"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 394
+symbol = "receipt_key"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn receipt_key(&self) -> &ReceiptKeyEntry borrows self.receipt_key, the pinned signing key; earlier occurrences are fields and verification inputs."
+
+[row.r11-174.12]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-result-code"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 412
+symbol = "result_code"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub const fn result_code(&self) -> i32 returns the signed result status from self.result_code; the protocol call and field assignment are separate uses."
+
+[row.r11-174.13]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2-signed-receipt"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 382
+symbol = "signed_receipt"
+evidence = "Inside impl PortableVerifiedReceiptV2, pub fn signed_receipt(&self) -> &[u8] borrows self.signed_receipt; the Vec field, JSON field and verification inputs are separate occurrences."
+
+[row.r11-174.14]
+interface = "interface.11.rs-visa-canonical-tap-authority"
+verdict = "served"
+path = "services/interop/crates/layerx-visa-tap/src/lib.rs"
+line = 854
+symbol = "canonical_tap_authority"
+evidence = "pub fn canonical_tap_authority(value: &str) -> Result<String, TapError> validates host and port and lowercases the host; the earlier request validation invokes this definition."
+
+[row.r11-174.15]
+interface = "interface.11.rs-visa-canonical-tap-path"
+verdict = "served"
+path = "services/interop/crates/layerx-visa-tap/src/lib.rs"
+line = 907
+symbol = "canonical_tap_path"
+evidence = "pub fn canonical_tap_path(value: &str) -> Result<String, TapError> validates canonical query-free paths; the earlier request validation invokes this definition."
+
+[row.r11-174.16]
+interface = "interface.11.rs-visa-tap-verifier"
+verdict = "served"
+path = "services/interop/crates/layerx-visa-tap/src/lib.rs"
+line = 550
+symbol = "TapVerifier"
+evidence = "pub struct TapVerifier; declares the strict TAP verifier as a unit struct, immediately followed by impl TapVerifier; the impl header is not the type declaration."
+
+[row.r11-174.17]
+interface = "interface.11.rs-visa-verified-agent-binding"
+verdict = "served"
+path = "services/interop/crates/layerx-visa-tap/src/lib.rs"
+line = 715
+symbol = "verified_agent_binding"
+evidence = "pub fn verified_agent_binding takes layerx_agent: [u8; 32] and verified: &VerifiedTrustedAgent and returns Result<CredentialBinding, TapError>; bind_verified_agent calls this definition."
+
+[row.r11-174.18]
+interface = "interface.11.rs-x402-buyer-new"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/buyer.rs"
+line = 324
+symbol = "new"
+evidence = "Inside impl Buyer, pub fn new(supported: Vec<SupportedKind>) -> Result<Self, X402Error> validates bounded supported kinds and initializes the buyer; constructor calls elsewhere are uses."
+
+[row.r11-174.19]
+interface = "interface.11.rs-x402-facilitator"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/facilitator.rs"
+line = 315
+symbol = "Facilitator"
+evidence = "pub struct Facilitator declares the receipt-backed facilitator with a SupportedResponse field; the following impl Facilitator and longer Facilitator-prefixed types are distinct occurrences."
+
+[row.r11-174.20]
+interface = "interface.11.rs-x402-facilitator-supported"
+verdict = "served"
+path = "services/interop/crates/layerx-x402/src/facilitator.rs"
+line = 332
+symbol = "supported"
+evidence = "Inside impl Facilitator, pub fn supported(&self) -> SupportedResponse clones self.supported for the supported response; the stored field and constructor parameter are separate occurrences."
+
+[row.r11-174.21]
+interface = "interface.11.rs-xws-fetcher-fetch"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/fetch.rs"
+line = 901
+symbol = "fetch"
+evidence = "Inside impl Fetcher, pub fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> fetches and extracts canonical page content; fetch_bytes and fetch_route define different interfaces."
+
+[row.r11-174.22]
+interface = "interface.11.err-xws-malformed-payer"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1894
+symbol = "malformed_payer"
+evidence = "payer_address emits Response::error(400, \"malformed_payer\") when the supplied payer header fails parse_payer_address; this is the registered error-producing expression."
+
+[row.r11-174.23]
+interface = "interface.11.err-xws-missing-host"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1356
+symbol = "missing_host"
+evidence = "PaymentGate::payment_required emits Response::error(400, \"missing_host\") when the Host header is absent or fails its nonempty, length and character checks."
+
+[row.r11-174.24]
+interface = "interface.11.err-xws-missing-query"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1970
+symbol = "missing_query"
+evidence = "canonical_target emits Response::error(400, \"missing_query\") when the route-specific q or url query value is absent or empty; malformed query decoding has a separate error."
+
+[row.r11-174.25]
+interface = "interface.11.err-xws-payer-mismatch"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1899
+symbol = "payer_mismatch"
+evidence = "payer_address emits Response::error(400, \"payer_mismatch\") when configured and supplied payer addresses differ; grant_payer_mismatch later in the file is a different error literal."
+
+[row.r11-174.26]
+interface = "interface.11.rs-xws-gate-error"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1103
+symbol = "GateError"
+evidence = "pub enum GateError declares payment setup failures including Assets, Store and Conformance; Display, Error and Result references use this enum rather than declare it."
+
+[row.r11-174.27]
+interface = "interface.11.rs-xws-payment-gate"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1144
+symbol = "PaymentGate"
+evidence = "pub struct PaymentGate declares the payment hook state, including assets, receiver and settlement RPC; the following impl PaymentGate provides its methods."
+
+[row.r11-174.28]
+interface = "interface.11.rs-xws-payment-gate-draw-fee-limit"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1279
+symbol = "draw_fee_limit"
+evidence = "Inside impl PaymentGate, pub const fn draw_fee_limit(&self) -> u128 returns self.draw_fee_limit; the stored field and signing uses are not this accessor declaration."
+
+[row.r11-174.29]
+interface = "interface.11.rs-xws-payment-gate-paid"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1850
+symbol = "paid"
+evidence = "Inside impl PaymentGate, pub fn paid takes gate: &Arc<Self> and a Send + Sync + 'static request handler and returns a Send + Sync + 'static request closure; install calls this wrapper."
+
+[row.r11-174.30]
+interface = "interface.11.rs-xws-payment-gate-payee"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1285
+symbol = "payee"
+evidence = "Inside impl PaymentGate, pub fn payee(&self, asset: &AcceptedAsset) -> [u8; 32] selects the receiver account for the asset; offer construction calls this accessor."

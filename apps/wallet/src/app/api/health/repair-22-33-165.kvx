@@ -1,0 +1,7 @@
+[repair.22.33.165]
+finding = "health-wrong-chain"
+test = "apps/wallet/src/app/api/health/repair-22-33-165.test.ts:health_wrong_chain_degrades_readiness"
+companion_test = "apps/wallet/src/app/api/health/route.test.ts:health_route_rejects_a_healthy_foreign_chain"
+proof = "Real route handler queries loopback RPC, indexer, identity and wallet health endpoints; only a foreign-chain RPC degrades readiness, and chain 125 restores readiness."
+baseline = "Not executed: the prescribed order forbids verification before complete implementation and permits verification only through hf-done after hf-build."
+wiring_requests = []

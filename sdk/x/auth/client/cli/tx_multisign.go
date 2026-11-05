@@ -81,7 +81,10 @@ func makeMultiSignCmd() func(cmd *cobra.Command, args []string) (err error) {
 			return
 		}
 
-		txFactory := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+		txFactory, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+		if err != nil {
+			return err
+		}
 		if txFactory.SignMode() == signingtypes.SignMode_SIGN_MODE_UNSPECIFIED {
 			txFactory = txFactory.WithSignMode(signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON)
 		}
@@ -207,7 +210,7 @@ func makeMultiSignCmd() func(cmd *cobra.Command, args []string) (err error) {
 			}
 		}()
 
-		err = clientCtx.PrintBytes(json)
+		_, err = fp.Write(append(json, '\n'))
 
 		return
 	}
@@ -257,26 +260,29 @@ func makeBatchMultisignCmd() func(cmd *cobra.Command, args []string) error {
 		}
 
 		txCfg := clientCtx.TxConfig
-		txFactory := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+		txFactory, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+		if err != nil {
+			return err
+		}
 		if txFactory.SignMode() == signingtypes.SignMode_SIGN_MODE_UNSPECIFIED {
 			txFactory = txFactory.WithSignMode(signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON)
 		}
 
-		var infile = os.Stdin
+		infile := cmd.InOrStdin()
 		if args[0] != "-" {
-			infile, err = os.Open(args[0])
+			fp, openErr := os.Open(args[0])
+			if openErr != nil {
+				return fmt.Errorf("couldn't open %s: %w", args[0], openErr)
+			}
 			defer func() {
-				err2 := infile.Close()
+				err2 := fp.Close()
 				if err == nil {
 					err = err2
 				}
 			}()
-
-			if err != nil {
-				return fmt.Errorf("couldn't open %s: %w", args[0], err)
-			}
+			infile = fp
 		}
-		scanner := authclient.NewBatchScanner(txCfg, infile)
+		scanner := newBatchTxScanner(txCfg, infile)
 
 		multisigInfo, err := getMultisigInfo(clientCtx, args[1])
 		if err != nil {
@@ -287,7 +293,7 @@ func makeBatchMultisignCmd() func(cmd *cobra.Command, args []string) error {
 		for i := 2; i < len(args); i++ {
 			sigs, err := readSignaturesFromFile(clientCtx, args[i])
 			if err != nil {
-				return err
+				return fmt.Errorf("signature file %d (%s): %w", i-1, args[i], err)
 			}
 
 			signatureBatch = append(signatureBatch, sigs)
@@ -309,9 +315,16 @@ func makeBatchMultisignCmd() func(cmd *cobra.Command, args []string) error {
 		}
 
 		defer closeFunc()
-		clientCtx.WithOutput(cmd.OutOrStdout())
+		clientCtx = clientCtx.WithOutput(cmd.OutOrStdout())
 
-		for i := 0; scanner.Scan(); i++ {
+		txCount := 0
+		for ; scanner.Scan(); txCount++ {
+			i := txCount
+			for j, sigs := range signatureBatch {
+				if i >= len(sigs) {
+					return fmt.Errorf("signature file %d (%s): missing signature for transaction %d (contains %d signatures)", j+1, args[j+2], i+1, len(sigs))
+				}
+			}
 			txBldr, err := txCfg.WrapTxBuilder(scanner.Tx())
 			if err != nil {
 				return err
@@ -384,7 +397,18 @@ func makeBatchMultisignCmd() func(cmd *cobra.Command, args []string) error {
 			txFactory = txFactory.WithSequence(sequence)
 		}
 
-		return scanner.UnmarshalErr()
+		if err := scanner.UnmarshalErr(); err != nil {
+			return err
+		}
+		if err := scanner.Err(); err != nil {
+			return err
+		}
+		for j, sigs := range signatureBatch {
+			if len(sigs) > txCount {
+				return fmt.Errorf("signature file %d (%s): unused signature for transaction %d (contains %d signatures for %d transactions)", j+1, args[j+2], txCount+1, len(sigs), txCount)
+			}
+		}
+		return nil
 	}
 }
 

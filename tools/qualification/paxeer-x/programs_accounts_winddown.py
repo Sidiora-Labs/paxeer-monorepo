@@ -1,31 +1,45 @@
 #!/usr/bin/env python3
+"""Qualify account upgrades, winddown and recovery on an owned merged paxd.
+
+The fixture supplies source-bound signed EVM transactions, exact ABI observations
+and a private seeded paxd home. Every historical case remains mandatory. The
+runner owns the process and reopens that same home for recovery cases.
+"""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
-import signal
 import stat
 import subprocess
 import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
-SCHEMA = 'paxeer-x.profile2-accounts-artifacts.v1'
-TEST = 'lifecycle::account_upgrades::funded_account_profile2_survives_abi_upgrades_and_winddown'
+_spec = importlib.util.spec_from_file_location('winddown_merged_chain', Path(__file__).with_name('fixtures') / 'merged_chain.py')
+CHAIN = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(CHAIN)
+SCHEMA = 'paxeer-x.merged-accounts-artifacts.v2'
+ACCOUNTS_SCHEMA = SCHEMA
 COMMAND = 'timeout 20m python3 tools/qualification/paxeer-x/programs_accounts_winddown.py --task 6.6'
+ACCOUNTS_COMMAND = 'timeout 30m python3 tools/qualification/paxeer-x/programs_accounts_winddown.py'
 REQUIRED = {'deploy-abi2', 'owner-opt-in-profile2', 'fund-abi2', 'upgrade-abi3',
             'additional-account-abi3', 'fund-abi3', 'upgrade-abi4',
             'additional-account-abi4', 'fund-abi4', 'missing-transfer-capability',
             'native-restart', 'route', 'deprecate', 'exit',
             'route-abi3', 'route-abi4', 'exit-abi3', 'exit-abi4', 'tombstone',
             'proof-corruption-refused', 'stale-head-refused'}
-DECLARED = ('tools/paxeer-x/build/6.6.mk',
-            'tools/qualification/paxeer-x/programs_accounts_winddown.py',
-            'services/platform/hosted/agent-boundary/tests/real_node/lifecycle/account_upgrades.rs')
+ACCOUNTS_REQUIRED = {'retained-abi2-3-4-proof-transfer-winddown',
+    'unsupported-abi-refused', 'unauthorized-route-refused', 'wrong-asset-refused',
+    'wrong-principal-refused', 'invalid-proof-refused', 'restart-exit-eligibility',
+    'conservation'}
+SOURCE_PATHS = ('Makefile', 'chain.mk', 'go.mod', 'go.sum', 'daemon/paxd', 'node', 'rpc', 'precompiles',
+                'core', 'programs', 'modules', 'src', 'include',
+                'tools/qualification/paxeer-x/programs_accounts_winddown.py',
+                'tools/qualification/paxeer-x/fixtures/merged_chain.py')
 
 
 def require(condition, message):
@@ -38,37 +52,16 @@ def digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def private_directory():
-    path = Path(os.environ.get('PAXEER_X_PROFILE2_ACCOUNTS_EVIDENCE',
-        '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task6.6')).absolute()
-    require(not path.is_symlink(), 'private evidence directory must not be a symlink')
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    path = path.resolve(strict=True)
-    info = path.stat()
-    require(path != ROOT and ROOT not in path.parents and
-            info.st_uid == os.geteuid() and not info.st_mode & 0o077,
-            'caller-owned private evidence outside checkout required')
-    return path
-
-
-def sources():
-    output = subprocess.check_output(['git', 'ls-files', '-z', '--',
-        'Makefile', 'src', 'include', 'cmd/layerxd', 'cmd/layerx-genesis',
-        'programs/crates', 'programs/sdk/rust', 'programs/Cargo.toml',
-        'programs/Cargo.lock', 'services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock',
-        'services/platform/hosted/agent-boundary', 'services/platform/Cargo.toml', 'services/platform/Cargo.lock',
-        'contracts/config', 'rust-toolchain.toml'], cwd=ROOT)
-    names = {os.fsdecode(name) for name in output.split(b'\0') if name}
-    names.update(DECLARED)
-    return {name: digest(ROOT / name) for name in sorted(names)
-            if Path(name).suffix in {'.c', '.h', '.rs', '.toml', '.lock', '.json', '.mk', '.py'}
-            or name == 'Makefile'}
-
-
-def artifact(path):
-    path = Path(path).resolve(strict=True)
-    require(path.is_file() and path.stat().st_size > 0, 'missing artifact: ' + str(path))
-    return {'path': str(path), 'sha256': digest(path), 'bytes': path.stat().st_size}
+def private_json(path):
+    path = Path(path).absolute()
+    require(path.resolve() == path, 'private manifest symlink refused')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid()
+                and not info.st_mode & 0o077 and info.st_nlink == 1 and info.st_size <= 16_777_216,
+                'bounded private caller-owned manifest required')
+        return json.load(stream)
 
 
 def write_private(path, value):
@@ -80,471 +73,246 @@ def write_private(path, value):
         os.fsync(stream.fileno())
 
 
-def launch(command, log, environment, cwd=ROOT):
-    print('COMMAND ' + json.dumps(command), flush=True)
-    fd = os.open(log, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, 'wb') as stream:
-        process = subprocess.Popen(command, cwd=cwd, env=environment,
-            stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.STDOUT,
-            start_new_session=True)
-        try:
-            code = process.wait(timeout=1100)
-        except subprocess.TimeoutExpired:
-            code = 124
-        finally:
+def artifact(path):
+    path = Path(path).absolute()
+    require(path.is_file() and path.resolve() == path and os.access(path, os.X_OK), 'genuine paxd artifact missing')
+    with path.open('rb') as stream:
+        require(stream.read(4) == b'\x7fELF', 'native paxd executable required')
+    return {'path': str(path), 'sha256': digest(path), 'bytes': path.stat().st_size}
+
+
+def sources():
+    require(not subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=ROOT),
+            'clean immutable candidate required')
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    output = subprocess.check_output(['git', 'ls-files', '-z', '--', *SOURCE_PATHS], cwd=ROOT)
+    files = sorted(os.fsdecode(name) for name in output.split(b'\0') if name)
+    require('daemon/paxd/main.go' in files and 'precompiles/layerxprograms/abi.json' in files,
+            'merged paxd and Programs sources required')
+    bound = {}
+    for name in files:
+        require(not any(part.startswith('.env') for part in Path(name).parts), 'credential source refused')
+        committed = subprocess.check_output(['git', 'show', revision + ':' + name], cwd=ROOT)
+        require(hashlib.sha256(committed).hexdigest() == digest(ROOT / name), 'candidate source differs from revision')
+        bound[name] = digest(ROOT / name)
+    return {'revision': revision, 'files': bound}
+
+
+class WinddownSession:
+    def __init__(self, node, restart):
+        self.node, self.restart = node, restart
+
+    def observations(self, reads):
+        require(isinstance(reads, list) and reads, 'account invariant observations required')
+        results = []
+        for row in reads:
+            require(set(row) == {'method', 'arguments', 'expected'}, 'closed account observation required')
+            require(row['method'] in {'getProgram', 'getAccountProfile', 'getProgramAccountById',
+                'getValueAccount', 'getExitRoute', 'getWindDown', 'getStateHead'}, 'undeclared account invariant read')
+            arguments = self.node.json_arguments(row['method'], row['arguments'])
+            actual = self.node.program_read(row['method'], arguments)
+            require(actual == row['expected'], 'account state/proof/route invariant differs: ' + row['method'])
+            require(isinstance(actual, str) and re.fullmatch('0x(?:[0-9a-f]{64})+', actual),
+                    'canonical Programs ABI observation required')
+            results.append(actual)
+        return results
+
+    @staticmethod
+    def total(reads, results):
+        total = 0
+        balances = 0
+        for row, value in zip(reads, results, strict=True):
+            if row['method'] == 'getValueAccount':
+                raw = bytes.fromhex(value[2:])
+                require(len(raw) == 64 and int.from_bytes(raw[:32], 'big') < 2**128
+                        and int.from_bytes(raw[32:], 'big') in (0, 1), 'invalid account balance/frozen ABI')
+                total += int.from_bytes(raw[:32], 'big')
+                balances += 1
+        require(balances > 0, 'conservation requires real account balances')
+        return total
+
+    def case(self, row):
+        require(isinstance(row, dict) and set(row) == {
+            'id', 'before', 'steps', 'after', 'restart', 'expected_total_delta'}, 'closed winddown case required')
+        name = row['id']
+        require(name in REQUIRED | ACCOUNTS_REQUIRED, 'undeclared winddown case')
+        require(type(row['restart']) is bool and type(row['expected_total_delta']) is int,
+                'exact recovery and conservation policy required')
+        before = self.observations(row['before'])
+        require([(item['method'], item['arguments']) for item in row['before']] ==
+                [(item['method'], item['arguments']) for item in row['after']],
+                'conservation and recovery must read the identical accounts and routes')
+        receipts, refusals = [], 0
+        methods = []
+        require(isinstance(row['steps'], list), 'winddown steps must be a list')
+        for step in row['steps']:
+            require(set(step) == {'method', 'arguments', 'raw_transaction', 'refusal'}, 'closed Programs step required')
+            method = step['method']
+            arguments = self.node.json_arguments(method, step['arguments'])
+            methods.append((method, arguments))
+            if step['raw_transaction'] is not None:
+                require(step['refusal'] is None, 'transaction outcomes need committed evidence')
+                receipts.append(self.node.program_send(step['raw_transaction'], method, arguments))
+            else:
+                require(isinstance(step['refusal'], dict) and set(step['refusal']) == {'code', 'message', 'data'},
+                        'exact typed Programs refusal required')
+                try:
+                    self.node.program_read(method, arguments)
+                except CHAIN.RpcError as error:
+                    require(error.error == step['refusal'], 'Programs refused for a different reason')
+                    refusals += 1
+                else:
+                    require(False, 'invalid Programs action was admitted')
+        negative = name.endswith('refused') or name == 'missing-transfer-capability'
+        if negative:
+            require(refusals > 0 and not receipts and row['expected_total_delta'] == 0,
+                    'negative account cases require an actual refusal and no value movement')
+        elif 'restart' not in name and name != 'conservation':
+            require(receipts, 'account transition requires a committed Programs transaction')
+        mandatory = {'deploy-abi2': 'deploy', 'owner-opt-in-profile2': 'registerAccount',
+            'upgrade-abi3': 'upgrade', 'upgrade-abi4': 'upgrade', 'deprecate': 'deprecate', 'tombstone': 'tombstone'}
+        wanted = mandatory.get(name)
+        if name.startswith('additional-account-'):
+            wanted = 'registerAccount'
+        if name.startswith('route'):
+            wanted = 'setExitRoute'
+        if name.startswith('exit'):
+            require(any(method in ('exitValue', 'exitValueBounded') for method, _ in methods), 'exit action missing')
+        if name.startswith('fund-'):
+            wanted = 'transfer'
+        if wanted:
+            require(any(method == wanted for method, _ in methods), 'required Programs transition missing: ' + wanted)
+        if name in ('deploy-abi2', 'upgrade-abi3', 'upgrade-abi4'):
+            abi = int(name[-1])
+            require(any(method == wanted and arguments[1] == abi for method, arguments in methods),
+                    'retained ABI upgrade case changed its ABI')
+        if name == 'owner-opt-in-profile2':
+            require(any(method == 'registerAccount' and arguments[1] == 2 for method, arguments in methods),
+                    'owner opt-in must retain profile 2')
+        if name == 'retained-abi2-3-4-proof-transfer-winddown':
+            require({arguments[1] for method, arguments in methods if method in ('deploy', 'upgrade')} >= {2, 3, 4}
+                    and {method for method, _ in methods} >= {'transfer', 'setExitRoute', 'deprecate', 'exitValue', 'tombstone'},
+                    'retained ABI/proof/transfer/winddown sequence missing')
+        after = self.observations(row['after'])
+        require(self.total(row['after'], after) - self.total(row['before'], before) == row['expected_total_delta'],
+                'account value conservation failed')
+        if negative:
+            require(after == before, 'refused action changed retained state or proof')
+        if 'restart' in name:
+            require(row['restart'], 'required account restart was omitted')
+        if row['restart']:
+            self.restart()
+            require(self.observations(row['after']) == after, 'restart changed account eligibility, proof or exit route')
+            for receipt in receipts:
+                require(self.node.committed(receipt['transaction_hash']) == receipt,
+                        'restart changed the committed receipt or transaction identity')
+        return {'id': name, 'receipts': receipts, 'before': before, 'after': after, 'refusals': refusals}
+
+
+class PaxdFixture:
+    def __init__(self, document, binary, directory):
+        require(set(document) == {'schema', 'source_revision', 'home', 'home_sha256', 'endpoint', 'receipt_keys', 'cases'},
+                'closed merged winddown fixture required')
+        require(document['schema'] == 'paxeer-x.merged-winddown-fixture.v2', 'merged fixture schema required')
+        url = CHAIN.endpoint(document['endpoint'])
+        require(url.hostname in ('localhost', '127.0.0.1', '::1'), 'owned loopback paxd required')
+        seed = Path(document['home'])
+        require(seed.is_absolute() and seed.resolve() == seed and seed.is_dir(), 'owned seeded paxd home required')
+        files = {}
+        for path in [seed, *seed.rglob('*')]:
+            info = path.lstat()
+            require(not path.is_symlink() and info.st_uid == os.geteuid() and not info.st_mode & 0o077
+                    and (stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode)), 'unsafe paxd seed')
+            if path.is_file():
+                files[str(path.relative_to(seed))] = digest(path)
+        require(files and files == document['home_sha256'], 'paxd seed provenance mismatch')
+        self.home = directory / 'paxd-home'
+        shutil.copytree(seed, self.home)
+        self.binary, self.directory = binary, directory
+        self.node = CHAIN.Node(document['endpoint'], document['receipt_keys'])
+        self.process = None
+        self.starts = 0
+
+    def start(self):
+        require(self.process is None or self.process.poll() is not None, 'owned paxd already running')
+        self.starts += 1
+        with (self.directory / ('paxd-' + str(self.starts) + '.log')).open('xb') as log:
+            self.process = subprocess.Popen([self.binary, 'start', '--home', str(self.home)],
+                cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+        deadline = time.monotonic() + 180
+        while time.monotonic() < deadline:
+            require(self.process.poll() is None, 'merged paxd exited before readiness')
             try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
+                if self.node.call('eth_chainId', []) == '0x7d':
+                    return
+            except (OSError, ValueError):
                 pass
+            time.sleep(0.1)
+        require(False, 'merged paxd readiness deadline')
+
+    def stop(self):
+        if self.process is not None and self.process.poll() is None:
+            self.process.terminate()
             try:
-                process.wait(timeout=10)
+                self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=10)
-    print(f'EXIT {code} LOG {log}', flush=True)
-    if code:
-        raise subprocess.CalledProcessError(code, command)
-    return log.read_text()
+                self.process.kill()
+                self.process.wait(timeout=5)
+                require(False, 'merged paxd shutdown deadline')
+
+    def restart(self):
+        self.stop()
+        self.start()
 
 
 def build(arguments, evidence):
     before = sources()
-    directory = Path(arguments.build_dir).resolve()
-    native = directory / 'native'
-    target = Path(os.environ.get('PAXEER_X_PROFILE2_RUST_TARGET',
-                               '/root/lx-target/arbiter-prestate/rust'))
-    cargo = shlex.split(arguments.cargo)
-    stamp = str(time.time_ns())
-    environment = dict(os.environ, CARGO_TARGET_DIR=str(target), CARGO_BUILD_JOBS='6')
-    launch([*cargo, 'build', '--locked', '--manifest-path', 'programs/Cargo.toml',
-            '-p', 'layerx-programs-sandbox', '--lib', '--features', 'host-ffi'],
-           evidence / ('build-runtime-' + stamp + '.log'), environment)
-    runtime = target / 'debug/liblayerx_programs_sandbox.a'
-    launch(['make', '-j6', 'BUILD_DIR=' + str(native),
-            'PAXEER_X_PROFILE2_RUNTIME_LIB=' + str(runtime), 'paxeer-x-profile2-native'],
-           evidence / ('build-native-' + stamp + '.log'), environment)
-    environment['CARGO_TARGET_DIR'] = os.environ.get('PAXEER_X_PROFILE2_PLATFORM_TARGET',
-                                                   '/root/lx-target/platform')
-    output = launch([*cargo, 'test', '--locked', '--manifest-path', 'services/platform/Cargo.toml',
-                    '-p', 'layerx-platform-agent-boundary', '--test', 'real_node',
-                    '--no-run', '--message-format=json'],
-                   evidence / ('build-process-fixture-' + stamp + '.log'), environment)
-    binaries = set()
-    for line in output.splitlines():
-        if line.startswith('{'):
-            event = json.loads(line)
-            if (event.get('reason') == 'compiler-artifact' and event.get('executable')
-                    and event.get('profile', {}).get('test') is True
-                    and event.get('target', {}).get('name') == 'real_node'):
-                binaries.add(event['executable'])
-    require(len(binaries) == 1, 'exactly one successfully compiled real-process fixture required')
-    require(sources() == before, 'source changed during qualification build')
-    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-    manifest = evidence / ('artifacts-' + stamp + '.json')
-    write_private(manifest, {'schema': SCHEMA, 'task': '6.6', 'revision': revision,
-        'sources': before, 'test': TEST, 'artifacts': {
-            'layerxd': artifact(native / 'bin/layerxd'),
-            'genesis-builder': artifact(native / 'bin/layerx-genesis-build'),
-            'native-library': artifact(native / 'liblayerx.a'),
-            'runtime-library': artifact(runtime), 'real-node-tests': artifact(binaries.pop())}})
-    print('PAXEER_X_PROFILE2_ACCOUNTS_MANIFEST=' + str(manifest), flush=True)
+    binary = ROOT / 'build/paxd'
+    command = ['make', 'paxd-build']
+    with (evidence / 'build.log').open('xb') as log:
+        result = subprocess.run(command, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, timeout=1100)
+    require(result.returncode == 0, 'merged paxd build failed; log=' + str(evidence / 'build.log'))
+    require(sources() == before, 'source changed during merged build')
+    manifest = evidence / 'artifacts.json'
+    write_private(manifest, {'schema': SCHEMA, 'source': before, 'artifacts': {'paxd': artifact(binary)}})
+    print('PAXEER_X_ACCOUNTS_WINDDOWN_MANIFEST=' + str(manifest), flush=True)
+
+
+def case_inventory(task, rows):
+    required = REQUIRED if task == '6.6' else REQUIRED | ACCOUNTS_REQUIRED
+    require(isinstance(rows, list) and len(rows) == len(required)
+            and all(isinstance(row, dict) and isinstance(row.get('id'), str) for row in rows)
+            and {row['id'] for row in rows} == required,
+            'missing, duplicate or changed retained winddown case inventory')
+    return rows
 
 
 def verify(arguments, evidence):
-    raw = arguments.manifest or os.environ.get('PAXEER_X_PROFILE2_ACCOUNTS_MANIFEST')
-    require(raw, 'genuine candidate artifact manifest is required')
-    path = Path(raw).absolute()
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    with os.fdopen(fd) as stream:
-        info = os.fstat(stream.fileno())
-        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid()
-                and not info.st_mode & 0o077, 'private caller-owned manifest required')
-        manifest = json.load(stream)
-    require(manifest['schema'] == SCHEMA and manifest['task'] == '6.6'
-            and manifest['test'] == TEST and manifest['sources'] == sources(),
-            'candidate artifacts do not bind the complete current source')
-    artifacts = manifest['artifacts']
-    require(set(artifacts) == {'layerxd', 'genesis-builder', 'native-library',
-                             'runtime-library', 'real-node-tests'}, 'incomplete artifacts')
-    for saved in artifacts.values():
-        require(artifact(saved['path']) == saved, 'candidate artifact changed')
-    require(os.geteuid() == 0, 'real process fixture requires root identity provisioning')
-    for binary in ('anvil', 'forge', 'openssl', 'setpriv', 'python3'):
-        require(shutil.which(binary), 'real fixture prerequisite missing: ' + binary)
-    for name in ('sign-credit', 'test-credit'):
-        require((ROOT / 'build/tests/bridge' / name).is_file(),
-                'genuine custody provisioning executable missing: ' + name)
-    guest = ROOT / 'programs/sdk/rust/examples/escrow/target/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm'
-    require(guest.is_file() and guest.read_bytes()[:8] == b'\0asm\x01\0\0\0',
-            'parent-built genuine escrow guest required')
-    run = evidence / ('verify-' + str(time.time_ns()))
-    run.mkdir(mode=0o700)
-    environment = dict(os.environ, PAXEER_X_PROFILE2_ACCOUNTS_EVIDENCE=str(run),
-        LAYERX_TEST_NATIVE_BIN_DIR=str(Path(artifacts['layerxd']['path']).parent))
-    result = {'revision': manifest['revision'], 'command': COMMAND,
-              'exit_code': None, 'cases': [], 'log': str(run / 'process.log')}
-    try:
-        output = launch([artifacts['real-node-tests']['path'], '--exact', TEST,
-                         '--nocapture', '--test-threads=1'], run / 'process.log', environment)
-        cases = re.findall(r'^PROFILE2_ACCOUNT_CASE ([a-z0-9_-]+)$', output, re.M)
-        result['cases'] = cases
-        require(len(cases) == len(set(cases)) and set(cases) == REQUIRED,
-                'missing, changed or duplicated required case evidence')
-        summaries = re.findall(r'^test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;', output, re.M)
-        require(summaries == [('1', '0', '0')], 'fixture failed, absent or skipped')
-        require(list(run.glob('*.receipt')) and list(run.glob('*.state')),
-                'genuine receipts and authenticated state evidence required')
-        require(sources() == manifest['sources'], 'source changed during verification')
-        for saved in artifacts.values():
-            require(artifact(saved['path']) == saved, 'process artifact changed during verification')
-        result['exit_code'] = 0
-    except subprocess.CalledProcessError as error:
-        result['exit_code'] = error.returncode
-        raise
-    except (OSError, ValueError, KeyError, TypeError) as error:
-        result['exit_code'] = 1
-        raise
-    finally:
-        write_private(run / 'result.json', result)
-        print('EVIDENCE ' + str(run / 'result.json'), flush=True)
-
-
-ACCOUNTS_SCHEMA = 'paxeer-x.accounts-winddown-artifacts.v1'
-ACCOUNTS_TEST = 'lifecycle::account_upgrades::account_capable_abi_upgrades_preserve_proofs_and_authorized_winddown'
-ACCOUNTS_REQUIRED = {'retained-abi2-3-4-proof-transfer-winddown',
-    'unsupported-abi-refused', 'unauthorized-route-refused', 'wrong-asset-refused',
-    'wrong-principal-refused', 'invalid-proof-refused', 'restart-exit-eligibility',
-    'conservation'}
-ACCOUNTS_COMMAND = 'timeout 30m python3 tools/qualification/paxeer-x/programs_accounts_winddown.py'
-ACCOUNTS_GUEST = 'programs/sdk/rust/examples/escrow/target/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm'
-ACCOUNTS_SOURCE_PATHS = ('Makefile', 'src', 'include', 'cmd/layerxd',
-    'cmd/layerx-genesis', 'programs/crates', 'programs/sdk/rust',
-    'programs/Cargo.toml', 'programs/Cargo.lock', 'programs/.cargo',
-    'services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock',
-    'services/platform/hosted/agent-boundary', 'services/platform/Cargo.toml', 'services/platform/Cargo.lock',
-    'contracts', 'foundry.toml', 'tests/bridge', 'services/platform/hosted/paxeer/evm.py',
-    'rust-toolchain.toml',
-    'tools/paxeer-x/build', 'tools/build', 'services/platform/Makefile.inc',
-    'tools/qualification/paxeer-x/programs_accounts_winddown.py')
-
-
-class MissingPrerequisite(ValueError):
-    pass
-
-
-def prerequisite(condition, message):
-    if not condition:
-        raise MissingPrerequisite(message)
-
-
-def accounts_sources():
-    prerequisite(not subprocess.check_output(
-        ['git', 'status', '--porcelain', '--untracked-files=no'], cwd=ROOT),
-        'clean immutable published candidate required')
-    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                       cwd=ROOT, text=True).strip()
-    output = subprocess.check_output(['git', 'ls-files', '-z', '--',
-                                     *ACCOUNTS_SOURCE_PATHS], cwd=ROOT)
-    names = sorted(os.fsdecode(name) for name in output.split(b'\0') if name)
-    selected = [name for name in names
-        if not any(part.startswith('.env') for part in Path(name).parts)
-        and (Path(name).suffix in {'.c', '.h', '.rs', '.toml', '.lock', '.json',
-                                  '.mk', '.inc', '.py', '.sh', '.sol'} or name == 'Makefile')]
-    prerequisite(all(name in selected for name in (
-        'src/modules/programs/accounts.c', 'src/modules/programs/winddown.c',
-        'src/modules/programs/deploy.c', 'src/modules/programs/call.c',
-        'include/layerx/programs.h',
-        'services/platform/hosted/agent-boundary/tests/real_node/lifecycle/account_upgrades.rs',
-        'tests/bridge/deploy_local_custody.py', 'tests/bridge/custody_credit.py',
-        'tests/bridge/sign_credit.c', 'tests/bridge/test_credit.c',
-        'services/platform/hosted/paxeer/evm.py',
-        'programs/sdk/rust/examples/escrow/src/lib.rs')),
-        'complete native and real process producer sources required')
-    native_inputs = {str(path.relative_to(ROOT))
-        for directory in ('src', 'include', 'cmd/layerxd', 'cmd/layerx-genesis')
-        for path in (ROOT / directory).rglob('*')
-        if path.suffix in {'.c', '.h'} and path.is_file()}
-    require(native_inputs <= set(selected), 'unbound native source input present')
-    index = subprocess.check_output(['git', 'ls-files', '--stage', '-z', '--',
-                                     *selected], cwd=ROOT)
-    indexed = {}
-    for entry in index.split(b'\0'):
-        if entry:
-            metadata, name = entry.split(b'\t', 1)
-            mode, blob, stage = metadata.split()
-            require(stage == b'0' and mode in (b'100644', b'100755'),
-                    'regular resolved source required')
-            indexed[os.fsdecode(name)] = blob.decode()
-    hashed = subprocess.check_output(['git', 'hash-object', '--stdin-paths'],
-        input=''.join(name + '\n' for name in selected), cwd=ROOT, text=True).splitlines()
-    require(len(hashed) == len(selected) and
-            dict(zip(selected, hashed)) == indexed, 'source differs from immutable candidate')
-    bound = {}
-    for name in selected:
-        path = ROOT / name
-        prerequisite(path.is_file() and not path.is_symlink(),
-                     'candidate source unavailable: ' + name)
-        bound[name] = digest(path)
-    return revision, bound
-
-
-def accounts_directory():
-    path = Path(os.environ.get('PAXEER_X_ACCOUNTS_WINDDOWN_EVIDENCE',
-        '/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task6.4')).absolute()
-    prerequisite(path != ROOT and ROOT not in path.parents and not path.is_symlink(),
-                 'private evidence outside candidate required')
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    path = path.resolve(strict=True)
-    info = path.stat()
-    prerequisite(path != ROOT and ROOT not in path.parents and
-        info.st_uid == os.geteuid() and stat.S_ISDIR(info.st_mode)
-        and not info.st_mode & 0o077, 'private caller-owned evidence required')
-    return path
-
-
-def accounts_artifact(path, magic=None, executable=False):
-    path = Path(path).absolute()
-    prerequisite(path.is_file() and not path.is_symlink(),
-                 'genuine artifact missing: ' + str(path))
-    if magic is not None:
-        with path.open('rb') as stream:
-            require(stream.read(len(magic)) == magic, 'wrong artifact type: ' + str(path))
-    if executable:
-        prerequisite(os.access(path, os.X_OK), 'artifact is not executable: ' + str(path))
-    return artifact(path)
-
-
-def accounts_tools():
-    result = {}
-    for name in ('anvil', 'forge', 'openssl', 'setpriv', 'python3'):
-        path = shutil.which(name)
-        prerequisite(path, 'real process prerequisite missing: ' + name)
-        result[name] = artifact(path)
-    for name, path in (('isolated-setpriv', '/usr/bin/setpriv'),
-                       ('isolated-python3', '/usr/bin/python3')):
-        result[name] = accounts_artifact(path, b'\x7fELF', True)
-    for module in ('cryptography',):
-        import importlib.util
-        prerequisite(importlib.util.find_spec(module), 'custody producer module missing: ' + module)
-    return result
-
-
-def accounts_build(arguments, evidence):
-    revision, before = accounts_sources()
-    tools = accounts_tools()
-    target = Path(os.environ.get('PAXEER_X_ACCOUNTS_WINDDOWN_RUNTIME_TARGET',
-                                '/root/lx-target/task-6.4/runtime')).resolve()
-    platform = Path(os.environ.get('PAXEER_X_ACCOUNTS_WINDDOWN_PLATFORM_TARGET',
-                                  '/root/lx-target/task-6.4/platform')).resolve()
-    prerequisite(target != platform and ROOT not in target.parents and ROOT not in platform.parents,
-                 'distinct private runtime and platform target directories required')
-    cargo = shlex.split(arguments.cargo)
-    prerequisite(cargo, 'actual cargo command required')
-    environment = dict(os.environ, CARGO_TARGET_DIR=str(target), CARGO_BUILD_JOBS='6')
-    guest_environment = dict(environment, CARGO_TARGET_DIR=str(
-        ROOT / 'programs/sdk/rust/examples/escrow/target'))
-    launch([*cargo, 'build', '--locked', '--release',
-            '--target', 'wasm32-unknown-unknown', '--manifest-path',
-            str(ROOT / 'programs/sdk/rust/examples/escrow/Cargo.toml')],
-           evidence / 'escrow-guest.log', guest_environment,
-           ROOT / 'programs/sdk/rust/examples/escrow')
-    guest = accounts_artifact(ROOT / ACCOUNTS_GUEST, b'\0asm\x01\0\0\0')
-    launch([*cargo, 'build', '--locked', '--manifest-path',
-            str(ROOT / 'programs/Cargo.toml'),
-            '-p', 'layerx-programs-sandbox', '--lib', '--features', 'host-ffi'],
-           evidence / 'runtime.log', environment, ROOT / 'programs')
-    runtime = target / 'debug/liblayerx_programs_sandbox.a'
-    accounts_artifact(runtime, b'!<arch>\n')
-    native = ROOT / 'build'
-    linker_flags = shlex.split(os.environ.get('EXTRA_LDFLAGS', ''))
-    if '-lssl' not in linker_flags:
-        linker_flags.append('-lssl')
-    launch(['make', '-j6', '-o', 'programs-build', 'BUILD_DIR=build',
-            'LXP_REVISION=' + revision,
-            'EXTRA_LDFLAGS=' + shlex.join(linker_flags),
-            'PAXEER_X_PROFILE2_RUNTIME_LIB=' + str(runtime),
-            'PROGRAMS_RUNTIME_LIB=' + str(runtime), 'paxeer-x-profile2-native',
-            'build/tests/bridge/sign-credit', 'build/tests/bridge/test-credit'],
-           evidence / 'native.log', environment)
-    environment['CARGO_TARGET_DIR'] = str(platform)
-    output = launch([*cargo, 'test', '--locked', '--manifest-path', 'services/platform/Cargo.toml',
-                    '-p', 'layerx-platform-agent-boundary', '--test', 'real_node',
-                    '--no-run', '--message-format=json'],
-                   evidence / 'process-fixture.log', environment)
-    binaries = set()
-    boundaries = set()
-    for line in output.splitlines():
-        if line.startswith('{'):
-            event = json.loads(line)
-            if (event.get('reason') == 'compiler-artifact' and event.get('executable')
-                    and event.get('profile', {}).get('test') is True
-                    and event.get('target', {}).get('name') == 'real_node'):
-                binaries.add(event['executable'])
-            if (event.get('reason') == 'compiler-artifact' and event.get('executable')
-                    and event.get('target', {}).get('name') == 'layerx-agent-boundary'
-                    and 'bin' in event.get('target', {}).get('kind', [])):
-                boundaries.add(event['executable'])
-    require(len(binaries) == 1 and len(boundaries) == 1,
-            'exactly one real process fixture and boundary executable required')
-    boundary = Path(boundaries.pop()).absolute()
-    accounts_artifact(boundary, b'\x7fELF', True)
-    os.chmod(boundary, 0o755)
-    require(accounts_sources() == (revision, before), 'source changed during candidate build')
-    require(accounts_artifact(ROOT / ACCOUNTS_GUEST, b'\0asm\x01\0\0\0') == guest,
-            'provisioned guest changed during build')
-    require(accounts_tools() == tools, 'real process tools changed during build')
-    artifacts = {
-        'layerxd': accounts_artifact(native / 'bin/layerxd', b'\x7fELF', True),
-        'genesis-builder': accounts_artifact(native / 'bin/layerx-genesis-build', b'\x7fELF', True),
-        'native-library': accounts_artifact(native / 'liblayerx.a', b'!<arch>\n'),
-        'native-testing-library': accounts_artifact(native / 'liblayerx-testing.a', b'!<arch>\n'),
-        'runtime-library': accounts_artifact(runtime, b'!<arch>\n'),
-        'real-node-tests': accounts_artifact(binaries.pop(), b'\x7fELF', True),
-        'agent-boundary': accounts_artifact(boundary, b'\x7fELF', True),
-        'sign-credit': accounts_artifact(native / 'tests/bridge/sign-credit', b'\x7fELF', True),
-        'test-credit': accounts_artifact(native / 'tests/bridge/test-credit', b'\x7fELF', True),
-        'escrow-guest': guest}
-    path = evidence / 'artifacts.json'
-    write_private(path, {'schema': ACCOUNTS_SCHEMA, 'task': '6.4',
-        'revision': revision, 'candidate_root': str(ROOT), 'sources': before,
-        'test': ACCOUNTS_TEST, 'required_cases': sorted(ACCOUNTS_REQUIRED),
-        'tools': tools, 'artifacts': artifacts})
-    print('PAXEER_X_ACCOUNTS_WINDDOWN_MANIFEST=' + str(path), flush=True)
-
-
-def accounts_json_object(pairs):
-    result = {}
-    for key, value in pairs:
-        require(key not in result, 'duplicate candidate manifest field')
-        result[key] = value
-    return result
-
-
-def accounts_manifest(arguments):
     raw = arguments.manifest or os.environ.get('PAXEER_X_ACCOUNTS_WINDDOWN_MANIFEST')
-    prerequisite(raw, 'genuine task 6.4 candidate artifact manifest required')
-    path = Path(raw).absolute()
-    prerequisite(path.is_file() and not path.is_symlink(), 'private candidate manifest missing')
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd) as stream:
-        info = os.fstat(stream.fileno())
-        prerequisite(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid()
-            and not info.st_mode & 0o077 and info.st_nlink == 1
-            and info.st_size <= 4_194_304,
-            'bounded private caller-owned candidate manifest required')
-        manifest = json.load(stream, object_pairs_hook=accounts_json_object)
-    revision, bound = accounts_sources()
-    require(set(manifest) == {'schema', 'task', 'revision', 'candidate_root', 'sources',
-        'test', 'required_cases', 'tools', 'artifacts'} and
-        manifest['schema'] == ACCOUNTS_SCHEMA and manifest['task'] == '6.4' and
-        manifest['revision'] == revision and manifest['candidate_root'] == str(ROOT) and
-        manifest['sources'] == bound and manifest['test'] == ACCOUNTS_TEST and
-        manifest['required_cases'] == sorted(ACCOUNTS_REQUIRED),
-        'manifest does not bind exact immutable task 6.4 source')
-    require(manifest['tools'] == accounts_tools(), 'provisioned real tools changed')
-    expected = {'layerxd': ROOT / 'build/bin/layerxd',
-        'genesis-builder': ROOT / 'build/bin/layerx-genesis-build',
-        'native-library': ROOT / 'build/liblayerx.a',
-        'native-testing-library': ROOT / 'build/liblayerx-testing.a',
-        'sign-credit': ROOT / 'build/tests/bridge/sign-credit',
-        'test-credit': ROOT / 'build/tests/bridge/test-credit',
-        'escrow-guest': ROOT / ACCOUNTS_GUEST}
-    artifacts = manifest['artifacts']
-    require(set(artifacts) == set(expected) | {'runtime-library', 'real-node-tests', 'agent-boundary'},
-            'missing task 6.4 process artifact bindings')
-    for name, saved in artifacts.items():
-        require(set(saved) == {'path', 'sha256', 'bytes'}, 'invalid artifact binding')
-        if name in expected:
-            require(Path(saved['path']) == expected[name], 'wrong production consumer artifact path')
-        if name == 'agent-boundary':
-            require(Path(saved['path']).name == 'layerx-agent-boundary' and
-                    Path(saved['path']).stat().st_mode & 0o777 == 0o755,
-                    'genuine boundary executable must support its isolated UID')
-        magic = (b'\0asm\x01\0\0\0' if name == 'escrow-guest' else
-                 b'!<arch>\n' if name.endswith('library') else b'\x7fELF')
-        require(accounts_artifact(saved['path'], magic,
-                name not in {'escrow-guest', 'runtime-library', 'native-library',
-                             'native-testing-library'}) == saved, 'candidate artifact changed')
-    return manifest
-
-
-def accounts_verify(arguments, evidence):
-    prerequisite(os.geteuid() == 0, 'real process identity provisioning requires root')
-    manifest = accounts_manifest(arguments)
-    artifacts = manifest['artifacts']
-    environment = dict(os.environ, PAXEER_X_PROFILE2_ACCOUNTS_EVIDENCE=str(evidence),
-        PAXEER_X_ACCOUNTS_WINDDOWN_EVIDENCE=str(evidence),
-        LAYERX_TEST_NATIVE_BIN_DIR=str(ROOT / 'build/bin'))
-    output = launch([artifacts['real-node-tests']['path'], '--exact', ACCOUNTS_TEST,
-                     '--nocapture', '--test-threads=1'], evidence / 'process.log', environment)
-    retained = re.findall(r'^PROFILE2_ACCOUNT_CASE ([a-z0-9_-]+)$', output, re.M)
-    require(len(retained) == len(set(retained)) and set(retained) == REQUIRED,
-            'retained profile2 case evidence absent, duplicated or changed')
-    cases = re.findall(r'^ACCOUNT_ABI_CASE ([a-z0-9_-]+)$', output, re.M)
-    require(len(cases) == len(set(cases)) and set(cases) == ACCOUNTS_REQUIRED,
-            'required account ABI cases absent, duplicated or changed')
-    summaries = re.findall(r'^test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;', output, re.M)
-    require(summaries == [('1', '0', '0')], 'real fixture failed, absent or skipped')
-    prerequisite(list(evidence.glob('*.receipt')) and list(evidence.glob('*.state')),
-                 'real signed receipts and authenticated state evidence missing')
-    required_evidence = [
-        'account-abi-unauthorized-route.admission.json',
-        'account-abi-wrong-principal.admission.json',
-        'account-abi-unsupported.admission.json',
-        'account-abi-wrong-asset.admission.json',
-        'account-abi-invalid-proof.admission.json',
-        'account-abi-invalid-proof.LXPS2', 'account-abi-restart.state',
-        'account-abi-final.state', 'account-abi-conservation.json']
-    required_evidence.extend(f'account-abi-{label}.{suffix}'
-        for label in ('initial', 'funded', 'final')
-        for suffix in ('main-account', 'main-proof'))
-    for name in required_evidence:
-        accounts_artifact(evidence / name)
-    require(accounts_manifest(arguments) == manifest, 'candidate changed during verification')
-    return cases
-
-
-def accounts_main(arguments):
-    evidence = None
-    result = {'task': '6.4', 'revision': None,
-              'command': ('timeout 20m python3 ' + shlex.join(sys.argv)
-                          if arguments.build else ACCOUNTS_COMMAND),
-              'stage': 'build' if arguments.build else 'verify',
-              'exit_code': None, 'cases': [], 'logs': [], 'error': None}
-    code = 1
+    require(raw, 'merged candidate artifact manifest required')
+    manifest = private_json(raw)
+    require(set(manifest) == {'schema', 'source', 'artifacts'} and manifest['schema'] == SCHEMA
+            and manifest['source'] == sources() and set(manifest['artifacts']) == {'paxd'}, 'complete merged source binding required')
+    saved = manifest['artifacts']['paxd']
+    require(artifact(saved['path']) == saved, 'merged paxd artifact changed')
+    profile_path = os.environ.get('PAXEER_X_PROGRAMS_WINDDOWN_FIXTURE')
+    require(profile_path, 'source-bound merged Programs case producer required')
+    profile = private_json(profile_path)
+    require(profile['source_revision'] == manifest['source']['revision'], 'Programs producer revision mismatch')
+    rows = case_inventory(arguments.task, profile['cases'].get(arguments.task))
+    fixture = PaxdFixture(profile, saved['path'], evidence)
+    results = []
     try:
-        base = accounts_directory()
-        evidence = base / (result['stage'] + '-' + str(time.time_ns()))
-        evidence.mkdir(mode=0o700)
-        result['revision'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
-                                                    cwd=ROOT, text=True).strip()
-        if arguments.build:
-            accounts_build(arguments, evidence)
-        else:
-            result['cases'] = accounts_verify(arguments, evidence)
-        code = 0
-    except MissingPrerequisite as error:
-        code = 78
-        result['error'] = str(error)
-    except subprocess.CalledProcessError as error:
-        code = error.returncode
-        result['error'] = str(error)
-    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
-        result['error'] = str(error)
+        fixture.start()
+        session = WinddownSession(fixture.node, fixture.restart)
+        for row in rows:
+            result = session.case(row)
+            write_private(evidence / (row['id'] + '.json'), result)
+            results.append(result)
+        require(sources() == manifest['source'] and artifact(saved['path']) == saved, 'candidate changed during verification')
+        return results
     finally:
-        result['exit_code'] = code
-        if evidence is not None:
-            result['logs'] = [str(path) for path in sorted(evidence.glob('*.log'))]
-            process_log = evidence / 'process.log'
-            if process_log.is_file():
-                output = process_log.read_text()
-                result['cases'] = re.findall(r'^ACCOUNT_ABI_CASE ([a-z0-9_-]+)$', output, re.M)
-                result['retained_cases'] = re.findall(r'^PROFILE2_ACCOUNT_CASE ([a-z0-9_-]+)$', output, re.M)
-            write_private(evidence / 'result.json', result)
-            print('EVIDENCE ' + str(evidence / 'result.json'), flush=True)
-        if code:
-            print('account ABI qualification refused: ' + str(result['error']), file=sys.stderr)
-    return code
+        fixture.stop()
 
 
 def main():
@@ -552,25 +320,30 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', choices=('6.4', '6.6'), default='6.4')
     parser.add_argument('--build', action='store_true')
-    parser.add_argument('--build-dir', default='/root/lx-target/profile2-accounts')
-    parser.add_argument('--cargo', default='cargo')
     parser.add_argument('--manifest')
     arguments = parser.parse_args()
+    raw = os.environ.get('PAXEER_X_ACCOUNTS_WINDDOWN_EVIDENCE')
+    require(raw, 'private merged winddown evidence directory required')
+    base = Path(raw).absolute()
+    require(base != ROOT and ROOT not in base.parents and base.resolve() == base, 'private evidence outside candidate required')
+    base.mkdir(mode=0o700, parents=True, exist_ok=True)
+    require(base.stat().st_uid == os.geteuid() and not base.stat().st_mode & 0o077, 'private evidence ownership/mode required')
+    evidence = base / ('build-' if arguments.build else 'verify-')
+    evidence.mkdir(mode=0o700)
+    result = {'command': ACCOUNTS_COMMAND if arguments.task == '6.4' else COMMAND, 'exit_code': 1}
     try:
-        if arguments.task == '6.4':
-            return accounts_main(arguments)
-        evidence = private_directory()
+        result['revision'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
         if arguments.build:
             build(arguments, evidence)
         else:
-            verify(arguments, evidence)
-    except subprocess.CalledProcessError as error:
-        print('profile2 account qualification refused: ' + str(error), file=sys.stderr)
-        return error.returncode
+            result['cases'] = verify(arguments, evidence)
+        result['exit_code'] = 0
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
-        print('profile2 account qualification refused: ' + str(error), file=sys.stderr)
-        return 1
-    return 0
+        result['error'] = str(error)
+    finally:
+        write_private(evidence / 'result.json', result)
+        print('EVIDENCE ' + str(evidence / 'result.json'), flush=True)
+    return result['exit_code']
 
 
 if __name__ == '__main__':

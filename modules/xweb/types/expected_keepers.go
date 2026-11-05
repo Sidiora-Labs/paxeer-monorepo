@@ -20,3 +20,7 @@ type EVMKeeper interface {
 	GetPaxAddressOrDefault(ctx sdk.Context, evmAddress common.Address) sdk.AccAddress
 	ChainID(ctx sdk.Context) *big.Int
 }
+
+type UpgradeReader interface {
+	IsUpgradeActiveAtHeight(ctx sdk.Context, name string, height int64) bool
+}

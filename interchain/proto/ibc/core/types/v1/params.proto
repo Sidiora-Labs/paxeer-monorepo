@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package ibc.core.types.v1;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/types";
+
+// Params defines the IBC core parameters.
+message Params {
+  bool inbound_enabled = 1 [(gogoproto.moretags) = "yaml:\"inbound_enabled\""];
+  bool outbound_enabled = 2 [(gogoproto.moretags) = "yaml:\"outbound_enabled\""];
+}

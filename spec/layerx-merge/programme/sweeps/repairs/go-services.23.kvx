@@ -1,0 +1,7 @@
+[repair.go-services.23]
+target = "services/platform/perps-data/internal/graphql"
+command = "cd services/platform/perps-data && go vet ./internal/graphql/ && go test -count=1 ./internal/graphql/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "schema_test.go asserts the eight spot result types retired by decision 346 are absent, and spot_test.go asserts the corresponding queries fail validation without executing."
+producer_input_tests = ["TestAccountResolvers: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestMarketMarginTiers: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestMarketConfigFields: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestOperations: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestVaultBalanceHistoryAggregatesAccounts: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestPerpsResolvers: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestSpotResolvers: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestSubscriptions: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database", "TestProofGraphqlProducerTransportConsumer: PERPS_DATA_TEST_DATABASE_URL naming a dedicated writable PostgreSQL database and Node.js with the apps/perps dependencies installed, including tsx"]

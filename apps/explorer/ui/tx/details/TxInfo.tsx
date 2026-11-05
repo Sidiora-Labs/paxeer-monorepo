@@ -59,6 +59,7 @@ import TxDetailsBurntFees from 'ui/tx/details/TxDetailsBurntFees';
 import TxDetailsFeePerGas from 'ui/tx/details/TxDetailsFeePerGas';
 import TxDetailsGasPrice from 'ui/tx/details/TxDetailsGasPrice';
 import TxDetailsOther from 'ui/tx/details/TxDetailsOther';
+import TxDetailsSequencerSignature from 'ui/tx/details/TxDetailsSequencerSignature';
 import TxDetailsTokenTransfers from 'ui/tx/details/TxDetailsTokenTransfers';
 import TxDetailsWithdrawalStatusOptimistic from 'ui/tx/details/TxDetailsWithdrawalStatusOptimistic';
 import TxRevertReason from 'ui/tx/details/TxRevertReason';
@@ -249,6 +250,8 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus }: Props) => {
             </Skeleton>
           ) }
         </ScanKeyValue>
+
+        <TxDetailsSequencerSignature hash={ data.hash }/>
 
         { rollupFeature.isEnabled && rollupFeature.type === 'optimistic' && data.op_withdrawals && data.op_withdrawals.length > 0 &&
       !config.UI.views.tx.hiddenFields?.L1_status && (

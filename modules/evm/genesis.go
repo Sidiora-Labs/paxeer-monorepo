@@ -12,6 +12,31 @@ import (
 
 func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState) {
 	k.InitGenesis(ctx, genState)
+	initGenesisState(ctx, k, genState)
+	if err := k.ValidateLayerXBindings(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// InitGenesisStream validates the binding table only after all chunks arrive:
+// forward and reverse rows are exported in separate chunks.
+func InitGenesisStream(ctx sdk.Context, k *keeper.Keeper, cdc codec.JSONCodec, genesisCh <-chan json.RawMessage) {
+	initialized := false
+	for genesis := range genesisCh {
+		var genState types.GenesisState
+		cdc.MustUnmarshalJSON(genesis, &genState)
+		if !initialized {
+			k.InitGenesis(ctx, genState)
+			initialized = true
+		}
+		initGenesisState(ctx, k, genState)
+	}
+	if err := k.ValidateLayerXBindings(ctx); err != nil {
+		panic(err)
+	}
+}
+
+func initGenesisState(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState) {
 	k.SetParams(ctx, genState.Params)
 	for _, aa := range genState.AddressAssociations {
 		k.SetAddressMapping(ctx, sdk.MustAccAddressFromBech32(aa.PaxAddress), common.HexToAddress(aa.EthAddress))
@@ -27,6 +52,9 @@ func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState)
 	}
 	for _, serialized := range genState.Serialized {
 		if err := types.ValidateLayerXGenesisEntry(serialized.Prefix, serialized.Key, serialized.Value); err != nil {
+			panic(err)
+		}
+		if err := types.ValidateAccountFeeDenomGenesisEntry(serialized.Prefix, serialized.Key, serialized.Value); err != nil {
 			panic(err)
 		}
 		if len(serialized.Key) == 0 {
@@ -72,10 +100,15 @@ func ExportGenesis(ctx sdk.Context, k *keeper.Keeper) *types.GenesisState {
 	for _, prefix := range [][]byte{
 		types.ReceiptKeyPrefix,
 		types.BlockBloomPrefix,
+		types.EvmOnlyBlockBloomPrefix,
+		types.LegacyBlockBloomCutoffHeightKey,
+		types.BaseFeePerGasPrefix,
+		types.NextBaseFeePerGasPrefix,
 		types.TxHashesPrefix,
 		types.PointerRegistryPrefix,
 		types.PointerCWCodePrefix,
 		types.PointerReverseRegistryPrefix,
+		types.AccountFeeDenomKeyPrefix,
 		types.EVMAddressToLayerXDidKeyPrefix,
 		types.LayerXDidToEVMAddressKeyPrefix,
 		types.LayerXBindNonceKeyPrefix,
@@ -151,10 +184,15 @@ func ExportGenesisStream(ctx sdk.Context, k *keeper.Keeper) <-chan *types.Genesi
 		for _, prefix := range [][]byte{
 			types.ReceiptKeyPrefix,
 			types.BlockBloomPrefix,
+			types.EvmOnlyBlockBloomPrefix,
+			types.LegacyBlockBloomCutoffHeightKey,
+			types.BaseFeePerGasPrefix,
+			types.NextBaseFeePerGasPrefix,
 			types.TxHashesPrefix,
 			types.PointerRegistryPrefix,
 			types.PointerCWCodePrefix,
 			types.PointerReverseRegistryPrefix,
+			types.AccountFeeDenomKeyPrefix,
 			types.EVMAddressToLayerXDidKeyPrefix,
 			types.LayerXDidToEVMAddressKeyPrefix,
 			types.LayerXBindNonceKeyPrefix,

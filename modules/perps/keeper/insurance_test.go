@@ -96,7 +96,7 @@ func (e *insuranceEnv) setMark(mark uint256.Int) {
 		state.LongOpenInterest, state.ShortOpenInterest = stored.LongOpenInterest, stored.ShortOpenInterest
 		state.FundingIndex = stored.FundingIndex
 	}
-	e.ctx.KVStore(e.key).Set(types.MarketStateKey(0), state.Marshal())
+	e.k.SetMarketState(e.ctx, state)
 }
 
 func (e *insuranceEnv) at(d time.Duration) {

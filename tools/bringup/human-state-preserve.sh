@@ -24,7 +24,7 @@ What is carried, from the old machine's root to the volume at /data:
   /data/human-state      -> /data/human-state             components, identity,
                             security, movement, agent, authority, kms
   /data/layerx           -> /data/layerx                  keys, genesis, node,
-                            guarantor-*, settlement
+                            settlement
   /data/tls              -> /data/tls
   /run/human-material    -> /data/layerx/keys/human-material  the material the
                             role entrypoints stage from

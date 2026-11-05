@@ -1,0 +1,36 @@
+[repair.22.33.1546]
+audit = "22.30.96"
+criterion = "22998.1"
+revision = "The private hf-build/hf-done ledger records the exact qualified candidate; no gate is claimed before it runs."
+f39 = "f39_signed_sequence_seven_execution_height_150_recovers_and_requires_covering_commit"
+f37 = "f37_producer_payment_denom_is_authenticated_and_journal_recovers"
+f36 = "f36_proof_bundle_authenticates_every_requested_witness_and_landing_block"
+f44 = "f44_gateway_history_keeps_page_coordinates_readiness_and_refusals"
+f35 = "f35_public_module_state_authenticates_derived_slots_values_and_both_roots"
+f42 = "f42_gateway_flat_asset_metadata_survives_list_and_lookup"
+f40 = "f40_gateway_repeated_reads_and_verified_market_finality_survive_consumers"
+f41 = "f41_gateway_balances_preserve_uint256_and_flat_asset_metadata"
+baseline = "Not run: the new repair target was absent, and the task's explicit ordered gates forbid an unchanged-tree verify or any direct verify_cmd invocation before hf-build; no pre-change failure is claimed."
+node = "Committed output of fixtures/repair_22_33_1546_producer/main.go; the real MemIAVL/SDK and Comet producer runs only when recording, never in the Rust gate."
+receipt = "The Go sequencer-receipt-v1 corpus is replayed without changing signed bytes or success fields; additional sequence-7/height-150 receipts use the production Rust wire encoder, Ed25519 signer, sequence-batch codec, and node commit verifier."
+gateway = "Committed registered-producer contract examples from one_source_reads.rs and merged-contract.json; plain history uses the projection proven byte-for-byte by history.rs::answer_tags_every_unified_history_row_with_side_and_no_plain_history_row, with original item metadata, head coordinates and readiness retained."
+transport = "Bounded loopback TCP HTTP servers replay producer bodies; only refusal cases damage them. Every consumer is a public layerx-client API."
+restart = "Journals are dropped, reopened, loaded and compared before finality; finalized coordinates and exact signed transactions are recovered, and corrupted records are refused."
+wiring_node = "Node domain: services/agent/crates/layerx-client/src/rpc/repair_22_31_222_producer/main.go should publish its recorder output as a maintained fixture so other witness gates need no subprocess toolchain."
+wiring_gateway = "Gateway domain: services/platform/hosted/gateway/tests/one_source_reads.rs and src/history.rs should publish complete px_getAccount/px_getBalances/px_listAssets/px_getHistory transcripts directly, retaining all producer fields."
+
+[gotcha.implementation]
+observed = "OperationJournal::resolve accepts only Pending or Unknown, so missing-denomination refusal tests must first submit the real signed transaction."
+resolution = "Use public submit before refusal and recovery; never edit encoded journal state."
+
+[gotcha.coordinates]
+observed = "A Comet header at H authenticates market state at H-1; asserted CommitFinality::new facts do not establish finality."
+resolution = "Use VerifiedProgramState and from_verified_program, preserving independent execution and covering-block coordinates."
+
+[qualification.repair_1]
+revision = "9d49c3d2652c98acad92a816107f56a42974ae1c"
+command = "cg spec done 22.33.1546 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven tests passed; f37's native-value transfer is outside Eip1559Call's zero-value call type."
+repair = "Use the unchanged producer ERC20 approval for success, retain reverted execution, and explicitly assert the native-transfer refusal; no codec or assertion is relaxed."

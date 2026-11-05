@@ -6,6 +6,7 @@ import contextlib
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -30,7 +31,7 @@ NATIVE = [
     "test_genesis_builder_cli",
     "test_daemon_bootstrap_artifact",
 ]
-CONTRACTS = ["PaxeerBetaDeploymentValidator", "ContractManager"]
+CONTRACTS = ["ContractManager"]
 COMMIT_CASES = {
     "TestRealStateCreditAndClockBounds",
     "TestRealStateCreditRefusesMissingAuthority",
@@ -125,6 +126,22 @@ def source_identity():
     }
 
 
+def restore_deadline(built):
+    global DEADLINE
+    recorded = built["deadline_epoch"]
+    require(
+        type(recorded) in (int, float) and math.isfinite(recorded) and recorded > 0,
+        "finite original task deadline required",
+    )
+    explicit = os.environ.get("PAXEER_X_TASK_DEADLINE_EPOCH")
+    require(
+        explicit is None or float(explicit) == recorded,
+        "original task deadline changed",
+    )
+    DEADLINE = recorded
+    remaining(1)
+
+
 def remaining(bound):
     seconds = min(bound, DEADLINE - time.time())
     require(seconds > 0, "original task deadline exhausted")
@@ -207,6 +224,8 @@ def tool(name, override=None):
 
 
 def build(directory):
+    require(math.isfinite(DEADLINE) and DEADLINE > 0, "finite task deadline required")
+    remaining(1)
     require(
         not (directory / "build-manifest.json").exists(), "task build already recorded"
     )
@@ -288,7 +307,6 @@ def build(directory):
     suites = {}
     compiler_rows = []
     agent_specs = [
-        ("layerx-wire", []),
         ("layerx-crypto", ["--test", "verify"]),
         ("layerx-proof", []),
     ]
@@ -305,7 +323,7 @@ def build(directory):
                     "test",
                     "--locked",
                     "--manifest-path",
-                    workspace + "/Cargo.toml",
+                    "services/" + workspace + "/Cargo.toml",
                     "-p",
                     package,
                     *options,
@@ -418,7 +436,7 @@ def qualify(directory):
         built["identity"] == source_identity(),
         "compiled source revision/tree/bytes changed",
     )
-    require(built["deadline_epoch"] == DEADLINE, "original task deadline changed")
+    restore_deadline(built)
     require(
         set(built["native"])
         == set(NATIVE) | {"layerx-genesis-build", "runtime_library"},
@@ -471,7 +489,6 @@ def qualify(directory):
         executed[name] = {"exit_code": 0, "cases": "internal real-kernel assertions"}
     count = len(NATIVE) + len(commit_cases)
     required = {
-        "layerx-wire:hashing": "protocol_three_account_ids_match_native_ledger_vectors",
         "layerx-crypto:verify": "state_commitment_signatures_bind_exact_canonical_bytes",
         "layerx-intents:compile": "protocol_three_send_compilation_and_disclosure_use_native_account_ids",
         "layerx-intents:differential": "v2_golden_vectors_are_byte_locked_to_the_intent_version",

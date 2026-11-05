@@ -1,0 +1,2074 @@
+[audit.22.30.141]
+task = "22.30.141"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 279
+findings = 29
+docs_reviewed = 19
+upgrade_ready = false
+blocking = ["legacy-token-instance-topic", "pricefeed-unsigned-sequence", "auth-session-optionality", "phoenix-leave-reply-filtered", "phoenix-error-reply-shape"]
+requirements_note = "The package includes historical kernel, daemon and sweep requirements. The merged-network brief governs retired surfaces; historical req.5081 does not authorise restoring layerxd. Req.22998.1 is qualified only by the declared audit-record gate, not by a claim that all explorer suites ran."
+interface_note = "85 producer rows and 241 consumer rows were read with the package. Upstream optional-chain, metric, config and frontend feature surfaces retain their provenance verdict; explicit producer/consumer disagreements carry registry ids. Library routes with no mounted binary are distinguished from deployed Phoenix sockets. The fixture signs through EVP rather than the obsolete lxp_batch_sign row."
+
+[file.1]
+path = "apps/explorer/.vscode/extensions.json"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout frontend development configuration, now under apps/explorer; extensions.json is tooling rather than a deployed node or gateway interface."
+
+[file.2]
+path = "apps/explorer/.vscode/launch.json"
+lines = 7
+verdict = "vendored"
+note = "Imported Blockscout frontend development configuration, now under apps/explorer; launch.json is tooling rather than a deployed node or gateway interface."
+
+[file.3]
+path = "apps/explorer/.vscode/settings.json"
+lines = 11
+verdict = "vendored"
+note = "Imported Blockscout frontend development configuration, now under apps/explorer; settings.json is tooling rather than a deployed node or gateway interface."
+
+[file.4]
+path = "apps/explorer/.vscode/tasks.json"
+lines = 382
+verdict = "vendored"
+note = "Imported Blockscout frontend development configuration, now under apps/explorer; tasks.json is tooling rather than a deployed node or gateway interface."
+
+[file.5]
+path = "apps/explorer/eslint.config.mjs"
+lines = 482
+verdict = "vendored"
+note = "Imported Blockscout frontend development configuration, now under apps/explorer; eslint.config.mjs is tooling rather than a deployed node or gateway interface."
+
+[file.6]
+path = "apps/explorer/playwright/TestApp.tsx"
+lines = 98
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: TestApp.tsx. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.7]
+path = "apps/explorer/playwright/helpers/stableHover.ts"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: stableHover.ts. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.8]
+path = "apps/explorer/playwright/index.ts"
+lines = 29
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: index.ts. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.9]
+path = "apps/explorer/playwright/lib.tsx"
+lines = 82
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: lib.tsx. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.10]
+path = "apps/explorer/playwright/mocks/file_mock_1.json"
+lines = 3
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: file_mock_1.json. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.11]
+path = "apps/explorer/playwright/mocks/file_mock_2.json"
+lines = 4
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: file_mock_2.json. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.12]
+path = "apps/explorer/playwright/mocks/file_mock_with_very_long_name.json"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: file_mock_with_very_long_name.json. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.13]
+path = "apps/explorer/playwright/mocks/lib/growthbook/useFeatureValue.js"
+lines = 13
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: useFeatureValue.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.14]
+path = "apps/explorer/playwright/mocks/modules/@helia/verified-fetch.js"
+lines = 1
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: verified-fetch.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.15]
+path = "apps/explorer/playwright/mocks/modules/@metamask/post-message-stream.js"
+lines = 9
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: post-message-stream.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.16]
+path = "apps/explorer/playwright/mocks/modules/@metamask/providers.js"
+lines = 5
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: providers.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.17]
+path = "apps/explorer/playwright/mocks/modules/@reown/appkit/react.js"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: react.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.18]
+path = "apps/explorer/playwright/mocks/modules/@specify-sh/sdk.js"
+lines = 23
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: sdk.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.19]
+path = "apps/explorer/playwright/mocks/ui/shared/recaptcha/useReCaptcha.js"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: useReCaptcha.js. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.20]
+path = "apps/explorer/playwright/utils/config.ts"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: config.ts. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.21]
+path = "apps/explorer/playwright/utils/socket.ts"
+lines = 1
+verdict = "vendored"
+note = "Imported Blockscout frontend component-test support: socket.ts. Browser-specific test substitutes are not treated as proof of node transport, authentication or persisted recovery."
+
+[file.22]
+path = "apps/explorer/tools/preset-sync/index.ts"
+lines = 178
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: index.ts. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.23]
+path = "apps/explorer/tools/preset-sync/tsconfig.json"
+lines = 15
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: tsconfig.json. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.24]
+path = "apps/explorer/tools/scripts/build.docker.sh"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: build.docker.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.25]
+path = "apps/explorer/tools/scripts/dev.preset.sh"
+lines = 51
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: dev.preset.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.26]
+path = "apps/explorer/tools/scripts/dev.sh"
+lines = 30
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: dev.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.27]
+path = "apps/explorer/tools/scripts/docker.preset.sh"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: docker.preset.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.28]
+path = "apps/explorer/tools/scripts/favicon-generator.dev.sh"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: favicon-generator.dev.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.29]
+path = "apps/explorer/tools/scripts/og-image-generator.dev.sh"
+lines = 9
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: og-image-generator.dev.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.30]
+path = "apps/explorer/tools/scripts/pw.docker.deps.sh"
+lines = 17
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: pw.docker.deps.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.31]
+path = "apps/explorer/tools/scripts/pw.docker.sh"
+lines = 5
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: pw.docker.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.32]
+path = "apps/explorer/tools/scripts/pw.sh"
+lines = 84
+verdict = "issues"
+note = "Imported Blockscout frontend build and developer tooling: pw.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.33]
+path = "apps/explorer/tools/scripts/sitemap-generator.dev.sh"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout frontend build and developer tooling: sitemap-generator.dev.sh. Preset and local container operations are development entry points; no standalone LayerX service is introduced."
+
+[file.34]
+path = "apps/explorer/ui/addresses/AddressesListItem.spec.tsx"
+lines = 76
+verdict = "vendored"
+note = "Imported Blockscout addresses frontend test: AddressesListItem.spec.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.35]
+path = "apps/explorer/ui/addresses/AddressesListItem.tsx"
+lines = 71
+verdict = "vendored"
+note = "Imported Blockscout addresses frontend component or helper: AddressesListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.36]
+path = "apps/explorer/ui/addresses/AddressesTable.spec.tsx"
+lines = 90
+verdict = "vendored"
+note = "Imported Blockscout addresses frontend test: AddressesTable.spec.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.37]
+path = "apps/explorer/ui/addresses/AddressesTable.tsx"
+lines = 51
+verdict = "vendored"
+note = "Imported Blockscout addresses frontend component or helper: AddressesTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.38]
+path = "apps/explorer/ui/addresses/AddressesTableItem.spec.tsx"
+lines = 77
+verdict = "vendored"
+note = "Imported Blockscout addresses frontend test: AddressesTableItem.spec.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.39]
+path = "apps/explorer/ui/addresses/AddressesTableItem.tsx"
+lines = 103
+verdict = "vendored"
+note = "Imported Blockscout addresses frontend component or helper: AddressesTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.40]
+path = "apps/explorer/ui/apiDocs/EthRpcApi.tsx"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout apiDocs frontend component or helper: EthRpcApi.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.41]
+path = "apps/explorer/ui/apiDocs/GraphQL.tsx"
+lines = 95
+verdict = "vendored"
+note = "Imported Blockscout apiDocs frontend component or helper: GraphQL.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.42]
+path = "apps/explorer/ui/apiDocs/RestApi.tsx"
+lines = 92
+verdict = "clean"
+note = "RestApi uses the locally served OpenAPI document and existing feature-controlled API tabs; no remote spec dependency is introduced."
+
+[file.43]
+path = "apps/explorer/ui/apiDocs/RpcApi.tsx"
+lines = 18
+verdict = "vendored"
+note = "Imported Blockscout apiDocs frontend component or helper: RpcApi.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.44]
+path = "apps/explorer/ui/apiDocs/SwaggerUI.tsx"
+lines = 127
+verdict = "vendored"
+note = "Imported Blockscout apiDocs frontend component or helper: SwaggerUI.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.45]
+path = "apps/explorer/ui/apiDocs/types.ts"
+lines = 4
+verdict = "vendored"
+note = "Imported Blockscout apiDocs frontend component or helper: types.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.46]
+path = "apps/explorer/ui/apiDocs/utils.ts"
+lines = 158
+verdict = "clean"
+note = "API documentation utilities preserve URL/path formatting and the local explorer specification endpoint."
+
+[file.47]
+path = "apps/explorer/ui/customAbi/CustomAbiModal/CustomAbiForm.tsx"
+lines = 150
+verdict = "vendored"
+note = "Imported Blockscout customAbi frontend component or helper: CustomAbiForm.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.48]
+path = "apps/explorer/ui/customAbi/CustomAbiModal/CustomAbiModal.tsx"
+lines = 38
+verdict = "vendored"
+note = "Imported Blockscout customAbi frontend component or helper: CustomAbiModal.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.49]
+path = "apps/explorer/ui/customAbi/CustomAbiTable/CustomAbiListItem.tsx"
+lines = 45
+verdict = "vendored"
+note = "Imported Blockscout customAbi frontend component or helper: CustomAbiListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.50]
+path = "apps/explorer/ui/customAbi/CustomAbiTable/CustomAbiTable.tsx"
+lines = 40
+verdict = "vendored"
+note = "Imported Blockscout customAbi frontend component or helper: CustomAbiTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.51]
+path = "apps/explorer/ui/customAbi/CustomAbiTable/CustomAbiTableItem.tsx"
+lines = 49
+verdict = "vendored"
+note = "Imported Blockscout customAbi frontend component or helper: CustomAbiTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.52]
+path = "apps/explorer/ui/customAbi/DeleteCustomAbiModal.tsx"
+lines = 53
+verdict = "vendored"
+note = "Imported Blockscout customAbi frontend component or helper: DeleteCustomAbiModal.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.53]
+path = "apps/explorer/ui/games/CapybaraRunner.tsx"
+lines = 68
+verdict = "vendored"
+note = "Imported Blockscout games frontend component or helper: CapybaraRunner.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.54]
+path = "apps/explorer/ui/games/Confetti.tsx"
+lines = 118
+verdict = "vendored"
+note = "Imported Blockscout games frontend component or helper: Confetti.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.55]
+path = "apps/explorer/ui/games/Puzzle15.tsx"
+lines = 215
+verdict = "vendored"
+note = "Imported Blockscout games frontend component or helper: Puzzle15.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.56]
+path = "apps/explorer/ui/megaEth/uptime/Uptime.pw.tsx"
+lines = 93
+verdict = "vendored"
+note = "Imported Blockscout megaEth frontend test: Uptime.pw.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.57]
+path = "apps/explorer/ui/megaEth/uptime/Uptime.tsx"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout megaEth frontend component or helper: Uptime.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.58]
+path = "apps/explorer/ui/megaEth/uptime/UptimeCharts.tsx"
+lines = 267
+verdict = "vendored"
+note = "Imported Blockscout megaEth frontend component or helper: UptimeCharts.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.59]
+path = "apps/explorer/ui/megaEth/uptime/UptimeStats.tsx"
+lines = 47
+verdict = "vendored"
+note = "Imported Blockscout megaEth frontend component or helper: UptimeStats.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.60]
+path = "apps/explorer/ui/megaEth/uptime/UptimeStatus.tsx"
+lines = 42
+verdict = "vendored"
+note = "Imported Blockscout megaEth frontend component or helper: UptimeStatus.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.61]
+path = "apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts"
+lines = 91
+verdict = "issues"
+note = "Imported Blockscout megaEth frontend component or helper: useUptimeSocketData.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.62]
+path = "apps/explorer/ui/messages/ArbitrumL2Messages.tsx"
+lines = 105
+verdict = "vendored"
+note = "Imported Blockscout messages frontend component or helper: ArbitrumL2Messages.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.63]
+path = "apps/explorer/ui/messages/ArbitrumL2MessagesListItem.tsx"
+lines = 128
+verdict = "vendored"
+note = "Imported Blockscout messages frontend component or helper: ArbitrumL2MessagesListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.64]
+path = "apps/explorer/ui/messages/ArbitrumL2MessagesTable.tsx"
+lines = 50
+verdict = "vendored"
+note = "Imported Blockscout messages frontend component or helper: ArbitrumL2MessagesTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.65]
+path = "apps/explorer/ui/messages/ArbitrumL2MessagesTableItem.tsx"
+lines = 107
+verdict = "vendored"
+note = "Imported Blockscout messages frontend component or helper: ArbitrumL2MessagesTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.66]
+path = "apps/explorer/ui/nameDomain/NameDomainDetails.tsx"
+lines = 245
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainDetails.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.67]
+path = "apps/explorer/ui/nameDomain/NameDomainExpiryStatus.tsx"
+lines = 29
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainExpiryStatus.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.68]
+path = "apps/explorer/ui/nameDomain/NameDomainHistory.tsx"
+lines = 86
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainHistory.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.69]
+path = "apps/explorer/ui/nameDomain/details/NameDomainDetailsAlert.tsx"
+lines = 28
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainDetailsAlert.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.70]
+path = "apps/explorer/ui/nameDomain/history/NameDomainHistoryListItem.tsx"
+lines = 69
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainHistoryListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.71]
+path = "apps/explorer/ui/nameDomain/history/NameDomainHistoryTable.tsx"
+lines = 52
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainHistoryTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.72]
+path = "apps/explorer/ui/nameDomain/history/NameDomainHistoryTableItem.tsx"
+lines = 62
+verdict = "vendored"
+note = "Imported Blockscout nameDomain frontend component or helper: NameDomainHistoryTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.73]
+path = "apps/explorer/ui/nameDomain/history/utils.ts"
+lines = 27
+verdict = "issues"
+note = "Imported Blockscout nameDomain frontend component or helper: utils.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.74]
+path = "apps/explorer/ui/tokenInfo/TokenInfoForm.pw.tsx"
+lines = 33
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend test: TokenInfoForm.pw.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.75]
+path = "apps/explorer/ui/tokenInfo/TokenInfoForm.tsx"
+lines = 202
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoForm.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.76]
+path = "apps/explorer/ui/tokenInfo/TokenInfoFormSectionHeader.tsx"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoFormSectionHeader.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.77]
+path = "apps/explorer/ui/tokenInfo/TokenInfoFormStatusText.tsx"
+lines = 48
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoFormStatusText.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.78]
+path = "apps/explorer/ui/tokenInfo/TokenInfoIconPreview.tsx"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoIconPreview.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.79]
+path = "apps/explorer/ui/tokenInfo/fields/TokenInfoFieldIconUrl.tsx"
+lines = 45
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoFieldIconUrl.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.80]
+path = "apps/explorer/ui/tokenInfo/fields/TokenInfoFieldProjectSector.tsx"
+lines = 31
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoFieldProjectSector.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.81]
+path = "apps/explorer/ui/tokenInfo/fields/TokenInfoFieldSocialLink.tsx"
+lines = 54
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoFieldSocialLink.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.82]
+path = "apps/explorer/ui/tokenInfo/fields/TokenInfoFieldSupport.tsx"
+lines = 41
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: TokenInfoFieldSupport.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.83]
+path = "apps/explorer/ui/tokenInfo/types.ts"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: types.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.84]
+path = "apps/explorer/ui/tokenInfo/utils.ts"
+lines = 67
+verdict = "vendored"
+note = "Imported Blockscout tokenInfo frontend component or helper: utils.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.85]
+path = "apps/explorer/ui/tokenTransfers/TokenTransfersListItem.tsx"
+lines = 113
+verdict = "vendored"
+note = "Imported Blockscout tokenTransfers frontend component or helper: TokenTransfersListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.86]
+path = "apps/explorer/ui/tokenTransfers/TokenTransfersLocal.tsx"
+lines = 69
+verdict = "vendored"
+note = "Imported Blockscout tokenTransfers frontend component or helper: TokenTransfersLocal.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.87]
+path = "apps/explorer/ui/tokenTransfers/TokenTransfersTable.tsx"
+lines = 51
+verdict = "vendored"
+note = "Imported Blockscout tokenTransfers frontend component or helper: TokenTransfersTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.88]
+path = "apps/explorer/ui/tokenTransfers/TokenTransfersTableItem.tsx"
+lines = 114
+verdict = "vendored"
+note = "Imported Blockscout tokenTransfers frontend component or helper: TokenTransfersTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.89]
+path = "apps/explorer/ui/tokenTransfers/useTokenTransfersQuery.tsx"
+lines = 57
+verdict = "vendored"
+note = "Imported Blockscout tokenTransfers frontend component or helper: useTokenTransfersQuery.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.90]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsClaimButton.tsx"
+lines = 139
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsClaimButton.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.91]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsClaimTx.tsx"
+lines = 43
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsClaimTx.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.92]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsList.tsx"
+lines = 29
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsList.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.93]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsListItem.tsx"
+lines = 72
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.94]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsTable.tsx"
+lines = 39
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.95]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsTableItem.tsx"
+lines = 49
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.96]
+path = "apps/explorer/ui/txnWithdrawals/arbitrumL2/ArbitrumL2TxnWithdrawalsValue.tsx"
+lines = 53
+verdict = "vendored"
+note = "Imported Blockscout txnWithdrawals frontend component or helper: ArbitrumL2TxnWithdrawalsValue.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.97]
+path = "apps/explorer/ui/verifiedContracts/VerifiedContractsCounters.tsx"
+lines = 76
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: VerifiedContractsCounters.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.98]
+path = "apps/explorer/ui/verifiedContracts/VerifiedContractsFilter.tsx"
+lines = 44
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: VerifiedContractsFilter.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.99]
+path = "apps/explorer/ui/verifiedContracts/VerifiedContractsList.tsx"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: VerifiedContractsList.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.100]
+path = "apps/explorer/ui/verifiedContracts/VerifiedContractsListItem.tsx"
+lines = 118
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: VerifiedContractsListItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.101]
+path = "apps/explorer/ui/verifiedContracts/VerifiedContractsTable.tsx"
+lines = 81
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: VerifiedContractsTable.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.102]
+path = "apps/explorer/ui/verifiedContracts/VerifiedContractsTableItem.tsx"
+lines = 132
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: VerifiedContractsTableItem.tsx. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.103]
+path = "apps/explorer/ui/verifiedContracts/useVerifiedContractsQuery.ts"
+lines = 81
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: useVerifiedContractsQuery.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.104]
+path = "apps/explorer/ui/verifiedContracts/utils.ts"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout verifiedContracts frontend component or helper: utils.ts. Optional non-Paxeer chain features are configuration-gated and are not assertions about mainnet topology."
+
+[file.105]
+path = "services/bridge/deploy/checklist.sh"
+lines = 489
+verdict = "clean"
+note = "Checklist is read-only, refuses missing inputs, reads deployed EVM/Solana state and compares configuration, deployment records and generated governance bodies through the declared view encodings. Declared producer rows: 14.cli-bridge-checklist-j55, 14.env-bridge-paxeer-bridge-app-env-j55, 14.env-bridge-paxeer-bridge-attestor-manifest-j55, 14.env-bridge-paxeer-bridge-governance-authority-j55, 14.env-bridge-paxeer-bridge-paxeer-rpc-url-j55."
+
+[file.106]
+path = "services/explorer/README.md"
+lines = 271
+verdict = "issues"
+note = "Imported Blockscout explorer source README.md, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.107]
+path = "services/explorer/backend/.devcontainer/Dockerfile"
+lines = 50
+verdict = "vendored"
+note = "Imported Blockscout local development container asset Dockerfile. Local postgres credentials, loopback ports and optional SSH mounts apply to developer tooling, not the deployed explorer."
+
+[file.108]
+path = "services/explorer/backend/.devcontainer/README.md"
+lines = 183
+verdict = "vendored"
+note = "Imported Blockscout local development container asset README.md. Local postgres credentials, loopback ports and optional SSH mounts apply to developer tooling, not the deployed explorer."
+
+[file.109]
+path = "services/explorer/backend/.devcontainer/bin/extract_apps.exs"
+lines = 45
+verdict = "vendored"
+note = "Imported Blockscout local development container asset extract_apps.exs. Local postgres credentials, loopback ports and optional SSH mounts apply to developer tooling, not the deployed explorer."
+
+[file.110]
+path = "services/explorer/backend/.devcontainer/devcontainer.json"
+lines = 47
+verdict = "vendored"
+note = "Imported Blockscout local development container asset devcontainer.json. Local postgres credentials, loopback ports and optional SSH mounts apply to developer tooling, not the deployed explorer."
+
+[file.111]
+path = "services/explorer/backend/.devcontainer/docker-compose.yml"
+lines = 30
+verdict = "vendored"
+note = "Imported Blockscout local development container asset docker-compose.yml. Local postgres credentials, loopback ports and optional SSH mounts apply to developer tooling, not the deployed explorer."
+
+[file.112]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/address_channel.ex"
+lines = 279
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel address_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-addresses-old-address-hash-string."
+
+[file.113]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/arbitrum_channel.ex"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel arbitrum_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-arbitrum-new-batch, 14.ws-explorer-join-socket-v2-arbitrum-new-messages-to-rollup-amount."
+
+[file.114]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/block_channel.ex"
+lines = 49
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel block_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-blocks-old-miner-address, 14.ws-explorer-join-socket-blocks-old-new-block."
+
+[file.115]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/exchange_rate_channel.ex"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel exchange_rate_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-exchange-rate-old-new-rate."
+
+[file.116]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/optimism_channel.ex"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel optimism_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-optimism-new-batch, 14.ws-explorer-join-socket-v2-optimism-new-deposits."
+
+[file.117]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/reward_channel.ex"
+lines = 41
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel reward_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-rewards-old-address-hash-string."
+
+[file.118]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/token_channel.ex"
+lines = 64
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel token_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-tokens-old-transaction-hash."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/token_instance_channel.ex"
+lines = 10
+verdict = "issues"
+note = "Imported Blockscout public Phoenix channel token_instance_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-token-instances-token-contract-address-hash."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/transaction_channel.ex"
+lines = 110
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel transaction_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-transactions-old-new-pending-transaction, 14.ws-explorer-join-socket-transactions-old-new-transaction, 14.ws-explorer-join-socket-transactions-old-stats, 14.ws-explorer-join-socket-transactions-old-transaction-hash."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/user_socket.ex"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel user_socket.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-channel-socket-addresses-old, 14.ws-explorer-channel-socket-blocks-old, 14.ws-explorer-channel-socket-exchange-rate-old, 14.ws-explorer-channel-socket-rewards-old, 14.ws-explorer-channel-socket-token-instances-old, 14.ws-explorer-channel-socket-tokens-old, 14.ws-explorer-channel-socket-transactions-old."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/address_channel.ex"
+lines = 16
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel address_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-addresses-address-hash-string."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/block_channel.ex"
+lines = 18
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel block_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-blocks-common, 14.ws-explorer-join-socket-v2-blocks-miner-address."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/exchange_rate_channel.ex"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel exchange_rate_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-exchange-rate-new-rate."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/paxeer_x_feed_channel.ex"
+lines = 23
+verdict = "clean"
+note = "The public price-feed channel joins new_update and decimal market topics, rejects unknown topics explicitly, and exposes only public feed data. Declared producer rows: 14.ws-explorer-join-socket-v2-paxeer-x-feed-market-market-id, 14.ws-explorer-join-socket-v2-paxeer-x-feed-new-update, 14.ws-explorer-join-socket-v2-paxeer-x-feed-refused."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/polygon_zkevm_confirmed_batch_channel.ex"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel polygon_zkevm_confirmed_batch_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-zkevm-batches-new-zkevm-confirmed-batch."
+
+[file.127]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/reward_channel.ex"
+lines = 13
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel reward_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-rewards-address-hash-string."
+
+[file.128]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/token_channel.ex"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel token_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-tokens-transaction-hash."
+
+[file.129]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/transaction_channel.ex"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout public Phoenix channel transaction_channel.ex. Topic registration and join names are compared with the socket/notifier registry; related legacy-topic findings remain explicit rather than a clean provenance claim. Declared producer rows: 14.ws-explorer-join-socket-v2-transactions-new-pending-transaction, 14.ws-explorer-join-socket-v2-transactions-new-transaction, 14.ws-explorer-join-socket-v2-transactions-stats, 14.ws-explorer-join-socket-v2-transactions-transaction-hash."
+
+[file.130]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/user_socket.ex"
+lines = 29
+verdict = "clean"
+note = "The v2 socket mounts the price-feed channel as well as the existing public topics; connect assigns locale without granting private account access. Declared producer rows: 14.ws-explorer-channel-socket-v2-addresses, 14.ws-explorer-channel-socket-v2-arbitrum, 14.ws-explorer-channel-socket-v2-blocks, 14.ws-explorer-channel-socket-v2-exchange-rate, 14.ws-explorer-channel-socket-v2-optimism, 14.ws-explorer-channel-socket-v2-paxeer-x-feed, 14.ws-explorer-channel-socket-v2-rewards, 14.ws-explorer-channel-socket-v2-token-instances, 14.ws-explorer-channel-socket-v2-tokens, 14.ws-explorer-channel-socket-v2-transactions, 14.ws-explorer-channel-socket-v2-zkevm-batches."
+
+[file.131]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/microservice_interfaces/transaction_interpretation.ex"
+lines = 441
+verdict = "vendored"
+note = "Imported Blockscout explorer source transaction_interpretation.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.132]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/models/get_address_tags.ex"
+lines = 80
+verdict = "vendored"
+note = "Imported Blockscout explorer source get_address_tags.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.133]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/models/get_transaction_tags.ex"
+lines = 50
+verdict = "vendored"
+note = "Imported Blockscout explorer source get_transaction_tags.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.134]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/models/transaction_state_helper.ex"
+lines = 251
+verdict = "issues"
+note = "Imported Blockscout explorer source transaction_state_helper.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.135]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/admin/check_owner_registered.ex"
+lines = 29
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug check_owner_registered.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.136]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/admin/require_admin_role.ex"
+lines = 26
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug require_admin_role.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.137]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/allow_iframe.ex"
+lines = 14
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug allow_iframe.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.138]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/check_account_api.ex"
+lines = 21
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug check_account_api.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.139]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/check_account_web.ex"
+lines = 31
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug check_account_web.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.140]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/check_api_v2.ex"
+lines = 21
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug check_api_v2.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.141]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/check_chain_type.ex"
+lines = 33
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug check_chain_type.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.142]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/check_feature.ex"
+lines = 71
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug check_feature.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.143]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/fetch_user_from_session.ex"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug fetch_user_from_session.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.144]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/graphql.ex"
+lines = 11
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug graphql.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.145]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/graphql_schema_introspection.ex"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug graphql_schema_introspection.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.146]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/logger.ex"
+lines = 60
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug logger.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.147]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/rate_limit.ex"
+lines = 116
+verdict = "vendored"
+note = "Imported Blockscout HTTP/session plug rate_limit.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.148]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/redis_cookie.ex"
+lines = 233
+verdict = "issues"
+note = "Imported Blockscout HTTP/session plug redis_cookie.ex; public route feature gates and account/admin checks are distinct. The Redis revocation failure is recorded at its store implementation."
+
+[file.149]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/rate_limit.ex"
+lines = 394
+verdict = "vendored"
+note = "Imported Blockscout explorer source rate_limit.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.150]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs/private.ex"
+lines = 33
+verdict = "vendored"
+note = "Imported Blockscout explorer source private.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.151]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/specs/public.ex"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout explorer source public.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.152]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_internal_transaction_controller_test.exs"
+lines = 557
+verdict = "vendored"
+note = "Imported Blockscout explorer test/support file address_internal_transaction_controller_test.exs. Existing assertions and optional chain fixtures are preserved; no live-network test execution is claimed by this audit."
+
+[file.153]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/rate_limit_test.exs"
+lines = 519
+verdict = "vendored"
+note = "Imported Blockscout explorer test/support file rate_limit_test.exs. Existing assertions and optional chain fixtures are preserved; no live-network test execution is claimed by this audit."
+
+[file.154]
+path = "services/explorer/backend/apps/explorer/lib/explorer/application.ex"
+lines = 537
+verdict = "vendored"
+note = "Imported Blockscout explorer source application.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict. Declared producer rows: 14.env-account-redis-url, 14.env-datadog-host."
+
+[file.155]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/csv_export/address/logs.ex"
+lines = 65
+verdict = "vendored"
+note = "Imported Blockscout CSV export logs.ex; native/token quantities and filtered explorer rows are presentation data. Optional Celo rewards remain specific to that chain."
+
+[file.156]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/csv_export/address/token_transfers.ex"
+lines = 184
+verdict = "vendored"
+note = "Imported Blockscout CSV export token_transfers.ex; native/token quantities and filtered explorer rows are presentation data. Optional Celo rewards remain specific to that chain."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/csv_export/address/transactions.ex"
+lines = 121
+verdict = "vendored"
+note = "Imported Blockscout CSV export transactions.ex; native/token quantities and filtered explorer rows are presentation data. Optional Celo rewards remain specific to that chain."
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/csv_export/celo/election_rewards.ex"
+lines = 100
+verdict = "vendored"
+note = "Imported Blockscout CSV export election_rewards.ex; native/token quantities and filtered explorer rows are presentation data. Optional Celo rewards remain specific to that chain."
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/csv_export/helper.ex"
+lines = 174
+verdict = "vendored"
+note = "Imported Blockscout CSV export helper.ex; native/token quantities and filtered explorer rows are presentation data. Optional Celo rewards remain specific to that chain."
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist.ex"
+lines = 121
+verdict = "vendored"
+note = "Imported Blockscout explorer source addresses_blacklist.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist/blockaid.ex"
+lines = 44
+verdict = "issues"
+note = "Imported Blockscout explorer source blockaid.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/check_bytecode_matching_on_demand.ex"
+lines = 80
+verdict = "vendored"
+note = "Imported Blockscout explorer source check_bytecode_matching_on_demand.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/fetch_validator_info_on_demand.ex"
+lines = 88
+verdict = "vendored"
+note = "Imported Blockscout explorer source fetch_validator_info_on_demand.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/look_up_smart_contract_sources_on_demand.ex"
+lines = 285
+verdict = "vendored"
+note = "Imported Blockscout explorer source look_up_smart_contract_sources_on_demand.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/filecoin/id.ex"
+lines = 157
+verdict = "vendored"
+note = "Imported optional Filecoin explorer implementation id.ex; its address/remote-provider semantics are retained for that configured chain type, not selected for Paxeer mainnet."
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/filecoin/native_address.ex"
+lines = 477
+verdict = "vendored"
+note = "Imported optional Filecoin explorer implementation native_address.ex; its address/remote-provider semantics are retained for that configured chain type, not selected for Paxeer mainnet."
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/filecoin/pending_address_operation.ex"
+lines = 85
+verdict = "vendored"
+note = "Imported optional Filecoin explorer implementation pending_address_operation.ex; its address/remote-provider semantics are retained for that configured chain type, not selected for Paxeer mainnet."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/hash/address.ex"
+lines = 270
+verdict = "vendored"
+note = "Imported Blockscout fixed-width hash codec address.ex; integer, binary and hex conversions retain the declared address/full-hash/nonce byte widths."
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/hash/full.ex"
+lines = 150
+verdict = "vendored"
+note = "Imported Blockscout fixed-width hash codec full.ex; integer, binary and hex conversions retain the declared address/full-hash/nonce byte widths."
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/hash/nonce.ex"
+lines = 146
+verdict = "vendored"
+note = "Imported Blockscout fixed-width hash codec nonce.ex; integer, binary and hex conversions retain the declared address/full-hash/nonce byte widths."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/health/helper.ex"
+lines = 245
+verdict = "vendored"
+note = "Imported Blockscout health helper helper.ex; readiness uses explorer database/indexing progress and does not claim the finality of an independent sequencer."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/health/monitor.ex"
+lines = 168
+verdict = "vendored"
+note = "Imported Blockscout health helper monitor.ex; readiness uses explorer database/indexing progress and does not claim the finality of an independent sequencer."
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/import.ex"
+lines = 462
+verdict = "vendored"
+note = "Imported Blockscout explorer source import.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction/action.ex"
+lines = 42
+verdict = "vendored"
+note = "Imported Blockscout trace type or persistence schema action.ex; call/action/result shapes follow the EVM explorer data model and optional chain variants."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction/call_type.ex"
+lines = 150
+verdict = "vendored"
+note = "Imported Blockscout trace type or persistence schema call_type.ex; call/action/result shapes follow the EVM explorer data model and optional chain variants."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction/delete_queue.ex"
+lines = 41
+verdict = "vendored"
+note = "Imported Blockscout trace type or persistence schema delete_queue.ex; call/action/result shapes follow the EVM explorer data model and optional chain variants."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction/result.ex"
+lines = 32
+verdict = "vendored"
+note = "Imported Blockscout trace type or persistence schema result.ex; call/action/result shapes follow the EVM explorer data model and optional chain variants."
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/internal_transaction/type.ex"
+lines = 177
+verdict = "vendored"
+note = "Imported Blockscout trace type or persistence schema type.ex; call/action/result shapes follow the EVM explorer data model and optional chain variants."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/log.ex"
+lines = 626
+verdict = "vendored"
+note = "Imported Blockscout explorer source log.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/multichain_search_db/balances_export_queue.ex"
+lines = 136
+verdict = "vendored"
+note = "Imported Blockscout multichain export queue balances_export_queue.ex; persisted queue rows support retries and the optional remote export service, rather than a separate Paxeer consensus service."
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/multichain_search_db/counters_export_queue.ex"
+lines = 156
+verdict = "vendored"
+note = "Imported Blockscout multichain export queue counters_export_queue.ex; persisted queue rows support retries and the optional remote export service, rather than a separate Paxeer consensus service."
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/multichain_search_db/main_export_queue.ex"
+lines = 112
+verdict = "vendored"
+note = "Imported Blockscout multichain export queue main_export_queue.ex; persisted queue rows support retries and the optional remote export service, rather than a separate Paxeer consensus service."
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/multichain_search_db/token_info_export_queue.ex"
+lines = 128
+verdict = "vendored"
+note = "Imported Blockscout multichain export queue token_info_export_queue.ex; persisted queue rows support retries and the optional remote export service, rather than a separate Paxeer consensus service."
+
+[file.184]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/ordered_cache.ex"
+lines = 433
+verdict = "vendored"
+note = "Imported Blockscout explorer source ordered_cache.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/batch_transaction.ex"
+lines = 37
+verdict = "vendored"
+note = "Imported optional rollup schema/reader batch_transaction.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.186]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/bridge.ex"
+lines = 55
+verdict = "vendored"
+note = "Imported optional rollup schema/reader bridge.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.187]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/bridge_l1_token.ex"
+lines = 37
+verdict = "vendored"
+note = "Imported optional rollup schema/reader bridge_l1_token.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.188]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/lifecycle_transaction.ex"
+lines = 33
+verdict = "vendored"
+note = "Imported optional rollup schema/reader lifecycle_transaction.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.189]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/reader.ex"
+lines = 396
+verdict = "vendored"
+note = "Imported optional rollup schema/reader reader.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.190]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/polygon_zkevm/transaction_batch.ex"
+lines = 47
+verdict = "vendored"
+note = "Imported optional rollup schema/reader transaction_batch.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.191]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zksync/batch_block.ex"
+lines = 37
+verdict = "vendored"
+note = "Imported optional rollup schema/reader batch_block.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.192]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zksync/batch_transaction.ex"
+lines = 51
+verdict = "vendored"
+note = "Imported optional rollup schema/reader batch_transaction.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.193]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zksync/lifecycle_transaction.ex"
+lines = 38
+verdict = "vendored"
+note = "Imported optional rollup schema/reader lifecycle_transaction.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.194]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zksync/reader.ex"
+lines = 381
+verdict = "vendored"
+note = "Imported optional rollup schema/reader reader.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.195]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/zksync/transaction_batch.ex"
+lines = 83
+verdict = "vendored"
+note = "Imported optional rollup schema/reader transaction_batch.ex; chain-specific batch lifecycle is isolated from the committed-block finality of the Paxeer chain."
+
+[file.196]
+path = "services/explorer/backend/apps/explorer/lib/explorer/etherscan/addresses.ex"
+lines = 31
+verdict = "vendored"
+note = "Imported Blockscout Etherscan query adapter addresses.ex; explorer address, block, contract and log query shapes remain separate from node JSON-RPC."
+
+[file.197]
+path = "services/explorer/backend/apps/explorer/lib/explorer/etherscan/blocks.ex"
+lines = 99
+verdict = "vendored"
+note = "Imported Blockscout Etherscan query adapter blocks.ex; explorer address, block, contract and log query shapes remain separate from node JSON-RPC."
+
+[file.198]
+path = "services/explorer/backend/apps/explorer/lib/explorer/etherscan/contracts.ex"
+lines = 194
+verdict = "vendored"
+note = "Imported Blockscout Etherscan query adapter contracts.ex; explorer address, block, contract and log query shapes remain separate from node JSON-RPC."
+
+[file.199]
+path = "services/explorer/backend/apps/explorer/lib/explorer/etherscan/logs.ex"
+lines = 314
+verdict = "vendored"
+note = "Imported Blockscout Etherscan query adapter logs.ex; explorer address, block, contract and log query shapes remain separate from node JSON-RPC."
+
+[file.200]
+path = "services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex"
+lines = 415
+verdict = "issues"
+note = "Native Cosmos price-feed decoding is reachable from the indexer; unsigned observation ranges disagree with the producer as recorded."
+
+[file.201]
+path = "services/explorer/backend/apps/explorer/lib/test_helper.ex"
+lines = 399
+verdict = "vendored"
+note = "Imported Blockscout explorer test/support file test_helper.ex. Existing assertions and optional chain fixtures are preserved; no live-network test execution is claimed by this audit."
+
+[file.202]
+path = "services/explorer/backend/apps/explorer/test/explorer/third_party_integrations/universal_proxy_test.exs"
+lines = 617
+verdict = "vendored"
+note = "Imported Blockscout explorer test/support file universal_proxy_test.exs. Existing assertions and optional chain fixtures are preserved; no live-network test execution is claimed by this audit."
+
+[file.203]
+path = "services/explorer/backend/apps/explorer/test/explorer/utility/missing_block_range_test.exs"
+lines = 484
+verdict = "vendored"
+note = "Imported Blockscout explorer test/support file missing_block_range_test.exs. Existing assertions and optional chain fixtures are preserved; no live-network test execution is claimed by this audit."
+
+[file.204]
+path = "services/explorer/backend/apps/explorer/test/explorer/utility/rate_limiter_test.exs"
+lines = 52
+verdict = "vendored"
+note = "Imported Blockscout explorer test/support file rate_limiter_test.exs. Existing assertions and optional chain fixtures are preserved; no live-network test execution is claimed by this audit."
+
+[file.205]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/coin_balance/catchup.ex"
+lines = 77
+verdict = "vendored"
+note = "Imported Blockscout balance fetcher catchup.ex; current and historical balances use the configured JSON-RPC and import paths rather than an independent kernel read endpoint."
+
+[file.206]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/coin_balance/helper.ex"
+lines = 228
+verdict = "vendored"
+note = "Imported Blockscout balance fetcher helper.ex; current and historical balances use the configured JSON-RPC and import paths rather than an independent kernel read endpoint."
+
+[file.207]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/coin_balance/realtime.ex"
+lines = 65
+verdict = "vendored"
+note = "Imported Blockscout balance fetcher realtime.ex; current and historical balances use the configured JSON-RPC and import paths rather than an independent kernel read endpoint."
+
+[file.208]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/filecoin/address_info.ex"
+lines = 401
+verdict = "vendored"
+note = "Imported optional Filecoin explorer implementation address_info.ex; its address/remote-provider semantics are retained for that configured chain type, not selected for Paxeer mainnet."
+
+[file.209]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/filecoin/beryx_api.ex"
+lines = 49
+verdict = "vendored"
+note = "Imported optional Filecoin explorer implementation beryx_api.ex; its address/remote-provider semantics are retained for that configured chain type, not selected for Paxeer mainnet."
+
+[file.210]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/filecoin/filfox_api.ex"
+lines = 47
+verdict = "vendored"
+note = "Imported optional Filecoin explorer implementation filfox_api.ex; its address/remote-provider semantics are retained for that configured chain type, not selected for Paxeer mainnet."
+
+[file.211]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex"
+lines = 76
+verdict = "clean"
+note = "The maintenance GenServer is supervised, bounds compaction and retention work, resumes through the persisted start-block watermark, and schedules its next pass even after a rescued database failure."
+
+[file.212]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex"
+lines = 325
+verdict = "clean"
+note = "PriceUpdates is wired from block imports, persists scan state, requeues missing/failed heights on restart, distinguishes transient and definitive failures, bounds retries and market reads, and broadcasts committed new hashes only once. Its tuple ABI matches getMarket at 0x1020."
+
+[file.213]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/signed_authorization_status.ex"
+lines = 471
+verdict = "vendored"
+note = "Imported Blockscout explorer source signed_authorization_status.ex, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.214]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_balance/current.ex"
+lines = 117
+verdict = "vendored"
+note = "Imported Blockscout balance fetcher current.ex; current and historical balances use the configured JSON-RPC and import paths rather than an independent kernel read endpoint."
+
+[file.215]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_balance/helper.ex"
+lines = 240
+verdict = "vendored"
+note = "Imported Blockscout balance fetcher helper.ex; current and historical balances use the configured JSON-RPC and import paths rather than an independent kernel read endpoint."
+
+[file.216]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_balance/historical.ex"
+lines = 108
+verdict = "vendored"
+note = "Imported Blockscout balance fetcher historical.ex; current and historical balances use the configured JSON-RPC and import paths rather than an independent kernel read endpoint."
+
+[file.217]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/helper.ex"
+lines = 214
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker helper.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.218]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/realtime.ex"
+lines = 136
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker realtime.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.219]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/refetch.ex"
+lines = 54
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker refetch.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.220]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/retry.ex"
+lines = 58
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker retry.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.221]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/sanitize.ex"
+lines = 67
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker sanitize.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.222]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/sanitize_erc1155.ex"
+lines = 70
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker sanitize_erc1155.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.223]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/token_instance/sanitize_erc721.ex"
+lines = 110
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker sanitize_erc721.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.224]
+path = "services/explorer/backend/apps/indexer/lib/indexer/nft_media_handler/backfiller.ex"
+lines = 104
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker backfiller.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.225]
+path = "services/explorer/backend/apps/indexer/lib/indexer/nft_media_handler/queue.ex"
+lines = 328
+verdict = "vendored"
+note = "Imported Blockscout token-instance/media worker queue.ex; metadata and media processing use the existing buffered/persisted retry paths and optional media configuration."
+
+[file.226]
+path = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/collector/filecoin_pending_address_operations_collector.ex"
+lines = 34
+verdict = "vendored"
+note = "Imported Blockscout Prometheus filecoin_pending_address_operations_collector.ex; metric names, labels, types and registries follow the producer declarations and configured collector wiring. Declared producer rows: 14.met-explorer-filecoin-pending-address-operations."
+
+[file.227]
+path = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/collector/pending_block_operations_collector.ex"
+lines = 29
+verdict = "vendored"
+note = "Imported Blockscout Prometheus pending_block_operations_collector.ex; metric names, labels, types and registries follow the producer declarations and configured collector wiring. Declared producer rows: 14.met-explorer-pending-block-operations-count."
+
+[file.228]
+path = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/collector/pending_transaction_operations_collector.ex"
+lines = 29
+verdict = "vendored"
+note = "Imported Blockscout Prometheus pending_transaction_operations_collector.ex; metric names, labels, types and registries follow the producer declarations and configured collector wiring. Declared producer rows: 14.met-explorer-pending-transaction-operations-count."
+
+[file.229]
+path = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/instrumenter.ex"
+lines = 256
+verdict = "vendored"
+note = "Imported Blockscout Prometheus instrumenter.ex; metric names, labels, types and registries follow the producer declarations and configured collector wiring. Declared producer rows: 14.met-explorer-block-batch-fetch-request-duration-microseconds, 14.met-explorer-block-full-processing-duration-microseconds, 14.met-explorer-block-import-duration-microseconds, 14.met-explorer-delay-from-last-node-block, 14.met-explorer-failed-token-instances-metadata-count, 14.met-explorer-import-errors-count, 14.met-explorer-latest-batch-number, 14.met-explorer-latest-batch-timestamp, 14.met-explorer-latest-block-number, 14.met-explorer-latest-block-timestamp, 14.met-explorer-memory-consumed, 14.met-explorer-missing-archival-token-balances-count, 14.met-explorer-missing-blocks-count, 14.met-explorer-missing-current-token-balances-count, 14.met-explorer-missing-internal-transactions-count, 14.met-explorer-multichain-search-db-export-balances-queue-count, 14.met-explorer-multichain-search-db-export-counters-queue-count, 14.met-explorer-multichain-search-db-export-token-info-queue-count, 14.met-explorer-multichain-search-db-main-export-queue-count, 14.met-explorer-token-instances-not-uploaded-to-cdn-count, 14.met-explorer-unfetched-token-instances-count."
+
+[file.230]
+path = "services/explorer/backend/apps/indexer/lib/indexer/prometheus/metrics.ex"
+lines = 87
+verdict = "vendored"
+note = "Imported Blockscout Prometheus metrics.ex; metric names, labels, types and registries follow the producer declarations and configured collector wiring."
+
+[file.231]
+path = "services/explorer/backend/apps/indexer/lib/indexer/supervisor.ex"
+lines = 430
+verdict = "clean"
+note = "The indexer supervisor starts the price-feed fetcher and maintenance worker with the configured enablement; optional upstream chain workers remain gated by their own supervisor configuration."
+
+[file.232]
+path = "services/explorer/backend/cspell.json"
+lines = 807
+verdict = "vendored"
+note = "Imported Blockscout explorer source cspell.json, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.233]
+path = "services/explorer/deploy/railway/README.md"
+lines = 222
+verdict = "clean"
+note = "Railway health paths, port handling, environment names and price-feed retention/retry guidance match the definitions and the implementation."
+
+[file.234]
+path = "services/explorer/deploy/railway/backend.railway.json"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout explorer source backend.railway.json, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.235]
+path = "services/explorer/deploy/railway/frontend.railway.json"
+lines = 11
+verdict = "vendored"
+note = "Imported Blockscout explorer source frontend.railway.json, retained under the upstream provenance recorded in services/explorer/UPSTREAM.md; product-specific disagreements are listed as findings instead of a clean verdict."
+
+[file.236]
+path = "services/explorer/services/libs/actix-phoenix-channel/Cargo.toml"
+lines = 28
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset Cargo.toml, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.237]
+path = "services/explorer/services/libs/actix-phoenix-channel/examples/server.rs"
+lines = 37
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset server.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.238]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/actix_handler.rs"
+lines = 133
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset actix_handler.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately. Declared producer rows: 14.ws-phoenix-channel-lib-socket-websocket."
+
+[file.239]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/bidirectional_stream.rs"
+lines = 64
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset bidirectional_stream.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.240]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/broadcaster.rs"
+lines = 87
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset broadcaster.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.241]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/channel.rs"
+lines = 48
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset channel.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.242]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/client.rs"
+lines = 100
+verdict = "issues"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset client.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.243]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/client_receiver.rs"
+lines = 46
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset client_receiver.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.244]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/conn.rs"
+lines = 21
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset conn.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.245]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/event.rs"
+lines = 123
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset event.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.246]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/handler.rs"
+lines = 15
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset handler.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.247]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/lib.rs"
+lines = 17
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset lib.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.248]
+path = "services/explorer/services/libs/actix-phoenix-channel/src/subscription_registry.rs"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library actix-phoenix-channel asset subscription_registry.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.249]
+path = "services/explorer/services/libs/api-client-framework/Cargo.toml"
+lines = 28
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library api-client-framework asset Cargo.toml, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.250]
+path = "services/explorer/services/libs/api-client-framework/src/async_client.rs"
+lines = 97
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library api-client-framework asset async_client.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.251]
+path = "services/explorer/services/libs/api-client-framework/src/blockscout/client.rs"
+lines = 91
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library api-client-framework asset client.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.252]
+path = "services/explorer/services/libs/api-client-framework/src/blockscout/config.rs"
+lines = 111
+verdict = "issues"
+note = "Imported Blockscout Rust shared library api-client-framework asset config.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.253]
+path = "services/explorer/services/libs/api-client-framework/src/blockscout/mod.rs"
+lines = 5
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library api-client-framework asset mod.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.254]
+path = "services/explorer/services/libs/api-client-framework/src/endpoint.rs"
+lines = 63
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library api-client-framework asset endpoint.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.255]
+path = "services/explorer/services/libs/api-client-framework/src/lib.rs"
+lines = 46
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library api-client-framework asset lib.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.256]
+path = "services/explorer/services/libs/blockscout-auth/Cargo.toml"
+lines = 20
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library blockscout-auth asset Cargo.toml, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.257]
+path = "services/explorer/services/libs/blockscout-auth/src/auth.rs"
+lines = 305
+verdict = "issues"
+note = "Imported Blockscout Rust shared library blockscout-auth asset auth.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.258]
+path = "services/explorer/services/libs/blockscout-auth/src/consts.rs"
+lines = 5
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library blockscout-auth asset consts.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.259]
+path = "services/explorer/services/libs/blockscout-auth/src/jwt_headers.rs"
+lines = 65
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library blockscout-auth asset jwt_headers.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.260]
+path = "services/explorer/services/libs/blockscout-auth/src/lib.rs"
+lines = 10
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library blockscout-auth asset lib.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.261]
+path = "services/explorer/services/libs/blockscout-auth/src/mock.rs"
+lines = 75
+verdict = "issues"
+note = "Imported Blockscout Rust shared library blockscout-auth asset mock.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.262]
+path = "services/explorer/services/libs/blockscout-auth/src/user.rs"
+lines = 72
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library blockscout-auth asset user.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.263]
+path = "services/explorer/services/libs/recache/Cargo.toml"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recache asset Cargo.toml, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.264]
+path = "services/explorer/services/libs/recache/examples/redis_cache.rs"
+lines = 75
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recache asset redis_cache.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.265]
+path = "services/explorer/services/libs/recache/src/handler.rs"
+lines = 241
+verdict = "issues"
+note = "Imported Blockscout Rust shared library recache asset handler.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.266]
+path = "services/explorer/services/libs/recache/src/lib.rs"
+lines = 2
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recache asset lib.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.267]
+path = "services/explorer/services/libs/recache/src/stores/mod.rs"
+lines = 18
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recache asset mod.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.268]
+path = "services/explorer/services/libs/recache/src/stores/redis.rs"
+lines = 141
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recache asset redis.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.269]
+path = "services/explorer/services/libs/recaptcha-verifier/Cargo.toml"
+lines = 24
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recaptcha-verifier asset Cargo.toml, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.270]
+path = "services/explorer/services/libs/recaptcha-verifier/src/client.rs"
+lines = 205
+verdict = "issues"
+note = "Local changes keep each test HTTP server alive; verification policy and default timeout defects are recorded without changing the library."
+
+[file.271]
+path = "services/explorer/services/libs/recaptcha-verifier/src/error.rs"
+lines = 22
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recaptcha-verifier asset error.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately. Declared producer rows: 14.err-rs-recaptcha-verifier-error-action-mismatch, 14.err-rs-recaptcha-verifier-error-hostname-mismatch, 14.err-rs-recaptcha-verifier-error-http-request, 14.err-rs-recaptcha-verifier-error-missing-token, 14.err-rs-recaptcha-verifier-error-score-too-low, 14.err-rs-recaptcha-verifier-error-verification-failed."
+
+[file.272]
+path = "services/explorer/services/libs/recaptcha-verifier/src/lib.rs"
+lines = 12
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recaptcha-verifier asset lib.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.273]
+path = "services/explorer/services/libs/recaptcha-verifier/src/metadata.rs"
+lines = 110
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recaptcha-verifier asset metadata.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.274]
+path = "services/explorer/services/libs/recaptcha-verifier/src/types.rs"
+lines = 123
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library recaptcha-verifier asset types.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.275]
+path = "services/explorer/services/libs/solidity-metadata/Cargo.toml"
+lines = 19
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library solidity-metadata asset Cargo.toml, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.276]
+path = "services/explorer/services/libs/solidity-metadata/src/lib.rs"
+lines = 317
+verdict = "vendored"
+note = "Imported Blockscout Rust shared library solidity-metadata asset lib.rs, with upstream provenance in services/explorer/UPSTREAM.md. Protocol, security and lifecycle disagreements found in its consumers are recorded separately."
+
+[file.277]
+path = "tests/explorer_fixture.c"
+lines = 264
+verdict = "clean"
+note = "The fixture uses real receipt, hash and Merkle codecs, writes framed LXEF v1 data with checked writes, and signs the canonical batch-header hash through EVP. It no longer calls retired lxp_batch_sign."
+
+[file.278]
+path = "tests/explorer_fixture_golden.json"
+lines = 4
+verdict = "clean"
+note = "Golden data for the fixture batch-header hash and signature; a fixed input output artifact, not a production network credential or endpoint."
+
+[file.279]
+path = "tests/explorer_fixture_test.py"
+lines = 87
+verdict = "clean"
+note = "The fixture tests check framing, a 354-byte canonical header, the frozen hash/signature and independent Ed25519 verification. They use a temporary build directory and explicitly inspect the verifier exit code."
+
+[finding.legacy-token-instance-topic]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/token_instance_channel.ex"
+line = 7
+class = "interface-mismatch"
+severity = "high"
+observed = "UserSocket routes token_instances_old:* on /socket (channels/user_socket.ex:11), but TokenInstanceChannel.join/3 only matches token_instances:*. The legacy route therefore raises a join function-clause error; the same channel works on /socket/v2 with the unprefixed topic."
+expected = "Registry rows 14.ws-explorer-channel-socket-token-instances-old and 14.ws-explorer-join-socket-token-instances-token-contract-address-hash must describe a route whose topic reaches its join handler and receives the metadata event."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels, align the legacy socket route, join pattern and notifier metadata topic. Preserve the working v2 topic, or explicitly retire the old route and document that decision. Prove join and delivery over each retained socket."
+owner_domain = 14
+interface = "14.ws-explorer-channel-socket-token-instances-old"
+
+[finding.pricefeed-unsigned-sequence]
+file = "services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex"
+line = 234
+class = "interface-mismatch"
+severity = "high"
+observed = "CosmosRest.observation/1 bounds sequence and source_timestamp_ms to 9223372036854775807, and market_id to signed int32. api/pricefeed/tx.proto:20-24 declares uint64. modules/pricefeed/types/msgs.go:67 and keeper/observation.go:36 permit a fresh sequence of 9223372036854775808, which the REST decoder rejects. The price-observations migration also stores sequence as signed bigint, so retrying the block cannot repair it."
+expected = "The explorer must retain the exact unsigned sequence emitted by MsgSubmitPrices, including valid values above signed int64, and show refused observations without rejecting the whole committed block. Brief check_1 requires identical numeric ranges through transport and storage."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex and chain/paxeer_x schemas and migrations, represent uint64 observation fields losslessly, using decimal storage where needed. Add a producer-originated boundary case at 2^63 through node REST, indexer persistence, REST and socket presentation; do not narrow the node contract."
+owner_domain = 14
+interface = "3.proto-pricefeed-msgsubmitprices"
+
+[finding.auth-session-optionality]
+file = "services/explorer/services/libs/blockscout-auth/src/auth.rs"
+line = 14
+class = "interface-mismatch"
+severity = "high"
+observed = "AuthSuccess requires email: String and watchlist_id: i64. The GET and POST authenticate actions return current_user unchanged; account/session.ex:16 declares email nullable and does not require watchlist_id. Identity.session_info/2:277-285 omits watchlist_id for an unverified account, and wallet sessions can carry email=nil. A valid HTTP 200 session becomes BlockscoutApi invalid body."
+expected = "Rows 14.http-get-api-account-v2-authenticate and 14.http-post-api-account-v2-authenticate must round-trip every supported backend session. Optional profile data must not turn an authenticated wallet or unverified account into an upstream protocol failure."
+proposal = "In services/explorer/services/libs/blockscout-auth/src/auth.rs, model the producer session variants explicitly, preserving the distinction between authentication and email verification. Require a watchlist only for operations that need one. Exercise backend-created wallet, unverified-email and verified sessions over the real GET and POST endpoints into the Rust decoder."
+owner_domain = 14
+interface = "14.http-get-api-account-v2-authenticate"
+
+[finding.phoenix-leave-reply-filtered]
+file = "services/explorer/services/libs/actix-phoenix-channel/src/client.rs"
+line = 84
+class = "interface-mismatch"
+severity = "high"
+observed = "ChannelClient.allow_leave removes the topic before queueing reply_ok. ClientReceiver.poll_next applies SubscriptionRegistry.subscribes to individual replies as well as broadcasts. The queued phx_reply is neither on a subscribed topic nor a system event under event.rs:97-98, so the leave acknowledgement is discarded."
+expected = "The declared Phoenix 2.0 websocket interface must acknowledge a phx_leave with the original topic, ref and join_ref even after removing its subscription. Protocol replies must not depend on continued broadcast membership."
+proposal = "In services/explorer/services/libs/actix-phoenix-channel/src/client_receiver.rs, separate direct replies from topic-filtered broadcasts, or retain explicit reply eligibility after leave. Add a real websocket exchange that joins, leaves, receives the acknowledgement and observes no later broadcasts for that topic."
+owner_domain = 14
+interface = "14.ws-phoenix-channel-lib-socket-websocket"
+
+[finding.phoenix-error-reply-shape]
+file = "services/explorer/services/libs/actix-phoenix-channel/src/client.rs"
+line = 66
+class = "interface-mismatch"
+severity = "high"
+observed = "ChannelClient.reply_error sends phx_error with the raw error payload. Phoenix request and join failures are replies with event phx_reply and a {status: error, response: ...} payload. A rejected join is additionally filtered because no topic subscription exists, so a Phoenix client waits for a reply that never arrives."
+expected = "The websocket route registered by configure_channel_websocket_route advertises Phoenix 2.0 framing; success and refusal must both resolve the matching client ref. phx_error is a channel lifecycle event rather than a substitute for a request refusal."
+proposal = "In services/explorer/services/libs/actix-phoenix-channel/src/client.rs, emit the Phoenix error reply envelope with original refs, and deliver it independently of subscriptions. Prove a rejected join and a rejected request using an actual Phoenix client against the registered Actix websocket route."
+owner_domain = 14
+interface = "14.ws-phoenix-channel-lib-socket-websocket"
+
+[finding.cache-cancellation-poisons-inflight]
+file = "services/explorer/services/libs/recache/src/handler.rs"
+line = 155
+class = "runtime-risk"
+severity = "medium"
+observed = "CacheRequest.execute inserts a Shared computation into inflight, but cache.set and inflight.remove live only in the first caller wrapper at lines 158-165. Cancelling that caller leaves the entry resident. Later callers take the occupied branch, await the old computation, and neither persist its result nor remove it, so even an old error can be retained indefinitely."
+expected = "A cancelled HTTP caller must not leave a cache key permanently attached to an obsolete computation or error. Shared work must have a bounded lifecycle and eventual cleanup independent of the first waiter."
+proposal = "In services/explorer/services/libs/recache/src/handler.rs, give the computation and cleanup a cancellation-safe owner and ensure success, failure and cancellation release inflight ownership. Prove cancellation followed by a second request and TTL expiry against the Redis store; ensure a retry computes current data."
+owner_domain = 14
+
+[finding.recaptcha-expected-fields-optional]
+file = "services/explorer/services/libs/recaptcha-verifier/src/client.rs"
+line = 58
+class = "security"
+severity = "medium"
+observed = "RecaptchaClient.verify only compares expected_hostname when the response includes hostname. Expected action and minimum score are enforced only inside if let Some(score); success=true with absent hostname, action or score can therefore satisfy a request that explicitly requires those checks."
+expected = "An explicitly configured hostname, action or score requirement must be established before a captcha token is accepted. Missing evidence cannot satisfy the caller security policy, even when the verification response says success."
+proposal = "In services/explorer/services/libs/recaptcha-verifier/src/client.rs and types.rs, distinguish v2 and v3 expectations and reject absent fields required by the selected mode. Cover missing hostname, missing action and a v2 response presented for a v3 requirement with the declared typed refusals."
+owner_domain = 14
+
+[finding.api-client-debug-credential]
+file = "services/explorer/services/libs/api-client-framework/src/blockscout/config.rs"
+line = 40
+class = "security"
+severity = "medium"
+observed = "Config implements Debug through ConfigDebug, which derives Debug over api_key: [REDACTED_SECRET] deserialize_api_key creates ordinary HeaderValue values without marking them sensitive. Formatting the configuration with Debug can print the backend API credential."
+expected = "Brief check_8 requires secrets never to be logged. Debug output used for service startup and configuration diagnostics must be safe regardless of the caller logging context."
+proposal = "In services/explorer/services/libs/api-client-framework/src/blockscout/config.rs, redact api_key in Debug unconditionally and mark deserialized credential headers sensitive. Check that formatting a configuration containing a distinctive credential never includes its value."
+owner_domain = 14
+
+[finding.auth-http-unbounded-wait]
+file = "services/explorer/services/libs/blockscout-auth/src/auth.rs"
+line = 85
+class = "runtime-risk"
+severity = "medium"
+observed = "auth_from_tokens constructs reqwest::Client::new and awaits send and text without an overall timeout. get_user_info_from_metadata in blockscout-auth/src/user.rs:45 does the same. A backend that accepts a connection but stalls can retain authentication requests indefinitely."
+expected = "Authentication and user-info calls must finish or return a typed upstream failure within a configured request deadline. Backpressure must not depend on the remote peer closing the socket."
+proposal = "In services/explorer/services/libs/blockscout-auth/src/auth.rs and user.rs, share an injected client with explicit connect and whole-response deadlines, and propagate timeout failures as upstream errors. Exercise a real HTTP server that stalls headers or the body and prove bounded completion."
+owner_domain = 14
+
+[finding.recaptcha-http-unbounded-wait]
+file = "services/explorer/services/libs/recaptcha-verifier/src/client.rs"
+line = 21
+class = "runtime-risk"
+severity = "medium"
+observed = "RecaptchaClient.new uses Client::new; verify awaits both the HTTP request and JSON body without configuring a connect or whole-request deadline. The injected-client constructor allows callers to set a timeout, but the default constructor does not establish one."
+expected = "A captcha provider outage must yield a bounded verification error and release the inbound request. The default public constructor must enforce the same availability policy as configured clients."
+proposal = "In services/explorer/services/libs/recaptcha-verifier/src/client.rs, give the default client explicit connect and total deadlines and allow a documented override. Prove timeout propagation using a real local HTTP peer that holds a response open."
+owner_domain = 14
+
+[finding.domain-history-sort-reversed]
+file = "apps/explorer/ui/nameDomain/history/utils.ts"
+line = 16
+class = "runtime-risk"
+severity = "medium"
+observed = "sortFn returns b.timestamp.localeCompare(a.timestamp) for timestamp-asc and a.timestamp.localeCompare(b.timestamp) for timestamp-desc. NameDomainHistoryTable and its list consumer apply that comparator directly, so the selected timestamp direction displays the opposite order."
+expected = "The domain-history Timestamp control must place older events first for ascending and newer events first for descending, consistently on desktop and mobile."
+proposal = "In apps/explorer/ui/nameDomain/history/utils.ts, align each comparator with the selected sort direction and cover two distinct event timestamps through the visible history controls."
+owner_domain = 14
+
+[finding.uptime-reconnect-timer-leak]
+file = "apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts"
+line = 59
+class = "runtime-risk"
+severity = "medium"
+observed = "Each onopen creates an interval and overwrites heartbeatRef. onclose does not clear it, and onReconnect calls connect without closing an earlier socket or cancelling its timer. Unmount clears only the newest interval; old timers continue sending through the mutable websocketRef."
+expected = "There must be one socket and one heartbeat per mounted uptime view. Reconnection and unmount must release every earlier timer and socket and ignore events from obsolete connections."
+proposal = "In apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts, close and detach the previous connection, clear its heartbeat before replacement and on close, and ensure only the active connection updates state. Exercise repeated disconnect, reconnect and unmount lifecycles."
+owner_domain = 14
+
+[finding.uptime-history-unbounded]
+file = "apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts"
+line = 43
+class = "runtime-risk"
+severity = "medium"
+observed = "Every history_delta appends to each history array without retention or deduplication. UptimeCharts filters by time only after smoothing and mapping the entire array, so a long-lived tab retains all received history and repeatedly processes an ever-growing collection."
+expected = "The uptime view exposes bounded 3h, 24h and 7d windows. In-memory data and chart work must remain bounded by the displayed history horizon rather than the lifetime of the browser tab."
+proposal = "In apps/explorer/ui/megaEth/uptime/useUptimeSocketData.ts, prune each series to its declared horizon and bound point counts while merging deltas; deduplicate reconnect history. Verify sustained deltas preserve the visible windows while memory and chart input counts stay bounded."
+owner_domain = 14
+
+[finding.playwright-affected-false]
+file = "apps/explorer/tools/scripts/pw.sh"
+line = 22
+class = "test-gap"
+severity = "medium"
+observed = "check_affected_flag iterates arg but extracts the value from is_affected_arg, which is never assigned. Passing --affected=false therefore sets affected_flag=true. If the affected-tests file is empty, the script exits zero without running the suite the caller requested."
+expected = "An explicit --affected=false must run the normal requested test selection. A test entry point must not silently change that request into an empty successful run."
+proposal = "In apps/explorer/tools/scripts/pw.sh, parse the current arg and preserve argument boundaries when invoking Playwright. Cover absent, bare, true and false affected flags plus an empty selection, asserting the actual selected test invocation."
+owner_domain = 14
+
+[finding.redis-session-revocation-unchecked]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/redis_cookie.ex"
+line = 209
+class = "security"
+severity = "medium"
+observed = "RedisCookie.delete calls remove_from_redis and then returns :ok regardless of the DEL result. SET errors in store_to_redis are likewise discarded. If DEL fails while Redis is unavailable and later recovers, the original signed cookie can still pass GET until its stored TTL expires."
+expected = "Session invalidation must either be durably applied or explicitly reported as unsuccessful. An infrastructure error must not be reported as a successful revocation while an earlier credential remains usable after recovery."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/plug/redis_cookie.ex and its logout caller, propagate persistence failures and define a durable invalidation or retry policy. Prove failed deletion and Redis recovery cannot silently restore a supposedly revoked session."
+owner_domain = 14
+
+[finding.blacklist-outage-clears-cache]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist/blockaid.ex"
+line = 21
+class = "security"
+severity = "medium"
+observed = "Blockaid.fetch_addresses_blacklist returns an empty MapSet on HTTP failure or JSON decode failure. AddressesBlacklist.run_fetch_task treats it as a successful snapshot, calls delete_all_objects and replaces the cache with that empty set; known malicious or OFAC entries disappear during a provider outage."
+expected = "A failed blacklist refresh must preserve the last successful policy snapshot and expose stale or unavailable status. Network failure is distinct from a valid empty blacklist."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist.ex and addresses_blacklist/blockaid.ex, use an explicit result for fetch failure, retain the last good snapshot and retry with observable status. Cover a successful snapshot followed by HTTP and malformed-body failures."
+owner_domain = 14
+
+[finding.state-changes-invents-zero-balances]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/models/transaction_state_helper.ex"
+line = 165
+class = "runtime-risk"
+severity = "medium"
+observed = "coin_balance and token_balance trigger asynchronous historical fetches when data is missing, then immediately return Wei.zero or Decimal.new(0). do_state_changes uses those fabricated starting balances and caches the resulting state-change list as if history had been available."
+expected = "The transaction state-change display must distinguish an actual zero balance from history that has not yet been fetched. Missing archival data cannot substantiate before and after balances."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/models/transaction_state_helper.ex, propagate a pending or unavailable state instead of substituting zero, and invalidate or recompute affected cache entries when historic balances arrive. Prove missing history never appears as a confirmed zero balance."
+owner_domain = 14
+
+[finding.auth-fixtures-hide-session-variants]
+file = "services/explorer/services/libs/blockscout-auth/src/mock.rs"
+line = 61
+class = "test-gap"
+severity = "medium"
+observed = "mock.rs auth_resp always emits email as a string, watchlist_id as user.id and email_verified=true. MockUser cannot express a wallet-only null email or an unverified session without a watchlist, although the backend emits those shapes. The auth tests therefore miss auth-session-optionality."
+expected = "The account interface needs evidence from every actual producer session variant. A fixture that admits only the fully populated variant cannot prove the backend-to-Rust decoder path."
+proposal = "In services/explorer/services/libs/blockscout-auth tests, obtain responses from the real account backend for wallet, unverified and verified users and decode them through the production client, including GET and POST authentication. Preserve the existing verified-session assertions."
+owner_domain = 14
+
+[finding.explorer-readme-moved-frontend]
+file = "services/explorer/README.md"
+line = 29
+class = "doc-drift"
+severity = "medium"
+observed = "The explorer README instructs cd frontend and reads frontend/.nvmrc, while the frontend was moved to apps/explorer and services/explorer/frontend does not exist. Its upstream table and frontend gate description at lines 10 and 110-111 retain the old layout."
+expected = "Explorer build and qualification instructions must resolve to the checked-in frontend at apps/explorer. The independent explorer process and licence boundary must be described using the current repository layout."
+proposal = "Rewrite services/explorer/README.md:10,29-30,110-111 to name apps/explorer with commands runnable from the documented working directory, and update the upstream table and licence-boundary wording after the move."
+owner_domain = 14
+
+[finding.upstream-record-moved-frontend]
+file = "services/explorer/UPSTREAM.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "UPSTREAM.md lists frontend/ as an imported tree under the explorer directory and refers to frontend/configs/envs paths in its import notes. The frontend now lives in apps/explorer; the described source and configuration locations no longer resolve."
+expected = "Upstream provenance must identify the current paths as well as the original source revision, so an upgrade can compare the actual imported frontend and preserve its licence and test configuration."
+proposal = "Update services/explorer/UPSTREAM.md:10,26-34 to map apps/explorer to the recorded frontend revision and to use its current configuration paths, preserving the original backend and Rust provenance."
+owner_domain = 14
+
+[finding.root-readme-standalone-kernel]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README.md describes the kernel as a separate layerxd daemon built from cmd/layerxd whose checkpoints settle through layerxAnchor, and its build example at line 145 invokes make layerxd."
+expected = "Brief network facts 1 and 2 specify one BFT network whose paxd includes the kernel and commits final blocks, with no standalone layerxd service or separate settlement lifecycle."
+proposal = "Rewrite README.md:47 and the build example around the integrated paxd node, committed block finality and current build target. Remove operational instructions for the retired standalone daemon."
+owner_domain = 16
+
+[finding.translated-readme-standalone-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README names layerxd as the kernel execution domain at line 37 and a running LNI server and sequencer at line 152. Lines 147,195-209 draw the agent, relay/archive and separate daemon as the active network topology."
+expected = "Brief facts 1 and 2 require the kernel integrated into paxd, block-commit finality and no standalone layerxd or separate sequencer service. Translated topology diagrams must convey the same product as the main README."
+proposal = "Rewrite docs/readme/README.fr.md:37,80,125,147-152,195-209 and the diagram class list at 239 to show the integrated node and current service edges, synchronising the translated overview with the corrected root README."
+owner_domain = 16
+
+[finding.translated-readme-standalone-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README names layerxd as the kernel execution domain at line 37 and a running LNI server and sequencer at line 152. Lines 147,195-209 draw the agent, relay/archive and separate daemon as the active network topology."
+expected = "Brief facts 1 and 2 require the kernel integrated into paxd, block-commit finality and no standalone layerxd or separate sequencer service. Translated topology diagrams must convey the same product as the main README."
+proposal = "Rewrite docs/readme/README.de.md:37,80,125,147-152,195-209 and the diagram class list at 239 to show the integrated node and current service edges, synchronising the translated overview with the corrected root README."
+owner_domain = 16
+
+[finding.gateway-doc-retired-topology-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-gateway page calls the mainnet URL a router at line 39, publishes POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200, and documents receipt-authority credentials and a standalone authority service at lines 107,221 and 258-267."
+expected = "Brief facts 1-3 remove the unified router and those /rpc endpoints. Node JSON-RPC uses the public root path; hosted px_ methods have their own gateway contract, and finality comes from the committed BFT block."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md:39-51,107,198-200,221,258-267 and the receipt-authority verification sections around the node root JSON-RPC and the current services/platform/hosted/gateway/openrpc.json contract; remove retired topology and keep the site and wiki descriptions aligned."
+owner_domain = 8
+
+[finding.gateway-doc-retired-topology-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted-gateway page calls the mainnet URL a router at line 39, publishes POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200, and documents receipt-authority credentials and a standalone authority service at lines 107,221 and 258-267."
+expected = "Brief facts 1-3 remove the unified router and those /rpc endpoints. Node JSON-RPC uses the public root path; hosted px_ methods have their own gateway contract, and finality comes from the committed BFT block."
+proposal = "Rewrite docs/wiki/HostedGateway.md:39-51,107,198-200,221,258-267 and the receipt-authority verification sections around the node root JSON-RPC and the current services/platform/hosted/gateway/openrpc.json contract; remove retired topology and keep the site and wiki descriptions aligned."
+owner_domain = 8
+
+[finding.cli-doc-unified-rpc]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs to end in /rpc at line 8, repeats that restriction at 131 and 278, and describes transaction submission to /rpc at 298. Emulator/environment guidance also advertises a separate sequencer trust-anchor bootstrap."
+expected = "Brief facts 1-3 specify the root public node JSON-RPC and integrated BFT finality. Current CLI endpoint and trust requirements must not instruct operators to configure the retired unified router."
+proposal = "Rewrite docs/site/docs/platform/cli.md:8,64,96-97,131,267-298,313-321 against the current CLI and node endpoints; distinguish optional local tools from deployed services and document current block/receipt verification inputs."
+owner_domain = 8
+
+[finding.boundary-doc-retired-settlement-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The Paxeer boundary page describes a current settlement-suite bootstrap with GuarantorBond, CheckpointRegistry, checkpoint roots and a separate layerx-node-settlement configuration at lines 119-129. It presents that sidecar topology as the only route to the chain at line 3."
+expected = "Brief facts 1-3 describe paxd as the integrated BFT node and public JSON-RPC at its root. Retired checkpoint settlement and daemon topology cannot remain operator guidance for the merged network."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md:3-7,117-139 to explain the current node boundary and committed-block verification, removing standalone checkpoint-settlement bootstrap and its environment inputs; keep the site and wiki pages consistent."
+owner_domain = 8
+
+[finding.boundary-doc-retired-settlement-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The Paxeer boundary page describes a current settlement-suite bootstrap with GuarantorBond, CheckpointRegistry, checkpoint roots and a separate layerx-node-settlement configuration at lines 119-129. It presents that sidecar topology as the only route to the chain at line 3."
+expected = "Brief facts 1-3 describe paxd as the integrated BFT node and public JSON-RPC at its root. Retired checkpoint settlement and daemon topology cannot remain operator guidance for the merged network."
+proposal = "Rewrite docs/wiki/PaxeerBoundary.md:3-7,117-139 to explain the current node boundary and committed-block verification, removing standalone checkpoint-settlement bootstrap and its environment inputs; keep the site and wiki pages consistent."
+owner_domain = 8
+
+[finding.routes-doc-retired-archive]
+file = "docs/system/routes.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The route inventory lists archive as a product service for proof-backed relay archive and historical recovery at line 17, a separate sequencer/kernel service at line 31, and GET /rpc/evm/ws at line 908."
+expected = "Brief facts 1 and 2 retire the separate relay/sequencer topology and unified /rpc paths. A generated route inventory must distinguish deployed surfaces from historical or retired handlers."
+proposal = "Update the route inventory source and regenerate docs/system/routes.md so retired archive/kernel service edges and /rpc/evm/ws are removed or explicitly historical, with the actual node root and hosted gateway contracts catalogued separately."
+owner_domain = 8
+
+[doc.1]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Lines 17,31 and 908 retain retired archive, sequencer-service and /rpc websocket topology; see routes-doc-retired-archive. The explorer account and health route catalogue supplies the producer route locations."
+
+[doc.2]
+path = "contracts/launchpad/README.md"
+status = "accurate"
+notes = "The launchpad is an EVM application on chain 125. Its Router is the launchpad Solidity contract, not the retired network JSON-RPC router; its USDL pool-creation fee, registry and governance discussion is application-specific."
+
+[doc.3]
+path = "README.md"
+status = "stale"
+notes = "Lines 47 and 145 describe and build the retired standalone daemon; see root-readme-standalone-kernel."
+
+[doc.4]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 117-139 retain standalone checkpoint-settlement bootstrap and sidecar-only network topology. Chain id 125 is correct, but the merged-network finality and deployment description needs replacement."
+
+[doc.5]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Lines 117-139 retain standalone checkpoint-settlement bootstrap and sidecar-only network topology. Chain id 125 is correct, but the merged-network finality and deployment description needs replacement."
+
+[doc.6]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "The porting kits describe guest ABI v2, deterministic account encodings, typed translation refusals and production execution/lifecycle types. These are program compatibility semantics, not a standalone network endpoint or daemon deployment instruction."
+
+[doc.7]
+path = "docs/wiki/Porting.md"
+status = "accurate"
+notes = "The porting kits describe guest ABI v2, deterministic account encodings, typed translation refusals and production execution/lifecycle types. These are program compatibility semantics, not a standalone network endpoint or daemon deployment instruction."
+
+[doc.8]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Lines 8,131,278 and 298 require the retired /rpc endpoint, while emulator and environment sections retain separate sequencer trust bootstrap; see cli-doc-unified-rpc."
+
+[doc.9]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Lines 39-51,107,198-200 and 221 retain a router, unified /rpc routes and receipt-authority service. The site and wiki also disagree on the advertised method count (15 versus 18); both need regeneration from the current gateway contract."
+
+[doc.10]
+path = "docs/wiki/HostedGateway.md"
+status = "stale"
+notes = "Lines 39-51,107,198-200 and 221 retain a router, unified /rpc routes and receipt-authority service. The site and wiki also disagree on the advertised method count (15 versus 18); both need regeneration from the current gateway contract."
+
+[doc.11]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 37,125 and 147-209 describe layerxd, LNI and relay/archive as the running network topology; translate the integrated paxd architecture and finality consistently with the root overview."
+
+[doc.12]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Lines 37,125 and 147-209 describe layerxd, LNI and relay/archive as the running network topology; translate the integrated paxd architecture and finality consistently with the root overview."
+
+[doc.13]
+path = "services/explorer/README.md"
+status = "stale"
+notes = "The backend builder and independent process boundary are described, but lines 10,29-30 and 110-111 still locate the frontend under the removed frontend directory."
+
+[doc.14]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Retains the backend and Rust upstream revision and licence provenance, but its frontend path and frontend/configs references need the apps/explorer mapping."
+
+[doc.15]
+path = "services/explorer/backend/.devcontainer/README.md"
+status = "accurate"
+notes = "Describes the existing bs helper, optional local development configuration, postgres credentials scoped to the disposable local database and supported Paxeer chain/JSON-RPC variants; localhost:4000 is a local explorer URL, not public node RPC."
+
+[doc.16]
+path = "services/explorer/deploy/railway/README.md"
+status = "accurate"
+notes = "Published-image deployment, ports, /api/health/liveness and /explorer/api/healthz match the checked-in JSON definitions. Price-feed URL lists, start block, persistent failure handling and retention controls match the fetcher and maintenance implementations; the unsigned decoder defect is recorded separately."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-ws.md"
+status = "accurate"
+notes = "Generated registry catalogue identifies old and v2 topics and the unused Rust Phoenix library route. The legacy token-instance disagreement and Rust protocol lifecycle defects are explicit findings; catalogue presence does not prove an end-to-end stream."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/bridge-deploy.md"
+status = "accurate"
+notes = "Generated registry catalogue records the deployment record, checklist CLI and precompile view signatures. Checklist reads, environment names and generated governance comparisons use the declared transports and encodings; no deployment was performed."
+
+[doc.19]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Defines the integrated BFT network, root public JSON-RPC, hosted px_ ownership, retired components and audit severity and record rules used here."

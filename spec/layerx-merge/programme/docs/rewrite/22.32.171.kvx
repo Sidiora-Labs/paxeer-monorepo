@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.171"
+domain = 16
+owner_role = "fm-tools-ops"
+pages = 1
+
+[page.1]
+path = "tools/benchmark/scenarios/README.md"
+status = "stale"
+bytes = 3308
+source_1 = "record 22.30.179 [doc.014] (stale): Read in full; line 9 has the wrong root-relative default command. node/benchmark/config.go confirms deliberate in-process chain-id overrides and mockDeploy deployment ownership; remaining scenario descriptions agree."

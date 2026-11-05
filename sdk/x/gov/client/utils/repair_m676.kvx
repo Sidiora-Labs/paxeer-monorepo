@@ -1,0 +1,18 @@
+[repair.22.33.676]
+finding_ids = ["historical-multi-message", "historical-pagination", "gov-history-test-shape"]
+proofs = ["TestRepairM_676_HistoricalMultiMessage", "TestRepairM_676_HistoricalPagination", "TestRepairM_676_GovHistoryTestShape"]
+path = "Production governance handlers and keeper -> encoded transactions and message-scoped ABCI logs/events -> real KV transaction index and block store -> local consensus RPC -> historical queries -> codec-decoded deposits, votes and proposer."
+baseline = "Not run: explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand, overriding embedded unchanged-tree verification."
+wiring_requests = []
+
+[finding.historical-multi-message]
+proof = "TestRepairM_676_HistoricalMultiMessage"
+closure = "Select submission identity from message-scoped proposal events; filter decoded proposal/account identities, aggregate deposits, deduplicate transactions, and retain each voter's final successful message."
+
+[finding.historical-pagination]
+proof = "TestRepairM_676_HistoricalPagination"
+closure = "Exhaust independent event streams using their totals; merge by block height and transaction index before reconstruction and pagination; cover all four vote streams beyond thirty results across multiple blocks."
+
+[finding.gov-history-test-shape]
+proof = "TestRepairM_676_GovHistoryTestShape"
+closure = "Replace TxSearchMock with real legacy/protobuf governance execution, KV index and local RPC; assert real index predicates, totals and second pages, mixed proposals/accounts, repeated votes and aggregate deposits."

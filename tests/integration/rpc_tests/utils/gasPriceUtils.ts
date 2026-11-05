@@ -4,7 +4,8 @@ import { waitUntil, blockGasInfo } from './chainUtils';
 
 /**
  * Helpers for the eth_gasPrice parity spec: read the current gas price, sample it
- * against a stable block height, and assert it tracks Pax's base-fee-plus-buffer formula.
+ * against a stable block height, and assert it tracks Pax's base fee plus buffer
+ * and default priority fee.
  */
 
 export async function gasPrice(provider: ethers.JsonRpcProvider): Promise<bigint> {
@@ -30,39 +31,57 @@ export async function gasPriceAtStableBlock(
     provider: ethers.JsonRpcProvider,
 ): Promise<{ gasPrice: bigint; block: number }> {
     for (let i = 0; i < 20; i++) {
-        const b1 = await provider.getBlockNumber();
+        const b1 = await provider.send('eth_blockNumber', []).then(Number);
         const price = await gasPrice(provider);
-        const b2 = await provider.getBlockNumber();
+        const b2 = await provider.send('eth_blockNumber', []).then(Number);
         if (b1 === b2) return { gasPrice: price, block: b1 };
     }
     throw new Error('gasPriceAtStableBlock: block kept advancing across the gas price call');
 }
 
-/**
- * Assert a Pax gas price reading tracks the base fee: uncongested it is exactly 1.1x
- * (floor, matching the node's integer Mul/Div) the base fee of some block in the immediate
- * neighbourhood of B, congested it at least covers the base fee.
- */
+/** Assert the sample using B's congestion and the base fee in its direct successor B+1. */
 export async function assertPaxGasPriceTracks(
     provider: ethers.JsonRpcProvider,
     gasPriceWei: bigint,
     block: number,
 ): Promise<void> {
-    await waitUntil(async () => ((await provider.getBlockNumber()) >= block + 2 ? true : null), {
-        timeoutMs: 15_000,
-        label: 'two blocks after sample',
-    });
-    const head = await provider.getBlockNumber();
-    const heights = [block - 1, block, block + 1, block + 2].filter(h => h >= 0 && h <= head);
-    const infos = await Promise.all(heights.map(h => blockGasInfo(provider, h)));
+    await waitUntil(
+        async () =>
+            (await provider.send('eth_blockNumber', []).then(Number)) >= block + 1 ? true : null,
+        {
+            timeoutMs: 15_000,
+            label: 'successor of gas-price sample',
+        },
+    );
+    const infos = await Promise.all([
+        blockGasInfo(provider, block),
+        blockGasInfo(provider, block + 1),
+    ]);
+    assertPaxGasPriceTracksBlocks(gasPriceWei, block, infos);
+}
 
-    if (infos.some(b => (b.baseFee * 110n) / 100n === gasPriceWei)) return;
-
-    const congested = infos.some(b => b.gasUsed > (b.gasLimit * 80n) / 100n);
-    const minBase = infos.reduce((m, b) => (b.baseFee < m ? b.baseFee : m), infos[0].baseFee);
-    expect(
-        congested && gasPriceWei >= minBase,
-        `gasPrice ${gasPriceWei} is not 1.1x any base fee near block ${block} ` +
-            `(bases: ${infos.map(b => b.baseFee).join(', ')})`,
-    ).to.equal(true);
+export function assertPaxGasPriceTracksBlocks(
+    gasPriceWei: bigint,
+    block: number,
+    infos: Awaited<ReturnType<typeof blockGasInfo>>[],
+): void {
+    const samples = infos.filter((b) => b.number === block);
+    const successors = infos.filter((b) => b.number === block + 1);
+    expect(samples.length, `exactly one sampled block ${block}`).to.equal(1);
+    expect(successors.length, `exactly one successor block ${block + 1}`).to.equal(1);
+    const sample = samples[0];
+    const nextBase = successors[0].baseFee;
+    const congested = sample.gasUsed * 100n > sample.gasLimit * 80n;
+    if (congested) {
+        expect(
+            gasPriceWei >= nextBase,
+            `gasPrice covers the next base fee at block ${block}`,
+        ).to.equal(true);
+    } else {
+        const expected = (nextBase * 110n) / 100n + DEFAULT_PRIORITY_FEE_WEI;
+        expect(
+            gasPriceWei,
+            `gasPrice at block ${block} equals buffered successor fee plus default priority fee`,
+        ).to.equal(expected);
+    }
 }

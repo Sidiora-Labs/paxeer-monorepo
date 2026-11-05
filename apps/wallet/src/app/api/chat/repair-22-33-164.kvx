@@ -1,0 +1,8 @@
+[repair.22.33.164]
+finding = "chat-stream-timeout"
+implementation = "route.ts delegates upstream fetch and body lifetime to stream.ts, retaining the 20000 ms deadline until close, error or cancellation and aborting transport on timeout, request abort, cancellation or byte overflow."
+proving_test = "repair-22-33-164.test.ts: chat_stream_timeout_aborts_stalled_sse_after_headers"
+additional_tests = "chat_stream_cancel_aborts_upstream_with_a_pending_read, chat_stream_cancel_without_reading_aborts_upstream, chat_stream_request_abort_errors_consumer_and_aborts_upstream, chat_stream_byte_limit_aborts_upstream_before_excess_bytes_escape, chat_stream_close_preserves_the_exact_byte_limit_and_disposes_deadline, chat_stream_transport_error_rejects_consumer_and_disposes_deadline, chat_stream_invalid_upstream_aborts_body_and_disposes_deadline"
+baseline = "Not run: the ordered task instructions prohibit verification before complete implementation and require hf-build before hf-done; no pre-change test failure is claimed."
+qualification = "The runner's hf-build and hf-done ledger records the exact verified candidate revision, command, exit code and private log path."
+wiring_requests = "None; all proposal changes are inside the chat directory."

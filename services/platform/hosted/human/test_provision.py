@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -69,6 +71,61 @@ class RegistrationInputTests(unittest.TestCase):
             provision.owner_registration(self.root)
         self.assertIn(str(self.path), str(caught.exception))
         self.assertFalse((self.root / 'human-evidence').exists())
+
+    def test_provisioning_makes_no_custody_deposit(self):
+        here = Path(provision.__file__).resolve().parent
+        for name in ('owner_custody.py', 'test_owner_custody.py'):
+            self.assertFalse(os.path.lexists(here / name), name)
+        script = (here / 'provision.sh').read_text()
+        for retired in ('human_custody_step', 'explorer_read_principal_fund', 'owner_custody.py'):
+            self.assertNotIn(retired, script)
+        result = subprocess.run(
+            ['bash', '--noprofile', '--norc', '-c',
+             'set -euo pipefail\n'
+             'source "$REPO_ROOT/services/platform/hosted/human/provision.sh"\n'
+             'declare -F\n'],
+            env=dict(os.environ, REPO_ROOT=str(here.parents[3])),
+            text=True, capture_output=True, check=True)
+        functions = {line.split()[-1] for line in result.stdout.splitlines()}
+        self.assertTrue({'human_native_owner_prepare', 'human_native_provision',
+                         'human_evidence_provision'} <= functions)
+        self.assertTrue({'human_custody_step', 'explorer_read_principal_fund'}.isdisjoint(functions))
+        for flag in ('--prepare-explorer-read-funding', '--sign-explorer-read-credit',
+                     '--submit-explorer-read-credit'):
+            with self.subTest(flag=flag):
+                result = subprocess.run(
+                    [sys.executable, str(here / 'provision.py'), '--validate-owner-registration',
+                     '--work-dir', str(self.root), flag],
+                    text=True, capture_output=True, check=False)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(f'unrecognized arguments: {flag}', result.stderr)
+                self.assertEqual(result.stdout, '')
+        self.assertEqual(list(self.root.iterdir()), [self.input])
+        self.assertEqual(list(self.input.iterdir()), [])
+
+    def test_owner_policy_has_no_movement_intervals(self):
+        policy = provision.owner_policy()
+        self.assertNotIn('movement', policy)
+        source = Path(provision.__file__)
+        self.assertEqual(policy, json.loads(source.with_name('beta-owner-policy.json').read_text()))
+        copied_source = self.root / 'provision.py'
+        copied_source.write_text(source.read_text())
+        spec = importlib.util.spec_from_file_location('policy_provision', copied_source)
+        copied_provision = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(copied_provision)
+        policy_path = self.root / 'beta-owner-policy.json'
+        policy_path.write_text(json.dumps(policy))
+        self.assertEqual(copied_provision.owner_policy(), policy)
+        policy['movement'] = {
+            'PAXEER_CONFIRMATIONS': 12,
+            'CHECKPOINT_INTERVAL_SECONDS': 60,
+            'PAXEER_BLOCK_SECONDS': 2,
+            'REMINDER_INTERVAL_SECONDS': 300,
+        }
+        policy_path.write_text(json.dumps(policy))
+        with self.assertRaises(copied_provision.Refused) as caught:
+            copied_provision.owner_policy()
+        self.assertEqual(str(caught.exception), f'{policy_path}: invalid owner policy')
 
     def test_missing_wrong_mode_symlink_hardlink_and_directory_refuse(self):
         self.refused()
@@ -193,6 +250,10 @@ class RegistrationInputTests(unittest.TestCase):
         self.assertEqual(len(catalog['presets'][0]['counterparties']), 2)
         self.assertNotEqual(*catalog['presets'][0]['counterparties'])
         self.assertEqual(provision.protected_json(self.root / 'purpose-catalog.json'), catalog)
+        template = Path(provision.__file__).with_name('beta-purpose-catalog.json')
+        for preset, configured in zip(catalog['presets'], json.loads(template.read_text())['presets']):
+            self.assertEqual(preset['call_selectors'], configured['call_selectors'])
+            self.assertNotIn('activity_types', preset)
         registry = self.root / 'registry.json'
         value = provision.protected_json(registry)
         del value['schema_version']
@@ -202,6 +263,33 @@ class RegistrationInputTests(unittest.TestCase):
             provision.purpose_catalog(Path(provision.__file__).with_name('beta-purpose-catalog.json'),
                                       registry, self.root / 'treasury.json', self.root / 'sequencer.json',
                                       value['assets'][0]['asset'])
+
+    def test_generated_catalog_refuses_invalid_selectors(self):
+        catalog = generated_catalog(self.root, identity_provider_binary())
+        template = json.loads(Path(provision.__file__).with_name('beta-purpose-catalog.json').read_text())
+        template_path = self.root / 'catalog-template.json'
+        asset = bytes(catalog['presets'][0]['budget_asset']).hex()
+        invalid = (None, '', {}, [], [None], [1], [''], ['a9059cbb'], ['0Xa9059cbb'],
+                   ['0xa9059c'], ['0xa9059cbb00'], ['0xa9059cbg'], ['0xa9059cbb\n'],
+                   ['0xa9059cbb', '0xa9059cbb'], ['0xa9059cbb', '0xA9059CBB'])
+        for selectors in invalid:
+            with self.subTest(selectors=selectors):
+                template['presets'][0]['call_selectors'] = selectors
+                template_path.write_text(json.dumps(template))
+                with self.assertRaises(provision.Refused) as caught:
+                    provision.purpose_catalog(template_path, self.root / 'registry.json',
+                                              self.root / 'treasury.json', self.root / 'sequencer.json', asset)
+                self.assertIn(str(template_path), str(caught.exception))
+        del template['presets'][0]['call_selectors']
+        template_path.write_text(json.dumps(template))
+        with self.assertRaises(provision.Refused):
+            provision.purpose_catalog(template_path, self.root / 'registry.json',
+                                      self.root / 'treasury.json', self.root / 'sequencer.json', asset)
+        template['presets'][0]['call_selectors'] = ['0xA9059CBB']
+        template_path.write_text(json.dumps(template))
+        result = provision.purpose_catalog(template_path, self.root / 'registry.json',
+                                           self.root / 'treasury.json', self.root / 'sequencer.json', asset)
+        self.assertEqual(result['presets'][0]['call_selectors'], ['0xA9059CBB'])
 
     def test_journal_and_complete_assembly_fail_closed_without_upstream(self):
         with self.assertRaises(provision.Refused):
@@ -266,8 +354,8 @@ class RegistrationInputTests(unittest.TestCase):
         paxeer.mkdir()
         provision.write_json(paxeer / 'deployment.json', {'addresses': {}})
         with self.assertRaises(provision.Refused) as caught:
-            provision.movement_source(self.root, self.root / 'secrets')
-        self.assertIn('deployment.json: invalid custody_reference missing', str(caught.exception))
+            provision.funding_evidence(self.root)
+        self.assertIn('owner-registration.json', str(caught.exception))
         self.assertFalse((self.input / 'movement-source.json').exists())
 
     def run_cli(self):

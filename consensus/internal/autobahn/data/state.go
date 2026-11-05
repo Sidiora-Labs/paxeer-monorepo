@@ -78,7 +78,7 @@ func (dw *DataWAL) TruncateBefore(n types.GlobalBlockNumber) error {
 }
 
 // reconcile fixes cursor inconsistencies between the two WALs that can
-// result from crashes during parallel persistence or pruning.
+// result from crashes during persistence or parallel pruning.
 //
 // The possible WAL states on startup and how they are handled:
 //
@@ -96,7 +96,8 @@ func (dw *DataWAL) reconcile(committee *types.Committee) error {
 	// Fix tail: remove blocks past QC range.
 	qcNext := dw.CommitQCs.Next()
 	if qcNext == fb && dw.Blocks.Next() > fb {
-		// Blocks exist but QCs WAL is empty — data is corrupted.
+		// Persistence makes QCs durable before writing their blocks, so a
+		// normal interrupted batch cannot leave blocks with no first QC.
 		return fmt.Errorf("corrupted WAL: blocks exist but QCs WAL is empty; statesync required to recover")
 	}
 	if err := dw.Blocks.TruncateAfter(qcNext); err != nil {
@@ -458,6 +459,14 @@ func (s *State) PushBlock(ctx context.Context, n types.GlobalBlockNumber, block 
 	return nil
 }
 
+// FirstBlock returns the first retained block number.
+func (s *State) FirstBlock() types.GlobalBlockNumber {
+	for inner := range s.inner.Lock() {
+		return inner.first
+	}
+	panic("unreachable")
+}
+
 // NextBlock returns the index of the next block to be pushed.
 func (s *State) NextBlock() types.GlobalBlockNumber {
 	for inner := range s.inner.Lock() {
@@ -679,7 +688,7 @@ func (s *State) PruneBefore(retainFrom types.GlobalBlockNumber) error {
 
 // runPersist is a background goroutine that persists blocks and QCs to WALs.
 // It waits for in-memory data to advance past the persistence cursors, then
-// writes QCs and blocks in parallel. QCs are persisted up to nextQC (eagerly),
+// writes QCs before their dependent blocks. QCs are persisted up to nextQC (eagerly),
 // blocks up to nextBlock. nextBlockToPersist advances to min(persistedQC, persistedBlock)
 // to unblock PushAppHash only when both are durable.
 // Errors propagate vertically (kill the component).
@@ -728,27 +737,19 @@ func (s *State) runPersist(ctx context.Context) error {
 				})
 			}
 		}
-		// Persist QCs and blocks in parallel.
-		if err := scope.Parallel(func(ps scope.ParallelScope) error {
-			ps.Spawn(func() error {
-				for _, qc := range b.qcs {
-					if err := s.dataWAL.CommitQCs.PersistQC(qc); err != nil {
-						return fmt.Errorf("persist full commitqc: %w", err)
-					}
-				}
-				return nil
-			})
-			ps.Spawn(func() error {
-				for _, lb := range b.blocks {
-					if err := s.dataWAL.Blocks.PersistBlock(lb.Number, lb.Block); err != nil {
-						return fmt.Errorf("persist global block %d: %w", lb.Number, err)
-					}
-				}
-				return nil
-			})
-			return nil
-		}); err != nil {
-			return err
+		// PersistQC fsyncs each certificate before returning. Keep this
+		// durability boundary ahead of every dependent block, including
+		// the first batch, so an interruption always leaves a recoverable
+		// block prefix covered by the surviving QCs.
+		for _, qc := range b.qcs {
+			if err := s.dataWAL.CommitQCs.PersistQC(qc); err != nil {
+				return fmt.Errorf("persist full commitqc: %w", err)
+			}
+		}
+		for _, lb := range b.blocks {
+			if err := s.dataWAL.Blocks.PersistBlock(lb.Number, lb.Block); err != nil {
+				return fmt.Errorf("persist global block %d: %w", lb.Number, err)
+			}
 		}
 		persistedQC = b.qcEnd
 		persistedBlock = b.blockEnd

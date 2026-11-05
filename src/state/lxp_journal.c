@@ -1,6 +1,5 @@
 #include "layerx/lxp_state.h"
 #include "layerx/lxp_ledger.h"
-#include "layerx/lxp_fee.h"
 #include "layerx/lxp_storage.h"
 
 #include <stdlib.h>
@@ -22,13 +21,6 @@ typedef struct lxp_state_cell_delta {
     bool after_present;
 } lxp_state_cell_delta;
 
-typedef struct lxp_state_idempotency_delta {
-    lxp_idempotency_key_state before;
-    lxp_idempotency_key_state after;
-    bool before_present;
-    bool after_present;
-} lxp_state_idempotency_delta;
-
 typedef struct lxp_state_account_delta {
     lx_account before;
     lx_account after;
@@ -39,8 +31,6 @@ typedef struct lxp_state_account_delta {
 struct lxp_state_transition {
     lxp_state_cell_delta cells[LXP_STATE_MAX_CELLS * 2U];
     size_t cell_count;
-    lxp_state_idempotency_delta *idempotency;
-    size_t idempotency_count;
     lxp_state_account_delta *accounts;
     size_t account_capacity;
     size_t account_count;
@@ -87,34 +77,11 @@ static bool account_record_canonical(const lx_account *account)
     return lx_account_validate_canonical(account) == LXP_OK;
 }
 
-static int key_hash_order(const void *left, const void *right)
-{
-    return memcmp(left, right, 32U);
-}
-
-static bool idempotency_keys_unique(const lxp_state_store *store)
-{
-    uint8_t (*keys)[32];
-    size_t i;
-    bool unique = true;
-    if (store->idempotency_count < 2U) return true;
-    keys = (uint8_t (*)[32])malloc(store->idempotency_count * 32U);
-    if (keys == NULL) return false;
-    for (i = 0U; i < store->idempotency_count; ++i)
-        (void)memcpy(keys[i], store->idempotency[i].key_hash, 32U);
-    qsort(keys, store->idempotency_count, 32U, key_hash_order);
-    for (i = 1U; unique && i < store->idempotency_count; ++i)
-        unique = memcmp(keys[i - 1U], keys[i], 32U) != 0;
-    free(keys);
-    return unique;
-}
-
 static bool store_canonical(const lxp_state_store *store)
 {
     size_t i;
     size_t j;
     if (store == NULL || store->count > LXP_STATE_MAX_CELLS ||
-        store->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         (store->account_root_required && store->accounts == NULL) ||
         (store->accounts != NULL &&
          store->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY))
@@ -123,14 +90,6 @@ static bool store_canonical(const lxp_state_store *store)
         for (j = 0U; j < i; ++j)
             if (memcmp(store->cells[i].key, store->cells[j].key, 32U) == 0)
                 return false;
-    if (store->idempotency_count != 0U && store->idempotency == NULL)
-        return false;
-    for (i = 0U; i < store->idempotency_count; ++i)
-        if (store->idempotency[i].receipt_length >
-            LXP_STATE_MAX_RECEIPT_BYTES || store->idempotency[i].canonical_length >
-            LXP_STATE_MAX_RECEIPT_BYTES)
-            return false;
-    if (!idempotency_keys_unique(store)) return false;
     if (store->accounts == NULL) return true;
     for (i = 0U; i < store->accounts->count; ++i) {
         if (!account_record_canonical(&store->accounts->accounts[i]))
@@ -166,9 +125,6 @@ lxp_result lxp_state_store_init(lxp_state_store *store,
 lxp_result lxp_state_store_destroy(lxp_state_store *store)
 {
     if (store == NULL) return LXP_ERR_NON_CANONICAL;
-    free(store->idempotency);
-    store->idempotency = NULL;
-    store->idempotency_count = 0U;
     return pthread_mutex_destroy(&store->lock) == 0 ? LXP_OK : LXP_ERR_IO;
 }
 
@@ -176,26 +132,16 @@ static lxp_result snapshot_copy_store(const lxp_state_store *source,
                                       lxp_state_snapshot *snapshot)
 {
     lxp_result status;
-    if (source->count > LXP_STATE_MAX_CELLS ||
-        source->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY)
+    if (source->count > LXP_STATE_MAX_CELLS)
         return LXP_FATAL_INVARIANT;
     status = lxp_state_store_init(&snapshot->store, source->next_sequence);
     if (status != LXP_OK) return status;
     snapshot->store_initialized = true;
-    if (source->idempotency_count != 0U) {
-        status = lxp_idempotency_reserve(&snapshot->store);
-        if (status != LXP_OK) return status;
-    }
     snapshot->store.count = source->count;
-    snapshot->store.idempotency_count = source->idempotency_count;
     snapshot->store.account_root_required = source->account_root_required;
     if (source->count != 0U)
         (void)memcpy(snapshot->store.cells, source->cells,
                      source->count * sizeof(source->cells[0]));
-    if (source->idempotency_count != 0U)
-        (void)memcpy(snapshot->store.idempotency, source->idempotency,
-                     source->idempotency_count *
-                         sizeof(source->idempotency[0]));
     if (source->accounts != NULL) {
         status = lx_account_registry_snapshot(source->accounts,
                                               &snapshot->accounts);
@@ -331,15 +277,6 @@ lxp_result lxp_state_snapshot_seal_level(lxp_state_snapshot *snapshot)
     return LXP_OK;
 }
 
-static size_t find_idempotency(const lxp_state_store *store,
-                               const uint8_t key[32])
-{
-    size_t i;
-    for (i = 0U; i < store->idempotency_count; ++i)
-        if (memcmp(store->idempotency[i].key_hash, key, 32U) == 0) return i;
-    return store->idempotency_count;
-}
-
 static size_t find_account(const lx_account_registry *accounts,
                            const uint8_t id[32])
 {
@@ -355,21 +292,6 @@ static bool cell_equal(const lxp_state_cell *left,
     return memcmp(left->key, right->key, 32U) == 0 &&
            left->value.hi == right->value.hi &&
            left->value.lo == right->value.lo;
-}
-
-static bool idempotency_equal(const lxp_idempotency_key_state *left,
-                              const lxp_idempotency_key_state *right)
-{
-    return left->receipt_length <= LXP_STATE_MAX_RECEIPT_BYTES &&
-           right->receipt_length <= LXP_STATE_MAX_RECEIPT_BYTES &&
-           memcmp(left->key_hash, right->key_hash, 32U) == 0 &&
-           left->receipt_length == right->receipt_length &&
-           memcmp(left->receipt, right->receipt, left->receipt_length) == 0 &&
-           left->canonical_length <= LXP_STATE_MAX_RECEIPT_BYTES &&
-           right->canonical_length <= LXP_STATE_MAX_RECEIPT_BYTES &&
-           left->canonical_length == right->canonical_length &&
-           memcmp(left->canonical_receipt, right->canonical_receipt,
-                  left->canonical_length) == 0;
 }
 
 static bool account_equal(const lx_account *left, const lx_account *right)
@@ -410,8 +332,6 @@ lxp_result lxp_state_transition_create(
     if ((before->accounts == NULL) != (after->accounts == NULL) ||
         before->count > LXP_STATE_MAX_CELLS ||
         after->count > LXP_STATE_MAX_CELLS ||
-        before->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
-        after->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         (before->accounts != NULL &&
          (before->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
           after->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY)))
@@ -446,32 +366,6 @@ lxp_result lxp_state_transition_create(
     }
     {
         size_t i;
-        size_t needed = before->idempotency_count + after->idempotency_count;
-        bool appended = before->idempotency_count <= after->idempotency_count;
-        for (i = 0U; appended && i < before->idempotency_count; ++i)
-            appended = idempotency_equal(&before->idempotency[i],
-                                         &after->idempotency[i]);
-        if (appended)
-            needed = after->idempotency_count - before->idempotency_count;
-        if (needed != 0U) {
-            created->idempotency = calloc(needed,
-                                          sizeof(*created->idempotency));
-            if (created->idempotency == NULL) {
-                free(created->accounts);
-                free(created);
-                return LXP_ERR_IO;
-            }
-        }
-        if (appended) {
-            for (i = before->idempotency_count;
-                 i < after->idempotency_count; ++i) {
-                created->idempotency[created->idempotency_count].after =
-                    after->idempotency[i];
-                created->idempotency[created->idempotency_count]
-                    .after_present = true;
-                ++created->idempotency_count;
-            }
-        }
         for (i = 0U; i < before->count; ++i) {
             size_t location = find_cell(after, before->cells[i].key);
             if (location != after->count &&
@@ -492,34 +386,6 @@ lxp_result lxp_state_transition_create(
             created->cells[created->cell_count].after = after->cells[i];
             created->cells[created->cell_count].after_present = true;
             ++created->cell_count;
-        }
-        for (i = 0U; !appended && i < before->idempotency_count; ++i) {
-            size_t location = find_idempotency(
-                after, before->idempotency[i].key_hash);
-            if (location != after->idempotency_count && idempotency_equal(
-                    &before->idempotency[i], &after->idempotency[location]))
-                continue;
-            created->idempotency[created->idempotency_count].before =
-                before->idempotency[i];
-            created->idempotency[created->idempotency_count].before_present =
-                true;
-            if (location != after->idempotency_count) {
-                created->idempotency[created->idempotency_count].after =
-                    after->idempotency[location];
-                created->idempotency[created->idempotency_count].after_present =
-                    true;
-            }
-            ++created->idempotency_count;
-        }
-        for (i = 0U; !appended && i < after->idempotency_count; ++i) {
-            if (find_idempotency(before, after->idempotency[i].key_hash) !=
-                before->idempotency_count)
-                continue;
-            created->idempotency[created->idempotency_count].after =
-                after->idempotency[i];
-            created->idempotency[created->idempotency_count].after_present =
-                true;
-            ++created->idempotency_count;
         }
     }
     if (before->accounts != NULL) {
@@ -559,7 +425,6 @@ void lxp_state_transition_destroy(lxp_state_transition *transition)
 {
     if (transition == NULL) return;
     free(transition->accounts);
-    free(transition->idempotency);
     (void)memset(transition, 0, sizeof(*transition));
     free(transition);
 }
@@ -580,8 +445,6 @@ lxp_result lxp_state_transition_apply_snapshot(
         size_t i;
         size_t cell_additions = 0U;
         size_t cell_deletions = 0U;
-        size_t idempotency_additions = 0U;
-        size_t idempotency_deletions = 0U;
         size_t account_additions = 0U;
         size_t account_deletions = 0U;
         if (!snapshot_canonical(snapshot) ||
@@ -607,25 +470,6 @@ lxp_result lxp_state_transition_apply_snapshot(
             if (delta->before_present && !delta->after_present)
                 ++cell_deletions;
         }
-        for (i = 0U; i < transition->idempotency_count; ++i) {
-            const lxp_state_idempotency_delta *delta =
-                &transition->idempotency[i];
-            const uint8_t *key = delta->before_present ?
-                                     delta->before.key_hash :
-                                     delta->after.key_hash;
-            size_t location = find_idempotency(store, key);
-            if ((location != store->idempotency_count) !=
-                    delta->before_present ||
-                (delta->before_present && !idempotency_equal(
-                    &store->idempotency[location], &delta->before))) {
-                (void)pthread_mutex_unlock(&store->lock);
-                return LXP_ERR_CONTEXT_MISMATCH;
-            }
-            if (!delta->before_present && delta->after_present)
-                ++idempotency_additions;
-            if (delta->before_present && !delta->after_present)
-                ++idempotency_deletions;
-        }
         for (i = 0U; i < transition->account_count; ++i) {
             const lxp_state_account_delta *delta = &transition->accounts[i];
             const uint8_t *id = delta->before_present ? delta->before.id :
@@ -644,22 +488,12 @@ lxp_result lxp_state_transition_apply_snapshot(
         }
         if (cell_additions >
                 LXP_STATE_MAX_CELLS - store->count + cell_deletions ||
-            idempotency_additions >
-                LXP_STATE_MAX_IDEMPOTENCY - store->idempotency_count +
-                    idempotency_deletions ||
             account_additions >
                 LX_ACCOUNT_REGISTRY_CAPACITY -
                     (store->accounts != NULL ? store->accounts->count : 0U) +
                     account_deletions) {
             (void)pthread_mutex_unlock(&store->lock);
             return LXP_ERR_ARENA_EXHAUSTED;
-        }
-        if (idempotency_additions != 0U) {
-            lxp_result reserve = lxp_idempotency_reserve(store);
-            if (reserve != LXP_OK) {
-                (void)pthread_mutex_unlock(&store->lock);
-                return reserve;
-            }
         }
         if (store->accounts != NULL && account_additions != 0U) {
             lxp_result reserve = lx_account_registry_reserve(
@@ -684,26 +518,6 @@ lxp_result lxp_state_transition_apply_snapshot(
             } else {
                 if (location == store->count) ++store->count;
                 store->cells[location] = delta->after;
-            }
-        }
-        for (i = 0U; i < transition->idempotency_count; ++i) {
-            const lxp_state_idempotency_delta *delta =
-                &transition->idempotency[i];
-            const uint8_t *key = delta->before_present ?
-                                     delta->before.key_hash :
-                                     delta->after.key_hash;
-            size_t location = find_idempotency(store, key);
-            if (!delta->after_present) {
-                if (location + 1U < store->idempotency_count)
-                    (void)memmove(&store->idempotency[location],
-                                  &store->idempotency[location + 1U],
-                                  (store->idempotency_count - location - 1U) *
-                                      sizeof(store->idempotency[0]));
-                --store->idempotency_count;
-            } else {
-                if (location == store->idempotency_count)
-                    ++store->idempotency_count;
-                store->idempotency[location] = delta->after;
             }
         }
         for (i = 0U; i < transition->account_count; ++i) {
@@ -751,17 +565,12 @@ static bool snapshot_matches_store(const lxp_state_snapshot *snapshot,
     size_t i;
     if (!snapshot_canonical(snapshot) || !store_canonical(store) ||
         snapshot->store.count != store->count ||
-        snapshot->store.idempotency_count != store->idempotency_count ||
         snapshot->store.next_sequence != store->next_sequence ||
         snapshot->store.account_root_required != store->account_root_required ||
         (snapshot->store.accounts != NULL) != (store->accounts != NULL))
         return false;
     for (i = 0U; i < store->count; ++i)
         if (!cell_equal(&snapshot->store.cells[i], &store->cells[i]))
-            return false;
-    for (i = 0U; i < store->idempotency_count; ++i)
-        if (!idempotency_equal(&snapshot->store.idempotency[i],
-                               &store->idempotency[i]))
             return false;
     if (store->accounts == NULL) return true;
     if (snapshot->accounts.count != store->accounts->count) return false;
@@ -787,7 +596,6 @@ lxp_result lxp_state_publication_guard_begin(
         (base->store.accounts != NULL) !=
             (settled->store.accounts != NULL) ||
         settled->store.count > LXP_STATE_MAX_CELLS ||
-        settled->store.idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         (settled->store.accounts != NULL &&
          settled->accounts.count > LX_ACCOUNT_REGISTRY_CAPACITY))
         return LXP_ERR_NON_CANONICAL;
@@ -830,9 +638,8 @@ lxp_result lxp_state_publication_guard_begin(
         free(created);
         return LXP_ERR_CONTEXT_MISMATCH;
     }
-    status = settled->store.idempotency_count != 0U ?
-                 lxp_idempotency_reserve(live) : LXP_OK;
-    if (status == LXP_OK && live->accounts != NULL)
+    status = LXP_OK;
+    if (live->accounts != NULL)
         status = lx_account_registry_reserve(live->accounts,
                                              settled->accounts.count);
     if (status != LXP_OK) {
@@ -856,13 +663,6 @@ void lxp_state_snapshot_publish_guarded(lxp_state_publication_guard *guard)
     settled = guard->settled;
     live->count = settled->store.count;
     (void)memcpy(live->cells, settled->store.cells, sizeof(live->cells));
-    if (settled->store.idempotency_count != 0U) {
-        if (live->idempotency == NULL) abort();
-        (void)memcpy(live->idempotency, settled->store.idempotency,
-                     settled->store.idempotency_count *
-                         sizeof(live->idempotency[0]));
-    }
-    live->idempotency_count = settled->store.idempotency_count;
     live->next_sequence = settled->store.next_sequence;
     live->account_root_required = settled->store.account_root_required;
     if (live->accounts != NULL) {
@@ -929,16 +729,6 @@ lxp_result lxp_state_snapshot_restore(const lxp_state_snapshot *snapshot,
                                   memory_order_release);
         return LXP_ERR_IO;
     }
-    if (snapshot->store.idempotency_count != 0U) {
-        status = lxp_idempotency_reserve(live);
-        if (status != LXP_OK) {
-            if (pthread_mutex_unlock(&live->lock) != 0) abort();
-            if (guard.gateway_excluded)
-                atomic_store_explicit(&live->accounts->gateway_transition,
-                                      false, memory_order_release);
-            return status;
-        }
-    }
     guard.live = live;
     guard.settled = snapshot;
     guard.state_locked = true;
@@ -995,7 +785,6 @@ lxp_result lxp_state_journal_open(lxp_state_store *store,
     journal->global_sequence = global_sequence;
     journal->open = true;
     journal->account_root_required_before = store->account_root_required;
-    journal->has_idempotency = false;
     return LXP_OK;
 }
 
@@ -1053,17 +842,7 @@ lxp_result lxp_state_journal_commit(lxp_state_journal *journal)
     }
     if (new_cells > LXP_STATE_MAX_CELLS - journal->store->count)
         return LXP_ERR_ARENA_EXHAUSTED;
-    status = lxp_idempotency_can_commit(journal);
-    if (status != LXP_OK) return status;
     if (pthread_mutex_lock(&journal->store->lock) != 0) return LXP_ERR_IO;
-    if (journal->has_idempotency) {
-        status = lxp_idempotency_reserve(journal->store);
-        if (status != LXP_OK) {
-            if (pthread_mutex_unlock(&journal->store->lock) != 0)
-                return LXP_FATAL_INVARIANT;
-            return status;
-        }
-    }
     for (i = 0U; i < journal->count; ++i) {
         size_t location = find_cell(journal->store, journal->staged[i].key);
         if (location == journal->store->count) {
@@ -1073,7 +852,6 @@ lxp_result lxp_state_journal_commit(lxp_state_journal *journal)
         }
         journal->store->cells[location].value = journal->staged[i].value;
     }
-    lxp_idempotency_commit_staged(journal);
     ++journal->store->next_sequence;
     journal->open = false;
     if (pthread_mutex_unlock(&journal->store->lock) != 0)
@@ -1088,7 +866,6 @@ lxp_result lxp_state_journal_rollback(lxp_state_journal *journal)
     status = lxp_state_writer_assert_owner(journal->store);
     if (status != LXP_OK) return status;
     journal->count = 0U;
-    journal->has_idempotency = false;
     journal->store->account_root_required =
         journal->account_root_required_before;
     journal->open = false;
@@ -1106,103 +883,5 @@ lxp_result lxp_state_store_get(lxp_state_store *store, const uint8_t key[32],
     *found = location != store->count;
     if (*found) *value = store->cells[location].value;
     if (pthread_mutex_unlock(&store->lock) != 0) return LXP_FATAL_INVARIANT;
-    return LXP_OK;
-}
-
-static void disposition_put32(uint8_t *bytes, uint32_t value)
-{
-    bytes[0] = (uint8_t)(value >> 24);
-    bytes[1] = (uint8_t)(value >> 16);
-    bytes[2] = (uint8_t)(value >> 8);
-    bytes[3] = (uint8_t)value;
-}
-
-static void disposition_put64(uint8_t *bytes, uint64_t value)
-{
-    disposition_put32(bytes, (uint32_t)(value >> 32));
-    disposition_put32(bytes + 4, (uint32_t)value);
-}
-
-static uint32_t disposition_get32(const uint8_t *bytes)
-{
-    return ((uint32_t)bytes[0] << 24) | ((uint32_t)bytes[1] << 16) |
-           ((uint32_t)bytes[2] << 8) | (uint32_t)bytes[3];
-}
-
-static uint64_t disposition_get64(const uint8_t *bytes)
-{
-    return ((uint64_t)disposition_get32(bytes) << 32) |
-           (uint64_t)disposition_get32(bytes + 4);
-}
-
-static bool disposition_canonical(const lxp_queue_disposition *disposition)
-{
-    return disposition->admission_order != 0U &&
-           disposition->ordering_sequence != 0U &&
-           disposition->parameter_version >=
-               (uint32_t)LXP_FEE_TWO_CLASS_PARAMETER_VERSION &&
-           disposition->result_code != LXP_OK &&
-           !lxp_result_is_fatal(disposition->result_code);
-}
-
-bool lxp_queue_disposition_header(const uint8_t *bytes, size_t length)
-{
-    return bytes != NULL && length >= LXP_QUEUE_DISPOSITION_HEADER_BYTES &&
-           disposition_get32(bytes) == (uint32_t)LXP_QUEUE_DISPOSITION_MAGIC;
-}
-
-lxp_result lxp_queue_disposition_encode(const lxp_queue_disposition *disposition,
-    uint8_t bytes[LXP_QUEUE_DISPOSITION_BYTES])
-{
-    uint8_t *body = bytes + LXP_QUEUE_DISPOSITION_HEADER_BYTES;
-    if (disposition == NULL || bytes == NULL ||
-        !disposition_canonical(disposition))
-        return LXP_ERR_NON_CANONICAL;
-    memset(bytes, 0, LXP_QUEUE_DISPOSITION_BYTES);
-    disposition_put32(body, (uint32_t)disposition->result_code);
-    disposition_put32(body + 4, disposition->parameter_version);
-    disposition_put64(body + 8, disposition->ordering_sequence);
-    memcpy(body + 16, disposition->idempotency_key, 32U);
-    disposition_put32(bytes, (uint32_t)LXP_QUEUE_DISPOSITION_MAGIC);
-    bytes[4] = (uint8_t)(LXP_QUEUE_DISPOSITION_VERSION >> 8);
-    bytes[5] = (uint8_t)LXP_QUEUE_DISPOSITION_VERSION;
-    bytes[6] = (uint8_t)(LXP_QUEUE_DISPOSITION_HEADER_BYTES >> 8);
-    bytes[7] = (uint8_t)LXP_QUEUE_DISPOSITION_HEADER_BYTES;
-    disposition_put64(bytes + 8, disposition->admission_order);
-    disposition_put32(bytes + 16, LXP_QUEUE_DISPOSITION_BODY_BYTES);
-    disposition_put32(bytes + 20,
-        lxp_log_crc32c(body, LXP_QUEUE_DISPOSITION_BODY_BYTES));
-    memcpy(bytes + 24, disposition->activity_id, 32U);
-    disposition_put32(bytes + 56, lxp_log_crc32c(bytes, 56U));
-    return LXP_OK;
-}
-
-lxp_result lxp_queue_disposition_decode(const uint8_t *bytes, size_t length,
-    lxp_queue_disposition *disposition)
-{
-    const uint8_t *body;
-    lxp_queue_disposition decoded;
-    if (bytes == NULL || disposition == NULL ||
-        length != LXP_QUEUE_DISPOSITION_BYTES)
-        return LXP_ERR_NON_CANONICAL;
-    body = bytes + LXP_QUEUE_DISPOSITION_HEADER_BYTES;
-    if (!lxp_queue_disposition_header(bytes, length) ||
-        ((uint16_t)bytes[4] << 8 | bytes[5]) != LXP_QUEUE_DISPOSITION_VERSION ||
-        ((uint16_t)bytes[6] << 8 | bytes[7]) != LXP_QUEUE_DISPOSITION_HEADER_BYTES ||
-        disposition_get32(bytes + 16) != LXP_QUEUE_DISPOSITION_BODY_BYTES ||
-        disposition_get32(bytes + 20) !=
-            lxp_log_crc32c(body, LXP_QUEUE_DISPOSITION_BODY_BYTES) ||
-        disposition_get32(bytes + 56) != lxp_log_crc32c(bytes, 56U) ||
-        disposition_get32(bytes + 60) != 0U)
-        return LXP_ERR_LOG_CORRUPT;
-    memset(&decoded, 0, sizeof(decoded));
-    decoded.admission_order = disposition_get64(bytes + 8);
-    memcpy(decoded.activity_id, bytes + 24, 32U);
-    decoded.result_code = (lxp_result)(int32_t)disposition_get32(body);
-    decoded.parameter_version = disposition_get32(body + 4);
-    decoded.ordering_sequence = disposition_get64(body + 8);
-    memcpy(decoded.idempotency_key, body + 16, 32U);
-    if (!disposition_canonical(&decoded)) return LXP_ERR_LOG_CORRUPT;
-    *disposition = decoded;
     return LXP_OK;
 }

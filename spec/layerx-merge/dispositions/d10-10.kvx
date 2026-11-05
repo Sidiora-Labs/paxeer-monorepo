@@ -1,0 +1,29 @@
+[disposition.10.92.1.7]
+finding = "10.92.1.7"
+status = "open"
+evidence = "Current main still imports layerx_wire::encode::Encoder in sequencer_answer at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:474 and constructs encoders at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:504 and services/human/crates/layerx-human-service/tests/support/production_fixture.rs:516, matching the payload-encoding entry points banned at services/human/tools/boundary-check/src/lib.rs:61."
+follow_up = "10.1.4"
+
+[disposition.10.1.4.2]
+finding = "10.1.4.2"
+status = "open"
+evidence = "Current main still bans the live AuthorizedBatch type at services/human/tools/boundary-check/src/lib.rs:17 despite its definition at services/agent/crates/layerx-proof/src/receipt.rs:89 and journey-engine use at services/human/crates/layerx-human-service/src/journeys/engine.rs:20, while services/human/crates/layerx-human-kms/tests/attestor.rs:4 still imports framing through the retired lni path."
+follow_up = "10.1.4"
+
+[disposition.10.15.4.1]
+finding = "10.15.4.1"
+status = "resolved"
+evidence = "Commit 188e04c84 changes the three portable catalogue responses to AgentCreationJourney and OnboardingJourney, retained on current main at sdk/platform/conformance/operations.json:682, sdk/platform/conformance/operations.json:1082 and sdk/platform/conformance/operations.json:1092."
+follow_up = "closure"
+
+[disposition.10.20.6.1]
+finding = "10.20.6.1"
+status = "environment"
+evidence = "Commit 84569147b adds the qualification adapter for the environment lacking the router's Redis store, boundary, authority and client identity, with current main starting that adapter at services/human/crates/layerx-human-service/tests/production_unhooked.rs:202 and answering px_getNetwork from real CometBFT status and node quantities at services/human/crates/layerx-human-service/tests/production_unhooked.rs:386."
+follow_up = "closure"
+
+[disposition.10.3.2.3]
+finding = "10.3.2.3"
+status = "open"
+evidence = "Current main retains the SettlementDomain import, StreamJournal field and constructor parameter at services/human/crates/layerx-human-service/src/server/stream_journal.rs:6, services/human/crates/layerx-human-service/src/server/stream_journal.rs:73 and services/human/crates/layerx-human-service/src/server/stream_journal.rs:76, plus unused read parameters at services/human/crates/layerx-human-service/src/server/production_reads.rs:611 and services/human/crates/layerx-human-service/src/server/production_components.rs:296."
+follow_up = "10.1.4"

@@ -1,0 +1,125 @@
+[disposition.8.47.4.1]
+finding = "8.47.4.1"
+status = "resolved"
+evidence = "c11d15c58 removed the retired fixture groups from the pipeline lock, whose current conformance inventory at sdk/platform/pipeline.kvx:401 lists the retained lifecycle and sequencer vectors instead."
+
+[disposition.8.47.4.2]
+finding = "8.47.4.2"
+status = "resolved"
+evidence = "6de397283 removed the group-1 fixtures and C generators, and 88faddb09 removed the sibling receipt-programs-positive-v1/v2/v3 documents that still named the deleted generator."
+
+[disposition.8.47.5.1]
+finding = "8.47.5.1"
+status = "resolved"
+evidence = "d756f1d3b deleted generate_executed_program_v4_fixture.py, and c11d15c58 removed the deleted receipt-programs-executed-v3 fixture invocation and v4 generator import from generate_native_lifecycle_fixtures.py."
+
+[disposition.8.47.6.1]
+finding = "8.47.6.1"
+status = "resolved"
+evidence = "2e17b0fb1 removed the deleted v4 fixture readers from layerx-sdk program_http.rs, layerx-agentd ops/program.rs and the platform CLI programs.rs, with their continued absence covered by sdk/platform/conformance/kernel-fixtures-retired-4.test.py:4."
+
+[disposition.8.47.7.1]
+finding = "8.47.7.1"
+status = "resolved"
+evidence = "852c285cd recorded settlement.execution_commit at daemon/committed-fixture/vectors/vector-v4-committed.json:575, and 89a10387b published V4 and V5 using that execution commit separately from the successor commit."
+
+[disposition.8.47.7.2]
+finding = "8.47.7.2"
+status = "resolved"
+evidence = "89a10387b rebuilt V4 and the V5 committed bundle from the re-recorded settlement with both header commits, while 3cbd67668 corrected the remaining portable raw-transaction comparison through the block wrapper."
+
+[disposition.8.47.7.3]
+finding = "8.47.7.3"
+status = "resolved"
+evidence = "046c9c4c1 changed sdk/platform/go/committed.go:126 to hash the unwrapped EVM transaction for receipt identity while proving the original Cosmos block transaction against the Tendermint data root."
+
+[disposition.8.47.7.4]
+finding = "8.47.7.4"
+status = "resolved"
+evidence = "3cbd67668 changed sdk/platform/go/portable_receipt.go:137 to unwrap the inclusion transaction with committedEVMTransaction before comparing it with the portable receipt raw EVM transaction."
+
+[disposition.8.47.8.1]
+finding = "8.47.8.1"
+status = "resolved"
+evidence = "c27831fa2 added the log-position check retained at services/agent/crates/layerx-sdk/src/production.rs:580, so ResumableStream::accept refuses every event position less than or equal to its preceding cursor."
+
+[disposition.8.47.10.1]
+finding = "8.47.10.1"
+status = "open"
+evidence = "Although 2e17b0fb1 removed the layerx-sdk includes, sdk/platform/go/native_program_lifecycle_test.go:169 still opens deleted receipt-programs-positive-v3.json and services/agent/crates/layerx-proof/tests/terminal_v4.rs:65 still loads deleted v4 fixtures, leaving the broader consumer finding unresolved."
+follow_up = "22.9.7"
+
+[disposition.8.48.1.1]
+finding = "8.48.1.1"
+status = "resolved"
+evidence = "1794c3d55 ported the MCP checkpoint, proof and history readers to the new fields, waited for the hash returned by Wallet::execute and supplied SequencerAuthorization slices to Buyer::capture_settlement."
+
+[disposition.8.48.1.2]
+finding = "8.48.1.2"
+status = "resolved"
+evidence = "a3d452df1 replaced execute_write's removed send_activity call with signed EVM transaction submission, retained as client.send_raw_transaction at tools/platform/cli/src/wallet.rs:912."
+
+[disposition.8.49.1.1]
+finding = "8.49.1.1"
+status = "resolved"
+evidence = "a3d452df1 replaced the incompatible wallet fee-estimate and submission paths, with tools/platform/cli/src/wallet.rs:313 decoding eth_estimateGas quantities directly and :912 submitting signed raw transactions."
+
+[disposition.8.50.1.1]
+finding = "8.50.1.1"
+status = "resolved"
+evidence = "a3d452df1 repaired the shared wallet.rs prerequisite by replacing the obsolete SDK estimate_fee and send_activity calls with Ethereum fee quotation and raw transaction submission at tools/platform/cli/src/wallet.rs:313 and :912."
+
+[disposition.8.50.2.1]
+finding = "8.50.2.1"
+status = "resolved"
+evidence = "a3d452df1 removed the wallet.rs type mismatch, into_value on the obsolete fee result and missing send_activity call, with current fee quotation at tools/platform/cli/src/wallet.rs:313 and submission at :912."
+
+[disposition.8.50.3.1]
+finding = "8.50.3.1"
+status = "resolved"
+evidence = "9a72e6311 added RAW_TRANSACTION_SUBMIT and the alternate validation branch at services/agent/crates/layerx-mcp/src/catalogue.rs:462, admitting raw_transaction while retaining the prepared kernel argument form."
+
+[disposition.8.50.4.1]
+finding = "8.50.4.1"
+status = "resolved"
+evidence = "9f69b2e85 removed Client::post_activity as required, and spec/layerx-merge/spec.kvx:158652 now lists request, call and program_events_page without demanding the deleted post_activity symbol."
+
+[disposition.8.51.1.1]
+finding = "8.51.1.1"
+status = "resolved"
+evidence = "ff87197a6 removed open_native_feed and close_native_feed, and spec/layerx-merge/spec.kvx:158688 now names only the retained emulator_head_digest symbol introduced by 1e031117a."
+
+[disposition.8.51.2]
+finding = "8.51.2"
+status = "resolved"
+evidence = "c0b7a87ce removed the release-verification retention step's always() condition, while spec/layerx-merge/spec.kvx:158721 now lists only ReleaseGate and omits the deleted REPLAY_GATE and REPLAY_MACHINES constants."
+
+[disposition.8.51.2.2]
+finding = "8.51.2.2"
+status = "resolved"
+evidence = "c0b7a87ce removed the offending always() condition from the release-verification retention upload now at .github/workflows/platform.yml:1516 without widening the release validator's allowed conditions."
+
+[disposition.8.51.2.3]
+finding = "8.51.2.3"
+status = "resolved"
+evidence = "c0b7a87ce removed layerx-wire from tools/platform/release/registries.kvx:15 and removed the intended release-verification upload condition while preserving the separate always() condition at .github/workflows/platform.yml:94."
+
+[disposition.8.51.2.4]
+finding = "8.51.2.4"
+status = "resolved"
+evidence = "c0b7a87ce corrected the Go publication needle at tools/platform/release/src/main.rs:173 to refs/tags/sdk/platform/go/v, matching the module-path tag pushed by .github/workflows/platform.yml:1025."
+
+[disposition.8.52.1.1]
+finding = "8.52.1.1"
+status = "resolved"
+evidence = "1caaf68b8 removed the Python callback into real_paxd_boundary and the Rust current_exe argument, and services/platform/hosted/paxeer/tests/real_chain.py:15 now refuses qualification re-entry before launching child processes."
+
+[disposition.8.94.1.1]
+finding = "8.94.1.1"
+status = "resolved"
+evidence = "1794c3d55 ported the MCP read types, with services/agent/crates/layerx-mcp/src/tools/read.rs:212 reading checkpoint commit and validator_set bytes, :240 reading the new proof fields and :341 retaining HistoryValue.height."
+
+[disposition.8.94.1.2]
+finding = "8.94.1.2"
+status = "resolved"
+evidence = "a3d452df1 repaired the CLI wallet prerequisite, with tools/platform/cli/src/wallet.rs:313 using eth_estimateGas and :912 using send_raw_transaction in place of the incompatible fee-result and removed send_activity paths."

@@ -1,0 +1,363 @@
+[reconcile.r6-24]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 45
+
+[row.r6-24.1]
+interface = "interface.6.sol-ilayerxcustody-depositrootregistered-5caaa4e8"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 191
+symbol = "depositRootRegistered"
+evidence = "function depositRootRegistered(bytes32 checkpointId) external view returns (bool registered) remains declared at line 191. The retire status has not removed this consumer ABI declaration; source presence does not establish runtime availability at 0x1013."
+
+[row.r6-24.2]
+interface = "interface.6.sol-ilayerxcustody-depositregistrationdigest-2b19f162"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXCustody.sol"
+line = 194
+symbol = "depositRegistrationDigest"
+evidence = "function depositRegistrationDigest(bytes32 checkpointId) external view returns (bytes32 commitment) remains declared at line 194. The retire status has not removed this consumer ABI declaration; source presence does not establish runtime availability at 0x1013."
+
+[row.r6-24.3]
+interface = "interface.6.sol-ilayerxverify-verifyed25519-b23cd638"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXVerify.sol"
+line = 68
+symbol = "verifyEd25519"
+evidence = "verifyEd25519(bytes32 publicKey, uint8 domain, bytes calldata message, bytes calldata signature) external pure returns (bool valid) is still declared at lines 68-73. The retirement annotation describes intended removal, not absence of this Solidity ABI."
+
+[row.r6-24.4]
+interface = "interface.6.sol-ilayerxverify-verifyreceipt-582eecb5"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXVerify.sol"
+line = 76
+symbol = "verifyReceipt"
+evidence = "verifyReceipt(bytes calldata receipt, bytes32 sequencerPublicKey) external pure returns (ReceiptFacts memory facts) remains declared at lines 76-79. This retire row still has its consumer declaration; no claim of runtime support at 0x1012 follows."
+
+[row.r6-24.5]
+interface = "interface.6.sol-ilayerxverify-verifyreceiptinclusion-3f0de084"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXVerify.sol"
+line = 83
+symbol = "verifyReceiptInclusion"
+evidence = "verifyReceiptInclusion remains declared at lines 83-92 with receipt, proof, batchHeader, headerSignature, sequencerId, sequencerPublicKey, firstBatchNumber and lastBatchNumber, returning ReceiptFacts and BatchFacts. The retire status has not deleted this Solidity declaration."
+
+[row.r6-24.6]
+interface = "interface.6.sol-ilayerxverify-verifystateproof-e6038e69"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXVerify.sol"
+line = 95
+symbol = "verifyStateProof"
+evidence = "verifyStateProof(bytes calldata witness, bytes32 stateRoot) external pure returns (uint16 moduleId, bytes memory key, bytes memory value) remains at lines 95-98. The consumer interface persists despite the registry retire status."
+
+[row.r6-24.7]
+interface = "interface.6.sol-ilayerxverify-verifydiscoveryproof-2a5bdc60"
+verdict = "served"
+path = "contracts/src/precompiles/ILayerXVerify.sol"
+line = 102
+symbol = "verifyDiscoveryProof"
+evidence = "verifyDiscoveryProof(bytes calldata payload, bytes calldata proofMaterial, bytes32 programId, uint64 stalenessMs, bytes32 sequencerPublicKey) external pure returns (DiscoveryFacts memory head) remains at lines 102-108. This retire row still names a present Solidity ABI declaration."
+
+[row.r6-24.8]
+interface = "interface.6.sol-ixweb-fulfilprogram-2d4bf7ad"
+verdict = "served"
+path = "contracts/src/precompiles/IXWeb.sol"
+line = 111
+symbol = "fulfilProgram"
+evidence = "function fulfilProgram(bytes calldata observation) external remains the same ABI signature, now at line 111 with selector 0x2d4bf7ad documented above it. The change is dispatch support: precompiles/xweb/xweb.go:312-313 calls p.fulfilProgram, subject to ProgramOriginActive at lines 259-263, replacing the missing switch case noted by the registry."
+
+[row.r6-24.9]
+interface = "interface.6.sol-ixweb-getprogramresult-2b2e13fc"
+verdict = "served"
+path = "contracts/src/precompiles/IXWeb.sol"
+line = 128
+symbol = "getProgramResult"
+evidence = "function getProgramResult(bytes32 programId, uint64 requestId) external view returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes memory response) is unchanged in ABI and spans lines 128-131. The implementation changed: precompiles/xweb/xweb.go:314-315 now dispatches to p.getProgramResult after the program-origin activation check."
+
+[row.r6-24.10]
+interface = "interface.6.sol-ixweb-getkernelnetworkid-fc0d26f4"
+verdict = "served"
+path = "contracts/src/precompiles/IXWeb.sol"
+line = 134
+symbol = "getKernelNetworkId"
+evidence = "function getKernelNetworkId() external view returns (uint32 kernelNetworkId) keeps the registered signature at line 134. The missing dispatch has changed: precompiles/xweb/xweb.go:316-317 now calls p.getKernelNetworkId, gated by ProgramOriginActive; the adjacent Solidity comment distinguishes the kernel id from the EVM chain id."
+
+[row.r6-24.11]
+interface = "interface.6.gen-ibc-core-param-inbound-enabled"
+verdict = "served"
+path = "interchain/modules/core/types/params.go"
+line = 32
+symbol = "InboundEnabled"
+evidence = "ParamSetPairs binds KeyInboundEnabled to &p.InboundEnabled with validateBool at line 32; the bool field is now protobuf-generated in interchain/modules/core/types/params.pb.go:28. Its type, key and true default are unchanged. The genesis contract changed: core/genesis.go:16-19 restores supplied Params and :29-34 exports them, preserving inbound_enabled instead of always resetting it."
+
+[row.r6-24.12]
+interface = "interface.6.gen-ibc-core-param-outbound-enabled"
+verdict = "served"
+path = "interchain/modules/core/types/params.go"
+line = 33
+symbol = "OutboundEnabled"
+evidence = "ParamSetPairs binds KeyOutboundEnabled to &p.OutboundEnabled with validateBool at line 33; the bool field is now protobuf-generated in interchain/modules/core/types/params.pb.go:29. Its type, key and true default are unchanged. The genesis contract changed: core/genesis.go:16-19 restores supplied Params and :29-34 exports them, preserving outbound_enabled across export and import."
+
+[row.r6-24.13]
+interface = "interface.6.met-otel-evm-pending-nonce"
+verdict = "served"
+path = "modules/evm/ante/metrics.go"
+line = 30
+symbol = "evm_pending_nonce"
+evidence = "meter.Int64Counter(\"evm_pending_nonce\", description, metric.WithUnit(\"{count}\")) remains at lines 29-33 with the same instrument name and unit. The usage changed from the registry's never-recorded observation: modules/evm/ante/sig.go:91 and :95 call pendingNonce.Add with type attributes rejected and added."
+
+[row.r6-24.14]
+interface = "interface.6.cli-evm-tx-associate-address"
+verdict = "served"
+path = "modules/evm/client/cli/tx.go"
+line = 81
+symbol = "associate-address"
+evidence = "CmdAssociateAddress now declares Use: associate-address [optional priv key hex] --evm-rpc=<url> --from=<sender> at line 81. The CLI signature corrects --rpc to the registered --evm-rpc flag, resolving override.J34.7; the optional private-key argument remains."
+
+[row.r6-24.15]
+interface = "interface.6.cli-evm-tx-deploy"
+verdict = "served"
+path = "modules/evm/client/cli/tx.go"
+line = 231
+symbol = "deploy"
+evidence = "CmdDeployContract declares Use: deploy [path to binary] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> at line 231. The signature corrects the registry's --gas-limt typo to --gas-limit, as required by override.J34.3; FlagGas at line 42 names gas-limit."
+
+[row.r6-24.16]
+interface = "interface.6.cli-evm-tx-call-contract"
+verdict = "served"
+path = "modules/evm/client/cli/tx.go"
+line = 304
+symbol = "call-contract"
+evidence = "CmdCallContract declares Use: call-contract [addr] [payload hex] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> at line 304. The signature replaces --gas-limt with the actual --gas-limit flag, implementing override.J34.4; address, payload and value arguments remain."
+
+[row.r6-24.17]
+interface = "interface.6.cli-evm-tx-erc20-send"
+verdict = "served"
+path = "modules/evm/client/cli/tx.go"
+line = 374
+symbol = "erc20-send"
+evidence = "CmdERC20Send declares Use: erc20-send [addr] [recipient] [amount] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> at line 374. The signature corrects --gas-limt to --gas-limit per override.J34.5, retaining the three positional arguments."
+
+[row.r6-24.18]
+interface = "interface.6.cli-evm-tx-call-precompile"
+verdict = "served"
+path = "modules/evm/client/cli/tx.go"
+line = 467
+symbol = "call-precompile"
+evidence = "CmdCallPrecompile declares Use: call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> at line 467, correcting --gas-limt. RunE now calls BuildPrecompileCall at line 472; that helper resolves GetPrecompileInfoE and validates the ABI method and argument count before any key or RPC access."
+
+[row.r6-24.19]
+interface = "interface.6.cli-evm-tx-deploy-wpax"
+verdict = "served"
+path = "modules/evm/client/cli/tx.go"
+line = 541
+symbol = "deploy-wpax"
+evidence = "CmdDeployWPAX declares Use: deploy-wpax --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url> at line 541. The CLI signature corrects --gas-limt to --gas-limit as requested by override.J34.6; the command remains without positional arguments."
+
+[row.r6-24.20]
+interface = "interface.6.key-evm-accountfeedenomkeyprefix-j34"
+verdict = "served"
+path = "modules/evm/types/keys.go"
+line = 71
+symbol = "AccountFeeDenomKeyPrefix"
+evidence = "AccountFeeDenomKeyPrefix = []byte{0x23} remains declared at line 71 with unchanged prefix bytes. The persistence contract changed: modules/evm/genesis.go:82 and :162 include it in ExportGenesis and ExportGenesisStream, and :32 validates imported entries, addressing the registry's lost-preference observation."
+
+[row.r6-24.21]
+interface = "interface.6.go-layerxanchor-newappmodule-j35"
+verdict = "served"
+path = "modules/layerxanchor/module.go"
+line = 86
+symbol = "NewAppModule"
+evidence = "func NewAppModule(k keeper.Keeper, upgrades keeper.UpgradeReader) AppModule at line 86 adds the upgrades keeper.UpgradeReader parameter to the registered one-argument signature. The returned AppModule stores both keeper and upgrades for live retirement checks."
+
+[row.r6-24.22]
+interface = "interface.6.go-layerxanchor-appmodule-registerservices-j35"
+verdict = "served"
+path = "modules/layerxanchor/module.go"
+line = 98
+symbol = "RegisterServices"
+evidence = "func (am AppModule) RegisterServices(cfg module.Configurator) retains its signature at line 98. Its registration changed at line 99 to keeper.NewMsgServerImplWithUpgrades(am.keeper, am.upgrades), binding the gated message service and retaining a refusal route after anchor store deletion."
+
+[row.r6-24.23]
+interface = "interface.6.go-lxcustody-newproposalhandler-j36"
+verdict = "served"
+path = "modules/layerxcustody/handler.go"
+line = 21
+symbol = "NewProposalHandler"
+evidence = "func NewProposalHandler(k *keeper.Keeper) govtypes.Handler remains at line 21 with the same pointer-keeper signature. The returned handler now checks k.Retired(ctx) at lines 24-25 and returns types.ErrModuleRetired before inspecting proposal content or executing messages."
+
+[row.r6-24.24]
+interface = "interface.6.evt-layerxcustody-event-checkpoint-registered"
+verdict = "served"
+path = "modules/layerxcustody/keeper/anchor.go"
+line = 98
+symbol = "EventCheckpointRegistered"
+evidence = "RegisterCheckpoint emits types.EventCheckpointRegistered at lines 98-99 with BatchNumber, StateRoot and ReceiptRoot. Its entry checks k.Retired(ctx) at line 86, so this present historical emission remains behind the retirement refusal."
+
+[row.r6-24.25]
+interface = "interface.6.evt-layerxcustody-event-claim-queued"
+verdict = "served"
+path = "modules/layerxcustody/keeper/claims.go"
+line = 164
+symbol = "EventClaimQueued"
+evidence = "The claim reservation path emits types.EventClaimQueued at lines 164-167 with ClaimId, Nullifier, Kind, BatchNumber, AssetId, Recipient, Amount and AvailableAt. RequestWithdrawal and RequestForcedExit check retirement before reaching this path."
+
+[row.r6-24.26]
+interface = "interface.6.evt-layerxcustody-event-forced-exit-executed"
+verdict = "served"
+path = "modules/layerxcustody/keeper/claims.go"
+line = 202
+symbol = "EventForcedExitExecuted"
+evidence = "The forced-exit branch emits types.EventForcedExitExecuted at lines 202-204 with ClaimId, Nullifier, Anchor, Account, AssetId, Recipient and Amount. ExecuteForcedExit retains its retirement refusal at lines 462-463 before the release path."
+
+[row.r6-24.27]
+interface = "interface.6.evt-layerxcustody-event-claim-finalised"
+verdict = "served"
+path = "modules/layerxcustody/keeper/claims.go"
+line = 207
+symbol = "EventClaimFinalised"
+evidence = "The non-forced-exit release branch still emits types.EventClaimFinalised at lines 207-208 with ClaimId and Nullifier. FinaliseWithdrawal checks retirement at lines 293-294 before executing this historical release path."
+
+[row.r6-24.28]
+interface = "interface.6.evt-layerxcustody-event-custody-release"
+verdict = "served"
+path = "modules/layerxcustody/keeper/claims.go"
+line = 211
+symbol = "EventCustodyRelease"
+evidence = "The release path still emits types.EventCustodyRelease at lines 211-212 with ClaimId, AssetId, Recipient, Amount and Denom. Its withdrawal and forced-exit entry points check retirement before reaching the emission."
+
+[row.r6-24.29]
+interface = "interface.6.evt-layerxcustody-event-claim-cancelled"
+verdict = "served"
+path = "modules/layerxcustody/keeper/claims.go"
+line = 554
+symbol = "EventClaimCancelled"
+evidence = "CancelClaim still emits types.EventClaimCancelled{ClaimId: claim.ClaimId, Nullifier: claim.Nullifier} at line 554 after releasing pending totals. The function refuses retired custody at lines 509-510."
+
+[row.r6-24.30]
+interface = "interface.6.evt-layerxcustody-event-custody-deposit"
+verdict = "served"
+path = "modules/layerxcustody/keeper/deposit.go"
+line = 114
+symbol = "EventCustodyDeposit"
+evidence = "Deposit emits types.EventCustodyDeposit at lines 114-117 with DepositId, AssetId, Payer, Beneficiary, Amount, Nonce, Index and Denom on the cached context. The public Deposit entry checks retirement at lines 66-67."
+
+[row.r6-24.31]
+interface = "interface.6.evt-layerxcustody-event-deposit-root-registered"
+verdict = "served"
+path = "modules/layerxcustody/keeper/deposit_root.go"
+line = 103
+symbol = "EventDepositRootRegistered"
+evidence = "RegisterDepositRoot still emits types.EventDepositRootRegistered at lines 103-104 with CheckpointId, DepositRoot and Commitment after storing the registration. Its entry checks retirement at lines 58-59."
+
+[row.r6-24.32]
+interface = "interface.6.evt-layerxcustody-event-emergency-set"
+verdict = "served"
+path = "modules/layerxcustody/keeper/keeper.go"
+line = 116
+symbol = "EventEmergencySet"
+evidence = "SetEmergency still emits types.EventEmergencySet{Enabled: enabled} at line 116 after updating the emergency key. The entry checks k.Retired(ctx) at lines 108-109, retaining the registry's historical-only event behavior."
+
+[row.r6-24.33]
+interface = "interface.6.go-lxcustody-keeper-newmsgserverimpl-j36"
+verdict = "served"
+path = "modules/layerxcustody/keeper/msg_server.go"
+line = 15
+symbol = "NewMsgServerImpl"
+evidence = "func NewMsgServerImpl(k *Keeper) types.MsgServer { return msgServer{k} } remains at line 15 with the registered signature. Its service behavior changed: each message reads retirement through the supplied SDK context, for example UpdateParams at lines 20-22 returns ErrModuleRetired before any mutation."
+
+[row.r6-24.34]
+interface = "interface.6.go-layerxgov-newlayerxproposal-j35"
+verdict = "served"
+path = "modules/layerxgov/types/proposal.go"
+line = 91
+symbol = "NewLayerXProposal"
+evidence = "func NewLayerXProposal(title, description string, msgs ...sdk.Msg) (*LayerXProposal, error) keeps the registered signature at line 91. The accepted message set changed: the constructor validates through governanceMessage at line 94, whose case *pay.MsgUpdateParams at lines 233-234 returns the layerxpay authority."
+
+[row.r6-24.35]
+interface = "interface.6.cli-tokenfactory-query-root"
+verdict = "served"
+path = "modules/tokenfactory/client/cli/query.go"
+line = 16
+symbol = "GetQueryCmd"
+evidence = "func GetQueryCmd() *cobra.Command still builds the paxd query tokenfactory root with Use: types.ModuleName. The command surface changed at lines 26-33: GetCmdDenomPaused, GetCmdDenomMetadata and GetCmdDenomAllowList are now registered beside the existing queries, resolving override.J35.4 without changing the root name."
+
+[row.r6-24.36]
+interface = "interface.6.cli-tokenfactory-tx-root"
+verdict = "served"
+path = "modules/tokenfactory/client/cli/tx.go"
+line = 36
+symbol = "GetTxCmd"
+evidence = "func GetTxCmd() *cobra.Command at line 36 still builds the paxd tx tokenfactory root with Use: types.ModuleName. Its subcommand signature set changed: NewSetDenomPausedCmd is registered at line 52, addressing override.J35.5 while keeping the root command name."
+
+[row.r6-24.37]
+interface = "interface.6.go-tokenfactory-paxtokenfactoryquery-j35"
+verdict = "served"
+path = "modules/tokenfactory/client/wasm/bindings/queries.go"
+line = 5
+symbol = "PaxTokenFactoryQuery"
+evidence = "type PaxTokenFactoryQuery struct at line 5 now adds DenomPaused *types.QueryDenomPausedRequest with json tag denom_paused,omitempty at line 10 to DenomAuthorityMetadata and DenomsFromCreator. Validate at line 19 rejects multiple simultaneous variants."
+
+[row.r6-24.38]
+interface = "interface.6.go-tokenfactory-setissuerdid-j35"
+verdict = "served"
+path = "modules/tokenfactory/keeper/admins.go"
+line = 57
+symbol = "SetIssuerDid"
+evidence = "func (k Keeper) SetIssuerDid(ctx sdk.Context, denom string, issuerDid string) error retains its signature at line 57. Its observable contract changed at lines 75-79: successful new binding emits EventTypeSetIssuerDid with denom and issuer_did; rebinding the same issuer returns without a new event."
+
+[row.r6-24.39]
+interface = "interface.6.go-tokenfactory-initgenesis-j35"
+verdict = "served"
+path = "modules/tokenfactory/keeper/genesis.go"
+line = 11
+symbol = "InitGenesis"
+evidence = "func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) keeps its signature at line 11. The consumed genesis shape changed to include PausedDenoms: lines 18-24 validate the input and lines 46-52 restore paused flags with setDenomPaused after factory denoms and metadata are created."
+
+[row.r6-24.40]
+interface = "interface.6.go-tokenfactory-exportgenesis-j35"
+verdict = "served"
+path = "modules/tokenfactory/keeper/genesis.go"
+line = 57
+symbol = "ExportGenesis"
+evidence = "func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState retains its signature, now at line 57. The returned genesis shape changed at lines 75-79 to include PausedDenoms: k.GetPausedDenoms(ctx) alongside FactoryDenoms and Params, preserving pause state for re-import."
+
+[row.r6-24.41]
+interface = "interface.6.go-tokenfactory-newkeeper-j35"
+verdict = "served"
+path = "modules/tokenfactory/keeper/keeper.go"
+line = 26
+symbol = "NewKeeper"
+evidence = "func NewKeeper(_ codec.Codec, storeKey sdk.StoreKey, paramSpace paramtypes.Subspace, accountKeeper types.AccountKeeper, bankKeeper types.BankKeeper) Keeper spans lines 26-32. The signature drops the unused distrKeeper types.DistrKeeper parameter and names the retained unused codec parameter _, matching the reduced Keeper fields."
+
+[row.r6-24.42]
+interface = "interface.6.go-tokenfactory-appmodule-registerinvariants-j35"
+verdict = "served"
+path = "modules/tokenfactory/module.go"
+line = 163
+symbol = "RegisterInvariants"
+evidence = "func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) at line 163 replaces the ignored _ parameter name with ir, keeping the same parameter type. The formerly empty body now calls keeper.RegisterInvariants(ir, am.keeper); keeper/invariants.go:11 registers PausedDenomsInvariant on the paused-denoms route."
+
+[row.r6-24.43]
+interface = "interface.6.go-tokenfactory-bankkeeper-j35"
+verdict = "served"
+path = "modules/tokenfactory/types/expected_keepers.go"
+line = 9
+symbol = "BankKeeper"
+evidence = "type BankKeeper interface remains at line 9 with its method set trimmed to nine methods: GetDenomMetaData, SetDenomMetaData, SetDenomAllowList, GetDenomAllowList, HasSupply, SendCoinsFromModuleToAccount, SendCoinsFromAccountToModule, MintCoins and BurnCoins. The interface name is unchanged; lines 11-23 expose only this retained set."
+
+[row.r6-24.44]
+interface = "interface.6.go-tokenfactory-genesisstate-validate-j35"
+verdict = "served"
+path = "modules/tokenfactory/types/genesis.go"
+line = 23
+symbol = "Validate"
+evidence = "func (gs GenesisState) Validate() error keeps its signature at line 23. Validation now calls denom.AuthorityMetadata.Validate at line 43 and checks PausedDenoms at lines 48-55, refusing unknown and duplicate paused denoms; the accepted genesis shape therefore includes validated paused_denoms and authority metadata."
+
+[row.r6-24.45]
+interface = "interface.6.evt-tokenfactory-set-denom-paused"
+verdict = "served"
+path = "modules/tokenfactory/types/msgs.go"
+line = 17
+symbol = "set_denom_paused"
+evidence = "TypeMsgSetDenomPaused = set_denom_paused remains at line 17, with the shared wire literal declared in types/events.go:4. The event shape changed from set_denom_paused(denom, paused): keeper/issuer.go:31-35 emits denom, paused and issuer_did on the issuer path, implementing override.J35.2; keeper/msg_server.go retains denom and paused on the admin path."

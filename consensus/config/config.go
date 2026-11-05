@@ -137,8 +137,14 @@ func (cfg *Config) ValidateBasic() error {
 	if err := cfg.BaseConfig.ValidateBasic(); err != nil {
 		return err
 	}
+	if err := cfg.PrivValidator.ValidateBasic(); err != nil {
+		return fmt.Errorf("error in [priv-validator] section: %w", err)
+	}
 	if err := cfg.RPC.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [rpc] section: %w", err)
+	}
+	if err := cfg.P2P.ValidateBasic(); err != nil {
+		return fmt.Errorf("error in [p2p] section: %w", err)
 	}
 	if err := cfg.Mempool.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [mempool] section: %w", err)
@@ -148,6 +154,9 @@ func (cfg *Config) ValidateBasic() error {
 	}
 	if err := cfg.Consensus.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [consensus] section: %w", err)
+	}
+	if cfg.Consensus.Sequencer.Enable && cfg.AutobahnConfigFile != "" {
+		return errors.New("error in [consensus] section: sequencer mode does not run with autobahn-config-file")
 	}
 	if err := cfg.Instrumentation.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [instrumentation] section: %w", err)
@@ -349,7 +358,7 @@ type PrivValidatorConfig struct {
 	ListenAddr string `mapstructure:"laddr"`
 
 	// Client certificate generated while creating needed files for secure connection.
-	// If a remote validator address is provided but no certificate, the connection will be insecure
+	// All three TLS files are required unless Insecure is explicitly selected.
 	ClientCertificate string `mapstructure:"client-certificate-file"`
 
 	// Client key generated while creating certificates for secure connection
@@ -357,6 +366,9 @@ type PrivValidatorConfig struct {
 
 	// Path Root Certificate Authority used to sign both client and server certificates
 	RootCA string `mapstructure:"root-ca-file"`
+
+	// Insecure explicitly permits plaintext gRPC when no TLS files are configured.
+	Insecure bool `mapstructure:"insecure"`
 }
 
 // DefaultBaseConfig returns a default private validator configuration
@@ -404,6 +416,23 @@ func (cfg *PrivValidatorConfig) AreSecurityOptionsPresent() bool {
 	default:
 		return true
 	}
+}
+
+func (cfg *PrivValidatorConfig) ValidateBasic() error {
+	if cfg == nil {
+		return errors.New("missing private validator configuration")
+	}
+	anyTLS := cfg.ClientCertificate != "" || cfg.ClientKey != "" || cfg.RootCA != ""
+	if anyTLS && !cfg.AreSecurityOptionsPresent() {
+		return errors.New("private validator TLS requires certificate, key and root CA files")
+	}
+	if anyTLS && cfg.Insecure {
+		return errors.New("private validator TLS cannot be combined with insecure transport")
+	}
+	if strings.HasPrefix(cfg.ListenAddr, "grpc://") && !anyTLS && !cfg.Insecure {
+		return errors.New("private validator gRPC requires TLS or explicit insecure transport")
+	}
+	return nil
 }
 
 //-----------------------------------------------------------------------------
@@ -959,10 +988,19 @@ func (cfg *MempoolConfig) ValidateBasic() error {
 	if cfg.CheckTxErrorThreshold < 0 {
 		return errors.New("check-tx-error-threshold can't be negative")
 	}
-	if cfg.DropPriorityThreshold < 0 {
-		return errors.New("drop-priority-threshold can't be negative")
+	if cfg.PendingSize < 0 {
+		return errors.New("pending-size can't be negative")
 	}
-	if cfg.DropUtilisationThreshold < 0.0 || cfg.DropUtilisationThreshold > 1.0 {
+	if cfg.MaxPendingTxsBytes < 0 {
+		return errors.New("max-pending-txs-bytes can't be negative")
+	}
+	if cfg.DropPriorityReservoirSize <= 0 {
+		return errors.New("drop-priority-reservoir-size must be positive")
+	}
+	if math.IsNaN(cfg.DropPriorityThreshold) || cfg.DropPriorityThreshold < 0.0 || cfg.DropPriorityThreshold > 1.0 {
+		return errors.New("drop-priority-threshold must be between 0.0 and 1.0")
+	}
+	if math.IsNaN(cfg.DropUtilisationThreshold) || cfg.DropUtilisationThreshold < 0.0 || cfg.DropUtilisationThreshold > 1.0 {
 		return errors.New("drop-utilisation-threshold must be between 0.0 and 1.0")
 	}
 

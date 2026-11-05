@@ -13,9 +13,10 @@ import (
 var ZeroInt = uint256.NewInt(0)
 
 func (s *DBImpl) SubBalance(evmAddr common.Address, amtUint256 *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
+	previous := *s.GetBalance(evmAddr)
 	amt := amtUint256.ToBig()
 	if amt.Sign() == 0 {
-		return *ZeroInt
+		return previous
 	}
 	if amt.Sign() < 0 {
 		return s.AddBalance(evmAddr, new(uint256.Int).Neg(amtUint256), reason)
@@ -47,21 +48,20 @@ func (s *DBImpl) SubBalance(evmAddr common.Address, amtUint256 *uint256.Int, rea
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		// We could modify AddWei instead so it returns us the old/new balance directly.
 		newBalance := s.GetBalance(evmAddr).ToBig()
-		oldBalance := new(big.Int).Add(newBalance, amt)
-
-		s.logger.OnBalanceChange(evmAddr, oldBalance, newBalance, reason)
+		s.logger.OnBalanceChange(evmAddr, previous.ToBig(), newBalance, reason)
 	}
 
 	surplus := sdk.NewIntFromBigInt(amt)
 	s.tempState.surplus = s.tempState.surplus.Add(surplus)
 	s.journal = append(s.journal, &surplusChange{delta: surplus})
-	return *ZeroInt
+	return previous
 }
 
 func (s *DBImpl) AddBalance(evmAddr common.Address, amtUint256 *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
+	previous := *s.GetBalance(evmAddr)
 	amt := amtUint256.ToBig()
 	if amt.Sign() == 0 {
-		return *ZeroInt
+		return previous
 	}
 	if amt.Sign() < 0 {
 		return s.SubBalance(evmAddr, new(uint256.Int).Neg(amtUint256), reason)
@@ -89,15 +89,13 @@ func (s *DBImpl) AddBalance(evmAddr common.Address, amtUint256 *uint256.Int, rea
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		// We could modify AddWei instead so it returns us the old/new balance directly.
 		newBalance := s.GetBalance(evmAddr).ToBig()
-		oldBalance := new(big.Int).Sub(newBalance, amt)
-
-		s.logger.OnBalanceChange(evmAddr, oldBalance, newBalance, reason)
+		s.logger.OnBalanceChange(evmAddr, previous.ToBig(), newBalance, reason)
 	}
 
 	surplus := sdk.NewIntFromBigInt(amt).Neg()
 	s.tempState.surplus = s.tempState.surplus.Add(surplus)
 	s.journal = append(s.journal, &surplusChange{delta: surplus})
-	return *ZeroInt
+	return previous
 }
 
 func (s *DBImpl) GetBalance(evmAddr common.Address) *uint256.Int {

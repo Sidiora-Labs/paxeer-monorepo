@@ -1,4 +1,4 @@
-"""EIP-1559 (type 2) transactions for the Paxeer X Network.
+"""EIP-1559 transactions and recorded EIP-155 payments for the Paxeer X Network.
 
 Canonical RLP encode and decode, the signing digest, signature attachment with
 signer recovery, the activity id of a signed transaction and ABI calldata for
@@ -123,6 +123,26 @@ def _unsigned(value: object, bits: int) -> int:
     return value
 
 
+def _recover_signer(digest: bytes, signature: bytes) -> str:
+    try:
+        if (
+            type(signature) is not bytes
+            or len(signature) != 65
+            or signature[64] not in (27, 28)
+            or normalize_wallet_signature(signature) != signature
+        ):
+            raise EvmTransactionError("invalid_signature")
+        public = _recover(
+            digest,
+            int.from_bytes(signature[:32], "big"),
+            int.from_bytes(signature[32:64], "big"),
+            signature[64] - 27,
+        )
+    except AccountDerivationError:
+        raise EvmTransactionError("invalid_signature") from None
+    return _evm_address(public)
+
+
 @dataclass(frozen=True)
 class Type2Transaction:
     """An unsigned EIP-1559 call with an empty access list."""
@@ -196,23 +216,7 @@ class Type2Transaction:
 
         v must be 27 or 28 and s must be low; anything else is refused.
         """
-        try:
-            if (
-                type(signature) is not bytes
-                or len(signature) != 65
-                or signature[64] not in (27, 28)
-                or normalize_wallet_signature(signature) != signature
-            ):
-                raise EvmTransactionError("invalid_signature")
-            public = _recover(
-                self.signing_digest(),
-                int.from_bytes(signature[:32], "big"),
-                int.from_bytes(signature[32:64], "big"),
-                signature[64] - 27,
-            )
-        except AccountDerivationError:
-            raise EvmTransactionError("invalid_signature") from None
-        return _evm_address(public)
+        return _recover_signer(self.signing_digest(), signature)
 
     def attach_signature(self, signature: bytes, expected_signer: str) -> bytes:
         """The signed raw bytes, once ``signature`` recovers to ``expected_signer``."""
@@ -248,6 +252,100 @@ def decode_signed(raw: bytes) -> tuple[Type2Transaction, bytes]:
         fields[10].rjust(32, b"\x00")
         + fields[11].rjust(32, b"\x00")
         + bytes([27 + len(fields[9])])
+    )
+    try:
+        if normalize_wallet_signature(signature) != signature:
+            raise EvmTransactionError("invalid_signature")
+    except AccountDerivationError:
+        raise EvmTransactionError("invalid_signature") from None
+    return transaction, signature
+
+
+@dataclass(frozen=True)
+class LegacyTransaction:
+    """A replay-protected EIP-155 transaction recorded by the node producer."""
+
+    chain_id: int
+    nonce: int
+    gas_price: int
+    gas_limit: int
+    to: bytes
+    value: int
+    data: bytes
+
+    def __post_init__(self) -> None:
+        _unsigned(self.chain_id, 64)
+        _unsigned(self.nonce, 64)
+        _unsigned(self.gas_price, 256)
+        _unsigned(self.gas_limit, 64)
+        _unsigned(self.value, 256)
+        if (
+            self.chain_id == 0
+            or self.gas_limit == 0
+            or type(self.to) is not bytes
+            or len(self.to) != 20
+            or type(self.data) is not bytes
+        ):
+            raise EvmTransactionError("invalid_transaction")
+
+    def _fields(self) -> tuple:
+        return (
+            _rlp_integer(self.nonce),
+            _rlp_integer(self.gas_price),
+            _rlp_integer(self.gas_limit),
+            self.to,
+            _rlp_integer(self.value),
+            self.data,
+        )
+
+    def signing_digest(self) -> bytes:
+        return keccak256(
+            _rlp(self._fields() + (_rlp_integer(self.chain_id), b"", b""))
+        )
+
+    def recover_signer(self, signature: bytes) -> str:
+        return _recover_signer(self.signing_digest(), signature)
+
+
+def decode_signed_transaction(raw: bytes) -> tuple[Type2Transaction | LegacyTransaction, bytes]:
+    """Decode a type-2 call or a canonical replay-protected EIP-155 call.
+
+    The type-2-only decoder remains strict. Unprotected legacy signatures,
+    unknown typed envelopes and noncanonical RLP are refused here too.
+    """
+    if type(raw) is not bytes or not raw:
+        raise EvmTransactionError("invalid_transaction")
+    if raw[0] == TRANSACTION_TYPE:
+        return decode_signed(raw)
+    if raw[0] < 192:
+        raise EvmTransactionError("invalid_transaction")
+    fields = _rlp_decode(raw)
+    if len(fields) != 9 or any(type(value) is not bytes for value in fields):
+        raise EvmTransactionError("invalid_transaction")
+    for index, bits in ((0, 64), (1, 256), (2, 64), (4, 256), (6, 72)):
+        value = fields[index]
+        if len(value) > bits // 8 or value[:1] == b"\x00":
+            raise EvmTransactionError("invalid_transaction")
+    v = int.from_bytes(fields[6], "big")
+    if v < 37:
+        raise EvmTransactionError("invalid_signature")
+    chain_id, parity = divmod(v - 35, 2)
+    transaction = LegacyTransaction(
+        chain_id,
+        int.from_bytes(fields[0], "big"),
+        int.from_bytes(fields[1], "big"),
+        int.from_bytes(fields[2], "big"),
+        fields[3],
+        int.from_bytes(fields[4], "big"),
+        fields[5],
+    )
+    for value in fields[7:]:
+        if len(value) > 32 or value[:1] == b"\x00":
+            raise EvmTransactionError("invalid_signature")
+    signature = (
+        fields[7].rjust(32, b"\x00")
+        + fields[8].rjust(32, b"\x00")
+        + bytes([27 + parity])
     )
     try:
         if normalize_wallet_signature(signature) != signature:
@@ -386,3 +484,47 @@ def encode_call(selector: str, types: Sequence[str], values: Sequence[object]) -
     return keccak256(signature.encode())[:4] + _sequence(
         kinds, _items(values, len(kinds))
     )
+
+
+def decode_abi(types: Sequence[str], data: bytes) -> tuple[object, ...]:
+    """Decode a canonical sequence of static ABI scalar values."""
+    if type(data) is not bytes or len(data) != _WORD * len(types):
+        raise EvmTransactionError("invalid_abi_length")
+    kinds: list[_AbiType] = []
+    values: list[object] = []
+    for index, kind in enumerate(types):
+        if type(kind) is not str:
+            raise EvmTransactionError("invalid_abi_type")
+        parsed = _parse(kind)
+        if not isinstance(parsed, str) or _dynamic(parsed):
+            raise EvmTransactionError("invalid_abi_type", kind)
+        kinds.append(parsed)
+        start = index * _WORD
+        word = data[start : start + _WORD]
+        if kind.startswith("uint"):
+            value = int.from_bytes(word, "big")
+        elif kind.startswith("bytes"):
+            value = word[: int(kind[5:])]
+        elif kind == "address":
+            value = word[-20:]
+        else:
+            number = int.from_bytes(word, "big")
+            if number not in (0, 1):
+                raise EvmTransactionError("invalid_abi_value", kind)
+            value = bool(number)
+        values.append(value)
+    if _sequence(kinds, values) != data:
+        raise EvmTransactionError("noncanonical_abi_value")
+    return tuple(values)
+
+
+def decode_call(
+    selector: str, types: Sequence[str], calldata: bytes
+) -> tuple[object, ...]:
+    """Decode canonical calldata whose arguments are static ABI scalar types."""
+    if type(calldata) is not bytes or len(calldata) < 4:
+        raise EvmTransactionError("invalid_abi_length")
+    values = decode_abi(types, calldata[4:])
+    if encode_call(selector, types, values) != calldata:
+        raise EvmTransactionError("noncanonical_abi_call")
+    return values

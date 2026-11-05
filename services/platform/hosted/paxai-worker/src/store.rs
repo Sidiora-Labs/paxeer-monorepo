@@ -11,8 +11,11 @@
 //! queries by request id; `markers/<marker>` = `envelope_digest32 || expiry:u64 ||
 //! recorded_ms:u64`; `tombstones/<key>` = `H(key || request_commitment)`.
 //! A job directory appears through one atomic rename of a fully written staging directory.
-use crate::auth::{decode_service, Admission, ServiceContext, ServiceError, ServiceRequest};
+use crate::auth::{
+    decode_service, Admission, EvaluationAccess, ServiceContext, ServiceError, ServiceRequest,
+};
 use crate::jobs::Outcome;
+use ed25519_dalek::SigningKey;
 use layerx_programs_ai_market::{
     codec::{self, Reader},
     errors::{ApplicationError, CodecResult, ARITHMETIC, NON_CANONICAL},
@@ -24,6 +27,7 @@ use layerx_programs_ai_market::{
 };
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, ErrorKind, Write};
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 pub const MAX_REFERENCE_BYTES: usize = 4_096;
@@ -451,6 +455,97 @@ impl JobStore {
         Ok(store)
     }
 
+    /// Persist a delegate before it signs an admission. Keys are never put in job records,
+    /// and the private directory and every key file are accessible only by this OS user.
+    pub fn retain_signing_key(&self, key: &SigningKey) -> Result<(), ServiceError> {
+        let _lock = self.lock()?;
+        let directory = self.root.join("delegates");
+        match fs::DirBuilder::new().mode(0o700).create(&directory) {
+            Ok(()) => sync_directory(&self.root)?,
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
+            Err(_) => return Err(ServiceError::ExecutionUnavailable),
+        }
+        let metadata = fs::symlink_metadata(&directory).durable()?;
+        if !metadata.is_dir() || metadata.permissions().mode() & 0o077 != 0 {
+            return Err(ServiceError::ExecutionUnavailable);
+        }
+        let path = directory.join(hex(&key.verifying_key().to_bytes()));
+        if present(&path)? {
+            let saved = self.signing_key(PublicKey32(key.verifying_key().to_bytes()))?;
+            if saved.to_bytes() != key.to_bytes() {
+                return Err(ServiceError::BadSignature);
+            }
+            return Ok(());
+        }
+        let temporary = directory.join("pending");
+        // An interrupted write is never a published key; the store lock fences replicas.
+        if present(&temporary)? {
+            fs::remove_file(&temporary).durable()?;
+        }
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temporary)
+            .durable()?;
+        file.write_all(&key.to_bytes()).durable()?;
+        file.sync_all().durable()?;
+        fs::rename(&temporary, &path).durable()?;
+        sync_directory(&directory)
+    }
+
+    pub fn signing_key(&self, delegate: PublicKey32) -> Result<SigningKey, ServiceError> {
+        let directory = self.root.join("delegates");
+        let metadata = fs::symlink_metadata(&directory).durable()?;
+        if !metadata.is_dir() || metadata.permissions().mode() & 0o077 != 0 {
+            return Err(ServiceError::ExecutionUnavailable);
+        }
+        let path = directory.join(hex(&delegate.0));
+        let metadata = fs::symlink_metadata(&path).durable()?;
+        if !metadata.is_file() || metadata.permissions().mode() & 0o077 != 0 || metadata.len() != 32
+        {
+            return Err(ServiceError::ExecutionUnavailable);
+        }
+        let seed: [u8; 32] = fs::read(path)
+            .durable()?
+            .try_into()
+            .map_err(|_| ServiceError::ExecutionUnavailable)?;
+        let key = SigningKey::from_bytes(&seed);
+        if key.verifying_key().to_bytes() != delegate.0 {
+            return Err(ServiceError::BadSignature);
+        }
+        Ok(key)
+    }
+
+    pub fn retain_evaluation_access(
+        &self,
+        commitment: Digest32,
+        bytes: &[u8],
+    ) -> Result<(), ServiceError> {
+        EvaluationAccess::decode(bytes, commitment)?;
+        let _lock = self.lock()?;
+        let directory = self.root.join("evaluation-access");
+        fs::create_dir_all(&directory).durable()?;
+        sync_directory(&self.root)?;
+        let path = directory.join(hex(commitment.as_bytes()));
+        write_once(&path, bytes)?;
+        EvaluationAccess::decode(&fs::read(path).durable()?, commitment)?;
+        Ok(())
+    }
+
+    pub fn evaluation_access(
+        &self,
+        commitment: Digest32,
+    ) -> Result<EvaluationAccess, ServiceError> {
+        let bytes = fs::read(
+            self.root
+                .join("evaluation-access")
+                .join(hex(commitment.as_bytes())),
+        )
+        .durable()?;
+        EvaluationAccess::decode(&bytes, commitment)
+    }
+
     fn lock(&self) -> Result<File, ServiceError> {
         // ponytail: one store-wide lock serializes every replica; shard by key prefix if
         // admission throughput ever needs it.
@@ -561,6 +656,21 @@ impl JobStore {
         bytes[32..].copy_from_slice(request.as_bytes());
         let digest = codec::domain_hash(REQUEST_DOMAIN, &bytes)?;
         Ok(self.root.join("requests").join(hex(digest.as_bytes())))
+    }
+
+    /// Durable admissions indexed by job key, including locally final jobs awaiting chain settlement.
+    pub fn tracked(&self) -> Result<Vec<JobKey>, ServiceError> {
+        let _lock = self.lock()?;
+        let mut keys = Vec::new();
+        for entry in fs::read_dir(self.root.join("jobs")).durable()? {
+            let name = entry.durable()?.file_name();
+            if let Some(key) = name.to_str().and_then(JobKey::parse) {
+                if !self.tombstoned(key)? {
+                    keys.push(key);
+                }
+            }
+        }
+        Ok(keys)
     }
 
     /// The saved job under `key`, if any.
@@ -884,6 +994,16 @@ impl JobStore {
     /// # Errors
     /// `ExecutionUnavailable` on store failure.
     pub fn purge(&self, now_ms: u64, height: u64) -> Result<usize, ServiceError> {
+        self.purge_where(now_ms, height, |_| Ok(true))
+    }
+
+    /// Purge only locally final, retained jobs whose chain obligations are settled.
+    pub fn purge_where(
+        &self,
+        now_ms: u64,
+        height: u64,
+        settled: impl Fn(&Job) -> Result<bool, ServiceError>,
+    ) -> Result<usize, ServiceError> {
         let _lock = self.lock()?;
         let mut purged = 0;
         for entry in fs::read_dir(self.root.join("jobs")).durable()? {
@@ -892,7 +1012,10 @@ impl JobStore {
                 continue;
             };
             let job = self.load(key)?;
-            if !job.state.state.is_final() || !retention_over(job.state.changed_ms, now_ms) {
+            if !job.state.state.is_final()
+                || !retention_over(job.state.changed_ms, now_ms)
+                || !settled(&job)?
+            {
                 continue;
             }
             let mut bytes = [0; 64];

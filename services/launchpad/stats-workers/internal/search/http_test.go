@@ -198,7 +198,10 @@ func TestExpandedHTTPSuccessfulMultilingualAndDeletedProfileCorpus(t *testing.T)
 		if profile.Public {
 			visibility = "public_optin"
 		}
-		if _, err = pool.Exec(ctx, `INSERT INTO users.identity_accounts VALUES($1,0,$2);INSERT INTO users.identity_wallet_links VALUES($3,$1,125,$4,$5,'verified',$2)`, account, now, uuid.New(), wallet, visibility); err != nil {
+		if _, err = pool.Exec(ctx, `INSERT INTO users.identity_accounts VALUES($1,0,$2)`, account, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO users.identity_wallet_links VALUES($1,$2,125,$3,$4,'verified',$5)`, uuid.New(), account, wallet, visibility, now); err != nil {
 			t.Fatal(err)
 		}
 		if _, err = pool.Exec(ctx, `INSERT INTO users.account_state(account_id,wallet,revision,deleted,profile,preferences,updated_at) VALUES($1,$2,1,$3,$4,'{}',$5)`, account, wallet, profile.Deleted, payload, now); err != nil {

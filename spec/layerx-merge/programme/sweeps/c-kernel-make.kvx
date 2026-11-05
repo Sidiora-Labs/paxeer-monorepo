@@ -1,0 +1,966 @@
+[sweep.c-kernel-make]
+revision = "e5a148500cac4047667803acbd8245a443d90cfe"
+command = "make -s TARGET"
+targets_total = 155
+targets_passed = 144
+targets_failed = 8
+targets_not_run = 3
+preparation_command = "make -s all"
+preparation_exit_code = 0
+revision_context = "Runner-provided closure checkout of main base 9d9e94b1751d89ba849d2d3d0f89b48fabce9756 with the landed prerequisite repair receipt; revision names the checkout actually swept."
+enumeration = "155 test-* rules from the root Makefile and its included makefiles, expanded with make -qp without executing recipes; includes aggregate aliases, eight variable-expanded proof cases, and the test-group-% forwarding pattern invoked literally once."
+timeout_policy = "One preparation invocation receives at most 180 seconds; each target receives at most 75 seconds, except test-lxphost and test-paxd-domain receive at most 180 seconds each, within a 1200-second inventory allocation reserving time for the report and required gates."
+not_run_exit_codes = "124 means the attempted command exceeded its allocation and was terminated; -1 means the allocation was exhausted before invocation."
+qualification_record = "/out/logs/c-kernel-make-closure/results.json"
+preparation_qualification_record = "/out/logs/c-kernel-make-closure/preparation.log"
+
+[target.c-kernel-make.1]
+target = "test-result"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-result.log"
+
+[target.c-kernel-make.2]
+target = "test-protocol"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-protocol.log"
+
+[target.c-kernel-make.3]
+target = "test-arena"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-arena.log"
+
+[target.c-kernel-make.4]
+target = "test-harness"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-harness.log"
+
+[target.c-kernel-make.5]
+target = "test-tests-python"
+result = "failed"
+exit_code = 2
+command = "PYTEST_ADDOPTS='-k \"not (test_no_bridge_credit_apply_caller or test_public_bootstrap_and_real_builder_bind_v3_and_native_authority)\"' make -s test-tests-python"
+producer_input_tests = ["test_no_bridge_credit_apply_caller", "test_public_bootstrap_and_real_builder_bind_v3_and_native_authority"]
+observed = "test-tests-python (Makefile:266) cannot start because python3 reports No module named pytest, even with only the two repair-record producer-input exclusions configured."
+assumption = "The sandbox Python interpreter lacks the environmental pytest dependency required to run this suite."
+qualification_record = "/out/logs/c-kernel-make-closure/test-tests-python.log"
+
+[target.c-kernel-make.6]
+target = "test-kernel"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-kernel.log"
+
+[target.c-kernel-make.7]
+target = "test-kernel-symbol-isolation"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-kernel-symbol-isolation.log"
+
+[target.c-kernel-make.8]
+target = "test-module-ctx"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-module-ctx.log"
+
+[target.c-kernel-make.9]
+target = "test-dispatch"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-dispatch.log"
+
+[target.c-kernel-make.10]
+target = "test-receipts"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-receipts.log"
+
+[target.c-kernel-make.11]
+target = "test-state-root"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-state-root.log"
+
+[target.c-kernel-make.12]
+target = "test-ledger-accounts"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-accounts.log"
+
+[target.c-kernel-make.13]
+target = "test-ledger-transfer"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-transfer.log"
+
+[target.c-kernel-make.14]
+target = "test-ledger-set"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-set.log"
+
+[target.c-kernel-make.15]
+target = "test-ledger-send"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-send.log"
+
+[target.c-kernel-make.16]
+target = "test-ledger-receive"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-receive.log"
+
+[target.c-kernel-make.17]
+target = "test-ledger-send-allowance"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-send-allowance.log"
+
+[target.c-kernel-make.18]
+target = "test-ledger-receipt"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ledger-receipt.log"
+
+[target.c-kernel-make.19]
+target = "test-state-commitment-transition"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-state-commitment-transition.log"
+
+[target.c-kernel-make.20]
+target = "test-asset-registry"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-registry.log"
+
+[target.c-kernel-make.21]
+target = "test-asset-account-grant"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-account-grant.log"
+
+[target.c-kernel-make.22]
+target = "test-asset-balance"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-balance.log"
+
+[target.c-kernel-make.23]
+target = "test-asset-transfer"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-transfer.log"
+
+[target.c-kernel-make.24]
+target = "test-asset-deposit"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-deposit.log"
+
+[target.c-kernel-make.25]
+target = "test-asset-withdraw"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-withdraw.log"
+
+[target.c-kernel-make.26]
+target = "test-asset-reserve"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-reserve.log"
+
+[target.c-kernel-make.27]
+target = "test-escrow-open"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-escrow-open.log"
+
+[target.c-kernel-make.28]
+target = "test-escrow-capture"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-escrow-capture.log"
+
+[target.c-kernel-make.29]
+target = "test-escrow-timeout"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-escrow-timeout.log"
+
+[target.c-kernel-make.30]
+target = "test-escrow-dispute"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-escrow-dispute.log"
+
+[target.c-kernel-make.31]
+target = "test-escrow-invariants"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-escrow-invariants.log"
+
+[target.c-kernel-make.32]
+target = "test-budget-create"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-budget-create.log"
+
+[target.c-kernel-make.33]
+target = "test-budget-period"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-budget-period.log"
+
+[target.c-kernel-make.34]
+target = "test-budget-spend"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-budget-spend.log"
+
+[target.c-kernel-make.35]
+target = "test-budget-delegate"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-budget-delegate.log"
+
+[target.c-kernel-make.36]
+target = "test-budget-revoke"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-budget-revoke.log"
+
+[target.c-kernel-make.37]
+target = "test-stream-open"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-stream-open.log"
+
+[target.c-kernel-make.38]
+target = "test-stream-accrual"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-stream-accrual.log"
+
+[target.c-kernel-make.39]
+target = "test-stream-meter"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-stream-meter.log"
+
+[target.c-kernel-make.40]
+target = "test-stream-settle"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-stream-settle.log"
+
+[target.c-kernel-make.41]
+target = "test-stream-lifecycle"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-stream-lifecycle.log"
+
+[target.c-kernel-make.42]
+target = "test-service-offer"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-service-offer.log"
+
+[target.c-kernel-make.43]
+target = "test-service-commit"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-service-commit.log"
+
+[target.c-kernel-make.44]
+target = "test-service-attest"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-service-attest.log"
+
+[target.c-kernel-make.45]
+target = "test-service-deliver"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-service-deliver.log"
+
+[target.c-kernel-make.46]
+target = "test-service-acceptance"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-service-acceptance.log"
+
+[target.c-kernel-make.47]
+target = "test-service-dispute"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-service-dispute.log"
+
+[target.c-kernel-make.48]
+target = "test-oracle-intake"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-oracle-intake.log"
+
+[target.c-kernel-make.49]
+target = "test-oracle-bounds"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-oracle-bounds.log"
+
+[target.c-kernel-make.50]
+target = "test-oracle-failclosed"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-oracle-failclosed.log"
+
+[target.c-kernel-make.51]
+target = "test-perps-market"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-perps-market.log"
+
+[target.c-kernel-make.52]
+target = "test-perps-book"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-perps-book.log"
+
+[target.c-kernel-make.53]
+target = "test-spot-book"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-spot-book.log"
+
+[target.c-kernel-make.54]
+target = "test-perps-margin"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-perps-margin.log"
+
+[target.c-kernel-make.55]
+target = "test-perps-funding"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-perps-funding.log"
+
+[target.c-kernel-make.56]
+target = "test-perps-liquidation"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-perps-liquidation.log"
+
+[target.c-kernel-make.57]
+target = "test-perps-insurance"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-perps-insurance.log"
+
+[target.c-kernel-make.58]
+target = "test-exchange-native"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-exchange-native.log"
+
+[target.c-kernel-make.59]
+target = "test-wave-9"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-wave-9.log"
+
+[target.c-kernel-make.60]
+target = "test-batch"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-batch.log"
+
+[target.c-kernel-make.61]
+target = "test-wave-10"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-wave-10.log"
+
+[target.c-kernel-make.62]
+target = "test-snapshot"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-snapshot.log"
+
+[target.c-kernel-make.63]
+target = "test-wave-11"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-wave-11.log"
+
+[target.c-kernel-make.64]
+target = "test-governance"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-governance.log"
+
+[target.c-kernel-make.65]
+target = "test-governance-activation"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-governance-activation.log"
+
+[target.c-kernel-make.66]
+target = "test-governance-emergency"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-governance-emergency.log"
+
+[target.c-kernel-make.67]
+target = "test-fees"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-fees.log"
+
+[target.c-kernel-make.68]
+target = "test-metering"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-metering.log"
+
+[target.c-kernel-make.69]
+target = "test-fee-replay"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-fee-replay.log"
+
+[target.c-kernel-make.70]
+target = "test-wave-12"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-wave-12.log"
+
+[target.c-kernel-make.71]
+target = "test-bridge-deposit"
+result = "failed"
+exit_code = 2
+observed = "scripts/ci/solidity-state-surface.sh:10 reports forge: not found, so the test-contract-state-surface prerequisite fails with contract state surface is empty."
+assumption = "The sandbox lacks the environmental Foundry forge executable needed by the contract-surface check and its dependent targets."
+qualification_record = "/out/logs/c-kernel-make-closure/test-bridge-deposit.log"
+
+[target.c-kernel-make.72]
+target = "test-bridge-withdraw"
+result = "failed"
+exit_code = 2
+observed = "scripts/ci/solidity-state-surface.sh:10 reports forge: not found, so the test-contract-state-surface prerequisite fails with contract state surface is empty."
+assumption = "The sandbox lacks the environmental Foundry forge executable needed by the contract-surface check and its dependent targets."
+qualification_record = "/out/logs/c-kernel-make-closure/test-bridge-withdraw.log"
+
+[target.c-kernel-make.73]
+target = "test-reserve"
+result = "failed"
+exit_code = 2
+observed = "scripts/ci/solidity-state-surface.sh:10 reports forge: not found, so the test-contract-state-surface prerequisite fails with contract state surface is empty."
+assumption = "The sandbox lacks the environmental Foundry forge executable needed by the contract-surface check and its dependent targets."
+qualification_record = "/out/logs/c-kernel-make-closure/test-reserve.log"
+
+[target.c-kernel-make.74]
+target = "test-gateway"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-gateway.log"
+
+[target.c-kernel-make.75]
+target = "test-gateway-send"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-gateway-send.log"
+
+[target.c-kernel-make.76]
+target = "test-gateway-kv"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-gateway-kv.log"
+
+[target.c-kernel-make.77]
+target = "test-genesis-bootstrap"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-genesis-bootstrap.log"
+
+[target.c-kernel-make.78]
+target = "test-genesis-builder-cli"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-genesis-builder-cli.log"
+
+[target.c-kernel-make.79]
+target = "test-genesis-module-table"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-genesis-module-table.log"
+
+[target.c-kernel-make.80]
+target = "test-genesis"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-genesis.log"
+
+[target.c-kernel-make.81]
+target = "test-genesis-import"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-genesis-import.log"
+
+[target.c-kernel-make.82]
+target = "test-genesis-reconcile"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-genesis-reconcile.log"
+
+[target.c-kernel-make.83]
+target = "test-legacy-readonly"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-legacy-readonly.log"
+
+[target.c-kernel-make.84]
+target = "test-shadow"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-shadow.log"
+
+[target.c-kernel-make.85]
+target = "test-contract-state-surface"
+result = "failed"
+exit_code = 2
+observed = "scripts/ci/solidity-state-surface.sh:10 reports forge: not found, so the test-contract-state-surface prerequisite fails with contract state surface is empty."
+assumption = "The sandbox lacks the environmental Foundry forge executable needed by the contract-surface check and its dependent targets."
+qualification_record = "/out/logs/c-kernel-make-closure/test-contract-state-surface.log"
+
+[target.c-kernel-make.86]
+target = "test-contracts"
+result = "failed"
+exit_code = 2
+observed = "scripts/ci/solidity-state-surface.sh:10 reports forge: not found, so the test-contract-state-surface prerequisite fails with contract state surface is empty."
+assumption = "The sandbox lacks the environmental Foundry forge executable needed by the contract-surface check and its dependent targets."
+qualification_record = "/out/logs/c-kernel-make-closure/test-contracts.log"
+
+[target.c-kernel-make.87]
+target = "test-wave-8"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-wave-8.log"
+
+[target.c-kernel-make.88]
+target = "test-codec"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-codec.log"
+
+[target.c-kernel-make.89]
+target = "test-codec-limits"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-codec-limits.log"
+
+[target.c-kernel-make.90]
+target = "test-codec-version"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-codec-version.log"
+
+[target.c-kernel-make.91]
+target = "test-codec-vectors"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-codec-vectors.log"
+
+[target.c-kernel-make.92]
+target = "test-crypto-hash"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-crypto-hash.log"
+
+[target.c-kernel-make.93]
+target = "test-crypto-ed25519"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-crypto-ed25519.log"
+
+[target.c-kernel-make.94]
+target = "test-crypto-secp256k1"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-crypto-secp256k1.log"
+
+[target.c-kernel-make.95]
+target = "test-merkle"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-merkle.log"
+
+[target.c-kernel-make.96]
+target = "test-merkle-proof"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-merkle-proof.log"
+
+[target.c-kernel-make.97]
+target = "test-merkle-vector"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-merkle-vector.log"
+
+[target.c-kernel-make.98]
+target = "test-crypto-suite"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-crypto-suite.log"
+
+[target.c-kernel-make.99]
+target = "test-crypto-sanitizers"
+result = "not_run"
+exit_code = 124
+reason = "The attempted command exceeded its 75-second allocation within the bounded inventory; it did not finish and was terminated."
+qualification_record = "/out/logs/c-kernel-make-closure/test-crypto-sanitizers.log"
+
+[target.c-kernel-make.100]
+target = "test-crypto-ct"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-crypto-ct.log"
+
+[target.c-kernel-make.101]
+target = "test-arith-u128"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-arith-u128.log"
+
+[target.c-kernel-make.102]
+target = "test-arith-u256"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-arith-u256.log"
+
+[target.c-kernel-make.103]
+target = "test-arith-rounding"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-arith-rounding.log"
+
+[target.c-kernel-make.104]
+target = "test-arith-property"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-arith-property.log"
+
+[target.c-kernel-make.105]
+target = "test-arith-nofloat"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-arith-nofloat.log"
+
+[target.c-kernel-make.106]
+target = "test-log"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-log.log"
+
+[target.c-kernel-make.107]
+target = "test-log-durability"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-log-durability.log"
+
+[target.c-kernel-make.108]
+target = "test-recovery"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-recovery.log"
+
+[target.c-kernel-make.109]
+target = "test-projection"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-projection.log"
+
+[target.c-kernel-make.110]
+target = "test-rebuild"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-rebuild.log"
+
+[target.c-kernel-make.111]
+target = "test-storage"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-storage.log"
+
+[target.c-kernel-make.112]
+target = "test-journal"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-journal.log"
+
+[target.c-kernel-make.113]
+target = "test-activity-codec"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-activity-codec.log"
+
+[target.c-kernel-make.114]
+target = "test-envelope"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-envelope.log"
+
+[target.c-kernel-make.115]
+target = "test-verify-pool"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-verify-pool.log"
+
+[target.c-kernel-make.116]
+target = "test-admission"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-admission.log"
+
+[target.c-kernel-make.117]
+target = "test-fee-gate"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-fee-gate.log"
+
+[target.c-kernel-make.118]
+target = "test-identity"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-identity.log"
+
+[target.c-kernel-make.119]
+target = "test-grants"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-grants.log"
+
+[target.c-kernel-make.120]
+target = "test-authority-resolve"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-authority-resolve.log"
+
+[target.c-kernel-make.121]
+target = "test-authority-multisig"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-authority-multisig.log"
+
+[target.c-kernel-make.122]
+target = "test-allowance"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-allowance.log"
+
+[target.c-kernel-make.123]
+target = "test-revocation"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-revocation.log"
+
+[target.c-kernel-make.124]
+target = "test-rotation"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-rotation.log"
+
+[target.c-kernel-make.125]
+target = "test-sanitizer-smoke"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-sanitizer-smoke.log"
+
+[target.c-kernel-make.126]
+target = "test-sanitizer-suite"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-sanitizer-suite.log"
+
+[target.c-kernel-make.127]
+target = "test-mcp-binding-receipt-keys"
+result = "failed"
+exit_code = 2
+observed = "test-mcp-binding-receipt-keys (Makefile:1815) fails its dependency preflight with ModuleNotFoundError: No module named 'pytest'."
+assumption = "The sandbox Python interpreter lacks the environmental pytest dependency supplied during the earlier repair qualification."
+qualification_record = "/out/logs/c-kernel-make-closure/test-mcp-binding-receipt-keys.log"
+
+[target.c-kernel-make.128]
+target = "test-group-%"
+result = "failed"
+exit_code = 2
+observed = "test-group-% (chain.mk:575) first reports that grep cannot read build/packages.txt.%: No such file or directory, and the forwarded target exits unsuccessfully."
+assumption = "The forwarding pattern requires a concrete group suffix and split-test-packages producer output; the literal percent suffix has no corresponding package-list input."
+qualification_record = "/out/logs/c-kernel-make-closure/test-group-%.log"
+
+[target.c-kernel-make.129]
+target = "test-lxphost"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-lxphost.log"
+
+[target.c-kernel-make.130]
+target = "test-paxd-domain"
+result = "not_run"
+exit_code = 124
+reason = "The attempted command exceeded its 180-second allocation within the bounded inventory; it did not finish and was terminated."
+qualification_record = "/out/logs/c-kernel-make-closure/test-paxd-domain.log"
+
+[target.c-kernel-make.131]
+target = "test-programs-metered-call"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-programs-metered-call.log"
+
+[target.c-kernel-make.132]
+target = "test-programs-oracle-read"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-programs-oracle-read.log"
+
+[target.c-kernel-make.133]
+target = "test-programs-web-read"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-programs-web-read.log"
+
+[target.c-kernel-make.134]
+target = "test-paxai-blob-lifecycle"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-paxai-blob-lifecycle.log"
+
+[target.c-kernel-make.135]
+target = "test-programs-abi5-admission"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-programs-abi5-admission.log"
+
+[target.c-kernel-make.136]
+target = "test-paxai-native-gaps"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-paxai-native-gaps.log"
+
+[target.c-kernel-make.137]
+target = "test-state-proof"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-state-proof.log"
+
+[target.c-kernel-make.138]
+target = "test-asset-withdraw-activity"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asset-withdraw-activity.log"
+
+[target.c-kernel-make.139]
+target = "test-native-withdrawal-proof"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-native-withdrawal-proof.log"
+
+[target.c-kernel-make.140]
+target = "test-module-registry"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-module-registry.log"
+
+[target.c-kernel-make.141]
+target = "test-program-call-builders"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-program-call-builders.log"
+
+[target.c-kernel-make.142]
+target = "test-owner-rotation"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-owner-rotation.log"
+
+[target.c-kernel-make.143]
+target = "test-asan"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-asan.log"
+
+[target.c-kernel-make.144]
+target = "test-ubsan"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-ubsan.log"
+
+[target.c-kernel-make.145]
+target = "test-tsan"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-tsan.log"
+
+[target.c-kernel-make.146]
+target = "test-sanitizers"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-sanitizers.log"
+
+[target.c-kernel-make.147]
+target = "test-proof"
+result = "not_run"
+exit_code = 124
+reason = "The attempted command exceeded its 75-second allocation within the bounded inventory; it did not finish and was terminated."
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof.log"
+
+[target.c-kernel-make.148]
+target = "test-proof-b_error_code_registry_d6"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-b_error_code_registry_d6.log"
+
+[target.c-kernel-make.149]
+target = "test-proof-lx_asset_h"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-lx_asset_h.log"
+
+[target.c-kernel-make.150]
+target = "test-proof-lx_service_h"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-lx_service_h.log"
+
+[target.c-kernel-make.151]
+target = "test-proof-lxp_bridge_h"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-lxp_bridge_h.log"
+
+[target.c-kernel-make.152]
+target = "test-proof-lxp_module_h"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-lxp_module_h.log"
+
+[target.c-kernel-make.153]
+target = "test-proof-lxp_receipt_h"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-lxp_receipt_h.log"
+
+[target.c-kernel-make.154]
+target = "test-proof-programs_h"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-programs_h.log"
+
+[target.c-kernel-make.155]
+target = "test-proof-result_registry"
+result = "passed"
+exit_code = 0
+qualification_record = "/out/logs/c-kernel-make-closure/test-proof-result_registry.log"

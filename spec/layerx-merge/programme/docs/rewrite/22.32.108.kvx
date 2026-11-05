@@ -1,0 +1,13 @@
+[manifest]
+task = "22.32.108"
+domain = 13
+owner_role = "fm-programs"
+pages = 1
+
+[page.1]
+path = "contracts/programs.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.123 [doc.013] (missing): Stable runtime and other Programs registry anchors name this absent page; restore it or migrate the anchors to an existing authoritative contract."
+source_2 = "record 22.30.128 [doc.17] (missing): All package interface contract links target this absent page; the sandbox-crate and other normative anchors cannot be resolved in the audited tree."
+source_3 = "record 22.30.85 [doc.16] (missing): The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."

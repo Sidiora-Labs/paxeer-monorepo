@@ -2,13 +2,13 @@
   "name": "@paxeer/demo",
   "version": "0.1.0",
   "private": true,
-  "description": "Paxeer Embedded Wallet — reference Next.js demo + drop-in components for partner apps.",
+  "description": "Paxeer Embedded Wallet \u2014 reference Next.js demo + drop-in components for partner apps.",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,7 +16,7 @@
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-toast": "^1.2.6",
     "@supabase/supabase-js": "^2.45.4",
-    "next": "^15.0.3",
+    "next": "^16.3.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "viem": "^2.21.45"
@@ -26,7 +26,11 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "eslint": "9.38.0",
+    "eslint-config-next": "^16.3.0",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.12"
   }
 }

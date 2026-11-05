@@ -46,6 +46,11 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 }
 
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
+	// node/app.go retains only the basic-manager registration for anchor, so
+	// module-manager exports omit its genesis state.
+	if len(bz) == 0 {
+		return nil
+	}
 	var genesis types.GenesisState
 	if err := json.Unmarshal(bz, &genesis); err != nil {
 		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)
@@ -72,10 +77,15 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
 type AppModule struct {
 	AppModuleBasic
-	keeper keeper.Keeper
+	keeper   keeper.Keeper
+	upgrades keeper.UpgradeReader
 }
 
-func NewAppModule(k keeper.Keeper) AppModule { return AppModule{keeper: k} }
+// NewAppModule binds the anchor keeper to the application's live upgrade reader.
+// Retirement is checked on every message, rather than captured at construction.
+func NewAppModule(k keeper.Keeper, upgrades keeper.UpgradeReader) AppModule {
+	return AppModule{keeper: k, upgrades: upgrades}
+}
 
 func (AppModule) Route() sdk.Route { return sdk.Route{} }
 
@@ -83,8 +93,10 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
+// RegisterServices also supports registration outside the module manager: the
+// retired anchor must retain its refusal route after its store is deleted.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
-	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImplWithUpgrades(am.keeper, am.upgrades))
 }
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
@@ -109,11 +121,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMe
 }
 
 func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-chan json.RawMessage {
-	ch := make(chan json.RawMessage)
-	go func() {
-		ch <- am.ExportGenesis(ctx, cdc)
-		close(ch)
-	}()
+	// Capture the state before returning; callers may advance or close ctx
+	// before they drain the stream.
+	ch := make(chan json.RawMessage, 1)
+	ch <- am.ExportGenesis(ctx, cdc)
+	close(ch)
 	return ch
 }
 

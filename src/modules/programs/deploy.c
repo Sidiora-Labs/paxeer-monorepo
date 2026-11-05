@@ -121,7 +121,7 @@ lxp_result lxp_programs_migration_accounting_read(
     if (length != 613U || memcmp(value, "LXMA1", 5U) != 0 ||
         read_u32(value + 5U) != 1U ||
         read_u16(value + 9U) != layerx_programs_migration_runtime_version() ||
-        read_u16(value + 11U) == 0U || read_u16(value + 11U) > 4U ||
+        lxp_programs_abi_transition_validate(1U, read_u16(value + 11U)) != LXP_OK ||
         read_u32(value + 13U) == 0U || read_u32(value + 17U) == 0U ||
         read_u32(value + 21U) == 0U || read_u32(value + 25U) == 0U ||
         memcmp(value + 61U, activity_id, 32U) != 0 ||
@@ -206,6 +206,18 @@ static void program_interface_key(const uint8_t program_id[32], uint8_t key[42])
     (void)memcpy(key, program_interface_prefix,
                  PROGRAM_INTERFACE_KEY_PREFIX_LENGTH);
     (void)memcpy(key + PROGRAM_INTERFACE_KEY_PREFIX_LENGTH, program_id, 32U);
+}
+
+lxp_result lxp_programs_interface_read(
+    lxp_module_ctx *ctx, const uint8_t program_id[32],
+    const uint8_t **bytes, size_t *length)
+{
+    uint8_t key[42];
+    if (ctx == NULL || program_id == NULL || bytes == NULL || length == NULL ||
+        ctx->module_id != LXP_MODULE_PROGRAMS)
+        return LXP_ERR_NON_CANONICAL;
+    program_interface_key(program_id, key);
+    return lxp_ctx_kv_get(ctx, key, sizeof(key), bytes, length);
 }
 
 static lxp_result validate_wasm(lxp_module_ctx *ctx,

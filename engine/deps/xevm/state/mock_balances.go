@@ -1,5 +1,3 @@
-//go:build mock_balances
-
 package state
 
 /*
@@ -24,12 +22,26 @@ import (
 // TopOffAmount is the amount to mint when an account needs more funds (100 ETH)
 var TopOffAmount = new(big.Int).Mul(big.NewInt(100), big.NewInt(1_000_000_000_000_000_000))
 
+// mockBalanceFunding is selected by the tagged hooks in mock_balances_enabled.go.
+// Keeping the implementation shared lets the ordinary test gate exercise the
+// same funding path without rebuilding itself with a different set of tags.
+type mockBalanceFunding struct {
+	*DBImpl
+}
+
+func (s mockBalanceFunding) requireDisposableChain() {
+	switch s.ctx.ChainID() {
+	case "mock-balances-local-1":
+		return
+	default:
+		panic("FATAL: mock_balances requires the disposable mock-balances-local-1 chain")
+	}
+}
+
 // ensureMinimumBalance tops off the account if balance is low.
 // Called from GetBalance to ensure preCheck passes in StateTransition.
-func (s *DBImpl) ensureMinimumBalance(evmAddr common.Address) {
-	if s.ctx.ChainID() == "pacific-1" {
-		panic("FATAL: mock_balances build tag enabled on pacific-1 mainnet - this is a critical misconfiguration")
-	}
+func (s mockBalanceFunding) ensureMinimumBalance(evmAddr common.Address) {
+	s.requireDisposableChain()
 
 	paxAddr := s.getPaxAddress(evmAddr)
 	currentBalance := s.k.GetBalance(s.ctx, paxAddr)
@@ -41,7 +53,8 @@ func (s *DBImpl) ensureMinimumBalance(evmAddr common.Address) {
 
 // ensureSufficientBalance tops off the account if it doesn't have enough for the operation.
 // Called from SubBalance before actually subtracting.
-func (s *DBImpl) ensureSufficientBalance(evmAddr common.Address, amt *big.Int) {
+func (s mockBalanceFunding) ensureSufficientBalance(evmAddr common.Address, amt *big.Int) {
+	s.requireDisposableChain()
 	paxAddr := s.getPaxAddress(evmAddr)
 	currentBalance := s.k.GetBalance(s.ctx, paxAddr)
 
@@ -53,7 +66,8 @@ func (s *DBImpl) ensureSufficientBalance(evmAddr common.Address, amt *big.Int) {
 }
 
 // topOffAccount mints funds to an account.
-func (s *DBImpl) topOffAccount(paxAddr sdk.AccAddress, amt *big.Int) {
+func (s mockBalanceFunding) topOffAccount(paxAddr sdk.AccAddress, amt *big.Int) {
+	s.requireDisposableChain()
 	// Ensure account exists
 	if !s.k.AccountKeeper().HasAccount(s.ctx, paxAddr) {
 		s.k.AccountKeeper().SetAccount(s.ctx, s.k.AccountKeeper().NewAccountWithAddress(s.ctx, paxAddr))

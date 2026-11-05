@@ -57,16 +57,12 @@ class _Route:
 
 
 _ROUTES: Mapping[str, _Route] = {
-    "program.deploy": _Route("POST", "/v1/programs/deploy"),
-    "program.upgrade": _Route("POST", "/v1/programs/upgrade"),
-    "program.wind-down": _Route("POST", "/v1/programs/wind-down"),
     "program.discover": _Route("GET", "/v1/programs/registry/{program_id}", "program_id"),
     "program.interface": _Route("GET", "/v1/programs/registry/{program_id}/interface", "program_id"),
     "program.simulate": _Route("POST", "/v1/programs/simulate"),
-    "program.call": _Route("POST", "/v1/programs/call"),
-    "program.receipt": _Route("GET", "/v1/programs/receipts/by-idempotency/{idempotency_key}", "idempotency_key"),
-    "program.activity": _Route("GET", "/v1/programs/activities/{activity_id}", "activity_id"),
 }
+_PROGRAM_MUTATIONS = frozenset({"program.deploy", "program.upgrade", "program.wind-down", "program.call"})
+_PROGRAM_HASH_READS = frozenset({"program.receipt", "program.activity"})
 
 
 class LayerXKeyCredential:
@@ -128,10 +124,13 @@ class AgentHttpTransport(ProductionTransport):
         request: object,
         idempotency_key: IdempotencyKey | None,
     ) -> object:
-        if plane != "agent" or not isinstance(operation, str) or operation not in _ROUTES:
+        if (plane != "agent" or not isinstance(operation, str)
+                or operation not in _ROUTES and operation not in _PROGRAM_MUTATIONS | _PROGRAM_HASH_READS):
             raise _unavailable_capability()
         if not isinstance(request, Mapping) or any(not isinstance(key, str) for key in request):
             raise _invalid_argument()
+        if operation in _PROGRAM_MUTATIONS | _PROGRAM_HASH_READS:
+            return self._program_transaction(operation, request, idempotency_key)
         route = _ROUTES[operation]
         path = route.path
         if route.path_field is not None:
@@ -139,10 +138,7 @@ class AgentHttpTransport(ProductionTransport):
             if not isinstance(value, str) or not _hex32(value):
                 raise _invalid_argument()
             path = path.replace("{" + route.path_field + "}", quote(value, safe=""))
-        if operation in {"program.call", "program.deploy", "program.upgrade", "program.wind-down"}:
-            if idempotency_key is None or not _hex32(str(idempotency_key)):
-                raise _invalid_argument()
-        elif idempotency_key is not None:
+        if idempotency_key is not None:
             raise _invalid_argument()
         if operation in {"program.discover", "program.interface", "program.receipt", "program.activity"} and request.get("requested_verification_level") != "sequencer-signed":
             raise _invalid_argument()
@@ -156,12 +152,6 @@ class AgentHttpTransport(ProductionTransport):
             raise _invalid_argument() from None
         if len(body) > _MAX_REQUEST_BYTES:
             raise _invalid_argument()
-        if operation in {"program.deploy", "program.upgrade", "program.wind-down"}:
-            ordinal = {"program.deploy": 1, "program.upgrade": 2, "program.wind-down": 7}[operation]
-            try:
-                bind_signed_program_lifecycle(body, None, ordinal, str(idempotency_key))
-            except (TypeError, ValueError, OverflowError):
-                raise _invalid_argument() from None
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/octet-stream" if route.method == "POST" else "application/json",
@@ -192,20 +182,117 @@ class AgentHttpTransport(ProductionTransport):
         except (TimeoutError, URLError, OSError, HTTPException):
             raise _transport_failure(operation) from None
 
+    def _program_transaction(
+        self, operation: str, request: Mapping[str, object], key: IdempotencyKey | None,
+    ) -> object:
+        from .account_derivation import keccak256
+        from .ai_market import AiMarketError, _decode_programs_call
+        from .evm_transaction import decode_signed
+        from .x402_rpc import _send_result
+
+        _require_exact_request(operation, request)
+        if operation in _PROGRAM_HASH_READS:
+            identity = request.get("expected_activity_id" if operation == "program.receipt" else "activity_id")
+            if (key is not None or not isinstance(identity, str) or not _hex32(identity)
+                    or operation == "program.receipt" and request.get("idempotency_key") != identity
+                    or request.get("requested_verification_level") != "sequencer-signed"):
+                raise _invalid_argument()
+            result = self._node_rpc("pax_sequencerReceipt", ["0x" + identity], operation)
+            if result is None:
+                return {"state": "unknown", "activity_id": identity, "idempotency_key": identity}
+            if not isinstance(result, dict) or result.get("txHash") != "0x" + identity:
+                raise _decode_failure()
+            if result.get("rung") == "submitted":
+                nonce = result.get("nonce")
+                if (set(result) != {"txHash", "nonce", "rung"} or not isinstance(nonce, str)
+                        or not nonce.startswith("0x") or not 0 < len(nonce[2:]) <= 16
+                        or any(character not in _HEX for character in nonce[2:])
+                        or hex(int(nonce, 16)) != nonce):
+                    raise _decode_failure()
+                return {"state": "pending", "activity_id": identity, "idempotency_key": identity}
+            if result.get("rung") not in {"receipted", "committed"}:
+                raise _decode_failure()
+            return result
+        if key is None or not _hex32(str(key)):
+            raise _invalid_argument()
+        canonical = _encode_program_mutation_body(request.get("signed_activity"))
+        try:
+            if operation == "program.call":
+                from .program_wire import decode_signed_program_call
+                from .programs import NativeProgramRequest, _wire
+                transaction, _ = decode_signed(canonical)
+                native, fee = _decode_programs_call(transaction.data)
+                retained = NativeProgramRequest(native, fee, canonical)
+                decode_signed_program_call(retained, str(key))
+                if dict(_wire(retained)) != dict(request):
+                    raise ValueError("program transaction request binding")
+            else:
+                ordinal = {"program.deploy": 1, "program.upgrade": 2, "program.wind-down": 7}[operation]
+                bind_signed_program_lifecycle(canonical, None, ordinal, str(key))
+        except (ValueError, TypeError, OverflowError, AiMarketError):
+            raise _invalid_argument() from None
+        identity = keccak256(canonical).hex()
+        result = self._node_rpc("eth_sendRawTransaction", ["0x" + canonical.hex()], operation, key)
+        try:
+            _send_result(result, canonical)
+        except ValueError:
+            raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from None
+        return {"state": "submitted", "activity_id": identity, "idempotency_key": identity,
+                "retained_signed_activity": canonical.hex()}
+
+    def _node_rpc(
+        self, method: str, params: list[object], operation: str, key: IdempotencyKey | None = None,
+    ) -> object:
+        from .x402_rpc import PaymentRpcError, _decode_rpc_response, _submission_error
+
+        request_id = secrets.randbits(64)
+        body = json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params},
+                          allow_nan=False, separators=(",", ":")).encode("utf-8")
+        if len(body) > _MAX_REQUEST_BYTES:
+            raise _invalid_argument()
+        headers = {"Accept": "application/json", "Content-Type": "application/json",
+                   "User-Agent": "layerx-python/0.1.0"}
+        if self._credential is not None:
+            headers["Authorization"] = self._credential.use()
+        if key is not None:
+            headers["Idempotency-Key"] = str(key)
+        parsed = urlparse(self._endpoint)
+        endpoint = urlunparse((parsed.scheme, parsed.netloc, "/", "", "", ""))
+        outbound = Request(endpoint, data=body, headers=headers, method="POST")
+        try:
+            with self._opener.open(outbound, timeout=self._timeout) as response:
+                encoded = _bounded_read(response, self._maximum_response_bytes)
+                if response.status != 200 or response.headers.get("Content-Type") != "application/json":
+                    raise ValueError("node RPC response")
+            envelope = json.loads(encoded, parse_constant=_reject_constant, object_pairs_hook=_unique_object)
+            return _decode_rpc_response(envelope, request_id)
+        except PaymentRpcError as error:
+            if operation in _PROGRAM_MUTATIONS:
+                _submission_error(error)
+                if error.code not in {-32600, -32601, -32602}:
+                    raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from error
+            raise PlatformSdkError(SdkErrorCode.CORE_REJECTION, "never", protocol_result_code=error.code) from error
+        except (ValueError, RecursionError):
+            if operation in _PROGRAM_MUTATIONS:
+                raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from None
+            raise _decode_failure() from None
+        except PlatformSdkError as error:
+            if error.code == SdkErrorCode.DECODE_FAILURE and operation in _PROGRAM_MUTATIONS:
+                raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from None
+            raise
+        except (TimeoutError, URLError, OSError, HTTPException):
+            raise _transport_failure(operation) from None
+
 
 _ENVELOPE_VERSION = 1
 _ENVELOPE_PATH = "/v1/agent/rpc"
 _DAEMON_PATH = "/rpc"
 _ENVELOPE_MAX_BODY_BYTES = 1_048_576
-_BOOTSTRAP_OPERATIONS = frozenset({"agent.register", "session.open"})
 _MAX_U64 = (1 << 64) - 1
 _LEVELS: Mapping[str, int] = {
-    "Unverified": 0,
-    "SequencerSigned": 1,
-    "BatchIncluded": 2,
-    "StateProven": 3,
-    "CheckpointFinalised": 4,
-    "SettlementAnchored": 5,
+    "submitted": 0,
+    "receipted": 1,
+    "committed": 2,
 }
 
 
@@ -297,7 +384,7 @@ def decode_tenant_readiness(value: object) -> TenantReadinessV1:
 
 
 def check_tenant_readiness_response(response: AgentEnvelopeSuccess) -> TenantReadinessV1:
-    if response.verification_status != {"state": "achieved", "level": "Unverified"}:
+    if response.verification_status != {"state": "achieved", "rung": "submitted"}:
         raise _decode_failure(response.request_id)
     try:
         return decode_tenant_readiness(response.value)
@@ -305,7 +392,7 @@ def check_tenant_readiness_response(response: AgentEnvelopeSuccess) -> TenantRea
         raise _decode_failure(response.request_id) from None
 
 
-ProofBundleVerificationLevel = Literal["Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored"]
+ProofBundleVerificationLevel = Literal["submitted", "receipted", "committed"]
 
 
 class ProofBundleRequest(TypedDict):
@@ -332,7 +419,7 @@ class ProofBundleFreshness(TypedDict):
 
 class ProofBundleRead(TypedDict):
     value: ProofBundleValue
-    achieved_verification_level: Literal["BatchIncluded", "StateProven"]
+    achieved_verification_level: Literal["receipted", "committed"]
     freshness: ProofBundleFreshness
 
 
@@ -405,9 +492,9 @@ def check_proof_bundle_response(request: ProofBundleRequest, response: AgentEnve
         kind = bytes.fromhex(expected["target"])[2]
         if kind == 1 and proof.variant != 1 or kind == 3 and proof.variant != 3 or kind == 2 and proof.variant not in {2, 4}:
             raise ValueError("proof_bundle.variant")
-        achieved = "StateProven" if kind == 2 else "BatchIncluded"
+        achieved = "committed" if kind == 2 else "receipted"
         if (read["achieved_verification_level"] != achieved or _LEVELS[achieved] < _LEVELS[expected["requested_verification_level"]]
-            or response.verification_status != {"state": "achieved", "level": achieved}):
+            or response.verification_status != {"state": "achieved", "rung": achieved}):
             raise ValueError("proof_bundle.level")
         freshness = read["freshness"]
         if not isinstance(freshness, Mapping) or set(freshness) != {"chain_head", "latest_sealed_batch", "latest_finalised_checkpoint", "value_sequence", "relative_to"}:
@@ -487,12 +574,9 @@ class AgentEnvelopeTransport(ProductionTransport):
         if proof_request is not None:
             request = proof_request
         mutating = operation in _AGENT_IDEMPOTENT
-        if operation in _BOOTSTRAP_OPERATIONS:
-            credential: dict[str, str] | None = None
-        elif self._session is None:
+        if self._session is None:
             raise _invalid_argument()
-        else:
-            credential = self._session.coordinates()
+        credential = self._session.coordinates()
         if mutating:
             if idempotency_key is None or not _nonzero_hex32(str(idempotency_key)):
                 raise _invalid_argument()
@@ -763,7 +847,18 @@ def _valid_verification_status(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     if value.get("state") == "achieved":
-        return set(value) == {"state", "level"} and isinstance(value.get("level"), str) and value["level"] in _LEVELS
+        return set(value) == {"state", "rung"} and isinstance(value.get("rung"), str) and value["rung"] in _LEVELS
+    if value.get("state") == "absent":
+        return set(value) == {"state", "requested"} and isinstance(value.get("requested"), str) and value["requested"] in _LEVELS
+    if value.get("state") == "pending":
+        requested = value.get("requested")
+        achieved = value.get("achieved")
+        return (
+            set(value) == {"state", "requested", "achieved"}
+            and isinstance(requested, str) and requested in _LEVELS
+            and isinstance(achieved, str) and achieved in _LEVELS
+            and _LEVELS[achieved] < _LEVELS[requested]
+        )
     if value.get("state") != "unverified" or set(value) != {"state", "requested", "achieved", "reason"}:
         return False
     requested = value.get("requested")
@@ -855,6 +950,13 @@ def _decode_envelope(status: int, encoded: bytes, operation: str) -> object:
         raise _decode_failure() from None
     if not isinstance(envelope, dict) or any(not isinstance(key, str) for key in envelope):
         raise _decode_failure()
+    if operation == "program.interface" and status == 200:
+        _exact(envelope, ("program_id", "version", "code_hash", "abi_version", "interface", "interface_digest",
+                          "deployment_receipt_digest", "state_root", "observed_sequence", "observed_at",
+                          "valid_through", "source", "verification"))
+        if envelope.get("verification") != "deployment-interface-and-current-head-verified":
+            raise _decode_failure()
+        return envelope
     if "class" in envelope:
         _exact(envelope, ("class", "protocol_result_code", "retriability", "reason", "request_id"))
         raise _service_error(status, envelope)
@@ -911,17 +1013,17 @@ def _accepted_program_verification(operation: str, result: object, value: object
         if operation != "program.discover" or not isinstance(result, dict):
             return False
         key, signature = result.get("discovery_public_key"), result.get("discovery_signature")
-        return (set(value) == {"state", "level"} and value.get("state") == "Achieved"
-                and value.get("level") == "SequencerSigned" and isinstance(key, str) and _hex32(key)
+        return (set(value) == {"state", "rung"} and value.get("state") == "achieved"
+                and value.get("rung") == "receipted" and isinstance(key, str) and _hex32(key)
                 and isinstance(signature, str) and len(signature) == 128
                 and all(character in _HEX for character in signature))
     if operation in {"program.call", "program.receipt", "program.activity"} and result_state in {"unknown", "pending"}:
         return _exact_unverified(value, "receipt_pending")
-    return set(value) == {"state", "level"} and value.get("state") == "Achieved" and value.get("level") == "SequencerSigned"
+    return set(value) == {"state", "rung"} and value.get("state") == "achieved" and value.get("rung") == "receipted"
 
 
 def _exact_unverified(value: Mapping[str, object], reason: str) -> bool:
-    return set(value) == {"state", "requested", "achieved", "reason"} and value.get("state") == "Unverified" and value.get("requested") == "SequencerSigned" and value.get("achieved") == "Unverified" and value.get("reason") == reason
+    return set(value) == {"state", "requested", "achieved", "reason"} and value.get("state") == "unverified" and value.get("requested") == "receipted" and value.get("achieved") == "submitted" and value.get("reason") == reason
 
 
 def _service_error(status: int, error: Mapping[str, object]) -> PlatformSdkError:

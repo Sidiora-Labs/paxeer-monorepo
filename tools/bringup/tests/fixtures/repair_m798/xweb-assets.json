@@ -1,0 +1,38 @@
+{
+  "height": 11,
+  "assets": [
+    {
+      "asset_id": "1ff3d5d384d8f1496ba048e4fc582fe0ad6f9441f54f08a39749dddd370529e1",
+      "kind": "ledger",
+      "symbol": "SID",
+      "decimals": 18,
+      "paused": false,
+      "verification": "authenticated_committed_snapshot"
+    },
+    {
+      "asset_id": "0361473f1092e46d35914922c221d4b0f63502ab4a107436038eb36911b9f521",
+      "kind": "ledger",
+      "symbol": "PAX",
+      "decimals": 18,
+      "paused": false,
+      "verification": "authenticated_committed_snapshot"
+    },
+    {
+      "asset_id": "8591ee9090c0c02ca1f103cb637131d8f358870aba145245ff083e138fdd705b",
+      "kind": "ledger",
+      "symbol": "USDC",
+      "decimals": 6,
+      "paused": false,
+      "verification": "authenticated_committed_snapshot"
+    },
+    {
+      "asset_id": "4eaf53ac1ed8b5842c490b26acdbab0f8e3261cd82fc023b146a2d18b95f4e00",
+      "kind": "ledger",
+      "symbol": "USDL",
+      "decimals": 6,
+      "paused": false,
+      "verification": "authenticated_committed_snapshot"
+    }
+  ],
+  "joined_limit": 16
+}

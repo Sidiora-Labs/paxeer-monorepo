@@ -1,0 +1,397 @@
+[reconcile.r5-18]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 47
+
+[row.r5-18.1]
+interface = "interface.5.go-admin-default-address"
+verdict = "served"
+path = "admin/config.go"
+line = 13
+symbol = "DefaultAddress"
+evidence = "DefaultAddress = \"127.0.0.1:9095\" remains the loopback admin address; the registry signature masked its literal as <ip>:9095."
+
+[row.r5-18.2]
+interface = "interface.5.cli-layerx-genesis"
+verdict = "served"
+path = "cmd/layerx-genesis/lxp_genesis_build_cli.c"
+line = 672
+symbol = "lxp_genesis_builder_cli_main"
+evidence = "int lxp_genesis_builder_cli_main(int argc, char **argv) keeps its signature; its parser now accepts exactly three build arguments or six-argument asset-v2/snapshot-issuance migration, with custody options removed."
+
+[row.r5-18.3]
+interface = "interface.5.cli-layerx-genesis-migrate-snapshot-issuance"
+verdict = "served"
+path = "cmd/layerx-genesis/lxp_genesis_build_cli.c"
+line = 677
+symbol = "--migrate-snapshot-issuance"
+evidence = "strcmp(argv[1], \"--migrate-snapshot-issuance\") == 0 still dispatches migrate_snapshot_issuance with argv[2..5]; the option signature is unchanged and moved from registered line 726 to 677."
+
+[row.r5-18.4]
+interface = "interface.5.cli-layerx-genesis-custody-profile"
+verdict = "retired"
+path = "cmd/layerx-genesis/lxp_genesis_build_cli.c"
+line = 672
+symbol = "--custody-profile"
+evidence = "The entire registered C file has no --custody-profile literal; lxp_genesis_builder_cli_main now allows argc == 4 for build_artifacts and separate migration branches. Remaining references include tests and hosted scripts, not a relocated genesis option."
+remaining_refs = 8
+remaining = ["GOTCHA.kvx:1746", "cmd/layerx-genesis/test_builder_cli.py:102", "cmd/layerx-module-registry/test_no_bridge_profile.py:55", "cmd/layerx-module-registry/test_registry.py:61", "cmd/layerx-module-registry/test_registry_cli.py:83", "services/platform/hosted/node/bootstrap.sh:306", "services/platform/hosted/node/supervisor.sh:552", "services/platform/hosted/tests/beta-cluster.sh:1085"]
+
+[row.r5-18.5]
+interface = "interface.5.cli-layerx-genesis-custody-registry"
+verdict = "retired"
+path = "cmd/layerx-genesis/lxp_genesis_build_cli.c"
+line = 672
+symbol = "--custody-registry"
+evidence = "The entire registered C file has no --custody-registry literal; the build entry point now requires argc == 4 and passes only argv[1..3] to build_artifacts. Hosted scripts and a test still mention the removed option."
+remaining_refs = 3
+remaining = ["cmd/layerx-genesis/test_builder_cli.py:119", "services/platform/hosted/node/bootstrap.sh:307", "services/platform/hosted/node/supervisor.sh:552"]
+
+[row.r5-18.6]
+interface = "interface.5.cli-layerx-module-registry"
+verdict = "served"
+path = "cmd/layerx-module-registry/main.c"
+line = 93
+symbol = "main"
+evidence = "int main(int argc, char **argv) keeps its C signature; implementation now reads lxp_genesis_module_table and constructs a canonical module plan locally, without the former read-node/socket/custody path."
+
+[row.r5-18.7]
+interface = "interface.5.cli-layerx-module-registry-read-node"
+verdict = "retired"
+path = "cmd/layerx-module-registry/main.c"
+line = 93
+symbol = "read-node"
+evidence = "The read-node command literal is absent from the entire registered file; main accepts generate only at line 99 and rejects other commands. Remaining mentions are tests and an event-source fixture."
+remaining_refs = 4
+remaining = ["cmd/layerx-module-registry/test_registry.py:93", "cmd/layerx-module-registry/test_registry_cli.py:32", "services/platform/hosted/tests/beta-cluster.sh:1097", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:205"]
+
+[row.r5-18.8]
+interface = "interface.5.cli-layerx-module-registry-generate"
+verdict = "served"
+path = "cmd/layerx-module-registry/main.c"
+line = 99
+symbol = "generate"
+evidence = "if (argc < 2 || strcmp(argv[1], \"generate\") != 0) goto refused; replaces the old !read_node conditional. generate now emits the locally assembled canonical module registry and accepts repeatable --enable-module."
+
+[row.r5-18.9]
+interface = "interface.5.cli-layerx-module-registry-custody-profile"
+verdict = "retired"
+path = "cmd/layerx-module-registry/main.c"
+line = 93
+symbol = "--custody-profile"
+evidence = "The entire module-registry C file has no --custody-profile literal; its option parser ends after --protocol-version and rejects unknown options. Remaining mentions occur in tests and hosted scripts; the genesis CLI also removed it."
+remaining_refs = 8
+remaining = ["GOTCHA.kvx:1746", "cmd/layerx-genesis/test_builder_cli.py:102", "cmd/layerx-module-registry/test_no_bridge_profile.py:55", "cmd/layerx-module-registry/test_registry.py:61", "cmd/layerx-module-registry/test_registry_cli.py:83", "services/platform/hosted/node/bootstrap.sh:306", "services/platform/hosted/node/supervisor.sh:552", "services/platform/hosted/tests/beta-cluster.sh:1085"]
+
+[row.r5-18.10]
+interface = "interface.5.cli-layerx-module-registry-socket"
+verdict = "retired"
+path = "cmd/layerx-module-registry/main.c"
+line = 93
+symbol = "--socket"
+evidence = "The entire registered C file has no --socket literal; generate uses lxp_genesis_module_table instead of an LNI socket. A repository-wide literal substring search still finds socket options in tests, signer tools and hosted scripts."
+remaining_refs = 27
+remaining = ["cmd/layerx-module-registry/test_registry.py:61", "cmd/layerx-module-registry/test_registry_cli.py:35", "cmd/layerxctl/tests/files.rs:279", "docker/bridge-relayer/entrypoint.sh:94", "docker/kernel/init.sh:1192", "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs:327", "services/interop/crates/layerx-bridge-relayer/tests/proof_bridge_relayer.rs:337", "services/interop/crates/layerx-mirror-signer/src/lib.rs:71", "services/platform/hosted/core/tests/chain_fund.rs:295", "services/platform/hosted/core/tests/signer.rs:86", "services/platform/hosted/human/owner_native.py:352", "services/platform/hosted/human/provision.sh:343", "services/platform/hosted/node/bootstrap.sh:527", "services/platform/hosted/node/deployment.yaml:221", "services/platform/hosted/node/generation_client.py:343", "services/platform/hosted/node/reset_state.py:1098", "services/platform/hosted/node/signer/client.py:5", "services/platform/hosted/node/signer/signer.py:10", "services/platform/hosted/node/supervisor.sh:504", "services/platform/hosted/node/tests/probe/src/main.rs:24", "services/platform/hosted/node/tests/signer-test.py:172", "services/platform/hosted/node/tests/test_reset_state.py:331", "services/platform/hosted/tests/beta-cluster.sh:1097", "tools/bringup/check-live.sh:4614", "tools/bringup/tests/test_value_loop_probe_contract.py:25", "tools/bringup/value-loop.sh:151", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:205"]
+
+[row.r5-18.11]
+interface = "interface.5.cli-layerx-module-registry-actor"
+verdict = "retired"
+path = "cmd/layerx-module-registry/main.c"
+line = 93
+symbol = "--actor"
+evidence = "The entire registered C file has no --actor literal; generate has no actor option or LNI request path. Remaining literal substring matches include tests and actor-related options in other operator tools."
+remaining_refs = 13
+remaining = ["cmd/layerx-module-registry/test_registry.py:94", "cmd/layerx-module-registry/test_registry_cli.py:35", "cmd/layerxctl/tests/files.rs:281", "deploy/launchpad/production/observability/phase2/control.py:145", "deploy/launchpad/production/topology/phase2/operator-runbook.md:3", "deploy/launchpad/production/topology/phase2/operator.py:291", "services/platform/hosted/human/owner_native.py:353", "services/platform/hosted/human/provision.sh:344", "services/platform/hosted/human/test_material.py:344", "services/platform/hosted/tests/beta-cluster.sh:1098", "tools/bringup/check-live.sh:4615", "tools/bringup/value-loop.sh:152", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:207"]
+
+[row.r5-18.12]
+interface = "interface.5.cli-layerxctl-wire-limit"
+verdict = "retired"
+path = "cmd/layerxctl/src/main.rs"
+line = 16
+symbol = "MAX_MESSAGE_BYTES"
+evidence = "MAX_MESSAGE_BYTES and the layerx_wire import are absent from the entire CLI source; const MAX_INPUT_BYTES: usize = 1_048_576 now bounds CLI input locally. Cargo.toml retains layerx-wire only as a dev-dependency; other wire consumers remain."
+remaining_refs = 46
+remaining = ["cmd/layerxctl/tests/files.rs:14", "programs/crates/layerx-programs-arbiter/src/admission.rs:147", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:30", "services/agent/crates/layerx-agentd-host/tests/payer.rs:11", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:327", "services/agent/crates/layerx-agentd/src/human_runtime.rs:22087", "services/agent/crates/layerx-agentd/tests/export.rs:18", "services/agent/crates/layerx-agentd/tests/finality_rungs.rs:12", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs:22", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs:31", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs:15", "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs:14", "services/agent/crates/layerx-agentd/tests/support/mod.rs:46", "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs:26", "services/agent/crates/layerx-agentd/tests/write_path_evm.rs:382", "services/agent/crates/layerx-client/src/subscription.rs:16", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs:19", "services/agent/crates/layerx-client/tests/receipt_rpc.rs:19", "services/agent/crates/layerx-mcp/src/stdio.rs:18", "services/agent/crates/layerx-proof/src/availability.rs:7", "services/agent/crates/layerx-proof/tests/resolution_receipt_key.rs:9", "services/agent/crates/layerx-proof/tests/sequencer_corpus.rs:10", "services/agent/crates/layerx-proof/tests/sequencer_logs.rs:11", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:1238", "services/agent/crates/layerx-sdk/src/native_effect.rs:662", "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs:730", "services/agent/crates/layerx-wire/src/activity.rs:9", "services/agent/crates/layerx-wire/src/limits.rs:8", "services/agent/crates/layerx-wire/src/receipt.rs:8", "services/agent/crates/layerx-wire/tests/primitives.rs:8", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs:15", "services/agent/schema/agent-api/golden/v1.kvx:816", "services/agent/schema/agent-api/v1.kvx:816", "services/agent/sdk/typescript/src/verifier.ts:7", "services/human/crates/layerx-human-service/tests/evidence_node.rs:26", "services/human/crates/layerx-human-test-support/src/evidence_node.rs:14", "services/human/crates/layerx-intents/src/canonical.rs:7", "services/interop/crates/layerx-interop-gateway/tests/gateway.rs:21", "services/interop/crates/layerx-mirror-signer/src/lib.rs:84", "services/interop/crates/layerx-mirror/src/signer.rs:22", "services/platform/hosted/agent-boundary/tests/chain_receipt.rs:4", "services/platform/hosted/identity/src/mailer.rs:11", "services/platform/hosted/internal/src/kms.rs:32", "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:25", "tools/platform/cli/src/mcp.rs:9", "tools/platform/cli/src/programs.rs:2898"]
+
+[row.r5-18.13]
+interface = "interface.5.cli-layerxctl-submit"
+verdict = "served"
+path = "cmd/layerxctl/src/main.rs"
+line = 412
+symbol = "submit"
+evidence = "\"submit\" => true remains the command match arm at its new line. submit now fetches sequencer receipts and pinned receipt keys, checks the signature and transaction binding, and prints receipted only after verification."
+
+[row.r5-18.14]
+interface = "interface.5.go-consensus-abci-example-code-code-type-ok"
+verdict = "served"
+path = "consensus/abci/example/code/code.go"
+line = 5
+symbol = "CodeTypeOK"
+evidence = "CodeTypeOK uint32 = 0 is still declared in the registered code package; alignment whitespace differs from the registry signature."
+
+[row.r5-18.15]
+interface = "interface.5.go-consensus-abci-example-code-code-type-bad-nonce"
+verdict = "served"
+path = "consensus/abci/example/code/code.go"
+line = 7
+symbol = "CodeTypeBadNonce"
+evidence = "CodeTypeBadNonce uint32 = 2 is still declared in the registered code package; alignment whitespace differs from the registry signature."
+
+[row.r5-18.16]
+interface = "interface.5.go-consensus-abci-example-code-code-type-unauthorized"
+verdict = "served"
+path = "consensus/abci/example/code/code.go"
+line = 8
+symbol = "CodeTypeUnauthorized"
+evidence = "CodeTypeUnauthorized uint32 = 3 is still declared in the registered code package; alignment whitespace differs from the registry signature."
+
+[row.r5-18.17]
+interface = "interface.5.go-consensus-abci-types-misbehavior-type-duplicate-vote"
+verdict = "served"
+path = "consensus/abci/types/types.pb.go"
+line = 32
+symbol = "MisbehaviorType_DUPLICATE_VOTE"
+evidence = "MisbehaviorType_DUPLICATE_VOTE MisbehaviorType = 1 remains the generated protobuf enum constant; only declaration alignment differs from the registry signature."
+
+[row.r5-18.18]
+interface = "interface.5.go-consensus-config-config-validate-basic"
+verdict = "served"
+path = "consensus/config/config.go"
+line = 136
+symbol = "ValidateBasic"
+evidence = "func (cfg *Config) ValidateBasic() error keeps its signature; after consensus validation it now rejects simultaneous sequencer enablement and a nonempty AutobahnConfigFile."
+
+[row.r5-18.19]
+interface = "interface.5.cfg-config-toml-consensus-sequencer-enable"
+verdict = "served"
+path = "consensus/config/config.go"
+line = 1231
+symbol = "Enable"
+evidence = "Enable bool with mapstructure:\"enable\" keeps its field signature in SequencerConfig, now at line 1231. consensus/config/toml.go:542 emits it, node.go checks LeaderSource, and consensus state consumes it for sequencer timeouts."
+
+[row.r5-18.20]
+interface = "interface.5.cfg-config-toml-consensus-sequencer-timeout-propose"
+verdict = "served"
+path = "consensus/config/config.go"
+line = 1233
+symbol = "TimeoutPropose"
+evidence = "TimeoutPropose time.Duration with mapstructure:\"timeout-propose\" keeps its field signature, now at line 1233. consensus/config/toml.go:545 emits it and SequencerConfig.ProposeTimeout uses it for round-dependent proposal waits."
+
+[row.r5-18.21]
+interface = "interface.5.cfg-config-toml-consensus-sequencer-timeout-propose-delta"
+verdict = "served"
+path = "consensus/config/config.go"
+line = 1235
+symbol = "TimeoutProposeDelta"
+evidence = "TimeoutProposeDelta time.Duration with mapstructure:\"timeout-propose-delta\" keeps its field signature, now at line 1235. consensus/config/toml.go:548 emits it and ProposeTimeout adds the delta for each later round."
+
+[row.r5-18.22]
+interface = "interface.5.cfg-config-toml-consensus-sequencer-timeout-vote"
+verdict = "served"
+path = "consensus/config/config.go"
+line = 1237
+symbol = "TimeoutVote"
+evidence = "TimeoutVote time.Duration with mapstructure:\"timeout-vote\" keeps its field signature, now at line 1237. consensus/config/toml.go:551 emits it and consensus/internal/consensus/state.go:2794 reads it for sequencer vote waits."
+
+[row.r5-18.23]
+interface = "interface.5.cfg-config-toml-consensus-sequencer-timeout-commit"
+verdict = "served"
+path = "consensus/config/config.go"
+line = 1240
+symbol = "TimeoutCommit"
+evidence = "TimeoutCommit time.Duration with mapstructure:\"timeout-commit\" keeps its field signature, now at line 1240. consensus/config/toml.go:554 emits it and consensus/internal/consensus/state.go:2810 applies it after sequencer precommits."
+
+[row.r5-18.24]
+interface = "interface.5.go-consensus-internal-state-block-executor-create-proposal-block-j32"
+verdict = "served"
+path = "consensus/internal/state/execution.go"
+line = 243
+symbol = "CreateProposalBlock"
+evidence = "CreateProposalBlock now declares lastCommit *types.Commit and named returns (block *types.Block, err error), replacing registered lastExtCommit and unnamed results. Its sequenced branch rejects !sealed.OpenTime.After(state.LastBlockTime) at line 298."
+
+[row.r5-18.25]
+interface = "interface.5.go-consensus-node-new-j32"
+verdict = "served"
+path = "consensus/node/public.go"
+line = 25
+symbol = "New"
+evidence = "func New now returns (local.NodeService, error), replacing the registered (service.Service, error), and explicitly takes consensusPolicy tmtypes.ConsensusPolicy. Delegated makeNode rejects sequencer mode without application LeaderSource and installs that source on consensus state."
+
+[row.r5-18.26]
+interface = "interface.5.go-consensus-test-e2e-pkg-testnet-validate-j32"
+verdict = "served"
+path = "consensus/test/e2e/pkg/testnet.go"
+line = 305
+symbol = "Validate"
+evidence = "func (t Testnet) Validate() error keeps its signature, now at line 305. It checks leader_pin/leader_pin_height pairing, activation versus initial height, unknown or duplicate leaders, and validator mode for every pinned leader."
+
+[row.r5-18.27]
+interface = "interface.5.go-daemon-paxd-cmd-wasm-config"
+verdict = "served"
+path = "daemon/paxd/cmd/app_config.go"
+line = 20
+symbol = "WASMConfig"
+evidence = "type WASMConfig struct now contains QueryGasLimit uint64, MemoryCacheSize uint32 and SimulationGasLimit string with the reader mapstructure keys; the registered type name survives with expanded configuration fields."
+
+[row.r5-18.28]
+interface = "interface.5.go-daemon-paxd-cmd-custom-app-config"
+verdict = "served"
+path = "daemon/paxd/cmd/app_config.go"
+line = 28
+symbol = "CustomAppConfig"
+evidence = "type CustomAppConfig struct keeps its name, now at line 28; its WASM field uses the expanded WASMConfig and ReceiptStore paxdbconfig.ReceiptStoreConfig is present alongside the other typed node configuration sections."
+
+[row.r5-18.29]
+interface = "interface.5.go-daemon-paxd-cmd-new-custom-app-config"
+verdict = "served"
+path = "daemon/paxd/cmd/app_config.go"
+line = 45
+symbol = "NewCustomAppConfig"
+evidence = "func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Config) CustomAppConfig keeps its signature, now at line 45; defaults now include ReceiptStore and WASM memory cache configuration from wasmtypes.DefaultWasmConfig()."
+
+[row.r5-18.30]
+interface = "interface.5.cli-paxd-root-addcommand"
+verdict = "served"
+path = "daemon/paxd/cmd/root.go"
+line = 127
+symbol = "rootCmd.AddCommand("
+evidence = "rootCmd.AddCommand( remains the root registration call, shifted to line 127. Its registered commands now include SequencerCmd, AddGenesisReceiptKeyCmd and AddGenesisSequencerLeaderCmd alongside the existing genesis and operator commands."
+
+[row.r5-18.31]
+interface = "interface.5.cli-paxd-server-commands"
+verdict = "served"
+path = "daemon/paxd/cmd/root.go"
+line = 156
+symbol = "server.AddCommands("
+evidence = "server.AddCommands( retains rootCmd, app.DefaultNodeHome, newApp, appExport, addModuleInitFlags and tracingProviderOpts as arguments; the registration moved from line 152 to 156 without changing its call signature."
+
+[row.r5-18.32]
+interface = "interface.5.cfg-app-wasm-lru-size"
+verdict = "retired"
+path = "daemon/paxd/cmd/root.go"
+line = 499
+symbol = "lru_size"
+evidence = "The lru_size identifier is absent from the entire registered root.go file; the [wasm] template now emits memory_cache_size at line 499 and simulation_gas_limit at line 500. Remaining references include a rejection test and legacy node templates."
+remaining_refs = 4
+remaining = ["daemon/paxd/cmd/app_config_test.go:50", "docker/localnode/config/app.toml:207", "docker/rpcnode/config/app.toml:202", "interchain/testing/simapp/simd/cmd/root.go:95"]
+
+[row.r5-18.33]
+interface = "interface.5.cfg-app-eth-replay-eth-replay-contract-state-checks"
+verdict = "retired"
+path = "daemon/paxd/cmd/root.go"
+line = 510
+symbol = "eth_replay_contract_state_checks"
+evidence = "The eth_replay_contract_state_checks identifier is absent from the entire registered root.go file; [eth_replay] now emits contract_state_checks = {{ .ETHReplay.ContractStateChecks }} at line 510. Only the rejection test retains the obsolete key."
+remaining_refs = 1
+remaining = ["daemon/paxd/cmd/app_config_test.go:73"]
+
+[row.r5-18.34]
+interface = "interface.5.go-modules-sequencer-keeper-keeper-deliver-sequence-batch"
+verdict = "served"
+path = "modules/sequencer/keeper/keeper.go"
+line = 57
+symbol = "DeliverSequenceBatch"
+evidence = "func (k Keeper) DeliverSequenceBatch(ctx sdk.Context, msg types.MsgSequenceBatch) error keeps its signature, now at line 57; it calls k.Sequenced before delivery and refuses a block below the stored activation height."
+
+[row.r5-18.35]
+interface = "interface.5.go-modules-sequencer-keeper-keeper-leaders"
+verdict = "served"
+path = "modules/sequencer/keeper/keeper.go"
+line = 161
+symbol = "Leaders"
+evidence = "func (k Keeper) Leaders(ctx sdk.Context) ([][32]byte, error) keeps its signature, now at line 161; decoded nonempty leaders are validated, and leaders.go:SetLeaders plus module governance now update the same LeaderListKey rather than genesis alone."
+
+[row.r5-18.36]
+interface = "interface.5.go-modules-sequencer-keeper-keeper-init-genesis"
+verdict = "served"
+path = "modules/sequencer/keeper/keeper.go"
+line = 180
+symbol = "InitGenesis"
+evidence = "func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error keeps its signature, now at line 180; it resolves zero ActivationHeight to the next block, validates receipt-key coverage, and persists the activation height before writing genesis state."
+
+[row.r5-18.37]
+interface = "interface.5.go-modules-sequencer-keeper-keeper-export-genesis"
+verdict = "served"
+path = "modules/sequencer/keeper/keeper.go"
+line = 232
+symbol = "ExportGenesis"
+evidence = "func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) keeps its signature, now at line 232; the returned GenesisState now includes uint64(activation) from k.ActivationHeight alongside leaders, keys and sequence state."
+
+[row.r5-18.38]
+interface = "interface.5.go-modules-sequencer-keeper-receipt-key-entry-validate"
+verdict = "served"
+path = "modules/sequencer/keeper/receipt_keys.go"
+line = 50
+symbol = "Validate"
+evidence = "func (e ReceiptKeyEntry) Validate() error keeps its signature and line; it now rejects FirstHeight == 0 with ErrReceiptKeyRange, matching GenesisState.Validate instead of accepting a zero first height."
+
+[row.r5-18.39]
+interface = "interface.5.go-modules-sequencer-keeper-param-key-table"
+verdict = "served"
+path = "modules/sequencer/keeper/receipt_keys.go"
+line = 177
+symbol = "ParamKeyTable"
+evidence = "func ParamKeyTable() paramtypes.KeyTable keeps its signature, now at line 177; the table now registers both KeyReceiptKeys with ReceiptKeys and KeyLeaders with LeaderList and their validators."
+
+[row.r5-18.40]
+interface = "interface.5.go-modules-sequencer-app-module-init-genesis"
+verdict = "served"
+path = "modules/sequencer/module.go"
+line = 165
+symbol = "InitGenesis"
+evidence = "func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate keeps its signature, now at line 165; it writes keeper genesis state and synchronizes the governed Leaders param with SetLeadersParam."
+
+[row.r5-18.41]
+interface = "interface.5.go-modules-sequencer-app-module-export-genesis"
+verdict = "served"
+path = "modules/sequencer/module.go"
+line = 187
+symbol = "ExportGenesis"
+evidence = "func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMessage keeps its signature, now at line 187; its serialized genesisState now includes ActivationHeight from the keeper, preserving activation across export/import."
+
+[row.r5-18.42]
+interface = "interface.5.go-modules-sequencer-new-param-change-proposal-handler"
+verdict = "served"
+path = "modules/sequencer/module.go"
+line = 225
+symbol = "NewParamChangeProposalHandler"
+evidence = "func NewParamChangeProposalHandler(k keeper.Keeper, paramSpace paramtypes.Subspace, next govtypes.Handler) govtypes.Handler keeps its signature, now at line 225; it handles Leaders as well as ReceiptKeys and writes both governed lists to keeper storage through a cache context."
+
+[row.r5-18.43]
+interface = "interface.5.go-modules-sequencer-types-genesis-state"
+verdict = "served"
+path = "modules/sequencer/types/genesis.go"
+line = 28
+symbol = "GenesisState"
+evidence = "type GenesisState struct keeps its declaration at line 28; its field shape now includes ActivationHeight uint64 between ReceiptKeys and LastSeq, in addition to the previously registered leader, receipt-key and sequence state."
+
+[row.r5-18.44]
+interface = "interface.5.go-modules-sequencer-types-genesis-state-validate"
+verdict = "served"
+path = "modules/sequencer/types/genesis.go"
+line = 43
+symbol = "Validate"
+evidence = "func (gs GenesisState) Validate() error keeps its signature, now at line 43; nonzero ActivationHeight must be covered by a receipt key, while zero remains available for InitGenesis to resolve to the next block. FirstHeight zero is still rejected."
+
+[row.r5-18.45]
+interface = "interface.5.go-modules-sequencer-types-stored-votes-key"
+verdict = "served"
+path = "modules/sequencer/types/keys.go"
+line = 25
+symbol = "StoredVotesKey"
+evidence = "StoredVotesKey = []byte{0x05} keeps its byte-prefix signature, now at line 25. StoredVotesKeyAt appends the encoded height; modules/sequencer/keeper/votes.go now stores, prunes and reads decided votes through those derived keys."
+
+[row.r5-18.46]
+interface = "interface.5.key-modules-sequencer-types-stored-votes-key"
+verdict = "served"
+path = "modules/sequencer/types/keys.go"
+line = 25
+symbol = "StoredVotesKey"
+evidence = "StoredVotesKey = []byte{0x05} keeps its storage-prefix bytes, now at line 25; it is now used by StoredVotesKeyAt(height), whose keys are written and read by keeper.StoreVotes and keeper.StoredVotes in keeper/votes.go."
+
+[row.r5-18.47]
+interface = "interface.5.go-modules-sequencer-types-sequence-batch-domain"
+verdict = "served"
+path = "modules/sequencer/types/msgs.go"
+line = 14
+symbol = "SequenceBatchDomain"
+evidence = "SequenceBatchDomain remains the PAXEER/v1/sequence-batch domain with its NUL suffix at line 14; MsgSequenceBatch.SignBytes appends it to the batch-signature preimage."

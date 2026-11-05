@@ -3,8 +3,6 @@ package tx_test
 import (
 	"testing"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	appparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -22,6 +20,7 @@ import (
 const (
 	memo          = "waboom"
 	gas           = uint64(10000)
+	gasEstimate   = uint64(7500)
 	timeoutHeight = uint64(5)
 )
 
@@ -43,6 +42,7 @@ var (
 func buildTestTx(t *testing.T, builder client.TxBuilder) {
 	builder.SetMemo(memo)
 	builder.SetGasLimit(gas)
+	builder.SetGasEstimate(gasEstimate)
 	builder.SetFeeAmount(fee)
 	err := builder.SetMsgs(msg0, msg1)
 	require.NoError(t, err)
@@ -53,13 +53,13 @@ func buildTestTx(t *testing.T, builder client.TxBuilder) {
 
 type TestSuite struct {
 	suite.Suite
-	encCfg   appparams.EncodingConfig
+	encCfg   txTestEncodingConfig
 	protoCfg client.TxConfig
 	aminoCfg client.TxConfig
 }
 
 func (s *TestSuite) SetupSuite() {
-	encCfg := app.MakeEncodingConfig()
+	encCfg := makeTxEncodingConfig()
 	s.encCfg = encCfg
 	s.protoCfg = tx.NewTxConfig(codec.NewProtoCodec(encCfg.InterfaceRegistry), tx.DefaultSignModes)
 	s.aminoCfg = legacytx.StdTxConfig{Cdc: encCfg.Amino}
@@ -84,6 +84,8 @@ func (s *TestSuite) TestCopyTx() {
 	s.Require().Equal(protoBuilder.GetTx().GetSigners(), protoBuilder2.GetTx().GetSigners())
 	s.Require().Equal(protoBuilder.GetTx().GetMsgs()[0], protoBuilder2.GetTx().GetMsgs()[0])
 	s.Require().Equal(protoBuilder.GetTx().GetMsgs()[1], protoBuilder2.GetTx().GetMsgs()[1])
+	s.Require().Equal(gasEstimate, aminoBuilder.GetTx().GetGasEstimate())
+	s.Require().Equal(gasEstimate, protoBuilder2.GetTx().GetGasEstimate())
 
 	// amino -> proto -> amino
 	aminoBuilder = s.aminoCfg.NewTxBuilder()
@@ -103,6 +105,32 @@ func (s *TestSuite) TestCopyTx() {
 	s.Require().Equal(aminoBuilder.GetTx().GetSigners(), aminoBuilder2.GetTx().GetSigners())
 	s.Require().Equal(aminoBuilder.GetTx().GetMsgs()[0], aminoBuilder2.GetTx().GetMsgs()[0])
 	s.Require().Equal(aminoBuilder.GetTx().GetMsgs()[1], aminoBuilder2.GetTx().GetMsgs()[1])
+	s.Require().Equal(gasEstimate, protoBuilder.GetTx().GetGasEstimate())
+	s.Require().Equal(gasEstimate, aminoBuilder2.GetTx().GetGasEstimate())
+}
+
+func (s *TestSuite) TestCopyTxProtobufFeeFields() {
+	source := s.protoCfg.NewTxBuilder()
+	buildTestTx(s.T(), source)
+	source.SetFeeGranter(addr2)
+	target := s.protoCfg.NewTxBuilder()
+	s.Require().NoError(tx2.CopyTx(source.GetTx(), target, false))
+	s.Require().Equal(addr2, target.GetTx().FeeGranter())
+	s.Require().Equal(gasEstimate, target.GetTx().GetGasEstimate())
+	s.Require().Equal(fee, target.GetTx().GetFee())
+	s.Require().Equal(gas, target.GetTx().GetGas())
+}
+
+func (s *TestSuite) TestCopyTxUnsupportedFeeGranter() {
+	source := s.protoCfg.NewTxBuilder()
+	buildTestTx(s.T(), source)
+	source.SetFeeGranter(addr2)
+	for _, ignoreSignatureError := range []bool{false, true} {
+		target := s.aminoCfg.NewTxBuilder()
+		s.Require().EqualError(tx2.CopyTx(source.GetTx(), target, ignoreSignatureError), "cannot copy fee granter to legacy StdTx")
+	}
+	_, err := tx2.ConvertTxToStdTx(s.encCfg.Amino, source.GetTx())
+	s.Require().EqualError(err, "cannot copy fee granter to legacy StdTx")
 }
 
 func (s *TestSuite) TestConvertTxToStdTx() {
@@ -113,6 +141,7 @@ func (s *TestSuite) TestConvertTxToStdTx() {
 	s.Require().NoError(err)
 	s.Require().Equal(memo, stdTx.Memo)
 	s.Require().Equal(gas, stdTx.Fee.Gas)
+	s.Require().Equal(gasEstimate, stdTx.GetGasEstimate())
 	s.Require().Equal(fee, stdTx.Fee.Amount)
 	s.Require().Equal(msg0, stdTx.Msgs[0])
 	s.Require().Equal(msg1, stdTx.Msgs[1])
@@ -133,6 +162,7 @@ func (s *TestSuite) TestConvertTxToStdTx() {
 	s.Require().NoError(err)
 	s.Require().Equal(memo, stdTx.Memo)
 	s.Require().Equal(gas, stdTx.Fee.Gas)
+	s.Require().Equal(gasEstimate, stdTx.GetGasEstimate())
 	s.Require().Equal(fee, stdTx.Fee.Amount)
 	s.Require().Equal(msg0, stdTx.Msgs[0])
 	s.Require().Equal(msg1, stdTx.Msgs[1])

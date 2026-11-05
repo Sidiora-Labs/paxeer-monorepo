@@ -1,0 +1,6 @@
+[repair.22.33.666]
+finding = "wei-genesis-input-validation"
+tests = ["TestRepairM_666_InvalidAddress", "TestRepairM_666_NegativeAmount", "TestRepairM_666_UninitializedAmount", "TestRepairM_666_DuplicateAddress", "TestRepairM_666_FractionalBounds", "TestRepairM_666_ValidAggregateCarry"]
+fractional_bounds = "Each decoded address appears once with an initialized amount in [0, OneUhpxInWei); aggregate wei must still have zero remainder."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before complete implementation and require hf-done to run the sole verify command. No pre-change test result is claimed."
+wiring_requests = []

@@ -3,6 +3,7 @@
 mod assertion;
 mod binding;
 mod provision;
+pub mod provision_head;
 mod state;
 mod wire;
 
@@ -47,6 +48,9 @@ impl Server {
             return Err(invalid("invalid socket path or deadline"));
         }
         state.ready()?;
+        if let Ok(verifier) = state.assertion_verifier() {
+            verifier.set_clock(std::sync::Arc::clone(&clock))?;
+        }
         let parent = socket
             .parent()
             .ok_or_else(|| invalid("socket parent missing"))?;

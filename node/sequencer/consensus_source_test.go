@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
@@ -40,19 +40,20 @@ type sourceHarness struct {
 	*harness
 	r   *sequencer.Receipter
 	src *sequencer.ConsensusSource
+	key *sequencer.ReceiptKey
 }
 
 // newSourceHarness builds the real App on the synchronous block path, funds the given accounts
 // (EVM-mapped), runs setup on the genesis context, writes the sequencer genesis with the test
-// receipt key pinned and the stored chain at sourceLastSeq, records the merge plan as done at
-// activation-1 (never when activation is 0) so blocks from activation are sequenced, commits
+// receipt key and leader pinned, the stored chain at sourceLastSeq and the keeper activation
+// height, records the merge plan as done at activation-1, commits
 // height 1 and builds the executor, receipter and consensus source over them.
 func newSourceHarness(t *testing.T, activation int64, setup func(ctx sdk.Context, a *app.App), funded ...utils.TestAcct) *sourceHarness {
 	t.Helper()
 	app.EnableOCC = false
 	t.Cleanup(func() { app.EnableOCC = true })
 	tm := time.Now().UTC()
-	valPub := secp256k1.GenPrivKey().PubKey()
+	valPub := sdked25519.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false, func(ba *baseapp.BaseApp) {
 		ba.SetOccEnabled(false)
 		ba.SetConcurrencyWorkers(1)
@@ -66,7 +67,8 @@ func newSourceHarness(t *testing.T, activation int64, setup func(ctx sdk.Context
 		setup(tw.Ctx, a)
 	}
 	require.NoError(t, a.SequencerKeeper.InitGenesis(tw.Ctx, seqtypes.GenesisState{
-		Leaders: [][32]byte{[32]byte(label("consensus source leader"))},
+		ActivationHeight: uint64(activation),
+		Leaders:          [][32]byte{[32]byte(valPub.Bytes())},
 		ReceiptKeys: []seqtypes.ReceiptKey{{
 			KeyId:       testKeyID,
 			PublicKey:   publicOf(testKeySeed),
@@ -107,7 +109,131 @@ func newSourceHarness(t *testing.T, activation int64, setup func(ctx sdk.Context
 		harness: &harness{t: t, app: a, exec: exec, proposer: proposer, genesis: tm},
 		r:       r,
 		src:     src,
+		key:     key,
 	}
+}
+
+func TestConsensusSourceRetriesSealBatchFailure(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	h := newSourceHarness(t, openHeight, func(ctx sdk.Context, a *app.App) {
+		require.NoError(t, a.SequencerKeeper.SetActivationHeight(ctx, openHeight))
+	}, sender)
+	ms := h.open()
+	txs := make(tmtypes.Txs, 0, 3)
+	ids := make([][32]byte, 0, 3)
+	head := sourcePrevSeqHash
+	for nonce := range uint64(3) {
+		signed, bz := transfer(t, sender, nonce, recipient, big.NewInt(1))
+		acc, receipt, err := h.r.Accept(bz)
+		require.NoError(t, err)
+		require.NotEmpty(t, receipt)
+		require.Equal(t, uint32(0), acc.Result.Code, acc.Result.Log)
+		require.Equal(t, sourceLastSeq+1+nonce, acc.Seq)
+		txs = append(txs, append(tmtypes.Tx(nil), bz...))
+		ids = append(ids, [32]byte(signed.Hash()))
+		head = expectedSeqHash(head, acc.Seq, ids[nonce])
+	}
+
+	originalKey := *h.key
+	otherSeed := label("consensus source rotated key")
+	otherKey, err := loadKey(t, otherSeed, []verify.SequencerAuthorization{{
+		SequencerID: testKeyID, PublicKey: publicOf(otherSeed), FirstBatchNumber: 1, LastBatchNumber: 1000,
+	}}, openHeight)
+	require.NoError(t, err)
+	*h.key = *otherKey
+
+	for range 2 {
+		block, err := h.src.Seal(context.Background(), openHeight)
+		require.ErrorIs(t, err, seqtypes.ErrBadSignature)
+		require.Empty(t, block)
+		require.Nil(t, h.src.Sealed())
+	}
+	_, err = h.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	_, err = h.src.Seal(context.Background(), openHeight+1)
+	require.ErrorIs(t, err, sequencer.ErrSealHeight)
+
+	*h.key = originalKey
+	block, err := h.src.Seal(context.Background(), openHeight)
+	require.NoError(t, err)
+	require.Equal(t, txs, block.Txs)
+	require.Equal(t, time.UnixMilli(ms).UTC(), block.OpenTime)
+	msg, err := app.DecodeSequenceBatch(block.Batch)
+	require.NoError(t, err)
+	require.Equal(t, sourceLastSeq+1, msg.FromSeq)
+	require.Equal(t, sourceLastSeq+3, msg.ToSeq)
+	require.Equal(t, sourcePrevSeqHash[:], msg.PrevSeqHash)
+	require.Equal(t, head[:], msg.LastSeqHash)
+	root := resolutionTxRoot(ids)
+	require.Equal(t, root[:], msg.TxRoot)
+	require.NoError(t, msg.VerifySignature(testChainID, publicOf(testKeySeed)))
+	sealed := h.src.Sealed()
+	require.NotNil(t, sealed)
+	require.Equal(t, append([][]byte{block.Batch}, txs.ToSliceOfBytes()...), sealed.Txs)
+	requireStoredSequence(t, h.app, sealed.Context(), sourceLastSeq+3, head)
+	_, err = h.src.Seal(context.Background(), openHeight)
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+}
+
+func TestConsensusSourceDecodeFailureKeepsBatch(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	h := newSourceHarness(t, openHeight, func(ctx sdk.Context, a *app.App) {
+		require.NoError(t, a.SequencerKeeper.SetActivationHeight(ctx, openHeight))
+	}, sender)
+	ms := h.open()
+	txs := make(tmtypes.Txs, 0, 3)
+	var damaged []byte
+	head := sourcePrevSeqHash
+	for nonce := range uint64(3) {
+		signed, bz := transfer(t, sender, nonce, recipient, big.NewInt(1))
+		acc, receipt, err := h.r.Accept(bz)
+		require.NoError(t, err)
+		require.NotEmpty(t, receipt)
+		require.Equal(t, uint32(0), acc.Result.Code, acc.Result.Log)
+		require.Equal(t, sourceLastSeq+1+nonce, acc.Seq)
+		txs = append(txs, append(tmtypes.Tx(nil), bz...))
+		head = expectedSeqHash(head, acc.Seq, [32]byte(signed.Hash()))
+		if nonce == 1 {
+			damaged = bz
+		}
+	}
+
+	damaged[0] = 0xff
+	for range 2 {
+		block, err := h.src.Seal(context.Background(), openHeight)
+		require.ErrorIs(t, err, sequencer.ErrUndecodableTx)
+		require.ErrorContains(t, err, "seq 32:")
+		require.Empty(t, block)
+		require.Nil(t, h.src.Sealed())
+	}
+	_, err := h.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	_, err = h.src.Seal(context.Background(), openHeight+1)
+	require.ErrorIs(t, err, sequencer.ErrSealHeight)
+
+	copy(damaged, txs[1])
+	block, err := h.src.Seal(context.Background(), openHeight)
+	require.NoError(t, err)
+	require.Equal(t, txs, block.Txs)
+	require.Equal(t, time.UnixMilli(ms).UTC(), block.OpenTime)
+	msg, err := app.DecodeSequenceBatch(block.Batch)
+	require.NoError(t, err)
+	require.Equal(t, sourceLastSeq+1, msg.FromSeq)
+	require.Equal(t, sourceLastSeq+3, msg.ToSeq)
+	require.Equal(t, head[:], msg.LastSeqHash)
+	require.NoError(t, msg.VerifySignature(testChainID, publicOf(testKeySeed)))
+	sealed := h.src.Sealed()
+	require.NotNil(t, sealed)
+	require.Equal(t, append([][]byte{block.Batch}, txs.ToSliceOfBytes()...), sealed.Txs)
+	require.Len(t, sealed.Results, len(txs)+1)
+	for _, result := range sealed.Results {
+		require.Equal(t, uint32(0), result.Code, result.Log)
+	}
+	requireStoredSequence(t, h.app, sealed.Context(), sourceLastSeq+3, head)
+	_, err = h.src.Seal(context.Background(), openHeight)
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
 }
 
 func TestConsensusSourceTxZeroBatch(t *testing.T) {
@@ -253,8 +379,10 @@ func TestConsensusSourceBelowActivation(t *testing.T) {
 	_, err = h.exec.Snapshot()
 	require.NoError(t, err, "a refused seal leaves the open layer")
 
-	unmerged := newSourceHarness(t, 0, nil)
+	unmerged := newHarness(t)
+	unmergedSource, err := sequencer.NewConsensusSource(unmerged.app, unmerged.exec, h.key)
+	require.NoError(t, err)
 	for _, height := range []int64{1, openHeight, activation, math.MaxInt64} {
-		require.False(t, unmerged.src.Sequenced(height), "height %d", height)
+		require.False(t, unmergedSource.Sequenced(height), "height %d", height)
 	}
 }

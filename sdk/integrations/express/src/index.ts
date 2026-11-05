@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   BuyerMiddleware,
   LayerXPaymentHttpTransport,
@@ -7,7 +8,8 @@ import {
   ProductionClient,
   SecretBytes,
   isSelectableProtocolVersion,
-  type AuthorizedReceiptBatch,
+  keccak256,
+  type SequencerReceiptKey,
   type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
 import {
@@ -19,7 +21,6 @@ import {
   SellerMiddleware,
   VerifiedWebhookConsumer,
   X402_VERSION,
-  type AuthorizedBatchResolver,
   type FulfillmentRepository,
   type JsonValue,
   type MiddlewareErrorCode,
@@ -43,9 +44,13 @@ export {
   VerifiedWebhookConsumer,
   X402_VERSION,
   verifyPaymentReceipt,
+  verifyPaymentCommitmentEvidence,
+  verifyRpcPayment,
+  PaymentRpc,
 } from "@sidiora/layerx-seller-middleware";
 export type {
-  AuthorizedBatchResolver,
+  PaymentCommitmentEvidence,
+  PaymentCommitmentResolver,
   FulfillmentRepository,
   JsonValue,
   MiddlewareErrorCode,
@@ -64,15 +69,29 @@ export type {
   WebhookDeliveryStore,
   WebhookRequestHeaders,
 } from "@sidiora/layerx-seller-middleware";
-export { BuyerMiddleware, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
-export type { BuyerSupportedKind, PaidFetchResult, PreparedPayment } from "@sidiora/layerx-buyer-middleware";
+export { BuyerMiddleware, LayerXPaymentHttpTransport, grantPaymentHeader } from "@sidiora/layerx-buyer-middleware";
+export type {
+  BuyerMiddlewareConfig,
+  BuyerSupportedKind,
+  CapturedSettlement,
+  EvidenceMaterial,
+  EvidenceReference,
+  Journey,
+  PaidFetchResult,
+  ParsedOffer,
+  PreparedPayment,
+} from "@sidiora/layerx-buyer-middleware";
 export { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
-export type { AuthorizedReceiptBatch, ReceiptVerification } from "@sidiora/layerx-sdk";
+export type { SequencerReceiptKey, ReceiptVerification } from "@sidiora/layerx-sdk";
 
 export const WEBHOOK_ID_HEADER = "layerx-webhook-id" as const;
 export const WEBHOOK_TIMESTAMP_HEADER = "layerx-webhook-timestamp" as const;
 export const WEBHOOK_KEY_HEADER = "layerx-webhook-key-id" as const;
 export const WEBHOOK_SIGNATURE_HEADER = "layerx-webhook-signature" as const;
+
+export type ReceiptKeys = readonly SequencerReceiptKey[];
+
+export const LAYERX_RECEIPT_KEYS_JSON = "LAYERX_RECEIPT_KEYS_JSON" as const;
 
 export const DECLARED_KEYS = [
   "LAYERX_PRINCIPAL",
@@ -88,7 +107,7 @@ export const DECLARED_KEYS = [
   "LAYERX_ASSET",
   "LAYERX_PAY_TO",
   "LAYERX_PAYMENT_TIMEOUT_SECONDS",
-  "LAYERX_AUTHORIZED_BATCH_JSON",
+  LAYERX_RECEIPT_KEYS_JSON,
   "LAYERX_WEBHOOK_PATH",
   "LAYERX_WEBHOOK_PUBLIC_KEYS_JSON",
   "LAYERX_WEBHOOK_MAX_AGE_MS",
@@ -101,7 +120,6 @@ export const DECLARED_KEYS = [
 export type DeclaredKey = (typeof DECLARED_KEYS)[number];
 
 const SECRET_KEYS: readonly DeclaredKey[] = ["LAYERX_TOKEN"];
-const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
 const MAXIMUM_WEBHOOK_BYTES = 1_048_576;
 
 export type LayerXIntegrationErrorCode =
@@ -177,7 +195,7 @@ export interface LayerXDeclaredConfig {
   readonly protocolVersion: SelectableProtocolVersion;
   readonly paymentRequired: PaymentRequired;
   readonly requirements: PaymentRequirements;
-  readonly authorizedBatch: AuthorizedReceiptBatch;
+  readonly receiptKeys: ReceiptKeys;
   readonly webhook: LayerXWebhookSettings;
   readonly buyer?: LayerXBuyerSettings;
 }
@@ -201,7 +219,6 @@ export interface LayerXMountOptions {
   readonly fulfillments: FulfillmentRepository<LayerXResource>;
   readonly deliveries: WebhookDeliveryStore;
   readonly events: LayerXWebhookHandlerConsumer;
-  readonly authorizedBatches?: AuthorizedBatchResolver;
   readonly authority?: SellerPaymentAuthority;
   readonly now?: () => number;
   readonly fetch?: typeof globalThis.fetch;
@@ -253,6 +270,7 @@ export function readDeclaredConfig(environment: Environment): LayerXDeclaredConf
   assertNoPublishedSecrets(environment);
   const scheme = required(environment, "LAYERX_X402_SCHEME");
   const network = required(environment, "LAYERX_X402_NETWORK");
+  const resourceUrl = required(environment, "LAYERX_RESOURCE_URL");
   const requirements: PaymentRequirements = {
     scheme,
     network,
@@ -260,6 +278,7 @@ export function readDeclaredConfig(environment: Environment): LayerXDeclaredConf
     asset: required(environment, "LAYERX_ASSET"),
     payTo: required(environment, "LAYERX_PAY_TO"),
     maxTimeoutSeconds: positiveInteger(required(environment, "LAYERX_PAYMENT_TIMEOUT_SECONDS")),
+    extra: { layerx: { commitment: "receipted", purposeHash: offerPurposeHash(resourceUrl) } },
   };
   const description = optional(environment, "LAYERX_RESOURCE_DESCRIPTION");
   const mimeType = optional(environment, "LAYERX_RESOURCE_MIME_TYPE");
@@ -267,7 +286,7 @@ export function readDeclaredConfig(environment: Environment): LayerXDeclaredConf
   const paymentRequired: PaymentRequired = {
     x402Version: X402_VERSION,
     resource: {
-      url: required(environment, "LAYERX_RESOURCE_URL"),
+      url: resourceUrl,
       ...(description === undefined ? {} : { description }),
       ...(mimeType === undefined ? {} : { mimeType }),
       ...(serviceName === undefined ? {} : { serviceName }),
@@ -285,7 +304,7 @@ export function readDeclaredConfig(environment: Environment): LayerXDeclaredConf
     protocolVersion: declaredProtocolVersion(required(environment, PROTOCOL_VERSION_VARIABLE)),
     paymentRequired,
     requirements,
-    authorizedBatch: parseAuthorizedBatch(required(environment, "LAYERX_AUTHORIZED_BATCH_JSON")),
+    receiptKeys: parseReceiptKeys(required(environment, LAYERX_RECEIPT_KEYS_JSON)),
     webhook: {
       path: mountPath(required(environment, "LAYERX_WEBHOOK_PATH")),
       publicKeys: parseWebhookKeys(required(environment, "LAYERX_WEBHOOK_PUBLIC_KEYS_JSON")),
@@ -296,8 +315,8 @@ export function readDeclaredConfig(environment: Environment): LayerXDeclaredConf
   };
 }
 
-export function staticAuthorizedBatches(batch: AuthorizedReceiptBatch): AuthorizedBatchResolver {
-  return { resolve: () => Promise.resolve(batch) };
+export function offerPurposeHash(resourceUrl: string): string {
+  return createHash("sha256").update(`layerx-express-purpose:${resourceUrl}`).digest("hex");
 }
 
 export class SingleProcessWebhookDeliveryStore implements WebhookDeliveryStore {
@@ -352,11 +371,10 @@ export class SingleProcessWebhookDeliveryStore implements WebhookDeliveryStore {
 
 export function createLayerXMount(options: LayerXMountOptions): LayerXExpressMount {
   const config = readDeclaredConfig(options.environment);
-  const authorizedBatches = options.authorizedBatches ?? staticAuthorizedBatches(config.authorizedBatch);
   const seller = new SellerMiddleware<LayerXResource>({
     paymentRequired: config.paymentRequired,
-    protocolVersion: config.protocolVersion,
-    authority: options.authority ?? new ReceiptPayloadAuthority(authorizedBatches),
+    receiptKeys: config.receiptKeys,
+    authority: options.authority ?? new ReceiptPayloadAuthority(config.receiptKeys),
     fulfillments: options.fulfillments,
   });
   const webhooks = new VerifiedWebhookConsumer({
@@ -379,9 +397,8 @@ export function createLayerXMount(options: LayerXMountOptions): LayerXExpressMou
         ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
       })),
       source: config.buyer.source,
-      protocolVersion: config.protocolVersion,
       supported: config.buyer.supported,
-      authorizedBatches,
+      receiptKeys: config.receiptKeys,
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     });
@@ -441,18 +458,19 @@ export async function assertReceiptBacked(
   requirements: PaymentRequirements,
 ): Promise<void> {
   const evidenceDigest = layerXEvidenceDigest(decision.settlement.extensions);
-  const receiptDigest = toHex(await merkleLeafDigest(decision.verification.canonicalBytes));
+  const receiptDigest = `0x${toHex(keccak256(decision.verification.canonicalBytes))}`;
   if (
     decision.verification.level !== "sequencer-signed"
     || decision.verification.receipt.resultCode !== 0
     || !decision.settlement.success
     || decision.settlement.network !== requirements.network
     || decision.settlement.amount !== requirements.amount
-    || decision.settlement.transaction !== `lxp:${receiptDigest}`
+    || decision.settlement.transaction !== decision.verification.txHash
+    || decision.verification.txHash !== `0x${toHex(decision.verification.receipt.activityId)}`
     || !constantTimeEqualText(evidenceDigest, receiptDigest)
-    || decision.verification.receipt.amount !== BigInt(requirements.amount)
-    || !equalBytes(decision.verification.receipt.asset, parseHex32(requirements.asset))
-    || !equalBytes(decision.verification.receipt.to, parseHex32(requirements.payTo))
+    || decision.verification.payment.amount !== BigInt(requirements.amount)
+    || !equalBytes(decision.verification.payment.assetId, parseHex32(requirements.asset))
+    || !equalBytes(decision.verification.payment.to, parseHex32(requirements.payTo))
   ) {
     throw new LayerXIntegrationError("receipt-not-backed");
   }
@@ -616,7 +634,7 @@ function layerXEvidenceDigest(extensions: Readonly<Record<string, JsonValue>> | 
     throw new LayerXIntegrationError("receipt-not-backed");
   }
   const digest = (layerx as Readonly<Record<string, JsonValue>>)["receiptDigest"];
-  if (typeof digest !== "string" || !/^[0-9a-f]{64}$/u.test(digest)) {
+  if (typeof digest !== "string" || !/^0x[0-9a-f]{64}$/u.test(digest)) {
     throw new LayerXIntegrationError("receipt-not-backed");
   }
   return digest;
@@ -663,15 +681,48 @@ function mountPath(value: string): string {
   return value;
 }
 
-function parseAuthorizedBatch(value: string): AuthorizedReceiptBatch {
-  const parsed = parseJsonObject(value);
-  return {
-    batchId: parseHex32(requiredText(parsed["batchId"])),
-    asset: parseHex32(requiredText(parsed["asset"])),
-    previousStateRoot: parseHex32(requiredText(parsed["previousStateRoot"])),
-    resultingStateRoot: parseHex32(requiredText(parsed["resultingStateRoot"])),
-    sequencerPublicKey: parseHex32(requiredText(parsed["sequencerPublicKey"])),
-  };
+function parseReceiptKeys(value: string): ReceiptKeys {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new LayerXIntegrationError("invalid-declared-key");
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > 32) {
+    throw new LayerXIntegrationError("invalid-declared-key");
+  }
+  return Object.freeze(parsed.map((entry: unknown) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      throw new LayerXIntegrationError("invalid-declared-key");
+    }
+    const key = entry as Readonly<Record<string, JsonValue>>;
+    const fields = ["keyId", "publicKey", "firstHeight", "lastHeight"];
+    if (Object.keys(key).length !== fields.length || fields.some((field) => !Object.hasOwn(key, field))) {
+      throw new LayerXIntegrationError("invalid-declared-key");
+    }
+    const firstHeight = receiptKeyHeight(requiredText(key["firstHeight"]));
+    const lastHeight = receiptKeyHeight(requiredText(key["lastHeight"]));
+    if (firstHeight > lastHeight) {
+      throw new LayerXIntegrationError("invalid-declared-key");
+    }
+    return Object.freeze({
+      keyId: parseHex32(requiredText(key["keyId"])),
+      publicKey: parseHex32(requiredText(key["publicKey"])),
+      first_height: firstHeight,
+      last_height: lastHeight,
+    });
+  }));
+}
+
+function receiptKeyHeight(value: string): bigint {
+  if (!/^(0|[1-9][0-9]{0,19})$/u.test(value)) {
+    throw new LayerXIntegrationError("invalid-declared-key");
+  }
+  const height = BigInt(value);
+  if (height > 0xffff_ffff_ffff_ffffn) {
+    throw new LayerXIntegrationError("invalid-declared-key");
+  }
+  return height;
 }
 
 function parseWebhookKeys(value: string): Readonly<Record<string, Uint8Array>> {
@@ -769,12 +820,6 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
   return difference === 0;
 }
 
-function arrayBuffer(value: Uint8Array): ArrayBuffer {
-  const result = new ArrayBuffer(value.length);
-  new Uint8Array(result).set(value);
-  return result;
-}
-
 function concatenate(...values: readonly Uint8Array[]): Uint8Array {
   const result = new Uint8Array(values.reduce((total, value) => total + value.length, 0));
   let offset = 0;
@@ -783,12 +828,4 @@ function concatenate(...values: readonly Uint8Array[]): Uint8Array {
     offset += value.length;
   }
   return result;
-}
-
-async function merkleLeafDigest(canonicalReceipt: Uint8Array): Promise<Uint8Array> {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    arrayBuffer(concatenate(MERKLE_LEAF_DOMAIN, canonicalReceipt)),
-  );
-  return new Uint8Array(digest);
 }

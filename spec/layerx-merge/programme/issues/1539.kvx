@@ -1,0 +1,49 @@
+[issue.1539]
+number = 1539
+title = "[Coherence] eth_sendRawTransaction over WebSocket on the sequencer still re-accepts an identical resubmission and refuses it with the sequence error"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 2afc320138ea731339cb14f5d626413d421650b7 installs the recorded-hash source only on HTTP (rpc/server.go:235), while WebSocket rejects SequencerReceiptOption (rpc/server.go:425-441), builds a source-less send config (rpc/server.go:444) and registers it (rpc/server.go:553), and node/app.go:3652-3664 supplies the receipt option only to HTTP, so rpc/send.go:200-210 calls Accept again through rpc/send.go:320 despite decision 2346 and req.22038 (spec/layerx-merge/spec.kvx:7190 and spec/layerx-merge/spec.kvx:21611); the existing identical-resubmission regression uses HTTP only (rpc/send_sequencer_test.go:309-312)."
+close_comment = "Identical raw transaction resubmissions still fail on the sequencer WebSocket endpoint because its send API cannot look up recorded hashes. The follow-up task shares the receipt source with WebSocket and verifies unchanged receipts and state on replay while preserving refusal of a different transaction reusing the nonce."
+
+[task.18.1539.1]
+title = "Issue #1539: Return the recorded hash for identical WebSocket transaction resubmissions"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181539.1"]
+capabilities = []
+interfaces = []
+do_1 = "Update NewEVMWebSocketServer in rpc/server.go:401 to accept SequencerReceiptOption and assign its Source to SendConfig.SequencerSource after sendConfig at rpc/server.go:444, matching HTTP at rpc/server.go:215 and rpc/server.go:235, so the existing lookup in rpc/send.go:200-210 answers known hashes before acceptance; update the ServerOption documentation at rpc/server.go:48 to describe the supported option."
+do_2 = "Update App.RegisterLocalServices in node/app.go:3614 to pass app.sequencerReceipt to the WebSocket constructor at node/app.go:3664 alongside the shared sequencer, pending and forwarding options; retain HTTP's trace option and use the receipt source for WebSocket sends without adding receipt RPC methods."
+do_3 = "Extend TestEVMServerServesSequencerReceiptOption in node/sequencer_rpc_option_test.go:100, which already installs the real Accepter and ReceiptSource at node/sequencer_rpc_option_test.go:162-179 and submits fresh transactions over both transports at node/sequencer_rpc_option_test.go:195-220: resubmit each transaction's identical bytes over HTTP and WebSocket, including cross-transport replay, assert the same hash, byte-identical receipt, unchanged pending nonce and balances, and no additional WAL Accept record, then assert a different signed transaction reusing that nonce is refused with the wrong-sequence JSON-RPC error and leaves the original receipt unchanged."
+symbols = ["NewEVMWebSocketServer", "RegisterLocalServices", "TestEVMServerServesSequencerReceiptOption"]
+touches = ["rpc/server.go", "node/app.go", "node/sequencer_rpc_option_test.go"]
+tests = ["node/sequencer_rpc_option_test.go::TestEVMServerServesSequencerReceiptOption"]
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 ./node/ -run '^TestEVMServerServesSequencerReceiptOption$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181539]
+title = "Identical sequencer transaction resubmissions return the recorded hash on HTTP and WebSocket"
+ac_1 = "Given a transaction accepted by the real sequencer through the node's HTTP or WebSocket server (node/sequencer_rpc_option_test.go:195-210), resubmitting its identical raw bytes through either transport returns its recorded hash without another Accept or a change to its receipt, pending nonce or balances; a different signed transaction reusing its nonce still receives the wrong-sequence refusal, as required by spec/layerx-merge/spec.kvx:21611 and implemented for HTTP in rpc/send_sequencer_test.go:338-364."
+
+[acceptance.18.1539.1]
+feature = "18"
+req = "181539.1"
+scenario = "Given the node's HTTP and WebSocket servers sharing a real sequencer and receipt source, when accepted raw bytes are resubmitted over either transport, then each response carries the recorded hash with unchanged receipt and pending state and no new acceptance, while a different transaction reusing the nonce is refused with the sequence reason."
+contract = "contracts/evm-rpc.md#eth-sendrawtransaction"
+test = "node/sequencer_rpc_option_test.go::TestEVMServerServesSequencerReceiptOption (planned)"
+qualification = "UNRUN"

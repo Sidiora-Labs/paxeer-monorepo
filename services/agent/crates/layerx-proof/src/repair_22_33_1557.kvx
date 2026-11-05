@@ -1,0 +1,37 @@
+[repair]
+task = "22.33.1557"
+audit = "22.30.98"
+baseline = "Not run: the task's ordered gate instructions prohibit running verification by hand or before the complete implementation and hf-build; no baseline failures are claimed."
+continuation = "Attempt 1 build failed on retired checkpoint/settlement imports (candidate 0819a43022c008a4ec42fb1fc9a0f68513655209); attempt 2 migrated local tests to the codec refusal; attempt 3 retains those checks, restores the live checkpoint compatibility API and ThresholdReport required by layerx-agentd/src/cache.rs, deprecates settlement items, and directly tests both refusing verifiers with recorded certificates."
+evidence = "The runner's hf-build/hf-done ledger supplies the exact verified candidate revision, command, exit code and private log path; implementation alone is not qualification."
+
+[finding.checkpoint-evidence-constructor]
+test = "checkpoint_evidence_constructor_retains_native_receipt_and_inclusion; retained_inclusion::inclusion_evidence_reports_the_receipted_rung"
+repair = "Keep the checkpoint constructor and identifiers absent; retain receipt, inclusion and state evidence with a closed, Receipted-bounded achieved token."
+
+[finding.registry-export-signatures-stale]
+test = "registry_export_signatures_stale_current_interfaces_verify_real_records; retained_offline_export::offline_export_verifies_receipts_and_inclusions_without_a_settlement_domain"
+repair = "Document verify(&OfflineExport) without a domain and verify_complete(&CompleteOfflineArtifact, &IndependentOfflineTrust, Rung); compile and exercise both signatures through canonical record transport."
+wiring = "Domain 9: update spec/layerx-merge/interfaces.kvx proof export rows to current signatures and Rung results, retire IndependentOfflineTrust::from_declared_domain, trace services/agent/crates/layerx-proof/examples/offline_export.rs and services/agent/crates/layerx-agentd/src/export.rs callers, then regenerate caller references."
+
+[finding.registry-removed-codec-symbols]
+test = "registry_removed_codec_symbols_certificate_bucket_is_always_refused"
+repair = "Retain and document unconditional nonempty-certificate refusal; exercise native receipt/header/proof canonical codecs and reject recorded historical certificate material."
+wiring = "Domain 9: retire CheckpointRecord, CheckpointRecord::encode and MAX_AVAILABILITY_CHUNKS declarations in spec/layerx-merge/interfaces.kvx and its package inventory, retain the certificate-bucket refusal contract, and regenerate caller references."
+
+[finding.legacy-level-mints-commitment]
+test = "legacy_level_mints_commitment_pinned_receipts_stop_at_receipted; checkpoint_evidence_constructor_retains_native_receipt_and_inclusion; retained_inclusion::inclusion_evidence_reports_the_receipted_rung"
+repair = "Replace legacy-level/bool storage with four exhaustive evidence variants; bare signatures produce Submitted, pinned signatures, activity/receipt inclusion and state proofs produce Receipted, with no Committed variant or legacy-rank conversion."
+
+[finding.retired-proof-modules-exported]
+test = "retired_settlement_items_are_deprecated_and_checkpoint_api_is_retained; retained_checkpoint_api_refuses_historical_certificates; retained_checkpoint_consumers::transported_registration_never_invents_paxeer_chain_finality; retained_certificate_retirement::guarantor_only_success_cannot_yield_committed; retained_complete_export::complete_export_decoder_refuses_checkpoint_and_activity_records"
+repair = "Per attempt 3 ruling, preserve the live checkpoint module, its uninhabited ThresholdReport and all dependent-imported types; deprecate the settlement module and each public settlement item with notes pointing to the unconditional certificate refusal path, and assert those attributes plus both verifier refusals."
+wiring = "Domain 9: update spec/layerx-merge/interfaces.kvx to distinguish the retained checkpoint compatibility types and retired verifier refusals from deprecated settlement items; preserve services/agent/crates/layerx-agentd/src/cache.rs ThresholdReport compatibility."
+
+[finding.embedded-settlement-retained]
+test = "retired_settlement_items_are_deprecated_and_checkpoint_api_is_retained; retained_checkpoint_api_refuses_historical_certificates; retained_checkpoint_consumers::embedded_settlement_is_deprecated_and_archival_input_is_explicit; registry_export_signatures_stale_current_interfaces_verify_real_records"
+repair = "Per attempt 3 ruling, retain deprecated historical settlement configuration for compatibility, explicitly warn it cannot establish BFT commitment and point each item to checkpoint::verify_declared_certificate and RetiredCertificateVerifier; retained complete exports require independently selected genesis/header trust and reject artifact-supplied trust substitution."
+wiring = "Domain 9: any future committed constructor must take explicit network and verified BFT certified-header inputs beside the BFT verifier, never baked guarantor-domain configuration."
+
+[continuation-gotcha]
+observed = "Deleting the historical checkpoint module breaks the live ThresholdReport import in services/agent/crates/layerx-agentd/src/cache.rs; retain its uninhabited compatibility type and unconditional verifier refusals."

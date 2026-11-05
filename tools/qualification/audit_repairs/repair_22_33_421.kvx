@@ -1,0 +1,41 @@
+[task.22.33.421]
+audit = "22.30.145"
+requirement = "22998.1"
+source_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+repair = "Bind the local PostgreSQL host publication to loopback; retain db:5432 for containers. Supply an explicit remote override requiring an operator-selected interface and credentials shared with the backend, document secure access and existing-volume credential rotation, and guard the local bind in config-check.sh. Point the frontend probe at /explorer/api/healthz and add an offline built-image deployment check that requires the exact Compose probe to fail with no server and succeed after starting the built standalone server."
+source_proof = "The pytest module parses both Compose YAML manifests including the !override replacement tag; checks local publication, credentials, persistent volume, internal connection URL, database readiness and dependency keys; checks the config-check.sh guarded sed/grep pipeline and failure exit; matches the frontend health URL to Next basePath, the real API handler's 200 response, Dockerfile build inputs and standalone output; drives the deployment script's actual Python settings consumer through a JSON roundtrip and asserts incompatible probe shapes are rejected; parses guarded shell commands and checks unavailable-before-start ordering, image selection, no pulling, isolation, timeout failure and cleanup. It also verifies the remote-access instructions and maps both findings to declared tests."
+review_only = "The Python-only qualification does not execute Docker, Compose interpolation/merging, PostgreSQL, the Next.js toolchain or the built image. Actual loopback socket publication, required-variable refusal, credential rotation and HTTP success/failure in the built image require operator execution/review. bash -n for both touched shell scripts is documented with the built-image check; it is not run by pytest because this gate explicitly forbids an external binary or subprocess toolchain. shlex parsing and guarded-command assertions are source evidence, not a claimed Bash syntax or runtime pass. The image check intentionally starts the built standalone server without the external-asset entrypoint; full startup remains an operator check. These findings change no persisted state format and are not restart-recovery findings."
+baseline = "Initial status/diff showed only inherited runner changes to .cgignore and spec/layerx-merge/spec.kvx, with no scoped repair files or changes; /out/run/gates.jsonl was absent and gate configuration reported zero prior builds/verifies. The unchanged-tree verify was not run because the explicit implementation-first order and hf-done-only gate rule prohibit it. No pre-change failing tests are claimed. The original all-interface database publication and root health URL were inspected as source facts."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_421.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done ledger row and final JSON identify the exact content-derived candidate revision, command, exit and private log; embedding that hash here would change the candidate. This record's source_revision identifies the reviewed input only. Closure requires passing build and verify evidence on the same candidate; this record alone does not declare a pass."
+wiring_requests = []
+out_of_path_steps = "None: both repairs, remote-access instructions, configuration guard and built-image deployment check are inside services/explorer/deploy; frontend route and Dockerfile are read-only producer evidence."
+
+[finding.local-database-exposure]
+file = "services/explorer/deploy/docker-compose.local.yml"
+class = "security"
+severity = "medium"
+tests = ["test_local_database_exposure_default_is_loopback_and_internal_url_matches", "test_local_database_exposure_config_check_guards_the_default_bind", "test_local_database_exposure_remote_override_requires_matching_credentials", "test_local_database_exposure_remote_access_documents_safe_transition"]
+
+[finding.frontend-health-base-path]
+file = "services/explorer/deploy/docker-compose.local.yml"
+class = "wiring-gap"
+severity = "medium"
+tests = ["test_frontend_health_base_path_matches_built_route_and_response", "test_frontend_health_base_path_drives_real_image_check_configuration_consumer", "test_frontend_health_base_path_image_check_refuses_incompatible_probe", "test_frontend_health_base_path_image_check_requires_unavailable_then_healthy"]
+
+[format]
+policy = "No formatter is configured for these Python, shell, Markdown, YAML and KVX paths; follow .editorconfig encoding, whitespace, newline and two-space YAML/Markdown indentation."
+
+[gotcha.1]
+observed = "The task's older unchanged-tree verify instruction conflicts with its explicit implementation-first order and exclusive hf-done gate."
+resolution = "Follow the ordered gate rules; report no baseline execution or inferred test failures."
+
+[gotcha.2]
+observed = "The task asks for bash -n while the declared Python gate forbids external binaries; Docker and frontend build toolchains are also unavailable to qualification."
+resolution = "Assert production source facts and guarded commands in-process; document bash -n and the real built-image check for operators without claiming they ran."
+
+[gotcha.3]
+observed = "Task-focused Codify searches returned no deploy files; broad ledger and combined source reads exceeded output budgets, and one patch context did not match."
+resolution = "Use direct bounded source reads after Codify discovery and exact patch context. Keep task notes here because root GOTCHA.kvx and spec files are outside scope."

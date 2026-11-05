@@ -21,5 +21,6 @@ use serde_aux::prelude::*;
 pub struct RawTraceCreateResult {
     pub address: String,
     pub code: String,
+    #[serde(rename = "gasUsed")]
     pub gas_used: String,
 }

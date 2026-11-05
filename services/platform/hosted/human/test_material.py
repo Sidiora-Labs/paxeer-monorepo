@@ -1,4 +1,5 @@
 import importlib.util
+import inspect
 import json
 import os
 from pathlib import Path
@@ -9,15 +10,114 @@ import unittest
 
 import yaml
 
+import provision
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
-FIXTURES = ROOT / 'tests/fixtures/custody/paxeer-light-v1'
 spec = importlib.util.spec_from_file_location('material', HERE / 'material.py')
 material = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(material)
 
 
 class MaterialTests(unittest.TestCase):
+    def owner_policy(self):
+        policy = provision.owner_policy()
+        self.assertEqual(policy, json.loads((HERE / 'beta-owner-policy.json').read_text()))
+        self.assertRegex(policy['limit']['id'], r'\A[0-9a-f]{32}\Z')
+        self.assertNotEqual(int(policy['limit']['id'], 16), 0)
+        return policy
+
+    def test_bundled_owner_policy_projects_to_sixteen_byte_limit_id(self):
+        policy = self.owner_policy()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / 'evidence'
+            evidence.mkdir(mode=0o700)
+            config = root / 'agent-config'
+            config.mkdir(mode=0o700)
+            material.write(evidence, 'authority.json', json.dumps({
+                'core-clock-horizon': policy['core-clock-horizon']}))
+            material.write(evidence, 'agent.json', json.dumps({
+                'HUMAN_LIMIT_ID': policy['limit']['id'],
+                'HUMAN_LIMIT_NAME': policy['limit']['name'],
+                'HUMAN_LIMIT_CEILING': policy['limit']['ceiling']}))
+            status = material.policy_graph_status(
+                evidence, root / 'journal', root / 'deployment.json',
+                root / 'module-registry.json', root / 'bundle', root / 'registry',
+                root / 'authority', 402, 31337)['nodes']['owner-policy']
+            self.assertEqual(status['state'], 'ready')
+            self.assertIsNone(status['reason'])
+            material.write_agent_config(config, material.protected_json(evidence / 'agent.json'))
+            projected = config / 'LAYERX_AGENT_HUMAN_LIMIT_ID'
+            limit_id = projected.read_text()
+            self.assertEqual(limit_id, policy['limit']['id'])
+            self.assertRegex(limit_id, r'\A[0-9a-f]{32}\Z')
+            self.assertEqual(len(bytes.fromhex(limit_id)), 16)
+            self.assertEqual(bytes.fromhex(limit_id).hex(), policy['limit']['id'])
+            self.assertEqual(projected.stat().st_mode & 0o777, 0o600)
+
+    def test_owner_policy_refuses_malformed_zero_and_legacy_limit_ids(self):
+        policy = self.owner_policy()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / 'provision.py'
+            source.write_text((HERE / 'provision.py').read_text())
+            spec = importlib.util.spec_from_file_location('limit_policy_provision', source)
+            copied_provision = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(copied_provision)
+            policy_path = root / 'beta-owner-policy.json'
+            policy_path.write_text(json.dumps(policy))
+            self.assertEqual(copied_provision.owner_policy(), policy)
+            for limit_id in ('', 'g' * 32, policy['limit']['id'].upper(),
+                             policy['limit']['id'][:-1], '0' * 32,
+                             policy['limit']['id'] * 2,
+                             'ef060d2533e9bcc511e5583aa2802ee44baa120fc7de7b03a55bce6b02cf8b71',
+                             None, 1):
+                with self.subTest(limit_id=limit_id):
+                    policy['limit']['id'] = limit_id
+                    policy_path.write_text(json.dumps(policy))
+                    with self.assertRaises(copied_provision.Refused) as caught:
+                        copied_provision.owner_policy()
+                    self.assertEqual(str(caught.exception), f'{policy_path}: invalid limit.id')
+
+    def test_owner_policy_limit_id_is_sixteen_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / 'evidence'
+            evidence.mkdir(mode=0o700)
+            config = root / 'agent-config'
+            config.mkdir(mode=0o700)
+            material.write(evidence, 'authority.json', json.dumps({'core-clock-horizon': 60}))
+            limit_id = '0123456789abcdef0123456789abcdef'
+            agent = {'HUMAN_LIMIT_CEILING': 1000, 'HUMAN_LIMIT_ID': limit_id * 2}
+            agent_path = evidence / 'agent.json'
+            material.write(evidence, 'agent.json', json.dumps(agent))
+
+            def owner_status():
+                return material.policy_graph_status(
+                    evidence, root / 'journal', root / 'deployment.json',
+                    root / 'module-registry.json', root / 'bundle', root / 'registry',
+                    root / 'authority', 402, 31337)['nodes']['owner-policy']
+
+            refused = owner_status()
+            self.assertEqual(refused['state'], 'refused')
+            self.assertEqual(refused['reason'],
+                             material.BUNDLE_REFUSED + 'owner policy horizon or limit binding')
+            agent['HUMAN_LIMIT_ID'] = limit_id
+            agent_path.write_text(json.dumps(agent))
+            ready = owner_status()
+            self.assertEqual(ready['state'], 'ready')
+            self.assertIsNone(ready['reason'])
+            material.write_agent_config(config, material.protected_json(agent_path))
+            projected = config / 'LAYERX_AGENT_HUMAN_LIMIT_ID'
+            self.assertEqual(projected.read_text(), limit_id)
+            self.assertEqual(len(bytes.fromhex(projected.read_text())), 16)
+            self.assertEqual(projected.stat().st_mode & 0o777, 0o600)
+
+    def test_registry_material_runs_no_handover_verify(self):
+        self.assertNotIn('layerx-handover', inspect.getsource(material.hosted_registry_material_produce))
+        self.assertNotIn('/usr/local/bin/layerx-handover', (HERE / 'material.py').read_text())
+
     def test_generated_bootstrap_and_protected_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'human'
@@ -45,97 +145,74 @@ class MaterialTests(unittest.TestCase):
             os.link(protected, Path(directory) / 'hardlink.json')
             with self.assertRaises(ValueError):
                 material.protected_json(protected)
-            with self.assertRaises(FileNotFoundError):
+            with self.assertRaisesRegex(ValueError, r'protected producer file unavailable: components\.json$'):
                 material.assemble_policy(Path(directory), Path(directory) / 'missing-deployment.json',
                                          Path(directory) / 'missing-registry.json',
-                                         Path(directory) / 'output.json', 402, 31337)
-            self.assertFalse((Path(directory) / 'output.json').exists())
+                                         root / 'policy.json', 402, 31337)
+            self.assertFalse((root / 'policy.json').exists())
 
-    def test_custody_bindings_resolve_to_the_native_custody_precompile(self):
-        import re
-        import provision
-
-        precompile = '0x0000000000000000000000000000000000001013'
-        self.assertEqual(material.CUSTODY_PRECOMPILE, precompile)
-
-        def required_path(name, directory=False):
-            raw = os.environ.get(name)
-            if not raw:
-                self.fail('required genuine producer input is missing: ' + name)
-            path = Path(raw)
-            try:
-                material.protected_file(path, 0o700 if directory else 0o600)
-            except (ValueError, OSError):
-                self.fail('required genuine producer input is not a canonical protected path: ' + name)
-            return path
-
-        source_evidence = required_path('PAXEER_X_HUMAN_EVIDENCE_DIR', directory=True)
-        source_work = source_evidence.parent
-        material.protected_file(source_work, 0o700)
-        deployment = required_path('PAXEER_X_HUMAN_DEPLOYMENT')
-        registry = required_path('PAXEER_X_MODULE_REGISTRY')
-        genesis = required_path('PAXEER_X_HUMAN_GENESIS_DIR', directory=True)
-        legacy_deployment = required_path('PAXEER_X_HUMAN_LEGACY_DEPLOYMENT')
-        genesis_binding = material.genesis_binding(genesis)
-        asset = (genesis / 'asset-id').read_text().strip()
-        if re.fullmatch('[0-9a-f]{64}', asset) is None or int(asset, 16) == 0:
-            self.fail('required genuine genesis asset-id is invalid')
-        native = provision.protected_json(deployment)
-        legacy = provision.protected_json(legacy_deployment)
-        network, chain = native['network_id'], native['chain_id']
-        if (type(network) is not int or not 0 < network < 2**32
-                or type(chain) is not int or not 0 < chain < 2**64
-                or legacy.get('network_id') != network or legacy.get('chain_id') != chain):
-            self.fail('genuine native and legacy deployment inputs must share the configured network and chain')
-        native_deployed = native['addresses']
-        deployed = legacy['addresses']
-        for name in ('vault', 'withdrawal_claims', 'emergency_exit'):
-            value = deployed.get(name)
-            if type(value) is not str or re.fullmatch('0x[0-9a-fA-F]{40}', value) is None or int(value, 16) == 0:
-                self.fail('genuine legacy deployment input is missing the deployed address: ' + name)
-        movement = provision.protected_json(source_work / 'human-evidence-input/movement-source.json')
-        source_names = ['identity/source-binding.json', 'human-owner-result.json', 'naming-deployment-result.json']
-        source_names += ['human-evidence-input/' + name for name in (
-            'recovery-policy.json', 'owner-registration.json', 'treasury.json', 'sequencer.json',
-            'movement-source.json', 'account-head-result.json', 'owner-native.json')]
-        for name in ('owner-kms.json', 'onboarding-configuration.json'):
-            path = source_work / 'human-evidence-input' / name
-            if path.exists() or path.is_symlink():
-                source_names.append('human-evidence-input/' + name)
-        source_names += ['human-evidence-input/owner-native-run/' + label + suffix
-                         for label in ('credit', 'identity', 'rotation', 'recovery')
-                         for suffix in ('.activity', '.receipt')]
+    def test_ledger_funding_binds_current_bundle_and_retained_state(self):
+        from test_repair_22_31_348 import merged_environment
+        from merged_owner import LEDGER, PAYMENT
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory).resolve()
-            work = root / 'work'
-            work.mkdir(mode=0o700)
-            for name in source_names:
-                data = provision.protected_bytes(source_work / name)
-                target = work / name
-                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                material.write_bytes(target, data)
-            journal = work / 'registry-journal'
-            journal.mkdir(mode=0o700)
-            for name, data in provision.journal_records(source_evidence / 'journal').items():
-                material.write_bytes(journal / name, data)
-            provision.assemble(work, registry, asset, journal)
-            evidence = work / 'human-evidence'
-            bundle = root / 'human-policy'
-            bundle.mkdir(mode=0o700)
-            output = bundle / 'policy.json'
-            material.assemble_policy(evidence, deployment, registry, output, network, chain)
-            material.verify_bundle(bundle, network, chain)
-            self.assertEqual(material.genesis_binding(genesis), genesis_binding)
-            policy = provision.protected_json(output)
-            for name in ('PAXEER_EXIT_CONTRACT', 'PAXEER_WITHDRAWAL_CLAIMS_CONTRACT'):
-                self.assertEqual(policy['components'][name], precompile)
-            for name in ('PAXEER_VAULT', 'PAXEER_CLAIMS_CONTRACT', 'PAXEER_EXIT_CONTRACT'):
-                self.assertEqual(policy['movement'][name], precompile)
-            self.assertEqual(policy['movement']['PAXEER_CHECKPOINT_REGISTRY'], native_deployed['checkpoint_registry'])
-            self.assertEqual(policy['movement']['CUSTODY_REFERENCE'], movement['CUSTODY_REFERENCE'])
-            written = output.read_text().lower()
-            for name in ('vault', 'withdrawal_claims', 'emergency_exit'):
-                self.assertNotIn(deployed[name].lower(), written)
+            with merged_environment(Path(directory)) as e:
+                policy = provision.protected_json(e.bundle / 'policy.json')
+                self.assertEqual(policy['movement'], {
+                    'LEDGER_ASSET_ID': '0x' + e.asset,
+                    'LEDGER_OWNER_ACCOUNT': '0x' + e.registration['owner_account'],
+                    'PAXEER_LEDGER_CONTRACT': LEDGER, 'PAXEER_PAYMENT_CONTRACT': PAYMENT})
+                self.assertEqual(provision.funding_evidence(e.work)['funding_source'], e.source)
+                self.assertEqual(material.verify_bundle(e.bundle, 125, 125)['records'], 2)
+                for name in ('PAXEER_EXIT_CONTRACT', 'PAXEER_WITHDRAWAL_CLAIMS_CONTRACT'):
+                    self.assertNotIn(name, policy['components'])
+                for name in ('PAXEER_VAULT', 'PAXEER_CLAIMS_CONTRACT', 'PAXEER_EXIT_CONTRACT',
+                             'PAXEER_CHECKPOINT_REGISTRY', 'CUSTODY_REFERENCE'):
+                    self.assertNotIn(name, policy['movement'])
+                self.assertNotIn('0x0000000000000000000000000000000000001013', json.dumps(policy))
+                self.assertFalse((e.inputs / 'movement-source.json').exists())
+                before = {p.relative_to(e.bundle): p.read_bytes() for p in e.bundle.rglob('*') if p.is_file()}
+                provision.assemble(e.work, e.registry, e.asset, e.work / 'registry-journal')
+                material.assemble_policy(e.work / 'human-evidence', e.deployment, e.registry,
+                                         e.bundle / 'policy.json', 125, 125)
+                self.assertEqual(before, {p.relative_to(e.bundle): p.read_bytes()
+                                         for p in e.bundle.rglob('*') if p.is_file()})
+
+    def test_payment_components_ignore_retired_addresses_and_refuse_custody_policy(self):
+        from test_repair_22_31_348 import merged_environment
+        from merged_owner import LEDGER, PAYMENT
+        with tempfile.TemporaryDirectory() as directory:
+            with merged_environment(Path(directory)) as e:
+                inputs = {name: (e.bundle / 'inputs' / name).read_bytes()
+                          for name in material.EVIDENCE_INPUTS.values()}
+                inputs.update({'producer-records/' + name: (e.bundle / 'inputs/producer-records' / name).read_bytes()
+                               for name in material.PRODUCER_FILES})
+                inputs.update({'deployment.json': e.deployment.read_bytes(),
+                               'module-registry.json': e.registry.read_bytes()})
+                records = provision.journal_records(e.work / 'registry-journal')
+                for addresses in ({}, {'vault': '0x' + '20' * 20,
+                        'withdrawal_claims': '0x' + '21' * 20, 'emergency_exit': '0x' + '22' * 20,
+                        'checkpoint_registry': '0x' + '23' * 20}):
+                    candidate = dict(inputs, **{'deployment.json': provision.encode_json(
+                        dict(network_id=125, chain_id=125, addresses=addresses))})
+                    policy = material.policy_from_inputs(candidate, records, 125, 125)
+                    self.assertEqual(policy['components']['PAXEER_LEDGER_CONTRACT'], LEDGER)
+                    self.assertEqual(policy['movement']['PAXEER_PAYMENT_CONTRACT'], PAYMENT)
+                    for address in addresses.values():
+                        self.assertNotIn(address, json.dumps(policy))
+                movement = json.loads(inputs['movement-policy.json'])
+                for changes in ({'CUSTODY_REFERENCE': 'old'}, {'PAXEER_CHECKPOINT_REGISTRY': '0x' + '23' * 20},
+                                {'LEDGER_ASSET_ID': '0x' + 'ff' * 32},
+                                {'LEDGER_OWNER_ACCOUNT': '0x' + 'ff' * 32}):
+                    bad = dict(movement, **changes)
+                    with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, 'ledger funding projection binding'):
+                        material.policy_from_inputs(dict(inputs, **{'movement-policy.json': provision.encode_json(bad)}),
+                                                    records, 125, 125)
+                for changes in ({'network_id': 126}, {'chain_id': 126}):
+                    deployment = dict(network_id=125, chain_id=125)
+                    deployment.update(changes)
+                    with self.assertRaisesRegex(ValueError, 'deployment network, chain'):
+                        material.policy_from_inputs(dict(inputs, **{'deployment.json': provision.encode_json(deployment)}),
+                                                    records, 125, 125)
 
     def test_passkey_relying_party_follows_the_deployed_web_origin(self):
         self.assertEqual(material.passkey_relying_party(''),
@@ -182,7 +259,7 @@ class MaterialTests(unittest.TestCase):
         self.assertIn('openssl genpkey -algorithm ed25519 -out "$d/explorer-read.key"', cluster)
         self.assertNotIn('LAYERX_BETA_EXPLORER_READ', cluster)
         self.assertNotIn('LAYERX_BETA_EXPLORER_READ', provision)
-        published = next(line + following for line, following in zip(cluster.splitlines(), cluster.splitlines()[1:])
+        published = next(line for line in cluster.replace('\\\n', '').splitlines()
                          if 'apply_secret "$ns" layerx-explorer-index ' in line)
         self.assertIn('--from-file=program-token="$s/explorer-program.token"', published)
         self.assertIn('--from-file=read-key="$s/explorer-read.seed.hex"', published)
@@ -218,135 +295,23 @@ class MaterialTests(unittest.TestCase):
         self.assertEqual(bridge['spec']['podSelector'], {'matchLabels': {'app': 'layerx-node'}})
         self.assertIn({'protocol': 'TCP', 'port': 9443}, bridge['spec']['ingress'][0]['ports'])
 
-    def test_explorer_read_principal_is_funded_to_cover_its_signed_fee_limit(self):
-        import re
-        provision = (ROOT / 'services/platform/hosted/human/provision.sh').read_text()
-        reads = (ROOT / 'services/human/crates/layerx-explorer-index/src/reads.rs').read_text()
-        bootstrap = (ROOT / 'services/platform/hosted/node/bootstrap.sh').read_text()
-        resources = [int(value.replace('_', '')) for value in re.search(
-            r'const READ_RESOURCES: \[u64; 7\] = \[([0-9_,\s]+)\];', reads).group(1).split(',') if value.strip()]
-        prices = [int(value) for value in re.search(r'for price in ((?:[0-9]+ ?){7}); do', bootstrap).group(1).split()]
-        self.assertEqual((len(resources), len(prices)), (7, 7))
-        ceiling = sum(resource * price for resource, price in zip(resources[:6], prices[:6]))
-        self.assertEqual(ceiling, 25117312)
-        registry = list(yaml.safe_load_all((ROOT / 'services/platform/hosted/registry/deployment.yaml').read_text()))
-        pod = next(d for d in registry if d['kind'] == 'StatefulSet')['spec']['template']['spec']
-        index = next(c for c in pod['containers'] if c['name'] == 'explorer-index')
-        fee_limit = int(next(e['value'] for e in index['env'] if e['name'] == 'LAYERX_EXPLORER_READ_FEE_LIMIT'))
-        units = int(re.search(r'^EXPLORER_READ_FUNDING_UNITS=([0-9]+)$', provision, re.M).group(1))
-        self.assertGreaterEqual(fee_limit, ceiling)
-        self.assertGreaterEqual(units, fee_limit)
-        self.assertLessEqual(units, 1000000000)
-        self.assertNotIn('LAYERX_BETA_EXPLORER', provision)
-        body = provision.split('human_evidence_provision() (', 1)[1].split('\n)\n', 1)[0]
-        self.assertGreater(body.index('    explorer_read_principal_fund\n'), body.index('    human_native_provision\n'))
-        fund = provision.split('explorer_read_principal_fund() (', 1)[1].split('\n)\n', 1)[0]
-        steps = ['--prepare-explorer-read-funding', 'human_custody_step deposit "$funding" --amount "$EXPLORER_READ_FUNDING_UNITS"',
-                 'layerxctl read-state', '--sign-explorer-read-credit', '-c owner-producer -- sh -ec',
-                 '--submit-explorer-read-credit', 'credit-result.json" "$EXPLORER_READ_FUNDING_UNITS"']
-        positions = [fund.index(step) for step in steps]
-        self.assertEqual(positions, sorted(positions))
-        self.assertIn('[ ! -e "$funding" ] || fail', fund)
-        self.assertNotIn('seed', fund)
-        custody = provision.split('human_custody_step() (', 1)[1].split('\n)\n', 1)[0]
-        self.assertIn('local mode=$1 work=${2:-$WORK_DIR}\n', custody)
-        self.assertIn('--work-dir "$work" ', custody)
-        self.assertIn('human_custody_step deposit\n', provision)
-
-    def test_explorer_read_principal_signs_its_own_custody_credit(self):
-        import hashlib
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-        sys.path.insert(0, str(HERE))
-        import owner_native
-        import provision
-        with tempfile.TemporaryDirectory() as directory:
-            work = Path(directory).resolve() / 'work'
-            secrets = Path(directory).resolve() / 'secrets'
-            source = work / 'human-evidence-input'
-            for path in (work, secrets, source):
-                path.mkdir(mode=0o700)
-            seed = bytes(range(1, 33))
-            public = Ed25519PrivateKey.from_private_bytes(seed).public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-            did = b'did:layerx:' + public.hex().encode()
-            account = hashlib.sha256(b'LX:ACCOUNT:v1' + owner_native.span(b'agent:' + did + b':main')).digest()
-            owner_native.protected_write(secrets / 'explorer-read.seed.hex', seed.hex().encode())
-            (secrets / 'explorer-read.pub.hex').write_text(public.hex())
-            profile = (FIXTURES / 'custody.profile').read_bytes()
-            asset = profile[97:129].hex()
-            custody = dict(vault='0x' + '0' * 36 + '1013', asset=asset, runtime_sha256='66' * 32, payer='0x' + '77' * 20)
-            self.assertEqual((len(profile), profile[:5], '0x' + profile[13:33].hex(), profile[205:207]),
-                             (223, b'LXBC3', custody['vault'], b'\0\3'))
-            provision.write_json(source / 'owner-custody.json', custody)
-            owner_native.protected_write(source / 'custody.profile', profile)
-            provision.explorer_read_funding(provision._explorer_read_funding_prepare, work, secrets)
-            funding = work / 'explorer-read-funding/human-evidence-input'
-            self.assertEqual(provision.protected_json(funding / 'owner-admission.json'),
-                             dict(did=did.decode(), public_key=public.hex(), owner_account=account.hex()))
-            self.assertEqual(provision.protected_json(funding / 'owner-custody.json'), custody)
-            self.assertEqual(provision.protected_bytes(funding / 'custody.profile', 223), profile)
-            self.assertEqual((work / 'explorer-read-funding').stat().st_mode & 0o777, 0o700)
-            with self.assertRaises(provision.Refused):
-                provision.explorer_read_funding(provision._explorer_read_funding_prepare, work, secrets)
-            deposit = bytes(range(32, 64))
-            units = 1000000000
-            credit = bytearray(363 + 600)
-            credit[:5] = b'LXDC3'
-            credit[43:75] = deposit
-            credit[75:107] = bytes.fromhex(asset)
-            credit[107:139] = account
-            credit[139:171] = public
-            credit[191:207] = units.to_bytes(16, 'big')
-            state = work / 'explorer-read-funding/read-state.json'
-            provision.write_json(state, dict(network_id=402, protocol_version=3, global_sequence=9, account_sequence=0))
-            foreign = bytearray(credit)
-            foreign[107:139] = bytes(32)
-            owner_native.protected_write(funding / 'custody-credit.bin', bytes(foreign))
-            with self.assertRaises(provision.Refused):
-                provision.explorer_read_funding(provision._explorer_read_credit_sign, work, secrets, 402, state,
-                                                work / 'explorer-read-funding/credit-request.json')
-            (funding / 'custody-credit.bin').unlink()
-            owner_native.protected_write(funding / 'custody-credit.bin', bytes(credit))
-            output = work / 'explorer-read-funding/credit-request.json'
-            provision.explorer_read_funding(provision._explorer_read_credit_sign, work, secrets, 402, state, output)
-            request = provision.protected_json(output)
-            self.assertEqual({name: request[name] for name in ('did', 'public_key', 'account', 'amount')},
-                             dict(did=did.decode(), public_key=public.hex(), account=account.hex(), amount=units))
-            signed = bytes.fromhex(request['activity'])
-            reader = owner_native.Reader(signed, output)
-            self.assertEqual(reader.take(5), b'\0\3\x10\1\14')
-            self.assertEqual((reader.take(1), reader.number(2)), (b'\1', 3))
-            self.assertEqual((reader.take(1), reader.number(4)), (b'\2', 402))
-            self.assertEqual((reader.take(1), reader.number(4)), (b'\3', (8 << 16) | 1))
-            self.assertEqual((reader.take(1), reader.span(255)), (b'\4', did))
-            self.assertEqual((reader.take(1), reader.span(32)), (b'\5', public))
-            self.assertEqual((reader.take(1), reader.number(8)), (b'\6', 0))
-            self.assertEqual(reader.take(1), b'\7')
-            not_before, expires = reader.number(8), reader.number(8)
-            self.assertEqual(expires - not_before, 300000)
-            self.assertEqual((reader.take(1), reader.span(32)),
-                             (b'\10', hashlib.sha256(b'LX:DEPOSIT:NULLIFIER:v1' + deposit).digest()))
-            self.assertEqual((reader.take(1), reader.number(16)), (b'\11', 0))
-            self.assertEqual((reader.take(1), reader.span(32)),
-                             (b'\12', owner_native.digest(b'payload-hash', bytes(credit))))
-            self.assertEqual((reader.take(1), reader.span(len(credit))), (b'\13', bytes(credit)))
-            unsigned = b'\0\3\x10\1\13' + signed[5:reader.offset]
-            self.assertEqual(reader.take(1), b'\14')
-            signature = reader.span(64)
-            reader.finish()
-            Ed25519PublicKey.from_public_bytes(public).verify(
-                signature, owner_native.digest(b'signature-preimage', unsigned))
-            self.assertNotIn(seed.hex(), output.read_text())
-
     def test_bootstrap_has_no_unpublished_human_secret_dependencies(self):
+        deployment = ROOT / 'services/platform/hosted/node/deployment.yaml'
+        declared = next(d for d in yaml.safe_load_all(deployment.read_text()) if d['kind'] == 'StatefulSet')
+        self.assertFalse(any(c['name'].startswith('guarantor')
+                             for c in declared['spec']['template']['spec']['containers']))
+        expected = {c['name'] for c in declared['spec']['template']['spec']['containers']
+                    if c['name'] not in {'human', 'components'} and not c['name'].startswith('human-')}
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'node.yaml'
             subprocess.run([sys.executable, str(HERE / 'bootstrap.py'),
-                            str(ROOT / 'services/platform/hosted/node/deployment.yaml'), str(output)], check=True)
+                            str(deployment), str(output)], check=True)
             stateful = next(d for d in yaml.safe_load_all(output.read_text()) if d['kind'] == 'StatefulSet')
             pod = stateful['spec']['template']['spec']
-            self.assertIn('layerxd', {c['name'] for c in pod['containers']})
-            self.assertTrue({'guarantor-1', 'guarantor-2'} <= {c['name'] for c in pod['containers']})
+            self.assertIn('paxd', {c['name'] for c in pod['containers']})
+            self.assertNotIn('layerxd', {c['name'] for c in pod['containers']})
+            self.assertEqual({c['name'] for c in pod['containers']}, expected)
+            self.assertFalse(any(c['name'].startswith('guarantor') for c in pod['containers']))
             self.assertFalse(any(c['name'].startswith('human') for c in pod['containers']))
             self.assertFalse(any(v.get('secret', {}).get('secretName', '').startswith('layerx-human-')
                                  for v in pod['volumes']))
@@ -383,12 +348,9 @@ class MaterialTests(unittest.TestCase):
         code = source.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
         module = {}
         exec(compile(code.rsplit('sys.exit(main())', 1)[0], 'topology-check.sh', 'exec'), module)
-        cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
-        observer = cluster.split("<<'PYOBSERVER'\n", 1)[1].split('\nPYOBSERVER\n', 1)[0]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'paxeer.yaml'
             path.write_text((ROOT / 'services/platform/hosted/paxeer/deployment.yaml').read_text())
-            subprocess.run([sys.executable, '-c', observer, str(path)], check=True)
             topology = module['Topology']()
             for manifest in (ROOT / 'services/platform/hosted/node/deployment.yaml', path):
                 for document in yaml.safe_load_all(manifest.read_text()):
@@ -396,6 +358,7 @@ class MaterialTests(unittest.TestCase):
             node = next(w for w in topology.workloads if w['name'] == 'layerx-node')
             paxeer = next(w for w in topology.workloads if w['name'] == 'paxeer')
             service = topology.services[('layerx-testnet', 'paxeer-observer-boundary')]
+            self.assertEqual(service['ports'][0]['port'], '9443')
             self.assertEqual(service['ports'][0]['targetPort'], 'observer-https')
             self.assertEqual(paxeer['ports']['observer-https'], ('9444', 'TCP'))
             def admits():

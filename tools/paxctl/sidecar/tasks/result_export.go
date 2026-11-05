@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -75,8 +74,28 @@ type ResultExportRequest struct {
 	TraceRPC string `json:"traceRpc,omitempty"`
 }
 
+type exportIdentity struct {
+	ChainID     string `json:"chainId"`
+	RequestHash string `json:"requestHash"`
+}
+
 type exportState struct {
-	LastExportedHeight int64 `json:"lastExportedHeight"`
+	Identity           exportIdentity `json:"identity"`
+	LastExportedHeight int64          `json:"lastExportedHeight"`
+}
+
+func (e *ResultExporter) exportIdentity(cfg ResultExportRequest) exportIdentity {
+	if cfg.RPCEndpoint == "" {
+		cfg.RPCEndpoint = defaultRPCEndpoint
+	}
+	cfg.Prefix = normalizePrefix(cfg.Prefix)
+	data, _ := json.Marshal(cfg)
+	return exportIdentity{ChainID: e.chainID, RequestHash: recoveryHash(data)}
+}
+
+func exportFailure(operation string, err error, retryable bool) error {
+	return &engine.TaskError{Task: "result-export", Operation: operation, Message: err.Error(), Cause: err.Error(), Retryable: retryable,
+		Hint: "this is a one-shot task; the controller must submit a new task ID to retry after resolving the cause"}
 }
 
 // ResultExporter queries the local seid RPC for block results and uploads
@@ -120,25 +139,28 @@ func (e *ResultExporter) Handler() engine.TaskHandler {
 // Each invocation exports as many complete pages as are available since the
 // last export height. The state file tracks progress across invocations.
 func (e *ResultExporter) Export(ctx context.Context, cfg ResultExportRequest) error {
-	last := e.readExportState()
+	unlock, err := lockRecovery(ctx, e.homeDir, ".sei-sidecar-export-lock")
+	if err != nil {
+		return exportFailure("checkpoint", err, true)
+	}
+	defer unlock()
+	if cfg.RPCEndpoint == "" {
+		cfg.RPCEndpoint = defaultRPCEndpoint
+	}
+	latestHeight, chainID, err := e.queryExportSource(ctx, cfg.RPCEndpoint)
+	if err != nil {
+		return exportFailure("source", err, true)
+	}
+	bound := *e
+	bound.chainID = chainID
+	e = &bound
+	last, err := e.readCheckpoint(cfg)
+	if err != nil {
+		return err
+	}
 	startHeight := last.LastExportedHeight + 1
-
-	latestHeight, err := queryLatestHeight(ctx, cfg.RPCEndpoint)
-	if err != nil {
-		exportLog.Info("RPC unavailable, will retry", "err", err)
-		return nil
-	}
-
 	if startHeight > latestHeight {
-		exportLog.Debug("no new blocks to export",
-			"last-exported", last.LastExportedHeight,
-			"latest", latestHeight)
-		return nil
-	}
-
-	uploader, err := e.s3UploaderFactory(ctx, cfg.Region)
-	if err != nil {
-		return fmt.Errorf("building S3 uploader: %w", err)
+		return exportFailure("no-progress", fmt.Errorf("no new complete page: checkpoint=%d latest=%d", last.LastExportedHeight, latestHeight), true)
 	}
 
 	rpcClient := rpc.NewClient(cfg.RPCEndpoint, nil)
@@ -151,7 +173,12 @@ func (e *ResultExporter) Export(ctx context.Context, cfg ResultExportRequest) er
 		exportLog.Debug("not enough blocks for a full page yet",
 			"available", availableBlocks,
 			"page-size", defaultPageSize)
-		return nil
+		return exportFailure("no-progress", fmt.Errorf("only %d of %d blocks available for the next complete page", availableBlocks, defaultPageSize), true)
+	}
+
+	uploader, err := e.s3UploaderFactory(ctx, cfg.Region)
+	if err != nil {
+		return fmt.Errorf("building S3 uploader: %w", err)
 	}
 
 	for page := 0; page < fullPages; page++ {
@@ -164,14 +191,18 @@ func (e *ResultExporter) Export(ctx context.Context, cfg ResultExportRequest) er
 			"bucket", cfg.Bucket)
 
 		if err := e.exportPage(ctx, rpcClient, uploader, cfg.Bucket, cfg.Region, prefix, pageStart, pageEnd); err != nil {
-			return fmt.Errorf("exporting page %d-%d: %w", pageStart, pageEnd, err)
+			var taskErr *engine.TaskError
+			if errors.As(err, &taskErr) {
+				return fmt.Errorf("exporting page %d-%d: %w", pageStart, pageEnd, err)
+			}
+			return exportFailure("source", fmt.Errorf("exporting page %d-%d: %w", pageStart, pageEnd, err), true)
 		}
 
-		if err := e.writeExportState(exportState{LastExportedHeight: pageEnd}); err != nil {
-			exportLog.Warn("failed to persist export state, deferring to next scheduled run",
-				"last-exported", pageEnd, "err", err)
-			return nil
+		last.LastExportedHeight = pageEnd
+		if err := e.writeExportState(last); err != nil {
+			return exportFailure("checkpoint", err, true)
 		}
+
 	}
 
 	lastExported := startHeight + int64(fullPages*defaultPageSize) - 1
@@ -266,45 +297,95 @@ func queryBlockResults(ctx context.Context, client *rpc.Client, height int64) (j
 	if err != nil {
 		return nil, err
 	}
+	var envelope struct {
+		JSONRPC string          `json:"jsonrpc"`
+		Error   json.RawMessage `json:"error"`
+		Result  json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, fmt.Errorf("invalid block_results response: %w", err)
+	}
+	if envelope.JSONRPC == "2.0" && ((len(envelope.Error) > 0 && string(envelope.Error) != "null") || len(envelope.Result) == 0 || string(envelope.Result) == "null") {
+		return nil, fmt.Errorf("block_results returned a JSON-RPC source failure: %s", body)
+	}
 	return json.RawMessage(body), nil
 }
 
-func (e *ResultExporter) readExportState() exportState {
-	data, err := os.ReadFile(filepath.Join(e.homeDir, exportStateFile))
-	if err != nil {
+func (e *ResultExporter) readExportState() (exportState, error) {
+	data, err := readRecoveryFile(e.homeDir, exportStateFile)
+	if errors.Is(err, os.ErrNotExist) {
 		return e.bootstrapExportState()
+	}
+	if err != nil {
+		return exportState{}, err
 	}
 	var state exportState
 	if err := json.Unmarshal(data, &state); err != nil {
-		return e.bootstrapExportState()
+		return exportState{}, err
 	}
-	return state
+	if state.LastExportedHeight < 0 || state.Identity.RequestHash == "" {
+		return exportState{}, fmt.Errorf("unbound or invalid export checkpoint; explicit backfill required")
+	}
+	return state, nil
 }
 
-// bootstrapExportState reads the snapshot height file written by the restorer
-// and uses it as the initial last-exported height, so the exporter begins at
-// the first block after the restored snapshot rather than from block 1.
-func (e *ResultExporter) bootstrapExportState() exportState {
-	data, err := os.ReadFile(filepath.Join(e.homeDir, SnapshotHeightFile))
+func (e *ResultExporter) readCheckpoint(cfg ResultExportRequest) (exportState, error) {
+	state, err := e.readExportState()
 	if err != nil {
-		return exportState{}
+		return exportState{}, exportFailure("checkpoint", err, false)
+	}
+	identity := e.exportIdentity(cfg)
+	if state.Identity.RequestHash != "" && state.Identity != identity {
+		return exportState{}, exportFailure("checkpoint-identity", fmt.Errorf("source, chain or destination changed; explicit backfill into a separate export home is required"), false)
+	}
+	state.Identity = identity
+	return state, nil
+}
+
+// Snapshot baselines apply only when no bound checkpoint exists. A destination
+// change is refused above, never bootstrapped past missing destination pages.
+func (e *ResultExporter) bootstrapExportState() (exportState, error) {
+	data, err := readRecoveryFile(e.homeDir, SnapshotHeightFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return exportState{}, nil
+	}
+	if err != nil {
+		return exportState{}, err
 	}
 	h, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
-	if err != nil || h <= 0 {
-		return exportState{}
+	if err != nil || h < 0 {
+		return exportState{}, fmt.Errorf("invalid snapshot height %q", strings.TrimSpace(string(data)))
 	}
-	exportLog.Info("bootstrapping export state from snapshot height", "height", h)
-	return exportState{LastExportedHeight: h}
+	return exportState{LastExportedHeight: h}, nil
 }
 
 func (e *ResultExporter) writeExportState(state exportState) error {
-	data, err := json.Marshal(state)
+	if state.Identity.RequestHash == "" || state.LastExportedHeight < 0 {
+		return fmt.Errorf("refusing unbound or invalid export checkpoint")
+	}
+	return saveRecovery(e.homeDir, exportStateFile, state)
+}
+
+func (e *ResultExporter) queryExportSource(ctx context.Context, endpoint string) (int64, string, error) {
+	client := rpc.NewClient(endpoint, nil)
+	client.SetTimeout(500 * time.Millisecond)
+	raw, err := client.Get(ctx, "/status")
 	if err != nil {
-		return fmt.Errorf("marshaling export state: %w", err)
+		return 0, "", err
 	}
-	path := filepath.Join(e.homeDir, exportStateFile)
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("writing export state: %w", err)
+	var status rpc.StatusResult
+	if err := json.Unmarshal(raw, &status); err != nil {
+		return 0, "", err
 	}
-	return nil
+	if status.NodeInfo.Network == "" || (e.chainID != "" && status.NodeInfo.Network != e.chainID) {
+		return 0, "", fmt.Errorf("source chain %q does not match configured chain %q", status.NodeInfo.Network, e.chainID)
+	}
+	h, err := strconv.ParseInt(status.SyncInfo.LatestBlockHeight, 10, 64)
+	if err != nil {
+		return 0, "", err
+	}
+	if h <= 0 {
+		return 0, "", fmt.Errorf("source has no committed blocks")
+	}
+	return h, status.NodeInfo.Network, nil
 }

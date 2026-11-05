@@ -1,0 +1,1665 @@
+[audit.22.30.13]
+task = "22.30.13"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 180
+findings = 45
+docs_reviewed = 23
+upgrade_ready = false
+blocking = ["001", "003", "004", "006"]
+requirements = ["22998.1", "22108.1", "5982.1", "3018.1", "3270.1", "3527.1", "3528.1", "181521.1", "21153.1", "21149.1", "21136.1", "3529.1", "3515.1", "3515.2", "3509.1", "3509.2", "3509.3", "3510.1", "3510.2", "3510.3", "3511.1", "3511.2", "3519.1", "3520.1", "3520.2", "3518.1", "3521.1", "3516.1", "3517.1", "3522.1", "3512.1", "3523.1", "3513.1", "3513.2", "3524.1", "3525.1", "3514.1", "3526.1", "3532.1", "3533.1", "3534.1", "3535.1", "3530.1", "3531.1", "3961.1", "3965.1", "3518.2", "22101.1", "22012.1", "21128.1", "21070.1", "21015.1", "21038.1", "3533.2", "5982.2", "7288.1", "12035.3", "22011.1", "16015.1", "16015.2", "16972.1", "16972.2", "16972.3", "16972.4", "16972.5", "16039.1", "16045.1", "16046.1", "16047.1", "16048.1", "16049.1", "16050.1", "16051.1", "16052.1", "16053.1", "16054.1", "16055.1", "16056.1", "16057.1", "16058.1"]
+interface_scope = "Reviewed live perps/spot ABI and gateway paths, oracle typed/legacy query transports, state/genesis/migrations and historical exchange dispatch. Broad package tool-prefix rows outside explicit members do not declare interfaces in this slice."
+
+[file.001]
+path = "apps/perps/next.config.js"
+lines = 185
+verdict = "clean"
+note = "PWA cache bounds, standalone output, security headers and optional Sentry configuration reviewed; live trading pages and responses are not precached."
+
+[file.002]
+path = "apps/perps/scripts/check-transport.cjs"
+lines = 35
+verdict = "clean"
+note = "TypeScript scanner rejects direct browser fetch outside the bounded transport; server handlers are explicitly excluded from this browser-only policy."
+
+[file.003]
+path = "apps/perps/src/instrumentation.ts"
+lines = 12
+verdict = "clean"
+note = "Registration parses gateway, candle origin and status-page variables at startup and excludes Node Sentry configuration from the edge runtime."
+
+[file.004]
+path = "apps/perps/tests/abi-barrel.test.ts"
+lines = 72
+verdict = "clean"
+note = "ABI barrel exports contain the intended precompile ABIs only; call-site imports use the retained public names."
+
+[file.005]
+path = "apps/perps/tests/account-hook.test.ts"
+lines = 78
+verdict = "clean"
+note = "Account view, withdrawable withdrawal and six-decimal deposit tests use the native account API and exclude vault-era methods."
+
+[file.006]
+path = "apps/perps/tests/amounts.test.ts"
+lines = 112
+verdict = "clean"
+note = "Decimal parsing and implied collateral tests retain exact integer arithmetic, malformed-input refusal and explicit precision truncation."
+
+[file.007]
+path = "apps/perps/tests/approvals.test.ts"
+lines = 117
+verdict = "clean"
+note = "Approval planning covers exact amounts, native exemptions and the declared perps/spot spenders without unlimited approval."
+
+[file.008]
+path = "apps/perps/tests/audit-regressions.test.ts"
+lines = 32
+verdict = "clean"
+note = "Regression tests check closed spot navigation, shared realtime prices, native account totals and bounded PWA worker/cache behavior."
+
+[file.009]
+path = "apps/perps/tests/auto-collateral.test.ts"
+lines = 48
+verdict = "clean"
+note = "Auto-collateral tests check native account reads and supported write arguments instead of the removed isolated-margin flow."
+
+[file.010]
+path = "apps/perps/tests/book-levels.test.ts"
+lines = 68
+verdict = "clean"
+note = "Book-level tests preserve exact price and size representations through level conversion and ordering."
+
+[file.011]
+path = "apps/perps/tests/chain-config.test.ts"
+lines = 72
+verdict = "clean"
+note = "Chain configuration tests check chain ID 125, native currency, explorer and declared RPC configuration."
+
+[file.012]
+path = "apps/perps/tests/chart-theme.test.ts"
+lines = 208
+verdict = "clean"
+note = "Chart theme tests exercise the actual light/dark palette mapping used by chart consumers."
+
+[file.013]
+path = "apps/perps/tests/classify-limits.test.ts"
+lines = 80
+verdict = "clean"
+note = "Limit selectors map to precision, above/below maximum and market-halted validation codes."
+
+[file.014]
+path = "apps/perps/tests/classify-precompile.test.ts"
+lines = 191
+verdict = "clean"
+note = "Precompile classification tests preserve custom error names, selectors and structured user error codes."
+
+[file.015]
+path = "apps/perps/tests/collateral-modals.test.ts"
+lines = 38
+verdict = "clean"
+note = "Collateral modal tests exercise supported account actions and exact collateral amounts through submission controls."
+
+[file.016]
+path = "apps/perps/tests/cookie-consent.test.ts"
+lines = 35
+verdict = "clean"
+note = "Consent tests check saved selection, dismissal and the observable component state."
+
+[file.017]
+path = "apps/perps/tests/daily-pnl.test.ts"
+lines = 165
+verdict = "clean"
+note = "Daily PnL tests cover UTC observations, exact money and error/missing-day propagation."
+
+[file.018]
+path = "apps/perps/tests/deploy-config.test.ts"
+lines = 176
+verdict = "clean"
+note = "Deployment tests compare application environment requirements with production service variables."
+
+[file.019]
+path = "apps/perps/tests/dockerfile-args.test.ts"
+lines = 63
+verdict = "clean"
+note = "Docker build argument checks cover the variables needed by the standalone browser build."
+
+[file.020]
+path = "apps/perps/tests/e2e-local-node.test.ts"
+lines = 684
+verdict = "issues"
+note = "Real-node account/order/collateral/funding/close/spot flows reviewed; funding progression polling lacks a wall-clock bound."
+
+[file.021]
+path = "apps/perps/tests/embedded-auth.test.ts"
+lines = 103
+verdict = "clean"
+note = "Embedded authentication tests exercise authenticated provisioning and refusal using the declared wallet response shape."
+
+[file.022]
+path = "apps/perps/tests/embedded-wallet.test.ts"
+lines = 212
+verdict = "clean"
+note = "Embedded wallet tests cover custody authorization and supported wallet routes with account and chain validation."
+
+[file.023]
+path = "apps/perps/tests/env-validation.test.ts"
+lines = 158
+verdict = "clean"
+note = "Environment tests cover required gateway settings and explicit malformed-value refusal, including the candle proxy origin."
+
+[file.024]
+path = "apps/perps/tests/exact-money.test.ts"
+lines = 92
+verdict = "clean"
+note = "Portfolio, chart, leaderboard, fees and settlement calculations preserve bigint money above JavaScript safe-integer limits."
+
+[file.025]
+path = "apps/perps/tests/fee-tier-panel.test.ts"
+lines = 57
+verdict = "clean"
+note = "Fee-tier panel renders decoded chain tier and basis-point rates instead of fixed text."
+
+[file.026]
+path = "apps/perps/tests/fee-tier.test.ts"
+lines = 40
+verdict = "clean"
+note = "Fee view preserves signed maker rebates and converts parts-per-million to display basis points."
+
+[file.027]
+path = "apps/perps/tests/feeds.test.ts"
+lines = 74
+verdict = "issues"
+note = "The asserted sixteen-node RPC default includes undeclared api15/api16 and differs from the merged-network inventory."
+
+[file.028]
+path = "apps/perps/tests/fetch.test.ts"
+lines = 138
+verdict = "clean"
+note = "Bounded transport tests cover mutation non-retry, retry caps, Retry-After, cancellation, malformed JSON and status classification."
+
+[file.029]
+path = "apps/perps/tests/focus-outline.test.ts"
+lines = 65
+verdict = "clean"
+note = "Focus tests preserve keyboard outlines while limiting mouse-specific suppression to pointer interaction."
+
+[file.030]
+path = "apps/perps/tests/funding-rate.test.ts"
+lines = 383
+verdict = "clean"
+note = "Hourly funding parsing is exact and the daily figure is explicitly a 24-times projection of settled hourly funding."
+
+[file.031]
+path = "apps/perps/tests/gas.test.ts"
+lines = 11
+verdict = "clean"
+note = "Gas test applies the declared estimate safety multiplier without reintroducing fixed gas constants."
+
+[file.032]
+path = "apps/perps/tests/gateway-config.test.ts"
+lines = 100
+verdict = "clean"
+note = "Gateway URL tests cover direct REST, GraphQL and WebSocket surfaces and missing-configuration refusal."
+
+[file.033]
+path = "apps/perps/tests/graphql-operations.test.ts"
+lines = 453
+verdict = "clean"
+note = "Operation parser compares app operations with actual gateway SDL roots/fields, nullable extensions and retired spot operation exclusions."
+
+[file.034]
+path = "apps/perps/tests/graphql-stream-loss.test.ts"
+lines = 192
+verdict = "clean"
+note = "GraphQL terminal-loss test reaches the resubscription state machine instead of retaining a dead stream."
+
+[file.035]
+path = "apps/perps/tests/legacy-route-exports.test.ts"
+lines = 125
+verdict = "clean"
+note = "Legacy route exports are restricted to their intended redirects."
+
+[file.036]
+path = "apps/perps/tests/local-fee-tier.test.ts"
+lines = 90
+verdict = "clean"
+note = "Local-node fee-tier test decodes real precompile data and compares rates with getFees."
+
+[file.037]
+path = "apps/perps/tests/local-market-config.test.ts"
+lines = 96
+verdict = "clean"
+note = "Local-node config test checks actual active market IDs, decoded names and positive tick/lot units."
+
+[file.038]
+path = "apps/perps/tests/local-order-tick.test.ts"
+lines = 181
+verdict = "issues"
+note = "Local tick test manually converts the leverage cap before planning and bypasses the production form unit defect."
+
+[file.039]
+path = "apps/perps/tests/local-spot-token-state.test.ts"
+lines = 86
+verdict = "clean"
+note = "Local-node stable-token test reads actual vault pause/info views and checks the configured token is tradeable."
+
+[file.040]
+path = "apps/perps/tests/logger.test.ts"
+lines = 64
+verdict = "clean"
+note = "Logger tests cover namespaces, child context, levels and sink replacement without credential output."
+
+[file.041]
+path = "apps/perps/tests/margin-hooks.test.ts"
+lines = 140
+verdict = "clean"
+note = "Native margin hooks retain exact approvals, amount/account refusal and concurrent-submit protection."
+
+[file.042]
+path = "apps/perps/tests/mark-status.test.ts"
+lines = 27
+verdict = "clean"
+note = "Mark-status helper propagates stale, disabled and open states from the declared chain view."
+
+[file.043]
+path = "apps/perps/tests/market-catalog.test.ts"
+lines = 144
+verdict = "clean"
+note = "Gateway catalog tests include new markets, listing-age categorization and malformed identifiers/fields."
+
+[file.044]
+path = "apps/perps/tests/market-config.test.ts"
+lines = 132
+verdict = "clean"
+note = "ABI-decoded config and tiers preserve integer leverage, fixed-point bounds and exact maintenance deductions."
+
+[file.045]
+path = "apps/perps/tests/market-label-widgets.test.ts"
+lines = 87
+verdict = "clean"
+note = "Settlement widget resolves newly listed market labels through the gateway catalog."
+
+[file.046]
+path = "apps/perps/tests/market-label.test.ts"
+lines = 25
+verdict = "clean"
+note = "Market-label helper uses the catalog symbol or literal identifier for unknown entries."
+
+[file.047]
+path = "apps/perps/tests/market-logos.test.ts"
+lines = 29
+verdict = "clean"
+note = "Logo map requires committed known assets and a committed unknown-symbol placeholder."
+
+[file.048]
+path = "apps/perps/tests/markets-rows.test.ts"
+lines = 93
+verdict = "clean"
+note = "Market rows and new-market filtering derive from gateway listing times rather than static market ID ranges."
+
+[file.049]
+path = "apps/perps/tests/mobile-account.test.ts"
+lines = 107
+verdict = "clean"
+note = "Mobile account forwards native maintenance margin and clears unavailable reads instead of fabricating values."
+
+[file.050]
+path = "apps/perps/tests/mobile-markets.test.ts"
+lines = 110
+verdict = "clean"
+note = "Mobile header renders gateway-listed markets absent from the static bootstrap catalog."
+
+[file.051]
+path = "apps/perps/tests/order-limits.test.ts"
+lines = 149
+verdict = "clean"
+note = "Planner unit tests use WAD OrderLimits, matching the internal helper contract; production config conversion is recorded on proof_hooks."
+
+[file.052]
+path = "apps/perps/tests/order-plan.test.ts"
+lines = 530
+verdict = "clean"
+note = "Planner tests cover aligned ticks/lots, TIF, reduce-only, TP/SL, ladders and bounded calls with internal WAD limits."
+
+[file.053]
+path = "apps/perps/tests/orderbook-reset.test.ts"
+lines = 144
+verdict = "clean"
+note = "Reset tests discard queued frames and clear both reference books when streams disconnect."
+
+[file.054]
+path = "apps/perps/tests/perps-abi-parity.test.ts"
+lines = 62
+verdict = "clean"
+note = "ABI parity compares all perps functions, events, errors and tuple component order with the chain ABI."
+
+[file.055]
+path = "apps/perps/tests/perps-abi.test.ts"
+lines = 359
+verdict = "clean"
+note = "Perps ABI coverage and named view decoding match the served precompile shape."
+
+[file.056]
+path = "apps/perps/tests/perps-calls.test.ts"
+lines = 571
+verdict = "clean"
+note = "Call builders preserve release addresses, six-decimal collateral, 18-decimal prices and bounded write arguments."
+
+[file.057]
+path = "apps/perps/tests/perps-config.test.ts"
+lines = 109
+verdict = "clean"
+note = "Bootstrap market config excludes retired spot modes and fixed leverage while preserving enum numbering and seed IDs."
+
+[file.058]
+path = "apps/perps/tests/perps-markets-gateway.test.ts"
+lines = 89
+verdict = "clean"
+note = "Real local gateway loader test validates catalog fields on every returned market."
+
+[file.059]
+path = "apps/perps/tests/portfolio-stats.test.ts"
+lines = 74
+verdict = "clean"
+note = "Portfolio statistics use getAccount native totals instead of synthesizing balances from realtime prices."
+
+[file.060]
+path = "apps/perps/tests/portfolio-windows.test.ts"
+lines = 75
+verdict = "clean"
+note = "UTC windows distinguish absent PnL from zero and preserve exact bigint sums."
+
+[file.061]
+path = "apps/perps/tests/position-hooks.test.ts"
+lines = 270
+verdict = "clean"
+note = "Position planners preserve supported native account actions, exact approvals and bounded collateral/close calls."
+
+[file.062]
+path = "apps/perps/tests/position-pnl-tiers.test.ts"
+lines = 97
+verdict = "clean"
+note = "Tier liquidation calculations apply maintenance basis points and deductions from the matching notional band."
+
+[file.063]
+path = "apps/perps/tests/position-pnl.test.ts"
+lines = 229
+verdict = "clean"
+note = "PnL tests check long/short signs, funding/fees, integer truncation and liquidation rounding using declared tier units."
+
+[file.064]
+path = "apps/perps/tests/positions-panel.test.ts"
+lines = 114
+verdict = "clean"
+note = "Panel tests cover bounded partial close, TP/SL units, supported actions and invalid-size refusal."
+
+[file.065]
+path = "apps/perps/tests/precompiles.test.ts"
+lines = 167
+verdict = "clean"
+note = "Network defaults resolve release precompile addresses, chain 125 and one USDL collateral address."
+
+[file.066]
+path = "apps/perps/tests/proof_core.test.ts"
+lines = 273
+verdict = "issues"
+note = "Core proof supplies WAD-scaled MarginTier leverage instead of the integer leverage emitted by the chain."
+
+[file.067]
+path = "apps/perps/tests/proof_hooks.test.ts"
+lines = 702
+verdict = "issues"
+note = "Handwritten hook producer inflates ABI leverage caps, hiding the live form-to-planner unit mismatch and omitting the real chain/gateway producers."
+
+[file.068]
+path = "apps/perps/tests/proof_widgets.test.ts"
+lines = 307
+verdict = "issues"
+note = "Widget proof accepts a full-page render exception and malformed-price normalization instead of proving healthy consumer behavior."
+
+[file.069]
+path = "apps/perps/tests/pwa-cleanup.test.ts"
+lines = 125
+verdict = "clean"
+note = "PWA cleanup test loads the real Next config and webpack plugin and preserves unrelated assets while removing stale service scripts."
+
+[file.070]
+path = "apps/perps/tests/quoter-chain-config.test.ts"
+lines = 103
+verdict = "clean"
+note = "Quoter config tests correctly preserve integer leverage and stale/disabled mark flags from ABI-decoded inputs."
+
+[file.071]
+path = "apps/perps/tests/quoter.test.ts"
+lines = 111
+verdict = "clean"
+note = "Quoter tuple tests retain all returned fields, leverage/margin caps and partial-close output positions."
+
+[file.072]
+path = "apps/perps/tests/realtime.test.ts"
+lines = 144
+verdict = "clean"
+note = "Realtime tests exercise shared ownership, unsubscribe grace, jitter, sequence/restart gaps, visibility and half-open recovery deadlines."
+
+[file.073]
+path = "apps/perps/tests/resize-release.browser.ts"
+lines = 221
+verdict = "clean"
+note = "Browser resize scenario covers actual drag release, bounds and final layout through the resize component."
+
+[file.074]
+path = "apps/perps/tests/resize-release.test.ts"
+lines = 85
+verdict = "clean"
+note = "Resize test flushes pending mouse/touch positions and checks listener cleanup."
+
+[file.075]
+path = "apps/perps/tests/rest-bases.test.ts"
+lines = 216
+verdict = "clean"
+note = "REST base tests require direct gateway/explorer URLs and exclude removed per-feature proxy bases."
+
+[file.076]
+path = "apps/perps/tests/settings-theme-selection.browser.ts"
+lines = 171
+verdict = "clean"
+note = "Browser settings scenario checks saved selections, clicks, reopened controls and system-resolved theme markers."
+
+[file.077]
+path = "apps/perps/tests/settings-theme-selection.test.ts"
+lines = 85
+verdict = "clean"
+note = "Theme-selection test exercises actual saved values, reopening and system resolution."
+
+[file.078]
+path = "apps/perps/tests/socket-urls.test.ts"
+lines = 122
+verdict = "clean"
+note = "Socket URL tests preserve ws/wss conversion and service ownership for market, explorer and account streams."
+
+[file.079]
+path = "apps/perps/tests/spot-abi-parity.test.ts"
+lines = 61
+verdict = "clean"
+note = "Spot ABI parity compares every served rail function, error, event and tuple with its chain ABI."
+
+[file.080]
+path = "apps/perps/tests/spot-abi.test.ts"
+lines = 266
+verdict = "clean"
+note = "Spot selector/mutability checks and ABI exports match the five actual PECOR rails."
+
+[file.081]
+path = "apps/perps/tests/spot-approvals.test.ts"
+lines = 95
+verdict = "clean"
+note = "Spot approval tests retain exact bounded amounts, native exemptions, spender selection and no approve-max export."
+
+[file.082]
+path = "apps/perps/tests/spot-calls.test.ts"
+lines = 287
+verdict = "clean"
+note = "Spot builders round-trip rail addresses, token arguments, calldata and native value requirements."
+
+[file.083]
+path = "apps/perps/tests/spot-order-paused.test.ts"
+lines = 42
+verdict = "clean"
+note = "Paused token state blocks spot submission with the halted-market code."
+
+[file.084]
+path = "apps/perps/tests/spot-quote.test.ts"
+lines = 408
+verdict = "clean"
+note = "Spot quote arithmetic preserves exact decimals, exponent parsing, side-specific book prices and bigint balance/percentage checks."
+
+[file.085]
+path = "apps/perps/tests/spot-quoter.test.ts"
+lines = 100
+verdict = "clean"
+note = "Spot quoter builder tests cover every quoter read exported to the hook."
+
+[file.086]
+path = "apps/perps/tests/spot-release-gate.test.ts"
+lines = 107
+verdict = "clean"
+note = "Release tests cover actual spot route closure/opening and gated market navigation."
+
+[file.087]
+path = "apps/perps/tests/spot-tif.test.ts"
+lines = 86
+verdict = "clean"
+note = "IOC/post-only and stable-decimal tests preserve served rail semantics and metadata units."
+
+[file.088]
+path = "apps/perps/tests/spot-token-state.test.ts"
+lines = 63
+verdict = "clean"
+note = "Spot state combines pause/info views and its call builders target the vault ABI."
+
+[file.089]
+path = "apps/perps/tests/spot-tokens.test.ts"
+lines = 126
+verdict = "clean"
+note = "Opening assets, stable token choice and native scales match configured rails; removed wrap module stays absent."
+
+[file.090]
+path = "apps/perps/tests/spot-trade-history.test.ts"
+lines = 309
+verdict = "clean"
+note = "History tests preserve account ownership, cursor boundaries, block/index ordering, REST/live merge, deduplication and stale-response refusal."
+
+[file.091]
+path = "apps/perps/tests/spot-venue-stream.test.ts"
+lines = 236
+verdict = "clean"
+note = "Spot venue tests exercise book/trade transport, reference fallback and unsubscribe cleanup."
+
+[file.092]
+path = "apps/perps/tests/spot-watchlist-paused.test.ts"
+lines = 73
+verdict = "clean"
+note = "Watchlist row state visibly reflects paused tokens."
+
+[file.093]
+path = "apps/perps/tests/v6120-invariants.test.ts"
+lines = 678
+verdict = "clean"
+note = "Invariant scanner checks release addresses/ABI, exact approvals, bounded writes, sequence handling and gateway operations; retired names are exclusion checks."
+
+[file.094]
+path = "apps/perps/tests/venue-stream.test.ts"
+lines = 316
+verdict = "clean"
+note = "Venue tests cover real client transport, snapshot/delta progression, gap resync, restart reset, reference fallback and shared socket lifecycle."
+
+[file.095]
+path = "apps/perps/tests/venue-symbols.test.ts"
+lines = 49
+verdict = "clean"
+note = "Symbol registration checks case normalization, replacement, malformed updates and downstream selection."
+
+[file.096]
+path = "modules/oracle/README.md"
+lines = 76
+verdict = "issues"
+note = "Voting/default descriptions match current module behavior, but the advertised current EVM oracle data precompile is retired."
+
+[file.097]
+path = "modules/oracle/abci.go"
+lines = 168
+verdict = "clean"
+note = "MidBlock tally and end-window slashing are wired through node legacy ABCI; helper arithmetic and genesis/migration lifecycle defects are recorded on their owning members."
+
+[file.098]
+path = "modules/oracle/abci_test.go"
+lines = 777
+verdict = "clean"
+note = "ABCI tests cover reference selection, quorum, abstention and period/window changes; recorded helper/recovery defects need additional cases."
+
+[file.099]
+path = "modules/oracle/ante.go"
+lines = 101
+verdict = "clean"
+note = "Oracle ante enforces vote transaction composition and validator/feeder permission before execution."
+
+[file.100]
+path = "modules/oracle/ante_test.go"
+lines = 94
+verdict = "clean"
+note = "Ante tests cover message composition, authorization and duplicate-vote counter behavior."
+
+[file.101]
+path = "modules/oracle/client/cli/query.go"
+lines = 324
+verdict = "clean"
+note = "CLI queries use current typed QueryClient methods and validate positive TWAP lookback and validator identifiers."
+
+[file.102]
+path = "modules/oracle/client/cli/tx.go"
+lines = 143
+verdict = "clean"
+note = "CLI transactions construct current single-step aggregate votes and feeder delegation messages."
+
+[file.103]
+path = "modules/oracle/client/rest/query.go"
+lines = 252
+verdict = "issues"
+note = "Legacy query handlers address an absent custom querier, and the TWAP route omits its required lookback variable."
+
+[file.104]
+path = "modules/oracle/client/rest/rest.go"
+lines = 22
+verdict = "clean"
+note = "Deprecated REST registration consistently wraps the legacy route set; the orphaned query transport is recorded in query.go."
+
+[file.105]
+path = "modules/oracle/client/rest/tx.go"
+lines = 99
+verdict = "clean"
+note = "Legacy transaction handlers validate request/address inputs before constructing current vote/delegation messages."
+
+[file.106]
+path = "modules/oracle/client/wasm/bindings/queries.go"
+lines = 10
+verdict = "clean"
+note = "Wasm bindings declare supported rate/TWAP query and response shapes without removed prevote fields."
+
+[file.107]
+path = "modules/oracle/client/wasm/query.go"
+lines = 29
+verdict = "clean"
+note = "Wasm query dispatch preserves supported response schemas and explicit parse/lookup/encoding error identities."
+
+[file.108]
+path = "modules/oracle/common_test.go"
+lines = 85
+verdict = "clean"
+note = "Shared module test setup supplies real codec, keepers, validators and funded accounts for keeper calls."
+
+[file.109]
+path = "modules/oracle/genesis.go"
+lines = 112
+verdict = "issues"
+note = "Genesis export/import loses rate freshness and target state, changing observable recovery behavior."
+
+[file.110]
+path = "modules/oracle/genesis_test.go"
+lines = 70
+verdict = "issues"
+note = "Genesis test compares two lossy serialization outputs without checking freshness or recovered target keys."
+
+[file.111]
+path = "modules/oracle/handler.go"
+lines = 29
+verdict = "clean"
+note = "Handler dispatches only current messages through the message server and resets the per-call event manager."
+
+[file.112]
+path = "modules/oracle/handler_test.go"
+lines = 69
+verdict = "clean"
+note = "Handler tests exercise aggregate-vote/delegation execution and unknown-message refusal."
+
+[file.113]
+path = "modules/oracle/keeper/alias_functions.go"
+lines = 25
+verdict = "clean"
+note = "Keeper aliases expose the actual codec and store key used by migrations and diagnostics."
+
+[file.114]
+path = "modules/oracle/keeper/ballot.go"
+lines = 108
+verdict = "clean"
+note = "Ballots filter inactive voters, zero abstaining power, sort rates, clear votes and resync whitelist metadata."
+
+[file.115]
+path = "modules/oracle/keeper/ballot_test.go"
+lines = 155
+verdict = "clean"
+note = "Keeper ballot tests cover real-store organization, abstention, whitelist changes and clearing."
+
+[file.116]
+path = "modules/oracle/keeper/keeper.go"
+lines = 630
+verdict = "clean"
+note = "Keeper persists protobuf rate height/millisecond freshness, delegation, votes, targets, counters and snapshots; lossy genesis/simulation consumers are separate findings."
+
+[file.117]
+path = "modules/oracle/keeper/keeper_test.go"
+lines = 829
+verdict = "clean"
+note = "Keeper tests exercise actual persisted rates, votes, delegation, penalties and snapshot/TWAP boundaries."
+
+[file.118]
+path = "modules/oracle/keeper/metrics.go"
+lines = 38
+verdict = "clean"
+note = "Keeper OTel declarations agree with used oracle counter names and bounded attributes."
+
+[file.119]
+path = "modules/oracle/keeper/migrations.go"
+lines = 120
+verdict = "issues"
+note = "Success backfill counts blocks instead of vote periods; atomic cache writes, error handling and iterator closing remain intact."
+
+[file.120]
+path = "modules/oracle/keeper/migrations_atomic_test.go"
+lines = 56
+verdict = "issues"
+note = "Atomic boundary test accepts more penalty observations than completed default vote periods."
+
+[file.121]
+path = "modules/oracle/keeper/migrations_test.go"
+lines = 156
+verdict = "issues"
+note = "Migration test explicitly expects inflated block-count-derived successes."
+
+[file.122]
+path = "modules/oracle/keeper/msg_server.go"
+lines = 105
+verdict = "clean"
+note = "Message server validates feeder permission, targets and uniqueness and emits the current declared events."
+
+[file.123]
+path = "modules/oracle/keeper/params.go"
+lines = 71
+verdict = "clean"
+note = "Parameter accessors and parameter-set keys match current oracle Params fields."
+
+[file.124]
+path = "modules/oracle/keeper/querier.go"
+lines = 159
+verdict = "clean"
+note = "Typed gRPC queries validate arguments and preserve full rate metadata and declared counter/TWAP response shapes."
+
+[file.125]
+path = "modules/oracle/keeper/querier_test.go"
+lines = 219
+verdict = "clean"
+note = "Querier tests use real keeper data for rates, targets, delegation, counters and TWAPs and cover invalid arguments."
+
+[file.126]
+path = "modules/oracle/keeper/slash.go"
+lines = 68
+verdict = "clean"
+note = "Slashing computes ratios from observed counters, checks validator state, emits OTel/end-window events and clears counters."
+
+[file.127]
+path = "modules/oracle/keeper/slash_metrics_test.go"
+lines = 101
+verdict = "clean"
+note = "Metric test asserts the actual OTel slash counter and absence of the removed Cosmos telemetry counter."
+
+[file.128]
+path = "modules/oracle/keeper/slash_test.go"
+lines = 107
+verdict = "clean"
+note = "Slash tests exercise thresholds, jail state and counter reset through real staking/keeper state."
+
+[file.129]
+path = "modules/oracle/keeper/testutils/test_utils.go"
+lines = 306
+verdict = "clean"
+note = "Keeper utilities construct real codec, stores, staking state and deterministic test accounts."
+
+[file.130]
+path = "modules/oracle/keeper/vote_target.go"
+lines = 20
+verdict = "clean"
+note = "Target storage uses the declared prefix and ErrNoVoteTarget for absence."
+
+[file.131]
+path = "modules/oracle/keeper/vote_target_test.go"
+lines = 34
+verdict = "clean"
+note = "Target tests assert actual stored names, absence errors and clearing."
+
+[file.132]
+path = "modules/oracle/metrics.go"
+lines = 46
+verdict = "clean"
+note = "Module OTel histograms and price counters agree with hook calls and declared denom attributes."
+
+[file.133]
+path = "modules/oracle/module.go"
+lines = 226
+verdict = "clean"
+note = "Module registers current Msg/Query services, typed gateway, migrations and simulation hooks; the retained legacy REST client has no custom querier as recorded in query.go."
+
+[file.134]
+path = "modules/oracle/simulation/decoder.go"
+lines = 45
+verdict = "issues"
+note = "Simulation decoder uses obsolete DecProto values and has no price-snapshot branch."
+
+[file.135]
+path = "modules/oracle/simulation/genesis.go"
+lines = 122
+verdict = "issues"
+note = "Randomized genesis generates independently invalid period/window combinations and omits TWAP lookback."
+
+[file.136]
+path = "modules/oracle/simulation/operations.go"
+lines = 177
+verdict = "issues"
+note = "Aggregate-vote simulation always returns NoOp because its obsolete voteHashMap has no writer."
+
+[file.137]
+path = "modules/oracle/simulation/params.go"
+lines = 45
+verdict = "issues"
+note = "Random period/window proposals do not maintain the shared Params divisibility constraint."
+
+[file.138]
+path = "modules/oracle/spec/01_concepts.md"
+lines = 14
+verdict = "issues"
+note = "Concept page has empty behavior headings despite links relying on them."
+
+[file.139]
+path = "modules/oracle/spec/02_state.md"
+lines = 59
+verdict = "issues"
+note = "State spec documents obsolete prefixes, Amino values, Terra identifiers and scalar votes."
+
+[file.140]
+path = "modules/oracle/spec/03_end_block.md"
+lines = 33
+verdict = "issues"
+note = "End-block spec describes old rate purging, rewards and prevotes instead of current MidBlock behavior."
+
+[file.141]
+path = "modules/oracle/spec/04_messages.md"
+lines = 94
+verdict = "issues"
+note = "Message spec still requires removed aggregate prevotes/Salt rather than current single-step votes."
+
+[file.142]
+path = "modules/oracle/spec/05_events.md"
+lines = 38
+verdict = "issues"
+note = "Event spec places price updates in EndBlock and omits the actual slash-window event."
+
+[file.143]
+path = "modules/oracle/spec/06_params.md"
+lines = 19
+verdict = "issues"
+note = "Parameter page lists a removed reward window and omits current TWAP lookback."
+
+[file.144]
+path = "modules/oracle/spec/MidBlock.md"
+lines = 15
+verdict = "issues"
+note = "MidBlock design still frames the implemented hook as a future optimization over current EndBlock tally."
+
+[file.145]
+path = "modules/oracle/spec/README.md"
+lines = 19
+verdict = "clean"
+note = "Index accurately summarizes single-step votes, MidBlock tally and end-window counters; detailed linked pages have separate drift findings."
+
+[file.146]
+path = "modules/oracle/tally.go"
+lines = 101
+verdict = "clean"
+note = "Tally calls shared median/deviation helpers, tracks per-target wins and selects the reference deterministically; arithmetic findings on those helpers apply to this caller."
+
+[file.147]
+path = "modules/oracle/types/ballot.go"
+lines = 195
+verdict = "issues"
+note = "Median rounds odd voting power down; deviation ignores declared weighting and includes zero-power entries."
+
+[file.148]
+path = "modules/oracle/types/ballot_test.go"
+lines = 287
+verdict = "issues"
+note = "Tests omit odd-power/leading-abstention median cases and encode an outlier with no power changing deviation."
+
+[file.149]
+path = "modules/oracle/types/codec.go"
+lines = 35
+verdict = "clean"
+note = "Codec registration covers current aggregate-vote/delegation types and SDK interfaces."
+
+[file.150]
+path = "modules/oracle/types/denom.go"
+lines = 38
+verdict = "clean"
+note = "Denom list helpers preserve exact whitelist names, membership and ordering."
+
+[file.151]
+path = "modules/oracle/types/denom_test.go"
+lines = 47
+verdict = "clean"
+note = "Denom tests cover membership, sorting and equality used by whitelist comparison."
+
+[file.152]
+path = "modules/oracle/types/errors.go"
+lines = 31
+verdict = "clean"
+note = "Error registrations retain stable codespace/numbers; legacy hash errors do not register a live prevote route."
+
+[file.153]
+path = "modules/oracle/types/events.go"
+lines = 22
+verdict = "clean"
+note = "Event constants match actual current emissions and EventTypeVote is absent as required by 3018.1."
+
+[file.154]
+path = "modules/oracle/types/expected_keeper.go"
+lines = 46
+verdict = "clean"
+note = "Expected interfaces match actual staking, account, bank and distribution method calls."
+
+[file.155]
+path = "modules/oracle/types/genesis.go"
+lines = 53
+verdict = "issues"
+note = "Genesis validator checks Params alone and accepts malformed imported records that InitGenesis parses or dereferences unsafely."
+
+[file.156]
+path = "modules/oracle/types/genesis_test.go"
+lines = 15
+verdict = "clean"
+note = "Genesis type test covers valid Params and zero-period rejection; missing record validation is a finding on types/genesis.go."
+
+[file.157]
+path = "modules/oracle/types/keys.go"
+lines = 109
+verdict = "clean"
+note = "Key builders preserve rate, feeder, counter, vote, target, snapshot and spam-counter namespaces."
+
+[file.158]
+path = "modules/oracle/types/msgs.go"
+lines = 127
+verdict = "clean"
+note = "Message validation checks identifiers, rate tuples and signers without accepting removed Salt/prevote fields."
+
+[file.159]
+path = "modules/oracle/types/msgs_test.go"
+lines = 68
+verdict = "clean"
+note = "Message tests cover malformed rates, addresses, signer derivation and current message construction."
+
+[file.160]
+path = "modules/oracle/types/params.go"
+lines = 246
+verdict = "clean"
+note = "Defaults retain VotePeriod=2, disabled penalty defaults, whitelist and slash-window divisibility validation."
+
+[file.161]
+path = "modules/oracle/types/params_test.go"
+lines = 72
+verdict = "clean"
+note = "Parameter tests check decimal ranges, positive periods, window divisibility and denomination names."
+
+[file.162]
+path = "modules/oracle/types/querier.go"
+lines = 87
+verdict = "clean"
+note = "Legacy query parameter structures preserve rate/denom/voter/lookback field names and numeric types consumed by retained REST constructors."
+
+[file.163]
+path = "modules/oracle/types/reserved_fields_test.go"
+lines = 83
+verdict = "clean"
+note = "Descriptor tests assert Params field 8 and vote field 1/name salt remain reserved for wire compatibility."
+
+[file.164]
+path = "modules/oracle/types/snapshots.go"
+lines = 39
+verdict = "clean"
+note = "Snapshot helpers preserve full rate metadata and explicit snapshot timestamps for TWAP integration."
+
+[file.165]
+path = "modules/oracle/types/snapshots_test.go"
+lines = 61
+verdict = "clean"
+note = "Snapshot tests check serialization, timestamp ordering and exact rate lookup."
+
+[file.166]
+path = "modules/oracle/types/test_utils.go"
+lines = 155
+verdict = "clean"
+note = "Type utilities produce codec-backed messages and deterministic accounts for module tests."
+
+[file.167]
+path = "modules/oracle/types/vote.go"
+lines = 107
+verdict = "clean"
+note = "Vote parsing/hash helpers preserve exact decimal/denom encoding; legacy hash helpers do not expose a live prevote route."
+
+[file.168]
+path = "modules/oracle/types/vote_test.go"
+lines = 29
+verdict = "clean"
+note = "Vote tests cover malformed/duplicate tuples, deterministic encoding and rate bounds."
+
+[file.169]
+path = "modules/oracle/utils/assets.go"
+lines = 10
+verdict = "clean"
+note = "Asset constants preserve micro-denomination names used by defaults and simulation."
+
+[file.170]
+path = "modules/oracle/utils/period.go"
+lines = 18
+verdict = "clean"
+note = "Period helper uses the declared height-plus-one last-block convention and configured period."
+
+[file.171]
+path = "modules/oracle/vote_event_test.go"
+lines = 62
+verdict = "clean"
+note = "Event regression checks the retired vote event is not emitted by the actual oracle hook."
+
+[file.172]
+path = "precompiles/layerxexchange/LayerXExchange.sol"
+lines = 148
+verdict = "issues"
+note = "Solidity header presents router/anchor custody intents without identifying the retained ABI as historical only."
+
+[file.173]
+path = "precompiles/layerxexchange/abi.json"
+lines = 1
+verdict = "generated"
+note = "Solidity ABI artifact for the retained historical exchange interface; names, tuple components and selectors correspond to LayerXExchange.sol. Current v6.12.0 dispatch selects native perps at 0x1015."
+
+[file.174]
+path = "precompiles/layerxexchange/errors.go"
+lines = 51
+verdict = "clean"
+note = "Exchange adapter preserves SDK-to-EVM errors including stable retired-code identity."
+
+[file.175]
+path = "precompiles/layerxexchange/errors_test.go"
+lines = 158
+verdict = "clean"
+note = "Error test asserts code 14 and LXP_EXCHANGE_RETIRED as required by 3270.1."
+
+[file.176]
+path = "precompiles/layerxexchange/layerxexchange.go"
+lines = 449
+verdict = "clean"
+note = "Historical executor retains input/identity/witness checks and post-upgrade retirement; node dispatch selects native perps for v6.12.0."
+
+[file.177]
+path = "precompiles/layerxexchange/layerxexchange_test.go"
+lines = 618
+verdict = "clean"
+note = "Tests cover historical success/refusal and explicit v6.12 retired writes; historical compatibility is not a live router dependency."
+
+[file.178]
+path = "precompiles/layerxexchange/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated by scripts/bump_version; wraps the retained legacy implementation and does not declare the current perps deployment."
+
+[file.179]
+path = "tools/qualification/localnode/perps-gateway.sh"
+lines = 243
+verdict = "clean"
+note = "Launcher confines node/database and three JetStream peers to loopback, refreshes real markets and bounds readiness; its overlay changes listener binding only."
+
+[file.180]
+path = "tools/qualification/localnode/perps_gateway_test.go"
+lines = 142
+verdict = "clean"
+note = "Gateway test compares actual GraphQL/SQL market fields with getMarket at the refresh block using bounded context and HTTP requests."
+
+[finding.001]
+file = "modules/oracle/types/ballot.go"
+line = 104
+class = "runtime-risk"
+severity = "high"
+observed = "WeightedMedian and WeightedMedianWithAssertion compare cumulative power to totalPower/2 using integer division. Sorted rates [1,100] with powers [1,2] return 1 even though power 2 supports 100. With total power 1 a leading zero-power abstention can return zero; abci.go:70 and tally.go:14 use this result for stored oracle prices."
+expected = "The power-weighted median must not select a price supported only by the lower minority because total voting power is odd, and zero-power abstentions must not determine a positive-power price."
+proposal = "In modules/oracle/types/ballot.go use an overflow-safe half-power comparison with explicit zero-power handling in both median methods; preserve the documented even-power tie rule and add odd totals 1 and 3 through the actual MidBlock tally path."
+owner_domain = 3
+interface = "3.go-oracle-types-exchangerateballot-weightedmedianwithassertion-j64"
+
+[finding.002]
+file = "modules/oracle/types/ballot.go"
+line = 147
+class = "runtime-risk"
+severity = "medium"
+observed = "StandardDeviation is described as power weighted, but sums every entry equally and divides by ballot length, including zero-power abstentions. It converts the decimal variance to float64, rounds the result to six decimals and silently returns zero on panic. Tally uses this value to widen the valid-vote band."
+expected = "The valid-vote band must follow the declared voting-power semantics; a zero-power entry must not widen the band or silently replace arithmetic failure with a legitimate zero deviation."
+proposal = "Define the reward-band weighting explicitly in modules/oracle/types/ballot.go and implement its square root with bounded deterministic decimal/integer arithmetic; exclude zero-power observations and surface arithmetic failure. Verify band and penalty outcomes through modules/oracle/tally.go."
+owner_domain = 3
+interface = "3.go-oracle-types-exchangerateballot-standarddeviation-j64"
+
+[finding.003]
+file = "modules/oracle/keeper/migrations.go"
+line = 83
+class = "restart-recovery"
+severity = "high"
+observed = "Migrate5To6 sets elapsed to height modulo SlashWindow and backfills success as elapsed minus misses and abstentions. Counters increment once per VotePeriod in abci.go:125-140, not once per block. At window progress 10000 and default VotePeriod=2 with 25 penalties, it writes 9975 successes instead of 4975."
+expected = "A store upgrade must preserve the number of observed vote periods and hence the success ratio consumed by SlashAndResetCounters; changing the unit to blocks corrupts accounting and can prevent the intended jail/slash when MinValidPerWindow is enabled."
+proposal = "In modules/oracle/keeper/migrations.go derive completed observations using the actual period/window boundary convention and historical period policy, rejecting unreconstructable histories. Keep the atomic cache context and add before/on/after boundary cases with VotePeriod greater than one."
+owner_domain = 3
+
+[finding.004]
+file = "modules/oracle/genesis.go"
+line = 79
+class = "restart-recovery"
+severity = "high"
+observed = "ExportGenesis converts OracleExchangeRate into ExchangeRateTuple, dropping LastUpdate and LastUpdateTimestamp. InitGenesis:31 calls SetBaseExchangeRate, which stamps the import height and UnixMilli time. An old persisted rate is returned by the typed querier as though refreshed at recovery without a new vote."
+expected = "The rate, source height and freshness timestamp returned by GetBaseExchangeRate and the gRPC query must survive export/import together, or the recovered rate must remain explicitly unavailable until a new valid observation arrives."
+proposal = "Version the oracle genesis rate representation in api/oracle/genesis.proto and modules/oracle/genesis.go to preserve full OracleExchangeRate metadata, with a deliberate legacy import policy. Test export/import into a different height/time and assert stale data does not become fresh."
+owner_domain = 3
+interface = "3.key-oracle-exchange-rate-key-j25"
+
+[finding.005]
+file = "modules/oracle/genesis.go"
+line = 14
+class = "restart-recovery"
+severity = "medium"
+observed = "Genesis export does not include VoteTargetKey records and InitGenesis does not reconstruct them from Params.Whitelist. The existing genesis test seeds two targets but never compares recovered targets. The first MidBlock sees zero targets, discards those ballots and can count WinCount=0 as success before ApplyWhitelist runs."
+expected = "The set of active oracle targets must be ready before recovered votes are evaluated; recovery must not erase the target state for the first period or report success solely because the target set was lost."
+proposal = "In modules/oracle/genesis.go restore exported vote targets or initialize the validated whitelist before processing imported votes. Extend the real-store round trip to compare targets and first-period price/counter results."
+owner_domain = 3
+interface = "3.key-oracle-vote-target-key-j25"
+
+[finding.006]
+file = "apps/perps/tests/proof_hooks.test.ts"
+line = 62
+class = "interface-mismatch"
+severity = "high"
+observed = "HooksApplication emits maxLeverage=20*WAD and tier leverage=10*WAD/20*WAD, but precompiles/perps/views.go:337,615 emits plain integers and Perps.sol:10 explicitly declares that unit. decodeMarketConfig passes the integer unchanged; PerpsOrderForm.tsx:280-291 and :783-787 pass it to checkOrderLimits, which rejects maxLeverage below ONE_X in orderPlan.ts:83. The fixture makes this live trading refusal invisible."
+expected = "The real Go precompile, ABI transport, market-config hook and form/planner must agree that returned leverage caps are integer multipliers while order leverage is 18-decimal. An aligned enabled-market order at supported leverage must reach placeOrder."
+proposal = "In apps/perps/src/widgets/trading/PerpsOrderForm.tsx convert the selected integer cap exactly once to the OrderLimits unit in both construction paths, or give OrderLimits an explicit integer unit and convert its comparison. Replace the inflated test producer with real node output and assert the complete form-to-plan path accepts and refuses boundary leverage."
+owner_domain = 3
+interface = "3.pc-0x1015-getmarketconfig"
+
+[finding.007]
+file = "apps/perps/tests/proof_core.test.ts"
+line = 188
+class = "test-gap"
+severity = "medium"
+observed = "quoteAndPlanReachConfirmationAndSnapshotConsumers constructs a MarginTier with maxLeverage=20*WAD, while the getMarginTiers producer returns 20 as a plain integer. The supplied planner limit is already WAD-scaled, so this proof never exercises the production config-to-limit conversion."
+expected = "Proof coverage of market configuration must carry the real tier representation into the order-form limit producer and then the planner; preconverted internal limits alone cannot establish the chain-facing unit boundary."
+proposal = "In apps/perps/tests/proof_core.test.ts use the actual decoded tier representation and call orderLimitsFromConfig before buildOrderPlan, retaining all confirmation/snapshot assertions and adding the real enabled-market leverage boundary."
+owner_domain = 3
+
+[finding.008]
+file = "apps/perps/tests/local-order-tick.test.ts"
+line = 110
+class = "test-gap"
+severity = "medium"
+observed = "The local tick test reads real config but multiplies config.maxLeverage by 10^18 itself and passes the result straight to buildOrderPlan. The production form passes its plain integer selected cap without this conversion, so this otherwise real-node test cannot detect that all ordinary plans are refused."
+expected = "The local-node proof must use the same market-config-to-OrderLimits function as the production order form and exercise the real margin tier as well as the tick boundary."
+proposal = "In apps/perps/tests/local-order-tick.test.ts read actual margin tiers and obtain limits via the exported production form adapter after its unit repair; preserve the off-tick revert and aligned-order acceptance and assert supported leverage reaches the chain."
+owner_domain = 3
+
+[finding.009]
+file = "modules/oracle/genesis_test.go"
+line = 69
+class = "test-gap"
+severity = "medium"
+observed = "TestExportInitGenesis compares ExportGenesis results before and after import, but both omit freshness metadata and vote targets. It seeds targets at lines 21-22 without asserting recovered target keys and imports with no independently changed block time or height."
+expected = "A recovery test must compare the complete keeper-observable state and first resumed vote period, including rate source height/time and vote targets, rather than comparing two already lossy serialization outputs."
+proposal = "Extend modules/oracle/genesis_test.go to export a deliberately old rate and active targets, import at a new height/time, inspect GetBaseExchangeRate and target iteration, and execute the resumed period to assert identical price and penalty semantics."
+owner_domain = 3
+
+[finding.010]
+file = "modules/oracle/keeper/migrations_test.go"
+line = 154
+class = "test-gap"
+severity = "medium"
+observed = "TestMigrate5to6 runs at SlashWindow+10000 with default VotePeriod=2 and asserts SuccessCount=9975 after 25 penalties. That expectation encodes one observation per block even though the real hook produces one per two-block vote period."
+expected = "The success backfill expectation must come from the number of completed real vote periods; at this fixed-period progress there are 5000 observations and 4975 successes."
+proposal = "In modules/oracle/keeper/migrations_test.go seed counters by executing or deriving the actual vote-period hook boundaries, assert 4975 for the existing scenario, check the migration error, and cover non-unit VotePeriod and slash-window rollover."
+owner_domain = 3
+
+[finding.011]
+file = "modules/oracle/keeper/migrations_atomic_test.go"
+line = 53
+class = "test-gap"
+severity = "medium"
+observed = "TestMigrate5To6AcceptsZeroSuccessBoundary accepts 12 misses plus 13 abstentions at block 25 under default VotePeriod=2. Twenty-five penalties cannot have arisen from the completed two-block periods; the test only checks the same block-count bound as the faulty migration."
+expected = "An accepted migration boundary must describe a counter state obtainable from the pre-upgrade period schedule, while impossible counts must fail atomically with original bytes unchanged."
+proposal = "In modules/oracle/keeper/migrations_atomic_test.go derive the zero-success boundary from completed vote periods and add the currently accepted 25-penalty state as an atomic rejection case after repairing migration units."
+owner_domain = 3
+
+[finding.012]
+file = "modules/oracle/types/ballot_test.go"
+line = 146
+class = "test-gap"
+severity = "medium"
+observed = "TestPBWeightedMedian covers a supermajority, a high zero-power outlier, an even tie and no votes, but omits an odd total of three with weights one/two and a total of one preceded by an abstention. Both median implementations can therefore select the wrong rate without failing this suite."
+expected = "Median coverage must include integer power rounding and zero-power entries at both ends of the sorted ballot and prove the same result through the actual keeper/tally caller."
+proposal = "Add table cases in modules/oracle/types/ballot_test.go for odd totals, leading/trailing abstentions and all-zero power, plus a real MidBlock regression; preserve the existing tie and majority cases."
+owner_domain = 3
+
+[finding.013]
+file = "modules/oracle/types/ballot_test.go"
+line = 226
+class = "test-gap"
+severity = "medium"
+observed = "The StandardDeviation case labeled Adding fake validator does not change outcome expects a huge changed deviation after adding a zero-power outlier. This assertion preserves the unweighted calculation while the declared function says deviation is by power."
+expected = "A zero-power observation must not widen the voting-power reward band, and regression assertions must agree with the documented weighting rather than encode the current defect."
+proposal = "In modules/oracle/types/ballot_test.go assert invariance under zero-power insertion and exercise nonuniform powers, decimal precision and arithmetic limits with the intended deterministic deviation implementation and real Tally win/counter outcomes."
+owner_domain = 3
+
+[finding.014]
+file = "modules/oracle/client/rest/query.go"
+line = 46
+class = "wiring-gap"
+severity = "medium"
+observed = "The registered legacy REST handlers query custom/oracle routes via QueryWithData, while AppModule.LegacyQuerierHandler in module.go:142 returns nil. The SDK route has no legacy query implementation; the separately registered typed gRPC gateway does not fulfill these custom queries."
+expected = "A retained registered query route must reach an actual querier and return its declared rate/counter/parameter response, or explicitly report its retirement and direct clients to the current typed endpoint."
+proposal = "Replace custom queries in modules/oracle/client/rest/query.go with the typed oracle QueryClient, or retire these legacy registrations with explicit migration responses. Add a mounted-router request through the real query service."
+owner_domain = 3
+interface = "3.go-oracle-client-rest-registerroutes-j64"
+
+[finding.015]
+file = "modules/oracle/client/rest/query.go"
+line = 22
+class = "wiring-gap"
+severity = "medium"
+observed = "The legacy /oracle/denoms/twaps route declares no lookback_seconds variable, but queryTwapsHandlerFunction calls checkLookbackSecondsVar, which reads mux.Vars only. Parsing the absent value fails and the handler returns without writing an error, yielding an empty HTTP 200."
+expected = "A TWAP request must supply a bounded positive lookback in the declared transport and invalid or missing input must produce an explicit client error; the generated typed gateway route already includes its lookback path parameter."
+proposal = "If the legacy route is retained, update modules/oracle/client/rest/query.go to declare a lookback path/query field consistently and write HTTP 400 on invalid input; test the mounted route with valid, absent, nonnumeric and nonpositive lookbacks."
+owner_domain = 3
+
+[finding.016]
+file = "modules/oracle/simulation/operations.go"
+line = 82
+class = "test-gap"
+severity = "medium"
+observed = "SimulateMsgAggregateExchangeRateVote requires an entry in package-global voteHashMap, but that map is initialized empty at line 27 and has no writer. Every bonded validator reaches the vote hash not exists NoOp instead of generating a current single-step aggregate vote and delivering it."
+expected = "Weighted oracle vote simulation must produce valid current votes and reach the real message delivery/tally path, so simulation can reveal price, penalty and recovery defects."
+proposal = "Remove the obsolete prevote-map dependency in modules/oracle/simulation/operations.go, generate rate tuples for current vote targets using authorized feeder accounts and assert a seeded simulation performs successful real aggregate-vote deliveries."
+owner_domain = 3
+interface = "3.go-oracle-simulation-weightedoperations-j64"
+
+[finding.017]
+file = "modules/oracle/simulation/decoder.go"
+line = 20
+class = "test-gap"
+severity = "medium"
+observed = "NewDecodeStore unmarshals ExchangeRateKey values as sdk.DecProto although SetBaseExchangeRate stores OracleExchangeRate including freshness. Its switch also omits PriceSnapshotKey, so a snapshot difference reaches the invalid-prefix panic instead of a useful state comparison."
+expected = "Simulation state comparison must decode the current persisted schema and retain metadata differences; every persistent oracle prefix that can differ must have a diagnostic decoder."
+proposal = "Update modules/oracle/simulation/decoder.go to decode OracleExchangeRate and PriceSnapshot plus other persisted prefixes. Build decoder cases from bytes emitted by real keeper writes and assert freshness-only and snapshot differences remain observable."
+owner_domain = 3
+interface = "3.go-oracle-simulation-newdecodestore-j64"
+
+[finding.018]
+file = "modules/oracle/simulation/genesis.go"
+line = 96
+class = "config-drift"
+severity = "medium"
+observed = "RandomizedGenState generates VotePeriod and SlashWindow independently, although Params.Validate requires SlashWindow divisible by VotePeriod. Its Params literal also omits LookbackDuration, leaving zero rather than the default positive TWAP history window."
+expected = "Random genesis configurations must satisfy the same cross-parameter constraints as real genesis and intentionally configure the snapshot/TWAP lifecycle instead of disabling it by an omitted field."
+proposal = "In modules/oracle/simulation/genesis.go derive a valid slash-window multiple from the generated period, start from DefaultParams or explicitly generate positive LookbackDuration, and validate the emitted GenesisState before installing it."
+owner_domain = 3
+interface = "3.go-oracle-simulation-randomizedgenstate-j64"
+
+[finding.019]
+file = "modules/oracle/simulation/params.go"
+line = 19
+class = "config-drift"
+severity = "medium"
+observed = "ParamChanges generates VotePeriod and SlashWindow proposals independently from unrelated random values. The resulting pair can violate the full Params divisibility rule, and individual field validators do not express that relationship."
+expected = "Simulated governance must exercise valid whole parameter configurations or deliberately assert invalid proposals are rejected; it must not accidentally create an invalid period/window combination as a normal random update."
+proposal = "In modules/oracle/simulation/params.go generate coherent period/window updates against current Params and validate the resulting set through the real parameter-change handler, separating intentional rejection cases from valid progression."
+owner_domain = 3
+interface = "3.go-oracle-simulation-paramchanges-j64"
+
+[finding.020]
+file = "modules/oracle/types/genesis.go"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "ValidateGenesis checks only Params. It accepts invalid delegation/voter address strings and nil PenaltyCounter.VotePenaltyCounter values; InitGenesis later panics while parsing those addresses or dereferencing the counter at genesis.go:40."
+expected = "Genesis validation must reject malformed persisted oracle records with a useful error before initialization, including identifiers, nil nested values, duplicates, rate bounds and snapshot ordering."
+proposal = "Extend modules/oracle/types/genesis.go validation to all imported collections and nested pointers, using the actual message/rate/address validators; add invalid-record tests that call ValidateGenesis and verify clean rejection before InitGenesis."
+owner_domain = 3
+
+[finding.021]
+file = "apps/perps/tests/proof_widgets.test.ts"
+line = 85
+class = "test-gap"
+severity = "medium"
+observed = "spotWidgetsReachDesktopMobileAndRouteConsumers asserts that rendering the full SpotPage throws React is not defined, then renders selected widget subtrees instead. The proof therefore passes while its advertised real page consumer cannot render under the declared runner."
+expected = "The consumer path required by 21153.1 must render successfully through the actual page/widget composition; a known full-consumer exception must remain a failing regression until repaired by the owning task."
+proposal = "Repair the JSX/runtime import in apps/perps/src/widgets/spot/SpotOrderbook.tsx for the declared runner, then update apps/perps/tests/proof_widgets.test.ts to render the complete page and retain route, pause and malformed-input refusal assertions."
+owner_domain = 3
+
+[finding.022]
+file = "apps/perps/tests/proof_widgets.test.ts"
+line = 279
+class = "test-gap"
+severity = "medium"
+observed = "The market-row proof explicitly expects normalizeMarket({symbol:DOGE,price:bad}) to return price zero. A malformed upstream numeric price is thus accepted as a valid market snapshot and the proof only rejects NaN after this normalization layer has been bypassed."
+expected = "Malformed market prices must remain distinguishable from a valid zero/unavailable market state and must be refused before downstream numeric rendering and analytics."
+proposal = "In apps/perps/src/hooks/perps/useMarketsStream.ts reject malformed numeric fields explicitly; update apps/perps/tests/proof_widgets.test.ts to drive the real normalizer into the row/table consumer and assert refusal without replacing malformed input with zero."
+owner_domain = 3
+
+[finding.023]
+file = "apps/perps/tests/e2e-local-node.test.ts"
+line = 529
+class = "runtime-risk"
+severity = "medium"
+observed = "fundingVisibleThroughGateway waits in a chain-time loop until the next hourly settlement boundary before creating its Date.now deadline. A stalled node leaves the test polling forever and a healthy node can require nearly an hour before the bounded indexing wait even starts."
+expected = "The real-node qualification path must bound chain progression and indexing by a wall-clock deadline and fail with a useful last-height/time observation if the node stalls."
+proposal = "In apps/perps/tests/e2e-local-node.test.ts create the wall deadline before all polling, check it during the block-time loop and use the isolated local-node fixture to start near a funding boundary or advance its controlled clock; preserve the actual gateway funding-row assertion."
+owner_domain = 3
+
+[finding.024]
+file = "apps/perps/tests/feeds.test.ts"
+line = 19
+class = "config-drift"
+severity = "medium"
+observed = "The RPC default test asserts sixteen endpoints and api16.mainnet-beta.paxeer.network. apps/perps/src/core/rpc.ts currently satisfies that assertion, but the merged-network inventory is api1 through api14 plus api-mainnet-beta at root."
+expected = "Browser defaults and their regression tests must use only the authoritative numbered node inventory and canonical alias from brief fact 3, rather than requiring undeclared api15/api16 hosts."
+proposal = "Align apps/perps/src/core/rpc.ts and apps/perps/tests/feeds.test.ts with api1 through api14 and api-mainnet-beta, retaining root-path, chain-125 and configured-override validation."
+owner_domain = 3
+
+[finding.025]
+file = "precompiles/layerxexchange/LayerXExchange.sol"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The interface header presents pending intents, a LayerX intent router, custody receipt withdrawal and anchor-finalized witnesses as the current 0x1015 contract. node/precompiles_v6120.go deliberately selects native perps at that address for v6.12.0 and keeps exchange execution for historical replay."
+expected = "Integrators reading the retained historical ABI must see that these methods belong to pre-v6.12.0 replay and that current 0x1015 calls use the native perps ABI; historical compatibility itself must remain intact."
+proposal = "Mark precompiles/layerxexchange/LayerXExchange.sol as the historical exchange interface with its activation range and link precompiles/perps/Perps.sol for current calls. Preserve ABI bytes and legacy replay tests."
+owner_domain = 3
+
+[finding.026]
+file = "modules/oracle/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The module README says EVM contracts reach oracle data through precompiles/oracle. The current executor returns ErrOraclePrecompileRetired for both data queries; only historical version executors answer the old ABI."
+expected = "The module guide must distinguish the retained Cosmos/wasm query service from the retired EVM oracle precompile and direct current price consumers to the supported pricefeed interface."
+proposal = "Rewrite modules/oracle/README.md:3 with the retirement boundary, retained query surfaces and current pricefeed contract path; retain its otherwise accurate single-step voting, defaults and counter descriptions."
+owner_domain = 3
+
+[finding.027]
+file = "modules/oracle/spec/01_concepts.md"
+line = 7
+class = "doc-drift"
+severity = "low"
+observed = "The concepts page consists of empty Voting Procedure, Reward Band, Slashing, Abstaining and Messages headings while the state/end-block pages link here for the operative procedure."
+expected = "The module concepts entry point must explain the current voting and penalty lifecycle or direct readers to a complete current description instead of empty linked sections."
+proposal = "Populate modules/oracle/spec/01_concepts.md from the implemented MidBlock and counter rules or replace empty sections with precise links to modules/oracle/README.md and the corrected detailed pages."
+owner_domain = 3
+
+[finding.028]
+file = "modules/oracle/spec/02_state.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "State documentation claims scalar ExchangeRateVote at prefix 0x02, Amino exchange rates at 0x03, feeder delegation at 0x04, MissCounter at 0x05 and aggregate votes at 0x07. Current keys are rate 0x01, feeder 0x02, penalty 0x03, aggregate 0x05, target 0x06 and snapshot 0x07 with protobuf values."
+expected = "State documentation must describe the exact persisted prefixes, OracleExchangeRate freshness fields and three-counter record used by keeper code and migrations; recovery tools must not decode different data at those keys."
+proposal = "Rewrite modules/oracle/spec/02_state.md against modules/oracle/types/keys.go and current proto/keeper writes, documenting encoding, units, targets, snapshots and migration boundaries instead of the removed scalar/Amino layouts."
+owner_domain = 3
+
+[finding.029]
+file = "modules/oracle/spec/03_end_block.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "This page places tally in EndBlock, says all active rates are purged, describes reward distribution and clears prevotes. Current abci.go tallies in MidBlock, retains old rate freshness when no update occurs and clears only current aggregate ballots; EndBlock handles slash-window work."
+expected = "Operators and feeder integrators must understand which block phase commits a price, when old prices remain observable and how present-day counters and ballots advance."
+proposal = "Rewrite modules/oracle/spec/03_end_block.md around the actual MidBlock/EndBlock split, source timestamp retention, reference/quorum behavior and aggregate-ballot clearing; remove nonexistent reward and prevote operations."
+owner_domain = 3
+
+[finding.030]
+file = "modules/oracle/spec/04_messages.md"
+line = 70
+class = "doc-drift"
+severity = "medium"
+observed = "The aggregate message sections still require MsgAggregateExchangeRatePrevote, a revealed Salt and Terra-prefixed addresses. api/oracle/tx.proto reserves field 1 and name salt, and current handlers accept only the single-step aggregate rate vote and feeder delegation."
+expected = "Feeder instructions must build the current chain-addressed message with exchange_rates, feeder and validator and must not require a removed prevote transaction or reserved field."
+proposal = "Replace obsolete message sections in modules/oracle/spec/04_messages.md with current proto fields, chain address examples, authorization and rate-validation rules; label any retained wire history explicitly historical."
+owner_domain = 3
+
+[finding.031]
+file = "modules/oracle/spec/05_events.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The event guide lists exchange_rate_update under EndBlocker even though SetBaseExchangeRateWithEvent runs in MidBlock, and it omits end_slash_window with operator/miss_count/abstain_count/success_count emitted by SlashAndResetCounters."
+expected = "Indexers must receive the actual event names, fields and lifecycle phase and understand the counter reset event; the retired vote event must remain absent."
+proposal = "Update modules/oracle/spec/05_events.md from types/events.go, keeper/msg_server.go and keeper/slash.go, separating MidBlock price events from EndBlock penalty-window events and keeping the retired vote row absent."
+owner_domain = 3
+
+[finding.032]
+file = "modules/oracle/spec/06_params.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The parameter page calls this the market module, lists removed rewarddistributionwindow and omits LookbackDuration; its examples differ from current VotePeriod=2, VoteThreshold=0.667 and disabled-slash defaults."
+expected = "Oracle configuration documentation must list the current Params fields, types, defaults and VotePeriod/SlashWindow divisibility with positive TWAP lookback semantics."
+proposal = "Regenerate or rewrite modules/oracle/spec/06_params.md from modules/oracle/types/params.go and api/oracle/oracle.proto, explicitly distinguishing defaults from illustrative governance values and documenting the reserved removed field."
+owner_domain = 3
+
+[finding.033]
+file = "modules/oracle/spec/MidBlock.md"
+line = 5
+class = "doc-drift"
+severity = "low"
+observed = "The MidBlock design says current tally happens in EndBlock and introduces MidBlock as a future approach, although abci.go and the node oracle transaction split already implement it. The one-block-period motivation also differs from the current two-block default."
+expected = "The active design page must distinguish implemented current behavior from historical motivation and state the actual phase order and configured vote-period boundary."
+proposal = "Update modules/oracle/spec/MidBlock.md to present the implemented oracle-votes/MidBlock/ordinary-transactions order in the present tense, move the old behavior to historical context and link current VotePeriod defaults."
+owner_domain = 3
+
+[finding.034]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README lines 44-47 describe layerxd as a running separate C17 daemon whose checkpoints settle through layerxAnchor; lines 79 and 181 call the merge a draft and repeat the separate kernel/checkpoint system."
+expected = "The repository introduction must describe one chain-125 BFT network with kernel execution in paxd and final receipts at committed blocks, without advertising a retired daemon or separate checkpoint settlement."
+proposal = "Rewrite README.md architecture and merge-status paragraphs for the merged paxd network, current repository paths and committed-block finality; keep historical topology only in an explicitly dated migration section."
+owner_domain = 17
+
+[finding.035]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network page calls Paxeer the settlement/custody layer of a separate LayerX network, depends on checkpoints/guarantors/emergency exits and an independent sequencer, and advertises a public faucet. Its introductory directory table uses old root agent/human/interop paths."
+expected = "The network page must present the merged BFT chain, tenant namespaces and current beta developer allocations, with no separate sequencer, retired checkpoint custody authority or public faucet promise."
+proposal = "Rewrite docs/paxeer-network.md:3-20 and its layout section from the merged-network facts, current core/services/apps paths and beta allocation policy; retain and verify the tenant-domain section against the virtual-chains contract."
+owner_domain = 17
+
+[finding.036]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Qualification guidance still requires DA-withholding/guarantor settlement evidence and a sequencer-offline emergency exit from a finalized checkpoint (lines 20-21 and 79-82), and describes separate Paxeer/LayerX network trust boundaries at the end."
+expected = "Qualification must measure the merged BFT network, committed receipts and persisted restart/recovery paths; subsystem build evidence can remain separate without implying two active settlement networks."
+proposal = "Rewrite docs/QUALIFICATION.md deployment/fault/finality sections for paxd BFT commit and actual recovery/tenant invariants, replace obsolete spec/task links and retain the owner-controlled live deployment boundary."
+owner_domain = 17
+
+[finding.037]
+file = "docs/site/docs/operators/qualification.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Qualification guidance still requires DA-withholding/guarantor settlement evidence and a sequencer-offline emergency exit from a finalized checkpoint (lines 20-21 and 79-82), and describes separate Paxeer/LayerX network trust boundaries at the end."
+expected = "Qualification must measure the merged BFT network, committed receipts and persisted restart/recovery paths; subsystem build evidence can remain separate without implying two active settlement networks."
+proposal = "Rewrite docs/site/docs/operators/qualification.md deployment/fault/finality sections for paxd BFT commit and actual recovery/tenant invariants, replace obsolete spec/task links and retain the owner-controlled live deployment boundary."
+owner_domain = 17
+
+[finding.038]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site introduction describes periodic LayerX checkpoints settling to Paxeer with separate custody/finality/dispute services, repeats independent network trust boundaries at line 18 and lists checkpoint/guarantor responsibilities at lines 24-26."
+expected = "The documentation landing page must give the same one-network execution and BFT committed-block finality model as the upgrade brief, with current deployment and repository boundaries."
+proposal = "Rewrite docs/site/docs/index.md:3,11-18,24-26 to describe the kernel inside paxd, direct supported interfaces and tenant domains, and link current merged-network contracts instead of retired checkpoint architecture."
+owner_domain = 17
+
+[finding.039]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The checkpoint guide requires external registration, guarantor replay/certificates and a finality ladder of accepted/sealed/distributed/attested/settled at lines 3-37. These are presented as active network finality rather than historical pre-merge architecture."
+expected = "Users must know that a receipt is final once its BFT block is committed and must not wait for retired external guarantor/checkpoint settlement services."
+proposal = "Replace docs/site/docs/concepts/checkpoints.md with the merged block/state commitment lifecycle and BFT finality, or clearly archive the old checkpoint protocol and link the active network finality guide."
+owner_domain = 17
+
+[finding.040]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translation describes layerxd as an active daemon and anchor-settled kernel receipts at lines 37-41; its layout at lines 80-89 and architecture diagram retain old agent/human/interop paths and an external sequencer/guarantor/anchor route."
+expected = "Localized repository introductions must agree with the merged paxd BFT network, current service paths and current perps execution at 0x1015, without requiring retired standalone execution or checkpoint services."
+proposal = "Update docs/readme/README.pt-BR.md architecture paragraphs, directory table and diagram from the corrected canonical README, preserving translated explanations of current supported interfaces and marking old topology historical."
+owner_domain = 17
+
+[finding.041]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translation describes layerxd as an active daemon and anchor-settled kernel receipts at lines 37-41; its layout at lines 80-89 and architecture diagram retain old agent/human/interop paths and an external sequencer/guarantor/anchor route."
+expected = "Localized repository introductions must agree with the merged paxd BFT network, current service paths and current perps execution at 0x1015, without requiring retired standalone execution or checkpoint services."
+proposal = "Update docs/readme/README.fr.md architecture paragraphs, directory table and diagram from the corrected canonical README, preserving translated explanations of current supported interfaces and marking old topology historical."
+owner_domain = 17
+
+[finding.042]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translation describes layerxd as an active daemon and anchor-settled kernel receipts at lines 37-41; its layout at lines 80-89 and architecture diagram retain old agent/human/interop paths and an external sequencer/guarantor/anchor route."
+expected = "Localized repository introductions must agree with the merged paxd BFT network, current service paths and current perps execution at 0x1015, without requiring retired standalone execution or checkpoint services."
+proposal = "Update docs/readme/README.ja.md architecture paragraphs, directory table and diagram from the corrected canonical README, preserving translated explanations of current supported interfaces and marking old topology historical."
+owner_domain = 17
+
+[finding.043]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translation describes layerxd as an active daemon and anchor-settled kernel receipts at lines 37-41; its layout at lines 80-89 and architecture diagram retain old agent/human/interop paths and an external sequencer/guarantor/anchor route."
+expected = "Localized repository introductions must agree with the merged paxd BFT network, current service paths and current perps execution at 0x1015, without requiring retired standalone execution or checkpoint services."
+proposal = "Update docs/readme/README.ru.md architecture paragraphs, directory table and diagram from the corrected canonical README, preserving translated explanations of current supported interfaces and marking old topology historical."
+owner_domain = 17
+
+[finding.044]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translation describes layerxd as an active daemon and anchor-settled kernel receipts at lines 37-41; its layout at lines 80-89 and architecture diagram retain old agent/human/interop paths and an external sequencer/guarantor/anchor route."
+expected = "Localized repository introductions must agree with the merged paxd BFT network, current service paths and current perps execution at 0x1015, without requiring retired standalone execution or checkpoint services."
+proposal = "Update docs/readme/README.zh-CN.md architecture paragraphs, directory table and diagram from the corrected canonical README, preserving translated explanations of current supported interfaces and marking old topology historical."
+owner_domain = 17
+
+[finding.045]
+file = "docs/site/docs/reference/public-rpc.md"
+line = 29
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint table includes api15 and api16 at lines 29-30 and lines 72-74 call api-mainnet-beta the router URL of a unified interface. The upgrade brief declares api1-api14 and the canonical alias at root with no router."
+expected = "RPC documentation must list the authoritative chain-125 full-node endpoints and identify the alias as a root JSON-RPC endpoint, while distinguishing hosted gateway px_ methods from node namespaces."
+proposal = "Update docs/site/docs/reference/public-rpc.md to remove api15/api16, include the canonical alias in the endpoint table and replace unified-router wording with the direct node and hosted gateway surface distinction."
+owner_domain = 17
+
+[doc.001]
+path = "README.md"
+status = "misleading"
+notes = "Lines 44-47,79,181 present a running separate layerxd/checkpoint architecture and draft merge; replace with merged paxd and BFT committed-block finality."
+
+[doc.002]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-20 present two settlement networks, independent sequencer/checkpoint custody and a faucet; rewrite merged execution and current paths/allocations."
+
+[doc.003]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Lines 20-21,79-82,100 require retired guarantor/checkpoint/offline exit architecture; retain useful subsystem evidence with merged-network finality and recovery gates."
+
+[doc.004]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 11-18 and 24-26 retain separate checkpoint/custody finality and network trust boundaries inconsistent with the merged network."
+
+[doc.005]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "misleading"
+notes = "Lines 3-37 describe the retired external checkpoint/guarantor settlement and finality ladder as current; committed BFT blocks provide finality."
+
+[doc.006]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Full ABI-v2 porting guide read: deterministic envelope/framing, authority and balance-writer constraints agree with the referenced program ABI; no separate daemon is needed by those guest rules."
+
+[doc.007]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Lines 20-21,79-82,100 repeat the root qualification guide retired settlement topology; rewrite fault/deployment/finality descriptions for the merged chain."
+
+[doc.008]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 37-41,80-89 and architecture diagrams retain layerxd, anchor-settled receipts and old root service paths; localize the corrected one-network architecture."
+
+[doc.009]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 37-41,80-89 and architecture diagrams retain layerxd, anchor-settled receipts and old root service paths; localize the corrected one-network architecture."
+
+[doc.010]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Lines 37-41,80-89 and architecture diagrams retain layerxd, anchor-settled receipts and old root service paths; localize the corrected one-network architecture."
+
+[doc.011]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Lines 37-41,80-89 and architecture diagrams retain layerxd, anchor-settled receipts and old root service paths; localize the corrected one-network architecture."
+
+[doc.012]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Lines 37-41,80-89 and architecture diagrams retain layerxd, anchor-settled receipts and old root service paths; localize the corrected one-network architecture."
+
+[doc.013]
+path = "modules/oracle/README.md"
+status = "stale"
+notes = "Line 3 incorrectly advertises a current EVM oracle precompile; single-step voting, MidBlock, defaults and penalty-counter sections otherwise match implementation."
+
+[doc.014]
+path = "modules/oracle/spec/01_concepts.md"
+status = "stale"
+notes = "Lines 7-14 are empty behavior headings despite links relying on this page for voting/reward/slashing explanations."
+
+[doc.015]
+path = "modules/oracle/spec/02_state.md"
+status = "misleading"
+notes = "Lines 7-45 describe obsolete scalar votes, wrong store prefixes/Amino values and Terra identifiers instead of current protobuf records and freshness."
+
+[doc.016]
+path = "modules/oracle/spec/03_end_block.md"
+status = "stale"
+notes = "Lines 9-33 place tally in EndBlock and describe rate purging, rewards and prevotes absent from current MidBlock lifecycle."
+
+[doc.017]
+path = "modules/oracle/spec/04_messages.md"
+status = "misleading"
+notes = "Lines 70-105 describe aggregate prevotes and required Salt even though the current proto reserves salt and accepts a single-step aggregate vote."
+
+[doc.018]
+path = "modules/oracle/spec/05_events.md"
+status = "stale"
+notes = "Line 9 assigns price events to EndBlocker and the complete table omits end_slash_window counters; the retired vote row is correctly absent."
+
+[doc.019]
+path = "modules/oracle/spec/06_params.md"
+status = "stale"
+notes = "Lines 8-19 name the wrong module, include removed rewarddistributionwindow and omit LookbackDuration and current defaults."
+
+[doc.020]
+path = "modules/oracle/spec/MidBlock.md"
+status = "stale"
+notes = "Lines 5-15 describe current MidBlock behavior as a future optimization over EndBlock; update implemented phase order and default vote period."
+
+[doc.021]
+path = "modules/oracle/spec/README.md"
+status = "accurate"
+notes = "Complete index read; its single-step vote, MidBlock tally and end-window success-counter description agree with current module behavior, while linked detailed pages require the recorded corrections."
+
+[doc.022]
+path = "docs/site/docs/reference/public-rpc.md"
+status = "stale"
+notes = "Lines 29-30 include undeclared api15/api16 and lines 72-74 describe a unified router; authoritative inventory is api1-api14 plus the direct canonical alias."
+
+[doc.023]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Consulted perps, oracle and historical exchange contract excerpts, including lines 1082-1205; this is a frozen baseline/interface-change contract with planned tests, not a current deployment inventory. Current registry and code take precedence over baseline locations/statuses."

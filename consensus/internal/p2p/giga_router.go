@@ -59,6 +59,11 @@ type FinalizeBlockResponseStore interface {
 	PruneFinalizeBlockResponses(retainHeight int64) error
 }
 
+type BlockEventPublisher interface {
+	PublishEventNewBlockHeader(types.EventDataNewBlockHeader) error
+	PublishEventTx(types.EventDataTx) error
+}
+
 const defaultGigaHandshakeTimeout = 10 * time.Second
 
 type GigaRouter struct {
@@ -70,6 +75,7 @@ type GigaRouter struct {
 	service   *giga.Service
 	poolIn    *giga.Pool[NodePublicKey, rpc.Server[giga.API]]
 	poolOut   *giga.Pool[NodePublicKey, rpc.Client[giga.API]]
+	eventBus  utils.Option[BlockEventPublisher]
 
 	// lastCommitQCRecv is subscribed once at construction and reused for the
 	// lifetime of the GigaRouter. Load() is lock-free (a single
@@ -153,6 +159,10 @@ func NewGigaRouter(cfg *GigaRouterConfig, key NodeSecretKey) (*GigaRouter, error
 	}, nil
 }
 
+func (r *GigaRouter) SetEventBus(bus BlockEventPublisher) {
+	r.eventBus = utils.Some(bus)
+}
+
 func (r *GigaRouter) InsertTx(ctx context.Context, tx types.Tx) (*abci.ResponseCheckTx, error) {
 	return r.producer.InsertTx(ctx, tx)
 }
@@ -179,6 +189,11 @@ func (r *GigaRouter) LastCommittedBlockNumber() int64 {
 	return int64(gr.Next - 1) //nolint:gosec // data.State rejects certificates above the executable int64 height range.
 }
 
+// EarliestBlockNumber returns the lowest retained global block number.
+func (r *GigaRouter) EarliestBlockNumber() int64 {
+	return int64(r.data.FirstBlock())
+}
+
 // MaxGasEstimatedPerBlock .
 func (r *GigaRouter) MaxGasEstimatedPerBlock() uint64 {
 	return r.cfg.Producer.MaxGasEstimatedPerBlock
@@ -188,6 +203,8 @@ func (r *GigaRouter) MaxGasEstimatedPerBlock() uint64 {
 // into the CometBFT coretypes.ResultBlock shape. This lets consumers
 // (notably evmrpc, which wraps receipts/logs with block context) keep
 // working under Autobahn without CometBFT's BlockStore being populated.
+// Once finalized, the block at EarliestBlockNumber is available; lower
+// heights return an error wrapping coretypes.ErrHeightNotAvailable.
 //
 // Fields populated when the underlying GlobalBlock is well-formed:
 // BlockID.Hash (Autobahn lane-block header hash — the same bytes passed to
@@ -312,24 +329,40 @@ func (r *GigaRouter) executeBlock(ctx context.Context, b *atypes.GlobalBlock) (*
 		proposerAddress = key.Address()
 	}
 
+	txs := b.Payload.Txs()
+	header := types.Header{
+		ChainID: r.cfg.GenDoc.ChainID,
+		Height:  height,
+		Time:    b.Timestamp,
+		// WARNING: the reward distribution has corner cases where it forgets the proposer,
+		// because reward is distributed with a delay. This is not our problem here though.
+		ProposerAddress: proposerAddress,
+	}
+	header.LastBlockID.Hash = make([]byte, common.HashLength)
+	if b.GlobalNumber > r.data.Committee().FirstBlock() {
+		parent, err := r.data.GlobalBlock(ctx, b.GlobalNumber-1)
+		if err != nil {
+			return nil, fmt.Errorf("load committed parent: %w", err)
+		}
+		parentHash := parent.Header.Hash()
+		header.LastBlockID.Hash = parentHash.Bytes()
+	}
 	// TODO: add metrics to understand execution latency.
-	resp, err := app.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
-		Txs: b.Payload.Txs(),
+	req := &abci.RequestFinalizeBlock{
+		Txs: txs,
+		// Autobahn supplies no Tendermint votes. Distribution therefore sees
+		// zero previous power and allocates all collected fees to the community
+		// pool, even when nonzero proposer reward rates are configured.
+		// See sdk/x/distribution/spec/03_begin_block.md for the accounting.
 		// Empty DecidedLastCommit does not indicate missing votes.
 		DecidedLastCommit: abci.CommitInfo{},
 		// WARNING: this is a hash of the autobahn block header.
 		// It is used to identify block processed optimistically
 		// and is fed as block hash to EVM contracts.
-		Hash: hash[:],
-		Header: (&types.Header{
-			ChainID: r.cfg.GenDoc.ChainID,
-			Height:  height,
-			Time:    b.Timestamp,
-			// WARNING: the reward distribution has corner cases where it forgets the proposer,
-			// because reward is distributed with a delay. This is not our problem here though.
-			ProposerAddress: proposerAddress,
-		}).ToProto(),
-	})
+		Hash:   hash[:],
+		Header: header.ToProto(),
+	}
+	resp, err := app.FinalizeBlock(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("r.cfg.App.FinalizeBlock(): %w", err)
 	}
@@ -342,6 +375,28 @@ func (r *GigaRouter) executeBlock(ctx context.Context, b *atypes.GlobalBlock) (*
 	}
 	if err := r.data.PushAppHash(ctx, b.GlobalNumber, resp.AppHash); err != nil {
 		return nil, fmt.Errorf("r.data.PushAppHash(%v): %w", b.GlobalNumber, err)
+	}
+	header.AppHash = req.Header.AppHash
+	header.DataHash = req.Header.DataHash
+	header.LastResultsHash = req.Header.LastResultsHash
+	if bus, ok := r.eventBus.Get(); ok {
+		if err := bus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
+			Header:              header,
+			NumTxs:              int64(len(txs)),
+			ResultFinalizeBlock: *resp,
+		}); err != nil {
+			logger.Error("Failed to publish NewBlockHeader event", "height", height, "err", err)
+		}
+		for i, tx := range txs {
+			if err := bus.PublishEventTx(types.EventDataTx{TxResultV2: abci.TxResultV2{
+				Height: height,
+				Index:  uint32(i), //nolint:gosec // transaction indices use the ABCI uint32 representation.
+				Tx:     tx,
+				Result: *resp.TxResults[i],
+			}}); err != nil {
+				logger.Error("Failed to publish Tx event", "height", height, "index", i, "err", err)
+			}
+		}
 	}
 	return commitResp, nil
 }

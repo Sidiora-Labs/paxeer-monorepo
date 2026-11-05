@@ -5,13 +5,12 @@ import (
 
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 
-	"github.com/armon/go-metrics"
-
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/vesting/types"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -47,12 +46,22 @@ func (s msgServer) CreateVestingAccount(goCtx context.Context, msg *types.MsgCre
 		return nil, err
 	}
 
-	if bk.BlockedAddr(to) {
+	allowListCache := make(map[string]bankkeeper.AllowedAddresses)
+	if !bk.IsInDenomAllowList(ctx, from, msg.Amount, allowListCache) {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to send funds", msg.FromAddress)
+	}
+
+	if bk.BlockedAddr(to) || !bk.IsInDenomAllowList(ctx, to, msg.Amount, allowListCache) {
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnauthorized, "%s is not allowed to receive funds", msg.ToAddress)
 	}
 
 	if acc := ak.GetAccount(ctx, to); acc != nil {
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "account %s already exists", msg.ToAddress)
+	}
+
+	startTime := ctx.BlockTime().Unix()
+	if !msg.Delayed && msg.EndTime <= startTime {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "continuous vesting end time must be after block time")
 	}
 
 	baseAccount := ak.NewAccountWithAddress(ctx, to)
@@ -73,37 +82,30 @@ func (s msgServer) CreateVestingAccount(goCtx context.Context, msg *types.MsgCre
 
 	baseVestingAccount := types.NewBaseVestingAccount(baseAccount.(*authtypes.BaseAccount), msg.Amount.Sort(), msg.EndTime, admin)
 
-	var acc authtypes.AccountI
+	var acc authtypes.GenesisAccount
 
 	if msg.Delayed {
 		acc = types.NewDelayedVestingAccountRaw(baseVestingAccount)
 	} else {
-		acc = types.NewContinuousVestingAccountRaw(baseVestingAccount, ctx.BlockTime().Unix())
+		acc = types.NewContinuousVestingAccountRaw(baseVestingAccount, startTime)
+	}
+
+	if err := acc.Validate(); err != nil {
+		return nil, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
 	}
 
 	ak.SetAccount(ctx, acc)
 
-	defer func() {
-		vestingMetrics.newAccount.Add(goCtx, 1)
-		// TODO(PLT-353): remove once vesting_new_account verified
-		telemetry.IncrCounter(1, "new", "account")
-
-		for _, a := range msg.Amount {
-			if a.Amount.IsInt64() {
-				vestingMetrics.accountAmount.Record(goCtx, a.Amount.Int64(), otelmetric.WithAttributes(attribute.String("denom_class", telemetry.DenomClass(a.Denom))))
-				// TODO(PLT-353): remove once vesting_account_amount verified
-				telemetry.SetGaugeWithLabels(
-					[]string{"tx", "msg", "create_vesting_account"},
-					float32(a.Amount.Int64()),
-					[]metrics.Label{telemetry.NewLabel("denom", a.Denom)},
-				)
-			}
-		}
-	}()
-
 	err = bk.SendCoins(ctx, from, to, msg.Amount)
 	if err != nil {
 		return nil, err
+	}
+
+	vestingMetrics.newAccount.Add(goCtx, 1)
+	for _, a := range msg.Amount {
+		if a.Amount.IsInt64() {
+			vestingMetrics.accountAmount.Record(goCtx, a.Amount.Int64(), otelmetric.WithAttributes(attribute.String("denom_class", telemetry.DenomClass(a.Denom))))
+		}
 	}
 
 	ctx.EventManager().EmitEvent(

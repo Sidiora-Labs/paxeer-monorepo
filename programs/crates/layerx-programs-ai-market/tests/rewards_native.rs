@@ -1857,7 +1857,7 @@ fn read_proof(root: u8) -> CodecResult<ReadProof> {
         native_state_root: Digest32::new([root; 32])?,
         observed_sequence: u64::from(root),
         execution_height: 1000 + u64::from(root),
-        batch_id: Digest32::new([root ^ 0x80; 32])?,
+        block_hash: Digest32::new([root ^ 0x80; 32])?,
     })
 }
 /// One real `READ_STATE_CHUNK` of `state` at `offset` under `pin`; returns the body length.
@@ -1908,8 +1908,10 @@ fn capture(
         &facts,
         &FinalityEvidence {
             native_state_root: Digest32::new([evidenced; 32])?,
-            checkpoint: Digest32::new([0x3c; 32])?,
-            settlement: Presence::Absent,
+            block_height: proof.execution_height,
+            block_hash: proof.block_hash,
+            app_hash: Digest32::new([0x3c; 32])?,
+            store_proof_digest: Digest32::new([0x3d; 32])?,
             rank,
         },
         PUBLISHED_AT_MS,
@@ -2187,7 +2189,13 @@ fn finality_recovery() -> QueryResult<()> {
     let held = w.held;
     assert_eq!(held, 62);
 
-    let (_, unfinalized) = capture(&w.bytes, 0x31, 0x31, FINALIZED_RANK - 1)?;
+    let (_, committed) = capture(&w.bytes, 0x31, 0x31, FINALIZED_RANK - 1)?;
+    assert_eq!(committed.rank, FINALIZED_RANK);
+    committed.require_finalized()?;
+    let unfinalized = SnapshotBinding {
+        rank: FINALIZED_RANK - 1,
+        ..committed
+    };
     assert_eq!(
         unfinalized.require_finalized(),
         Err(QueryError::FinalityUnavailable)

@@ -47,18 +47,20 @@ import (
 )
 
 const (
-	DepositMarginMethod      = "depositMargin"
-	DepositMarginTokenMethod = "depositMarginToken"
-	WithdrawMarginMethod     = "withdrawMargin"
-	PlaceOrderMethod         = "placeOrder"
-	CancelOrderMethod        = "cancelOrder"
-	RequestSettlementMethod  = "requestSettlement"
-	GetIntentMethod          = "getIntent"
-	IntentNonceMethod        = "intentNonce"
-	GetMarketMethod          = "getMarket"
-	GetOrderMethod           = "getOrder"
-	GetPositionMethod        = "getPosition"
-	GetMarginMethod          = "getMargin"
+	DepositMarginMethod        = "depositMargin"
+	DepositMarginTokenMethod   = "depositMarginToken"
+	WithdrawMarginMethod       = "withdrawMargin"
+	PlaceOrderMethod           = "placeOrder"
+	PlaceOrderSignature        = "placeOrder(bytes32,uint8,uint256,uint256,uint8)"
+	PlaceOrderAccountSignature = "placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)"
+	CancelOrderMethod          = "cancelOrder"
+	RequestSettlementMethod    = "requestSettlement"
+	GetIntentMethod            = "getIntent"
+	IntentNonceMethod          = "intentNonce"
+	GetMarketMethod            = "getMarket"
+	GetOrderMethod             = "getOrder"
+	GetPositionMethod          = "getPosition"
+	GetMarginMethod            = "getMargin"
 
 	MarginDepositedEvent           = "MarginDeposited"
 	MarginWithdrawalRequestedEvent = "MarginWithdrawalRequested"
@@ -148,7 +150,7 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 	if provider, ok := keepers.(ExchangeKeepers); ok {
 		p.keeper = provider.LayerXExchangeK()
 	}
-	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons(), nil
+	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithLegacyRevertReasons(), nil
 }
 
 // Signatures returns the Ed25519 verifications a method performs.
@@ -192,7 +194,7 @@ func (p PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64
 			}
 		}
 	}
-	return Gas(uint64(len(input)), Signatures(method.Name), nodes, Writes(method.Name))
+	return Gas(uint64(len(input)), Signatures(method.RawName), nodes, Writes(method.RawName))
 }
 
 func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller common.Address, _ common.Address, args []interface{}, value *big.Int, readOnly bool, evm *vm.EVM, hooks *tracing.Hooks) (ret []byte, err error) {
@@ -210,11 +212,14 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 			return nil, err
 		}
 	}
-	if readOnly && Writes(method.Name) != 0 {
+	if readOnly && Writes(method.RawName) != 0 {
 		return nil, errors.New("cannot call a layerxExchange state change from staticcall")
 	}
 	if p.keeper == nil {
 		return nil, types.ErrKeeperMissing
+	}
+	if method.Sig == PlaceOrderSignature || method.Sig == PlaceOrderAccountSignature {
+		return p.placeOrder(ctx, method, caller, args, evm)
 	}
 	switch method.Name {
 	case DepositMarginMethod:
@@ -223,8 +228,6 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		return p.depositMarginToken(ctx, method, caller, args, evm)
 	case WithdrawMarginMethod:
 		return p.withdrawMargin(ctx, method, caller, args, evm)
-	case PlaceOrderMethod:
-		return p.placeOrder(ctx, method, caller, args, evm)
 	case CancelOrderMethod:
 		return p.cancelOrder(ctx, method, caller, args, evm)
 	case RequestSettlementMethod:
@@ -395,12 +398,23 @@ func (p PrecompileExecutor) withdrawMargin(ctx sdk.Context, method *abi.Method, 
 
 func (p PrecompileExecutor) placeOrder(ctx sdk.Context, method *abi.Method, caller common.Address,
 	args []interface{}, evm *vm.EVM) ([]byte, error) {
-	if err := pcommon.ValidateArgsLength(args, 5); err != nil {
+	count, offset := 5, 0
+	if method.Sig == PlaceOrderAccountSignature {
+		count, offset = 6, 1
+	}
+	if err := pcommon.ValidateArgsLength(args, count); err != nil {
 		return nil, err
 	}
-	market, side, price, quantity, tif := args[0].([32]byte), args[1].(uint8), args[2].(*big.Int), args[3].(*big.Int), args[4].(uint8)
-	intent, err := p.keeper.RecordPlaceOrderIntent(ctx, caller, market, side, sdk.NewIntFromBigInt(price),
-		sdk.NewIntFromBigInt(quantity), tif)
+	market, side, price, quantity, tif := args[0].([32]byte), args[1+offset].(uint8), args[2+offset].(*big.Int), args[3+offset].(*big.Int), args[4+offset].(uint8)
+	var intent types.Intent
+	var err error
+	if method.Sig == PlaceOrderAccountSignature {
+		intent, err = p.keeper.RecordPlaceOrderIntentForAccount(ctx, caller, market, args[1].([32]byte), side,
+			sdk.NewIntFromBigInt(price), sdk.NewIntFromBigInt(quantity), tif)
+	} else {
+		intent, err = p.keeper.RecordPlaceOrderIntent(ctx, caller, market, side, sdk.NewIntFromBigInt(price),
+			sdk.NewIntFromBigInt(quantity), tif)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -1,14 +1,13 @@
 //! Versioned human intent vocabulary over `layerx-types` domain values.
 
 use layerx_types::account::{AccountId, AccountNamespace};
-use layerx_types::activity::{Signature, TimestampBound};
+use layerx_types::activity::TimestampBound;
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, CheckpointId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
-    ApprovalThreshold, AuthorityGrantId, BudgetId, ContextHash, DepositProofId, EvmAddress,
-    GrantSchedule, NetworkId, PayerGrantId, PeriodLength, ProtocolVersion, PublicKey, PurposeHash,
-    RecoveryRoot, RolloverPolicy, SendAuthorization, Sequence, SessionRevocationReason,
-    TimestampSeconds,
+    ApprovalThreshold, AuthorityGrantId, BudgetId, ContextHash, GrantSchedule, NetworkId,
+    PayerGrantId, PeriodLength, ProtocolVersion, PublicKey, PurposeHash, RecoveryRoot,
+    RolloverPolicy, SendAuthorization, Sequence, SessionRevocationReason, TimestampSeconds,
 };
 #[cfg(test)]
 use layerx_types::intent::{AuthorizationSignature, SendAuthorizationKind};
@@ -84,22 +83,17 @@ impl Intent {
     }
 }
 
-/// The fourteen v1 journeys and the protocol module payload each compiles to.
+/// Human journeys and the protocol module payload each compiles to.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IntentKind {
     /// Onboarding: register a DID and primary key in the governance identity registry.
     DidRegistration(DidRegistration),
-    NativeOnboardingConsent(layerx_crypto::onboarding::OnboardingConsent),
-    NativeOnboarding(layerx_crypto::onboarding::SponsoredRegistration),
     NativeBudgetCreate(crate::NativeBudgetCreate),
-    NativeOwnerRotation(layerx_crypto::rotation::OwnerRotation),
     NativeAssetAccountOpen(AssetId),
     /// Identity security: announce a governance identity-key rotation.
     KeyRotation(KeyRotation),
     /// Recovery setup: register the governance recovery commitment and threshold.
     RecoveryRegistration(RecoveryRegistration),
-    /// Withdrawal setup: bind an EVM payout address in the governance identity registry.
-    EvmPayoutBinding(EvmPayoutBinding),
     /// Agent authority: grant a scoped, expiring protocol session.
     SessionGrant(SessionGrant),
     AuthorityGrant(layerx_crypto::authority_grant::AuthorityGrant),
@@ -117,101 +111,70 @@ pub enum IntentKind {
     BudgetFund(BudgetFund),
     /// Agent reclaim: close or reduce a protocol budget.
     BudgetDefund(BudgetDefund),
-    /// Paxeer deposit: credit a proven external deposit through the bridge module.
-    BridgeDepositCredit(BridgeDepositCredit),
-    NativeCustodyCredit(crate::NativeCustodyCredit),
     NativeReceive(crate::NativeReceive),
-    /// Paxeer withdrawal: request a bridge-module withdrawal.
-    BridgeWithdrawRequest(BridgeWithdrawRequest),
     Perps(layerx_types::payload::PerpsPayload),
-    ExchangeOrder(crate::precompile::ExchangeOrder),
-    ExchangeCancel(crate::precompile::ExchangeCancel),
-    ExchangeSettle(crate::precompile::ExchangeSettle),
-    ExchangeMarginDeposit(crate::precompile::ExchangeMarginDeposit),
-    ExchangeMarginWithdraw(crate::precompile::ExchangeMarginWithdraw),
-    BridgeIn(crate::precompile::BridgeIn),
-    BridgeOut(crate::precompile::BridgeOut),
-    LaunchpadCreate(crate::precompile::MarketCreated),
-    LaunchpadSwap(crate::precompile::Swap),
-    LaunchpadAirdropExecute(crate::precompile::FeeDistributed),
-    LaunchpadFeeStrategy(crate::precompile::FeeStrategyChanged),
-    LaunchpadFeesBurn(crate::precompile::FeeDistributed),
-    LaunchpadFeesClaim(crate::precompile::FeeDistributed),
-    LaunchpadLpRewards(crate::precompile::FeeDistributed),
+}
+
+impl From<IntentKind> for Intent {
+    fn from(kind: IntentKind) -> Self {
+        Self::v1(kind)
+    }
 }
 
 impl IntentKind {
+    /// The V1 inspection discriminant, when this kind has a V1 envelope.
+    #[must_use]
+    pub const fn tag(&self) -> Option<crate::IntentKindTag> {
+        use crate::IntentKindTag as Tag;
+        Some(match self {
+            Self::DidRegistration(_) => Tag::DidRegistration,
+            Self::KeyRotation(_) => Tag::KeyRotation,
+            Self::RecoveryRegistration(_) => Tag::RecoveryRegistration,
+            Self::SessionGrant(_) => Tag::SessionGrant,
+            Self::AuthorityGrant(_) => Tag::AuthorityGrant,
+            Self::SessionRevoke(_) => Tag::SessionRevoke,
+            Self::LxpSend(_) => Tag::LxpSend,
+            Self::LxpReceive(_) => Tag::LxpReceive,
+            Self::PayerGrantRegistration(_) => Tag::PayerGrantRegistration,
+            Self::BudgetCreate(_) => Tag::BudgetCreate,
+            Self::BudgetFund(_) => Tag::BudgetFund,
+            Self::BudgetDefund(_) => Tag::BudgetDefund,
+            Self::NativeReceive(_) => Tag::NativeReceive,
+            Self::NativeBudgetCreate(_) | Self::NativeAssetAccountOpen(_) | Self::Perps(_) => {
+                return None
+            }
+        })
+    }
+
     #[must_use]
     pub const fn module(&self) -> ModuleId {
         match self {
             Self::DidRegistration(_)
-            | Self::NativeOnboardingConsent(_)
-            | Self::NativeOnboarding(_)
-            | Self::NativeOwnerRotation(_)
             | Self::KeyRotation(_)
             | Self::RecoveryRegistration(_)
-            | Self::EvmPayoutBinding(_)
             | Self::AuthorityGrant(_)
             | Self::SessionGrant(_)
             | Self::SessionRevoke(_) => ModuleId::Governance,
             Self::LxpSend(_)
             | Self::NativeAssetAccountOpen(_)
             | Self::LxpReceive(_)
-            | Self::NativeReceive(_)
-            | Self::BridgeWithdrawRequest(_)
-            | Self::ExchangeMarginWithdraw(_) => ModuleId::Asset,
+            | Self::NativeReceive(_) => ModuleId::Asset,
             Self::PayerGrantRegistration(_)
             | Self::NativeBudgetCreate(_)
             | Self::BudgetCreate(_)
             | Self::BudgetFund(_)
             | Self::BudgetDefund(_) => ModuleId::Budget,
-            Self::BridgeDepositCredit(_)
-            | Self::NativeCustodyCredit(_)
-            | Self::ExchangeMarginDeposit(_)
-            | Self::BridgeIn(_)
-            | Self::BridgeOut(_)
-            | Self::LaunchpadCreate(_)
-            | Self::LaunchpadSwap(_)
-            | Self::LaunchpadAirdropExecute(_)
-            | Self::LaunchpadFeeStrategy(_)
-            | Self::LaunchpadFeesBurn(_)
-            | Self::LaunchpadFeesClaim(_)
-            | Self::LaunchpadLpRewards(_) => ModuleId::Bridge,
-            Self::Perps(_)
-            | Self::ExchangeOrder(_)
-            | Self::ExchangeCancel(_)
-            | Self::ExchangeSettle(_) => ModuleId::Perps,
+            Self::Perps(_) => ModuleId::Perps,
         }
     }
 
-    /// Returns the perps activity a perps or exchange-routed intent carries.
+    /// Returns the perps activity a perps intent carries.
     #[must_use]
     pub const fn perps_payload(&self) -> Option<&layerx_types::payload::PerpsPayload> {
         match self {
             Self::Perps(payload) => Some(payload),
-            Self::ExchangeOrder(value) => Some(value.payload()),
-            Self::ExchangeCancel(value) => Some(value.payload()),
-            Self::ExchangeSettle(value) => Some(value.payload()),
             _ => None,
         }
-    }
-
-    /// Reports whether the intent records a Paxeer-settled precompile event
-    /// that has no `LayerX` activity.
-    #[must_use]
-    pub const fn settled_on_paxeer(&self) -> bool {
-        matches!(
-            self,
-            Self::BridgeIn(_)
-                | Self::BridgeOut(_)
-                | Self::LaunchpadCreate(_)
-                | Self::LaunchpadSwap(_)
-                | Self::LaunchpadAirdropExecute(_)
-                | Self::LaunchpadFeeStrategy(_)
-                | Self::LaunchpadFeesBurn(_)
-                | Self::LaunchpadFeesClaim(_)
-                | Self::LaunchpadLpRewards(_)
-        )
     }
 }
 
@@ -335,7 +298,7 @@ impl KeyRotation {
     ///
     /// # Errors
     ///
-    /// Refuses the reserved all-zero key.
+    /// Refuses the reserved all-zero key and zero effective sequence.
     pub fn new(
         did: Did,
         pending_key: PublicKey,
@@ -343,6 +306,9 @@ impl KeyRotation {
         effective_sequence: Sequence,
     ) -> Result<Self, IntentError> {
         nonzero_key(pending_key, IntentField::PendingKey)?;
+        if effective_sequence.value() == 0 {
+            return Err(IntentError::zero(IntentField::EffectiveSequence));
+        }
         Ok(Self {
             did,
             pending_key,
@@ -377,38 +343,6 @@ impl RecoveryRegistration {
             did,
             recovery_root,
             threshold,
-        })
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EvmPayoutBinding {
-    pub(crate) did: Did,
-    pub(crate) network: NetworkId,
-    pub(crate) payout_address: EvmAddress,
-    pub(crate) ownership_signature: Signature,
-}
-
-impl EvmPayoutBinding {
-    /// Builds a payout binding backed by a non-empty ownership signature.
-    ///
-    /// # Errors
-    ///
-    /// Refuses an empty signature.
-    pub fn new(
-        did: Did,
-        network: NetworkId,
-        payout_address: EvmAddress,
-        ownership_signature: Signature,
-    ) -> Result<Self, IntentError> {
-        if ownership_signature.as_bytes().is_empty() {
-            return Err(IntentError::empty(IntentField::OwnershipSignature));
-        }
-        Ok(Self {
-            did,
-            network,
-            payout_address,
-            ownership_signature,
         })
     }
 }
@@ -854,146 +788,6 @@ impl BudgetDefund {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BridgeDepositCredit {
-    pub(crate) deposit_proof: DepositProofId,
-    pub(crate) checkpoint: CheckpointId,
-    pub(crate) reserve: AccountId,
-    pub(crate) recipient: AccountId,
-    pub(crate) asset: AssetId,
-    pub(crate) amount: Amount,
-    pub(crate) idempotency_key: IdempotencyKey,
-}
-
-impl BridgeDepositCredit {
-    /// Returns validated fields for canonical boundary encoding.
-    #[must_use]
-    pub fn to_wire_parts(
-        &self,
-    ) -> (
-        DepositProofId,
-        CheckpointId,
-        &AccountId,
-        &AccountId,
-        AssetId,
-        Amount,
-        IdempotencyKey,
-    ) {
-        (
-            self.deposit_proof,
-            self.checkpoint,
-            &self.reserve,
-            &self.recipient,
-            self.asset,
-            self.amount,
-            self.idempotency_key,
-        )
-    }
-    /// Builds a Paxeer deposit credit tied to one checkpoint and proof.
-    ///
-    /// # Errors
-    ///
-    /// Refuses zero proof/value and self-transfer.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        deposit_proof: DepositProofId,
-        checkpoint: CheckpointId,
-        reserve: AccountId,
-        recipient: AccountId,
-        asset: AssetId,
-        amount: Amount,
-        idempotency_key: IdempotencyKey,
-    ) -> Result<Self, IntentError> {
-        movement(&reserve, &recipient, amount)?;
-        if deposit_proof.is_zero() {
-            return Err(IntentError::zero(IntentField::DepositProof));
-        }
-        Ok(Self {
-            deposit_proof,
-            checkpoint,
-            reserve,
-            recipient,
-            asset,
-            amount,
-            idempotency_key,
-        })
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BridgeWithdrawRequest {
-    pub(crate) request_anchor: CheckpointId,
-    pub(crate) fee_limit: u64,
-    pub(crate) owner: AccountId,
-    pub(crate) withdrawals_account: AccountId,
-    pub(crate) payout_address: EvmAddress,
-    pub(crate) asset: AssetId,
-    pub(crate) amount: Amount,
-    pub(crate) idempotency_key: IdempotencyKey,
-}
-
-impl BridgeWithdrawRequest {
-    /// Returns validated fields for canonical boundary encoding.
-    #[must_use]
-    pub fn to_wire_parts(
-        &self,
-    ) -> (
-        CheckpointId,
-        u64,
-        &AccountId,
-        &AccountId,
-        EvmAddress,
-        AssetId,
-        Amount,
-        IdempotencyKey,
-    ) {
-        (
-            self.request_anchor,
-            self.fee_limit,
-            &self.owner,
-            &self.withdrawals_account,
-            self.payout_address,
-            self.asset,
-            self.amount,
-            self.idempotency_key,
-        )
-    }
-    /// Builds a Paxeer withdrawal request to an exact EVM payout address.
-    ///
-    /// # Errors
-    ///
-    /// Refuses zero withdrawal/value and self-transfer.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        request_anchor: CheckpointId,
-        fee_limit: u64,
-        owner: AccountId,
-        withdrawals_account: AccountId,
-        payout_address: EvmAddress,
-        asset: AssetId,
-        amount: Amount,
-        idempotency_key: IdempotencyKey,
-    ) -> Result<Self, IntentError> {
-        if request_anchor.bytes() == [0; 32] {
-            return Err(IntentError::zero(IntentField::Checkpoint));
-        }
-        if payout_address.bytes() == [0; 20] {
-            return Err(IntentError::zero(IntentField::PayoutAddress));
-        }
-        movement(&owner, &withdrawals_account, amount)?;
-        Ok(Self {
-            request_anchor,
-            fee_limit,
-            owner,
-            withdrawals_account,
-            payout_address,
-            asset,
-            amount,
-            idempotency_key,
-        })
-    }
-}
-
 /// Field named by a failed intent construction.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntentField {
@@ -1047,13 +841,6 @@ pub struct IntentError {
 }
 
 impl IntentError {
-    const fn empty(field: IntentField) -> Self {
-        Self {
-            field,
-            reason: IntentErrorReason::Empty,
-        }
-    }
-
     const fn zero(field: IntentField) -> Self {
         Self {
             field,
@@ -1190,12 +977,10 @@ mod tests {
 
     #[test]
     #[allow(clippy::too_many_lines)]
-    fn all_twelve_v1_kinds_are_constructible_only_from_domain_types() {
+    fn live_v1_kinds_are_constructible_only_from_domain_types() {
         let owner = || account("agent:did:layerx:alice:main");
         let recipient = || account("agent:did:layerx:bob:main");
         let budget = || account("agent:did:layerx:alice:budget:primary");
-        let reserve = || account("system:treasury");
-        let withdrawals = || account("system:paxeer-withdrawals");
         let asset = || AssetId::new([2; 32]);
         let key = || IdempotencyKey::new([3; 32]);
         let amount = || Amount::from_u128(25);
@@ -1221,15 +1006,6 @@ mod tests {
                         .unwrap_or_else(|error| panic!("threshold: {error:?}")),
                 )
                 .unwrap_or_else(|error| panic!("recovery: {error:?}")),
-            ),
-            IntentKind::EvmPayoutBinding(
-                EvmPayoutBinding::new(
-                    did(),
-                    NetworkId::new(77).unwrap_or_else(|error| panic!("network: {error:?}")),
-                    EvmAddress::new([4; 20]),
-                    Signature::new(&[5; 65]).unwrap_or_else(|error| panic!("signature: {error:?}")),
-                )
-                .unwrap_or_else(|error| panic!("binding: {error:?}")),
             ),
             IntentKind::LxpSend(
                 LxpSend::new(
@@ -1319,48 +1095,20 @@ mod tests {
                 )
                 .unwrap_or_else(|error| panic!("budget defund: {error:?}")),
             ),
-            IntentKind::BridgeDepositCredit(
-                BridgeDepositCredit::new(
-                    DepositProofId::new([14; 32]),
-                    CheckpointId::new([15; 32]),
-                    reserve(),
-                    owner(),
-                    asset(),
-                    amount(),
-                    key(),
-                )
-                .unwrap_or_else(|error| panic!("deposit: {error:?}")),
-            ),
-            IntentKind::BridgeWithdrawRequest(
-                BridgeWithdrawRequest::new(
-                    CheckpointId::new([18; 32]),
-                    100,
-                    owner(),
-                    withdrawals(),
-                    EvmAddress::new([17; 20]),
-                    asset(),
-                    amount(),
-                    key(),
-                )
-                .unwrap_or_else(|error| panic!("withdrawal: {error:?}")),
-            ),
         ];
-        assert_eq!(intents.len(), 12);
+        assert_eq!(intents.len(), 9);
         assert_eq!(
             intents.iter().map(IntentKind::module).collect::<Vec<_>>(),
             [
                 ModuleId::Governance,
                 ModuleId::Governance,
                 ModuleId::Governance,
-                ModuleId::Governance,
                 ModuleId::Asset,
                 ModuleId::Asset,
                 ModuleId::Budget,
                 ModuleId::Budget,
                 ModuleId::Budget,
                 ModuleId::Budget,
-                ModuleId::Bridge,
-                ModuleId::Asset,
             ]
         );
     }

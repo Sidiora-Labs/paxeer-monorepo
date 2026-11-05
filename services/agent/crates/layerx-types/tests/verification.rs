@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 #[path = "../../../tests/support/rustc.rs"]
 mod rustc;
 
-use layerx_types::verify::{Projection, VerificationLevel};
+use layerx_types::verify::Projection;
 
 fn dependency_rlib() -> (PathBuf, PathBuf) {
     let dependency_dir = std::env::current_exe()
@@ -63,23 +63,8 @@ fn compile_fails(name: &str, source_text: &str, expected: &str) {
     assert!(String::from_utf8_lossy(&output.stderr).contains(expected));
 }
 
-#[test]
-fn verification_levels_form_the_declared_order() {
-    let levels = [
-        VerificationLevel::UNVERIFIED,
-        VerificationLevel::SEQUENCER_SIGNED,
-        VerificationLevel::BATCH_INCLUDED,
-        VerificationLevel::STATE_PROVEN,
-        VerificationLevel::CHECKPOINT_FINALISED,
-        VerificationLevel::SETTLEMENT_ANCHORED,
-    ];
-    for pair in levels.windows(2) {
-        assert_eq!(pair[0].compare(pair[1]), std::cmp::Ordering::Less);
-        assert!(pair[0] < pair[1]);
-    }
-    assert_eq!(VerificationLevel::UNVERIFIED.wire_rank(), 0);
-    assert_eq!(VerificationLevel::SETTLEMENT_ANCHORED.wire_rank(), 5);
-}
+#[path = "support/rung_cases.rs"]
+mod rung_cases;
 
 #[test]
 fn projection_is_structurally_distinct_from_verified_value() {

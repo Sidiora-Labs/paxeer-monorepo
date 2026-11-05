@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import unittest
 from pathlib import Path
 from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "services/agent/sdk/python"))
 
 from layerx_sdk import (
     HISTORY_DEFAULT_LIMIT,
@@ -27,6 +30,7 @@ from layerx_sdk import (
     px_optional_quantity,
     px_quantity,
 )
+from layerx_sdk.px import HistoryAssetMetadata, HistoryRow, _MAX_U256
 
 ACCOUNT = "bb" * 32
 DID = "did:layerx:" + "aa" * 32
@@ -53,7 +57,7 @@ CUSTODY = {
     "released": "0",
     "pending": "0",
 }
-BALANCES = {
+LEGACY_BALANCES = {
     "account": IDENTITIES,
     "balances": [
         {
@@ -69,9 +73,42 @@ BALANCES = {
 }
 
 
+# Chain-only get_balances result from gateway/src/paxeer.rs. Custody and
+# kernel joins below remain explicitly historical decoder compatibility cases.
+BALANCES = {
+    "account": IDENTITIES,
+    "height": 11111,
+    "balances": [{"denom": "ulxp", "amount": "30"}],
+}
+
+
+# These are unmodified node answers, captured once at the documented root URLs.
+ROOT_RECORDINGS = json.loads(
+    (Path(__file__).with_name("fixtures_22_33_701") / "chain-125-root.json").read_text()
+)["nodes"]
+OPENRPC = json.loads(
+    (Path(__file__).resolve().parents[4] / "services/platform/hosted/gateway/openrpc.json").read_text()
+)
+PX_SCHEMAS = {method["name"]: method["result"]["schema"] for method in OPENRPC["methods"]}
+ROOT_ANSWERS = {row["request"]["method"]: row["response"] for row in ROOT_RECORDINGS[0]["exchanges"]}
+
+# The gateway's network_result contract preserves chain reads when consensus
+# cannot answer. This is a schema vector, not a recorded gateway response.
+NETWORK_UNAVAILABLE = {
+    "network_id": "paxeer-x",
+    "paxeer": {"chain_id": ROOT_ANSWERS["eth_chainId"]["result"],
+               "latest_block": ROOT_ANSWERS["eth_blockNumber"]["result"]},
+    "consensus": None,
+    "reason": "consensus_unavailable",
+}
+
+
 def gateway_handler(observed: list[dict[str, object]]) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
+            if self.path != "/":
+                self.send_error(404)
+                return
             length = int(self.headers["Content-Length"])
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             observed.append({
@@ -128,8 +165,23 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertIsNone(px_optional_quantity(None))
         self.assertEqual(px_optional_quantity("0x00"), 0)
 
+    def test_chain_quantities_decode_exactly_and_never_as_floats(self) -> None:
+        """Current bank amounts are uint256, as declared by OpenRPC and the ABI."""
+        maximum = (1 << 256) - 1
+        for amount in (0, 16, (1 << 128), maximum):
+            self.assertEqual(px_quantity(amount), amount)
+            self.assertEqual(px_quantity(str(amount)), amount)
+            self.assertEqual(px_quantity(hex(amount)), amount)
+        for refused in ("", "0x", "-1", "1.5", "007", "0xgg", "0x" + "f" * 65,
+                        str(1 << 256), 1 << 256, 1.5, -1, None, True, {}):
+            with self.subTest(refused=refused), self.assertRaises(ValueError):
+                px_quantity(refused)
+        self.assertIsNone(px_optional_quantity(None))
+        self.assertEqual(px_optional_quantity("0x00"), 0)
+
     def test_balances_decode_keeps_an_unknown_half_unknown(self) -> None:
-        decoded = decode_px_account_balances(BALANCES)
+        """Historical custody codec coverage, not a current gateway response."""
+        decoded = decode_px_account_balances(LEGACY_BALANCES)
         self.assertEqual(decoded.account.evm_address, EVM)
         self.assertEqual(decoded.account.layerx_did, DID)
         self.assertEqual(decoded.account.layerx_account, ACCOUNT)
@@ -157,13 +209,13 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertNotEqual(unknown.layerx, 0)
 
         with self.assertRaises(ValueError):
-            decode_px_account_balances({**BALANCES, "balances": [{"asset_id": NATIVE, "denom": None, "custody": None, "paxeer": None}]})
+            decode_px_account_balances({**LEGACY_BALANCES, "balances": [{"asset_id": NATIVE, "denom": None, "custody": None, "paxeer": None}]})
         with self.assertRaises(ValueError):
-            decode_px_account_balances({**BALANCES, "joined_limit": None})
+            decode_px_account_balances({**LEGACY_BALANCES, "joined_limit": None})
         with self.assertRaises(ValueError):
             decode_px_account_balances({"account": IDENTITIES, "joined_limit": 16})
         with self.assertRaises(ValueError):
-            decode_px_account_balances({**BALANCES, "balances": [BALANCES["balances"][1]] * (PX_MAXIMUM_JOINED_ASSETS + 1)})
+            decode_px_account_balances({**LEGACY_BALANCES, "balances": [LEGACY_BALANCES["balances"][1]] * (PX_MAXIMUM_JOINED_ASSETS + 1)})
         with self.assertRaises(ValueError):
             decode_px_resolved_identities({**IDENTITIES, "bound": "true"})
         with self.assertRaises(ValueError):
@@ -198,50 +250,32 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertIsNone(assets.assets[1].paxeer)
         self.assertIsNone(assets.assets[1].layerx)
 
-        network = decode_px_network_head({
-            "network_id": "layerx-beta",
-            "paxeer": {"chain_id": "0x1a4", "latest_block": "0x2b67"},
-            "layerx": {"node_info": {"network": "layerx-beta"}},
-            "anchor": {
-                "latest_finalized_batch": 41,
-                "status": 2,
-                "status_name": "final",
-                "status_ladder": {"0": "unknown", "1": "submitted", "2": "final"},
-            },
-        })
-        self.assertEqual(network.network_id, "layerx-beta")
-        self.assertEqual(network.paxeer.chain_id, 420)
+        current = {
+            "network_id": "paxeer-x",
+            "paxeer": {"chain_id": "0x7d", "latest_block": "0x2b67"},
+            "consensus": {"latest_height": "11110", "latest_block_hash": "AB" * 32,
+                          "latest_app_hash": "CD" * 32, "catching_up": False},
+        }
+        network = decode_px_network_head(current)
+        self.assertEqual(network.network_id, "paxeer-x")
+        self.assertEqual(network.paxeer.chain_id, 125)
         self.assertEqual(network.paxeer.latest_block, 11111)
-        self.assertEqual(network.layerx, {"node_info": {"network": "layerx-beta"}})
-        self.assertEqual(network.anchor.latest_finalized_batch, 41)
-        self.assertEqual(network.anchor.status, 2)
-        self.assertEqual(network.anchor.status_name, "final")
-        self.assertEqual(network.anchor.status_ladder["1"], "submitted")
-
-        quiet = decode_px_network_head({
-            "network_id": "layerx-beta",
-            "paxeer": {"chain_id": "0x1a4", "latest_block": "0x2b67"},
-            "layerx": {"node_info": None},
-            "anchor": {"latest_finalized_batch": None, "status": None, "status_name": None, "status_ladder": None},
-        })
-        self.assertIsNone(quiet.anchor.latest_finalized_batch)
-        self.assertNotEqual(quiet.anchor.latest_finalized_batch, 0)
-        self.assertIsNone(quiet.anchor.status)
-        self.assertNotEqual(quiet.anchor.status, 0)
-        self.assertIsNone(quiet.anchor.status_name)
-        self.assertNotEqual(quiet.anchor.status_name, "")
-        self.assertIsNone(quiet.anchor.status_ladder)
-        self.assertEqual(quiet.layerx, {"node_info": None})
-        self.assertIsNone(decode_px_network_head({
-            "network_id": "layerx-beta",
-            "paxeer": {"chain_id": "0x1a4", "latest_block": "0x2b67"},
-            "layerx": None,
-            "anchor": None,
-        }).anchor)
-        with self.assertRaises(ValueError):
-            decode_px_network_head({"network_id": "layerx-beta", "paxeer": {"chain_id": "0x1a4"}, "layerx": None, "anchor": None})
-        with self.assertRaises(ValueError):
-            decode_px_network_head({"network_id": "", "paxeer": {"chain_id": "0x1a4", "latest_block": "0x1"}, "layerx": None, "anchor": None})
+        self.assertEqual(network.latest_committed_height, 11110)
+        self.assertIsNone(network.layerx)
+        for height in ("0", "11111", str((1 << 64) - 1)):
+            maximum = {**current, "paxeer": {"chain_id": "125", "latest_block": height},
+                       "consensus": {**current["consensus"], "latest_height": height}}
+            self.assertEqual(decode_px_network_head(maximum).latest_committed_height, int(height))
+        for consensus in (None, {}, {"latest_height": "11112"}, {"latest_height": "01"},
+                          {"latest_height": str(1 << 64)}, {"latest_height": True}):
+            with self.subTest(consensus=consensus), self.assertRaises(ValueError):
+                decode_px_network_head({**current, "consensus": consensus})
+        for anchor in (None, {}, {"latest_finalized_batch": 41}):
+            with self.subTest(anchor=anchor), self.assertRaises(ValueError):
+                decode_px_network_head({**current, "anchor": anchor})
+        for changed in ({**current, "network_id": ""}, {**current, "paxeer": {"chain_id": "125"}}):
+            with self.assertRaises(ValueError):
+                decode_px_network_head(changed)
 
     def test_gateway_reads_and_json_rpc_errors_over_loopback(self) -> None:
         observed: list[dict[str, object]] = []
@@ -249,17 +283,19 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
-            table = client.get_balances(ACCOUNT.upper())
-            self.assertEqual(len(table.balances), 2)
-            self.assertEqual(table.balances[0].paxeer.amount, 30)
-            self.assertIsNone(table.balances[1].paxeer)
-            self.assertIsNone(table.balances[1].denom)
-            self.assertEqual(observed[0]["path"], "/rpc")
+            client = PxClient(f"http://127.0.0.1:{server.server_port}/")
+            table = client.call("px_getBalances", [px_account_key(EVM.upper())])
+            self.assertEqual(table, BALANCES)
+            self.assertEqual(set(table), set(PX_SCHEMAS["px_getBalances"]["required"]))
+            self.assertEqual(len(table["balances"]), 1)
+            self.assertEqual(px_quantity(table["balances"][0]["amount"]), 30)
+            self.assertEqual(table["balances"][0]["denom"], "ulxp")
+            self.assertEqual(table["height"], 11111)
+            self.assertEqual(observed[0]["path"], "/")
             self.assertEqual(observed[0]["content_type"], "application/json")
             self.assertEqual(observed[0]["jsonrpc"], "2.0")
             self.assertEqual(observed[0]["method"], "px_getBalances")
-            self.assertEqual(observed[0]["params"], [ACCOUNT])
+            self.assertEqual(observed[0]["params"], [EVM])
 
             with self.assertRaises(PxRpcError) as caught:
                 client.get_network()
@@ -292,11 +328,11 @@ class UnifiedNetworkReadTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PxClient(endpoint)
         with self.assertRaises(ValueError):
-            PxClient("https://example.com/rpc", timeout=0)
+            PxClient("https://example.com/", timeout=0)
         with self.assertRaises(ValueError):
-            PxClient("https://example.com/rpc").call("px_unknown", [])
+            PxClient("https://example.com/").call("px_unknown", [])
         with self.assertRaises(ValueError):
-            PxClient("https://example.com/rpc").get_balances("not-an-account")
+            PxClient("https://example.com/").get_balances("not-an-account")
 
 
 # A px_getUnifiedHistory answer recorded from the gateway history read over a
@@ -319,6 +355,9 @@ NATIVE_ROW, POINTER_ROW = ROWS[0], ROWS[1]
 def history_handler(observed: list[dict[str, object]]) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
+            if self.path != "/":
+                self.send_error(404)
+                return
             length = int(self.headers["Content-Length"])
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             observed.append({"method": body["method"], "params": body["params"]})
@@ -360,7 +399,7 @@ class HistoryReadTest(unittest.TestCase):
         unified = decode_unified_history_page(RECORDED_UNIFIED)
         self.assertEqual(
             [(row.id, row.side, row.block_height, row.tx_index, row.log_index) for row in unified.items],
-            [(3, "paxeer", 10, 0, 0), (6, "paxeer", 11, 0, 0), (9, "paxeer", 12, 0, 0), (11, "paxeer", 12, 1, 0)],
+            [("3", "paxeer", 10, 0, 0), ("6", "paxeer", 11, 0, 0), ("9", "paxeer", 12, 0, 0), ("11", "paxeer", 12, 1, 0)],
         )
         self.assertEqual([(side.side, side.account) for side in unified.accounts], [("paxeer", EVE)])
         self.assertIsNone(unified.next_cursor)
@@ -381,9 +420,208 @@ class HistoryReadTest(unittest.TestCase):
         paxeer = decode_paxeer_history_page(RECORDED_PAXEER)
         self.assertEqual(paxeer.account, EVE)
         self.assertIsNone(paxeer.next_cursor)
-        self.assertEqual([(row.id, row.side) for row in paxeer.items], [(3, None), (6, None), (9, None), (11, None)])
+        self.assertEqual([(row.id, row.side) for row in paxeer.items], [("3", None), ("6", None), ("9", None), ("11", None)])
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "items": []}).items, ())
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "next_cursor": CURSOR}).next_cursor, CURSOR)
+
+    def test_history_boundary_rows_decode(self) -> None:
+        """Historical multi-chain codec bounds; current pages are recorded above."""
+        first = {
+            "id": "explorer:1",
+            "height_or_seq": "10",
+            "chain": "paxeer",
+            "kind": "native_transfer",
+            "direction": "out",
+            "account": EVE,
+            "counterparty": EVM,
+            "asset": "evm:native",
+            "amount": str((1 << 256) - 1),
+            "tx_id": "native_transfer-10-0",
+            "tx_hash": "0x" + "12" * 32,
+            "ordinal": "0",
+            "final": False,
+            "decoded": {"position": "10"},
+            "asset_metadata": {
+                "asset": "evm:native",
+                "chain": "paxeer",
+                "kind": "native",
+                "address": None,
+                "denom": None,
+                "symbol": None,
+                "decimals": 18,
+                "native_id": None,
+                "pointer": None,
+                "metadata": {},
+            },
+            "blockHeight": 10,
+            "txIndex": 0,
+            "logIndex": 0,
+            "side": "paxeer",
+        }
+        layerx = {
+            **first,
+            "id": "2",
+            "height_or_seq": "11",
+            "chain": "layerx",
+            "kind": "asset_transfer",
+            "direction": "in",
+            "account": ACCOUNT,
+            "counterparty": UNJOINED,
+            "asset": NATIVE,
+            "amount": "7",
+            "tx_id": "asset_transfer-11-1",
+            "tx_hash": "0x" + "34" * 32,
+            "ordinal": "1",
+            "final": True,
+            "decoded": {"transfer": {"amount": "7", "recipient": ACCOUNT}},
+            "asset_metadata": {
+                "asset": NATIVE,
+                "chain": "layerx",
+                "kind": "native",
+                "address": None,
+                "denom": "ulxp",
+                "symbol": "LXP",
+                "decimals": 6,
+                "native_id": NATIVE,
+                "pointer": EVM,
+                "metadata": {"display": {"name": "LayerX asset", "tags": ["native", "LXP"]}},
+            },
+            "blockHeight": 11,
+            "txIndex": 1,
+            "logIndex": 1,
+            "side": "layerx",
+        }
+        items = [
+            first,
+            layerx,
+            {
+                **first,
+                "id": "explorer:3",
+                "height_or_seq": "12",
+                "amount": "2",
+                "asset_metadata": None,
+                "blockHeight": 12,
+                "txIndex": 2,
+                "logIndex": 2,
+            },
+            {
+                **first,
+                "id": "4",
+                "height_or_seq": "13",
+                "amount": "3",
+                "counterparty": None,
+                "blockHeight": 13,
+                "txIndex": 3,
+                "logIndex": 3,
+            },
+        ]
+        document = {
+            "account": IDENTITIES,
+            "accounts": [
+                {"side": "paxeer", "account": EVE},
+                {"side": "layerx", "account": ACCOUNT},
+            ],
+            "items": items,
+            "next_cursor": "000000000000000d0000000300000003",
+        }
+        page = decode_unified_history_page(document)
+        self.assertEqual(page.account, IDENTITIES)
+        self.assertEqual([(side.side, side.account) for side in page.accounts], [("paxeer", EVE), ("layerx", ACCOUNT)])
+        self.assertEqual([row.id for row in page.items], ["explorer:1", "2", "explorer:3", "4"])
+        self.assertEqual(
+            [(row.tx_id, row.tx_hash) for row in page.items],
+            [
+                ("native_transfer-10-0", "0x" + "12" * 32),
+                ("asset_transfer-11-1", "0x" + "34" * 32),
+                ("native_transfer-10-0", "0x" + "12" * 32),
+                ("native_transfer-10-0", "0x" + "12" * 32),
+            ],
+        )
+        self.assertEqual(
+            [(row.block_height, row.tx_index, row.log_index) for row in page.items],
+            [(10, 0, 0), (11, 1, 1), (12, 2, 2), (13, 3, 3)],
+        )
+        self.assertEqual(page.items[0].amount, _MAX_U256)
+        self.assertEqual(page.items[0].amount, (1 << 256) - 1)
+        self.assertEqual(page.items[1], HistoryRow(
+            id="2",
+            height_or_seq=11,
+            chain="layerx",
+            kind="asset_transfer",
+            direction="in",
+            account=ACCOUNT,
+            counterparty=UNJOINED,
+            asset=NATIVE,
+            amount=7,
+            tx_id="asset_transfer-11-1",
+            tx_hash="0x" + "34" * 32,
+            ordinal=1,
+            final=True,
+            decoded={"transfer": {"amount": "7", "recipient": ACCOUNT}},
+            asset_metadata=HistoryAssetMetadata(
+                asset=NATIVE,
+                chain="layerx",
+                kind="native",
+                address=None,
+                denom="ulxp",
+                symbol="LXP",
+                decimals=6,
+                native_id=NATIVE,
+                pointer=EVM,
+                metadata={"display": {"name": "LayerX asset", "tags": ["native", "LXP"]}},
+            ),
+            block_height=11,
+            tx_index=1,
+            log_index=1,
+            side="layerx",
+        ))
+        self.assertIsNone(page.items[2].asset_metadata)
+        self.assertIsNone(page.items[3].counterparty)
+        self.assertEqual(page.next_cursor, document["next_cursor"])
+        missing_tx_hash = dict(first)
+        del missing_tx_hash["tx_hash"]
+        for refused_row in (missing_tx_hash, {**first, "tx_hash": "0x" + "1" * 63}):
+            with self.subTest(tx_hash=refused_row.get("tx_hash")):
+                with self.assertRaisesRegex(ValueError, "^invalid-history-transaction-hash$"):
+                    decode_unified_history_page({
+                        **document,
+                        "items": [refused_row, *items[1:]],
+                    })
+        with self.assertRaisesRegex(ValueError, "^invalid-history-decimal$"):
+            decode_unified_history_page({
+                **document,
+                "items": [{**first, "amount": str(1 << 256)}, *items[1:]],
+            })
+
+    def test_explorer_row_ids_decode_as_strings(self) -> None:
+        for document, decode in (
+            (RECORDED_UNIFIED, decode_unified_history_page),
+            (RECORDED_PAXEER, decode_paxeer_history_page),
+        ):
+            first, second = document["items"][:2]
+            page_document = {
+                **document,
+                "items": [{**first, "id": "9"}, {**second, "id": "explorer:7"}],
+                "next_cursor": None,
+            }
+            page = decode(page_document)
+            self.assertEqual([row.id for row in page.items], ["9", "explorer:7"])
+            for row_id in ("18446744073709551615", "explorer:18446744073709551615"):
+                with self.subTest(row_id=row_id, decode=decode.__name__):
+                    maximum = decode({**page_document, "items": [{**first, "id": row_id}]})
+                    self.assertEqual(maximum.items[0].id, row_id)
+            for row_id in (
+                "explorer:0", "explorer:", "0", "layerx:7",
+                "explorer:18446744073709551616", "18446744073709551616",
+                "", "01", "explorer:07", "-7", "explorer:-7", "explorer:7.0",
+                "explorer:7\n", " 9", "explorer:٧", 7, None, True,
+            ):
+                with self.subTest(row_id=row_id, decode=decode.__name__):
+                    with self.assertRaisesRegex(ValueError, "invalid-history-row-id"):
+                        decode({
+                            **page_document,
+                            "items": [{**first, "id": "9"}, {**second, "id": row_id}],
+                        })
 
     def test_malformed_pages_are_refused(self) -> None:
         refusals = (
@@ -400,7 +638,7 @@ class HistoryReadTest(unittest.TestCase):
             }),
             lambda: decode_unified_history_page(RECORDED_UNIFIED, 3),
             lambda: decode_history_asset_metadata({**NATIVE_ROW["asset_metadata"], "decimals": 256}),
-            lambda: PxClient("https://example.com/rpc").call("lx_getHistory", [EVE]),
+            lambda: PxClient("https://example.com/").call("lx_getHistory", [EVE]),
         )
         for refusal in refusals:
             with self.assertRaises(ValueError):
@@ -413,9 +651,9 @@ class HistoryReadTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
+            client = PxClient(f"http://127.0.0.1:{server.server_port}/")
             unified = client.get_unified_history(DID.upper().replace("DID:LAYERX:", "did:layerx:"), limit=4)
-            self.assertEqual([row.id for row in unified.items], [3, 6, 9, 11])
+            self.assertEqual([row.id for row in unified.items], ["3", "6", "9", "11"])
             paxeer = client.get_history(DID, cursor=CURSOR, kind="erc20_transfer")
             self.assertEqual(len(paxeer.items), 4)
             client.get_history(EVE.upper().replace("0X", "0x"))

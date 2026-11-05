@@ -1,0 +1,125 @@
+[disposition.5.0.3]
+finding = "5.0.3"
+status = "resolved"
+evidence = "4b596e6ea moves the tokenfactory caller to the keeper signature without DistrKeeper, and 2888be80d updates the anchor caller together with its upgrade-reader signature before ae2beed63 retires that module registration."
+
+[disposition.5.0.3.1]
+finding = "5.0.3.1"
+status = "resolved"
+evidence = "0fb1aa46c measures spot keeper execution with an isolated multiplied gas meter at node/app_merge_wiring_test.go:54 and sets the RPC fixture Block.MaxGasWanted to 42000 at node/sequencer_rpc_option_test.go:80."
+
+[disposition.5.4.5]
+finding = "5.4.5"
+status = "resolved"
+evidence = "238dc2034 adds App.LastBlockID, still declared at node/app.go:3348, satisfying the production Host interface method at node/sequencer/executor.go:77."
+
+[disposition.5.4.5.1]
+finding = "5.4.5.1"
+status = "open"
+evidence = "node/app.go:3349 still returns the check-context header LastBlockId, identifying H-1 after committing H, and node/sequencer/executor_header_test.go:52 still gives the committed block its own id as its parent."
+follow_up = "22.5.4"
+
+[disposition.5.5.12]
+finding = "5.5.12"
+status = "resolved"
+evidence = "bd41925be converts the proposer address to a plain byte slice for the exact equality assertion, retained at node/sequencer/node_test.go:117."
+
+[disposition.5.6.4]
+finding = "5.6.4"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:134026 lists only unmountedPlanStores and the two surviving tests, matching the sequencerPinnedLeader deletion in 17f3d738c."
+
+[disposition.5.6.5]
+finding = "5.6.5"
+status = "resolved"
+evidence = "a0c3d5f3d supplies MissingMergeConstructors, retained at precompiles/setup.go:91 and called by the merge constructor gate installed in 7caaeb3aa."
+
+[disposition.5.6.5.1]
+finding = "5.6.5.1"
+status = "resolved"
+evidence = "7caaeb3aa separates the constructor gate from continueMergeUpgradePlan, which the bond-return test calls at node/upgrades_merge_bonds_test.go:64, while node/precompiles.go:23 imports the formerly missing agent constructors and node/precompiles.go:32 imports layerxprograms."
+
+[disposition.5.6.9]
+finding = "5.6.9"
+status = "resolved"
+evidence = "c515832cc imports the oracle aggregator, scheduler and streams constructors at node/precompiles.go:23, node/precompiles.go:26 and node/precompiles.go:27 before the application builds its precompile set."
+
+[disposition.5.6.9.2]
+finding = "5.6.9.2"
+status = "resolved"
+evidence = "136841868 restores the anchor store mount and keeper construction, retained at node/app.go:368 and node/app.go:824, so migrateMergeState at node/upgrades.go:497 calls RetireAtMerge on a constructed keeper."
+
+[disposition.5.7.1.1]
+finding = "5.7.1.1"
+status = "resolved"
+evidence = "136841868 restores LayerXAnchorKeeper construction and both anchor store lists, retained at node/app.go:824, node/app.go:368 and storage/common/keys/store_keys.go:82 until the separate anchor-store-delete plan."
+
+[disposition.5.11.2]
+finding = "5.11.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:134465 requires only TestEmbeddedGenesisRetiredChains in the graph, consistent with the embedded-genesis declarations removed by 590812668 and the package-only node/genesis/genesis.go:1."
+
+[disposition.5.12.2]
+finding = "5.12.2"
+status = "resolved"
+evidence = "e88cc4bd3 removes parse-time Config.Validate from ParseFlatKVConfig, which returns cfg and nil at storage/config/flatkv_parse.go:55 before composite store construction supplies DataDir."
+
+[disposition.5.12.2.2]
+finding = "5.12.2.2"
+status = "resolved"
+evidence = "storage/config/flatkv_parse.go:55 returns the parsed configuration without full validation following e88cc4bd3, while storage/state_db/sc/flatkv/store.go:230 retains validation during store construction."
+
+[disposition.5.13.2]
+finding = "5.13.2"
+status = "resolved"
+evidence = "node/wasmbinding/queries.go:131 dispatches to the existing GetDenomPaused at modules/tokenfactory/client/wasm/query.go:31, and node/wasmbinding/encoder.go:42 calls the existing EncodeTokenFactorySetDenomPaused at modules/tokenfactory/client/wasm/encoder.go:73 after 16d116a9a wires both paths."
+
+[disposition.5.13.2.1]
+finding = "5.13.2.1"
+status = "resolved"
+evidence = "modules/tokenfactory/client/wasm/bindings/queries.go:10 declares DenomPaused, modules/tokenfactory/client/wasm/query.go:31 implements GetDenomPaused and modules/tokenfactory/client/wasm/encoder.go:73 implements the encoder consumed by the landed 16d116a9a dispatch."
+
+[disposition.5.14.2]
+finding = "5.14.2"
+status = "resolved"
+evidence = "1e95577a4 derives the validator consensus key with ed25519 at node/sequencer/ante_sequenced_test.go:52 and funds and creates the active validator before ValidateFeeder at node/sequencer/ante_sequenced_test.go:66."
+
+[disposition.5.16.1.2]
+finding = "5.16.1.2"
+status = "resolved"
+evidence = "4f6627f11 overlaps primary sync with replication and standby sync with re-execution, retained at node/sequencer/standby.go:316 and node/sequencer/standby.go:879, while 9e17f4836 adds both diagnostic histograms and retains the strict 50 ms p99 assertion at node/sequencer/receipt_latency_test.go:222."
+
+[disposition.5.16.3]
+finding = "5.16.3"
+status = "resolved"
+evidence = "c515832cc supplies the three missing agent constructor imports at node/precompiles.go:23, node/precompiles.go:26 and node/precompiles.go:27, and the landed 8f8dfe30e rehearsal retains its empty activation-address-gap assertion at node/merge_rehearsal_test.go:74."
+
+[disposition.5.16.3.2]
+finding = "5.16.3.2"
+status = "resolved"
+evidence = "136841868 restores the mounted anchor store and initializes LayerXAnchorKeeper at node/app.go:824 before the RetireAtMerge call at node/upgrades.go:497 exercised by the landed 8f8dfe30e rehearsal."
+
+[disposition.5.16.4]
+finding = "5.16.4"
+status = "environment"
+evidence = "engine/executor/lib/evmlib.go:11 generates the downloaded evmone runtime library loaded at engine/executor/lib/evmlib.go:22, and spec/layerx-merge/spec.kvx:135032 now generates it before building the test whose VM-presence assertion remains at node/sequencer/seal_giga_test.go:49."
+
+[disposition.5.16.4.1]
+finding = "5.16.4.1"
+status = "resolved"
+evidence = "01fac65e1 sets each giga wrapper App.ChainID to testChainID at node/sequencer/seal_giga_test.go:42 before FinalizeBlock uses that same chain id at node/sequencer/seal_giga_test.go:66."
+
+[disposition.5.17.2]
+finding = "5.17.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:135182 requires only SealBatch and its two surviving tests, matching the Layers, OpenLayer and obsolete Seal deletions in e856ff1c9."
+
+[disposition.5.17.2.1]
+finding = "5.17.2.1"
+status = "resolved"
+evidence = "e856ff1c9 calls resolutionBlockGas in both SealBatch test fixtures, retained at node/sequencer/seal_test.go:76 and node/sequencer/seal_test.go:129 before admission reads the unchanged MaxGasWanted bound."
+
+[disposition.5.19.1]
+finding = "5.19.1"
+status = "resolved"
+evidence = "c5218c16d supplies GetCustomPrecompilesE at precompiles/setup.go:189, and 90e07859c switches application construction to that provider with error handling retained at node/app.go:1072."

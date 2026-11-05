@@ -1,0 +1,51 @@
+[task]
+id = "22.31.450"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+advisory_source = "GitHub global advisory records, read with gh api /advisories/<GHSA> during implementation; the selected response fields are retained in audit/ for offline qualification."
+repair = "Upgrade cbindgen to the maintained 0.29 line (resolved 0.29.4), which requires clap 4 instead of clap 3 and removes the atty dependency path. Patch only cosmwasm-crypto from the pinned Paxeer CosmWasm revision with its complete local source, fixtures, benchmarks and license; move ed25519-zebra from major 3 to maintained major 4 (resolved 4.2.0), and cargo update curve25519-dalek --precise 4.1.3."
+crypto_changes = "Materialize inherited package version 1.5.12 in the standalone manifest, change ed25519-zebra to 4.0.3 or compatible, and adapt the two existing test signature serializations from into() to to_bytes() as required by zebra 4. All production crypto functions, tests and fixtures are retained. Zebra 3 and 4 both implement ZIP 215 verification."
+qualification = "The runner's private gate ledger and final hf-done JSON record the exact content-derived verified revision, command, exit and evidence log. Both gates must pass for that same revision. No source changes follow the successful verification; the runner commits."
+limits = "The declared cargo check proves production compilation; the declared Python tests prove the resolved dependency graph and the recorded engine exception. Native crypto tests, cross-version consensus replay and a Wasmer upgrade are not gates of this task."
+
+[alert.1117]
+ghsa = "GHSA-x4gp-pqpj-f43q"
+package = "curve25519-dalek"
+affected = "< 4.1.3"
+first_patched_version = "4.1.3"
+disposition = "upgrade requiring package to maintained major"
+requiring_package = "ed25519-zebra 4.2.0 via the local cosmwasm-crypto 1.5.12 patch"
+
+[alert.1114]
+ghsa = "GHSA-g98v-hv3f-hcfr"
+package = "atty"
+affected = "<= 0.2.14"
+first_patched_version = "none"
+disposition = "remove dependency path"
+removed_path = "cbindgen 0.24.5 -> clap 3.2.25 -> atty 0.2.14"
+replacement_path = "cbindgen 0.29.4 -> clap 4.6.7; no atty package or dependency edge remains"
+
+[alert.1116]
+ghsa = "GHSA-55f3-3qvg-8pv5"
+package = "wasmer"
+affected = "<= 4.3.1"
+first_patched_version = "none"
+disposition = "retain pinned deterministic engine; owner dismissal required"
+engine_version = "4.2.2"
+cosmwasm_revision = "cd3c4399b8c0ea0d08b2068a893ed2973685fe30"
+engine_reason = "The chain's pinned cosmwasm-vm 1.5.12 requires exactly =4.2.2 for wasmer, wasmer-types and wasmer-middlewares. Its make_compiling_engine uses Singlepass with Gatekeeper, custom gas metering and canonicalize_nans(true), and its runtime loads compiled modules with a headless engine. Moving beyond the advisory range (>4.3.1) requires changing this exact-pinned VM/compiler/middleware and serialized-module stack, coordinated consensus replay, gas-equivalence qualification and cache invalidation as part of a chain upgrade. A lockfile-only update cannot satisfy the exact constraints, and an unqualified compiler substitution before that upgrade risks validator execution or gas divergence."
+mitigation = "The affected path is WASI filesystem path_open/path_symlink operating on preopened directories. This runtime uses CosmWasm env imports only: compatibility.rs checks imports against SUPPORTED_IMPORTS; Instance::from_module registers the env namespace, and the production constructors pass no extra imports. No WASI filesystem host, path_open/path_symlink implementation or preopened directories are supplied to contracts. Neither wasmer-wasi nor wasmer-wasix is in the lockfile. The target-specific wasi ABI crate pulled by getrandom is not a WASI host implementation."
+owner_action = "The alert remains affected by version. The owner may dismiss alert 1116 as not used using the exact engine reason and existing no-WASI mitigation above; this task does not dismiss it or claim a patched Wasmer release. Reassess if the CosmWasm pin changes or any WASI host/preopen support is added."
+source_paths = ["packages/vm/Cargo.toml", "packages/vm/src/wasm_backend/engine.rs", "packages/vm/src/compatibility.rs", "packages/vm/src/instance.rs", "packages/vm/src/cache.rs"]
+source_repository = "https://github.com/Paxeer-Network/pax-cosmwasm"
+
+[gotcha.1]
+symptom = "gh api requires an authentication setting even for public advisory reads."
+resolution = "For public GET requests only, GH_TOKEN=unauthenticated with -H 'Authorization: Basic Og==' successfully reads the advisory records without a credential. No token or network is required by the test."
+
+[gotcha.2]
+symptom = "GOTCHA.kvx is KVX rather than strict TOML, and large combined source reads can be truncated."
+resolution = "Read relevant KVX sections and source ranges directly. Keep the task's gotchas here because the explicit scope forbids editing the root ledger."
+
+[gotcha.3]
+symptom = "The first passing build regenerated bindings.h after the build candidate was recorded."
+resolution = "Retain cbindgen's generated header, including its C23 fixed-width enum syntax and enum ordering; rerun hf-build before hf-done so both gates qualify the final tree. The initial build evidence is revision dd89a1f5627f54b3a4d132a5265420405af6849d, cargo check --locked --manifest-path wasm-runtime/libwasmvm/Cargo.toml, exit 0, private log /out/logs/build-1.log."

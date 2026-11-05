@@ -38,7 +38,6 @@ rust|services/platform/hosted/node/tests/probe/Cargo.toml|locked-independent
 rust|services/platform/hosted/paxai-storage-keeper/Cargo.toml|locked-independent
 rust|services/platform/hosted/paxai-worker/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/paxeer/Cargo.toml|covered-by-platform-cargo
-rust|services/platform/hosted/perps-keeper/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/registry/Cargo.toml|covered-by-platform-cargo
 npm|services/platform/hosted/registry/builder-environment/package.json|locked-npm-independent
 rust|services/platform/hosted/runtime-clock/Cargo.toml|covered-by-platform-cargo

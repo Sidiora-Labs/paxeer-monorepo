@@ -32,8 +32,7 @@ static int test_asset_payloads(lxp_kernel *kernel)
     const lxp_module_iface *iface = lx_asset_module_iface();
     const uint32_t expected[] = {LX_ASSET_REGISTER, LX_ASSET_PAUSE,
         LX_ASSET_UNPAUSE, LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND,
-        LX_ASSET_RECEIVE, LX_ASSET_GRANT_ISSUE, LX_ASSET_GRANT_REVOKE,
-        LX_ASSET_WITHDRAW, LX_ASSET_MINT, LX_ASSET_BURN};
+        LX_ASSET_MINT, LX_ASSET_BURN};
     uint8_t arena_bytes[8192];
     uint8_t bytes[1024] = {0};
     uint8_t roundtrip[1024];
@@ -43,8 +42,8 @@ static int test_asset_payloads(lxp_kernel *kernel)
     lx_asset_account_open_payload account;
     lx_asset_supply_payload supply;
     lx_asset_grant_revoke_payload revocation;
-    lxp_receive receive = {0};
-    lxp_payer_grant grant;
+    lxp_send send = {0};
+    lxp_send decoded_send;
     void *decoded;
     size_t length;
     size_t roundtrip_length;
@@ -56,6 +55,7 @@ static int test_asset_payloads(lxp_kernel *kernel)
     PAYLOAD_CHECK(lxp_module_ctx_init(ctx, kernel, LXP_MODULE_ASSET,
         0U, 0U, 0U, UINT64_MAX, &arena, false) == LXP_OK);
     PAYLOAD_CHECK(iface->decode(ctx, 12U, bytes, 0U, &decoded) == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAYLOAD_CHECK(iface->decode(ctx, 9U, bytes, 108U, &decoded) == LXP_ERR_UNKNOWN_ACTIVITY);
     bytes[1] = 1U;
     bytes[2] = 7U;
     bytes[34] = 8U;
@@ -153,7 +153,11 @@ static int test_asset_payloads(lxp_kernel *kernel)
     bytes[1] = 1U;
     bytes[34] = 1U;
     bytes[41] = 9U;
-    PAYLOAD_CHECK(decode_prefixes(ctx, 8U, bytes, 42U) == 0);
+    for (index = 6U; index <= 8U; ++index) {
+        PAYLOAD_CHECK(lxp_arena_reset(ctx->arena, 0U) == LXP_OK);
+        PAYLOAD_CHECK(iface->decode(ctx, (uint16_t)index, bytes, 42U,
+                                   &decoded) == LXP_ERR_UNKNOWN_ACTIVITY);
+    }
     PAYLOAD_CHECK(lx_asset_grant_revoke_decode(bytes, 42U, &revocation) == LXP_OK &&
         revocation.revocation_sequence == UINT64_C(0x0100000000000009));
     bytes[1] = 2U;
@@ -169,30 +173,25 @@ static int test_asset_payloads(lxp_kernel *kernel)
     bytes[81] = 1U;
     bytes[1] = 2U;
     PAYLOAD_CHECK(lx_asset_supply_decode(bytes, 82U, &supply) != LXP_OK);
-    receive.payer_grant.recurring = true;
-    receive.payer_grant.has_reference = true;
-    receive.payer_grant.allowance = (lxp_u128){3U, 4U};
-    PAYLOAD_CHECK(lxp_receive_encode(&receive, bytes, sizeof(bytes), &length) == LXP_OK);
-    PAYLOAD_CHECK(decode_prefixes(ctx, 6U, bytes, length) == 0);
-    bytes[0] ^= 1U;
-    PAYLOAD_CHECK(lxp_receive_decode(bytes, length, &receive) != LXP_OK);
-    (void)memset(&grant, 0, sizeof(grant));
-    grant.recurring = true;
-    grant.has_reference = true;
-    grant.allowance = (lxp_u128){3U, 4U};
-    PAYLOAD_CHECK(lxp_payer_grant_encode(&grant, bytes, sizeof(bytes), &length) == LXP_OK);
-    PAYLOAD_CHECK(decode_prefixes(ctx, 7U, bytes, length) == 0);
-    PAYLOAD_CHECK(lxp_payer_grant_decode(bytes, length, &grant) == LXP_OK);
-    PAYLOAD_CHECK(grant.recurring && grant.has_reference && grant.allowance.hi == 3U &&
-                  grant.allowance.lo == 4U);
-    PAYLOAD_CHECK(lxp_payer_grant_encode(&grant, roundtrip, sizeof(roundtrip),
-                                        &roundtrip_length) == LXP_OK);
+    send.condition_count = 2U;
+    send.conditions[0] = (lxp_send_condition){LXP_CONDITION_NOT_BEFORE, 1U};
+    send.conditions[1] = (lxp_send_condition){LXP_CONDITION_NOT_AFTER, 100U};
+    send.amount = (lxp_u128){3U, 4U};
+    PAYLOAD_CHECK(lxp_send_encode(&send, bytes, sizeof(bytes), &length) == LXP_OK);
+    PAYLOAD_CHECK(decode_prefixes(ctx, 5U, bytes, length) == 0);
+    PAYLOAD_CHECK(lxp_send_decode(bytes, length, &decoded_send) == LXP_OK);
+    PAYLOAD_CHECK(decoded_send.condition_count == 2U &&
+                  decoded_send.conditions[0].timestamp == 1U &&
+                  decoded_send.conditions[1].timestamp == 100U &&
+                  decoded_send.amount.hi == 3U && decoded_send.amount.lo == 4U);
+    PAYLOAD_CHECK(lxp_send_encode(&decoded_send, roundtrip, sizeof(roundtrip),
+                                  &roundtrip_length) == LXP_OK);
     PAYLOAD_CHECK(length == roundtrip_length && memcmp(bytes, roundtrip, length) == 0);
-    bytes[160] = 2U;
-    PAYLOAD_CHECK(lxp_payer_grant_decode(bytes, length, &grant) != LXP_OK);
-    bytes[160] = 1U;
-    bytes[209] = 2U;
-    PAYLOAD_CHECK(lxp_payer_grant_decode(bytes, length, &grant) != LXP_OK);
+    bytes[0] ^= 1U;
+    PAYLOAD_CHECK(lxp_send_decode(bytes, length, &decoded_send) != LXP_OK);
+    bytes[0] ^= 1U;
+    bytes[3] ^= 1U;
+    PAYLOAD_CHECK(lxp_send_decode(bytes, length, &decoded_send) != LXP_OK);
     free(ctx);
     return 0;
 }

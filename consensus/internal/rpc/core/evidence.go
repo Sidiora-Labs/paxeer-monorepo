@@ -10,6 +10,9 @@ import (
 // BroadcastEvidence broadcasts evidence of the misbehavior.
 // More: https://docs.tendermint.com/master/rpc/#/Evidence/broadcast_evidence
 func (env *Environment) BroadcastEvidence(ctx context.Context, req *coretypes.RequestBroadcastEvidence) (*coretypes.ResultBroadcastEvidence, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		return nil, coretypes.ErrEvidenceNotAccepted
+	}
 	if req.Evidence == nil {
 		return nil, fmt.Errorf("%w: no evidence was provided", coretypes.ErrInvalidRequest)
 	}

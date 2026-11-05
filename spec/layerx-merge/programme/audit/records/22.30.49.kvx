@@ -1,0 +1,1979 @@
+# Pre-upgrade node-runtime audit; source repairs are proposals only.
+
+[audit.22.30.49]
+task = "22.30.49"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 241
+findings = 39
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["005", "010", "011", "014", "016"]
+requirements_reviewed = ["22011.1", "21122.1", "5494.1", "5495.1", "5519.1", "5519.2", "15273.1", "15273.2", "15275.1", "5969.1", "5970.1", "181567.1"]
+produced_rows_reviewed = 318
+consumed_rows_reviewed = 400
+interface_inventory_note = "The package lists 318 produced and 400 consumed row IDs; consumes_total says 449. Every listed row was reviewed. Name-based historical caller inventories do not establish actual wiring; live crossings were checked at importing call sites."
+network_note = "One paxd BFT network, EVM chain 125; committed receipts are final. Giga uses canonical bank/EVM stores and NewGethExecutor; optional EVMC paths are not selected by the current application."
+qualification_note = "This audit proposes source and documentation repairs. It does not claim Go inventory targets passed or the proposed repairs were implemented; qualification is limited to the declared audit-record gate."
+
+[file.001]
+path = "consensus/internal/p2p/README.md"
+lines = 11
+verdict = "clean"
+note = "Peer-communication overview; all relative specification links resolve under consensus/spec/p2p."
+
+[file.002]
+path = "consensus/internal/p2p/address.go"
+lines = 123
+verdict = "clean"
+note = "Node-ID/URL parsing, address normalization, resolution and boundary fixtures agree with peer discovery/transport consumers. Declarations reviewed: ParseNodeAddress, Resolve, String, Validate."
+
+[file.003]
+path = "consensus/internal/p2p/address_test.go"
+lines = 305
+verdict = "clean"
+note = "Node-ID/URL parsing, address normalization, resolution and boundary fixtures agree with peer discovery/transport consumers. Declarations reviewed: TestNewNodeID, TestNewNodeIDFromPubKey, TestNodeID_Bytes, TestNodeID_Validate, TestParseNodeAddress, TestNodeAddress_Resolve, TestNodeAddress_String, TestNodeAddress_Validate."
+
+[file.004]
+path = "consensus/internal/p2p/channel.go"
+lines = 122
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: Error, Unwrap, newChannel, send, Send, Broadcast, String, ReceiveLen."
+
+[file.005]
+path = "consensus/internal/p2p/conn/connection.go"
+lines = 24
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: IsDisconnect."
+
+[file.006]
+path = "consensus/internal/p2p/conn/evil_secret_connection_test.go"
+lines = 63
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: TestLowOrderPoint, runEvilConn, TestBadEphemeralKey."
+
+[file.007]
+path = "consensus/internal/p2p/conn/oldmux.go"
+lines = 499
+verdict = "issues"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: ToGeneric, withDefaults, getSendRateLimit, getRecvRateLimit, DefaultMConnConfig, newSendQueue, setFlush, NewMConnection."
+
+[file.008]
+path = "consensus/internal/p2p/conn/oldmux_test.go"
+lines = 299
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: makeCfg, makeChDescs, newMConnectionWithCfg, newMConnection, newMConnectionWithCh, TestMConnectionSendRecv, pingMsg, pongMsg."
+
+[file.009]
+path = "consensus/internal/p2p/conn/protoio.go"
+lines = 61
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: WriteSizedMsg, ReadSizedMsg, UnmarshalSizedProto."
+
+[file.010]
+path = "consensus/internal/p2p/conn/secret_connection.go"
+lines = 317
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: newAsyncMutex, Lock, newSendState, newRecvState, Challenge, newSecretConnection, MakeSecretConnection, Write."
+
+[file.011]
+path = "consensus/internal/p2p/conn/secret_connection_test.go"
+lines = 285
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: TestSecretConnectionHandshake, TestConcurrentReadWrite, TestSecretConnectionReadWrite, TestDeriveSecretsAndChallengeGolden, writeLots, readLots, createGoldenTestVectors, spawnBgForTest."
+
+[file.012]
+path = "consensus/internal/p2p/conn/testonly.go"
+lines = 111
+verdict = "clean"
+note = "Connection framing, channel IDs, authenticated handshakes, bounded receive and cancellation reviewed at both ends. Maximum channel-envelope disagreement is separately recorded. Declarations reviewed: capacity, push, pop, Read, Write, Flush, Close, LocalAddr."
+
+[file.013]
+path = "consensus/internal/p2p/conn_tracker.go"
+lines = 70
+verdict = "issues"
+note = "Per-IP connection/reconnect admission and disconnect lifecycle reviewed; idle reconnect-history growth is separately recorded. Declarations reviewed: newConnTracker, Len, AddConn, RemoveConn."
+
+[file.014]
+path = "consensus/internal/p2p/conn_tracker_test.go"
+lines = 85
+verdict = "clean"
+note = "Per-IP connection/reconnect admission and disconnect lifecycle reviewed; idle reconnect-history growth is separately recorded. Declarations reviewed: randLocalAddr, TestConnTracker."
+
+[file.015]
+path = "consensus/internal/p2p/conv.go"
+lines = 151
+verdict = "clean"
+note = "Wire conversion, optional fields and typed channel errors compared with consumers and conversion fixtures. Declarations reviewed: String, GoString, NodePublicKeyFromString, MarshalText, UnmarshalText, Bytes."
+
+[file.016]
+path = "consensus/internal/p2p/conv_test.go"
+lines = 65
+verdict = "clean"
+note = "Wire conversion, optional fields and typed channel errors compared with consumers and conversion fixtures. Declarations reviewed: TestHandshakeMsgConv, TestNodePublicKeyFromString, TestNodePublicKeyFromString_Invalid."
+
+[file.017]
+path = "consensus/internal/p2p/errors.go"
+lines = 177
+verdict = "clean"
+note = "Wire conversion, optional fields and typed channel errors compared with consumers and conversion fixtures. Declarations reviewed: Error, Addr, IsAuthFailure, IsDuplicate, IsFiltered, IsIncompatible, IsNodeInfoInvalid."
+
+[file.018]
+path = "consensus/internal/p2p/giga/api.go"
+lines = 76
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: kB, MB, API."
+
+[file.019]
+path = "consensus/internal/p2p/giga/api.proto"
+lines = 60
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: LaneReq, LaneResp, LaneQCsResp, ConsensusResp, PingReq, PingResp, LaneVote, LaneProposal."
+
+[file.020]
+path = "consensus/internal/p2p/giga/avail.go"
+lines = 252
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: serverStreamLaneProposals, serverStreamLaneVotes, serverStreamAppVotes, serverStreamAppQCs, serverStreamCommitQCs, clientStreamLaneProposals, clientStreamLaneVotes, clientStreamCommitQCs."
+
+[file.021]
+path = "consensus/internal/p2p/giga/avail_test.go"
+lines = 95
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: TestAvailClientServer."
+
+[file.022]
+path = "consensus/internal/p2p/giga/consensus.go"
+lines = 141
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: clientPing, clientConsensus, serverPing, serverConsensus."
+
+[file.023]
+path = "consensus/internal/p2p/giga/consensus_test.go"
+lines = 82
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: TestConsensusClientServer."
+
+[file.024]
+path = "consensus/internal/p2p/giga/data.go"
+lines = 183
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: clientStreamFullCommitQCs, clientGetBlock, runBlockFetcher, serverStreamFullCommitQCs, serverGetBlock."
+
+[file.025]
+path = "consensus/internal/p2p/giga/data_test.go"
+lines = 141
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: defaultViewTimeout, newTestNode, Run, newTestEnv, AddNode, TestDataClientServer."
+
+[file.026]
+path = "consensus/internal/p2p/giga/pb/api.wireguard.go"
+lines = 86
+verdict = "generated"
+note = "Generated wireguard schemas from consensus/internal/p2p/giga/api.proto; generator banner retained. Field numbers and widths compared with typed RPC producers/consumers; generated verdict records provenance."
+
+[file.027]
+path = "consensus/internal/p2p/giga/pool.go"
+lines = 88
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: Run, NewPool, InsertAndRun, RunForEach."
+
+[file.028]
+path = "consensus/internal/p2p/giga/service.go"
+lines = 52
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: NewService, Run, RunServer, RunClient."
+
+[file.029]
+path = "consensus/internal/p2p/giga/types.go"
+lines = 162
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: StreamLaneProposalsReq, StreamAppQCsResp, GetBlockReq, StreamFullCommitQCsReq."
+
+[file.030]
+path = "consensus/internal/p2p/giga/types_test.go"
+lines = 40
+verdict = "clean"
+note = "Autobahn typed RPC/schema fields, availability/consensus/data streams, pruning and cancellation reviewed. TryBlock currently returns only ErrNotFound or ErrPruned; optional block responses agree with those states. Declarations reviewed: TestConv, firstErr."
+
+[file.031]
+path = "consensus/internal/p2p/giga_router.go"
+lines = 559
+verdict = "clean"
+note = "Finalized-block metadata, NewBlockHeader/Tx publication and retained-height lookup reviewed. Events follow saved FinalizeBlock responses; router/eventbus tests exercise actual transport. Declarations reviewed: String, NewGigaRouter, SetEventBus, InsertTx, Mempool, LastCommittedBlockNumber, EarliestBlockNumber, MaxGasEstimatedPerBlock."
+
+[file.032]
+path = "consensus/internal/p2p/giga_router_earliest_test.go"
+lines = 149
+verdict = "clean"
+note = "Finalized-block metadata, NewBlockHeader/Tx publication and retained-height lookup reviewed. Events follow saved FinalizeBlock responses; router/eventbus tests exercise actual transport. Declarations reviewed: TestGigaRouterEarliestBlockNumberFollowsPruning."
+
+[file.033]
+path = "consensus/internal/p2p/giga_router_events_test.go"
+lines = 176
+verdict = "clean"
+note = "Finalized-block metadata, NewBlockHeader/Tx publication and retained-height lookup reviewed. Events follow saved FinalizeBlock responses; router/eventbus tests exercise actual transport. Declarations reviewed: runGigaRouterEventTest, TestGigaRouterPublishesNewBlockHeaderEvents, TestGigaRouterPublishesTxEvents."
+
+[file.034]
+path = "consensus/internal/p2p/giga_router_test.go"
+lines = 682
+verdict = "clean"
+note = "Finalized-block metadata, NewBlockHeader/Tx publication and retained-height lookup reviewed. Events follow saved FinalizeBlock responses; router/eventbus tests exercise actual transport. Declarations reviewed: testAppStateJSON, newTestApp, GetValidators, Info, CheckTx, InitChain, FinalizeBlock, Commit."
+
+[file.035]
+path = "consensus/internal/p2p/handshake.go"
+lines = 109
+verdict = "clean"
+note = "Node-info exchange and authenticated peer-ID comparison reviewed before transport admission. Declarations reviewed: handshake, exchangeNodeInfo."
+
+[file.036]
+path = "consensus/internal/p2p/metrics.go"
+lines = 95
+verdict = "clean"
+note = "Peer metric labels and registration checked against router connection lifecycle; no retired service endpoint introduced. Declarations reviewed: ValueToMetricLabel, newMetricsLabelCache."
+
+[file.037]
+path = "consensus/internal/p2p/metrics_test.go"
+lines = 20
+verdict = "clean"
+note = "Peer metric labels and registration checked against router connection lifecycle; no retired service endpoint introduced. Declarations reviewed: TestValueToMetricsLabel."
+
+[file.038]
+path = "consensus/internal/p2p/mux/mux.go"
+lines = 476
+verdict = "clean"
+note = "Multiplex framing, stream sequence, close/cancel and protobuf agreement reviewed at sender and receiver. Declarations reviewed: newRunner, getOrAccept, newConnectStream, tryPrune, runSend, runRecv, Run, Get."
+
+[file.039]
+path = "consensus/internal/p2p/mux/mux.proto"
+lines = 34
+verdict = "clean"
+note = "Multiplex framing, stream sequence, close/cancel and protobuf agreement reviewed at sender and receiver. Declarations reviewed: StreamKindConfig, Handshake, Header."
+
+[file.040]
+path = "consensus/internal/p2p/mux/mux_test.go"
+lines = 770
+verdict = "clean"
+note = "Multiplex framing, stream sequence, close/cancel and protobuf agreement reviewed at sender and receiver. Declarations reviewed: transform, runServer, StreamingClient, SynchronousClient, BlockedClient, Run, makeMux, runClients."
+
+[file.041]
+path = "consensus/internal/p2p/mux/stream.go"
+lines = 156
+verdict = "clean"
+note = "Multiplex framing, stream sequence, close/cancel and protobuf agreement reviewed at sender and receiver. Declarations reviewed: maxSendMsgSize, open, Send, close, Close, Recv."
+
+[file.042]
+path = "consensus/internal/p2p/mux/stream_state.go"
+lines = 127
+verdict = "clean"
+note = "Multiplex framing, stream sequence, close/cancel and protobuf agreement reviewed at sender and receiver. Declarations reviewed: isConnect, streamIDFromRemote, newStreamState, RemoteOpen, RemoteClose, RemoteWindowEnd, RemotePayloadSize, RemotePayload."
+
+[file.043]
+path = "consensus/internal/p2p/p2p.proto"
+lines = 49
+verdict = "clean"
+note = "Multiplex framing, stream sequence, close/cancel and protobuf agreement reviewed at sender and receiver. Declarations reviewed: PacketPing, PacketPong, PacketMsg, Packet, NodePublicKey, Preface, Handshake."
+
+[file.044]
+path = "consensus/internal/p2p/peerdb.go"
+lines = 197
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: peerDBRowFromProto, peerDBRowFromBytes, ToProto, keyPeerInfo, keyPeerInfoRange, Compare, newPeerDB, Close."
+
+[file.045]
+path = "consensus/internal/p2p/peerdb_test.go"
+lines = 74
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: justKeys, toMap, truncate, TestPeerDB."
+
+[file.046]
+path = "consensus/internal/p2p/peermanager.go"
+lines = 381
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: connID, GetAny, GetAll, poolByID, LogState, newPeerManager, Conns, PushPex."
+
+[file.047]
+path = "consensus/internal/p2p/peermanager_pool.go"
+lines = 343
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: pNodeID, newPexEntry, ClearSearched, All, newPoolManager, setDialing, toUpgrade, TryStartDial."
+
+[file.048]
+path = "consensus/internal/p2p/peermanager_pool_test.go"
+lines = 513
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: inPoolAll, opt, toSet, minBy, TestPoolManager_TryStartDial_MaxOut, TestPoolManager_MaxOutZero, TestPoolManager_DialFailed, TestPoolManager_ConnectDisconnect."
+
+[file.049]
+path = "consensus/internal/p2p/peermanager_test.go"
+lines = 547
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: makeKey, makeNodeID, makeAddrFor, makeAddr, makeConnFor, makeConnTo, makeConn, Closed."
+
+[file.050]
+path = "consensus/internal/p2p/peermanager_updates.go"
+lines = 60
+verdict = "clean"
+note = "Persisted peer database, retry/pool selection and subscription lifecycle reviewed against restart and connection transitions. Declarations reviewed: Recv, Subscribe."
+
+[file.051]
+path = "consensus/internal/p2p/pex/doc.go"
+lines = 29
+verdict = "issues"
+note = "PEX URL advertisement, response-count and per-peer rate bounds, fixed polling and peer-down cleanup reviewed. Package prose drift is separately recorded."
+
+[file.052]
+path = "consensus/internal/p2p/pex/reactor.go"
+lines = 213
+verdict = "clean"
+note = "PEX URL advertisement, response-count and per-peer rate bounds, fixed polling and peer-down cleanup reviewed. Package prose drift is separately recorded. Declarations reviewed: ChannelDescriptor, NewReactor, Run, OnStart, OnStop, wrap, sendRoutine, processPexCh."
+
+[file.053]
+path = "consensus/internal/p2p/pex/reactor_test.go"
+lines = 342
+verdict = "clean"
+note = "PEX URL advertisement, response-count and per-peer rate bounds, fixed polling and peer-down cleanup reviewed. Package prose drift is separately recorded. Declarations reviewed: TestReactorBasic, TestReactorConnectFullNetwork, TestReactorSendsRequestsTooOften, TestReactorSendsResponseWithoutRequest, TestReactorErrorsOnReceivingTooManyPeers, setupNetwork, start, listenFor."
+
+[file.054]
+path = "consensus/internal/p2p/router.go"
+lines = 448
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: getChannelDescs, NewRouter, Endpoint, WaitForStart, AddAddrs, Subscribe, Connected, Advertise."
+
+[file.055]
+path = "consensus/internal/p2p/router_test.go"
+lines = 887
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: handshakeV2, makeChDesc, echoReactor, TestRouter_Network, TestRouter_Channel_Basic, TestRouter_SendReceive, TestRouter_Channel_Broadcast, TestRouter_SendError."
+
+[file.056]
+path = "consensus/internal/p2p/routeroptions.go"
+lines = 173
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: Error, maxAccepts, maxOutbound, maxInbound, peerStoreInterval, Validate, maxDialRate, maxAcceptRate."
+
+[file.057]
+path = "consensus/internal/p2p/rpc/rpc.go"
+lines = 142
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: muxServerConfig, muxClientConfig, Register, NewServer, Run, NewClient, Call."
+
+[file.058]
+path = "consensus/internal/p2p/rqueue.go"
+lines = 174
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: newWithIdx, newByMin, Less, Len, Swap, Push, Pop, newByMax."
+
+[file.059]
+path = "consensus/internal/p2p/rqueue_test.go"
+lines = 78
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: TestQueuePruning, TestQueueConcurrency."
+
+[file.060]
+path = "consensus/internal/p2p/testonly.go"
+lines = 439
+verdict = "issues"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: NodeInSlice, TestAddress, MakeTestNetwork, Nodes, ConnectCycle, Start, NodeIDs, TestMakeChannels."
+
+[file.061]
+path = "consensus/internal/p2p/transport.go"
+lines = 165
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: toChannelIDs, Contains, Info, connSendRoutine, connRecvRoutine, runConn, String, LocalEndpoint."
+
+[file.062]
+path = "consensus/internal/p2p/transport_test.go"
+lines = 300
+verdict = "clean"
+note = "Router channel registration, receive/send shutdown, eviction, RPC cancellation and transport proofs reviewed. Multi-update helper defect is separately recorded. Declarations reviewed: makeInfo, TestRouter_MaxConcurrentAccepts, TestRouter_Listen, TestHandshake_NodeInfo, TestHandshake_Context, TestRouter_SendReceive_Random, TestEndpoint_NodeAddress, TestEndpoint_Validate."
+
+[file.063]
+path = "engine/deps/store/cachekv.go"
+lines = 196
+verdict = "issues"
+note = "Nested cache writes/deletions, unsafe string ownership, deterministic flush and explicit unsupported iterator/hash errors reviewed. Nil-end range disagreement is separately recorded. Declarations reviewed: NewStore, GetWorkingHash, GetStoreType, getFromCache, Get, Set, Has, Delete."
+
+[file.064]
+path = "engine/deps/store/cachekv_test.go"
+lines = 46
+verdict = "clean"
+note = "Nested cache writes/deletions, unsafe string ownership, deterministic flush and explicit unsupported iterator/hash errors reviewed. Nil-end range disagreement is separately recorded. Declarations reviewed: TestIteratorPanicsWithSentinel, TestWorkingHashFailsWithSentinel, TestIteratorPanicDetectableViaErrorsIs."
+
+[file.065]
+path = "engine/deps/store/string.go"
+lines = 26
+verdict = "clean"
+note = "Nested cache writes/deletions, unsafe string ownership, deterministic flush and explicit unsupported iterator/hash errors reviewed. Nil-end range disagreement is separately recorded. Declarations reviewed: UnsafeStrToBytes, UnsafeBytesToStr."
+
+[file.066]
+path = "engine/deps/tasks/scheduler.go"
+lines = 600
+verdict = "issues"
+note = "OCC dependency/retry, execution/validation, synchronous fallback and context lifecycle reviewed. Stranded canceled queued work is separately recorded. Declarations reviewed: AppendDependencies, IsStatus, SetStatus, Reset, Increment, NewScheduler, invalidateTask, start."
+
+[file.067]
+path = "engine/deps/testutil/fuzzing/cosmos.go"
+lines = 19
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: FuzzDec, FuzzCoin."
+
+[file.068]
+path = "engine/deps/testutil/keeper/epoch.go"
+lines = 56
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: TestApp, EpochKeeper."
+
+[file.069]
+path = "engine/deps/testutil/keeper/evm.go"
+lines = 133
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: MockApp, MockEVMKeeper, MockEVMKeeperPrecompiles, MockAddressPair, MockPrivateKey, PrivateKeyToAddresses, UhpxCoins, WaitForReceipt."
+
+[file.070]
+path = "engine/deps/testutil/network/network.go"
+lines = 97
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: Get, New, DefaultConfig."
+
+[file.071]
+path = "engine/deps/testutil/nullify/nullify.go"
+lines = 57
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: Fill."
+
+[file.072]
+path = "engine/deps/testutil/processblock/common.go"
+lines = 165
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: NewTestApp, Ctx, RunBlock, GetVotes, GetAllValidators, GetProposer, GenerateSignableKey, GenerateRandomPubKey."
+
+[file.073]
+path = "engine/deps/testutil/processblock/genesisacc.go"
+lines = 19
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: NewAccount, NewSignableAccount."
+
+[file.074]
+path = "engine/deps/testutil/processblock/genesisepoch.go"
+lines = 9
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: FastEpoch."
+
+[file.075]
+path = "engine/deps/testutil/processblock/genesismint.go"
+lines = 19
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: NewMinter."
+
+[file.076]
+path = "engine/deps/testutil/processblock/genesisstaking.go"
+lines = 56
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: NewValidator, NewDelegation."
+
+[file.077]
+path = "engine/deps/testutil/processblock/genesiswasm.go"
+lines = 30
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: NewContract."
+
+[file.078]
+path = "engine/deps/testutil/processblock/presets.go"
+lines = 53
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: CommonPreset, AdminSign."
+
+[file.079]
+path = "engine/deps/testutil/processblock/tx.go"
+lines = 89
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: Sign, GetKey."
+
+[file.080]
+path = "engine/deps/testutil/processblock/verify/common.go"
+lines = 23
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: removeMatched."
+
+[file.081]
+path = "engine/deps/testutil/processblock/verify/distribution.go"
+lines = 89
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: Allocation, getOutstandingRewards."
+
+[file.082]
+path = "engine/deps/testutil/processblock/verify/epoch.go"
+lines = 21
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: Epoch."
+
+[file.083]
+path = "engine/deps/testutil/processblock/verify/mint.go"
+lines = 40
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: MintRelease."
+
+[file.084]
+path = "engine/deps/testutil/sample/sample.go"
+lines = 13
+verdict = "clean"
+note = "Real app/keeper fixtures, genesis presets, signed transactions, populated block headers and state verification reviewed. No retired daemon or replacement transport is required. Declarations reviewed: AccAddress."
+
+[file.085]
+path = "engine/deps/xbank/exported/exported.go"
+lines = 12
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: GenesisBalance."
+
+[file.086]
+path = "engine/deps/xbank/keeper/deferred_cache.go"
+lines = 126
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: NewDeferredCache, getModuleTxIndexedStore, GetBalance, setBalance, upsertBalance, UpsertBalances, IterateDeferredBalances, Clear."
+
+[file.087]
+path = "engine/deps/xbank/keeper/deferred_cache_test.go"
+lines = 85
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: TestDeferredCacheUpsertBalances."
+
+[file.088]
+path = "engine/deps/xbank/keeper/genesis.go"
+lines = 83
+verdict = "issues"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: InitGenesis, ExportGenesis."
+
+[file.089]
+path = "engine/deps/xbank/keeper/genesis_test.go"
+lines = 33
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: getTestBalancesAndSupply, TestInitGenesis."
+
+[file.090]
+path = "engine/deps/xbank/keeper/keeper.go"
+lines = 630
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: NewBaseKeeper, NewBaseKeeperWithDeferredCache, WithMintCoinsRestriction, DelegateCoins, UndelegateCoins, GetSupply, HasSupply, GetDenomMetaData."
+
+[file.091]
+path = "engine/deps/xbank/keeper/keeper_test.go"
+lines = 841
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: newFooCoin, newFactoryFooCoin, newBarCoin, initKeepersWithmAccPerms, SetupTest, TestSendCoinsAndWei, TestSendCoinsFromModuleToAccount_Blocklist, TestSupply_SendCoins."
+
+[file.092]
+path = "engine/deps/xbank/keeper/send.go"
+lines = 632
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: NewBaseSendKeeper, GetParams, SetParams, InputOutputCoins, SendCoins, SendCoinsWithoutAccCreation, sendCoinsWithoutAccCreation, SubUnlockedCoins."
+
+[file.093]
+path = "engine/deps/xbank/keeper/send_enabled_checker_test.go"
+lines = 142
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: setupSendEnabledCheckerTest, TestSendEnabledCheckerRefusesDisabledDenom, TestSendEnabledCheckerAllowsOtherDenoms."
+
+[file.094]
+path = "engine/deps/xbank/keeper/send_test.go"
+lines = 21
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: TestBlockedAddr."
+
+[file.095]
+path = "engine/deps/xbank/keeper/view.go"
+lines = 125
+verdict = "clean"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: NewBaseViewKeeper, GetKVStore, HasBalance, GetBalance, LockedCoins, SpendableCoins, getAccountStore, GetWeiBalance."
+
+[file.096]
+path = "engine/deps/xbank/keeper/view_test.go"
+lines = 52
+verdict = "issues"
+note = "Bank wiring, deferred balances, vesting/view access and coin/wei sends reviewed. Shared canonical stores and both registered tokenfactory send-check paths agree; genesis/view-proof defects are separately recorded. Declarations reviewed: TestViewKeeperStoreTrace."
+
+[file.097]
+path = "engine/deps/xbank/types/balance.go"
+lines = 90
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: GetAddress, GetCoins, Validate, Len, Less, Swap, SanitizeGenesisBalances, IterateGenesisBalances."
+
+[file.098]
+path = "engine/deps/xbank/types/balance_test.go"
+lines = 216
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: TestBalanceValidate, TestBalance_GetAddress, TestSanitizeBalances, makeRandomAddressesAndPublicKeys, BenchmarkSanitizeBalances500, BenchmarkSanitizeBalances1000, benchmarkSanitizeBalances."
+
+[file.099]
+path = "engine/deps/xbank/types/codec.go"
+lines = 32
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: RegisterLegacyAminoCodec, RegisterInterfaces, init."
+
+[file.100]
+path = "engine/deps/xbank/types/descriptor_registry_test.go"
+lines = 121
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: TestXbankDescriptorsLeaveCosmosBank."
+
+[file.101]
+path = "engine/deps/xbank/types/errors.go"
+lines = 15
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded."
+
+[file.102]
+path = "engine/deps/xbank/types/events.go"
+lines = 89
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: NewCoinSpentEvent, NewCoinReceivedEvent, NewWeiSpentEvent, NewWeiReceivedEvent, NewCoinMintEvent, NewCoinBurnEvent."
+
+[file.103]
+path = "engine/deps/xbank/types/expected_keepers.go"
+lines = 28
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: AccountKeeper."
+
+[file.104]
+path = "engine/deps/xbank/types/genesis.go"
+lines = 119
+verdict = "issues"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: Validate, getTotalSupply, SplitUhpxWeiAmount, NewGenesisState, DefaultGenesisState, GetGenesisStateFromAppState."
+
+[file.105]
+path = "engine/deps/xbank/types/genesis_test.go"
+lines = 159
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: TestGenesisStateValidate."
+
+[file.106]
+path = "engine/deps/xbank/types/key.go"
+lines = 111
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: DenomMetadataKey, DenomAllowListKey, AddressFromBalancesStore, CreateAccountBalancesPrefix, CreateAccountBalancesPrefixFromBech32, CreatePrefixedAccountStoreKey, CreateDeferredCacheModulePrefix, CreateDeferredCacheModuleTxIndexedPrefix."
+
+[file.107]
+path = "engine/deps/xbank/types/key_test.go"
+lines = 57
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: cloneAppend, TestAddressFromBalancesStore."
+
+[file.108]
+path = "engine/deps/xbank/types/metadata.go"
+lines = 100
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: Validate."
+
+[file.109]
+path = "engine/deps/xbank/types/metadata_test.go"
+lines = 274
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: TestMetadataValidate, TestMarshalJSONMetaData."
+
+[file.110]
+path = "engine/deps/xbank/types/msgs.go"
+lines = 87
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: ValidateBasic, NewInput, NewOutput, ValidateInputsOutputs."
+
+[file.111]
+path = "engine/deps/xbank/types/params.go"
+lines = 142
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: ParamKeyTable, NewParams, DefaultParams, Validate, String, SendEnabledDenom, SetSendEnabledParam, ParamSetPairs."
+
+[file.112]
+path = "engine/deps/xbank/types/params_test.go"
+lines = 125
+verdict = "clean"
+note = "Bank address/coin/metadata validation, prefix encodings, canonical error aliases and distinct gigabank descriptors reviewed. Wei genesis validation omissions are separately recorded. Declarations reviewed: Test_validateSendEnabledParam, Test_sendParamEqual, Test_sendParamString, Test_validateParams."
+
+[file.113]
+path = "engine/deps/xevm/config/chain_binding_test.go"
+lines = 28
+verdict = "clean"
+note = "Canonical chain-ID binding and derived transaction fields reviewed; chain 125 matches merged-network identity and unknown-chain behavior is explicit. Declarations reviewed: TestExecutionAndRPCChainBindingsAgree."
+
+[file.114]
+path = "engine/deps/xevm/config/config.go"
+lines = 41
+verdict = "clean"
+note = "Canonical chain-ID binding and derived transaction fields reviewed; chain 125 matches merged-network identity and unknown-chain behavior is explicit. Declarations reviewed: GetEVMChainID, GetVersionWthDefault, IsLiveChainID, IsLiveEVMChainID."
+
+[file.115]
+path = "engine/deps/xevm/config/config_test.go"
+lines = 307
+verdict = "clean"
+note = "Canonical chain-ID binding and derived transaction fields reviewed; chain 125 matches merged-network identity and unknown-chain behavior is explicit. Declarations reviewed: TestGetEVMChainID, TestGetVersionWthDefault, TestIsLiveChainID, TestIsLiveEVMChainID, TestChainIDMappingConsistency, TestGetEVMChainID_ReturnsNewInstance, TestGetVersionWthDefault_EdgeCases."
+
+[file.116]
+path = "engine/deps/xevm/derived/derived.go"
+lines = 33
+verdict = "clean"
+note = "Canonical chain-ID binding and derived transaction fields reviewed; chain 125 matches merged-network identity and unknown-chain behavior is explicit. Declarations reviewed: Marshal, MarshalTo, Unmarshal, Size, MarshalJSON, UnmarshalJSON."
+
+[file.117]
+path = "engine/deps/xevm/keeper/address.go"
+lines = 106
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: SetAddressMapping, DeleteAddressMapping, GetEVMAddress, GetEVMAddressOrDefault, GetPaxAddress, GetPaxAddressOrDefault, IteratePaxAddressMapping, CanAddressReceive."
+
+[file.118]
+path = "engine/deps/xevm/keeper/address_test.go"
+lines = 149
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestSetGetAddressMapping, TestDeleteAddressMapping, TestGetAddressOrDefault, TestSendingToCastAddress, TestEvmAddressHandler_GetPaxAddressFromString."
+
+[file.119]
+path = "engine/deps/xevm/keeper/ante.go"
+lines = 30
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: AddAnteSurplus, GetAnteSurplusSum."
+
+[file.120]
+path = "engine/deps/xevm/keeper/balance.go"
+lines = 17
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetBalance."
+
+[file.121]
+path = "engine/deps/xevm/keeper/code.go"
+lines = 70
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetCode, SetCode, GetCodeHash, GetCodeSize, IterateAllCode."
+
+[file.122]
+path = "engine/deps/xevm/keeper/code_test.go"
+lines = 54
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestCode, TestNilCode, TestGetCodeHashWithNonceButZeroBalance."
+
+[file.123]
+path = "engine/deps/xevm/keeper/coinbase.go"
+lines = 37
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetFeeCollectorAddress, GetCoinbaseAddress."
+
+[file.124]
+path = "engine/deps/xevm/keeper/coinbase_test.go"
+lines = 21
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestGetFeeCollectorAddress, TestGetCoinbaseAddress."
+
+[file.125]
+path = "engine/deps/xevm/keeper/deferred.go"
+lines = 85
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetAllEVMTxDeferredInfo, AppendToEvmTxDeferredInfo, GetEVMTxDeferredInfo."
+
+[file.126]
+path = "engine/deps/xevm/keeper/fee.go"
+lines = 116
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: AdjustDynamicBaseFeePerGas, GetCurrBaseFeePerGas, SetCurrBaseFeePerGas, SetNextBaseFeePerGas, GetNextBaseFeePerGas."
+
+[file.127]
+path = "engine/deps/xevm/keeper/fee_test.go"
+lines = 213
+verdict = "issues"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestBaseFeePerGas, TestAdjustBaseFeePerGas, TestGetDynamicBaseFeePerGasWithNilMinFee, TestGetPrevBlockBaseFeePerGasWithNilMinFee."
+
+[file.128]
+path = "engine/deps/xevm/keeper/genesis.go"
+lines = 23
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: InitGenesis."
+
+[file.129]
+path = "engine/deps/xevm/keeper/keeper.go"
+lines = 490
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: Engine, GetHeader, Config, NewKeeper, SetCustomPrecompiles, CustomPrecompiles, GetCustomPrecompilesVersions, AccountKeeper."
+
+[file.130]
+path = "engine/deps/xevm/keeper/keeper_test.go"
+lines = 319
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestPurgePrefixNotHang, TestGetChainID, TestGetVMBlockContext, TestGetHashFn, TestKeeper_CalculateNextNonce, TestDeferredInfo, TestAddPendingNonce, mockEVMTransactionMessage."
+
+[file.131]
+path = "engine/deps/xevm/keeper/log.go"
+lines = 113
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetBlockBloom, GetEvmOnlyBlockBloom, GetLegacyBlockBloom, SetEvmOnlyBlockBloom, SetBlockBloom, BloomsToBytes, SetLegacyBlockBloomCutoffHeight, GetLegacyBlockBloomCutoffHeight."
+
+[file.132]
+path = "engine/deps/xevm/keeper/log_test.go"
+lines = 214
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestConvertEthLog, TestGetLogsForTx, TestLegacyBlockBloomCutoffHeight, TestSetEvmOnlyBlockBloom_OptimisedMatchesOriginal, BenchmarkSetEvmOnlyBlockBloom_Original, BenchmarkSetEvmOnlyBlockBloom_Optimised, makeBenchBlooms, setEvmOnlyBlockBloomOriginal."
+
+[file.133]
+path = "engine/deps/xevm/keeper/nonce.go"
+lines = 35
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetNonce, SetNonce, IterateAllNonces."
+
+[file.134]
+path = "engine/deps/xevm/keeper/nonce_test.go"
+lines = 16
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestNonce."
+
+[file.135]
+path = "engine/deps/xevm/keeper/params.go"
+lines = 265
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: SetParams, GetParams, GetParamsPreV580, GetParamsPreV600, GetParamsPreV601, GetParamsPreV606, GetParamsIfExists, GetParamsPreV580IfExists."
+
+[file.136]
+path = "engine/deps/xevm/keeper/params_test.go"
+lines = 114
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestParams, TestGetParamsIfExists, TestParamGettersTracingVersions."
+
+[file.137]
+path = "engine/deps/xevm/keeper/precompile.go"
+lines = 26
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: IsPayablePrecompile."
+
+[file.138]
+path = "engine/deps/xevm/keeper/precompile_test.go"
+lines = 29
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: toAddr, TestIsPayablePrecompile."
+
+[file.139]
+path = "engine/deps/xevm/keeper/receipt.go"
+lines = 197
+verdict = "issues"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: SetTransientReceipt, GetTransientReceipt, DeleteTransientReceipt, GetReceipt, GetReceiptFromReceiptStore, GetReceiptWithRetry, MockReceipt, convertReceipt."
+
+[file.140]
+path = "engine/deps/xevm/keeper/receipt_test.go"
+lines = 90
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestReceipt, TestDeleteTransientReceipt, TestWriteReceiptStoresMsgGasPriceAsEffectiveGasPrice."
+
+[file.141]
+path = "engine/deps/xevm/keeper/state.go"
+lines = 37
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: GetState, SetState, IterateState."
+
+[file.142]
+path = "engine/deps/xevm/keeper/state_test.go"
+lines = 31
+verdict = "clean"
+note = "EVM keeper code/nonce/storage keys, association, fee parameters, precompile gates and committed/legacy receipt storage reviewed. Retry and fee-fixture defects are separately recorded. Declarations reviewed: TestState."
+
+[file.143]
+path = "engine/deps/xevm/state/accesslist.go"
+lines = 95
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: AddressInAccessList, SlotInAccessList, AddAddressToAccessList, AddSlotToAccessList, Prepare, getCurrentAccessList."
+
+[file.144]
+path = "engine/deps/xevm/state/accesslist_test.go"
+lines = 153
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestAddAddressToAccessList, TestAddSlotToAccessList, TestAddSlotToAccessListWithNonExistentAddress, TestPrepare, addAndCheckSlot, TestDuplicateSlotsInAccessListRevert."
+
+[file.145]
+path = "engine/deps/xevm/state/balance.go"
+lines = 154
+verdict = "issues"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: SubBalance, AddBalance, GetBalance, SetBalance, getPaxAddress, send."
+
+[file.146]
+path = "engine/deps/xevm/state/balance_test.go"
+lines = 121
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestAddBalance, TestSubBalance, TestSetBalance, TestSurplus."
+
+[file.147]
+path = "engine/deps/xevm/state/check.go"
+lines = 35
+verdict = "issues"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: Exist, Empty."
+
+[file.148]
+path = "engine/deps/xevm/state/check_test.go"
+lines = 59
+verdict = "issues"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestExist, TestEmpty."
+
+[file.149]
+path = "engine/deps/xevm/state/code.go"
+lines = 31
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: GetCodeHash, GetCode, SetCode, GetCodeSize."
+
+[file.150]
+path = "engine/deps/xevm/state/code_test.go"
+lines = 29
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestCode."
+
+[file.151]
+path = "engine/deps/xevm/state/expected_keepers.go"
+lines = 33
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: EVMKeeper."
+
+[file.152]
+path = "engine/deps/xevm/state/journal.go"
+lines = 124
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: revert."
+
+[file.153]
+path = "engine/deps/xevm/state/journal_test.go"
+lines = 109
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestAccessListAddAccountChangeRevert, TestAccessListAddSlotChangeRevert, TestSurplusChangeRevert, TestAddLogChangeRevert, TestRefundChangeRevert, TestTransientStorageChangeRevert_Delete, TestTransientStorageChangeRevert_Update, TestWatermarkRevert."
+
+[file.154]
+path = "engine/deps/xevm/state/keys.go"
+lines = 23
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded."
+
+[file.155]
+path = "engine/deps/xevm/state/log.go"
+lines = 34
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: AddLog, GetAllLogs, GetLogs, Logs."
+
+[file.156]
+path = "engine/deps/xevm/state/log_test.go"
+lines = 52
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestAddLog, TestLogIndex."
+
+[file.157]
+path = "engine/deps/xevm/state/mock_balances.go"
+lines = 71
+verdict = "issues"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: ensureMinimumBalance, ensureSufficientBalance, topOffAccount."
+
+[file.158]
+path = "engine/deps/xevm/state/mock_balances_noop.go"
+lines = 15
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: ensureMinimumBalance, ensureSufficientBalance."
+
+[file.159]
+path = "engine/deps/xevm/state/nonce.go"
+lines = 19
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: GetNonce, SetNonce."
+
+[file.160]
+path = "engine/deps/xevm/state/nonce_test.go"
+lines = 56
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestNonce, TestSetNonceCallsV2Logger."
+
+[file.161]
+path = "engine/deps/xevm/state/refund.go"
+lines = 36
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: AddRefund, SubRefund, GetRefund."
+
+[file.162]
+path = "engine/deps/xevm/state/refund_test.go"
+lines = 23
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestGasRefund."
+
+[file.163]
+path = "engine/deps/xevm/state/state.go"
+lines = 234
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: CreateAccount, GetCommittedState, GetState, getState, SetState, GetTransientState, SetTransientState, SelfDestruct."
+
+[file.164]
+path = "engine/deps/xevm/state/state_test.go"
+lines = 300
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestState, TestAnySelfDestructed, TestCreate, TestSelfDestructAssociated, TestEIP6780WithPrefundedAddress, TestSnapshot, TestTransientStorageRevertNilMapPanic."
+
+[file.165]
+path = "engine/deps/xevm/state/statedb.go"
+lines = 330
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: NewDBImpl, DisableEvents, EnableEvents, SetLogger, SetEVM, AddPreimage, Cleanup, CleanupForTracer."
+
+[file.166]
+path = "engine/deps/xevm/state/statedb_interface_test.go"
+lines = 22
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestUnsupportedEthereumTrieCommitFailsClosed, TestUnsupportedIntermediateRootRecordsExecutionError."
+
+[file.167]
+path = "engine/deps/xevm/state/transfer.go"
+lines = 20
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TransferWithoutEvents."
+
+[file.168]
+path = "engine/deps/xevm/state/transfer_test.go"
+lines = 26
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestEventlessTransfer."
+
+[file.169]
+path = "engine/deps/xevm/state/utils.go"
+lines = 27
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: GetCoinbaseAddress, SplitUhpxWeiAmount."
+
+[file.170]
+path = "engine/deps/xevm/state/utils_test.go"
+lines = 52
+verdict = "clean"
+note = "vm.StateDB snapshots/journal rollback, warm/transient state, coin/wei balances, logs and finalization reviewed. Empty-code, prior-balance and tagged-funding defects are separately recorded. Declarations reviewed: TestGetCoinbaseAddress, TestSplitUhpxWeiAmount."
+
+[file.171]
+path = "engine/deps/xevm/types/codec.go"
+lines = 104
+verdict = "issues"
+note = "Gigaevm descriptor/codec separation, canonical chain config and error registration reviewed. Uncached Any decoding disagreement is separately recorded. Declarations reviewed: init, GetAmino, RegisterCodec, RegisterInterfaces, PackTxData, UnpackTxData."
+
+[file.172]
+path = "engine/deps/xevm/types/config.go"
+lines = 79
+verdict = "clean"
+note = "Gigaevm descriptor/codec separation, canonical chain config and error registration reviewed. Uncached Any decoding disagreement is separately recorded. Declarations reviewed: EthereumConfig, EthereumConfigWithSstore, DefaultChainConfig, getUpgradeTimestamp, Validate."
+
+[file.173]
+path = "engine/deps/xevm/types/constants.go"
+lines = 6
+verdict = "clean"
+note = "Gigaevm descriptor/codec separation, canonical chain config and error registration reviewed. Uncached Any decoding disagreement is separately recorded. Declarations reviewed: MaxAssociateCustomMessageLength, ShellEVMTxType."
+
+[file.174]
+path = "engine/deps/xevm/types/descriptor_registry_test.go"
+lines = 186
+verdict = "clean"
+note = "Gigaevm descriptor/codec separation, canonical chain config and error registration reviewed. Uncached Any decoding disagreement is separately recorded. Declarations reviewed: TestXevmDescriptorsDoNotCollideWithModulesEvm."
+
+[file.175]
+path = "engine/deps/xevm/types/errors.go"
+lines = 25
+verdict = "clean"
+note = "Gigaevm descriptor/codec separation, canonical chain config and error registration reviewed. Uncached Any decoding disagreement is separately recorded. Declarations reviewed: NewAssociationMissingErr, Error, AddressType."
+
+[file.176]
+path = "engine/deps/xevm/types/errors_test.go"
+lines = 42
+verdict = "clean"
+note = "Gigaevm descriptor/codec separation, canonical chain config and error registration reviewed. Uncached Any decoding disagreement is separately recorded. Declarations reviewed: TestAssociationMissingErr."
+
+[file.177]
+path = "engine/deps/xevm/types/ethtx/access_list.go"
+lines = 49
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewAccessList, ToEthAccessList."
+
+[file.178]
+path = "engine/deps/xevm/types/ethtx/access_list_test.go"
+lines = 24
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: TestAccessList, mockAccessList."
+
+[file.179]
+path = "engine/deps/xevm/types/ethtx/access_list_tx.go"
+lines = 223
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewAccessListTx, TxType, Copy, GetChainID, GetAccessList, GetData, GetGas, GetGasPrice."
+
+[file.180]
+path = "engine/deps/xevm/types/ethtx/access_list_tx_setter.go"
+lines = 19
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: SetTo, SetAmount, SetGasPrice, SetAccesses."
+
+[file.181]
+path = "engine/deps/xevm/types/ethtx/access_list_tx_test.go"
+lines = 123
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: mockAccessListTransaction, TestAccessListTransaction, TestInvalidAccessListTransaction, TestValidateAccessListTransaction."
+
+[file.182]
+path = "engine/deps/xevm/types/ethtx/associate_tx.go"
+lines = 43
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewAssociateTx, Copy, GetRawSignatureValues, Validate."
+
+[file.183]
+path = "engine/deps/xevm/types/ethtx/auth_list.go"
+lines = 65
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewAuthList, ToEthAuthList."
+
+[file.184]
+path = "engine/deps/xevm/types/ethtx/blob_tx.go"
+lines = 300
+verdict = "issues"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewBlobTx, TxType, Copy, GetChainID, GetAccessList, GetData, GetGas, BlobGas."
+
+[file.185]
+path = "engine/deps/xevm/types/ethtx/blob_tx_setter.go"
+lines = 35
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: SetTo, SetAmount, SetGasFeeCap, SetGasTipCap, SetAccesses, SetBlobFeeCap, SetBlobHashes, SetBlobSidecar."
+
+[file.186]
+path = "engine/deps/xevm/types/ethtx/blob_tx_test.go"
+lines = 140
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: mockBlobTransaction, TestBlobTransaction, TestValidateBlobTransaction."
+
+[file.187]
+path = "engine/deps/xevm/types/ethtx/dynamic_fee_tx.go"
+lines = 242
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewDynamicFeeTx, TxType, Copy, GetChainID, GetAccessList, GetData, GetGas, GetGasPrice."
+
+[file.188]
+path = "engine/deps/xevm/types/ethtx/dynamic_fee_tx_setter.go"
+lines = 23
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: SetTo, SetAmount, SetGasFeeCap, SetGasTipCap, SetAccesses."
+
+[file.189]
+path = "engine/deps/xevm/types/ethtx/dynamic_fee_tx_test.go"
+lines = 140
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: mockDynamicFeeTransaction, TestDynamicFeeTransaction, TestInvalidDynamicFeeTransaction, TestValidateDynamicFeeTransaction."
+
+[file.190]
+path = "engine/deps/xevm/types/ethtx/int.go"
+lines = 12
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: IsValidInt256."
+
+[file.191]
+path = "engine/deps/xevm/types/ethtx/legacy_tx.go"
+lines = 212
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewLegacyTx, TxType, Copy, GetChainID, GetAccessList, GetData, GetGas, GetGasPrice."
+
+[file.192]
+path = "engine/deps/xevm/types/ethtx/legacy_tx_setter.go"
+lines = 15
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: SetTo, SetAmount, SetGasPrice."
+
+[file.193]
+path = "engine/deps/xevm/types/ethtx/legacy_tx_test.go"
+lines = 117
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: mockLegacyTransaction, TestLegacyTransaction, TestInvalidLegacyTransaction, TestValidateLegacyTransaction."
+
+[file.194]
+path = "engine/deps/xevm/types/ethtx/semantic_validation.go"
+lines = 82
+verdict = "issues"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: validateHexAddress, validateHexHash, validateAccessList, validateAuthList, validateSignatureValue."
+
+[file.195]
+path = "engine/deps/xevm/types/ethtx/set_code_tx.go"
+lines = 265
+verdict = "issues"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewSetCodeTx, TxType, Copy, GetChainID, GetAccessList, GetAuthList, GetData, GetGas."
+
+[file.196]
+path = "engine/deps/xevm/types/ethtx/set_code_tx_setter.go"
+lines = 27
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: SetTo, SetAmount, SetGasFeeCap, SetGasTipCap, SetAccesses, SetAuthList."
+
+[file.197]
+path = "engine/deps/xevm/types/ethtx/txdata.go"
+lines = 119
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: NewTxDataFromTx, rawSignatureValues, fee, cost."
+
+[file.198]
+path = "engine/deps/xevm/types/ethtx/utils.go"
+lines = 60
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: EffectiveGasPrice, SetConvertIfPresent, ValidateEthTx, DecodeSignature."
+
+[file.199]
+path = "engine/deps/xevm/types/ethtx/validations.go"
+lines = 19
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: ValidateAddress."
+
+[file.200]
+path = "engine/deps/xevm/types/ethtx/validations_test.go"
+lines = 17
+verdict = "clean"
+note = "Geth/protobuf typed transactions, numeric/address bounds, signature/access/auth encodings, fee units and setters reviewed. Blob/set-code and authorization-domain defects are separately recorded. Declarations reviewed: TestValidateAddress."
+
+[file.201]
+path = "engine/deps/xevm/types/events.go"
+lines = 14
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded."
+
+[file.202]
+path = "engine/deps/xevm/types/genesis.go"
+lines = 27
+verdict = "issues"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: DefaultGenesis, Validate, ValidateStream."
+
+[file.203]
+path = "engine/deps/xevm/types/gov.go"
+lines = 321
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: init, GetTitle, GetDescription, ProposalRoute, ProposalType, ValidateBasic, String."
+
+[file.204]
+path = "engine/deps/xevm/types/gov_test.go"
+lines = 29
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestAddERCNativePointerProposalV2."
+
+[file.205]
+path = "engine/deps/xevm/types/keys.go"
+lines = 169
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: EVMAddressToPaxAddressKey, PaxAddressToEVMAddressKey, StateKey, ReceiptKey, NewTransientReceiptKey, TransactionHash, BlockBloomKey, TxHashesKey."
+
+[file.206]
+path = "engine/deps/xevm/types/keys_test.go"
+lines = 82
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestEVMAddressToPaxAddressKey, TestPaxAddressToEVMAddressKey, TestStateKey, TestBlockBloomKey, TestTransientReceiptKeyTransactionHashExtraction, TestTransientReceiptKeyTransactionIndexSorting."
+
+[file.207]
+path = "engine/deps/xevm/types/logs.go"
+lines = 25
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewLogsFromEth, newLogFromEth."
+
+[file.208]
+path = "engine/deps/xevm/types/message_associate.go"
+lines = 57
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgAssociate, Route, Type, GetSigners, GetSignBytes, ValidateBasic, IsTxMsgAssociate."
+
+[file.209]
+path = "engine/deps/xevm/types/message_associate_contract_address.go"
+lines = 49
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgAssociateContractAddress, Route, Type, GetSigners, GetSignBytes, ValidateBasic."
+
+[file.210]
+path = "engine/deps/xevm/types/message_claim.go"
+lines = 46
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgClaim, Route, Type, GetSigners, GetSignBytes, ValidateBasic."
+
+[file.211]
+path = "engine/deps/xevm/types/message_claim_specific.go"
+lines = 72
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgClaimSpecific, Route, Type, GetSigners, GetSignBytes, ValidateBasic, GetIAssets, IsCW20."
+
+[file.212]
+path = "engine/deps/xevm/types/message_claim_specific_test.go"
+lines = 17
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestAssetType."
+
+[file.213]
+path = "engine/deps/xevm/types/message_claim_test.go"
+lines = 25
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestMsgClaim."
+
+[file.214]
+path = "engine/deps/xevm/types/message_evm_transaction.go"
+lines = 128
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgEVMTransaction, Route, Type, GetSigners, GetSignBytes, ValidateBasic, AsTransaction, UnpackInterfaces."
+
+[file.215]
+path = "engine/deps/xevm/types/message_evm_transaction_test.go"
+lines = 125
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestIsAssociate, TestAssociateEnvelopeIsNotEthereumTransaction, TestMalformedEnvelopeAssociationCheckFailsClosed, TestIsNotAssociate, TestAsTransaction, TestMustGetEVMTransactionMessage, TestMustGetEVMTransactionMessageWrongType, TestMustGetEVMTransactionMessageMultipleMsgs."
+
+[file.216]
+path = "engine/deps/xevm/types/message_internal_evm_call.go"
+lines = 30
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMessageInternalEVMCall, GetSigners, ValidateBasic."
+
+[file.217]
+path = "engine/deps/xevm/types/message_internal_evm_delegate_call.go"
+lines = 31
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMessageInternalEVMDelegateCall, GetSigners, ValidateBasic."
+
+[file.218]
+path = "engine/deps/xevm/types/message_register_pointer.go"
+lines = 58
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgRegisterERC20Pointer, NewMsgRegisterERC721Pointer, NewMsgRegisterERC1155Pointer, Route, Type, GetSigners, GetSignBytes, ValidateBasic."
+
+[file.219]
+path = "engine/deps/xevm/types/message_send.go"
+lines = 54
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: NewMsgSend, Route, Type, GetSigners, GetSignBytes, ValidateBasic."
+
+[file.220]
+path = "engine/deps/xevm/types/message_send_test.go"
+lines = 32
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestMessageSendValidate."
+
+[file.221]
+path = "engine/deps/xevm/types/params.go"
+lines = 293
+verdict = "issues"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: ParamKeyTable, DefaultParams, ParamSetPairs, Validate."
+
+[file.222]
+path = "engine/deps/xevm/types/params_test.go"
+lines = 119
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: TestDefaultParams, TestValidateParamsInvalidPriorityNormalizer, TestValidateParamsNegativeBaseFeePerGas, TestBaseFeeMinimumFee, TestValidateParamsInvalidMaxDynamicBaseFeeUpwardAdjustment, TestValidateParamsInvalidMaxDynamicBaseFeeDownwardAdjustment, TestValidateParamsInvalidDeliverTxHookWasmGasLimit, TestValidateParamsInvalidMaxFeePerGas."
+
+[file.223]
+path = "engine/deps/xevm/types/whitelist.go"
+lines = 12
+verdict = "clean"
+note = "Transaction messages, required authority/identifiers, event/log encodings, parameters and genesis streams reviewed against canonical consumers. Invalid-stream and fee-bound omissions are separately recorded. Declarations reviewed: IsHashInWhiteList."
+
+[file.224]
+path = "engine/executor/config/config.go"
+lines = 57
+verdict = "clean"
+note = "giga_executor.enabled and giga_executor.occ_enabled defaults/names agree with app construction and TOML template; malformed booleans return errors. Declarations reviewed: ReadConfig."
+
+[file.225]
+path = "engine/executor/executor.go"
+lines = 65
+verdict = "clean"
+note = "Authenticated sender conversion, geth/EVMC construction, precompile installation and fee-charged execution reviewed. The live node selects geth. Declarations reviewed: NewEvmoneExecutor, NewGethExecutor, ExecuteTransaction, ExecuteTransactionFeeCharged."
+
+[file.226]
+path = "engine/executor/internal/host_context.go"
+lines = 441
+verdict = "issues"
+note = "Optional EVMC call/code/error/static/storage/gas semantics and tests reviewed. Recorded mismatches require qualification before selecting evmone; live node uses geth. Declarations reviewed: NewHostContextConfig, NewHostContext, BeginSstoreGasAdjustment, addSstoreGasAdjustment, EndSstoreGasAdjustment, AccountExists, GetStorage, SetStorage."
+
+[file.227]
+path = "engine/executor/internal/host_context_test.go"
+lines = 605
+verdict = "issues"
+note = "Optional EVMC call/code/error/static/storage/gas semantics and tests reviewed. Recorded mismatches require qualification before selecting evmone; live node uses geth. Declarations reviewed: TestStorageStatusLogic, computeStorageStatus, TestAccessStatusLogic, TestEvmcAddressConversion, TestEvmcHashConversion, TestTransientStorageLogic, TestCallKindValues, TestAccessStatusValues."
+
+[file.228]
+path = "engine/executor/internal/interpreter.go"
+lines = 168
+verdict = "issues"
+note = "Optional EVMC call/code/error/static/storage/gas semantics and tests reviewed. Recorded mismatches require qualification before selecting evmone; live node uses geth. Declarations reviewed: NewEVMInterpreter, Run, validateHostContext, validateUnsignedWord, ReadOnly."
+
+[file.229]
+path = "engine/executor/internal/interpreter_test.go"
+lines = 521
+verdict = "issues"
+note = "Optional EVMC call/code/error/static/storage/gas semantics and tests reviewed. Recorded mismatches require qualification before selecting evmone; live node uses geth. Declarations reviewed: TestCallKindMapping, TestCodeToExecuteForCreate, TestStaticCallFlag, TestGasAccountingLogic, TestReadOnlyPropagation, TestDepthIncrement, TestMaxDepth, TestDelegatedCallDetection."
+
+[file.230]
+path = "engine/executor/internal/message.go"
+lines = 46
+verdict = "clean"
+note = "Authenticated geth Message conversion preserves access list, blob hashes and 7702 authorizations; nil transaction refusal and effective gas price checked. Declarations reviewed: TransactionToMessage."
+
+[file.231]
+path = "engine/executor/internal/message_test.go"
+lines = 44
+verdict = "clean"
+note = "Authenticated geth Message conversion preserves access list, blob hashes and 7702 authorizations; nil transaction refusal and effective gas price checked. Declarations reviewed: TestTransactionToMessageUsesAuthenticatedSender, TestTransactionToMessageRejectsNilTransaction."
+
+[file.232]
+path = "engine/executor/lib/evmlib.go"
+lines = 28
+verdict = "issues"
+note = "Platform VM artifact names, unsupported platforms and loader lifecycle reviewed. Source-relative lookup is recorded as an optional deployment risk. Declarations reviewed: InitEvmoneVM."
+
+[file.233]
+path = "engine/executor/lib/lib_darwin_arm64.go"
+lines = 5
+verdict = "clean"
+note = "Platform VM artifact names, unsupported platforms and loader lifecycle reviewed. Source-relative lookup is recorded as an optional deployment risk. Declarations reviewed: libName."
+
+[file.234]
+path = "engine/executor/lib/lib_linux_amd64.go"
+lines = 5
+verdict = "clean"
+note = "Platform VM artifact names, unsupported platforms and loader lifecycle reviewed. Source-relative lookup is recorded as an optional deployment risk. Declarations reviewed: libName."
+
+[file.235]
+path = "engine/executor/lib/lib_linux_arm64.go"
+lines = 5
+verdict = "clean"
+note = "Platform VM artifact names, unsupported platforms and loader lifecycle reviewed. Source-relative lookup is recorded as an optional deployment risk. Declarations reviewed: libName."
+
+[file.236]
+path = "engine/executor/lib/lib_unsupported.go"
+lines = 10
+verdict = "clean"
+note = "Platform VM artifact names, unsupported platforms and loader lifecycle reviewed. Source-relative lookup is recorded as an optional deployment risk. Declarations reviewed: libName."
+
+[file.237]
+path = "engine/executor/precompiles/failfast.go"
+lines = 165
+verdict = "clean"
+note = "Typed vm.AbortError, original/late/merge address union and real-node fallback proofs reviewed. Retired-address entries intentionally force ordinary execution to enforce retirement refusals. Declarations reviewed: Error, IsAbortError, RequiredGas, Run."
+
+[file.238]
+path = "engine/executor/precompiles/failfast_test.go"
+lines = 98
+verdict = "clean"
+note = "Typed vm.AbortError, original/late/merge address union and real-node fallback proofs reviewed. Retired-address entries intentionally force ordinary execution to enforce retirement refusals. Declarations reviewed: TestSelfDestructAbortError, TestLateFailFastPrecompiles, TestMergeFailFastPrecompiles."
+
+[file.239]
+path = "engine/executor/precompiles/merge_table_test.go"
+lines = 37
+verdict = "clean"
+note = "Typed vm.AbortError, original/late/merge address union and real-node fallback proofs reviewed. Retired-address entries intentionally force ordinary execution to enforce retirement refusals. Declarations reviewed: TestMergeAddressTableIsFailFast."
+
+[file.240]
+path = "engine/executor/precompiles/proof_node_engine_test.go"
+lines = 156
+verdict = "clean"
+note = "Typed vm.AbortError, original/late/merge address union and real-node fallback proofs reviewed. Retired-address entries intentionally force ordinary execution to enforce retirement refusals. Declarations reviewed: TestProofNodeEngineExportedRegistry, TestProofNodeEngineMalformedResult, TestProofNodeEngineUnknownAddress, proofNodeEngineEVM."
+
+[file.241]
+path = "engine/executor/utils/errors.go"
+lines = 25
+verdict = "clean"
+note = "Typed vm.AbortError, original/late/merge address union and real-node fallback proofs reviewed. Retired-address entries intentionally force ordinary execution to enforce retirement refusals. Declarations reviewed: ShouldExecutionAbort."
+
+[finding.001]
+file = "consensus/internal/p2p/conn_tracker.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "AddConn retains every source IP in lastConnect; RemoveConn deletes it only if the disconnect already outlasted window. Short-lived connections leave entries that no timer or capacity bound ever reclaims."
+expected = "The node must bound transient connection history over repeated short-lived peers, while enforcing the configured reconnect window."
+proposal = "In consensus/internal/p2p/conn_tracker.go expire idle lastConnect entries after the window using a bounded expiry structure; prove repeated distinct-IP connect/disconnect cycles return memory to a bounded baseline."
+owner_domain = 5
+line = 50
+
+[finding.002]
+file = "consensus/internal/p2p/conn/oldmux.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "maxPacketMsgSize sizes the protobuf envelope with ChannelId 1 although ChannelID is uint16; a full payload on channel 128 or greater has a larger varint and is rejected by ReadSizedMsg at the receiver."
+expected = "Every supported channel identifier must carry the configured maximum packet payload through the same sender and receiver size limits."
+proposal = "Size the receive envelope for the largest supported ChannelID in consensus/internal/p2p/conn/oldmux.go and prove maximum-payload connection round trips on channel IDs 127, 128 and 255, plus the uint16 boundary supported by the connection API."
+owner_domain = 5
+interface = "15.go-consensus-internal-p2p-conn-channel-id-j57"
+line = 439
+
+[finding.003]
+file = "consensus/internal/p2p/testonly.go"
+class = "test-gap"
+severity = "medium"
+observed = "RequireUpdates appends each received PeerUpdate to expect while actual remains empty. A nonempty expectation therefore never reaches its comparison and drains updates until the test context expires."
+expected = "Peer lifecycle proofs must compare the requested sequence against the updates actually received and terminate after that sequence."
+proposal = "Append received updates to actual in consensus/internal/p2p/testonly.go; retain the node and status comparisons and prove a real peer subscription with several ordered up/down updates."
+owner_domain = 5
+line = 433
+
+[finding.004]
+file = "consensus/internal/p2p/pex/doc.go"
+class = "doc-drift"
+severity = "low"
+observed = "The PEX package guide promises V1 compatibility, linked-list peer polling and an adaptive search interval. Reactor.sendRoutine instead broadcasts URL-based PexRequest messages at sendInterval, and handlePexMessage accepts the current request/response union."
+expected = "Peer operators and maintainers need the package guide to describe the implemented discovery protocol and its actual rate limits."
+proposal = "Rewrite consensus/internal/p2p/pex/doc.go around fixed-interval broadcast, URL response bounds and per-peer rate limiting; remove the obsolete linked-list/adaptive and V1 compatibility promises."
+owner_domain = 5
+line = 7
+
+[finding.005]
+file = "engine/deps/store/cachekv.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "GetAllKeyStrsInRange compares every cached key with end even when end is nil. With an unbounded range all nonempty cached keys are skipped, so new writes disappear from enumeration and cached deletions leave parent keys visible; DeleteAll uses the same result."
+expected = "The sdk/store KVStore range contract treats nil end as unbounded; the cache must expose the same merged key set as its parent plus pending writes and deletions."
+proposal = "Handle an absent end bound explicitly in engine/deps/store/cachekv.go and prove nested cache Set/Delete/GetAllKeyStrsInRange/DeleteAll behavior against the real backing store before and after Write."
+owner_domain = 5
+interface = "5.go-engine-deps-store-store"
+line = 171
+
+[finding.006]
+file = "engine/deps/tasks/scheduler.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "Scheduler workers exit on workerCtx cancellation, but executeAll and validateAll enqueue closures whose WaitGroup completion happens only when a worker runs them. Cancellation with queued work can strand ProcessAll in wg.Wait indefinitely."
+expected = "Node execution must terminate with a cancellation error or finish accounted work when its parent context is canceled, including during an OCC retry."
+proposal = "Make queue admission and completion cancellation-aware in engine/deps/tasks/scheduler.go; account for every accepted closure and prove cancellation before execution, mid-batch and during validation through ProcessAll."
+owner_domain = 5
+interface = "5.go-engine-deps-tasks-new-scheduler"
+line = 147
+
+[finding.007]
+file = "engine/deps/xbank/keeper/genesis.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "BaseKeeper.InitGenesis replaces supplied Params with defaults, and ExportGenesis emits empty balances, supply, metadata and wei balances. These Giga methods cannot preserve funded state or send restrictions through export/import; node module genesis currently uses the canonical bank keeper."
+expected = "A supported genesis/recovery API must preserve its state and restrictions, or clearly refuse use when canonical module genesis owns that responsibility."
+proposal = "Retire or explicitly reject the unused Giga genesis entry points, or implement full state/parameter export and import in engine/deps/xbank/keeper/genesis.go and prove restart recovery with nondefault send restrictions and wei balances."
+owner_domain = 5
+interface = "5.go-engine-deps-xbank-keeper-base-keeper"
+line = 13
+
+[finding.008]
+file = "engine/deps/xbank/types/genesis.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "GenesisState.Validate adds WeiBalances amounts without validating each address, amount or duplicate. Invalid addresses can pass validation and then panic in BaseKeeper.InitGenesis at MustAccAddressFromBech32; nil amounts can panic during validation itself."
+expected = "Invalid genesis entries must produce a named validation error before initialization mutates state, with each wei address and amount checked."
+proposal = "Validate each WeiBalance address, initialized nonnegative amount and duplicate policy in engine/deps/xbank/types/genesis.go; prove invalid entries are refused before Giga InitGenesis and that accepted totals preserve supply."
+owner_domain = 5
+interface = "5.go-engine-deps-xbank-types-genesis-state"
+line = 69
+
+[finding.009]
+file = "engine/deps/xbank/keeper/view_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "TestViewKeeperStoreTrace calls app.BankKeeper throughout and never invokes GigaBankKeeper. Consequently this engine/deps test proves the canonical bank view and its iterator trace, not the Giga view it accompanies."
+expected = "The Giga bank view must be exercised through its actual keeper and cache/store mode so unsupported iteration or different trace behavior cannot be hidden by a different producer."
+proposal = "Add GigaBankKeeper view and trace proofs in engine/deps/xbank/keeper/view_test.go using the real context/store wiring; retain the canonical keeper comparison as a separate expectation."
+owner_domain = 5
+line = 23
+
+[finding.010]
+file = "engine/deps/xevm/state/check.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "DBImpl.Empty requires an all-zero code hash. Keeper.SetCode(nil) persists Keccak256(empty), so an account with zero balance, zero nonce and zero-length code is reported nonempty. node/app.go passes this DBImpl into NewGethExecutor, whose CALL gas and EXTCODEHASH paths consume Empty."
+expected = "EIP-161 defines an empty account by zero balance, zero nonce and no code; writing empty code must not change that classification or the gas computed by geth."
+proposal = "Recognize zero-length code/EmptyCodeHash in engine/deps/xevm/state/check.go and prove SetCode(nil), zero-byte deployment and code clearing through the keeper, DBImpl and geth CALL/EXTCODEHASH path, including a persisted-state reopen."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-state-db-impl"
+line = 34
+
+[finding.011]
+file = "engine/deps/xevm/state/balance.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "DBImpl.AddBalance and SubBalance return ZeroInt on every successful mutation and zero-amount call. The geth StateDB implementation returns the prior balance; HookedStateDB forwards that result, so an account holding a nonzero amount loses the declared previous-balance value across this adapter."
+expected = "The vm.StateDB balance mutation result must preserve the pre-mutation balance, including zero changes, while existing hooks receive consistent old and new values."
+proposal = "Capture and return the previous uint256 balance in engine/deps/xevm/state/balance.go; prove add, subtract and zero-amount results through vm.StateDB and HookedStateDB with real keeper balances and rollback."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-state-db-impl"
+line = 18
+
+[finding.012]
+file = "engine/deps/xevm/state/check_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "TestEmpty checks an untouched address and then nonzero balance, nonce and code, but never checks the hash produced by SetCode(nil) or a zero-length deployed contract. It misses the producer/consumer disagreement in DBImpl.Empty."
+expected = "Account emptiness tests must include values emitted by Keeper.SetCode and geth, including EmptyCodeHash, rather than only the absent-key representation."
+proposal = "Extend engine/deps/xevm/state/check_test.go with real SetCode(nil)/clear-code and persisted reload cases, then assert EIP-161 gas and EXTCODEHASH using the Giga adapter."
+owner_domain = 5
+line = 38
+
+[finding.013]
+file = "engine/deps/xevm/state/mock_balances.go"
+class = "security"
+severity = "medium"
+observed = "The mock_balances build mints funds during GetBalance and SubBalance. Its only chain guard rejects pacific-1; the canonical hyperpax_125-1 network is allowed, and ensureSufficientBalance has no guard. Ordinary builds select the no-op file, so this is a tagged-build exposure."
+expected = "A benchmark funding build must refuse every real network identity before any read or debit can mint assets."
+proposal = "Restrict mock funding to an explicit disposable test-chain allowlist in engine/deps/xevm/state/mock_balances.go and guard both hooks; make release packaging reject mock_balances and prove chain 125 is refused."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-state-db-impl"
+line = 30
+
+[finding.014]
+file = "engine/deps/xevm/types/codec.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "UnpackTxData ignores Any.TypeUrl when the cached value is absent and guesses the first protobuf decoder that succeeds. SetCodeTx shares fields 1..9 with DynamicFeeTx; its authorization bytes can decode as signature bytes, so a serialized SetCodeTx is returned as DynamicFeeTx with shifted signatures and lost authorizations."
+expected = "PackTxData -> protobuf Any transport -> UnpackTxData must preserve the exact registered transaction type and fields. The normal SDK UnpackInterfaces cache must not be a prerequisite for a correct public decoder."
+proposal = "Dispatch by the registered TypeUrl in engine/deps/xevm/types/codec.go and reject unknown or mismatched URLs; prove pack/marshal/unmarshal/unpack for all six transaction variants with populated signatures and authorizations through the real registry."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-types-ethtx-tx-data"
+line = 70
+
+[finding.015]
+file = "engine/deps/xevm/types/ethtx/blob_tx.go"
+class = "security"
+severity = "medium"
+observed = "BlobTx.Validate calls Fee before checking BlobFeeCap; a missing cap reaches big.Int.Mul(nil,...) and panics. It also does not bound individual blob/hash/commitment/proof lengths before sidecarToEthSidecar converts attacker-controlled slices to fixed arrays, which panics on short input."
+expected = "Malformed typed transaction data must return validation errors before fee arithmetic or fixed-width conversion, including when decoded from protobuf rather than a valid geth transaction."
+proposal = "Validate the initialized nonnegative blob cap, required hash widths/version/count and consistent sidecar widths/counts in engine/deps/xevm/types/ethtx/blob_tx.go before conversion; prove malformed MsgEVMTransaction inputs cannot panic."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-types-ethtx-blob-tx"
+line = 216
+
+[finding.016]
+file = "engine/deps/xevm/types/ethtx/set_code_tx.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "SetCodeTx.Validate accepts To == empty string, provided the other fields and authorization list validate. GetTo returns nil for that accepted value and AsEthereumData dereferences it, so MsgEVMTransaction.ValidateBasic can accept data that AsTransaction cannot convert."
+expected = "EIP-7702 set-code transactions require a destination and accepted EthereumTxData values must convert to a geth transaction without a panic."
+proposal = "Require a present valid destination in engine/deps/xevm/types/ethtx/set_code_tx.go; prove protobuf decode -> ValidateBasic -> AsTransaction with absent, malformed and valid destinations and populated authorization data."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-types-ethtx-ethereum-tx-data"
+line = 133
+
+[finding.017]
+file = "engine/deps/xevm/types/ethtx/semantic_validation.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "validateAuthList rejects nil chain IDs but accepts negative sdk.Int values. AuthList.ToEthAuthList sends those values into uint256.SetFromBig and ignores conversion validity, changing the signed chain domain instead of refusing it."
+expected = "Authorization chain IDs are unsigned 256-bit values; validation must preserve their value across the protobuf-to-geth conversion, while allowing the EIP-7702 zero-chain domain."
+proposal = "Reject negative or oversized authorization chain IDs in engine/deps/xevm/types/ethtx/semantic_validation.go and make auth_list.go conversion checked; prove zero, chain 125 and negative-domain cases through a populated SetCodeTx."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-types-ethtx-set-code-tx"
+line = 55
+
+[finding.018]
+file = "engine/deps/xevm/types/genesis.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "ValidateStream succeeds after any valid Params chunk even if another chunk fails validation, and an empty stream returns nil because paramCheckErr is unset. The Giga helper therefore certifies streams that were never wholly validated."
+expected = "Stream validation must define and enforce the actual chunk grammar and reject invalid parameter-bearing chunks or a missing required parameters record."
+proposal = "Define the parameter chunk rule in engine/deps/xevm/types/genesis.go, refuse malformed/empty streams, and prove mixed valid/invalid orderings through the real importer before exposing this helper as a recovery gate."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-types-genesis-state"
+line = 23
+
+[finding.019]
+file = "engine/deps/xevm/keeper/receipt.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "GetReceiptWithRetry returns (nil,nil) when maxRetries is zero or negative and uses time.Sleep without observing ctx cancellation. The first case reports successful absence; the second prolongs canceled receipt requests through the full backoff."
+expected = "Receipt lookup must return a receipt or a declared error, and retry backoff must end when the request context is canceled."
+proposal = "Validate the retry count and use a context-aware delay in engine/deps/xevm/keeper/receipt.go; prove zero/negative attempts, missing receipt, store failure and cancellation through the configured receipt store."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-keeper-keeper"
+line = 101
+
+[finding.020]
+file = "engine/deps/xevm/keeper/fee_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "The two NilMinFee tests delete BaseFeePerGasPrefix although GetNextBaseFeePerGas reads NextBaseFeePerGasPrefix, and neither removes or makes MinimumFeePerGas nil. Their fixtures do not establish the missing-next-fee/nil-minimum condition claimed by their names."
+expected = "Fallback tests must remove the key the consumer actually reads and supply the nil minimum parameter they claim to exercise."
+proposal = "Correct the fixture setup in engine/deps/xevm/keeper/fee_test.go for NextBaseFeePerGasPrefix and the actual parameter read; retain explicit nonnil/default and stored-value assertions through the real keeper."
+owner_domain = 5
+line = 186
+
+[finding.021]
+file = "engine/deps/xevm/types/params.go"
+class = "config-drift"
+severity = "medium"
+observed = "TargetGasUsedPerBlock has a validator that always returns nil and Params.Validate never checks it. Values above MaxInt64 wrap in AdjustDynamicBaseFeePerGas; MinimumFeePerGas may also exceed MaximumFeePerGas, after which the final maximum clamp produces a base fee below the configured minimum."
+expected = "Accepted gas targets must fit their signed arithmetic consumer and the fee floor must not exceed its ceiling."
+proposal = "Validate gas-target type and signed range and cross-check minimum/maximum fees in engine/deps/xevm/types/params.go; prove accepted parameters preserve fee bounds through AdjustDynamicBaseFeePerGas and reject incompatible governance/genesis inputs."
+owner_domain = 5
+interface = "5.go-engine-deps-xevm-types-params"
+line = 76
+
+[finding.022]
+file = "engine/executor/internal/host_context.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "SetStorage reports StorageAssigned for original nonzero, current zero and a different nonzero new value. Its StorageDeletedAdded branch instead tests current zero and new zero, so evmone receives the wrong dirty-slot gas/refund status. The live node currently constructs NewGethExecutor."
+expected = "An enabled EVMC adapter must report StorageDeletedAdded for delete-then-replace of a committed nonzero slot and match geth gas/refund outcomes."
+proposal = "Correct the storage-status transition table in engine/executor/internal/host_context.go and prove every original/current/new transition with real StateDB snapshots and comparative geth/evmone gas and refunds before enabling evmone."
+owner_domain = 5
+interface = "5.go-engine-executor-internal-new-host-context"
+line = 142
+
+[finding.023]
+file = "engine/executor/internal/interpreter.go"
+class = "security"
+severity = "medium"
+observed = "Run records inherited readOnly in e.readOnly but passes static=true to Execute only when this opcode is STATICCALL. A nested CALL/DELEGATECALL reached from static execution can therefore reach evmone without the inherited static flag. The current node selects geth."
+expected = "Static execution must propagate write protection to every descendant call regardless of its individual opcode."
+proposal = "Derive the EVMC static flag from the inherited read-only state in engine/executor/internal/interpreter.go; prove nested CALL and DELEGATECALL attempts to SSTORE, LOG, CREATE and transfer value are refused before enabling evmone."
+owner_domain = 5
+interface = "5.go-engine-executor-internal-new-evm-interpreter"
+line = 56
+
+[finding.024]
+file = "engine/executor/internal/host_context.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "Execute loads code from the storage recipient even for DelegateCall/CallCode, discarding the separate code address/contract.Code. Call ignores the EVMC codeAddress argument and supplies evm.Origin as DelegateCall's originCaller, conflating transaction origin with the parent msg.sender."
+expected = "Delegated execution must run the callee bytecode in the caller's storage context and preserve the immediate caller semantics, including EIP-7702 delegated code."
+proposal = "Carry code address, storage recipient and message sender separately through engine/executor/internal/host_context.go and interpreter.go; prove A->B->DELEGATECALL(C) and 7702 results against geth before enabling evmone."
+owner_domain = 5
+interface = "5.go-engine-executor-internal-new-host-context"
+line = 263
+
+[finding.025]
+file = "engine/executor/internal/host_context.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "Execute discards the EVMC execution result on any error, including evmc.Revert. Run then returns that foreign error directly without remaining gas or revert data; geth distinguishes vm.ErrExecutionReverted to preserve the caller's gas and returndata. The live node uses geth."
+expected = "An optional interpreter must preserve revert payload, gas remaining and geth's typed revert lifecycle through nested and top-level calls."
+proposal = "Translate EVMC revert separately in engine/executor/internal/host_context.go and interpreter.go, preserve its output/gas, and prove reverted nested and top-level transactions match geth receipts and RETURNDATA before enabling evmone."
+owner_domain = 5
+interface = "5.go-engine-executor-internal-new-evm-interpreter"
+line = 272
+
+[finding.026]
+file = "engine/executor/internal/host_context.go"
+class = "config-drift"
+severity = "medium"
+observed = "getEVMRevision maps Prague to Cancun even though DefaultChainConfig activates Prague at time zero. An evmone executor built with that chain configuration executes an older revision; the node currently chooses geth and only loads evmone best-effort."
+expected = "An enabled alternative executor must run the exact consensus fork rules selected by the canonical chain configuration or refuse unsupported revisions."
+proposal = "Make engine/executor/internal/host_context.go refuse unsupported active forks or package an EVMC runtime with matching Prague rules; prove fork-boundary transactions, delegated code and gas parity before selecting evmone."
+owner_domain = 5
+interface = "5.go-engine-executor-internal-new-host-context"
+line = 375
+
+[finding.027]
+file = "engine/executor/internal/host_context.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "toEvmcError maps non-revert Go errors to evmc.Failure, including the vm.AbortError used by FailFastPrecompile to demand a whole-transaction retry on the ordinary executor. A nested EVMC caller can observe ordinary call failure and continue instead of propagating that abort."
+expected = "Native-precompile fallback must escape the complete call tree as the original typed abort, as required by the Giga fail-fast contract."
+proposal = "Preserve an out-of-band transaction abort across EVMC callbacks in engine/executor/internal/host_context.go and return it from Run; prove a caught nested fail-fast call still triggers full ordinary-executor retry without partial writes."
+owner_domain = 5
+interface = "5.go-engine-executor-precompiles-all-custom-precompiles-fail-fast-merge-j33"
+line = 422
+
+[finding.028]
+file = "engine/executor/internal/host_context_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "TestStorageStatusLogic calls computeStorageStatus, a copy of the production algorithm, instead of HostContext.SetStorage. Its delete-then-add-different case explicitly expects StorageAssigned and codifies the incorrect EVMC status."
+expected = "Gas/refund proofs must drive the production host with real state and assert the EVMC transition contract independently of the implementation."
+proposal = "Replace copied-algorithm coverage in engine/executor/internal/host_context_test.go with real HostContext.SetStorage calls and independent transition expectations; retain and correct the delete/replace regression."
+owner_domain = 5
+line = 77
+
+[finding.029]
+file = "engine/executor/internal/interpreter_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "Interpreter tests reproduce opcode/code/static selection in local variables rather than invoking EVMInterpreter.Run. They do not prove calldata, code identity, inherited static flags, revert propagation or gas through the real EVMC host."
+expected = "Executor qualification must traverse producer, adapter and VM on real calls, including nested execution and failure recovery."
+proposal = "Add real geth-versus-evmone execution proofs in engine/executor/internal/interpreter_test.go for creation, ordinary/delegated/static calls, revert data, aborts and gas; keep local conversion checks as supplementary coverage."
+owner_domain = 5
+line = 59
+
+[finding.030]
+file = "engine/executor/lib/evmlib.go"
+class = "runtime-risk"
+severity = "low"
+observed = "InitEvmoneVM locates its shared library beside the build-time source path returned by runtime.Caller. A copied or trimpath binary need not have that path; node startup silently keeps geth after a best-effort load failure."
+expected = "Operators selecting an alternative VM need an explicit, deployment-stable artifact location and a visible unsupported/load-failure state."
+proposal = "Resolve packaged VM artifacts through an explicit validated path or executable-relative location in engine/executor/lib/evmlib.go; prove a source-free installed binary loads the intended library and reports incompatible artifacts."
+owner_domain = 5
+interface = "5.go-engine-executor-lib-init-evmone-vm"
+line = 21
+
+[finding.031]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents services/platform/hosted/paxeer as a required trusted relay and instructs deployment of LayerXVault, GuarantorBond and CheckpointRegistry with bond/finalize phases. The retirement inventory removes that relay and the external checkpoint/custody-claims architecture."
+expected = "Operators deploy the integrated paxd network and use committed-block finality; no retired relay, guarantor process or separate settlement suite is required for the merged kernel."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md as an integrated-node boundary guide; archive the legacy relay/deployment instructions with an explicit retirement notice, document root-path chain-125 RPC and native funding/bridge operations, and preserve only still-served client behavior."
+owner_domain = 17
+line = 117
+
+[finding.032]
+file = "docs/wiki/PaxeerBoundary.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents services/platform/hosted/paxeer as a required trusted relay and instructs deployment of LayerXVault, GuarantorBond and CheckpointRegistry with bond/finalize phases. The retirement inventory removes that relay and the external checkpoint/custody-claims architecture."
+expected = "Operators deploy the integrated paxd network and use committed-block finality; no retired relay, guarantor process or separate settlement suite is required for the merged kernel."
+proposal = "Rewrite docs/wiki/PaxeerBoundary.md as an integrated-node boundary guide; archive the legacy relay/deployment instructions with an explicit retirement notice, document root-path chain-125 RPC and native funding/bridge operations, and preserve only still-served client behavior."
+owner_domain = 17
+line = 117
+
+[finding.033]
+file = "docs/readme/README.pt-BR.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.pt-BR.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[finding.034]
+file = "docs/readme/README.fr.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.fr.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[finding.035]
+file = "docs/readme/README.ja.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.ja.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[finding.036]
+file = "docs/readme/README.ru.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.ru.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[finding.037]
+file = "docs/readme/README.zh-CN.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.zh-CN.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[finding.038]
+file = "docs/readme/README.de.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.de.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[finding.039]
+file = "docs/readme/README.es.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction and architecture diagram describe layerxd as a running LNI server/sequencer, a separate kernel service with a guarantor, and settlement through layerxAnchor at 0x1014. These are retired running components in the merged network."
+expected = "Every language must describe one BFT paxd network with an embedded kernel, committed receipts and the root public JSON-RPC endpoints, consistently with the audit brief and retirement inventory."
+proposal = "Update docs/readme/README.es.md introduction, repository map and architecture diagram to the integrated-node topology; remove running layerxd/guarantor/anchor settlement instructions and retain current bridge, SDK and root-RPC guidance."
+owner_domain = 17
+line = 37
+
+[doc.001]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read in full; site/wiki content differs only in the final Home link. Lines 5 onward describe the retired hosted relay; the Settlement suite section instructs retired vault/bond/checkpoint deployment. Replace with integrated paxd and committed-block finality guidance."
+
+[doc.002]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Read in full; site/wiki content differs only in the final Home link. Lines 5 onward describe the retired hosted relay; the Settlement suite section instructs retired vault/bond/checkpoint deployment. Replace with integrated paxd and committed-block finality guidance."
+
+[doc.003]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.004]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.005]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.006]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.007]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.008]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.009]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+
+[doc.010]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read all 521 lines. Describes ABI-v2 WASM porting, native Asset/program-account authority, explicit refusals and isolated qualification; it does not claim a live deployment. No node-runtime interface disagreement identified."
+
+[doc.011]
+path = "docs/wiki/Porting.md"
+status = "accurate"
+notes = "Read via the complete site copy plus exact diff: only wiki-relative Assets/Payments/reference/Home links differ. ABI-v2 and native-account qualification descriptions agree with the site page; no separate daemon startup is prescribed."
+
+[doc.012]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "accurate"
+notes = "Read all 128 lines. Clearly distinguishes proposed governance activation from applied state, governed native fee rates from retired oracle pricing, and the quote service's unavailable rate source. No Giga slice contradiction identified."
+
+[doc.013]
+path = "consensus/internal/p2p/README.md"
+status = "accurate"
+notes = "Read in full; the overview links resolve under consensus/spec/p2p and describe the package as peer communication, without promising a separate network service or retired endpoint."
+
+[doc.014]
+path = "consensus/internal/p2p/pex/doc.go"
+status = "stale"
+notes = "Read in full; the adaptive interval, linked-list request rotation and V1-compatibility statements disagree with Reactor.sendRoutine and the current URL request/response union. See the PEX documentation finding."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "accurate"
+notes = "Read the node-engine, node-abci, node-genesis and sequencer-receipt-store sections plus receipt overview. Frozen interface tables distinguish planned changes and historical baselines; committed receipt storage is separate from signed acceptance receipts. Runtime adapter defects are recorded against source members."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Read autobahn-events/rpc-autobahn contexts and the package's go-api/proto/metrics/version rows. Frozen source revision and UNRUN wording are explicit historical qualification claims; live router event/earliest-block methods are reviewed separately."
+
+[doc.017]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read the go-api rows consumed by this slice: SDK contexts, coins, stores, codec Any, multiversion and bank interfaces. The frozen table is reference material, not evidence of a current gate pass."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/evm.md"
+status = "accurate"
+notes = "Read the go-api/activation context used by chain ID and custom precompile registration. Active plan gating and complete registration are stated explicitly; optional EVMC mismatches are source findings."
+
+[doc.019]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Read the epoch keeper/types, mint types/Minter and layerxexchange sections named by the package. These are frozen Go/proto signatures; matching type names in caller inventories do not establish actual cross-package wiring."
+
+[doc.020]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Read the activation section and its interface rows. It distinguishes base, v6.7/v6.8, v6.9, v6.12 and merge plans, including native merge addresses and Giga fallback; historical source line numbers are not current qualification evidence."
+
+[doc.021]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "accurate"
+notes = "Read go-testutil section. Its processblock.App rows refer to tests/testutil/processblock, distinct from this slice's engine/deps/testutil/processblock; same method names alone are not an interface crossing."

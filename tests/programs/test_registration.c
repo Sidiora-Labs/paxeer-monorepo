@@ -6,6 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define main sandbox_lifecycle_case_main
+#define put_u32 sandbox_lifecycle_put_u32
+#include "../codec/lxp_test_sandbox_lifecycle.c"
+#undef put_u32
+#undef main
+
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
 #define SANDBOX_ADDRESS_SANITIZER 1
@@ -16,6 +22,64 @@
 #endif
 
 
+static int registration_retired_dispatch_rejected(lxp_kernel *kernel,
+                                                  uint64_t epoch)
+{
+    const uint32_t retired_activity = ((uint32_t)LXP_MODULE_PROGRAMS << 16U) | 8U;
+    const lxp_module_registration *registration;
+    uint8_t arena_bytes[4096], payload[32] = {1U};
+    lxp_arena arena;
+    lxp_module_ctx ctx;
+    lxp_effect_buffer effects;
+    lxp_activity activity = {0};
+    lxp_authority_resolved authority = {0};
+    lxp_result result = LXP_OK;
+    const size_t kv_count = kernel->module_kv_count;
+    const size_t blob_count = kernel->blob_count;
+    const uint64_t sequence = kernel->state->next_sequence;
+    if (lxp_kernel_module_for_activity(kernel, retired_activity, epoch,
+                                       &registration) != LXP_ERR_UNKNOWN_ACTIVITY ||
+        lxp_kernel_module_by_id(kernel, LXP_MODULE_PROGRAMS, epoch,
+                                &registration) != LXP_OK ||
+        lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
+        lxp_module_ctx_init(&ctx, kernel, LXP_MODULE_PROGRAMS, 1U, epoch,
+                            9U, 1000U, &arena, false) != LXP_OK ||
+        lxp_effect_buffer_init(&effects) != LXP_OK ||
+        lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK)
+        return 1;
+    activity.activity_type = retired_activity;
+    activity.payload = (lxp_byte_span){payload, sizeof(payload)};
+    authority.principal[0] = 1U;
+    if (lxp_kernel_dispatch(registration, &ctx, &activity, &authority,
+                            &effects, &result) != LXP_OK ||
+        result != LXP_ERR_UNKNOWN_ACTIVITY || effects.count != 0U ||
+        ctx.staged_count != 0U || ctx.staged_account_count != 0U ||
+        ctx.staged_blob_count != 0U || ctx.identity_staged)
+        return 1;
+    lxp_module_ctx_rollback(&ctx);
+    return kernel->module_kv_count != kv_count || kernel->blob_count != blob_count ||
+           kernel->state->next_sequence != sequence;
+}
+
+static int registration_catalogue_routing(lxp_kernel *kernel,
+                                          const lxp_module_iface *iface,
+                                          const uint32_t *expected,
+                                          size_t count, uint64_t epoch)
+{
+    const lxp_module_registration *resolved;
+    if (iface->activity_types == NULL || iface->activity_type_count != count)
+        return 1;
+    for (size_t i = 0U; i < count; ++i)
+        if (iface->activity_types[i] != expected[i] ||
+            lxp_kernel_module_for_activity(kernel, expected[i], epoch,
+                                           &resolved) != LXP_OK ||
+            resolved->iface != iface || resolved->abi_version != iface->abi_version ||
+            resolved->activity_type_count != count ||
+            memcmp(resolved->activity_types, expected, count * sizeof(*expected)) != 0)
+            return 1;
+    return registration_retired_dispatch_rejected(kernel, epoch);
+}
+
 static int registration_contract(void)
 {
     static const uint32_t expected_types[] = {
@@ -24,6 +88,21 @@ static int registration_contract(void)
         LX_PROGRAMS_CALL,
         LX_PROGRAMS_REGISTRY,
         LX_PROGRAMS_TRANSFER
+    };
+    static const uint32_t expected_v2[] = {
+        LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
+        LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
+        LX_PROGRAMS_WIND_DOWN
+    };
+    static const uint32_t expected_v3[] = {
+        LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
+        LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
+        LX_PROGRAMS_WIND_DOWN, LX_PROGRAMS_SANDBOX
+    };
+    static const uint32_t expected_v4[] = {
+        LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
+        LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
+        LX_PROGRAMS_WIND_DOWN, LX_PROGRAMS_SANDBOX, LX_PROGRAMS_SANDBOX_DESTROY
     };
     lxp_state_store store;
     lxp_state_journal journal;
@@ -39,7 +118,7 @@ static int registration_contract(void)
         current->module_id != LXP_MODULE_PROGRAMS ||
         current->abi_version != LX_PROGRAMS_ABI_VERSION ||
         strcmp(current->name, "programs") != 0 ||
-        current->activity_type_count !=
+        current->activity_types == NULL || current->activity_type_count !=
             sizeof(expected_types) / sizeof(expected_types[0]) ||
         current->genesis == NULL || current->decode == NULL ||
         current->validate == NULL || current->execute == NULL ||
@@ -49,21 +128,22 @@ static int registration_contract(void)
     if (next == NULL || next->module_id != LXP_MODULE_PROGRAMS ||
         next->abi_version != LX_PROGRAMS_ACCOUNT_ABI_VERSION ||
         strcmp(next->name, "programs") != 0 ||
-        next->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 3U)
+        next->activity_types == NULL || next->activity_type_count !=
+            sizeof(expected_v2) / sizeof(expected_v2[0]))
         return 1;
     if (sandbox == NULL || sandbox->module_id != LXP_MODULE_PROGRAMS ||
         sandbox->abi_version != LX_PROGRAMS_SANDBOX_ABI_VERSION ||
         strcmp(sandbox->name, "programs") != 0 ||
-        sandbox->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 4U ||
+        sandbox->activity_types == NULL || sandbox->activity_type_count !=
+            sizeof(expected_v3) / sizeof(expected_v3[0]) ||
         sandbox->activity_types[sandbox->activity_type_count - 1U] !=
             LX_PROGRAMS_SANDBOX)
         return 1;
     if (destroy == NULL || destroy->module_id != LXP_MODULE_PROGRAMS ||
         destroy->abi_version != LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION ||
-        destroy->activity_type_count !=
-            sizeof(expected_types) / sizeof(expected_types[0]) + 5U ||
+        strcmp(destroy->name, "programs") != 0 ||
+        destroy->activity_types == NULL || destroy->activity_type_count !=
+            sizeof(expected_v4) / sizeof(expected_v4[0]) ||
         destroy->activity_types[destroy->activity_type_count - 1U] !=
             LX_PROGRAMS_SANDBOX_DESTROY)
         return 1;
@@ -72,17 +152,18 @@ static int registration_contract(void)
             next->activity_types[i] != expected_types[i] ||
             sandbox->activity_types[i] != expected_types[i])
             return 1;
-    if (next->activity_types[next->activity_type_count - 3U] !=
+    if (next->activity_types[next->activity_type_count - 2U] !=
             LX_PROGRAMS_ACCOUNT ||
-        next->activity_types[next->activity_type_count - 2U] !=
-            LX_PROGRAMS_WIND_DOWN ||
         next->activity_types[next->activity_type_count - 1U] !=
-            LX_PROGRAMS_FEE_GOVERNANCE)
+            LX_PROGRAMS_WIND_DOWN)
         return 1;
     if (lxp_state_store_init(&store, 0U) != LXP_OK ||
         lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) !=
             LXP_OK ||
         lxp_kernel_register_module(&kernel, current) != LXP_OK)
+        return 1;
+    if (registration_catalogue_routing(&kernel, current, expected_types,
+            sizeof(expected_types) / sizeof(expected_types[0]), 0U) != 0)
         return 1;
     for (i = 0U; i < current->activity_type_count; ++i)
         if (lxp_kernel_module_for_activity(&kernel, expected_types[i], 0U,
@@ -113,12 +194,22 @@ static int registration_contract(void)
                                      LX_PROGRAMS_ABI_VERSION, &resolved) !=
             LXP_ERR_VERSION_UNSUPPORTED)
         return 1;
+    if (registration_catalogue_routing(&kernel, next, expected_v2,
+            sizeof(expected_v2) / sizeof(expected_v2[0]), 1U) != 0 ||
+        lxp_kernel_module_for_activity(&kernel, LX_PROGRAMS_SANDBOX, 1U,
+                                       &resolved) != LXP_ERR_UNKNOWN_ACTIVITY)
+        return 1;
     if (lxp_kernel_set_epoch(&kernel, 2U) != LXP_OK ||
         lxp_kernel_register_module(&kernel, sandbox) != LXP_OK ||
         lxp_kernel_module_for_activity(&kernel, LX_PROGRAMS_SANDBOX, 2U,
                                        &resolved) != LXP_OK ||
         resolved->iface != sandbox ||
         resolved->abi_version != LX_PROGRAMS_SANDBOX_ABI_VERSION)
+        return 1;
+    if (registration_catalogue_routing(&kernel, sandbox, expected_v3,
+            sizeof(expected_v3) / sizeof(expected_v3[0]), 2U) != 0 ||
+        lxp_kernel_module_for_activity(&kernel, LX_PROGRAMS_SANDBOX_DESTROY, 2U,
+                                       &resolved) != LXP_ERR_UNKNOWN_ACTIVITY)
         return 1;
     if (lxp_kernel_set_epoch(&kernel, 3U) != LXP_OK ||
         lxp_kernel_register_module(&kernel, destroy) != LXP_OK ||
@@ -127,6 +218,11 @@ static int registration_contract(void)
         resolved->iface != destroy ||
         resolved->abi_version != LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION)
         return 1;
+    if (registration_catalogue_routing(&kernel, destroy, expected_v4,
+            sizeof(expected_v4) / sizeof(expected_v4[0]), 3U) != 0)
+        return 1;
+    (void)puts("PROGRAM_REGISTRATION_CASE finding=registration-catalogue "
+               "test=registration_contract counts=5,7,8,9 retired_ordinal=8");
     return lxp_state_store_destroy(&store) == LXP_OK ? 0 : 1;
 }
 
@@ -158,6 +254,7 @@ static int exercise(uint16_t ordinal, size_t payload_length,
             LXP_OK ||
         lxp_kernel_register_module(&kernel, programs_module_registration()) !=
             LXP_OK ||
+        registration_retired_dispatch_rejected(&kernel, 0U) != 0 ||
         lxp_kernel_module_for_activity(&kernel, activity.activity_type, 0U,
                                        &registration) != LXP_OK ||
         registration->abi_version != LX_PROGRAMS_ABI_VERSION ||
@@ -179,6 +276,7 @@ static int exercise(uint16_t ordinal, size_t payload_length,
         lxp_module_ctx_rollback(&ctx);
         if (kernel.module_kv_count != 0U || effects.count != 0U) return 1;
     }
+    if (registration_retired_dispatch_rejected(&kernel, 0U) != 0) return 1;
     return lxp_state_store_destroy(&store) == LXP_OK ? 0 : 1;
 }
 
@@ -424,9 +522,18 @@ static int abi_transition_matrix(void)
 
 int main(int argc, char **argv)
 {
+    char *rollback_cases[] = {
+        argv[0],
+        "sandbox_execute_refusal_propagates",
+        "sandbox_execute_unpayable_charge_is_named",
+        "sandbox_rollback_preserves_refusal",
+        "sandbox_rollback_staged_account_failure_is_fatal",
+        "sandbox_rollback_transfer_failure_is_fatal"
+    };
     if (argc == 2 && strcmp(argv[1], "--sandbox-bounds") == 0)
         return sandbox_bounds();
     if (argc != 1) return 1;
+    if (sandbox_lifecycle_case_main(6, rollback_cases) != 0) return 1;
     if (lxp_programs_abi_transition_validate(0U, LX_PROGRAMS_ABI_VERSION) != LXP_OK ||
         lxp_programs_abi_transition_validate(0U, LX_PROGRAMS_ACCOUNT_ABI_VERSION) != LXP_OK ||
         lxp_programs_abi_transition_validate(LX_PROGRAMS_ABI_VERSION,

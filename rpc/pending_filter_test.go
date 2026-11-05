@@ -67,9 +67,9 @@ func pendingFilterAPI(t *testing.T, s *pendingSequencer, tm *MockClient, feed *e
 		wm,
 	)
 	if feed != nil {
-		api.SetReceiptLogFeed(feed)
+		evmrpc.SetReceiptLogFeedForTest(api, feed)
 	}
-	t.Cleanup(api.Cleanup)
+	t.Cleanup(func() { evmrpc.ShutdownFilterAPIForTest(api) })
 	return api
 }
 
@@ -104,6 +104,18 @@ func pendingFilterDeploy(t *testing.T, from utils.TestAcct, nonce uint64) ([]byt
 	return pendingFilterTx(t, from, nonce, nil, big.NewInt(0), pendingFilterInitCode, pendingFilterDeployGas)
 }
 
+func newPendingFilterSequencer(t *testing.T, sender utils.TestAcct) *subscribeSequencer {
+	t.Helper()
+	defaults := app.DefaultConsensusParams
+	params := *defaults
+	block := *defaults.Block
+	block.MaxGasWanted = block.MaxGas
+	params.Block = &block
+	app.DefaultConsensusParams = &params
+	t.Cleanup(func() { app.DefaultConsensusParams = defaults })
+	return newSubscribeSequencer(t, sender)
+}
+
 // pendingFilterReceipt accepts txBytes on the open block and feeds its
 // execution receipt to the feed the way the sequencer does after Accept.
 func pendingFilterReceipt(t *testing.T, a *app.App, exec sequencer.Executor, feed *evmrpc.ReceiptLogFeed, txBytes []byte, hash common.Hash) *sequencer.Accepted {
@@ -115,6 +127,7 @@ func pendingFilterReceipt(t *testing.T, a *app.App, exec sequencer.Executor, fee
 	require.NoError(t, err)
 	rcpt, err := a.EvmKeeper.GetTransientReceipt(snap, hash, uint64(acc.TxIndex)) //nolint:gosec // tx index is positive
 	require.NoError(t, err)
+	require.Equal(t, hash.Hex(), rcpt.TxHashHex)
 	require.NoError(t, feed.Receipted(acc.Seq, acc.Height, hash, rcpt))
 	return acc
 }
@@ -440,8 +453,8 @@ func TestPendingFilterExplicitLatestSurvivesCommit(t *testing.T) {
 		evmrpc.NewLogSlicePool(),
 		evmrpc.NewWatermarkManager(tm, committedCtx, nil, nil),
 	)
-	api.SetReceiptLogFeed(feed)
-	t.Cleanup(api.Cleanup)
+	evmrpc.SetReceiptLogFeedForTest(api, feed)
+	t.Cleanup(func() { evmrpc.ShutdownFilterAPIForTest(api) })
 
 	crit := pendingFilterCrit()
 	crit.FromBlock = big.NewInt(rpc.LatestBlockNumber.Int64())

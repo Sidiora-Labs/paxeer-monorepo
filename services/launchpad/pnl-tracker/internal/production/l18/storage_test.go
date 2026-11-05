@@ -7,15 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // syntheticAuthority exercises accounting/storage invariants only. These
@@ -31,15 +29,9 @@ const actorC = "0x3333333333333333333333333333333333333333"
 
 func storage(t *testing.T) *Ledger {
 	t.Helper()
-	dsn := os.Getenv("L18_POSTGRES_DSN")
-	if dsn == "" {
-		t.Fatal("L18_POSTGRES_DSN required: real owned PostgreSQL fixture")
-	}
 	ctx := context.Background()
-	p, e := pgxpool.New(ctx, dsn)
-	if e != nil {
-		t.Fatal(e)
-	}
+	p := internaltest.NewPostgres(t)
+	var e error
 	suffix := make([]byte, 4)
 	if _, e = rand.Read(suffix); e != nil {
 		t.Fatal(e)
@@ -64,11 +56,8 @@ func storage(t *testing.T) *Ledger {
 		t.Fatal(e)
 	}
 	defer tx.Rollback(ctx)
-	proposal, e := os.ReadFile(filepath.Join("../../../../../../launchpad/spec/production-system/handoffs/L18/phase2/migration-proposal.sql"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = tx.Exec(ctx, SchemaDDL+"\n"+string(proposal)); e != nil {
+	proposal := phase2Migration(t, schema)
+	if _, e = tx.Exec(ctx, SchemaDDL+"\n"+proposal); e != nil {
 		t.Fatal(e)
 	}
 	if e = tx.Commit(ctx); e != nil {

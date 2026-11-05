@@ -10,8 +10,7 @@
 
 static const uint32_t activity_types[] = {
     LX_ASSET_REGISTER, LX_ASSET_PAUSE, LX_ASSET_UNPAUSE,
-    LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND, LX_ASSET_RECEIVE,
-    LX_ASSET_GRANT_ISSUE, LX_ASSET_GRANT_REVOKE, LX_ASSET_WITHDRAW,
+    LX_ASSET_ACCOUNT_OPEN, LX_ASSET_SEND,
     LX_ASSET_MINT, LX_ASSET_BURN
 };
 
@@ -24,9 +23,6 @@ typedef union asset_typed_payload {
     lx_asset_account_open_payload account_open;
     asset_pause_payload pause;
     lx_asset_supply_payload supply;
-    lx_asset_grant_revoke_payload revocation;
-    lxp_receive receive;
-    lxp_payer_grant grant;
 } asset_typed_payload;
 
 /* version:u16=1 || asset_id32 */
@@ -154,6 +150,10 @@ static lxp_result validate_send(lxp_module_ctx *ctx,
         asset_load(ctx, send->asset, &record) != LXP_OK)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     if (record.paused) return LXP_ERR_ASSET_PAUSED;
+    status = lxp_activity_verify_payload_hash(activity);
+    if (status == LXP_OK && !runtime->binding_authority)
+        status = lxp_activity_verify_signature(activity);
+    if (status != LXP_OK) return status;
     (void)memset(&environment, 0, sizeof(environment));
     environment.accounts = runtime->accounts;
     (void)lx_asset_transfer_state(&record, &transfer_asset);
@@ -162,6 +162,7 @@ static lxp_result validate_send(lxp_module_ctx *ctx,
     environment.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
     environment.network_id = runtime->network_id;
     environment.protocol_version = runtime->protocol_version;
+    environment.binding_authority = runtime->binding_authority;
     status = lxp_send_validate(send, &environment);
     if (status == LXP_OK && runtime_asset(runtime, send->asset) != NULL) {
         environment.assets = runtime->transfer_assets;
@@ -182,150 +183,6 @@ static lxp_result validate_send(lxp_module_ctx *ctx,
     return status;
 }
 
-static lxp_result withdrawal_context(lxp_module_ctx *ctx,
-    const lxp_activity *activity, const lxp_authority_resolved *authority,
-    const asset_decoded *value, lx_asset_transfer_request *transfer,
-    lx_withdrawal_request *withdrawal)
-{
-    lx_asset_runtime *runtime;
-    lx_account *source = NULL;
-    lx_account *destination = NULL;
-    uint64_t fee = 0U;
-    size_t i;
-    lxp_result status;
-    if (ctx == NULL || ctx->kernel == NULL || ctx->kernel->state == NULL ||
-        activity == NULL || authority == NULL || value == NULL ||
-        value->payload_length != 108U || value->payload == NULL ||
-        activity->activity_type != LX_ASSET_WITHDRAW ||
-        authority->kind != LXP_AUTHORITY_OWNER)
-        return LXP_ERR_NON_CANONICAL;
-    runtime = (lx_asset_runtime *)lxp_ctx_module_runtime(ctx);
-    if (runtime == NULL || runtime->accounts == NULL ||
-        runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
-        runtime->accounts != ctx->kernel->state->accounts ||
-        !ctx->kernel->state->account_root_required ||
-        runtime->network_id != activity->network_id ||
-        runtime->protocol_version != activity->protocol_version ||
-        !lxp_protocol_version_uses_occupancy(activity->protocol_version) ||
-        lxp_ctx_activity_id(ctx) == NULL ||
-        lxp_ct_is_zero(lxp_ctx_activity_id(ctx), 32U))
-        return LXP_ERR_UNAUTHORIZED_DEBIT;
-    status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
-    if (status != LXP_OK) return status;
-    if (activity->authority.length != 32U ||
-        lxp_ct_memcmp(activity->authority.bytes, authority->verified_key, 32U) != 0)
-        return LXP_ERR_UNAUTHORIZED_DEBIT;
-    for (i = 100U; i < 108U; ++i) fee = (fee << 8U) | value->payload[i];
-    if (activity->fee_limit.hi != 0U || activity->fee_limit.lo != fee)
-        return LXP_ERR_NON_CANONICAL;
-    (void)memset(transfer, 0, sizeof(*transfer));
-    (void)memset(withdrawal, 0, sizeof(*withdrawal));
-    transfer->asset = runtime_asset(runtime, value->payload);
-    if (transfer->asset == NULL) return LXP_ERR_ASSET_MISMATCH;
-    if (transfer->asset->paused) return LXP_ERR_ASSET_PAUSED;
-    status = lxp_u128_from_be(value->payload + 32U, &transfer->amount);
-    if (status != LXP_OK || lxp_u128_is_zero(transfer->amount) ||
-        lxp_ct_is_zero(value->payload + 48U, 20U) ||
-        lxp_ct_is_zero(value->payload + 68U, 32U))
-        return LXP_ERR_NON_CANONICAL;
-    for (i = 0U; i < runtime->accounts->count; ++i) {
-        lx_account *candidate = &runtime->accounts->accounts[i];
-        if (!candidate->has_asset ||
-            lxp_ct_memcmp(candidate->asset_id, value->payload, 32U) != 0)
-            continue;
-        if (candidate->kind == LX_ACCOUNT_AGENT_MAIN &&
-            source_matches_actor(candidate, activity)) {
-            if (source != NULL) return LXP_ERR_NON_CANONICAL;
-            source = candidate;
-        }
-        if (candidate->kind == LX_ACCOUNT_SYSTEM_PAXEER_WITHDRAWALS) {
-            if (destination != NULL) return LXP_ERR_NON_CANONICAL;
-            destination = candidate;
-        }
-    }
-    if (source == NULL || destination == NULL || !source->has_authority_key ||
-        lxp_ct_memcmp(source->authority_key, authority->verified_key, 32U) != 0)
-        return LXP_ERR_UNAUTHORIZED_DEBIT;
-    transfer->from = source;
-    transfer->to = destination;
-    transfer->context.assets = runtime->transfer_assets;
-    transfer->context.asset_count = runtime->transfer_asset_count;
-    transfer->context.sequence_account = source;
-    status = lxp_kernel_withdraw_execution_sequence(
-        ctx, authority, source->id, activity->account_sequence,
-        &transfer->context.actor_sequence);
-    if (status != LXP_OK) return status;
-    transfer->context.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
-    transfer->context.expires_at = activity->timestamp_bound.not_after;
-    transfer->context.debit_authority_kind = LXP_AUTH_OWNER;
-    (void)memcpy(transfer->context.authorized_from, source->id, 32U);
-    withdrawal->network_id = activity->network_id;
-    (void)memcpy(withdrawal->withdrawal_id, lxp_ctx_activity_id(ctx), 32U);
-    (void)memcpy(withdrawal->account_id, source->id, 32U);
-    (void)memcpy(withdrawal->asset_id, value->payload, 32U);
-    withdrawal->amount = transfer->amount;
-    (void)memcpy(withdrawal->payout_recipient + 12U, value->payload + 48U, 20U);
-    (void)memcpy(withdrawal->checkpoint_id, value->payload + 68U, 32U);
-    return LXP_OK;
-}
-
-static lxp_result execute_withdrawal(lxp_module_ctx *ctx,
-    const lxp_activity *activity, const lxp_authority_resolved *authority,
-    const asset_decoded *value)
-{
-    lx_asset_transfer_request transfer;
-    lx_withdrawal_request withdrawal;
-    lxp_transfer_source_authority source = {0};
-    lx_withdrawal_store *store;
-    lxp_receipt receipt = {0};
-    lxp_ledger_receipt_input input = {0};
-    uint8_t state_key[LX_WITHDRAWAL_STATE_KEY_BYTES];
-    uint8_t event[LX_WITHDRAWAL_STATE_VALUE_BYTES + 72U];
-    void *memory;
-    lxp_result status = withdrawal_context(ctx, activity, authority, value,
-                                          &transfer, &withdrawal);
-    if (status != LXP_OK) return status;
-    status = lxp_ctx_arena_alloc(ctx, sizeof(*store), _Alignof(lx_withdrawal_store), &memory);
-    if (status != LXP_OK) return status;
-    store = memory;
-    (void)memset(store, 0, sizeof(*store));
-    source.debit_authority_kind = LXP_AUTH_OWNER;
-    (void)memcpy(source.authorized_from, withdrawal.account_id, 32U);
-    transfer.context.source_authorities = &source;
-    transfer.context.source_authority_count = 1U;
-    input.from_balance_before = transfer.from->balance;
-    input.to_balance_before = transfer.to->balance;
-    input.from_sequence = transfer.context.actor_sequence;
-    status = lx_asset_withdraw_request(ctx, &transfer, &withdrawal, store, &receipt);
-    if (status != LXP_OK) return status;
-    status = lx_withdrawal_state_encode(&withdrawal, state_key, event);
-    if (status != LXP_OK) return status;
-    (void)memcpy(input.transaction_id, lxp_ctx_activity_id(ctx), 32U);
-    input.operation = 9U;
-    input.global_sequence = lxp_ctx_global_sequence(ctx);
-    (void)memcpy(input.asset, withdrawal.asset_id, 32U);
-    input.amount = withdrawal.amount;
-    (void)memcpy(input.from, transfer.from->id, 32U);
-    (void)memcpy(input.to, transfer.to->id, 32U);
-    input.from_balance_after = transfer.from->balance;
-    input.to_balance_after = transfer.to->balance;
-    (void)memcpy(input.transfer_set_root, receipt.transfer_set_root, 32U);
-    (void)memcpy(input.context_hash, state_key + 11U, 32U);
-    status = lxp_activity_signing_preimage(activity, input.authorization_hash);
-    if (status != LXP_OK) return status;
-    input.timestamp = lxp_ctx_batch_timestamp_ms(ctx);
-    input.leg_count = 1U;
-    status = lxp_ctx_bind_ledger_receipt(ctx, &input);
-    if (status != LXP_OK) return status;
-    (void)memcpy(event + LX_WITHDRAWAL_STATE_VALUE_BYTES, activity->payload_hash, 32U);
-    (void)memcpy(event + LX_WITHDRAWAL_STATE_VALUE_BYTES + 32U,
-                 activity->idempotency_key, 32U);
-    (void)memcpy(event + LX_WITHDRAWAL_STATE_VALUE_BYTES + 64U,
-                 value->payload + 100U, 8U);
-    return lxp_ctx_emit_event(ctx, 9U, event, sizeof(event));
-}
-
 static lxp_result module_genesis(lxp_module_ctx *ctx, const uint8_t *manifest,
                                  size_t manifest_length)
 {
@@ -342,6 +199,7 @@ static lxp_result module_decode(lxp_module_ctx *ctx, uint16_t ordinal,
     void *memory;
     lxp_result status;
     if (ctx == NULL || decoded == NULL || ordinal == 0U || ordinal > 11U ||
+        (ordinal >= 6U && ordinal <= 9U) ||
         (payload == NULL && payload_length != 0U)) return LXP_ERR_UNKNOWN_ACTIVITY;
     status = lxp_ctx_arena_alloc(ctx, sizeof(*value), _Alignof(asset_decoded),
                                  &memory);
@@ -351,8 +209,6 @@ static lxp_result module_decode(lxp_module_ctx *ctx, uint16_t ordinal,
     value->ordinal = ordinal;
     value->payload = payload;
     value->payload_length = payload_length;
-    if (ordinal == lxp_activity_type_ordinal(LX_ASSET_WITHDRAW) && payload_length != 108U)
-        return LXP_ERR_NON_CANONICAL;
     if (ordinal == lxp_activity_type_ordinal(LX_ASSET_SEND)) {
         status = lxp_send_decode(payload, payload_length, &value->send);
         if (status != LXP_OK) return status;
@@ -378,16 +234,6 @@ static lxp_result module_decode(lxp_module_ctx *ctx, uint16_t ordinal,
         status = lx_asset_account_open_decode(payload, payload_length,
                                               &value->typed->account_open);
         break;
-    case 6U:
-        status = lxp_receive_decode(payload, payload_length, &value->typed->receive);
-        break;
-    case 7U:
-        status = lxp_payer_grant_decode(payload, payload_length, &value->typed->grant);
-        break;
-    case 8U:
-        status = lx_asset_grant_revoke_decode(payload, payload_length,
-                                              &value->typed->revocation);
-        break;
     case 10U:
     case 11U:
         status = lx_asset_supply_decode(payload, payload_length, &value->typed->supply);
@@ -407,15 +253,9 @@ static lxp_result module_validate(lxp_module_ctx *ctx,
 {
     const asset_decoded *value = (const asset_decoded *)decoded;
     if (ctx == NULL || activity == NULL || authority == NULL || value == NULL ||
-        value->ordinal == 0U || value->ordinal > 11U)
+        value->ordinal == 0U || value->ordinal > 11U ||
+        (value->ordinal >= 6U && value->ordinal <= 9U))
         return LXP_ERR_UNKNOWN_ACTIVITY;
-    if (value->ordinal == lxp_activity_type_ordinal(LX_ASSET_WITHDRAW)) {
-        lx_asset_transfer_request transfer;
-        lx_withdrawal_request withdrawal;
-        lxp_result status = withdrawal_context(ctx, activity, authority, value,
-                                               &transfer, &withdrawal);
-        if (status != LXP_OK) return status;
-    }
     if (value->send_present) {
         lxp_result status = validate_send(ctx, activity, authority,
                                           &value->send);
@@ -448,8 +288,6 @@ static lxp_result module_execute_impl(lxp_module_ctx *ctx,
     lxp_result status;
     (void)effects;
     if (ctx == NULL || value == NULL) return LXP_ERR_UNKNOWN_ACTIVITY;
-    if (value->ordinal == lxp_activity_type_ordinal(LX_ASSET_WITHDRAW))
-        return execute_withdrawal(ctx, activity, authority, value);
     if (!value->send_present)
         return asset_execute_typed(ctx, activity, authority, value);
     status = validate_send(ctx, activity, authority, &value->send);
@@ -521,11 +359,8 @@ static lxp_result module_execute(lxp_module_ctx *ctx,
     const uint8_t *id;
     lx_asset_record before;
     lx_asset_record after;
-    lxp_grant_state grant;
     lxp_result status;
     if (ctx == NULL || value == NULL) return LXP_ERR_UNKNOWN_ACTIVITY;
-    if (value->ordinal == lxp_activity_type_ordinal(LX_ASSET_WITHDRAW))
-        return module_execute_impl(ctx, activity, authority, decoded, effects);
     if (value->send_present) id = value->send.asset;
     else {
         if (value->typed == NULL) return LXP_ERR_NON_CANONICAL;
@@ -533,13 +368,6 @@ static lxp_result module_execute(lxp_module_ctx *ctx,
         case 1U: id = value->typed->registration.asset_id; break;
         case 2U: case 3U: id = value->typed->pause.asset_id; break;
         case 4U: id = value->typed->account_open.asset_id; break;
-        case 6U: id = value->typed->receive.asset; break;
-        case 7U: id = value->typed->grant.asset; break;
-        case 8U:
-            status = grant_load(ctx, value->typed->revocation.grant_id, &grant);
-            if (status != LXP_OK) return status;
-            id = grant.grant.asset;
-            break;
         case 10U: case 11U: id = value->typed->supply.asset_id; break;
         default: return LXP_ERR_UNKNOWN_ACTIVITY;
         }
@@ -622,6 +450,13 @@ static bool issuer_valid(const lx_asset_record *record)
                record->custody_reference_length != 0U;
 }
 
+static bool asset_record_valid(const lx_asset_record *record)
+{
+    return record != NULL && !lxp_ct_is_zero(record->asset_id, 32U) &&
+           symbol_valid(record) && issuer_valid(record) &&
+           record->decimals <= 38U;
+}
+
 lxp_result lx_asset_register(lx_asset_registry *registry,
                              const lx_asset_record *record,
                              uint64_t sequence, lxp_u128 fee)
@@ -629,9 +464,8 @@ lxp_result lx_asset_register(lx_asset_registry *registry,
     size_t i;
     lxp_u128 charged;
     lxp_result status;
-    if (registry == NULL || record == NULL || sequence != registry->next_sequence ||
-        lxp_ct_is_zero(record->asset_id, 32U) || !symbol_valid(record) ||
-        !issuer_valid(record) || record->decimals > 38U ||
+    if (registry == NULL || !asset_record_valid(record) ||
+        sequence != registry->next_sequence ||
         registry->count > LX_ASSET_REGISTRY_CAPACITY)
         return LXP_ERR_NON_CANONICAL;
     if (sequence == UINT64_MAX) return LXP_ERR_SEQUENCE_EXHAUSTED;
@@ -714,8 +548,7 @@ lxp_result lx_asset_record_encode(const lx_asset_record *record,
 {
     size_t required;
     size_t cursor = 0U;
-    if (record == NULL || bytes == NULL || length == NULL ||
-        !symbol_valid(record) || !issuer_valid(record))
+    if (bytes == NULL || length == NULL || !asset_record_valid(record))
         return LXP_ERR_NON_CANONICAL;
     required = 2U + 32U + 1U + record->symbol_length + 1U + 1U + 2U +
                record->custody_reference_length + 1U + 1U + record->name_length + 97U;
@@ -747,11 +580,13 @@ lxp_result lx_asset_record_encode(const lx_asset_record *record,
 }
 
 lxp_result lx_asset_record_decode(const uint8_t *bytes, size_t length,
-                                  lx_asset_record *record)
+                                  lx_asset_record *output)
 {
+    lx_asset_record decoded;
+    lx_asset_record *record = &decoded;
     size_t cursor = 2U;
     uint16_t reference_length;
-    if (bytes == NULL || record == NULL || length < 140U ||
+    if (bytes == NULL || output == NULL || length < 140U ||
         bytes[0] != 0U || bytes[1] != 3U) return LXP_ERR_NON_CANONICAL;
     (void)memset(record, 0, sizeof(*record));
     (void)memcpy(record->asset_id, bytes + cursor, 32U); cursor += 32U;
@@ -781,14 +616,49 @@ lxp_result lx_asset_record_decode(const uint8_t *bytes, size_t length,
     record->issuer_kind = bytes[cursor++];
     (void)lxp_u128_from_be(bytes + cursor, &record->total_units); cursor += 16U;
     (void)memcpy(record->salt, bytes + cursor, 32U);
-    if ((record->issuer_kind == 0U && record->custody_reference_length == 0U) ||
-        (record->issuer_kind == 1U && record->custody_reference_length != 0U) ||
-        (record->issuer_kind != 0U && (record->name_length == 0U ||
-         lxp_ct_is_zero(record->issuer_did32, 32U)))) return LXP_ERR_NON_CANONICAL;
-    return symbol_valid(record) && issuer_valid(record) &&
-                   record->decimals <= 38U && record->issuer_kind <= 2U ?
-               LXP_OK :
-               LXP_ERR_NON_CANONICAL;
+    if (!asset_record_valid(record)) return LXP_ERR_NON_CANONICAL;
+    *output = decoded;
+    return LXP_OK;
+}
+
+lxp_result lx_asset_record_decode_for_id(const uint8_t *bytes, size_t length,
+    const uint8_t asset_id[32], lx_asset_record *record)
+{
+    lx_asset_record decoded;
+    lxp_result status;
+    if (asset_id == NULL || record == NULL) return LXP_ERR_NON_CANONICAL;
+    status = lx_asset_record_decode(bytes, length, &decoded);
+    if (status != LXP_OK) return status;
+    if (memcmp(decoded.asset_id, asset_id, 32U) != 0)
+        return LXP_ERR_ASSET_MISMATCH;
+    *record = decoded;
+    return LXP_OK;
+}
+
+lxp_result lx_asset_runtime_restore(const lxp_kernel *kernel,
+    lx_asset_registry *assets, lxp_transfer_asset_state *transfer_states,
+    lx_asset_runtime *runtime)
+{
+    size_t count = 0U;
+    lxp_result status;
+    if (kernel == NULL || kernel->state == NULL ||
+        kernel->state->accounts == NULL || assets == NULL ||
+        transfer_states == NULL || runtime == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    status = lx_asset_committed_records(kernel, assets->assets,
+        LX_ASSET_REGISTRY_CAPACITY, &count);
+    if (status != LXP_OK) return status;
+    for (size_t i = 0U; i < count; ++i) {
+        status = lx_asset_transfer_state(&assets->assets[i], &transfer_states[i]);
+        if (status != LXP_OK) return status;
+    }
+    assets->count = count;
+    runtime->accounts = kernel->state->accounts;
+    runtime->assets = assets->assets;
+    runtime->asset_count = count;
+    runtime->transfer_assets = transfer_states;
+    runtime->transfer_asset_count = count;
+    return LXP_OK;
 }
 
 lxp_result lx_asset_committed_records(const lxp_kernel *kernel,
@@ -811,9 +681,9 @@ lxp_result lx_asset_committed_records(const lxp_kernel *kernel,
                 if (entry->key_length != 38U || memcmp(entry->key, "asset:", 6U) != 0) continue;
                 id = entry->key + 6U;
             }
-            lxp_result status = lx_asset_record_decode(entry->value, entry->value_length, &record);
+            lxp_result status = lx_asset_record_decode_for_id(
+                entry->value, entry->value_length, id, &record);
             if (status != LXP_OK) return status;
-            if (memcmp(id, record.asset_id, 32U) != 0) return LXP_ERR_ASSET_MISMATCH;
             for (at = 0U; at < used; ++at)
                 if (memcmp(records[at].asset_id, id, 32U) >= 0) break;
             if (at == used || memcmp(records[at].asset_id, id, 32U) != 0) {
@@ -821,54 +691,11 @@ lxp_result lx_asset_committed_records(const lxp_kernel *kernel,
                 (void)memmove(records + at + 1U, records + at, (used - at) * sizeof(*records));
                 ++used;
             }
-            if (pass == 0U) {
-                for (size_t supply = 0U; supply < kernel->module_kv_count; ++supply) {
-                    const lxp_module_kv_entry *issued = &kernel->module_kv[supply];
-                    if (issued->module_id != LXP_MODULE_BRIDGE || issued->key_length != 47U ||
-                        memcmp(issued->key, "custody-issued:", 15U) != 0 ||
-                        memcmp(issued->key + 15U, id, 32U) != 0) continue;
-                    if (issued->value_length != 16U) return LXP_ERR_NON_CANONICAL;
-                    (void)lxp_u128_from_be(issued->value, &record.total_units);
-                }
-            }
             records[at] = record;
         }
     }
     *count = used;
     return LXP_OK;
-}
-
-lxp_result lx_asset_payer_grant_read(const lxp_kernel *kernel,
-                                     const uint8_t grant_id[32],
-                                     lxp_grant_state *state)
-{
-    uint8_t key[38];
-    const lxp_module_kv_entry *entry = NULL;
-    size_t length;
-    lxp_result status;
-    if (kernel == NULL || grant_id == NULL || state == NULL ||
-        kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV) return LXP_ERR_NON_CANONICAL;
-    grant_key(key, grant_id);
-    for (size_t i = 0U; i < kernel->module_kv_count && entry == NULL; ++i)
-        if (kernel->module_kv[i].module_id == LXP_MODULE_ASSET &&
-            kernel->module_kv[i].key_length == sizeof(key) &&
-            memcmp(kernel->module_kv[i].key, key, sizeof(key)) == 0)
-            entry = &kernel->module_kv[i];
-    if (entry == NULL) return LXP_ERR_NO_PAYER_GRANT;
-    length = entry->value_length;
-    if (length < 50U || length > sizeof(entry->value)) return LXP_ERR_NON_CANONICAL;
-    length -= 50U;
-    (void)memset(state, 0, sizeof(*state));
-    status = lxp_payer_grant_decode(entry->value, length, &state->grant);
-    if (status != LXP_OK || entry->value[length + 48U] > 1U ||
-        entry->value[length + 49U] > 1U) return LXP_ERR_NON_CANONICAL;
-    (void)lxp_u128_from_be(entry->value + length, &state->drawn_total);
-    (void)lxp_u128_from_be(entry->value + length + 16U, &state->drawn_this_period);
-    state->window_start = asset_u64_read(entry->value + length + 32U);
-    state->revoked_at_sequence = asset_u64_read(entry->value + length + 40U);
-    state->revoked = entry->value[length + 48U] != 0U;
-    state->invoice_settled = entry->value[length + 49U] != 0U;
-    return memcmp(grant_id, state->grant.grant_id, 32U) == 0 ? LXP_OK : LXP_ERR_NON_CANONICAL;
 }
 
 lxp_result lx_asset_record_migrate_v2(const uint8_t *bytes, size_t length,

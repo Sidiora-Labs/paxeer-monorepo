@@ -1,0 +1,7 @@
+[repair.rust-test-explorer-verifier.2]
+target = "smart-contract-verifier-proto"
+command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier -p smart-contract-verifier-proto -p smart-contract-verifier-server --no-fail-fast -- --skip chain_not_supported_fail --skip success_tests::solidity_0_4_10 --skip verify::solc_compiler_cli::tests::compile"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = []

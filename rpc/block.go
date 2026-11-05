@@ -37,6 +37,7 @@ const (
 )
 
 type BlockAPI struct {
+	domainIndex          DomainIndex
 	tmClient             client.LocalClient
 	keeper               *keeper.Keeper
 	ctxProvider          func(int64) sdk.Context
@@ -58,6 +59,7 @@ func NewBlockAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider func
 	return &BlockAPI{
 		tmClient:             tmClient,
 		keeper:               k,
+		domainIndex:          keeperDomainIndex{evm: k},
 		ctxProvider:          ctxProvider,
 		txConfigProvider:     txConfigProvider,
 		connectionType:       connectionType,
@@ -83,6 +85,7 @@ func NewPaxBlockAPI(
 	blockAPI := &BlockAPI{
 		tmClient:             tmClient,
 		keeper:               k,
+		domainIndex:          keeperDomainIndex{evm: k},
 		ctxProvider:          ctxProvider,
 		txConfigProvider:     txConfigProvider,
 		connectionType:       connectionType,
@@ -130,6 +133,31 @@ func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number 
 	defer func() {
 		recordMetricsWithError(ctx, fmt.Sprintf("%s_getBlockTransactionCountByNumber", a.namespace), a.connectionType, startTime, returnErr, recover())
 	}()
+	if number == rpc.PendingBlockNumber {
+		if a.watermarks == nil || a.watermarks.pending == nil {
+			return nil, nil
+		}
+		snapshot, err := a.watermarks.pending.Snapshot()
+		if err != nil {
+			return nil, fmt.Errorf("pending block unavailable: %w", err)
+		}
+		hashes, err := pendingBlockTxHashes(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		if scope, ok := DomainScopeFrom(ctx); ok {
+			allowed := domainHashSet(a.domainIndex, snapshot, scope, uint64(snapshot.BlockHeight()))
+			scoped := make([]common.Hash, 0, len(hashes))
+			for _, hash := range hashes {
+				if allowed[hash] {
+					scoped = append(scoped, hash)
+				}
+			}
+			hashes = scoped
+		}
+		count := hexutil.Uint(len(hashes))
+		return &count, nil
+	}
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
 		return nil, err
@@ -147,6 +175,10 @@ func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number 
 	}
 	if err = validateBlockExecutionReceipts(a.keeper, a.ctxProvider, a.txConfigProvider, block, a.includeShellReceipts, a.cacheCreationMutex, a.globalBlockCache); err != nil {
 		return nil, err
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		count := hexutil.Uint(len(a.domainIndex.DomainTxs(a.ctxProvider(LatestCtxHeight), scope.ID, uint64(block.Block.Height))))
+		return &count, nil
 	}
 	return a.getEvmTxCount(block), nil
 }
@@ -169,6 +201,10 @@ func (a *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHash
 	}
 	if err = validateBlockExecutionReceipts(a.keeper, a.ctxProvider, a.txConfigProvider, block, a.includeShellReceipts, a.cacheCreationMutex, a.globalBlockCache); err != nil {
 		return nil, err
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		count := hexutil.Uint(len(a.domainIndex.DomainTxs(a.ctxProvider(LatestCtxHeight), scope.ID, uint64(block.Block.Height))))
+		return &count, nil
 	}
 	return a.getEvmTxCount(block), nil
 }
@@ -198,12 +234,6 @@ func (a *BlockAPI) getBlockByHash(ctx context.Context, blockHash common.Hash, fu
 		return nil, nil
 	}
 
-	// Validate EVM block height for pacific-1 chain
-	sdkCtx := a.ctxProvider(LatestCtxHeight)
-	if err := ValidateEVMBlockHeight(sdkCtx.ChainID(), block.Block.Height); err != nil {
-		return nil, err
-	}
-
 	return a.encodeBlock(ctx, block, fullTx, includeSyntheticTxs, excludeUntraceable)
 }
 
@@ -223,19 +253,29 @@ func (a *BlockAPI) getBlockByNumber(
 	excludeUntraceable bool,
 ) (result map[string]interface{}, returnErr error) {
 	if number == rpc.PendingBlockNumber && a.watermarks != nil && a.watermarks.pending != nil {
-		return a.pendingBlock(fullTx)
+		encoded, err := a.pendingBlock(fullTx)
+		if err != nil {
+			return nil, err
+		}
+		if scope, ok := DomainScopeFrom(ctx); ok {
+			snapshot, err := a.watermarks.pending.Snapshot()
+			if err != nil {
+				return nil, err
+			}
+			allowed := domainHashSet(a.domainIndex, snapshot, scope, uint64(snapshot.BlockHeight()))
+			hashes := make([]common.Hash, 0)
+			for _, hash := range encoded["transactions"].([]common.Hash) {
+				if allowed[hash] {
+					hashes = append(hashes, hash)
+				}
+			}
+			encoded["transactions"] = hashes
+		}
+		return encoded, nil
 	}
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
 		return nil, err
-	}
-
-	// Validate EVM block height for pacific-1 chain
-	if numberPtr != nil {
-		sdkCtx := a.ctxProvider(LatestCtxHeight)
-		if err := ValidateEVMBlockHeight(sdkCtx.ChainID(), *numberPtr); err != nil {
-			return nil, err
-		}
 	}
 
 	// Ethereum JSON-RPC: non-existent / future numeric block => null, not an error.
@@ -268,6 +308,23 @@ func (a *BlockAPI) encodeBlock(ctx context.Context, block *coretypes.ResultBlock
 	if err != nil {
 		return nil, err
 	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		allowed := domainHashSet(a.domainIndex, a.ctxProvider(LatestCtxHeight), scope, uint64(height))
+		transactions := make([]interface{}, 0)
+		for _, tx := range encoded["transactions"].([]interface{}) {
+			var hash common.Hash
+			switch tx := tx.(type) {
+			case string:
+				hash = common.HexToHash(tx)
+			case *export.RPCTransaction:
+				hash = tx.Hash
+			}
+			if allowed[hash] {
+				transactions = append(transactions, tx)
+			}
+		}
+		encoded["transactions"] = transactions
+	}
 	encoded["receiptsRoot"] = receiptsRoot
 	return encoded, nil
 }
@@ -293,6 +350,11 @@ func blockResultsRoot(height int64, results *coretypes.ResultBlockResults) (comm
 // pendingBlock encodes the open block on the sequencer and standby: its height,
 // its open time and the hashes of its receipted EVM transactions in receipt
 // order. It has no hash and no state root until it is sealed and committed.
+// fullTx is deliberately rejected, rather than projecting mined transactions
+// into an open block. Explorer's block_importer_import_1_pending.json cassette
+// is historical Parity evidence, not a capture of this producer. Conformance
+// evidence must capture this path separately, including the fullTx error and
+// the committed block identity before and after a producer restart.
 func (a *BlockAPI) pendingBlock(fullTx bool) (map[string]interface{}, error) {
 	if fullTx {
 		return nil, &ErrEVMNotSupported{Msg: "pending block lists transaction hashes only"}
@@ -305,12 +367,86 @@ func (a *BlockAPI) pendingBlock(fullTx bool) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	parentHeight := snapshot.BlockHeight() - 1
+	ctx, cancel := context.WithTimeout(context.Background(), currentHeaderLookupTimeout)
+	defer cancel()
+	parent, err := a.tmClient.Block(ctx, &parentHeight)
+	if err != nil {
+		return nil, fmt.Errorf("load pending block parent %d: %w", parentHeight, err)
+	}
+	if parent == nil || parent.Block == nil || parent.Block.Height != parentHeight {
+		return nil, fmt.Errorf("pending block parent %d is unavailable", parentHeight)
+	}
+	cp := snapshot.ConsensusParams()
+	if cp == nil || cp.Block == nil {
+		return nil, fmt.Errorf("pending block %d consensus block parameters are unavailable", snapshot.BlockHeight())
+	}
+	gasLimit, err := encodeHeadGasLimit(cp.Block.MaxGas)
+	if err != nil {
+		return nil, err
+	}
+	baseFee := a.keeper.GetNextBaseFeePerGas(a.ctxProvider(parentHeight)).TruncateInt().BigInt()
+	var transientKey sdk.StoreKey
+	for _, key := range snapshot.MultiStore().StoreKeys() {
+		if key.Name() == types.TransientStoreKey {
+			transientKey = key
+			break
+		}
+	}
+	if transientKey == nil {
+		return nil, errors.New("pending block has no EVM transient store")
+	}
+	receipts := make(map[common.Hash]*types.Receipt, len(hashes))
+	store := prefix.NewStore(snapshot.TransientStore(transientKey), types.ReceiptKeyPrefix)
+	iter := store.Iterator(nil, nil)
+	defer func() { _ = iter.Close() }()
+	for ; iter.Valid(); iter.Next() {
+		var receipt types.Receipt
+		if err := receipt.Unmarshal(iter.Value()); err != nil {
+			return nil, fmt.Errorf("decode pending receipt %x: %w", iter.Key(), err)
+		}
+		hash := types.TransientReceiptKey(iter.Key()).TransactionHash()
+		receipts[hash] = &receipt
+	}
+	var gasUsed uint64
+	logs := &ethtypes.Receipt{}
+	for _, hash := range hashes {
+		receipt := receipts[hash]
+		if receipt == nil {
+			return nil, fmt.Errorf("pending transaction %s receipt is unavailable", hash)
+		}
+		if err := addBlockGasUsed(&gasUsed, receipt.GasUsed); err != nil {
+			return nil, fmt.Errorf("pending transaction %s: %w", hash, err)
+		}
+		for _, log := range receipt.Logs {
+			if log == nil {
+				return nil, fmt.Errorf("pending transaction %s contains a nil log", hash)
+			}
+			ethLog := &ethtypes.Log{Address: common.HexToAddress(log.Address)}
+			for _, topic := range log.Topics {
+				ethLog.Topics = append(ethLog.Topics, common.HexToHash(topic))
+			}
+			logs.Logs = append(logs.Logs, ethLog)
+		}
+	}
 	return map[string]interface{}{
-		"number":       (*hexutil.Big)(big.NewInt(snapshot.BlockHeight())),
-		"hash":         nil,
-		"stateRoot":    nil,
-		"timestamp":    hexutil.Uint64(snapshot.BlockTime().Unix()), //nolint:gosec
-		"transactions": hashes,
+		"number":        (*hexutil.Big)(big.NewInt(snapshot.BlockHeight())),
+		"hash":          nil,
+		"stateRoot":     nil,
+		"timestamp":     hexutil.Uint64(snapshot.BlockTime().Unix()), //nolint:gosec
+		"transactions":  hashes,
+		"parentHash":    common.BytesToHash(parent.BlockID.Hash),
+		"miner":         common.BytesToAddress(snapshot.BlockHeader().ProposerAddress),
+		"gasLimit":      gasLimit,
+		"baseFeePerGas": (*hexutil.Big)(baseFee),
+		"gasUsed":       hexutil.Uint64(gasUsed),
+		"logsBloom":     ethtypes.CreateBloom(logs),
+		"sha3Uncles":    ethtypes.EmptyUncleHash,
+		"nonce":         ethtypes.BlockNonce{},
+		"difficulty":    (*hexutil.Big)(big.NewInt(0)),
+		"extraData":     hexutil.Bytes{},
+		"mixHash":       common.Hash{},
+		"uncles":        []common.Hash{},
 	}, nil
 }
 
@@ -384,6 +520,16 @@ func (a *BlockAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rpc.Block
 	}
 
 	txHashes := getTxHashesFromBlock(a.ctxProvider, a.txConfigProvider, a.keeper, block, includeSynthetic, a.cacheCreationMutex, a.globalBlockCache)
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		allowed := domainHashSet(a.domainIndex, a.ctxProvider(LatestCtxHeight), scope, uint64(height))
+		scoped := make([]typedTxHash, 0, len(txHashes))
+		for _, hash := range txHashes {
+			if allowed[hash.hash] {
+				scoped = append(scoped, hash)
+			}
+		}
+		txHashes = scoped
+	}
 
 	// Get tx receipts for all hashes in parallel
 	wg := sync.WaitGroup{}
@@ -628,25 +774,29 @@ func EncodeTmBlock(
 		return nil, fmt.Errorf("block %d: %w", block.Block.Height, err)
 	}
 	result := map[string]interface{}{
-		"number":           (*hexutil.Big)(number),
-		"hash":             blockhash,
-		"parentHash":       lastHash,
-		"nonce":            ethtypes.BlockNonce{},   // inapplicable to Pax
-		"mixHash":          common.Hash{},           // inapplicable to Pax
-		"sha3Uncles":       ethtypes.EmptyUncleHash, // inapplicable to Pax
-		"logsBloom":        ethtypes.BytesToBloom(blockBloom),
-		"stateRoot":        appHash,
-		"miner":            miner,
-		"difficulty":       (*hexutil.Big)(big.NewInt(0)), // inapplicable to Pax
-		"extraData":        hexutil.Bytes{},               // inapplicable to Pax
-		"gasLimit":         gasLimit,
-		"gasUsed":          hexutil.Uint64(blockGasUsed),
-		"timestamp":        hexutil.Uint64(block.Block.Time.Unix()), //nolint:gosec
-		"transactionsRoot": txHash,
-		"size":             hexutil.Uint64(block.Block.Size()), //nolint:gosec
-		"uncles":           []common.Hash{},                    // inapplicable to Pax
-		"transactions":     transactions,
-		"baseFeePerGas":    (*hexutil.Big)(baseFeePerGas),
+		"number":                (*hexutil.Big)(number),
+		"hash":                  blockhash,
+		"parentHash":            lastHash,
+		"nonce":                 ethtypes.BlockNonce{},   // inapplicable to Pax
+		"mixHash":               common.Hash{},           // inapplicable to Pax
+		"sha3Uncles":            ethtypes.EmptyUncleHash, // inapplicable to Pax
+		"logsBloom":             ethtypes.BytesToBloom(blockBloom),
+		"stateRoot":             appHash,
+		"miner":                 miner,
+		"difficulty":            (*hexutil.Big)(big.NewInt(0)), // inapplicable to Pax
+		"extraData":             hexutil.Bytes{},               // inapplicable to Pax
+		"gasLimit":              gasLimit,
+		"gasUsed":               hexutil.Uint64(blockGasUsed),
+		"timestamp":             hexutil.Uint64(block.Block.Time.Unix()), //nolint:gosec
+		"transactionsRoot":      txHash,
+		"size":                  hexutil.Uint64(block.Block.Size()), //nolint:gosec
+		"uncles":                []common.Hash{},                    // inapplicable to Pax
+		"transactions":          transactions,
+		"baseFeePerGas":         (*hexutil.Big)(baseFeePerGas),
+		"withdrawalsRoot":       ethtypes.EmptyWithdrawalsHash,
+		"blobGasUsed":           hexutil.Uint64(0),
+		"excessBlobGas":         hexutil.Uint64(0),
+		"parentBeaconBlockRoot": common.Hash{},
 	}
 	if fullTx {
 		result["totalDifficulty"] = (*hexutil.Big)(big.NewInt(0)) // inapplicable to Pax

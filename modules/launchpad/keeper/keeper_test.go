@@ -887,6 +887,12 @@ func TestGenesisRoundTrip(t *testing.T) {
 	exported := e.k.ExportGenesis(e.ctx)
 	require.NoError(t, exported.Validate())
 	require.Len(t, exported.Markets, 2)
+	require.Empty(t, exported.AirdropEpochs)
+	require.Empty(t, exported.AirdropClaims)
+	require.Empty(t, exported.ProtocolFees)
+	require.Empty(t, exported.AirdropBases)
+	require.Empty(t, exported.HoldingHistories)
+	require.Empty(t, exported.HoldingCheckpoints)
 
 	held := map[string]string{}
 	for _, entry := range exported.HeldQuote {
@@ -943,14 +949,26 @@ func TestGenesisRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, i(2_000_055), treasury)
 	require.False(t, ctx.KVStore(sdk.NewKVStoreKey(types.StoreKey)).Has(types.ProtocolFeesPrefix))
+	for _, prefix := range [][]byte{
+		types.ProtocolFeesPrefix, types.AirdropEpochPrefix, types.AirdropClaimPrefix,
+		types.AirdropBasisPrefix, types.HoldingHistoryPrefix, types.HoldingCountPrefix, types.HoldingEntryPrefix,
+	} {
+		iterator := sdk.KVStorePrefixIterator(ctx.KVStore(sdk.NewKVStoreKey(types.StoreKey)), prefix)
+		populated := iterator.Valid()
+		iterator.Close()
+		require.False(t, populated, "generation 1 prefix %x must be empty", prefix)
+	}
 	for _, entries := range [][]types.ProtocolFeeEntry{
+		{{Token: first, Amount: i(20)}},
 		{{Token: first, Amount: i(20)}, {Token: first, Amount: i(35)}},
 		{{Token: first, Amount: i(-1)}}, {{Token: first, Amount: sdk.Int{}}}, {{Token: "", Amount: i(1)}},
 		{{Token: "!", Amount: i(1)}},
 	} {
 		invalid := *exported
 		invalid.ProtocolFees = entries
-		require.ErrorIs(t, invalid.Validate(), types.ErrInvalidGenesis)
+		err := invalid.Validate()
+		require.ErrorIs(t, err, types.ErrInvalidGenesis)
+		require.Contains(t, err.Error(), "protocol_fees")
 	}
 
 	broken := *exported

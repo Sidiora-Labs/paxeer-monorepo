@@ -6,6 +6,8 @@ import (
 	"math"
 	"math/big"
 
+	chainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/antedecorators"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -32,14 +34,26 @@ import (
 
 var logger = paxlog.NewLogger("app", "ante")
 
+// EvmCheckTxAnte admits root or registered active tenant transactions, recovers
+// the signature and associates the sender, then checks fees and buys gas before
+// checking the pending nonce. Associate transactions take a read-only early path.
+// Keep modules/evm/AGENTS.md's Ante Handler Pipeline in sync with this ordering.
 func EvmCheckTxAnte(
 	ctx sdk.Context,
 	tx sdk.Tx,
 	upgradeKeeper *upgradekeeper.Keeper,
 	ek *evmkeeper.Keeper,
+	chains ...*chainskeeper.Keeper,
 ) (returnCtx sdk.Context, returnErr error) {
 	chainID := ek.ChainID(ctx)
-	if err := EvmStatelessChecks(ctx, tx, chainID); err != nil {
+	if len(chains) == 0 {
+		k, err := ChainsKeeperForContext(ctx, ek)
+		if err != nil {
+			return ctx, err
+		}
+		chains = []*chainskeeper.Keeper{k}
+	}
+	if err := EvmStatelessChecks(ctx, tx, chainID, chains...); err != nil {
 		return ctx, err
 	}
 	msg := tx.GetMsgs()[0].(*evmtypes.MsgEVMTransaction)
@@ -54,6 +68,10 @@ func EvmCheckTxAnte(
 		return ctx, sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "unsupported EVM transaction envelope")
 	}
 	etx := ethtypes.NewTx(ethereumData.AsEthereumData())
+	ctx, err := ResolveTransactionChain(ctx, etx, chainID, chains[0])
+	if err != nil {
+		return ctx, err
+	}
 	evmAddr, paxAddr, paxPubkey, version, err := CheckAndDecodeSignature(ctx, ethereumData, chainID, false)
 	if err != nil {
 		return ctx, err
@@ -73,7 +91,7 @@ func EvmCheckTxAnte(
 	return DecorateContext(ctx, ek, tx, ethereumData, etx, evmAddr, paxAddr), nil
 }
 
-func EvmStatelessChecks(ctx sdk.Context, tx sdk.Tx, chainID *big.Int) error {
+func EvmStatelessChecks(ctx sdk.Context, tx sdk.Tx, chainID *big.Int, chains ...*chainskeeper.Keeper) error {
 	if err := evmante.ValidateNoCosmosTxFields(tx); err != nil {
 		return err
 	}
@@ -137,19 +155,13 @@ func EvmStatelessChecks(ctx sdk.Context, tx sdk.Tx, chainID *big.Int) error {
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "gas fee cap cannot be negative")
 	}
 
-	// validate chain ID on the transaction
-	txChainID := etx.ChainId()
-	switch etx.Type() {
-	case ethtypes.LegacyTxType:
-		// legacy either can have a zero or correct chain ID
-		if txChainID.Cmp(big.NewInt(0)) != 0 && txChainID.Cmp(chainID) != 0 {
-			logger.Debug("chainID mismatch", "txChainID", txChainID, "chainID", chainID)
-			return sdkerrors.ErrInvalidChainID
+	if len(chains) > 0 && chains[0] != nil {
+		if _, err := ResolveTransactionChain(ctx, etx, chainID, chains[0]); err != nil {
+			return err
 		}
-	default:
-		// after legacy, all transactions must have the correct chain ID
-		if txChainID.Cmp(chainID) != 0 {
-			logger.Debug("chainID mismatch", "txChainID", txChainID, "chainID", chainID)
+	} else if etx.ChainId().Cmp(chainID) != 0 && !(etx.Type() == ethtypes.LegacyTxType && etx.ChainId().Sign() == 0) {
+		// Stateful registration and liveness are checked before charging fees.
+		if id, mapped := chainstypes.DomainOfChainID(etx.ChainId()); !mapped || id == 0 {
 			return sdkerrors.ErrInvalidChainID
 		}
 	}
@@ -159,6 +171,88 @@ func EvmStatelessChecks(ctx sdk.Context, tx sdk.Tx, chainID *big.Int) error {
 		return errors.New("tx gas exceeds max")
 	}
 	return nil
+}
+
+func ChainsKeeperForContext(ctx sdk.Context, ek *evmkeeper.Keeper) (*chainskeeper.Keeper, error) {
+	for _, key := range ctx.MultiStore().StoreKeys() {
+		if key.Name() == chainstypes.StoreKey {
+			return chainskeeper.NewKeeper(nil, key, ek.BankKeeper(), ek.GetBaseDenom)
+		}
+	}
+	return nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "chains store is required for ante handler")
+}
+
+func ResolveTransactionChain(ctx sdk.Context, tx *ethtypes.Transaction, rootID *big.Int, chains *chainskeeper.Keeper) (sdk.Context, error) {
+	ctx = chainstypes.WithDomain(ctx, 0)
+	txID := tx.ChainId()
+	if txID.Cmp(rootID) == 0 || (tx.Type() == ethtypes.LegacyTxType && txID.Sign() == 0) {
+		return ctx, nil
+	}
+	if chains != nil {
+		if domain, ok := chains.ResolveChainID(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), txID); ok {
+			if domain.Status != chainstypes.StatusActive {
+				return ctx, chainstypes.ErrDomainNotActive
+			}
+			return chainstypes.WithDomain(ctx, domain.Id), nil
+		}
+	}
+	return ctx, sdkerrors.ErrInvalidChainID
+}
+
+type EVMChainIDDecorator struct {
+	EVMKeeper    *evmkeeper.Keeper
+	ChainsKeeper *chainskeeper.Keeper
+}
+
+func (d EVMChainIDDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+	chains := d.ChainsKeeper
+	if chains == nil {
+		var err error
+		chains, err = ChainsKeeperForContext(ctx, d.EVMKeeper)
+		if err != nil {
+			return ctx, err
+		}
+	}
+	if err := EvmStatelessChecks(ctx, tx, d.EVMKeeper.ChainID(ctx), chains); err != nil {
+		return ctx, err
+	}
+	msg := evmtypes.MustGetEVMTransactionMessage(tx)
+	data, err := evmtypes.UnpackTxData(msg.Data)
+	if err != nil {
+		return ctx, err
+	}
+	if _, ok := data.(*ethtx.AssociateTx); !ok {
+		etx, _ := msg.AsTransaction()
+		ctx, err = ResolveTransactionChain(ctx, etx, d.EVMKeeper.ChainID(ctx), chains)
+		if err != nil {
+			return ctx, err
+		}
+	} else {
+		ctx = chainstypes.WithDomain(ctx, 0)
+	}
+	return next(ctx, tx, simulate)
+}
+
+type EVMDomainSigVerifyDecorator struct {
+	EVMKeeper *evmkeeper.Keeper
+	Root      sdk.AnteDecorator
+}
+
+func (d EVMDomainSigVerifyDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+	if _, ok := chainstypes.DomainFrom(ctx); !ok {
+		return d.Root.AnteHandle(ctx, tx, simulate, next)
+	}
+	msg := evmtypes.MustGetEVMTransactionMessage(tx)
+	etx, _ := msg.AsTransaction()
+	if !ctx.IsCheckTx() && etx.Nonce() != d.EVMKeeper.GetNonce(ctx, msg.Derived.SenderEVMAddr) {
+		return ctx, sdkerrors.ErrWrongSequence
+	}
+	ctx, err := CheckNonce(ctx, d.EVMKeeper, etx, msg.Derived.SenderEVMAddr)
+	if err != nil {
+		return ctx, err
+	}
+	ctx = ctx.WithIsEVM(true).WithEVMNonce(etx.Nonce()).WithEVMSenderAddress(msg.Derived.SenderEVMAddr).WithPaxSenderAddress(msg.Derived.SenderPaxAddr).WithEVMTxHash(etx.Hash())
+	return next(ctx, tx, simulate)
 }
 
 func DecorateContext(ctx sdk.Context, ek *evmkeeper.Keeper, tx sdk.Tx, txData ethtx.EthereumTxData, etx *ethtypes.Transaction, sender common.Address, paxSender sdk.AccAddress) sdk.Context {
@@ -207,7 +301,7 @@ func HandleAssociateTx(ctx sdk.Context, ek *evmkeeper.Keeper, atx *ethtx.Associa
 
 func CheckAndDecodeSignature(ctx sdk.Context, txData ethtx.EthereumTxData, chainID *big.Int, isBlockTest bool) (common.Address, sdk.AccAddress, cryptotypes.PubKey, derived.SignerVersion, error) {
 	ethTx := ethtypes.NewTx(txData.AsEthereumData())
-	if ethTx.Type() != ethtypes.LegacyTxType {
+	if ethTx.Protected() {
 		chainID = ethTx.ChainId()
 	}
 	chainCfg := evmtypes.DefaultChainConfig()
@@ -251,7 +345,23 @@ func AssociateAddress(ctx sdk.Context, ek *evmkeeper.Keeper, evmAddr common.Addr
 }
 
 func EvmCheckAndChargeFees(ctx sdk.Context, sender common.Address, ek *evmkeeper.Keeper, upgradeKeeper *upgradekeeper.Keeper, txData ethtx.EthereumTxData, etx *ethtypes.Transaction, msg *evmtypes.MsgEVMTransaction, version derived.SignerVersion, statelessChecks bool) (*state.DBImpl, error) {
-	if txData.GetGasFeeCap().Cmp(GetBaseFee(ctx, ek, upgradeKeeper)) < 0 {
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	chains, err := ChainsKeeperForContext(readCtx, ek)
+	if err != nil {
+		return nil, err
+	}
+	ctx, err = ResolveTransactionChain(ctx, etx, ek.ChainID(readCtx), chains)
+	if err != nil {
+		return nil, err
+	}
+	var baseFee *big.Int
+	_, isDomain := chainstypes.DomainFrom(ctx)
+	if id, ok := chainstypes.DomainFrom(ctx); ok {
+		baseFee = chains.NextBaseFee(readCtx, id).TruncateInt().BigInt()
+	} else {
+		baseFee = GetBaseFee(readCtx, ek, upgradeKeeper)
+	}
+	if txData.GetGasFeeCap().Cmp(baseFee) < 0 {
 		return nil, sdkerrors.ErrInsufficientFee
 	}
 	if txData.GetGasFeeCap().Cmp(GetMinimumFee(ctx, ek)) < 0 {
@@ -270,11 +380,17 @@ func EvmCheckAndChargeFees(ctx sdk.Context, sender common.Address, ek *evmkeeper
 		return nil, err
 	}
 	emsg := ek.GetEVMMessage(ctx, etx, sender)
+	if isDomain {
+		emsg.GasPrice = txData.EffectiveGasPrice(baseFee)
+	}
 	stateDB := state.NewDBImpl(ctx, ek, false)
 	gp := ek.GetGasPool()
 	blockCtx, err := ek.GetVMBlockContext(ctx, gp)
 	if err != nil {
 		return nil, err
+	}
+	if isDomain {
+		blockCtx.BaseFee = baseFee
 	}
 	if charge != nil {
 		fee := new(big.Int).Mul(new(big.Int).SetUint64(emsg.GasLimit), emsg.GasPrice)
@@ -355,6 +471,7 @@ func IsAccountBalancePositive(ctx sdk.Context, evmKeeper *evmkeeper.Keeper, paxA
 
 // minimum fee per gas required for a tx to be processed
 func GetBaseFee(ctx sdk.Context, evmKeeper *evmkeeper.Keeper, upgradeKeeper *upgradekeeper.Keeper) *big.Int {
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	if ctx.ChainID() == "pacific-1" && ctx.BlockHeight() < 114945913 {
 		return evmKeeper.GetBaseFeePerGas(ctx).TruncateInt().BigInt()
 	}

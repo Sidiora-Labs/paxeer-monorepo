@@ -1066,9 +1066,8 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 	if err != nil {
 		return err
 	}
-	decoded, err := registryABI.Unpack("isRegisteredPool", membership[0])
-	if err != nil || len(decoded) != 1 || decoded[0] != true {
-		return errors.New("pool not registered at selected block")
+	if err := decodePoolMembership(membership); err != nil {
+		return err
 	}
 	_, err = readVerified(a.client, ctx, "pool_code_identity", func(ctx context.Context, e *ethclient.Client) (bool, error) {
 		err := a.client.atPinned(ctx, e, pin, func(height *big.Int, _ *types.Header) error {
@@ -1100,61 +1099,192 @@ func (a *ReadAdapter) identifyPool(ctx context.Context, pin BlockPin, pool commo
 	return err
 }
 
+// decodePoolMembership admits exactly one canonical ABI bool from the registry.
+// Check the response shape before indexing it or letting ABI unpack ignore a
+// trailing word; malformed membership must never authorize a pool read.
+func decodePoolMembership(membership [][]byte) error {
+	if len(membership) != 1 || len(membership[0]) != 32 {
+		return errors.New("malformed pool membership response")
+	}
+	registryABI, err := bindings.PoolRegistryMetaData.GetAbi()
+	if err != nil {
+		return err
+	}
+	decoded, err := registryABI.Unpack("isRegisteredPool", membership[0])
+	if err != nil {
+		return fmt.Errorf("malformed pool membership response: %w", err)
+	}
+	if len(decoded) != 1 || decoded[0] != true {
+		return errors.New("pool not registered at selected block")
+	}
+	return nil
+}
+
+// Deprecated: valid log-free receipts now use the shared v2 receipt projection.
+// Retained for callers that previously matched this exported error.
 var ErrReceiptPosition = errors.New("RECEIPT_POSITION_UNREPRESENTABLE: frozen receipt requires event logIndex for a log-free transaction")
+
+// ErrReceiptIntegrity marks foreign or conflicting chain evidence. Callers
+// must refuse projection rather than publish an included transaction.
+var ErrReceiptIntegrity = errors.New("receipt chain integrity conflict")
+
+type receiptEvidence struct {
+	receipt *types.Receipt
+	block   reportedBlock
+	tx      *types.Transaction
+}
+
+func receiptConflict(reason string) error {
+	return fmt.Errorf("%w: %s", ErrReceiptIntegrity, reason)
+}
+
+// readReceiptEvidence binds the receipt to the node-reported committed hash
+// and the signed transaction at its exact block position. Paxeer's reported
+// hash and transactionsRoot are consensus commitments, not Ethereum trie hashes.
+func readReceiptEvidence(ctx context.Context, e *ethclient.Client, hash common.Hash) (receiptEvidence, error) {
+	var raw json.RawMessage
+	if err := e.Client().CallContext(ctx, &raw, "eth_getTransactionReceipt", hash); err != nil {
+		return receiptEvidence{}, err
+	}
+	var receipt *types.Receipt
+	if err := json.Unmarshal(raw, &receipt); err != nil {
+		return receiptEvidence{}, receiptConflict("malformed receipt")
+	}
+	var fields struct {
+		Status           *hexutil.Uint64 `json:"status"`
+		GasUsed          *hexutil.Uint64 `json:"gasUsed"`
+		TransactionIndex *hexutil.Uint64 `json:"transactionIndex"`
+	}
+	if receipt != nil {
+		if err := json.Unmarshal(raw, &fields); err != nil || fields.Status == nil || *fields.Status > 1 || fields.GasUsed == nil || fields.TransactionIndex == nil || receipt.TxHash != hash || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() || receipt.BlockHash == (common.Hash{}) {
+			return receiptEvidence{}, receiptConflict("malformed receipt identity")
+		}
+	}
+	if err := e.Client().CallContext(ctx, &raw, "eth_getTransactionByHash", hash); err != nil {
+		return receiptEvidence{}, err
+	}
+	var tx *types.Transaction
+	if err := json.Unmarshal(raw, &tx); err != nil {
+		return receiptEvidence{}, receiptConflict("malformed transaction")
+	}
+	if tx == nil {
+		if receipt != nil {
+			return receiptEvidence{}, receiptConflict("receipt without transaction")
+		}
+		return receiptEvidence{}, nil
+	}
+	var inclusion struct {
+		Hash             common.Hash     `json:"hash"`
+		BlockHash        *common.Hash    `json:"blockHash"`
+		BlockNumber      *hexutil.Big    `json:"blockNumber"`
+		TransactionIndex *hexutil.Uint64 `json:"transactionIndex"`
+	}
+	if err := json.Unmarshal(raw, &inclusion); err != nil || inclusion.Hash != hash || tx.Hash() != hash || tx.ChainId().Cmp(big.NewInt(125)) != 0 {
+		return receiptEvidence{}, receiptConflict("transaction identity mismatch")
+	}
+	if receipt == nil {
+		if inclusion.BlockHash != nil || inclusion.BlockNumber != nil || inclusion.TransactionIndex != nil {
+			return receiptEvidence{}, receiptConflict("included transaction without receipt")
+		}
+		return receiptEvidence{tx: tx}, nil
+	}
+	if inclusion.BlockHash == nil || *inclusion.BlockHash != receipt.BlockHash || inclusion.BlockNumber == nil || (*big.Int)(inclusion.BlockNumber).Cmp(receipt.BlockNumber) != 0 || inclusion.TransactionIndex == nil || uint64(*inclusion.TransactionIndex) != uint64(receipt.TransactionIndex) {
+		return receiptEvidence{}, receiptConflict("transaction inclusion mismatch")
+	}
+	committed, err := reportedBlockByNumber(ctx, e, receipt.BlockNumber)
+	if err != nil {
+		return receiptEvidence{}, err
+	}
+	if committed.Hash != receipt.BlockHash {
+		return receiptEvidence{}, receiptConflict("receipt committed block conflict")
+	}
+	if err := e.Client().CallContext(ctx, &raw, "eth_getBlockByHash", receipt.BlockHash, false); err != nil {
+		return receiptEvidence{}, err
+	}
+	byHash, err := decodeReportedBlock(raw)
+	if err != nil {
+		return receiptEvidence{}, receiptConflict("receipt block unavailable by reported hash")
+	}
+	var body struct {
+		Transactions []common.Hash `json:"transactions"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil || byHash.Hash != receipt.BlockHash || byHash.Header.Hash() != committed.Header.Hash() || uint64(receipt.TransactionIndex) >= uint64(len(body.Transactions)) || body.Transactions[receipt.TransactionIndex] != hash {
+		return receiptEvidence{}, receiptConflict("receipt transaction inclusion conflict")
+	}
+	// Recheck the height after the inclusion read so a changing endpoint cannot
+	// combine a receipt from one committed block with another block's body.
+	after, err := reportedBlockByNumber(ctx, e, receipt.BlockNumber)
+	if err != nil {
+		return receiptEvidence{}, err
+	}
+	if after.Hash != committed.Hash || after.Header.Hash() != committed.Header.Hash() {
+		return receiptEvidence{}, receiptConflict("committed block changed during receipt read")
+	}
+	state, err := readpolicy.Submitted(hash, "rpc-receipt")
+	if err != nil {
+		return receiptEvidence{}, err
+	}
+	if _, err := state.WithReceipt(receipt, committed.Header, committed.Hash); err != nil {
+		return receiptEvidence{}, receiptConflict(err.Error())
+	}
+	return receiptEvidence{receipt: receipt, block: committed, tx: tx}, nil
+}
+
+func projectReceipt(r receiptEvidence) (contractv2.TxStatusData, error) {
+	if r.receipt == nil {
+		status := "unknown"
+		if r.tx != nil {
+			status = "submitted"
+		}
+		return contractv2.TxStatusData{Status: status}, nil
+	}
+	from, err := types.Sender(types.LatestSignerForChainID(big.NewInt(125)), r.tx)
+	if err != nil {
+		return contractv2.TxStatusData{}, receiptConflict("invalid transaction signature")
+	}
+	view, err := projectCommittedReceipt(r.receipt, from, r.tx.To())
+	if err != nil {
+		return contractv2.TxStatusData{}, receiptConflict(err.Error())
+	}
+	return view, nil
+}
+
+// TransactionStatus serves the frozen receipt contract using the same inclusion
+// checks and receipt position as ReceiptState. Log-free receipts use the
+// legacy zero logIndex with identity supplied by their transaction position.
+// The caller owns rpcClient and its bounded transport and request deadline.
+func TransactionStatus(ctx context.Context, rpcClient *rpc.Client, hash common.Hash) (contractv2.TxStatusData, error) {
+	if rpcClient == nil || hash == (common.Hash{}) {
+		return contractv2.TxStatusData{}, receiptConflict("invalid receipt context")
+	}
+	e := ethclient.NewClient(rpcClient)
+	id, err := e.ChainID(ctx)
+	if err != nil {
+		return contractv2.TxStatusData{}, err
+	}
+	if id == nil || id.Cmp(big.NewInt(125)) != 0 {
+		return contractv2.TxStatusData{}, receiptConflict("endpoint chain identity mismatch")
+	}
+	r, err := readReceiptEvidence(ctx, e, hash)
+	if err != nil {
+		return contractv2.TxStatusData{}, err
+	}
+	return projectReceipt(r)
+}
 
 func (c *Client) ReceiptState(ctx context.Context, state readpolicy.TransactionState) (readpolicy.TransactionState, contractv2.TxStatusData, error) {
 	if c.verified == nil || state.DeploymentVersion != c.verified.Profile.DeploymentVersion || state.ChainID != "125" || state.SubmittedHash == (common.Hash{}) {
 		return state, contractv2.TxStatusData{}, errors.New("invalid receipt context")
 	}
-	type result struct {
-		receipt *types.Receipt
-		block   reportedBlock
-		tx      *types.Transaction
-	}
-	r, err := readVerified(c, ctx, "eth_getTransactionReceipt", func(ctx context.Context, e *ethclient.Client) (result, error) {
-		receipt, err := e.TransactionReceipt(ctx, state.SubmittedHash)
-		if errors.Is(err, ethereum.NotFound) {
-			return result{}, nil
-		}
-		if err != nil {
-			return result{}, err
-		}
-		if receipt == nil || receipt.BlockNumber == nil || !receipt.BlockNumber.IsUint64() {
-			return result{}, errors.New("malformed receipt")
-		}
-		committed, err := reportedBlockByNumber(ctx, e, receipt.BlockNumber)
-		if err != nil {
-			return result{}, err
-		}
-		if committed.Hash != receipt.BlockHash {
+	r, err := readVerified(c, ctx, "eth_getTransactionReceipt", func(ctx context.Context, e *ethclient.Client) (receiptEvidence, error) {
+		r, err := readReceiptEvidence(ctx, e, state.SubmittedHash)
+		if errors.Is(err, ErrReceiptIntegrity) {
 			c.quarantineEndpoint(e)
-			return result{}, errors.New("receipt committed block conflict")
 		}
-		header := committed.Header
-		tx, pending, err := e.TransactionByHash(ctx, state.SubmittedHash)
-		if err != nil {
-			return result{}, err
+		if err == nil && r.receipt != nil {
+			err = c.checkCommittedHeader(ctx, e, r.block)
 		}
-		if pending || tx == nil || tx.Hash() != state.SubmittedHash || tx.ChainId().Cmp(big.NewInt(125)) != 0 {
-			return result{}, errors.New("transaction identity mismatch")
-		}
-		block, err := e.BlockByHash(ctx, receipt.BlockHash)
-		if err != nil {
-			return result{}, err
-		}
-		// block was fetched by the node-reported hash and must carry the same
-		// header content as the height lookup (equal recomputed hashes compare
-		// content, not identity). Its transactionsRoot is not re-derived: on
-		// chain 125 it is the CometBFT data commitment, not the Ethereum
-		// transaction trie root, so DeriveSha never matches it.
-		if block == nil || block.Hash() != header.Hash() || uint64(receipt.TransactionIndex) >= uint64(len(block.Transactions())) || block.Transactions()[receipt.TransactionIndex].Hash() != tx.Hash() {
-			c.quarantineEndpoint(e)
-			return result{}, errors.New("receipt transaction inclusion conflict")
-		}
-		if err := c.checkCommittedHeader(ctx, e, committed); err != nil {
-			return result{}, err
-		}
-		return result{receipt, committed, tx}, nil
+		return r, err
 	})
 	if err != nil {
 		return state, contractv2.TxStatusData{Status: "submitted"}, err
@@ -1166,29 +1296,8 @@ func (c *Client) ReceiptState(ctx context.Context, state readpolicy.TransactionS
 	if err != nil {
 		return state, contractv2.TxStatusData{}, err
 	}
-	from, err := types.Sender(types.LatestSignerForChainID(big.NewInt(125)), r.tx)
-	if err != nil {
-		return state, contractv2.TxStatusData{}, err
-	}
-	var to *string
-	if r.tx.To() != nil {
-		address := r.tx.To().Hex()
-		to = &address
-	}
-	gasPrice := r.receipt.EffectiveGasPrice
-	if gasPrice == nil || gasPrice.Sign() < 0 || gasPrice.BitLen() > 256 {
-		return state, contractv2.TxStatusData{}, errors.New("receipt gas price unavailable")
-	}
-	status := "included_success"
-	if r.receipt.Status == 0 {
-		status = "included_reverted"
-	}
-	if len(r.receipt.Logs) == 0 {
-		return next, contractv2.TxStatusData{Status: status}, ErrReceiptPosition
-	}
-	position := contractv2.ChainPosition{BlockHash: r.receipt.BlockHash.Hex(), ChainId: "125", Height: contractv2.UInt256(r.receipt.BlockNumber.String()), LogIndex: contractv2.UInt256(new(big.Int).SetUint64(uint64(r.receipt.Logs[0].Index)).String()), TransactionHash: r.receipt.TxHash.Hex(), TransactionIndex: contractv2.UInt256(new(big.Int).SetUint64(uint64(r.receipt.TransactionIndex)).String())}
-	view := &contractv2.Receipt{BlockHash: r.receipt.BlockHash.Hex(), EffectiveGasPriceRaw: contractv2.UInt256(gasPrice.String()), From: from.Hex(), GasUsedRaw: contractv2.UInt256(new(big.Int).SetUint64(r.receipt.GasUsed).String()), Height: position.Height, Position: position, Success: r.receipt.Status == 1, To: to, TransactionHash: r.receipt.TxHash.Hex()}
-	return next, contractv2.TxStatusData{Receipt: view, Status: status}, nil
+	view, err := projectReceipt(r)
+	return next, view, err
 }
 
 type RPCReadMetrics struct {

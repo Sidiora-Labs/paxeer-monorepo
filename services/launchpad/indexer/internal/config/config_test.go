@@ -80,8 +80,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.IndexerMode != ModeLive {
 		t.Errorf("IndexerMode = %q, want live", cfg.IndexerMode)
 	}
-	if cfg.BackfillBatchSize != 2000 {
-		t.Errorf("BackfillBatchSize = %d, want 2000", cfg.BackfillBatchSize)
+	if cfg.BackfillBatchSize != 64 {
+		t.Errorf("BackfillBatchSize = %d, want 64", cfg.BackfillBatchSize)
 	}
 	if cfg.RPCGetLogsTimeoutMS != 5000 || cfg.RPCGetLogsStaleThreshold != 50 ||
 		cfg.RPCGetLogsHealthIntervalMS != 30000 || cfg.RPCGetLogsReceiptConcurrency != 10 {

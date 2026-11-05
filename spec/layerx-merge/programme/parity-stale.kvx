@@ -1,0 +1,1094 @@
+# Stale parity acceptance selectors (task 17.4.5 attempt 2): each entry is decided by task 22.31.438.
+
+[meta]
+feature = "layerx-merge"
+source = "17.4.5 attempt 2 parity check"
+count = 136
+
+[stale.1]
+acceptance = "acceptance.2.20.2"
+file = "modules/layerxledger/keeper/execute_test.go"
+test = "TestExecuteIdempotentReplay"
+disposition = "replacement"
+replacement = "modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay"
+reason = ""
+
+[stale.2]
+acceptance = "acceptance.2.35.1"
+file = "modules/layerxauth/keeper/execute_test.go"
+test = "TestAuthExecuteIdempotentReplay"
+disposition = "replacement"
+replacement = "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay"
+reason = ""
+
+[stale.3]
+acceptance = "acceptance.2.58.4"
+file = "precompiles/layerxauth/surface_test.go"
+test = "TestPrecompileSurface"
+disposition = "replacement"
+replacement = "precompiles/layerxauth/surface_test.go::TestPrecompileSurface"
+reason = ""
+
+[stale.4]
+acceptance = "acceptance.5.45.2"
+file = "node/commit_listener_test.go"
+test = "TestCommitSurvivesPanickingListener"
+disposition = "replacement"
+replacement = "node/commit_listener_test.go::TestCommitSurvivesPanickingListener"
+reason = ""
+
+[stale.5]
+acceptance = "acceptance.5.483.1"
+file = "storage/common/keys/store_keys_test.go"
+test = "TestAnchorStoreKeyIsNotMounted"
+disposition = "replacement"
+replacement = "storage/common/keys/store_keys_test.go::TestAnchorStoreKeyStaysMountedUntilDelete"
+reason = "The current acceptance.5.483.1 requires the anchor store to remain mounted until the upgrade deletes it; this test asserts membership and exact exclusion."
+
+[stale.6]
+acceptance = "acceptance.8.113.1"
+file = "services/platform/hosted/authority/tests/chain_receipts.rs"
+test = "authority_starts_without_an_lni_socket"
+disposition = "replacement"
+replacement = "services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket"
+reason = ""
+
+[stale.7]
+acceptance = "acceptance.8.145.1"
+file = "services/platform/hosted/webhooks/src/events.rs"
+test = "block_committed_orders_between_receipt_and_checkpoint"
+disposition = "replacement"
+replacement = "services/platform/hosted/webhooks/src/events.rs::block_committed_is_the_top_verification_above_receipt_verified"
+reason = "The current acceptance.8.145.1 makes block-committed the top level and refuses checkpoint-finalised; the replacement asserts ordering, parsing and rendering."
+
+[stale.8]
+acceptance = "acceptance.8.182.2"
+file = "services/platform/hosted/indexer/src/config.rs"
+test = "environment_builds_both_sources"
+disposition = "replacement"
+replacement = "services/platform/hosted/indexer/src/config.rs::environment_builds_evm_and_comet_sources"
+reason = ""
+
+[stale.9]
+acceptance = "acceptance.8.220.1"
+file = "services/platform/hosted/human/test_provision.py"
+test = "test_provisioning_makes_no_custody_deposit"
+disposition = "replacement"
+replacement = "services/platform/hosted/human/test_provision.py::test_provisioning_makes_no_custody_deposit"
+reason = ""
+
+[stale.10]
+acceptance = "acceptance.8.274.1"
+file = "services/platform/ramps/reference/tests/config_validation.rs"
+test = "reference_ramp_refuses_retired_paxeer_rpc_fields (planned, task 8.31.2)"
+disposition = "replacement"
+replacement = "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields"
+reason = ""
+
+[stale.11]
+acceptance = "acceptance.8.294.1"
+file = "services/platform/middleware/conformance/test/service-account.test.mjs"
+test = "serviceOfferParsesOnEip155ReceiptedRung"
+disposition = "replacement"
+replacement = "services/platform/middleware/conformance/test/service-account.test.mjs::serviceOfferParsesOnEip155ReceiptedRung"
+reason = ""
+
+[stale.12]
+acceptance = "acceptance.8.294.2"
+file = "services/platform/middleware/conformance/test/service-account.test.mjs"
+test = "serviceOfferOnLayerxNetworkIsRefused"
+disposition = "replacement"
+replacement = "services/platform/middleware/conformance/test/service-account.test.mjs::serviceOfferOnLayerxNetworkIsRefused"
+reason = ""
+
+[stale.13]
+acceptance = "acceptance.8.484.1"
+file = "sdk/platform/go/agent_envelope_major2_test.go"
+test = "TestAgentEnvelopeEncodesVersionTwo"
+disposition = "replacement"
+replacement = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden"
+reason = "The current acceptance.8.484.1 requires the daemon request golden and version 1, rather than the stale version-two name."
+
+[stale.14]
+acceptance = "acceptance.8.484.2"
+file = "sdk/platform/go/agent_envelope_major2_test.go"
+test = "TestAgentEnvelopeRefusesVersionOneResponse"
+disposition = "replacement"
+replacement = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesResponseWithoutSchemaFields"
+reason = "The current acceptance.8.484.2 requires refusal of responses missing schema fields, rather than rejection based on a response version."
+
+[stale.15]
+acceptance = "acceptance.8.502.1"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"
+test = "testAgentEnvelopeEncodesVersionTwo"
+disposition = "replacement"
+replacement = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne"
+reason = "The current acceptance.8.502.1 requires envelope version 1, which the renamed Swift test asserts for every agent operation."
+
+[stale.16]
+acceptance = "acceptance.8.502.2"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"
+test = "testAgentEnvelopeRefusesVersionOneResponse"
+disposition = "replacement"
+replacement = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesResponseWithoutSchemaFields"
+reason = "The current acceptance.8.502.2 requires refusal of responses missing verification_status, which the replacement explicitly checks."
+
+[stale.17]
+acceptance = "acceptance.9.1.2"
+file = "services/agent/crates/layerx-agent-api/tests/rung.rs"
+test = "legacy_level_maps_onto_rungs_by_decision"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-agent-api/tests/rung.rs::rung_and_rung_status_are_exported_from_the_verify_contract"
+reason = "The current acceptance.9.1.2 tests the exported Rung and RungStatus contract; the legacy Level projection is no longer its API."
+
+[stale.18]
+acceptance = "acceptance.9.52.2"
+file = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs"
+test = "grant_draw_targets_the_pay_precompile"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_ledger_precompile"
+reason = "Grant draw now uses the ledger precompile; the replacement checks the alias target and payload at that boundary."
+
+[stale.19]
+acceptance = "acceptance.9.308.1"
+file = "services/agent/crates/layerx-proof/tests/withdrawal.rs"
+test = "paid_withdrawal_receipt_verifies_without_the_signed_activity"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-proof/tests/withdrawal.rs::paid_withdrawal_receipt_verifies_without_the_signed_activity"
+reason = ""
+
+[stale.20]
+acceptance = "acceptance.9.308.2"
+file = "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs"
+test = "native_owner_receipt_verifies_through_verify_outcome"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs::native_owner_receipt_verifies_through_verify_outcome"
+reason = ""
+
+[stale.21]
+acceptance = "acceptance.9.309.1"
+file = "services/agent/crates/layerx-proof/tests/export_complete.rs"
+test = "complete_export_decoder_refuses_checkpoint_and_activity_records"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-proof/tests/export_complete.rs::complete_export_decoder_refuses_checkpoint_and_activity_records"
+reason = ""
+
+[stale.22]
+acceptance = "acceptance.9.310.1"
+file = "services/agent/crates/layerx-proof/tests/inclusion.rs"
+test = "proof_evidence_never_reaches_the_committed_rung"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-proof/tests/inclusion.rs::inclusion_evidence_reports_the_receipted_rung"
+reason = "The inclusion test asserts that activity, receipt and state evidence all project to Receipted and cannot alone establish Committed."
+
+[stale.23]
+acceptance = "acceptance.9.311.1"
+file = "services/agent/crates/layerx-types/tests/vectors.rs"
+test = "checkpoint_vectors_load_without_the_settlement_document"
+disposition = "retired"
+replacement = ""
+reason = "The premise that the settlement module was removed no longer applies: services/agent/crates/layerx-types/src/lib.rs still declares pub mod settlement, and contracts/config/checkpoint-settlement.json is retained. services/agent/crates/layerx-proof/tests/checkpoint.rs::checkpoint_vectors_apply_the_declared_freshness_window loads every vector and resolves its settlement_domain; tools/qualification/test_retired_callers_17.py::test_checkpoint_settlement_schema_is_retained preserves the configuration schema."
+
+[stale.24]
+acceptance = "acceptance.9.312.1"
+file = "services/agent/crates/layerx-wire/tests/structures.rs"
+test = "every_published_receipt_round_trips_exactly"
+disposition = "replacement"
+replacement = "services/agent/crates/layerx-wire/tests/structures.rs::every_published_activity_and_receipt_round_trips_exactly"
+reason = ""
+
+[stale.25]
+acceptance = "acceptance.9.341.1"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs"
+test = "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+disposition = "retired"
+replacement = ""
+reason = "The proposed refusal of activity signature preimages no longer describes KeystoreSigner: it signs disclosed canonical activities through the real operating system agent. services/agent/crates/layerx-crypto/tests/signer.rs::operating_system_keystore_signer_uses_a_real_ssh_agent verifies that signature; the former bind-message-only policy is retired."
+
+[stale.26]
+acceptance = "acceptance.9.372.1"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts"
+test = "verifyReceipt_reports_the_submitted_rung_under_an_authority_key"
+disposition = "replacement"
+replacement = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key"
+reason = "The current acceptance.9.372.1 verifies producer sequencer receipts under pinned keys and refuses unpinned keys, transaction hash mismatches and bad signatures."
+
+[stale.27]
+acceptance = "acceptance.10.33.2"
+file = "services/human/crates/layerx-human-service/tests/intent_nonces.rs"
+test = "intent_legs_reusing_a_nonce_are_refused"
+disposition = "replacement"
+replacement = "services/human/crates/layerx-human-service/tests/intent_nonces.rs::intent_legs_reusing_a_nonce_are_refused"
+reason = ""
+
+[stale.28]
+acceptance = "acceptance.12.294.1"
+file = "apps/wallet/e2e/send.spec.ts"
+test = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+disposition = "replacement"
+replacement = "apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+reason = ""
+
+[stale.29]
+acceptance = "acceptance.12.295.1"
+file = "apps/wallet/e2e/send.spec.ts"
+test = "send_reaches_committed_only_with_a_matching_explorer_answer"
+disposition = "replacement"
+replacement = "apps/wallet/e2e/send.spec.ts::send_reaches_committed_only_with_a_matching_explorer_answer"
+reason = ""
+
+[stale.30]
+acceptance = "acceptance.13.264.2"
+file = "precompiles/layerxprograms/method_account_test.go"
+test = "TestProgramsRegisterAccountDuplicateReverts"
+disposition = "replacement"
+replacement = "precompiles/layerxprograms/method_account_test.go::TestProgramsRegisterAccountDuplicateIsIdempotent"
+reason = "The current acceptance.13.264.2 requires repeated registration to return the existing account successfully without a duplicate; reverting is no longer required."
+
+[stale.31]
+acceptance = "acceptance.15.247.1"
+file = "consensus/test/maketargets/consensus_makefile_test.go"
+test = "TestMakeRetiredDockerTargets"
+disposition = "replacement"
+replacement = "consensus/test/maketargets/consensus_makefile_test.go::TestMakeRetiredDockerTargets"
+reason = ""
+
+[stale.32]
+acceptance = "acceptance.15.248.1"
+file = "consensus/test/maketargets/consensus_makefile_test.go"
+test = "TestMakeRetiredDistributionTargets"
+disposition = "replacement"
+replacement = "consensus/test/maketargets/consensus_makefile_test.go::TestMakeRetiredDistributionTargets"
+reason = ""
+
+[stale.33]
+acceptance = "acceptance.16.1.1"
+file = "scripts/gates/test_run_gate.py"
+test = "RunGateTest.test_records_evidence_line_for_passing_command"
+disposition = "replacement"
+replacement = "scripts/gates/test_run_gate.py::test_records_evidence_line_for_passing_command"
+reason = ""
+
+[stale.34]
+acceptance = "acceptance.16.1.2"
+file = "scripts/gates/test_run_gate.py"
+test = "RunGateTest.test_nonzero_exit_is_recorded_and_returned"
+disposition = "replacement"
+replacement = "scripts/gates/test_run_gate.py::test_nonzero_exit_is_recorded_and_returned"
+reason = ""
+
+[stale.35]
+acceptance = "acceptance.16.2.1"
+file = "scripts/gates/test_wave_0.py"
+test = "Wave0GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_0.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.36]
+acceptance = "acceptance.16.3.1"
+file = "scripts/gates/test_wave_1.py"
+test = "Wave1GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_1.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.37]
+acceptance = "acceptance.16.4.1"
+file = "scripts/gates/test_wave_2.py"
+test = "Wave2GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_2.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.38]
+acceptance = "acceptance.16.5.1"
+file = "scripts/gates/test_wave_3.py"
+test = "Wave3GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_3.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.39]
+acceptance = "acceptance.16.6.1"
+file = "scripts/gates/test_wave_4.py"
+test = "Wave4GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_4.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.40]
+acceptance = "acceptance.16.7.1"
+file = "scripts/gates/test_wave_5.py"
+test = "Wave5GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_5.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.41]
+acceptance = "acceptance.16.8.1"
+file = "scripts/gates/test_wave_6.py"
+test = "Wave6GateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_6.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.42]
+acceptance = "acceptance.16.9.1"
+file = "scripts/gates/test_wave_programme.py"
+test = "WaveProgrammeGateTest.test_list_names_runnable_commands"
+disposition = "replacement"
+replacement = "scripts/gates/test_wave_programme.py::test_list_names_runnable_commands"
+reason = ""
+
+[stale.43]
+acceptance = "acceptance.16.10.1"
+file = "tools/ci/tests/test_makefile_exchange_native.py"
+test = "ExchangeNativeAggregateTest.test_aggregate_runs_every_member"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_exchange_native.py::test_aggregate_runs_every_member"
+reason = ""
+
+[stale.44]
+acceptance = "acceptance.16.11.1"
+file = "tools/ci/tests/test_makefile_wave1.py"
+test = "MakefileWaveOneTest.test_retired_targets_have_no_rule"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave1.py::test_retired_targets_have_no_rule"
+reason = ""
+
+[stale.45]
+acceptance = "acceptance.16.11.2"
+file = "tools/ci/tests/test_makefile_wave1.py"
+test = "MakefileWaveOneTest.test_aggregates_dry_run_clean"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave1.py::test_aggregates_dry_run_clean"
+reason = ""
+
+[stale.46]
+acceptance = "acceptance.16.12.1"
+file = "tools/ci/tests/test_makefile_wave2.py"
+test = "MakefileWaveTwoTest.test_retired_targets_have_no_rule"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave2.py::test_retired_targets_have_no_rule"
+reason = ""
+
+[stale.47]
+acceptance = "acceptance.16.12.2"
+file = "tools/ci/tests/test_makefile_wave2.py"
+test = "MakefileWaveTwoTest.test_aggregates_dry_run_clean"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave2.py::test_aggregates_dry_run_clean"
+reason = ""
+
+[stale.48]
+acceptance = "acceptance.16.13.1"
+file = "tools/ci/tests/test_makefile_wave3.py"
+test = "MakefileWaveThreeTest.test_retired_targets_have_no_rule"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave3.py::test_retired_targets_have_no_rule"
+reason = ""
+
+[stale.49]
+acceptance = "acceptance.16.13.2"
+file = "tools/ci/tests/test_makefile_wave3.py"
+test = "MakefileWaveThreeTest.test_aggregates_dry_run_clean"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave3.py::test_aggregates_dry_run_clean"
+reason = ""
+
+[stale.50]
+acceptance = "acceptance.16.14.1"
+file = "tools/ci/tests/test_makefile_wave4.py"
+test = "MakefileWaveFourTest.test_retired_targets_have_no_rule"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave4.py::test_retired_targets_have_no_rule"
+reason = ""
+
+[stale.51]
+acceptance = "acceptance.16.14.2"
+file = "tools/ci/tests/test_makefile_wave4.py"
+test = "MakefileWaveFourTest.test_aggregates_dry_run_clean"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave4.py::test_aggregates_dry_run_clean"
+reason = ""
+
+[stale.52]
+acceptance = "acceptance.16.15.1"
+file = "tools/ci/tests/test_makefile_wave5.py"
+test = "MakefileWaveFiveTest.test_retired_targets_have_no_rule"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave5.py::test_retired_targets_have_no_rule"
+reason = ""
+
+[stale.53]
+acceptance = "acceptance.16.15.2"
+file = "tools/ci/tests/test_makefile_wave5.py"
+test = "MakefileWaveFiveTest.test_aggregates_dry_run_clean"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave5.py::test_aggregates_dry_run_clean"
+reason = ""
+
+[stale.54]
+acceptance = "acceptance.16.16.1"
+file = "tools/ci/tests/test_makefile_wave6.py"
+test = "MakefileWaveSixTest.test_retired_targets_have_no_rule"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave6.py::test_retired_targets_have_no_rule"
+reason = ""
+
+[stale.55]
+acceptance = "acceptance.16.16.2"
+file = "tools/ci/tests/test_makefile_wave6.py"
+test = "MakefileWaveSixTest.test_aggregates_dry_run_clean"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_makefile_wave6.py::test_aggregates_dry_run_clean"
+reason = ""
+
+[stale.56]
+acceptance = "acceptance.16.17.1"
+file = "tools/containers/test_retired_images.py"
+test = "RetiredImagesTest.test_container_layout_passes_without_retired_images"
+disposition = "replacement"
+replacement = "tools/containers/test_retired_images.py::test_container_layout_passes_without_retired_images"
+reason = ""
+
+[stale.57]
+acceptance = "acceptance.16.18.1"
+file = "tools/containers/test_kernel_image.py"
+test = "KernelImageTest.test_kernel_dockerfile_passes_build_check"
+disposition = "replacement"
+replacement = "tools/containers/test_kernel_image.py::test_kernel_dockerfile_passes_build_check"
+reason = ""
+
+[stale.58]
+acceptance = "acceptance.16.19.1"
+file = "tools/containers/test_kernel_init.py"
+test = "KernelInitTest.test_init_lists_no_retired_service"
+disposition = "replacement"
+replacement = "tools/containers/test_kernel_init.py::test_init_lists_no_retired_service"
+reason = ""
+
+[stale.59]
+acceptance = "acceptance.16.20.1"
+file = "tools/containers/test_platform_node_retired.py"
+test = "PlatformNodeRetiredTest.test_check_refuses_retired_service_name"
+disposition = "replacement"
+replacement = "tools/containers/test_platform_node_retired.py::test_check_refuses_retired_service_name"
+reason = ""
+
+[stale.60]
+acceptance = "acceptance.16.21.1"
+file = "tools/containers/test_paxd_images.py"
+test = "PaxdImagesTest.test_layerx_and_paxeer_images_pass_build_check"
+disposition = "replacement"
+replacement = "tools/containers/test_paxd_images.py::test_layerx_and_paxeer_images_pass_build_check"
+reason = ""
+
+[stale.61]
+acceptance = "acceptance.16.22.1"
+file = "tools/ci/tests/test_xweb_workflow.py"
+test = "XwebWorkflowTest.test_workflow_has_no_kernel_web_job"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_xweb_workflow.py::test_workflow_has_no_kernel_web_job"
+reason = ""
+
+[stale.62]
+acceptance = "acceptance.16.23.1"
+file = "tools/ci/tests/test_wire_codec_ci.py"
+test = "WireCodecCiTest.test_ci_names_no_wire_crate"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_wire_codec_ci.py::test_ci_names_no_wire_crate"
+reason = ""
+
+[stale.63]
+acceptance = "acceptance.16.24.1"
+file = "tools/ci/tests/test_human_workflow.py"
+test = "HumanWorkflowTest.test_workflow_builds_no_retired_binary"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_human_workflow.py::test_workflow_builds_no_retired_binary"
+reason = ""
+
+[stale.64]
+acceptance = "acceptance.16.25.1"
+file = "tools/ci/tests/test_node_build_workflow.py"
+test = "NodeBuildWorkflowTest.test_workflow_tests_no_custody_module"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_node_build_workflow.py::test_workflow_tests_no_custody_module"
+reason = ""
+
+[stale.65]
+acceptance = "acceptance.16.26.1"
+file = "tools/ci/tests/test_beta_ledger_paths.py"
+test = "BetaLedgerPathsTest.test_ledger_check_reads_layerx_merge_ledger"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_beta_ledger_paths.py::test_ledger_check_reads_layerx_merge_ledger"
+reason = ""
+
+[stale.66]
+acceptance = "acceptance.16.27.1"
+file = "tools/ci/tests/test_xweb_workflow_check.py"
+test = "XwebWorkflowCheckTest.test_check_passes_against_head_tree"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_xweb_workflow_check.py::test_check_passes_against_head_tree"
+reason = ""
+
+[stale.67]
+acceptance = "acceptance.16.28.1"
+file = "tools/ci/tests/test_solidity_state_surface.py"
+test = "SolidityStateSurfaceTest.test_surface_check_passes_on_kept_contracts"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_solidity_state_surface.py::test_surface_check_passes_on_kept_contracts"
+reason = ""
+
+[stale.68]
+acceptance = "acceptance.16.29.1"
+file = "tools/ci/tests/test_wallet_check_live.py"
+test = "WalletCheckLiveTest.test_check_live_names_no_lx_method"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_wallet_check_live.py::test_check_live_names_no_lx_method"
+reason = ""
+
+[stale.69]
+acceptance = "acceptance.16.30.1"
+file = "tools/ci/tests/test_program_http_producer.py"
+test = "ProgramHttpProducerTest.test_producer_uses_no_lni"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_program_http_producer.py::test_producer_uses_no_lni"
+reason = ""
+
+[stale.70]
+acceptance = "acceptance.16.31.1"
+file = "tools/ci/tests/test_beta_deploy_retired.py"
+test = "BetaDeployRetiredTest.test_root_forge_build_without_beta_script"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_beta_deploy_retired.py::test_root_forge_build_without_beta_script"
+reason = ""
+
+[stale.71]
+acceptance = "acceptance.16.32.1"
+file = "tools/bringup/tests/test_spec_paths.py"
+test = "BringupSpecPathsTest.test_docs_names_reads_existing_spec"
+disposition = "replacement"
+replacement = "tools/bringup/tests/test_spec_paths.py::test_docs_names_reads_existing_spec"
+reason = ""
+
+[stale.72]
+acceptance = "acceptance.16.33.1"
+file = "tools/bringup/tests/test_kernel_genesis_retired.py"
+test = "KernelGenesisRetiredTest.test_bringup_names_no_guarantor_or_custody_proof"
+disposition = "replacement"
+replacement = "tools/bringup/tests/test_kernel_genesis_retired.py::test_bringup_names_no_guarantor_or_custody_proof"
+reason = ""
+
+[stale.73]
+acceptance = "acceptance.16.34.1"
+file = "tools/bringup/tests/test_bringup_fixtures_retired.py"
+test = "BringupFixturesRetiredTest.test_fixtures_name_no_retired_daemon"
+disposition = "replacement"
+replacement = "tools/bringup/tests/test_bringup_fixtures_retired.py::test_fixtures_name_no_retired_daemon"
+reason = ""
+
+[stale.74]
+acceptance = "acceptance.16.35.1"
+file = "tools/bringup/tests/test_xweb_config.py"
+test = "XwebConfigTest.test_render_emits_no_lx_route"
+disposition = "replacement"
+replacement = "tools/bringup/tests/test_xweb_config.py::test_render_emits_no_lx_route"
+reason = ""
+
+[stale.75]
+acceptance = "acceptance.16.36.1"
+file = "tools/paxeer-x/tests/test_gates_guarantor_retired.py"
+test = "GatesGuarantorRetiredTest.test_gates_name_no_retired_daemon"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gates_guarantor_retired.py::test_gates_name_no_retired_daemon"
+reason = ""
+
+[stale.76]
+acceptance = "acceptance.16.37.1"
+file = "tools/paxeer-x/tests/test_gates_layerxd_retired.py"
+test = "GatesLayerxdRetiredTest.test_gates_name_no_layerxd_or_replica"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gates_layerxd_retired.py::test_gates_name_no_layerxd_or_replica"
+reason = ""
+
+[stale.77]
+acceptance = "acceptance.16.38.1"
+file = "tools/paxeer-x/tests/test_gates_custody_retired.py"
+test = "GatesCustodyRetiredTest.test_gates_name_no_root_contract_or_credit"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gates_custody_retired.py::test_gates_name_no_root_contract_or_credit"
+reason = ""
+
+[stale.78]
+acceptance = "acceptance.16.39.1"
+file = "tools/paxeer-x/tests/test_gates_wire_fee_retired.py"
+test = "GatesWireFeeRetiredTest.test_gates_name_no_wire_codec_or_fee_relay"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gates_wire_fee_retired.py::test_gates_name_no_wire_codec_or_fee_relay"
+reason = ""
+
+[stale.79]
+acceptance = "acceptance.16.40.1"
+file = "tools/paxeer-x/tests/test_gov_templates.py"
+test = "GovTemplatesTest.test_gov_suite_passes_without_retired_templates"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gov_templates.py::test_gov_suite_passes_without_retired_templates"
+reason = ""
+
+[stale.80]
+acceptance = "acceptance.16.41.1"
+file = "tools/paxeer-x/tests/test_gate_registry.py"
+test = "GateRegistryTest.test_every_gate_is_registered_and_dispatches"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gate_registry.py::test_every_gate_is_registered_and_dispatches"
+reason = ""
+
+[stale.81]
+acceptance = "acceptance.16.42.1"
+file = "tools/paxeer-x/tests/test_service_catalogue.py"
+test = "ServiceCatalogueTest.test_catalogue_reads_layerx_merge_services"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_service_catalogue.py::test_catalogue_reads_layerx_merge_services"
+reason = ""
+
+[stale.82]
+acceptance = "acceptance.16.43.1"
+file = "tools/paxeer-x/tests/test_route_catalogue_lx.py"
+test = "RouteCatalogueLxTest.test_catalogue_lists_no_lx_method"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_route_catalogue_lx.py::test_catalogue_lists_no_lx_method"
+reason = ""
+
+[stale.83]
+acceptance = "acceptance.16.44.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py"
+test = "RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+disposition = "retired"
+replacement = ""
+reason = "The historical requirement that every deleted-tree catalogue path be absent no longer applies to the whole current tree: tests/daemon is retained. tools/paxeer-x/tests/test_retired_catalogue_deleted.py::test_catalogue_valid_and_self_test_passes now checks the scanner self-test and catalogue membership rather than asserting wholesale directory deletion; the former absence selector is retired."
+
+[stale.84]
+acceptance = "acceptance.16.45.1"
+file = "tools/qualification/test_service_catalogue_1.py"
+test = "ServiceCatalogueReaders1Test.test_producers_load_existing_catalogue"
+disposition = "replacement"
+replacement = "tools/qualification/test_service_catalogue_1.py::test_producers_load_existing_catalogue"
+reason = ""
+
+[stale.85]
+acceptance = "acceptance.16.46.1"
+file = "tools/qualification/test_service_catalogue_2.py"
+test = "ServiceCatalogueReaders2Test.test_producers_load_existing_catalogue"
+disposition = "replacement"
+replacement = "tools/qualification/test_service_catalogue_2.py::test_producers_load_existing_catalogue"
+reason = ""
+
+[stale.86]
+acceptance = "acceptance.16.47.1"
+file = "tools/qualification/test_service_catalogue_3.py"
+test = "ServiceCatalogueReaders3Test.test_producers_load_existing_catalogue"
+disposition = "replacement"
+replacement = "tools/qualification/test_service_catalogue_3.py::test_producers_load_existing_catalogue"
+reason = ""
+
+[stale.87]
+acceptance = "acceptance.16.48.1"
+file = "tools/qualification/test_retired_callers_1.py"
+test = "RetiredCallers1Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_1.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.88]
+acceptance = "acceptance.16.49.1"
+file = "tools/qualification/test_retired_callers_2.py"
+test = "RetiredCallers2Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_2.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.89]
+acceptance = "acceptance.16.50.1"
+file = "tools/qualification/test_retired_callers_3.py"
+test = "RetiredCallers3Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_3.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.90]
+acceptance = "acceptance.16.51.1"
+file = "tools/qualification/test_retired_callers_4.py"
+test = "RetiredCallers4Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_4.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.91]
+acceptance = "acceptance.16.52.1"
+file = "tools/qualification/test_retired_callers_5.py"
+test = "RetiredCallers5Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_5.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.92]
+acceptance = "acceptance.16.53.1"
+file = "tools/qualification/test_retired_callers_6.py"
+test = "RetiredCallers6Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_6.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.93]
+acceptance = "acceptance.16.54.1"
+file = "tools/qualification/test_retired_callers_7.py"
+test = "RetiredCallers7Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_7.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.94]
+acceptance = "acceptance.16.55.1"
+file = "tools/qualification/test_retired_callers_8.py"
+test = "RetiredCallers8Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_8.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.95]
+acceptance = "acceptance.16.56.1"
+file = "tools/qualification/test_retired_callers_9.py"
+test = "RetiredCallers9Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_9.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.96]
+acceptance = "acceptance.16.57.1"
+file = "tools/qualification/test_retired_callers_10.py"
+test = "RetiredCallers10Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_10.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.97]
+acceptance = "acceptance.16.58.1"
+file = "tools/qualification/test_retired_callers_11.py"
+test = "RetiredCallers11Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_11.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.98]
+acceptance = "acceptance.16.59.1"
+file = "tools/qualification/test_retired_callers_12.py"
+test = "RetiredCallers12Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_12.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.99]
+acceptance = "acceptance.16.60.1"
+file = "tools/qualification/test_retired_callers_13.py"
+test = "RetiredCallers13Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_13.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.100]
+acceptance = "acceptance.16.61.1"
+file = "tools/qualification/test_retired_callers_14.py"
+test = "RetiredCallers14Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_14.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.101]
+acceptance = "acceptance.16.62.1"
+file = "tools/qualification/test_retired_callers_15.py"
+test = "RetiredCallers15Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_15.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.102]
+acceptance = "acceptance.16.63.1"
+file = "tools/qualification/test_retired_callers_16.py"
+test = "RetiredCallers16Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_16.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.103]
+acceptance = "acceptance.16.64.1"
+file = "tools/qualification/test_retired_callers_17.py"
+test = "RetiredCallers17Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_17.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.104]
+acceptance = "acceptance.16.65.1"
+file = "tools/qualification/test_retired_callers_18.py"
+test = "RetiredCallers18Test.test_producers_name_no_retired_construct"
+disposition = "replacement"
+replacement = "tools/qualification/test_retired_callers_18.py::test_producers_name_no_retired_construct"
+reason = ""
+
+[stale.105]
+acceptance = "acceptance.16.67.1"
+file = "tools/ci/tests/test_ci_loadtest_job.py"
+test = "CiLoadtestJobTest.test_root_workflow_runs_loadtest_module"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_ci_loadtest_job.py::test_root_workflow_runs_loadtest_module"
+reason = ""
+
+[stale.106]
+acceptance = "acceptance.16.68.1"
+file = "tools/ci/tests/test_replay_golden_ci.py"
+test = "ReplayGoldenCiTest.test_core_gates_and_routing_pass_without_replay_golden"
+disposition = "replacement"
+replacement = "tools/ci/tests/test_replay_golden_ci.py::test_core_gates_and_routing_pass_without_replay_golden"
+reason = ""
+
+[stale.107]
+acceptance = "acceptance.16.69.1"
+file = "tools/containers/test_human_service_image.py"
+test = "HumanServiceImageTest.test_movement_role_refused_and_image_checks"
+disposition = "replacement"
+replacement = "tools/containers/test_human_service_image.py::test_movement_role_refused_and_image_checks"
+reason = ""
+
+[stale.108]
+acceptance = "acceptance.16.70.1"
+file = "tools/paxeer-x/tests/test_gates_deleted_sources.py"
+test = "GatesDeletedSourcesTest.test_gates_name_no_deleted_source"
+disposition = "replacement"
+replacement = "tools/paxeer-x/tests/test_gates_deleted_sources.py::test_gates_name_no_deleted_source"
+reason = ""
+
+[stale.109]
+acceptance = "acceptance.16.966.4"
+file = "tests/ci/test_requested_suites_absent.py"
+test = "test_bridge_credit_suites_absent"
+disposition = "replacement"
+replacement = "tests/bridge/retired/test_retired_credit_qualification.py::test_credit_qualification_is_retired"
+reason = "The credit retirement test checks the retired qualification producers and their callers through the shared retirement harness, replacing the old CI selector."
+
+[stale.110]
+acceptance = "acceptance.17.6.3"
+file = "scripts/gates/test_run_gate.py"
+test = "RunGateTest.test_echoes_failing_step_log_tail"
+disposition = "replacement"
+replacement = "scripts/gates/test_run_gate.py::test_echoes_failing_step_log_tail"
+reason = ""
+
+[stale.111]
+acceptance = "acceptance.18.890.1"
+file = "docs/wiki/Porting.md"
+test = "lxt20-in-tree"
+disposition = "retired"
+replacement = ""
+reason = "The lxt20-in-tree selector was a manual documentation review label, not a declared test, and cannot remain an executable parity obligation. docs/wiki/Porting.md still documents programs/sdk/rust/examples/token-lxt20 and the payment examples; this retirement concerns the synthetic selector and does not claim automated coverage of those pages."
+
+[stale.112]
+acceptance = "acceptance.18.800.1"
+file = "services/wallet/gateway/test/precompiles.test.ts"
+test = "probes the chain for code before serving a linked agent precompile"
+disposition = "replacement"
+replacement = "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile"
+reason = ""
+
+[stale.113]
+acceptance = "acceptance.18.877.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+test = "scanned watermark compaction deletes scanned rows re-inserted at or below the watermark"
+disposition = "replacement"
+replacement = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::compaction deletes scanned rows re-inserted at or below the watermark"
+reason = ""
+
+[stale.114]
+acceptance = "acceptance.18.877.2"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+test = "delete_expired_updates/2 retention keeps the newest submission of every market"
+disposition = "replacement"
+replacement = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::retention keeps the newest submission of every market"
+reason = ""
+
+[stale.115]
+acceptance = "acceptance.18.783.1"
+file = "docs/wiki/PublicRpc.md"
+test = "px_method_rows"
+disposition = "retired"
+replacement = ""
+reason = "The px_method_rows selector was a manual comparison of public RPC prose with the gateway method inventory, not a declared test. That editorial marker is retired from executable parity; docs/wiki/PublicRpc.md remains documentation, and no existing test was found that asserts every method row across all three pages."
+
+[stale.116]
+acceptance = "acceptance.18.814.1"
+file = "modules/layerxanchor/keeper/keeper_test.go"
+test = "TestResubmittedCheckpointKeepsChallengeWindow"
+disposition = "replacement"
+replacement = "modules/layerxanchor/keeper/keeper_test.go::TestSubmitCheckpointIsRetired"
+reason = "The current acceptance.18.814.1 requires both submissions to return ErrModuleRetired and create no checkpoint record; the challenge-window behavior is retired."
+
+[stale.117]
+acceptance = "acceptance.18.974.1"
+file = "services/human/crates/layerx-human-service/tests/detail_rungs.rs"
+test = "checkpoint_evidence_level_follows_the_finality_rung"
+disposition = "replacement"
+replacement = "services/human/crates/layerx-human-service/tests/detail_rungs.rs::checkpoint_evidence_rung_follows_the_finality_rung"
+reason = ""
+
+[stale.118]
+acceptance = "acceptance.18.804.1"
+file = "services/wallet/gateway/test/precompiles.test.ts"
+test = "lists every 0x09xx route while no node package links a layerxagent precompile"
+disposition = "replacement"
+replacement = "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"
+reason = ""
+
+[stale.119]
+acceptance = "acceptance.18.869.1"
+file = "docker/paxeer/Dockerfile.paxd-node"
+test = "paxd_node_runtime_has_libssl3t64"
+disposition = "retired"
+replacement = ""
+reason = "The paxd_node_runtime_has_libssl3t64 selector was an image inspection label, not a test declared in the Dockerfile. docker/paxeer/Dockerfile.paxd-node explicitly installs libssl3t64 on Ubuntu 24.04; the manual dpkg inspection remains an image qualification obligation and this synthetic selector supplies no executable evidence for it."
+
+[stale.120]
+acceptance = "acceptance.18.869.2"
+file = "docker/paxeer/Dockerfile.paxd-node"
+test = "paxd_node_runtime_has_libssl3t64"
+disposition = "retired"
+replacement = ""
+reason = "This entry incorrectly reused a paxd-node package inspection label for a different image build and never named a test. tools/containers/test_paxd_images.py::test_layerx_and_paxeer_images_pass_build_check covers current recipe checks, while a complete docker/layerx/Dockerfile build remains image qualification rather than this retired synthetic selector."
+
+[stale.121]
+acceptance = "acceptance.18.915.1"
+file = "docs/wiki/UnifiedNetwork.md"
+test = "exit_checkpoint_documented"
+disposition = "retired"
+replacement = ""
+reason = "The exit_checkpoint_documented selector was a manual prose review of the former kernel custody forced-exit protocol, not a declared test. The merged network retires that custody movement path; modules/layerxcustody/keeper/keeper_test.go retains explicit refusal and migration coverage instead of treating the historical documentation marker as executable evidence."
+
+[stale.122]
+acceptance = "acceptance.18.957.1"
+file = "docs/readme/README.es.md"
+test = "perps_at_0x1015"
+disposition = "retired"
+replacement = ""
+reason = "The perps_at_0x1015 selector was an editorial label in a translated README and never identified an executable test. Current address and generated inventory coverage lives in precompiles/perps/address_test.go::TestPerpsAddressIsLiteral1015 and spec/layerx-merge/programme/tests/test_system_docs.py::test_precompile_summary_lists_venues; the old translation review marker is retired without claiming those tests inspect translations."
+
+[stale.123]
+acceptance = "acceptance.18.939.1"
+file = "docs/wiki/UnifiedNetwork.md"
+test = "PerpsSection"
+disposition = "retired"
+replacement = ""
+reason = "The PerpsSection selector was an editorial label for a wiki section, not a declared test. Current generated precompile inventory coverage is spec/layerx-merge/programme/tests/test_system_docs.py::test_precompile_summary_lists_venues, and precompiles/perps/abi_test.go::TestABIGoldenFile checks the ABI; neither turns the retired wiki review label into an executable test."
+
+[stale.124]
+acceptance = "acceptance.18.791.1"
+file = "docs/wiki/Quickstart.md"
+test = "bringup_citations_current"
+disposition = "retired"
+replacement = ""
+reason = "The bringup_citations_current selector represented a one-time manual correction of historical shell line numbers, not a declared test or enduring executable contract. tools/bringup/tests/test_spec_paths.py::test_docs_names_reads_existing_spec covers current bringup spec resolution; the old numbered citation review is retired and is not represented as passing test evidence."
+
+[stale.125]
+acceptance = "acceptance.18.791.2"
+file = "README.md"
+test = "merge_precompiles_listed"
+disposition = "retired"
+replacement = ""
+reason = "The merge_precompiles_listed selector was a manual README inventory review label, not a test function. Current generated inventory coverage lives in tools/docs/gen/test_gen_system_docs_abis.py::test_generator_lists_nested_and_embedded_abis and spec/layerx-merge/programme/tests/test_system_docs.py::test_system_docs_are_current; the README activation wording remains editorial review material rather than an executable selector."
+
+[stale.126]
+acceptance = "acceptance.18.846.1"
+file = "docs/wiki/UnifiedNetwork.md"
+test = "launchpad_section_matches_abi"
+disposition = "retired"
+replacement = ""
+reason = "The launchpad_section_matches_abi selector was a manual wiki comparison against the former Launchpad method surface, not a declared test. The current role-based ABI is covered by precompiles/launchpad/abi_test.go::TestRoleABIGolden and precompiles/launchpad/abi_direct_test.go::TestDirectABIFile; the historical section checklist no longer identifies a runnable parity test."
+
+[stale.127]
+acceptance = "acceptance.18.874.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"
+test = "scanned watermark a stale compaction write never moves the watermark back"
+disposition = "replacement"
+replacement = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::a stale compaction write never moves the watermark back"
+reason = ""
+
+[stale.128]
+acceptance = "acceptance.18.889.1"
+file = "docs/wiki/HostedWebhooks.md"
+test = "deployment_cites_existing_files"
+disposition = "retired"
+replacement = ""
+reason = "The deployment_cites_existing_files selector was a manual deployment documentation checklist, not a test declared in HostedWebhooks.md. It is retired as an executable selector; current deployment paths remain reviewable in docs/wiki/HostedWebhooks.md, and no existing test was found that resolves all citations in the three specified pages."
+
+[stale.129]
+acceptance = "acceptance.18.1006.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs"
+test = "GET /api/v2/addresses/:address_hash_param/un"
+disposition = "replacement"
+replacement = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs::reads bank and ERC-20 balances without adding custody or kernel balances"
+reason = "Use the actual balance test title, without its describe prefix; it checks native bank and ERC-20 balances while excluding custody and kernel rows."
+
+[stale.130]
+acceptance = "acceptance.18.745.1"
+file = "services/wallet/README.md"
+test = "retired-settings-grep"
+disposition = "retired"
+replacement = ""
+reason = "The retired-settings-grep selector described a manual source and README search, not an executable test function. services/wallet/README.md and services/wallet/gateway/src/env.ts now describe the native wallet configuration; the old editorial search label is retired without claiming that a narrower environment test proves repository-wide absence."
+
+[stale.131]
+acceptance = "acceptance.18.1081.1"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
+test = "reject an anchors page that lost a field"
+disposition = "replacement"
+replacement = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject an anchors page that lost a field"
+reason = ""
+
+[stale.132]
+acceptance = "acceptance.18.1043.1"
+file = "rpc/http_ws_parity_test.go"
+test = "TestHTTPAppliesDenyListMixedBatches"
+disposition = "replacement"
+replacement = "rpc/http_ws_parity_test.go::TestHTTPAppliesDenyListMixedBatches"
+reason = ""
+
+[stale.133]
+acceptance = "acceptance.18.1265.1"
+file = "docs/wiki/Cli.md"
+test = "wallet-estimate-fee"
+disposition = "retired"
+replacement = ""
+reason = "The wallet-estimate-fee selector was a CLI documentation review label, not a declared test in Cli.md. Current command behavior is covered by tools/platform/cli/tests/wallet_estimate_fee.rs::estimate_fee_sends_the_intended_sender and estimate_fee_accepts_unsigned_payment_call_and_refuses_kernel_activity_hex; the synthetic prose selector is retired without claiming those tests inspect every documentation example."
+
+[stale.134]
+acceptance = "acceptance.18.1259.1"
+file = "docs/wiki/Quickstart.md"
+test = "activity-submit"
+disposition = "retired"
+replacement = ""
+reason = "The activity-submit selector was an editorial quickstart label, not a declared test. Current submission behavior is covered by services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs::activity_submit_validates_a_real_signed_eip1559_transaction; the historical documentation checklist is retired as executable parity and no automated assertion about all three prose pages is implied."
+
+[stale.135]
+acceptance = "acceptance.18.1232.1"
+file = "SECURITY.md"
+test = "bug_bounty_section"
+disposition = "retired"
+replacement = ""
+reason = "The bug_bounty_section selector was a manual SECURITY.md content review, not a declared test. The policy still publishes bounty tiers and the reporting contact, but the synthetic section label is retired from executable parity; no existing test was found that asserts the complete policy wording."
+
+[stale.136]
+acceptance = "acceptance.18.1264.1"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"
+test = "testProgramReceiptCarriesIdempotencyResult"
+disposition = "replacement"
+replacement = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"
+reason = ""

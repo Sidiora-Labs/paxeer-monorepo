@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/../../../.."
+python3 - <<'PY'
+import re
+import json
+import subprocess
+from pathlib import Path
+
+# Match reporting integrations, not ordinary path segments or transitive schema validators.
+patterns = re.compile(
+    r'posthog|@segment/(?:analytics|snippet)|segment\.(?:io|com)|analytics[._-]?write[._-]?key|'
+    r'(?-i:\b[A-Z][A-Z0-9_]*TELEMETRY[A-Z0-9_]*\b)|'
+    r'\b(?:telemetryEnabled|initiatorTelemetry)\s*[:=]|--(?:no-)?telemetry',
+    re.IGNORECASE,
+)
+violations = []
+source_roots = json.loads(Path('tools/workspace/source-roots.json').read_text())['roots']
+tracked = subprocess.check_output(['git', 'ls-files', '--', *source_roots], text=True).splitlines()
+assert tracked, 'No owned workspace source files found'
+for name in tracked:
+    path = Path(name)
+    # 0.7 owns the historical changelog and dependency cleanup.
+    if name == 'docs/history/runtime-port.md' or 'node_modules' in path.parts:
+        continue
+    if not path.is_file() or path.name.startswith('.env'):
+        continue
+    try:
+        content = path.read_text()
+    except UnicodeError:
+        continue
+    if patterns.search(content):
+        violations.append(name)
+assert not violations, 'Third-party reporting remains in: ' + ', '.join(violations)
+print('Telemetry scan passed')
+PY
+pnpm exec turbo run typecheck --filter=./lib/config --filter=./lib/domain --filter=./sdk/client --filter=./contracts/server --filter=./tools/scripts --filter=./apps/launcher --filter=./core/server --filter=./apps/web
+pnpm exec turbo run test --filter=./apps/launcher --filter=./lib/config --filter=./lib/domain --filter=./sdk/client --filter=./contracts/server
+# 0.7 owns these tests: their removed platform/.github fixtures or zip dependency.
+# Keep the exclusions by file name, and run every remaining scripts/server test.
+excludes=()
+for name in actions-api.test.mjs ci-bun.test.mjs ci-fuse.test.mjs ci-health.test.mjs ci-performance.test.mjs ci-selection.test.mjs ci-workflow.test.ts pr-approval-workflows.test.ts; do
+  excludes+=(--exclude "**/$name")
+done
+pnpm exec turbo run test --filter=./tools/scripts --filter=./core/server -- --maxWorkers=2 --testTimeout=60000 --hookTimeout=60000 "${excludes[@]}"

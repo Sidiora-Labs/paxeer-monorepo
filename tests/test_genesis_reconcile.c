@@ -1,4 +1,5 @@
 #include "layerx/lxp_genesis.h"
+#include "lxp_test_harness.c"
 
 #include <openssl/evp.h>
 #include <string.h>
@@ -62,7 +63,9 @@ static int sign_attestation(
         private_key, message, cursor, attestation->signature);
 }
 
-int main(void)
+/* Offline historical import contract only: these attestations do not authorize
+ * native bank genesis or enable merged-chain activities. */
+static int historical_attestation_import_contract(void)
 {
     static const uint8_t paxeer_private_key[32] = {9U};
     static lxp_genesis_manifest candidate;
@@ -116,10 +119,27 @@ int main(void)
             &report) != LXP_OK || !report.matched ||
         accepted.account_count != 2U)
         return 1;
+    registration.finalised = false;
+    if (lxp_genesis_reconcile(
+            &candidate, &attestation, &registration,
+            attestation.paxeer_public_key, &accepted,
+            &report) != LXP_ERR_ROOT_MISMATCH ||
+        accepted.account_count != 0U || report.matched)
+        return 1;
+    registration.finalised = true;
     attestation.signature[0] ^= 1U;
     return lxp_genesis_reconcile(
         &candidate, &attestation, &registration,
         attestation.paxeer_public_key, &accepted,
         &report) == LXP_ERR_BAD_SIGNATURE && accepted.account_count == 0U ?
         0 : 1;
+}
+
+
+int main(int argc, char **argv)
+{
+    if (lxp_test_register("historical_attestation_import_contract",
+            historical_attestation_import_contract) != 0)
+        return 1;
+    return lxp_test_main(argc, argv);
 }

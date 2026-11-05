@@ -5,6 +5,7 @@ defmodule BlockScoutWeb.Specs.Public do
 
   alias BlockScoutWeb.Routers.{ApiRouter, SmartContractsApiV2Router, TokensApiV2Router}
   alias BlockScoutWeb.Specs
+  alias BlockScoutWeb.Specs.Private
   alias OpenApiSpex.{Contact, Info, OpenApi, Paths, Server}
   alias Utils.Helper
 
@@ -18,6 +19,9 @@ defmodule BlockScoutWeb.Specs.Public do
       ],
       info: %Info{
         title: "Blockscout",
+        description:
+          "Explorer API, including /account/v2/tags address and transaction lookups. " <>
+            "Account session cookies add the signed-in user's private labels and watchlist names to these lookups.",
         version: to_string(Application.spec(:block_scout_web, :vsn)),
         contact: %Contact{
           email: "info@blockscout.com"
@@ -26,6 +30,7 @@ defmodule BlockScoutWeb.Specs.Public do
       paths:
         ApiRouter
         |> Paths.from_router()
+        |> Map.merge(Private.account_paths(:public))
         |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(TokensApiV2Router, "/v2/tokens")))
         |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(SmartContractsApiV2Router, "/v2/smart-contracts")))
     }

@@ -1,0 +1,15 @@
+[task.22.31.268]
+finding = "bridge-cap-width"
+audit = "22.30.138"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+repair = "Validate refuses EVM caps above uint256 and Solana caps above u64 with source and field errors; parseAmount refuses more than 78 decimal bytes before scanning or big.Int conversion. Positivity, canonical decimal syntax and per-transaction <= total remain enforced."
+proofs = ["TestRepair_268_CapBoundaries", "TestRepair_268_DecimalInputBound", "TestRepair_268_EVMTransport", "TestRepair_268_SolanaTransport"]
+boundary_proof = "All nine chains, native and token assets: maximum and maximum+1 through Load, serialized LoadOverlay/Overlay.Apply, Validate and RequireDeployable, including Load's environment-selected overlay."
+transport_proof = "Configuration JSON emitted by the real loader/overlay is extracted with the deployment jq operations and checked through the uint256 ABI and big-endian u64 codecs; destination source declarations pin the widths and byte order used by these checks. No RPC or destination VM is used."
+baseline = "No pre-change gate run: no prior ledger exists, and the explicit ordered gate instructions prohibit tests before complete implementation and require hf-build before hf-done. No baseline failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log path; final task evidence copies the last gate JSON without editing the qualified candidate."
+wiring_requests = []
+
+[gotcha.1]
+symptom = "The task's baseline-test step conflicts with its explicit gate order and one-run budget."
+resolution = "Follow the explicit order: complete implementation, format, hf-build, hf-done; retain the absence of a baseline result. Record here because the root gotcha and spec ledgers are outside scope."

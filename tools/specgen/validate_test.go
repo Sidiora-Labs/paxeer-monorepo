@@ -74,8 +74,8 @@ func TestRepositorySpecIsValidAndCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	active := wf.Str("meta", "active_feature")
-	if active != "paxeer-x" {
-		t.Fatalf("active feature = %q, want paxeer-x", active)
+	if active != "layerx-merge" {
+		t.Fatalf("active feature = %q, want layerx-merge", active)
 	}
 	w := &writer{check: true}
 	if err := run(repo, w); err != nil {
@@ -91,6 +91,15 @@ func TestRepositorySpecIsValidAndCurrent(t *testing.T) {
 		}
 		if !strings.Contains(string(b), "spec/"+active+"/spec.kvx") {
 			t.Errorf("%s does not point at the active feature", kv[1])
+		}
+		// The spec renderer's compact pointers are the contract (decision 2502,
+		// gotcha 2953); compare every byte, including ownership and frontmatter.
+		want, err := os.ReadFile(filepath.Join("testdata", "adapters", kv[0]+".golden"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != string(want) {
+			t.Errorf("%s differs from the spec renderer output", kv[1])
 		}
 		for _, private := range []string{"/root/", "lx-ops", ".env", "PRIVATE"} {
 			if strings.Contains(string(b), private) {

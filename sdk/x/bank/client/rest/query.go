@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
@@ -63,8 +64,15 @@ func QueryBalancesRequestHandlerFn(clientCtx client.Context) http.HandlerFunc {
 // HTTP request handler to query the total supply of coins
 func totalSupplyHandlerFn(clientCtx client.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, page, limit, err := rest.ParseHTTPArgsWithLimit(r, 0)
+		_, page, limit, err := rest.ParseHTTPArgsWithLimit(r, query.DefaultLimit)
 		if rest.CheckBadRequestError(w, err) {
+			return
+		}
+		if rest.CheckBadRequestError(w, query.VerifyPaginationLimit(uint64(limit))) {
+			return
+		}
+		if uint64(page-1) > query.MaxOffset/uint64(limit) {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, "page exceeds maximum pagination offset")
 			return
 		}
 
@@ -73,7 +81,11 @@ func totalSupplyHandlerFn(clientCtx client.Context) http.HandlerFunc {
 			return
 		}
 
-		params := types.NewQueryTotalSupplyParams(page, limit)
+		params := types.QueryTotalSupplyRequest{Pagination: &query.PageRequest{
+			Offset:     uint64(page-1) * uint64(limit),
+			Limit:      uint64(limit),
+			CountTotal: true,
+		}}
 		bz, err := clientCtx.LegacyAmino.MarshalAsJSON(params)
 
 		if rest.CheckBadRequestError(w, err) {

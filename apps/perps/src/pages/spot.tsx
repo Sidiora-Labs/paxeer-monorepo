@@ -4,7 +4,6 @@ import type { GetServerSidePropsContext } from "next";
 import { isSpotOpen } from "@/core/nav";
 import {
   DEFAULT_SPOT_SYMBOL,
-  SPOT_MARKETS,
   getSpotMarket,
   type SpotMarket,
 } from "@/core/spot/config";
@@ -22,7 +21,9 @@ export interface SpotPageProps {
 }
 
 function marketFor(symbol: string): SpotMarket {
-  return getSpotMarket(symbol) ?? getSpotMarket(DEFAULT_SPOT_SYMBOL) ?? SPOT_MARKETS[0];
+  const market = getSpotMarket(symbol);
+  if (!market) throw new Error("Unknown spot market");
+  return market;
 }
 
 function selectMarket(symbol: string): void {
@@ -37,8 +38,10 @@ export const getServerSideProps = async ({
   { notFound: true } | { props: SpotPageProps }
 > => {
   if (!isSpotOpen()) return { notFound: true };
-  const requested = typeof query.market === "string" ? query.market : DEFAULT_SPOT_SYMBOL;
-  return { props: { symbol: marketFor(requested).symbol } };
+  const requested = query.market === undefined ? DEFAULT_SPOT_SYMBOL : query.market;
+  if (typeof requested !== "string") return { notFound: true };
+  const market = getSpotMarket(requested);
+  return market ? { props: { symbol: market.symbol } } : { notFound: true };
 };
 
 export function SpotPage({ symbol }: SpotPageProps) {

@@ -1,542 +1,346 @@
 # x402 transport
 
-`layerx-x402` is the interop adapter for x402 v2. Seller issuance is
-edge translation; settlement success requires a gateway-verified
-canonical LayerX Network receipt (`services/interop/crates/layerx-x402/src/seller.rs:1-3`;
-`services/interop/crates/layerx-x402/src/facilitator.rs:1-3`). Interop adapters
-translate foreign protocols into LayerX-shaped evidence and never write
-balances (`services/interop/README.md:3`). The adapter id is `x402`, the spec version is
-`2.0.0`, and the pin is upstream revision
-`7d5363a6d51750dc246041f2b0ed5819dd46a0d7`
-(`services/interop/crates/layerx-x402/src/lib.rs:21-22, 39-50`).
-The compiled SHA-256 comment names `specs/x402-specification-v2.md`
-(`services/interop/crates/layerx-x402/src/lib.rs:23`); the bytes compiled in are
-`specs/vendor/x402/x402-specification-v2.md`
-(`services/interop/crates/layerx-x402/src/lib.rs:28-29`). Those two paths differ.
+`layerx-x402` implements the x402 v2 buyer, seller and facilitator roles. Its
+adapter id is `x402`, descriptor version is `2.0.0`, and upstream specification
+pin is `7d5363a6d51750dc246041f2b0ed5819dd46a0d7`.
+[x402_adapter_descriptor(conformance)](../../services/interop/crates/layerx-x402/src/lib.rs)
+requires a caller-supplied conformance suite and checks the vendored
+[specification](../../services/interop/specs/vendor/x402/x402-specification-v2.md)
+against `X402_SPEC_SHA256`.
 
-Wire version is `X402_VERSION = 2`
-(`services/interop/crates/layerx-x402/src/model.rs:12`). Monetary values are
-decimal JSON strings on the wire and exact `u128` in memory; there is
-no floating-point path (`services/interop/crates/layerx-x402/src/model.rs:1-3,
-23-27`).
+The adapter translates payment semantics; it does not write balances. Payment
+execution belongs to the merged Paxeer network: one BFT chain with EVM chain id
+`125` (`0x7d`), whose kernel participates in block proposal. A receipt is final
+once its block is committed. Signed receipt evidence and proof of commitment
+are distinct verification steps within that network.
 
-This page covers that crate, the gateway routes that mount it, and the
-local conformance matrix. AP2, UCP, Visa TAP, fiat, mirrors, and
-migration are indexed on [Interop](Interop.md).
-
-Offers may carry `extra.layerx.commitment`
-(`executed`, `batched`, or `finalised`), and metered/subscription payloads
-carry a canonical Asset receive. See [Commitment levels](CommitmentLevels.md)
-and [Payments developer path](PaymentsQuickstart.md).
+This page covers the Rust adapter, its hosted interop routes, and the related
+seller middleware. [Interop](Interop.md) indexes the service;
+[AP2 mandates](Ap2Mandates.md) and [Mirrors](Mirrors.md) describe other consumers
+of signed receipt evidence.
 
 ---
 
 ## Payment-required flow
 
-A seller issues a 402 payment-required signal. A buyer selects one
-accepted offer and returns a payment payload. Settlement reports
-success only after `layerx_proof::receipt::verify` accepts a canonical
-LayerX receipt and `GatewayCore::settle_with_receipt` records
-`TranslationStatus::ReceiptVerified`.
+1. The seller validates a `PaymentRequired` declaration and issues HTTP 402 with
+   a `PAYMENT-REQUIRED` header and the same declaration in the body.
+2. The buyer selects the first offer whose `(scheme, network)` is in its
+   configured support list, preserves the selected requirements and required
+   extensions, and asks its payment plane to construct a JSON object payload.
+   The buyer returns that value in `PAYMENT-SIGNATURE`.
+3. The seller matches `accepted` against an issued offer before requesting
+   payment. The facilitator's `/verify` operation is read-only; `/settle`
+   crosses the payment-plane boundary.
+4. Submitted transactions remain pending. Seller/facilitator success requires
+   matching signed receipt evidence and a gateway `ReceiptVerified` record.
+   Fulfillment requiring finality must additionally verify committed evidence.
+5. The buyer verifies the returned `PAYMENT-RESPONSE` locally, including payment
+   facts, transaction identity, receipt digest and the requested evidence level.
 
-Seller HTTP signal (`services/interop/crates/layerx-x402/src/seller.rs:113-124`):
+The role implementations are
+[seller.rs](../../services/interop/crates/layerx-x402/src/seller.rs),
+[buyer.rs](../../services/interop/crates/layerx-x402/src/buyer.rs), and
+[facilitator.rs](../../services/interop/crates/layerx-x402/src/facilitator.rs).
 
-| Field | Value |
-| --- | --- |
-| `status` | `402` |
-| `header` | Standard-base64 JSON of the validated `PaymentRequired` body |
-| `body` | The same `PaymentRequired` value |
+### Public transaction submission and recovery
 
-Buyer construction (`services/interop/crates/layerx-x402/src/buyer.rs:91-146`):
-decode the payment-required header, pick the first `accepts` entry
-whose `(scheme, network)` is in the buyer's closed `SupportedKind`
-list (seller order), ask `BuyerPaymentPlane::construct` for a JSON
-object scheme payload, echo required extensions byte-for-value, encode
-the `PaymentPayload` as the payment-signature header.
+Use JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`; check `eth_chainId` returns `0x7d`
+before signing. The [public RPC reference](../site/docs/reference/public-rpc.md)
+lists the node endpoints. Hosted interop HTTP calls use the configured interop
+service's origin.
 
-Facilitator messages (`services/interop/crates/layerx-x402/src/facilitator.rs:30-37,
-54-65, 78-85`): `/verify`, `/settle`, and `/supported` share JSON
-bodies on every transport. `/verify` is a read-only translation
-(`TranslationKind::ReadOnly` at
-`services/interop/crates/layerx-x402/src/facilitator.rs:232-277`). `/settle` is
-state-changing (`TranslationKind::StateChanging` at
-`services/interop/crates/layerx-x402/src/facilitator.rs:279-353`). The plane
-trait splits `verify` and `settle` so the read-only route cannot call
-settlement (`services/interop/crates/layerx-x402/src/facilitator.rs:182-207`).
+Submit the payer-signed EVM transaction with `eth_sendRawTransaction`. Retain
+the exact raw bytes, transaction hash and payment identity before sending.
+Recover using the original hash: `eth_getTransactionReceipt` returns the EVM
+receipt, while `pax_sequencerReceipt` returns the node's signed receipt evidence
+and its `submitted`, `receipted`, or `committed` rung. The method name is the
+current node API; the signing authority is configured independently by the
+consumer. Verify the receipt signature, successful result, transaction binding
+and signed payment logs. For commitment, verify the corresponding block and
+consensus evidence under configured trust.
 
----
+The interop [ChainRelay](../../services/interop/crates/layerx-interop-service/src/relay.rs)
+journals raw transactions and hashes in Redis before submission. A retry reads
+the existing record and recovers evidence for that hash; replacement bytes under
+the same identity are refused. An uncertain response is not evidence of failure.
+Retry the same payment rather than signing another debit.
 
 ## 402LXP Asset grants
 
-The middleware 402LXP extension adds `metered` and `subscription` offers to the
-exact-payment flow. Each offer names one registered Asset id, amount, recipient,
-payer, purpose hash and commitment level. The buyer returns that selected offer
-unchanged. An unknown asset, an unregistered or paused asset, a changed payment
-fact, or a weaker commitment is refused.
+The Rust receipt verifier and seller middleware recognize `exact`, `metered`,
+and `subscription` payment logs. This does not imply that every payment plane
+can execute every scheme. The hosted service's current transaction decoder
+accepts `payExact`; its route implementation does not relay a grant draw.
+Consult `/supported` and the selected plane's implementation before choosing an
+offer.
 
-Metered and subscription payments use the native payer-grant path. The payer
-signs and issues the canonical 346-byte Asset ordinal-7 grant. The receiver
-submits a canonical 733-byte Asset ordinal-6 receive containing that grant and
-the receiver authorization. Each metered request is one draw. A recurring grant
-can authorize subscription renewals, but every period uses a distinct signed
-receive activity and idempotency key; the allowance does not by itself prove
-one renewal per period.
+Grant draws use the ledger precompile at
+`0x000000000000000000000000000000000000101a`. The current TypeScript
+[grant codec](../../services/agent/sdk/typescript/src/x402/grant.ts) decodes the
+228-byte ABI calldata for
+`draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)`.
+It binds grant id, recipient, amount, idempotency key, receiver sequence,
+purpose hash and context hash to the selected offer. The transaction wrapper
+binds chain, target and sender. Grant allowance and expiry remain on-chain
+authorization constraints.
 
-The public transport is JSON-RPC 2.0 at gateway `POST /rpc`. Submit with
-`lx_sendActivity(canonical_hex, commitment)`. Recover an uncertain submission
-with `lx_getActivityStatus(activity_id)` and `lx_getReceipt(activity_id)` using
-the same activity; verify its sequencer signature, successful result and exact
-activity binding. A recovered receipt establishes `executed`. To establish
-`batched`, obtain `lx_getProof("receipt", activity_id)`, require its canonical
-value to equal the receipt, and verify inclusion in the authorized signed batch
-header. Never create another debit to escape uncertainty. The gateway also exposes Asset/account reads and fee estimation through
-`lx_getAccount`, `lx_getBalance`, `lx_getBalances`, `lx_getSequence`,
-`lx_estimateFee`, `lx_listAssets` and `lx_getAsset`.
-
-`executed` requires an authorized sequencer-signed successful receipt.
-`batched` additionally requires receipt inclusion in the signed batch header.
-`finalised` additionally requires the guarantor checkpoint certificate for
-that batch. Trust anchors come from verifier configuration, not returned
-payment data, and missing evidence never downgrades the requested level. An
-acknowledgement, pending result or HTTP 200 is not settlement. Successful
-settlement remains `lxp:<receipt_digest>` and is emitted only after payer,
-purpose, activity, asset, amount and recipient all match the verified receipt.
-
-The Node codecs are exported from `@sidiora/layerx-sdk`; the Python codecs and
-payment helpers are exported from `layerx_sdk`. Runnable public-RPC and optional
-faucet examples are `services/platform/middleware/examples/public-rpc.mjs` and
-`services/platform/middleware/examples/public_rpc.py`.
-
-The maintained disposable-network qualification submitted a real canonical
-ordinal-7 grant and 20 ordinal-6 metered draws through the gateway at
-`executed`, followed by a recurring grant, first draw and new-period renewal.
-The renewal reached `batched` with a verified signed-header inclusion proof and
-settlement reference
-`lxp:21d0e81da67a7dac4d669d45b07f67b241c47285b120121e3d5700c8978233fd`.
-The 20 draw submit-to-receipt samples measured p50 990,202 microseconds and p99
-11,801,435 microseconds. These are qualification measurements, not a
-service-level target.
+[PreparedGrantDraws](../../services/agent/sdk/typescript/src/x402/draw.ts)
+durably registers principal, request digest, raw transaction, calldata, hash and
+optional subscription period key before execution. It recovers using the same
+transaction hash and refuses conflicting registrations. Subscription execution
+requires a period key; reuse of a recurring allowance alone does not enforce
+one charge per period. A new period needs its own registered draw identity and
+correct receiver sequence.
 
 ### Offer and payload contract
 
-The accepted scheme set is `exact`, `metered`, and `subscription`
-(`services/platform/middleware/seller/src/index.ts`). Every requirement contains
-`network`, a positive decimal-string `amount`, 32-byte hexadecimal `asset` and `payTo`, and a positive
-`maxTimeoutSeconds`.
+The core [PaymentRequirements model](../../services/interop/crates/layerx-x402/src/model.rs)
+contains `scheme`, `network`, `amount`, `asset`, `payTo`, `maxTimeoutSeconds`,
+and optional `extra`. Mainnet offers use `eip155:125`.
+`asset` and `payTo` are 32-byte identifiers, not 20-byte EVM addresses.
 
-`extra.layerx.commitment` is one of `executed`, `batched`, or `finalised`.
-For metered and subscription offers, `extra.layerx` also requires a nonzero
-64-hex `payer` and `purposeHash`. Subscription requires a positive decimal
-`windowSeconds` below `2^64`; metered forbids it.
+`AtomicAmount` serializes as a canonical unsigned decimal JSON string and uses
+`u128` internally. Empty, negative, fractional, exponent, padded and overflowing
+amounts are refused. Parsing permits zero, but a payment requirement must be
+positive. `maxTimeoutSeconds` is a positive `u32`; it is not itself a verified
+transaction expiry. The service checks the signed `expires_at` separately.
 
-Every offer on a `layerx:*` network also carries the quote terms a payer needs
-to reach the human API: `extra.layerx.account` is the `agent:<did>:main`
-account reference `move.quote` takes as its destination, and
-`extra.layerx.currency` is the `CurrencyCode` its money carries. `payTo` is not
-independent of them: it must be the account id derived from `account`, under
-either `SHA256("LXP/v1/account-id\0" || name)` or
-`SHA256("LX:ACCOUNT:v1" || u32be(len) || name)`, so advertised terms can never
-redirect a payment away from the payee the offer commits to. A payer refuses an
-offer that omits the block or whose `payTo` derives from another account
-(`services/platform/middleware/buyer/src/index.ts`;
-`services/interop/crates/layerx-x402/src/model.rs`), and so does the interop x402
-adapter, for offers it issues, decodes, verifies and settles on every transport
-binding.
+The Rust buyer, seller and facilitator require `extra.layerx.account` and
+`extra.layerx.currency` through `layerx_terms()`. Account references support
+`agent:<did>:main` and `agent:<did>:asset:<asset>`, with an asset suffix matching
+the offered asset. Currency is bounded uppercase ASCII/digits. `payTo` must
+match one of the account identifiers returned by `account_identifiers`:
 
-Exact payment carries the verified canonical receipt, its receipt digest, and
-`verificationLevel: "sequencer-signed"`. The seller recomputes the digest,
-resolves authority from configured trust, verifies the receipt and commitment,
-and binds payer, payee, Asset, and amount before fulfillment.
+- `SHA256("LXP/v1/account-id\0" || account_bytes)`;
+- `SHA256("LX:ACCOUNT:v1" || u32be(account_byte_length) || account_bytes)`.
 
-Metered and subscription payment instead carries:
+The [seller middleware](../../services/platform/middleware/seller/src/index.ts)
+validates its own offer profile. Its
+[commitment contract](../../services/platform/middleware/seller/src/commitment.ts)
+uses `receipted` or `committed` for `extra.layerx.commitment`; a missing profile
+defaults to receipt-level verification. Set `committed` when fulfillment requires
+finality. Metered/subscription offers require nonzero payer and purpose hash.
+The draw codec additionally requires `grantId`, `receiverSequence` and
+`contextHash`. Subscription requires a positive `windowSeconds` below `2^64`;
+metered forbids that field. Preserve each implementation's accepted profile;
+Rust adapter and middleware payloads are separate contracts.
 
-```json
-{
-  "receive": "<733-byte canonical receive as hex>",
-  "idempotencyKey": "<64-hex key>"
-}
-```
-
-The receive embeds the payer's 346-byte ordinal-7 grant and the receiver's
-authorization. Validation requires the offered payer, recipient, Asset,
-amount, purpose, idempotency key, grant id, allowance, per-draw maximum,
-expiry, controller, signed context, and network to match exactly. References
-are not admitted on this draw path. Metered grants are non-recurring with a
-zero window. Subscription grants are recurring and bind the offered window.
-
-Each draw is pre-registered durably by idempotency key with its principal,
-request digest, exact canonical activity, receive bytes, and activity id. A
-conflicting registration is refused. The first attempt submits the stored
-activity through `lx_sendActivity`; later attempts recover its receipt by the
-same activity id. Only JSON-RPC `-32001` with object `data` whose `state` is
-`pending`, or a result whose `state` is `pending`, remains retryable and maps to
-HTTP 202. Other RPC, HTTP, parse, or protocol failures remain errors; they do
-not fulfill the resource and are not relabeled as pending
-(`services/agent/sdk/python/layerx_sdk/x402_draw.py:81-100`;
-`services/agent/sdk/typescript/src/x402/draw.ts:33-42, 55-60`).
-
-Every subscription period uses a distinct period key and a newly signed
-receive with current sequences. The recurring grant is reused within its
-bounds, but the grant alone does not prove one charge per period.
-
-After verification, fulfillment is recorded against both the request identity
-and the unique receipt digest. Replaying a receipt for another request or
-changing the request under an existing identity is refused. The successful
-`PAYMENT-RESPONSE` contains `transaction: "lxp:<receipt_digest>"`, the network,
-amount, payer, canonical receipt, digest, verification label, and purpose hash
-for grant draws.
+The hosted exact-payment payload contains `layerxTransaction` (signed raw
+transaction hex) and `layerxIdempotencyKey` (32-byte reference). Its
+[payer transaction decoder](../../services/interop/crates/layerx-interop-service/src/payer_tx.rs)
+requires an EIP-1559 transaction targeting the ledger precompile and
+`payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)` calldata. The service
+checks the reference, recipient, asset, amount and expiry before relaying it.
+These fields do not grant the edge authority to create a payer signature.
 
 ---
 
 ## Header and body encodings
 
-Header names (`services/interop/crates/layerx-x402/src/model.rs:13-15`):
+| Wire header | Core value |
+| --- | --- |
+| `PAYMENT-REQUIRED` | `PaymentRequired` |
+| `PAYMENT-SIGNATURE` | `PaymentPayload` |
+| `PAYMENT-RESPONSE` | `SettlementResponse` |
 
-| Constant | Wire name | Value |
-| --- | --- | --- |
-| `PAYMENT_REQUIRED_HEADER` | `PAYMENT-REQUIRED` | `PaymentRequired` |
-| `PAYMENT_SIGNATURE_HEADER` | `PAYMENT-SIGNATURE` | `PaymentPayload` |
-| `PAYMENT_RESPONSE_HEADER` | `PAYMENT-RESPONSE` | `SettlementResponse` |
+HTTP payment headers contain RFC 4648 standard-base64 JSON. The
+[codec](../../services/interop/crates/layerx-x402/src/codec.rs) bounds decoded JSON
+at 64 KiB and refuses empty header text or encoded text over 128 KiB. Bad
+base64/JSON is `Decode`; size violations are `Bounds`.
 
-HTTP payment signals: serde JSON, then RFC 4648 standard base64, bound
-at `MAXIMUM_HEADER_BYTES = 64 * 1_024` JSON bytes
-(`services/interop/crates/layerx-x402/src/codec.rs:8-28`;
-`services/interop/crates/layerx-x402/src/transport.rs:259-268`). Empty or
-oversize header text is `Bounds`; invalid base64 or JSON is `Decode`.
+The [transport module](../../services/interop/crates/layerx-x402/src/transport.rs)
+uses `TransportValue::HttpHeader` for HTTP signals and `TransportValue::Json`
+for MCP/A2A, with a 64 KiB JSON bound. Representation/header-name mismatches
+are refused. Facilitator `/verify`, `/settle`, and `/supported` messages are
+JSON bodies on all three transports. Transport changes representation, not
+payment identity or verification requirements.
 
-MCP and A2A payment signals: the same validated JSON objects as
-`TransportValue::Json`, bound at `MAXIMUM_JSON_BYTES = 64 * 1_024`
-(`services/interop/crates/layerx-x402/src/transport.rs:1-4, 19, 269, 293-310`).
-A transport/value mismatch (HTTP value on MCP, JSON on HTTP, wrong
-header name) is `Decode`
-(`services/interop/crates/layerx-x402/src/transport.rs:277-290`).
+Core wire structs use camelCase and deny unknown fields. A `PaymentPayload`
+has `x402Version: 2`, an object `payload`, `accepted`, optional `resource`, and
+`extensions`. A facilitator request wraps it as `paymentPayload` alongside
+`x402Version` and `paymentRequirements`; `accepted` must equal those requirements.
 
-Facilitator `/verify`, `/settle`, and `/supported` are JSON bodies on
-HTTP, MCP, and A2A. They are not the three payment headers
-(`services/interop/crates/layerx-x402/src/transport.rs:150-157`;
-`services/interop/crates/layerx-x402/COMPATIBILITY.md:3-4, 15`).
-
-Structs use `serde(deny_unknown_fields, rename_all = "camelCase")`
-(`services/interop/crates/layerx-x402/src/model.rs:80, 137, 180, 213, 241`).
-`Seller::payment_required` always calls `encode_header` (HTTP header
-form) even when the gateway route is MCP or A2A
-(`services/interop/crates/layerx-x402/src/seller.rs:118-123`). Transport-neutral
-encode/decode of the same core values is `transport.rs`, not
-`Seller::payment_required`.
-
-`PaymentRequirements` fields: `scheme`, `network` (CAIP-2
-`namespace:reference`), `amount`, `asset`, `payTo`,
-`maxTimeoutSeconds`, optional `extra`
-(`services/interop/crates/layerx-x402/src/model.rs:136-147`). `layerx_facts`
-requires namespace `layerx` and 32-byte hex `asset` / `pay_to`
-(`services/interop/crates/layerx-x402/src/model.rs:165-176`).
-
-Successful settlement body
-(`services/interop/crates/layerx-x402/src/seller.rs:269-287`;
-`services/interop/crates/layerx-x402/src/facilitator.rs:468-486`):
+Successful Rust settlement responses contain:
 
 | Field | Value |
 | --- | --- |
 | `success` | `true` |
 | `errorReason` | absent |
-| `payer` | hex of `protocol.from()` |
-| `transaction` | `lxp:` plus hex receipt digest |
-| `network` | accepted requirements network |
-| `amount` | accepted amount |
-| `extensions.layerx.receipt` | standard-base64 canonical receipt |
-| `extensions.layerx.receiptDigest` | hex digest |
-| `extensions.layerx.verificationLevel` | literal `sequencer-signed` |
+| `transaction` | Nonzero 32-byte transaction hash, `0x` plus 64 lowercase hex digits |
+| `network` | Accepted network |
+| `amount` | Exact accepted decimal-string amount |
+| `payer` | Payer identifier from the verified payment log |
+| `extensions.layerx.receipt` | Standard-base64 canonical signed receipt |
+| `extensions.layerx.receiptDigest` | Canonical receipt digest, hex |
+| `extensions.layerx.verificationLevel` | `receipted` or `committed` |
+| `extensions.layerx.logs` | Receipt-bound address/topics/data/logIndex values |
 
-Pending settlement: `success` false, `errorReason`
-`settlement_pending`, non-empty `transaction`
-(`services/interop/crates/layerx-x402/src/facilitator.rs:397-411`;
-`services/interop/crates/layerx-x402/src/model.rs:274-289`). Other failures:
-`success` false, a safe `errorReason`, empty `transaction`.
+Grant settlements additionally repeat the offered `purposeHash`. Committed
+settlements add `blockNumber`, `blockHash` and `proof`. The receipt digest is
+a separate evidence identifier; it is not the settlement transaction hash.
+
+Pending facilitator responses use `success: false`,
+`errorReason: "settlement_pending"`, the original transaction hash, and
+`verificationLevel: "submitted"`. Other refusals have a safe error reason and
+empty `transaction`. Neither an HTTP 200 nor a syntactically valid response
+establishes successful payment.
 
 ---
 
 ## Roles
 
-Codify anchors (`services/interop/crates/layerx-x402/src/lib.rs:52-68`):
+| Role | Boundary |
+| --- | --- |
+| Seller | Matches an issued offer and required extensions, calls `PaymentPlane`, verifies receipt/payment evidence, then records the gateway result |
+| Buyer | Selects a supported offer, calls `BuyerPaymentPlane`, preserves extensions and verifies settlement locally |
+| Facilitator | Declares support, keeps `/verify` read-only and gates `/settle` on verified evidence |
 
-| Role | Anchor | What the role verifies |
-| --- | --- | --- |
-| Seller | `x402-v2-receipt-verified-seller` | Offer validity; `PAYMENT-SIGNATURE` decodes and matches an issued `accepts` entry and required extensions; plane execution; canonical receipt verifies and binds asset, recipient, and amount; gateway records `ReceiptVerified` |
-| Buyer | `x402-v2-evidence-bound-buyer` | `PAYMENT-REQUIRED` decodes; a supported `(scheme, network)` exists; scheme payload is a JSON object; `PAYMENT-RESPONSE` success carries `extensions.layerx` with `verificationLevel` `sequencer-signed`; local `verify` plus digest/`lxp:` transaction binding |
-| Facilitator | `x402-v2-receipt-backed-facilitator-http-mcp-a2a` | `/supported` declaration; `/verify` read-only; `/settle` success unreachable without matching locally verified protocol evidence; settlement identity independent of transport and separated by `SettlementStep` |
+[TRANSPORT_MATRIX](../../services/interop/crates/layerx-x402/src/transport.rs)
+declares all three roles for HTTP, MCP and A2A. The versioned hosted routes are
+listed on [Interop](Interop.md#gateway-routes). Only the x402 settle routes
+perform payment settlement. Route aliases share handlers; they do not bypass
+authentication, idempotency or evidence checks.
 
-Local matrix rows (`services/interop/crates/layerx-x402/src/transport.rs:48-67`;
-`services/interop/crates/layerx-x402/COMPATIBILITY.md:5-9`):
-
-| Transport | Buyer | Seller | Facilitator | Evidence |
-| --- | --- | --- | --- | --- |
-| HTTP | yes | yes | yes | `TRANSPORT_MATRIX[0]`; `tests/transports.rs` |
-| MCP | yes | yes | yes | `TRANSPORT_MATRIX[1]`; `tests/transports.rs` |
-| A2A | yes | yes | yes | `TRANSPORT_MATRIX[2]`; `tests/transports.rs` |
-
-`every_role_round_trips_on_every_transport` asserts every matrix row
-has buyer, seller, and facilitator true, and round-trips
-payment-required, payment payload, settlement, facilitator request,
-verify response, facilitator settlement, and supported response on
-HTTP, MCP, and A2A
-(`services/interop/crates/layerx-x402/tests/transports.rs:84-165`).
-
-Gateway route registration
-(`services/interop/crates/layerx-interop-gateway/src/server.rs:184-224`):
-
-| Method | Path | Route |
-| --- | --- | --- |
-| `GET` | `/v1/{http\|mcp\|a2a}/x402/supported` or `.../facilitator/supported` | `X402Supported` |
-| `POST` | `/v1/{http\|mcp\|a2a}/x402/buyer/build` | `X402BuyerBuild` |
-| `POST` | `/v1/{http\|mcp\|a2a}/x402/seller/offer` | `X402SellerOffer` |
-| `POST` | `/v1/{http\|mcp\|a2a}/x402/verify` or `.../facilitator/verify` | `X402Verify` |
-| `POST` | `/v1/{http\|mcp\|a2a}/x402/settle` or `.../{seller\|facilitator}/settle` | `X402Settle` |
-
-`X402Settle` is the only x402 state-changing route
-(`services/interop/crates/layerx-interop-gateway/src/server.rs:107-118`). The
-service dispatches those variants onto `x402_supported`, `x402_buyer`,
-`x402_seller`, `x402_verify`, and `x402_settle`
-(`services/interop/crates/layerx-interop-service/src/server.rs:414-423`).
-Startup requires adapters `x402`, `ap2`, `ucp`, `visa-tap`, `fiat` and
-transports `http`, `mcp`, `a2a`
-(`services/interop/crates/layerx-interop-service/src/config.rs:31-32`). x402
-evidence policy is `LayerXReceipt`
-(`services/interop/crates/layerx-interop-service/src/config.rs:537-540`). The
-configured pin must be version `2.0.0` and `X402_SPEC_SHA256`
-(`services/interop/crates/layerx-interop-service/src/config.rs:482-490`).
-
----
+The package `layerx-interop-service` builds the `layerx-interop-gateway` binary.
+Its [HTTP implementation](../../services/interop/crates/layerx-interop-service/src/server.rs)
+and [configuration](../../services/interop/crates/layerx-interop-service/src/config.rs)
+compose the adapter with the relay, supported offers, receipt keys and durable
+operation storage. Route registration alone does not qualify a live facilitator.
 
 ## Typed refusals
 
-`X402Error` (`services/interop/crates/layerx-x402/src/model.rs:297-314`). No
-variant carries external payload bytes or secrets
-(`services/interop/crates/layerx-x402/src/model.rs:295-296`).
-`PaymentPending` is declared and Display-mapped
-(`services/interop/crates/layerx-x402/src/model.rs:309, 333`) and is not
-constructed anywhere in `src/`. Pending settlement is
-`SellerOutcome::Pending`, `FacilitatorSettlementOutcome::Pending`, or
-`errorReason` `settlement_pending`, not `X402Error::PaymentPending`.
+The Rust `X402Error` vocabulary includes:
 
-| Refusal | Condition that raises it |
+| Refusal | Meaning |
 | --- | --- |
-| `Decode` | Empty/invalid standard-base64 header; JSON parse failure; HTTP/MCP/A2A representation mismatch (`services/interop/crates/layerx-x402/src/codec.rs:18-28`; `services/interop/crates/layerx-x402/src/transport.rs:277-310`) |
-| `Encode` | serde JSON serialize failure (`services/interop/crates/layerx-x402/src/codec.rs:10-11`; `services/interop/crates/layerx-x402/src/transport.rs:294-298`; seller/facilitator canonicalization) |
-| `WrongVersion` | `x402Version != 2` (`services/interop/crates/layerx-x402/src/model.rs:344-349`; `services/interop/crates/layerx-x402/src/facilitator.rs:42-43`) |
-| `Bounds` | Header/JSON over `64 KiB`; URL not `http://` or `https://` or containing CR/LF/NUL; text/tag/extension limits; settlement network/transaction/payer/reason bounds (`services/interop/crates/layerx-x402/src/codec.rs:12-13, 19-26`; `services/interop/crates/layerx-x402/src/model.rs:98-123, 260-272, 352-360, 385-392`; `services/interop/crates/layerx-x402/src/transport.rs:295-308`) |
-| `InvalidAmount` | Amount empty, longer than 39 digits, leading zero on length greater than 1, non-digits, or `u128` overflow (`services/interop/crates/layerx-x402/src/model.rs:35-46`) |
-| `InvalidRequirements` | Bad scheme/network/asset/payee, amount `0`, `maxTimeoutSeconds == 0`, empty or more than 32 `accepts`, bad error text, or non-32-byte hex in `layerx_facts` (`services/interop/crates/layerx-x402/src/model.rs:152-160, 194-204, 396-398`) |
-| `InvalidPayload` | Payment `payload` not a JSON object; buyer zero idempotency key; non-object scheme payload from the plane; failed settlement missing `errorReason`; pending settlement with empty `transaction`; failed settlement with non-empty `transaction` when reason is not `settlement_pending`; facilitator zero `stable_identity`; verify response where `is_valid == invalid_reason.is_some()` (`services/interop/crates/layerx-x402/src/model.rs:234-235, 278-288`; `services/interop/crates/layerx-x402/src/buyer.rs:107-108, 129-130`; `services/interop/crates/layerx-x402/src/facilitator.rs:140-141, 491-507`) |
-| `UnsupportedOffer` | `layerx_facts` namespace is not `layerx`; buyer empty/duplicate/oversized support list or no matching `(scheme, network)`; facilitator kind not in `/supported` (`services/interop/crates/layerx-x402/src/model.rs:172-174`; `services/interop/crates/layerx-x402/src/buyer.rs:76-85, 112-121`; `services/interop/crates/layerx-x402/src/facilitator.rs:355-364`) |
-| `RequirementsMismatch` | Payload `accepted` is not an issued `accepts` entry; facilitator payload `accepted` != request `payment_requirements` (`services/interop/crates/layerx-x402/src/seller.rs:204-209`; `services/interop/crates/layerx-x402/src/facilitator.rs:47-48`) |
-| `ExtensionsMismatch` | A required payment-required extension is missing or unequal on the payload (`services/interop/crates/layerx-x402/src/seller.rs:210-213`) |
-| `PaymentRefused` | Facilitator `begin_translation` returns `Refused` on `/verify`; buyer `capture_settlement` sees `success == false`; service verify-plane `settle` / settle-plane `verify` (`services/interop/crates/layerx-x402/src/facilitator.rs:262-263`; `services/interop/crates/layerx-x402/src/buyer.rs:164-165`; `services/interop/crates/layerx-interop-service/src/server.rs:659-664, 729-734`) |
-| `EvidenceMissing` | Successful settlement with empty `transaction` or with `errorReason`; gateway settle status is not `ReceiptVerified`; facilitator pending/refused after an already `ReceiptVerified` open (`services/interop/crates/layerx-x402/src/model.rs:274-276`; `services/interop/crates/layerx-x402/src/seller.rs:266-267`; `services/interop/crates/layerx-x402/src/facilitator.rs:328-329, 465-466`) |
-| `EvidenceMismatch` | `verify` fails; receipt lacks protocol body; receipt asset/to/amount != requirements; buyer evidence not `sequencer-signed`, bad receipt base64, payer/network/amount/digest/`lxp:` mismatch; facilitator refused after already `ReceiptVerified` (`services/interop/crates/layerx-x402/src/seller.rs:243-254`; `services/interop/crates/layerx-x402/src/buyer.rs:174-203`; `services/interop/crates/layerx-x402/src/facilitator.rs:334-335, 442-453`) |
-| `Gateway(_)` | Adapter id, translation request, `begin_translation`, `refuse_translation`, `complete_read_only`, or `settle_with_receipt` failure |
+| `Decode`, `Encode`, `Bounds`, `WrongVersion` | Wire representation, serialization, size or version refusal |
+| `InvalidAmount`, `InvalidRequirements`, `InvalidPayload` | Noncanonical amount, invalid offer or invalid payment object |
+| `ProfileMissing`, `ProfileMismatch` | Missing or inconsistent account/currency/payee terms |
+| `UnsupportedOffer` | No supported scheme/network combination |
+| `RequirementsMismatch`, `ExtensionsMismatch` | Selected terms or required extensions changed |
+| `PaymentRefused` | Payment-plane refusal or attempted capture of an unsuccessful settlement |
+| `TransactionForm` | Transaction reference is not a canonical nonzero hash |
+| `EvidenceMissing`, `EvidenceMismatch` | Missing, unauthorized, malformed or incorrectly bound evidence |
+| `Gateway(_)` | Translation/store/idempotency refusal |
 
-Named conditions that are **not** `X402Error` variants:
+Pending is represented by seller/plane outcomes and `settlement_pending`;
+`PaymentPending` is also a declared error variant. Safe refusal reasons contain
+only lowercase ASCII and underscores, length 1–64; unsafe reason text is
+rendered as `payment_refused`.
 
-| Condition | What the code does |
-| --- | --- |
-| Malformed payment header | `Decode` or `Bounds` from `decode_header` (`services/interop/crates/layerx-x402/src/codec.rs:18-28`). Seller `settle` and buyer `build_payment` / `capture_settlement` all start there (`services/interop/crates/layerx-x402/src/seller.rs:144`; `services/interop/crates/layerx-x402/src/buyer.rs:110, 162`). |
-| Wrong network or asset | Invalid CAIP-2 → `InvalidRequirements`. Namespace not `layerx` → `UnsupportedOffer`. Receipt `asset`/`to` != hex requirements → `EvidenceMismatch`. Buyer/facilitator unsupported `(scheme, network)` → `UnsupportedOffer`. Service transfer vs requirements → plane reason `payment_requirements_mismatch` (`services/interop/crates/layerx-interop-service/src/server.rs:614-620`). |
-| Insufficient amount | Amount `0` → `InvalidRequirements`. Receipt amount != accepted amount → `EvidenceMismatch`. There is no `InsufficientAmount` variant. Seller tests feed plane reason `insufficient_balance` (`services/interop/crates/layerx-x402/tests/seller.rs:192-194`; `services/interop/crates/layerx-x402/tests/e2e.rs:485-487`). Service transfer amount mismatch is `payment_requirements_mismatch`, not an x402 amount error. |
-| Expired authorization | The crate does not compare `max_timeout_seconds` to `now`. `max_timeout_seconds == 0` is `InvalidRequirements`. The service plane refuses when `observed_at < not_before` or `observed_at > not_after` or `observed_at > expires_at` with reason `activity_time_window_refused` (`services/interop/crates/layerx-interop-service/src/server.rs:621-626`). |
-| Replayed authorization | Same settlement identity retries through `GatewayCore::settle_with_receipt`: identical digest returns the existing `ReceiptVerified`; a different digest is `GatewayError::IdempotencyConflict` (`services/interop/crates/layerx-interop-gateway/src/gateway.rs:446-454`). Facilitator identity omits transport (`services/interop/crates/layerx-x402/src/facilitator.rs:117-133, 134-152`). Tests: `duplicate_delivery_of_the_same_settlement_does_not_double_charge`, `a_swapped_receipt_for_a_settled_identity_is_refused`. |
-| Signature failures | `layerx_proof::receipt::verify` maps every `VerificationFailure` (including `SequencerSignature` and `MissingSignature`) to `EvidenceMismatch` (`services/interop/crates/layerx-x402/src/seller.rs:243-244`; `services/interop/crates/layerx-x402/src/facilitator.rs:442-443`; `services/interop/crates/layerx-x402/src/buyer.rs:180-181`; `services/agent/crates/layerx-proof/src/receipt.rs:224-235, 297-305`). The crate does not expose `ReceiptCheck` to x402 callers. Service verify also maps `verify_submission` failure to plane reason `activity_authorization_refused` (`services/interop/crates/layerx-interop-service/src/server.rs:602-609`). |
-| Receipt binding failures | `EvidenceMismatch` / `EvidenceMissing` as in the table above. Gateway `settle_with_receipt` independently calls the same `verify` (`services/interop/crates/layerx-interop-gateway/src/gateway.rs:412-445`). |
+The service has its own HTTP error envelope and reason codes. Missing
+transaction/reference inputs produce `typed_intent_required` or
+`protocol_idempotency_required`; mismatched reference or terms produce
+`protocol_idempotency_mismatch` or `payment_requirements_mismatch`. Invalid
+transaction target, selector or signature has a corresponding `transaction_*`
+refusal. Expired payment is `activity_time_window_refused`. Backend unavailability
+remains unavailable; it does not authorize fulfillment.
 
-Safe plane reasons: lowercase ASCII plus `_`, length `1..=64`; otherwise
-rewritten to `payment_refused`
-(`services/interop/crates/layerx-x402/src/seller.rs:317-327`;
-`services/interop/crates/layerx-x402/src/facilitator.rs:575-586`).
-
-Service verify/settle plane reasons
-(`services/interop/crates/layerx-interop-service/src/server.rs:586-626, 742-772`):
-`typed_intent_required`, `protocol_idempotency_required`,
-`activity_authorization_refused`, `protocol_idempotency_mismatch`,
-`typed_transfer_required`, `payment_requirements_mismatch`,
-`activity_time_window_refused`, `unsupported_offer`.
+The SDK grant-draw recovery path treats only JSON-RPC `-32001` with object
+`data.state == "pending"` as the explicit retryable protocol error. A null
+receipt or `submitted` result also remains pending. Other RPC, transport,
+parsing and evidence errors propagate; they are not silently relabeled pending.
 
 ---
 
 ## Receipt binding
 
-A settled request binds to a LayerX receipt in this order.
+The shared [evidence model](../../services/interop/crates/layerx-interop-gateway/src/evidence.rs)
+is `SequencerEvidence { transaction_hash, signed_receipt, logs, rung }`.
+Its rungs mean:
 
-1. Plane returns `ExecutedPayment { canonical_receipt, authorised_batch }`
-   (`services/interop/crates/layerx-x402/src/seller.rs:46-50`). The adapter does
-   not construct LayerX payload bytes
-   (`services/interop/crates/layerx-x402/src/seller.rs:27-29`).
-2. Seller `settled` and facilitator `settle_executed` call
-   `layerx_proof::receipt::verify(&canonical_receipt, &authorised_batch)`
-   (`services/interop/crates/layerx-x402/src/seller.rs:243-244`;
-   `services/interop/crates/layerx-x402/src/facilitator.rs:442-443`).
-3. `verify` runs `verify_outcome` then refuses `result_code != 0`
-   (`services/agent/crates/layerx-proof/src/receipt.rs:224-235`).
-   `verify_outcome` decodes, re-encodes, checks protocol shape, version,
-   operation, activity id, batch/asset/roots, debit/credit, and Ed25519
-   sequencer signature
-   (`services/agent/crates/layerx-proof/src/receipt.rs:246-310`).
-4. Protocol `asset`, `to`, and `amount` must equal
-   `PaymentRequirements::layerx_facts()` plus `amount.value()`
-   (`services/interop/crates/layerx-x402/src/seller.rs:249-254`;
-   `services/interop/crates/layerx-x402/src/facilitator.rs:448-453`).
-5. `GatewayCore::settle_with_receipt` verifies the same bytes again and
-   stores `TranslationStatus::ReceiptVerified { receipt_digest }`
-   (`services/interop/crates/layerx-interop-gateway/src/gateway.rs:412-463`;
-   `services/interop/crates/layerx-x402/src/seller.rs:256-267`;
-   `services/interop/crates/layerx-x402/src/facilitator.rs:455-466`). Any other
-   status is `EvidenceMissing`.
-6. The settlement `transaction` is `lxp:` plus hex of that digest
-   (`services/interop/crates/layerx-x402/src/seller.rs:269-283`).
+| Rung | Established evidence |
+| --- | --- |
+| `submitted` | Transaction identity; no successful receipt yet |
+| `receipted` | Authenticated signed receipt and bound logs |
+| `committed` | Receipt evidence plus the relevant committed block coordinate; x402 committed capture additionally verifies a consensus proof |
 
-Buyer `capture_settlement` is a second, local verifier. It decodes
-`PAYMENT-RESPONSE`, requires `success`, parses `extensions.layerx`,
-requires `verificationLevel == "sequencer-signed"`, base64-decodes the
-receipt, calls `verify`, checks asset/to/amount/payer/network, recomputes
-`leaf_hash` of the canonical bytes, and requires
-`receiptDigest` and `transaction == lxp:{digest}`
-(`services/interop/crates/layerx-x402/src/buyer.rs:148-209`).
+`Seller::settled` verifies the canonical receipt under independently configured
+height-scoped receipt keys, a successful result and a transaction id matching
+`evidence.transaction_hash`. It authenticates logs against signed effects and
+requires exactly one ledger payment event. `exact` binds reference, payer,
+recipient, asset and amount through `PaymentExact`; grant schemes use
+`PaymentDrawn`, bind grant id and reference, and check the offer's payment facts.
+Purpose and context authorization for a draw also require the matching signed
+transaction and grant validation in the execution path.
+
+[GatewayCore::settle_with_sequencer_evidence](../../services/interop/crates/layerx-interop-gateway/src/gateway.rs)
+refuses submitted evidence, verifies signatures and logs, requires one matching
+payment reference, and stores the canonical receipt digest as
+`TranslationStatus::ReceiptVerified`. The same identity and digest replay
+idempotently; another digest produces `IdempotencyConflict`. This shared status
+records receipt verification rather than independently certifying block finality.
+
+For a committed x402 response, `Seller::settled` also calls
+`layerx_committed_proof::committed::verify_committed`, checks that the proof
+contains the same signed receipt, and binds the returned block number/hash.
+`Buyer::capture_settlement` checks receipt-level responses using its own keys.
+Committed capture requires `Buyer::capture_settlement_with_consensus` and an
+independently trusted consensus anchor for the offered network. Response-supplied
+validator material cannot replace that anchor. The buyer verifies inclusion,
+commit, block identity, payment terms, network, payer and receipt digest; a
+committed label without proof is refused.
+
+The hosted relay checks a reported committed block hash against a node block
+read, but its current x402 plane does not supply a `FacilitatorCommitment` proof.
+The Rust seller refuses a committed response without that proof. Consequently,
+a hosted settle call cannot be assumed to return committed success merely
+because a node reports that rung. Consumers needing committed fulfillment must
+use a producer supplying the required proof and independently configured trust.
+
+Keep retry identity independent of delivery transport. Facilitator
+`SettlementIdentity::derive` binds principal, caller's stable identity, canonical
+request semantics and `SettlementStep` (`Single`, `EscrowDeposit`, or
+`EscrowCharge`). Transport is absent from that identity. The hosted HTTP
+operation record additionally binds the exact method, path and request body;
+resume that operation unchanged. In the seller middleware, durable fulfillment
+binds the request and unique receipt digest before releasing the resource.
 
 ---
 
 ## Conformance vectors
 
-`make interop-test-x402` does not load `sdk/platform/conformance/`.
-Vectors are inline in `services/interop/crates/layerx-x402/tests/vectors.rs`.
-`services/interop/crates/layerx-x402/COMPATIBILITY.md:11` states the local
-matrix does not claim upstream
-reference-implementation conformance or live-service settlement, and
-that neither the pinned upstream vector corpus nor a live service is
-embedded here. `services/interop/crates/layerx-x402/tests/vectors.rs:1-3` states the same file verifies
-"interoperability with independent x402 implementations". Those two
-sentences disagree. The executable tests parse and validate the inline
-JSON; they do not contact an independent implementation.
+The [compatibility matrix](../../services/interop/crates/layerx-x402/COMPATIBILITY.md)
+describes local offline coverage, not an independently operated facilitator or
+upstream reference-implementation certification. The executable test sources
+include:
 
-`all_payment_required_vectors_validate_correctly` /
-`all_payment_payload_vectors_validate_correctly` /
-`all_settlement_response_vectors_validate_correctly`
-(`services/interop/crates/layerx-x402/tests/vectors.rs:353-440`): `valid: true`
-must parse and `validate()` / `validate_wire()` `Ok`; `valid: false`
-must fail parse or validation.
+| Source | Coverage |
+| --- | --- |
+| [vectors.rs](../../services/interop/crates/layerx-x402/tests/vectors.rs) | Wire models, canonical amounts, validation and transport encoding |
+| [pinned_spec.rs](../../services/interop/crates/layerx-x402/tests/pinned_spec.rs) | Vendored specification integrity and altered-byte refusal |
+| [transports.rs](../../services/interop/crates/layerx-x402/tests/transports.rs) | Role representation parity, identity, duplicate delivery and recovery |
+| [facilitator_evidence.rs](../../services/interop/crates/layerx-x402/tests/facilitator_evidence.rs) | Signed receipt settlement, pending hashes and committed evidence |
+| [sequenced_vectors.rs](../../services/interop/crates/layerx-x402/tests/sequenced_vectors.rs) | Recorded receipt/payment bindings and committed proof cases |
+| [buyer_sequencer.rs](../../services/interop/crates/layerx-x402/tests/buyer_sequencer.rs) | Buyer-side receipt capture |
 
-| Vector | File | What it proves | Expected outcome |
-| --- | --- | --- | --- |
-| `minimal_valid_payment_required` | `tests/vectors.rs:32-49` | Version 2, URL, one `exact` / `layerx:beta` offer | parse + `validate` `Ok` |
-| `payment_required_with_all_optional_fields` | `tests/vectors.rs:50-75` | Optional error, resource metadata, `extra`, empty `extensions` | parse + `validate` `Ok` |
-| `payment_required_with_multiple_accepts` | `tests/vectors.rs:76-103` | Two offers (`exact` and `402lxp`) | parse + `validate` `Ok` |
-| `payment_required_wrong_version` | `tests/vectors.rs:109-126` | `x402Version` 1 | parse may succeed; `validate` `WrongVersion` |
-| `payment_required_empty_accepts` | `tests/vectors.rs:127-137` | `accepts: []` | `InvalidRequirements` |
-| `payment_required_zero_amount` | `tests/vectors.rs:138-155` | amount `"0"` | `InvalidRequirements` |
-| `payment_required_negative_amount` | `tests/vectors.rs:156-173` | amount `"-100"` | deserialize/`InvalidAmount` fail |
-| `payment_required_empty_url` | `tests/vectors.rs:174-191` | `resource.url` empty | `Bounds` |
-| `minimal_valid_payment_payload` | `tests/vectors.rs:197-212` | Version 2, object payload, accepted offer | parse + `validate` `Ok` |
-| `payment_payload_with_resource` | `tests/vectors.rs:213-232` | Optional resource on payload | parse + `validate` `Ok` |
-| `payment_payload_with_extensions` | `tests/vectors.rs:233-254` | Named extension with `info`/`schema` | parse + `validate` `Ok` |
-| `payment_payload_wrong_version` | `tests/vectors.rs:255-270` | `x402Version` 3 | `WrongVersion` |
-| `payment_payload_non_object_payload` | `tests/vectors.rs:271-286` | `payload` a string | `InvalidPayload` |
-| `successful_settlement` | `tests/vectors.rs:292-309` | `success` true, `lxp:` transaction, `layerx` extension | `validate_wire` `Ok` |
-| `pending_settlement` | `tests/vectors.rs:310-319` | `settlement_pending` plus transaction | `validate_wire` `Ok` |
-| `refused_settlement` | `tests/vectors.rs:320-329` | `insufficient_balance`, empty transaction | `validate_wire` `Ok` |
-| `settlement_success_with_error_reason` | `tests/vectors.rs:330-340` | `success` true with `errorReason` | `EvidenceMissing` |
-| `settlement_failed_without_error_reason` | `tests/vectors.rs:341-349` | `success` false, no reason | `InvalidPayload` |
-
-Additional vector tests in the same file:
-
-| Test | File | What it proves | Expected outcome |
-| --- | --- | --- | --- |
-| `atomic_amount_canonical_encoding_round_trips` | `tests/vectors.rs:443-463` | `0`, `1`, …, `u128::MAX` as JSON strings | deserialize equals original |
-| `atomic_amount_refuses_non_canonical_strings` | `tests/vectors.rs:465-488` | empty, negative, fractional, exponent, padded, overflow | `parse` `Err` |
-| `atomic_amount_accepts_canonical_strings` | `tests/vectors.rs:490-505` | `"0"` … max `u128` | `parse` `Ok` matching value |
-| `payment_required_http_transport_encoding_is_base64_json` | `tests/vectors.rs:507-546` | HTTP encode | header name `PAYMENT-REQUIRED`; base64 JSON version 2 |
-| `payment_required_mcp_transport_encoding_is_json` | `tests/vectors.rs:548-583` | MCP encode | `TransportValue::Json` equals input |
-| `resource_info_validates_url_format` | `tests/vectors.rs:585-616` | `https://` ok; no scheme and newline refused | `Ok` / `Err` / `Err` |
-| `payment_requirements_validates_layerx_network_format` | `tests/vectors.rs:618-654` | `layerx:beta` facts `Ok`; `ethereum:mainnet` validates but `layerx_facts` `Err`; missing `:` invalid | as stated |
-| `wire_encoding_round_trip_preserves_all_fields` | `tests/vectors.rs:656-698` | HTTP, MCP, A2A encode/decode | decoded equals original |
-
-Pinned spec (`services/interop/crates/layerx-x402/tests/pinned_spec.rs:16-43`):
-vendored `x402-specification-v2.md` matches `X402_SPEC_SHA256`; an
-appended newline is `AdapterError::DocumentDigestMismatch`.
-
-Transport-matrix settlement tests
-(`services/interop/crates/layerx-x402/tests/transports.rs`) drive a
-sequencer-signed receipt whose asset `05..`, recipient `07..`, amount
-`25` match `requirements()` (`services/interop/crates/layerx-x402/tests/transports.rs:37-47, 196-204,
-268-282`):
-
-| Test | File | What it proves | Expected outcome |
-| --- | --- | --- | --- |
-| `every_role_round_trips_on_every_transport` | `tests/transports.rs:84-165` | Encode/decode parity on HTTP, MCP, A2A | all `Ok` and equal; matrix all true |
-| `settlement_identity_is_transport_independent_and_step_separated` | `tests/transports.rs:167-194` | Identity ignores transport; `Single` / `EscrowDeposit` / `EscrowCharge` keys differ | equal across transports; step keys unequal |
-| `confirmed_settlement_records_exactly_one_receipt_verified_effect` | `tests/transports.rs:435-468` | One successful `/settle` | `success`; `lxp:` digest; one plane call |
-| `duplicate_delivery_of_the_same_settlement_does_not_double_charge` | `tests/transports.rs:470-516` | Three redeliveries, one identity | same `transaction`; one stored digest |
-| `transport_independent_identity_settles_once_across_http_mcp_and_a2a` | `tests/transports.rs:518-562` | Same request over three transports | same `lxp:` digest |
-| `settlement_recovers_after_a_crash_without_a_second_economic_effect` | `tests/transports.rs:564-660` | Pending, then `Decode` crash, then confirm, then duplicate | pending then one digest unchanged |
-| `a_swapped_receipt_for_a_settled_identity_is_refused` | `tests/transports.rs:662-714` | Alternate activity id after settle | `Err`; original digest unchanged |
-
-`services/interop/crates/layerx-x402/COMPATIBILITY.md:17-27` lists those
-facilitator rows as local offline pass results. That file also says
-they do not attest third-party facilitator interoperability.
-
-Seller, buyer, and e2e tests
-(`services/interop/crates/layerx-x402/tests/seller.rs`,
-`services/interop/crates/layerx-x402/tests/buyer.rs`,
-`services/interop/crates/layerx-x402/tests/e2e.rs`) exercise 402 issuance,
-requirements mismatch, extension echo, pending/refused plane outcomes,
-capture refusals (failed settlement, missing `layerx` evidence, wrong
-`verificationLevel`, malformed receipt), and HTTP/MCP buyer-seller
-flows that stop at `SellerOutcome::Pending` when the test plane does
-not return a signed receipt.
-`services/interop/crates/layerx-x402/tests/seller.rs:1-3` and
-`services/interop/crates/layerx-x402/tests/e2e.rs:1-3` claim tests run
-"against … independent x402 implementations". The files construct
-in-crate types and test planes; they do not load an independent
-implementation. That comment disagrees with
-`services/interop/crates/layerx-x402/COMPATIBILITY.md:11`.
-
----
+Vector parsing establishes only the assertions in those tests. A local pass is
+not evidence that a public endpoint is live, that a merchant fulfills resources,
+or that a third-party facilitator interoperates with this deployment.
 
 ## `make interop-test-x402`
 
+The existing Makefile target runs:
+
+```text
+cargo test --manifest-path services/interop/Cargo.toml --locked -p layerx-x402
 ```
-interop-test-x402:
-	$(INTEROP_CARGO) test --manifest-path services/interop/Cargo.toml --locked -p layerx-x402
-```
 
-(`Makefile:2879-2880`; `INTEROP_CARGO` defaults to `cargo` at
-`Makefile:2860-2861`). That command builds the `layerx-x402` package
-and runs every test in `src/` and `tests/` (`e2e.rs`, `pinned_spec.rs`,
-`seller.rs`, `vectors.rs`, `buyer.rs`, `transports.rs`). It does not
-run `interop-test`, other adapter packages, clippy, or
-`sdk/platform/conformance`.
-
-`.github/workflows/interop-x402.yml:54-55` runs the same target with
-`INTEROP_CARGO="cargo +1.91.1"`.
-`services/interop/crates/layerx-x402/COMPATIBILITY.md:15` cites that workflow
-and `make interop-test-x402` as the re-run path for the facilitator
-table.
-
----
+`INTEROP_CARGO` selects the Cargo executable. This target runs the x402 crate's
+tests; it is not a workspace-wide interop or live-service qualification gate.
 
 ## Sources
 
-- `services/interop/crates/layerx-x402/src/lib.rs:21-68`
-- `services/interop/crates/layerx-x402/src/model.rs:1-416`
-- `services/interop/crates/layerx-x402/src/codec.rs:8-28`
-- `services/interop/crates/layerx-x402/src/transport.rs:1-311`
-- `services/interop/crates/layerx-x402/src/seller.rs:1-328`
-- `services/interop/crates/layerx-x402/src/buyer.rs:1-221`
-- `services/interop/crates/layerx-x402/src/facilitator.rs:1-605`
-- `services/interop/crates/layerx-x402/COMPATIBILITY.md:1-28`
-- `services/interop/crates/layerx-x402/tests/vectors.rs:1-698`
-- `services/interop/crates/layerx-x402/tests/transports.rs:84-714`
-- `services/interop/crates/layerx-interop-gateway/src/server.rs:184-224`
-- `services/interop/crates/layerx-interop-gateway/src/gateway.rs:412-463`
-- `services/interop/crates/layerx-interop-service/src/server.rs:414-423, 445-891`
-- `services/interop/crates/layerx-interop-service/src/config.rs:31-32, 482-490, 537-540`
-- `services/agent/crates/layerx-proof/src/receipt.rs:224-310`
-- `Makefile:2860-2880`
+- [Rust x402 crate](../../services/interop/crates/layerx-x402/src/lib.rs)
+- [Gateway route contract](../../services/interop/crates/layerx-interop-gateway/src/server.rs)
+- [Gateway receipt verification](../../services/interop/crates/layerx-interop-gateway/src/gateway.rs)
+- [Interop HTTP implementation](../../services/interop/crates/layerx-interop-service/src/server.rs)
+- [Durable transaction relay](../../services/interop/crates/layerx-interop-service/src/relay.rs)
+- [Seller middleware](../../services/platform/middleware/seller/src/index.ts)
+- [Middleware commitment verification](../../services/platform/middleware/seller/src/commitment.ts)
+- [SDK grant draws](../../services/agent/sdk/typescript/src/x402/draw.ts)
 
-[Home](Home.md)
+[Interop](Interop.md) · [AP2 mandates](Ap2Mandates.md) · [Mirrors](Mirrors.md) · [Home](Home.md)

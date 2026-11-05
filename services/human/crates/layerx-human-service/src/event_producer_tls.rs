@@ -600,7 +600,7 @@ fn enqueue_journey(scope: &mut crate::store::PrincipalScope<'_>) {
     );
     let leg = required(
         JourneyLeg::new(
-            layerx_intents::Intent::v1(layerx_intents::IntentKind::LxpSend(send)),
+            layerx_intents::Intent::from(layerx_intents::IntentKind::LxpSend(send)),
             [0x21; 32],
             required(
                 layerx_agent_api::identity::AgentDid::new("did:layerx:alice"),
@@ -610,6 +610,7 @@ fn enqueue_journey(scope: &mut crate::store::PrincipalScope<'_>) {
                 layerx_agent_api::identity::AuthorityRef::new("custody-human-primary"),
                 "authority",
             ),
+            7,
             7,
             995,
             1010,

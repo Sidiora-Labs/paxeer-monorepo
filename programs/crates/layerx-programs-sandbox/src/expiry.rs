@@ -2,35 +2,38 @@
 
 use core::fmt::{self, Display};
 
-use layerx_programs::ProtocolDeploymentVerifier;
+use layerx_programs::chain_proof::{
+    decode::{CommitmentProof, ProofOp, MAX_FIELD_BYTES},
+    header::ChainHeader,
+    proto::{ProtoReader, ProtoValue},
+    vote::{BlockId, CommitSig, PartSetHeader},
+    Commit,
+};
+use layerx_programs::{verify_state, ProtocolDeploymentVerifier};
 use layerx_programs_runtime::{hash_bytes, HashAlgorithm};
 #[cfg(any(feature = "host-ffi", test))]
 use layerx_programs_runtime::{Meter, Storage};
-use layerx_proof::merkle::Proof;
-use layerx_types::payload::ModuleId;
-use layerx_wire::receipt::decode as decode_receipt;
 
 #[cfg(any(feature = "host-ffi", test))]
 use crate::usage::record_expiry_occupancy_settlement;
+use crate::{
+    sandbox_terminal_key, EscrowRefusal, Lease, LeaseId, LeaseRefusal, LeaseState, UsageRefusal,
+};
 #[cfg(any(feature = "host-ffi", test))]
 use crate::{DurableUsageState, UsageReceipt};
-use crate::{EscrowRefusal, Lease, LeaseId, LeaseRefusal, LeaseState, UsageRefusal};
 
 const TERMINAL_DOMAIN: &[u8] = b"LayerX/programs/sandbox/terminal/v1\0";
 #[cfg(any(feature = "host-ffi", test))]
 const DESTROY_RECEIPT_DOMAIN: &[u8] = b"LayerX/programs/sandbox/destroy/v1\0";
 const SWEEP_STATE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/expiry-queue/v1\0";
-const TERMINAL_EVENT: u16 = 0x090a;
 const TERMINAL_EVENT_BYTES: usize = 352;
-pub const MAX_SWEEP_LEASES_PER_BATCH: u32 = 6;
+pub const MAX_SWEEP_LEASES_PER_BATCH: u32 = 128;
 pub const MAX_EXPIRY_QUEUE_ENTRIES: usize = 4096;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TerminalReceiptEvidence {
-    pub canonical_receipt: Vec<u8>,
-    pub receipt_proof: Proof,
-    pub canonical_header: Vec<u8>,
-    pub header_signature: [u8; 64],
+    pub commitment: CommitmentProof,
+    pub terminal_ops: Vec<ProofOp>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -43,51 +46,42 @@ pub struct AuthenticatedTerminalRecord {
 impl AuthenticatedTerminalRecord {
     /// # Errors
     ///
-    /// Returns a refusal when terminal evidence or its authenticated receipt is invalid.
+    /// Returns a refusal when the chain head or proven terminal record is invalid.
     pub fn verify(
         verifier: &ProtocolDeploymentVerifier,
         evidence: &TerminalReceiptEvidence,
         now_ms: u64,
         expected_lease: LeaseId,
     ) -> Result<Self, ExpiryRefusal> {
+        let commitment = &evidence.commitment;
+        let header = ChainHeader::decode(&commitment.signed_header)
+            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+        let commit = terminal_commit(&commitment.commit)?;
         let head = verifier
-            .verify_current_protocol_head(
-                &evidence.canonical_receipt,
-                &evidence.receipt_proof,
-                &evidence.canonical_header,
-                &evidence.header_signature,
-                now_ms,
-            )
+            .chain_trust()
+            .ok_or(ExpiryRefusal::InvalidProtocolReceipt)?
+            .verify_head(&header, &commit)
             .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
-        let receipt = decode_receipt(&evidence.canonical_receipt)
-            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
-        let protocol = receipt
-            .protocol()
-            .ok_or(ExpiryRefusal::InvalidProtocolReceipt)?;
-        if protocol.activity_id() != head.activity_id() {
+        let observed_at =
+            u64::try_from(head.time_ms()).map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+        if observed_at > now_ms.saturating_add(1_000)
+            || now_ms.saturating_sub(observed_at) > verifier.staleness_limit_ms()
+        {
             return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
-        let mut chunks: [Option<Vec<u8>>; 2] = [None, None];
-        for effect in protocol.effects().iter().filter(|effect| {
-            effect.module_id() == ModuleId::Programs as u16 && effect.event_type() == TERMINAL_EVENT
-        }) {
-            let body = effect.body();
-            if body.len() < 8
-                || &body[..4] != b"LXDT"
-                || body[5] != 2
-                || body[6] != 1
-                || body[7] != 0
-                || usize::from(body[4]) >= chunks.len()
-                || chunks[usize::from(body[4])].is_some()
-            {
-                return Err(ExpiryRefusal::InvalidProtocolReceipt);
-            }
-            chunks[usize::from(body[4])] = Some(body[8..].to_vec());
+        let key = sandbox_terminal_key(expected_lease.bytes());
+        let bytes = commitment
+            .value
+            .as_deref()
+            .ok_or(ExpiryRefusal::InvalidProtocolReceipt)?;
+        if commitment.store_name != "lxphost"
+            || commitment.key != key
+            || commitment.proof_ops != evidence.terminal_ops
+        {
+            return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
-        let mut bytes = Vec::with_capacity(TERMINAL_EVENT_BYTES);
-        for chunk in chunks {
-            bytes.extend_from_slice(&chunk.ok_or(ExpiryRefusal::InvalidProtocolReceipt)?);
-        }
+        verify_state(&head, "lxphost", &key, bytes, &evidence.terminal_ops)
+            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
         if bytes.len() != TERMINAL_EVENT_BYTES
             || &bytes[..5] != b"LXSD1"
             || bytes[5..37] != expected_lease.bytes()
@@ -95,7 +89,7 @@ impl AuthenticatedTerminalRecord {
             return Err(ExpiryRefusal::InvalidProtocolReceipt);
         }
         let mut canonical = [0u8; TERMINAL_EVENT_BYTES];
-        canonical.copy_from_slice(&bytes);
+        canonical.copy_from_slice(bytes);
         if canonical[37..69] == [0; 32]
             || canonical[117..149] == [0; 32]
             || u64::from_be_bytes(
@@ -113,7 +107,7 @@ impl AuthenticatedTerminalRecord {
         }
         Ok(Self {
             canonical,
-            receipt_activity_id: head.activity_id(),
+            receipt_activity_id: head.header_hash(),
             lease: expected_lease,
         })
     }
@@ -135,6 +129,93 @@ impl AuthenticatedTerminalRecord {
     pub const fn lease(&self) -> LeaseId {
         self.lease
     }
+}
+
+fn terminal_fields<const N: usize>(
+    bytes: &[u8],
+) -> Result<[Option<ProtoValue<'_>>; N], ExpiryRefusal> {
+    let mut fields = [None; N];
+    let mut reader = ProtoReader::new(bytes);
+    while let Some(field) = reader
+        .next_field()
+        .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?
+    {
+        let index =
+            usize::try_from(field.number - 1).map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+        let slot = fields
+            .get_mut(index)
+            .ok_or(ExpiryRefusal::InvalidProtocolReceipt)?;
+        if slot.replace(field.value).is_some() {
+            return Err(ExpiryRefusal::InvalidProtocolReceipt);
+        }
+    }
+    reader
+        .finish()
+        .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+    Ok(fields)
+}
+
+fn terminal_bytes(value: Option<ProtoValue<'_>>) -> Result<&[u8], ExpiryRefusal> {
+    match value {
+        Some(ProtoValue::Bytes(bytes)) => Ok(bytes),
+        _ => Err(ExpiryRefusal::InvalidProtocolReceipt),
+    }
+}
+
+fn terminal_scalar(value: Option<ProtoValue<'_>>) -> Result<u64, ExpiryRefusal> {
+    match value {
+        Some(ProtoValue::Varint(value)) => Ok(value),
+        None => Ok(0),
+        _ => Err(ExpiryRefusal::InvalidProtocolReceipt),
+    }
+}
+
+fn terminal_commit(bytes: &[u8]) -> Result<Commit, ExpiryRefusal> {
+    if bytes.len() > MAX_FIELD_BYTES {
+        return Err(ExpiryRefusal::InvalidProtocolReceipt);
+    }
+    let mut reader = ProtoReader::new(bytes);
+    let mut fields = [None; 3];
+    let mut signatures = Vec::new();
+    while let Some(field) = reader
+        .next_field()
+        .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?
+    {
+        match field.number {
+            1..=3 => {
+                let index = usize::try_from(field.number - 1)
+                    .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+                if fields[index].replace(field.value).is_some() {
+                    return Err(ExpiryRefusal::InvalidProtocolReceipt);
+                }
+            }
+            4 => signatures.push(
+                CommitSig::decode(terminal_bytes(Some(field.value))?)
+                    .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?,
+            ),
+            _ => return Err(ExpiryRefusal::InvalidProtocolReceipt),
+        }
+    }
+    reader
+        .finish()
+        .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?;
+    let block = terminal_fields::<2>(terminal_bytes(fields[2])?)?;
+    let parts = terminal_fields::<2>(terminal_bytes(block[1])?)?;
+    Ok(Commit {
+        height: i64::try_from(terminal_scalar(fields[0])?)
+            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?,
+        round: i32::try_from(terminal_scalar(fields[1])?)
+            .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?,
+        block_id: BlockId {
+            hash: terminal_bytes(block[0])?.to_vec(),
+            part_set_header: PartSetHeader {
+                total: u32::try_from(terminal_scalar(parts[0])?)
+                    .map_err(|_| ExpiryRefusal::InvalidProtocolReceipt)?,
+                hash: terminal_bytes(parts[1])?.to_vec(),
+            },
+        },
+        signatures,
+    })
 }
 
 /// The protocol-owned sweep ordinal that destroys one lease at a batch boundary.
@@ -271,9 +352,38 @@ impl TerminalLeaseRecord {
         bytes
     }
 
+    fn decode_state(bytes: &[u8], terminal_digest: [u8; 32]) -> Result<Self, ExpiryRefusal> {
+        let mut cursor = QueueCursor { bytes, offset: 0 };
+        if cursor.take(TERMINAL_DOMAIN.len())? != TERMINAL_DOMAIN {
+            return Err(ExpiryRefusal::InvalidTerminalRecord);
+        }
+        let record = Self {
+            lease: LeaseId::new(cursor.array()?).map_err(ExpiryRefusal::Lease)?,
+            tenant: cursor.array()?,
+            host_program: cursor.array()?,
+            expiry: u64::from_be_bytes(cursor.array()?),
+            destroyed_at: u64::from_be_bytes(cursor.array()?),
+            reclaimed_cells: u64::from_be_bytes(cursor.array()?),
+            reclaimed_bytes: u64::from_be_bytes(cursor.array()?),
+            metered_cleanup_work: u64::from_be_bytes(cursor.array()?),
+            occupancy_charged: u128::from_be_bytes(cursor.array()?),
+            refunded: u128::from_be_bytes(cursor.array()?),
+            refund_transfer_root: cursor.array()?,
+            expiry_receipt_digest: cursor.array()?,
+            destroy_receipt_digest: cursor.array()?,
+            prior_lease_digest: cursor.array()?,
+            terminal_digest,
+        };
+        if cursor.offset != bytes.len() {
+            return Err(ExpiryRefusal::InvalidTerminalRecord);
+        }
+        record.verify()?;
+        Ok(record)
+    }
+
     /// # Errors
     ///
-    /// Returns a refusal when terminal evidence or its authenticated receipt is invalid.
+    /// Returns a refusal when the terminal digest, expiry or cleanup accounting is invalid.
     pub fn verify(&self) -> Result<(), ExpiryRefusal> {
         let digest = hash_bytes(HashAlgorithm::Sha256, &self.canonical_bytes())
             .map_err(|_| ExpiryRefusal::HashRefusal)?;
@@ -539,9 +649,28 @@ const fn flipped(mut value: [u8; 32]) -> [u8; 32] {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+struct TerminalHistory {
+    records: Vec<TerminalLeaseRecord>,
+}
+
+impl TerminalHistory {
+    fn reserve(&mut self, additional: usize) -> Result<(), ExpiryRefusal> {
+        let count = self
+            .records
+            .len()
+            .checked_add(additional)
+            .ok_or(ExpiryRefusal::AccountingOverflow)?;
+        u32::try_from(count).map_err(|_| ExpiryRefusal::AccountingOverflow)?;
+        self.records
+            .try_reserve(additional)
+            .map_err(|_| ExpiryRefusal::QueueFull)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExpiryQueue {
     scheduled: Vec<(u64, LeaseId)>,
-    terminal: Vec<TerminalLeaseRecord>,
+    terminal: TerminalHistory,
 }
 
 impl ExpiryQueue {
@@ -549,7 +678,9 @@ impl ExpiryQueue {
     pub const fn new() -> Self {
         Self {
             scheduled: Vec::new(),
-            terminal: Vec::new(),
+            terminal: TerminalHistory {
+                records: Vec::new(),
+            },
         }
     }
 
@@ -559,14 +690,17 @@ impl ExpiryQueue {
     pub fn schedule(&mut self, lease: &Lease) -> Result<(), ExpiryRefusal> {
         let key = (lease.expiry(), lease.id());
         if lease.state() == LeaseState::Destroyed
-            || self.terminal.iter().any(|v| v.lease == lease.id())
-            || self.scheduled.binary_search(&key).is_ok()
+            || self.terminal.records.iter().any(|v| v.lease == lease.id())
+            || self.scheduled.iter().any(|(_, id)| *id == lease.id())
         {
             return Err(ExpiryRefusal::Replay);
         }
         if self.scheduled.len() == MAX_EXPIRY_QUEUE_ENTRIES {
             return Err(ExpiryRefusal::QueueFull);
         }
+        self.scheduled
+            .try_reserve(1)
+            .map_err(|_| ExpiryRefusal::QueueFull)?;
         let at = self.scheduled.binary_search(&key).unwrap_or_else(|at| at);
         self.scheduled.insert(at, key);
         Ok(())
@@ -614,19 +748,26 @@ impl ExpiryQueue {
             .scheduled
             .binary_search(&key)
             .map_err(|_| ExpiryRefusal::Replay)?;
-        if self.terminal.len() == MAX_EXPIRY_QUEUE_ENTRIES
-            || self.terminal.iter().any(|v| v.lease == record.lease)
+        if self
+            .terminal
+            .records
+            .iter()
+            .any(|v| v.lease == record.lease)
         {
             return Err(ExpiryRefusal::Replay);
         }
-        self.terminal.push(record);
+        self.terminal.reserve(1)?;
+        self.terminal.records.push(record);
         self.scheduled.remove(at);
         Ok(())
     }
 
     #[must_use]
     pub fn terminal(&self, lease: LeaseId) -> Option<&TerminalLeaseRecord> {
-        self.terminal.iter().find(|record| record.lease == lease)
+        self.terminal
+            .records
+            .iter()
+            .find(|record| record.lease == lease)
     }
 
     /// # Errors
@@ -645,11 +786,11 @@ impl ExpiryQueue {
             bytes.extend_from_slice(&lease.bytes());
         }
         bytes.extend_from_slice(
-            &u32::try_from(self.terminal.len())
+            &u32::try_from(self.terminal.records.len())
                 .map_err(|_| ExpiryRefusal::AccountingOverflow)?
                 .to_be_bytes(),
         );
-        for record in &self.terminal {
+        for record in &self.terminal.records {
             let record_bytes = record.canonical_bytes();
             bytes.extend_from_slice(&record.lease.bytes());
             bytes.extend_from_slice(
@@ -661,6 +802,53 @@ impl ExpiryQueue {
             bytes.extend_from_slice(&record.terminal_digest);
         }
         Ok(bytes)
+    }
+
+    /// # Errors
+    ///
+    /// Refuses malformed durable state, duplicate leases, oversized active queues or invalid terminals.
+    pub fn decode_state(bytes: &[u8]) -> Result<Self, ExpiryRefusal> {
+        let mut cursor = QueueCursor { bytes, offset: 0 };
+        if cursor.take(SWEEP_STATE_DOMAIN.len())? != SWEEP_STATE_DOMAIN {
+            return Err(ExpiryRefusal::InvalidEvidence);
+        }
+        let count = cursor.count(40)?;
+        if count > MAX_EXPIRY_QUEUE_ENTRIES {
+            return Err(ExpiryRefusal::QueueFull);
+        }
+        let mut queue = Self::new();
+        queue
+            .scheduled
+            .try_reserve_exact(count)
+            .map_err(|_| ExpiryRefusal::QueueFull)?;
+        let mut ids = std::collections::BTreeSet::new();
+        for _ in 0..count {
+            let expiry = u64::from_be_bytes(cursor.array()?);
+            let id = LeaseId::new(cursor.array()?).map_err(ExpiryRefusal::Lease)?;
+            let key = (expiry, id);
+            if queue.scheduled.last().is_some_and(|prior| prior >= &key) || !ids.insert(id) {
+                return Err(ExpiryRefusal::Replay);
+            }
+            queue.scheduled.push(key);
+        }
+        let count = cursor.count(36 + TERMINAL_DOMAIN.len() + 296 + 32)?;
+        queue.terminal.reserve(count)?;
+        for _ in 0..count {
+            let id = LeaseId::new(cursor.array()?).map_err(ExpiryRefusal::Lease)?;
+            let length = usize::try_from(u32::from_be_bytes(cursor.array()?))
+                .map_err(|_| ExpiryRefusal::AccountingOverflow)?;
+            let body = cursor.take(length)?;
+            let digest = cursor.array()?;
+            let record = TerminalLeaseRecord::decode_state(body, digest)?;
+            if record.lease != id || !ids.insert(id) {
+                return Err(ExpiryRefusal::Replay);
+            }
+            queue.terminal.records.push(record);
+        }
+        if cursor.offset != bytes.len() {
+            return Err(ExpiryRefusal::InvalidEvidence);
+        }
+        Ok(queue)
     }
 
     /// # Errors
@@ -699,6 +887,39 @@ impl ExpiryQueue {
     }
 }
 
+struct QueueCursor<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> QueueCursor<'a> {
+    fn take(&mut self, length: usize) -> Result<&'a [u8], ExpiryRefusal> {
+        let end = self
+            .offset
+            .checked_add(length)
+            .ok_or(ExpiryRefusal::AccountingOverflow)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(ExpiryRefusal::InvalidEvidence)?;
+        self.offset = end;
+        Ok(value)
+    }
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], ExpiryRefusal> {
+        self.take(N)?
+            .try_into()
+            .map_err(|_| ExpiryRefusal::InvalidEvidence)
+    }
+    fn count(&mut self, minimum_bytes: usize) -> Result<usize, ExpiryRefusal> {
+        let count = usize::try_from(u32::from_be_bytes(self.array()?))
+            .map_err(|_| ExpiryRefusal::AccountingOverflow)?;
+        if count > (self.bytes.len() - self.offset) / minimum_bytes {
+            return Err(ExpiryRefusal::InvalidEvidence);
+        }
+        Ok(count)
+    }
+}
+
 impl Default for ExpiryQueue {
     fn default() -> Self {
         Self::new()
@@ -718,6 +939,7 @@ where
     F: FnMut(LeaseId, u64) -> Result<TerminalLeaseRecord, ExpiryRefusal>,
 {
     let page = queue.due(boundary, limit)?;
+    queue.terminal.reserve(page.leases.len())?;
     for lease in page.leases.iter().copied() {
         let record = destroy_due(lease, boundary)?;
         if record.lease() != lease || record.destroyed_at() != boundary {
@@ -778,6 +1000,19 @@ mod source_cases {
     use crate::LeaseLimits;
     use layerx_programs_runtime::{PrincipalId, ProgramId};
 
+    #[test]
+    fn terminal_history_reservation_refuses_unencodable_count_before_allocation() {
+        let mut history = TerminalHistory {
+            records: Vec::new(),
+        };
+        assert_eq!(
+            history.reserve(usize::MAX),
+            Err(ExpiryRefusal::AccountingOverflow)
+        );
+        assert!(history.records.is_empty());
+        assert_eq!(history.records.capacity(), 0);
+    }
+
     fn lease(id: u8, expiry: u64) -> Lease {
         Lease::request(
             LeaseId::new([id; 32]).unwrap_or_else(|error| panic!("lease: {error:?}")),
@@ -837,11 +1072,11 @@ mod source_cases {
                 .unwrap_or_else(|error| panic!("schedule: {error:?}"));
         }
         let first = queue
-            .due(19, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(19, 6)
             .unwrap_or_else(|error| panic!("page: {error:?}"));
         assert!(first.leases().is_empty());
         let first = queue
-            .due(20, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(20, 6)
             .unwrap_or_else(|error| panic!("page: {error:?}"));
         assert_eq!(first.leases().len(), 6);
         assert_eq!(first.remaining_due(), 8);
@@ -860,7 +1095,7 @@ mod source_cases {
                 .unwrap_or_else(|error| panic!("first batch: {error:?}"));
         }
         let second = queue
-            .due(21, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(21, 6)
             .unwrap_or_else(|error| panic!("second page: {error:?}"));
         assert_eq!(second.leases().len(), 6);
         assert_eq!(second.remaining_due(), 2);
@@ -871,10 +1106,31 @@ mod source_cases {
                 .unwrap_or_else(|error| panic!("second batch: {error:?}"));
         }
         let third = queue
-            .due(22, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(22, 6)
             .unwrap_or_else(|error| panic!("third page: {error:?}"));
         assert_eq!(third.leases().len(), 2);
         assert_eq!(third.remaining_due(), 0);
+    }
+
+    #[test]
+    fn due_admits_kernel_bound_of_128_and_refuses_129() {
+        let at = 20;
+        let mut queue = ExpiryQueue::new();
+        for id in 1..=129 {
+            queue
+                .schedule(&lease(id, at))
+                .unwrap_or_else(|error| panic!("schedule: {error:?}"));
+        }
+
+        assert_eq!(MAX_SWEEP_LEASES_PER_BATCH, 128);
+        let page = queue
+            .due(at, 128)
+            .unwrap_or_else(|error| panic!("page: {error:?}"));
+        assert_eq!(page.boundary(), at);
+        let expected: Vec<_> = (1..=128).map(|id| lease(id, at).id()).collect();
+        assert_eq!(page.leases(), expected.as_slice());
+        assert_eq!(page.remaining_due(), 1);
+        assert_eq!(queue.due(at, 129), Err(ExpiryRefusal::InvalidLimit));
     }
 
     #[test]
@@ -1174,6 +1430,7 @@ mod teardown {
 
     #[test]
     fn cohort_spanning_several_batches_is_destroyed_deterministically_with_carry_forward() {
+        const BATCH: u32 = 6;
         let run = || {
             let mut fixtures: Vec<Fixture> = (1..=14)
                 .map(|id| fixture(id, id % 3, u128::from(id)))
@@ -1185,24 +1442,19 @@ mod teardown {
                     .unwrap_or_else(|error| panic!("schedule: {error:?}"));
             }
             assert!(queue
-                .due(EXPIRY - 1, MAX_SWEEP_LEASES_PER_BATCH)
+                .due(EXPIRY - 1, BATCH)
                 .unwrap_or_else(|error| panic!("early: {error:?}"))
                 .leases()
                 .is_empty());
             let mut pages = Vec::new();
             for boundary in EXPIRY..EXPIRY + 3 {
-                let page = sweep(
-                    &mut queue,
-                    boundary,
-                    MAX_SWEEP_LEASES_PER_BATCH,
-                    |lease, at| {
-                        let entry = fixtures
-                            .iter_mut()
-                            .find(|entry| entry.state.lease.id() == lease)
-                            .ok_or(ExpiryRefusal::InvalidEvidence)?;
-                        teardown(entry, at)
-                    },
-                )
+                let page = sweep(&mut queue, boundary, BATCH, |lease, at| {
+                    let entry = fixtures
+                        .iter_mut()
+                        .find(|entry| entry.state.lease.id() == lease)
+                        .ok_or(ExpiryRefusal::InvalidEvidence)?;
+                    teardown(entry, at)
+                })
                 .unwrap_or_else(|error| panic!("sweep {boundary}: {error:?}"));
                 let destroyed = fixtures
                     .iter()

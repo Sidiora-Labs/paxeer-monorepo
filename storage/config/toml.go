@@ -40,6 +40,9 @@ sc-snapshot-interval = {{ .StateCommit.MemIAVLConfig.SnapshotInterval }}
 # to allow more frequent snapshots during normal operation.
 sc-snapshot-min-time-interval = {{ .StateCommit.MemIAVLConfig.SnapshotMinTimeInterval }}
 
+# SnapshotWriterLimit defines the concurrency for taking commit store snapshots. Default to 4.
+sc-snapshot-writer-limit = {{ .StateCommit.MemIAVLConfig.SnapshotWriterLimit }}
+
 # SnapshotPrefetchThreshold defines the page cache residency threshold (0.0-1.0) to trigger snapshot prefetch.
 # Prefetch sequentially reads nodes/leaves files into page cache for faster cold-start replay.
 # Only active trees (evm/bank/acc/wasm) are prefetched, skipping sparse kv files to save memory.
@@ -79,10 +82,12 @@ async-write-buffer = {{ .StateCommit.FlatKVConfig.AsyncWriteBuffer }}
 
 # SnapshotInterval defines how often (in blocks) a PebbleDB checkpoint is taken.
 # 0 disables auto-snapshots. Default: 10000.
+# Must be an integer in [0, 4294967295]; larger values are rejected, not wrapped.
 snapshot-interval = {{ .StateCommit.FlatKVConfig.SnapshotInterval }}
 
 # SnapshotKeepRecent defines how many old snapshots to keep besides the latest one.
 # 0 = keep only the current snapshot. Default: 2.
+# Must be an integer in [0, 4294967295]; larger values are rejected, not wrapped.
 snapshot-keep-recent = {{ .StateCommit.FlatKVConfig.SnapshotKeepRecent }}
 `
 

@@ -1,0 +1,473 @@
+{
+  "name": "vector-v4-committed",
+  "provenance": {
+    "source": "daemon/committed-fixture/vectors/vector-v4-committed.json",
+    "sha256": "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b",
+    "recording": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.",
+    "conversion": "Binary encodings only; receiptJson is the receipted view without blockNumber/blockHash. The execution header uses execution_commit; the successor header uses commit, or commit_at_most_two_thirds for the refusal."
+  },
+  "positive": {
+    "id": "committed-payExact",
+    "rawTransaction": "0x02f9012c7d0680843fff5ca0831e848094000000000000000000000000000000000000101a80b8c478ea11db12f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df646edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21ab38824ca750fc22389cae51e9607d1cde32e03dbba4661e4d9b007614d2d3450000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000001a1a7f67e891082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b2c001a05014259c5b545b7f1c5d9d683bf8f208cf2438223fb8e853d5a4146cec1821d8a0024de6f50843e0a2290b84200c5c87d0d4638985bfcee1bcdfc75d8a6b7ace55",
+    "receiptJson": {
+      "rung": "receipted",
+      "txHash": "0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2",
+      "nonce": "0x6",
+      "seq": "0x9",
+      "height": "0xa",
+      "index": "0x1",
+      "timestamp": "0x1a1a7bf9006",
+      "status": "0x1",
+      "returnData": "0x",
+      "logs": [
+        {
+          "address": "0x000000000000000000000000000000000000101a",
+          "topics": [
+            "0x3c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca0",
+            "0x12f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df64",
+            "0x6edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21",
+            "0xab38824ca750fc22389cae51e9607d1cde32e03dbba4661e4d9b007614d2d345"
+          ],
+          "data": "0x00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000005",
+          "logIndex": "0x0"
+        },
+        {
+          "address": "0x000000000000000000000000000000000000101a",
+          "topics": [
+            "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+            "0x1082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b2",
+            "0x12f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df64",
+            "0x6edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21"
+          ],
+          "data": "0xab38824ca750fc22389cae51e9607d1cde32e03dbba4661e4d9b007614d2d3450000000000000000000000000000000000000000000000000000000000000003",
+          "logIndex": "0x1"
+        }
+      ],
+      "gasUsed": "0x98a8",
+      "cumulativeGasUsed": "0x98a8",
+      "effectiveGasPrice": "0x3fe56c0",
+      "paymentDenom": "uhpx",
+      "feeDenom": "uhpx",
+      "feeAmount": "0x261a26aee00",
+      "sponsor": "0x0000000000000000000000000000000000000000",
+      "from": "0x2b1e0f87874643a65818291ca1656e62b3dcc7d4",
+      "to": "0x000000000000000000000000000000000000101a",
+      "contractAddress": "0x0000000000000000000000000000000000000000",
+      "vmError": "",
+      "keyId": "0x9fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b",
+      "signingKey": "0x98bcc99e26fda009118f88f4a01864c65bd40cb2064c2cde3b156fde2f71804c",
+      "receipt": "0x000252010002000000200825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e20000000000000009000000206bfa5a759c7336596a99ea7a97751cd13aa51ecc6574428fb568d2d398eaa1cd00000020687a649b5e9c6b4e88b9134f38a3ac4132d915f18be01db9f8136c4170088b8700000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000003000c0000000001000000002000000000000000000000000000000000000000000000000000000000000000000000007100000000000098a800000000000098a80000000003fe56c00000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000020475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a043c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca012f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df646edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21ab38824ca750fc22389cae51e9607d1cde32e03dbba4661e4d9b007614d2d3453baff3f001999a4eac55d4e7cc51618ae14f0840ff44a024066ad1c496c510a0000c000200000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b11082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b212f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df646edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21fa95da49deedc4c768efb202496827c4bae2de5074f6153eb8099042d82ea026000000000000000000000261a26aee0000000020000000000000000000000000000000000000000000000000000000000000000a000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000002b1e0f87874643a65818291ca1656e62b3dcc7d4000004ee16cefdb31918a9efce369700000004ee16cefdb31918a78e2bcba900000000000000000600000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000209fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b000001a1a7bf900601000000409218a3964e375602d9de39187cdd776432ab2febc0abf7810b8728e43d95133925abdd5255f9667dc054a69b12b4a7cc199015aef9172eb61cfa61847d074008"
+    },
+    "signedReceipt": "0x000252010002000000200825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e20000000000000009000000206bfa5a759c7336596a99ea7a97751cd13aa51ecc6574428fb568d2d398eaa1cd00000020687a649b5e9c6b4e88b9134f38a3ac4132d915f18be01db9f8136c4170088b8700000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000003000c0000000001000000002000000000000000000000000000000000000000000000000000000000000000000000007100000000000098a800000000000098a80000000003fe56c00000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000020475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a043c136bc6b05877456edd6c1baed12a9d44c364ad7301478c948e7d70dd4b1ca012f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df646edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21ab38824ca750fc22389cae51e9607d1cde32e03dbba4661e4d9b007614d2d3453baff3f001999a4eac55d4e7cc51618ae14f0840ff44a024066ad1c496c510a0000c000200000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b11082116f9bb3affecc3336ed67c7f4bec9709a81a8c7bddeb912f2d0c845b3b212f41dad0d238ef976e73ff15f42ec996f5abe9f61383994d59a01f5c8d5df646edca26bddb1fd41430c75342c50c8271a15eb33f801b945e94b7a27a109ee21fa95da49deedc4c768efb202496827c4bae2de5074f6153eb8099042d82ea026000000000000000000000261a26aee0000000020000000000000000000000000000000000000000000000000000000000000000a000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000002b1e0f87874643a65818291ca1656e62b3dcc7d4000004ee16cefdb31918a9efce369700000004ee16cefdb31918a78e2bcba900000000000000000600000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000209fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b000001a1a7bf900601000000409218a3964e375602d9de39187cdd776432ab2febc0abf7810b8728e43d95133925abdd5255f9667dc054a69b12b4a7cc199015aef9172eb61cfa61847d074008",
+    "receiptDigest": "0xd75a0928abe94518bec1bf241e4dc4ac875bf61968df9864f357bb755a4997cd",
+    "prevSeqHash": "0x6bfa5a759c7336596a99ea7a97751cd13aa51ecc6574428fb568d2d398eaa1cd",
+    "pinnedKey": {
+      "keyId": "0x9fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b",
+      "publicKey": "0x98bcc99e26fda009118f88f4a01864c65bd40cb2064c2cde3b156fde2f71804c",
+      "firstHeight": 10,
+      "lastHeight": 10
+    },
+    "blockHeader": {
+      "VersionBlock": 11,
+      "VersionApp": 0,
+      "ChainID": "committed-fixture",
+      "Height": 10,
+      "Time": "2026-11-04T18:08:31.75Z",
+      "LastBlockID": {
+        "Hash": "nEdj9v+1jgGx/IbtjD0Sa6wYBLrqb5Pgi5p1cw1bIHk=",
+        "PartSetTotal": 1,
+        "PartSetHash": "xfEjYojf5f+q+Ya9is2s0DsVX2nUDJoRAo6Ib+3i5Mo="
+      },
+      "LastCommitHash": "Ewku53Pd5TY4rjtvYh+ttGdIaBunkpL2GgchCXUEdfg=",
+      "DataHash": "v/9o2iG7qdIYEjACuBUl1VN0BuelNkWWKFPV0byHjto=",
+      "ValidatorsHash": "ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk=",
+      "NextValidatorsHash": "ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk=",
+      "ConsensusHash": "G/JVbKXV1+/7VA80yw/8d6MgLjInVVevvSGYgqnkKs8=",
+      "AppHash": "LzCmcLczw9sBGS+CVhXnNrNQGKg/ON0ejtAzdFj5QM0=",
+      "LastResultsHash": "/nd90v4lSuxtfJpBfTGigEYyrucfvZHdXRRWCHZosY8=",
+      "EvidenceHash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+      "ProposerAddress": "Ybpmm4NMMAXnVektiAhLwaW++Rs="
+    },
+    "receiptInclusion": {
+      "Transaction": "CrgDCrUDCisvcGF4cHJvdG9jb2wucGF4Y2hhaW4uZXZtLk1zZ0VWTVRyYW5zYWN0aW9uEoUDCoIDCiYvcGF4cHJvdG9jb2wucGF4Y2hhaW4uZXRoLkR5bmFtaWNGZWVUeBLXAgoDMTI1EAYaATAiCjEwNzM3MDAwMDAogIl6MioweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEwMUE6ATBCxAF46hHbEvQdrQ0jjvl25z/xX0LsmW9avp9hODmU1ZoB9cjV32Ru3KJr3bH9QUMMdTQsUMgnGhXrM/gBuUXpS3onoQnuIas4gkynUPwiOJyuUelgfRzeMuA9u6RmHk2bAHYU0tNFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGhp/Z+iRCCEW+bs6/+zDM27WfH9L7JcJqBqMe93rkS8tDIRbOyUgEBWiBQFCWcW1RbfxxdnWg7+PIIzyQ4Ij+46FPVpBRs7Bgh2GIgAk3m9QhD4KIpC4QgDFyH0NRjiYW/zuG838ddimt6zlUSAhIA",
+      "TransactionProof": {
+        "Total": 2,
+        "Index": 1,
+        "Aunts": [
+          [
+            8,
+            60,
+            153,
+            160,
+            56,
+            161,
+            174,
+            165,
+            8,
+            152,
+            158,
+            163,
+            89,
+            93,
+            181,
+            30,
+            153,
+            76,
+            153,
+            65,
+            74,
+            198,
+            77,
+            101,
+            249,
+            89,
+            25,
+            230,
+            156,
+            227,
+            54,
+            161
+          ]
+        ]
+      },
+      "Result": {
+        "Code": 0,
+        "Data": "CvwGCisvcGF4cHJvdG9jb2wucGF4Y2hhaW4uZXZtLk1zZ0VWTVRyYW5zYWN0aW9uEswGCKixAiJCMHgwODI1YjZkM2FiZTg4NmYwNGQ5MWUxMzEwOGNiNzhhZGZiZTE4ZjhhMjgyMDRkZTBiYWU5OTAxZjkxMGM2NGUyKv4CCioweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDEwMUESQjB4M2MxMzZiYzZiMDU4Nzc0NTZlZGQ2YzFiYWVkMTJhOWQ0NGMzNjRhZDczMDE0NzhjOTQ4ZTdkNzBkZDRiMWNhMBJCMHgxMmY0MWRhZDBkMjM4ZWY5NzZlNzNmZjE1ZjQyZWM5OTZmNWFiZTlmNjEzODM5OTRkNTlhMDFmNWM4ZDVkZjY0EkIweDZlZGNhMjZiZGRiMWZkNDE0MzBjNzUzNDJjNTBjODI3MWExNWViMzNmODAxYjk0NWU5NGI3YTI3YTEwOWVlMjESQjB4YWIzODgyNGNhNzUwZmMyMjM4OWNhZTUxZTk2MDdkMWNkZTMyZTAzZGJiYTQ2NjFlNGQ5YjAwNzYxNGQyZDM0NRpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSqAAwoqMHgwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAxMDFBEkIweGM0ZGE1ZDZmNzU3YzI1MWNkNzA5NDdiNzUyOTE3ZTU2NzFiNjc3NTE3ZTNkOTUzZjM2MmExZGY2NjQ4ZWY1YjESQjB4MTA4MjExNmY5YmIzYWZmZWNjMzMzNmVkNjdjN2Y0YmVjOTcwOWE4MWE4YzdiZGRlYjkxMmYyZDBjODQ1YjNiMhJCMHgxMmY0MWRhZDBkMjM4ZWY5NzZlNzNmZjE1ZjQyZWM5OTZmNWFiZTlmNjEzODM5OTRkNTlhMDFmNWM4ZDVkZjY0EkIweDZlZGNhMjZiZGRiMWZkNDE0MzBjNzUzNDJjNTBjODI3MWExNWViMzNmODAxYjk0NWU5NGI3YTI3YTEwOWVlMjEaQKs4gkynUPwiOJyuUelgfRzeMuA9u6RmHk2bAHYU0tNFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMgAQ==",
+        "GasWanted": 2000000,
+        "GasUsed": 39080
+      },
+      "ResultProof": {
+        "Total": 2,
+        "Index": 1,
+        "Aunts": [
+          [
+            110,
+            52,
+            11,
+            156,
+            255,
+            179,
+            122,
+            152,
+            156,
+            165,
+            68,
+            230,
+            187,
+            120,
+            10,
+            44,
+            120,
+            144,
+            29,
+            63,
+            179,
+            55,
+            56,
+            118,
+            133,
+            17,
+            163,
+            6,
+            23,
+            175,
+            160,
+            29
+          ]
+        ]
+      },
+      "BatchTransaction": "UEFYRUVSL3YxL3NlcXVlbmNlLWJhdGNoAAAAAAAAAAAKAAAAAAAAAAkAAAAAAAAACWv6WnWcczZZapnqepd1HNE6pR7MZXRCj7Vo0tOY6qHNaHpkm16ca06IuRNPOKOsQTLZFfGL4B25+BNsQXAIi4fToWGocOZU3M+FaY5ctEAMvBVugDBgRuBrzbtF9yf0IZ/n1EkaLfuhthuLUoO0hvqSs+kLiinX5P9/DtieOJ2bNzZZiKfYFMlIr2JdBLfJunW+J+I14aRjhHhMHb13SKyrfIFKc6Q66T5M2M5twOADosgMUQLmi9Drw54pSy93DQ==",
+      "BatchProof": {
+        "Total": 2,
+        "Index": 0,
+        "Aunts": [
+          [
+            54,
+            45,
+            172,
+            228,
+            82,
+            15,
+            32,
+            47,
+            38,
+            196,
+            252,
+            27,
+            45,
+            19,
+            17,
+            163,
+            196,
+            10,
+            129,
+            82,
+            35,
+            222,
+            54,
+            127,
+            4,
+            164,
+            186,
+            147,
+            107,
+            255,
+            234,
+            204
+          ]
+        ]
+      },
+      "NextHeader": {
+        "VersionBlock": 11,
+        "VersionApp": 0,
+        "ChainID": "committed-fixture",
+        "Height": 11,
+        "Time": "2026-11-04T18:08:41.82Z",
+        "LastBlockID": {
+          "Hash": "p8ZIJGpSE9V9ai8qp73I4AUCSWKeXpKkuJ8r25GOkQg=",
+          "PartSetTotal": 1,
+          "PartSetHash": "hpfRzUfn1L1jrQutUr1z5/tSIA6GgA6kAOgrsAcswR0="
+        },
+        "LastCommitHash": "GiIIz49Bbq6aQSp7MiQgy9XnVvVeXu09bIop/oGx1Zg=",
+        "DataHash": "DUa3TmjgMeepnhhYwA3EJMCNVRzHE66cP1yvuFhCDs4=",
+        "ValidatorsHash": "ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk=",
+        "NextValidatorsHash": "ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk=",
+        "ConsensusHash": "G/JVbKXV1+/7VA80yw/8d6MgLjInVVevvSGYgqnkKs8=",
+        "AppHash": "UB9PrlyBVUKEP6VcOtWqUs+Yy+r6pWs+dDU+2Il0r4w=",
+        "LastResultsHash": "CPqX09H6qE1V9XkwahBhgYb5OAukzxp+wnTuSx+H17k=",
+        "EvidenceHash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
+        "ProposerAddress": "Ybpmm4NMMAXnVektiAhLwaW++Rs="
+      },
+      "NextCommit": {
+        "Height": 11,
+        "Round": 0,
+        "BlockID": {
+          "Hash": "IByy8S6k8LLLet3vlhMX4xDdKmZtewS/NF/jcOlQLMA=",
+          "PartSetTotal": 1,
+          "PartSetHash": "Eu5PFdn/bGiVgSW29cTndP2Wh1HutGNogaCs7wgmTPg="
+        },
+        "Signatures": [
+          {
+            "BlockIDFlag": 2,
+            "ValidatorAddress": "Ybpmm4NMMAXnVektiAhLwaW++Rs=",
+            "Timestamp": "2026-11-04T18:08:51.778303533Z",
+            "Signature": "Gj3znaTfZWfqIAsAEDPAG+TNXpSVKLz/6WbVdWWlJpEvzoRuidnb7xBE2tI4564j/XSJX9rsNuDd7g9lOMvzCg=="
+          },
+          {
+            "BlockIDFlag": 1,
+            "ValidatorAddress": "",
+            "Timestamp": "0001-01-01T00:00:00Z",
+            "Signature": null
+          }
+        ]
+      },
+      "NextValidators": [
+        {
+          "PublicKey": [
+            254,
+            48,
+            31,
+            7,
+            182,
+            155,
+            65,
+            150,
+            12,
+            124,
+            232,
+            212,
+            252,
+            34,
+            136,
+            236,
+            243,
+            150,
+            112,
+            245,
+            24,
+            153,
+            176,
+            226,
+            163,
+            218,
+            83,
+            171,
+            78,
+            4,
+            184,
+            119
+          ],
+          "VotingPower": 7000000000
+        },
+        {
+          "PublicKey": [
+            102,
+            73,
+            117,
+            202,
+            57,
+            50,
+            87,
+            71,
+            112,
+            24,
+            91,
+            249,
+            156,
+            71,
+            62,
+            51,
+            17,
+            243,
+            174,
+            174,
+            18,
+            224,
+            13,
+            108,
+            36,
+            61,
+            81,
+            83,
+            144,
+            12,
+            127,
+            230
+          ],
+          "VotingPower": 1
+        }
+      ]
+    },
+    "commit": {
+      "Height": 10,
+      "Round": 0,
+      "BlockID": {
+        "Hash": "p8ZIJGpSE9V9ai8qp73I4AUCSWKeXpKkuJ8r25GOkQg=",
+        "PartSetTotal": 1,
+        "PartSetHash": "hpfRzUfn1L1jrQutUr1z5/tSIA6GgA6kAOgrsAcswR0="
+      },
+      "Signatures": [
+        {
+          "BlockIDFlag": 2,
+          "ValidatorAddress": "Ybpmm4NMMAXnVektiAhLwaW++Rs=",
+          "Timestamp": "2026-11-04T18:08:41.706362949Z",
+          "Signature": "EqTKXlK+ekNQV5Jpr8MMJtwbWocedqMDxQwyn+XajLyXWcRcoF56soS4yeitfREKzEdRGEaMIffhdhapiZhgAA=="
+        },
+        {
+          "BlockIDFlag": 3,
+          "ValidatorAddress": "YfW1S/W3dHA2l1p+3oTyS3+T+co=",
+          "Timestamp": "2026-11-04T18:08:41.780007443Z",
+          "Signature": "amKUV3NHVL6oajILBceHBqR4MYi7LhKWw9yUstMUpBRkPdnjYWgVI/M2sOfnCcDOonLHywUjsB76JzAaY8GgDQ=="
+        }
+      ]
+    },
+    "validatorSet": [
+      {
+        "PublicKey": [
+          254,
+          48,
+          31,
+          7,
+          182,
+          155,
+          65,
+          150,
+          12,
+          124,
+          232,
+          212,
+          252,
+          34,
+          136,
+          236,
+          243,
+          150,
+          112,
+          245,
+          24,
+          153,
+          176,
+          226,
+          163,
+          218,
+          83,
+          171,
+          78,
+          4,
+          184,
+          119
+        ],
+        "VotingPower": 7000000000
+      },
+      {
+        "PublicKey": [
+          102,
+          73,
+          117,
+          202,
+          57,
+          50,
+          87,
+          71,
+          112,
+          24,
+          91,
+          249,
+          156,
+          71,
+          62,
+          51,
+          17,
+          243,
+          174,
+          174,
+          18,
+          224,
+          13,
+          108,
+          36,
+          61,
+          81,
+          83,
+          144,
+          12,
+          127,
+          230
+        ],
+        "VotingPower": 1
+      }
+    ],
+    "expected": {
+      "rung": "committed"
+    }
+  },
+  "refusals": [
+    {
+      "id": "insufficient-power",
+      "nextCommit": {
+        "Height": 11,
+        "Round": 0,
+        "BlockID": {
+          "Hash": "IByy8S6k8LLLet3vlhMX4xDdKmZtewS/NF/jcOlQLMA=",
+          "PartSetTotal": 1,
+          "PartSetHash": "Eu5PFdn/bGiVgSW29cTndP2Wh1HutGNogaCs7wgmTPg="
+        },
+        "Signatures": [
+          {
+            "BlockIDFlag": 1,
+            "ValidatorAddress": "",
+            "Timestamp": "0001-01-01T00:00:00Z",
+            "Signature": null
+          },
+          {
+            "BlockIDFlag": 1,
+            "ValidatorAddress": "",
+            "Timestamp": "0001-01-01T00:00:00Z",
+            "Signature": null
+          }
+        ]
+      },
+      "expectedCheck": "committed-next-commit"
+    }
+  ]
+}

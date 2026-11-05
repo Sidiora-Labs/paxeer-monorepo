@@ -2,67 +2,9 @@ defmodule Explorer.Chain.PaxeerX.AnchorTest do
   use Explorer.DataCase
 
   alias Ecto.Multi
-  alias Explorer.Chain.Import.Runner.PaxeerX.Anchors
   alias Explorer.Chain.PaxeerX.Anchor
 
-  describe "changeset/2" do
-    test "accepts a submitted checkpoint with both roots" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      changeset = Anchor.changeset(%Anchor{}, attributes(block, transaction))
-
-      assert changeset.valid?
-      assert {:ok, anchor} = Repo.insert(changeset)
-      assert anchor.status == :submitted
-      assert anchor.batch_number == 4211
-      assert anchor.signers == 5
-      assert anchor.kernel_height == 918_244
-      assert anchor.sealed_height == 918_100
-      refute is_nil(anchor.state_root)
-      refute is_nil(anchor.receipt_root)
-    end
-
-    test "requires the key, the batch number, the checkpoint id and the status" do
-      changeset = Anchor.changeset(%Anchor{}, %{})
-
-      refute changeset.valid?
-
-      errors = changeset_errors(changeset)
-
-      assert errors[:transaction_hash] == ["can't be blank"]
-      assert errors[:log_index] == ["can't be blank"]
-      assert errors[:block_hash] == ["can't be blank"]
-      assert errors[:block_number] == ["can't be blank"]
-      assert errors[:batch_number] == ["can't be blank"]
-      assert errors[:checkpoint_id] == ["can't be blank"]
-      assert errors[:status] == ["can't be blank"]
-    end
-
-    test "rejects a rung outside the anchor ladder" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      attrs = block |> attributes(transaction) |> Map.put(:status, :settled)
-
-      changeset = Anchor.changeset(%Anchor{}, attrs)
-
-      refute changeset.valid?
-      assert {"is invalid", _} = changeset.errors[:status]
-      assert Anchor.statuses() == [:unknown, :submitted, :final]
-    end
-
-    test "rejects a negative batch number" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      attrs = block |> attributes(transaction) |> Map.put(:batch_number, -1)
-
-      changeset = Anchor.changeset(%Anchor{}, attrs)
-
-      refute changeset.valid?
-      assert changeset_errors(changeset)[:batch_number] == ["must be greater than or equal to 0"]
-    end
-  end
-
-  describe "run/3" do
+  describe "historical archive rows" do
     test "keeps the submission and the finalisation of one checkpoint as two rows" do
       %{block: block, transaction: transaction} = block_with_transaction()
 
@@ -149,6 +91,27 @@ defmodule Explorer.Chain.PaxeerX.AnchorTest do
     end
   end
 
+  test "live import refuses anchor archive writes" do
+    previous = Application.get_env(:explorer, :chain_type)
+    Application.put_env(:explorer, :chain_type, :paxeer_x)
+    on_exit(fn -> Application.put_env(:explorer, :chain_type, previous) end)
+    alias Explorer.Chain.Import.Runner.PaxeerX.{AccountBindings, MarketEvents}
+    assert Explorer.Chain.Import.Stage.ChainTypeSpecific.runners() == [AccountBindings, MarketEvents]
+
+    {[multi], remaining} =
+      Explorer.Chain.Import.Stage.ChainTypeSpecific.multis(
+        %{Explorer.Chain.Import.Runner.PaxeerX.Anchors => [%{}]},
+        %{}
+      )
+
+    assert Ecto.Multi.to_list(multi) == []
+    assert remaining == %{Explorer.Chain.Import.Runner.PaxeerX.Anchors => [%{}]}
+    refute function_exported?(Anchor, :changeset, 2)
+    %{block: block, transaction: transaction} = block_with_transaction()
+    assert {:error, _} = Explorer.Chain.Import.all(%{paxeer_x_anchors: %{params: [attributes(block, transaction)]}})
+    assert Repo.aggregate(Anchor, :count) == 0
+  end
+
   defp block_with_transaction do
     block = insert(:block)
     transaction = :transaction |> insert() |> with_block(block)
@@ -175,11 +138,25 @@ defmodule Explorer.Chain.PaxeerX.AnchorTest do
   end
 
   defp run_changes(changes) when is_list(changes) do
+    rows =
+      Enum.map(changes, fn attrs ->
+        Ecto.Changeset.cast(%Anchor{}, attrs, Map.keys(attrs))
+        |> Ecto.Changeset.apply_changes()
+        |> Map.from_struct()
+        |> Map.take(Map.keys(attrs))
+        |> Map.merge(%{inserted_at: DateTime.utc_now(), updated_at: DateTime.utc_now()})
+      end)
+
     Multi.new()
-    |> Anchors.run(changes, %{
-      timeout: :infinity,
-      timestamps: %{inserted_at: DateTime.utc_now(), updated_at: DateTime.utc_now()}
-    })
+    |> Multi.run(:insert_paxeer_x_anchors, fn repo, _ ->
+      {_count, inserted} =
+        repo.insert_all(Anchor, rows,
+          on_conflict: :nothing,
+          returning: true
+        )
+
+      {:ok, inserted}
+    end)
     |> Repo.transaction()
   end
 end

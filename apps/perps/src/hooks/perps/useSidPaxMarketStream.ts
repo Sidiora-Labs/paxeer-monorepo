@@ -3,9 +3,8 @@ import { sequenceGuard, isPageActive, scheduleActive, watchSocket, type CancelTa
 
 import { FEED_ORIGIN } from "@/core/feeds";
 import { fetchWithPolicy } from "@/core/net/fetch";
-import { isVenueSymbol, parseVenueBook, RESYNC_DEPTH } from "@/core/net/venueStream";
+import { isVenueSymbol, parseVenueBook, parseVenueFill, RESYNC_DEPTH } from "@/core/net/venueStream";
 import { gatewayUrls } from "@/core/network/gateway";
-import { normalizeLevels } from "@/core/perps/bookLevels";
 import { fundingRateFromJsonNumber } from "@/core/perps/fundingRate";
 import { useEffect, useState } from "react";
 
@@ -292,10 +291,9 @@ function connect(symbol: string, s: SymbolStream) {
 
     // Order-book frame
     if (msg.topic === orderbookTopic && msg.data) {
-      const asks = normalizeLevels(msg.data.asks, "asks");
-      const bids = normalizeLevels(msg.data.bids, "bids");
-      const ts = typeof msg.ts === "number" ? msg.ts : Date.now();
-      s.orderbook = { asks, bids, ts };
+      const book = parseVenueBook(msg.data, typeof msg.ts === "number" ? msg.ts : Date.now());
+      if (!book) return;
+      s.orderbook = { asks: book.asks, bids: book.bids, ts: book.ts };
       s.subsOrderbook.forEach((cb) => cb(s.orderbook));
       return;
     }
@@ -303,16 +301,18 @@ function connect(symbol: string, s: SymbolStream) {
     // Trade frame — snapshot or live
     if (msg.topic === tradeTopic && msg.data) {
       if (msg.snapshot && Array.isArray(msg.data.trades)) {
-        s.trades = msg.data.trades.slice(0, TRADE_CAP).map(normalizeTrade);
+        s.trades = msg.data.trades.slice(0, TRADE_CAP).map(parseSidPaxTrade).filter((trade: SidPaxTrade | null): trade is SidPaxTrade => trade !== null);
         s.subsTrades.forEach((cb) => cb(s.trades));
       } else if (msg.data.trade) {
         // New shape: `data.trade` is the full trade object.
-        const t = normalizeTrade(msg.data.trade);
+        const t = parseSidPaxTrade(msg.data.trade);
+        if (!t) return;
         s.trades = [t, ...s.trades].slice(0, TRADE_CAP);
         s.subsTrades.forEach((cb) => cb(s.trades));
       } else if (msg.data.side && msg.data.price != null) {
         // Legacy shape: `data` itself is the trade object.
-        const t = normalizeTrade(msg.data);
+        const t = parseSidPaxTrade(msg.data);
+        if (!t) return;
         s.trades = [t, ...s.trades].slice(0, TRADE_CAP);
         s.subsTrades.forEach((cb) => cb(s.trades));
       }
@@ -321,28 +321,9 @@ function connect(symbol: string, s: SymbolStream) {
 
     // Stats frame — perp_stats shape (full perp metrics snapshot).
     if (msg.topic === statsTopic && msg.data) {
-      const d = msg.data;
-      const volumeUsd   = Number(d.volume_24h_usd) || 0;
-      const oiUsd       = Number(d.oi_usd) || 0;
-      s.statsData = {
-        symbol: String(d.symbol ?? symbol),
-        mark_price:           Number(d.mark_price)           || 0,
-        index_price:          Number(d.index_price)          || 0,
-        basis_bps:            Number(d.basis_bps)            || 0,
-        // perp_stats sends both funding rates as JSON numbers; fundingRateFromJsonNumber is the one conversion.
-        funding_rate:         fundingRateFromJsonNumber(d.funding_rate),
-        last_funding_rate:    fundingRateFromJsonNumber(d.last_funding_rate),
-        next_funding_ms:      Number(d.next_funding_ms)      || 0,
-        long_short_ratio:     Number(d.long_short_ratio)     || 1,
-        liq_volume_24h:       Number(d.liq_volume_24h)       || 0,
-        oi_contracts:         Number(d.oi_contracts)         || 0,
-        oi_usd:               oiUsd,
-        volume_24h_contracts: Number(d.volume_24h_contracts) || 0,
-        volume_24h_usd:       volumeUsd,
-        // backward-compat aliases
-        volume_24h:    volumeUsd,
-        open_interest: oiUsd,
-      };
+      const stats = parseSidPaxStats(msg.data, symbol);
+      if (!stats) return;
+      s.statsData = stats;
       s.subsStats.forEach((cb) => cb(s.statsData));
       return;
     }
@@ -432,23 +413,48 @@ function releaseIfIdle(symbol: string, s: SymbolStream) {
   }, 15000);
 }
 
-function normalizeTrade(t: any): SidPaxTrade {
-  const side = String(t?.side ?? "").toUpperCase() === "BUY" ? "BUY" : "SELL";
-  const tradeTimeRaw = t?.trade_time ?? t?.ts ?? Date.now();
-  const tradeTime = Number(tradeTimeRaw);
-  // perp_trade shape: contracts | notional | liquidation
-  // Legacy shape:     size | quantity
-  const contracts  = Number(t?.contracts ?? t?.size ?? t?.quantity ?? 0);
-  const notional   = Number(t?.notional ?? 0) || contracts;
+/** Decode the gateway's perp_trade payload without inventing a side or timestamp. */
+export function parseSidPaxTrade(raw: unknown): SidPaxTrade | null {
+  const trade = parseVenueFill(raw);
+  if (!trade) return null;
   return {
-    side,
-    price:       Number(t?.price),
-    contracts,
-    notional,
-    liquidation: Boolean(t?.liquidation),
-    size:        notional || contracts,  // backward-compat
-    trade_id:    t?.trade_id ?? t?.id ?? undefined,
-    trade_time:  Number.isFinite(tradeTime) ? tradeTime : Date.now(),
+    side: trade.side,
+    price: trade.price,
+    contracts: trade.contracts,
+    notional: trade.notional,
+    liquidation: trade.liquidation,
+    size: trade.notional,
+    trade_id: trade.id ?? undefined,
+    trade_time: trade.trade_time,
+  };
+}
+
+/** The gateway shares volume_24h and open_interest between stats and perp_stats. */
+export function parseSidPaxStats(raw: unknown, symbol: string): SidPaxStats | null {
+  if (!raw || typeof raw !== "object") return null;
+  const d = raw as Record<string, unknown>;
+  if (d.symbol !== symbol || typeof d.volume_24h !== "number" || !Number.isFinite(d.volume_24h) ||
+      typeof d.open_interest !== "number" || !Number.isFinite(d.open_interest)) return null;
+  const volumeUsd = d.volume_24h;
+  const oiUsd = d.open_interest;
+  return {
+    symbol: String(d.symbol ?? symbol),
+    mark_price:           Number(d.mark_price)           || 0,
+    index_price:          Number(d.index_price)          || 0,
+    basis_bps:            Number(d.basis_bps)            || 0,
+    // perp_stats sends both funding rates as JSON numbers; fundingRateFromJsonNumber is the one conversion.
+    funding_rate:         fundingRateFromJsonNumber(d.funding_rate),
+    last_funding_rate:    fundingRateFromJsonNumber(d.last_funding_rate),
+    next_funding_ms:      Number(d.next_funding_ms)      || 0,
+    long_short_ratio:     Number(d.long_short_ratio)     || 1,
+    liq_volume_24h:       Number(d.liq_volume_24h)       || 0,
+    oi_contracts:         Number(d.oi_contracts)         || 0,
+    oi_usd:               oiUsd,
+    volume_24h_contracts: Number(d.volume_24h_contracts) || 0,
+    volume_24h_usd:       volumeUsd,
+    // backward-compat aliases
+    volume_24h:    volumeUsd,
+    open_interest: oiUsd,
   };
 }
 

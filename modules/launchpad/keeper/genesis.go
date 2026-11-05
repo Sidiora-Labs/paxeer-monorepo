@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// InitGenesis validates the complete export before writing any module state.
 func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := gs.Validate(); err != nil {
 		panic(fmt.Errorf("launchpad: invalid genesis: %w", err))
@@ -18,39 +19,11 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := k.setParams(ctx, gs.Params); err != nil {
 		panic(err)
 	}
-	for _, entry := range gs.ProtocolFees {
-		if err := k.setProtocolFees(ctx, entry.Token, entry.Amount); err != nil {
-			panic(err)
-		}
-	}
 	for _, market := range gs.Markets {
 		k.setMarket(ctx, market)
 		k.indexMarket(ctx, market)
 	}
 	k.setUint64(ctx, types.MarketCountKey, uint64(len(gs.Markets)))
-	for _, epoch := range gs.AirdropEpochs {
-		k.setAirdropEpochAmount(ctx, epoch.Denom, epoch.Epoch, epoch.Amount)
-	}
-	for _, claim := range gs.AirdropClaims {
-		k.setAirdropClaimed(ctx, claim.Denom, sdk.MustAccAddressFromBech32(claim.Holder), claim.Epoch)
-	}
-	for _, history := range gs.HoldingHistories {
-		k.setHoldingHistory(ctx, history.Denom, holdingHistory{FirstEpoch: history.FirstEpoch, CurrentEpoch: history.CurrentEpoch})
-	}
-	store := k.store(ctx)
-	for _, checkpoint := range gs.HoldingCheckpoints {
-		holder := sdk.MustAccAddressFromBech32(checkpoint.Holder)
-		amount, err := checkpoint.Balance.Marshal()
-		if err != nil {
-			panic(err)
-		}
-		store.Set(types.HoldingEntryKey(checkpoint.Denom, holder, checkpoint.Index),
-			append(binary.BigEndian.AppendUint64(nil, checkpoint.Epoch), amount...))
-		store.Set(types.HoldingCountKey(checkpoint.Denom, holder), binary.BigEndian.AppendUint64(nil, checkpoint.Index+1))
-	}
-	for _, basis := range gs.AirdropBases {
-		k.setAirdropBasis(ctx, basis)
-	}
 	if err := k.initContracts(ctx, gs); err != nil {
 		panic(fmt.Errorf("launchpad: genesis contracts: %w", err))
 	}
@@ -80,6 +53,9 @@ func (k *Keeper) initContracts(ctx sdk.Context, gs types.GenesisState) error {
 		}
 	}
 	store := k.store(ctx)
+	for _, entry := range gs.FactoryNonces {
+		k.setUint64(ctx, addressKey(factoryNoncePrefix, common.HexToAddress(entry.Creator)), entry.Nonce)
+	}
 	for _, member := range gs.RoleMembers {
 		store.Set(types.RoleKey(common.HexToAddress(member.Contract), common.HexToHash(member.Role),
 			common.HexToAddress(member.Account)), []byte{1})
@@ -157,7 +133,11 @@ func (k *Keeper) initFeeAccounting(ctx sdk.Context, a types.FeeAccounting, pools
 		}
 	}
 	for _, claim := range a.Claims {
-		k.store(ctx).Set(poolAirdropClaimKey(common.HexToAddress(claim.Pool), common.HexToAddress(claim.Holder), claim.Epoch), []byte{1})
+		if err := k.setFeeAccountingEntry(ctx,
+			poolAirdropClaimKey(common.HexToAddress(claim.Pool), common.HexToAddress(claim.Holder), claim.Epoch),
+			[]byte{1}, feeAccountingClaimCountKey); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -168,7 +148,7 @@ func (k *Keeper) initFeeAccounting(ctx sdk.Context, a types.FeeAccounting, pools
 // generation 1 id map. A zero NextTokenID is a collection without a record.
 func (k *Keeper) initFeeRights(ctx sdk.Context, c types.FeeRightCollection) error {
 	if c.NextTokenID == 0 {
-		if len(c.Tokens) != 0 || len(c.Operators) != 0 || len(c.IDMap) != 0 {
+		if len(c.Tokens) != 0 || len(c.OwnerTokens) != 0 || len(c.Operators) != 0 || len(c.IDMap) != 0 {
 			return fmt.Errorf("%w: fee rights without a collection record", types.ErrInvalidGenesis)
 		}
 		return nil
@@ -183,7 +163,11 @@ func (k *Keeper) initFeeRights(ctx sdk.Context, c types.FeeRightCollection) erro
 		}
 		k.setUint64(ctx, feeRightKey(feeRightAllTokensPrefix, collection, idBytes(uint64(index))), right.ID)
 		k.setUint64(ctx, feeRightKey(feeRightAllIndexPrefix, collection, idBytes(right.ID)), uint64(index))
-		k.addOwnedFeeRight(ctx, collection, common.HexToAddress(right.Owner), right.ID)
+	}
+	for _, owner := range c.OwnerTokens {
+		for _, id := range owner.TokenIDs {
+			k.addOwnedFeeRight(ctx, collection, common.HexToAddress(owner.Owner), id)
+		}
 	}
 	for _, operator := range c.Operators {
 		k.SetFeeRightApprovalForAll(ctx, collection, common.HexToAddress(operator.Owner),
@@ -205,75 +189,15 @@ func (k *Keeper) initFeeRights(ctx sdk.Context, c types.FeeRightCollection) erro
 func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	gs := types.DefaultGenesis()
 	gs.Params = k.GetParams(ctx)
-	fees := sdk.KVStorePrefixIterator(k.store(ctx), types.ProtocolFeesPrefix)
-	defer fees.Close()
-	for ; fees.Valid(); fees.Next() {
-		token := string(fees.Key()[len(types.ProtocolFeesPrefix):])
-		amount, err := k.GetProtocolFees(ctx, token)
-		if err != nil {
-			panic(err)
-		}
-		gs.ProtocolFees = append(gs.ProtocolFees, types.ProtocolFeeEntry{Token: token, Amount: amount})
-	}
 	k.IterateMarkets(ctx, func(market types.Market) bool {
 		gs.Markets = append(gs.Markets, market)
-		for epoch := uint64(1); epoch <= market.AirdropEpoch; epoch++ {
-			if k.store(ctx).Has(types.AirdropEpochKey(market.Denom, epoch)) {
-				gs.AirdropEpochs = append(gs.AirdropEpochs, types.AirdropEpochAmount{Denom: market.Denom, Epoch: epoch,
-					Amount: k.GetAirdropEpochAmount(ctx, market.Denom, epoch)})
-			}
-		}
 		return false
 	})
-	iterator := sdk.KVStorePrefixIterator(k.store(ctx), types.AirdropClaimPrefix)
-	defer iterator.Close()
-	for ; iterator.Valid(); iterator.Next() {
-		denom, holder, epoch, ok := types.ParseAirdropClaimKey(iterator.Key())
-		if !ok {
-			panic(fmt.Errorf("launchpad: corrupt airdrop claim key %x", iterator.Key()))
-		}
-		gs.AirdropClaims = append(gs.AirdropClaims, types.AirdropClaim{Denom: denom,
-			Holder: sdk.AccAddress(holder).String(), Epoch: epoch})
-	}
-	histories := sdk.KVStorePrefixIterator(k.store(ctx), types.HoldingHistoryPrefix)
-	defer histories.Close()
-	for ; histories.Valid(); histories.Next() {
-		denom, ok := types.ParseHoldingHistoryKey(histories.Key())
-		if !ok {
-			panic(fmt.Errorf("launchpad: corrupt holding history key %x", histories.Key()))
-		}
-		history, _, err := k.getHoldingHistory(ctx, denom)
-		if err != nil {
-			panic(err)
-		}
-		gs.HoldingHistories = append(gs.HoldingHistories, types.HoldingHistory{Denom: denom,
-			FirstEpoch: history.FirstEpoch, CurrentEpoch: history.CurrentEpoch})
-		for epoch := history.FirstEpoch; epoch <= history.CurrentEpoch; epoch++ {
-			basis, found, err := k.GetAirdropBasis(ctx, denom, epoch)
-			if err != nil {
-				panic(err)
-			}
-			if found {
-				gs.AirdropBases = append(gs.AirdropBases, basis)
-			}
-		}
-	}
-	entries := sdk.KVStorePrefixIterator(k.store(ctx), types.HoldingEntryPrefix)
-	defer entries.Close()
-	for ; entries.Valid(); entries.Next() {
-		denom, holder, index, ok := types.ParseHoldingEntryKey(entries.Key())
-		if !ok {
-			panic(fmt.Errorf("launchpad: corrupt holding checkpoint key %x", entries.Key()))
-		}
-		entry, err := k.getHoldingEntry(ctx, denom, holder, index)
-		if err != nil {
-			panic(err)
-		}
-		gs.HoldingCheckpoints = append(gs.HoldingCheckpoints, types.HoldingCheckpoint{Denom: denom,
-			Holder: sdk.AccAddress(holder).String(), Index: index, Epoch: entry.Epoch, Balance: entry.Balance})
-	}
 	if err := k.exportContracts(ctx, gs); err != nil {
 		panic(fmt.Errorf("launchpad: export contracts: %w", err))
+	}
+	if err := gs.Validate(); err != nil {
+		panic(fmt.Errorf("launchpad: invalid exported genesis: %w", err))
 	}
 	return gs
 }
@@ -282,6 +206,16 @@ func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 // Treasury ledgers, book-held deltas and retired list into gs.
 func (k *Keeper) exportContracts(ctx sdk.Context, gs *types.GenesisState) error {
 	store := k.store(ctx)
+	nonces := sdk.KVStorePrefixIterator(store, factoryNoncePrefix)
+	defer nonces.Close()
+	for ; nonces.Valid(); nonces.Next() {
+		key := nonces.Key()[len(factoryNoncePrefix):]
+		if len(key) != common.AddressLength || len(nonces.Value()) != 8 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt factory nonce %x", nonces.Key())
+		}
+		gs.FactoryNonces = append(gs.FactoryNonces, types.FactoryNonce{
+			Creator: common.BytesToAddress(key).Hex(), Nonce: binary.BigEndian.Uint64(nonces.Value())})
+	}
 	surfaces := sdk.KVStorePrefixIterator(store, types.SurfacePrefix)
 	defer surfaces.Close()
 	for ; surfaces.Valid(); surfaces.Next() {
@@ -435,6 +369,7 @@ func (k *Keeper) exportFeeRights(ctx sdk.Context) (types.FeeRightCollection, err
 	}
 	out := types.FeeRightCollection{NextTokenID: state.NextTokenID,
 		PoolIndexMigrationCursor: state.PoolIndexMigrationCursor, PoolIndexReady: state.PoolIndexReady}
+	owners := map[string]bool{}
 	for index := uint64(0); index < state.TotalSupply; index++ {
 		id, err := k.FeeRightByIndex(ctx, collection, index)
 		if err != nil {
@@ -445,6 +380,31 @@ func (k *Keeper) exportFeeRights(ctx sdk.Context) (types.FeeRightCollection, err
 			return types.FeeRightCollection{}, err
 		}
 		out.Tokens = append(out.Tokens, right)
+		owners[right.Owner] = true
+	}
+	sortedOwners := make([]string, 0, len(owners))
+	for owner := range owners {
+		sortedOwners = append(sortedOwners, owner)
+	}
+	sort.Strings(sortedOwners)
+	for _, owner := range sortedOwners {
+		address := common.HexToAddress(owner)
+		balance, err := k.FeeRightBalanceOf(ctx, collection, address)
+		if err != nil {
+			return types.FeeRightCollection{}, err
+		}
+		if balance == 0 || balance > state.TotalSupply {
+			return types.FeeRightCollection{}, types.ErrInvalidGenesis.Wrapf("invalid fee-right owner balance %s", owner)
+		}
+		entry := types.FeeRightOwnerTokens{Owner: owner}
+		for index := uint64(0); index < balance; index++ {
+			id, err := k.FeeRightOfOwnerByIndex(ctx, collection, address, index)
+			if err != nil {
+				return types.FeeRightCollection{}, err
+			}
+			entry.TokenIDs = append(entry.TokenIDs, id)
+		}
+		out.OwnerTokens = append(out.OwnerTokens, entry)
 	}
 	prefix := feeRightKey(feeRightOperatorPrefix, collection)
 	operators := sdk.KVStorePrefixIterator(store, prefix)

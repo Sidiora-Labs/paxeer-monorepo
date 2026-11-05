@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { createHash, generateKeyPairSync, randomBytes } from "node:crypto";
 import { access, constants, mkdtemp, readFile, rm } from "node:fs/promises";
@@ -6,22 +7,16 @@ import { dirname, resolve } from "node:path";
 import { BuyerMiddleware, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
 import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import {
-  ReceiptAuthorityClient,
-  applicationProtocolVersion,
   applyEndpointOverride,
   exactObject,
   optionalEnvironment,
+  receiptKeysFromEnvironment,
   requiredEnvironment,
   secureBaseUrl,
 } from "./support/runtime.mjs";
 
 const root = resolve(import.meta.dirname, "../../..");
 const ownedServices = new Set();
-for (const [signal, code] of [["SIGTERM", 143], ["SIGINT", 130]]) {
-  process.once(signal, () => {
-    void Promise.all([...ownedServices].map(stopService)).then(() => process.exit(code));
-  });
-}
 const manifest = exactObject(JSON.parse(await readFile(resolve(import.meta.dirname, "reference-apps.json"), "utf8")));
 const expectedApplications = ["buyer-agent", "paid-api", "merchant-shop", "marketplace"];
 if (manifest.version !== 1 || !Array.isArray(manifest.applications) || manifest.applications.length !== 4) {
@@ -29,7 +24,6 @@ if (manifest.version !== 1 || !Array.isArray(manifest.applications) || manifest.
 }
 
 const EMULATOR_PROTOCOL_VERSION = "3";
-const SCENARIO_PROTOCOL_VERSION = Number(EMULATOR_PROTOCOL_VERSION);
 const EMULATOR_PREFUND = "1000000000";
 const EMULATOR_SEED_MOVE = "100000";
 const EMULATOR_DEFAULT_PRICE = "1000";
@@ -37,13 +31,20 @@ const EMULATOR_READY_TIMEOUT_MS = 30_000;
 const EMULATOR_READY_POLL_MS = 100;
 const EMULATOR_KEY_NAMES = Object.freeze(["reference-buyer", "reference-seller", "reference-merchant", "reference-marketplace"]);
 
-const arguments_ = process.argv.slice(2);
-if (arguments_.length === 1 && arguments_[0] === "--check") {
-  await checkManifest();
-} else if (arguments_.length === 2 && arguments_[0] === "--scenario" && ["emulator", "beta"].includes(arguments_[1])) {
-  await runScenario(arguments_[1]);
-} else {
-  throw new Error("usage_--check_or_--scenario_emulator_or_beta");
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  for (const [signal, code] of [["SIGTERM", 143], ["SIGINT", 130]]) {
+    process.once(signal, () => {
+      void Promise.all([...ownedServices].map(stopService)).then(() => process.exit(code));
+    });
+  }
+  const arguments_ = process.argv.slice(2);
+  if (arguments_.length === 1 && arguments_[0] === "--check") {
+    await checkManifest();
+  } else if (arguments_.length === 2 && arguments_[0] === "--scenario" && ["emulator", "beta"].includes(arguments_[1])) {
+    await runScenario(arguments_[1]);
+  } else {
+    throw new Error("usage_--check_or_--scenario_emulator_or_beta");
+  }
 }
 
 async function checkManifest() {
@@ -71,8 +72,9 @@ async function checkManifest() {
         throw new Error(`reference_command_drift_${application.name}_${environment}`);
       }
       const declared = exactObject(configDocument.environments[environment]);
-      if (applicationProtocolVersion(declared) !== SCENARIO_PROTOCOL_VERSION) {
-        throw new Error(`reference_protocol_version_drift_${application.name}_${environment}`);
+      if (typeof declared.receiptKeysEnvironment !== "string"
+        || !/^[A-Z][A-Z0-9_]{0,127}$/u.test(declared.receiptKeysEnvironment)) {
+        throw new Error(`invalid_reference_receipt_keys_binding_${application.name}_${environment}`);
       }
       if (packageDocument.scripts[`start:${environment}`] === undefined) {
         throw new Error(`missing_reference_script_${application.name}_${environment}`);
@@ -93,7 +95,8 @@ async function checkManifest() {
   for (const application of manifest.applications) {
     if (!sources.includes(application.symbol)) throw new Error(`missing_reference_symbol_${application.symbol}`);
   }
-  if (sources.includes("LAYERX_AUTHORIZED_BATCH_JSON") || /NEXT_PUBLIC_|window\.localStorage/u.test(sources)) {
+  if (sources.includes("LAYERX_AUTHORIZED_BATCH_JSON") || sources.includes("ReceiptAuthorityClient")
+    || sources.includes("protocolVersion") || /NEXT_PUBLIC_|window\.localStorage/u.test(sources)) {
     throw new Error("reference_application_contains_fixture_or_browser_secret_surface");
   }
   process.stdout.write(`${JSON.stringify({ checked: [...names], environments: ["emulator", "beta"] })}\n`);
@@ -292,6 +295,7 @@ async function deriveEmulatorInputs(emulator) {
     LAYERX_CREDENTIAL_STORE: emulator.cliEnvironment.LAYERX_CREDENTIAL_STORE,
     LAYERX_CREDENTIAL_PASSPHRASE: emulator.cliEnvironment.LAYERX_CREDENTIAL_PASSPHRASE,
     LAYERX_EMULATOR_TOKEN: token,
+    LAYERX_EMULATOR_RECEIPT_KEYS_JSON: emulatorReceiptKeys(emulator.anchor),
     LAYERX_EMULATOR_ASSET: seeded.asset,
     LAYERX_EMULATOR_SOURCE: source,
     LAYERX_EMULATOR_SELLER: accountIdentifier(accounts, sellerAccount),
@@ -313,6 +317,16 @@ async function deriveEmulatorInputs(emulator) {
     if (supplied !== undefined) derived[name] = supplied;
   }
   return derived;
+}
+
+export function emulatorReceiptKeys(anchor) {
+  const publicKey = requiredHex32(anchor, "invalid_emulator_receipt_public_key");
+  return JSON.stringify([{
+    keyId: createHash("sha256").update(Buffer.from(publicKey, "hex")).digest("hex"),
+    publicKey,
+    firstHeight: "1",
+    lastHeight: "18446744073709551615",
+  }]);
 }
 
 function accountName(did) {
@@ -445,9 +459,8 @@ async function merchantCheckout(environment, inputs) {
     const buyer = new BuyerMiddleware({
       client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: buyerConfig.humanUrl, bearerToken: token })),
       source: scenarioEnvironment(inputs, buyerConfig.sourceEnvironment),
-      protocolVersion: applicationProtocolVersion(buyerConfig),
       supported: [{ scheme: buyerConfig.scheme, network: buyerConfig.network }],
-      authorizedBatches: new ReceiptAuthorityClient(buyerConfig.receiptAuthorityUrl, rawToken),
+      receiptKeys: scenarioReceiptKeys(inputs, buyerConfig.receiptKeysEnvironment),
     });
     const checkoutKey = scenarioEnvironment(inputs, environment === "emulator"
       ? "LAYERX_EMULATOR_MERCHANT_CHECKOUT_KEY"
@@ -462,22 +475,31 @@ async function merchantCheckout(environment, inputs) {
       { method: "POST", headers: { "content-type": "application/json" }, body },
       `${checkoutKey}-payment`,
     );
-    if (result.kind !== "paid" || !result.response.ok) throw new Error(`merchant_reference_${result.kind}`);
-    const checkout = exactObject(await result.response.json());
-    const order = exactObject(checkout.order);
-    if (checkout.state !== "paid" || order.state !== "paid-verified" || order.orderId !== checkoutKey) {
-      throw new Error("merchant_reference_missing_verified_order");
-    }
-    const receiptDigest = requiredHex32(result.payment.receiptDigest, "merchant_reference_missing_receipt_digest");
-    if (order.receiptDigest !== receiptDigest) throw new Error("merchant_reference_order_receipt_mismatch");
-    const outcome = {
-      application: "merchant-shop", environment, state: "paid", orderId: order.orderId,
-      receiptDigest, verification: result.settlement.verification.level,
-    };
+    const outcome = await paidMerchantOutcome(result, environment, checkoutKey);
     process.stdout.write(`${JSON.stringify(outcome)}\n`);
     return outcome;
   } finally {
     token.destroy();
+  }
+}
+
+export function merchantCheckoutOutcome(environment, orderId, receiptDigest, settlement) {
+  return {
+    application: "merchant-shop", environment, state: "paid", orderId,
+    receiptDigest, rung: settlement.verification.rung, transactionHash: settlement.txHash,
+    resultCode: settlement.verification.receipt.resultCode,
+  };
+}
+
+export function scenarioReceiptKeys(inputs, name) {
+  const value = scenarioEnvironment(inputs, name);
+  const previous = process.env[name];
+  try {
+    process.env[name] = value;
+    return receiptKeysFromEnvironment(name);
+  } finally {
+    if (previous === undefined) delete process.env[name];
+    else process.env[name] = previous;
   }
 }
 
@@ -552,4 +574,16 @@ function command(commandLine, inputs) {
     child.once("error", reject);
     child.once("exit", (code) => code === 0 ? resolvePromise() : reject(new Error(`reference_command_exited_${code}`)));
   });
+}
+
+export async function paidMerchantOutcome(result, environment, checkoutKey) {
+  if (result.kind !== "paid" || !result.response.ok) throw new Error(`merchant_reference_${result.kind}`);
+  const checkout = exactObject(await result.response.json());
+  const order = exactObject(checkout.order);
+  if (checkout.state !== "paid" || order.state !== "paid-verified" || order.orderId !== checkoutKey) {
+    throw new Error("merchant_reference_missing_verified_order");
+  }
+  const receiptDigest = requiredHex32(result.payment.receiptDigest, "merchant_reference_missing_receipt_digest");
+  if (order.receiptDigest !== receiptDigest) throw new Error("merchant_reference_order_receipt_mismatch");
+  return merchantCheckoutOutcome(environment, order.orderId, receiptDigest, result.settlement);
 }

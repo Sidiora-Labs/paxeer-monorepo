@@ -1,17 +1,23 @@
 package upload
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
+	gatewayauth "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/proxy"
 	gatewaystorage "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
 var connectedAssetPath = regexp.MustCompile(`^/v2/(tokens|accounts)/0x[0-9a-f]{40}/assets/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -60,30 +66,50 @@ func (h *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	w.Header().Set("Cache-Control", "no-store")
+	requestID := w.Header().Get("X-Request-ID")
+	if _, err := uuid.Parse(requestID); err != nil || len(requestID) != 36 {
+		requestID = r.Header.Get("X-Request-ID")
+		if _, err = uuid.Parse(requestID); err != nil || len(requestID) != 36 {
+			requestID = uuid.NewString()
+		}
+	}
+	w.Header().Set("X-Request-ID", requestID)
 	if r.URL == nil || r.URL.RawPath != "" || r.Method != "PUT" || !connectedAssetPath.MatchString(r.URL.Path) {
-		http.NotFound(w, r)
+		sharedhttp.NotFoundHandler()(w, r)
 		return
 	}
 	identityContext, identityCancel := context.WithTimeout(r.Context(), 3*time.Second)
 	p, e := h.identity.AuthenticateRequest(identityContext, r)
 	identityCancel()
 	if e != nil {
-		status := http.StatusServiceUnavailable
-		var authority *sharedauth.IdentityAuthorityError
-		if errors.As(e, &authority) {
-			status = authority.StatusCode()
-		} else if errors.Is(e, sharedauth.ErrScopeDenied) {
-			status = 403
+		var public *gatewayauth.PublicError
+		if errors.As(e, &public) {
+			var delay time.Duration
+			if public.RetryAfterMS != nil {
+				delay = time.Duration(*public.RetryAfterMS) * time.Millisecond
+			}
+			if delay > 0 {
+				w.Header().Set("Retry-After", strconv.FormatInt(int64((delay+time.Second-1)/time.Second), 10))
+			}
+			sharedhttp.WriteErrorEnvelope(w, public.Status, public.Code, "upload identity unavailable", public.Retryable, delay, nil, nil)
+		} else {
+			status := http.StatusServiceUnavailable
+			var authority *sharedauth.IdentityAuthorityError
+			if errors.As(e, &authority) {
+				status = authority.StatusCode()
+			} else if errors.Is(e, sharedauth.ErrScopeDenied) {
+				status = http.StatusForbidden
+			}
+			writeConnectedRefusal(w, status, "upload identity unavailable", 0)
 		}
-		http.Error(w, "upload identity unavailable", status)
 		return
 	}
 	if !walletPattern.MatchString(p.Wallet) {
-		http.Error(w, "upload identity unavailable", 403)
+		writeConnectedRefusal(w, http.StatusForbidden, "upload identity unavailable", 0)
 		return
 	}
 	if r.ContentLength > 6<<20 {
-		http.Error(w, "upload exceeds size limit", 413)
+		sharedhttp.WriteRequestBodyError(w, http.StatusRequestEntityTooLarge, sharedhttp.RuleMaxBytes, "upload exceeds size limit")
 		return
 	}
 	select {
@@ -91,7 +117,7 @@ func (h *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer func() { <-h.slots }()
 	default:
 		w.Header().Set("Retry-After", "1")
-		http.Error(w, "upload busy", 503)
+		writeConnectedRefusal(w, http.StatusServiceUnavailable, "upload busy", time.Second)
 		return
 	}
 	release, e := h.admission.Acquire(r.Context(), p.Wallet)
@@ -101,7 +127,7 @@ func (h *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(e, ErrBusy) {
 			status = 429
 		}
-		http.Error(w, "upload admission unavailable", status)
+		writeConnectedRefusal(w, status, "upload admission unavailable", time.Minute)
 		return
 	}
 	defer release()
@@ -113,7 +139,9 @@ func (h *Connected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = controller.SetReadDeadline(now.Add(5 * time.Second))
 	defer controller.SetReadDeadline(time.Time{})
 	r.Body = http.MaxBytesReader(w, &aggregateIngressReader{ReadCloser: &ingressReader{ReadCloser: r.Body, controller: controller, window: now, deadline: now.Add(30 * time.Second)}, ctx: ctx, db: h.admission.db, key: h.admission.ns + ":upload:bytes", limit: h.bytesPerSecond}, 6<<20)
-	h.upstream.ServeHTTP(w, r)
+	response := &connectedUploadResponse{ResponseWriter: w}
+	h.upstream.ServeHTTP(response, r)
+	response.finish()
 }
 
 type aggregateIngressReader struct {
@@ -169,3 +197,69 @@ func (w *uploadResponse) Write(data []byte) (int, error) {
 	return w.ResponseWriter.Write(data)
 }
 func (w *uploadResponse) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func writeConnectedRefusal(w http.ResponseWriter, status int, message string, delay time.Duration) {
+	code := sharedhttp.CodeDependencyUnavailable
+	retryable := status >= 500 || status == http.StatusRequestTimeout || status == http.StatusTooManyRequests
+	switch status {
+	case http.StatusUnauthorized:
+		code = "AUTH_EXPIRED"
+	case http.StatusForbidden:
+		code = "SCOPE_DENIED"
+	case http.StatusNotFound:
+		code = sharedhttp.CodeNotFound
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge, http.StatusUnsupportedMediaType, http.StatusUnprocessableEntity:
+		code = sharedhttp.CodeFieldInvalid
+	case http.StatusTooManyRequests:
+		code = sharedhttp.CodeRateLimited
+	}
+	sharedhttp.WriteErrorEnvelope(w, status, code, message, retryable, delay, nil, nil)
+}
+
+// The private proxy can refuse after admission (including while reading an
+// unknown-length body). Keep those refusals on the frozen upload interface too.
+type connectedUploadResponse struct {
+	http.ResponseWriter
+	status int
+	body   bytes.Buffer
+}
+
+func (w *connectedUploadResponse) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
+	w.status = status
+	if status < 400 {
+		w.ResponseWriter.WriteHeader(status)
+	}
+}
+func (w *connectedUploadResponse) Write(data []byte) (int, error) {
+	if w.status == 0 {
+		w.WriteHeader(http.StatusOK)
+	}
+	if w.status >= 400 {
+		return w.body.Write(data)
+	}
+	return w.ResponseWriter.Write(data)
+}
+func (w *connectedUploadResponse) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *connectedUploadResponse) finish() {
+	if w.status < 400 {
+		return
+	}
+	if envelope, err := v2.DecodeError(w.body.Bytes()); err == nil {
+		w.Header().Set("X-Request-ID", envelope.RequestId)
+		w.ResponseWriter.WriteHeader(w.status)
+		_, _ = w.ResponseWriter.Write(w.body.Bytes())
+		return
+	}
+	var delay time.Duration
+	if seconds, err := strconv.ParseInt(w.Header().Get("Retry-After"), 10, 32); err == nil && seconds > 0 {
+		delay = time.Duration(seconds) * time.Second
+	}
+	if w.status == http.StatusRequestEntityTooLarge {
+		sharedhttp.WriteRequestBodyError(w.ResponseWriter, w.status, sharedhttp.RuleMaxBytes, "upload exceeds size limit")
+		return
+	}
+	writeConnectedRefusal(w.ResponseWriter, w.status, "upload request could not be completed", delay)
+}

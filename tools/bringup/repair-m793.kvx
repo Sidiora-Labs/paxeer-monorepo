@@ -1,0 +1,84 @@
+[repair.22.33.793]
+audit = "22.30.177"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+mode = "BUILD"
+scope = "scripts/wallet/check-live.sh, services/platform/hosted/indexer/env-init.sh, tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.793 -f layerx-merge --root /work/paxeer-monorepo"
+revision_record = "The final hf-build and hf-done entries in /out/run/gates.jsonl name the exact candidate revision, command, exit code and private evidence log. Both gates must bind the same candidate; no gate result is claimed before it runs."
+baseline = "No gate ledger existed and no gates had run at continuation. The original base lacks TestRepairM_793_ tests. Step 12 conflicts with the explicit implementation/build/done order; no baseline verification or baseline failure is claimed."
+qualification = "Only the declared focused in-process Go gate is qualified. No live deployment, aggregate shell harness or native build is claimed."
+fixtures = "committed.json and receipted.json are verbatim producer conformance vectors with embedded provenance. Deployment/readiness, webhook and hosted asset peers are committed contract-shaped fixtures served over loopback; no live capture is claimed. indexer.sqlite is a genuine SQLite file using the production cursor schemas."
+
+[finding.region-probe-not-selected]
+test = "TestRepairM_793_RegionProbeSelected"
+repair = "Select every running deployment replica with Railway --deployment-instance; verify its own deployment, replica and region environment and current local readiness, and buffer claims until exact regional replica coverage succeeds."
+proof = "Production deployment decoder and installed inspector selection feed the real readiness consumer. Missing, duplicate, wrong-deployment, undeclared-region, same-region and stale responses fail without partial success claims; shell wiring binds each selected ID to the SSH invocation."
+
+[finding.human-child-exit-swallowed]
+test = "TestRepairM_793_HumanChildExit"
+repair = "Capture the wallet child's output and status, forward its check lines, and require all three checks, its success summary and its completion sentinel. Any nonzero status or incomplete evidence fails."
+proof = "The wallet success transcript flows through the installed inspector's real parent consumer; usage, timeout, missing executable and crash statuses fail even with a successful transcript. Truncated, duplicate and failed checks fail. Both shell producer and consumer wiring are asserted."
+
+[finding.kernel-readiness-retired]
+test = "TestRepairM_793_KernelCommittedReadiness"
+repair = "Roster replaces standalone daemon/authority/guarantor/archive roles with paxd and its explicit mounted private home, retaining existing role supervision, UID/GID/private material checks. Node readiness inspects the real paxd process and mounted genesis/data and reads chain 125, nonzero head, consensus status and canonical matching-height commit."
+proof = "Installed inspector consumes process evidence and real HTTP RPC transport with recorded Comet header/commit data. Missing process, mount, state, ownership, process-start identity, zero head, catching-up consensus and noncanonical commits fail. Existing shell roster counts track the retained nineteen roles."
+
+[finding.relay-readiness-retired]
+test = "TestRepairM_793_ArchiveCommittedReadback"
+repair = "Explicit archive JSON-RPC origin accepts operator-signed chain bytes, then reads the exact transaction's successful receipt, canonical block inclusion and committed native receipt. The real receipt codec and signature verifier require a governed signing key valid at execution height."
+proof = "Installed CLI decodes recorded chain-125 signed EVM bytes and native signatures, submits them over HTTP, then verifies a canonical block/envelope held by the loopback peer. Independently authenticate the unmodified committed dev-chain recording and reject its foreign-chain transaction. Altered signatures, key ranges, uncommitted rungs, wrong canonical blocks and missing inclusion fail. No retired relay protocol or separate genesis manifest remains in check_relay."
+
+[finding.interop-retired-account-calls]
+test = "TestRepairM_793_InteropChainTransfer"
+repair = "Read current px_getAccount and px_getBalances at the explicit gateway, use the current nonce and real signed ledger payExact bytes through seller/offer, buyer/build and settle, then verify the same successful committed chain transaction and authenticated receipt/digest."
+proof = "Real EVM transaction/signature and receipt codecs, actual HTTP/RPC transports and production journey consumer with an explicit in-memory canonical inclusion peer exercise both sides of current account/balance/payment encodings with the recorded payExact transaction. Changed nonce, offer, built payload, settlement receipt and digest all fail. Public gateway reads never receive facilitator credentials."
+
+[finding.indexer-retired-relay-config]
+test = "TestRepairM_793_IndexerDurableCursors"
+repair = "Only configured EVM/COMET URLs and trust roots are read. Transactionally export real SQLite cursor tables and compare the bounded read-only SQLite decoder's rows with retained start/cutover/completion/live evidence. Init writes a cutover-bound marker only after the real DB backfill cursor reaches cutover and validates it on serve. History uses explicit gateway URLs and current px_ methods."
+proof = "Close and reopen an actual SQLite cursor database, decode recovered rows through the production codec and installed consumer, and reject missing/corrupt snapshots, mismatched hashes/cutovers, incomplete markers and missing live cursors. Producer SQL and shell-to-consumer wiring are asserted. This gate does not launch the external Rust indexer."
+
+[finding.webhook-stale-delivery-evidence]
+test = "TestRepairM_793_WebhookFreshSource"
+repair = "Use a random operation correlation per invocation, register/list a subscription, submit an authorized current Human intent and bind its returned journey to a fresh source event, exact endpoint/event/delivery/subject and a current successful receiver HTTP acknowledgment."
+proof = "Production full HTTP journey runs twice with unique source/subscription idempotency keys and separate source/webhook credentials. Historical events, wrong event or subject, pending state and failed receiver acknowledgments fail. The gate uses committed peer fixtures; it does not claim to run the external dispatcher."
+
+[finding.search-retired-asset-call]
+test = "TestRepairM_793_SearchHostedAssetPayment"
+repair = "Use px_listAssets on the explicit hosted gateway, current flat asset metadata and LAYERX-PAYER-ADDRESS/PAYMENT-SIGNATURE headers with a standing grant. Match the emitted metered PAX offer's exact asset ID, committed metadata and decimal-derived approved price before retrying; require successful payment response and stable selected backend."
+proof = "Real challenge-to-asset-read-to-payment-retry HTTP path checks current grant payload and payer header. Wrong amount, asset, decimals, paused state, switched backend and invalid settlement evidence fail."
+
+[wiring.kernel_startup]
+request = "docker/kernel/init.sh — domain 16: migrate the retired standalone runtime launch plan to integrated paxd with its real mounted home and nineteen-role ownership/supervision plan."
+
+[wiring.rollout]
+request = "deploy/rollout.kvx — domain 16: maintain current interop and hosted gateway service identities consumed by live checks."
+
+[wiring.indexer_config]
+request = "services/platform/hosted/indexer/railway.env.example — domain 10: remove retired RELAY variables; coordinate existing empty backfill-done markers by rerunning backfill to verify the retained cutover and write its bound marker before serve."
+
+[wiring.asset_config]
+request = "tools/bringup/xweb-config.sh — domain 16: reconcile its nested asset metadata assumption with the current flat px_listAssets producer contract in its separately owned finding."
+
+[wiring.inspector_installation]
+request = "docker/paxeer/Dockerfile.paxd-node — domain 16: install the current bringup-inspect artifact for operator live checks; missing executable remains an explicit failure."
+
+[gotcha.gate_order]
+observed = "Step 12's unchanged-tree verification conflicts with explicit bounded gate ordering; baseline was not run and no baseline failure is claimed."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task/qualification records are outside the user's exclusive scope; task findings, wiring requests and gotchas are recorded here instead."
+
+[gotcha.legacy_shell_harness]
+observed = "The existing aggregate shell harness uses legacy Fly fixtures for Railway checks and retired relay journeys; the focused qualification uses the current in-process production consumers and does not claim the aggregate harness passes."
+
+[gotcha.fixture_heights]
+observed = "Native receipt execution height and canonical inclusion height are separate fields; compare EVM inclusion to blockNumber and authenticate BatchID against execution height."
+
+[gotcha.review_corrections]
+observed = "Implementation review corrected Python probe transport quoting, current flat asset metadata, and test source-wiring names before any formatting or gate run."
+
+[gotcha.chain_fixture]
+observed = "First qualification e9b8d99fa0e509f59fe0c93ea1936db6c266f4a3: hf-done exited 1, /out/logs/verify-1.log. The recorded committed dev-chain transaction targets chain 6300, so chain-125 submission correctly refused it. Repair uses unmodified chain-125 RPC execution/signature vectors with an explicit loopback inclusion peer; committed dev-chain signature verification remains separately asserted and its transaction stays refused. No live chain-125 commitment is claimed."

@@ -3,10 +3,20 @@ name: Security
 on:
   push:
     branches: [main]
+    paths:
+      - "services/platform/perf-db/**"
+      - ".github/workflows/perf-db-security.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "services/platform/perf-db/**"
+      - ".github/workflows/perf-db-security.yml"
   schedule:
     - cron: "0 6 * * 1"
+
+defaults:
+  run:
+    working-directory: services/platform/perf-db
 
 jobs:
   audit:
@@ -26,3 +36,4 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
+          manifest-path: services/platform/perf-db/Cargo.toml

@@ -1,0 +1,21 @@
+[repair.22.31.56]
+finding = "explorer-dynamic-discoveries"
+proof = ["TestRepair_56_ExplorerDynamicDiscoveries", "TestRepair_56_DiscoveryEpochBounds"]
+implementation = "HistoricalSource forwards coordinator-approved discoveries to CommittedPaxscanSource.FetchCommitted; request-local cloned epochs are validated and used for both SQL address selection and activation, retirement and creation-transaction checks."
+producer = "Recorded chain-125 market creation and subsequent token/pool events, replayed without changing producer responses; the recorded empty head serves both transaction verbosity flags."
+transport_consumer = "The service-free gate projects authentic recorded receipts through the production explorer SQL address plan and row predicate into the real qualification coordinator and receipt authority; it compares canonical records with LiveQualifiedSource and asserts qualified accounting fills. Invalid discoveries exercise the actual historical page dispatcher and both concrete transports before I/O."
+restart = "The service-free gate closes and reopens the committed source and receipt client with a cold authority, rediscovers the market and recovers identical creation and buy batches. The retained PostgreSQL integration additionally reopens the explorer pool over the same database."
+baseline = "The inherited attempt ran the former unfiltered package gate and failed the four unrelated prerequisite tests recorded below. No repair test baseline failure is claimed. The explicit current gate order requires complete implementation before hf-build and hf-done and forbids an additional unchanged-tree verify run."
+evidence = "The runner's private /out/run/gates.jsonl records the exact candidate revision, command, exit code and log for hf-build and hf-done; the final response copies the last gate evidence."
+out_of_path_steps = "No out-of-path implementation is required; spec task records and GOTCHA.kvx are outside the authorized scope and are not edited."
+postgres_qualification = "The inherited PostgreSQL tests and every assertion are retained as TestRepair56Postgres_ExplorerDynamicDiscoveries and TestRepair56Postgres_DiscoveryEpochBounds in repair_56_postgres_test.go; the current explicit TestRepair_56_* gate must not require PostgreSQL and does not claim to qualify SQL execution."
+wiring_request = "fm-launchpad (domain 4), services/launchpad/indexer/internal/source/repair_56_postgres_test.go: run the retained PostgreSQL transport/restart integration during environment-backed release qualification, outside this task gate."
+producer_contract = "Pool swaps in this real producer generation are emitted by the manifest EventEmitter; proofs require its exact Swap topic and pool identity together with the independently qualified accounting fill."
+
+[qualification.inherited_prerequisites]
+revision = "691926c6c33120ccefcc0c47fe917bb2f4ac42b6"
+command = "cg spec done 22.31.56 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The inherited unfiltered gate failed TestHistoricalRealRangeExplorerSuffixAndParity, TestCommittedAdversarialRecoveryGenuineChain and TestHistoricalSaturationPreservesLiveAndShutdownGenuineChain because anvil was absent, and TestSourceCapacityCandidate because actual owned source capacity configuration was absent."
+assumption = "These pre-existing environment prerequisites are outside this repair and are not changed or investigated further."

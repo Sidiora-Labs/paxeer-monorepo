@@ -1,0 +1,15 @@
+[repair.22.33.1171]
+audit = "spec/layerx-merge/programme/audit/records/22.30.53.kvx"
+acceptance = "22998.1"
+baseline = "No baseline verification was run: the explicit gate order forbids verification before implementation and forbids running verify_cmd by hand; no prior gate ledger or in-scope changes existed. No pre-change test result is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in the hf-build/hf-done ledger and cg spec done record."
+wiring_requests = "None: the launcher and standalone CLI consumer are inside storage/db_engine/litt/benchmark."
+
+[finding.benchmark-script-paths]
+tests = ["TestRepairM_1171_LauncherHandoff", "TestRepairM_1171_ConfigPaths", "TestRepairM_1171_ArgumentContract"]
+repair = "The final production shell command explicitly execs the quoted executable with exactly one quoted configuration path. The source contract asserts that handoff; the real RunCLI loads relative and absolute configuration filenames containing spaces and glob characters from a directory containing both, runs LittDB and persists cohorts. Usage and failure statuses retain the standalone one-argument contract."
+proof_boundary = "The gate inspects the shell handoff and executes its real Go consumer in-process; it does not invoke bash or a prebuilt executable, which the task prohibits."
+
+[gotcha.baseline-order]
+observed = "The proposal requests a baseline verify, while the explicit task order permits verification only through hf-done after complete implementation and hf-build."
+resolution = "Follow the explicit gate order and record that no baseline ran."

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -478,21 +477,15 @@ func TestDevelopmentDiscoveryLeaderboardsAndWrites(t *testing.T) {
 
 // Every development route is a frozen v2 contract operation.
 func TestDevelopmentHistoryDiscoveryRoutesAreContractOperations(t *testing.T) {
-	raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v2/openapi.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var document struct {
-		Paths map[string]map[string]json.RawMessage `json:"paths"`
-	}
-	if err = json.Unmarshal(raw, &document); err != nil {
-		t.Fatal(err)
+	operations := make(map[string]struct{})
+	for _, operation := range internaltest.FrozenV2Operations(t) {
+		operations[strings.ToUpper(operation.Method)+" "+operation.Path] = struct{}{}
 	}
 	router := chi.NewRouter()
 	rest.RegisterDevelopmentHistorySearchDiscovery(router, store.New(nil, nil), nil)
 	count := 0
-	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
-		if _, ok := document.Paths[path][strings.ToLower(method)]; !ok {
+	err := chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		if _, ok := operations[method+" "+path]; !ok {
 			t.Errorf("development route absent from the v2 contract: %s %s", method, path)
 		}
 		count++

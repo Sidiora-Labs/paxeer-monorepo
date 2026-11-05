@@ -1,0 +1,243 @@
+[reconcile.r8-127]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-127.1]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetstaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2755
+symbol = "BudgetStateRequest"
+evidence = "AgentOperations declares public record BudgetStateRequest(JsonNode tenant, JsonNode agent_did, JsonNode budget_id) implements SchemaTypes.GeneratedRequest at line 2755, matching the registered signature; the agent budget.state typed operation binds this record at line 2768. Registered line 2857 has drifted."
+
+[row.r8-127.2]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-budgetstateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2762
+symbol = "BudgetStateResponse"
+evidence = "AgentOperations declares public record BudgetStateResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse at line 2762, matching the registered signature; the agent budget.state typed operation binds this record at line 2768. Registered line 2864 has drifted."
+
+[row.r8-127.3]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilityattenuaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2769
+symbol = "CapabilityAttenuateRequest"
+evidence = "AgentOperations declares public record CapabilityAttenuateRequest(JsonNode tenant, JsonNode agent_did, JsonNode parent_id, JsonNode dimensions) implements SchemaTypes.GeneratedRequest at line 2769, matching the registered signature; the agent capability.attenuate typed operation binds this record at line 2783. Registered line 2871 has drifted."
+
+[row.r8-127.4]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilityattenuateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2777
+symbol = "CapabilityAttenuateResponse"
+evidence = "AgentOperations declares public record CapabilityAttenuateResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse at line 2777, matching the registered signature; the agent capability.attenuate typed operation binds this record at line 2783. Registered line 2879 has drifted."
+
+[row.r8-127.5]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilitycreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2784
+symbol = "CapabilityCreateRequest"
+evidence = "AgentOperations declares public record CapabilityCreateRequest(JsonNode tenant, JsonNode agent_did, JsonNode dimensions) implements SchemaTypes.GeneratedRequest at line 2784, matching the registered signature; the agent capability.create typed operation binds this record at line 2797. Registered line 2886 has drifted."
+
+[row.r8-127.6]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilitycreateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2791
+symbol = "CapabilityCreateResponse"
+evidence = "AgentOperations declares public record CapabilityCreateResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse at line 2791, matching the registered signature; the agent capability.create typed operation binds this record at line 2797. Registered line 2893 has drifted."
+
+[row.r8-127.7]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilitylistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2798
+symbol = "CapabilityListRequest"
+evidence = "AgentOperations declares public record CapabilityListRequest(JsonNode tenant, JsonNode agent_did) implements SchemaTypes.GeneratedRequest at line 2798, matching the registered signature; the agent capability.list typed operation binds this record at line 2810. Registered line 2900 has drifted."
+
+[row.r8-127.8]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilitylistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2804
+symbol = "CapabilityListResponse"
+evidence = "AgentOperations declares public record CapabilityListResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse at line 2804, matching the registered signature; the agent capability.list typed operation binds this record at line 2810. Registered line 2906 has drifted."
+
+[row.r8-127.9]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilityrevokerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2811
+symbol = "CapabilityRevokeRequest"
+evidence = "AgentOperations declares public record CapabilityRevokeRequest(JsonNode tenant, JsonNode agent_did, JsonNode capability_id) implements SchemaTypes.GeneratedRequest at line 2811, matching the registered signature; the agent capability.revoke typed operation binds this record at line 2824. Registered line 2913 has drifted."
+
+[row.r8-127.10]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-capabilityrevokeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2818
+symbol = "CapabilityRevokeResponse"
+evidence = "AgentOperations declares public record CapabilityRevokeResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse at line 2818, matching the registered signature; the agent capability.revoke typed operation binds this record at line 2824. Registered line 2920 has drifted."
+
+[row.r8-127.11]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-exportofflinerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2825
+symbol = "ExportOfflineRequest"
+evidence = "AgentOperations declares public record ExportOfflineRequest(JsonNode fact_set, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest at line 2825, matching the registered signature; the agent export.offline typed operation binds this record at line 2838. Registered line 2927 has drifted."
+
+[row.r8-127.12]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-exportofflineresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2831
+symbol = "ExportOfflineResponse"
+evidence = "AgentOperations declares public record ExportOfflineResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse at line 2831, matching the registered signature; the agent export.offline typed operation binds this record at line 2838. Registered line 2933 has drifted."
+
+[row.r8-127.13]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-mcpinvokerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2839
+symbol = "McpInvokeRequest"
+evidence = "AgentOperations declares public record McpInvokeRequest(JsonNode tool, JsonNode arguments) implements SchemaTypes.GeneratedRequest at line 2839, matching the registered signature; the agent mcp.invoke typed operation binds this record at line 2852. Registered line 2957 has drifted. The same-named record at line 391 implements GeneratedResponse; this declaration implements GeneratedRequest as registered."
+
+[row.r8-127.14]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-mcpinvokeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2845
+symbol = "McpInvokeResponse"
+evidence = "AgentOperations declares public record McpInvokeResponse(JsonNode value) implements SchemaTypes.GeneratedResponse at line 2845, matching the registered signature; the agent mcp.invoke typed operation binds this record at line 2852. Registered line 2963 has drifted."
+
+[row.r8-127.15]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-policydryrunrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2853
+symbol = "PolicyDryRunRequest"
+evidence = "AgentOperations declares public record PolicyDryRunRequest(JsonNode tenant, JsonNode agent_did, JsonNode session_id, JsonNode capability_id, JsonNode activity_type, JsonNode counterparty, JsonNode asset, JsonNode amount, JsonNode purpose, JsonNode core_sequence) implements SchemaTypes.GeneratedRequest at line 2853, matching the registered signature; the agent policy.dry_run typed operation binds this record at line 2878. Registered line 2971 has drifted."
+
+[row.r8-127.16]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-policydryrunresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2867
+symbol = "PolicyDryRunResponse"
+evidence = "AgentOperations declares public record PolicyDryRunResponse(JsonNode outcome, JsonNode policy_version, JsonNode matched_rules, JsonNode deciding_rule, JsonNode reason, JsonNode mode, JsonNode authority_statement) implements SchemaTypes.GeneratedResponse at line 2867, matching the registered signature; the agent policy.dry_run typed operation binds this record at line 2878. Registered line 2985 has drifted."
+
+[row.r8-127.17]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-preparerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2879
+symbol = "PrepareRequest"
+evidence = "AgentOperations declares public record PrepareRequest(JsonNode actor, JsonNode authority, JsonNode account_sequence, JsonNode timestamp_bound, JsonNode idempotency_key, JsonNode fee_limit, JsonNode payload, JsonNode payload_hash) implements SchemaTypes.GeneratedRequest at line 2879, matching the registered signature; the agent prepare typed operation binds this record at line 2903. Registered line 2997 has drifted."
+
+[row.r8-127.18]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-prepareresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2891
+symbol = "PrepareResponse"
+evidence = "AgentOperations declares public record PrepareResponse(BigInteger chainId, BigInteger nonce, BigInteger gas, String to, String data) implements SchemaTypes.GeneratedResponse at line 2891; the agent prepare typed operation binds this response at line 2903. The registered JsonNode fields preparation_ref, unsigned_canonical_bytes, signing_preimage, disclosure and expiry were replaced by BigInteger chainId, nonce and gas plus String to and data. Registered line 3009 has drifted."
+
+[row.r8-127.19]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-projectrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3060
+symbol = "ProjectRequest"
+evidence = "AgentOperations declares public record ProjectRequest(JsonNode protocol_activity_type, JsonNode canonical_bytes, JsonNode execution_units, JsonNode storage_units) implements SchemaTypes.GeneratedRequest at line 3060, matching the registered signature; the agent project typed operation binds this record at line 3075. Registered line 3168 has drifted."
+
+[row.r8-127.20]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-projectresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3068
+symbol = "ProjectResponse"
+evidence = "AgentOperations declares public record ProjectResponse(JsonNode projected, JsonNode rationale, JsonNode observed_freshness) implements SchemaTypes.GeneratedResponse at line 3068, matching the registered signature; the agent project typed operation binds this record at line 3075. Registered line 3176 has drifted."
+
+[row.r8-127.21]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readaccountrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3076
+symbol = "ReadAccountRequest"
+evidence = "AgentOperations declares public record ReadAccountRequest(JsonNode account, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest at line 3076, matching the registered signature; the agent read.account typed operation binds this record at line 3089. Registered line 3184 has drifted."
+
+[row.r8-127.22]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readaccountresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3082
+symbol = "ReadAccountResponse"
+evidence = "AgentOperations declares public record ReadAccountResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse at line 3082, matching the registered signature; the agent read.account typed operation binds this record at line 3089. Registered line 3190 has drifted."
+
+[row.r8-127.23]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readbalancerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3090
+symbol = "ReadBalanceRequest"
+evidence = "AgentOperations declares public record ReadBalanceRequest(JsonNode account, JsonNode asset, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest at line 3090, matching the registered signature; the agent read.balance typed operation binds this record at line 3104. Registered line 3198 has drifted."
+
+[row.r8-127.24]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readbalanceresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3097
+symbol = "ReadBalanceResponse"
+evidence = "AgentOperations declares public record ReadBalanceResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse at line 3097, matching the registered signature; the agent read.balance typed operation binds this record at line 3104. Registered line 3205 has drifted."
+
+[row.r8-127.25]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readbatchrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3105
+symbol = "ReadBatchRequest"
+evidence = "AgentOperations declares public record ReadBatchRequest(JsonNode batch, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest at line 3105, matching the registered signature; the agent read.batch typed operation binds this record at line 3118. Registered line 3213 has drifted."
+
+[row.r8-127.26]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readbatchresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3111
+symbol = "ReadBatchResponse"
+evidence = "AgentOperations declares public record ReadBatchResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse at line 3111, matching the registered signature; the agent read.batch typed operation binds this record at line 3118. Registered line 3219 has drifted."
+
+[row.r8-127.27]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readcheckpointrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3119
+symbol = "ReadCheckpointRequest"
+evidence = "AgentOperations declares public record ReadCheckpointRequest(JsonNode checkpoint, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest at line 3119, matching the registered signature; the agent read.checkpoint typed operation binds this record at line 3132. Registered line 3227 has drifted."
+
+[row.r8-127.28]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readcheckpointresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3125
+symbol = "ReadCheckpointResponse"
+evidence = "AgentOperations declares public record ReadCheckpointResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse at line 3125, matching the registered signature; the agent read.checkpoint typed operation binds this record at line 3132. Registered line 3233 has drifted."
+
+[row.r8-127.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readhistoryrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3133
+symbol = "ReadHistoryRequest"
+evidence = "AgentOperations declares public record ReadHistoryRequest(JsonNode range, JsonNode cursor, JsonNode page_limit, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest at line 3133, matching the registered signature; the agent read.history typed operation binds this record at line 3148. Registered line 3241 has drifted."
+
+[row.r8-127.30]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readhistoryresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3141
+symbol = "ReadHistoryResponse"
+evidence = "AgentOperations declares public record ReadHistoryResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse at line 3141, matching the registered signature; the agent read.history typed operation binds this record at line 3148. Registered line 3249 has drifted."

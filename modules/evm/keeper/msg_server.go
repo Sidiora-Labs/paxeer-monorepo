@@ -30,6 +30,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/artifacts/native"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/wasmd"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	paxmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
@@ -73,6 +74,28 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	tx, _ := msg.AsTransaction()
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	if id, ok := chainstypes.DomainOfChainID(tx.ChainId()); ok && id != 0 {
+		binding := server.chainsBinding()
+		if binding == nil {
+			return nil, chainstypes.ErrUnknownDomain
+		}
+		active := false
+		for _, candidate := range binding.ActiveDomains(readCtx) {
+			if candidate == id {
+				active = true
+				break
+			}
+		}
+		if !active {
+			return nil, chainstypes.ErrDomainNotActive
+		}
+		fee := binding.NextBaseFee(readCtx, id)
+		if tx.GasFeeCap().Cmp(fee.TruncateInt().BigInt()) < 0 {
+			return nil, sdkerrors.ErrInsufficientFee
+		}
+		ctx = ctx.WithValue(domainExecutionKey{}, domainExecution{id: id, baseFee: fee})
+	}
 	ctx, originalGasMeter := server.PrepareCtxForEVMTransaction(ctx, tx)
 
 	charge, err := server.GetAnteFeeTokenCharge(ctx, tx.Hash())
@@ -142,6 +165,10 @@ func (server msgServer) EVMTransaction(goCtx context.Context, msg *types.MsgEVMT
 			paxmetrics.SafeTelemetryIncrCounterWithLabels([]string{types.ModuleName, "errors", "write_receipt"}, 1, []armonmetrics.Label{{Name: "type", Value: err.Error()}}) // TODO(PLT-330): remove once evm_errors_total verified
 			evmKeeperMetrics.errors.Add(goCtx, 1, otelmetric.WithAttributes(attribute.String("type", "write_receipt")))
 			return
+		}
+
+		if domain, ok := ctx.Value(domainExecutionKey{}).(domainExecution); ok {
+			server.chainsBinding().RecordDomainTx(ctx, domain.id, ctx.BlockHeight(), tx.Hash(), serverRes.GasUsed)
 		}
 
 		// Add metrics for receipt status
@@ -218,7 +245,13 @@ func (k *Keeper) GetEVMMessage(ctx sdk.Context, tx *ethtypes.Transaction, sender
 		From:                  sender,
 	}
 	// If baseFee provided, set gasPrice to effectiveGasPrice.
-	baseFee := k.GetBaseFee(ctx)
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	baseFee := k.GetBaseFee(readCtx)
+	if id, ok := chainstypes.DomainOfChainID(tx.ChainId()); ok && id != 0 {
+		if binding := k.chainsBinding(); binding != nil {
+			baseFee = binding.NextBaseFee(readCtx, id).TruncateInt().BigInt()
+		}
+	}
 	if baseFee != nil {
 		msg.GasPrice = msg.GasPrice.Add(msg.GasTipCap, baseFee)
 		if msg.GasPrice.Cmp(msg.GasFeeCap) > 0 {
@@ -233,8 +266,14 @@ func (k Keeper) applyEVMMessage(ctx sdk.Context, msg *core.Message, stateDB *sta
 	if err != nil {
 		return nil, err
 	}
+	if domain, ok := ctx.Value(domainExecutionKey{}).(domainExecution); ok {
+		blockCtx.BaseFee = domain.baseFee.TruncateInt().BigInt()
+	}
 	sstore := k.GetSstoreSetGasEIP2200(ctx)
 	cfg := types.DefaultChainConfig().EthereumConfigWithSstore(k.ChainID(ctx), &sstore)
+	if domain, ok := ctx.Value(domainExecutionKey{}).(domainExecution); ok {
+		cfg.ChainID = chainstypes.ChainIDOf(domain.id)
+	}
 	txCtx := core.NewEVMTxContext(msg)
 
 	evmInstance := vm.NewEVM(*blockCtx, stateDB, cfg, vm.Config{}, k.CustomPrecompiles(ctx))

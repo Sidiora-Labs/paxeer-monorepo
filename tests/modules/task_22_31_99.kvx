@@ -1,0 +1,24 @@
+[task.22.31.99]
+mode = "BUILD"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+verify_cmd = "make -s test-budget-create test-budget-delegate test-budget-period test-budget-revoke test-budget-spend"
+evidence = "The runner records the exact qualified candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final hf-done evidence line is authoritative."
+baseline = "Not run: the explicit implementation-first order and single hf-done verification rule prohibit the audit step's unchanged-tree verification; no baseline failures are claimed."
+repair_1 = "Candidate fb8049792d70b891c71224bc20366c6c55b0e850: cg spec done 22.31.99 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log); seal the legacy harness batch sequence before capturing the expected root, and rollback protocol-3 refused journals as the keeper transaction does."
+
+[finding.22.30.5.2]
+test = "tests/modules/test_budget_close.c:audit_delegate_codec_reopen"
+proof = "Signed delegate additions produce sorted persistent bytes; descending and duplicate records are refused by validate, encode and state_put without changing output or committed state; decoder refusals remain; disk snapshot write, kernel/state destruction and fresh load recover identical canonical bytes and balances."
+
+[finding.22.30.5.4]
+test = "tests/modules/test_budget_close.c:audit_zero_spend_exit_reopen"
+proof = "Real CREATE, REVOKE, full DEFUND and CLOSE dispatch under legacy and protocol-3 native-source funding assert exact refund event bodies, balances, flags, sequences and configured limits; disk snapshot reopen recovers identical records and refuses spending in this and the next period; zero-limit CREATE still refuses."
+keeper = "BudgetDefund and BudgetRevoke in modules/layerxpay/keeper/budget_close.go continue to submit the canonical payload through Submit's transaction; the kernel validator repair admits their zero-spend transitions."
+
+[finding.22.30.5.5]
+test = "tests/modules/test_budget_close.c:audit_helper_codec_reopen"
+proof = "Each exported close/revoke/full-defund helper consumes a record produced by real CREATE, preserves its positive configured limit, refunds exactly 300 through the canonical ledger, returns a nonzero transfer receipt root, and passes encode/decode and kernel KV commit; disk snapshot reopen proves identical bytes, zero remaining allowance and correct spend refusal."
+
+[wiring]
+go_reader = "modules/layerxpay/types/records_budget.go (owning domain 3, layerxpay): align DecodeBudgetRecord's effective-zero/configured-positive persistent-state rule with lx_budget_record_validate; retain positive creation limits."
+go_integration = "modules/layerxpay/keeper/budget_close_test.go (owning domain 3, layerxpay): run zero-spend revoke/full-defund and reload through BudgetRevoke/BudgetDefund after the reader is aligned; the declared C verification targets do not execute the Go keeper suite."

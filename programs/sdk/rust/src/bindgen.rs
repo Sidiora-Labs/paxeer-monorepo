@@ -8,7 +8,10 @@ use alloc::vec::Vec;
 use core::fmt::{self, Display, Write};
 use sha2::{Digest, Sha256};
 
-use crate::abi_policy::{admit_abi_version, capability_encoding, CapabilityEncoding};
+use crate::abi_policy::{
+    admit_abi_version, capability_encoding, AbiVersionRefusal, CapabilityEncoding, ABI_V1_VERSION,
+    ABI_V2_VERSION, ABI_V3_VERSION, ABI_V4_VERSION,
+};
 
 const DOMAIN: &[u8] = b"LayerX/program-interface/v1\0";
 const DOMAIN_V2: &[u8] = b"LayerX/program-interface/v2\0";
@@ -17,6 +20,14 @@ const DOMAIN_V4: &[u8] = b"LayerX/program-interface/v4\0";
 const MAX_INTERFACE_BYTES: usize = 952;
 const MAX_FIELDS: usize = 256;
 const MAX_DEPTH: usize = 16;
+
+pub fn admit_interface_abi_version(abi: u16) -> Result<(), AbiVersionRefusal> {
+    admit_abi_version(abi)?;
+    match abi {
+        ABI_V1_VERSION | ABI_V2_VERSION | ABI_V3_VERSION | ABI_V4_VERSION => Ok(()),
+        _ => Err(AbiVersionRefusal::Unsupported { requested: abi }),
+    }
+}
 
 /// Refusal returned before any source is emitted.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -134,11 +145,11 @@ impl BindingGenerator {
         }
         let mut cursor = DOMAIN.len();
         let code_hash = take::<32>(bytes, &mut cursor)?;
+        let abi = u16::from_be_bytes(take::<2>(bytes, &mut cursor)?);
+        admit_interface_abi_version(abi).map_err(|_| BindgenError::UnsupportedAbi)?;
         if code_hash == [0; 32] {
             return Err(BindgenError::InvalidSchema);
         }
-        let abi = u16::from_be_bytes(take::<2>(bytes, &mut cursor)?);
-        admit_abi_version(abi).map_err(|_| BindgenError::UnsupportedAbi)?;
         let count = count(bytes, &mut cursor)?;
         if count == 0 {
             return Err(BindgenError::InvalidSchema);
@@ -184,8 +195,19 @@ impl BindingGenerator {
 
     #[must_use]
     pub fn capability_descriptors(&self) -> Vec<(String, Vec<String>)> {
-        self.entries.iter().map(|entry| (entry.name.clone(),
-            entry.capabilities.iter().map(|encoded| hex(encoded)).collect())).collect()
+        self.entries
+            .iter()
+            .map(|entry| {
+                (
+                    entry.name.clone(),
+                    entry
+                        .capabilities
+                        .iter()
+                        .map(|encoded| hex(encoded))
+                        .collect(),
+                )
+            })
+            .collect()
     }
 
     #[must_use]
@@ -239,8 +261,12 @@ impl BindingGenerator {
             csharp: self.generate_csharp(),
             interface_digest: self.digest,
         };
-        let descriptor = self.capability_descriptors().iter().map(|(name, values)|
-            format!("{name}:{}", values.join(","))).collect::<Vec<_>>().join(";");
+        let descriptor = self
+            .capability_descriptors()
+            .iter()
+            .map(|(name, values)| format!("{name}:{}", values.join(",")))
+            .collect::<Vec<_>>()
+            .join(";");
         let abi = self.abi_version;
         let rust = format!("\npub const INTERFACE_ABI_VERSION:u16={abi};\npub const INTERFACE_CAPABILITIES:&str={descriptor:?};\n");
         generated.rust.push_str(&rust);
@@ -250,12 +276,18 @@ impl BindingGenerator {
         let java = format!("\npublic static final int INTERFACE_ABI_VERSION={abi};\npublic static final String INTERFACE_CAPABILITIES={descriptor:?};\n");
         let kotlin = format!("\nconst val INTERFACE_ABI_VERSION: Int = {abi}\nconst val INTERFACE_CAPABILITIES: String = {descriptor:?}\n");
         let csharp = format!("\npublic const ushort InterfaceABIVersion={abi};\npublic const string InterfaceCapabilities={descriptor:?};\n");
-        for (source, fields) in [(&mut generated.java, java), (&mut generated.kotlin, kotlin),
-                               (&mut generated.csharp, csharp)] {
+        for (source, fields) in [
+            (&mut generated.java, java),
+            (&mut generated.kotlin, kotlin),
+            (&mut generated.csharp, csharp),
+        ] {
             let end = source.rfind('}').unwrap_or(source.len());
             source.insert_str(end, &fields);
         }
-        let _ = writeln!(generated.python, "\nINTERFACE_ABI_VERSION = {abi}\nINTERFACE_CAPABILITIES = {descriptor:?}");
+        let _ = writeln!(
+            generated.python,
+            "\nINTERFACE_ABI_VERSION = {abi}\nINTERFACE_CAPABILITIES = {descriptor:?}"
+        );
         let _ = writeln!(generated.swift, "\npublic let layerXInterfaceABIVersion: UInt16 = {abi}\npublic let layerXInterfaceCapabilities: String = {descriptor:?}");
         generated
     }
@@ -367,7 +399,12 @@ function finish<T>(reader:Reader,value:T):T{reader.done();return value;}
     }
 }
 
-fn parse_entry(bytes: &[u8], cursor: &mut usize, abi: u16, dynamic_spend: &mut bool) -> Result<Entry, BindgenError> {
+fn parse_entry(
+    bytes: &[u8],
+    cursor: &mut usize,
+    abi: u16,
+    dynamic_spend: &mut bool,
+) -> Result<Entry, BindgenError> {
     let name = text(bytes, cursor)?;
     valid_name(&name)?;
     let discriminator = take::<4>(bytes, cursor)?;
@@ -673,7 +710,7 @@ fn emit_rust_entry(out: &mut String, e: &Entry, entries: &[Entry]) {
     } else {
         1
     };
-    let _=writeln!(out,"pub fn call(input:&Input,deployed_code_hash:[u8;32],published_digest:[u8;32])->Result<Call<Output,Failure>,BindingRefusal>{{check_target(deployed_code_hash,published_digest)?;let mut bytes=vec!{:?};bytes.push({convention});CanonicalEncode::encode(input,&mut bytes).map_err(BindingRefusal::Encode)?;if bytes.len()>MAX_CALLDATA_BYTES+4{{return Err(BindingRefusal::Encode(CodecError::TooLong))}}Ok(Call{{bytes,_type:core::marker::PhantomData}})}}",e.discriminator);
+    let _=writeln!(out,"pub fn call(input:&Input,deployed_code_hash:[u8;32],published_digest:[u8;32])->Result<Call<Output,Failure>,BindingRefusal>{{check_target(deployed_code_hash,published_digest)?;let mut bytes=vec!{:?};bytes.push({convention});CanonicalEncode::encode(input,&mut bytes).map_err(BindingRefusal::Encode)?;if bytes.len()>MAX_CALLDATA_BYTES{{return Err(BindingRefusal::Encode(CodecError::TooLong))}}Ok(Call{{bytes,_type:core::marker::PhantomData}})}}",e.discriminator);
     let output_convention = if matches!(e.output, Type::EvmHead) {
         2
     } else {
@@ -1247,51 +1284,123 @@ mod vectors {
     }
     #[test]
     fn typed_interfaces_retain_versioned_capabilities_in_every_language() {
-        for (abi, domain, capability) in [(1, DOMAIN, None), (2, DOMAIN, None),
-            (3, DOMAIN_V3, Some(11_u8)), (4, DOMAIN_V4, Some(12_u8))] {
+        for (abi, domain, capability) in [
+            (1, DOMAIN, None),
+            (2, DOMAIN, None),
+            (3, DOMAIN_V3, Some(11_u8)),
+            (4, DOMAIN_V4, Some(12_u8)),
+        ] {
             let mut bytes = domain.to_vec();
-            bytes.extend([9; 32]); bytes.extend(u16::to_be_bytes(abi));
-            bytes.extend([0, 1, 0, 4]); bytes.extend(b"call");
+            bytes.extend([9; 32]);
+            bytes.extend(u16::to_be_bytes(abi));
+            bytes.extend([0, 1, 0, 4]);
+            bytes.extend(b"call");
             bytes.extend([1, 2, 3, 4, 1, 0x10, 1, 0x10]);
             bytes.extend([0, u8::from(capability.is_some())]);
-            if let Some(capability) = capability { bytes.push(capability); }
-            bytes.extend([0, 0, 0, 0]);
-            let parsed = BindingGenerator::from_interface(&bytes).unwrap_or_else(|e| panic!("interface: {e}"));
-            assert_eq!(parsed.abi_version(), abi);
-            assert_eq!(parsed.capability_descriptors(), vec![("call".into(),
-                capability.map(|value| vec![hex(&[value])]).unwrap_or_default())]);
-            let generated = parsed.generate_all();
-            assert_eq!(generated, BindingGenerator::from_interface(&bytes)
-                .unwrap_or_else(|e| panic!("regeneration: {e}")).generate_all());
-            for source in [&generated.rust, &generated.typescript, &generated.guest,
-                &generated.go, &generated.java, &generated.kotlin, &generated.python,
-                &generated.swift, &generated.csharp] {
-                assert!(source.contains("call:"));
-                if let Some(capability) = capability { assert!(source.contains(&format!("call:{}", hex(&[capability])))); }
+            if let Some(capability) = capability {
+                bytes.push(capability);
             }
-            bytes[DOMAIN.len()+32..DOMAIN.len()+34].copy_from_slice(&5_u16.to_be_bytes());
-            assert_eq!(BindingGenerator::from_interface(&bytes), Err(BindgenError::UnsupportedAbi));
+            bytes.extend([0, 0, 0, 0]);
+            let parsed = BindingGenerator::from_interface(&bytes)
+                .unwrap_or_else(|e| panic!("interface: {e}"));
+            assert_eq!(parsed.abi_version(), abi);
+            assert_eq!(
+                parsed.capability_descriptors(),
+                vec![(
+                    "call".into(),
+                    capability
+                        .map(|value| vec![hex(&[value])])
+                        .unwrap_or_default()
+                )]
+            );
+            let generated = parsed.generate_all();
+            assert_eq!(
+                generated,
+                BindingGenerator::from_interface(&bytes)
+                    .unwrap_or_else(|e| panic!("regeneration: {e}"))
+                    .generate_all()
+            );
+            for source in [
+                &generated.rust,
+                &generated.typescript,
+                &generated.guest,
+                &generated.go,
+                &generated.java,
+                &generated.kotlin,
+                &generated.python,
+                &generated.swift,
+                &generated.csharp,
+            ] {
+                assert!(source.contains("call:"));
+                if let Some(capability) = capability {
+                    assert!(source.contains(&format!("call:{}", hex(&[capability]))));
+                }
+            }
+            bytes[DOMAIN.len() + 32..DOMAIN.len() + 34].copy_from_slice(&5_u16.to_be_bytes());
+            assert_eq!(
+                BindingGenerator::from_interface(&bytes),
+                Err(BindgenError::UnsupportedAbi)
+            );
         }
         extern crate std;
-        match (std::env::var_os("PAXEER_X_TYPED_INTERFACE_INPUTS"),
-               std::env::var_os("PAXEER_X_TYPED_CONSUMER_OUTPUT")) {
-            (None, None) => {},
+        match (
+            std::env::var_os("PAXEER_X_TYPED_INTERFACE_INPUTS"),
+            std::env::var_os("PAXEER_X_TYPED_CONSUMER_OUTPUT"),
+        ) {
+            (None, None) => {}
             (Some(_), Some(_)) => emit_typed_interfaces_consumers(),
             _ => panic!("typed consumer generation requires input and output directories together"),
+        }
+    }
+
+    #[test]
+    fn unsupported_interface_abi_is_refused_before_schema_validation() {
+        for abi in [0, 5, u16::MAX] {
+            let mut bytes = DOMAIN.to_vec();
+            bytes.extend([0; 32]);
+            bytes.extend(abi.to_be_bytes());
+            assert_eq!(
+                BindingGenerator::from_interface(&bytes),
+                Err(BindgenError::UnsupportedAbi)
+            );
+            bytes.extend([0, 0]);
+            assert_eq!(
+                BindingGenerator::from_interface(&bytes),
+                Err(BindgenError::UnsupportedAbi)
+            );
+        }
+        for abi in 1_u16..=4 {
+            let mut bytes = DOMAIN.to_vec();
+            bytes.extend([0; 32]);
+            bytes.extend(abi.to_be_bytes());
+            bytes.extend([0, 0]);
+            assert_eq!(
+                BindingGenerator::from_interface(&bytes),
+                Err(BindgenError::InvalidSchema)
+            );
         }
     }
 
     fn emit_typed_interfaces_consumers() {
         extern crate std;
         use std::{fs, path::PathBuf};
-        let inputs = PathBuf::from(std::env::var_os("PAXEER_X_TYPED_INTERFACE_INPUTS")
-            .unwrap_or_else(|| panic!("typed input directory required")));
-        let output = PathBuf::from(std::env::var_os("PAXEER_X_TYPED_CONSUMER_OUTPUT")
-            .unwrap_or_else(|| panic!("typed consumer output required")));
+        let inputs = PathBuf::from(
+            std::env::var_os("PAXEER_X_TYPED_INTERFACE_INPUTS")
+                .unwrap_or_else(|| panic!("typed input directory required")),
+        );
+        let output = PathBuf::from(
+            std::env::var_os("PAXEER_X_TYPED_CONSUMER_OUTPUT")
+                .unwrap_or_else(|| panic!("typed consumer output required")),
+        );
         for abi in 1..=4 {
-            for (phase, filename, bound) in [("initial", "interface.bin", 64), ("upgrade", "upgrade.bin", 128)] {
-                let encoded = fs::read(inputs.join(format!("abi{abi}/{filename}"))).unwrap_or_else(|e| panic!("interface: {e}"));
-                let generator = BindingGenerator::from_interface(&encoded).unwrap_or_else(|e| panic!("binding: {e}"));
+            for (phase, filename, bound) in [
+                ("initial", "interface.bin", 64),
+                ("upgrade", "upgrade.bin", 128),
+            ] {
+                let encoded = fs::read(inputs.join(format!("abi{abi}/{filename}")))
+                    .unwrap_or_else(|e| panic!("interface: {e}"));
+                let generator = BindingGenerator::from_interface(&encoded)
+                    .unwrap_or_else(|e| panic!("binding: {e}"));
                 assert_eq!(generator.abi_version(), abi);
                 let all = generator.generate_all();
                 let root = output.join(format!("abi{abi}-{phase}"));
@@ -1302,34 +1411,47 @@ mod vectors {
                     fs::write(path, bytes).unwrap_or_else(|e| panic!("consumer: {e}"));
                 };
                 write("rust/client.rs", &all.rust);
-                write("rust/main.rs", r#"include!("client.rs");
+                write(
+                    "rust/main.rs",
+                    r#"include!("client.rs");
 fn main(){let input=call::Input::new(vec![7]).unwrap();let c=call::call(&input,CODE_HASH,INTERFACE_DIGEST).unwrap();assert_eq!(c.as_bytes(),&[1,2,3,4,1,32,0,0,0,1,7]);assert_eq!(call::decode_output(&c.as_bytes()[4..]).unwrap().as_slice(),input.as_slice());assert!(matches!(call::decode_failure(7,&[1,16,9]),Ok(call::Failure::Denied(9))));assert!(matches!(call::call(&input,[0;32],INTERFACE_DIGEST),Err(BindingRefusal::CodeHashMismatch)));assert!(matches!(call::call(&input,CODE_HASH,[0;32]),Err(BindingRefusal::StaleInterface)));assert!(call::decode_output(&[255]).is_err());for c in ["roundtrip_call","typed_failure","stale_digest","wrong_code_hash","malformed_call"]{println!("BINDING_CASE {c}");}}
-"#);
+"#,
+                );
                 write("typescript/client.ts", &all.typescript);
-                let tail = format!(r#"
+                let tail = format!(
+                    r#"
 const input=boundedBytes({bound},Uint8Array.of(7));const c=encodeCall(input,CODE_HASH,INTERFACE_DIGEST);if(Array.from(c.bytes).join(',')!=='1,2,3,4,1,32,0,0,0,1,7')throw new Error('calldata');if(decodeCallOutput(c.bytes.slice(4))[0]!==7)throw new Error('output');if(decodeCallFailure(7,Uint8Array.of(1,16,9)).code!==7)throw new Error('failure');
 function expect(code:BindingRefusalCode,f:()=>unknown):void{{try{{f();}}catch(e){{if(e instanceof BindingRefusal&&e.code===code)return;throw e;}}throw new Error('missing refusal');}}
 expect('CODE_HASH_MISMATCH',()=>encodeCall(input,'00'.repeat(32),INTERFACE_DIGEST));expect('STALE_INTERFACE',()=>encodeCall(input,CODE_HASH,'00'.repeat(32)));expect('NON_CANONICAL',()=>decodeCallOutput(Uint8Array.of(255)));for(const c of ['roundtrip_call','typed_failure','stale_digest','wrong_code_hash','malformed_call'])console.log('BINDING_CASE '+c);
-"#);
+"#
+                );
                 write("typescript/main.ts", &format!("{}\n{tail}", all.typescript));
                 write("go/go.mod", "module conformance\n\ngo 1.18\n");
                 write("go/bindings/bindings.go", &all.go);
                 write("go/consumer/main.go", &generator.generate_go_consumer());
                 write("java/ProgramBindings.java", &all.java);
-                write("java/BindingConsumer.java", &generator.generate_java_consumer());
+                write(
+                    "java/BindingConsumer.java",
+                    &generator.generate_java_consumer(),
+                );
                 write("kotlin/ProgramBindings.kt", &all.kotlin);
-                write("kotlin/BindingConsumer.kt", &generator.generate_kotlin_consumer());
+                write(
+                    "kotlin/BindingConsumer.kt",
+                    &generator.generate_kotlin_consumer(),
+                );
                 write("python/bindings.py", &all.python);
                 write("python/consumer.py", &generator.generate_python_consumer());
                 write("swift/bindings.swift", &all.swift);
                 write("swift/main.swift", &generator.generate_swift_consumer());
                 write("csharp/bindings.cs", &all.csharp);
-                write("csharp/consumer.cs", r#"using System;using System.Linq;using L=LayerXBindings;
+                write(
+                    "csharp/consumer.cs",
+                    r#"using System;using System.Linq;using L=LayerXBindings;
 class Program{static void Expect(L.Refusal code,Action f){try{f();}catch(L.BindingRefusal e){if(e.Code==code)return;throw;}throw new Exception("missing refusal");}static void Main(){var input=L.EntryCall.Input.From(new byte[]{7});var c=L.EntryCall.Encode(input,L.CodeHash,L.InterfaceDigest);if(!c.Bytes.SequenceEqual(new byte[]{1,2,3,4,1,32,0,0,0,1,7}))throw new Exception("calldata");if(!c.DecodeOutput(c.Bytes.Skip(4).ToArray()).ToBytes().SequenceEqual(input.ToBytes()))throw new Exception("output");if(((L.EntryCall.Failure.Code7)c.DecodeFailure(7,new byte[]{1,16,9})).Detail.Value!=9)throw new Exception("typed failure");Expect(L.Refusal.CodeHashMismatch,()=>L.EntryCall.Encode(input,new string('0',64),L.InterfaceDigest));Expect(L.Refusal.StaleInterface,()=>L.EntryCall.Encode(input,L.CodeHash,new string('0',64)));Expect(L.Refusal.NonCanonical,()=>c.DecodeOutput(new byte[]{255}));foreach(var name in new[]{"roundtrip_call","typed_failure","stale_digest","wrong_code_hash","malformed_call"})Console.WriteLine("BINDING_CASE "+name);}}
-"#);
+"#,
+                );
                 write("csharp/consumer.csproj", "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><StartupObject>Program</StartupObject></PropertyGroup><ItemGroup><Compile Include=\"bindings.cs\"/><Compile Include=\"consumer.cs\"/></ItemGroup></Project>");
             }
         }
     }
-
 }

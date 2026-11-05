@@ -1,0 +1,10 @@
+SET LOCAL search_path = "ranking", pg_catalog;
+ALTER TABLE ranking.snapshots ADD COLUMN public_header jsonb;
+CREATE TABLE ranking.category_heads(category text PRIMARY KEY,run_id text NOT NULL,cutoff_time bigint NOT NULL,revision bigint NOT NULL CHECK(revision>0),FOREIGN KEY(run_id,category) REFERENCES ranking.snapshots(run_id,category));
+CREATE TABLE ranking.snapshot_entries(run_id text NOT NULL,category text NOT NULL,rank bigint NOT NULL CHECK(rank BETWEEN 1 AND 1000000),pool_address text NOT NULL,score text NOT NULL CHECK(score ~ '^[0-9]+(\.[0-9]+)?$'),PRIMARY KEY(run_id,category,rank),UNIQUE(run_id,category,pool_address),FOREIGN KEY(run_id,category) REFERENCES ranking.snapshots(run_id,category));
+ALTER TABLE ranking.publication_outbox ADD COLUMN category_sequence bigint CHECK(category_sequence>0),ADD COLUMN attempts integer NOT NULL DEFAULT 0 CHECK(attempts>=0),ADD COLUMN broker_stream text,ADD COLUMN broker_sequence bigint CHECK(broker_sequence>0);
+CREATE UNIQUE INDEX ranking_category_sequence ON ranking.publication_outbox(category,category_sequence);
+CREATE INDEX ranking_pending_category_sequence ON ranking.publication_outbox(category,category_sequence) WHERE published_at IS NULL;
+REVOKE ALL ON ranking.category_heads,ranking.snapshot_entries FROM PUBLIC;
+REVOKE ALL ON "ranking"."category_heads" FROM PUBLIC;
+REVOKE ALL ON "ranking"."snapshot_entries" FROM PUBLIC;

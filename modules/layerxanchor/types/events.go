@@ -14,6 +14,7 @@ const (
 	EventChallengeResolved   = "layerx_challenge_resolved"
 	EventSequencerAuthorized = "layerx_sequencer_authorized"
 	EventParamsUpdated       = "layerx_anchor_params_updated"
+	EventAnchorRetired       = "layerx_anchor_retired"
 
 	AttributeBatchNumber  = "batch_number"
 	AttributeCheckpointID = "checkpoint_id"
@@ -24,6 +25,7 @@ const (
 	AttributeSigner       = "signer"
 	AttributeOperator     = "operator"
 	AttributeAmount       = "amount"
+	AttributeReturned     = "returned_bond"
 	AttributeCompletion   = "completion_time"
 	AttributeReason       = "reason"
 	AttributeReporter     = "reporter"

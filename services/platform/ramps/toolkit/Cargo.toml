@@ -11,11 +11,10 @@ path = "src/bin/ramp-verify-receipt.rs"
 
 [dependencies]
 ed25519-dalek.workspace = true
+layerx-client.workspace = true
 layerx-crypto.workspace = true
-layerx-intents.workspace = true
 layerx-interop-gateway = { path = "../../../../services/interop/crates/layerx-interop-gateway" }
 layerx-migrate = { path = "../../../../services/interop/crates/layerx-migrate" }
-layerx-paxeer-client.workspace = true
 layerx-proof.workspace = true
 layerx-types.workspace = true
 layerx-wire.workspace = true
@@ -24,6 +23,7 @@ rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+sha3 = "=0.10.8"
 
 [lints]
 workspace = true

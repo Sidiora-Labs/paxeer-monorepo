@@ -1,0 +1,30 @@
+{
+  "name": "@paxeer/names-cli",
+  "version": "0.1.0",
+  "description": "Publish and verify content-addressed Paxeer sites",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.15.1",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "bin": {
+    "paxnames": "./dist/src/cli.js"
+  },
+  "files": [
+    "dist/src"
+  ],
+  "scripts": {
+    "prepare": "pnpm --ignore-workspace --dir ../../sdk/names exec tsc -p tsconfig.json --outDir ../../tools/names/node_modules/@paxeer/names/dist && tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.922.0",
+    "@paxeer/names": "file:../../sdk/names",
+    "viem": "^2.38.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
+  }
+}

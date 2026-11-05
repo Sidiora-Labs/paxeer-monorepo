@@ -25,12 +25,15 @@ func parseSubmitProposalFlags(fs *pflag.FlagSet) (*proposal, error) {
 		proposal.Description, _ = fs.GetString(FlagDescription)
 		proposal.Type = govutils.NormalizeProposalType(proposalType)
 		proposal.Deposit, _ = fs.GetString(FlagDeposit)
-		proposal.IsExpedited, _ = fs.GetBool(FlagIsExpedited)
+		proposal.IsExpedited, err = fs.GetBool(FlagIsExpedited)
+		if err != nil {
+			return nil, err
+		}
 		return proposal, nil
 	}
 
 	for _, flag := range ProposalFlags {
-		if v, _ := fs.GetString(flag); v != "" {
+		if fs.Changed(flag) {
 			return nil, fmt.Errorf("--%s flag provided alongside --proposal, which is a noop", flag)
 		}
 	}

@@ -1,0 +1,5 @@
+[disposition.20.2.2.2]
+finding = "20.2.2.2"
+status = "resolved"
+evidence = "Commit 4225a2e5c3ffe4b781d667aaa16021432bea93ba, present on origin/main, added 0x101E to MergeFailFastPrecompileAddresses at engine/executor/precompiles/failfast.go:131, whose entries populate AllCustomPrecompilesFailFastMerge checked by TestMergeAddressTableIsFailFast."
+follow_up = "closure"

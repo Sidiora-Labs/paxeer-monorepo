@@ -1,0 +1,44 @@
+[disposition.5.55.5.7]
+finding = "5.55.5.7"
+status = "resolved"
+evidence = "Commit 45733c5c2 landed the recorded V4 vector, whose committed-payExact positive at daemon/committed-fixture/vectors/vector-v4-committed.json:76 and settlement at daemon/committed-fixture/vectors/vector-v4-committed.json:217 replace the placeholder left by the recorder panic."
+
+[disposition.5.61.2]
+finding = "5.61.2"
+status = "resolved"
+evidence = "The task symbols at spec/layerx-merge/spec.kvx:138697 name only TestMakeBuildLinksConsensusVersion and TestMakeInstallQuotesBuildTags, declared at consensus/test/maketargets/consensus_makefile_test.go:62 and consensus/test/maketargets/consensus_makefile_test.go:78, so qualification no longer requires the Makefile variable LD_FLAGS as a graph symbol."
+
+[disposition.5.69.1]
+finding = "5.69.1"
+status = "resolved"
+evidence = "Commit 6b42b0744 added the Autobahn BlockByNumber path retained at consensus/internal/rpc/core/blocks.go:417, and the route test landed in fb94b36a4 asserts one returned block at height three at consensus/internal/rpc/core/autobahn_routes_conformance_test.go:196."
+
+[disposition.5.94.2]
+finding = "5.94.2"
+status = "resolved"
+evidence = "Commit c515832cc completed the deferred imports after the accessor task c833bda08, and node/precompiles.go:23 now imports oracle alongside scheduler and streams at node/precompiles.go:26 and node/precompiles.go:27."
+
+[disposition.5.94.4.1]
+finding = "5.94.4.1"
+status = "resolved"
+evidence = "Commit c515832cc moved the constructor test out of node/precompiles_agent_imports_test.go into its sole declaration at node/precompiles_agent_merge_imports_test.go:11, preserving the precompile assertions and adding the MissingMergeConstructors check at node/precompiles_agent_merge_imports_test.go:25."
+
+[disposition.5.98.1]
+finding = "5.98.1"
+status = "resolved"
+evidence = "Commit 9d87ee2aa supplied the halt-export bootstrap retained at tools/qualification/localnode/v6120-node.sh:373, which omits spot genesis at tools/qualification/localnode/v6120-node.sh:413 and schedules v6.12.0 at the initial height at tools/qualification/localnode/v6120-node.sh:629 to avoid initialising the spot store before InitV6120."
+
+[disposition.5.98.1.1]
+finding = "5.98.1.1"
+status = "resolved"
+evidence = "Commit 9d87ee2aa added the init-genesis consensus timeout and synchrony copying retained at tools/qualification/localnode/v6120-node.sh:409 and the separate default-completed validation genesis at tools/qualification/localnode/v6120-node.sh:558, leaving spot absent from the startup genesis at tools/qualification/localnode/v6120-node.sh:413."
+
+[disposition.5.98.1.2]
+finding = "5.98.1.2"
+status = "resolved"
+evidence = "Commit 9d87ee2aa added the full init-genesis app_state merge retained at tools/qualification/localnode/v6120-node.sh:559 before validate-genesis at tools/qualification/localnode/v6120-node.sh:564, supplying every missing module default including layerxledger."
+
+[disposition.5.98.1.3]
+finding = "5.98.1.3"
+status = "resolved"
+evidence = "Commit 9d87ee2aa added the nonce readiness loop retained at tools/qualification/localnode/v6120-node.sh:167, which waits for a valid hexadecimal eth_getTransactionCount result, reports the RPC response on timeout at tools/qualification/localnode/v6120-node.sh:171 and passes the explicit nonce to call-contract at tools/qualification/localnode/v6120-node.sh:177."

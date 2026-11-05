@@ -3,6 +3,7 @@ import os
 import secrets
 import ssl
 import sys
+import time
 import unittest
 from collections.abc import Callable
 from http.client import HTTPSConnection
@@ -19,6 +20,7 @@ from layerx_sdk.agent_http import (  # noqa: E402
     AgentEnvelopeTransport,
     AgentSessionCredential,
     LayerXKeyCredential,
+    _envelope_reply,
     check_proof_bundle_response,
     encode_proof_bundle_request,
 )
@@ -38,6 +40,7 @@ _KEYS = frozenset({
     "endpoint", "server_name", "ca_pem", "ca_der", "gateway_api_key_file", "program_bearer_file",
     "credential_file", "requests", "operations", "cases", "phase", "state_file", "response_dir",
     "retry_state_file", "daemon_endpoint", "client_cert_file", "client_key_file", "server_ca_file",
+    "admission_file", "recovery_file", "admission_public_key_file",
 })
 _DAEMON_KEYS = frozenset({"daemon_endpoint", "client_cert_file", "client_key_file", "server_ca_file"})
 _PHASES = frozenset({"read", "pre-restart", "post-restart"})
@@ -107,6 +110,8 @@ class Probe:
             raise ProbeRefused("response_dir must name an existing absolute directory")
         self.response_dir = Path(response_dir)
         self.phase = case["phase"]
+        self.restart_evidence = {name: case.get(name) for name in
+                                 ("admission_file", "recovery_file", "admission_public_key_file")}
         state_file = case.get("state_file")
         if self.phase != "read" and (not isinstance(state_file, str) or not os.path.isabs(state_file)):
             raise ProbeRefused("state_file must name an absolute path for restart phases")
@@ -328,8 +333,10 @@ class Probe:
         other = bytearray.fromhex(typed["target"])
         other[3] ^= 1
         reject({**value, "value": {**value["value"], "target": other.hex()}})
-        reject({**value, "achieved_verification_level": "SettlementAnchored"})
-        reject(value, {"state": "achieved", "level": "SettlementAnchored"})
+        other_rung = "receipted" if value["achieved_verification_level"] == "committed" else "committed"
+        reject({**value, "achieved_verification_level": other_rung})
+        reject(value, {"state": "achieved", "rung": other_rung})
+        reject(value, {"state": "achieved", "level": value["achieved_verification_level"]})
         reject({**value, "unexpected": True})
         for head in [0, "00", "18446744073709551616"]:
             reject({**value, "freshness": {**value["freshness"], "chain_head": head}})
@@ -482,8 +489,12 @@ class Probe:
                 "Content-Length": str(len(body)),
                 "Authorization": self._key().use(),
             })
+            # The controller must fsync and authenticate admission before we drop
+            # the response. A locally completed write is not server admission.
+            admission = self._restart_record("admission_file", state, "pending")
         finally:
             connection.close()
+        state["admission"] = admission
         self.state_file.write_text(json.dumps(state, sort_keys=True))
         self._record("restart_unknown_pending", 0, state)
 
@@ -493,7 +504,7 @@ class Probe:
         if not self.state_file.is_file():
             raise ProbeRefused("post-restart phase found no pre-restart state_file")
         state = json.loads(self.state_file.read_text())
-        if not isinstance(state, dict) or set(state) != {"request_id", "idempotency_key", "operation", "request"}:
+        if not isinstance(state, dict) or set(state) != {"request_id", "idempotency_key", "operation", "request", "admission"}:
             raise ProbeRefused("state_file is not the restart_unknown_pending record")
         first = self._raw("restart_unknown_reconcile", self._restart_envelope(state))
         second = self._raw("restart_unknown_reconcile", self._restart_envelope(state))
@@ -506,6 +517,47 @@ class Probe:
             self.assertIn(body["verification_status"].get("state"), {"achieved", "unverified"})
         self.assertEqual(first["body"]["value"], second["body"]["value"])
         self.assertEqual(first["body"]["verification_status"], second["body"]["verification_status"])
+        recovered = self._restart_record("recovery_file", state, "committed")
+        self.assertEqual(recovered["operation_id"], state["admission"]["operation_id"])
+        self.assertTrue(int(recovered["journal_sequence"]) >= int(state["admission"]["journal_sequence"]))
+        self.assertEqual(recovered["value"], first["body"]["value"])
+
+    def _restart_record(self, field: str, state: dict[str, object], phase: str) -> dict[str, object]:
+        from hashlib import sha256
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        path = self.restart_evidence.get(field)
+        key_path = self.restart_evidence.get("admission_public_key_file")
+        if not isinstance(path, str) or not os.path.isabs(path) or not isinstance(key_path, str):
+            raise ProbeRefused("authenticated durable journal evidence is required")
+        deadline = time.monotonic() + 30
+        while not Path(path).is_file():
+            if time.monotonic() >= deadline:
+                raise ProbeRefused("durable journal evidence was not acknowledged")
+            time.sleep(0.01)
+        from test_program_http import protected, unique
+        key = protected(key_path, 32)
+        document = json.loads(protected(path), object_pairs_hook=unique)
+        if not isinstance(document, dict) or set(document) != {"record", "signature"}:
+            raise ProbeRefused("exact authenticated journal envelope required")
+        record = document["record"]
+        fields = {"state", "request_sha256", "operation_id", "journal_sequence", "durable", "committed_effects", "value"}
+        if not isinstance(record, dict) or set(record) != fields:
+            raise ProbeRefused("exact durable journal record required")
+        encoded = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+        Ed25519PublicKey.from_public_bytes(key).verify(bytes.fromhex(document["signature"]), b"LayerX/restart-admission/v1\0" + encoded)
+        sequence = record["journal_sequence"]
+        identity = record["operation_id"]
+        if (record["state"] != phase or record["durable"] is not True
+                or type(record["committed_effects"]) is not int
+                or record["committed_effects"] != (0 if phase == "pending" else 1)
+                or record["request_sha256"] != sha256(self._restart_envelope(state)).hexdigest()
+                or not isinstance(identity, str) or len(identity) != 64
+                or any(c not in "0123456789abcdef" for c in identity)
+                or not isinstance(sequence, str) or not sequence.isascii() or not sequence.isdigit()
+                or str(int(sequence)) != sequence or not 0 < int(sequence) < 1 << 64):
+            raise ProbeRefused("durable admission or recovered effect binding failed")
+        return record
 
     def case_restart_retry_same_result(self) -> None:
         if self.retry_state_file is None:
@@ -571,6 +623,19 @@ class Probe:
         credential = dict(self.credential)
         credential["generation"] = "0" + str(credential["generation"])
         self._raw_refusal("noncanonical_integer", self._raw_envelope(credential=credential), 400, "envelope.noncanonical_integer")
+
+
+def test_agent_operation_envelope_reads_daemon_rung() -> None:
+    golden = Path(__file__).resolve().parents[4] / "services/agent/schema/agent-api/golden/agent-http-success.json"
+    encoded = golden.read_bytes()
+    expected = json.loads(encoded)
+
+    response = _envelope_reply(200, "application/json", encoded, "7", False)
+
+    assert isinstance(response, AgentEnvelopeSuccess)
+    assert response.request_id == expected["request_id"]
+    assert response.value == expected["value"]
+    assert response.verification_status == {"state": "achieved", "rung": "submitted"}
 
 
 def main() -> int:

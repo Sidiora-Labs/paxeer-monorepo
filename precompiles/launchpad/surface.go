@@ -6,10 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// SurfaceRuntime is the 41-byte runtime held by every surface address: it
-// copies the calldata, appends CALLER and CALLs 0x1017 with all gas and no
+// SurfaceRuntime is the 51-byte runtime held by every surface address: it
+// rejects native value, copies calldata, appends CALLER and CALLs 0x1017 with no
 // value, then returns or reverts with the callee's return data.
-var SurfaceRuntime = common.FromHex("0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3")
+// This exported snapshot does not alias the keeper's installation bytecode.
+var SurfaceRuntime = common.CopyBytes(launchpadkeeper.SurfaceRuntime)
 
 // codeWriter is the EVM keeper method that installs runtime code.
 type codeWriter interface {
@@ -26,7 +27,7 @@ func InstallSurface(ctx sdk.Context, evmKeeper codeWriter, k *launchpadkeeper.Ke
 	if err := k.SetSurface(ctx, address, surface); err != nil {
 		return err
 	}
-	evmKeeper.SetCode(ctx, address, SurfaceRuntime)
+	evmKeeper.SetCode(ctx, address, launchpadkeeper.SurfaceRuntime)
 	return nil
 }
 

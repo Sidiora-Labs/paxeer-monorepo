@@ -1,8 +1,7 @@
 use crate::proto::VerifyFromEtherscanSourcifyRequest;
-use blockscout_display_bytes::Bytes as DisplayBytes;
 use serde::{Deserialize, Serialize};
 use smart_contract_verifier::sourcify::api::VerifyFromEtherscanRequest;
-use std::{ops::Deref, str::FromStr};
+use std::ops::Deref;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct VerifyFromEtherscanSourcifyRequestWrapper(VerifyFromEtherscanSourcifyRequest);
@@ -37,13 +36,7 @@ impl TryFrom<VerifyFromEtherscanSourcifyRequestWrapper> for VerifyFromEtherscanR
     fn try_from(request: VerifyFromEtherscanSourcifyRequestWrapper) -> Result<Self, Self::Error> {
         let request = request.into_inner();
         Ok(Self {
-            address: DisplayBytes::from_str(&request.address)
-                .map_err(|err| {
-                    tonic::Status::invalid_argument(format!(
-                        "address is not a valid by sequence: {err}"
-                    ))
-                })?
-                .0,
+            address: super::evm_address::EvmAddress::parse(&request.address)?.into_bytes(),
             chain: request.chain,
         })
     }
@@ -52,12 +45,14 @@ impl TryFrom<VerifyFromEtherscanSourcifyRequestWrapper> for VerifyFromEtherscanR
 #[cfg(test)]
 mod tests {
     use super::*;
+    use blockscout_display_bytes::Bytes as DisplayBytes;
     use pretty_assertions::assert_eq;
+    use std::str::FromStr;
 
     #[test]
     fn try_into_verification_request() {
         let request = VerifyFromEtherscanSourcifyRequest {
-            address: "0x0123456789abcdef0123456789abcdef0123".to_string(),
+            address: "0x0123456789abcdef0123456789abcdef01234567".to_string(),
             chain: "77".to_string(),
         };
 
@@ -67,7 +62,7 @@ mod tests {
                 .expect("try_into VerifyFromEtherscanRequest failed");
 
         let expected = VerifyFromEtherscanRequest {
-            address: DisplayBytes::from_str("0x0123456789abcdef0123456789abcdef0123")
+            address: DisplayBytes::from_str("0x0123456789abcdef0123456789abcdef01234567")
                 .unwrap()
                 .0,
             chain: "77".to_string(),

@@ -4,7 +4,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.InternalTransaction do
   """
   require OpenApiSpex
 
-  alias BlockScoutWeb.Schemas.API.V2.{Address, General}
+  alias BlockScoutWeb.Schemas.API.V2.{Address, AddressNullable, General}
   alias OpenApiSpex.Schema
 
   OpenApiSpex.schema(%{
@@ -30,7 +30,7 @@ defmodule BlockScoutWeb.Schemas.API.V2.InternalTransaction do
         description: "The index of the parent transaction inside the block."
       },
       from: Address,
-      to: Address,
+      to: AddressNullable,
       created_contract: %Schema{allOf: [Address], nullable: true},
       value: General.IntegerString,
       block_number: %Schema{

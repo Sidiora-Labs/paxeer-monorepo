@@ -4,6 +4,7 @@ use layerx_agent_api::identity::{
     NativeLocalGrantConsentV1, NativePreparationPurposeV1, NativeSendPurposeV1,
     SignedNativeSendPurposeV1,
 };
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_kms::attestor::{
     native_local_grant_signing_bytes, AttestorClient, AttestorError, AttestorSigner,
 };
@@ -19,6 +20,7 @@ use layerx_human_service::store::{
     AgentTenantId, PrincipalId, PrincipalStore, RetentionPeriod, RetentionPolicy, TenancyMap,
 };
 use layerx_human_service::trace::TraceId;
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::payload::ModuleRegistry;
 use serde::Deserialize;
 use serde_json::json;
@@ -33,7 +35,7 @@ use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -96,10 +98,10 @@ fn write_private(path: &Path, value: serde_json::Value) -> Result<()> {
     Ok(())
 }
 
-fn wait(path: &Path) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(120);
+fn wait(path: &Path, clock: &dyn Clock) -> Result<()> {
+    let mut deadline = Deadline::start(clock, Duration::from_secs(120))?;
     while !path.exists() {
-        if Instant::now() >= deadline {
+        if deadline.remaining(clock)?.is_zero() {
             return Err("actual provider authority handshake deadline".into());
         }
         std::thread::sleep(Duration::from_millis(20));
@@ -208,12 +210,13 @@ impl Drop for Authenticator {
     }
 }
 
-fn current_time() -> Result<u64> {
-    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+fn current_time(clock: &dyn Clock) -> Result<u64> {
+    Ok(clock.sample(Duration::from_secs(1))?.unix_seconds())
 }
 
 #[test]
 fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
+    let clock = RuntimeClock::from_environment()?;
     let path = std::env::var("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE")?;
     let fixture: Fixture = serde_json::from_slice(&read_private(Path::new(&path))?)?;
     if fixture.schema != "layerx-human-native-send-live.v1" {
@@ -254,7 +257,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         &directory.join("provision.json"),
         json!({"key_id":provider_key}),
     )?;
-    wait(&directory.join("provision-ready"))?;
+    wait(&directory.join("provision-ready"), clock.as_ref())?;
     let keystore = Keystore::open_production(directory.join("custody"), 125, provider.clone())?;
     let public = provider.create_owned_key(
         &keystore,
@@ -268,7 +271,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         &directory.join("generated.json"),
         json!({"public":public.to_vec()}),
     )?;
-    wait(&directory.join("signing.json"))?;
+    wait(&directory.join("signing.json"), clock.as_ref())?;
     let material: Material =
         serde_json::from_slice(&read_private(&directory.join("signing.json"))?)?;
     let purpose = NativeSendPurposeV1::from_canonical_bytes(&STANDARD.decode(&material.purpose)?)
@@ -308,7 +311,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         ModuleRegistry::new(&[]).map_err(|error| format!("{error:?}"))?,
         SigningLimits::new(32, 60)?,
     );
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let now = current_time(clock.as_ref())?;
     let mut trace_entropy = [0; 16];
     getrandom::fill(&mut trace_entropy)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
@@ -472,28 +475,32 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     })?;
     let account = AccountIdentity::new(principal.as_str(), "Native consent qualification")?;
     let mut authenticator = Authenticator::open()?;
-    let registration =
-        passkeys.begin_registration(&mut scope, &account, "Disposable passkey", current_time()?)?;
+    let registration = passkeys.begin_registration(
+        &mut scope,
+        &account,
+        "Disposable passkey",
+        current_time(clock.as_ref())?,
+    )?;
     let credential = authenticator.credential("register", &registration.ceremony)?;
     passkeys.finish_registration(
         &mut scope,
         &registration.registration_id,
         &credential,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
-    let assertion = passkeys.begin_assertion(&mut scope, current_time()?)?;
+    let assertion = passkeys.begin_assertion(&mut scope, current_time(clock.as_ref())?)?;
     let credential = authenticator.credential("assert", &assertion.ceremony)?;
     passkeys.finish_assertion(
         &mut scope,
         &assertion.assertion_id,
         &credential,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     let session = passkeys.open_session(
         &mut scope,
         &assertion.assertion_id,
         Device::mint("Disposable authenticator", "qualification")?,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     let confirms = OperationDigest::new(grant_digest);
     let challenge = passkeys.begin_step_up(
@@ -501,7 +508,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         session.access_token().expose(),
         session.csrf_token().expose(),
         confirms,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     let credential = authenticator.credential("assert", &challenge.ceremony)?;
     let mut forged: serde_json::Value =
@@ -519,21 +526,21 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             &mut scope,
             &challenge.challenge_id,
             &forged,
-            current_time()?
+            current_time(clock.as_ref())?
         )
         .is_err());
     let authenticated = passkeys.finish_step_up(
         &mut scope,
         &challenge.challenge_id,
         &credential,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
     assert!(passkeys
         .finish_step_up(
             &mut scope,
             &challenge.challenge_id,
             &credential,
-            current_time()?
+            current_time(clock.as_ref())?
         )
         .is_err());
     let capability_digest: [u8; 32] = Sha256::digest(&grant.capability).into();
@@ -546,7 +553,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             Operation::SecuritySettings,
             grant_digest,
             capability_digest,
-            current_time()?
+            current_time(clock.as_ref())?
         ),
         Err(CustodyError::InvalidEvidence)
     ));
@@ -571,7 +578,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             Operation::SecuritySettings,
             grant_digest,
             capability_digest,
-            current_time()?
+            current_time(clock.as_ref())?
         ),
         Err(CustodyError::InvalidEvidence)
     ));
@@ -583,12 +590,10 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         Operation::SecuritySettings,
         grant_digest,
         capability_digest,
-        current_time()?,
+        current_time(clock.as_ref())?,
     )?;
-    let changed_grant = NativeLocalGrantConsentV1 {
-        expires_at_ms: grant.expires_at_ms - 1,
-        ..grant.clone()
-    };
+    let mut changed_grant = grant.clone();
+    changed_grant.owner_public_key[0] ^= 1;
     let mismatched = ready(custody.sign_native_consent_in_scope(
         &mut scope,
         NativeConsentRequest::new(
@@ -596,11 +601,30 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             &key,
             NativeConsent::LocalGrant(&changed_grant),
             SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time()?,
+            current_time(clock.as_ref())?,
             trace.clone(),
         ),
     ))?;
     assert!(matches!(mismatched, Err(CustodyError::StepUpMismatch)));
+    let expiry_skewed_grant = NativeLocalGrantConsentV1 {
+        expires_at_ms: grant.expires_at_ms - 1,
+        ..grant.clone()
+    };
+    let invalid_evidence = ready(custody.sign_native_consent_in_scope(
+        &mut scope,
+        NativeConsentRequest::new(
+            &principal,
+            &key,
+            NativeConsent::LocalGrant(&expiry_skewed_grant),
+            SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
+            current_time(clock.as_ref())?,
+            trace.clone(),
+        ),
+    ))?;
+    assert!(matches!(
+        invalid_evidence,
+        Err(CustodyError::InvalidEvidence)
+    ));
     provider.admit_assertion(&fixture.owner, &fixture.second_assertion)?;
     let signed = ready(custody.sign_native_consent_in_scope(
         &mut scope,
@@ -609,7 +633,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             &key,
             NativeConsent::LocalGrant(&grant),
             SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time()?,
+            current_time(clock.as_ref())?,
             trace.clone(),
         ),
     ))??;
@@ -628,7 +652,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             &key,
             NativeConsent::LocalGrant(&grant),
             SignAuthorization::new(Operation::SecuritySettings, Some(&evidence)),
-            current_time()?,
+            current_time(clock.as_ref())?,
             trace.clone(),
         ),
     ))?;

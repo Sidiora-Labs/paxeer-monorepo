@@ -1,81 +1,45 @@
 package layerxanchor_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/stretchr/testify/require"
 )
 
-// The bring-up writes the anchor section with services/platform/hosted/paxeer/anchor-genesis.py and paxd
-// validate-genesis runs AppModuleBasic.ValidateGenesis over it. This runs the same script and
-// the same validation.
-func TestBringUpAnchorGenesisValidates(t *testing.T) {
-	python, err := exec.LookPath("python3")
-	require.NoError(t, err)
-	script, err := filepath.Abs("../../services/platform/hosted/paxeer/anchor-genesis.py")
-	require.NoError(t, err)
-	deployer := "70997970c51812dc3a010c7d01b50e0d17dc79c8"
-	sequencer := "11" + hex.EncodeToString(make([]byte, 31))
-	key := "22" + hex.EncodeToString(make([]byte, 31))
-	run := func(output string, extra ...string) ([]byte, error) {
-		args := append([]string{script, "--authority-evm", "0x" + deployer, "--paxeer-chain-id", "125",
-			"--network-id", "7", "--threshold", "2", "--sequencer-id", sequencer,
-			"--sequencer-public-key", "0x" + key, "--output", output}, extra...)
-		return exec.Command(python, args...).CombinedOutput()
+func TestAnchorGenesisValidationAcceptsAbsentExportState(t *testing.T) {
+	encoding := app.MakeEncodingConfig()
+	consumer, ok := app.ModuleBasics[types.ModuleName]
+	require.True(t, ok)
+	for name, state := range map[string]json.RawMessage{
+		"nil":   nil,
+		"empty": {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.NoError(t, consumer.ValidateGenesis(encoding.Marshaler, encoding.TxConfig, state))
+		})
 	}
+	state := consumer.DefaultGenesis(encoding.Marshaler)
+	require.NotEmpty(t, state)
+	require.NoError(t, consumer.ValidateGenesis(encoding.Marshaler, encoding.TxConfig, state))
+}
 
-	output := filepath.Join(t.TempDir(), "genesis.json")
-	out, err := run(output)
-	require.NoError(t, err, string(out))
-	raw, err := os.ReadFile(output)
-	require.NoError(t, err)
-	require.NoError(t, layerxanchor.AppModuleBasic{}.ValidateGenesis(nil, nil, raw))
-
-	var genesis types.GenesisState
-	require.NoError(t, json.Unmarshal(raw, &genesis))
-	authority, err := hex.DecodeString(deployer)
-	require.NoError(t, err)
-	require.Equal(t, sdk.AccAddress(authority).String(), genesis.Params.Authority)
-	require.Equal(t, uint64(125), genesis.Params.PaxeerChainID)
-	require.Equal(t, types.AnchorPrecompileAddress, genesis.Params.SettlementContract)
-	require.Equal(t, uint32(7), genesis.Params.NetworkID)
-	require.Equal(t, uint32(2), genesis.Params.Threshold)
-	require.Equal(t, types.DefaultParams(genesis.Params.Authority).MinBond, genesis.Params.MinBond)
-	require.Equal(t, types.DefaultParams(genesis.Params.Authority).BondDenom, genesis.Params.BondDenom)
-	require.False(t, genesis.Anchor.Set)
-	require.Empty(t, genesis.Guarantors)
-	require.Len(t, genesis.Sequencers, 1)
-	require.Equal(t, uint64(1), genesis.Sequencers[0].FirstBatchNumber)
-	require.Equal(t, uint64(1)<<40, genesis.Sequencers[0].LastBatchNumber)
-
-	// A guarantor set known before the chain starts is genesis state too.
-	output = filepath.Join(t.TempDir(), "genesis.json")
-	first := "01" + hex.EncodeToString(make([]byte, 31))
-	second := "02" + hex.EncodeToString(make([]byte, 31))
-	out, err = run(output,
-		"--guarantor", first+":00000000000000000000000000000000000000a1:0x"+deployer+":1000000",
-		"--guarantor", second+":00000000000000000000000000000000000000a2:0x"+deployer+":2000000")
-	require.NoError(t, err, string(out))
-	raw, err = os.ReadFile(output)
-	require.NoError(t, err)
-	require.NoError(t, layerxanchor.AppModuleBasic{}.ValidateGenesis(nil, nil, raw))
-	require.NoError(t, json.Unmarshal(raw, &genesis))
-	require.Len(t, genesis.Guarantors, 2)
-	require.Equal(t, types.GuarantorActive, genesis.Guarantors[0].Status)
-
-	// The script refuses what the module refuses.
-	out, err = run(filepath.Join(t.TempDir(), "genesis.json"), "--guarantor", first+":00000000000000000000000000000000000000a1:0x"+deployer+":1")
-	require.Error(t, err, string(out))
-	out, err = run(filepath.Join(t.TempDir(), "genesis.json"), "--last-batch", "0")
-	require.Error(t, err, string(out))
+func TestAnchorGenesisValidationRefusesMalformedSuppliedState(t *testing.T) {
+	encoding := app.MakeEncodingConfig()
+	consumer, ok := app.ModuleBasics[types.ModuleName]
+	require.True(t, ok)
+	state := consumer.DefaultGenesis(encoding.Marshaler)
+	for name, malformed := range map[string]json.RawMessage{
+		"truncated":  state[:len(state)-1],
+		"whitespace": []byte(" "),
+		"wrong type": []byte("[]"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := consumer.ValidateGenesis(encoding.Marshaler, encoding.TxConfig, malformed)
+			require.ErrorContains(t, err, "failed to unmarshal layerxanchor genesis state")
+		})
+	}
+	require.Error(t, consumer.ValidateGenesis(encoding.Marshaler, encoding.TxConfig, json.RawMessage("{}")))
 }

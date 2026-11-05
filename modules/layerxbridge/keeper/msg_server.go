@@ -103,7 +103,7 @@ func (k Keeper) SetAttestors(ctx sdk.Context, msg types.MsgSetAttestors) error {
 
 // SetCap sets the caps of a registered chain's asset. The first cap of an
 // asset creates its tokenfactory denom with the bridge module account as
-// admin.
+// admin. Sidiora's canonical pair must be registered before setting its cap.
 func (k Keeper) SetCap(ctx sdk.Context, msg types.MsgSetCap) error {
 	if err := msg.ValidateBasic(); err != nil {
 		return err
@@ -115,6 +115,14 @@ func (k Keeper) SetCap(ctx sdk.Context, msg types.MsgSetCap) error {
 		return types.ErrUnknownChain.Wrapf("chain %d", msg.ChainID)
 	}
 	record, found := k.GetAsset(ctx, msg.ChainID, msg.Asset)
+	if types.IsSidioraPair(msg.ChainID, msg.Asset) {
+		if !found {
+			return types.ErrInvalidRequest.Wrap("register the Sidiora pair before setting its cap")
+		}
+		if record.Denom != types.SidioraDenom() {
+			return types.ErrInvalidRequest.Wrap("Sidiora's existing denom requires a governed migration")
+		}
+	}
 	if !found {
 		denom, err := k.tokenFactory.CreateDenom(ctx, k.ModuleAddress().String(), types.Subdenom(msg.ChainID, msg.Asset))
 		if err != nil {

@@ -363,13 +363,19 @@ pub fn import_state(
     program: ProgramId,
     cells: &[(MigrationCell, [u8; 32])],
 ) -> Result<usize, PortRefusal> {
+    let principals = cells
+        .iter()
+        .map(|(cell, _)| PrincipalId::new(cell.principal))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut candidate = storage.clone();
     let mut changed = 0_usize;
-    for (cell, value) in cells {
-        let principal = PrincipalId::new(cell.principal)?;
-        let mut transaction = storage.transaction(StorageNamespace::principal(program, principal));
+    for ((cell, value), principal) in cells.iter().zip(principals) {
+        let mut transaction =
+            candidate.transaction(StorageNamespace::principal(program, principal));
         transaction.write(&cell.layerx_key, value)?;
         changed = changed.saturating_add(transaction.commit());
     }
+    *storage = candidate;
     Ok(changed)
 }
 

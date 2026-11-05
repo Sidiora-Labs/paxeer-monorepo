@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { closeSync, existsSync, lstatSync, mkdirSync, openSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -5,7 +6,8 @@ import type {
   AgentReceiptContext, AgentReceiptEvidence, AgentReceiptRecording, AgentReceiptResolver,
 } from "@sidiora/layerx-agent-middleware";
 import {
-  AgentEnvelopeTransport, PlatformSdkError, isSelectableProtocolVersion, verifyReceipt,
+  AgentEnvelopeTransport, PlatformSdkError, Rung, isSelectableProtocolVersion, keccak256,
+  verifySequencerReceipt as verifySignedSequencerReceipt,
   type AgentEnvelopeSuccess, type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
 
@@ -20,6 +22,7 @@ export interface DaemonReceiptResolverOptions {
   readonly protocolVersion: SelectableProtocolVersion;
   readonly principal: DaemonReceiptPrincipal;
   readonly storePath: string;
+  readonly receiptEvidence?: AgentReceiptResolver;
 }
 
 interface Binding extends AgentReceiptContext { readonly receiptDigest: string }
@@ -27,7 +30,7 @@ const APPLICATION_ID = 0x4c585250;
 const MAX_BINDINGS = 65536;
 const MAX_RECEIPT_BYTES = 1048576;
 const VERIFIED_LEVELS = new Set([
-  "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored",
+  "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised",
 ]);
 const CONTEXT_SCHEMA = "CREATE TABLE receipt_context (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), tenant TEXT NOT NULL, actor TEXT NOT NULL, session_id TEXT NOT NULL, protocol_version INTEGER NOT NULL) STRICT";
 const BINDING_SCHEMA = "CREATE TABLE receipt_bindings (receipt_digest TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE, activity_id TEXT NOT NULL UNIQUE) STRICT";
@@ -39,6 +42,7 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
   readonly #principal: Readonly<DaemonReceiptPrincipal>;
   readonly #path: string;
   readonly #database: DatabaseSync;
+  readonly #receiptEvidence: AgentReceiptResolver | undefined;
   #closed = false;
 
   public constructor(options: DaemonReceiptResolverOptions) {
@@ -46,6 +50,8 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
       || typeof options.storePath !== "string" || !isAbsolute(options.storePath)
       || options.storePath.length > 4096 || options.storePath.includes("\0")) throw invalidArgument();
     this.#transport = options.transport;
+    if (options.receiptEvidence !== undefined && typeof options.receiptEvidence.resolve !== "function") throw invalidArgument();
+    this.#receiptEvidence = options.receiptEvidence;
     this.#protocolVersion = options.protocolVersion;
     this.#principal = Object.freeze({
       tenant: boundedText(options.principal.tenant, 255, invalidArgument),
@@ -127,38 +133,22 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
   async #lookup(context: AgentReceiptContext, expectedDigest?: string): Promise<{ evidence: AgentReceiptEvidence; receiptDigest: string }> {
     this.#assertPrincipal();
     const response = await this.#transport.call<
-      { readonly idempotency_key: string; readonly expected_activity_id: string }, AgentEnvelopeSuccess
+      { readonly idempotency_key: string; readonly expected_activity_id: string; readonly requested_rung: "receipted" }, AgentEnvelopeSuccess
     >({
       plane: "agent", operation: "program.receipt",
-      request: { idempotency_key: context.idempotencyKey, expected_activity_id: context.activityId },
+      request: { idempotency_key: context.idempotencyKey, expected_activity_id: context.activityId,
+        requested_rung: "receipted" },
     });
     const value = record(response.value, decodeFailure);
     if (value["found"] === false) { exact(value, ["found"], decodeFailure); throw unavailable(); }
     exact(value, ["found", "receipt"], decodeFailure);
     if (value["found"] !== true) throw decodeFailure();
     const receipt = record(value["receipt"], decodeFailure);
-    exact(receipt, ["canonical_bytes", "authorised_batch", "verification_level"], decodeFailure);
-    const level = receipt["verification_level"];
-    if (typeof level !== "string" || !VERIFIED_LEVELS.has(level)) throw verificationFailure();
-    const status = record(response.verification_status, decodeFailure);
-    exact(status, ["state", "level"], decodeFailure);
-    if (status["state"] !== "achieved" || status["level"] !== level) throw verificationFailure();
-    const batch = record(receipt["authorised_batch"], decodeFailure);
-    exact(batch, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"], decodeFailure);
-    const fixed = (field: string): Uint8Array => Buffer.from(hex(batch[field], 32, 32), "hex");
-    const evidence: AgentReceiptEvidence = {
-      canonicalReceipt: Buffer.from(hex(receipt["canonical_bytes"], MAX_RECEIPT_BYTES), "hex"),
-      authorizedBatch: { batchId: fixed("batch_id"), asset: fixed("asset"),
-        previousStateRoot: fixed("previous_state_root"), resultingStateRoot: fixed("resulting_state_root"),
-        sequencerPublicKey: fixed("sequencer_public_key") },
-    };
-    try {
-      const verified = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, { protocolVersion: this.#protocolVersion });
-      const receiptDigest = Buffer.from(verified.receiptDigest).toString("hex");
-      if (expectedDigest !== undefined && receiptDigest !== expectedDigest
-        || Buffer.from(verified.receipt.activityId).toString("hex") !== context.activityId) throw verificationFailure();
-      return { evidence, receiptDigest };
-    } catch { throw verificationFailure(); }
+    if (Object.prototype.hasOwnProperty.call(receipt, "canonical_bytes")) {
+      if (this.#receiptEvidence === undefined) throw unavailable();
+      return verifyCurrentDaemonReceipt(receipt, response.verification_status, context, this.#receiptEvidence, expectedDigest);
+    }
+    return verifySequencerReceipt(receipt, response.verification_status, context, expectedDigest);
   }
 
   #persist(binding: Binding, reference: string): void {
@@ -206,6 +196,119 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
     try { assertPrincipal(this.#database, this.#principal, this.#protocolVersion); }
     catch { throw storeFailure(); }
   }
+}
+
+async function verifyCurrentDaemonReceipt(
+  receipt: Readonly<Record<string, unknown>>, verificationStatus: unknown, context: AgentReceiptContext,
+  source: AgentReceiptResolver, expectedDigest?: string,
+): Promise<{ evidence: AgentReceiptEvidence; receiptDigest: string }> {
+  const metadata = ["verification_level", "receipt_hash", "block_height", "signed_receipt", "receipt_key_id",
+    "public_key", "first_height", "last_height", "inclusion_height"];
+  const hasMetadata = metadata.some((field) => Object.prototype.hasOwnProperty.call(receipt, field));
+  exact(receipt, ["tx_hash", "canonical_bytes", "authorised_batch", "rung", ...(hasMetadata ? metadata : [])], decodeFailure);
+  const status = record(verificationStatus, decodeFailure);
+  if (status["state"] !== "achieved") throw verificationFailure();
+  exact(status, ["state", "rung"], decodeFailure);
+  const rung = receipt["rung"];
+  if (rung !== "receipted" && rung !== "committed"
+    || status["rung"] !== (rung === "receipted" ? Rung.Receipted : Rung.Committed)
+    || identifier(receipt["tx_hash"], decodeFailure) !== context.activityId) throw verificationFailure();
+  const signedReceipt = hex(receipt["canonical_bytes"], MAX_RECEIPT_BYTES);
+  const batch = record(receipt["authorised_batch"], decodeFailure);
+  exact(batch, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"], decodeFailure);
+  for (const value of Object.values(batch)) hex(value, 32, 32);
+  const proof = await source.resolve(context.activityId);
+  if (proof.format !== "layerx-receipt-proof-v2" || proof.verificationLevel !== "receipted"
+    || proof.signedReceipt !== `0x${signedReceipt}`) throw verificationFailure();
+  const key = proof.receiptKey;
+  const firstHeight = portableHeight(key.firstHeight), lastHeight = portableHeight(key.lastHeight);
+  const verified = await verifySequencerReceipt({
+    raw_transaction: portableBytes(proof.rawTransaction), signed_receipt: signedReceipt,
+    receipt_key: { key_id: portableBytes(key.keyId), public_key: portableBytes(key.publicKey),
+      first_height: firstHeight.toString(), last_height: lastHeight.toString() },
+    verification_level: "SequencerSigned",
+  }, { state: "achieved", rung: Rung.Receipted }, context, expectedDigest);
+  if (proof.receiptDigest !== verified.evidence.receiptDigest) throw verificationFailure();
+  const signed = await verifySignedSequencerReceipt(Buffer.from(signedReceipt, "hex"),
+    Buffer.from(portableBytes(proof.rawTransaction), "hex"), [{ keyId: Buffer.from(portableBytes(key.keyId), "hex"),
+      publicKey: Buffer.from(portableBytes(key.publicKey), "hex"), first_height: firstHeight, last_height: lastHeight }]);
+  for (const [field, bytes] of [
+    ["batch_id", signed.receipt.batchId], ["asset", signed.receipt.asset],
+    ["previous_state_root", signed.receipt.previousStateRoot], ["resulting_state_root", signed.receipt.resultingStateRoot],
+    ["sequencer_public_key", Buffer.from(portableBytes(key.publicKey), "hex")],
+  ] as const) if (batch[field] !== Buffer.from(bytes).toString("hex")) throw verificationFailure();
+  if (hasMetadata) {
+    if (receipt["signed_receipt"] !== signedReceipt || receipt["receipt_key_id"] !== portableBytes(key.keyId)
+      || receipt["public_key"] !== portableBytes(key.publicKey)
+      || receiptHeight(receipt["first_height"]) !== firstHeight.toString()
+      || receiptHeight(receipt["last_height"]) !== lastHeight.toString()
+      || receiptHeight(receipt["block_height"]) === "0"
+      || receipt["inclusion_height"] !== receipt["block_height"]
+      || BigInt(`0x${batch["batch_id"] as string}`) !== BigInt(receipt["block_height"] as string)
+      || !/^[1-4]$/u.test(String(receipt["verification_level"]))) throw verificationFailure();
+    // receipt_hash is the daemon's SHA-256 identifier; portable digests use Keccak.
+    if (receipt["receipt_hash"] !== createHash("sha256").update(Buffer.from(signedReceipt, "hex")).digest("hex")) throw verificationFailure();
+  }
+  return verified;
+}
+
+function portableBytes(value: string): string {
+  if (typeof value !== "string" || !value.startsWith("0x")) throw decodeFailure();
+  return hex(value.slice(2), MAX_RECEIPT_BYTES);
+}
+
+function portableHeight(value: string): bigint {
+  if (typeof value !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(value)) throw decodeFailure();
+  return BigInt(value);
+}
+
+export async function verifySequencerReceipt(
+  receiptValue: unknown, verificationStatus: unknown, input: AgentReceiptContext, expectedDigest?: string,
+): Promise<{ evidence: AgentReceiptEvidence; receiptDigest: string }> {
+  const context = copyContext(input);
+  const receipt = record(receiptValue, decodeFailure);
+  exact(receipt, ["raw_transaction", "signed_receipt", "receipt_key", "verification_level"], decodeFailure);
+  const level = receipt["verification_level"];
+  if (typeof level !== "string" || !VERIFIED_LEVELS.has(level)) throw verificationFailure();
+  const status = record(verificationStatus, decodeFailure);
+  if (status["state"] !== "achieved") throw verificationFailure();
+  exact(status, ["state", "rung"], decodeFailure);
+  if (status["rung"] !== Rung.Receipted) throw verificationFailure();
+  const key = record(receipt["receipt_key"], decodeFailure);
+  exact(key, ["key_id", "public_key", "first_height", "last_height"], decodeFailure);
+  const rawTransaction = hex(receipt["raw_transaction"], MAX_RECEIPT_BYTES);
+  const signedReceipt = hex(receipt["signed_receipt"], MAX_RECEIPT_BYTES);
+  const keyId = hex(key["key_id"], 32, 32), publicKey = hex(key["public_key"], 32, 32);
+  const firstHeight = receiptHeight(key["first_height"]), lastHeight = receiptHeight(key["last_height"]);
+  if (BigInt(firstHeight) > BigInt(lastHeight)) throw decodeFailure();
+  try {
+    const signedBytes = Buffer.from(signedReceipt, "hex");
+    const verified = await verifySignedSequencerReceipt(signedBytes, Buffer.from(rawTransaction, "hex"), [{
+      keyId: Buffer.from(keyId, "hex"), publicKey: Buffer.from(publicKey, "hex"),
+      first_height: BigInt(firstHeight), last_height: BigInt(lastHeight),
+    }]);
+    const receiptDigest = Buffer.from(keccak256(signedBytes)).toString("hex");
+    if (expectedDigest !== undefined && receiptDigest !== expectedDigest
+      || Buffer.from(verified.receipt.activityId).toString("hex") !== context.activityId
+      || verified.receipt.resultCode !== 0) throw verificationFailure();
+    const evidence: AgentReceiptEvidence = {
+      format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
+      rawTransaction: `0x${rawTransaction}`, signedReceipt: `0x${signedReceipt}`, receiptDigest: `0x${receiptDigest}`,
+      receiptKey: {
+        keyId: `0x${keyId}`, publicKey: `0x${publicKey}`,
+        // The daemon uses decimal u64 strings; portable proofs require hex quantities.
+        firstHeight: `0x${BigInt(firstHeight).toString(16)}`,
+        lastHeight: `0x${BigInt(lastHeight).toString(16)}`,
+      },
+    };
+    return { evidence, receiptDigest };
+  } catch { throw verificationFailure(); }
+}
+
+function receiptHeight(value: unknown): string {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(value)
+    || BigInt(value) > 0xffff_ffff_ffff_ffffn) throw decodeFailure();
+  return value;
 }
 
 function initialize(database: DatabaseSync, principal: DaemonReceiptPrincipal, protocolVersion: number): void {

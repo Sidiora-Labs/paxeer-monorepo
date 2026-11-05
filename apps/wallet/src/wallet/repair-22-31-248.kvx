@@ -1,0 +1,12 @@
+[repair.22.31.248]
+finding = "virtual-network-disconnect"
+tests = ["virtual_network_disconnect_switch_retains_identity_and_validates_sends", "virtual_network_disconnect_reload_and_reconnect_restore_selection", "virtual_network_disconnect_refuses_unsaved_switches_and_stale_selection"]
+path = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+proof = "Real WalletNetworkProvider requests persist the selection and emit chainChanged through WalletInterface into the React WalletProvider; send requests traverse the SDK and HTTP gateway boundary; unmount and fresh IdentitySession/WalletProvider instances restore the saved selection and identity."
+send_boundary = "The existing HTTP gateway recording answers on root chain 125; virtual sends prove the selected chain in the transported request and reject that other-chain response, while switching the same wallet back to root proves a successful send."
+baseline = "Not run: the ordered task instructions prohibit verification before complete implementation and require hf-build before hf-done; no unchanged-tree test failure is claimed."
+tooling_note = "pnpm --dir does not set the working directory for dlx; formatting was run from apps/wallet after the first invocation found no files. The repository's jsxBracketSameLine Prettier option is deprecated. Root GOTCHA.kvx is outside task scope."
+qualification_note = "The first hf-done exited zero at f029319aa31e142e15c74e4fc3ec7946b9c8093b but Vitest 4 registered test(function) as TODO and ran zero tests; that result is not behavioral evidence. Explicit name and callback registration preserves the named test functions and makes them execute."
+continuation_note = "The prior attempt at b4fbe061abfcf0d521f11ce7ffcedbe21d08bc23 executed all three tests: two passed and the switch/send test failed because its exact transfer payload expected lowercase recipient casing. transferTransaction uses ethers.getAddress; the assertion now requires that checksum address for send while retaining the exact supplied address for sendTransaction. No production changes or assertions were removed or weakened."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; the final response copies the last gate evidence."

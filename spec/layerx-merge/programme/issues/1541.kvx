@@ -1,0 +1,48 @@
+[issue.1541]
+number = 1541
+title = "[Coherence] The test-journal TSan target still lists the deleted src/state/lxp_idempotency.c, so make test-journal and the wave-one dry-run check both fail"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 5af20d0e86ae6c82ed20809338a1d8d4f4ba97fb deleted src/state/lxp_idempotency.c, but Makefile:1458 still requires it and Makefile:1467 compiles the prerequisites through $^, blocking test-journal at Makefile:1469 and the test aggregate at Makefile:265 while tools/ci/tests/test_makefile_wave1.py:43 includes test-journal and tools/ci/tests/test_makefile_wave1.py:54 and tools/ci/tests/test_makefile_wave1.py:65 require success and no retired paths."
+close_comment = "The journal TSan target still depends on the retired idempotency source, preventing journal test builds and breaking the aggregate dry-run check. Remove that stale prerequisite and retain the existing check that rejects retired source paths."
+
+[task.18.1541.1]
+title = "Issue #1541: Remove the retired idempotency source from the journal TSan prerequisites"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181541.1"]
+capabilities = []
+interfaces = []
+do_1 = "Remove src/state/lxp_idempotency.c from the journal TSan prerequisites at Makefile:1458 so the $^ compile input at Makefile:1467 contains no deleted idempotency source; preserve the journal targets, sanitizer flags and remaining prerequisites."
+do_2 = "Use the existing MakefileWaveOneTest.test_aggregates_dry_run_clean at tools/ci/tests/test_makefile_wave1.py:35 as the focused regression check: it includes test-journal at line 43, requires exit zero at line 54 and rejects lxp_idempotency in all printed recipes at lines 62 and 65 without weakening any assertion."
+symbols = []
+touches = ["Makefile"]
+tests = ["tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 -m pytest tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean -q"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181541]
+title = "Journal test prerequisites contain no retired idempotency source"
+ac_1 = "The journal TSan source list at Makefile:1457 omits the deleted src/state/lxp_idempotency.c currently named at Makefile:1458, and the unchanged aggregate dry-run regression test at tools/ci/tests/test_makefile_wave1.py:35 exits zero and rejects lxp_idempotency in all printed recipes."
+
+[acceptance.18.1541.1]
+feature = "18"
+req = "181541.1"
+scenario = "Given the retired idempotency source is absent and the journal TSan prerequisites no longer name it, when the existing aggregate dry-run regression test includes test-journal, then make resolves the targets successfully and no printed recipe contains lxp_idempotency."
+contract = "contracts/tools-ops.md#makefile-graph"
+test = "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest::test_aggregates_dry_run_clean (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,1334 @@
+[audit.22.30.129]
+task = "22.30.129"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 144
+findings = 36
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["001", "002", "003", "004", "005", "006", "007", "008", "009"]
+interface_inventory = "The package explicitly enumerates 400 produced and 114 consumed registry ids; produces_total states 1272. Declared paths and signatures identify interfaces despite historical aliases."
+state_review = "Guest persistence uses native transaction storage and registered account records. No new in-memory recovery service is introduced by this slice; naming cleanup and swap composition need the real rollback/restart proofs proposed in their findings."
+security_review = "Explicit capabilities, seed/asset account binding, signature refusal, memory bounds and canonical decoding remain required. Repair proposals preserve those checks."
+
+[file.001]
+path = "programs/crates/layerx-programs-interpreter/Cargo.toml"
+lines = 17
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.002]
+path = "programs/crates/layerx-programs-interpreter/build.rs"
+lines = 7
+verdict = "clean"
+note = "The build script applies strip-debug and compress-relocations linker arguments only to wasm32-unknown-unknown and tracks its own source for rebuilds."
+
+[file.003]
+path = "programs/crates/layerx-programs-interpreter/layerx-program.json"
+lines = 14
+verdict = "clean"
+note = "ABI-v2 metadata resolves the interpreter workspace artifact, reserve/call exports and explicit storage/payment capabilities."
+
+[file.004]
+path = "programs/crates/layerx-programs-interpreter/src/lib.rs"
+lines = 559
+verdict = "clean"
+note = "The bounded interpreter checks instructions and register inputs and uses explicit storage/payment capabilities; guest execution acquires no ambient authority."
+
+[file.005]
+path = "programs/crates/layerx-programs-interpreter/tests/conformance.rs"
+lines = 495
+verdict = "clean"
+note = "The independent deterministic model covers interpreter evaluation and rollback laws. Model checks are distinct from actual native runtime integration."
+
+[file.006]
+path = "programs/crates/layerx-programs-runtime/Cargo.toml"
+lines = 45
+verdict = "clean"
+note = "Runtime library outputs, SDK linkage, dependencies and lint policy preserve the native runtime boundary without introducing an executable daemon."
+
+[file.007]
+path = "programs/sdk/assemblyscript/asconfig.json"
+lines = 21
+verdict = "clean"
+note = "Compiler settings preserve the deterministic guest target, language checks and release artifact paths."
+
+[file.008]
+path = "programs/sdk/assemblyscript/assembly/abi.ts"
+lines = 166
+verdict = "clean"
+note = "Frozen module/name signatures, integer widths and byte ceilings agree with runtime compatibility tables; the default binding version is distinct from execution admission."
+
+[file.009]
+path = "programs/sdk/assemblyscript/assembly/amount.ts"
+lines = 131
+verdict = "clean"
+note = "Monetary values remain exact unsigned 128-bit integers with checked arithmetic and canonical byte order."
+
+[file.010]
+path = "programs/sdk/assemblyscript/assembly/bytes.ts"
+lines = 152
+verdict = "clean"
+note = "Byte copying, comparison and endian helpers preserve the declared bounds and identifier/integer encodings."
+
+[file.011]
+path = "programs/sdk/assemblyscript/assembly/call.ts"
+lines = 60
+verdict = "clean"
+note = "Call input and capability bounds match host imports; response decoding distinguishes lengths, result codes and negative host statuses."
+
+[file.012]
+path = "programs/sdk/assemblyscript/assembly/capability.ts"
+lines = 381
+verdict = "clean"
+note = "Authority ordering, duplicate refusal and capability encoding are compared with the runtime canonical grant decoder."
+
+[file.013]
+path = "programs/sdk/assemblyscript/assembly/entry.ts"
+lines = 48
+verdict = "clean"
+note = "Reservation and call-entry plumbing validate capacity and pointer identity before borrowing guest input."
+
+[file.014]
+path = "programs/sdk/assemblyscript/assembly/error.ts"
+lines = 99
+verdict = "issues"
+note = "Findings 003: abiStatus preserves the host band only through ERR_EVIDENCE (-5), so STATUS_VERIFY_FAILED (-6), declared in versioned.ts:71 and returned by the real signature host, becomes ERR_INVALID (-2). isHostRefusal also misclassifies that host-produced status."
+
+[file.015]
+path = "programs/sdk/assemblyscript/assembly/event.ts"
+lines = 20
+verdict = "clean"
+note = "Event topic/data limits and explicit emit authority agree with event_emit and native event framing."
+
+[file.016]
+path = "programs/sdk/assemblyscript/assembly/host.ts"
+lines = 71
+verdict = "clean"
+note = "Host extern names, argument widths, packed results and buffer checks agree with the linker for their declared compatibility ABIs."
+
+[file.017]
+path = "programs/sdk/assemblyscript/assembly/ids.ts"
+lines = 95
+verdict = "clean"
+note = "Identifiers preserve exactly 32 bytes and reject the reserved all-zero representation."
+
+[file.018]
+path = "programs/sdk/assemblyscript/assembly/index.ts"
+lines = 155
+verdict = "clean"
+note = "The public AssemblyScript entrypoint exports the reviewed legacy and versioned bindings without ambient authority or service startup."
+
+[file.019]
+path = "programs/sdk/assemblyscript/assembly/receipt.ts"
+lines = 117
+verdict = "clean"
+note = "The fixed 116-byte receipt decoder enforces exact fields and consistent payment evidence."
+
+[file.020]
+path = "programs/sdk/assemblyscript/assembly/storage.ts"
+lines = 81
+verdict = "clean"
+note = "Key/value limits, absence, scope selectors, scans and cursor framing agree with the actual storage host interface."
+
+[file.021]
+path = "programs/sdk/assemblyscript/assembly/transfer.ts"
+lines = 60
+verdict = "clean"
+note = "Payment types reject zero and reserved identities; program spending/funding binds seed, owner program and asset."
+
+[file.022]
+path = "programs/sdk/assemblyscript/assembly/versioned.ts"
+lines = 363
+verdict = "clean"
+note = "Versioned import signatures, packed call results, scoped scans, crypto and historical oracle/web record decoders retain their frozen shapes."
+
+[file.023]
+path = "programs/sdk/assemblyscript/examples/paid-counter/asconfig.json"
+lines = 11
+verdict = "clean"
+note = "Compiler settings preserve the deterministic guest target, language checks and release artifact paths."
+
+[file.024]
+path = "programs/sdk/assemblyscript/examples/paid-counter/assembly/index.ts"
+lines = 284
+verdict = "clean"
+note = "The paid-counter exports configure, count, receipt settlement, forward and reset with the matching storage/event layouts and bounded call reservation."
+
+[file.025]
+path = "programs/sdk/assemblyscript/examples/paid-counter/layerx-program.json"
+lines = 60
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.026]
+path = "programs/sdk/assemblyscript/examples/paid-counter/package.json"
+lines = 19
+verdict = "clean"
+note = "Package entrypoints, scripts and pinned development dependencies resolve the declared authoring and fixture tools."
+
+[file.027]
+path = "programs/sdk/assemblyscript/package.json"
+lines = 35
+verdict = "issues"
+note = "Findings 014: The published files list contains assembly, tools and configuration but no ABI manifest. tools/determinism-lint.mjs:541 resolves ../../abi-manifest.tsv, a repository sibling outside the installed npm package. The installed public lint bin therefore cannot load its default manifest."
+
+[file.028]
+path = "programs/sdk/assemblyscript/tests/language_abi.ts"
+lines = 90
+verdict = "clean"
+note = "Language fixtures exercise the served subset and canonical records without asserting successful committed-web reads."
+
+[file.029]
+path = "programs/sdk/assemblyscript/tests/safety.ts"
+lines = 106
+verdict = "clean"
+note = "Safety cases assert real amount, buffer, identifier, capability and receipt bounds."
+
+[file.030]
+path = "programs/sdk/assemblyscript/toolchain.json"
+lines = 48
+verdict = "clean"
+note = "Compiler requirements, deterministic target and qualification command are explicit; compatibility defaults remain separate from network execution admission."
+
+[file.031]
+path = "programs/sdk/assemblyscript/tools/check-capability-fixture.mjs"
+lines = 10
+verdict = "clean"
+note = "The checker compares canonical capability bytes with the shared parity fixture without silently rewriting it."
+
+[file.032]
+path = "programs/sdk/assemblyscript/tools/determinism-lint.mjs"
+lines = 577
+verdict = "clean"
+note = "The complete source agrees with its declared interface shapes, authority, bounds and applicable documentation except findings explicitly attached here."
+
+[file.033]
+path = "programs/sdk/assemblyscript/tsconfig.json"
+lines = 6
+verdict = "clean"
+note = "Compiler settings preserve the deterministic guest target, language checks and release artifact paths."
+
+[file.034]
+path = "programs/sdk/c/examples/paid-counter/build.sh"
+lines = 80
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.035]
+path = "programs/sdk/c/examples/paid-counter/layerx-program.json"
+lines = 60
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.036]
+path = "programs/sdk/c/examples/paid-counter/src/program.c"
+lines = 266
+verdict = "clean"
+note = "The C paid counter validates configured fees and verified receipt facts, persists its count and forwards with explicitly narrowed capabilities and bounded input."
+
+[file.037]
+path = "programs/sdk/c/include/layerx/program.h"
+lines = 380
+verdict = "clean"
+note = "Public C identifiers, amounts, signatures, status values and versioned records preserve their declared layouts. Lossy verification-status mapping is recorded against src/abi.c."
+
+[file.038]
+path = "programs/sdk/c/src/abi.c"
+lines = 74
+verdict = "issues"
+note = "Findings 002: lxp_program_status_abi preserves host statuses only through -5. A well-formed signature that fails verification returns -6 in runtime/src/host/signature.rs:70, but this switch maps it through default to LXP_PROGRAM_ERR_INVALID (-2). Rust preserves HostRefusal::VerificationFailed as -6."
+
+[file.039]
+path = "programs/sdk/c/src/amount.c"
+lines = 84
+verdict = "clean"
+note = "Monetary values remain exact unsigned 128-bit integers with checked arithmetic and canonical byte order."
+
+[file.040]
+path = "programs/sdk/c/src/bytes.c"
+lines = 146
+verdict = "clean"
+note = "Byte copying, comparison and endian helpers preserve the declared bounds and identifier/integer encodings."
+
+[file.041]
+path = "programs/sdk/c/src/calls.c"
+lines = 33
+verdict = "clean"
+note = "Call input and capability spans are validated before the six-argument import; host refusals remain negative statuses."
+
+[file.042]
+path = "programs/sdk/c/src/capability.c"
+lines = 290
+verdict = "clean"
+note = "Authority ordering, duplicate refusal and capability encoding are compared with the runtime canonical grant decoder."
+
+[file.043]
+path = "programs/sdk/c/src/entry.c"
+lines = 34
+verdict = "clean"
+note = "Reservation and call-entry plumbing validate capacity and pointer identity before borrowing guest input."
+
+[file.044]
+path = "programs/sdk/c/src/events.c"
+lines = 21
+verdict = "clean"
+note = "Event spans are checked before forwarding the frozen topic/data host import."
+
+[file.045]
+path = "programs/sdk/c/src/host.h"
+lines = 130
+verdict = "clean"
+note = "All declared v1 through v4 extern widths and module/name pairs match the frozen imports. The parameterized macro/source-lint incompatibility is recorded against the linter."
+
+[file.046]
+path = "programs/sdk/c/src/internal.h"
+lines = 25
+verdict = "clean"
+note = "Internal span conversion and exact-result helpers reject invalid memory arguments before host calls."
+
+[file.047]
+path = "programs/sdk/c/src/receipts.c"
+lines = 40
+verdict = "clean"
+note = "Receipt facts use the fixed canonical record and explicit digest authority with checked lengths."
+
+[file.048]
+path = "programs/sdk/c/src/runtime.c"
+lines = 62
+verdict = "clean"
+note = "Freestanding byte-loop memory operations introduce no allocator, clock, socket or external state."
+
+[file.049]
+path = "programs/sdk/c/src/storage.c"
+lines = 64
+verdict = "clean"
+note = "Key/value limits, absence, scope selectors, scans and cursor framing agree with the actual storage host interface."
+
+[file.050]
+path = "programs/sdk/c/src/transfers.c"
+lines = 26
+verdict = "clean"
+note = "Transfer calls preserve 128-bit amounts, exact asset/recipient widths and explicit host authority checks."
+
+[file.051]
+path = "programs/sdk/c/src/versioned.c"
+lines = 446
+verdict = "clean"
+note = "Versioned import signatures, packed call results, scoped scans, crypto and historical oracle/web record decoders retain their frozen shapes."
+
+[file.052]
+path = "programs/sdk/c/tests/capability_parity.c"
+lines = 80
+verdict = "clean"
+note = "Concrete parity vectors assert canonical grant ordering, bounds and invalid-authority rejection."
+
+[file.053]
+path = "programs/sdk/c/tests/language_abi.c"
+lines = 86
+verdict = "clean"
+note = "Language fixtures exercise the served host subset and fixed-width records without a successful committed-web read case."
+
+[file.054]
+path = "programs/sdk/c/toolchain.json"
+lines = 36
+verdict = "clean"
+note = "Compiler requirements, deterministic target and qualification command are explicit; compatibility defaults remain separate from network execution admission."
+
+[file.055]
+path = "programs/sdk/c/tools/determinism_lint.c"
+lines = 807
+verdict = "issues"
+note = "Findings 013: check_source scans from import_module to the next quote instead of parsing its argument. At src/host.h:61 the argument is the macro parameter module_name; scanning consumes the later layerx_v2 literal at line 66. paid-counter/build.sh:31 supplies this header under default ABI 1, so its source gate refuses its own SDK header."
+
+[file.056]
+path = "programs/sdk/rust/Cargo.toml"
+lines = 31
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.057]
+path = "programs/sdk/rust/build.rs"
+lines = 144
+verdict = "clean"
+note = "Optional binding generation requires coherent interface/digest/code-hash inputs and verifies canonical bytes before emitting language files."
+
+[file.058]
+path = "programs/sdk/rust/examples/escrow/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.059]
+path = "programs/sdk/rust/examples/escrow/LayerX.toml"
+lines = 5
+verdict = "clean"
+note = "Project ABI and emulator selection match the example; each declared interface path resolves to its existing canonical interface.kvx."
+
+[file.060]
+path = "programs/sdk/rust/examples/escrow/build.sh"
+lines = 17
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.061]
+path = "programs/sdk/rust/examples/escrow/layerx-program.json"
+lines = 14
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.062]
+path = "programs/sdk/rust/examples/escrow/src/lib.rs"
+lines = 268
+verdict = "clean"
+note = "Escrow custody uses a derived program account and direct-call authorization; persistent state and backing payouts are staged in the native atomic transaction."
+
+[file.063]
+path = "programs/sdk/rust/examples/naming/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.064]
+path = "programs/sdk/rust/examples/naming/LayerX.toml"
+lines = 5
+verdict = "clean"
+note = "Project ABI and emulator selection match the example; each declared interface path resolves to its existing canonical interface.kvx."
+
+[file.065]
+path = "programs/sdk/rust/examples/naming/build.sh"
+lines = 17
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.066]
+path = "programs/sdk/rust/examples/naming/layerx-program.json"
+lines = 14
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.067]
+path = "programs/sdk/rust/examples/naming/src/lib.rs"
+lines = 243
+verdict = "issues"
+note = "Findings 011: register_impl deletes the previous owner's reverse mapping when an expired name is reassigned; transfer_impl:154 does the same for any transferred name. A DID can own A and then B, making B its reverse name; reclaiming or transferring A then deletes the still-valid reverse B mapping."
+
+[file.068]
+path = "programs/sdk/rust/examples/nft-lxt721/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.069]
+path = "programs/sdk/rust/examples/nft-lxt721/LayerX.toml"
+lines = 5
+verdict = "clean"
+note = "Project ABI and emulator selection match the example; each declared interface path resolves to its existing canonical interface.kvx."
+
+[file.070]
+path = "programs/sdk/rust/examples/nft-lxt721/README.md"
+lines = 46
+verdict = "clean"
+note = "Ownership, supply, approval clearing, direct-call restrictions and response layouts match the collection source and registered interface."
+
+[file.071]
+path = "programs/sdk/rust/examples/nft-lxt721/build.sh"
+lines = 17
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.072]
+path = "programs/sdk/rust/examples/nft-lxt721/layerx-program.json"
+lines = 14
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.073]
+path = "programs/sdk/rust/examples/nft-lxt721/src/lib.rs"
+lines = 259
+verdict = "clean"
+note = "Issuer-only minting, owner/operator checks, approval clearing and supply bounds match the storage-only interface. Nested calls deliberately refuse."
+
+[file.074]
+path = "programs/sdk/rust/examples/payments-merchant/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.075]
+path = "programs/sdk/rust/examples/payments-merchant/README.md"
+lines = 39
+verdict = "clean"
+note = "Calldata, registration prerequisites, exact mixed grants and atomic split behavior match the direct-call guest. The guide explicitly disclaims authenticated merchant pricing."
+
+[file.076]
+path = "programs/sdk/rust/examples/payments-merchant/src/lib.rs"
+lines = 47
+verdict = "clean"
+note = "The direct-call split validates nonzero funding and payout legs and stages three native transfers with explicit caller grants."
+
+[file.077]
+path = "programs/sdk/rust/examples/swap-cpmm/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.078]
+path = "programs/sdk/rust/examples/swap-cpmm/README.md"
+lines = 65
+verdict = "issues"
+note = "Findings 036: The README promises pooled-token movement through program_call and canonical lxt20::Request. The supplied token reference has no nested-call handler and always refuses layerx_call, so that documented composition cannot execute with those tokens."
+
+[file.079]
+path = "programs/sdk/rust/examples/swap-cpmm/src/lib.rs"
+lines = 434
+verdict = "issues"
+note = "Findings 001: call_token encodes lxt20::Request and invokes layerx_v1.program_call. The runtime selects layerx_call (runtime/src/calls.rs:40,1279), but token-lxt20/src/lib.rs:222-228 installs an unconditional refusal there. Its named handlers also reject every immediate program caller at line 24. The supplied token therefore cannot settle this swap's liquidity or trading calls."
+
+[file.080]
+path = "programs/sdk/rust/examples/token-lxt20/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.081]
+path = "programs/sdk/rust/examples/token-lxt20/README.md"
+lines = 55
+verdict = "clean"
+note = "Backing-account registration, finite allowance spending, canonical frames and nested-call refusal match the supplied token."
+
+[file.082]
+path = "programs/sdk/rust/examples/token-lxt20/src/lib.rs"
+lines = 229
+verdict = "clean"
+note = "Direct token handlers pair balances and allowances with program-backed payments atomically. Nested calls deliberately refuse; the incompatible swap consumer is finding 001."
+
+[file.083]
+path = "programs/sdk/rust/examples/vault/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.084]
+path = "programs/sdk/rust/examples/vault/LayerX.toml"
+lines = 5
+verdict = "clean"
+note = "Project ABI and emulator selection match the example; each declared interface path resolves to its existing canonical interface.kvx."
+
+[file.085]
+path = "programs/sdk/rust/examples/vault/build.sh"
+lines = 17
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.086]
+path = "programs/sdk/rust/examples/vault/layerx-program.json"
+lines = 14
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.087]
+path = "programs/sdk/rust/examples/vault/src/lib.rs"
+lines = 193
+verdict = "clean"
+note = "The vault uses scoped persistent balances, derived accounts and explicit deposit/withdrawal grants. Custody event names describe local program custody, not a retired bridge."
+
+[file.088]
+path = "programs/sdk/rust/examples/web-reader/Cargo.toml"
+lines = 35
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.089]
+path = "programs/sdk/rust/examples/web-reader/LayerX.toml"
+lines = 5
+verdict = "clean"
+note = "Project ABI and emulator selection match the example; each declared interface path resolves to its existing canonical interface.kvx."
+
+[file.090]
+path = "programs/sdk/rust/examples/web-reader/build.sh"
+lines = 17
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.091]
+path = "programs/sdk/rust/examples/web-reader/layerx-program.json"
+lines = 14
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.092]
+path = "programs/sdk/rust/examples/web-reader/src/lib.rs"
+lines = 118
+verdict = "clean"
+note = "The read comment explicitly states web_read is retired and every input reverts. The unchanged frame is compatibility data as required by 181323.1."
+
+[file.093]
+path = "programs/sdk/rust/lint/Cargo.toml"
+lines = 23
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.094]
+path = "programs/sdk/rust/lint/src/lib.rs"
+lines = 1050
+verdict = "issues"
+note = "Findings 015: lint_artifact_for_abi and engine_violations support only versions 1 through 4 and never call validate_v5. Shared abi_policy admits 5 and the runtime publishes layerx_v5.market_step_adjudicate, leaving no successful SDK lint route for a valid version-five guest."
+
+[file.095]
+path = "programs/sdk/rust/lint/src/main.rs"
+lines = 247
+verdict = "clean"
+note = "CLI parsing selects an explicit project/artifact/ABI mode and reports named violations without converting a refusal into success."
+
+[file.096]
+path = "programs/sdk/rust/lint/tests/abi_versions.rs"
+lines = 179
+verdict = "issues"
+note = "Findings 016: versions_above_v4_keep_the_unsupported_refusal groups version 5 with 0 and u16::MAX and requires an unsupported-version refusal. Shared ABI policy and the real runtime admit version 5, so this test preserves a different qualification policy."
+
+[file.097]
+path = "programs/sdk/rust/package.json"
+lines = 8
+verdict = "clean"
+note = "Package entrypoints, scripts and pinned development dependencies resolve the declared authoring and fixture tools."
+
+[file.098]
+path = "programs/sdk/rust/quickstart/.cargo/config.toml"
+lines = 2
+verdict = "clean"
+note = "Compiler settings preserve the deterministic guest target, language checks and release artifact paths."
+
+[file.099]
+path = "programs/sdk/rust/quickstart/Cargo.toml"
+lines = 33
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.100]
+path = "programs/sdk/rust/quickstart/LayerX.toml"
+lines = 4
+verdict = "clean"
+note = "Project ABI and emulator selection match the example; each declared interface path resolves to its existing canonical interface.kvx."
+
+[file.101]
+path = "programs/sdk/rust/quickstart/build.sh"
+lines = 42
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.102]
+path = "programs/sdk/rust/quickstart/layerx-program.json"
+lines = 68
+verdict = "issues"
+note = "Findings 018: entry.call_input_capacity advertises 8192, but quickstart uses the SDK entrypoint macro and entry.rs:15 reserves MAX_CALL_INPUT_BYTES, which is 1048576. Resource metadata and the actual layerx_reserve export describe different capacities."
+
+[file.103]
+path = "programs/sdk/rust/quickstart/src/lib.rs"
+lines = 329
+verdict = "clean"
+note = "Configure, receipt settlement, counters and forwarding use checked layouts and persistent storage. The manifest reservation mismatch is recorded against its metadata."
+
+[file.104]
+path = "programs/sdk/rust/response-fixture/Cargo.toml"
+lines = 26
+verdict = "clean"
+note = "Crate dependencies and library/target declarations resolve this in-tree SDK, guest or lint package with the workspace build policy."
+
+[file.105]
+path = "programs/sdk/rust/response-fixture/build.sh"
+lines = 21
+verdict = "clean"
+note = "The build script resolves its project, selects the deterministic WASM target and identifies the actual artifact without depending on a separate network executor."
+
+[file.106]
+path = "programs/sdk/rust/response-fixture/examples/qualify.rs"
+lines = 173
+verdict = "clean"
+note = "The fixture path drives actual guest WASM and runtime response envelopes rather than relying solely on a byte model."
+
+[file.107]
+path = "programs/sdk/rust/response-fixture/layerx-program.json"
+lines = 10
+verdict = "clean"
+note = "The manifest artifact, ABI, named exports and capability/wire metadata match this example implementation."
+
+[file.108]
+path = "programs/sdk/rust/response-fixture/src/lib.rs"
+lines = 54
+verdict = "clean"
+note = "The actual guest publishes bounded success and typed refusal payloads through the version-two response/refusal host path."
+
+[file.109]
+path = "programs/sdk/rust/src/abi.rs"
+lines = 337
+verdict = "clean"
+note = "Frozen module/name signatures, integer widths and byte ceilings agree with runtime compatibility tables; the default binding version is distinct from execution admission."
+
+[file.110]
+path = "programs/sdk/rust/src/abi_policy.rs"
+lines = 165
+verdict = "clean"
+note = "Admission accepts versions 1 through 5, upgrades are monotonic and each version selects one canonical capability encoding."
+
+[file.111]
+path = "programs/sdk/rust/src/access.rs"
+lines = 383
+verdict = "clean"
+note = "Access scopes, modes and bounded key recipes preserve canonical ordering and explicit authority rather than ambient reads."
+
+[file.112]
+path = "programs/sdk/rust/src/amount.rs"
+lines = 204
+verdict = "clean"
+note = "Monetary values remain exact unsigned 128-bit integers with checked arithmetic and canonical byte order."
+
+[file.113]
+path = "programs/sdk/rust/src/arbiter.rs"
+lines = 553
+verdict = "clean"
+note = "Proposal and execution evidence use bounded canonical encoding, typed refusals and explicit receipt/authority binding."
+
+[file.114]
+path = "programs/sdk/rust/src/balance.rs"
+lines = 11
+verdict = "clean"
+note = "Balance selectors and fixed-width account/asset outputs agree with the actual balance_read host import."
+
+[file.115]
+path = "programs/sdk/rust/src/bindgen.rs"
+lines = 1457
+verdict = "issues"
+note = "Findings 004: The Rust call emitter accepts bytes.len() up to MAX_CALLDATA_BYTES + 4; the TypeScript emitter instead caps the final selector-plus-frame at MAX_CALLDATA_BYTES. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+
+[file.116]
+path = "programs/sdk/rust/src/bindgen_dotnet.rs"
+lines = 372
+verdict = "issues"
+note = "Findings 009: Call.Create frames input with the full MaxCalldataBytes budget and allocates payload.Length + 4 bytes, without checking the completed Call. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+
+[file.117]
+path = "programs/sdk/rust/src/bindgen_go.rs"
+lines = 383
+verdict = "issues"
+note = "Findings 005: Encode appends the four-byte discriminator after writer has allowed the convention and encoded value to consume MaxCalldataBytes, without checking final size. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+
+[file.118]
+path = "programs/sdk/rust/src/bindgen_jvm.rs"
+lines = 598
+verdict = "issues"
+note = "Findings 006: Java callBytes and its Kotlin counterpart at line 333 allow payload length MAX_BYTES - 1 and allocate five more bytes for selector and convention. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+
+[file.119]
+path = "programs/sdk/rust/src/bindgen_python.rs"
+lines = 440
+verdict = "issues"
+note = "Findings 007: encode_<entry> prepends bytes(discriminator) after _frame has allowed the full MAX_CALLDATA_BYTES budget; Call does not check the resulting size. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+
+[file.120]
+path = "programs/sdk/rust/src/bindgen_swift.rs"
+lines = 409
+verdict = "issues"
+note = "Findings 008: The Swift call emitter prepends the discriminator after LxWriter admits a full 1048576-byte frame; LxCall does not bound the completed byte array. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+
+[file.121]
+path = "programs/sdk/rust/src/buffer.rs"
+lines = 121
+verdict = "clean"
+note = "Fixed-capacity byte buffers check length before copying and preserve caller-owned storage in the guest."
+
+[file.122]
+path = "programs/sdk/rust/src/call.rs"
+lines = 343
+verdict = "clean"
+note = "Call input and capability bounds match host imports; response decoding distinguishes lengths, result codes and negative host statuses."
+
+[file.123]
+path = "programs/sdk/rust/src/capability.rs"
+lines = 387
+verdict = "issues"
+note = "Findings 012: Capability::Transfer402 is public and can be constructed with Amount::ZERO. CapabilitySet::insert and encode_into accept it, bypassing the check in Capability::transfer. The runtime canonical decoder rejects the zero ceiling via its valid check; C validate_grant rejects it too."
+
+[file.124]
+path = "programs/sdk/rust/src/context.rs"
+lines = 161
+verdict = "clean"
+note = "Program, caller, invoking principal, height and version selectors use the exact records produced by context_read."
+
+[file.125]
+path = "programs/sdk/rust/src/crypto.rs"
+lines = 160
+verdict = "clean"
+note = "Hash, signature and bigint algorithm selectors, exact output widths and typed host failures match the versioned imports."
+
+[file.126]
+path = "programs/sdk/rust/src/entry.rs"
+lines = 79
+verdict = "clean"
+note = "Reservation and call-entry plumbing validate capacity and pointer identity before borrowing guest input."
+
+[file.127]
+path = "programs/sdk/rust/src/error.rs"
+lines = 801
+verdict = "clean"
+note = "The Rust taxonomy and ABI mapping preserve the host verification-failure code alongside bounded guest errors."
+
+[file.128]
+path = "programs/sdk/rust/src/event.rs"
+lines = 73
+verdict = "clean"
+note = "Event topic/data limits and explicit emit authority agree with event_emit and native event framing."
+
+[file.129]
+path = "programs/sdk/rust/src/host.rs"
+lines = 792
+verdict = "clean"
+note = "Host extern names, argument widths, packed results and buffer checks agree with the linker for their declared compatibility ABIs."
+
+[file.130]
+path = "programs/sdk/rust/src/ids.rs"
+lines = 116
+verdict = "clean"
+note = "Identifiers preserve exactly 32 bytes and reject the reserved all-zero representation."
+
+[file.131]
+path = "programs/sdk/rust/src/lib.rs"
+lines = 131
+verdict = "clean"
+note = "Guest WASM remains no_std and uses fixed buffers; alloc-backed binding generation is excluded from wasm32. The exports preserve the typed guest vocabulary."
+
+[file.132]
+path = "programs/sdk/rust/src/lxt20.rs"
+lines = 169
+verdict = "clean"
+note = "Seven request selectors, big-endian amounts and bounded frames match the direct token handlers; initialization is a separate named entry."
+
+[file.133]
+path = "programs/sdk/rust/src/lxt721.rs"
+lines = 192
+verdict = "clean"
+note = "Collection request discriminators, nonzero token ids, principal fields and response schemas match the NFT handlers."
+
+[file.134]
+path = "programs/sdk/rust/src/macros.rs"
+lines = 148
+verdict = "clean"
+note = "Exports route through actual reservation and refusal handling; panic paths trap rather than fabricate a successful response."
+
+[file.135]
+path = "programs/sdk/rust/src/naming.rs"
+lines = 298
+verdict = "clean"
+note = "Name, lease, record and payment-seed codecs agree with the declared naming reference interface."
+
+[file.136]
+path = "programs/sdk/rust/src/oracle.rs"
+lines = 48
+verdict = "clean"
+note = "The fixed oracle observation record validates widths and reserved fields; reads use committed host state rather than a live guest network call."
+
+[file.137]
+path = "programs/sdk/rust/src/payments.rs"
+lines = 339
+verdict = "clean"
+note = "Derived accounts bind program, seed and asset; mixed payment grants validate nonzero ceilings, duplicates and canonical ordering."
+
+[file.138]
+path = "programs/sdk/rust/src/proposal.rs"
+lines = 539
+verdict = "clean"
+note = "Proposal request and execution records preserve discriminators, bounded payloads, typed errors and explicit receipt binding."
+
+[file.139]
+path = "programs/sdk/rust/src/receipt.rs"
+lines = 92
+verdict = "clean"
+note = "The fixed 116-byte receipt decoder enforces exact fields and consistent payment evidence."
+
+[file.140]
+path = "programs/sdk/rust/src/storage.rs"
+lines = 547
+verdict = "clean"
+note = "Key/value limits, absence, scope selectors, scans and cursor framing agree with the actual storage host interface."
+
+[file.141]
+path = "programs/sdk/rust/src/transfer.rs"
+lines = 278
+verdict = "clean"
+note = "Payment types reject zero and reserved identities; program spending/funding binds seed, owner program and asset."
+
+[file.142]
+path = "programs/sdk/rust/src/web.rs"
+lines = 143
+verdict = "issues"
+note = "Findings 017: The module introduction and read documentation promise committed answers from host storage. The web-reader example instead states that program web_read is retired and every input reverts LXP_NON_CANONICAL because the native kernel returns LXP_ERR_MODULE_DISABLED, per decision 1977 and requirement 181323.1."
+
+[file.143]
+path = "programs/sdk/rust/tests/bindgen_conformance.rs"
+lines = 975
+verdict = "issues"
+note = "Findings 010: The generated-language cases compare small canonical call bytes and reject oversized output frames, but omit a near-limit selector-plus-input call through the host. They do not expose the four-byte final-call overflow in the six emitters."
+
+[file.144]
+path = "programs/sdk/rust/toolchain.json"
+lines = 47
+verdict = "clean"
+note = "Compiler requirements, deterministic target and qualification command are explicit; compatibility defaults remain separate from network execution admission."
+
+[finding.001]
+file = "programs/sdk/rust/examples/swap-cpmm/src/lib.rs"
+line = 230
+class = "interface-mismatch"
+severity = "high"
+observed = "call_token encodes lxt20::Request and invokes layerx_v1.program_call. The runtime selects layerx_call (runtime/src/calls.rs:40,1279), but token-lxt20/src/lib.rs:222-228 installs an unconditional refusal there. Its named handlers also reject every immediate program caller at line 24. The supplied token therefore cannot settle this swap's liquidity or trading calls."
+expected = "The pooled-token request must reach an authenticated token handler, update balances and allowances, and stage the backing transfer atomically with the swap reserve changes."
+proposal = "Define a shared nested-call dispatch and spender identity contract in programs/sdk/rust/examples/token-lxt20 and swap-cpmm and bind it in the registry interface. Preserve explicit storage and payment authority. Prove real native liquidity, swap, refusal rollback and persisted balances across a restart."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.002]
+file = "programs/sdk/c/src/abi.c"
+line = 43
+class = "interface-mismatch"
+severity = "high"
+observed = "lxp_program_status_abi preserves host statuses only through -5. A well-formed signature that fails verification returns -6 in runtime/src/host/signature.rs:70, but this switch maps it through default to LXP_PROGRAM_ERR_INVALID (-2). Rust preserves HostRefusal::VerificationFailed as -6."
+expected = "The declared signature_verify result and guest refusal evidence must preserve the host verification-failure code -6 across languages, distinct from malformed-input code -2."
+proposal = "Extend the host-status classification and mapping in programs/sdk/c/src/abi.c to preserve the existing verification-failure value. Exercise real Ed25519 and secp256k1 rejection through a C guest and compare terminal evidence with Rust and AssemblyScript without renumbering codes."
+owner_domain = 13
+interface = "13.wasm-host-signature-verify"
+
+[finding.003]
+file = "programs/sdk/assemblyscript/assembly/error.ts"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "abiStatus preserves the host band only through ERR_EVIDENCE (-5), so STATUS_VERIFY_FAILED (-6), declared in versioned.ts:71 and returned by the real signature host, becomes ERR_INVALID (-2). isHostRefusal also misclassifies that host-produced status."
+expected = "AssemblyScript entrypoint evidence and refusal classification must preserve verification failure -6 exactly as the host and Rust emit it, distinct from malformed arguments -2."
+proposal = "Include the existing verification-failure status in host classification, diagnostics and ABI mapping in programs/sdk/assemblyscript/assembly/error.ts. Compare actual invalid-signature guest calls and their terminal evidence across the three authoring languages."
+owner_domain = 13
+interface = "13.wasm-host-signature-verify"
+
+[finding.004]
+file = "programs/sdk/rust/src/bindgen.rs"
+line = 713
+class = "interface-mismatch"
+severity = "high"
+observed = "The Rust call emitter accepts bytes.len() up to MAX_CALLDATA_BYTES + 4; the TypeScript emitter instead caps the final selector-plus-frame at MAX_CALLDATA_BYTES. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+expected = "The complete calldata, including its four discriminator bytes, must fit the 1048576-byte host and SDK CallInput limit. Successful typed construction must agree with transport bounds in every language."
+proposal = "Count the discriminator inside the final call budget in programs/sdk/rust/src/bindgen.rs, preserving the separate output-frame budget. Compare maximum-size and one-byte-over calls from every generated language through the real host; reject oversized construction before emitting Call."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.005]
+file = "programs/sdk/rust/src/bindgen_go.rs"
+line = 134
+class = "interface-mismatch"
+severity = "high"
+observed = "Encode appends the four-byte discriminator after writer has allowed the convention and encoded value to consume MaxCalldataBytes, without checking final size. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+expected = "The complete calldata, including its four discriminator bytes, must fit the 1048576-byte host and SDK CallInput limit. Successful typed construction must agree with transport bounds in every language."
+proposal = "Count the discriminator inside the final call budget in programs/sdk/rust/src/bindgen_go.rs, preserving the separate output-frame budget. Compare maximum-size and one-byte-over calls from every generated language through the real host; reject oversized construction before emitting Call."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.006]
+file = "programs/sdk/rust/src/bindgen_jvm.rs"
+line = 273
+class = "interface-mismatch"
+severity = "high"
+observed = "Java callBytes and its Kotlin counterpart at line 333 allow payload length MAX_BYTES - 1 and allocate five more bytes for selector and convention. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+expected = "The complete calldata, including its four discriminator bytes, must fit the 1048576-byte host and SDK CallInput limit. Successful typed construction must agree with transport bounds in every language."
+proposal = "Count the discriminator inside the final call budget in programs/sdk/rust/src/bindgen_jvm.rs, preserving the separate output-frame budget. Compare maximum-size and one-byte-over calls from every generated language through the real host; reject oversized construction before emitting Call."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.007]
+file = "programs/sdk/rust/src/bindgen_python.rs"
+line = 95
+class = "interface-mismatch"
+severity = "high"
+observed = "encode_<entry> prepends bytes(discriminator) after _frame has allowed the full MAX_CALLDATA_BYTES budget; Call does not check the resulting size. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+expected = "The complete calldata, including its four discriminator bytes, must fit the 1048576-byte host and SDK CallInput limit. Successful typed construction must agree with transport bounds in every language."
+proposal = "Count the discriminator inside the final call budget in programs/sdk/rust/src/bindgen_python.rs, preserving the separate output-frame budget. Compare maximum-size and one-byte-over calls from every generated language through the real host; reject oversized construction before emitting Call."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.008]
+file = "programs/sdk/rust/src/bindgen_swift.rs"
+line = 156
+class = "interface-mismatch"
+severity = "high"
+observed = "The Swift call emitter prepends the discriminator after LxWriter admits a full 1048576-byte frame; LxCall does not bound the completed byte array. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+expected = "The complete calldata, including its four discriminator bytes, must fit the 1048576-byte host and SDK CallInput limit. Successful typed construction must agree with transport bounds in every language."
+proposal = "Count the discriminator inside the final call budget in programs/sdk/rust/src/bindgen_swift.rs, preserving the separate output-frame budget. Compare maximum-size and one-byte-over calls from every generated language through the real host; reject oversized construction before emitting Call."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.009]
+file = "programs/sdk/rust/src/bindgen_dotnet.rs"
+line = 80
+class = "interface-mismatch"
+severity = "high"
+observed = "Call.Create frames input with the full MaxCalldataBytes budget and allocates payload.Length + 4 bytes, without checking the completed Call. For a Bytes schema with max_len 1048570, convention, tag and u32 length make a 1048576-byte frame. Adding the selector produces 1048580 bytes, which runtime/src/host/calls.rs:37,161 refuses."
+expected = "The complete calldata, including its four discriminator bytes, must fit the 1048576-byte host and SDK CallInput limit. Successful typed construction must agree with transport bounds in every language."
+proposal = "Count the discriminator inside the final call budget in programs/sdk/rust/src/bindgen_dotnet.rs, preserving the separate output-frame budget. Compare maximum-size and one-byte-over calls from every generated language through the real host; reject oversized construction before emitting Call."
+owner_domain = 13
+interface = "13.wasm-host-program-call"
+
+[finding.010]
+file = "programs/sdk/rust/tests/bindgen_conformance.rs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The generated-language cases compare small canonical call bytes and reject oversized output frames, but omit a near-limit selector-plus-input call through the host. They do not expose the four-byte final-call overflow in the six emitters."
+expected = "Call-size conformance must distinguish a complete 1048576-byte call from a frame of that size with a selector added, asserting both builder behavior and transport acceptance."
+proposal = "Add boundary cases in programs/sdk/rust/tests/bindgen_conformance.rs using a registry-produced Bytes interface and its compiled generated consumers. Feed their bytes through the actual runtime call transport and assert exact-limit acceptance and one-byte-over construction refusal."
+owner_domain = 13
+
+[finding.011]
+file = "programs/sdk/rust/examples/naming/src/lib.rs"
+line = 127
+class = "runtime-risk"
+severity = "medium"
+observed = "register_impl deletes the previous owner's reverse mapping when an expired name is reassigned; transfer_impl:154 does the same for any transferred name. A DID can own A and then B, making B its reverse name; reclaiming or transferring A then deletes the still-valid reverse B mapping."
+expected = "Changing one forward name must delete an old-owner reverse entry only if that reverse entry still identifies the name being changed. A distinct live reverse name must survive restart."
+proposal = "Make reverse cleanup in programs/sdk/rust/examples/naming/src/lib.rs conditional on the stored reverse name equalling the affected name. Drive register-A/register-B/reclaim-A and transfer-A through the native host, restart it and verify forward ownership and reverse B."
+owner_domain = 13
+
+[finding.012]
+file = "programs/sdk/rust/src/capability.rs"
+line = 194
+class = "runtime-risk"
+severity = "medium"
+observed = "Capability::Transfer402 is public and can be constructed with Amount::ZERO. CapabilitySet::insert and encode_into accept it, bypassing the check in Capability::transfer. The runtime canonical decoder rejects the zero ceiling via its valid check; C validate_grant rejects it too."
+expected = "A validated SDK set must reject a zero monetary ceiling regardless of convenience-constructor use, before producing canonical capability bytes. The host must continue rejecting invalid authority."
+proposal = "Validate all public Capability variants on insertion in programs/sdk/rust/src/capability.rs and reuse that check for PaymentGrant::Basic. Cover direct zero-ceiling construction, SDK encoding refusal and the unchanged real-host rejection."
+owner_domain = 13
+
+[finding.013]
+file = "programs/sdk/c/tools/determinism_lint.c"
+line = 647
+class = "wiring-gap"
+severity = "medium"
+observed = "check_source scans from import_module to the next quote instead of parsing its argument. At src/host.h:61 the argument is the macro parameter module_name; scanning consumes the later layerx_v2 literal at line 66. paid-counter/build.sh:31 supplies this header under default ABI 1, so its source gate refuses its own SDK header."
+expected = "The paid-counter source gate must accept the compatibility declarations that build its ABI-v1 artifact, while retaining strict checks on imports actually present in the artifact."
+proposal = "Parse supported import macros or selected preprocessed declarations in programs/sdk/c/tools/determinism_lint.c so parameterized definitions do not consume later literals. Cover the unmodified paid-counter build path and retain compiled-artifact module, name and signature checks."
+owner_domain = 13
+interface = "13.cli-c-determinism-lint"
+
+[finding.014]
+file = "programs/sdk/assemblyscript/package.json"
+line = 16
+class = "wiring-gap"
+severity = "medium"
+observed = "The published files list contains assembly, tools and configuration but no ABI manifest. tools/determinism-lint.mjs:541 resolves ../../abi-manifest.tsv, a repository sibling outside the installed npm package. The installed public lint bin therefore cannot load its default manifest."
+expected = "An installed authoring SDK must ship the manifest its public lint command requires and resolve it within the installed package, independently of a repository checkout."
+proposal = "Bundle the canonical ABI manifest inside programs/sdk/assemblyscript, include it in package.json files and resolve it from that installed location. Exercise a packed-package consumer invoking the installed lint bin on actual source and WASM with default arguments."
+owner_domain = 13
+interface = "13.cli-layerx-determinism-lint"
+
+[finding.015]
+file = "programs/sdk/rust/lint/src/lib.rs"
+line = 515
+class = "wiring-gap"
+severity = "medium"
+observed = "lint_artifact_for_abi and engine_violations support only versions 1 through 4 and never call validate_v5. Shared abi_policy admits 5 and the runtime publishes layerx_v5.market_step_adjudicate, leaving no successful SDK lint route for a valid version-five guest."
+expected = "The development qualification route for an admitted network guest must use the runtime's ABI and import-signature policy, including the merged AI-market version-five guest."
+proposal = "Extend programs/sdk/rust/lint to consume shared admission and the actual v5 runtime validator and import table. Qualify the real AI-market release guest with opt-level z and its build-time chain domain, preserving the 524288-byte deployment limit including the 104-byte envelope."
+owner_domain = 13
+interface = "13.rs-lint-lint-artifact-for-abi"
+
+[finding.016]
+file = "programs/sdk/rust/lint/tests/abi_versions.rs"
+line = 169
+class = "test-gap"
+severity = "medium"
+observed = "versions_above_v4_keep_the_unsupported_refusal groups version 5 with 0 and u16::MAX and requires an unsupported-version refusal. Shared ABI policy and the real runtime admit version 5, so this test preserves a different qualification policy."
+expected = "Version tests must prove admitted version 5 reaches real import validation and reserve unsupported-version assertions for versions the shared network policy rejects."
+proposal = "Replace the stale version-five expectation in programs/sdk/rust/lint/tests/abi_versions.rs with real v5 validation of a guest importing market_step_adjudicate. Keep explicit unsupported assertions for 0, 6 and u16::MAX and retain all determinism rejection checks."
+owner_domain = 13
+
+[finding.017]
+file = "programs/sdk/rust/src/web.rs"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The module introduction and read documentation promise committed answers from host storage. The web-reader example instead states that program web_read is retired and every input reverts LXP_NON_CANONICAL because the native kernel returns LXP_ERR_MODULE_DISABLED, per decision 1977 and requirement 181323.1."
+expected = "SDK guidance must mark the frozen layerx_v4 import as compatibility-only after the merge and direct committed-answer reads to the supported xweb query/keeper path."
+proposal = "Rewrite the module and read documentation in programs/sdk/rust/src/web.rs to state retirement and observable refusal. Retain frozen decoding types for compatibility and identify the xweb query path and ownership checks."
+owner_domain = 13
+interface = "13.wasm-host-web-read"
+
+[finding.018]
+file = "programs/sdk/rust/quickstart/layerx-program.json"
+line = 26
+class = "config-drift"
+severity = "medium"
+observed = "entry.call_input_capacity advertises 8192, but quickstart uses the SDK entrypoint macro and entry.rs:15 reserves MAX_CALL_INPUT_BYTES, which is 1048576. Resource metadata and the actual layerx_reserve export describe different capacities."
+expected = "The quickstart manifest must describe the implemented reservation capacity so callers and resource planning use the actual guest bound."
+proposal = "Update programs/sdk/rust/quickstart/layerx-program.json from the real Rust reservation contract, or deliberately configure both to one declared capacity. Compare metadata with the built layerx_reserve export at that capacity and one byte above."
+owner_domain = 13
+interface = "13.fmt-sdk-rust-quickstart-layerx-program-json"
+
+[finding.019]
+file = "docs/site/docs/programs/index.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says LXT-20 request codecs and the payments-merchant example are not in this tree, but programs/sdk/rust/src/lxt20.rs and both reference example crates are present. Its LXT-20 section at lines 143-146 additionally says the codec, token example and pay5 fixtures cannot be built here."
+expected = "The guide must identify shipped codecs and runnable examples, including actual deployment, account-registration and payment authority requirements."
+proposal = "Replace the missing-feature claims in docs/site/docs/programs/index.md with the existing SDK source, correct build commands and native fixture locations. Document the direct-call restriction and distinguish interface generation from native deployment."
+owner_domain = 17
+
+[finding.020]
+file = "docs/wiki/Programs.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction says LXT-20 request codecs and the payments-merchant example are not in this tree, but programs/sdk/rust/src/lxt20.rs and both reference example crates are present. The later LXT-20 section of this same page already describes the present implementation."
+expected = "The guide must identify shipped codecs and runnable examples, including actual deployment, account-registration and payment authority requirements."
+proposal = "Replace the missing-feature claims in docs/wiki/Programs.md with the existing SDK source, correct build commands and native fixture locations. Document the direct-call restriction and distinguish interface generation from native deployment."
+owner_domain = 17
+
+[finding.021]
+file = "docs/site/docs/programs/index.md"
+line = 298
+class = "doc-drift"
+severity = "medium"
+observed = "The guest ABI section says crate-root ABI_VERSION is 2 and Rust admit_abi_version accepts only 1 and 2; its checksum discussion repeats that root must remain 2. Current SDK default is 4, admission is 1 through 5, and abi-frozen.sha256 contains five baselines."
+expected = "Version guidance must distinguish default bindings, admitted execution ABIs, the smaller typed-interface subset and native activity versions, while preserving historical frozen versions."
+proposal = "Refresh version tables, admission guidance and checksum instructions in docs/site/docs/programs/index.md from programs/sdk/rust/src/abi.rs, abi_policy.rs and the frozen baseline. Explain the present v5 tooling limitation instead of calling the runtime v2-only."
+owner_domain = 17
+
+[finding.022]
+file = "docs/wiki/Programs.md"
+line = 300
+class = "doc-drift"
+severity = "medium"
+observed = "The guest ABI section says crate-root ABI_VERSION is 2 and Rust admit_abi_version accepts only 1 and 2; its checksum discussion repeats that root must remain 2. Current SDK default is 4, admission is 1 through 5, and abi-frozen.sha256 contains five baselines."
+expected = "Version guidance must distinguish default bindings, admitted execution ABIs, the smaller typed-interface subset and native activity versions, while preserving historical frozen versions."
+proposal = "Refresh version tables, admission guidance and checksum instructions in docs/wiki/Programs.md from programs/sdk/rust/src/abi.rs, abi_policy.rs and the frozen baseline. Explain the present v5 tooling limitation instead of calling the runtime v2-only."
+owner_domain = 17
+
+[finding.023]
+file = "docs/site/docs/programs/workspace.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide says generate-abi-vectors.py requires crate-root ABI_VERSION 2 and rebuilds only v1 and v2; its baseline table lists just those rows. Current default bindings use 4 and the frozen baseline and vector corpus extend through version 5."
+expected = "Maintenance guidance must preserve all five frozen baselines and explain the current default, without directing a maintainer to restore an obsolete root or omit later vectors."
+proposal = "Update the checksum table and generator description in docs/site/docs/programs/workspace.md from scripts/programs/generate-abi-vectors.py and programs/abi-frozen.sha256. Include the version-five corpus and distinguish compatibility manifests from execution admission."
+owner_domain = 17
+
+[finding.024]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide says generate-abi-vectors.py requires crate-root ABI_VERSION 2 and rebuilds only v1 and v2; its baseline table lists just those rows. Current default bindings use 4 and the frozen baseline and vector corpus extend through version 5."
+expected = "Maintenance guidance must preserve all five frozen baselines and explain the current default, without directing a maintainer to restore an obsolete root or omit later vectors."
+proposal = "Update the checksum table and generator description in docs/wiki/ProgramsWorkspace.md from scripts/programs/generate-abi-vectors.py and programs/abi-frozen.sha256. Include the version-five corpus and distinguish compatibility manifests from execution admission."
+owner_domain = 17
+
+[finding.025]
+file = "docs/site/docs/programs/index.md"
+line = 127
+class = "doc-drift"
+severity = "medium"
+observed = "The call/simulation section describes POST /v1/programs/call and /v1/programs/simulate carrying CALL bytes over LNI and cites cmd/layerxd/lxp_daemon_lni.c as executor. The merged network has no running layerxd or LNI write transport."
+expected = "Program submission and simulation must follow the merged node and 0x101D path, with block-commit finality and separately identified hosted gateway APIs."
+proposal = "Rewrite call/simulation transport guidance and source lists in docs/site/docs/programs/index.md around native layerxprograms transaction and simulation paths. Explicitly label any retained LNI explanation as historical and remove a running-daemon prerequisite."
+owner_domain = 17
+
+[finding.026]
+file = "docs/wiki/Programs.md"
+line = 126
+class = "doc-drift"
+severity = "medium"
+observed = "The call/simulation section describes POST /v1/programs/call and /v1/programs/simulate carrying CALL bytes over LNI and cites cmd/layerxd/lxp_daemon_lni.c as executor. The merged network has no running layerxd or LNI write transport."
+expected = "Program submission and simulation must follow the merged node and 0x101D path, with block-commit finality and separately identified hosted gateway APIs."
+proposal = "Rewrite call/simulation transport guidance and source lists in docs/wiki/Programs.md around native layerxprograms transaction and simulation paths. Explicitly label any retained LNI explanation as historical and remove a running-daemon prerequisite."
+owner_domain = 17
+
+[finding.027]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart advertises POST /rpc, GET /rpc/ws and public URLs ending in /rpc or /rpc/ws at api-mainnet-beta.paxeer.network; later toolset and CLI sections repeat those paths. These are retired router paths rather than root node JSON-RPC."
+expected = "Developers must use chain-id-125 root node RPC for node namespaces and a separately identified hosted gateway for its px_ methods; there is no unified router path."
+proposal = "Replace endpoint tables, environment examples and toolset/CLI submission instructions throughout docs/site/docs/overview/quickstart.md with the node root and explicit hosted-gateway origin, preserving chain-id and receipt checks."
+owner_domain = 17
+
+[finding.028]
+file = "docs/site/docs/overview/quickstart.md"
+line = 299
+class = "doc-drift"
+severity = "medium"
+observed = "Public funding instructions direct users to deposit into custody precompile 0x1013 and submit a custody credit to the router. Custody deposits and cross-domain credits are disabled after the merge."
+expected = "A kernel sub-account is funded by a native bank send to its derived address on the same chain; programs do not require a custody-credit hop."
+proposal = "Replace custody-credit funding and earlier references in docs/site/docs/overview/quickstart.md with the native bank and program-account registration steps, using current bank and layerxledger contracts."
+owner_domain = 17
+
+[finding.029]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The guide labels https://api-mainnet-beta.paxeer.network/rpc the published router origin and later directs public funding through custody credit, preserving the pre-merge transport and two-domain funding model."
+expected = "Payments and account preparation must use root node RPC and native bank funding; hosted px_ methods must have their own declared gateway origin."
+proposal = "Rewrite connection and funding guidance in docs/site/docs/overview/payments.md with explicit node/gateway origins and native bank sub-account funding, retaining receipt, asset-binding and grant verification."
+owner_domain = 17
+
+[finding.030]
+file = "docs/site/docs/overview/payments.md"
+line = 195
+class = "doc-drift"
+severity = "medium"
+observed = "The Build and deploy the LXT20 example section builds payments-merchant/Cargo.toml, then promises the eight token exports initialize, transfer, approve, transfer_from, balance_of, allowance, total_supply and metadata. The merchant has a different split-payment entrypoint."
+expected = "The token walkthrough must build token-lxt20 and bind its actual artifact to the matching ABI-v2 interface, code hash and account-registration procedure."
+proposal = "Correct the manifest path and artifact identity in docs/site/docs/overview/payments.md to programs/sdk/rust/examples/token-lxt20. Derive its interface and deployment code hash from that same artifact before demonstrating token calls."
+owner_domain = 17
+
+[finding.031]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-client, services/platform/hosted/paxeer and custody/guarantor/checkpoint settlement deployment as active infrastructure. Those cross-domain components are retired; the merged network executes and commits one chain in paxd."
+expected = "The active boundary must identify the BFT chain, root node RPC and native program execution/finality; retired custody and checkpoint deployment must not be prerequisites."
+proposal = "Replace the active-boundary and settlement walkthrough in docs/site/docs/concepts/paxeer-boundary.md with the one-chain node/precompile path. Label retained history explicitly and link custody, anchor and relay retirement notices."
+owner_domain = 17
+
+[finding.032]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening correctly restricts the service to private networks but directs public accounts to custody credit submitted to a router. Both that funding hop and the unified router are retired."
+expected = "The private-service notice must point public users to native bank funding and current node RPC, retaining the private-network restriction."
+proposal = "Replace the opening public-funding sentence in docs/site/docs/operators/beta-control.md with native bank funding to the derived account and current registration guidance. Preserve the private-only service notice and avoid implying a public faucet."
+owner_domain = 17
+
+[finding.033]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening correctly restricts the service to private networks but directs public accounts to custody credit submitted to a router. Both that funding hop and the unified router are retired."
+expected = "The private-service notice must point public users to native bank funding and current node RPC, retaining the private-network restriction."
+proposal = "Replace the opening public-funding sentence in docs/site/docs/platform/faucet.md with native bank funding to the derived account and current registration guidance. Preserve the private-only service notice and avoid implying a public faucet."
+owner_domain = 17
+
+[finding.034]
+file = "docs/site/docs/agents/running.md"
+line = 767
+class = "doc-drift"
+severity = "medium"
+observed = "The web-sidecar setup says its receipt-key index selects from the node px_getReceiptKeys response. px_ methods belong to services/platform/hosted/gateway/openrpc.json, while the node's namespace list excludes px."
+expected = "Receipt keys must come from the declared hosted gateway with chain-id and key-height checks; operators must not be sent to a node-only endpoint for hosted methods."
+proposal = "Name and configure the hosted-gateway origin explicitly in docs/site/docs/agents/running.md, keep root node RPC separate and identify the source of px_getReceiptKeys while preserving key verification."
+owner_domain = 17
+
+[finding.035]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The transaction toolset description says eth_sendRawTransaction is submitted to /rpc. The merged node serves JSON-RPC at the root and there is no unified /rpc router."
+expected = "Agent transaction instructions must name the root node transport and distinguish hosted service methods from native transaction execution."
+proposal = "Update transaction toolset transport and endpoint examples in docs/site/docs/agents/running.md to the declared node-root URL, retaining submitted-receipt semantics and subsequent committed-block verification."
+owner_domain = 17
+
+[finding.036]
+file = "programs/sdk/rust/examples/swap-cpmm/README.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The README promises pooled-token movement through program_call and canonical lxt20::Request. The supplied token reference has no nested-call handler and always refuses layerx_call, so that documented composition cannot execute with those tokens."
+expected = "The swap guide must identify a token transport and spender-authority contract that the supplied token implements; an unqualified composition must not be presented as a working settlement path."
+proposal = "Document the exact token compatibility and current blocker in programs/sdk/rust/examples/swap-cpmm/README.md. After the owning source repair, describe the authenticated nested-call contract and its actual native rollback/restart proof."
+owner_domain = 17
+
+[doc.001]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 24-37 omit frozen versions 3 through 5 and assert an obsolete default/generator ABI 2. Refresh from the current source and frozen baseline."
+
+[doc.002]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "The mirrored checksum and generator guidance repeats the obsolete ABI 2 default and incomplete baseline table; apply the same source-grounded correction as the site page."
+
+[doc.003]
+path = "docs/site/docs/programs/index.md"
+status = "misleading"
+notes = "Lines 18 and 143 describe present code as missing, lines 298 and 307 retain obsolete ABI admission, and the call/simulation section uses retired LNI/layerxd."
+
+[doc.004]
+path = "docs/wiki/Programs.md"
+status = "misleading"
+notes = "The introduction contradicts the existing LXT-20 section. Default/admitted ABI guidance remains v2-only and call/simulation still uses retired LNI/layerxd."
+
+[doc.005]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 167-168, 214-217, 299-302 and later client sections retain retired /rpc paths and custody-credit funding. Use root node RPC and native bank funding."
+
+[doc.006]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "The origin and custody-credit guidance is pre-merge; line 195 builds a merchant while promising the token exports and must build token-lxt20."
+
+[doc.007]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "The custody client, hosted/paxeer relay and settlement suite are presented as running infrastructure despite cross-domain custody, anchor and relay retirement."
+
+[doc.008]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "accurate"
+notes = "The program event projection and internal event data agree with the reviewed SDK emission shapes; the page does not introduce a separate program executor or node /rpc."
+
+[doc.009]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Porting guidance distinguishes persistent scopes, canonical bounded values and registered account authority. Public seed knowledge alone does not authorize payment."
+
+[doc.010]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "The private-service notice is correct, but the opening public-funding sentence retains retired custody credit and a router."
+
+[doc.011]
+path = "docs/site/docs/agents/running.md"
+status = "misleading"
+notes = "Line 512 uses retired /rpc submission and line 767 attributes px_getReceiptKeys to the node. Node-root and hosted-gateway origins must be identified separately."
+
+[doc.012]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Replace retired custody/router public-funding guidance in the opening while preserving the private-network restriction."
+
+[doc.013]
+path = "programs/sdk/rust/examples/nft-lxt721/README.md"
+status = "accurate"
+notes = "Ownership, supply, approval clearing, direct-call restrictions and response layouts match the collection source and registered interface."
+
+[doc.014]
+path = "programs/sdk/rust/examples/payments-merchant/README.md"
+status = "accurate"
+notes = "Calldata, registration prerequisites, exact mixed grants and atomic split behavior match the direct-call guest. The guide explicitly disclaims authenticated merchant pricing."
+
+[doc.015]
+path = "programs/sdk/rust/examples/swap-cpmm/README.md"
+status = "misleading"
+notes = "The composition claim at lines 4-6 conflicts with the supplied token's generic-entry and nested-call refusals. State the supported token contract and blocker."
+
+[doc.016]
+path = "programs/sdk/rust/examples/token-lxt20/README.md"
+status = "accurate"
+notes = "Backing-account registration, finite allowance spending, canonical frames and nested-call refusal match the supplied token."
+
+[doc.017]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "accurate"
+notes = "Consulted frozen ABI, host-interface, interpreter, guest SDK, examples and lint reference sections. This explicitly pinned contract snapshot identifies the reviewed declarations and marks planned items; it is not a current deployment qualification claim."

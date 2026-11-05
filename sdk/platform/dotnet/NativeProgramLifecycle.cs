@@ -18,6 +18,7 @@ public sealed class NativeProgramDeploy : INativeProgramLifecycle
         byte[] newHash, byte[]? programInterface, byte[] wasm)
     {
         LifecycleWire.Code(programId, guestAbi, newHash, wasm); LifecycleWire.Bytes32(authority);
+        LifecycleWire.PayloadSize(104L + wasm.Length + (programInterface is null ? 0L : 4L + programInterface.Length));
         LifecycleWire.Require(policy <= 1 && (policy == 0) == authority.All(value => value == 0) &&
             (programInterface is null || programInterface.Length is > 0 and <= 952));
         using var output = new MemoryStream();
@@ -29,6 +30,7 @@ public sealed class NativeProgramDeploy : INativeProgramLifecycle
     public byte[] Encode() => _payload.ToArray();
     public static NativeProgramDeploy Decode(byte[] payload)
     {
+        LifecycleWire.PayloadSize(payload.Length);
         LifecycleWire.Require(payload.Length >= 104 && payload[35] == 0);
         var wasm = LifecycleWire.Get(payload, 100, 4); var offset = 104; byte[]? programInterface = null;
         if (wasm != (ulong)(payload.Length - 104))
@@ -51,6 +53,7 @@ public sealed class NativeProgramUpgrade : INativeProgramLifecycle
         byte[] migrationHook, bool clearInterface, byte[]? programInterface, byte[] wasm)
     {
         LifecycleWire.Code(programId, guestAbi, newHash, wasm); LifecycleWire.Bytes32(oldHash);
+        LifecycleWire.PayloadSize(106L + migrationHook.Length + wasm.Length + (programInterface is null ? 0L : 4L + programInterface.Length));
         LifecycleWire.Require(migrationHook.Length <= ushort.MaxValue && (!clearInterface || programInterface is not null) &&
             (programInterface is null || programInterface.Length <= 952 && (programInterface.Length > 0 || clearInterface)));
         using var output = new MemoryStream();
@@ -64,6 +67,7 @@ public sealed class NativeProgramUpgrade : INativeProgramLifecycle
     public byte[] Encode() => _payload.ToArray();
     public static NativeProgramUpgrade Decode(byte[] payload)
     {
+        LifecycleWire.PayloadSize(payload.Length);
         LifecycleWire.Require(payload.Length >= 106 && payload[35] == 0 && (payload[34] & 0xfc) == 0);
         var hook = (int)LifecycleWire.Get(payload, 100, 2); var wasm = LifecycleWire.Get(payload, 102, 4);
         var clear = (payload[34] & 2) != 0; var offset = 106; var length = 0; byte[]? programInterface = null;
@@ -130,19 +134,74 @@ public sealed class NativeProgramLifecycleRequest
     private readonly byte[] _signed;
     public ushort Ordinal { get; }
     public byte[] Payload => _payload.ToArray();
-    public byte[] SignedActivity => _signed.ToArray();
-    public byte[] ActivityId => LifecycleWire.Hash(Encoding.UTF8.GetBytes("LXP/v1/activity-id\0"), _signed);
-    public string IdempotencyKey { get; }
-    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, byte[] signedActivity)
+    public byte[] SignedTransaction => _signed.ToArray();
+    public byte[] SignedActivity => SignedTransaction;
+    public byte[] TransactionHash => Programs.TransactionHash(_signed);
+    public byte[] ActivityId => TransactionHash;
+    public string IdempotencyKey => Convert.ToHexString(TransactionHash).ToLowerInvariant();
+
+    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, ProtocolAmount feeLimit = default)
     {
-        Ordinal = operation.Ordinal; _payload = LifecycleWire.Decode(Ordinal, operation.Encode()).Encode(); _signed = signedActivity.ToArray();
-        IdempotencyKey = Convert.ToHexString(LifecycleWire.Bind(Ordinal, _payload, _signed)).ToLowerInvariant();
+        ArgumentNullException.ThrowIfNull(operation);
+        Ordinal = operation.Ordinal; _signed = [];
+        var payload = LifecycleWire.Decode(Ordinal, operation.Encode()).Encode();
+        var program = ProgramsAbi.Fixed(payload[..32]);
+        if (Ordinal == 1)
+        {
+            var wasmLength = checked((int)LifecycleWire.Get(payload, 100, 4));
+            var interfaceLength = payload.Length == 104 + wasmLength ? 0 : checked((int)LifecycleWire.Get(payload, 104, 4));
+            var start = interfaceLength == 0 ? 104 : 108;
+            _payload = ProgramsAbi.Encode("bde3ff66", program, ProgramsAbi.Number(LifecycleWire.Get(payload, 32, 2), 16),
+                ProgramsAbi.Number(payload[34], 8), ProgramsAbi.Fixed(payload[36..68]), ProgramsAbi.Fixed(payload[68..100]),
+                ProgramsAbi.Bytes(payload.AsSpan(start, interfaceLength).ToArray()), ProgramsAbi.Bytes(payload[^wasmLength..]));
+        }
+        else if (Ordinal == 2)
+        {
+            var hookLength = checked((int)LifecycleWire.Get(payload, 100, 2));
+            var wasmLength = checked((int)LifecycleWire.Get(payload, 102, 4));
+            var hasInterface = payload.Length != 106 + hookLength + wasmLength || (payload[34] & 2) != 0;
+            var interfaceLength = hasInterface ? checked((int)LifecycleWire.Get(payload, 106, 4)) : 0;
+            var start = hasInterface ? 110 : 106;
+            _payload = ProgramsAbi.Encode("a860929f", program, ProgramsAbi.Number(LifecycleWire.Get(payload, 32, 2), 16),
+                ProgramsAbi.Number(payload[34], 8), ProgramsAbi.Fixed(payload[36..68]), ProgramsAbi.Fixed(payload[68..100]),
+                ProgramsAbi.Bytes(payload.AsSpan(start, hookLength).ToArray()),
+                ProgramsAbi.Bytes(payload.AsSpan(start + hookLength, interfaceLength).ToArray()),
+                ProgramsAbi.Bytes(payload[^wasmLength..]), ProgramsAbi.Number(feeLimit.Value, 128));
+        }
+        else
+        {
+            _payload = payload[32] switch
+            {
+                1 => ProgramsAbi.Encode("23330dd5", program, ProgramsAbi.Fixed(payload[33..65]), ProgramsAbi.Fixed(payload[65..97]),
+                    ProgramsAbi.Fixed(payload[97..129]), ProgramsAbi.Bytes(payload[131..])),
+                2 => ProgramsAbi.Encode("86ba1a99", program, ProgramsAbi.Fixed(payload[33..65]), ProgramsAbi.Number(LifecycleWire.Get(payload, 65, 8), 64)),
+                3 => ProgramsAbi.Encode("a512f1a9", program),
+                4 => ProgramsAbi.Encode("4dc50730", program, ProgramsAbi.Fixed(payload[33..65])),
+                _ => throw new ArgumentException("Wind-down operation")
+            };
+        }
     }
+
+    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, byte[] signedTransaction)
+        : this(operation, default, signedTransaction) { }
+
+    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, ProtocolAmount feeLimit, byte[] signedTransaction)
+        : this(operation, feeLimit)
+    {
+        Programs.BindTransaction(signedTransaction, _payload);
+        _signed = signedTransaction.ToArray();
+    }
+
+    public UnsignedProgramTransaction BuildTransaction(string sender, ulong nonce, ulong gas,
+        System.Numerics.BigInteger maxFeePerGas, System.Numerics.BigInteger maxPriorityFeePerGas) =>
+        new(sender, Payload, nonce, gas, maxFeePerGas, maxPriorityFeePerGas);
 }
 
 internal static class LifecycleWire
 {
     internal static void Require(bool valid) { if (!valid) throw new ArgumentException("Non-canonical Programs lifecycle"); }
+    internal const int MaximumPayloadBytes = 524288;
+    internal static void PayloadSize(long length) => Require(length <= MaximumPayloadBytes);
     internal static void Bytes32(byte[] value) { Require(value.Length == 32); }
     internal static byte[] Hash(params byte[][] parts)
     {
@@ -152,7 +211,7 @@ internal static class LifecycleWire
     internal static void Code(byte[] program, ushort abi, byte[] hash, byte[] wasm)
     {
         Bytes32(program); Bytes32(hash);
-        Require(program.Any(value => value != 0) && GeneratedReceiptContract.SupportsProgramGuestAbi(abi) && wasm.Length is >= 8 and <= 1048576 &&
+        Require(program.Any(value => value != 0) && GeneratedReceiptContract.SupportsProgramGuestAbi(abi) && wasm.Length is >= 8 and <= MaximumPayloadBytes &&
             wasm.AsSpan(0, 8).SequenceEqual(new byte[] { 0, 97, 115, 109, 1, 0, 0, 0 }) && CryptographicOperations.FixedTimeEquals(hash, SHA256.HashData(wasm)));
     }
     internal static ulong Get(byte[] bytes, int offset, int length)

@@ -12,7 +12,13 @@ import (
 // candidate is the stored observation of one bonded validator for a market.
 type candidate struct {
 	operator sdk.ValAddress
+	power    sdk.Int
 	record   types.ObservationRecord
+}
+
+type bondedOperator struct {
+	operator sdk.ValAddress
+	power    sdk.Int
 }
 
 // Aggregate updates the aggregate of every enabled market in id order from
@@ -25,7 +31,10 @@ func (k Keeper) Aggregate(ctx sdk.Context) {
 		return
 	}
 	bonded := k.bondedOperators(ctx)
-	need := required(params.MinSources, len(bonded))
+	totalPower := sdk.ZeroInt()
+	for _, operator := range bonded {
+		totalPower = totalPower.Add(operator.power)
+	}
 	nowMs := ctx.BlockTime().UnixMilli()
 	for _, market := range params.Markets {
 		if !market.Enabled {
@@ -33,39 +42,46 @@ func (k Keeper) Aggregate(ctx sdk.Context) {
 		}
 		var candidates []candidate
 		for _, operator := range bonded {
-			if record, found := k.GetObservation(ctx, market.ID, operator); found &&
+			if record, found := k.GetObservation(ctx, market.ID, operator.operator); found &&
 				withinStaleness(nowMs, record.SourceTimestampMs, params.StalenessWindowMs) {
-				candidates = append(candidates, candidate{operator: operator, record: record})
+				candidates = append(candidates, candidate{operator: operator.operator, power: operator.power, record: record})
 			}
 		}
-		k.aggregateMarket(ctx, market.ID, candidates, need, params)
+		k.aggregateMarket(ctx, market.ID, candidates, totalPower, params)
 	}
 }
 
 // bondedOperators walks the power store up to MaxValidators bonded
 // validators, the claim map walk of the oracle vote module.
-func (k Keeper) bondedOperators(ctx sdk.Context) []sdk.ValAddress {
+func (k Keeper) bondedOperators(ctx sdk.Context) []bondedOperator {
 	maxValidators := k.stakingKeeper.MaxValidators(ctx)
 	iterator := k.stakingKeeper.ValidatorsPowerStoreIterator(ctx)
 	defer func() { _ = iterator.Close() }()
 
-	var operators []sdk.ValAddress
+	var operators []bondedOperator
 	for ; iterator.Valid() && uint32(len(operators)) < maxValidators; iterator.Next() {
 		validator := k.stakingKeeper.Validator(ctx, iterator.Value())
 		if validator != nil && validator.IsBonded() {
-			operators = append(operators, validator.GetOperator())
+			operators = append(operators, bondedOperator{
+				operator: validator.GetOperator(),
+				power:    sdk.NewInt(validator.GetConsensusPower(sdk.DefaultPowerReduction)),
+			})
 		}
 	}
 	return operators
 }
 
-// required is max(min_sources, floor(bonded / 2) + 1).
-func required(minSources uint32, bonded int) uint32 {
-	majority := uint32(bonded/2) + 1
-	if minSources > majority {
-		return minSources
+// required enforces the bonded-power quorum: reporting power must exceed
+// two thirds of total bonded power, and the source count must reach MinSources.
+func required(candidates []candidate, minSources uint32, totalPower sdk.Int) bool {
+	if uint32(len(candidates)) < minSources {
+		return false
 	}
-	return majority
+	reportingPower := sdk.ZeroInt()
+	for _, c := range candidates {
+		reportingPower = reportingPower.Add(c.power)
+	}
+	return reportingPower.MulRaw(3).GT(totalPower.MulRaw(2))
 }
 
 // withinStaleness reports block_time_ms - source_timestamp_ms <= window; a
@@ -77,8 +93,9 @@ func withinStaleness(nowMs int64, sourceMs, windowMs uint64) bool {
 	return uint64(nowMs)-sourceMs <= windowMs
 }
 
-func (k Keeper) aggregateMarket(ctx sdk.Context, marketID uint64, candidates []candidate, need uint32, params types.Params) {
-	if uint32(len(candidates)) < need {
+func (k Keeper) aggregateMarket(ctx sdk.Context, marketID uint64, candidates []candidate, totalPower sdk.Int, params types.Params) {
+	need := params.MinSources
+	if !required(candidates, need, totalPower) {
 		emitSkipped(ctx, marketID, len(candidates), need)
 		return
 	}
@@ -91,7 +108,7 @@ func (k Keeper) aggregateMarket(ctx sdk.Context, marketID uint64, candidates []c
 			agreeing = append(agreeing, c)
 		}
 	}
-	if uint32(len(agreeing)) < need {
+	if !required(agreeing, need, totalPower) {
 		emitSkipped(ctx, marketID, len(agreeing), need)
 		return
 	}

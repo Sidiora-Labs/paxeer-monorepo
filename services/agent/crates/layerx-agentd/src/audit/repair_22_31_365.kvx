@@ -1,0 +1,9 @@
+[repair.22.31.365]
+finding = "redacted_audit_entry_binding"
+proving_tests = ["redacted_audit_entry_binding_authenticates_every_retained_field", "redacted_audit_entry_binding_survives_restart_and_hides_expired_evidence", "redacted_audit_entry_binding_rejects_missing_and_altered_proofs", "redacted_audit_entry_binding_refuses_unprovable_legacy_redaction", "redacted_audit_entry_binding_detects_stored_evidence_tampering"]
+proof_path = "services/agent/crates/layerx-agentd/tests/repair_22_31_365.rs"
+record_format = "LXAC frames bind a domain-separated commitment to all retained canonical LXAR v3 fields and a separate domain-separated payload-evidence commitment; tenant, sequence, predecessor and original length are included in the chain hash. Existing LXAE frames retain their original hash grammar."
+redaction = "Only canonical redacted fields and the opaque evidence commitment leave the producer; selected links require exactly one authenticated representation. Legacy records requiring removal of a digest return RedactionProofUnavailable because their monolithic historical hash cannot authenticate undisclosed bytes."
+baseline = "Not run: the explicit gate order prohibits tests before complete implementation and direct verify_cmd execution; the declared integration target was absent on the unchanged tree. No baseline failures are claimed."
+wiring_requests = []
+qualification = "The runner records exact candidate revision, command, exit and private evidence location through hf-build and hf-done; no gate result is claimed here before execution."

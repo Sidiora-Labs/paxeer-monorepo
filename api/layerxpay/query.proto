@@ -1,0 +1,20 @@
+syntax = "proto3";
+package paxprotocol.paxchain.layerxpay;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "layerxpay/tx.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/layerxpay/params";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}

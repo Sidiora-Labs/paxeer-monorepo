@@ -1,0 +1,40 @@
+[task.22.33.873]
+audit = "22.30.183"
+source_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+repair = "Require all four retained object directories and a nonzero count of successfully inspected regular .o files before the oracle adapter isolation script can succeed. Bash recursive, null and dot globs retain nested and hidden object coverage without word splitting; each real nm invocation must succeed before the count advances. Preserve the original forbidden network-symbol filter and its nonzero failure result."
+source_proof = "The pytest module parses the repaired shell with bash -n, checks the exact retained directory set, verifies the missing-directory exit precedes inspection, checks recursive regular-object enumeration and nm-to-counter-to-symbol-filter ordering, and requires the final zero-count rejection. It executes the unchanged production script in temporary unbuilt, partially built, empty and non-object directory trees, asserting precise nonzero exits and diagnostics. The forbidden-symbol source filter and its guarded failure are checked without replacing nm or supplying fabricated symbol output."
+review_only = "The positive native object isolation path, nm behavior on real compiled objects, tool failures and network-symbol linkage are reviewed in source rather than executed: this qualification requires no compiler, native artifact or nm binary. Bash is used only for the explicitly declared shell parsing and missing-input checks. The Python gate does not prove that the retained C object set has been built or is isolated; the production script still requires those real objects and the real nm tool. No interface mismatch or restart-recovery finding is involved."
+baseline = "Initial git status/diff showed inherited .cgignore and spec task-status bookkeeping only; the scoped pytest module and repair record were absent. Gate configuration reported zero build and verify runs, and no private gate ledger existed. No pre-change verification was run and no pre-change failing test is claimed: the explicit implementation-first order and hf-done-only verification rule supersede the contradictory baseline-run step. Static source inspection confirmed every missing directory was silently skipped, permitting success with zero objects."
+build_cmd = "bash -n tests/oracle/lx_oracle_adapter_isolation.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_873.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the verified content-derived candidate revision, exact command, exit code and log path. Build and verify must pass on the same candidate revision. This record is finalized before qualification: embedding its own candidate revision would change the verified content. The runner retains the evidence and publishes the task."
+wiring_requests = []
+
+[finding.f006]
+audit = "22.30.183"
+file = "tests/oracle/lx_oracle_adapter_isolation.sh"
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+resolution = "Missing declared directories and zero inspected objects now fail. An object counts only after real nm succeeds, and the retained network-symbol rejection still fails the gate."
+tests = ["test_isolation_shell_syntax_and_retained_object_directories", "test_isolation_rejects_an_unbuilt_tree", "test_isolation_requires_each_declared_directory", "test_isolation_rejects_zero_inspected_objects", "test_isolation_counts_only_successful_real_nm_inspections", "test_isolation_preserves_the_network_symbol_rejection", "test_repair_record_maps_f006_to_proofs_and_evidence"]
+
+[format]
+policy = "No language formatter is configured for these shell, Python or KVX paths. Follow .editorconfig UTF-8, LF, final newline and no trailing whitespace, with existing four-space shell and Python indentation."
+
+[gotcha.1]
+observed = "The pre-change verification step contradicts the explicit implementation-first and hf-done-only order."
+resolution = "Follow the explicit order and record static baseline facts without claiming a baseline run; keep notes in this scoped record because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad repository ledger and audit reads exceed tool output limits."
+resolution = "Use bounded reads of the exact task, finding, gate ledger and relevant workflow sections."
+
+[gotcha.3]
+observed = "A multi-file patch was rejected because a quoted Python string did not match its context."
+resolution = "Inspect the actual changed lines and apply both matching source changes directly before qualification."
+
+[gotcha.4]
+observed = "Using grep -q in a pipefail pipeline can hide a match when an upstream writer receives SIGPIPE."
+resolution = "Read the complete symbol stream with grep -E and redirect its output, retaining the same forbidden-symbol expression."

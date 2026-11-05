@@ -1,0 +1,12 @@
+[repair.22.31.255]
+audit = "22.30.123"
+finding = "002"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+producer = "The call bridge uses terminal::encode_failure_payload, extracted without changing its wire format, with revisions encoded by abi_policy::abi_version."
+consumer = "terminal::decode_terminal_payload validates both WrongVersion fields using abi_policy::abi_revision; this is the decoder imported by layerx-proof/src/program.rs."
+proof = "Real validated Wasm callers invoke program_call through the real host linker and ProgramCatalog; the observed CompositionRefusal is encoded by the bridge codec and decoded by the shared proof consumer."
+tests = ["finding_002_mixed_abi_3_4_and_4_5_receipts_round_trip", "finding_002_every_allocated_revision_round_trips_real_refusals", "finding_002_unallocated_tags_and_malformed_receipts_still_refuse"]
+baseline = "The repair test did not exist on the starting tree; no baseline test run is claimed because the explicit build-then-hf-done order and bounded gates prohibit a preliminary verify run."
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the final response."
+wiring_host = "src/modules/programs/call.c (owning domain 13, Programs): add full C-host publication and receipt-transport coverage for ABI 3/4 and 4/5 refusals using this shared codec; the declared gate does not enable host-ffi."
+wiring_proof = "services/agent/crates/layerx-proof/src/program.rs (owning domain agent/proof): add full authenticated receipt verification cases for ABI 3/4 and 4/5; this task exercises its shared terminal decoder without changing the separate workspace."

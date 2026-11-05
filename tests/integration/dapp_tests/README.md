@@ -1,45 +1,98 @@
 # dApp Tests
 
-This directory contains integration tests that simulate simple use cases on the Paxeer X chain by deploying and running common dApp contracts.
-The focus is on common interop scenarios (interactions with associated and unassociated accounts, pointer contracts, and so on).
-In each scenario the tests deploy the dApp contracts, fund wallets, then run end-to-end flows.
+These integration tests deploy contracts and exercise EVM, CosmWasm and pointer
+interactions on `paxd`, including associated and unassociated accounts. They
+fund accounts and submit transactions, so use a disposable test chain. See the
+[integration overview](../README.md) for the merged network and public endpoint
+conventions; these scripts retain local and historical test-network settings.
 
 ## Setup
-Run the script from the repo root:
+
+Run the script from the repository root:
 
 ```bash
 ./tests/integration/dapp_tests/dapp_tests.sh <paxlocal|devnet|testnet> [uniswap|steak|nft]
 ```
 
-The script installs the npm dependencies of `contracts/` and of this directory, compiles the contracts with Hardhat,
-and runs either every suite or the one named in the second argument.
+The script runs `npm ci` in `contracts/` and this directory, compiles this
+directory's contracts with Hardhat, exports `DAPP_TEST_ENV` from the first
+argument, then runs all three suites or the selected suite. It relies on
+[`contracts/test/lib.js`](../../../contracts/test/lib.js), a working `paxd` CLI
+and keyring, and the Wasm artifacts referenced by the scenarios.
 
-Three chain types are supported: `paxlocal`, `devnet` and `testnet`. The network definitions live in [`hardhat.config.js`](hardhat.config.js):
+### Hardhat provider and accounts
 
-- `paxlocal` uses `PAXEER_LOCAL_EVM_RPC_URL` (defaults to the local EVM RPC on port 8545).
-- `devnet` and `testnet` are only defined when `PAXEER_DEVNET_EVM_RPC_URL` or `PAXEER_TESTNET_EVM_RPC_URL` is set together with `DAPP_TESTS_MNEMONIC`.
+[`hardhat.config.js`](hardhat.config.js) defines:
 
-The tests always derive the deployer account from `DAPP_TESTS_MNEMONIC` (HD path `m/44'/118'/0'/0/0`), so set it on every chain type.
+| Network label | Hardhat EVM provider | Accounts |
+| ------------- | ------------------- | -------- |
+| `paxlocal` | `PAXEER_LOCAL_EVM_RPC_URL`, default `http://127.0.0.1:8545` | Configured from `DAPP_TESTS_MNEMONIC` when set. |
+| `devnet` | `PAXEER_DEVNET_EVM_RPC_URL` | Network is defined only when both URL and `DAPP_TESTS_MNEMONIC` are set. |
+| `testnet` | `PAXEER_TESTNET_EVM_RPC_URL` | Network is defined only when both URL and `DAPP_TESTS_MNEMONIC` are set. |
 
-On `paxlocal` the tests expect a local chain started with `scripts/initialize_local_chain.sh` and a funded `admin` key in the local keyring,
-which is used to fund the deployer. On `devnet` and `testnet` the deployer account itself must hold enough funds.
+Set `DAPP_TESTS_MNEMONIC` for the combined runner: Uniswap and NFT setup read
+`accounts.mnemonic` and `accounts.path` directly, including on `paxlocal`. The
+configured HD path is `m/44'/118'/0'/0/0`. On the local branch, Steak creates
+its owner through its account helper instead.
+
+On `paxlocal`, prepare the chain with
+[`scripts/initialize_local_chain.sh`](../../../scripts/initialize_local_chain.sh)
+and a funded `admin` key available to the helpers. Uniswap and NFT fund their
+deployer locally. For remote labels, pre-fund the mnemonic's deployer and make
+the native CLI configuration consistent with the EVM provider.
+
+### Native and pointer operations use separate settings
+
+The Hardhat URL variables above do **not** configure every operation.
+[`constants.js`](constants.js) contains independent `rpcUrls`, `evmRpcUrls`
+and `chainIds` maps used by all three suites:
+
+- For `devnet` and `testnet`, setup writes `rpcUrls[DAPP_TEST_ENV]` and
+  `chainIds[DAPP_TEST_ENV]` into `paxd config node` and `paxd config chain-id`.
+  The stored chain IDs are the historical `arctic-1` and `atlantic-2` labels,
+  respectively. These native chain-ID strings do not select merged mainnet
+  and are distinct from its EVM chain ID 125.
+- Pointer helpers receive `evmRpcUrls[DAPP_TEST_ENV]` and append it as
+  `--evm-rpc` to native CLI commands. These values are hard-coded legacy
+  test-network URLs and do not read `PAXEER_DEVNET_EVM_RPC_URL` or
+  `PAXEER_TESTNET_EVM_RPC_URL`.
+- The maps have no `paxlocal` entries. Local setup leaves the CLI node and
+  chain ID as configured; the absent pointer URL causes the helper to omit
+  `--evm-rpc` and use the CLI default. Changing only
+  `PAXEER_LOCAL_EVM_RPC_URL` does not redirect that default.
+
+Check all three paths (Hardhat provider, native CLI node/chain ID, pointer CLI
+EVM URL) before running. The current remote labels are not a fully
+environment-configurable route to merged mainnet. The suites also change CLI
+keyring configuration; use a dedicated test CLI home.
 
 ## Tests
 
 ### Uniswap (EVM DEX)
-Deploys a small set of Uniswap V3 contracts to the EVM and tests swaps and pool creation.
-- Associated accounts can swap erc20, erc20-tokenfactory and erc20-cw20 pairs
-- Unassociated accounts can receive erc20 and erc20-tokenfactory tokens
-- Unassociated accounts cannot receive erc20-cw20 tokens
-- Unassociated accounts can deploy pools and supply liquidity
+
+[`uniswap/uniswapTest.js`](uniswap/uniswapTest.js) deploys Uniswap V3 contracts
+and tests swaps and pool creation:
+
+- Associated accounts swap ERC20, ERC20–tokenfactory and ERC20–CW20 pairs.
+- Unassociated accounts receive ERC20 and ERC20–tokenfactory tokens.
+- Unassociated accounts are expected to fail to receive ERC20–CW20 tokens.
+- Unassociated accounts deploy pools and supply liquidity.
 
 ### Steak (CW Liquid Staking)
-Deploys a set of CosmWasm liquid staking contracts, then tests bonding and unbonding.
-- Associated accounts can bond, then unbond tokens
-- Unassociated accounts can bond tokens
+
+[`steak/SteakTests.js`](steak/SteakTests.js) deploys CosmWasm liquid staking
+contracts and checks that associated accounts can bond and unbond, and that
+unassociated accounts can bond.
 
 ### NFT Marketplace (EVM NFT Marketplace)
-Deploys a simple NFT marketplace contract, then tests listing and buying NFTs.
-- Associated and unassociated accounts can list and buy erc721 tokens
-- Associated accounts can list and buy cw721 tokens through erc721 pointers
-- Unassociated accounts cannot list or buy cw721 tokens through erc721 pointers
+
+[`nftMarketplace/nftMarketplaceTests.js`](nftMarketplace/nftMarketplaceTests.js)
+deploys a marketplace and checks:
+
+- Associated and unassociated accounts list and buy ERC721 tokens.
+- Associated accounts list and buy CW721 tokens through ERC721 pointers.
+- Unassociated accounts are expected to fail to list or buy those CW721 pointers.
+
+These are the scenarios asserted by this suite, not an exhaustive compatibility
+claim. For RPC behavior, use the [fixture suite](../evm_module/rpc_io_test/RPC_IO_README.md)
+or the [geth comparison suite](../rpc_tests/README.md).

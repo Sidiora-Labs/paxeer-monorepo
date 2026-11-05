@@ -39,13 +39,13 @@ const GasPrice = ({ data, prefix, className, unitMode = 'primary' }: Props) => {
       }
 
       const primaryUnitsValue = data[UNITS_TO_API_FIELD_MAP[primaryUnits]];
-      if (!primaryUnitsValue) {
+      if (primaryUnitsValue == null) {
         // in this case we display values in secondary units in primary mode as fallback
         return null;
       }
 
       const secondaryUnitsValue = data[UNITS_TO_API_FIELD_MAP[secondaryUnits]];
-      if (!secondaryUnitsValue) {
+      if (secondaryUnitsValue == null) {
         return null;
       }
 
@@ -62,12 +62,12 @@ const GasPrice = ({ data, prefix, className, unitMode = 'primary' }: Props) => {
       }
 
       const value = data[UNITS_TO_API_FIELD_MAP[primaryUnits]];
-      if (!value) {
+      if (value == null) {
         // in primary mode we want to fallback to secondary units if value in primary units are not available
         // unless there are no secondary units
         const valueInSecondaryUnits = data[UNITS_TO_API_FIELD_MAP[secondaryUnits]];
 
-        if (!secondaryUnits || !valueInSecondaryUnits) {
+        if (!secondaryUnits || valueInSecondaryUnits == null) {
           // in primary mode we always want to show something
           // this will return "N/A <units>"
           return <span className={ className }>{ formatGasValue(data, primaryUnits) }</span>;

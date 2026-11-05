@@ -94,6 +94,8 @@ func newHarness(t *testing.T) *harness {
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	k, ctx := xwebtestutil.NewKeeper(app, ctx)
 	k.InitGenesis(ctx, *types.DefaultGenesis())
+	// The ABI consumer starts on the same paused genesis exposed by the Go API.
+	require.Equal(t, *types.DefaultGenesis(), k.ExportGenesis(ctx))
 	h := &harness{t: t, keeper: &k, attestors: xwebtestutil.Attestors(3)}
 	for _, attestor := range h.attestors {
 		require.NoError(t, k.RegisterAttestor(ctx, types.MsgRegisterAttestor{Authority: authority,
@@ -741,7 +743,18 @@ func TestABIMatchesTheSolidityInterface(t *testing.T) {
 	require.NoError(t, err)
 	parsed := h.precompile.GetABI()
 	require.Len(t, parsed.Methods, 12)
-	require.Len(t, parsed.Events, 3)
+	require.Len(t, parsed.Events, 4)
+	for name, signature := range map[string]string{
+		"XWebRequested":        "XWebRequested(uint64,address,uint8,bytes,uint64,uint256,uint64)",
+		"XWebProgramRequested": "XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)",
+		"XWebFulfilled":        "XWebFulfilled(uint64,address,bytes32,uint32,uint8,uint8,uint64)",
+		"XWebRefunded":         "XWebRefunded(uint64,address,uint256)",
+	} {
+		event, found := parsed.Events[name]
+		require.True(t, found, name)
+		require.Equal(t, signature, event.Sig)
+		require.Equal(t, crypto.Keccak256Hash([]byte(signature)), event.ID)
+	}
 	local, err := os.ReadFile("XWeb.sol")
 	require.NoError(t, err)
 	t.Run("acceptance_5_4_3", func(t *testing.T) {
@@ -1008,6 +1021,9 @@ func TestEventTopics(t *testing.T) {
 			{types.EventRefunded, "XWebRefunded(uint64,address,uint256)",
 				common.HexToHash("0xc7eaafa8d3b0edacffbf86e1d4f404b61a8cb32dca0e8e57998422538045072d"),
 				[]bool{true, true, false}},
+			{"XWebProgramRequested", "XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)",
+				crypto.Keccak256Hash([]byte("XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)")),
+				[]bool{true, true, false, false, false}},
 		}
 		h := newHarness(t)
 		parsed := h.precompile.GetABI()
@@ -1015,25 +1031,24 @@ func TestEventTopics(t *testing.T) {
 
 		local, err := os.ReadFile("XWeb.sol")
 		require.NoError(t, err)
-		source := regexp.MustCompile(`(?s)/\*.*?\*/|//[^\n]*`).ReplaceAllString(string(local), "")
-		declared := make(map[string]string)
-		for _, declaration := range regexp.MustCompile(`(?s)\bevent\s+(\w+)\s*\(([^)]*)\)\s*;`).FindAllStringSubmatch(source, -1) {
-			var params []string
-			for _, field := range strings.Split(declaration[2], ",") {
-				params = append(params, strings.Fields(field)[0])
-			}
-			declared[declaration[1]] = declaration[1] + "(" + strings.Join(params, ",") + ")"
-		}
+		declared := repairM1282SolidityEvents(t, local)
+		imported, err := os.ReadFile("../../contracts/src/precompiles/IXWeb.sol")
+		require.NoError(t, err)
+		consumer := repairM1282SolidityEvents(t, imported)
 		require.Len(t, declared, len(want))
-		require.Equal(t, len(want), strings.Count(source, "event "))
+		require.Len(t, consumer, len(want))
 
 		for _, event := range want {
 			t.Run(event.name, func(t *testing.T) {
 				require.Equal(t, event.topic, crypto.Keccak256Hash([]byte(event.sig)))
-				require.Equal(t, event.sig, declared[event.name])
+				require.Equal(t, event.sig, declared[event.name].Sig)
 				got, exists := parsed.Events[event.name]
 				require.True(t, exists)
 				require.Equal(t, event.sig, got.Sig)
+				require.Equal(t, got.Inputs, declared[event.name].Inputs, "local named schema")
+				require.Equal(t, got.Inputs, consumer[event.name].Inputs, "consumer named schema")
+				require.Equal(t, got.Anonymous, declared[event.name].Anonymous)
+				require.Equal(t, got.Anonymous, consumer[event.name].Anonymous)
 				require.Equal(t, event.topic, got.ID)
 				require.False(t, got.Anonymous)
 				indexed := make([]bool, len(got.Inputs))

@@ -21,6 +21,7 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	custodymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
 	custodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/keeper"
@@ -32,6 +33,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -120,6 +122,7 @@ type fixture struct {
 	t         *testing.T
 	ctx       sdk.Context
 	keeper    *keeper.Keeper
+	upgrade   upgradekeeper.Keeper
 	custody   *custodykeeper.Keeper
 	vectors   testvectors.Fixture
 	caller    common.Address
@@ -159,11 +162,15 @@ func newFixture(t *testing.T) *fixture {
 	base, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(11).WithBlockTime(genesisTime).CacheContext()
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	ctx := withStore(t, base, key)
+	upgradeKey := sdk.NewKVStoreKey("layerxexchange-fixture-upgrade")
+	ctx = withStore(t, ctx, upgradeKey)
 	vectors, err := testvectors.Load()
 	require.NoError(t, err)
 	f := &fixture{t: t, ctx: ctx, custody: app.LayerXCustodyKeeper, vectors: vectors,
 		native: vectorArray(t, vectors["withdrawal"][0], "asset"), token: vectorArray(t, vectors["exit"][0], "asset")}
 	f.keeper = keeper.NewKeeper(app.AppCodec(), key, app.LayerXCustodyKeeper, &app.EvmKeeper)
+	f.upgrade = upgradekeeper.NewKeeper(nil, upgradeKey, app.AppCodec(), t.TempDir(), nil)
+	f.keeper.SetUpgradeKeeper(f.upgrade)
 	// Finalized roots come from custody's authority-registered checkpoints;
 	// the app wires the anchor module's reader in its place.
 	f.custody.SetAnchorReader(nil)
@@ -174,7 +181,11 @@ func newFixture(t *testing.T) *fixture {
 		require.NoError(t, app.BankKeeper.MintCoins(ctx, "evm", coins))
 		require.NoError(t, app.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", f.callerAcc, coins))
 	}
-	f.custody.InitGenesis(ctx, *custodytypes.DefaultGenesis())
+	// Use the module's actual JSON genesis boundary, including pause fields.
+	custodyModule := custodymodule.NewAppModule(f.custody)
+	custodyGenesis := custodyModule.DefaultGenesis(app.AppCodec())
+	require.NoError(t, custodyModule.ValidateGenesis(app.AppCodec(), nil, custodyGenesis))
+	custodyModule.InitGenesis(ctx, app.AppCodec(), custodyGenesis)
 	require.NoError(t, f.custody.SetAsset(ctx, custodytypes.AssetMapping{AssetId: custodytypes.Hash32(f.native),
 		Denom: sdk.MustGetBaseDenom(), Enabled: true}))
 	require.NoError(t, f.custody.SetAsset(ctx, custodytypes.AssetMapping{AssetId: custodytypes.Hash32(f.token),
@@ -201,50 +212,89 @@ func (f *fixture) typedEvents(ctx sdk.Context, name string) int {
 
 func (f *fixture) fresh() sdk.Context { return f.ctx.WithEventManager(sdk.NewEventManager()) }
 
-func TestDepositMarginMovesFundsOnlyIntoCustody(t *testing.T) {
+func TestRecordIntentRefusedAfterRetirement(t *testing.T) {
+	f := newFixture(t)
+	const doneHeight int64 = 100
+	ctx := f.fresh().WithBlockHeight(doneHeight - 1)
+	writes := []struct {
+		name string
+		run  func(sdk.Context) (types.Intent, error)
+	}{
+		{"deposit", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordDepositMarginIntent(ctx, f.caller, f.callerAcc, f.native, account, sdk.NewInt(10))
+		}},
+		{"withdraw", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordWithdrawMarginIntent(ctx, f.caller, account, f.native, sdk.NewInt(10))
+		}},
+		{"place", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordPlaceOrderIntent(ctx, f.caller, marketID, types.SideBuy, sdk.NewInt(10), sdk.NewInt(1), types.TimeInForceGoodTillCancelled)
+		}},
+		{"cancel", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordCancelOrderIntent(ctx, f.caller, orderID)
+		}},
+		{"settle", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RequestSettlement(ctx, f.caller, positionID)
+		}},
+	}
+	f.upgrade.SetDone(ctx.WithBlockHeight(doneHeight), types.RetiredFromUpgrade)
+	chainID := testkeeper.EVMTestApp.EvmKeeper.ChainID(ctx)
+	for i, write := range writes {
+		intent, err := write.run(ctx)
+		require.NoError(t, err, write.name)
+		require.Equal(t, uint64(i+1), intent.Nonce, write.name)
+		stored, found := f.keeper.GetIntent(ctx, types.IntentID(chainID, f.caller, intent.Kind, intent.Nonce))
+		require.True(t, found, write.name)
+		require.Equal(t, intent, stored, write.name)
+	}
+	count := f.keeper.GetIntentCount(ctx)
+	nonce := f.keeper.GetOwnerNonce(ctx, f.caller)
+	callerBalance := f.balance(f.callerAcc, sdk.MustGetBaseDenom())
+	custodyBalance := f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom())
+	depositCount := f.custody.GetDepositCount(ctx)
+	depositNonce := f.custody.GetDepositNonce(ctx, f.caller, f.native)
+	before := f.keeper.ExportGenesis(ctx)
+	for _, height := range []int64{doneHeight, doneHeight + 1} {
+		retiredCtx := f.fresh().WithBlockHeight(height)
+		for _, write := range writes {
+			intent, err := write.run(retiredCtx)
+			require.ErrorIs(t, err, types.ErrRetired, write.name)
+			require.Contains(t, err.Error(), "v6.12.0 done at height 100", write.name)
+			require.Equal(t, types.CodeRetired, types.ErrorCode(err), write.name)
+			require.Equal(t, types.Intent{}, intent, write.name)
+			require.Equal(t, count, f.keeper.GetIntentCount(retiredCtx), write.name)
+			require.Equal(t, nonce, f.keeper.GetOwnerNonce(retiredCtx, f.caller), write.name)
+			require.Equal(t, before, f.keeper.ExportGenesis(retiredCtx), write.name)
+			require.Equal(t, callerBalance, f.balance(f.callerAcc, sdk.MustGetBaseDenom()), write.name)
+			require.Equal(t, custodyBalance, f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom()), write.name)
+			require.Equal(t, depositCount, f.custody.GetDepositCount(retiredCtx), write.name)
+			require.Equal(t, depositNonce, f.custody.GetDepositNonce(retiredCtx, f.caller, f.native), write.name)
+			require.Empty(t, retiredCtx.EventManager().Events(), write.name)
+		}
+	}
+	f.keeper.SetUpgradeKeeper(nil)
+	for _, write := range writes {
+		_, err := write.run(ctx)
+		require.ErrorIs(t, err, types.ErrKeeperMissing, write.name)
+	}
+}
+
+func TestDepositMarginRetirementPreservesFunds(t *testing.T) {
 	f := newFixture(t)
 	ctx := f.fresh()
-	before := f.balance(f.callerAcc, sdk.MustGetBaseDenom())
+	f.upgrade.SetDone(ctx, types.RetiredFromUpgrade)
+	before := f.keeper.ExportGenesis(ctx)
+	custodyBefore := f.custody.ExportGenesis(ctx)
+	callerBefore := f.balance(f.callerAcc, sdk.MustGetBaseDenom())
+	moduleBefore := f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom())
 	intent, err := f.keeper.RecordDepositMarginIntent(ctx, f.caller, f.callerAcc, f.native, account, sdk.NewInt(2_500))
-	require.NoError(t, err)
-
-	require.Equal(t, sdk.NewInt(2_500), f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom()))
-	require.Equal(t, before.SubRaw(2_500), f.balance(f.callerAcc, sdk.MustGetBaseDenom()))
-	chainID := testkeeper.EVMTestApp.EvmKeeper.ChainID(ctx)
-	require.Equal(t, custodytypes.Hash32(types.IntentID(chainID, f.caller, types.IntentKind_INTENT_KIND_DEPOSIT, 1)), intent.IntentId)
-	depositID := custodytypes.DepositID(chainID, f.caller, f.native, account, big.NewInt(2_500), 1)
-	require.Equal(t, custodytypes.Hash32(depositID), intent.DepositId)
-	deposit, found := f.custody.GetDeposit(ctx, depositID)
-	require.True(t, found)
-	require.Equal(t, custodytypes.Hash32(account), deposit.Beneficiary)
-	require.Equal(t, 1, f.typedEvents(ctx, eventNamespace+"EventMarginDeposited"))
-	require.Equal(t, 1, f.typedEvents(ctx, "paxprotocol.paxchain.layerxcustody.EventCustodyDeposit"))
-	expectedEvent, err := sdk.TypedEventToEvent(&types.EventMarginDeposited{DepositId: intent.IntentId,
-		MarginAccount: intent.Account, Owner: intent.Owner, AssetId: intent.AssetId, Amount: sdk.NewInt(2_500)})
-	require.NoError(t, err)
-	require.Contains(t, ctx.EventManager().Events(), expectedEvent)
-
-	stored, found := f.keeper.GetIntent(ctx, types.IntentID(chainID, f.caller, types.IntentKind_INTENT_KIND_DEPOSIT, 1))
-	require.True(t, found)
-	require.Equal(t, intent, stored)
-	require.Equal(t, types.IntentStatus_INTENT_STATUS_PENDING, stored.Status)
-	require.Equal(t, "2500", stored.Amount)
-	require.Equal(t, int64(11), stored.Height)
-	require.Equal(t, uint64(1), f.keeper.GetOwnerNonce(ctx, f.caller))
-	message, broken := custodykeeper.SolvencyInvariant(f.custody)(ctx)
-	require.False(t, broken, message)
-
-	// Refusals leave no intent, no nonce and no custody movement behind.
-	_, err = f.keeper.RecordDepositMarginIntent(ctx, f.caller, f.callerAcc, f.token, account, sdk.NewInt(10))
-	require.ErrorIs(t, err, types.ErrNotMarginAsset)
-	_, err = f.keeper.RecordDepositMarginIntent(ctx, f.caller, f.callerAcc, f.native, [32]byte{}, sdk.NewInt(10))
-	require.Error(t, err)
-	_, err = f.keeper.RecordDepositMarginIntent(ctx, f.caller, f.callerAcc, f.native, account, sdk.NewInt(60_000_000))
-	require.Error(t, err)
-	require.Equal(t, uint64(1), f.keeper.GetOwnerNonce(ctx, f.caller))
-	require.Equal(t, uint64(1), f.keeper.GetIntentCount(ctx))
-	require.Equal(t, sdk.NewInt(2_500), f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom()))
-	require.Equal(t, 1, f.typedEvents(ctx, eventNamespace+"EventMarginDeposited"))
+	require.ErrorIs(t, err, types.ErrRetired)
+	require.Equal(t, "LXP_EXCHANGE_RETIRED", types.ErrorCode(err))
+	require.Equal(t, types.Intent{}, intent)
+	require.Equal(t, before, f.keeper.ExportGenesis(ctx))
+	require.Equal(t, custodyBefore, f.custody.ExportGenesis(ctx))
+	require.Equal(t, callerBefore, f.balance(f.callerAcc, sdk.MustGetBaseDenom()))
+	require.Equal(t, moduleBefore, f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom()))
+	require.Empty(t, ctx.EventManager().Events())
 }
 
 func TestIntentsAreRecordedWithoutMovingFunds(t *testing.T) {
@@ -408,6 +458,7 @@ func TestGenesisAndAuthority(t *testing.T) {
 	app := testkeeper.EVMTestApp
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	other := keeper.NewKeeper(app.AppCodec(), key, app.LayerXCustodyKeeper, &app.EvmKeeper)
+	other.SetUpgradeKeeper(f.upgrade)
 	otherCtx := withStore(t, ctx, key)
 	other.InitGenesis(otherCtx, *exported)
 	require.Equal(t, exported, other.ExportGenesis(otherCtx))
@@ -562,6 +613,7 @@ func TestNativeTimeInForceCapabilityRefusesBeforeNonce(t *testing.T) {
 	require.NoError(t, err)
 	wrongKey.CapabilityBatch = 63
 	require.NoError(t, f.custody.RegisterCheckpoint(ctx, 63, wrongRoot, [32]byte{1}))
+	ctx = f.fresh()
 	for name, listing := range map[string]types.Market{
 		"legacy": legacy, "oracle only": oracleOnly, "wrong state key": wrongKey,
 		"substituted signer":    func() types.Market { x := valid; x.NativeGenesis = otherSigner; return x }(),
@@ -705,7 +757,9 @@ func TestOrderIntentSurvivesCommittedKeeperReopen(t *testing.T) {
 		}
 		stores[key], keys[key.Name()] = committed.GetKVStore(key), key
 		ctx := f.ctx.WithMultiStore(cachemulti.NewStore(tmdb.NewMemDB(), stores, keys, nil, nil, nil, 0)).WithEventManager(sdk.NewEventManager())
-		return committed, ctx, keeper.NewKeeper(app.AppCodec(), key, f.custody, &app.EvmKeeper)
+		restored := keeper.NewKeeper(app.AppCodec(), key, f.custody, &app.EvmKeeper)
+		restored.SetUpgradeKeeper(f.upgrade)
+		return committed, ctx, restored
 	}
 	if phase == "writer" {
 		committed, ctx, first := open()

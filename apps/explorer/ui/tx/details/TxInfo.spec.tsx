@@ -3,24 +3,28 @@
 import { act } from '@testing-library/react';
 import React from 'react';
 
-import { base } from 'mocks/txs/tx';
-import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 
-vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
-
-import TxInfo from './TxInfo';
+import { answer, transaction as base, render, requests, TxInfo } from './signatureTestFixture';
 
 const labels = (container: HTMLElement, scope: string) =>
   Array.from(container.querySelectorAll(`${ scope } [data-detailed-info-label]`)).map((item) => item.textContent);
 
+async function tx_info_shows_sequencer_signature_row() {
+  const { container, findByText } = render(<TxInfo data={ base } isLoading={ false }/>);
+
+  expect(await findByText('Sequencer signature')).toBeDefined();
+  expect(await findByText(`Key id: ${ answer.receipt_key.key_id }`)).toBeDefined();
+  const signature = await findByText(answer.signature);
+  expect(signature.parentElement?.querySelector('[data-rung="receipted"]')?.textContent).toBe('Receipted');
+  expect(labels(container, '[data-tx-info] > [data-detailed-info]').slice(0, 4))
+    .toEqual([ 'Transaction hash', 'Status and method', 'Sequencer signature', 'Block' ]);
+  expect(requests.filter((path) => path?.endsWith('/signature')))
+    .toEqual([ `/api/v2/transactions/${ base.hash }/signature` ]);
+}
+
 describe('TxInfo', () => {
-  beforeEach(() => {
-    routerState.pathname = '/tx/[hash]';
-    routerState.query = { hash: base.hash };
-    fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
-  });
+  test(tx_info_shows_sequencer_signature_row.name, tx_info_shows_sequencer_signature_row);
 
   it('puts the detail card before the more details expander', () => {
     const { container } = render(<TxInfo data={ base } isLoading={ false }/>);

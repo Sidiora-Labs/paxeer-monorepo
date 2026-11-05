@@ -77,100 +77,45 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 	s.network.Cleanup()
 }
 
+func (s *IntegrationTestSuite) assertParamOutput(actual string, expected fmt.Stringer, format string) {
+	expectedJSON, err := s.cfg.LegacyAmino.MarshalAsJSON(expected)
+	s.Require().NoError(err)
+	if format == "text" {
+		s.Require().YAMLEq(string(expectedJSON), actual)
+	} else {
+		s.Require().JSONEq(string(expectedJSON), actual)
+	}
+}
+
 func (s *IntegrationTestSuite) TestCmdParams() {
 	val := s.network.Validators[0]
-
-	testCases := []struct {
-		name           string
-		args           []string
-		expectedOutput string
-	}{
-		{
-			"json output",
-			[]string{fmt.Sprintf("--%s=json", tmcli.OutputFlag)},
-			`{"voting_params":{"voting_period":"172800000000000"},"tally_params":{"quorum":"0.334000000000000000","threshold":"0.500000000000000000","veto_threshold":"0.334000000000000000"},"deposit_params":{"min_deposit":[{"denom":"uhpx","amount":"10000000"}],"max_deposit_period":"172800000000000"}, "min_expedited_deposit":[{"denom":"uhpx","amount":"20000000"}]}`,
-		},
-		{
-			"text output",
-			[]string{},
-			`
-deposit_params:
-  max_deposit_period: "172800000000000"
-  min_deposit:
-  - amount: "10000000"
-    denom: stake
-  min_expedited_deposit:
-  - amount: "20000000"
-    denom: stake
-tally_params:
-  quorum: "0.334000000000000000"
-  threshold: "0.500000000000000000"
-  veto_threshold: "0.334000000000000000"
-voting_params:
-  voting_period: "172800000000000"
-	`,
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryParams()
-			clientCtx := val.ClientCtx
-
-			out, err := clitestutil.ExecTestCLICmd(clientCtx, cmd, tc.args)
+	for _, format := range []string{"json", "text"} {
+		s.Run(format+" output", func() {
+			out, err := clitestutil.ExecTestCLICmd(val.ClientCtx, cli.GetCmdQueryParams(), []string{fmt.Sprintf("--%s=%s", tmcli.OutputFlag, format)})
 			s.Require().NoError(err)
-			s.Require().Equal(strings.TrimSpace(tc.expectedOutput), strings.TrimSpace(out.String()))
+			s.assertParamOutput(out.String(), types.DefaultParams(), format)
 		})
 	}
 }
 
 func (s *IntegrationTestSuite) TestCmdParam() {
 	val := s.network.Validators[0]
-
 	testCases := []struct {
-		name           string
-		args           []string
-		expectedOutput string
+		name     string
+		expected fmt.Stringer
 	}{
-		{
-			"voting params",
-			[]string{
-				"voting",
-				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
-			},
-			`{"voting_period":"172800000000000"}`,
-		},
-		{
-			"tally params",
-			[]string{
-				"tallying",
-				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
-			},
-			`{"quorum":"0.334000000000000000","threshold":"0.500000000000000000","veto_threshold":"0.334000000000000000"}`,
-		},
-		{
-			"deposit params",
-			[]string{
-				"deposit",
-				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
-			},
-			`{"min_deposit":[{"denom":"uhpx","amount":"10000000"}],"max_deposit_period":"172800000000000", "min_expedited_deposit":[{"denom":"uhpx","amount":"20000000"}]}`,
-		},
+		{"voting", types.DefaultVotingParams()},
+		{"tallying", types.DefaultTallyParams()},
+		{"deposit", types.DefaultDepositParams()},
 	}
-
 	for _, tc := range testCases {
-		tc := tc
-
-		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryParam()
-			clientCtx := val.ClientCtx
-
-			out, err := clitestutil.ExecTestCLICmd(clientCtx, cmd, tc.args)
-			s.Require().NoError(err)
-			s.Require().Equal(strings.TrimSpace(tc.expectedOutput), strings.TrimSpace(out.String()))
-		})
+		for _, format := range []string{"json", "text"} {
+			s.Run(tc.name+" "+format, func() {
+				out, err := clitestutil.ExecTestCLICmd(val.ClientCtx, cli.GetCmdQueryParam(), []string{tc.name, fmt.Sprintf("--%s=%s", tmcli.OutputFlag, format)})
+				s.Require().NoError(err)
+				s.assertParamOutput(out.String(), tc.expected, format)
+			})
+		}
 	}
 }
 

@@ -1,0 +1,37 @@
+[manifest]
+task = "22.32.91"
+domain = 10
+owner_role = "fm-human"
+pages = 1
+
+[page.1]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+bytes = 16708
+source_1 = "record 22.30.100 [doc.09] (stale): Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Localized overview must describe one BFT chain."
+source_2 = "record 22.30.102 [doc.01] (stale): Read in full. Rewrite the exact locations in architecture-pt-BR: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+source_3 = "record 22.30.103 [doc.06] (misleading): Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+source_4 = "record 22.30.104 [doc.8] (misleading): Read the complete 301-line translated page. Lines 37-39, runtime text near 125 and topology diagrams at 158-230 describe two domains and retired services/custody hops; see readme_pt_BR."
+source_5 = "record 22.30.105 [doc.09] (stale): Lines 37, 80, 125, 152, 195-209 and 239 repeat the separately running layerxd/LNI/sequencer architecture and batch-sync links."
+source_6 = "record 22.30.106 [doc.8] (misleading): All 301 lines read. Lines 37-41 and the later architecture diagram/layout retain layerxd, two execution domains and checkpoint settlement; translate the merged paxd model consistently."
+source_7 = "record 22.30.108 [doc.04] (misleading): Lines 37-41, 80-87 and 148-242 describe two execution domains, retired custody/checkpoints, old repository paths and the pre-merge architecture; see the language-specific readme finding."
+source_8 = "record 22.30.109 [doc.004] (stale): Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-pt-br."
+source_9 = "record 22.30.115 [doc.01] (stale): Stale at lines 37, 39, 80, 125 and diagram 152-239: separate daemon, custody and anchor settlement are presented as active."
+source_10 = "record 22.30.119 [doc.04] (stale): Read all 301 lines. Lines 37-39, 80-86 and 125-242 retain the separate layerxd, checkpoint settlement, LNI, relay and guarantor architecture; translate the corrected merged-network overview and diagram."
+source_11 = "record 22.30.13 [doc.008] (stale): Lines 37-41,80-89 and architecture diagrams retain layerxd, anchor-settled receipts and old root service paths; localize the corrected one-network architecture."
+source_12 = "record 22.30.133 [doc.6] (stale): Read in full; pre-merge topology or current interface/path drift is identified with exact rewrite anchors in the corresponding documentation finding."
+source_13 = "record 22.30.138 [doc.08] (stale): Read in full. Current-deployment transport/topology or finality drift is anchored in readme-pt-br-topology. Rewrite for one paxd chain, root node RPC and committed-block finality."
+source_14 = "record 22.30.149 [doc.06] (stale): Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: readme-pt-br."
+source_15 = "record 22.30.160 [doc.09] (stale): Read the complete page. Line 37: This translated README retains the dual-domain layerxd architecture at lines 37-39, daemon build/run instructions near line 80, a separate kernel runtime at line 125 and a sequencer diagram near line 152. It repeats the same pre-merge operational model as the root README."
+source_16 = "record 22.30.181 [doc.005] (stale): f053 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+source_17 = "record 22.30.183 [doc.04] (misleading): Lines 37-39, 80-89 and 125-239 retain standalone daemon execution, old workspace roots and the sealed-batch/guarantor settlement diagram."
+source_18 = "record 22.30.33 [doc.03] (misleading): Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+source_19 = "record 22.30.49 [doc.003] (stale): Read all 301 lines. Lines 37/39, repository map around 85 and architecture text/diagram from 125 onward retain the separate layerxd, LNI, guarantor and anchor topology; root public-RPC link remains appropriate."
+source_20 = "record 22.30.57 [doc.06] (stale): Lines 37-41 and the architecture prose/diagram retain standalone layerxd, sequencer and checkpoint settlement; see the matching translated-network finding."
+source_21 = "record 22.30.59 [doc.2] (misleading): Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+source_22 = "record 22.30.62 [doc.08] (stale): The introduction and architecture retain separate LayerX execution/settlement boundaries or the retired layerxd sequencer; rewrite proposals and exact entry lines are recorded in the matching documentation finding."
+source_23 = "record 22.30.63 [doc.08] (stale): Read in full. Lines 37-41 and the architecture table/diagram present layerxd, custody and checkpoint settlement as active; synchronize this translation with the merged-network rewrite."
+source_24 = "record 22.30.65 [doc.06] (misleading): Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+source_25 = "record 22.30.78 [doc.12] (stale): Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+source_26 = "record 22.30.90 [doc.4] (stale): Lines 37-41 and architecture/diagram around 140-218 describe layerxd, separate kernel sequencing and checkpoint anchoring as current; rewrite for the merged chain and service paths."
+source_27 = "record 22.30.99 [doc.d11] (stale): Lines 39-43 split layerxd/checkpoint execution; lines 86-96 use pre-move paths; architecture/examples at lines 144-239 retain LNI, guarantor anchors and lx_* reads. Rewrite and recheck all current command/link targets."

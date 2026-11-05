@@ -1,0 +1,3 @@
+interface.7.go-newevmwebsocketserver-j38
+interface.7.rpc-eth-sign
+interface.7.rpc-pax-sign

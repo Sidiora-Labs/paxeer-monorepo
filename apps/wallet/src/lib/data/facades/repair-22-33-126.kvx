@@ -1,0 +1,20 @@
+[task.22.33.126]
+mode = "BUILD"
+base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+findings = ["12", "14", "15"]
+proof_12 = "repair-22-33-126.test.ts: finding12_preserves_large_balances_and_zero_decimals; finding12_rounds_once_at_each_currency_boundary"
+proof_14 = "repair-22-33-126.test.ts: finding14_distinguishes_partial_valuation_and_unknown_freshness; finding14_distinguishes_unavailable_prices_from_priced_zero; finding14_rejects_invalid_quotes_and_missing_balance_metadata"
+proof_15 = "repair-22-33-126.test.ts: finding15_propagates_structured_transfer_failure; finding15_retains_known_transfers_during_refresh_failure_and_retry; finding15_preserves_successful_empty_transfer_history"
+baseline = "Not run: the explicit task order prohibits tests before the whole implementation and permits verification only through hf-done after hf-build; no pre-change failures are claimed."
+evidence = "The runner records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies its last gate evidence."
+wiring_14_ui = "Domain 12: apps/wallet/src/widgets/portfolio/PortfolioWidget.tsx and apps/wallet/src/widgets/portfolio/HeroBalance.tsx must use valuation coverage to label incomplete valuation explicitly and use priced_value_usd only as a labeled subtotal."
+wiring_14_perps = "Domain 12 / perpetuals owner: apps/wallet/src/lib/data/facades/wallet.ts requires authoritative perpetual exposure and price timestamps before combined totals can be available; until then perps_value_usd and combined totals are null, price freshness is unknown, and spot_value_usd is separate."
+wiring_15_ui = "Domain 12: apps/wallet/src/widgets/transactions/TransactionsWidget.tsx and apps/wallet/src/lib/queries/transactions.ts already expose query errors and a retry action with cached transfers; preserve that wiring now that the facade rejects with the original producer error."
+
+[gotcha.task_order]
+observed = "The audit step requests a pre-change verify and spec edits, while the explicit execution order prohibits both."
+action = "Follow the explicit gate order and keep the finding-to-test map and wiring requests in this scoped task record."
+
+[gotcha.vitest_registration]
+observed = "Vitest 4 treats test(function) as todo and executes no test body, even though the gate exits zero."
+action = "Register each declared test function with test(function.name, function) so its real assertions execute. The initial verify-1 log is not behavioral evidence."

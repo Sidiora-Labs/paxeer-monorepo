@@ -2,12 +2,15 @@ export const supportedResolutions = ['1', '5', '15', '60', '240', '1D', '1W', 'D
 export type Resolution = (typeof supportedResolutions)[number];
 export interface ClientConfiguration { baseUrl: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal }
+const maxVendorHistoryBars = 5000;
+const maxResponseBytes = 1024 * 1024;
 export interface HistoryRequest {
   symbol: string;
   resolution: Resolution;
   from?: number;
   to: number;
   countback?: number;
+  cursor?: string;
 }
 // Current Go UDF responses contain display numbers, not lossless accounting amounts.
 export interface HistoryBars {
@@ -18,6 +21,7 @@ export interface HistoryBars {
   l: number[];
   c: number[];
   v: number[];
+  nextCursor?: string;
 }
 export interface NoHistory { s: 'no_data'; nextTime?: number }
 export type HistoryResponse = HistoryBars | NoHistory;
@@ -97,6 +101,12 @@ function resolution(value: unknown): Resolution {
   }
   return value as Resolution;
 }
+function historyCursor(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.length > 256 || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.exec(value)?.[0] !== value) {
+    throw new UdfResponseError(`Expected bounded opaque history cursor: ${field}`);
+  }
+  return value;
+}
 
 export function parseHistory(value: unknown): HistoryResponse {
   const body = record(value);
@@ -115,7 +125,7 @@ export function parseHistory(value: unknown): HistoryResponse {
     v: array(body.v, 'v', item => nonnegative(item, 'v')),
   };
   const length = bars.t.length;
-  if (length > 2000) throw new UdfResponseError('History exceeds 2000 bars');
+  if (length > maxVendorHistoryBars) throw new UdfResponseError(`History exceeds ${maxVendorHistoryBars} bars`);
   if ([bars.o, bars.h, bars.l, bars.c, bars.v].some(values => values.length !== length)) {
     throw new UdfResponseError('UDF history arrays have unequal lengths');
   }
@@ -127,6 +137,7 @@ export function parseHistory(value: unknown): HistoryResponse {
       throw new UdfResponseError('Invalid OHLC range');
     }
   }
+  if (body.nextCursor !== undefined) bars.nextCursor = historyCursor(body.nextCursor, 'nextCursor');
   return bars;
 }
 
@@ -177,6 +188,37 @@ function validateSymbol(symbol: string): void {
   }
 }
 
+async function readResponseJson(response: Response): Promise<unknown> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength !== null && /^\d+$/.test(contentLength) && Number(contentLength) > maxResponseBytes) {
+    throw new UdfResponseError(`Candles response exceeds ${maxResponseBytes} bytes`);
+  }
+  if (response.body === null) throw new SyntaxError('Unexpected end of JSON input');
+  const reader = response.body.getReader();
+  let buffer = new Uint8Array(0);
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > maxResponseBytes - length) {
+        throw new UdfResponseError(`Candles response exceeds ${maxResponseBytes} bytes`);
+      }
+      const nextLength = length + value.byteLength;
+      if (nextLength > buffer.byteLength) {
+        const next = new Uint8Array(Math.min(maxResponseBytes, Math.max(16384, buffer.byteLength * 2, nextLength)));
+        next.set(buffer.subarray(0, length));
+        buffer = next;
+      }
+      buffer.set(value, length);
+      length = nextLength;
+    }
+    return JSON.parse(new TextDecoder().decode(buffer.subarray(0, length))) as unknown;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export class CandlesClient {
   private configuration: Required<ClientConfiguration> | undefined;
 
@@ -212,7 +254,11 @@ export class CandlesClient {
         method: 'GET', signal: controller.signal, headers: { Accept: 'application/json' }, credentials: 'omit',
       });
       if (!response.ok) throw new CandlesHttpError(response.status);
-      return await response.json() as unknown;
+      return await readResponseJson(response);
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      controller.abort(error);
+      throw error;
     } finally {
       clearTimeout(timer);
       options.signal?.removeEventListener('abort', abort);
@@ -234,13 +280,14 @@ export class CandlesClient {
       timestamp(request.from, 'from');
       if (request.from > request.to) throw new RangeError('from must not exceed to');
     }
-    if (request.countback !== undefined && (!Number.isSafeInteger(request.countback) || request.countback < 1 || request.countback > 2000)) {
-      throw new RangeError('countback must be 1..2000');
+    if (request.countback !== undefined && (!Number.isSafeInteger(request.countback) || request.countback < 1 || request.countback > maxVendorHistoryBars)) {
+      throw new RangeError(`countback must be 1..${maxVendorHistoryBars}`);
     }
     if (request.from === undefined && request.countback === undefined) throw new TypeError('History requires from or countback');
     const parameters = new URLSearchParams({ symbol: request.symbol, resolution: request.resolution, to: String(request.to) });
     if (request.from !== undefined) parameters.set('from', String(request.from));
     if (request.countback !== undefined) parameters.set('countback', String(request.countback));
+    if (request.cursor !== undefined) parameters.set('cursor', historyCursor(request.cursor, 'cursor'));
     return parseHistory(await this.request('/history', parameters, options));
   }
   async getTime(options: RequestOptions = {}): Promise<number> {

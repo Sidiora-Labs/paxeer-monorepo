@@ -1,0 +1,11 @@
+[repair.22.31.292]
+audit = "22.30.165"
+finding = "legacy-history-current-state"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+implementation = "Versioned cache query/export explicitly reject every height, including latest and zero, because mutable legacy DB adapters cannot provide committed snapshots. Explicit-height ABCI state queries return ErrInvalidRequest instead of current values."
+proving_tests = ["TestRepair_292_VersionedQueryAndExport", "TestRepair_292_ABCIHistoricalQuery"]
+coverage = "Real legacy DB and IAVL mount paths; cached writes and two distinct commits; both MultiStore historical methods; old, latest, unavailable, zero and negative heights; uncommitted writes; ABCI historical queries with and without proof; unversioned working-state compatibility."
+baseline = "UNRUN: task Order 1 and 4 prohibit verification before implementation and prohibit running verify_cmd by hand; no baseline test failure is claimed."
+qualification = "Runner hf-build and hf-done ledger binds the verified candidate revision, command, exit code and private log location; no gate pass is claimed by this record."
+wiring_request = "sdk/baseapp/ and sdk/server/ (owning domain 15, fm-cosmos-fork): migrate any supported tooling that still installs legacy rootmulti for versioned query/export to sdk/storev2/rootmulti; node/paxdb.go already installs storev2."
+gotcha = "Matching the requested height to LastCommitID is insufficient: legacy substores contain mutable writes after that commit, so even latest-height success would mislabel working state."

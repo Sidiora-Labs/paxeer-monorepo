@@ -143,13 +143,15 @@ func NewSetThresholdCmd() *cobra.Command {
 // NewSetParamsCmd sends MsgSetParams.
 func NewSetParamsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "set-params [fee] [max-payload-bytes] [max-callback-gas] [timeout-blocks]",
+		Use:   "set-params [fee] [max-payload-bytes] [max-callback-gas] [timeout-blocks] --kernel-network-id [id] --program-fee-denoms [denoms]",
 		Short: "Set the request fee, the payload and callback caps and the timeout",
 		Long: "Set the module's settable parameters.\n" +
-			"E.g. $ paxd tx " + types.ModuleName + " set-params 1000000 8192 500000 3600 --from [key]\n" +
+			"E.g. $ paxd tx " + types.ModuleName + " set-params 1000000 8192 500000 3600 --kernel-network-id 1 --program-fee-denoms uhpx,usid --from [key]\n" +
 			"The fee is the amount in base units one request pays, the caps bound one request's payload and\n" +
 			"its callback gas, and the timeout is the number of blocks after which an unfulfilled request is\n" +
-			"refundable. The authority itself is unchanged.",
+			"refundable. --kernel-network-id names the non-zero kernel network id, and --program-fee-denoms\n" +
+			"lists the allowed program fee denoms, separated by commas. Both flags are required.\n" +
+			"The authority itself is unchanged.",
 		Args: cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -172,14 +174,27 @@ func NewSetParamsCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("the timeout %q: %w", args[3], err)
 			}
+			kernelNetworkID, err := cmd.Flags().GetUint32("kernel-network-id")
+			if err != nil {
+				return err
+			}
+			programFeeDenoms, err := cmd.Flags().GetStringSlice("program-fee-denoms")
+			if err != nil {
+				return err
+			}
 			return submit(cmd, clientCtx, func(authority string) sdk.Msg {
 				return &types.MsgSetParams{Authority: authority, Fee: fee,
 					MaxPayloadBytes: uint32(maxPayloadBytes), MaxCallbackGas: maxCallbackGas,
-					TimeoutBlocks: timeoutBlocks}
+					TimeoutBlocks: timeoutBlocks, KernelNetworkId: kernelNetworkID,
+					ProgramFeeDenoms: programFeeDenoms}
 			})
 		},
 	}
 
+	cmd.Flags().Uint32("kernel-network-id", 0, "Kernel network id for program-origin requests (non-zero)")
+	cmd.Flags().StringSlice("program-fee-denoms", nil, "Comma-separated program fee denoms (uhpx, usid, uusdc, uusdl)")
+	_ = cmd.MarkFlagRequired("kernel-network-id")
+	_ = cmd.MarkFlagRequired("program-fee-denoms")
 	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd

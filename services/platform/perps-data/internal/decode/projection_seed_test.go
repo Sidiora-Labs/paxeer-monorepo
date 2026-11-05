@@ -3,13 +3,22 @@ package decode_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
 
+	perpskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
+	perpstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
+	sdktestutil "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 )
@@ -85,8 +94,12 @@ func TestProjectionSeeds(t *testing.T) {
 	state.orders["105"] = orderRecord{OrderId: big.NewInt(105), User: xAlice, MarketId: big.NewInt(1), IsLong: true, OrderType: 0, TimeInForce: 0,
 		Status: 1, LimitPrice: big.NewInt(2000), TriggerPrice: new(big.Int), AcceptablePrice: new(big.Int), SizeUsd: big.NewInt(8_000_000),
 		SizeBase: big.NewInt(4_000), FilledBase: big.NewInt(1_000), Leverage: big.NewInt(5), Cloid: [16]byte{7}}
-	state.positions["77"] = positionRecord{User: xBob, MarketId: big.NewInt(1), IsLong: false, SizeUsd: big.NewInt(9_000_000),
-		CollateralUsd: big.NewInt(3_000_000), CollateralToken: store.USDL, CollateralAmount: big.NewInt(3), EntryPrice: big.NewInt(2100),
+	sizeUSD, entryPrice := big.NewInt(9_000_000), big.NewInt(2100)
+	sizeBase := new(big.Int).Mul(sizeUSD, big.NewInt(1_000_000_000_000_000_000))
+	// Round base size up so its entry notional rounds down to the recorded cost basis.
+	sizeBase.Add(sizeBase, new(big.Int).Sub(entryPrice, big.NewInt(1))).Quo(sizeBase, entryPrice)
+	state.positions["77"] = positionRecord{User: xBob, MarketId: big.NewInt(1), IsLong: false, SizeBase: sizeBase, SizeUsd: sizeUSD,
+		CollateralUsd: big.NewInt(3_000_000), CollateralToken: store.USDL, CollateralAmount: big.NewInt(3), EntryPrice: entryPrice,
 		Leverage: big.NewInt(3), TakeProfitPrice: big.NewInt(1900), StopLossPrice: new(big.Int)}
 	r := registry(t, state)
 
@@ -169,3 +182,109 @@ func TestProjectionSeeds(t *testing.T) {
 }
 
 var xCarolSeed = common.HexToAddress("0xca201000000000000000000000000000000ca202")
+
+type seedPositionKeepers struct {
+	utils.Keepers
+	keeper *perpskeeper.Keeper
+}
+
+func (k seedPositionKeepers) PerpsK() *perpskeeper.Keeper { return k.keeper }
+
+type seedPositionState struct {
+	ctx        sdk.Context
+	precompile *pcommon.Precompile
+}
+
+func (s seedPositionState) CallAt(ctx context.Context, to common.Address, data []byte, height uint64) ([]byte, error) {
+	if height != uint64(s.ctx.BlockHeight()) {
+		return nil, fmt.Errorf("position state is at height %d, requested %d", s.ctx.BlockHeight(), height)
+	}
+	return s.Call(ctx, to, data)
+}
+
+func (s seedPositionState) Call(_ context.Context, to common.Address, data []byte) ([]byte, error) {
+	if to != decode.PerpsAddress {
+		return nil, fmt.Errorf("unexpected precompile %s", to)
+	}
+	method, err := s.precompile.MethodById(data)
+	if err != nil {
+		return nil, err
+	}
+	args, err := method.Inputs.Unpack(data[4:])
+	if err != nil {
+		return nil, err
+	}
+	return s.precompile.GetExecutor().Execute(s.ctx, method, xAlice, xAlice, args, nil, true, nil, nil)
+}
+
+func TestPositionSeedSizeUSDIsCostBasis(t *testing.T) {
+	key := sdk.NewKVStoreKey(perpstypes.StoreKey)
+	ctx := sdktestutil.DefaultContext(key, sdk.NewTransientStoreKey("transient_perps")).
+		WithBlockHeight(xBlock - 1).WithBlockTime(xBlockTime)
+	k := perpskeeper.NewKeeper(key, nil, nil)
+	if err := perpskeeper.SeedV6120(ctx, *k); err != nil {
+		t.Fatal(err)
+	}
+	base := *uint256.MustFromDecimal("1000000000000000000")
+	entry := *uint256.MustFromDecimal("100000000000000000000")
+	mark := *uint256.MustFromDecimal("120000000000000000000")
+	position := perpstypes.Position{
+		ID: *uint256.NewInt(77), Account: xAlice, MarketID: 1, IsLong: true,
+		SizeBase: base, ReferencePrice: entry, CostBasisUsd: entry, EntryPrice: entry,
+		Leverage: base, OpenedAt: uint64(xBlockTime.Unix()) - 60,
+	}
+	account := perpstypes.Account{Address: xAlice, Collateral: *uint256.NewInt(100_000_000), PositionCount: 1, Created: true}
+	state := ctx.KVStore(key)
+	state.Set(perpstypes.AccountKey(xAlice), account.Marshal())
+	state.Set(perpstypes.PositionKey(position.ID), position.Marshal())
+	id := position.ID.Bytes32()
+	state.Set(perpstypes.AccountMarketPositionKey(xAlice, 1), id[:])
+	k.SetMarketState(ctx, perpstypes.MarketState{
+		MarketID: 1, IndexPrice: mark, PricefeedMark: mark, MarkPrice: mark, Fresh: true,
+		PriceTimestampMs: uint64(xBlockTime.UnixMilli()),
+	})
+	precompile, err := perps.NewPrecompile(seedPositionKeepers{keeper: k})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader := seedPositionState{ctx: ctx, precompile: precompile}
+	data, err := precompile.Pack("getPosition", position.ID.ToBig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := reader.CallAt(context.Background(), decode.PerpsAddress, data, xBlock-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, err := precompile.Unpack("getPosition", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := head[3].(*big.Int).String(); got != "120000000000000000000" {
+		t.Fatalf("getPosition SizeUsd = %s, want mark notional 120e18", got)
+	}
+	res, err := registry(t, reader).Decode(context.Background(), nil, []decode.Log{
+		perpsLog(t, "PositionTpSlSet", 0, position.ID.ToBig(), new(big.Int), new(big.Int)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Seeds) != 1 || len(res.Raw) != 0 {
+		t.Fatalf("seeds %+v raw %+v, want one position seed", res.Seeds, res.Raw)
+	}
+	seed := res.Seeds[0]
+	if seed.SizeUSD != "100000000000000000000" {
+		t.Fatalf("SizeUSD = %s, want entry cost basis 100000000000000000000", seed.SizeUSD)
+	}
+	if seed.Position == nil || seed.Position.EntryPrice != entry.Dec() {
+		t.Fatalf("position seed %+v, want entry price %s", seed.Position, entry.Dec())
+	}
+	size, ok := new(big.Int).SetString(seed.SizeUSD, 10)
+	if !ok {
+		t.Fatalf("invalid seed SizeUSD %q", seed.SizeUSD)
+	}
+	contracts := new(big.Rat).SetFrac(size, entry.ToBig())
+	if contracts.Cmp(big.NewRat(1, 1)) != 0 {
+		t.Fatalf("size_usd / entry_price = %s, want 1 contract", contracts.RatString())
+	}
+}

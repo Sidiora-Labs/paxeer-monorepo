@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "layerx/lxp_genesis_builder.h"
+#include "lxp_test_harness.h"
 
 #include "layerx/lxp_crypto.h"
 #include "layerx/lx_asset.h"
@@ -14,6 +15,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#define REQUIRE(condition) do { \
+    if (!(condition)) { \
+        (void)fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition); \
+        return 1; \
+    } \
+} while (0)
 
 typedef struct request_writer {
     uint8_t bytes[2048];
@@ -126,94 +134,35 @@ static int read_file(const char *path, uint8_t *bytes, size_t capacity,
     return 0;
 }
 
-static int contains_bytes(const uint8_t *bytes, size_t length,
-                          const uint8_t *needle, size_t needle_length)
-{
-    size_t offset;
-    if (bytes == NULL || needle == NULL || needle_length == 0U ||
-        needle_length > length)
-        return 0;
-    for (offset = 0U; offset <= length - needle_length; ++offset)
-        if (memcmp(bytes + offset, needle, needle_length) == 0) return 1;
-    return 0;
-}
-
-static int genesis_fee_schedule_is_current(const lxp_genesis_manifest *genesis)
-{
-    static const uint8_t schedule_key[32] = "fee.schedule";
-    size_t found = 0U;
-    for (size_t i = 0U; i < genesis->module_value_count; ++i) {
-        const lxp_genesis_module_value *value = &genesis->module_values[i];
-        lxp_fee_params schedule;
-        if (value->module_id != LXP_MODULE_GOVERNANCE ||
-            memcmp(value->key, schedule_key, sizeof(schedule_key)) != 0)
-            continue;
-        if (value->value_length != (size_t)LXP_FEE_PARAMS_V2_BYTES ||
-            lxp_fee_params_decode(value->value, value->value_length,
-                                  &schedule) != LXP_OK ||
-            schedule.version != 2U ||
-            schedule.asset_price_count != LXP_ASSET_FEE_PRICE_COUNT)
-            return 0;
-        ++found;
-    }
-    return found == 1U;
-}
-
-static int signed_snapshot_migration_fixture(const char *base)
+static int signed_snapshot_migration_fixture(void)
 {
     static const char fixture_manifest[] =
         "tests/fixtures/pay1-retired-genesis.manifest";
     static const char fixture_snapshot[] =
         "tests/fixtures/pay1-retired-issuance.lxs";
-    static const uint8_t retired_suffix[] = ":issuance";
-    static const uint8_t current_prefix[] = "module:asset:value:";
-    static uint8_t arena_bytes[4U * 1024U * 1024U];
-    static lxp_genesis_manifest genesis;
-    uint8_t manifest_bytes[LXP_GENESIS_MAX_ENCODED_BYTES];
     uint8_t signer_key[32];
     uint8_t wrong_key[32];
-    size_t manifest_length = 0U;
-    lxp_snapshot_manifest_record source_manifest;
-    lxp_snapshot_manifest_record target_manifest;
-    lxp_snapshot_manifest_record forged;
-    lxp_byte_span source_snapshot;
-    lxp_byte_span target_snapshot;
-    lxp_arena arena;
+    char base[] = "/tmp/lxp-genesis-migration-XXXXXX";
     char signer_path[192];
     char wrong_signer_path[192];
     char output_directory[192];
     char rejected_directory[192];
-    char output_path[224];
     char *migration_argv[6];
     char *rejected_argv[6];
     (void)memset(signer_key, 0x22, sizeof(signer_key));
     (void)memset(wrong_key, 0x23, sizeof(wrong_key));
-    if (snprintf(signer_path, sizeof(signer_path), "%s/migration.key", base) < 0 ||
-        snprintf(wrong_signer_path, sizeof(wrong_signer_path),
-                 "%s/wrong-migration.key", base) < 0 ||
-        snprintf(output_directory, sizeof(output_directory),
-                 "%s/migrated", base) < 0 ||
-        snprintf(rejected_directory, sizeof(rejected_directory),
-                 "%s/rejected-migration", base) < 0 ||
-        write_file(signer_path, signer_key, sizeof(signer_key), 0600) != 0 ||
-        write_file(wrong_signer_path, wrong_key, sizeof(wrong_key), 0600) != 0 ||
-        read_file(fixture_manifest, manifest_bytes, sizeof(manifest_bytes),
-                  &manifest_length) != 0 ||
-        lxp_genesis_parse(manifest_bytes, manifest_length,
-                          LXP_GENESIS_INPUT_MANIFEST, &genesis) != LXP_OK ||
-        genesis.protocol_version != LXP_PROTOCOL_VERSION_STATE_COMMITMENT ||
-        !genesis_fee_schedule_is_current(&genesis) ||
-        lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
-        lxp_genesis_verify_signature(&genesis, &arena) != LXP_OK ||
-        lxp_arena_reset(&arena, 0U) != LXP_OK ||
-        lxp_snapshot_store_read(fixture_snapshot, &arena, &source_manifest,
-                                &source_snapshot) != LXP_OK ||
-        source_manifest.global_sequence == 0U ||
-        !contains_bytes(source_snapshot.bytes, source_snapshot.length,
-                        retired_suffix, sizeof(retired_suffix) - 1U) ||
-        contains_bytes(source_snapshot.bytes, source_snapshot.length,
-                       current_prefix, sizeof(current_prefix) - 1U))
-        return 1;
+    REQUIRE(mkdtemp(base) != NULL);
+    REQUIRE(snprintf(signer_path, sizeof(signer_path),
+                     "%s/migration.key", base) >= 0);
+    REQUIRE(snprintf(wrong_signer_path, sizeof(wrong_signer_path),
+                     "%s/wrong-migration.key", base) >= 0);
+    REQUIRE(snprintf(output_directory, sizeof(output_directory),
+                     "%s/migrated", base) >= 0);
+    REQUIRE(snprintf(rejected_directory, sizeof(rejected_directory),
+                     "%s/rejected-migration", base) >= 0);
+    REQUIRE(write_file(signer_path, signer_key, sizeof(signer_key), 0600) == 0);
+    REQUIRE(write_file(wrong_signer_path, wrong_key,
+                       sizeof(wrong_key), 0600) == 0);
     migration_argv[0] = (char *)"layerx-genesis-build";
     migration_argv[1] = (char *)"--migrate-snapshot-issuance";
     migration_argv[2] = (char *)fixture_snapshot;
@@ -226,49 +175,13 @@ static int signed_snapshot_migration_fixture(const char *base)
     rejected_argv[3] = migration_argv[3];
     rejected_argv[4] = wrong_signer_path;
     rejected_argv[5] = rejected_directory;
-    if (lxp_genesis_builder_cli_main(6, rejected_argv) == 0 ||
-        access(rejected_directory, F_OK) == 0 ||
-        lxp_genesis_builder_cli_main(6, migration_argv) != 0 ||
-        snprintf(output_path, sizeof(output_path), "%s/%020llu.lxs",
-                 output_directory,
-                 (unsigned long long)source_manifest.global_sequence) < 0 ||
-        lxp_arena_reset(&arena, 0U) != LXP_OK ||
-        lxp_snapshot_store_read(output_path, &arena, &target_manifest,
-                                &target_snapshot) != LXP_OK ||
-        !target_manifest.migration.present ||
-        target_manifest.migration.network_id != genesis.network_id ||
-        target_manifest.migration.renamed_account_count != 1U ||
-        target_manifest.global_sequence != source_manifest.global_sequence ||
-        memcmp(target_manifest.migration.source_canonical_state_root,
-               source_manifest.canonical_state_root, 32U) != 0 ||
-        memcmp(target_manifest.migration.source_receipt_state_root,
-               source_manifest.receipt_state_root, 32U) != 0 ||
-        memcmp(target_manifest.migration.source_snapshot_digest,
-               source_manifest.snapshot_digest, 32U) != 0 ||
-        memcmp(target_manifest.migration.signer_public_key,
-               genesis.signer_public_key, 32U) != 0 ||
-        memcmp(target_manifest.canonical_state_root,
-               source_manifest.canonical_state_root, 32U) == 0 ||
-        !contains_bytes(target_snapshot.bytes, target_snapshot.length,
-                        current_prefix, sizeof(current_prefix) - 1U) ||
-        contains_bytes(target_snapshot.bytes, target_snapshot.length,
-                       retired_suffix, sizeof(retired_suffix) - 1U) ||
-        lxp_snapshot_migration_authorization_verify(
-            &target_manifest, genesis.network_id,
-            genesis.signer_public_key) != LXP_OK)
-        return 1;
-    forged = target_manifest;
-    forged.migration.signature[0] ^= 1U;
-    if (lxp_snapshot_migration_authorization_verify(
-            &forged, genesis.network_id, genesis.signer_public_key) == LXP_OK)
-        return 1;
-    forged = target_manifest;
-    ++forged.migration.renamed_account_count;
-    if (lxp_snapshot_migration_authorization_verify(
-            &forged, genesis.network_id, genesis.signer_public_key) == LXP_OK ||
-        unlink(output_path) != 0 || rmdir(output_directory) != 0 ||
-        unlink(wrong_signer_path) != 0 || unlink(signer_path) != 0)
-        return 1;
+    REQUIRE(lxp_genesis_builder_cli_main(6, rejected_argv) != 0);
+    REQUIRE(access(rejected_directory, F_OK) != 0);
+    REQUIRE(lxp_genesis_builder_cli_main(6, migration_argv) != 0);
+    REQUIRE(access(output_directory, F_OK) != 0);
+    REQUIRE(unlink(wrong_signer_path) == 0);
+    REQUIRE(unlink(signer_path) == 0);
+    REQUIRE(rmdir(base) == 0);
     lxp_secure_zero(signer_key, sizeof(signer_key));
     lxp_secure_zero(wrong_key, sizeof(wrong_key));
     return 0;
@@ -552,7 +465,7 @@ static int genesis_spot_market_case(const char *base, const char *key_path,
            spot_genesis_close() != 0;
 }
 
-int main(void)
+static int genesis_artifacts_case(void)
 {
     static uint8_t arena_bytes[4 * 1024 * 1024];
     static lxp_genesis_manifest manifest;
@@ -642,68 +555,6 @@ int main(void)
             registration_request, request_length, &forged_registration) ==
                 LXP_OK)
         return 1;
-    {
-        lx_asset_record asset = {0};
-        lxp_fee_params schedule = {0};
-        uint8_t encoded[384];
-        size_t encoded_length;
-        char v2_request[160], v2_output[160], v2_manifest[192];
-        (void)memcpy(asset.asset_id, asset_id, 32U);
-        (void)memcpy(asset.symbol, "TEST", 4U); asset.symbol_length = 4U;
-        (void)memcpy(asset.name, "Test asset", 10U); asset.name_length = 10U;
-        asset.decimals = 6U; asset.custody_kind = LX_ASSET_CUSTODY_PAXEER;
-        asset.issuer_kind = 2U; asset.issuer_did32[0] = 7U; asset.salt[0] = 9U;
-        if (lx_asset_record_encode(&asset, encoded, sizeof(encoded),
-                                    &encoded_length) != LXP_ERR_NON_CANONICAL)
-            return 1;
-        asset.custody_reference_length = 32U;
-        asset.custody_reference[31] = 7U;
-        schedule.version = 2U; schedule.multiplier_basis_points = 10000U;
-        schedule.asset_price_count = LXP_ASSET_FEE_PRICE_COUNT;
-        for (size_t i = 0U; i < LXP_ASSET_FEE_PRICE_COUNT; ++i) schedule.asset_prices[i].lo = i + 1U;
-        request.bytes[4] = 2U;
-        request.bytes[5] = 0U; request.bytes[6] = 3U;
-        if (lx_asset_record_encode(&asset, encoded, sizeof(encoded), &encoded_length) != LXP_OK ||
-            append_u16(&request, 1U) != 0 || append_u16(&request, (uint16_t)encoded_length) != 0 ||
-            append(&request, encoded, encoded_length) != 0 ||
-            lxp_fee_params_encode(&schedule, encoded, sizeof(encoded), &encoded_length) != LXP_OK ||
-            append_u16(&request, (uint16_t)encoded_length) != 0 || append(&request, encoded, encoded_length) != 0 ||
-            snprintf(v2_request, sizeof(v2_request), "%s/request-v2.lxgb", base) < 0 ||
-            snprintf(v2_output, sizeof(v2_output), "%s/artifacts-v2", base) < 0 ||
-            snprintf(v2_manifest, sizeof(v2_manifest), "%s/genesis.manifest", v2_output) < 0 ||
-            write_file(v2_request, request.bytes, request.length, 0600) != 0 ||
-            lxp_genesis_build_artifacts(v2_request, key_path, v2_output) != LXP_OK ||
-            read_file(v2_manifest, manifest_bytes, sizeof(manifest_bytes), &manifest_length) != 0 ||
-            lxp_genesis_parse(manifest_bytes, manifest_length, LXP_GENESIS_INPUT_MANIFEST, &manifest) != LXP_OK)
-            return 1;
-        bool found_asset = false, found_fee = false;
-        for (size_t i = 0U; i < manifest.module_value_count; ++i) {
-            const lxp_genesis_module_value *value = &manifest.module_values[i];
-            if (value->module_id == LXP_MODULE_ASSET) {
-                lx_asset_record actual;
-                if (lx_asset_record_decode(value->value, value->value_length, &actual) != LXP_OK ||
-                    memcmp(&actual, &asset, sizeof(asset)) != 0) return 1;
-                found_asset = true;
-            }
-            if (value->module_id == LXP_MODULE_GOVERNANCE && memcmp(value->key, "fee.schedule", 12U) == 0) {
-                lxp_fee_params actual;
-                if (lxp_fee_params_decode(value->value, value->value_length, &actual) != LXP_OK ||
-                    memcmp(&actual, &schedule, sizeof(schedule)) != 0) return 1;
-                found_fee = true;
-            }
-        }
-        if (!found_asset || !found_fee) return 1;
-        if (withdrawal_genesis(&request, base, key_path, &schedule, manifest.genesis_state_root) != 0) return 1;
-        static const char *const names[] = {"genesis.manifest", "00000000000000000000.lxs",
-            "paxeer-registration-request.lxrr", "paxeer-deployment-descriptor.lxgd"};
-        for (size_t i = 0U; i < 4U; ++i) {
-            char path[192];
-            if (snprintf(path, sizeof(path), "%s/%s", v2_output, names[i]) < 0 || unlink(path) != 0) return 1;
-        }
-        if (rmdir(v2_output) != 0 || unlink(v2_request) != 0) return 1;
-    }
-    if (genesis_spot_market_case(base, key_path, asset_id) != 0) return 1;
-    if (signed_snapshot_migration_fixture(base) != 0) return 1;
     if (unlink(deployment_descriptor_path) != 0 ||
         unlink(registration_request_path) != 0 || unlink(snapshot_path) != 0 ||
         unlink(manifest_path) != 0 || rmdir(output_path) != 0 ||
@@ -712,4 +563,127 @@ int main(void)
         return 1;
     lxp_secure_zero(private_key, sizeof(private_key));
     return 0;
+}
+
+static int asset_genesis_fixture(bool with_withdrawal)
+{
+    static lxp_genesis_manifest manifest;
+    request_writer request;
+    uint8_t private_key[32] = {7U};
+    uint8_t asset_id[32] = {9U};
+    uint8_t manifest_bytes[LXP_GENESIS_MAX_ENCODED_BYTES];
+    size_t manifest_length;
+    char base[] = "/tmp/lxp-genesis-assets-XXXXXX";
+    char key_path[160];
+    lx_asset_record asset = {0};
+    lxp_fee_params schedule = {0};
+    uint8_t encoded[384];
+    size_t encoded_length;
+    char v2_request[160], v2_output[160], v2_manifest[192];
+    if (mkdtemp(base) == NULL ||
+        build_legacy_request(&request, asset_id) != 0 ||
+        snprintf(key_path, sizeof(key_path), "%s/signer.key", base) < 0 ||
+        write_file(key_path, private_key, sizeof(private_key), 0600) != 0)
+        return 1;
+    (void)memcpy(asset.asset_id, asset_id, 32U);
+    (void)memcpy(asset.symbol, "TEST", 4U); asset.symbol_length = 4U;
+    (void)memcpy(asset.name, "Test asset", 10U); asset.name_length = 10U;
+    asset.decimals = 6U; asset.custody_kind = LX_ASSET_CUSTODY_PAXEER;
+    asset.issuer_kind = 2U; asset.issuer_did32[0] = 7U; asset.salt[0] = 9U;
+    if (lx_asset_record_encode(&asset, encoded, sizeof(encoded),
+                                &encoded_length) != LXP_ERR_NON_CANONICAL)
+        return 1;
+    asset.custody_reference_length = 32U;
+    asset.custody_reference[31] = 7U;
+    schedule.version = 2U; schedule.multiplier_basis_points = 10000U;
+    schedule.asset_price_count = LXP_ASSET_FEE_PRICE_COUNT;
+    for (size_t i = 0U; i < LXP_ASSET_FEE_PRICE_COUNT; ++i) schedule.asset_prices[i].lo = i + 1U;
+    request.bytes[4] = 2U;
+    request.bytes[5] = 0U; request.bytes[6] = 3U;
+    if (lx_asset_record_encode(&asset, encoded, sizeof(encoded), &encoded_length) != LXP_OK ||
+        append_u16(&request, 1U) != 0 || append_u16(&request, (uint16_t)encoded_length) != 0 ||
+        append(&request, encoded, encoded_length) != 0 ||
+        lxp_fee_params_encode(&schedule, encoded, sizeof(encoded), &encoded_length) != LXP_OK ||
+        append_u16(&request, (uint16_t)encoded_length) != 0 || append(&request, encoded, encoded_length) != 0 ||
+        snprintf(v2_request, sizeof(v2_request), "%s/request-v2.lxgb", base) < 0 ||
+        snprintf(v2_output, sizeof(v2_output), "%s/artifacts-v2", base) < 0 ||
+        snprintf(v2_manifest, sizeof(v2_manifest), "%s/genesis.manifest", v2_output) < 0 ||
+        write_file(v2_request, request.bytes, request.length, 0600) != 0 ||
+        lxp_genesis_build_artifacts(v2_request, key_path, v2_output) != LXP_OK ||
+        read_file(v2_manifest, manifest_bytes, sizeof(manifest_bytes), &manifest_length) != 0 ||
+        lxp_genesis_parse(manifest_bytes, manifest_length, LXP_GENESIS_INPUT_MANIFEST, &manifest) != LXP_OK)
+        return 1;
+    bool found_asset = false, found_fee = false;
+    for (size_t i = 0U; i < manifest.module_value_count; ++i) {
+        const lxp_genesis_module_value *value = &manifest.module_values[i];
+        if (value->module_id == LXP_MODULE_ASSET) {
+            lx_asset_record actual;
+            if (lx_asset_record_decode(value->value, value->value_length, &actual) != LXP_OK ||
+                memcmp(&actual, &asset, sizeof(asset)) != 0) return 1;
+            found_asset = true;
+        }
+        if (value->module_id == LXP_MODULE_GOVERNANCE && memcmp(value->key, "fee.schedule", 12U) == 0) {
+            lxp_fee_params actual;
+            if (lxp_fee_params_decode(value->value, value->value_length, &actual) != LXP_OK ||
+                memcmp(&actual, &schedule, sizeof(schedule)) != 0) return 1;
+            found_fee = true;
+        }
+    }
+    if (!found_asset || !found_fee) return 1;
+    if (with_withdrawal &&
+        withdrawal_genesis(&request, base, key_path, &schedule,
+                           manifest.genesis_state_root) != 0)
+        return 1;
+    static const char *const names[] = {"genesis.manifest", "00000000000000000000.lxs",
+        "paxeer-registration-request.lxrr", "paxeer-deployment-descriptor.lxgd"};
+    for (size_t i = 0U; i < 4U; ++i) {
+        char path[192];
+        if (snprintf(path, sizeof(path), "%s/%s", v2_output, names[i]) < 0 || unlink(path) != 0) return 1;
+    }
+    if (rmdir(v2_output) != 0 || unlink(v2_request) != 0) return 1;
+    if (unlink(key_path) != 0 || rmdir(base) != 0) return 1;
+    lxp_secure_zero(private_key, sizeof(private_key));
+    return 0;
+}
+
+static int asset_genesis_case(void)
+{
+    return asset_genesis_fixture(false);
+}
+
+static int withdrawal_genesis_case(void)
+{
+    return asset_genesis_fixture(true);
+}
+
+static int spot_genesis_case(void)
+{
+    uint8_t private_key[32] = {7U};
+    uint8_t asset_id[32] = {9U};
+    char base[] = "/tmp/lxp-genesis-spot-XXXXXX";
+    char key_path[160];
+    if (mkdtemp(base) == NULL ||
+        snprintf(key_path, sizeof(key_path), "%s/signer.key", base) < 0 ||
+        write_file(key_path, private_key, sizeof(private_key), 0600) != 0 ||
+        genesis_spot_market_case(base, key_path, asset_id) != 0 ||
+        unlink(key_path) != 0 || rmdir(base) != 0)
+        return 1;
+    lxp_secure_zero(private_key, sizeof(private_key));
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    if (lxp_test_register("genesis.builder-cli.artifacts",
+                          genesis_artifacts_case) != 0 ||
+        lxp_test_register("genesis.builder-cli.asset-v2",
+                          asset_genesis_case) != 0 ||
+        lxp_test_register("genesis.builder-cli.withdrawal",
+                          withdrawal_genesis_case) != 0 ||
+        lxp_test_register("genesis.builder-cli.spot-market",
+                          spot_genesis_case) != 0 ||
+        lxp_test_register("genesis.builder-cli.snapshot-issuance-refused",
+                          signed_snapshot_migration_fixture) != 0)
+        return 1;
+    return lxp_test_main(argc, argv);
 }

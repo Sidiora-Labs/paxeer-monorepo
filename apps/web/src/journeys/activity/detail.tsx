@@ -5,40 +5,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { copyEntry } from "../../../copy/runtime";
 import { formatCopy } from "../../../copy/format";
-import { humanApi, type ActivityEntryDetail, type ExportArtefact } from "../../api";
+import { humanApi, type ActivityEntryDetail, type EvidenceRef, type ExportArtefact, type HumanApiClient } from "../../api";
 import { ActivityEvidenceBadge } from "../../kit/activity";
-import { CopyableIdentifier, LabelValue, SignedWordedAmount, StatusPill } from "../../kit/money";
+import { CopyableIdentifier, StatusPill } from "../../kit/money";
 import { DesktopDetail, MobileDetail } from "../../kit/pattern-detail";
-import { ExplorerLink } from "../../kit/explorer";
+import { ExplorerExternalLink } from "../../kit/explorer";
 import { KitButton } from "../../kit/control";
 import { KitList, KitListItem } from "../../kit/display";
 import { ScreenCard, StateFrame } from "../../kit/surface";
-import { protocolAmount } from "../../kit/model";
 import { useShellSelection } from "../../shell/app-shell";
-import { PrivateFigure } from "../../settings/privacy";
 import { LoadingSurface, OfflineSurface, StillCheckingSurface } from "../../states/surfaces";
 import { ActivityErrorSurface } from "./activity";
+import { ActivityDetailFacts } from "./facts";
 import {
   activityFailure,
   detailUnresolved,
+  detailEvidence,
   entryVerification,
   evidenceClassLabel,
-  explorerPath,
-  formatEntryTimestamp,
+  resolveEvidencePath,
   kindLabel,
   newExportKey,
   plainSentence,
   safeExportArtefact,
-  signedBaseUnits,
   stageView,
-  toKitDirection,
-  unsignedBaseUnits,
   validatedDetail,
   verificationLabel,
   type ActivityFailure,
 } from "./model";
-
-const AMOUNT_LOCALE = "en";
 
 type DetailLoad =
   | Readonly<{ kind: "loading" }>
@@ -52,14 +46,39 @@ type DetailExport =
   | Readonly<{ kind: "ready"; artefact: ExportArtefact }>
   | Readonly<{ kind: "failed"; failure: ActivityFailure }>;
 
+export function ActivityVerification({ detail }: Readonly<{ detail: ActivityEntryDetail }>) {
+  const verification = entryVerification(detailEvidence(validatedDetail(detail)));
+  return <ActivityEvidenceBadge>{verificationLabel(verification)}</ActivityEvidenceBadge>;
+}
+
+export function ActivityEvidenceLink({ client, reference, configuredOrigin }: Readonly<{
+  client: HumanApiClient;
+  reference: EvidenceRef;
+  configuredOrigin?: string;
+}>) {
+  const [destination, setDestination] = useState<Readonly<{
+    reference: EvidenceRef; origin: string | undefined; path?: string; failure?: ActivityFailure;
+  }> | undefined>();
+  useEffect(() => {
+    let active = true;
+    void resolveEvidencePath(client, reference, configuredOrigin).then((path) => {
+      if (active) setDestination({ reference, origin: configuredOrigin, ...(path === undefined ? {} : { path }) });
+    }).catch((error: unknown) => {
+      if (active) setDestination({ reference, origin: configuredOrigin, failure: activityFailure(error) });
+    });
+    return () => { active = false; };
+  }, [client, reference, configuredOrigin]);
+  if (destination?.reference !== reference || destination.origin !== configuredOrigin) return null;
+  if (destination.failure !== undefined) return <span role="alert">{destination.failure.message}</span>;
+  if (destination.path === undefined) return null;
+  return <ExplorerExternalLink href={destination.path}>{copyEntry("activity.technical.view_in_explorer").message}</ExplorerExternalLink>;
+}
+
 function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>) {
   const shell = useShellSelection().shell;
+  const client = useMemo(() => humanApi(), []);
   const [open, setOpen] = useState(false);
   const Disclosure = shell === "mobile" ? MobileDetail : DesktopDetail;
-  const verification = entryVerification([
-    ...detail.evidence,
-    ...detail.stages.flatMap((stage) => stage.evidence),
-  ]);
 
   return (
     <section className="flex flex-col gap-3">
@@ -92,7 +111,7 @@ function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>)
             <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.detail.state").message}</dt><dd className="font-mono text-sm">{detail.state}</dd></div>
             <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.detail.state_copy").message}</dt><dd className="font-mono text-sm">{detail.state_copy_key}</dd></div>
             <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.detail.summary_copy").message}</dt><dd className="font-mono text-sm">{detail.summary_copy_key}</dd></div>
-            <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.technical.verification").message}</dt><dd><ActivityEvidenceBadge>{verificationLabel(verification)}</ActivityEvidenceBadge></dd></div>
+            <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.technical.verification").message}</dt><dd><ActivityVerification detail={detail} /></dd></div>
           </dl>
           <section className="flex flex-col gap-2">
             <h3 className="font-bold text-foreground">{copyEntry("activity.technical.evidence").message}</h3>
@@ -100,20 +119,18 @@ function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>)
               <p className="text-sm text-muted-foreground">{copyEntry("activity.detail.evidence_empty").message}</p>
             ) : (
               <KitList>
-                {detail.evidence.map((reference) => {
-                  const path = explorerPath(reference);
-                  return (
-                    <KitListItem
-                      key={`${reference.class}-${reference.evidence_id}`}
-                      title={evidenceClassLabel(reference.class)}
-                      subtitle={reference.evidence_id}
-                      trailing={<ActivityEvidenceBadge>{verificationLabel(reference.verification)}</ActivityEvidenceBadge>}
-                      trailingCaption={path === undefined ? undefined : (
-                        <ExplorerLink href={path}>{copyEntry("activity.technical.view_in_explorer").message}</ExplorerLink>
-                      )}
-                    />
-                  );
-                })}
+                {detail.evidence.map((reference) => (
+                  <KitListItem
+                    key={`${reference.class}-${reference.evidence_id}`}
+                    title={evidenceClassLabel(reference.class)}
+                    subtitle={reference.evidence_id}
+                    trailing={<ActivityEvidenceBadge>{verificationLabel(reference.verification)}</ActivityEvidenceBadge>}
+                    trailingCaption={<ActivityEvidenceLink client={client} reference={reference}
+                      {...(process.env.NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL === undefined ? {} : {
+                        configuredOrigin: process.env.NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL,
+                      })} />}
+                  />
+                ))}
               </KitList>
             )}
           </section>
@@ -188,44 +205,11 @@ export function ActivityDetail({ entryId }: Readonly<{ entryId: string }>) {
       .catch((error: unknown) => { setExportState({ kind: "failed", failure: activityFailure(error) }); });
   };
 
-  const amount = detail.money === undefined ? undefined : signedBaseUnits(detail.money, detail.direction);
-  const fee = detail.fees === undefined ? undefined : unsignedBaseUnits(detail.fees);
-
   return (
     <ScreenCard title={kindLabel(detail.kind)} description={plainSentence(detail)} landmark="section">
       <div className="mt-4 flex flex-col gap-6">
         <div><KitButton type="button" variant="secondary" onClick={() => { router.push("/app/activity"); }}>{copyEntry("activity.detail.back").message}</KitButton></div>
-        <section aria-labelledby="activity-what-happened" className="flex flex-col gap-3">
-          <h2 id="activity-what-happened" className="text-lg font-bold text-foreground">{copyEntry("activity.detail.what_happened").message}</h2>
-          <p className="text-foreground-secondary">{plainSentence(detail)}</p>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <LabelValue
-              label={copyEntry("activity.detail.amount").message}
-              value={amount === undefined || detail.money === undefined ? copyEntry("activity.detail.no_amount").message : (
-                <PrivateFigure><SignedWordedAmount
-                  value={amount}
-                  currency={detail.money.currency}
-                  locale={AMOUNT_LOCALE}
-                  decimals={0}
-                  direction={toKitDirection(detail.direction)}
-                /></PrivateFigure>
-              )}
-            />
-            <LabelValue
-              label={copyEntry("activity.detail.fee").message}
-              value={fee === undefined || detail.fees === undefined ? copyEntry("activity.detail.no_fee").message : (
-                <PrivateFigure><SignedWordedAmount
-                  value={protocolAmount(fee * -1)}
-                  currency={detail.fees.currency}
-                  locale={AMOUNT_LOCALE}
-                  decimals={0}
-                  direction="outbound"
-                /></PrivateFigure>
-              )}
-            />
-            <LabelValue label={copyEntry("activity.detail.when").message} value={formatEntryTimestamp(detail.occurred_at)} />
-          </div>
-        </section>
+        <ActivityDetailFacts detail={detail} />
         {detail.stages.length === 0 ? null : (
           <section aria-labelledby="activity-progress" className="flex flex-col gap-3">
             <h2 id="activity-progress" className="text-lg font-bold text-foreground">{copyEntry("activity.detail.timeline").message}</h2>

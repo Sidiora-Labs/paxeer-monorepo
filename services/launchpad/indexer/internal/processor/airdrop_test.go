@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"math/big"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -129,7 +130,9 @@ func processDecoded(t *testing.T, p *Processor, ev *decode.Event) {
 // poolCut,epoch,timestamp,blockNumber) event in the humanized shape the decoder
 // hands processEvent (addresses lowercased, uint values as decimal strings).
 // The checked-in protocol/bindings EventEmitter ABI predates FeeFlow, so the
-// mirror cannot yet be ABI-encoded from bindings; the processor route is
+// mirror covers the direct processor unit route only; the native ABI,
+// receipt authority and SQL path are covered by TestAirdropNativeFeeFlowQualified.
+// The processor route is
 // exercised on the decoded event type directly.
 func feeFlowMirror(kind uint8, pool, party string, amount, epoch int64, index uint) *decode.Event {
 	return &decode.Event{
@@ -201,4 +204,66 @@ func TestAirdropClaimedRejectsShapesWithoutSettlementEvidence(t *testing.T) {
 	if rows := airdropRows(t, pool); len(rows) != 0 {
 		t.Fatalf("rows persisted for rejected shapes: %+v", rows)
 	}
+}
+
+// TestProofLaunchpadSdkProtocolGoIndexerConsumer passes the eight real metadata
+// producers through the same encodedLog -> Decoder.Decode path used above.
+// It deliberately stops before database persistence: these ABI producers carry
+// no persistent state and this proof requires no provisioned infrastructure.
+func TestProofLaunchpadSdkProtocolGoIndexerConsumer(t *testing.T) {
+	pool, holder := common.HexToAddress(airdropPool), common.HexToAddress(airdropHolder)
+	token, creator := common.HexToAddress("0x3333"), common.HexToAddress("0x4444")
+	optical := common.HexToAddress("0x5555")
+	key := [32]byte(common.HexToHash("0x1234"))
+	address := func(a common.Address) string { return strings.ToLower(a.Hex()) }
+	cases := []struct {
+		role          string
+		meta          *bind.MetaData
+		event         string
+		indexed, data []any
+		want          map[string]any
+	}{
+		{"FeeAccumulator", bindings.FeeAccumulatorMetaData, "AirdropClaimed", []any{pool, holder}, []any{big.NewInt(2500000), big.NewInt(3)}, map[string]any{"pool": address(pool), "holder": address(holder), "amount": "2500000", "epoch": "3"}},
+		{"FeesRouter", bindings.FeesRouterMetaData, "AirdropClaimed", []any{big.NewInt(42), holder}, []any{big.NewInt(4000000)}, map[string]any{"nftId": "42", "holder": address(holder), "amount": "4000000"}},
+		{"PoolRegistry", bindings.PoolRegistryMetaData, "PoolRegistered", []any{pool, token, creator}, []any{optical, big.NewInt(42), big.NewInt(1760000000)}, map[string]any{"pool": address(pool), "token": address(token), "creator": address(creator), "optical": address(optical), "nftId": "42", "timestamp": "1760000000"}},
+		{"ProtocolConfig", bindings.ProtocolConfigMetaData, "ConfigUpdated", []any{key}, []any{big.NewInt(10), big.NewInt(20)}, map[string]any{"key": common.Hash(key).Hex(), "oldValue": "10", "newValue": "20"}},
+		{"Quoter", bindings.QuoterMetaData, "Initialized", nil, []any{uint64(2)}, map[string]any{"version": uint64(2)}},
+		{"Router", bindings.RouterMetaData, "Buy", []any{pool, holder}, []any{big.NewInt(100), big.NewInt(90)}, map[string]any{"pool": address(pool), "buyer": address(holder), "usdlIn": "100", "tokensOut": "90"}},
+		{"SidioraFactory", bindings.SidioraFactoryMetaData, "MarketCreated", []any{token, pool, creator}, []any{big.NewInt(42), optical}, map[string]any{"token": address(token), "pool": address(pool), "creator": address(creator), "nftId": "42", "optical": address(optical)}},
+		{"SidioraNFT", bindings.SidioraNFTMetaData, "Transfer", []any{pool, holder, big.NewInt(42)}, nil, map[string]any{"from": address(pool), "to": address(holder), "tokenId": "42"}},
+	}
+	decoder := decode.NewDecoder()
+	for _, tc := range cases {
+		t.Run(tc.role, func(t *testing.T) {
+			for round := uint(1); round <= 2; round++ {
+				raw := encodedLog(t, tc.meta, tc.event, round, tc.indexed, tc.data...)
+				observed, err := decoder.Decode(raw)
+				if err != nil || observed == nil {
+					t.Fatalf("decode %s: %v %v", tc.role, observed, err)
+				}
+				if observed.EventName != tc.event || observed.BlockNumber != raw.BlockNumber || observed.TxHash != strings.ToLower(raw.TxHash.Hex()) || observed.LogIndex != round || !reflect.DeepEqual(observed.Args, tc.want) {
+					t.Fatalf("consumer observed %+v, want args %+v at log %d", observed, tc.want, round)
+				}
+				// A cached output map would leak this mutation into the next decode.
+				for field := range observed.Args {
+					observed.Args[field] = "caller mutation"
+				}
+				if len(raw.Data) > 0 {
+					raw.Data = raw.Data[:len(raw.Data)-1]
+				} else {
+					raw.Topics = raw.Topics[:len(raw.Topics)-1]
+				}
+				if decoded, err := decoder.Decode(raw); err == nil || decoded != nil {
+					t.Fatalf("malformed %s producer result accepted: %+v %v", tc.role, decoded, err)
+				}
+			}
+		})
+	}
+	if observed, err := decoder.Decode(ethtypes.Log{Topics: []common.Hash{common.HexToHash("0xdeadbeef")}}); err != nil || observed != nil {
+		t.Fatalf("unknown identifier must remain unrecognized: %+v %v", observed, err)
+	}
+}
+
+func TestAirdropNativeFeeFlowQualified(t *testing.T) {
+	repairM1000NativeFeeFlow(t)
 }

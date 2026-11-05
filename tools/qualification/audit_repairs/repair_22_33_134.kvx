@@ -1,0 +1,44 @@
+[task.22.33.134]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+repair = "Consume the root README rewrite supplied by task 22.31.470 under decision 2525. Add focused regression proofs and this finding-to-test record for audit 22.30.114 finding 54. README.md is outside scope and is preserved unchanged."
+source_proof = "Read the production README and assert the merged chain-125 paxd network and embedded kernel, root api1..api14 JSON-RPC hosts, current node namespaces and separate hosted contract, transaction submission through receipt and committed-block finality, retired custody/checkpoint executors and native-library paxd builds. Parse the documented curl arguments and JSON request, hosted OpenRPC JSON, Makefile prerequisites/recipes and this KVX record. Bind documentation claims to the real node host/consensus wiring, root path dispatch, RPC registrations, transaction accept/forward calls, WAL release before receipt publication, receipt rungs/commit coverage and upgrade-gated retirement surfaces. Inspect topology and transaction diagrams too."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, receipt cryptography, live host availability, BFT commitment and WAL restart/recovery are not executed by this documentation gate. Source assertions establish the documented producer, transport and consumer connections; runtime semantics and operational deployment require review and their owning runtime gates. No production interface or stateful component changes, so no runtime interface/restart proof is claimed. No shell script or unit file is under repair. The gate needs only Python/pytest and committed repository sources, with no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done verification gate prohibit a manual baseline run despite the older do_5 clause. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-start/prerequisite bookkeeping; both scoped files were absent. The initial private gate configuration recorded zero builds and verifies and no prior gate ledger existed. The README already supplies the requested facts through 22.31.470."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_134.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl record the exact verified content-derived candidate revision, command, exit code and log location. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own content-derived revision would change that revision. The runner retains the evidence and publishes the task; no manual commit or push is performed."
+missing_facts = []
+
+[finding.54]
+audit = "22.30.114"
+file = "README.md"
+class = "doc-drift"
+expected = "The audit brief specifies one merged paxd BFT network, node JSON-RPC at the root, hosted px_ methods as a separate service contract, and finality at committed block; retired router/daemon interfaces are not current operator guidance."
+tests = ["test_f54_one_paxd_network_embeds_the_kernel", "test_f54_chain_125_probe_and_numbered_hosts_use_root_json_rpc", "test_f54_node_rpc_names_and_hosted_contract_are_distinct", "test_f54_transaction_to_committed_receipt_matches_production_path", "test_f54_retired_executors_are_labeled_history_not_deployment", "test_f54_build_guidance_links_the_kernel_into_paxd"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 17
+owning_task = "22.31.470"
+request = "README.md | repository documentation domain 17, task 22.31.470 | Supply the merged paxd runtime overview, chain-125 root node RPC and committed-receipt flows, integrated builds and explicit retirement history requested by finding 54; already supplied in this checkout, with no missing fact identified."
+status = "supplied"
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files."
+
+[gotcha.1]
+observed = "The older baseline-test clause conflicts with the explicit implementation-first gate order."
+resolution = "Follow the explicit order and claim no baseline execution or failure."
+
+[gotcha.2]
+observed = "The Codify brief reports unrelated tasks and cached changes, and combined broad reads exceed output limits."
+resolution = "Use the exact task block, bounded source reads, actual Git status/diff and the private runner ledger. Keep task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "Gate helpers are not at the initially guessed /usr/local/bin path."
+resolution = "Use the discovered /out/run/bin wrappers and the private /out/run/gates.jsonl evidence ledger."
+
+[gotcha.4]
+observed = "The audit wording can be read as reserving all px_ methods for the gateway or removing all historical anchor reads."
+resolution = "Assert the README's actual node px_ subset and hosted contract separately, and distinguish retired checkpoint writes from archive-only views before v7.0-anchor-store-delete, matching production registrations and guards."

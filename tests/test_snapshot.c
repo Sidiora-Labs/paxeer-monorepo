@@ -169,7 +169,13 @@ static int load_refused(const uint8_t *bytes, size_t length,
            memcmp(before, after, 32U) != 0;
 }
 
-int main(void)
+static int snapshot_failed(int line)
+{
+    (void)fprintf(stderr, "snapshot check failed at %s:%d\n", __FILE__, line);
+    return 1;
+}
+
+static int snapshot_case(lxp_kernel *original, lxp_kernel *restored)
 {
     static uint8_t snapshot_storage[4194304];
     static uint8_t read_storage[4194304];
@@ -181,8 +187,6 @@ int main(void)
     lxp_state_store restored_state;
     lxp_state_journal original_journal;
     lxp_state_journal restored_journal;
-    lxp_kernel original;
-    lxp_kernel restored;
     lx_account_registry original_accounts;
     lx_account_registry restored_accounts;
     lxp_snapshot_manifest_record manifest;
@@ -222,9 +226,9 @@ int main(void)
                                       &original_accounts) != LXP_OK ||
         lxp_state_store_bind_accounts(&restored_state,
                                       &restored_accounts) != LXP_OK ||
-        lxp_kernel_create(&original, &original_state, &original_journal,
+        lxp_kernel_create(original, &original_state, &original_journal,
                           &parameters, 0U) != LXP_OK ||
-        lxp_kernel_create(&restored, &restored_state, &restored_journal,
+        lxp_kernel_create(restored, &restored_state, &restored_journal,
                           &parameters, 0U) != LXP_OK ||
         open_funded(&original_accounts, "agent:alice:main", asset_id,
                     100U, 0U) != 0 ||
@@ -232,22 +236,22 @@ int main(void)
                     7U, 0U) != 0 ||
         apply_value(&original_state, &original_journal, 0U, 2U, 20U) != 0 ||
         apply_value(&original_state, &original_journal, 1U, 1U, 10U) != 0)
-        return 1;
-    original.module_kv_count = 2U;
-    original.module_kv[0].module_id = 2U;
-    original.module_kv[0].key_length = 1U;
-    original.module_kv[0].key[0] = 2U;
-    original.module_kv[0].value_length = 1U;
-    original.module_kv[0].value[0] = 8U;
-    original.module_kv[1].module_id = 1U;
-    original.module_kv[1].key_length = 1U;
-    original.module_kv[1].key[0] = 1U;
-    original.module_kv[1].value_length = 1U;
-    original.module_kv[1].value[0] = 7U;
-    if (lxp_state_root(&original, root) != LXP_OK ||
+        return snapshot_failed(__LINE__);
+    original->module_kv_count = 2U;
+    original->module_kv[0].module_id = 2U;
+    original->module_kv[0].key_length = 1U;
+    original->module_kv[0].key[0] = 2U;
+    original->module_kv[0].value_length = 1U;
+    original->module_kv[0].value[0] = 8U;
+    original->module_kv[1].module_id = 1U;
+    original->module_kv[1].key_length = 1U;
+    original->module_kv[1].key[0] = 1U;
+    original->module_kv[1].value_length = 1U;
+    original->module_kv[1].value[0] = 7U;
+    if (lxp_state_root(original, root) != LXP_OK ||
         lxp_arena_init(&snapshot_arena, snapshot_storage,
                        sizeof(snapshot_storage)) != LXP_OK ||
-        lxp_snapshot_write(&original, 1U, &snapshot_arena, &snapshot) !=
+        lxp_snapshot_write(original, 1U, &snapshot_arena, &snapshot) !=
             LXP_OK ||
         snapshot.length != 494U ||
         snapshot.bytes[0] != 0U ||
@@ -267,56 +271,58 @@ int main(void)
         lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
                                 &stored_snapshot) != LXP_OK ||
         lxp_snapshot_load(stored_snapshot.bytes, stored_snapshot.length,
-                          &stored_manifest, &restored) != LXP_OK ||
-        lxp_snapshot_verify_root(&restored, &stored_manifest) != LXP_OK ||
+                          &stored_manifest, restored) != LXP_OK ||
+        lxp_snapshot_verify_root(restored, &stored_manifest) != LXP_OK ||
         memcmp(stored_manifest.canonical_state_root, root, 32U) != 0 ||
         memcmp(stored_manifest.receipt_state_root, receipt_root, 32U) != 0 ||
-        memcmp(restored.current_state_root, receipt_root, 32U) != 0)
-        return 1;
+        memcmp(restored->current_state_root, receipt_root, 32U) != 0)
+        return snapshot_failed(__LINE__);
     if (restored_state.next_sequence != 2U || restored_state.count != 2U ||
-        restored.module_kv_count != 2U || restored.blob_count != 0U) return 1;
+        restored->module_kv_count != 2U || restored->blob_count != 0U)
+        return snapshot_failed(__LINE__);
     cut = snapshot.length - 2U - 9U * 36U - LXP_SNAPSHOT_BLOB_SECTION_BYTES;
     for (i = 0U; i < LXP_SNAPSHOT_BLOB_SECTION_BYTES; ++i)
-        if (snapshot.bytes[cut + i] != 0U) return 1;
+        if (snapshot.bytes[cut + i] != 0U)
+        return snapshot_failed(__LINE__);
     (void)memcpy(scratch, snapshot.bytes, cut);
     (void)memcpy(scratch + cut,
                  snapshot.bytes + cut + LXP_SNAPSHOT_BLOB_SECTION_BYTES,
                  snapshot.length - cut - LXP_SNAPSHOT_BLOB_SECTION_BYTES);
     scratch[2] = (uint8_t)(LXP_SNAPSHOT_FORMAT_LEGACY >> 8U);
     scratch[3] = (uint8_t)LXP_SNAPSHOT_FORMAT_LEGACY;
-    if (commit_blob(&restored, stale, sizeof(stale)) != 0 ||
-        restored.blob_count != 1U ||
+    if (commit_blob(restored, stale, sizeof(stale)) != 0 ||
+        restored->blob_count != 1U ||
         lxp_snapshot_manifest(scratch,
                               snapshot.length - LXP_SNAPSHOT_BLOB_SECTION_BYTES,
                               1U, root, receipt_root, &manifest) != LXP_OK ||
         lxp_snapshot_load(scratch,
                           snapshot.length - LXP_SNAPSHOT_BLOB_SECTION_BYTES,
-                          &manifest, &restored) != LXP_OK ||
-        restored.blob_count != 0U || restored.blob_total_bytes != 0U ||
-        lxp_snapshot_verify_root(&restored, &manifest) != LXP_OK ||
+                          &manifest, restored) != LXP_OK ||
+        restored->blob_count != 0U || restored->blob_total_bytes != 0U ||
+        lxp_snapshot_verify_root(restored, &manifest) != LXP_OK ||
         restored_state.next_sequence != 2U || restored_state.count != 2U ||
-        restored.module_kv_count != 2U ||
-        lxp_state_root(&restored, restored_terminal) != LXP_OK ||
+        restored->module_kv_count != 2U ||
+        lxp_state_root(restored, restored_terminal) != LXP_OK ||
         memcmp(root, restored_terminal, 32U) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     stored_manifest.receipt_state_root[0] ^= 1U;
     if (lxp_snapshot_load(stored_snapshot.bytes, stored_snapshot.length,
-                          &stored_manifest, &restored) !=
+                          &stored_manifest, restored) !=
             LXP_ERR_SNAPSHOT_MISMATCH ||
-        memcmp(restored.current_state_root, receipt_root, 32U) != 0)
-        return 1;
+        memcmp(restored->current_state_root, receipt_root, 32U) != 0)
+        return snapshot_failed(__LINE__);
     stored_manifest.receipt_state_root[0] ^= 1U;
     if (xor_file_byte(path, 44, 1U) != 0 ||
         lxp_arena_reset(&read_arena, 0U) != LXP_OK ||
         lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
                                 &stored_snapshot) !=
             LXP_ERR_SNAPSHOT_MISMATCH ||
-        memcmp(restored.current_state_root, receipt_root, 32U) != 0 ||
+        memcmp(restored->current_state_root, receipt_root, 32U) != 0 ||
         xor_file_byte(path, 44, 1U) != 0 ||
         lxp_arena_reset(&read_arena, 0U) != LXP_OK ||
         lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
                                 &stored_snapshot) != LXP_OK)
-        return 1;
+        return snapshot_failed(__LINE__);
     if (xor_file_byte(path, 3, 3U) != 0 ||
         lxp_arena_reset(&read_arena, 0U) != LXP_OK ||
         lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
@@ -332,49 +338,50 @@ int main(void)
         lxp_arena_reset(&read_arena, 0U) != LXP_OK ||
         lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
                                 &stored_snapshot) != LXP_OK)
-        return 1;
+        return snapshot_failed(__LINE__);
     if (apply_value(&original_state, &original_journal, 2U, 3U, 30U) != 0 ||
         apply_value(&restored_state, &restored_journal, 2U, 3U, 30U) != 0 ||
-        lxp_state_root(&original, original_terminal) != LXP_OK ||
-        lxp_state_root(&restored, restored_terminal) != LXP_OK ||
+        lxp_state_root(original, original_terminal) != LXP_OK ||
+        lxp_state_root(restored, restored_terminal) != LXP_OK ||
         memcmp(original_terminal, restored_terminal, 32U) != 0)
-        return 1;
-    if (lxp_state_root(&restored, before_truncation_root) != LXP_OK) return 1;
+        return snapshot_failed(__LINE__);
+    if (lxp_state_root(restored, before_truncation_root) != LXP_OK)
+        return snapshot_failed(__LINE__);
     for (cut = 0U; cut < stored_snapshot.length; ++cut) {
         lxp_snapshot_manifest_record truncated_manifest;
         uint8_t after[32];
-        size_t module_kv_count = restored.module_kv_count;
+        size_t module_kv_count = restored->module_kv_count;
         size_t state_count = restored_state.count;
         uint64_t next_sequence = restored_state.next_sequence;
         if (lxp_snapshot_manifest(stored_snapshot.bytes, cut, 1U, root,
                                   receipt_root,
                                   &truncated_manifest) != LXP_OK ||
             lxp_snapshot_load(stored_snapshot.bytes, cut, &truncated_manifest,
-                              &restored) == LXP_OK ||
-            restored.module_kv_count != module_kv_count ||
+                              restored) == LXP_OK ||
+            restored->module_kv_count != module_kv_count ||
             restored_state.count != state_count ||
             restored_state.next_sequence != next_sequence ||
-            lxp_state_root(&restored, after) != LXP_OK ||
+            lxp_state_root(restored, after) != LXP_OK ||
             memcmp(before_truncation_root, after, 32U) != 0)
-            return 1;
+            return snapshot_failed(__LINE__);
     }
     if (lxp_state_store_require_account_root(&restored_state) != LXP_OK ||
         lxp_snapshot_load(stored_snapshot.bytes, stored_snapshot.length,
-                          &stored_manifest, &restored) !=
+                          &stored_manifest, restored) !=
             LXP_ERR_SNAPSHOT_MISMATCH)
-        return 1;
+        return snapshot_failed(__LINE__);
     ((uint8_t *)stored_snapshot.bytes)[stored_snapshot.length - 1U] ^= 1U;
     if (lxp_snapshot_load(stored_snapshot.bytes, stored_snapshot.length,
-                          &stored_manifest, &restored) !=
+                          &stored_manifest, restored) !=
         LXP_ERR_SNAPSHOT_MISMATCH ||
-        lxp_kernel_register_module(&original, &program_iface) != LXP_OK ||
-        lxp_kernel_register_module(&restored, &program_iface) != LXP_OK ||
-        commit_blob(&original, artifact, sizeof(artifact)) != 0 ||
-        commit_blob(&restored, stale, sizeof(stale)) != 0 ||
+        lxp_kernel_register_module(original, &program_iface) != LXP_OK ||
+        lxp_kernel_register_module(restored, &program_iface) != LXP_OK ||
+        commit_blob(original, artifact, sizeof(artifact)) != 0 ||
+        commit_blob(restored, stale, sizeof(stale)) != 0 ||
         lxp_state_store_require_account_root(&original_state) != LXP_OK ||
-        lxp_state_root(&original, root) != LXP_OK ||
+        lxp_state_root(original, root) != LXP_OK ||
         lxp_arena_reset(&snapshot_arena, 0U) != LXP_OK ||
-        lxp_snapshot_write(&original, 2U, &snapshot_arena, &snapshot) !=
+        lxp_snapshot_write(original, 2U, &snapshot_arena, &snapshot) !=
             LXP_OK ||
         snapshot.bytes[0] != 0U ||
         snapshot.bytes[1] != LXP_PROTOCOL_VERSION_OCCUPANCY ||
@@ -385,38 +392,38 @@ int main(void)
         lxp_snapshot_manifest(snapshot.bytes, snapshot.length, 2U, root,
                               receipt_root, &manifest) != LXP_OK ||
         lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest,
-                          &restored) != LXP_OK ||
+                          restored) != LXP_OK ||
         !restored_state.account_root_required ||
         restored_accounts.count != original_accounts.count ||
-        !blob_store_holds(&restored, artifact, sizeof(artifact)) ||
-        restored.blobs[0].bytes == original.blobs[0].bytes ||
-        lxp_snapshot_verify_root(&restored, &manifest) != LXP_OK ||
-        lxp_state_root(&restored, restored_terminal) != LXP_OK ||
+        !blob_store_holds(restored, artifact, sizeof(artifact)) ||
+        restored->blobs[0].bytes == original->blobs[0].bytes ||
+        lxp_snapshot_verify_root(restored, &manifest) != LXP_OK ||
+        lxp_state_root(restored, restored_terminal) != LXP_OK ||
         memcmp(root, restored_terminal, 32U) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     ((uint8_t *)snapshot.bytes)[0] = 0xffU;
     ((uint8_t *)snapshot.bytes)[1] = 0xffU;
     if (lxp_snapshot_manifest(snapshot.bytes, snapshot.length, 2U,
                               root, receipt_root, &manifest) != LXP_OK ||
         lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest,
-                          &restored) != LXP_ERR_VERSION_UNSUPPORTED ||
+                          restored) != LXP_ERR_VERSION_UNSUPPORTED ||
         restored_state.next_sequence != 3U)
-        return 1;
+        return snapshot_failed(__LINE__);
     ((uint8_t *)snapshot.bytes)[0] = 0U;
     ((uint8_t *)snapshot.bytes)[1] = LXP_PROTOCOL_VERSION_OCCUPANCY;
     (void)memset((uint8_t *)snapshot.bytes + 2U, 0xff, 8U);
     if (lxp_snapshot_manifest(snapshot.bytes, snapshot.length, UINT64_MAX,
                               root, receipt_root, &manifest) != LXP_OK ||
         lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest,
-                          &restored) != LXP_ERR_SEQUENCE_MISMATCH ||
+                          restored) != LXP_ERR_SEQUENCE_MISMATCH ||
         restored_state.next_sequence != 3U)
-        return 1;
+        return snapshot_failed(__LINE__);
     if (lxp_arena_reset(&snapshot_arena, 0U) != LXP_OK ||
-        lxp_snapshot_write(&original, 2U, &snapshot_arena, &snapshot) !=
+        lxp_snapshot_write(original, 2U, &snapshot_arena, &snapshot) !=
             LXP_OK ||
         snapshot.length < 2U + 10U * 36U + accounts_bytes +
                               LXP_SNAPSHOT_BLOB_SECTION_BYTES + entry_bytes)
-        return 1;
+        return snapshot_failed(__LINE__);
     bytes = (uint8_t *)snapshot.bytes;
     (void)memcpy(reference, bytes, snapshot.length);
     section = snapshot.length - 2U - 10U * 36U - accounts_bytes -
@@ -430,49 +437,50 @@ int main(void)
     put_u32(expected_section + 14U, 32U);
     if (lxp_hash_sha256(artifact, sizeof(artifact), expected_section + 18U) !=
         LXP_OK)
-        return 1;
+        return snapshot_failed(__LINE__);
     put_u32(expected_section + 50U, (uint32_t)sizeof(artifact));
     if (memcmp(bytes + section, expected_section, sizeof(expected_section)) !=
             0 ||
         memcmp(bytes + payload, artifact, sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     bytes[payload] ^= 1U;
-    if (load_refused(bytes, snapshot.length, root, receipt_root, &restored,
+    if (load_refused(bytes, snapshot.length, root, receipt_root, restored,
                      LXP_ERR_SNAPSHOT_MISMATCH, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     bytes[payload] ^= 1U;
     put_u32(bytes + section, (uint32_t)LXP_SNAPSHOT_MAX_BLOBS + 1U);
-    if (load_refused(bytes, snapshot.length, root, receipt_root, &restored,
+    if (load_refused(bytes, snapshot.length, root, receipt_root, restored,
                      LXP_ERR_LENGTH_LIMIT, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     put_u32(bytes + section, 1U);
     put_u64(bytes + section + 4U,
             (uint64_t)LXP_SNAPSHOT_MAX_BLOB_TOTAL_BYTES + 1U);
-    if (load_refused(bytes, snapshot.length, root, receipt_root, &restored,
+    if (load_refused(bytes, snapshot.length, root, receipt_root, restored,
                      LXP_ERR_LENGTH_LIMIT, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     put_u64(bytes + section + 4U, (uint64_t)sizeof(artifact) + 1U);
-    if (load_refused(bytes, snapshot.length, root, receipt_root, &restored,
+    if (load_refused(bytes, snapshot.length, root, receipt_root, restored,
                      LXP_ERR_NON_CANONICAL, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     put_u64(bytes + section + 4U, (uint64_t)sizeof(artifact));
     bytes[section + 13U] = 5U;
-    if (load_refused(bytes, snapshot.length, root, receipt_root, &restored,
+    if (load_refused(bytes, snapshot.length, root, receipt_root, restored,
                      LXP_ERR_UNKNOWN_MODULE, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     bytes[section + 13U] = (uint8_t)LXP_MODULE_PROGRAMS;
     bytes[3] = (uint8_t)(LXP_SNAPSHOT_FORMAT_BLOBS + 1U);
-    if (load_refused(bytes, snapshot.length, root, receipt_root, &restored,
+    if (load_refused(bytes, snapshot.length, root, receipt_root, restored,
                      LXP_ERR_VERSION_UNSUPPORTED, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     bytes[3] = (uint8_t)LXP_SNAPSHOT_FORMAT_BLOBS;
-    if (memcmp(bytes, reference, snapshot.length) != 0) return 1;
+    if (memcmp(bytes, reference, snapshot.length) != 0)
+        return snapshot_failed(__LINE__);
     (void)memcpy(scratch, bytes, section);
     put_u32(scratch + section, 0U);
     put_u64(scratch + section + 4U, 0U);
@@ -482,9 +490,9 @@ int main(void)
                  snapshot.length - section - LXP_SNAPSHOT_BLOB_SECTION_BYTES -
                      entry_bytes);
     if (load_refused(scratch, snapshot.length - entry_bytes, root,
-                     receipt_root, &restored, LXP_ERR_SNAPSHOT_MISMATCH, 0,
+                     receipt_root, restored, LXP_ERR_SNAPSHOT_MISMATCH, 0,
                      artifact, sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     (void)memcpy(scratch, bytes, section);
     (void)memcpy(scratch + section,
                  bytes + section + LXP_SNAPSHOT_BLOB_SECTION_BYTES +
@@ -496,36 +504,36 @@ int main(void)
     if (load_refused(scratch,
                      snapshot.length - LXP_SNAPSHOT_BLOB_SECTION_BYTES -
                          entry_bytes,
-                     root, receipt_root, &restored,
+                     root, receipt_root, restored,
                      LXP_ERR_SNAPSHOT_BLOBS_MISSING, 0, artifact,
                      sizeof(artifact)) != 0)
-        return 1;
+        return snapshot_failed(__LINE__);
     for (cut = 0U; cut < snapshot.length; ++cut)
-        if (load_refused(bytes, cut, root, receipt_root, &restored, LXP_OK, 1,
+        if (load_refused(bytes, cut, root, receipt_root, restored, LXP_OK, 1,
                          artifact, sizeof(artifact)) != 0)
-            return 1;
-    original.blob_count = LXP_SNAPSHOT_MAX_BLOBS + 1U;
+            return snapshot_failed(__LINE__);
+    original->blob_count = LXP_SNAPSHOT_MAX_BLOBS + 1U;
     if (lxp_arena_reset(&snapshot_arena, 0U) != LXP_OK ||
-        lxp_snapshot_write(&original, 2U, &snapshot_arena, &refused) !=
+        lxp_snapshot_write(original, 2U, &snapshot_arena, &refused) !=
             LXP_ERR_LENGTH_LIMIT)
-        return 1;
-    original.blob_count = 1U;
-    original.blobs[0].length = (size_t)LXP_SNAPSHOT_MAX_BLOB_TOTAL_BYTES + 1U;
-    original.blob_total_bytes = original.blobs[0].length;
+        return snapshot_failed(__LINE__);
+    original->blob_count = 1U;
+    original->blobs[0].length = (size_t)LXP_SNAPSHOT_MAX_BLOB_TOTAL_BYTES + 1U;
+    original->blob_total_bytes = original->blobs[0].length;
     if (lxp_arena_reset(&snapshot_arena, 0U) != LXP_OK ||
-        lxp_snapshot_write(&original, 2U, &snapshot_arena, &refused) !=
+        lxp_snapshot_write(original, 2U, &snapshot_arena, &refused) !=
             LXP_ERR_LENGTH_LIMIT)
-        return 1;
-    original.blobs[0].length = (size_t)LXP_SNAPSHOT_MAX_BLOB_BYTES + 1U;
-    original.blob_total_bytes = original.blobs[0].length;
+        return snapshot_failed(__LINE__);
+    original->blobs[0].length = (size_t)LXP_SNAPSHOT_MAX_BLOB_BYTES + 1U;
+    original->blob_total_bytes = original->blobs[0].length;
     if (lxp_arena_reset(&snapshot_arena, 0U) != LXP_OK ||
-        lxp_snapshot_write(&original, 2U, &snapshot_arena, &refused) !=
+        lxp_snapshot_write(original, 2U, &snapshot_arena, &refused) !=
             LXP_ERR_LENGTH_LIMIT)
-        return 1;
-    original.blobs[0].length = sizeof(artifact);
-    original.blob_total_bytes = sizeof(artifact);
+        return snapshot_failed(__LINE__);
+    original->blobs[0].length = sizeof(artifact);
+    original->blob_total_bytes = sizeof(artifact);
     if (lxp_arena_reset(&snapshot_arena, 0U) != LXP_OK ||
-        lxp_snapshot_write(&original, 2U, &snapshot_arena, &snapshot) !=
+        lxp_snapshot_write(original, 2U, &snapshot_arena, &snapshot) !=
             LXP_OK ||
         snapshot.length != section + LXP_SNAPSHOT_BLOB_SECTION_BYTES +
                                entry_bytes + accounts_bytes + 10U * 36U + 2U ||
@@ -533,14 +541,34 @@ int main(void)
         lxp_snapshot_manifest(snapshot.bytes, snapshot.length, 2U, root,
                               receipt_root, &manifest) != LXP_OK ||
         lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest,
-                          &restored) != LXP_OK ||
-        !blob_store_holds(&restored, artifact, sizeof(artifact)) ||
-        lxp_snapshot_verify_root(&restored, &manifest) != LXP_OK)
-        return 1;
-    release_blobs(&original);
-    release_blobs(&restored);
+                          restored) != LXP_OK ||
+        !blob_store_holds(restored, artifact, sizeof(artifact)) ||
+        lxp_snapshot_verify_root(restored, &manifest) != LXP_OK)
+        return snapshot_failed(__LINE__);
+    release_blobs(original);
+    release_blobs(restored);
     if (lxp_state_store_destroy(&original_state) != LXP_OK ||
         lxp_state_store_destroy(&restored_state) != LXP_OK ||
-        unlink(path) != 0 || rmdir(directory) != 0) return 1;
+        unlink(path) != 0 || rmdir(directory) != 0)
+        return snapshot_failed(__LINE__);
+    lx_account_registry_release(&original_accounts);
+    lx_account_registry_release(&restored_accounts);
     return 0;
+}
+
+int main(void)
+{
+    lxp_kernel *original = calloc(1U, sizeof(*original));
+    lxp_kernel *restored = calloc(1U, sizeof(*restored));
+    int result;
+    if (original == NULL || restored == NULL) {
+        (void)fprintf(stderr, "snapshot kernel fixture allocation failed\n");
+        free(original);
+        free(restored);
+        return 1;
+    }
+    result = snapshot_case(original, restored);
+    free(original);
+    free(restored);
+    return result;
 }

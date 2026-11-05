@@ -21,8 +21,15 @@ import (
 type VisibilityFence interface {
 	CurrentRankingRevision(context.Context) (string, time.Time, error)
 }
+type snapshotReader interface {
+	Current(context.Context, string) (ranker.Header, error)
+	Header(context.Context, string, string) (ranker.Header, error)
+	Page(context.Context, ranker.Header, int64, int) (ranker.StoredPage, error)
+	ValidateBoundary(context.Context, ranker.Header, ranker.PageReference) error
+}
+
 type Snapshots struct {
-	store      *store.SnapshotStore
+	store      snapshotReader
 	cache      *store.SnapshotCache
 	cursor     *ranker.CursorCodec
 	visibility VisibilityFence
@@ -30,6 +37,13 @@ type Snapshots struct {
 }
 
 func NewSnapshots(repository *store.SnapshotStore, cache *store.SnapshotCache, cursor *ranker.CursorCodec, visibility VisibilityFence, maxReads int) (*Snapshots, error) {
+	if repository == nil {
+		return nil, ranker.ErrUnavailable
+	}
+	return newSnapshots(repository, cache, cursor, visibility, maxReads)
+}
+
+func newSnapshots(repository snapshotReader, cache *store.SnapshotCache, cursor *ranker.CursorCodec, visibility VisibilityFence, maxReads int) (*Snapshots, error) {
 	if repository == nil || cursor == nil || visibility == nil || maxReads < 1 || maxReads > 64 {
 		return nil, ranker.ErrUnavailable
 	}
@@ -80,7 +94,7 @@ func (h *Snapshots) visible(ctx context.Context, header ranker.Header, now time.
 func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	category, err := snapshotCategory(chi.URLParam(r, "category"))
 	if err != nil {
-		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: []string{"trending", "breakout", "volume", "movers", "unusual", "new"}})
+		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: ranker.Categories[:]})
 		return
 	}
 	limit, err := snapshotLimit(r.URL.Query().Get("limit"))
@@ -199,7 +213,7 @@ func expired(w http.ResponseWriter) {
 func (h *Snapshots) inspect(w http.ResponseWriter, r *http.Request) {
 	category, err := snapshotCategory(chi.URLParam(r, "category"))
 	if err != nil {
-		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: []string{"trending", "breakout", "volume", "movers", "unusual", "new"}})
+		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: ranker.Categories[:]})
 		return
 	}
 	if _, err = uuid.Parse(chi.URLParam(r, "runID")); err != nil {

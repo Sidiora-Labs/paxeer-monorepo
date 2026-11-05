@@ -126,6 +126,10 @@ fn budget_state_refuses_missing_revocation_and_checkpoint_with_zero_evidence_sum
     let body: Value =
         serde_json::from_slice(&response.body).unwrap_or_else(|e| panic!("JSON: {e}"));
     assert_eq!(body["evidence"]["remaining"], "0");
+    assert_eq!(
+        body["error"]["code"],
+        "budget_revocation_and_checkpoint_evidence_unavailable"
+    );
 }
 
 #[test]

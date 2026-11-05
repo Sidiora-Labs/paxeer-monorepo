@@ -1,16 +1,42 @@
 import React from 'react';
 
-import useFetch from 'lib/hooks/useFetch';
+import { getFeaturePayload } from 'configs/app/features/types';
+
+import config from 'configs/app';
+import useApiFetch from 'lib/api/useApiFetch';
+import { useMultichainContext } from 'lib/contexts/multichain';
 
 interface Params {
-  path: string;
+  path: '/stats' | '/stats/charts/market';
 }
 
 export default function useFetchParentChainApi() {
-  const fetch = useFetch();
-  return React.useCallback(({ path }: Params) => {
-    // For current implementation of the feature we agreed to use the Ethereum mainnet stats data to show it on the homepage
-    // It is very likely this will change once we identify the potential future for the Multichain explorer
-    return fetch(`https://eth.blockscout.com/api/v2${ path }`);
-  }, [ fetch ]);
+  const apiFetch = useApiFetch();
+  const context = useMultichainContext();
+  const chain = context?.chain;
+  const network = chain?.app_config ?? config;
+  const market = React.useMemo(() => {
+    if (!network.apis.general || !network.chain.id || !network.chain.currency.symbol) {
+      return;
+    }
+
+    return {
+      chainId: network.chain.id,
+      symbol: network.chain.currency.symbol,
+      endpoint: network.apis.general.endpoint,
+      basePath: network.apis.general.basePath,
+      tenant: network.app.baseUrl,
+      cluster: getFeaturePayload(network.features.multichain)?.cluster,
+    };
+  }, [ network ]);
+
+  const fetch = React.useCallback(({ path }: Params) => {
+    if (!market) {
+      return Promise.reject(new Error('Native asset market feed is not configured'));
+    }
+
+    return apiFetch(path === '/stats' ? 'general:stats' : 'general:stats_charts_market', { chain });
+  }, [ apiFetch, chain, market ]);
+
+  return Object.assign(fetch, { market, queryKey: [ 'parent_chain', market ?? null ] });
 }

@@ -20,7 +20,7 @@ const (
 	subkeyQuorum             = "quorum"
 	subkeyThreshold          = "threshold"
 	subkeyExpeditedThreshold = "expedited_threshold"
-	subkeyVeto               = "veto"
+	subkeyVeto               = "veto_threshold"
 )
 
 // ParamChanges defines the parameters that can be modified by param change proposals

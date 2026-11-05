@@ -95,6 +95,20 @@ func (k *Keeper) setFeeRight(ctx sdk.Context, collection common.Address, right t
 	if err != nil {
 		return err
 	}
+	pool := common.HexToAddress(right.Pool)
+	surface, found, err := k.GetSurface(ctx, pool)
+	if err != nil {
+		return err
+	}
+	if found && surface.Role == types.RolePool {
+		market, linked := k.GetMarket(ctx, surface.Market)
+		if linked && common.HexToAddress(market.PoolAddress) == pool &&
+			common.HexToAddress(market.FeeRightCollection) == collection && market.FeeRightID == right.ID {
+			market.FeeRightsHolder = k.evmKeeper.GetPaxAddressOrDefault(ctx, common.HexToAddress(right.Owner)).String()
+			market.FeeStrategy = right.Strategy
+			k.setMarket(ctx, market)
+		}
+	}
 	k.store(ctx).Set(feeRightKey(feeRightPrefix, collection, idBytes(right.ID)), bz)
 	return nil
 }

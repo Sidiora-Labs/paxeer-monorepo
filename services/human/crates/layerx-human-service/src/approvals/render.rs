@@ -2,14 +2,14 @@
 
 use std::fmt::{Display, Formatter, Write as _};
 
-use layerx_agent_api::verify::Level;
+use layerx_crypto::disclosure::call::ConstructMethod;
 use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedEvmPayoutBinding, Disclosure, DisclosureError,
 };
 use layerx_types::payload::{ActivityType, ModuleId};
 use sha2::{Digest as _, Sha256};
 
-use super::VerifiedBudgetAfter;
+use super::{BudgetVerification, VerifiedBudgetAfter};
 
 const MOVE_MONEY_KEY: &str = "approval.activity.move_money";
 const ADD_MONEY_KEY: &str = "approval.activity.add_money";
@@ -88,7 +88,7 @@ pub struct RenderedApprovalFacts {
     pub expires_at: u64,
 }
 
-/// Plain approval content plus separately-labelled verified budget context.
+/// Plain approval content plus budget context labelled by its evidence strength.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RenderedApproval {
     pub class: ApprovalActivityClass,
@@ -107,7 +107,7 @@ pub struct UnrenderableApproval {
     pub plain_copy: &'static str,
 }
 
-/// Total renderer outcome. Only a validated known class is approvable.
+/// Total renderer outcome. Approval also requires committed budget context.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ApprovalPresentation {
     Rendered(Box<RenderedApproval>),
@@ -116,8 +116,9 @@ pub enum ApprovalPresentation {
 
 impl ApprovalPresentation {
     #[must_use]
-    pub const fn can_approve(&self) -> bool {
-        matches!(self, Self::Rendered(_))
+    pub fn can_approve(&self) -> bool {
+        matches!(self, Self::Rendered(value)
+            if value.budget_after.verification() == BudgetVerification::Verified)
     }
 }
 
@@ -133,7 +134,7 @@ impl DisclosureRenderer {
     /// # Errors
     ///
     /// Returns a typed defect for changed disclosure fields, a mismatched held
-    /// digest, malformed class facts, or budget context without verified agent
+    /// digest, malformed class facts, or budget context without agent
     /// evidence.
     pub fn render(
         disclosure: &Disclosure,
@@ -149,14 +150,17 @@ impl DisclosureRenderer {
             }));
         };
 
-        let canonical = disclosure
-            .reencode()
-            .map_err(DisclosureRenderError::DefectiveDisclosure)?;
-        let observed_digest: [u8; 32] = Sha256::digest(&canonical).into();
+        let observed_digest: [u8; 32] = match disclosure.reencode() {
+            Ok(canonical) => Sha256::digest(&canonical).into(),
+            Err(DisclosureError::FieldMismatch("source")) => disclosure
+                .audit_digest()
+                .map_err(DisclosureRenderError::DefectiveDisclosure)?,
+            Err(error) => return Err(DisclosureRenderError::DefectiveDisclosure(error)),
+        };
         if observed_digest != held_digest {
             return Err(DisclosureRenderError::DigestMismatch);
         }
-        if budget_after.level == Level::Unverified || budget_after.evidence_digest == [0; 32] {
+        if budget_after.evidence_digest == [0; 32] {
             return Err(DisclosureRenderError::UnverifiedBudget);
         }
 
@@ -179,17 +183,37 @@ fn facts(
 ) -> Result<RenderedApprovalFacts, DisclosureRenderError> {
     match class {
         ApprovalActivityClass::MoveMoney | ApprovalActivityClass::AddMoney => {
-            let [payer, recipient] = disclosure.counterparties.as_slice() else {
-                return Err(DisclosureRenderError::MalformedFacts);
+            let recipient = match disclosure
+                .construct_method()
+                .map_err(DisclosureRenderError::DefectiveDisclosure)?
+            {
+                Some(ConstructMethod::PointerTransfer { .. })
+                    if class == ApprovalActivityClass::MoveMoney =>
+                {
+                    let [recipient] = disclosure.counterparties.as_slice() else {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    };
+                    if recipient.role != CounterpartyRole::Recipient {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    }
+                    recipient
+                }
+                _ => {
+                    let [payer, recipient] = disclosure.counterparties.as_slice() else {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    };
+                    if payer.role != CounterpartyRole::Payer
+                        || recipient.role != CounterpartyRole::Recipient
+                    {
+                        return Err(DisclosureRenderError::MalformedFacts);
+                    }
+                    recipient
+                }
             };
             let [amount] = disclosure.amounts.as_slice() else {
                 return Err(DisclosureRenderError::MalformedFacts);
             };
-            if payer.role != CounterpartyRole::Payer
-                || recipient.role != CounterpartyRole::Recipient
-                || amount.role != AmountRole::Transfer
-                || amount.value == 0
-            {
+            if amount.role != AmountRole::Transfer || amount.value == 0 {
                 return Err(DisclosureRenderError::MalformedFacts);
             }
             Ok(RenderedApprovalFacts {

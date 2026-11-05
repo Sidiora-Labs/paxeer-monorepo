@@ -1,0 +1,49 @@
+[issue.1518]
+number = 1518
+title = "[Coherence] The Python and TypeScript web search clients now disagree on which receipt settles a metered search"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 4ec44a52afd44ba118a52f5f980650f1d256ab1b enforces sequencer module 12/operation 2 in services/agent/sdk/python/layerx_sdk/web_search.py:453-456, with fixture acceptance at services/agent/sdk/python/tests/test_web_search_sequencer.py:188-201, but services/agent/sdk/typescript/src/web-search.ts:511 still requires module 1/operation 6 and :322-325 retains the kernel balance arm, while services/agent/sdk/typescript/test/web-search-sequencer.test.ts:98 signs that obsolete shape instead of the producer shape established by node/app.go:3481-3485 and node/sequencer/receipt.go:400."
+close_comment = "Confirmed: TypeScript metered web search rejects the module 12/operation 2 sequencer receipts accepted by Python and still accepts the obsolete module 1/operation 6 shape. The follow-up aligns both TypeScript payment schemes with Python and adds coverage using the sequencer conformance receipt."
+
+[task.18.1518.1]
+title = "Issue #1518: Align TypeScript web search settlement with the sequencer receipt shape"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181518.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/sdk/typescript/src/web-search.ts:315-330 require moduleId 12 and operation 2 after pinned receipt verification for both exact and metered payments, raising settlement-operation-mismatch for any other shape, matching services/agent/sdk/python/layerx_sdk/web_search.py:448-464; remove the module 1 balance arm at :322-325 and replace the obsolete metered-only 1/6 check at :511 with the shared check, preserving signature, key, transaction, result, offer, payer, purpose and digest validation."
+do_2 = "In services/agent/sdk/typescript/test/web-search-sequencer.test.ts:26-43 load the signed receipt, raw transaction and pinned key from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, derive matching offer and settlement fields as services/agent/sdk/python/tests/test_web_search_sequencer.py:29-65 does, and replace the synthetic positive receipt built at :93-104 with that unchanged producer receipt; keep the existing test assertions and registrations at :162-225."
+do_3 = "Declare and register one node:test function web_search_receipt_shape_matches_sequencer in services/agent/sdk/typescript/test/web-search-sequencer.test.ts; drive WebSearchClient.search for both exact and metered schemes, assert the producer receipt verifies as 12/2 and settles with the expected scheme, payer, amount, asset, digest and transaction, then re-sign otherwise valid receipts with shapes 1/6, 1/2, 13/2 and 12/6 and assert settlement-operation-mismatch for each scheme, following services/agent/sdk/python/tests/test_web_search_sequencer.py:217-271; assert wrong keys, altered transactions, result failures and offer, payer and purpose mismatches still refuse with their existing error codes."
+symbols = ["verifySequencerReceipt", "WebSearchClient", "web_search_receipt_shape_matches_sequencer"]
+touches = ["services/agent/sdk/typescript/src/web-search.ts", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts"]
+tests = ["services/agent/sdk/typescript/test/web-search-sequencer.test.ts::web_search_receipt_shape_matches_sequencer"]
+planned_paths = []
+build_cmd = "pnpm --dir services/agent/sdk/typescript run build"
+verify_cmd = "node --test --test-name-pattern='^web_search_receipt_shape_matches_sequencer$' services/agent/sdk/typescript/dist/test/web-search-sequencer.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181518]
+title = "Both web search SDKs accept only sequencer payment receipt shapes"
+ac_1 = "Given a matching payment offer and a valid pinned sequencer receipt, TypeScript exact and metered web search accept module 12/operation 2 and refuse any other module or operation with settlement-operation-mismatch, matching services/agent/sdk/python/layerx_sdk/web_search.py:448-464 and replacing services/agent/sdk/typescript/src/web-search.ts:322-325 and :511 without weakening any other receipt or settlement check."
+
+[acceptance.18.1518.1]
+feature = "18"
+req = "181518.1"
+scenario = "Given the sequencer conformance receipt, its pinned key and matching exact and metered offers, when TypeScript web search settles each payment, then both schemes accept the 12/2 receipt and retain its payment facts, while otherwise valid receipts with other module or operation values fail with settlement-operation-mismatch and existing authentication and settlement mismatches remain refused."
+contract = "contracts/agent-ts-sdk.md#web-search"
+test = "services/agent/sdk/typescript/test/web-search-sequencer.test.ts::web_search_receipt_shape_matches_sequencer (planned)"
+qualification = "UNRUN"

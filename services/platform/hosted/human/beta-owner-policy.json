@@ -5,16 +5,10 @@
   "limit": {
     "scope": "agent",
     "scope_id_source": "owner_account",
-    "id": "ef060d2533e9bcc511e5583aa2802ee44baa120fc7de7b03a55bce6b02cf8b71",
+    "id": "bfa33f3b936f4e86ac19ab2e4c651c07",
     "name": "beta-owner",
     "ceiling": 1000
   },
   "activities_source": "owner-registration",
-  "budgets": [],
-  "movement": {
-    "PAXEER_CONFIRMATIONS": 12,
-    "CHECKPOINT_INTERVAL_SECONDS": 60,
-    "PAXEER_BLOCK_SECONDS": 2,
-    "REMINDER_INTERVAL_SECONDS": 300
-  }
+  "budgets": []
 }

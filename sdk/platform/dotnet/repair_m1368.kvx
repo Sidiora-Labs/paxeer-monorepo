@@ -1,0 +1,55 @@
+[repair.22.33.1368]
+audit = "22.30.75"
+base = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+status = "implemented-awaiting-source-qualification"
+evidence = "The runner hf-build/hf-done ledger records the exact built and verified candidate revision, command, exit code and private log location. This source record is finalized before those gates and claims no unexecuted C# gate."
+baseline = "Attempt 1 at ff9566ba9c9fc38263a120f5d1f0184884fe7122 failed cg spec done 22.33.1368 -f layerx-merge --root /work/paxeer-monorepo with exit 1: the Go package reported no tests to run because repair_m1368_test.go was missing. No unchanged-tree rerun was made; the explicit continuation gate order prohibits running verify_cmd by hand."
+qualification-kind = "The attempt-2 ruling authorizes in-process Go source checks of production members, behavior assertions and project references; they require no subprocess, toolchain, credentials or live service. C# runtime execution is not claimed."
+program-deployment-limit = "RepairM1368Tests.CompleteLifecyclePayloadIsBoundedBeforeNativePreparation checks deploy and upgrade at limit minus one, exact limit and limit plus one, including optional and cleared interfaces and migration hooks, then drives the real codec and native JSON-RPC transaction preparation. Host admission qualification remains the wiring request below."
+programs-legacy-constructor = "RepairM1368Tests.SupportedProgramsConstructorsUseTheNativeBackend checks the retired constructor's immediate typed refusal and both supported constructors through real Programs HTTP transport and native discovery decoding. ProgramsContractTests now uses native RPC for pending receipts and discovery."
+stream-history-growth = "RepairM1368Tests.ReplayHistoryIsBoundedAndRecovered processes three replay windows, persists the last 4096 bounded IDs and cursor, discards the consumer, reopens from that file and requires every retained duplicate to be refused without changing recovered state."
+agent-envelope-tests = "AgentEnvelopeMajor2Tests checks exact daemon request golden bytes, all catalogue request versions and credentials, and daemon success, pending, absent and refusal goldens through real HTTP transport. Every versioned success and refusal is rejected with its exact correlation ID. AgentOperationEnvelopeTests.UnverifiedRungIsPreservedFromTheDaemon covers the fourth state with a provisioned producer."
+agent-probe-registration-gap = "AgentOperationEnvelopeTests.ProcessCasesReachTheDaemonThroughTheGateway requires agent_register and session_open, checks every returned preparation field against producer expectations plus native target and selector, and requires both SDK ownerless refusal and a raw ownerless request's daemon refusal through the real gateway transport."
+portable-positive-vector-count = "PortableReceiptTests.PortableReceiptRoundTripsAtReceipted pins V1-pax-transfer, V1-erc20-approve, V1-layerxledger-pay-exact, V1-layerxbridge-bridge-out and V1-layerxprograms-call and retains exact byte, key, signature, return-data and refusal assertions for each."
+portable-consensus-test-trust = "PortableReceiptTests.PortableCommittedRefusesCoherentConsensusReplacement uses independently recorded published consensus trust, proves a complete attacker replacement has consistent signatures and inclusion, then requires verify and export to reject it with the genuine pin while retaining every genuine receipt byte."
+retired-program-transport-test-path = "ProgramTransportRetiredTests.ProgramOperationsNeverCallProgramsRestIngress now requires POST / at the native node and preserves all retired REST refusals; RepairM1368Tests.SupportedProgramsConstructorsUseTheNativeBackend additionally checks successful discovery decoding from the root-path peer."
+wiring-native-admission = "precompiles/layerxprograms and tests/programs, owning domain 13: qualify the complete 524288-byte deploy and upgrade payload boundaries against native host admission, including valid optional interface and migration-hook framing."
+wiring-agent-probe = "tools/qualification/paxeer-x/agent_operation_envelope.py and services/agent, owning domains 17 and 9: provision owner-authorized agent_register and session_open request entries with exact expected_preparation fields, plus read_unverified with expected_reason, and execute the real daemon/gateway probe; the existing three read cases remain mandatory."
+wiring-unverified-golden = "services/agent/schema/agent-api/golden, owning domain 9: publish the daemon-produced unverified-state HTTP golden alongside the existing achieved, pending and absent goldens for offline transcript consumption."
+gotcha-gates = "go build only compiles the Go qualification package, not the C# SDK or tests. A green Go build is not evidence of C# compilation or repair closure."
+gotcha-format = "No C# formatter is configured in the repository and dotnet is absent in this Go sandbox; C# edits follow existing source style."
+gotcha-json = "JsonValue.ObjectValue holds dictionaries whose record equality is reference equality; golden response tests compare JSON structures rather than dictionary object identity."
+gotcha-recovery = "StreamCursor needs an explicit JsonConstructor so durable replay snapshots restore the validated cursor rather than the struct default."
+gotcha-continuation = "A successful Go run with no tests does not qualify this repair: declare the actual TestRepairM_1368_ functions in repair_m1368_test.go and retain the verify command's positive PASS check."
+
+[proof.program-deployment-limit]
+test = "TestRepairM_1368_program_deployment_limit"
+criterion = "Complete deploy and upgrade size checks precede encoding and decoding; the matching enabled C# case exercises exact boundaries, optional interfaces and native preparation."
+
+[proof.programs-legacy-constructor]
+test = "TestRepairM_1368_programs_legacy_constructor"
+criterion = "Retired constructor refuses explicitly, both supported constructors initialize the native backend, and enabled C# cases exercise native discovery and pending receipt behavior."
+
+[proof.stream-history-growth]
+test = "TestRepairM_1368_stream_history_growth"
+criterion = "Production acknowledgement evicts beyond 4096 IDs, restore validates the bounded snapshot, and the enabled C# case persists and reopens it before refusing every retained duplicate."
+
+[proof.agent-envelope-tests]
+test = "TestRepairM_1368_agent_envelope_tests"
+criterion = "Enabled C# cases consume real daemon request, success and refusal goldens over loopback HTTP, reject versioned replies and assert all four verification states; the Go check also reads the committed golden states."
+
+[proof.agent-probe-registration-gap]
+test = "TestRepairM_1368_agent_probe_registration_gap"
+criterion = "The enabled daemon/gateway C# probe requires both owner-authorized operations, every preparation field and ownerless SDK and daemon refusals; external provisioning is requested above."
+
+[proof.portable-positive-vector-count]
+test = "TestRepairM_1368_portable_positive_vector_count"
+criterion = "The source assertion compares the actual five-case V1 corpus to the C# pin and checks export/verify, real fixture key use, byte equality, digest/signature/return-data preservation and existing refusals."
+
+[proof.portable-consensus-test-trust]
+test = "TestRepairM_1368_portable_consensus_test_trust"
+criterion = "Production verification authenticates the independent header pin before promoting the rung; enabled C# cases preserve published positive bytes and reject replacement of both headers, commits and validator sets together."
+
+[proof.retired-program-transport-test-path]
+test = "TestRepairM_1368_retired_program_transport_test_path"
+criterion = "The enabled C# test drives all nine native Programs operations to POST / with real HTTP and retains typed refusal of every retired REST route."

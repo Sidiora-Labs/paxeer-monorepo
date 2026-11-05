@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import unittest
 from collections.abc import Callable
 from pathlib import Path
@@ -442,5 +443,103 @@ class EncodeCallTests(EvmTransactionCase):
         )
 
 
+
+def proof_layerxprograms_0x101d(path: str, mode: str) -> None:
+    """Invoked by the Go application proof with actual EVM outputs, never synthetic success frames."""
+    import json
+    from layerx_sdk.ai_market import (
+        AiMarketError, _decode_programs_call,
+        decode_programs_call_result, decode_programs_state_head,
+    )
+    fixture = json.loads(Path(path).read_text())
+    data = bytes.fromhex(fixture["callInput"])
+    native, fee = _decode_programs_call(data)
+    if mode == "produce":
+        # The bytes sent by the Go EVM must be produced by the shipping SDK encoder.
+        assert _encode_programs_call(native, fee) == data
+        print(_encode_programs_call(native, fee).hex())
+        return
+    from layerx_sdk.revert import decode_revert_reason
+    assert len(fixture["refusals"]) == 2
+    for code, output in fixture["refusals"].items():
+        assert decode_revert_reason(bytes.fromhex(output)).code == code
+    assert native.guest_abi == 1
+    assert native.response_capacity == 64
+    assert len(fixture["calls"]) == len(fixture["simulations"]) == len(fixture["heads"]) == 2
+    assert len(fixture["expectedResponses"]) == 2
+    assert len(fixture["malformedCalls"]) == 6
+    assert len(fixture["malformedHeads"]) == 3
+    for output in fixture["heads"]:
+        assert decode_programs_state_head(bytes.fromhex(output)).hex() == fixture["stateHead"]
+    for output in fixture["malformedCalls"]:
+        try:
+            decode_programs_call_result(bytes.fromhex(output), native.response_capacity)
+        except AiMarketError as error:
+            assert error.code == "ReceiptMismatch"
+        else:
+            raise AssertionError("accepted malformed producer terminal output")
+    for output in fixture["malformedHeads"]:
+        try:
+            decode_programs_state_head(bytes.fromhex(output))
+        except AiMarketError:
+            pass
+        else:
+            raise AssertionError("accepted malformed producer state head")
+    for call, simulation, expected in zip(
+        fixture["calls"], fixture["simulations"], fixture["expectedResponses"], strict=True
+    ):
+        assert call == simulation
+        for output in (call, simulation):
+            encoded = bytes.fromhex(output)
+            overflow = encoded[:96] + word(native.response_capacity + 1) + bytes(96)
+            try:
+                decode_programs_call_result(overflow, native.response_capacity)
+            except AiMarketError as error:
+                assert error.code == "ReceiptMismatch"
+            else:
+                raise AssertionError("accepted guest response exceeding capacity")
+            # programsCallFixture's ABI-1 guest emits an event and returns zero;
+            # it has no guest byte response, before or after the host reopens.
+            assert decode_programs_call_result(encoded, native.response_capacity) == (0, 1, b"")
+            length = int.from_bytes(encoded[96:128], "big")
+            assert encoded[128:128 + length] == bytes.fromhex(expected)
+    print("python observed two successful calls, simulations and state heads across host reopen and refused malformed output")
+
+
+def layerxpay_proof_transactions(document: list[dict[str, object]]) -> list[dict[str, str]]:
+    """Encode and sign the application proof's calls using the shipped SDK."""
+    case = EvmTransactionCase()
+
+    def argument(kind: str, value: object) -> object:
+        if kind.endswith("[]"):
+            return [argument(kind[:-2], item) for item in value]
+        if kind.startswith("bytes"):
+            return bytes.fromhex(str(value).removeprefix("0x"))
+        if kind.startswith("uint"):
+            return int(value)
+        raise AssertionError(f"unexpected proof argument {kind}")
+
+    result = []
+    for nonce, call in enumerate(document):
+        kinds = call["types"]
+        values = [argument(kind, value) for kind, value in zip(kinds, call["args"], strict=True)]
+        data = encode_call(call["method"], kinds, values)
+        transaction = plain_transaction(nonce=nonce, to=bytes.fromhex("101b".rjust(40, "0")), gas_limit=GAS_LIMIT, data=data)
+        case.assertEqual(Type2Transaction.decode(transaction.encode()), transaction)
+        signature = sign(transaction.signing_digest())
+        raw = transaction.attach_signature(signature, ADDRESS)
+        case.assertEqual(decode_signed(raw), (transaction, signature))
+        case.assertEqual(activity_id(raw), keccak256(raw))
+        case.assertRefused("signer_mismatch", transaction.attach_signature, signature, OTHER)
+        case.assertRefused("invalid_rlp", decode_signed, raw + b"\x00")
+        result.append({"raw": raw.hex(), "sender": ADDRESS, "data": data.hex()})
+    return result
+
+
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) == 4 and sys.argv[1] == "--programs-proof":
+        proof_layerxprograms_0x101d(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) == 3 and sys.argv[1] == "--layerxpay-proof":
+        print(json.dumps(layerxpay_proof_transactions(json.loads(Path(sys.argv[2]).read_text()))))
+    else:
+        unittest.main()

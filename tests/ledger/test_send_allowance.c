@@ -57,27 +57,6 @@ static int sign_send(lxp_send *send, const uint8_t seed[32])
                        send->authorization.signature);
 }
 
-static int sign_grant(lxp_payer_grant *grant, const uint8_t seed[32])
-{
-    uint8_t message[384];
-    size_t length;
-    if (lxp_grant_authorization_message(grant, message, sizeof(message), &length) !=
-            LXP_OK || lxp_hash_authority(message, length, grant->grant_id) != LXP_OK)
-        return 1;
-    return sign_domain(seed, LXP_DOMAIN_AUTHORITY_HASH, message, length,
-                       grant->signature);
-}
-
-static int sign_receive(lxp_receive *receive, const uint8_t seed[32])
-{
-    uint8_t message[512];
-    size_t length;
-    if (lxp_receive_authorization_message(receive, message, sizeof(message),
-                                          &length) != LXP_OK) return 1;
-    return sign_domain(seed, LXP_DOMAIN_SIGNATURE_PREIMAGE, message, length,
-                       receive->receiver_authorization.signature);
-}
-
 static int open_account(lx_account_registry *registry, const char *name,
                         const uint8_t asset_id[32], uint64_t balance,
                         const uint8_t seed[32], lx_account **account)
@@ -96,7 +75,7 @@ static int open_account(lx_account_registry *registry, const char *name,
 }
 
 /* A delegated capability over one asset: at most 50 per activity and 70 in
- * total. The standalone send and receive entries present origin module 0, so
+ * total. The standalone send entries present origin module 0, so
  * the scope has to admit that module for the debit to bind. */
 static void metered_scope(lxp_authority_scope *scope, const uint8_t asset_id[32])
 {
@@ -159,7 +138,7 @@ static int delegated_send(void)
     asset.registered = true;
     (void)memset(&store, 0, sizeof(store));
     environment = (lxp_send_environment){ &registry, &asset, 1U, &store,
-                                          10U, 7U, LXP_PROTOCOL_VERSION, NULL };
+                                          10U, 7U, LXP_PROTOCOL_VERSION, NULL, false };
 
     /* A declared delegated debit without the grant it draws against is
      * refused before anything moves. */
@@ -251,7 +230,7 @@ static int delegated_send(void)
     return 0;
 }
 
-static int delegated_receive(void)
+static int delegated_payment(void)
 {
     static const uint8_t payer_seed[32] = { 4U };
     static const uint8_t merchant_seed[32] = { 5U };
@@ -259,76 +238,34 @@ static int delegated_receive(void)
     lx_account *payer;
     lx_account *merchant;
     uint8_t asset_id[32] = { 4U };
-    uint8_t purpose_preimage[64];
-    lxp_payer_grant grant;
-    lxp_receive receive;
-    lxp_grant_store grants;
+    lxp_send send;
     lxp_send_store idempotency;
     lxp_transfer_asset_state asset;
-    lxp_receive_environment environment;
+    lxp_send_environment environment;
     lxp_send_receipt_projection receipt;
     lxp_authority_scope scope;
     lxp_transfer_allowance allowance;
 
     CHECK(lx_account_registry_init(&registry) == LXP_OK);
-    if (open_account(&registry, "agent:did:key:payer:main", asset_id, 100U,
-                     payer_seed, &payer) != 0) return 1;
-    if (open_account(&registry, "agent:did:key:merchant:main", asset_id, 0U,
-                     merchant_seed, &merchant) != 0) return 1;
-    (void)memset(&grant, 0, sizeof(grant));
-    (void)memcpy(grant.from, payer->id, 32U);
-    (void)memcpy(grant.recipient, merchant->id, 32U);
-    (void)memcpy(grant.asset, asset_id, 32U);
-    grant.per_draw_maximum = (lxp_u128){ 0U, 30U };
-    grant.allowance = (lxp_u128){ 0U, 50U };
-    grant.expiration = 100U;
-    grant.purpose_hash[0] = 8U;
-    grant.has_reference = true;
-    grant.reference_hash[0] = 9U;
-    grant.revocation_sequence = 5U;
-    (void)memcpy(grant.public_key, payer->authority_key, 32U);
-    CHECK(sign_grant(&grant, payer_seed) == 0);
-    (void)memset(&receive, 0, sizeof(receive));
-    (void)memcpy(receive.from, payer->id, 32U);
-    (void)memcpy(receive.to, merchant->id, 32U);
-    (void)memcpy(receive.asset, asset_id, 32U);
-    receive.amount = (lxp_u128){ 0U, 30U };
-    (void)memcpy(receive.grant_id, grant.grant_id, 32U);
-    receive.idempotency_key[0] = 1U;
-    (void)memcpy(purpose_preimage, grant.purpose_hash, 32U);
-    (void)memcpy(purpose_preimage + 32U, grant.reference_hash, 32U);
-    CHECK(lxp_hash_context_value(purpose_preimage, sizeof(purpose_preimage),
-                                 receive.context_hash) == LXP_OK);
-    receive.receiver_authorization.kind = LXP_AUTH_DELEGATED_CAPABILITY;
-    (void)memcpy(receive.receiver_authorization.controller, merchant->id, 32U);
-    (void)memcpy(receive.receiver_authorization.public_key,
-                 merchant->authority_key, 32U);
-    (void)memcpy(receive.receiver_authorization.signed_context_hash,
-                 receive.context_hash, 32U);
-    receive.receiver_authorization.network_id = 7U;
-    receive.receiver_authorization.protocol_version = LXP_PROTOCOL_VERSION;
-    receive.payer_grant = grant;
-    CHECK(sign_receive(&receive, merchant_seed) == 0);
-    (void)memset(&grants, 0, sizeof(grants));
+    CHECK(open_account(&registry, "agent:did:key:payer:main", asset_id, 100U,
+                        payer_seed, &payer) == 0);
+    CHECK(open_account(&registry, "agent:did:key:merchant:main", asset_id, 0U,
+                        merchant_seed, &merchant) == 0);
+    CHECK(build_send(&send, payer, merchant, asset_id, 30U, 0U, 1U,
+                       LXP_AUTH_DELEGATED_CAPABILITY, payer_seed) == 0);
     (void)memset(&idempotency, 0, sizeof(idempotency));
     (void)memset(&asset, 0, sizeof(asset));
     (void)memcpy(asset.asset_id, asset_id, 32U);
     asset.registered = true;
-    CHECK(lxp_grant_store_put(&grants, &grant, payer) == LXP_OK);
-    environment = (lxp_receive_environment){ &registry, &asset, 1U, &grants,
-        &idempotency, 10U, 1U, 7U, LXP_PROTOCOL_VERSION, NULL };
+    environment = (lxp_send_environment){ &registry, &asset, 1U,
+        &idempotency, 10U, 7U, LXP_PROTOCOL_VERSION, NULL, false };
 
-    /* A declared delegated draw without its grant scope is refused and the
-     * payer grant's drawn total is restored. */
-    CHECK(lxp_receive_execute(&receive, &environment, &receipt) ==
+    CHECK(lxp_send_execute(&send, &environment, &receipt) ==
           LXP_ERR_AUTH_ALLOWANCE);
     CHECK(payer->balance.lo == 100U && merchant->balance.lo == 0U);
-    CHECK(merchant->next_sequence == 0U && idempotency.count == 0U);
-    CHECK(lxp_u128_is_zero(grants.grants[0].drawn_total));
-    CHECK(!grants.grants[0].invoice_settled);
+    CHECK(payer->next_sequence == 0U && merchant->next_sequence == 0U &&
+          idempotency.count == 0U);
 
-    /* The scope has to be the payer's: the draw debits the payer, not the
-     * receiver that signed it. */
     metered_scope(&scope, asset_id);
     (void)memset(&allowance, 0, sizeof(allowance));
     allowance.scope = &scope;
@@ -336,18 +273,16 @@ static int delegated_receive(void)
     (void)memcpy(allowance.grantor, merchant->id, 32U);
     allowance.grant_id[0] = 0x22U;
     environment.allowance = &allowance;
-    CHECK(lxp_receive_execute(&receive, &environment, &receipt) ==
+    CHECK(lxp_send_execute(&send, &environment, &receipt) ==
           LXP_ERR_UNAUTHORIZED_DEBIT);
     CHECK(payer->balance.lo == 100U && merchant->balance.lo == 0U);
-    CHECK(lxp_u128_is_zero(grants.grants[0].drawn_total));
     CHECK(lxp_u128_is_zero(scope.spent_total));
 
     (void)memcpy(allowance.grantor, payer->id, 32U);
-    CHECK(lxp_receive_execute(&receive, &environment, &receipt) == LXP_OK);
+    CHECK(lxp_send_execute(&send, &environment, &receipt) == LXP_OK);
     CHECK(payer->balance.lo == 70U && merchant->balance.lo == 30U);
-    CHECK(merchant->next_sequence == 1U && idempotency.count == 1U);
-    CHECK(grants.grants[0].drawn_total.lo == 30U);
-    CHECK(grants.grants[0].invoice_settled);
+    CHECK(payer->next_sequence == 1U && merchant->next_sequence == 0U &&
+          idempotency.count == 1U);
     CHECK(scope.spent_total.lo == 30U);
     lx_account_registry_release(&registry);
     return 0;
@@ -356,6 +291,6 @@ static int delegated_receive(void)
 int main(void)
 {
     if (delegated_send() != 0) return 1;
-    if (delegated_receive() != 0) return 1;
+    if (delegated_payment() != 0) return 1;
     return 0;
 }

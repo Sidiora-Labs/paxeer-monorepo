@@ -332,6 +332,8 @@ impl Dispute {
     }
 
     /// Settles a dispute whose awaited party let the deadline pass.
+    /// Historical fee and code resolution belongs to the host adjudicator; a
+    /// successful reveal keeps this persisted response deadline across upgrades.
     ///
     /// # Errors
     /// Returns an error for a settled dispute or before the deadline has passed.

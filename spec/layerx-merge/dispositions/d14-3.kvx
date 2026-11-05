@@ -1,0 +1,29 @@
+[disposition.14.42.1]
+finding = "14.42.1"
+status = "resolved"
+evidence = "Commit 646a1205d7213d32f6260c6f2bfb8c28b2ba8526 repairs the bridge app typecheck with an ES2020 target, generated Next types, aligned Vite types and corrected bridge types, while 12693cb90ae9558fa09258072e123a0e07353702 removes the copied telemetry hook responsible for the instrumentation errors."
+
+[disposition.14.53.4.1]
+finding = "14.53.4.1"
+status = "resolved"
+evidence = "Commit ee4200002dadc828777240edf154e1d0bf9e60af changes SPEC_PATH to the existing consolidated spec/layerx-merge/spec.kvx at services/bridge/deploy/tests/workflow-check.sh:151, removing the read of the retired specification."
+
+[disposition.14.53.4.2]
+finding = "14.53.4.2"
+status = "environment"
+evidence = "services/bridge/deploy/tests/workflow-check.sh:26 explicitly requires the Python yaml module before parsing the workflow, so its absence in the qualification environment was a missing dependency rather than a repository defect."
+
+[disposition.14.53.4.3]
+finding = "14.53.4.3"
+status = "resolved"
+evidence = "Commit ee4200002dadc828777240edf154e1d0bf9e60af replaces the reference-workflow clone scan with the four assignments from contracts/bootstrap-libs.sh at services/bridge/deploy/tests/workflow-check.sh:600 and retains rejection of missing pins, malformed clone commands and mismatched URL/tag pairs."
+
+[disposition.14.58.1]
+finding = "14.58.1"
+status = "environment"
+evidence = "services/bridge/deploy/tests/checklist-check.sh:37 still requires Foundry cast alongside the other tools before executing the matching and mismatching app-env cases added by b473d486d458cf6440f2fbc6f1f2bef8811ce3bd, so the recorded failure was the qualification environment lacking cast."
+
+[disposition.14.58.1.1]
+finding = "14.58.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:187221 declares symbols = [] for task 14.58.1, removing the graph requirements for the environment variable and script name while services/bridge/deploy/checklist.sh:185 retains the app-env comparison and services/bridge/deploy/tests/checklist-check.sh:312 retains its cases."

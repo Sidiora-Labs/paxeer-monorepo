@@ -1,0 +1,355 @@
+[reconcile.r2-7]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 44
+
+[row.r2-7.1]
+interface = "interface.2.go-layerxagent-common-errorcode-j24"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 21
+symbol = "ErrorCode"
+evidence = "Declaration remains type ErrorCode string; moved from registered line 19 to 21. The Go signature is unchanged. Error() at common.go:24 returns the immutable token, wrapped refusals retain errors.Is identity, and Run at common.go:176 encodes their CODE: message text through pcommon.LXPReason instead of a bare code revert."
+
+[row.r2-7.2]
+interface = "interface.2.pc-agent-err-lxp-precompile-input-too-short"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 27
+symbol = "LXP_PRECOMPILE_INPUT_TOO_SHORT"
+evidence = "Declaration remains ErrInputTooShort ErrorCode = \"LXP_PRECOMPILE_INPUT_TOO_SHORT\"; moved from registered line 24 to 27. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_PRECOMPILE_INPUT_TOO_SHORT\" to \"LXP_PRECOMPILE_INPUT_TOO_SHORT: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:334 also registers LXPRevert message \"input too short to extract method ID\"."
+
+[row.r2-7.3]
+interface = "interface.2.pc-agent-err-lxp-precompile-unknown-method"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 28
+symbol = "LXP_PRECOMPILE_UNKNOWN_METHOD"
+evidence = "Declaration remains ErrUnknownMethod ErrorCode = \"LXP_PRECOMPILE_UNKNOWN_METHOD\"; moved from registered line 25 to 28. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_PRECOMPILE_UNKNOWN_METHOD\" to \"LXP_PRECOMPILE_UNKNOWN_METHOD: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:333 also registers LXPRevert message \"no method with id: <selector>\"."
+
+[row.r2-7.4]
+interface = "interface.2.pc-agent-err-lxp-precompile-arg-count"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 29
+symbol = "LXP_PRECOMPILE_ARG_COUNT"
+evidence = "Declaration remains ErrArgCount ErrorCode = \"LXP_PRECOMPILE_ARG_COUNT\"; moved from registered line 26 to 29. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_PRECOMPILE_ARG_COUNT\" to \"LXP_PRECOMPILE_ARG_COUNT: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:335 also registers LXPRevert message \"expected N arguments but got M\"."
+
+[row.r2-7.5]
+interface = "interface.2.pc-agent-err-lxp-precompile-non-payable"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 30
+symbol = "LXP_PRECOMPILE_NON_PAYABLE"
+evidence = "Declaration remains ErrNonPayable ErrorCode = \"LXP_PRECOMPILE_NON_PAYABLE\"; moved from registered line 27 to 30. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_PRECOMPILE_NON_PAYABLE\" to \"LXP_PRECOMPILE_NON_PAYABLE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:336 also registers LXPRevert message \"sending funds to a non-payable function\"."
+
+[row.r2-7.6]
+interface = "interface.2.pc-agent-err-lxp-precompile-no-context"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 31
+symbol = "LXP_PRECOMPILE_NO_CONTEXT"
+evidence = "Declaration remains ErrNoContext ErrorCode = \"LXP_PRECOMPILE_NO_CONTEXT\"; moved from registered line 28 to 31. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_PRECOMPILE_NO_CONTEXT\" to \"LXP_PRECOMPILE_NO_CONTEXT: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:332 also registers LXPRevert message \"cannot get context from EVM\"."
+
+[row.r2-7.7]
+interface = "interface.2.pc-agent-err-lxp-agent-abi-decode"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 32
+symbol = "LXP_AGENT_ABI_DECODE"
+evidence = "Declaration remains ErrABIDecode ErrorCode = \"LXP_AGENT_ABI_DECODE\"; moved from registered line 29 to 32. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_ABI_DECODE\" to \"LXP_AGENT_ABI_DECODE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:340 also registers LXPRevert message \"argument decode failed\"."
+
+[row.r2-7.8]
+interface = "interface.2.pc-agent-err-lxp-agent-read-only"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 33
+symbol = "LXP_AGENT_READ_ONLY"
+evidence = "Declaration remains ErrReadOnly ErrorCode = \"LXP_AGENT_READ_ONLY\"; moved from registered line 30 to 33. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_READ_ONLY\" to \"LXP_AGENT_READ_ONLY: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:341 also registers LXPRevert message \"write under staticcall\"."
+
+[row.r2-7.9]
+interface = "interface.2.pc-agent-err-lxp-agent-delegatecall"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 34
+symbol = "LXP_AGENT_DELEGATECALL"
+evidence = "Declaration remains ErrDelegatecall ErrorCode = \"LXP_AGENT_DELEGATECALL\"; moved from registered line 31 to 34. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_DELEGATECALL\" to \"LXP_AGENT_DELEGATECALL: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:342 also registers LXPRevert message \"cannot delegatecall an agent function\"."
+
+[row.r2-7.10]
+interface = "interface.2.pc-agent-err-lxp-agent-overflow"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 35
+symbol = "LXP_AGENT_OVERFLOW"
+evidence = "Declaration remains ErrOverflow ErrorCode = \"LXP_AGENT_OVERFLOW\"; moved from registered line 32 to 35. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_OVERFLOW\" to \"LXP_AGENT_OVERFLOW: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:343 also registers LXPRevert message \"result out of range\"."
+
+[row.r2-7.11]
+interface = "interface.2.pc-agent-err-lxp-agent-batch-too-large"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 36
+symbol = "LXP_AGENT_BATCH_TOO_LARGE"
+evidence = "Declaration remains ErrBatchTooLarge ErrorCode = \"LXP_AGENT_BATCH_TOO_LARGE\"; moved from registered line 33 to 36. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_BATCH_TOO_LARGE\" to \"LXP_AGENT_BATCH_TOO_LARGE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:344 also registers LXPRevert message \"batch over the cap (cap set at activation rehearsal)\"."
+
+[row.r2-7.12]
+interface = "interface.2.pc-agent-err-lxp-agent-orob-oracle-price"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 37
+symbol = "LXP_AGENT_OROB_ORACLE_PRICE"
+evidence = "Declaration remains ErrOrobOraclePrice ErrorCode = \"LXP_AGENT_OROB_ORACLE_PRICE\"; moved from registered line 34 to 37. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_OROB_ORACLE_PRICE\" to \"LXP_AGENT_OROB_ORACLE_PRICE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:345 also registers LXPRevert message \"oraclePrice cannot be zero\"."
+
+[row.r2-7.13]
+interface = "interface.2.pc-agent-err-lxp-agent-orob-offset-range"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 38
+symbol = "LXP_AGENT_OROB_OFFSET_RANGE"
+evidence = "Declaration remains ErrOrobOffsetRange ErrorCode = \"LXP_AGENT_OROB_OFFSET_RANGE\"; moved from registered line 35 to 38. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_OROB_OFFSET_RANGE\" to \"LXP_AGENT_OROB_OFFSET_RANGE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:346 also registers LXPRevert message \"offset out of range\"."
+
+[row.r2-7.14]
+interface = "interface.2.pc-agent-err-lxp-agent-clearing-length-mismatch"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 39
+symbol = "LXP_AGENT_CLEARING_LENGTH_MISMATCH"
+evidence = "Declaration remains ErrClearingLengthMismatch ErrorCode = \"LXP_AGENT_CLEARING_LENGTH_MISMATCH\"; moved from registered line 36 to 39. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_CLEARING_LENGTH_MISMATCH\" to \"LXP_AGENT_CLEARING_LENGTH_MISMATCH: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:347 also registers LXPRevert message \"buy or sell arrays length mismatch\"."
+
+[row.r2-7.15]
+interface = "interface.2.pc-agent-err-lxp-agent-oracle-no-feeds"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 40
+symbol = "LXP_AGENT_ORACLE_NO_FEEDS"
+evidence = "Declaration remains ErrOracleNoFeeds ErrorCode = \"LXP_AGENT_ORACLE_NO_FEEDS\"; moved from registered line 37 to 40. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_ORACLE_NO_FEEDS\" to \"LXP_AGENT_ORACLE_NO_FEEDS: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:348 also registers LXPRevert message \"no feeds provided\"."
+
+[row.r2-7.16]
+interface = "interface.2.pc-agent-err-lxp-agent-oracle-no-confident-feeds"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 41
+symbol = "LXP_AGENT_ORACLE_NO_CONFIDENT_FEEDS"
+evidence = "Declaration remains ErrOracleNoConfidentFeeds ErrorCode = \"LXP_AGENT_ORACLE_NO_CONFIDENT_FEEDS\"; moved from registered line 38 to 41. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_ORACLE_NO_CONFIDENT_FEEDS\" to \"LXP_AGENT_ORACLE_NO_CONFIDENT_FEEDS: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:349 also registers LXPRevert message \"no feeds with non-zero confidence\"."
+
+[row.r2-7.17]
+interface = "interface.2.pc-agent-err-lxp-agent-oracle-not-signer"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 42
+symbol = "LXP_AGENT_ORACLE_NOT_SIGNER"
+evidence = "Declaration remains ErrOracleNotSigner ErrorCode = \"LXP_AGENT_ORACLE_NOT_SIGNER\"; moved from registered line 39 to 42. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_ORACLE_NOT_SIGNER\" to \"LXP_AGENT_ORACLE_NOT_SIGNER: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:350 also registers LXPRevert message \"caller is not a validator oracle signer\"."
+
+[row.r2-7.18]
+interface = "interface.2.pc-agent-err-lxp-agent-oracle-price"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 43
+symbol = "LXP_AGENT_ORACLE_PRICE"
+evidence = "Declaration remains ErrOraclePrice ErrorCode = \"LXP_AGENT_ORACLE_PRICE\"; moved from registered line 40 to 43. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_ORACLE_PRICE\" to \"LXP_AGENT_ORACLE_PRICE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:351 also registers LXPRevert message \"invalid price\"."
+
+[row.r2-7.19]
+interface = "interface.2.pc-agent-err-lxp-agent-oracle-confidence"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 44
+symbol = "LXP_AGENT_ORACLE_CONFIDENCE"
+evidence = "Declaration remains ErrOracleConfidence ErrorCode = \"LXP_AGENT_ORACLE_CONFIDENCE\"; moved from registered line 41 to 44. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_ORACLE_CONFIDENCE\" to \"LXP_AGENT_ORACLE_CONFIDENCE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:352 also registers LXPRevert message \"invalid confidence\"."
+
+[row.r2-7.20]
+interface = "interface.2.pc-agent-err-lxp-agent-pofq-length-mismatch"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 45
+symbol = "LXP_AGENT_POFQ_LENGTH_MISMATCH"
+evidence = "Declaration remains ErrPofqLengthMismatch ErrorCode = \"LXP_AGENT_POFQ_LENGTH_MISMATCH\"; moved from registered line 42 to 45. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_POFQ_LENGTH_MISMATCH\" to \"LXP_AGENT_POFQ_LENGTH_MISMATCH: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:353 also registers LXPRevert message \"array length mismatch\"."
+
+[row.r2-7.21]
+interface = "interface.2.pc-agent-err-lxp-agent-pofq-decay-range"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 46
+symbol = "LXP_AGENT_POFQ_DECAY_RANGE"
+evidence = "Declaration remains ErrPofqDecayRange ErrorCode = \"LXP_AGENT_POFQ_DECAY_RANGE\"; moved from registered line 43 to 46. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_POFQ_DECAY_RANGE\" to \"LXP_AGENT_POFQ_DECAY_RANGE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:354 also registers LXPRevert message \"decayBps must be < 10000\"."
+
+[row.r2-7.22]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-job-not-found"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 47
+symbol = "LXP_AGENT_SCHEDULER_JOB_NOT_FOUND"
+evidence = "Declaration remains ErrSchedulerJobNotFound ErrorCode = \"LXP_AGENT_SCHEDULER_JOB_NOT_FOUND\"; moved from registered line 44 to 47. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_JOB_NOT_FOUND\" to \"LXP_AGENT_SCHEDULER_JOB_NOT_FOUND: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:355 also registers LXPRevert message \"job not found\"."
+
+[row.r2-7.23]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-unauthorized"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 48
+symbol = "LXP_AGENT_SCHEDULER_UNAUTHORIZED"
+evidence = "Declaration remains ErrSchedulerUnauthorized ErrorCode = \"LXP_AGENT_SCHEDULER_UNAUTHORIZED\"; moved from registered line 45 to 48. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_UNAUTHORIZED\" to \"LXP_AGENT_SCHEDULER_UNAUTHORIZED: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:356 also registers LXPRevert message \"unauthorized\"."
+
+[row.r2-7.24]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-horizon-exceeded"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 49
+symbol = "LXP_AGENT_SCHEDULER_HORIZON_EXCEEDED"
+evidence = "Declaration remains ErrSchedulerHorizonExceeded ErrorCode = \"LXP_AGENT_SCHEDULER_HORIZON_EXCEEDED\"; moved from registered line 46 to 49. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_HORIZON_EXCEEDED\" to \"LXP_AGENT_SCHEDULER_HORIZON_EXCEEDED: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:357 also registers LXPRevert message \"horizon exceeded\"."
+
+[row.r2-7.25]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-past-block"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 50
+symbol = "LXP_AGENT_SCHEDULER_PAST_BLOCK"
+evidence = "Declaration remains ErrSchedulerPastBlock ErrorCode = \"LXP_AGENT_SCHEDULER_PAST_BLOCK\"; moved from registered line 47 to 50. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_PAST_BLOCK\" to \"LXP_AGENT_SCHEDULER_PAST_BLOCK: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:358 also registers LXPRevert message \"target block is in the past\"."
+
+[row.r2-7.26]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-max-jobs"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 51
+symbol = "LXP_AGENT_SCHEDULER_MAX_JOBS"
+evidence = "Declaration remains ErrSchedulerMaxJobs ErrorCode = \"LXP_AGENT_SCHEDULER_MAX_JOBS\"; moved from registered line 48 to 51. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_MAX_JOBS\" to \"LXP_AGENT_SCHEDULER_MAX_JOBS: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:359 also registers LXPRevert message \"max jobs exceeded\"."
+
+[row.r2-7.27]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-deposit-too-low"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 52
+symbol = "LXP_AGENT_SCHEDULER_DEPOSIT_TOO_LOW"
+evidence = "Declaration remains ErrSchedulerDepositTooLow ErrorCode = \"LXP_AGENT_SCHEDULER_DEPOSIT_TOO_LOW\"; moved from registered line 49 to 52. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_DEPOSIT_TOO_LOW\" to \"LXP_AGENT_SCHEDULER_DEPOSIT_TOO_LOW: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:360 also registers LXPRevert message \"deposit too low\"."
+
+[row.r2-7.28]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-invalid-gas-limit"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 53
+symbol = "LXP_AGENT_SCHEDULER_INVALID_GAS_LIMIT"
+evidence = "Declaration remains ErrSchedulerInvalidGasLimit ErrorCode = \"LXP_AGENT_SCHEDULER_INVALID_GAS_LIMIT\"; moved from registered line 50 to 53. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_INVALID_GAS_LIMIT\" to \"LXP_AGENT_SCHEDULER_INVALID_GAS_LIMIT: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:361 also registers LXPRevert message \"invalid gas limit\"."
+
+[row.r2-7.29]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-invalid-target"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 54
+symbol = "LXP_AGENT_SCHEDULER_INVALID_TARGET"
+evidence = "Declaration remains ErrSchedulerInvalidTarget ErrorCode = \"LXP_AGENT_SCHEDULER_INVALID_TARGET\"; moved from registered line 51 to 54. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_INVALID_TARGET\" to \"LXP_AGENT_SCHEDULER_INVALID_TARGET: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:362 also registers LXPRevert message \"invalid target\"."
+
+[row.r2-7.30]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-job-inactive"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 55
+symbol = "LXP_AGENT_SCHEDULER_JOB_INACTIVE"
+evidence = "Declaration remains ErrSchedulerJobInactive ErrorCode = \"LXP_AGENT_SCHEDULER_JOB_INACTIVE\"; moved from registered line 52 to 55. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_JOB_INACTIVE\" to \"LXP_AGENT_SCHEDULER_JOB_INACTIVE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:363 also registers LXPRevert message \"job inactive\"."
+
+[row.r2-7.31]
+interface = "interface.2.pc-agent-err-lxp-agent-scheduler-escrow"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 56
+symbol = "LXP_AGENT_SCHEDULER_ESCROW"
+evidence = "Declaration remains ErrSchedulerEscrow ErrorCode = \"LXP_AGENT_SCHEDULER_ESCROW\"; moved from registered line 53 to 56. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_SCHEDULER_ESCROW\" to \"LXP_AGENT_SCHEDULER_ESCROW: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:364 also registers LXPRevert message \"escrow deposit failed\"."
+
+[row.r2-7.32]
+interface = "interface.2.pc-agent-err-lxp-agent-streams-invalid-payee"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 58
+symbol = "LXP_AGENT_STREAMS_INVALID_PAYEE"
+evidence = "Declaration remains ErrStreamsInvalidPayee ErrorCode = \"LXP_AGENT_STREAMS_INVALID_PAYEE\"; moved from registered line 54 to 58. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_STREAMS_INVALID_PAYEE\" to \"LXP_AGENT_STREAMS_INVALID_PAYEE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:365 also registers LXPRevert message \"invalid payee\"."
+
+[row.r2-7.33]
+interface = "interface.2.pc-agent-err-lxp-agent-streams-self-payment"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 59
+symbol = "LXP_AGENT_STREAMS_SELF_PAYMENT"
+evidence = "Declaration remains ErrStreamsSelfPayment ErrorCode = \"LXP_AGENT_STREAMS_SELF_PAYMENT\"; moved from registered line 55 to 59. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_STREAMS_SELF_PAYMENT\" to \"LXP_AGENT_STREAMS_SELF_PAYMENT: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:366 also registers LXPRevert message \"self payment\"."
+
+[row.r2-7.34]
+interface = "interface.2.pc-agent-err-lxp-agent-streams-unknown-token"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 60
+symbol = "LXP_AGENT_STREAMS_UNKNOWN_TOKEN"
+evidence = "Declaration remains ErrStreamsUnknownToken ErrorCode = \"LXP_AGENT_STREAMS_UNKNOWN_TOKEN\"; moved from registered line 56 to 60. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_STREAMS_UNKNOWN_TOKEN\" to \"LXP_AGENT_STREAMS_UNKNOWN_TOKEN: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:367 also registers LXPRevert message \"token has no assetId mapping\"."
+
+[row.r2-7.35]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-unknown-family"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 61
+symbol = "LXP_AGENT_TEE_UNKNOWN_FAMILY"
+evidence = "Declaration remains ErrTEEUnknownFamily ErrorCode = \"LXP_AGENT_TEE_UNKNOWN_FAMILY\"; moved from registered line 57 to 61. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_UNKNOWN_FAMILY\" to \"LXP_AGENT_TEE_UNKNOWN_FAMILY: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:368 also registers LXPRevert message \"unknown family\"."
+
+[row.r2-7.36]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-no-roots"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 62
+symbol = "LXP_AGENT_TEE_NO_ROOTS"
+evidence = "Declaration remains ErrTEENoRoots ErrorCode = \"LXP_AGENT_TEE_NO_ROOTS\"; moved from registered line 58 to 62. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_NO_ROOTS\" to \"LXP_AGENT_TEE_NO_ROOTS: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:369 also registers LXPRevert message \"no roots loaded\"."
+
+[row.r2-7.37]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-invalid-quote"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 63
+symbol = "LXP_AGENT_TEE_INVALID_QUOTE"
+evidence = "Declaration remains ErrTEEInvalidQuote ErrorCode = \"LXP_AGENT_TEE_INVALID_QUOTE\"; moved from registered line 59 to 63. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_INVALID_QUOTE\" to \"LXP_AGENT_TEE_INVALID_QUOTE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:370 also registers LXPRevert message \"invalid quote\"."
+
+[row.r2-7.38]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-untrusted-chain"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 64
+symbol = "LXP_AGENT_TEE_UNTRUSTED_CHAIN"
+evidence = "Declaration remains ErrTEEUntrustedChain ErrorCode = \"LXP_AGENT_TEE_UNTRUSTED_CHAIN\"; moved from registered line 60 to 64. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_UNTRUSTED_CHAIN\" to \"LXP_AGENT_TEE_UNTRUSTED_CHAIN: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:371 also registers LXPRevert message \"untrusted chain\"."
+
+[row.r2-7.39]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-stale"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 65
+symbol = "LXP_AGENT_TEE_STALE"
+evidence = "Declaration remains ErrTEEStale ErrorCode = \"LXP_AGENT_TEE_STALE\"; moved from registered line 61 to 65. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_STALE\" to \"LXP_AGENT_TEE_STALE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:372 also registers LXPRevert message \"attestation stale\"."
+
+[row.r2-7.40]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-debug-refused"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 66
+symbol = "LXP_AGENT_TEE_DEBUG_REFUSED"
+evidence = "Declaration remains ErrTEEDebugRefused ErrorCode = \"LXP_AGENT_TEE_DEBUG_REFUSED\"; moved from registered line 62 to 66. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_DEBUG_REFUSED\" to \"LXP_AGENT_TEE_DEBUG_REFUSED: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:373 also registers LXPRevert message \"debug enclave refused\"."
+
+[row.r2-7.41]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-report-data-mismatch"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 67
+symbol = "LXP_AGENT_TEE_REPORT_DATA_MISMATCH"
+evidence = "Declaration remains ErrTEEReportDataMismatch ErrorCode = \"LXP_AGENT_TEE_REPORT_DATA_MISMATCH\"; moved from registered line 63 to 67. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_REPORT_DATA_MISMATCH\" to \"LXP_AGENT_TEE_REPORT_DATA_MISMATCH: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:374 also registers LXPRevert message \"report data mismatch\"."
+
+[row.r2-7.42]
+interface = "interface.2.pc-agent-err-lxp-agent-tee-unauthorized-update"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 68
+symbol = "LXP_AGENT_TEE_UNAUTHORIZED_UPDATE"
+evidence = "Declaration remains ErrTEEUnauthorizedUpdate ErrorCode = \"LXP_AGENT_TEE_UNAUTHORIZED_UPDATE\"; moved from registered line 64 to 68. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_TEE_UNAUTHORIZED_UPDATE\" to \"LXP_AGENT_TEE_UNAUTHORIZED_UPDATE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:375 also registers LXPRevert message \"unauthorized root update\"."
+
+[row.r2-7.43]
+interface = "interface.2.pc-agent-err-lxp-agent-not-active"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 69
+symbol = "LXP_AGENT_NOT_ACTIVE"
+evidence = "Declaration remains ErrNotActive ErrorCode = \"LXP_AGENT_NOT_ACTIVE\"; moved from registered line 65 to 69. The code literal is unchanged; the wire signature changes from bare Error(string) \"LXP_AGENT_NOT_ACTIVE\" to \"LXP_AGENT_NOT_ACTIVE: <message>\". common.go:153,176 enables and calls pcommon.LXPReason, preserving producer details; precompiles/common/lxp_errors.go:339 also registers LXPRevert message \"agent function not active\"."
+
+[row.r2-7.44]
+interface = "interface.2.go-layerxagent-common-precompile-run-j24"
+verdict = "served"
+path = "precompiles/layerxagent/common/common.go"
+line = 171
+symbol = "Run"
+evidence = "Declaration remains func (p *Precompile) Run(evm *vm.EVM, caller ethcommon.Address, callingContract ethcommon.Address, input []byte, value *big.Int, readOnly bool, isFromDelegateCall bool, hooks *tracing.Hooks) ([]byte, error) {; moved from registered line 167 to 171. Parameters and return types are unchanged; the refusal result now returns pcommon.LXPReason(err), vm.ErrExecutionReverted at common.go:176, while NewPrecompile enables WithLXPReasons at common.go:153 for delegated execution failures. The Error(string) payload preserves CODE: message rather than returning only the refusal token."

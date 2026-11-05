@@ -2,9 +2,9 @@ package cosmovisor
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -31,10 +31,14 @@ func LaunchProcess(cfg *Config, args []string, stdout, stderr io.Writer) (bool, 
 		return false, err
 	}
 
+	defer outpipe.Close()
+
 	errpipe, err := cmd.StderrPipe()
 	if err != nil {
 		return false, err
 	}
+
+	defer errpipe.Close()
 
 	scanOut := bufio.NewScanner(io.TeeReader(outpipe, stdout))
 	scanErr := bufio.NewScanner(io.TeeReader(errpipe, stderr))
@@ -54,17 +58,13 @@ func LaunchProcess(cfg *Config, args []string, stdout, stderr io.Writer) (bool, 
 		return false, fmt.Errorf("launching process %s %s: %w", bin, strings.Join(args, " "), err)
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGQUIT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-		if err := cmd.Process.Signal(sig); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	stopForwarding := forwardProcessSignals(cmd.Process)
 
-	// three ways to exit - command ends, find regexp in scanOut, find regexp in scanErr
 	upgradeInfo, err := WaitForUpgradeOrExit(cmd, scanOut, scanErr)
+	forwardErr := stopForwarding()
+	if forwardErr != nil {
+		return false, forwardErr
+	}
 	if err != nil {
 		return false, err
 	}
@@ -74,6 +74,44 @@ func LaunchProcess(cfg *Config, args []string, stdout, stderr io.Writer) (bool, 
 	}
 
 	return false, nil
+}
+
+func forwardProcessSignals(process *os.Process) func() error {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGQUIT, syscall.SIGTERM)
+	done := make(chan struct{})
+	result := make(chan error, 1)
+	go func() {
+		result <- forwardSignals(process, sigs, done)
+	}()
+	return func() error {
+		signal.Stop(sigs)
+		close(done)
+		return <-result
+	}
+}
+
+func forwardSignals(process *os.Process, sigs <-chan os.Signal, done <-chan struct{}) error {
+	for {
+		select {
+		case <-done:
+			return nil
+		case sig := <-sigs:
+			select {
+			case <-done:
+				return nil
+			default:
+			}
+			if err := process.Signal(sig); err != nil {
+				if errors.Is(err, os.ErrProcessDone) {
+					return nil
+				}
+				// Unblock the supervisor so it can report the forwarding failure.
+				_ = process.Kill()
+				return fmt.Errorf("forwarding signal %s: %w", sig, err)
+			}
+		}
+	}
 }
 
 // WaitResult is used to wrap feedback on cmd state with some mutex logic.
@@ -99,7 +137,7 @@ func (u *WaitResult) AsResult() (*UpgradeInfo, error) {
 func (u *WaitResult) SetError(myErr error) {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
-	if u.info == nil && myErr != nil {
+	if u.info == nil && u.err == nil && myErr != nil {
 		u.err = myErr
 	}
 }
@@ -124,30 +162,36 @@ func (u *WaitResult) SetUpgrade(up *UpgradeInfo) {
 // to happened with "start" but may happened with short-lived commands like `gaiad export ...`
 func WaitForUpgradeOrExit(cmd *exec.Cmd, scanOut, scanErr *bufio.Scanner) (*UpgradeInfo, error) {
 	var res WaitResult
+	var readers sync.WaitGroup
+	scanErrors := make(chan error, 2)
 
 	waitScan := func(scan *bufio.Scanner) {
+		defer readers.Done()
 		upgrade, err := WaitForUpdate(scan)
-		if err != nil {
-			res.SetError(err)
-		} else if upgrade != nil {
+		if upgrade != nil {
 			res.SetUpgrade(upgrade)
-			// now we need to kill the process
+			_ = cmd.Process.Kill()
+			// Drain remaining output before releasing the caller's writers.
+			for scan.Scan() {
+			}
+			err = scan.Err()
+		}
+		if err != nil {
+			scanErrors <- err
 			_ = cmd.Process.Kill()
 		}
 	}
 
-	// wait for the scanners, which can trigger upgrade and kill cmd
+	readers.Add(2)
 	go waitScan(scanOut)
 	go waitScan(scanErr)
-
-	// if the command exits normally (eg. short command like `gaiad version`), just return (nil, nil)
-	// we often get broken read pipes if it runs too fast.
-	// if we had upgrade info, we would have killed it, and thus got a non-nil error code
+	// Wait must not close StdoutPipe/StderrPipe while scanners still read them.
+	readers.Wait()
 	err := cmd.Wait()
-	if err == nil {
-		return nil, nil
+	close(scanErrors)
+	for scanErr := range scanErrors {
+		return nil, scanErr
 	}
-	// this will set the error code if it wasn't killed due to upgrade
 	res.SetError(err)
 	return res.AsResult()
 }

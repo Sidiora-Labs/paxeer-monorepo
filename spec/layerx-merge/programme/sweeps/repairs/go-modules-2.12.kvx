@@ -1,0 +1,8 @@
+[repair.go-modules-2.12]
+target = "modules/tokenfactory/client/cli"
+command = "CGO_ENABLED=1 go vet ./modules/tokenfactory/client/cli/ && CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/tokenfactory/client/cli/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "modules/tokenfactory/client/cli/proof_cli_test.go reports daemon build and CLI proof wall times and command progress; no product behavior or test assertions changed."
+producer_input_tests = []
+wall_time = "TestProofCli reports measured daemon build and proof durations in verbose test output."

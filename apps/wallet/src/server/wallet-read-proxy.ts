@@ -25,34 +25,57 @@ interface ReadRoute {
   query: readonly string[];
 }
 
-const PNS_ORIGIN = 'https://paxeer-name-service-production.up.railway.app';
+export function readPnsApiOrigin(): string {
+  const configured = process.env.PNS_API_ORIGIN;
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if ((url.protocol === 'https:' || url.protocol === 'http:') && url.origin === configured) {
+        return configured;
+      }
+    } catch {
+      // Invalid configuration must refuse name reads before contacting an upstream.
+    }
+  }
+  throw new HttpBoundaryError(503, 'name_service_not_configured', 'Name service is not configured');
+}
 
 const ROUTES: Record<WalletReadRoute, ReadRoute> = {
   'pns-owned': {
-    origin: PNS_ORIGIN,
+    get origin() {
+      return readPnsApiOrigin();
+    },
     path: '/api/v1/addresses:lookup',
     query: ['address', 'owned_by', 'only_active', 'sort', 'order'],
   },
   'pns-domain': {
-    origin: PNS_ORIGIN,
+    get origin() {
+      return readPnsApiOrigin();
+    },
     path: '/api/v1/domains/{name}',
     parameter: 'name',
     query: [],
   },
   'pns-events': {
-    origin: PNS_ORIGIN,
+    get origin() {
+      return readPnsApiOrigin();
+    },
     path: '/api/v1/domains/{name}/events',
     parameter: 'name',
     query: ['order'],
   },
   'pns-address': {
-    origin: PNS_ORIGIN,
+    get origin() {
+      return readPnsApiOrigin();
+    },
     path: '/api/v1/addresses/{address}',
     parameter: 'address',
     query: [],
   },
   'pns-lookup': {
-    origin: PNS_ORIGIN,
+    get origin() {
+      return readPnsApiOrigin();
+    },
     path: '/api/v1/domains:lookup',
     query: ['name', 'only_active'],
   },
@@ -73,7 +96,7 @@ export function walletReadRequest(
   request: NextRequest,
   route: WalletReadRoute,
   parameters: Readonly<Record<string, string>> = {},
-  signal: AbortSignal = request.signal,
+  signal: AbortSignal = request.signal
 ): Request {
   if (request.method !== 'GET') {
     throw new HttpBoundaryError(405, 'METHOD_NOT_ALLOWED', 'Method is not allowed');
@@ -137,7 +160,7 @@ export async function walletReadResponse(response: Response): Promise<NextRespon
 export async function proxyWalletRead(
   request: NextRequest,
   route: WalletReadRoute,
-  parameters: Readonly<Record<string, string>> = {},
+  parameters: Readonly<Record<string, string>> = {}
 ): Promise<NextResponse> {
   const timed = timeoutSignal(request.signal, 10_000);
   try {

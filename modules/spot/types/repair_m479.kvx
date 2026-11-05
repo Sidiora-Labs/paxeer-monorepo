@@ -1,0 +1,8 @@
+[repair.22.33.479]
+finding = "twap-genesis-logical-slots"
+implementation = "genesis.go validates every occupied logical token/slot, nondecreasing logical timestamps, and positive uint256 sample prices."
+tests = ["TestRepairM_479_RejectMalformedRings", "TestRepairM_479_WrappedRingRestartRecovery", "TestRepairM_479_EmptyAndPartialRingRecovery"]
+producer_transport_consumer = "Real pricefeed submissions and aggregation -> spot RecordSample -> ExportGenesis JSON -> closed/reopened SDK store and fresh InitGenesis -> closed/reopened store -> TWAP compared with independently integrated producer prices."
+baseline = "Not run: the ordered task instructions require complete implementation before qualification and prohibit running verify_cmd outside hf-done; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log location; hf-done is the only verification gate."

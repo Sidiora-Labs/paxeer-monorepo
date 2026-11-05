@@ -1,0 +1,2267 @@
+# Pre-upgrade audit; source repairs are proposals assigned to their owning domain.
+
+[audit.22.30.136]
+task = "22.30.136"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 320
+findings = 25
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["feed-overview-gateway", "feed-market-gateway", "feed-update-gateway"]
+review_basis = "Network facts and all nine checks in audit/BRIEF.kvx; package requirements and interface rows; full local-file reviews plus the explicit vendored-file exception. Findings propose repairs only."
+provenance = "services/explorer/UPSTREAM.md pins frontend v2.7.2 at 446c409eeb54274aab90ff371a705f9699cd84ef and backend v10.2.6 at 90f7dd8e9348123b74dfd23f69ab7da76191a820. Current members were compared by Git blob identity with local import f72f4cee4 using the pre-move explorer/frontend and explorer/backend paths. Of 320 members, 271 are unchanged imports and 49 changed/added; the unchanged sanitizer and Token.pw.tsx were additionally reviewed and have issues, leaving 269 vendored verdicts."
+requirements = ["181173.1", "14991.1", "22108.1", "14248.1", "14248.2", "14251.1", "14251.2", "14251.3", "14253.1", "14266.1", "14280.1", "14283.1", "14284.1", "14285.1", "14293.1", "18896.1", "18897.1", "18900.1", "18900.2", "18899.1", "18899.2"]
+interfaces = ["14.env-tenderly-chain-path", "14.cfg-explorer-explorer-chain-block-reward", "14.cfg-explorer-explorer-chain-scroll-l1feeparam", "14.cfg-explorer-explorer-chain-transaction", "14.cfg-explorer-explorer-thirdpartyintegrations-sourcify", "14.cfg-explorer-json-rpc-named-arguments", "14.cfg-fe-apis-zetachain", "14.cfg-fe-app-baseurl", "14.cfg-fe-app-origin", "14.cfg-fe-chain-currency", "14.cfg-fe-chain-id", "14.cfg-fe-chain-name", "14.cfg-fe-chain-rpcurls", "14.cfg-fe-feature-account", "14.cfg-fe-feature-addressmetadata", "14.cfg-fe-feature-addressprofileapi", "14.cfg-fe-feature-advancedfilter", "14.cfg-fe-feature-apidocs", "14.cfg-fe-feature-beaconchain", "14.cfg-fe-feature-blockchaininteraction", "14.cfg-fe-feature-bridgedtokens", "14.cfg-fe-feature-crosschaintxs", "14.cfg-fe-feature-dataavailability", "14.cfg-fe-feature-flashblocks", "14.cfg-fe-feature-marketplace", "14.cfg-fe-feature-metasuites", "14.cfg-fe-feature-mudframework", "14.cfg-fe-feature-nameservices", "14.cfg-fe-feature-paxeerxlists", "14.cfg-fe-feature-rewards", "14.cfg-fe-feature-stats", "14.cfg-fe-feature-suave", "14.cfg-fe-feature-tac", "14.cfg-fe-feature-txinterpretation", "14.cfg-fe-feature-userops", "14.cfg-fe-feature-validators", "14.cfg-fe-feature-verifiedtokens", "14.cfg-fe-feature-xstarscore", "14.cfg-fe-feature-zetachain", "14.cfg-fe-meta-seo", "14.cfg-fe-ui-apikeysalert", "14.cfg-fe-ui-nativecoinprice", "14.cfg-fe-ui-views-address", "14.cfg-fe-ui-views-block", "14.cfg-fe-ui-views-nft", "14.cfg-indexer-indexer-fetcher-emptyblockssanitizer", "14.cfg-indexer-indexer-fetcher-emptyblockssanitizer-supervisor", "14.cfg-indexer-indexer-fetcher-polygonzkevm-bridgel1", "14.cfg-logger-empty-blocks-to-refetch", "14.cfg-ueberauth-ueberauth", "14.cfg-ueberauth-ueberauth-strategy-auth0-oauth", "14.cfg-web-api-url", "14.cfg-web-apps", "14.cfg-web-contract", "14.cfg-web-footer", "14.cfg-web-other-networks", "14.cfg-web-release-link", "14.cfg-web-remote-ip", "14.cfg-web-show-percentage", "14.cfg-web-show-tenderly-link", "14.cfg-web-web-chain", "14.cfg-web-web-chain-address-coinbalance", "14.cfg-web-web-endpoint", "14.cfg-web-webapp-url", "14.env-fe-next-public-clusters-cdn-url", "14.env-fe-next-public-is-account-supported", "14.env-fe-next-public-marketplace-banner-content-url", "14.env-fe-next-public-marketplace-banner-link-url", "14.env-fe-next-public-marketplace-config-url", "14.env-fe-next-public-marketplace-enabled", "14.env-fe-next-public-marketplace-essential-dapps-config", "14.env-fe-next-public-marketplace-featured-app", "14.env-fe-next-public-navigation-layout", "14.env-fe-next-public-paxeer-x-enabled", "14.env-fe-next-public-seo-enhanced-data-enabled", "14.env-fe-next-public-stats-api-host", "14.env-fe-next-public-validators-chain-type", "14.env-fe-next-public-views-block-pending-update-alert-enabled", "14.env-fe-next-public-views-token-scam-toggle-enabled", "14.env-fe-next-public-zetachain-service-chains-config-url", "14.http-get-api-v2-addresses-address-hash-param", "14.http-get-api-v2-arbitrum-batches", "14.http-get-api-v2-arbitrum-batches-batch-number", "14.http-get-api-v2-arbitrum-batches-count", "14.http-get-api-v2-arbitrum-messages-claim-message-id", "14.http-get-api-v2-arbitrum-messages-direction", "14.http-get-api-v2-arbitrum-messages-direction-count", "14.http-get-api-v2-arbitrum-messages-withdrawals-transaction-hash", "14.http-get-api-v2-blocks", "14.http-get-api-v2-main-page-arbitrum-batches-committed", "14.http-get-api-v2-main-page-arbitrum-batches-latest-number", "14.http-get-api-v2-main-page-arbitrum-messages-to-rollup", "14.http-get-api-v2-main-page-blocks", "14.http-get-api-v2-main-page-optimism-deposits", "14.http-get-api-v2-main-page-transactions", "14.http-get-api-v2-main-page-zkevm-batches-confirmed", "14.http-get-api-v2-main-page-zkevm-batches-latest-number", "14.http-get-api-v2-main-page-zksync-batches-confirmed", "14.http-get-api-v2-main-page-zksync-batches-latest-number", "14.http-get-api-v2-mud-worlds", "14.http-get-api-v2-mud-worlds-count", "14.http-get-api-v2-mud-worlds-world-systems", "14.http-get-api-v2-mud-worlds-world-systems-system", "14.http-get-api-v2-mud-worlds-world-tables", "14.http-get-api-v2-mud-worlds-world-tables-table-id-records", "14.http-get-api-v2-mud-worlds-world-tables-table-id-records-record-id", "14.http-get-api-v2-optimism-batches", "14.http-get-api-v2-optimism-batches-da-celestia-height-commitment", "14.http-get-api-v2-optimism-batches-number", "14.http-get-api-v2-optimism-deposits", "14.http-get-api-v2-optimism-games", "14.http-get-api-v2-optimism-interop-messages", "14.http-get-api-v2-optimism-interop-messages-unique-id", "14.http-get-api-v2-optimism-interop-public-key", "14.http-get-api-v2-optimism-output-roots", "14.http-get-api-v2-optimism-withdrawals", "14.http-get-api-v2-paxeer-x-feed-markets", "14.http-get-api-v2-paxeer-x-feed-markets-market-id-updates", "14.http-get-api-v2-paxeer-x-feed-updates-hash", "14.http-get-api-v2-scroll-batches", "14.http-get-api-v2-scroll-batches-count", "14.http-get-api-v2-scroll-batches-number", "14.http-get-api-v2-scroll-deposits", "14.http-get-api-v2-scroll-deposits-count", "14.http-get-api-v2-scroll-withdrawals", "14.http-get-api-v2-scroll-withdrawals-count", "14.http-get-api-v2-stats", "14.http-get-api-v2-stats-charts-transactions", "14.http-get-api-v2-tokens-address-hash-param", "14.http-get-api-v2-transactions", "14.http-get-api-v2-transactions-stats", "14.http-get-api-v2-transactions-transaction-hash-param", "14.http-get-api-v2-zkevm-batches", "14.http-get-api-v2-zkevm-batches-batch-number", "14.http-get-api-v2-zkevm-batches-count", "14.http-get-api-v2-zkevm-deposits", "14.http-get-api-v2-zkevm-deposits-count", "14.http-get-api-v2-zkevm-withdrawals", "14.http-get-api-v2-zkevm-withdrawals-count", "14.http-get-api-v2-zksync-batches", "14.http-get-api-v2-zksync-batches-batch-number", "14.http-get-api-v2-zksync-batches-count", "14.http-post-api-v2-import-optimism-interop", "14.ws-explorer-channel-socket-v2-addresses", "14.ws-explorer-channel-socket-v2-paxeer-x-feed", "14.ws-explorer-channel-socket-v2-tokens", "14.ws-explorer-join-socket-v2-addresses-address-hash-string", "14.ws-explorer-join-socket-v2-paxeer-x-feed-market-market-id", "14.ws-explorer-join-socket-v2-paxeer-x-feed-new-update", "14.ws-explorer-join-socket-v2-tokens-transaction-hash", "14.ws-explorer-push-addresses-hash-fetched-bytecode", "14.ws-explorer-push-paxeer-x-feed-market-hash-new-update", "14.ws-explorer-push-paxeer-x-feed-new-update-new-update", "14.ws-explorer-push-tokens-hash-total-supply", "4.sol-mocksidiorarouter-revertreason-61b5b636", "6.sol-evmcompatibilitytester-gaslimit-f68016b7", "7.rpc-eth-chainid", "7.rpc-eth-gasprice", "7.rpc-eth-getbalance", "7.rpc-eth-getblockbynumber", "7.rpc-eth-gettransactionreceipt", "8.cfg-ai-evaluator-config-capabilities", "8.cfg-authority-principalpolicy-identities", "8.cfg-authority-registry-assets", "8.cfg-examples-applications", "8.cfg-examples-applications-config", "8.cfg-examples-buyer-agent-application", "8.cfg-examples-marketplace-application", "8.cfg-examples-merchant-checkout-application", "8.cfg-examples-merchant-shop-application", "8.cfg-examples-paid-api-application", "8.cfg-feeder-config-markets", "8.cfg-feeder-config-validator", "8.cfg-ramps-operator-account", "8.cfg-ramps-quotes-context", "8.cfg-release-artifactmanifest-tag", "8.fmt-perf-db-checkpoint", "8.http-gateway-any-explorer"]
+interface_review_notes = ["TENDERLY_CHAIN_PATH: transaction_view.ex:588 reads an optional string default /, common-blockscout.env:664 documents the same key, and the template uses it only for the optional Tenderly link; no RPC endpoint is derived from it.", "Frontend config/env rows: configs/app supplies the same feature objects read by the pages, string chain id/name/currency/RPC URLs and API origins; paxeer-x presets select chain 125 and enable Paxeer X. Upstream rollup/beacon/validator panels remain feature/chain gated and are not a claim that a separate LayerX sequencer exists.", "Backend config rows: runtime.exs supplies the named Explorer, web, indexer, logging and Ueberauth keys read by the imported views; optional services retain their feature gates. EmptyBlocksSanitizer batch_size/interval/head_offset and supervisor-disabled settings agree with its readers. The batch result failure is recorded separately.", "HTTP rows: frontend resource templates preserve backend snake_case path parameters and JSON item/pagination envelopes. Upstream chain-specific rollup and MUD pages remain gated to their declared chain/service. Address test fixture drift is address-fixture-shape. The three feed REST contracts agree locally with FeedView but fail across the gateway admission boundary as the three blocking findings describe.", "Feed transport: FeedView.prepare_update emits status ok/error, type 127, accepted per observation, nil recipient and decimal-string prices/fees/gas. Notifier uses that same renderer, filters market topic observations by status 1 and accepted, and the market renderer matches update_hash/index history types. applyPriceUpdates keeps accepted prices ordered by block/index; first-page deduplication, buffer bound and retained-row semantics are reviewed in history findings. Empty join replies have no replay; overview recovery is feed-overview-rejoin.", "Address/token sockets: addresses:<hash> fetched_bytecode shape agrees with the address page; token total_supply is a decimal string at the real producer but numeric in the frontend contract, recorded in token-supply-wire-type. Chain-specific token cache writes are token-chain-cache-key.", "EVM RPC rows: Playwright consumers use standard eth_chainId, eth_gasPrice, eth_getBalance, eth_getBlockByNumber and eth_getTransactionReceipt contracts with hex quantities/hashes. The sanitizer uses the production EthereumJSONRPC batch transport and incorrectly assumes successful non-null results; empty-block-batch-errors records that edge. No member calls node.hyperpaxeer.com as RPC or uses a retired public /rpc path.", "Domain 4 revertReason and domain 6 gasLimit registry crosslinks are lexical matches to EVM JSON fields in RPC views, not calls to MockSidioraRouter or EVMCompatibilityTester getters. Domain 8 config/example/perf-db crosslinks similarly match generic capabilities, identities, assets, applications, config, application, markets, validator, account, context, tag and checkpoint names in UI data/tests; the slice does not load those unrelated producer config files or checkpoint format. The actual domain 8 explorer HTTP transport is reviewed in the gateway findings.", "Archive/signature/status paths: ArchiveView returns frozen:true and verification_status without live status; archive resources use /archive routes; verified transaction signature and committed transaction status views preserve their controller evidence. Account UI omits retired custody/anchor capability rows. BlockView REST and socket paths share native price_update_count. Receipt UI polling and the old test URL are recorded explicitly.", "Security/lifecycle: member UI paths carry read-only producer data; account actions retain upstream session/CSRF and capability feature boundaries. Native signature verification is not bypassed by the views. Route refusals and malformed cursor handling remain explicit. Durable indexing is in backend storage; socket buffers are transient and require reconciliation after connection loss. No source repair or product build/test is asserted by this audit."]
+qualification_scope = "Only hf-build (git rev-parse HEAD) and hf-done (declared audit_check.py plus graph checks) qualify this record. Source observations and test contradictions are static review evidence, not claims that application suites ran or that every historical sweep target passed."
+
+[file.001]
+path = "apps/explorer/ui/pages/Accounts.pw.tsx"
+lines = 43
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 45daa2410303c6209e027ffb7e912a5bd4d67f9b is identical to f72f4cee4:explorer/frontend/ui/pages/Accounts.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.002]
+path = "apps/explorer/ui/pages/Accounts.spec.tsx"
+lines = 108
+verdict = "clean"
+note = "Full-file review: the accounts list envelope includes total_supply and pagination; fixture rows exercise decimal balances, table layout and the pager."
+
+[file.003]
+path = "apps/explorer/ui/pages/Accounts.tsx"
+lines = 179
+verdict = "clean"
+note = "Full-file review: the accounts list envelope and total_supply retain producer decimal balance strings and explicit loading/error states."
+
+[file.004]
+path = "apps/explorer/ui/pages/AccountsLabelSearch.pw.tsx"
+lines = 61
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob c4846968c56f152da487988bb4fcfba2eca8e34f is identical to f72f4cee4:explorer/frontend/ui/pages/AccountsLabelSearch.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.005]
+path = "apps/explorer/ui/pages/AccountsLabelSearch.tsx"
+lines = 112
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b6c9d687cd4afdaf9c91e9f4ff2baecc1afa2174 is identical to f72f4cee4:explorer/frontend/ui/pages/AccountsLabelSearch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.006]
+path = "apps/explorer/ui/pages/Address.pw.tsx"
+lines = 60
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 528e067a8dad43497c743f28be4516dab2d66359 is identical to f72f4cee4:explorer/frontend/ui/pages/Address.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.007]
+path = "apps/explorer/ui/pages/Address.spec.tsx"
+lines = 128
+verdict = "issues"
+note = "Full-file review; findings: address-fixture-shape."
+
+[file.008]
+path = "apps/explorer/ui/pages/Address.tsx"
+lines = 559
+verdict = "clean"
+note = "Full-file review: address detail object, tabs, bytecode topic and feature-gated chain panels preserve upstream API field names."
+
+[file.009]
+path = "apps/explorer/ui/pages/AdvancedFilter.pw.tsx"
+lines = 17
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob f37ef9dfd6af985d83d6a9949d1458fad0a2d433 is identical to f72f4cee4:explorer/frontend/ui/pages/AdvancedFilter.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.010]
+path = "apps/explorer/ui/pages/AdvancedFilter.tsx"
+lines = 292
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 10fec4488231ec8e561d5831c645e4b0ce43d969 is identical to f72f4cee4:explorer/frontend/ui/pages/AdvancedFilter.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.011]
+path = "apps/explorer/ui/pages/ApiDocs.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob e6435df133d941ae68c6191f84f2571664352636 is identical to f72f4cee4:explorer/frontend/ui/pages/ApiDocs.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.012]
+path = "apps/explorer/ui/pages/ApiKeys.tsx"
+lines = 162
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 177fd902f1c6c0528078b40aec3c9d152ef7093d is identical to f72f4cee4:explorer/frontend/ui/pages/ApiKeys.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.013]
+path = "apps/explorer/ui/pages/ArbitrumL2Deposits.pw.tsx"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 5e0f27824dd18c95ab8850cd1772a059737c9dbe is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2Deposits.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.014]
+path = "apps/explorer/ui/pages/ArbitrumL2Deposits.tsx"
+lines = 9
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob fbee21ae6a56589233eb3c72dce937fa5981b3b4 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2Deposits.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.015]
+path = "apps/explorer/ui/pages/ArbitrumL2TxnBatch.pw.tsx"
+lines = 63
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob cab51a6ead198374b96cd4c84719c21b8c284e00 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2TxnBatch.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.016]
+path = "apps/explorer/ui/pages/ArbitrumL2TxnBatch.tsx"
+lines = 113
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 16c093d0874728ff4f43b95c35856cfe6edd3ce3 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2TxnBatch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.017]
+path = "apps/explorer/ui/pages/ArbitrumL2TxnBatches.pw.tsx"
+lines = 32
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 54ff75ea53eeb81e414b30ce61b92a68c2ec6840 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2TxnBatches.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.018]
+path = "apps/explorer/ui/pages/ArbitrumL2TxnBatches.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 2f9c6d1b73b4d8b6b93165cab4bbd73b39e5c1f5 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2TxnBatches.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.019]
+path = "apps/explorer/ui/pages/ArbitrumL2TxnWithdrawals.pw.tsx"
+lines = 29
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob d470fa7a6aede0032d1a6baee1009a02e31269d3 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2TxnWithdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.020]
+path = "apps/explorer/ui/pages/ArbitrumL2TxnWithdrawals.tsx"
+lines = 111
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 97d7971c160f03de81baec0e52d66bcafbfb34f5 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2TxnWithdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.021]
+path = "apps/explorer/ui/pages/ArbitrumL2Withdrawals.pw.tsx"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 22480e27a8d4619616864965ff61570bd03e5bf6 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2Withdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.022]
+path = "apps/explorer/ui/pages/ArbitrumL2Withdrawals.tsx"
+lines = 9
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob a4a1b04eaff3a2271309e390af712a7163e8c9b6 is identical to f72f4cee4:explorer/frontend/ui/pages/ArbitrumL2Withdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.023]
+path = "apps/explorer/ui/pages/BeaconChainDeposits.pw.tsx"
+lines = 28
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b9b5a3c566f34646be546d0b9e51581d0c5a8b62 is identical to f72f4cee4:explorer/frontend/ui/pages/BeaconChainDeposits.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.024]
+path = "apps/explorer/ui/pages/BeaconChainDeposits.tsx"
+lines = 98
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 320fbfe05bb9f6a46338c1a4507df174a8477147 is identical to f72f4cee4:explorer/frontend/ui/pages/BeaconChainDeposits.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.025]
+path = "apps/explorer/ui/pages/BeaconChainWithdrawals.pw.tsx"
+lines = 16
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 8de0c305b8ffe604877957c918a11b608e374a53 is identical to f72f4cee4:explorer/frontend/ui/pages/BeaconChainWithdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.026]
+path = "apps/explorer/ui/pages/BeaconChainWithdrawals.tsx"
+lines = 102
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b3aafdad2f472ee9ca9e1c01b45074817f120f64 is identical to f72f4cee4:explorer/frontend/ui/pages/BeaconChainWithdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.027]
+path = "apps/explorer/ui/pages/Blob.pw.tsx"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 95a7553be82064e6a479c163d83068e7d27f2023 is identical to f72f4cee4:explorer/frontend/ui/pages/Blob.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.028]
+path = "apps/explorer/ui/pages/Blob.tsx"
+lines = 67
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob be34e484c0c6ecaa295adef0e5185d79816604db is identical to f72f4cee4:explorer/frontend/ui/pages/Blob.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.029]
+path = "apps/explorer/ui/pages/Block.pw.tsx"
+lines = 110
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 38a8ff58316dc67bee43bfeb23525fa2a465f9d8 is identical to f72f4cee4:explorer/frontend/ui/pages/Block.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.030]
+path = "apps/explorer/ui/pages/Block.spec.tsx"
+lines = 110
+verdict = "clean"
+note = "Full-file review: the loaded block/counters fixtures cover the native price-update count and block card layout."
+
+[file.031]
+path = "apps/explorer/ui/pages/Block.tsx"
+lines = 235
+verdict = "clean"
+note = "Full-file review: block fields and native transaction totals consume BlockView fields without restoring a settlement ladder."
+
+[file.032]
+path = "apps/explorer/ui/pages/BlockCountdown.pw.tsx"
+lines = 84
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 928314cc01e34543623a8f68f388c62143cab366 is identical to f72f4cee4:explorer/frontend/ui/pages/BlockCountdown.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.033]
+path = "apps/explorer/ui/pages/BlockCountdown.tsx"
+lines = 152
+verdict = "clean"
+note = "Full-file review: height parsing and countdown navigation use configured explorer routes and block timing APIs."
+
+[file.034]
+path = "apps/explorer/ui/pages/BlockCountdownIndex.pw.tsx"
+lines = 10
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 50c5c2d14f9b338bec8f375fe00d683f5172ae63 is identical to f72f4cee4:explorer/frontend/ui/pages/BlockCountdownIndex.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.035]
+path = "apps/explorer/ui/pages/BlockCountdownIndex.tsx"
+lines = 75
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 65ccdf393642e00b690574b879c0793106f10af7 is identical to f72f4cee4:explorer/frontend/ui/pages/BlockCountdownIndex.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.036]
+path = "apps/explorer/ui/pages/Blocks.pw.tsx"
+lines = 103
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 0b21dd97c92c6ab2536496d33999c8365ab35507 is identical to f72f4cee4:explorer/frontend/ui/pages/Blocks.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.037]
+path = "apps/explorer/ui/pages/Blocks.spec.tsx"
+lines = 75
+verdict = "clean"
+note = "Full-file review: block list fixtures and card/header assertions retain native count display expectations."
+
+[file.038]
+path = "apps/explorer/ui/pages/Blocks.tsx"
+lines = 90
+verdict = "clean"
+note = "Full-file review: canonical block list, pagination and live updates consume the shared REST/socket block item."
+
+[file.039]
+path = "apps/explorer/ui/pages/Chakra.tsx"
+lines = 103
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 7fbec2ab99309a7f2ef80767737c0e36a87392f0 is identical to f72f4cee4:explorer/frontend/ui/pages/Chakra.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.040]
+path = "apps/explorer/ui/pages/Chart.pw.tsx"
+lines = 44
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 3997b96b5aa502fc53d1876c0adf04f6ac166d62 is identical to f72f4cee4:explorer/frontend/ui/pages/Chart.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.041]
+path = "apps/explorer/ui/pages/Chart.tsx"
+lines = 298
+verdict = "clean"
+note = "Full-file review: statistics chart configuration and error/loading paths retain the statistics API contract."
+
+[file.042]
+path = "apps/explorer/ui/pages/Cluster.pw.tsx"
+lines = 78
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 3d5fdf55f65305e4bdcdc884d8d9014d3b3abbe8 is identical to f72f4cee4:explorer/frontend/ui/pages/Cluster.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.043]
+path = "apps/explorer/ui/pages/Cluster.tsx"
+lines = 38
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob c8576d1f27614dadcd000332ae9fae1c8e0ac4d5 is identical to f72f4cee4:explorer/frontend/ui/pages/Cluster.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.044]
+path = "apps/explorer/ui/pages/ContractVerification.tsx"
+lines = 34
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob f03e4ebb2d4925e46fd32eca4f60a753385b6e6d is identical to f72f4cee4:explorer/frontend/ui/pages/ContractVerification.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.045]
+path = "apps/explorer/ui/pages/ContractVerificationForAddress.tsx"
+lines = 86
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob c382820240b90c6520cb3bbc99649711815a8627 is identical to f72f4cee4:explorer/frontend/ui/pages/ContractVerificationForAddress.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.046]
+path = "apps/explorer/ui/pages/CsvExport.pw.tsx"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 0dedd6719919f0a8bc1fe574f267c855b2636095 is identical to f72f4cee4:explorer/frontend/ui/pages/CsvExport.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.047]
+path = "apps/explorer/ui/pages/CsvExport.tsx"
+lines = 208
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 70ac5a1d2f5420bc474ff4bb444c68d3b160847c is identical to f72f4cee4:explorer/frontend/ui/pages/CsvExport.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.048]
+path = "apps/explorer/ui/pages/CustomAbi.tsx"
+lines = 114
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 8350506fbf421ffe25a4d20d39405aa98e6f0119 is identical to f72f4cee4:explorer/frontend/ui/pages/CustomAbi.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.049]
+path = "apps/explorer/ui/pages/Epoch.pw.tsx"
+lines = 39
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob d15334a7f8931bdf2b450ec7b2b88e854ff722d2 is identical to f72f4cee4:explorer/frontend/ui/pages/Epoch.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.050]
+path = "apps/explorer/ui/pages/Epoch.tsx"
+lines = 94
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob f8e204ac3afe5f961fb763c35527cdc53f924aa9 is identical to f72f4cee4:explorer/frontend/ui/pages/Epoch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.051]
+path = "apps/explorer/ui/pages/Epochs.pw.tsx"
+lines = 17
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 569832fc65922501fca859c029019f4bf18bd592 is identical to f72f4cee4:explorer/frontend/ui/pages/Epochs.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.052]
+path = "apps/explorer/ui/pages/Epochs.tsx"
+lines = 76
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob dc81372667d308a965c0beb977a5ba8ccd878c15 is identical to f72f4cee4:explorer/frontend/ui/pages/Epochs.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.053]
+path = "apps/explorer/ui/pages/GasTracker.pw.tsx"
+lines = 31
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 931bb38558d4820f2b9a35fa43852bf96543e0df is identical to f72f4cee4:explorer/frontend/ui/pages/GasTracker.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.054]
+path = "apps/explorer/ui/pages/GasTracker.tsx"
+lines = 103
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 26bd245ba1013b48320ffc0b1f1bd10984337080 is identical to f72f4cee4:explorer/frontend/ui/pages/GasTracker.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.055]
+path = "apps/explorer/ui/pages/Home.pw.tsx"
+lines = 172
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob a62b6cc67551cf84a6c1b0b679fc8205346a1564 is identical to f72f4cee4:explorer/frontend/ui/pages/Home.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.056]
+path = "apps/explorer/ui/pages/Home.spec.tsx"
+lines = 93
+verdict = "clean"
+note = "Full-file review: homepage assertions cover producer-shaped statistics and the native block transaction totals."
+
+[file.057]
+path = "apps/explorer/ui/pages/Home.tsx"
+lines = 59
+verdict = "clean"
+note = "Full-file review: homepage composes shared block/transaction panels without a separate kernel finality surface."
+
+[file.058]
+path = "apps/explorer/ui/pages/HotContracts.pw.tsx"
+lines = 23
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 3291e940852deb197f643b6201fba6784a719d49 is identical to f72f4cee4:explorer/frontend/ui/pages/HotContracts.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.059]
+path = "apps/explorer/ui/pages/HotContracts.tsx"
+lines = 136
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 181e8fe94cd51f2d727964484eed34cc768ac621 is identical to f72f4cee4:explorer/frontend/ui/pages/HotContracts.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.060]
+path = "apps/explorer/ui/pages/InternalTxs.tsx"
+lines = 80
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 406900dec65877b6f0ce555412943d4131f2c56d is identical to f72f4cee4:explorer/frontend/ui/pages/InternalTxs.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.061]
+path = "apps/explorer/ui/pages/InteropMessages.pw.tsx"
+lines = 42
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 64dd7929d9ecf78839b7249feaba32afdf1a09cb is identical to f72f4cee4:explorer/frontend/ui/pages/InteropMessages.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.062]
+path = "apps/explorer/ui/pages/InteropMessages.tsx"
+lines = 87
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 9ca2b336864e598660a6ca9eb0a2a6081c69b2d8 is identical to f72f4cee4:explorer/frontend/ui/pages/InteropMessages.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.063]
+path = "apps/explorer/ui/pages/KettleTxs.tsx"
+lines = 39
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob aa7233befe1cc71afa461aaa4224b396f8c7054b is identical to f72f4cee4:explorer/frontend/ui/pages/KettleTxs.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.064]
+path = "apps/explorer/ui/pages/Login.pw.tsx"
+lines = 14
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 846263014170ebfaefaf76ddb3f22a7439ba1b89 is identical to f72f4cee4:explorer/frontend/ui/pages/Login.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.065]
+path = "apps/explorer/ui/pages/Login.tsx"
+lines = 96
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 6c4c6d97ee7deb4261e4324fe6886335501290fa is identical to f72f4cee4:explorer/frontend/ui/pages/Login.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.066]
+path = "apps/explorer/ui/pages/Marketplace.pw.tsx"
+lines = 129
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 2919007c670cae8e66127c3f57d994a4c5168acc is identical to f72f4cee4:explorer/frontend/ui/pages/Marketplace.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.067]
+path = "apps/explorer/ui/pages/Marketplace.tsx"
+lines = 272
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 009e36c5c4ab334499204a8b0f4f5daa888d2ba7 is identical to f72f4cee4:explorer/frontend/ui/pages/Marketplace.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.068]
+path = "apps/explorer/ui/pages/MarketplaceApp.pw.tsx"
+lines = 45
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob aec6bc0357bf55021e5195f43ef1eab0e62fa785 is identical to f72f4cee4:explorer/frontend/ui/pages/MarketplaceApp.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.069]
+path = "apps/explorer/ui/pages/MarketplaceApp.tsx"
+lines = 106
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 7b6ec121475571e4e0027d84731d7ce2fd7c7d80 is identical to f72f4cee4:explorer/frontend/ui/pages/MarketplaceApp.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.070]
+path = "apps/explorer/ui/pages/MarketplaceEssentialDapp.tsx"
+lines = 56
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 2213a33895123ad33db3eb01ad1eba5c630574aa is identical to f72f4cee4:explorer/frontend/ui/pages/MarketplaceEssentialDapp.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.071]
+path = "apps/explorer/ui/pages/MudWorlds.pw.tsx"
+lines = 13
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 716163dec3ef12bef18d4106f92532bc0c3425a6 is identical to f72f4cee4:explorer/frontend/ui/pages/MudWorlds.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.072]
+path = "apps/explorer/ui/pages/MudWorlds.tsx"
+lines = 69
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 22f2f72b1538eafd4a79ab8adced0964ed3500c5 is identical to f72f4cee4:explorer/frontend/ui/pages/MudWorlds.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.073]
+path = "apps/explorer/ui/pages/MyProfile.pw.tsx"
+lines = 26
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob d475320576fc99ad13cdabbecbff3f773d94d891 is identical to f72f4cee4:explorer/frontend/ui/pages/MyProfile.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.074]
+path = "apps/explorer/ui/pages/MyProfile.tsx"
+lines = 73
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 26d7f5484b3f9de8dfd216051363dd428d752898 is identical to f72f4cee4:explorer/frontend/ui/pages/MyProfile.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.075]
+path = "apps/explorer/ui/pages/NameDomain.pw.tsx"
+lines = 55
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob bfb60e8ebc9c9924dbbb6dc80bf121b12c55d7e7 is identical to f72f4cee4:explorer/frontend/ui/pages/NameDomain.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.076]
+path = "apps/explorer/ui/pages/NameDomain.tsx"
+lines = 101
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b4f71f0183e28cdc313ebc345e90c26efd962235 is identical to f72f4cee4:explorer/frontend/ui/pages/NameDomain.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.077]
+path = "apps/explorer/ui/pages/NameServices.pw.tsx"
+lines = 141
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob c91a5c1da1325c9e39b39f854e8a444d3da89924 is identical to f72f4cee4:explorer/frontend/ui/pages/NameServices.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.078]
+path = "apps/explorer/ui/pages/NameServices.tsx"
+lines = 30
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b53357e29fde437605814f1344500c0efdf2f66c is identical to f72f4cee4:explorer/frontend/ui/pages/NameServices.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.079]
+path = "apps/explorer/ui/pages/OptimisticL2Deposits.pw.tsx"
+lines = 22
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 9e4cbecc253d6c36fc72291fdfcec181aad96087 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2Deposits.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.080]
+path = "apps/explorer/ui/pages/OptimisticL2Deposits.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob bca1f87ca3ea401769aebfaa9fd6aecc830b1d01 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2Deposits.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.081]
+path = "apps/explorer/ui/pages/OptimisticL2DisputeGames.pw.tsx"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 012d3cced52905d65474310509fab0728554a9e1 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2DisputeGames.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.082]
+path = "apps/explorer/ui/pages/OptimisticL2DisputeGames.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob be1da7774c29d9cbfeb542b5c4978234f3e6a25a is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2DisputeGames.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.083]
+path = "apps/explorer/ui/pages/OptimisticL2OutputRoots.pw.tsx"
+lines = 20
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b89dd6770369bdd36bcd8a5a11aa356557c8fc26 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2OutputRoots.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.084]
+path = "apps/explorer/ui/pages/OptimisticL2OutputRoots.tsx"
+lines = 89
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 73f2c202c7f0e712934584372d3ba666f69b32f0 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2OutputRoots.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.085]
+path = "apps/explorer/ui/pages/OptimisticL2TxnBatch.tsx"
+lines = 111
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 7262da03402a4d26e1a8b5ab51361ebd04d8420d is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2TxnBatch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.086]
+path = "apps/explorer/ui/pages/OptimisticL2TxnBatches.pw.tsx"
+lines = 20
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob ce73544fd90421c1f129a63db8d483456f812d57 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2TxnBatches.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.087]
+path = "apps/explorer/ui/pages/OptimisticL2TxnBatches.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob ff8066ec08f1bff4c017388d3f1dbdc2c21f7043 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2TxnBatches.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.088]
+path = "apps/explorer/ui/pages/OptimisticL2Withdrawals.pw.tsx"
+lines = 20
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 004c4b40c9fb7363f803cfab5388f613df7a7441 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2Withdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.089]
+path = "apps/explorer/ui/pages/OptimisticL2Withdrawals.tsx"
+lines = 90
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 75a49f37e7573208e00f736c1cad71936a82c806 is identical to f72f4cee4:explorer/frontend/ui/pages/OptimisticL2Withdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.090]
+path = "apps/explorer/ui/pages/PaxeerXAccount.spec.tsx"
+lines = 347
+verdict = "clean"
+note = "Full-file review: account capability, error, malformed-cursor and server-canonical cursor cases use account/capability shapes."
+
+[file.091]
+path = "apps/explorer/ui/pages/PaxeerXAccount.tsx"
+lines = 314
+verdict = "clean"
+note = "Full-file review: account reads validate cursor input, retain canonical paging and show address capability without custody/anchor rows."
+
+[file.092]
+path = "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx"
+lines = 99
+verdict = "clean"
+note = "Full-file review: frozen archive anchor fixtures assert the archive notice and historical checkpoint fields."
+
+[file.093]
+path = "apps/explorer/ui/pages/PaxeerXAnchors.tsx"
+lines = 102
+verdict = "clean"
+note = "Full-file review: historical anchors use archive resources and show a frozen notice rather than live settlement progression."
+
+[file.094]
+path = "apps/explorer/ui/pages/PaxeerXFeed.spec.tsx"
+lines = 62
+verdict = "clean"
+note = "Full-file review: overview fixture assertions retain exact decimal price strings and market navigation; shared reconnect defect is recorded on the page."
+
+[file.095]
+path = "apps/explorer/ui/pages/PaxeerXFeed.tsx"
+lines = 76
+verdict = "issues"
+note = "Full-file review; findings: feed-overview-gateway, feed-overview-rejoin."
+
+[file.096]
+path = "apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx"
+lines = 226
+verdict = "clean"
+note = "Full-file review: live tests use Phoenix frames, accepted/error observations and fallback polling; missing join reconciliation is recorded on the page."
+
+[file.097]
+path = "apps/explorer/ui/pages/PaxeerXFeedMarket.spec.tsx"
+lines = 52
+verdict = "clean"
+note = "Full-file review: market history fixture has update_hash, index, decimal prices and nullable next_page_params matching FeedView."
+
+[file.098]
+path = "apps/explorer/ui/pages/PaxeerXFeedMarket.tsx"
+lines = 131
+verdict = "issues"
+note = "Full-file review; findings: feed-market-gateway, history-unbounded-session."
+
+[file.099]
+path = "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx"
+lines = 246
+verdict = "issues"
+note = "Full-file review; findings: history-buffer-test-drift."
+
+[file.100]
+path = "apps/explorer/ui/pages/PaxeerXFeedUpdate.spec.tsx"
+lines = 32
+verdict = "clean"
+note = "Full-file review: native submission detail fixture preserves transaction type 127 and observation acceptance shape."
+
+[file.101]
+path = "apps/explorer/ui/pages/PaxeerXFeedUpdate.tsx"
+lines = 44
+verdict = "issues"
+note = "Full-file review; findings: feed-update-gateway."
+
+[file.102]
+path = "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx"
+lines = 249
+verdict = "issues"
+note = "Full-file review; findings: receipt-refresh-retired-url."
+
+[file.103]
+path = "apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+lines = 240
+verdict = "issues"
+note = "Full-file review; findings: archive-receipt-live-refresh."
+
+[file.104]
+path = "apps/explorer/ui/pages/PaxeerXReceipts.spec.tsx"
+lines = 106
+verdict = "clean"
+note = "Full-file review: historical receipt list tests assert frozen verification fields and the archive notice without a live status column."
+
+[file.105]
+path = "apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+lines = 104
+verdict = "clean"
+note = "Full-file review: archive receipt list uses frozen rows, recorded verification_status and the archive API resource."
+
+[file.106]
+path = "apps/explorer/ui/pages/Pool.pw.tsx"
+lines = 30
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 5567047d9810e5328f30bb808a5657d7147d7411 is identical to f72f4cee4:explorer/frontend/ui/pages/Pool.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.107]
+path = "apps/explorer/ui/pages/Pool.tsx"
+lines = 143
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 40a79d53888cf19977f6aefa7c103d6ade73f309 is identical to f72f4cee4:explorer/frontend/ui/pages/Pool.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.108]
+path = "apps/explorer/ui/pages/Pools.pw.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob dbd0007ec49db1d38e14e7d6ba6056d563d8594f is identical to f72f4cee4:explorer/frontend/ui/pages/Pools.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.109]
+path = "apps/explorer/ui/pages/Pools.tsx"
+lines = 110
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob bb0682e72936815b1b413b5e7a31fc054b0f7c02 is identical to f72f4cee4:explorer/frontend/ui/pages/Pools.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.110]
+path = "apps/explorer/ui/pages/PrivateTags.tsx"
+lines = 27
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 53d0a9946d064f23f84280ae7710c7b04562aa69 is identical to f72f4cee4:explorer/frontend/ui/pages/PrivateTags.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.111]
+path = "apps/explorer/ui/pages/PublicTagsSubmit.tsx"
+lines = 57
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob fbf870eda8ce2bf27094cc1d2928c77c651c7fb0 is identical to f72f4cee4:explorer/frontend/ui/pages/PublicTagsSubmit.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.112]
+path = "apps/explorer/ui/pages/RewardsDashboard.pw.tsx"
+lines = 58
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 4013fe10feb44a691554fc7636949351b263e04c is identical to f72f4cee4:explorer/frontend/ui/pages/RewardsDashboard.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.113]
+path = "apps/explorer/ui/pages/RewardsDashboard.tsx"
+lines = 167
+verdict = "clean"
+note = "Full-file review: rewards dashboard remains feature gated and uses its own authenticated rewards origin rather than node RPC."
+
+[file.114]
+path = "apps/explorer/ui/pages/ScrollL2Deposits.pw.tsx"
+lines = 33
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob ba0bc28c9c9789eef1d0d4bd57a53aaabbb7d76d is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2Deposits.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.115]
+path = "apps/explorer/ui/pages/ScrollL2Deposits.tsx"
+lines = 85
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 96e3488a2c497e186939dd50738c0c925feee220 is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2Deposits.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.116]
+path = "apps/explorer/ui/pages/ScrollL2TxnBatch.pw.tsx"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 6112d46d5458da28401cbdb83a958e128de54d1a is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2TxnBatch.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.117]
+path = "apps/explorer/ui/pages/ScrollL2TxnBatch.tsx"
+lines = 117
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 8affd109ab744a30d6ce79da797066a36afb36ce is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2TxnBatch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.118]
+path = "apps/explorer/ui/pages/ScrollL2TxnBatches.pw.tsx"
+lines = 33
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 8d450fe9e2024b9bb399d3e28d595ad5450294fb is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2TxnBatches.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.119]
+path = "apps/explorer/ui/pages/ScrollL2TxnBatches.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 00b3b19db14c47b8876d20f5bc08d687420dfce5 is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2TxnBatches.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.120]
+path = "apps/explorer/ui/pages/ScrollL2Withdrawals.pw.tsx"
+lines = 33
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob eac3cbda31543fbbf0400c8dc892336e17411b21 is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2Withdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.121]
+path = "apps/explorer/ui/pages/ScrollL2Withdrawals.tsx"
+lines = 85
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob fa12036306b298c44733e619aeb6b46fe69fb313 is identical to f72f4cee4:explorer/frontend/ui/pages/ScrollL2Withdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.122]
+path = "apps/explorer/ui/pages/SearchResults.pw.tsx"
+lines = 290
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 9f2e52c09ab9ff5c709890ab7a815aabd0a02a02 is identical to f72f4cee4:explorer/frontend/ui/pages/SearchResults.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.123]
+path = "apps/explorer/ui/pages/SearchResults.tsx"
+lines = 310
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 93bd6713ed9374b5943ee84fba583c0eb2252e26 is identical to f72f4cee4:explorer/frontend/ui/pages/SearchResults.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.124]
+path = "apps/explorer/ui/pages/ShibariumDeposits.pw.tsx"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 6f3c82735f148acbbf235d81583193640600a100 is identical to f72f4cee4:explorer/frontend/ui/pages/ShibariumDeposits.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.125]
+path = "apps/explorer/ui/pages/ShibariumDeposits.tsx"
+lines = 90
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 43b866ff38a7e6f6f21b18fcf67d74577944a3af is identical to f72f4cee4:explorer/frontend/ui/pages/ShibariumDeposits.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.126]
+path = "apps/explorer/ui/pages/ShibariumWithdrawals.pw.tsx"
+lines = 23
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 99982a3467653a17bee95591cb6793a375c81768 is identical to f72f4cee4:explorer/frontend/ui/pages/ShibariumWithdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.127]
+path = "apps/explorer/ui/pages/ShibariumWithdrawals.tsx"
+lines = 87
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 88183ca7888d8a1aa4418e39106eeecac440d74f is identical to f72f4cee4:explorer/frontend/ui/pages/ShibariumWithdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.128]
+path = "apps/explorer/ui/pages/Sol2Uml.tsx"
+lines = 41
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 86b59854f6d5f6574149fec4873d44bd3fe44952 is identical to f72f4cee4:explorer/frontend/ui/pages/Sol2Uml.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.129]
+path = "apps/explorer/ui/pages/Sprite.tsx"
+lines = 120
+verdict = "clean"
+note = "Full-file review: icon sprite showcase uses local imported assets; no network interface, state persistence or retired endpoint."
+
+[file.130]
+path = "apps/explorer/ui/pages/Stats.spec.tsx"
+lines = 123
+verdict = "clean"
+note = "Full-file review: chart API fixtures preserve response/chart shapes and validate the rendered statistics grouping."
+
+[file.131]
+path = "apps/explorer/ui/pages/Stats.tsx"
+lines = 174
+verdict = "clean"
+note = "Full-file review: statistics availability, category filtering and chart loading use configured statistics origin and feature gates."
+
+[file.132]
+path = "apps/explorer/ui/pages/TacOperation.pw.tsx"
+lines = 53
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 00deab90a88764cf3d014c5c96b052fe9b6782c3 is identical to f72f4cee4:explorer/frontend/ui/pages/TacOperation.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.133]
+path = "apps/explorer/ui/pages/TacOperation.tsx"
+lines = 51
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 153a9ce9b8cc343517fad7b5e05782bc8e3b71ec is identical to f72f4cee4:explorer/frontend/ui/pages/TacOperation.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.134]
+path = "apps/explorer/ui/pages/TacOperations.tsx"
+lines = 109
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob fed23b1957207cb5f9cab036fa7ba390ca4bf4b4 is identical to f72f4cee4:explorer/frontend/ui/pages/TacOperations.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.135]
+path = "apps/explorer/ui/pages/Token.pw.tsx"
+lines = 144
+verdict = "issues"
+note = "Full-file review; findings: token-supply-test-fixture. Unchanged upstream file reviewed beyond the vendored exception."
+
+[file.136]
+path = "apps/explorer/ui/pages/Token.spec.tsx"
+lines = 126
+verdict = "clean"
+note = "Full-file review: token detail, address and counter responses are separately routed; socket type/cache findings are on the production page."
+
+[file.137]
+path = "apps/explorer/ui/pages/Token.tsx"
+lines = 276
+verdict = "issues"
+note = "Full-file review; findings: token-supply-wire-type, token-chain-cache-key."
+
+[file.138]
+path = "apps/explorer/ui/pages/TokenInstance.pw.tsx"
+lines = 124
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 3f4daed363b6d1104eeb78032f37c260f0464e20 is identical to f72f4cee4:explorer/frontend/ui/pages/TokenInstance.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.139]
+path = "apps/explorer/ui/pages/TokenInstance.spec.tsx"
+lines = 117
+verdict = "clean"
+note = "Full-file review: token-instance responses and detail/tab assertions retain token id and metadata fields."
+
+[file.140]
+path = "apps/explorer/ui/pages/TokenInstance.tsx"
+lines = 159
+verdict = "clean"
+note = "Full-file review: token-instance queries preserve id/hash path parameters, metadata state and gated NFT providers."
+
+[file.141]
+path = "apps/explorer/ui/pages/TokenTransfers.pw.tsx"
+lines = 16
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 66f73607cf135554c1f6b53467c13311b0c35cfe is identical to f72f4cee4:explorer/frontend/ui/pages/TokenTransfers.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.142]
+path = "apps/explorer/ui/pages/TokenTransfers.tsx"
+lines = 37
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 5673988003a9caa3f16f2296b42c108fe0897f21 is identical to f72f4cee4:explorer/frontend/ui/pages/TokenTransfers.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.143]
+path = "apps/explorer/ui/pages/Tokens.pw.tsx"
+lines = 121
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 8923790eacb6becd3fd1e0940054c0d33704a1da is identical to f72f4cee4:explorer/frontend/ui/pages/Tokens.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.144]
+path = "apps/explorer/ui/pages/Tokens.spec.tsx"
+lines = 90
+verdict = "clean"
+note = "Full-file review: token list fixture, counters and scam-token controls exercise their declared API resources."
+
+[file.145]
+path = "apps/explorer/ui/pages/Tokens.tsx"
+lines = 204
+verdict = "clean"
+note = "Full-file review: token list pagination, filters and counters preserve decimal/string fields and feature-controlled scam filtering."
+
+[file.146]
+path = "apps/explorer/ui/pages/Transaction.spec.tsx"
+lines = 57
+verdict = "clean"
+note = "Full-file review: transaction layout fixture retains supported transaction fields and the shared detail renderer."
+
+[file.147]
+path = "apps/explorer/ui/pages/Transaction.tsx"
+lines = 162
+verdict = "clean"
+note = "Full-file review: native price-update selection uses the actual transaction type and shares block-committed transaction details."
+
+[file.148]
+path = "apps/explorer/ui/pages/TransactionPriceUpdate.spec.tsx"
+lines = 51
+verdict = "clean"
+note = "Full-file review: type-127 transaction detail tests use native submission fields with exact decimal price observations."
+
+[file.149]
+path = "apps/explorer/ui/pages/Transactions.spec.tsx"
+lines = 82
+verdict = "clean"
+note = "Full-file review: transaction list fixture and layout assertions preserve combined native/EVM item shape."
+
+[file.150]
+path = "apps/explorer/ui/pages/Transactions.tsx"
+lines = 54
+verdict = "clean"
+note = "Full-file review: list wrapper delegates native and EVM rows to the shared transactions implementation and configured features."
+
+[file.151]
+path = "apps/explorer/ui/pages/TransactionsZetaChain.tsx"
+lines = 149
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 5c5a97349181f8bc265922d709dab2d924d9d2f5 is identical to f72f4cee4:explorer/frontend/ui/pages/TransactionsZetaChain.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.152]
+path = "apps/explorer/ui/pages/UserOp.pw.tsx"
+lines = 38
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 9b4a5cc0b97cb0d8bada18367166b9d3cc98acda is identical to f72f4cee4:explorer/frontend/ui/pages/UserOp.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.153]
+path = "apps/explorer/ui/pages/UserOp.tsx"
+lines = 98
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 476d1428b56af4d92cbac75eb94d93605b892b05 is identical to f72f4cee4:explorer/frontend/ui/pages/UserOp.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.154]
+path = "apps/explorer/ui/pages/UserOps.pw.tsx"
+lines = 16
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 5870bc7052b80fa4e100f1e56a82c52deafaab07 is identical to f72f4cee4:explorer/frontend/ui/pages/UserOps.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.155]
+path = "apps/explorer/ui/pages/UserOps.tsx"
+lines = 32
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 274090dcbb8d1c1f5d60c842824e7732c550ebbe is identical to f72f4cee4:explorer/frontend/ui/pages/UserOps.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.156]
+path = "apps/explorer/ui/pages/ValidatorZilliqa.tsx"
+lines = 55
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 6de26eecaad6b8a850e67877fc6a3b55305a1128 is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorZilliqa.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.157]
+path = "apps/explorer/ui/pages/ValidatorsBlackfort.pw.tsx"
+lines = 21
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 7b6933a207dfeff7a7fef4492b05a6c242871c77 is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorsBlackfort.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.158]
+path = "apps/explorer/ui/pages/ValidatorsBlackfort.tsx"
+lines = 112
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 3193b23356799fe76cce25d5d8e393d67bcc75c4 is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorsBlackfort.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.159]
+path = "apps/explorer/ui/pages/ValidatorsStability.pw.tsx"
+lines = 21
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob c815aee754ba7c45e3aec175131c06f52bf0ccf1 is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorsStability.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.160]
+path = "apps/explorer/ui/pages/ValidatorsStability.tsx"
+lines = 170
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 7f83cfb10438453c15597d7c12609e2d3725d031 is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorsStability.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.161]
+path = "apps/explorer/ui/pages/ValidatorsZilliqa.pw.tsx"
+lines = 20
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob d53d1f89d4ed165df1bbca71286764a9ec6f71f3 is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorsZilliqa.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.162]
+path = "apps/explorer/ui/pages/ValidatorsZilliqa.tsx"
+lines = 60
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 79602be17a98dc0b1c801977b5cfbdb3ba8f224a is identical to f72f4cee4:explorer/frontend/ui/pages/ValidatorsZilliqa.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.163]
+path = "apps/explorer/ui/pages/VerifiedAddresses.pw.tsx"
+lines = 92
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 8f850bedb001c5e4c9edcddda280f06f9edcd426 is identical to f72f4cee4:explorer/frontend/ui/pages/VerifiedAddresses.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.164]
+path = "apps/explorer/ui/pages/VerifiedAddresses.tsx"
+lines = 234
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 36b75a2de5b022164a29ce6ad3f9472bc26d5428 is identical to f72f4cee4:explorer/frontend/ui/pages/VerifiedAddresses.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.165]
+path = "apps/explorer/ui/pages/VerifiedContracts.pw.tsx"
+lines = 18
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 494adc6fb0e433f0d844d97bcc969177d7bd666d is identical to f72f4cee4:explorer/frontend/ui/pages/VerifiedContracts.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.166]
+path = "apps/explorer/ui/pages/VerifiedContracts.tsx"
+lines = 110
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob a55ea115f570a33a9fa7a4bbae5c6ccf64c161df is identical to f72f4cee4:explorer/frontend/ui/pages/VerifiedContracts.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.167]
+path = "apps/explorer/ui/pages/Watchlist.tsx"
+lines = 158
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob c3944317662e0e21c6c50d3407226c90246f46a3 is identical to f72f4cee4:explorer/frontend/ui/pages/Watchlist.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.168]
+path = "apps/explorer/ui/pages/ZetaChainCCTX.pw.tsx"
+lines = 45
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob ff776040a337119460f873c0eaf4598331f39d4a is identical to f72f4cee4:explorer/frontend/ui/pages/ZetaChainCCTX.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.169]
+path = "apps/explorer/ui/pages/ZetaChainCCTX.tsx"
+lines = 39
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob a71c95d1c89cb56c01d9a61735d9911a6a20813b is identical to f72f4cee4:explorer/frontend/ui/pages/ZetaChainCCTX.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.170]
+path = "apps/explorer/ui/pages/ZkEvmL2Deposits.pw.tsx"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob e6f5a5df09661add02eef2326b25f7d79f791c93 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2Deposits.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.171]
+path = "apps/explorer/ui/pages/ZkEvmL2Deposits.tsx"
+lines = 85
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob f97d1b7f5b8d0f878212f457354d03bb70e8f95c is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2Deposits.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.172]
+path = "apps/explorer/ui/pages/ZkEvmL2TxnBatch.pw.tsx"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 7f974eadb8aa178f43e15100a162e3c303f8f36a is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2TxnBatch.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.173]
+path = "apps/explorer/ui/pages/ZkEvmL2TxnBatch.tsx"
+lines = 63
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob d363b620cf364c6bc65bf7bd50c8c24b34cabe42 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2TxnBatch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.174]
+path = "apps/explorer/ui/pages/ZkEvmL2TxnBatches.pw.tsx"
+lines = 17
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob b97a251efdb4529f482a1df53caa8dd4440acc92 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2TxnBatches.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.175]
+path = "apps/explorer/ui/pages/ZkEvmL2TxnBatches.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob f770df13529e54d64444475b66eb4044687ee37f is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2TxnBatches.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.176]
+path = "apps/explorer/ui/pages/ZkEvmL2Withdrawals.pw.tsx"
+lines = 18
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 868449b878bd8b20cdb017ade005eb6809220530 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2Withdrawals.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.177]
+path = "apps/explorer/ui/pages/ZkEvmL2Withdrawals.tsx"
+lines = 85
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob ab6cb0cb7ba949a28c91f443800864e354ad5fd7 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkEvmL2Withdrawals.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.178]
+path = "apps/explorer/ui/pages/ZkSyncL2TxnBatch.pw.tsx"
+lines = 33
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob ba7a02dc4b23097883363569c24eeb97070fb080 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkSyncL2TxnBatch.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.179]
+path = "apps/explorer/ui/pages/ZkSyncL2TxnBatch.tsx"
+lines = 87
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 423ff12709f71ca24586fc0423306de131423a27 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkSyncL2TxnBatch.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.180]
+path = "apps/explorer/ui/pages/ZkSyncL2TxnBatches.pw.tsx"
+lines = 18
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob f13a40813243bb6ac443394a1cb66c2b1d31139a is identical to f72f4cee4:explorer/frontend/ui/pages/ZkSyncL2TxnBatches.pw.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.181]
+path = "apps/explorer/ui/pages/ZkSyncL2TxnBatches.tsx"
+lines = 88
+verdict = "vendored"
+note = "Unmodified Blockscout frontend v2.7.2 (446c409eeb54274aab90ff371a705f9699cd84ef) import, documented in services/explorer/UPSTREAM.md; blob 1a2018b6142f574ec66d9d2064d0035f6b456672 is identical to f72f4cee4:explorer/frontend/ui/pages/ZkSyncL2TxnBatches.tsx. Vendored exception; no claim of a new full upstream code review."
+
+[file.182]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/abi_encoded_value_view.ex"
+lines = 191
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 5cb142e1bd7fd3355746f3d68d013cd6f1483f01 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/abi_encoded_value_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.183]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/access_helper.ex"
+lines = 118
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 7485e294fbd91fd36a883ffb7e0ae5a70af8f304 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/access_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.184]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api/v2/account_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3a41871dc0c2312c6ea0294a1d90918d125866fd is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api/v2/account_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.185]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api/v2/tags_view.ex"
+lines = 27
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 50403cf0f2f1f0643f470f5bedd962fc922f7857 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api/v2/tags_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.186]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api/v2/user_view.ex"
+lines = 197
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 924090fc44665075f429c8b4de9a264f0a1961d0 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api/v2/user_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.187]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api_key_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob a0b21b79da2db40b6fae318d131595fc3ac7d325 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/api_key_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.188]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/auth_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob cfbeb001e0fb1cb1a659e23763ed2535a037d8c0 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/auth_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.189]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/common_view.ex"
+lines = 11
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e296ca90d69656ba4f36a4dccadcd223c5880905 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/common_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.190]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/custom_abi_view.ex"
+lines = 22
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3b38effa417b4fed14c8e38bcf845bdfc8fc36fc is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/custom_abi_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.191]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/tag_address_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 74886c33e9e5276e06f9a038bfd5cb86b191a9ae is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/tag_address_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.192]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/tag_transaction_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 7edfa1e3403e7051543f378ac238d12e683e13db is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/tag_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.193]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/watchlist_address_view.ex"
+lines = 11
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 29246e3a1556b1b1d84f1be1c28d0352be4e4514 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/watchlist_address_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.194]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/watchlist_view.ex"
+lines = 11
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b30802d118dc27689fa846265f154dfa49b70a16 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/account/watchlist_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.195]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_coin_balance_view.ex"
+lines = 34
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 6e0363dab30c354df2ec53a092065fd5f9056eea is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_coin_balance_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.196]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_common_fields_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 933980752dfbee1f6d1e489ba8b2c700c5b4c417 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_common_fields_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.197]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_flattened_code_view.ex"
+lines = 6
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e5adf9b9d4aea77774af0558d5a4cb50ed7a357d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_flattened_code_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.198]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_json_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 79f8681233d3c00bd29c8a18b4c171f2eedeb5d7 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_json_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.199]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_multi_part_files_view.ex"
+lines = 6
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 76f88f059ac04688632a67616ce75537007361b3 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_multi_part_files_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.200]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_standard_json_input_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 9a4298a01c4b48e79464885c7547aee07a6748e6 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_via_standard_json_input_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.201]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 385d76c1c12e405727c21c0e46c118df37de6090 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.202]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_vyper_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 47da5eab9093c9aaabc898828ed4cdf69fbac783 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_verification_vyper_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.203]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_view.ex"
+lines = 170
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob d3bb724bf96085defbaaf1e0799c857733b4ae88 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.204]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_internal_transaction_view.ex"
+lines = 15
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 81cb6ca558b1efaccbc09f34aed65af74a390ac7 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_internal_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.205]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_logs_view.ex"
+lines = 8
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e1a4862fe21a015839508e497800c38421bf1304 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_logs_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.206]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_read_contract_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e13b14768e9bd4df2447c296b8e48b789b02885d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_read_contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.207]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_read_proxy_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 447f362c3c5e240db08ca907982759124dfbbcf8 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_read_proxy_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.208]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_token_balance_view.ex"
+lines = 20
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 46f0e6a6c759c9a6b754a285094d56ac96a7b390 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_token_balance_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.209]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_token_transfer_view.ex"
+lines = 15
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob c053e54af567bd7dba558b1e0420582fcfef17b4 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_token_transfer_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.210]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_token_view.ex"
+lines = 8
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 941cfe292497fd4344c066cbeafe7edd5a8c2443 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_token_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.211]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_transaction_view.ex"
+lines = 15
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b6539a49a2dbca24324041bd8178653a327aa23b is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.212]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_validation_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 1625fb33cdfdaea8e0ffd4fa02cbebc928147a6e is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_validation_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.213]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_view.ex"
+lines = 487
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e3ef168a216cb99f9b821765e3b537ff258b1367 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.214]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_withdrawal_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 80572ba127893034a66ece59eb30e0e6bc1efcc9 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_withdrawal_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.215]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_write_contract_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob dc8d88ce5cc35250f6c2bb20e457dc825aabfbce is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_write_contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.216]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_write_proxy_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b27e5df50319b4ee4d62eb114c052b7b99adbea1 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/address_write_proxy_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.217]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/admin/dashboard_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 536ef373a23c639791134f0f11c70322e51550ff is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/admin/dashboard_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.218]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/admin/session_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0c0080118f6832be5b9199d03e90fe0c7c079deb is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/admin/session_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.219]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/admin/setup_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob ab2df94f5f543d1641e573409bb7e430017e7b60 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/admin/setup_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.220]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/advertisement/banners_ad_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 47f461ff0eaaac775165e91465ed5757db2f4d05 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/advertisement/banners_ad_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.221]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/advertisement/text_ad_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 8d73eb3d291e01d7f1018d32c7c6a6edc1831f87 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/advertisement/text_ad_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.222]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/eth_rpc/view.ex"
+lines = 116
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0e22ee5ba630d701529558ac01cde5132c407cc3 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/eth_rpc/view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.223]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/address_view.ex"
+lines = 285
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob d37152012971f2452d0924e2f3b639a9708ffbf3 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/address_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.224]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/block_view.ex"
+lines = 100
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b8c40b2359cb0f0c5b3e4e9075d6597d9feb5e49 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/block_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.225]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/celo_view.ex"
+lines = 44
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 9b3bc9cebcd36ded0ec7e7ee13d65c634eb5f254 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/celo_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.226]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/contract_view.ex"
+lines = 287
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 57326a58972a0d1014f20ac893d9750792519713 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.227]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/logs_view.ex"
+lines = 39
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e5bbe190efeea317baee83c50bc1494e4e366f89 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/logs_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.228]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/rpc_view.ex"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e13da683183675c952a48db56062fc1606506f32 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/rpc_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.229]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/stats_view.ex"
+lines = 57
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 7b83e5589aec1d8c13140deff1aee5b1f5d5a5ab is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/stats_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.230]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/token_view.ex"
+lines = 61
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob f2c8de82dd6b6e8c4c6dbbdeea79ca818a8b7abe is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/token_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.231]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/transaction_view.ex"
+lines = 92
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3ddaed62b8b63c33e5cc1216bc0a8a19c6c54d6b is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/rpc/transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.232]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v1/supply_view.ex"
+lines = 10
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob df76632e2776e3757ad999bc65ce9f0bf9adf9fd is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v1/supply_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.233]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/address_badge_view.ex"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0d98e0e8c275ff70493a3320b36c1048d6b831d2 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/address_badge_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.234]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/address_view.ex"
+lines = 303
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob aa92a47938dc61cbb902129c00039f0ec1719a5f is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/address_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.235]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/advanced_filter_view.ex"
+lines = 240
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0d43749c90b75262c11682c90277dd2bc411806a is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/advanced_filter_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.236]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/api_view.ex"
+lines = 18
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob aed711a8beefc858761799947386964c97b49e5f is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/api_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.237]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/arbitrum_view.ex"
+lines = 728
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob c49d5c39b6d4c232f242d1de3e1bc80c9c2f9e4b is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/arbitrum_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.238]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/blob_view.ex"
+lines = 23
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob fcb792ac095ebaf83b0eb4a7d8e6358d44f0fe3b is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/blob_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.239]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/block_view.ex"
+lines = 209
+verdict = "clean"
+note = "Full-file review: both block.json paths expose price_update_count and total transactions including native updates; notifier uses the same renderer."
+
+[file.240]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/celo_view.ex"
+lines = 639
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 893f8ffc98c8b575959775f784ea26e1787b7646 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/celo_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.241]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/config_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3e744ccd4ddd8024904863dd211d14bddb8a5432 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/config_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.242]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/ethereum/deposit_view.ex"
+lines = 40
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 92495c340f7dda844466e02e1f11f7c319e1cb88 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/ethereum/deposit_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.243]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/ethereum_view.ex"
+lines = 48
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 5ed6506cdcd5a230e2973f088148d6471eba59bb is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/ethereum_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.244]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/filecoin_view.ex"
+lines = 113
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0ebe78bdc3a769f3dc86b668dca7586463d67486 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/filecoin_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.245]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/helper.ex"
+lines = 280
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 030d42d052311d68f5e5f284275a152af9d946d0 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.246]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/internal_transaction_view.ex"
+lines = 58
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 25541e0017adcd9f94818bae50eda8592799ede2 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/internal_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.247]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/mud_view.ex"
+lines = 118
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b92f1f063fe07e694e782e0397aa3067045cad2f is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/mud_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.248]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/optimism_view.ex"
+lines = 564
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob a6a3d2cce26807b82f2e998a1dbd0f7a02f2c901 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/optimism_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.249]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/archive_view.ex"
+lines = 92
+verdict = "clean"
+note = "Full-file review: frozen:true and verification_status map stored historical values; receipt/anchor renderers emit no live status ladder."
+
+[file.250]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex"
+lines = 123
+verdict = "clean"
+note = "Full-file review: REST and notifier share prepared items; accepted is emitted per observation, index tie-break and decimal strings agree with frontend types."
+
+[file.251]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/transaction_signature_view.ex"
+lines = 16
+verdict = "clean"
+note = "Full-file review: verified signature response passes the canonical signature evidence map without manufacturing verification ranks."
+
+[file.252]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/transaction_status_view.ex"
+lines = 18
+verdict = "clean"
+note = "Full-file review: status.json renders rung as a string plus block_number and committed_height from the Status struct, matching the merged three-rung contract."
+
+[file.253]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/polygon_zkevm_view.ex"
+lines = 190
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 63b726f35663e8fb90d88294b835249349f895ca is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/polygon_zkevm_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.254]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/proxy/metadata_view.ex"
+lines = 13
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b8de924ade76e6e22999bc6d2e5398387b2af598 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/proxy/metadata_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.255]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/rootstock_view.ex"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 06d4d8e68f21dc66c5c3d50d5ce95547e8b8d137 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/rootstock_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.256]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/scroll_view.ex"
+lines = 218
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob ed3c1fa99f35cfcae602ef2e8c96537511398190 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/scroll_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.257]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/search_view.ex"
+lines = 243
+verdict = "clean"
+note = "Full-file review: native price submission search preserves canonical hash and native item metadata alongside upstream search results."
+
+[file.258]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/shibarium_view.ex"
+lines = 71
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob de9101961f8a0ddd6feeba4cd9017ef60f783318 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/shibarium_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.259]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/smart_contract_view.ex"
+lines = 423
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 6248a12df9276107462d97778c258f50137c499d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/smart_contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.260]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/stability_view.ex"
+lines = 134
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob c5f2589f8279274574a2053c78f10923ddc9b824 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/stability_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.261]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/stats_view.ex"
+lines = 25
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 8ae98389b2e81fa81324bcd4365ea94a90d3425e is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/stats_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.262]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/suave_view.ex"
+lines = 137
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 88b55ea2d440888092155e5c0b35f46f7d3a77d0 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/suave_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.263]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/token_transfer_view.ex"
+lines = 109
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 7420c41929486abb149d557e73084626ee990c7d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/token_transfer_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.264]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/token_view.ex"
+lines = 167
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 60738088df6865eacb2286f0e05f867eb5f0b77d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/token_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.265]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/transaction_view.ex"
+lines = 1030
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 647872f7a85f6dd49b768a760f1ce926d9814a09 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.266]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/validator_view.ex"
+lines = 64
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 10813623399ccfc231ff2fe02b0cddecfb79366d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/validator_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.267]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/withdrawal_view.ex"
+lines = 41
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 252a36f784e8fa56f0f745071648806fbaf1e214 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/withdrawal_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.268]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/zilliqa_view.ex"
+lines = 170
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 69c54925594e3713889c57aaa906bf5e19de3305 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/zilliqa_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.269]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/zksync_view.ex"
+lines = 205
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob ff76194930d58953642983a29b448e402b907e40 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/zksync_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.270]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api_docs_view.ex"
+lines = 79
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 77a1b36824aa08affacbe7b8358903f9e1b3efd7 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api_docs_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.271]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/block_transaction_view.ex"
+lines = 21
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 28747a57aad33c60c8e147cc8cce59f3f8b99d38 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/block_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.272]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/block_view.ex"
+lines = 85
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob e2ca31b82dd3a30192c4ac53553ad0df7f6a676c is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/block_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.273]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/block_withdrawal_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob f6b22b30f7a71e0fa3564a5b032ad462738d9d8a is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/block_withdrawal_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.274]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/bridged_tokens_view.ex"
+lines = 24
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3cf7e32512c7093f9eb62624395e09d692cebfcb is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/bridged_tokens_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.275]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/chain_view.ex"
+lines = 69
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob bbbcdebe866e659f6d45513be97ca79dcc23aff3 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/chain_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.276]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/cldr_helper/number.ex"
+lines = 45
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0d1c0e1e139f893c1284a7c3d205309db935beeb is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/cldr_helper/number.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.277]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/common_components_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob f950e795a2985a84ad9a7ea6f124df5f4e491eda is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/common_components_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.278]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/csv_export.ex"
+lines = 31
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 95515843f8971940f35f67fb69cd791d56635ab8 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/csv_export.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.279]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/currency_helper.ex"
+lines = 95
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 7dc513fcdc83073812613541e4c90b6fc7202221 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/currency_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.280]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/error_422.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b813dc9383aec21beef1d686753f3b196697c597 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/error_422.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.281]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/error_helper.ex"
+lines = 71
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob da4f3a4555027d439792337e0f17f20d6ec8da69 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/error_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.282]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/error_view.ex"
+lines = 41
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob d800b719b3b2e82edd1c05f605708f415900afe7 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/error_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.283]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/form_view.ex"
+lines = 66
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 369fc47b48d1d4c911f0ff02ef76ad57e86fd4f7 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/form_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.284]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/icons_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 40c5ee3a1d981724bcf325a04433392d64f41f00 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/icons_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.285]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/internal_server_error_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 837ecb3367e0c090564b85913b2fa63b0f717818 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/internal_server_error_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.286]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/internal_transaction_view.ex"
+lines = 35
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 024f6f2a60cb22ec909a3e2b86fb397c8c43273e is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/internal_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.287]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/layout_view.ex"
+lines = 263
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 46977c4e1f514e438ccd0714e2ead75dc7c4816b is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/layout_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.288]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/log_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob fe12ba9cce0408cdc7cedf9955afa62c8a4e82c8 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/log_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.289]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/nft_helper.ex"
+lines = 108
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob ee86d1f9ad23dbbcc033cc4a761f70e2419cd016 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/nft_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.290]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/page_not_found.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b5a18f0434d7cb8d031c68481d47812e4f195d82 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/page_not_found.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.291]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/pending_transaction_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 12ba2fe742eec3554377a3abf5f71f0f34d51ddf is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/pending_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.292]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/render_helper.ex"
+lines = 21
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob b367dc7d6538c5ba62601bba855183a74bcb9c71 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/render_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.293]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/robots_view.ex"
+lines = 10
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 628ed672e019306f6fdae6e1655f4837dccad327 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/robots_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.294]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/script_helper.ex"
+lines = 34
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 4293338abb9c4d9dc9782d6e85f5791d7e4cdf3c is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/script_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.295]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/search_view.ex"
+lines = 19
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 51bf1b856dea9bbb5f2f09ecacc44abc8c5a333d is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/search_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.296]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/smart_contract_view.ex"
+lines = 221
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0c099c86766de5f467909df921a884b22ea6cde8 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/smart_contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.297]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tab_helper.ex"
+lines = 70
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 8e2ec70997b216c468e426f0690643da2b4edb09 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tab_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.298]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/contract_view.ex"
+lines = 6
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 0b90df1ba981b131566d18246e8dbc7283acada6 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/contract_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.299]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/helper.ex"
+lines = 273
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 750b2d89b2860b3d14384eff8d0ed50a0f077ae7 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.300]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/holder_view.ex"
+lines = 94
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 791d2fd2a43cfe3154d6fb30472d9f7b9f18d8b6 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/holder_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.301]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/holder_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 38cf207bc4351cc16b283832a14e7ef06379930c is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/holder_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.302]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/metadata_view.ex"
+lines = 9
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 758e6a3bd276115fcc35210d09aae640a7a4a2fe is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/metadata_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.303]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/overview_view.ex"
+lines = 76
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 717353e05c6824de7e53052c35414fe2891b5436 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/overview_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.304]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/transfer_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 2cf314efa1702c1afc935235de0d15fc9e8a93de is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance/transfer_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.305]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob c18c5b5e1f5e7b0a372b3e16c560ece520563e33 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/instance_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.306]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/inventory_view.ex"
+lines = 8
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 547d6dd33a312e4581958a774178000bc96e5996 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/inventory_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.307]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/overview_view.ex"
+lines = 89
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob d9dbe6e265de29061d7f71570a4a5dfc2a882af6 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/overview_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.308]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/transfer_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3ea5d8484010246120efa67c67dd6638359d7ed4 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens/transfer_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.309]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens_view.ex"
+lines = 22
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 704d7a94f7312e927b877ef01378f9df5d68f38c is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/tokens_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.310]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_internal_transaction_view.ex"
+lines = 4
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 74ff6042cce79c58a52fd1077d42e974a0852425 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_internal_transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.311]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_log_view.ex"
+lines = 7
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 1a7357a82e9abe73a8ce1181857d0096c0a3a897 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_log_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.312]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_raw_trace_view.ex"
+lines = 15
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 09fd46168b29886e844d5fa1a4a005e07753a82a is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_raw_trace_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.313]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_state_view.ex"
+lines = 40
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 88fc2098312bb7e6a110c07ff0c1f7f93eb75b24 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_state_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.314]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_token_transfer_view.ex"
+lines = 6
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 3e31c0f2c3514be773186dc176501e14728bd3e0 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_token_transfer_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.315]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_view.ex"
+lines = 630
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 09da0f1d0e2b5f3162ce41091a92599d19c86d6f is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/transaction_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.316]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/verified_contracts_view.ex"
+lines = 16
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 50934a2afe05a9a78505fa60d19a6c9767bfabb2 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/verified_contracts_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.317]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/visualize_sol2uml_view.ex"
+lines = 3
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 827deeeecdec1e3855f730bcf6fc528b90e0af5f is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/visualize_sol2uml_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.318]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/wei_helper.ex"
+lines = 83
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 188303e0c9ebe22cc11a9aff59c439bab394a592 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/wei_helper.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.319]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/withdrawal_view.ex"
+lines = 5
+verdict = "vendored"
+note = "Unmodified Blockscout backend v10.2.6 (90f7dd8e9348123b74dfd23f69ab7da76191a820) import, documented in services/explorer/UPSTREAM.md; blob 296304d622abbc48f587a630f1fe9675754d8477 is identical to f72f4cee4:explorer/backend/apps/block_scout_web/lib/block_scout_web/views/withdrawal_view.ex. Vendored exception; no claim of a new full upstream code review."
+
+[file.320]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_blocks_sanitizer.ex"
+lines = 282
+verdict = "issues"
+note = "Full-file review; findings: empty-block-batch-errors."
+
+[finding.feed-overview-gateway]
+file = "apps/explorer/ui/pages/PaxeerXFeed.tsx"
+line = 24
+class = "interface-mismatch"
+severity = "high"
+observed = "The overview reads general:paxeer_x_feed_markets at /api/v2/paxeer-x/feed/markets. api_router.ex:278 registers that producer, but explorer_proxy.rs ROUTES has no feed route, so /explorer/backend/api/v2/paxeer-x/feed/markets returns 404 explorer_route_not_admitted. ui_proxy.rs PAGES also omits /explorer/feed and prepare rejects it with 404; next.config.js sets the frontend basePath to /explorer."
+expected = "The price-feed overview must be reachable at its frontend route and the declared market endpoint must carry FeedView markets.json through the hosted explorer transport to the page."
+proposal = "In services/platform/hosted/gateway/src/explorer_proxy.rs admit GET /api/v2/paxeer-x/feed/markets and in ui_proxy.rs admit /explorer/feed and its Next data route. Cover the real overview request through both gateway handlers and regenerate the route catalogue without widening unrelated routes."
+owner_domain = 8
+interface = "14.http-get-api-v2-paxeer-x-feed-markets"
+
+[finding.feed-market-gateway]
+file = "apps/explorer/ui/pages/PaxeerXFeedMarket.tsx"
+line = 75
+class = "interface-mismatch"
+severity = "high"
+observed = "The market page consumes general:paxeer_x_feed_market_updates at /api/v2/paxeer-x/feed/markets/:id/updates. The backend registers :market_id at api_router.ex:279, but explorer_proxy.rs ROUTES omits this path and ui_proxy.rs PAGES omits /explorer/feed/market/[id]. Both hosted requests are refused before their producers run."
+expected = "A market history link must load the page and round-trip the backend items and next_page_params with block_number/index cursor values through the hosted gateway."
+proposal = "Add the finite market history UI template and GET market-updates API template in services/platform/hosted/gateway/src/{ui_proxy,explorer_proxy}.rs; prove a real market id and cursor request succeeds while malformed ids and unlisted routes remain refused, then update docs/system/routes.md."
+owner_domain = 8
+interface = "14.http-get-api-v2-paxeer-x-feed-markets-market-id-updates"
+
+[finding.feed-update-gateway]
+file = "apps/explorer/ui/pages/PaxeerXFeedUpdate.tsx"
+line = 19
+class = "interface-mismatch"
+severity = "high"
+observed = "The detail page reads general:paxeer_x_feed_update at /api/v2/paxeer-x/feed/updates/:hash, produced by api_router.ex:281 and FeedView update.json. explorer_proxy.rs ROUTES lacks that endpoint and ui_proxy.rs PAGES lacks /explorer/feed/update/[hash], so the hosted detail link and API return 404 instead of the stored update."
+expected = "Selecting a stored feed submission must open its detail page and return the same PriceUpdateItem fields, observation acceptance and decimal price strings as its feed event."
+proposal = "In services/platform/hosted/gateway/src admit the bounded update detail page and GET update API templates in ui_proxy.rs and explorer_proxy.rs, preserving hash validation and refusal boundaries; qualify a stored native submission through the gateway and document both routes."
+owner_domain = 8
+interface = "14.http-get-api-v2-paxeer-x-feed-updates-hash"
+
+[finding.feed-overview-rejoin]
+file = "apps/explorer/ui/pages/PaxeerXFeed.tsx"
+line = 22
+class = "restart-recovery"
+severity = "medium"
+observed = "useFeedSocket is called without onJoin. The hook disables five-second REST polling as soon as a channel joins, and PaxeerXFeedChannel returns an empty join reply without replay. A submission committed after the last REST response but before initial join or rejoin is never reconciled unless that market later emits another update or the user reloads."
+expected = "After reconnection, the overview must converge to the accepted prices exposed by market REST reads, including updates missed while disconnected; a successful channel join alone supplies no missing history."
+proposal = "Add an overview join reconciliation in apps/explorer/ui/pages/PaxeerXFeed.tsx using the market query key, and reconcile unknown accepted market ids as well. Exercise a real REST snapshot, a submission during disconnection and a join without subsequent events in PaxeerXFeedLive.spec.tsx."
+owner_domain = 14
+interface = "14.ws-explorer-join-socket-v2-paxeer-x-feed-new-update"
+
+[finding.history-unbounded-session]
+file = "apps/explorer/ui/pages/PaxeerXFeedMarket.tsx"
+line = 45
+class = "runtime-risk"
+severity = "medium"
+observed = "handleFlush appends every fresh update to prevData.items and the page renders the entire array. FEED_HISTORY_BUFFER_LIMIT bounds only the held socket buffer, not the query cache or rendered history, so an open first-page session grows without bound and repeatedly sorts all accumulated rows."
+expected = "Live history must retain rows displaced by new updates as req.18900.1 requires while keeping browser memory and rendered work bounded over long sessions; dropping old rows silently would violate reachability."
+proposal = "In apps/explorer/ui/pages/PaxeerXFeedMarket.tsx and its history table/pagination, retain displaced history through stable backend cursors or paged storage with a bounded visible window. Preserve deduplication and reachable older rows, and add long-session coverage asserting both bounded rendering and cursor continuity."
+owner_domain = 14
+
+[finding.history-buffer-test-drift]
+file = "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx"
+line = 205
+class = "test-gap"
+severity = "medium"
+observed = "keepsAtMostAPageOfSubmissionsWhileTheHistoryIsHeld expects exactly retained socket updates and a final length of FEED_HISTORY_BUFFER_LIMIT at lines 205-208. Current handleFlush retains the initial REST rows as well as those updates, as req.18900.1 requires, so the test expectation contradicts the implemented row-retention contract."
+expected = "The buffer test must distinguish the bounded held submissions from the reachable REST history; initial rows displaced by live updates must remain reachable and one update_hash must render once."
+proposal = "Revise apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx to assert retained socket updates plus initial history in newest-first order, uniqueness and absence of discarded buffered submissions, and prove older rows remain reachable under any later bounded-window implementation."
+owner_domain = 14
+
+[finding.receipt-refresh-retired-url]
+file = "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx"
+line = 205
+class = "test-gap"
+severity = "medium"
+observed = "The visibility refresh test increments receiptRequests only for /paxeer-x/receipts/<id>. general:paxeer_x_receipt now calls /api/v2/paxeer-x/archive/receipts/<id>, which does not contain that substring, so every real archive request takes the fallback response and the expected second pending request is never created."
+expected = "Receipt tests must match the actual archive endpoint, use ArchiveView receipt.json fields including frozen and verification_status, and observe the requests whose lifecycle they assert."
+proposal = "In apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx discriminate the exact archive URL and explicitly handle unrelated routes. Assert the actual request count and archive body, then align visibility behavior with immutable archived evidence rather than fabricating a live settlement transition."
+owner_domain = 14
+interface = "14.http-get-api-v2-paxeer-x-archive-receipts-id-j54"
+
+[finding.archive-receipt-live-refresh]
+file = "apps/explorer/ui/pages/PaxeerXReceipt.tsx"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "admissible requires frozen:true but terminal stops polling only at verification_status settlement_anchored. Other valid frozen archive statuses trigger a read every five seconds indefinitely, and the freshness presentation describes checking for newer evidence and anchored completion for an immutable historical record."
+expected = "Req.14285.1 presents a frozen kernel archive receipt with its recorded verification status and archive notice. Committed network receipts are final at block commit; an archived verification rank is not a live settlement process."
+proposal = "In apps/explorer/ui/pages/PaxeerXReceipt.tsx treat an accepted frozen archive response as historical evidence, stop recurring progress polling and label its recorded verification status without suggesting future anchoring. Update the receipt specs to prove frozen non-anchored records remain stable and invalid responses remain refused."
+owner_domain = 14
+
+[finding.address-fixture-shape]
+file = "apps/explorer/ui/pages/Address.spec.tsx"
+line = 65
+class = "test-gap"
+severity = "medium"
+observed = "beforeEach returns {items:[],next_page_params:null} for every fetch, including GET /api/v2/addresses/:hash and address counters. AddressView address.json emits an address object with hash, is_contract, coin_balance and other detail fields, while these synchronous layout tests inspect placeholders before that real shape is rendered."
+expected = "A test of the address detail layout must reach the loaded state using the declared address object and independently shaped counters/list responses; a pagination envelope is not an address detail response."
+proposal = "In apps/explorer/ui/pages/Address.spec.tsx route requests to fixtures derived from the address and counters producers and await a populated address detail before checking layout. Retain the existing layout assertions and make unexpected request paths visible."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param"
+
+[finding.token-supply-wire-type]
+file = "apps/explorer/ui/pages/Token.tsx"
+line = 41
+class = "interface-mismatch"
+severity = "medium"
+observed = "The page stores totalSupplySocket as number and accepts SocketMessage.TokenTotalSupply with total_supply:number, but notifier.ex:359 broadcasts total_supply:to_string(total_supply). The real transport therefore supplies decimal strings, including values beyond safe JavaScript integers; the current toString calls happen to preserve incoming strings but the declared type and numeric fixtures do not represent the producer."
+expected = "The total_supply contract must remain a decimal string from the Elixir Decimal through Phoenix and the frontend state, including zero and supplies greater than 2^53, with no numeric conversion."
+proposal = "Change apps/explorer/lib/socket/types.ts TokenTotalSupply and apps/explorer/ui/pages/Token.tsx buffered state to the producer decimal-string type; use an explicit undefined check for buffered values and add an actual string-payload socket case with zero and a value above 2^53."
+owner_domain = 14
+interface = "14.ws-explorer-push-tokens-hash-total-supply"
+
+[finding.token-chain-cache-key]
+file = "apps/explorer/ui/pages/Token.tsx"
+line = 75
+class = "wiring-gap"
+severity = "medium"
+observed = "Token reads useApiQuery through useTokenQuery, which includes multichainContext.chain.id in getResourceKey. The total_supply handler and delayed update at lines 75,84,88 omit chainId. On the admitted /explorer/chain/[chain_slug]/token/[hash] page they write the root-chain cache key while the displayed chain-specific query remains unchanged."
+expected = "An external-chain token page must update only its own chain-specific token query when its token supply event arrives; identical contract addresses on different chains must not share live state."
+proposal = "In apps/explorer/ui/pages/Token.tsx obtain the active chain from the multichain context and use the exact tokenQuery key for all socket cache reads/writes and buffered updates. Add two-chain coverage with the same token hash to prove the displayed chain updates and the other cache remains isolated."
+owner_domain = 14
+interface = "14.ws-explorer-push-tokens-hash-total-supply"
+
+[finding.empty-block-batch-errors]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_blocks_sanitizer.ex"
+line = 118
+class = "runtime-risk"
+severity = "medium"
+observed = "classify_blocks_from_result accepts only %{id:_,result:block} and immediately enumerates block[\"transactions\"]. A JSON-RPC batch containing a per-item error or result:null crashes the sanitizer before any successful sibling is processed. rpc/block.go explicitly returns null for a missing numeric block; supervision can restart onto the same unresolved batch."
+expected = "The sanitizer must handle the declared eth_getBlockByNumber success, null and error outcomes per request, make progress on valid responses and leave unresolved candidates retryable without misclassifying them as empty."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/fetcher/empty_blocks_sanitizer.ex correlate responses with requested ids and validate block number/hash and transactions before classification. Process valid siblings, retain null/error candidates, and cover mixed batches and restart recovery through the real JSON-RPC adapter."
+owner_domain = 14
+interface = "7.rpc-eth-getblockbynumber"
+
+[finding.routes-retired-surfaces]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue is headed Router routes; line 31 describes the kernel as Sequencer, line 908 advertises /rpc/evm/ws and line 911 lists web3_* as public JSON-RPC. The explorer route table also omits the newly registered feed pages and APIs."
+expected = "The merged network has one paxd BFT node/kernel, node RPC at the root with the declared namespaces, and an explicit hosted explorer route inventory that agrees with its actual admission handlers."
+proposal = "Update the owning catalogue inputs and generator for docs/system/routes.md to describe the merged node and root RPC contract, remove retired router paths and include feed routes after the gateway admission repair. Regenerate the page from those corrected sources."
+owner_domain = 17
+
+[finding.site-quickstart-retired-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Line 20 links public POST /rpc; lines 174-223 teach /rpc and /rpc/ws with lx_* calls, and lines 214-219 give public api-mainnet-beta URLs ending in those retired paths. Lines 298-303 prescribe custody credit through lx_sendActivity and lines 590-593 still describe a gateway /rpc surface."
+expected = "Public mainnet-beta integration uses chain 125 at the root of the node endpoints, the merged network receipt lifecycle and the hosted gateway px_ contract where applicable, without a separate LayerX router or custody funding journey."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around a root-path node connection, a funded chain account, a real submission and its committed receipt. Replace the retired RPC/funding examples and finality model, then keep the site and wiki examples synchronized against the same producer contracts."
+owner_domain = 17
+
+[finding.wiki-quickstart-retired-network]
+file = "docs/wiki/Quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Line 20 links public POST /rpc; lines 174-223 teach /rpc and /rpc/ws with lx_* calls, and lines 214-219 give public api-mainnet-beta URLs ending in those retired paths. Lines 298-303 prescribe custody credit through lx_sendActivity and lines 590-593 still describe a gateway /rpc surface."
+expected = "Public mainnet-beta integration uses chain 125 at the root of the node endpoints, the merged network receipt lifecycle and the hosted gateway px_ contract where applicable, without a separate LayerX router or custody funding journey."
+proposal = "Rewrite docs/wiki/Quickstart.md around a root-path node connection, a funded chain account, a real submission and its committed receipt. Replace the retired RPC/funding examples and finality model, then keep the site and wiki examples synchronized against the same producer contracts."
+owner_domain = 17
+
+[finding.site-beta-cluster-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 describes a Paxeer chain plus a LayerX Network daemon. The custody-profile section mounts a profile with layerxd --custody-profile and the bring-up section describes deploying settlement contracts for a separate node genesis; these are presented as current operator steps."
+expected = "A merged-network operator starts one paxd network with its embedded kernel. Separate layerxd and settlement bootstrap instructions must be identified as historical, not the current network topology."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md with the merged paxd startup, retained-state and recovery sequence and current hosted dependencies. Remove separate daemon/profile/settlement bootstrap steps from the active procedure and keep historical material clearly labelled."
+owner_domain = 17
+
+[finding.wiki-beta-cluster-daemon]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 describes a Paxeer chain plus a LayerX Network daemon. The custody-profile section mounts a profile with layerxd --custody-profile and the bring-up section describes deploying settlement contracts for a separate node genesis; these are presented as current operator steps."
+expected = "A merged-network operator starts one paxd network with its embedded kernel. Separate layerxd and settlement bootstrap instructions must be identified as historical, not the current network topology."
+proposal = "Rewrite docs/wiki/BetaCluster.md with the merged paxd startup, retained-state and recovery sequence and current hosted dependencies. Remove separate daemon/profile/settlement bootstrap steps from the active procedure and keep historical material clearly labelled."
+owner_domain = 17
+
+[finding.xweb-retired-settlement]
+file = "docs/site/docs/protocol/xweb.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+observed = "The payment flow executes lx_sendActivity and recovers with lx_getActivityStatus/lx_getReceipt against sequencer trust inputs. The kernel section says the sequencer folds observations into batch headers, and the final source map still points to old root src/sequencer and agent paths."
+expected = "Web payments and committed web observations must describe the merged chain finality and the hosted gateway public px_ contract, while retaining the explicit retirement of program web_read and the real xweb result query."
+proposal = "Update docs/site/docs/protocol/xweb.md payment, recovery and kernel-commit sections against the current hosted gateway OpenRPC and paxd observation path; replace obsolete source links and retain the distinction between committed xweb queries and the disabled web_read import."
+owner_domain = 17
+
+[finding.readme-separate-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview explicitly says the kernel runs as a separate daemon from cmd/layerxd and checkpoints settle through layerxAnchor. The build example at line 145 still asks a new operator to make layerxd."
+expected = "The product overview and initial build instructions must describe one BFT paxd chain with an embedded proposing kernel and block-committed receipts, as required by the audit network facts."
+proposal = "Rewrite README.md kernel topology and getting-started build sections around the merged paxd executable, root node RPC and committed receipt lifecycle; move separate layerxd/checkpoint-settlement instructions into labelled historical context."
+owner_domain = 17
+
+[finding.network-page-split-chain]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 call Paxeer the settlement/custody layer for separate LayerX activity and checkpoints and advertise a public faucet; lines 15-16 refer to retired root service directories. The page teaches independent sequencer and L1 lifecycles."
+expected = "Paxeer is the single merged network, chain 125, with tenant namespaces and receipts final at block commit; the audit brief specifies no separate LayerX network or public faucet funding path."
+proposal = "Rewrite docs/paxeer-network.md introduction and source map around the merged node/kernel and current services/apps directories, replace separate custody/checkpoint finality with committed block finality, and link the actual account funding documentation."
+owner_domain = 17
+
+[finding.monorepo-daemon-boundary]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The first paragraph names the LayerX kernel as layerxd alongside paxd, and the trust-boundary section at line 71 keeps separate custody/checkpoint settlement authority as the current model."
+expected = "The monorepo map must distinguish code ownership without implying two running networks or a separate daemon and settlement lifecycle for the merged kernel."
+proposal = "Update docs/MONOREPO.md executable and trust-boundary descriptions to show the kernel inside paxd and the current committed-state boundary, with accurate service paths and historical labels for retired standalone components."
+owner_domain = 17
+
+[finding.control-router-funding]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening says public accounts fund through custody credit submitted to the router, then lines 8-9 call the private-only control binary a public hosted LayerX admission surface. Its core/sequencer dependency description retains the pre-merge network framing."
+expected = "Private test control may document its own listeners and refusals, but must not direct public users to a retired router or describe a separate LayerX network as the current public funding/finality path."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md scope and public-funding introduction for the merged chain, clearly label retained private legacy control procedures, and link the current root RPC/account funding path instead of a router credit journey."
+owner_domain = 17
+
+[finding.backend-readme-retired-routes]
+file = "services/explorer/backend/README.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The Paxeer X additions list /paxeer-x/anchors, /paxeer-x/receipts and /paxeer-x/receipts/:id as current API routes. api_router.ex registers only their /paxeer-x/archive variants and explicitly falls back to not_found for the retired paths; feed routes are omitted."
+expected = "Backend documentation must distinguish frozen kernel archive endpoints from live native transaction/feed endpoints and list the paths the router actually serves."
+proposal = "Update services/explorer/backend/README.md API additions to /api/v2/paxeer-x/archive/{anchors,receipts,receipts/:id}, explain frozen verification_status, and document the registered feed markets, market history and update endpoints."
+owner_domain = 14
+
+[finding.upstream-path-map]
+file = "services/explorer/UPSTREAM.md"
+line = 3
+class = "doc-drift"
+severity = "low"
+observed = "The provenance page still places all imports under explorer/ and names frontend/, backend/ and services/ as sibling paths. The frontend now lives under apps/explorer and backend/service imports under services/explorer, so these paths misdirect source and licence lookup."
+expected = "Pinned upstream revisions remain valuable provenance, but their path map and licence links must identify the current monorepo import locations accurately."
+proposal = "Update services/explorer/UPSTREAM.md table and import notes to name apps/explorer, services/explorer/backend and services/explorer/services, retaining the exact upstream revisions and the historical scope of the byte-identical-at-import statement."
+owner_domain = 14
+
+[finding.token-supply-test-fixture]
+file = "apps/explorer/ui/pages/Token.pw.tsx"
+line = 57
+class = "test-gap"
+severity = "medium"
+observed = "The verified-info and mobile socket cases at lines 57,119,136 send total_supply:10 ** 20 as a JavaScript number. The actual notifier broadcasts total_supply:to_string(total_supply), so these tests validate a different JSON type and cannot demonstrate lossless receipt of arbitrary decimal supplies."
+expected = "The token socket tests must exercise the producer decimal-string payload, including zero and integers that cannot be represented exactly as a JavaScript number, while preserving the existing visible-supply assertions."
+proposal = "In apps/explorer/ui/pages/Token.pw.tsx replace the synthetic numeric payloads with exact decimal strings emitted by the notifier and add a non-round value beyond 2^53 plus zero. Keep the visual assertions and verify displayed values against the original producer strings."
+owner_domain = 14
+interface = "14.ws-explorer-push-tokens-hash-total-supply"
+
+[doc.01]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Full page reviewed, including all service tables. Lines 3,31,908,911 retain router/sequencer and retired public RPC framing; explorer tables omit feed routes. See routes-retired-surfaces."
+
+[doc.02]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Full page reviewed. Lines 20,174-223,298-303,590-593 teach retired /rpc, /rpc/ws, lx_* and custody-router funding. See site-quickstart-retired-network."
+
+[doc.03]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Full page reviewed. Line 3 describes a separate LayerX daemon; line 50 invokes layerxd with a custody profile; settlement bootstrap and read-principal funding retain the split-network model."
+
+[doc.04]
+path = "docs/site/docs/protocol/xweb.md"
+status = "stale"
+notes = "Full page reviewed. Lines 46-48 describe retired lx_* settlement/recovery, line 170 uses sequencer batch finality and line 292 retains obsolete source paths; disabled web_read is correctly identified."
+
+[doc.05]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Full page compared with the fully read site version, including every differing link and omitted section. Lines 3 and 42 retain the separate LayerX daemon/profile model."
+
+[doc.06]
+path = "docs/wiki/Quickstart.md"
+status = "stale"
+notes = "Full page reviewed through the site text plus every wiki diff. Lines 20,174-223,298-303,590-593 retain retired router endpoints and custody-credit funding."
+
+[doc.07]
+path = "docs/system/sdk.md"
+status = "accurate"
+notes = "Full SDK inventory reviewed across TypeScript, Python and Rust exports. Export tables describe SDK declarations; they make no new explorer wire-shape or merged finality promise."
+
+[doc.08]
+path = "README.md"
+status = "stale"
+notes = "Full page reviewed. Line 47 explicitly runs layerxd separately and settles checkpoints; line 145 builds that retired daemon. See readme-separate-daemon."
+
+[doc.09]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Full page reviewed. Lines 3-9 split LayerX execution from Paxeer settlement and advertise a public faucet; lines 15-16 map obsolete directories."
+
+[doc.10]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Full page reviewed. Lines 3 and 71 describe the separate daemon and settlement trust boundary as current rather than the merged paxd/kernel."
+
+[doc.11]
+path = "docs/site/README.md"
+status = "accurate"
+notes = "Full page reviewed. Site installation, Markdown placement, navigation and build instructions describe documentation tooling without asserting a retired running network interface."
+
+[doc.12]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Full page reviewed. Lines 3-9 send public users to custody credit on a router and mix private control with a public separate LayerX admission surface; listener/refusal details are historical implementation descriptions."
+
+[doc.13]
+path = "services/explorer/UPSTREAM.md"
+status = "stale"
+notes = "Full provenance page reviewed. Upstream frontend v2.7.2 and backend v10.2.6 pins are retained as provenance; lines 3,9-11 and import paths predate the move to apps/explorer and services/explorer."
+
+[doc.14]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "Full page reviewed. Lines 35-37 list retired live anchors/receipts routes; current router serves archive variants and feed routes that the page omits."
+

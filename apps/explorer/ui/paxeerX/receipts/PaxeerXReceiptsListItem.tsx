@@ -1,7 +1,7 @@
 import { Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
-import type { PaxeerXReceiptsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceiptsItem } from 'types/api/paxeerXArchive';
 
 import { route } from 'nextjs/routes';
 
@@ -11,10 +11,9 @@ import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import HashStringShorten from 'ui/shared/HashStringShorten';
 import ListItemMobileGrid from 'ui/shared/ListItemMobile/ListItemMobileGrid';
-import StatusLadderBadge from 'ui/shared/statusLadder/StatusLadderBadge';
 
 interface Props {
-  item: PaxeerXReceiptsItem;
+  item: PaxeerXArchiveReceiptsItem;
   isLoading?: boolean;
 }
 
@@ -50,17 +49,16 @@ const PaxeerXReceiptsListItem = ({ item, isLoading }: Props) => {
 
       <ListItemMobileGrid.Label isLoading={ isLoading }>Block</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
-        <BlockEntity
-          isLoading={ isLoading }
-          number={ item.block_number }
-          truncation="none"
-          noIcon
-        />
-      </ListItemMobileGrid.Value>
-
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Settlement</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value>
-        <StatusLadderBadge rung={ item.status } isLoading={ isLoading }/>
+        { item.block_number === null ? (
+          <Text color="text.secondary">Pending</Text>
+        ) : (
+          <BlockEntity
+            isLoading={ isLoading }
+            number={ item.block_number }
+            truncation="none"
+            noIcon
+          />
+        ) }
       </ListItemMobileGrid.Value>
 
     </ListItemMobileGrid.Container>

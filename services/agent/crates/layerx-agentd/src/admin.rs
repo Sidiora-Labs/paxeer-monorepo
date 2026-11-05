@@ -3,10 +3,12 @@
 use std::path::Path;
 
 use layerx_agent_api::subscription::{SubscriptionRecord, SubscriptionTarget};
+use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_crypto::evm_transaction::decode_signed;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest, Sha256};
 
-use crate::audit::{AuditError, Log};
+use crate::audit::{encode_operator_attempt, AuditError, Log, OperatorAttempt, RecordError};
 use crate::budget::{
     self, BudgetDivergenceAlert, LocalAccounting, ProtocolBudgetState, ReconcileError,
     ReconciliationState, SpendReceiptEvidence,
@@ -40,7 +42,7 @@ pub enum OperatorCommand {
         expiry_sequence: u64,
         preparation: [u8; 32],
         signer_public_key: [u8; 32],
-        signature: [u8; 64],
+        signature: [u8; 65],
     },
     AttemptProtectedMutation {
         target: [u8; 32],
@@ -144,13 +146,14 @@ const COMMANDS: [CommandDescriptor; 10] = [
     CommandDescriptor {
         name: "unknown.inspect",
         target: "unknown submission",
-        action: "read daemon-local outbox status",
+        action: "read transaction hash, nonce and daemon-local outbox status",
         protocol_mutating: false,
     },
     CommandDescriptor {
         name: "unknown.resolve",
         target: "unknown submission",
-        action: "look up a verified receipt or resend identical bytes",
+        action:
+            "look up a verified sequencer receipt; resend identical bytes only at the pending nonce",
         protocol_mutating: false,
     },
     CommandDescriptor {
@@ -264,6 +267,21 @@ impl OperatorContext {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UnknownInspection {
+    pub transaction_hash: [u8; 32],
+    pub nonce: u64,
+    pub status: SubmissionStatus,
+}
+
+impl std::ops::Deref for UnknownInspection {
+    type Target = SubmissionStatus;
+
+    fn deref(&self) -> &Self::Target {
+        &self.status
+    }
+}
+
 /// One operator-visible stalled-subscription snapshot.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StalledSubscription {
@@ -279,6 +297,23 @@ pub struct VerificationBacklog {
     pub requested: VerificationLevel,
     pub queued_at_ms: u64,
     pub attempts: u32,
+}
+
+impl VerificationBacklog {
+    /// Compares the observed evidence with the exact requested level.
+    #[must_use]
+    pub const fn is_backlogged(&self) -> bool {
+        matches!(
+            self.observed.compare(self.requested),
+            std::cmp::Ordering::Less
+        )
+    }
+
+    /// Returns the write rung supported by the normal evidence observer.
+    #[must_use]
+    pub const fn retry_rung(&self) -> Option<layerx_types::rung::Rung> {
+        self.requested.rung()
+    }
 }
 
 /// A new-activity request that can only be handed to the ordinary client write path.
@@ -303,6 +338,7 @@ impl ClientWritePlan {
 /// Tenant-bound operator entry point. The audit log is private and append-only.
 pub struct Surface {
     audit: Log,
+    tenant: TenantId,
 }
 
 impl Surface {
@@ -314,6 +350,7 @@ impl Surface {
     pub fn open(root: impl AsRef<Path>, tenant: &TenantId) -> Result<Self, AdminError> {
         Ok(Self {
             audit: Log::open(root, tenant).map_err(AdminError::Audit)?,
+            tenant: tenant.clone(),
         })
     }
 
@@ -337,10 +374,10 @@ impl Surface {
         context: &OperatorContext,
         command: OperatorCommand,
     ) -> Result<ActionPlan, AdminError> {
-        let payload = audit_payload(context, command)?;
+        let payload = audit_payload(&self.tenant, context, command)?;
         let (_, result) = self
             .audit
-            .before_operation(&payload, || assert_non_mutating(&command))
+            .before_committed_operation(&payload, || assert_non_mutating(&command))
             .map_err(AdminError::Audit)?;
         result
     }
@@ -356,17 +393,26 @@ impl Surface {
         context: &OperatorContext,
         outbox: &Outbox,
         submission_id: [u8; 32],
-    ) -> Result<SubmissionStatus, AdminError> {
+    ) -> Result<UnknownInspection, AdminError> {
         self.dispatch(context, OperatorCommand::InspectUnknown(submission_id))?;
         let status = outbox
             .status(submission_id)
             .filter(|status| status.state == SubmissionState::Unknown)
             .cloned()
             .ok_or(AdminError::NotUnknown)?;
-        Ok(status)
+        let raw = outbox
+            .exact_signed_bytes(submission_id)
+            .map_err(|error| AdminError::UnknownResolution(error.into()))?;
+        let (transaction, _) = decode_signed(raw)
+            .map_err(|_| AdminError::UnknownResolution(UnknownResolutionError::Corrupt))?;
+        Ok(UnknownInspection {
+            transaction_hash: submission_id,
+            nonce: transaction.nonce,
+            status,
+        })
     }
 
-    /// Runs the existing receipt-only unknown resolver after durable audit.
+    /// Audits sequencer receipt lookup and resends only while the pending nonce equals ours.
     ///
     /// # Errors
     ///
@@ -381,7 +427,7 @@ impl Surface {
         store: &mut crate::store::Store,
         submission_id: [u8; 32],
         observed_at_ms: u64,
-        verifier: &EvidenceAuthority,
+        receipt_keys: &[ReceiptKeyEntry],
         boundary: &mut B,
     ) -> Result<UnknownResolution, AdminError> {
         self.dispatch(context, OperatorCommand::ResolveUnknown(submission_id))?;
@@ -390,7 +436,7 @@ impl Surface {
             store,
             submission_id,
             observed_at_ms,
-            verifier,
+            receipt_keys,
             boundary,
         )
         .map_err(AdminError::UnknownResolution)
@@ -504,7 +550,7 @@ impl Surface {
             context,
             OperatorCommand::InspectVerificationBacklog(backlog.idempotency_key),
         )?;
-        if backlog.observed >= backlog.requested {
+        if !backlog.is_backlogged() {
             return Err(AdminError::NotBacklogged);
         }
         Ok(backlog)
@@ -530,10 +576,13 @@ impl Surface {
             context,
             OperatorCommand::RetryVerification(backlog.idempotency_key),
         )?;
-        finality::wait_for_level(
+        let requested = backlog
+            .retry_rung()
+            .ok_or(AdminError::Verification(FinalityError::ProgressUnavailable))?;
+        finality::wait_for_rung(
             progress,
             backlog.idempotency_key,
-            backlog.requested,
+            requested,
             started_at_ms,
             deadline_ms,
             poll_interval_ms,
@@ -567,6 +616,7 @@ impl Surface {
 pub enum AdminError {
     InvalidOperator,
     Audit(AuditError),
+    AuditRecord(RecordError),
     ProtectedMutation(ProtectedMutation),
     NotUnknown,
     NotStalled,
@@ -580,6 +630,7 @@ pub enum AdminError {
 }
 
 fn audit_payload(
+    tenant: &TenantId,
     context: &OperatorContext,
     command: OperatorCommand,
 ) -> Result<Vec<u8>, AdminError> {
@@ -587,16 +638,23 @@ fn audit_payload(
     if operator.is_empty() || operator.len() > 256 || operator.contains(&0) {
         return Err(AdminError::InvalidOperator);
     }
-    let length = u16::try_from(operator.len()).map_err(|_| AdminError::Arithmetic)?;
-    let mut payload = Vec::with_capacity(72 + operator.len());
-    payload.extend_from_slice(b"LXOA");
-    payload.push(1);
-    payload.extend_from_slice(&length.to_be_bytes());
-    payload.extend_from_slice(operator);
-    payload.extend_from_slice(&context.request_id);
-    payload.push(command.code());
-    payload.extend_from_slice(&command.target());
-    Ok(payload)
+    let observed_at_ms = u64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| AdminError::Arithmetic)?
+            .as_millis(),
+    )
+    .map_err(|_| AdminError::Arithmetic)?;
+    encode_operator_attempt(OperatorAttempt {
+        tenant: tenant.clone(),
+        operator_id: &context.operator_id,
+        request_id: context.request_id,
+        command: command.code(),
+        target: command.target(),
+        observed_at_ms,
+        refused: matches!(command, OperatorCommand::AttemptProtectedMutation { .. }),
+    })
+    .map_err(AdminError::AuditRecord)
 }
 
 fn target_digest(value: &[u8]) -> [u8; 32] {

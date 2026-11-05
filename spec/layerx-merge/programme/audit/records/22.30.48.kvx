@@ -1,0 +1,1246 @@
+[audit.22.30.48]
+task = "22.30.48"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 135
+findings = 31
+docs_reviewed = 19
+upgrade_ready = false
+blocking = ["legacy-tx-result"]
+interfaces_produced = 383
+interfaces_consumed = 93
+note = "Static pre-upgrade review of all member lines, requirements and declared interfaces. Storage routers are internal backend routing, not the retired public RPC router. Retained anchor state supports historical reads until the scheduled store-delete step. Source repairs and runtime qualification are proposals; this record claims only the declared audit gate."
+
+[file.1]
+path = "consensus/internal/wireguard.buf.gen.yaml"
+lines = 11
+verdict = "clean"
+note = "Hand-maintained buf generation configuration, not generated output; local wireguard plugin and module option point at this consensus fork."
+
+[file.2]
+path = "consensus/state/store.go"
+lines = 10
+verdict = "clean"
+note = "ABCIResponsesResultsHash commits the same deterministic DeliverTx result bytes and Merkle ordering as types.NewResults."
+
+[file.3]
+path = "consensus/types/benchmark_buildtag.go"
+lines = 6
+verdict = "clean"
+note = "Benchmark-only build constraint selects the enabled constant; normal builds select its mutually exclusive companion."
+
+[file.4]
+path = "consensus/types/benchmark_buildtag_default.go"
+lines = 6
+verdict = "clean"
+note = "Default build constraint keeps benchmark shortcuts disabled without the benchmark tag."
+
+[file.5]
+path = "consensus/types/block.go"
+lines = 1272
+verdict = "issues"
+note = "Reviewed header, block, commit, protobuf and ABCI conversion paths; the unused BeginBlock converter carries the data hash instead of the block hash."
+
+[file.6]
+path = "consensus/types/block_meta.go"
+lines = 78
+verdict = "clean"
+note = "Block metadata takes the header hash and part-set header from the supplied block; protobuf decoding validates the assembled metadata."
+
+[file.7]
+path = "consensus/types/block_meta_test.go"
+lines = 95
+verdict = "clean"
+note = "Metadata tests cover valid conversion, nil input and malformed header or block ID refusal."
+
+[file.8]
+path = "consensus/types/block_test.go"
+lines = 1478
+verdict = "issues"
+note = "Reviewed validation, hashing, signature and protobuf cases; TestHeaderHashVector freezes a header with invalid digest and address lengths."
+
+[file.9]
+path = "consensus/types/canonical.go"
+lines = 74
+verdict = "clean"
+note = "Canonical proposal and vote sign bytes preserve chain ID, block ID, height, round and canonical UTC timestamps across protobuf framing."
+
+[file.10]
+path = "consensus/types/canonical_test.go"
+lines = 39
+verdict = "clean"
+note = "Canonical time cases check UTC normalization and stable RFC3339Nano output used by signing."
+
+[file.11]
+path = "consensus/types/consensus_policy.go"
+lines = 79
+verdict = "clean"
+note = "Typed policy errors distinguish hash and commitment validation failures; DefaultConsensusPolicy selects the build-specific implementation."
+
+[file.12]
+path = "consensus/types/consensus_policy_default.go"
+lines = 7
+verdict = "clean"
+note = "Production policy rejects every declared mismatch and requires signature validation; no unsafe build tag is active by default."
+
+[file.13]
+path = "consensus/types/consensus_policy_mock_block_validation.go"
+lines = 19
+verdict = "clean"
+note = "Explicit unsafe build tag limits block-validation bypasses and records skipped checks through policy metrics."
+
+[file.14]
+path = "consensus/types/consensus_policy_mock_block_validation_test.go"
+lines = 55
+verdict = "clean"
+note = "Tagged tests distinguish the block checks bypassed by this policy from checks that remain mandatory."
+
+[file.15]
+path = "consensus/types/consensus_policy_mock_chain_validation.go"
+lines = 33
+verdict = "clean"
+note = "Explicit unsafe build tag limits chain-validation bypasses and records skipped checks through policy metrics."
+
+[file.16]
+path = "consensus/types/consensus_policy_mock_chain_validation_test.go"
+lines = 63
+verdict = "clean"
+note = "Tagged tests assert the intended chain-validation policy and its retained checks."
+
+[file.17]
+path = "consensus/types/consensus_policy_test.go"
+lines = 55
+verdict = "clean"
+note = "Default-policy tests require all mismatches to fail and signature validation to remain enabled."
+
+[file.18]
+path = "consensus/types/encoding_helper.go"
+lines = 47
+verdict = "clean"
+note = "cdcEncode emits protobuf wrapper bytes for supported string, int64 and HexBytes values, treating typed nil and empty values as absent in consensus hashing."
+
+[file.19]
+path = "consensus/types/errors.go"
+lines = 43
+verdict = "clean"
+note = "Commit height and signature-count errors retain their typed expected and actual values for verification callers."
+
+[file.20]
+path = "consensus/types/errors_p2p.go"
+lines = 33
+verdict = "clean"
+note = "Peer and address errors preserve their diagnostic context without changing consensus validation outcomes."
+
+[file.21]
+path = "consensus/types/events.go"
+lines = 531
+verdict = "issues"
+note = "Reviewed tags, query keys, ABCI attributes and modern-to-legacy event conversion; legacy transaction results lose execution fields."
+
+[file.22]
+path = "consensus/types/events_test.go"
+lines = 66
+verdict = "issues"
+note = "Query tests agree with event producer keys; the serialization test covers only the modern event with an empty result."
+
+[file.23]
+path = "consensus/types/evidence.go"
+lines = 909
+verdict = "issues"
+note = "Reviewed evidence validation, ABCI conversion, serialization and evidence pool identity; the attack-evidence digest discards one header-hash byte."
+
+[file.24]
+path = "consensus/types/evidence_test.go"
+lines = 459
+verdict = "issues"
+note = "Reviewed duplicate-vote, attack evidence and serialization tests; the attack vector uses a header the producer would reject."
+
+[file.25]
+path = "consensus/types/genesis.go"
+lines = 195
+verdict = "clean"
+note = "Genesis loading validates chain ID, initial height, validator power and consensus parameters and preserves application genesis payloads."
+
+[file.26]
+path = "consensus/types/genesis_test.go"
+lines = 177
+verdict = "clean"
+note = "Genesis tests exercise file and JSON round trips plus invalid chain, validator, parameter and initial-height cases."
+
+[file.27]
+path = "consensus/types/light.go"
+lines = 220
+verdict = "clean"
+note = "LightBlock, SignedHeader and protobuf conversion connect header hashes to validator sets and commit block IDs; decoding reaches validator-set validation."
+
+[file.28]
+path = "consensus/types/light_test.go"
+lines = 179
+verdict = "clean"
+note = "Light block and signed header tests cover nil components, height and hash disagreement, validation and protobuf round trips."
+
+[file.29]
+path = "consensus/types/light_vectors_test.go"
+lines = 239
+verdict = "clean"
+note = "Genuine signed header, validator and results-proof vectors reproduce Go sign bytes and verification, unlike the older invalid header fixture."
+
+[file.30]
+path = "consensus/types/mempool.go"
+lines = 63
+verdict = "issues"
+note = "Transaction hash protobuf decoding accepts non-32-byte inputs by silently padding or truncating them."
+
+[file.31]
+path = "consensus/types/names_commit_vector_test.go"
+lines = 182
+verdict = "clean"
+note = "Names vectors bind an application hash into a real header and signed commit, then reproduce the consumer verification and refusal cases."
+
+[file.32]
+path = "consensus/types/node_id.go"
+lines = 66
+verdict = "clean"
+note = "Node IDs derive from public-key address hashes and validate the fixed hexadecimal address length."
+
+[file.33]
+path = "consensus/types/node_info.go"
+lines = 237
+verdict = "clean"
+note = "Handshake fields preserve network, protocol versions and byte channel lists; current registered channels fit the wire byte domain."
+
+[file.34]
+path = "consensus/types/node_info_test.go"
+lines = 250
+verdict = "clean"
+note = "Handshake tests cover malformed addresses, version text, channel duplication, protocol/network compatibility and protobuf field preservation."
+
+[file.35]
+path = "consensus/types/node_key.go"
+lines = 106
+verdict = "issues"
+note = "Peer identity persistence writes directly to the target file and does not regenerate its derived public-key file on the existing-key load path."
+
+[file.36]
+path = "consensus/types/node_key_test.go"
+lines = 44
+verdict = "clean"
+note = "Tests prove normal key save and reopen and generation; interrupted writes and missing public-key companion recovery remain proposed with the findings."
+
+[file.37]
+path = "consensus/types/params.go"
+lines = 580
+verdict = "issues"
+note = "Consensus parameter limits and conversions reviewed; a disabled vote-extension height cannot be scheduled for future enablement."
+
+[file.38]
+path = "consensus/types/params_test.go"
+lines = 468
+verdict = "clean"
+note = "Parameter tests cover bounds, hashing and updates, but the zero-height case only checks zero-to-zero rather than enabling at a future height."
+
+[file.39]
+path = "consensus/types/part_set.go"
+lines = 400
+verdict = "clean"
+note = "Part creation, Merkle proofs, count limits, duplicate handling and reader reconstruction agree with block-part protobuf representations."
+
+[file.40]
+path = "consensus/types/part_set_test.go"
+lines = 242
+verdict = "clean"
+note = "Part-set tests verify reconstruction, corruption and proof refusal, duplicate parts and reader behavior."
+
+[file.41]
+path = "consensus/types/policy_metrics.go"
+lines = 66
+verdict = "clean"
+note = "Unsafe-policy skip reasons are recorded through the named OTel counter with bounded check and policy attributes."
+
+[file.42]
+path = "consensus/types/priv_validator.go"
+lines = 157
+verdict = "clean"
+note = "Private validator interface and test signers use canonical sign bytes and explicit error injection; mock signers are test helpers, not node identity storage."
+
+[file.43]
+path = "consensus/types/proposal.go"
+lines = 243
+verdict = "clean"
+note = "Proposal validation and sign bytes bind ordered transaction hashes, header, last commit and evidence; decoding shares the malformed transaction-key issue in mempool.go."
+
+[file.44]
+path = "consensus/types/proposal_test.go"
+lines = 305
+verdict = "clean"
+note = "Proposal tests preserve sign bytes and protobuf fields and reject invalid basic fields; malformed TxKey length coverage is proposed with its decoder finding."
+
+[file.45]
+path = "consensus/types/protobuf.go"
+lines = 56
+verdict = "clean"
+note = "TM2PB and PB2TM preserve validator key types, voting power, address and update fields through the actual crypto conversions."
+
+[file.46]
+path = "consensus/types/protobuf_test.go"
+lines = 65
+verdict = "clean"
+note = "Validator conversion tests use real public keys and refuse unsupported protobuf key types."
+
+[file.47]
+path = "consensus/types/results.go"
+lines = 50
+verdict = "clean"
+note = "ABCI result commitment deliberately retains deterministic code, data and gas fields, excluding logs and events; proof construction uses the same canonical bytes."
+
+[file.48]
+path = "consensus/types/sequencer.go"
+lines = 34
+verdict = "clean"
+note = "SealedBlock carries the sequence batch, ordered transaction slice and open time; LeaderSource exposes the on-chain activation height and 32-byte leader keys."
+
+[file.49]
+path = "consensus/types/signed_msg_type.go"
+lines = 13
+verdict = "clean"
+note = "Vote type validation admits prevote and precommit only, matching the vote and vote-set consumers."
+
+[file.50]
+path = "consensus/types/test_util.go"
+lines = 52
+verdict = "clean"
+note = "Commit helper signs actual canonical votes with supplied private validators and adds them through VoteSet validation."
+
+[file.51]
+path = "consensus/types/tx.go"
+lines = 158
+verdict = "clean"
+note = "Transaction IDs use SHA-256; transaction roots and inclusion proofs share Merkle encodings, validate roots and decode protobuf proofs."
+
+[file.52]
+path = "consensus/types/tx_test.go"
+lines = 149
+verdict = "clean"
+note = "Transaction tests exercise roots, inclusion proofs, index lookup, invalid proof and protobuf size accounting."
+
+[file.53]
+path = "consensus/types/utils.go"
+lines = 29
+verdict = "clean"
+note = "Reflection helpers distinguish typed nil and zero-length values for cdcEncode; they do not alter the underlying hash inputs."
+
+[file.54]
+path = "consensus/types/validation.go"
+lines = 395
+verdict = "clean"
+note = "Commit verification checks height, block ID, signature count and voting power, using real batch/single verification and duplicate handling; explorer telemetry registry caller is a name collision."
+
+[file.55]
+path = "consensus/types/validation_test.go"
+lines = 361
+verdict = "clean"
+note = "Verification tests cover quorum boundaries, absent/nil votes, invalid signatures, duplicate signers and trusting thresholds."
+
+[file.56]
+path = "consensus/types/validator.go"
+lines = 217
+verdict = "clean"
+note = "Validator construction derives the address from the real key; JSON and protobuf retain key, voting power and proposer priority with basic bounds checks."
+
+[file.57]
+path = "consensus/types/validator_set.go"
+lines = 1009
+verdict = "issues"
+note = "Reviewed set changes, ordering, proposer selection, voting power and commit verification; protobuf recomputation can panic before returning validation errors."
+
+[file.58]
+path = "consensus/types/validator_set_test.go"
+lines = 1643
+verdict = "clean"
+note = "Set tests cover additions, removals, power caps, priorities, hashes, protobuf and quorum verification; an oversized remote protobuf regression is proposed with the decoder finding."
+
+[file.59]
+path = "consensus/types/validator_test.go"
+lines = 108
+verdict = "clean"
+note = "Validator tests cover copy isolation, address and power validation and real-key serialization."
+
+[file.60]
+path = "consensus/types/vote.go"
+lines = 284
+verdict = "clean"
+note = "Vote JSON/protobuf, canonical signing and verification retain the fixed key/signature sizes, validator index, height, round and block ID."
+
+[file.61]
+path = "consensus/types/vote_set.go"
+lines = 692
+verdict = "clean"
+note = "Votes are checked against validator identities and signatures; conflicting votes, peer-majority tracking and commit assembly remain scoped to height and round."
+
+[file.62]
+path = "consensus/types/vote_set_test.go"
+lines = 584
+verdict = "clean"
+note = "Vote-set tests cover conflicting votes, quorum transitions, peer claims and commit creation with real signatures."
+
+[file.63]
+path = "consensus/types/vote_test.go"
+lines = 368
+verdict = "clean"
+note = "Vote tests cover signature verification, malformed basic fields, canonical sign bytes and JSON/protobuf conversions."
+
+[file.64]
+path = "storage/common/errors/errors.go"
+lines = 35
+verdict = "clean"
+note = "Storage sentinel errors and errors.Is helpers preserve wrapped not-found and file-lock conditions across backend adapters."
+
+[file.65]
+path = "storage/common/errors/errors_test.go"
+lines = 41
+verdict = "clean"
+note = "Tests distinguish wrapped storage sentinels and joined errors from unrelated errors."
+
+[file.66]
+path = "storage/common/iterators/domain_iterator.go"
+lines = 33
+verdict = "clean"
+note = "Domain adapter overrides the reported logical [start,end) range and delegates all traversal and lifecycle methods to its already-bounded parent; it does not filter keys itself."
+
+[file.67]
+path = "storage/common/iterators/domain_iterator_test.go"
+lines = 63
+verdict = "clean"
+note = "Tests reject a nil parent, verify logical Domain overrides and check that traversal delegates unchanged to the parent iterator."
+
+[file.68]
+path = "storage/common/iterators/map_iterator.go"
+lines = 160
+verdict = "clean"
+note = "Map iteration sorts byte keys deterministically, applies range bounds and returns the expected invalid-iterator state after exhaustion."
+
+[file.69]
+path = "storage/common/iterators/map_iterator_test.go"
+lines = 167
+verdict = "clean"
+note = "Map tests cover ordering, bounds, reverse traversal, empty input and iterator lifecycle."
+
+[file.70]
+path = "storage/common/iterators/merging_iterator.go"
+lines = 285
+verdict = "clean"
+note = "Merged iteration selects keys in requested order, resolves duplicate precedence and propagates child errors and closure."
+
+[file.71]
+path = "storage/common/iterators/merging_iterator_test.go"
+lines = 290
+verdict = "clean"
+note = "Tests cover forward/reverse merging, duplicate keys, bounds, exhausted children and close/error behavior."
+
+[file.72]
+path = "storage/common/iterators/transforming_iterator.go"
+lines = 175
+verdict = "clean"
+note = "Transform adapter applies the declared key/value transform and retains domain, parent errors and lifecycle."
+
+[file.73]
+path = "storage/common/iterators/transforming_iterator_test.go"
+lines = 139
+verdict = "clean"
+note = "Transform tests cover transformed output and failure propagation without changing parent traversal semantics."
+
+[file.74]
+path = "storage/common/keys/evm.go"
+lines = 131
+verdict = "clean"
+note = "EVM key parsing and rebuilding agree on 20-byte addresses, 32-byte slots, prefix bytes and preservation of legacy/unknown keys."
+
+[file.75]
+path = "storage/common/keys/evm_test.go"
+lines = 195
+verdict = "clean"
+note = "EVM key tests exercise each supported prefix, malformed lengths, empty and legacy keys and parse/build round trips."
+
+[file.76]
+path = "storage/common/keys/proof_node_storage_test.go"
+lines = 237
+verdict = "clean"
+note = "Real module keys and router storage producers survive stop/reopen and reach real consumers with a refusal; no storage replacement doubles this path."
+
+[file.77]
+path = "storage/common/keys/store_keys.go"
+lines = 145
+verdict = "clean"
+note = "Mount inventory matches node kvStoreKeyNames, including layerxchains, unique layerxagent and immutable lxphost; anchor remains for historical reads until the declared delete upgrade."
+
+[file.78]
+path = "storage/common/keys/store_keys_test.go"
+lines = 228
+verdict = "clean"
+note = "Exact mount order, uniqueness, sorted-copy isolation and exclusion tests agree with the current application inventory and retained historical anchor policy."
+
+[file.79]
+path = "storage/common/metrics/buckets.go"
+lines = 25
+verdict = "clean"
+note = "Latency, count and binary byte-size bucket units agree with the OTel instruments consuming them."
+
+[file.80]
+path = "storage/common/metrics/phase_timer.go"
+lines = 100
+verdict = "clean"
+note = "Per-thread timers use seconds for duration totals and latency histograms and bounded phase attributes; independent timer instances avoid shared phase mutation."
+
+[file.81]
+path = "storage/common/metrics/setup.go"
+lines = 63
+verdict = "issues"
+note = "OTel provider and Prometheus wiring reviewed; metrics listener startup discards bind and serve errors."
+
+[file.82]
+path = "storage/common/metrics/system_metrics.go"
+lines = 243
+verdict = "clean"
+note = "Periodic directory, uptime and process-I/O measurements use byte, second and cumulative-delta units; polling loops observe cancellation."
+
+[file.83]
+path = "storage/common/rand/canned_random.go"
+lines = 191
+verdict = "clean"
+note = "Deterministic benchmark randomness and weighted choices use the storage key widths; this helper is not a source of signing keys."
+
+[file.84]
+path = "storage/common/testutil/test_random.go"
+lines = 219
+verdict = "clean"
+note = "Test random sources report reproducible seeds and provide byte/key helpers; no production security decision consumes them."
+
+[file.85]
+path = "storage/common/threading/adhoc_pool.go"
+lines = 36
+verdict = "clean"
+note = "One-off task goroutines are drained by Close; the documented exclusion of concurrent Submit and Close applies."
+
+[file.86]
+path = "storage/common/threading/chan_utils.go"
+lines = 30
+verdict = "clean"
+note = "Interruptible channel send and receive preserve context cancellation and channel closure semantics."
+
+[file.87]
+path = "storage/common/threading/chan_utils_test.go"
+lines = 61
+verdict = "clean"
+note = "Channel tests cover cancellation, closed channels and successful delivery without substituting synchronization behavior."
+
+[file.88]
+path = "storage/common/threading/elastic_pool.go"
+lines = 80
+verdict = "clean"
+note = "Warm workers and overflow goroutines share a completion wait group; nested work may start without fixed-pool starvation under the documented lifecycle."
+
+[file.89]
+path = "storage/common/threading/fixed_pool.go"
+lines = 68
+verdict = "clean"
+note = "Workers drain the bounded queue and Close waits for completion; Submit/Close concurrency is explicitly excluded by Pool."
+
+[file.90]
+path = "storage/common/threading/pool.go"
+lines = 15
+verdict = "clean"
+note = "Pool contract explicitly permits concurrent Submit calls and excludes Submit racing Close; completion and idempotent close semantics match implementations."
+
+[file.91]
+path = "storage/common/threading/pool_test.go"
+lines = 308
+verdict = "clean"
+note = "Pool tests cover completion, blocking, elastic overflow, nil tasks and draining Close within the declared lifecycle contract."
+
+[file.92]
+path = "storage/common/unit/data_units.go"
+lines = 16
+verdict = "clean"
+note = "Binary KB, MB and GB constants agree with byte-size configuration and metrics consumers."
+
+[file.93]
+path = "storage/common/utils/bytes.go"
+lines = 19
+verdict = "clean"
+note = "Clone preserves nil and copies data to detach zero-copy storage lifetimes."
+
+[file.94]
+path = "storage/common/utils/bytes_test.go"
+lines = 31
+verdict = "clean"
+note = "Clone tests cover nil/empty data and isolation of the returned bytes from the source."
+
+[file.95]
+path = "storage/common/utils/config.go"
+lines = 49
+verdict = "issues"
+note = "JSON config overlays defaults and rejects unknown fields in its first value, but does not reject a trailing JSON value."
+
+[file.96]
+path = "storage/common/utils/format.go"
+lines = 128
+verdict = "issues"
+note = "Human-readable numeric, byte and duration formatting reviewed; signed-minimum magnitudes and large finite floats are mishandled."
+
+[file.97]
+path = "storage/common/utils/hash64.go"
+lines = 39
+verdict = "clean"
+note = "Deterministic integer mixing supports benchmark distribution; no cryptographic or consensus hash relies on this helper."
+
+[file.98]
+path = "storage/common/utils/path.go"
+lines = 105
+verdict = "clean"
+note = "Storage path builders retain backend and database directory names; directory resolution preserves the supplied filesystem errors."
+
+[file.99]
+path = "storage/common/utils/path_test.go"
+lines = 186
+verdict = "clean"
+note = "Path tests cover backend names, absolute resolution, directory creation and failure cases."
+
+[file.100]
+path = "storage/common/utils/versions.go"
+lines = 39
+verdict = "issues"
+note = "Version/index helpers preserve ordinary initial-version offsets but omit lower-bound and addition-overflow checks."
+
+[file.101]
+path = "storage/state_db/sc/migration/OPERATIONS.md"
+lines = 385
+verdict = "issues"
+note = "Operational roadmap contains obsolete parallel-writer and strict partition statements, plus terminal-mode guidance inherited from the stale README."
+
+[file.102]
+path = "storage/state_db/sc/migration/README.md"
+lines = 79
+verdict = "issues"
+note = "Migration phase descriptions reviewed; terminal-mode routing and WriteMode claims disagree with BuildRouter and CompositeCommitStore."
+
+[file.103]
+path = "storage/state_db/sc/migration/dual_write_router.go"
+lines = 85
+verdict = "clean"
+note = "Test-only dual-write router applies primary then secondary writes, returning failures; reads and proofs use only the primary accessor, and BuildRoute composes module assignment externally."
+
+[file.104]
+path = "storage/state_db/sc/migration/dual_write_router_test.go"
+lines = 510
+verdict = "clean"
+note = "Tests cover required accessors, write fanout and failures, primary-only read/proof delegation and composition through ModuleRouter; no secondary read comparison is promised."
+
+[file.105]
+path = "storage/state_db/sc/migration/memiavl_migration_iterator.go"
+lines = 170
+verdict = "clean"
+note = "Real memiavl traversal fixes the initial tree set, copies zero-copy key/value data and resumes strictly after the stored boundary; disappeared trees fail explicitly."
+
+[file.106]
+path = "storage/state_db/sc/migration/memiavl_migration_iterator_test.go"
+lines = 167
+verdict = "clean"
+note = "Iterator tests use real memiavl trees and exercise filtering, continuation, empty/exhausted batches, boundary restore and missing-tree refusal."
+
+[file.107]
+path = "storage/state_db/sc/migration/migration_boundary.go"
+lines = 175
+verdict = "clean"
+note = "Boundary status and versioned binary serialization preserve module name and arbitrary key bytes, rejecting malformed encodings."
+
+[file.108]
+path = "storage/state_db/sc/migration/migration_boundary_test.go"
+lines = 303
+verdict = "clean"
+note = "Boundary tests cover sentinels, ordering, serialization, malformed bytes and key-copy isolation."
+
+[file.109]
+path = "storage/state_db/sc/migration/migration_iterator.go"
+lines = 47
+verdict = "clean"
+note = "MigrationIterator declares batch and boundary progression; the in-memory implementation orders modules and keys and rebuilds at the current cursor."
+
+[file.110]
+path = "storage/state_db/sc/migration/migration_iterator_paired_test.go"
+lines = 358
+verdict = "clean"
+note = "Paired tests compare real memiavl and reference iterators across batch boundaries, arbitrary keys and resumed traversal."
+
+[file.111]
+path = "storage/state_db/sc/migration/migration_iterator_test.go"
+lines = 473
+verdict = "clean"
+note = "Iterator tests cover deterministic order, filters, batch limits, empty modules, restart boundaries and rebuild behavior."
+
+[file.112]
+path = "storage/state_db/sc/migration/migration_iterator_test_helpers_test.go"
+lines = 105
+verdict = "clean"
+note = "Test setup opens real memiavl databases and commits named changesets to construct iterator fixtures."
+
+[file.113]
+path = "storage/state_db/sc/migration/migration_keys.go"
+lines = 28
+verdict = "clean"
+note = "Reserved migration store and metadata keys match manager reads/writes and composite status consumers."
+
+[file.114]
+path = "storage/state_db/sc/migration/migration_manager.go"
+lines = 484
+verdict = "clean"
+note = "Manager validates dependencies and metadata, routes fresh keys to the new database, dispatches old writes before new and persists boundary/version with migrated values; caller owns cross-backend commit recovery."
+
+[file.115]
+path = "storage/state_db/sc/migration/migration_manager_test.go"
+lines = 1458
+verdict = "clean"
+note = "All constructor, routing, sequential writer refusal, metadata reservation, resume, fresh-key tail and randomized mutation cases reviewed; mock tests are unit coverage, not process-crash proof."
+
+[file.116]
+path = "storage/state_db/sc/migration/migration_metrics.go"
+lines = 390
+verdict = "issues"
+note = "Migration counters retain resumed-run accounting and cancellation; the full boundary as a changing metric label creates a cardinality risk at the builders' ten-second cadence."
+
+[file.117]
+path = "storage/state_db/sc/migration/migration_steady_state_test.go"
+lines = 462
+verdict = "clean"
+note = "Real backend tests cover each steady-state mode, store ownership, write/read behavior and test-only dual-write selection."
+
+[file.118]
+path = "storage/state_db/sc/migration/migration_test_framework_test.go"
+lines = 647
+verdict = "clean"
+note = "Framework creates, commits, closes and reopens real memiavl and flatkv backends while tracking versions and reference values."
+
+[file.119]
+path = "storage/state_db/sc/migration/migration_transitions_test.go"
+lines = 559
+verdict = "clean"
+note = "Transition tests drive real changesets through all migration stages and reopen against persisted metadata to verify preserved values and module routing."
+
+[file.120]
+path = "storage/state_db/sc/migration/migration_types.go"
+lines = 76
+verdict = "clean"
+note = "Reader existence/error semantics, writer crash-atomicity responsibility, route functions and proof contracts agree with router adapters."
+
+[file.121]
+path = "storage/state_db/sc/migration/migration_version_test.go"
+lines = 476
+verdict = "clean"
+note = "Version tests cover missing, malformed and mismatched metadata and completed manager restart behavior."
+
+[file.122]
+path = "storage/state_db/sc/migration/migration_versions.go"
+lines = 12
+verdict = "clean"
+note = "Migration layout version constants are stable uint64 markers for the V0 through V3 transitions and status consumers."
+
+[file.123]
+path = "storage/state_db/sc/migration/mock_migration_iterator.go"
+lines = 134
+verdict = "clean"
+note = "Handwritten in-memory test helper, not generated code; copies input and implements deterministic rebuild and boundary behavior for manager unit tests."
+
+[file.124]
+path = "storage/state_db/sc/migration/module_router.go"
+lines = 169
+verdict = "clean"
+note = "Module routing rejects duplicate assignments, unknown stores and invalid changesets; batches preserve per-store pair order and return writer failures."
+
+[file.125]
+path = "storage/state_db/sc/migration/module_router_test.go"
+lines = 825
+verdict = "clean"
+note = "Router tests exercise duplicate/unassigned modules, grouped writes, proof dispatch, empty batches and deterministic error behavior."
+
+[file.126]
+path = "storage/state_db/sc/migration/passthrough_router.go"
+lines = 70
+verdict = "clean"
+note = "Single-backend route preserves reader, writer and proof functions without changing named changesets."
+
+[file.127]
+path = "storage/state_db/sc/migration/passthrough_router_test.go"
+lines = 149
+verdict = "clean"
+note = "Tests verify required reader/writer accessors, forwarding arbitrary store names, wrapped backend errors, proof delegation and explicit missing-proof refusal."
+
+[file.128]
+path = "storage/state_db/sc/migration/router_bank_merge_stores_test.go"
+lines = 133
+verdict = "clean"
+note = "Real migration-stage storage proves bank routing and all current merge store names retain values as ownership moves to flatkv."
+
+[file.129]
+path = "storage/state_db/sc/migration/router_builder.go"
+lines = 643
+verdict = "clean"
+note = "Every WriteMode builds the correct storage routes; active modes validate backend versions and use bounded per-block migration while terminal modes return single-backend routers."
+
+[file.130]
+path = "storage/state_db/sc/migration/router_builder_unloaded_test.go"
+lines = 71
+verdict = "clean"
+note = "Unloaded memiavl builder test requires a descriptive error rather than dereferencing an unopened database."
+
+[file.131]
+path = "storage/state_db/sc/migration/router_kvstore.go"
+lines = 119
+verdict = "clean"
+note = "CommitKVStore adapter binds the module name to read/write/proof calls, forwards iterator factories and preserves backend errors under the SDK interface."
+
+[file.132]
+path = "storage/state_db/sc/migration/router_kvstore_test.go"
+lines = 222
+verdict = "clean"
+note = "Adapter tests cover reads, deletes, store binding, version-provider calls and the documented panic/error behavior for root hash, close, proofs and iterator builder failures."
+
+[file.133]
+path = "storage/state_db/sc/migration/router_merge_stores_test.go"
+lines = 118
+verdict = "clean"
+note = "Real backend tests confirm each merge store routes through memiavl in EVM transition and migrated modes and survives reopen."
+
+[file.134]
+path = "storage/state_db/sc/migration/thread_safe_router.go"
+lines = 58
+verdict = "clean"
+note = "Read and GetProof hold the shared read lock and ApplyChangeSets holds the write lock. Iteration belongs to the owning store and is explicitly outside this Router wrapper."
+
+[file.135]
+path = "storage/state_db/sc/migration/thread_safe_router_test.go"
+lines = 220
+verdict = "clean"
+note = "Tests verify Router method delegation, nil-inner refusal, write exclusion against reads/proofs, concurrent reads and writes waiting for readers."
+
+[finding.legacy-tx-result]
+file = "consensus/types/events.go"
+line = 302
+class = "interface-mismatch"
+severity = "high"
+observed = "EventDataTx.ToLegacy builds LegacyResult with Log, GasWanted, GasUsed and Events only. ExecTxResult.Code, Data, Info, Codespace and EvmTxInfo disappear. pubsub.Message.LegacyData feeds rpc/core Subscribe and the local RPC client, so a nonzero execution failure has no code on that subscription wire."
+expected = "A committed transaction event must preserve its execution outcome from the ABCI producer through subscription transport to the consumer. Legacy numeric string encoding must not erase the failure code or result payload."
+proposal = "In consensus/types/events.go preserve the execution code, data and remaining declared result fields in LegacyResult and ToLegacy. Exercise an actual failed transaction through EventBus, Subscribe serialization and client decoding and assert its original nonzero code and data."
+owner_domain = 15
+interface = "15.go-consensus-types-event-data-tx-j57"
+
+[finding.tx-hash-length]
+file = "consensus/types/mempool.go"
+line = 48
+class = "security"
+severity = "medium"
+observed = "TxHashFromProto copies any TxKey byte slice into a 32-byte array and returns success. Short keys are zero-padded and long keys truncated; ProposalFromProto consumes this decoder for remote proposal transaction keys."
+expected = "A transaction identity received from a peer must contain exactly the 32 SHA-256 bytes emitted by TxHash.ToProto, with invalid lengths refused before identity lookup or proposal processing."
+proposal = "In consensus/types/mempool.go require len(dp.TxKey) == sha256.Size and return a descriptive error otherwise. Add proposal protobuf decoding cases for lengths 0, 31 and 33, and a valid 32-byte round trip."
+owner_domain = 15
+interface = "15.go-consensus-types-tx-hash-j57"
+
+[finding.validator-power-panic]
+file = "consensus/types/validator_set.go"
+line = 895
+class = "security"
+severity = "medium"
+observed = "ValidatorSetFromProto recomputes TotalVotingPower before ValidateBasic. updateTotalVotingPower panics when a decoded power sum exceeds MaxTotalVotingPower. LightBlockFromProto reaches this path in statesync.Dispatcher.Respond before a remote light block is authenticated."
+expected = "Malformed remote validator power must return an ordinary decoding error rather than panic while processing a requested state-sync response. Local constructor invariants must not be assumed for peer protobuf input."
+proposal = "In consensus/types/validator_set.go validate individual powers and compute a checked bounded sum on the protobuf path, returning ErrTotalVotingPowerOverflow. Pass an oversized set through real LightBlockFromProto and dispatcher response handling and assert refusal without panic."
+owner_domain = 15
+interface = "15.go-consensus-types-validator-set-from-proto-j57"
+
+[finding.attack-evidence-digest]
+file = "consensus/types/evidence.go"
+line = 423
+class = "runtime-risk"
+severity = "medium"
+observed = "LightClientAttackEvidence.Hash copies the conflicting header digest into bz[:crypto.HashSize-1], retaining 31 bytes and leaving byte 31 zero. Evidence pool identity therefore hashes a truncated header digest plus CommonHeight."
+expected = "The documented evidence identity commits the complete conflicting header hash and common height, while intentionally ignoring permutations of signatures for the same header."
+proposal = "Correct the destination to all crypto.HashSize bytes in consensus/types/evidence.go and pin the digest preimage with an independent exact-byte vector. Plan the evidence-identity compatibility change at an agreed activation boundary so persisted and peer evidence do not mix hash schemes."
+owner_domain = 15
+interface = "15.go-consensus-types-light-client-attack-evidence-j57"
+
+[finding.node-key-atomic-save]
+file = "consensus/types/node_key.go"
+line = 59
+class = "restart-recovery"
+severity = "medium"
+observed = "NodeKey.SaveAs writes the private identity JSON directly with os.WriteFile. A failed or interrupted overwrite can truncate the only identity file, and LoadOrGenNodeKey then refuses the existing malformed file on restart."
+expected = "Persisting the node authentication identity must leave either the previous complete key or the new complete key available after interruption, and must not silently replace an established peer identity."
+proposal = "In consensus/types/node_key.go save the key through a mode-0600 temporary file, sync it, atomically rename it and sync the directory. Cover interrupted persistence and real reopen while asserting that the peer ID remains unchanged."
+owner_domain = 15
+interface = "15.go-consensus-types-load-or-gen-node-key-j57"
+
+[finding.node-public-key-retry]
+file = "consensus/types/node_key.go"
+line = 77
+class = "restart-recovery"
+severity = "medium"
+observed = "SaveAs persists the private key before node_pubkey.txt. If the companion write fails, the next LoadOrGenNodeKey sees the private file and returns immediately without restoring the companion used for Autobahn configuration generation."
+expected = "Retrying or restarting after a partial identity setup must reproduce the public-key companion from the persisted private identity and keep both files on the same peer key."
+proposal = "In consensus/types/node_key.go ensure the derived node_pubkey.txt exists and matches the loaded key on the existing-key path, using atomic replacement. Add a real filesystem retry case where the initial companion write fails and the next load repairs it without generating a new private key."
+owner_domain = 15
+interface = "15.go-consensus-types-node-key-j57"
+
+[finding.vote-extension-enable]
+file = "consensus/types/params.go"
+line = 389
+class = "config-drift"
+severity = "medium"
+observed = "ValidateUpdate treats VoteExtensionsEnableHeight == 0 as an activation height already passed. At any positive height, an update from the default disabled value 0 to a future height is rejected by the final old-height comparison."
+expected = "The disabled zero sentinel must allow scheduling first enablement at a future block height; the already-activated restriction applies to a nonzero prior activation height."
+proposal = "In consensus/types/params.go apply the old-height restriction only when the old height is nonzero. Add zero-to-future, zero-to-past and active-to-changed cases, including the real consensus parameter update call in consensus/internal/state/execution.go."
+owner_domain = 15
+interface = "15.go-consensus-types-consensus-params-j57"
+
+[finding.unused-begin-block-hash]
+file = "consensus/types/block.go"
+line = 284
+class = "dead-code"
+severity = "low"
+observed = "Block.ToReqBeginBlock assigns Hash: b.hash, which resolves to the embedded Data hash cache rather than Header.Hash. The repository has no live caller of this helper, so the defect is currently dormant."
+expected = "Any retained ABCI BeginBlock converter must identify the block by its header hash, matching the RequestBeginBlock header and the live execution path."
+proposal = "Remove the unused converter in consensus/types/block.go if compatibility does not require it; otherwise use the complete block/header hash and add a real-block conversion case with distinct header and transaction roots."
+owner_domain = 15
+interface = "5.go-consensus-abci-types-request-begin-block"
+
+[finding.legacy-event-test-gap]
+file = "consensus/types/events_test.go"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "TestTryUnmarshalForEvent round-trips a modern EventDataTx with only Height set. It never calls ToLegacy or a subscription transport and cannot detect the loss of a failed execution code in LegacyResult."
+expected = "Event tests must exercise the shape emitted on the subscription path with both successful and failed execution results, preserving the producer fields through serialization and consumer decoding."
+proposal = "Extend consensus/types/events_test.go and the RPC subscription tests to publish a real nonzero ExecTxResult, serialize Message.LegacyData and decode the actual ResultEvent. Assert code, result data, gas and event fields rather than only the modern tagged event."
+owner_domain = 15
+interface = "15.go-consensus-types-legacy-event-data-j57"
+
+[finding.invalid-header-vector]
+file = "consensus/types/block_test.go"
+line = 1454
+class = "test-gap"
+severity = "medium"
+observed = "TestHeaderHashVector fills digest fields with the ASCII bytes of 64 hexadecimal characters and the proposer address with 40 ASCII characters, then freezes their hash without validating the header. Those are 64-byte hashes and a 40-byte address rather than producer shapes."
+expected = "A header vector intended to substantiate client hashing must use decoded 32-byte digests, a 20-byte proposer address and a valid consensus header before pinning its bytes."
+proposal = "In consensus/types/block_test.go add or version a producer-valid vector using real digest bytes, ValidateBasic and the real protobuf round trip. Keep the old vector explicitly labeled as malformed-input history if compatibility needs it; retain the genuine vectors in light_vectors_test.go."
+owner_domain = 15
+interface = "15.go-consensus-types-header-j57"
+
+[finding.invalid-attack-vector]
+file = "consensus/types/evidence_test.go"
+line = 408
+class = "test-gap"
+severity = "medium"
+observed = "TestEvidenceVectors constructs its conflicting header with 64 ASCII bytes in LastCommitHash, DataHash and other digest fields and a 40-byte ASCII proposer address. It hashes this object without proving it can pass the real light-block decoder."
+expected = "Attack-evidence vectors must use the header and address byte lengths actually emitted by consensus, and the signed header must pass the same validation used by the evidence consumer."
+proposal = "In consensus/types/evidence_test.go construct the attack vector from a valid real header and commit, validate its LightBlock before hashing and round-trip through EvidenceFromProto. Version the corrected vector without weakening malformed-input refusal cases."
+owner_domain = 15
+interface = "15.go-consensus-types-light-client-attack-evidence-j57"
+
+[finding.boundary-metric-cardinality]
+file = "storage/state_db/sc/migration/migration_metrics.go"
+line = 388
+class = "runtime-risk"
+severity = "medium"
+observed = "recordBoundarySnapshot puts the entire changing cursor in boundary_hex. All three migration builders sample every 10 seconds, while the rationale at line 336 assumes 10 minutes. A continuously advancing month can produce about 259200 label values rather than about 4000."
+expected = "Migration progress telemetry must have a bounded series set and retain useful progress across long migrations; a raw cursor must not consume the exporter or collector cardinality budget."
+proposal = "In storage/state_db/sc/migration/migration_metrics.go export bounded version/status and numeric progress gauges and put exact cursors in structured logs. Align router_builder.go sampling and documented retention, and verify series count remains bounded as many distinct boundaries are recorded."
+owner_domain = 5
+interface = "5.met-paxdb-migration-paxdb-migration-boundary-snapshot"
+
+[finding.metrics-listener-error]
+file = "storage/common/metrics/setup.go"
+line = 55
+class = "runtime-risk"
+severity = "low"
+observed = "StartMetricsServer discards the result of ListenAndServe, including address-in-use and permission failures, so a configured metrics listener can fail immediately while its caller continues without an error or log."
+expected = "A configured observability endpoint must report a bind or serving failure to the process owner; an ordinary shutdown may be treated as successful closure."
+proposal = "In storage/common/metrics/setup.go bind before launching the server or return a startup error channel, and report serve failures other than http.ErrServerClosed. Exercise an occupied listening address through the real server entry point."
+owner_domain = 5
+interface = "5.go-storage-common-metrics-start-metrics-server"
+
+[finding.trailing-config-value]
+file = "storage/common/utils/config.go"
+line = 44
+class = "config-drift"
+severity = "low"
+observed = "LoadConfigFromFile performs one Decoder.Decode and Validate call but never checks EOF. A file containing a valid first config followed by another object, unknown keys or garbage is accepted with the trailing content ignored."
+expected = "A configuration file described as one strict JSON config must be consumed completely, so an accidentally concatenated or malformed suffix cannot silently alter the operator interpretation."
+proposal = "In storage/common/utils/config.go require a second decoder read to return io.EOF before Validate succeeds. Add real file cases for whitespace-only suffix, a second object and trailing malformed bytes, preserving unknown-field refusal."
+owner_domain = 5
+interface = "5.go-storage-common-utils-load-config-from-file"
+
+[finding.numeric-format-boundaries]
+file = "storage/common/utils/format.go"
+line = 16
+class = "runtime-risk"
+severity = "low"
+observed = "Int64Commas negates math.MinInt64 in signed arithmetic, leaving it negative and adding a second minus sign. FormatBytes and FormatDuration share this magnitude overflow; FormatNumberFloat64 ignores ParseInt overflow and can print a saturated integer for a large finite value."
+expected = "Diagnostic formatting must preserve the sign and magnitude of accepted numeric inputs, including signed minima and finite floating values outside the int64 range."
+proposal = "In storage/common/utils/format.go group digits from a sign-stripped decimal representation or use an unsigned magnitude, and format float integer digits without a lossy int64 parse. Cover signed minima and finite values greater than MaxInt64 without changing ordinary output."
+owner_domain = 5
+interface = "5.go-storage-common-utils-int64-commas"
+
+[finding.version-index-bounds]
+file = "storage/common/utils/versions.go"
+line = 22
+class = "runtime-risk"
+severity = "low"
+observed = "VersionToIndex accepts a nonnegative version below initialVersion and underflows its uint64 subtraction. IndexToVersion checks index alone, then can overflow when adding initialVersion-1; its advertised reverse conversion is not bounded at the resulting version."
+expected = "WAL index conversions must reject values outside the initial-version interval and prevent signed overflow in the complete offset calculation."
+proposal = "In storage/common/utils/versions.go define the empty-index sentinel explicitly, check the full version/index domains before arithmetic and guard index plus initialVersion minus one against MaxInt64. Extend the real memiavl conversion cases with the rejected boundaries."
+owner_domain = 5
+interface = "5.go-storage-common-utils-index-to-version"
+
+[finding.migration-terminal-doc]
+file = "storage/state_db/sc/migration/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and lines 19, 27 and 63 say V0/V3 have no WriteMode and skip BuildRouter. config/write_mode.go declares MemiavlOnly and FlatKVOnly, router_builder.go implements them and CompositeCommitStore.buildRouter calls BuildRouter for these modes."
+expected = "Storage integration guidance must describe the actual terminal mode configuration and single-backend router returned by the same builder used for migration modes."
+proposal = "Rewrite storage/state_db/sc/migration/README.md terminal phases around MemiavlOnly and FlatKVOnly, showing the composite builder call and the returned single-backend router. Distinguish absence of a MigrationManager from absence of routing."
+owner_domain = 17
+interface = "5.go-storage-state-db-sc-migration-build-router"
+
+[finding.migration-crash-doc]
+file = "storage/state_db/sc/migration/OPERATIONS.md"
+line = 49
+class = "doc-drift"
+severity = "medium"
+observed = "The crash-safety statement says the writers run in two parallel goroutines and can finish in either order. MigrationManager dispatches oldDBWriter then newDBWriter and aborts on old-writer failure; CompositeCommitStore reconciles committed versions on latest reopen."
+expected = "The operator failure model must separate applying pending changes from durable backend commits and explain the actual ordered dispatch, version reconciliation and its limits before recommending data repair."
+proposal = "Rewrite sections 3 and A1/A2 in storage/state_db/sc/migration/OPERATIONS.md against migration_manager.go and composite/store.go, including the first-commit/version-zero limit of reconciliation. Preserve genuinely unproven crash cases as questions and require interruption/reopen evidence before destructive repair guidance."
+owner_domain = 17
+interface = "5.go-storage-state-db-sc-migration-db-reader"
+
+[finding.migration-partition-doc]
+file = "storage/state_db/sc/migration/OPERATIONS.md"
+line = 38
+class = "doc-drift"
+severity = "medium"
+observed = "The transition table and later detection/snapshot rules describe flatkv as only keys at or before the boundary. ApplyChangeSets intentionally sends brand-new keys beyond the cursor to flatkv, and Read falls back there when oldDB reports absence."
+expected = "Migration diagnostics must distinguish the partition of pre-existing keys from new keys admitted after migration begins; a valid new key beyond the cursor must not be treated as corruption or excluded from a snapshot."
+proposal = "Update the transition table and invariant/detection/snapshot guidance in storage/state_db/sc/migration/OPERATIONS.md to include fresh keys in flatkv beyond the boundary. Use TestApplyChangeSets_BrandNewKeysDoNotExtendMigrationTail as the concrete example and describe union/value checks rather than cursor-only placement."
+owner_domain = 17
+interface = "5.go-storage-state-db-sc-migration-router"
+
+[finding.readme-retired-network]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README describes layerxd as the running separate kernel daemon whose checkpoints settle through layerxAnchor, advertises make layerxd at line 145 and repeats the separate checkpoint model and draft merge at line 181."
+expected = "The finished network is one paxd BFT chain with an integrated proposing kernel and finality at committed blocks; the standalone daemon and checkpoint settlement are retired."
+proposal = "Rewrite README.md architecture, build and upgrade paragraphs for the integrated paxd release, root-path node RPC and committed-block finality. Move any retained pre-merge deployment description into clearly dated historical documentation."
+owner_domain = 17
+
+[finding.qualification-retired-network]
+file = "docs/QUALIFICATION.md"
+line = 79
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification page requires guarantor, data-availability and checkpoint emergency-exit settlement gates, then states Paxeer and LayerX qualify as independently deployed trust systems in its closing paragraph."
+expected = "Release qualification for the merged network must follow the single-chain kernel-to-consensus-to-committed-state path and its declared gates, with obsolete settlement gates clearly historical."
+proposal = "Rewrite docs/QUALIFICATION.md coverage and settlement sections around integrated paxd execution, sequencer receipt versus committed finality, storage recovery and current capability gates. Label any retained independent C-kernel checks as component checks within the merged release."
+owner_domain = 17
+
+[finding.fork-runbook-mixed-upgrades]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook opens with a v6.6 upgrade installing custody and anchor precompiles and lists UPGRADE_NAME as v6.6, while section 4 at line 242 requires merged-release rehearsal and the merge activation tests. The operator-facing procedure mixes two upgrade eras."
+expected = "A merged-release runbook must unambiguously identify the v7 merge and later anchor-store deletion steps, preserving read-until-delete and bond retirement rather than suggesting new anchor activation."
+proposal = "Split historical v6.6 fork instructions from the merged-release procedure in docs/runbooks/paxeer-x-fork.md. Bind the latter to the actual merge plan, anchor refund and deletion schedule, current binary/store inventory and its exact rehearsal evidence."
+owner_domain = 17
+
+[finding.overview-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.overview-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.overview-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.overview-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.overview-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.overview-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.overview-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This localized overview describes ordinary activity on a separate LayerX log, periodic checkpoint settlement to Paxeer and no Paxeer transaction for ordinary activity. Its directory table near line 98 still presents layerxd as an active daemon."
+expected = "Every localized overview must describe the same integrated paxd BFT network, ordered in-chain execution and finality at block commitment; the retired checkpoint/guarantor deployment is historical."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md architecture and directory sections in this locale from the merged-network model. Replace separate settlement, guarantor and layerxd guidance with integrated kernel execution and current node/gateway interfaces."
+owner_domain = 17
+
+[finding.assets-gateway-methods]
+file = "docs/site/docs/concepts/assets.md"
+line = 219
+class = "doc-drift"
+severity = "medium"
+observed = "The asset page promises lx_listAssets, lx_getAsset, lx_getBalances and lx_estimateFee, and earlier references lx_sendActivity. The hosted gateway OpenRPC declares px_listAssets and px_getBalances and exposes no methods with those lx names or standalone getAsset/estimateFee equivalents."
+expected = "Integrator examples must name methods and capabilities actually declared by services/platform/hosted/gateway/openrpc.json; an unsupported read or submission method must not be advertised as available."
+proposal = "Rewrite docs/site/docs/concepts/assets.md public gateway examples from the current OpenRPC method names and parameter/result shapes. Describe supported asset listing and balance reads, remove nonexistent method promises and explain capability refusal where a surface is unavailable."
+owner_domain = 17
+
+[finding.explorer-metric-caller-drift]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 601656
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 14.met-verifier-smart-contract-verifier-verify-contract lists consensus/types/validator_set.go:701 and validation.go:56 as consumers of the Rust contract-verifier metric. These sites are Go VerifyCommit and VerifyCommitLight functions and do not call or transport explorer telemetry."
+expected = "Operational interface ownership must distinguish consensus signature verification from contract source verification; a shared name fragment does not establish a telemetry producer-consumer path."
+proposal = "Correct the callers of 14.met-verifier-smart-contract-verifier-verify-contract in spec/layerx-merge/interfaces.kvx and the derived audit consumption inventory to retain actual Rust metric callers. Keep consensus VerifyCommit dependencies linked to the crypto and consensus registry rows."
+owner_domain = 17
+interface = "14.met-verifier-smart-contract-verifier-verify-contract"
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings readme-retired-network."
+
+[doc.2]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings qualification-retired-network."
+
+[doc.3]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings fork-runbook-mixed-upgrades."
+
+[doc.4]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-zh-cn."
+
+[doc.5]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-ru."
+
+[doc.6]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-es."
+
+[doc.7]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-pt-br."
+
+[doc.8]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-ja."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-de."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings overview-fr."
+
+[doc.11]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+notes = "Read in full; rewrite the obsolete architecture or interface statements identified by findings assets-gateway-methods."
+
+[doc.12]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Reviewed the full kernel porting guide, canonical encodings, host/guest ABI and refusal semantics. Programme-specific kernel guidance does not imply a separate running sequencer service."
+
+[doc.13]
+path = "storage/state_db/sc/migration/README.md"
+status = "stale"
+notes = "Read in full; terminal-mode bootstrap and missing-WriteMode claims at lines 3, 19, 27 and 63 contradict current router construction."
+
+[doc.14]
+path = "storage/state_db/sc/migration/OPERATIONS.md"
+status = "stale"
+notes = "Read in full; parallel dispatch at line 49, terminal-mode bypass at line 37 and cursor-only partition at line 38 need rewriting. Explicit proposed-tool roadmap items remain proposals."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Reviewed slice-linked go-api, metrics and version-pins declarations against the registry and current code. The page explicitly freezes revision 2a1033aa2; planned/status history is not a claim of current release readiness."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "accurate"
+notes = "Reviewed consensus-leader-pin, node-abci, node-storage and node-metrics anchors relevant to this slice. The pinned contract supplies key widths, sealed proposal ordering and storage interfaces; later served/retired registry notes govern lxphost."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "Reviewed verifier anchor: Rust contract-verification counter and labels match its declared purpose. The false Go consensus caller relationship is in the registry, not a new consensus metric."
+
+[doc.18]
+path = "services/platform/hosted/gateway/openrpc.json"
+status = "accurate"
+notes = "Reviewed method inventory and asset/balance method declarations to compare the asset documentation. Current px method names and capability refusals substantiate the stale lx method finding."
+
+[doc.19]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Reviewed all 383 produced and 93 consumed package rows, their paths, signatures, contracts and caller relationships. Contract-verifier metric includes false Go consensus consumers; retired layerxhost spelling is explicitly superseded by immutable lxphost."

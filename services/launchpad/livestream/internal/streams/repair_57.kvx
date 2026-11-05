@@ -1,0 +1,71 @@
+[repair.22.31.57]
+audit = "22.30.34"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+continued_from = "7ff99e421cc2da71ac20394849a0483e7bdb3c41"
+scope = "services/launchpad/livestream/internal/streams"
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; this record makes no qualification claim independently of that evidence."
+baseline = "Not run: step 9's unchanged-tree verification conflicts with the explicit implementation-first order and prohibition on invoking verify_cmd by hand; no pre-change test failure is claimed."
+
+[finding.001]
+test = "TestRepair_57_001_RetiredCredentialRecovery"
+integration_test = "TestRepairIntegration_57_001_PrivateIngestKeyRecovery"
+decision = "Retire the unsupported expiring ingest-credential product; Studio exposes long-lived stream keys and no expiring credential issuer in the reviewed provider client."
+repair = "Remove the unwired CredentialAuthority path and mount an explicit non-retryable 410 INGEST_CREDENTIAL_RETIRED response with a successor link; retain the creator-authorized signed ingest-key operation and its operation/provider-bound Vault ciphertext."
+proof = "The focused gate restarts mounted handlers and signed mTLS ingress and checks schema-valid explicit retirement, successor link and absence of credentials through the actual SDK decoder; the retained integration test asserts the browser encrypted-key, creator/state/provider binding and plaintext-storage checks."
+
+[finding.002]
+test = "TestRepair_57_002_CreateEnvelopeTransportReplay"
+integration_test = "TestRepairIntegration_57_002_CreateEnvelopeReplay"
+repair = "AdaptV2StreamCreate uses the generated StreamCreateResponse type and validates the complete envelope inside the signed-ledger transaction with that transaction's request ID."
+proof = "The real create codec crosses signed HTTP and SDK Operations.call/decodeV2Contract, including byte-identical file/transport/consumer restart and precise decimal revisions; full signed SQL-ledger replay and its original request ID remain asserted in the retained integration test."
+
+[finding.003]
+test = "TestRepair_57_003_OperationPollingEnvelope"
+integration_test = "TestRepairIntegration_57_003_OperationPollingRecovery"
+repair = "AdaptV2StreamOperationGet emits and validates the generated envelope; the registered polling route prevents caching for success and refusal."
+proof = "The focused gate drives every real operation-status codec state and retry/revision metadata through signed HTTP into SDK Operations.call; provider recovery, owner authorization and moderation refusal remain asserted in the retained integration test."
+
+[finding.004]
+test = "TestRepair_57_004_BodylessRetirement"
+integration_test = "TestRepairIntegration_57_004_BodylessRetirement"
+decision = "Superseded by finding 001's explicit retirement option: do not invent an expiring provider token or weaken shared operation signature validation to accept a bodyless POST."
+repair = "The retired route accepts the SDK's declared bodyless transport without requiring JSON and answers a schema-valid non-retryable Error; the successor retains its exact signed JSON object body and existing v1 signature scheme."
+proof = "The actual SDK Operations.call IF_STREAM_INGEST_CREDENTIAL crosses signed mTLS ingress into the mounted retirement handler and SDK Error decoder without a body/content type; the gate also proves the successor's signed JSON authorization rejects empty bytes, while the retained integration test asserts connected-runtime retirement and no ledger consumption."
+
+[finding.005]
+test = "TestRepair_57_005_NormalizedStudioWebhookContract"
+integration_test = "TestRepairIntegration_57_005_NormalizedStudioWebhookRecovery"
+repair = "NewConnectedRuntime selects the Studio callback normalizer on /webhooks/livepeer; /v2/provider-webhooks/livepeer accepts only frozen LiveWebhookBody and returns validated LiveWebhookResponse/data.accepted."
+proof = "The focused gate drives the real Studio normalizer output through its production signature/freshness/schema verifier over signed HTTP and the actual SDK body/response decoder for active/inactive; connected-runtime durable application, restart deduplication and ordering remain asserted in the retained integration test."
+
+[normalization.contract]
+producer = "NormalizeStudioWebhook authenticates exact Studio bytes with VerifyProviderWebhook, including its signed millisecond timestamp and five-minute delivery freshness, before decoding the pinned Studio schema."
+body = "LiveWebhookBody: eventId is the Studio event id, streamId is the provider stream id, active maps to LIVE, inactive maps to ENDED, occurredAt is the original createdAt in UTC milliseconds."
+transport = "X-Kindle-Webhook-Timestamp is canonical Unix seconds; X-Kindle-Webhook-Signature is sha256=hex(HMAC-SHA256(normalized-key, timestamp + dot + exact normalized body)); normalized-key is HMAC-SHA256(Studio secret, livestream/IF_LIVE_WEBHOOK/v2)."
+consumer = "The frozen route verifies the timestamp and exact body with a five-minute bound and domain-separated key before schema validation and durable Observe; raw Studio signatures cannot authorize normalized deliveries, and header substitution cannot refresh old signatures."
+
+[wiring.requests]
+sdk = "Owning domain: launchpad SDK; sdk/launchpad registry source and packages/sdk/src/operations.gen.ts, transport.ts: retire IF_STREAM_INGEST_CREDENTIAL, generate the reviewed ingest-key contract with visibilityUntil (no provider expiry promise), and support its exact signed JSON body and X-Kindle operation/signature headers."
+browser = "Owning domain: launchpad web; apps/launchpad/web/src/core/clients/livestream-api.ts: retire getIngestCredential and migrate any remaining imports to existing getPrivateIngestKey, preserving visibilityUntil semantics and creator signing."
+app = "Owning domain: livestream app; services/launchpad/livestream/internal/app/app.go: delegate its duplicate source-pinned Studio decoder to streams.DecodeStudioWebhook; provider registration must use the raw /webhooks/livepeer callback, while IF_LIVE_WEBHOOK uses the documented trusted normalized transport."
+registry = "Owning domain: launchpad contract registry/gateway; update the served IF_STREAM_INGEST_CREDENTIAL inventory to retired and document the IF_LIVE_WEBHOOK normalization/signature headers without adding a third JSON payload shape."
+
+[gotchas]
+empty_body = "BodyDigestV2 can hash empty bytes, but OperationEnvelope.Validate and the browser signer restrict empty v2 bodies to DELETE; a bodyless signed POST requires an owning-domain contract change and is not enabled here."
+provider_expiry = "EncryptedCredentials.LoadKey visibilityUntil bounds UI disclosure, not the provider stream key's lifetime; relabeling it expiresAt would not implement bounded ingest authorization."
+test_routes = "Existing raw-callback proofs now use the raw callback route; the alias authentication test preserves every signature/freshness/zero-effects assertion while exercising each route's declared payload and response."
+node_snapshot = "The gate snapshots before reinstalling scoped package manifests; keep pinned npm manifests as test fixtures and install them only in test-owned temporary directories so generated node_modules cannot change the build/verify revision."
+freshness_test = "A timestamp captured before SDK decoding can move a nominal 301-second future case into the five-minute window; construct each out-of-window delivery immediately before transport, preserving the denial assertion."
+
+[qualification.inherited]
+revision = "7b01480203b0bc58b18696e6dd8ed3fb6e6f7f39"
+command = "cg spec done 22.31.57 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Existing tests require external TLS Vault/Livepeer fixtures, the approved media measurement manifest and L34_ANVIL_URL, which this sandbox does not supply."
+assumption = "These external qualification prerequisites are outside the scoped repair; retain every existing check and do not investigate or repair those failures."
+
+[qualification.boundary]
+focused_gate = "Only TestRepair_57_* executes; those tests use actual production codecs/handlers, HTTP, signed mTLS ingress and the SDK without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint."
+integration_preservation = "All five inherited repair test bodies and assertions are retained in repair_57_integration_test.go under TestRepairIntegration_57_* names; they remain normal package tests, without skip, ignore, conditional suppression or altered assertions."
+unrun = "The focused gate does not establish live provider/Vault readiness, SQL transaction/restart semantics or end-to-end successor migration; the integration assertions and out-of-path wiring requests remain explicit and no such result is claimed."

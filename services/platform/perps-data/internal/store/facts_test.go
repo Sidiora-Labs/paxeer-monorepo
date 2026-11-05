@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	spotabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -90,11 +92,176 @@ func (c *chain) counts(block string) []string {
 	return append(out, "outbox="+c.values(outboxAtSQL, block)[0])
 }
 
+func TestRebuildScoped(t *testing.T) {
+	t.Run("independent_live_inventory", testRepairM827RebuildInventory)
+	if err := Rebuild(context.Background(), nil, 0, 1); err == nil || err.Error() != "store: Rebuild needs a transaction" {
+		t.Fatalf("Rebuild without transaction = %v", err)
+	}
+	db := testDB(t)
+	migrate(t, db)
+	c := newChain(t, db)
+	c.want(`SELECT count(*)::text FROM perps.markets WHERE market_id IN (0, 9)`, []string{"2"})
+	for _, bounds := range [][2]int64{{-1, 1}, {2, 1}} {
+		if err := Rebuild(c.ctx, c.tx, bounds[0], bounds[1]); err == nil {
+			t.Fatalf("Rebuild accepted invalid range %v", bounds)
+		}
+	}
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	c.next(100, t0)
+	c.blockRow(100, t0)
+	c.deposited(traderA, "1000", "1000")
+	c.deposited(traderB, "2000", "2000")
+	c.opened("1", traderA, "0", "1000", "60000", "100")
+	c.opened("2", traderB, "0", "2000", "60000", "200")
+	c.opened("3", traderB, "9", "3000", "500", "300")
+	c.placed("7", traderA, "300")
+	c.placed("8", traderB, "300")
+	c.settled("1", traderA, "1000", "0", "0", "0", "0")
+	c.settled("2", traderB, "2000", "0", "0", "0", "0")
+	c.openInterest("0", "1000", "2000")
+	c.openInterest("9", "3000", "0")
+	c.mark("0", "60000")
+	c.mark("9", "500")
+	c.project()
+
+	c.next(101, t0.Add(time.Hour))
+	c.blockRow(101, c.at)
+	c.fill("0", "7", "8", traderA, traderB, "60000", "100")
+	c.endBlock()
+	c.openInterest("9", "4000", "0")
+	c.project()
+	if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, c.block, c.at); err != nil {
+		t.Fatal(err)
+	}
+
+	c.next(102, t0.Add(25*time.Hour))
+	c.blockRow(102, c.at)
+	c.endBlock()
+	c.modified("1", traderA, "800", "80000000000000", "80")
+	c.fee("1", traderA, 0, "2", "1")
+	c.project()
+	if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, c.block, c.at); err != nil {
+		t.Fatal(err)
+	}
+
+	c.next(103, t0.Add(26*time.Hour))
+	c.blockRow(103, c.at)
+	c.tpsl("1", traderA, "70000", "50000")
+	c.settled("1", traderA, "100", "10", "2", "0", "1")
+	c.project()
+	if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, c.block, c.at); err != nil {
+		t.Fatal(err)
+	}
+
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := c.tx.ExecContext(c.ctx, query, args...); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	// Rewrite A's block without updating the projections.
+	exec(`UPDATE perps.position_events SET new_size_usd = 900, new_collateral_usd = 90000000000000, new_collateral_amount = 90
+WHERE block = 102 AND kind = 'modified' AND account = $1`, traderA.Bytes())
+	// Preserve the existing block metadata of an unrelated account.
+	exec(`UPDATE perps.account_margin SET updated_block = 101 WHERE account = $1`, traderB.Bytes())
+	exec(`UPDATE perps.user_stats SET updated_block = 101 WHERE account = $1`, traderB.Bytes())
+	accountTables := []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily"}
+	accountRows := func(account common.Address, physical bool) []string {
+		t.Helper()
+		var out []string
+		for _, table := range accountTables {
+			value := "to_jsonb(p)::text"
+			if physical {
+				value += " || ':' || p.ctid::text"
+			}
+			out = append(out, c.values(`SELECT coalesce(string_agg(v, ',' ORDER BY v), '') FROM
+(SELECT `+value+` AS v FROM perps.`+table+` p WHERE account = $1) rows`, account.Bytes())[0])
+		}
+		return out
+	}
+	marketRows := func(market string, physical bool) []string {
+		t.Helper()
+		var out []string
+		for _, table := range []string{"market_stats_rolling", "market_snapshots"} {
+			value := "to_jsonb(p)::text"
+			if physical {
+				value += " || ':' || p.ctid::text"
+			}
+			out = append(out, c.values(`SELECT coalesce(string_agg(v, ',' ORDER BY v), '') FROM
+(SELECT `+value+` AS v FROM perps.`+table+` p WHERE market_id = $1) rows`, market)[0])
+		}
+		return out
+	}
+	beforeB, beforeMarket := accountRows(traderB, true), marketRows("9", true)
+	beforeCycle := c.values(`SELECT to_jsonb(p)::text || ':' || ctid::text FROM perps.keeper_cycles p WHERE block = 101`)
+	c.want(`SELECT remaining_size_usd::text FROM perps.orders WHERE order_id = 8`, []string{"200"})
+	exec("SAVEPOINT fresh_fold")
+	for _, table := range rebuildTables {
+		exec(`DELETE FROM perps.` + table)
+	}
+	facts, err := loadFacts(c.ctx, c.tx, 100, 103)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []uint64{100, 101, 102, 103} {
+		if _, err := project(c.ctx, c.tx, facts[n]); err != nil {
+			t.Fatalf("fresh project %d: %v", n, err)
+		}
+		at := facts[n][0].Common().BlockTime
+		if err := (Snapshotter{}).Snapshot(c.ctx, c.tx, n, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rebuildLeaderboard(c.ctx, c.tx, c.at); err != nil {
+		t.Fatal(err)
+	}
+	wantA, wantMarket := accountRows(traderA, false), marketRows("0", false)
+	wantProtocol := c.values(`SELECT string_agg(to_jsonb(p)::text, ',' ORDER BY hour) FROM perps.protocol_snapshots p`)
+	wantBoard := c.leaderboardRows()
+	wantCycle := c.values(`SELECT to_jsonb(p)::text FROM perps.keeper_cycles p WHERE block = 102`)
+	exec("ROLLBACK TO SAVEPOINT fresh_fold")
+	exec("RELEASE SAVEPOINT fresh_fold")
+
+	if err := Rebuild(c.ctx, c.tx, 102, 102); err != nil {
+		t.Fatalf("Rebuild: %v", err)
+	}
+	if got := accountRows(traderA, false); !slices.Equal(got, wantA) {
+		t.Fatalf("A differs from fresh fold\n got %q\nwant %q", got, wantA)
+	}
+	if got := accountRows(traderB, true); !slices.Equal(got, beforeB) {
+		t.Fatalf("B was rewritten\n got %q\nwant %q", got, beforeB)
+	}
+	if got := marketRows("0", false); !slices.Equal(got, wantMarket) {
+		t.Fatalf("touched market differs from fresh fold\n got %q\nwant %q", got, wantMarket)
+	}
+	if got := marketRows("9", true); !slices.Equal(got, beforeMarket) {
+		t.Fatalf("unrelated market was rewritten\n got %q\nwant %q", got, beforeMarket)
+	}
+	c.want(`SELECT string_agg(to_jsonb(p)::text, ',' ORDER BY hour) FROM perps.protocol_snapshots p`, wantProtocol)
+	if got := c.leaderboardRows(); !slices.EqualFunc(got, wantBoard, slices.Equal[[]string]) {
+		t.Fatalf("leaderboard differs from fresh fold\n got %q\nwant %q", got, wantBoard)
+	}
+	c.want(`SELECT to_jsonb(p)::text || ':' || ctid::text FROM perps.keeper_cycles p WHERE block = 101`, beforeCycle)
+	c.want(`SELECT to_jsonb(p)::text FROM perps.keeper_cycles p WHERE block = 102`, wantCycle)
+	c.want(`SELECT size_usd::text, collateral_amount::text, take_profit_price::text FROM perps.positions_current WHERE position_id = 1`, []string{"900", "90", "70000"})
+	c.want(`SELECT remaining_size_usd::text FROM perps.orders WHERE order_id = 7`, []string{"200"})
+
+	if err := Rebuild(c.ctx, c.tx, 102, 102); err != nil {
+		t.Fatalf("repeat Rebuild: %v", err)
+	}
+	if got := accountRows(traderA, false); !slices.Equal(got, wantA) {
+		t.Fatalf("repeat rebuild changed A: %q", got)
+	}
+	if got := accountRows(traderB, true); !slices.Equal(got, beforeB) {
+		t.Fatalf("repeat rebuild rewrote B: %q", got)
+	}
+}
+
 func TestFactWriters(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
 	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
-	wantCounts := []string{"collateral_events=3", "fills=1", "raw_logs=0", "protocol_events=3", "tx_actions=2", "outbox=7"}
+	wantCounts := []string{"collateral_events=3", "fills=1", "raw_logs=0", "protocol_events=3", "tx_actions=3", "outbox=8"}
 
 	t.Run("one_row_per_log", func(t *testing.T) {
 		c := newChain(t, db)
@@ -110,6 +277,12 @@ func TestFactWriters(t *testing.T) {
 FROM perps.protocol_events WHERE block = 400`,
 			[]string{"CollateralTransferred:0:0:null,CollateralDeposited:1:0:null,Fill:2:0:1"})
 		c.want(`SELECT args->>'amount', account = $1 FROM perps.protocol_events WHERE block = 400 AND log_index = 0`, []string{"5", "true"}, traderA.Bytes())
+		deposit := rows.Decoded[1].Rows[0].Common()
+		c.want(`SELECT action, kind, tx_index::text, log_index::text, sub::text, receipt_kind,
+    (account = $1)::text, size::text, (tx_hash = $2)::text
+FROM perps.tx_actions WHERE block = 400 AND kind = 'CollateralDeposited'`,
+			[]string{"Collateral Deposited", "CollateralDeposited", "0", "1", "0", "tx", "true", "100", "true"},
+			traderA.Bytes(), deposit.TxHash.Bytes())
 	})
 
 	t.Run("duplicate_block_noop", func(t *testing.T) {
@@ -137,7 +310,7 @@ FROM perps.protocol_events WHERE block = 400`,
 		b, rows := block400(c, t0)
 		c.blockRow(400, t0)
 		c.writeBlock(b, rows)
-		c.want(outboxAtSQL, []string{"7"}, "400")
+		c.want(outboxAtSQL, []string{"8"}, "400")
 		c.want(`SELECT string_agg(subject, ',' ORDER BY perps_seq) FROM perps.delivery_outbox
 WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '400'`,
 			[]string{strings.Join([]string{
@@ -146,6 +319,7 @@ WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '400'`
 				"perps.125.user." + lower(traderA) + ".margin",
 				"perps.125.1.fill",
 				"perps.125.chain.block",
+				"perps.125.chain.tx",
 				"perps.125.chain.tx",
 				"perps.125.chain.tx",
 			}, ",")})
@@ -271,6 +445,7 @@ WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '420'`
 				"perps.125.spot." + lower(tokenOut) + ".swap",
 				"perps.125.chain.block",
 				"perps.125.chain.tx",
+				"perps.125.chain.tx",
 			}, ",")})
 	})
 
@@ -332,5 +507,151 @@ func TestTokenOfSpotRows(t *testing.T) {
 		if got := tokensOf(c.row, pax, stable); !slices.Equal(got, c.want) {
 			t.Errorf("%s: tokensOf = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// Keep this inventory independent of rebuildTables: sharing recovery's list
+// would hide a projection omitted by both the implementation and its oracle.
+var repairM827ProjectionInventory = []string{
+	"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily",
+	"market_stats_rolling", "leaderboard", "spot_token_seen", "keeper_cycles", "market_snapshots", "protocol_snapshots",
+	"spot_account_legs", "spot_leaderboard",
+	"spot_board_generation", "spot_board_omissions",
+}
+
+func repairM827ProjectionState(c *chain) []string {
+	c.t.Helper()
+	var state []string
+	for _, table := range repairM827ProjectionInventory {
+		value := "to_jsonb(p)"
+		if table == "spot_board_generation" {
+			// Each database records its own wall clock; compare generation
+			// contents here and check timestamp persistence across reopen below.
+			value += " - 'generated_at'"
+		}
+		state = append(state, table+":"+c.values(`SELECT coalesce(string_agg((` + value + `)::text, ',' ORDER BY (` + value + `)::text), '') FROM perps.` + table + ` p`)[0])
+	}
+	return state
+}
+
+func testRepairM827RebuildInventory(t *testing.T) {
+	indexedDB, freshDB := testDB(t), testDB(t)
+	migrate(t, indexedDB)
+	migrate(t, freshDB)
+	state := repairM827OrderState(t)
+	indexed, fresh := newRepairM827Producer(t, indexedDB, state), newRepairM827Producer(t, freshDB, state)
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	removed := common.HexToAddress("0xc827")
+	n := big.NewInt
+	initial := func() []decode.Log {
+		return []decode.Log{
+			repairM827Spot(t, spotabi.Vault, decode.SpotVaultAddress, "TokenRegistered", USDL, uint8(18), true),
+			repairM827Spot(t, spotabi.Vault, decode.SpotVaultAddress, "TokenRegistered", tokenPAX, uint8(18), false),
+			repairM827Perps(t, "CollateralDeposited", traderA, n(1000), n(1000)),
+			repairM827Perps(t, "CollateralDeposited", traderB, n(2000), n(2000)),
+			repairM827Open(t, 1, traderA), repairM827Open(t, 2, traderB),
+			repairM827Perps(t, "OrderPlaced", n(7), traderA, n(0), uint8(0), true, n(60000), n(1000)),
+			repairM827Perps(t, "OrderPlaced", n(8), traderB, n(0), uint8(0), false, n(60000), n(1000)),
+			repairM827Settlement(t, 1, traderA, 1000, 0), repairM827Settlement(t, 2, traderB, 2000, 0),
+			repairM827Perps(t, "MarkPriceUpdated", n(0), n(60000), n(60001), n(60002)),
+			repairM827Perps(t, "OpenInterestChanged", n(0), n(1000), n(2000), n(0), true),
+			repairM827Trade(t, traderA, true, 100, 10), repairM827Trade(t, traderB, true, 200, 10),
+			repairM827Trade(t, traderB, false, 300, 10),
+			repairM827Spot(t, spotabi.Orders, decode.SpotOrdersAddress, "LimitOrderCreated", n(27), traderB, uint8(0), n(10), n(1)),
+		}
+	}
+	for _, p := range []*repairM827Producer{indexed, fresh} {
+		p.write(100, t0, initial()...)
+		p.write(101, t0.Add(time.Hour), repairM827Perps(t, "Fill", n(0), n(7), n(8), traderA, traderB, true, n(60000), n(100), n(0), n(0)))
+	}
+	changedAt := t0.Add(2 * time.Hour)
+	keeper := repairM827Perps(t, "MarkPriceUpdated", n(0), n(61000), n(61001), n(61002))
+	keeper.ReceiptKind, keeper.TxFrom = decode.ReceiptPerpsEndBlock, nil
+	indexed.write(102, changedAt, repairM827Perps(t, "PositionModified", n(1), n(800), n(80000000000000), n(80)),
+		repairM827Trade(t, traderA, false, 120, 10), repairM827Trade(t, removed, true, 500, 10),
+		repairM827Trade(t, removed, false, 600, 10), keeper)
+	replacement := func() []decode.Log {
+		return []decode.Log{repairM827Perps(t, "PositionModified", n(1), n(900), n(90000000000000), n(90)),
+			repairM827Trade(t, traderA, false, 50, 10), keeper}
+	}
+	// Distinct source positions preserve immutable outbox identities.
+	fresh.c.next(102, changedAt)
+	fresh.c.blockRow(102, changedAt)
+	fresh.c.writeBlock(header(102, changedAt), fresh.decode(header(102, changedAt), 10, replacement()))
+	for _, p := range []*repairM827Producer{indexed, fresh} {
+		p.write(103, t0.Add(3*time.Hour), repairM827Settlement(t, 1, traderA, 100, 10),
+			repairM827Trade(t, traderA, true, 10, 1))
+	}
+	c := indexed.c
+	// Untouched account projections retain exact serialized bytes; perps
+	// account rows additionally retain their physical tuple identities.
+	untouched := func() []string {
+		var out []string
+		for _, table := range []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "spot_account_legs"} {
+			expr := "to_jsonb(p)::text"
+			if table != "spot_account_legs" {
+				expr += " || ':' || p.ctid::text"
+			}
+			out = append(out, c.values(`SELECT coalesce(string_agg(`+expr+`, ',' ORDER BY to_jsonb(p)::text), '') FROM perps.`+table+` p WHERE account = $1`, traderB.Bytes())[0])
+		}
+		return out
+	}
+	beforeUntouched := untouched()
+	before := repairM827ProjectionState(c)
+	generation := c.values(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`)
+	old, err := CaptureRecovery(c.ctx, c.tx, 102, 102)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(old.Accounts, removed) {
+		t.Fatal("capture omitted removed-only account")
+	}
+	indexed.reopen()
+	c.want(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`, generation)
+	if got := repairM827ProjectionState(c); !slices.Equal(got, before) {
+		t.Fatalf("projection state changed after reopening\n got %q\nwant %q", got, before)
+	}
+	for _, table := range factTables {
+		repairM827Exec(c, `DELETE FROM perps.`+table+` WHERE block = 102`)
+	}
+	if _, err := WriteFacts(c.ctx, c.tx, header(102, changedAt), indexed.decode(header(102, changedAt), 10, replacement())); err != nil {
+		t.Fatal(err)
+	}
+	want := repairM827ProjectionState(fresh.c)
+	if slices.Equal(before, want) {
+		t.Fatal("fixture correction changed no projection")
+	}
+	if err := Rebuild(c.ctx, c.tx, 102, 102, old); err != nil {
+		t.Fatal(err)
+	}
+	if got := repairM827ProjectionState(c); !slices.Equal(got, want) {
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("fresh WriteBlock projection mismatch\n got %s\nwant %s", got[i], want[i])
+			}
+		}
+	}
+	if got := untouched(); !slices.Equal(got, beforeUntouched) {
+		t.Fatalf("untouched account changed\n got %q\nwant %q", got, beforeUntouched)
+	}
+	c.want(`SELECT count(*)::text FROM perps.spot_account_legs WHERE account = $1`, []string{"0"}, removed.Bytes())
+	c.want(`SELECT count(*)::text FROM perps.spot_leaderboard WHERE account = $1`, []string{"0"}, removed.Bytes())
+	c.want(`SELECT string_agg(kind, ',' ORDER BY kind) FROM (SELECT DISTINCT kind FROM perps.spot_leaderboard) boards`, []string{"pnl,volume,win-rate"})
+	for _, table := range repairM827ProjectionInventory {
+		if table == "spot_board_omissions" {
+			c.want(`SELECT count(*)::text FROM perps.spot_board_omissions`, []string{"0"})
+			continue
+		}
+		c.want(`SELECT (count(*) > 0)::text FROM perps.`+table, []string{"true"})
+	}
+	c.want(`SELECT (generated_at IS NOT NULL)::text, omitted_accounts::text FROM perps.spot_board_generation`, []string{"true", "0"})
+	generation = c.values(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`)
+	indexed.reopen()
+	c.want(`SELECT to_jsonb(p)::text FROM perps.spot_board_generation p`, generation)
+	if got := repairM827ProjectionState(c); !slices.Equal(got, want) {
+		t.Fatalf("recovered projections changed after reopening\n got %q\nwant %q", got, want)
+	}
+	if got := untouched(); !slices.Equal(got, beforeUntouched) {
+		t.Fatalf("untouched account changed after reopening\n got %q\nwant %q", got, beforeUntouched)
 	}
 }

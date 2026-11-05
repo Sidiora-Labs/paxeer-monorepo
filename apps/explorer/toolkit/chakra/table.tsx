@@ -4,9 +4,13 @@ import * as React from 'react';
 
 import ArrowIcon from 'icons/arrows/east.svg';
 
+import { recipe as tableRecipe } from '../theme/recipes/table.recipe';
 import { Link } from './link';
+import { withRecipe } from './recipe-props';
 
-export const TableRoot = ChakraTable.Root;
+const RecipeRoot = withRecipe(ChakraTable.Root, tableRecipe);
+
+export const TableRoot = RecipeRoot;
 export const TableBody = ChakraTable.Body;
 export const TableHeader = ChakraTable.Header;
 export const TableRow = ChakraTable.Row;

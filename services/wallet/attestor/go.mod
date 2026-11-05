@@ -1,16 +1,18 @@
 module github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor
 
-go 1.25.6
+go 1.25.8
 
 require (
-	filippo.io/edwards25519 v1.1.0
-	github.com/ethereum/go-ethereum v1.16.8
+	filippo.io/edwards25519 v1.1.1
+	github.com/Sidiora-Labs/Paxeer-X-Network v0.0.0
+	github.com/ethereum/go-ethereum v1.17.0
 	github.com/getamis/alice v1.0.9-0.20260916062408-d8fd6861d3b2
 	github.com/holiman/uint256 v1.3.2
 	github.com/lestrrat-go/jwx/v2 v2.1.7
 	github.com/pkg/sftp v1.13.11
 	github.com/prometheus/client_golang v1.24.1
-	github.com/Sidiora-Labs/Paxeer-X-Network v0.0.0
+	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/common v0.70.1
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.54.0
 	google.golang.org/protobuf v1.36.11
@@ -23,13 +25,11 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.3 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.5 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/consensys/gnark-crypto v0.18.0 // indirect
+	github.com/consensys/gnark-crypto v0.18.1 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.4.0 // indirect
-	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/decred/dcrd/dcrec/edwards v1.0.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.5 // indirect
-	github.com/ethereum/go-verkle v0.2.2 // indirect
 	github.com/getamis/sirius v1.1.7 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
@@ -42,8 +42,6 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rollbar/rollbar-go v1.2.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect

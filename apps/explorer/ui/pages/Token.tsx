@@ -9,6 +9,7 @@ import type { TokenInfo } from 'types/api/token';
 
 import config from 'configs/app';
 import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import * as metadata from 'lib/metadata';
 import getQueryParamString from 'lib/router/getQueryParamString';
 import useEtherscanRedirects from 'lib/router/useEtherscanRedirects';
@@ -38,7 +39,11 @@ export type TokenTabs = 'token_transfers' | 'holders' | 'inventory';
 
 const TokenPageContent = () => {
   const [ isQueryEnabled, setIsQueryEnabled ] = React.useState(false);
-  const [ totalSupplySocket, setTotalSupplySocket ] = React.useState<number>();
+  const [ totalSupplySocket, setTotalSupplySocket ] = React.useState<{
+    hash: string;
+    chainId: string | undefined;
+    totalSupply: string;
+  }>();
   const router = useRouter();
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -49,6 +54,11 @@ const TokenPageContent = () => {
 
   useEtherscanRedirects();
   const queryClient = useQueryClient();
+  const chainId = useMultichainContext()?.chain.id;
+  const tokenQueryKey = React.useMemo(() => getResourceKey('general:token', {
+    pathParams: { hash: hashString },
+    chainId,
+  }), [ hashString, chainId ]);
 
   const tokenQuery = useTokenQuery(hashString);
 
@@ -71,26 +81,34 @@ const TokenPageContent = () => {
   });
 
   React.useEffect(() => {
-    if (tokenQuery.data && totalSupplySocket) {
-      queryClient.setQueryData(getResourceKey('general:token', { pathParams: { hash: hashString } }), (prevData: TokenInfo | undefined) => {
+    if (!totalSupplySocket) {
+      return;
+    }
+    if (totalSupplySocket.hash !== hashString || totalSupplySocket.chainId !== chainId) {
+      setTotalSupplySocket(undefined);
+      return;
+    }
+    if (tokenQuery.data && !tokenQuery.isPlaceholderData) {
+      queryClient.setQueryData(tokenQueryKey, (prevData: TokenInfo | undefined) => {
         if (prevData) {
-          return { ...prevData, total_supply: totalSupplySocket.toString() };
+          return { ...prevData, total_supply: totalSupplySocket.totalSupply };
         }
       });
+      setTotalSupplySocket(undefined);
     }
-  }, [ tokenQuery.data, totalSupplySocket, hashString, queryClient ]);
+  }, [ tokenQuery.data, tokenQuery.isPlaceholderData, totalSupplySocket, hashString, chainId, tokenQueryKey, queryClient ]);
 
   const handleTotalSupplyMessage: SocketMessage.TokenTotalSupply['handler'] = React.useCallback((payload) => {
-    const prevData = queryClient.getQueryData(getResourceKey('general:token', { pathParams: { hash: hashString } }));
+    const prevData = queryClient.getQueryData<TokenInfo>(tokenQueryKey);
     if (!prevData) {
-      setTotalSupplySocket(payload.total_supply);
+      setTotalSupplySocket({ hash: hashString, chainId, totalSupply: payload.total_supply });
     }
-    queryClient.setQueryData(getResourceKey('general:token', { pathParams: { hash: hashString } }), (prevData: TokenInfo | undefined) => {
+    queryClient.setQueryData(tokenQueryKey, (prevData: TokenInfo | undefined) => {
       if (prevData) {
-        return { ...prevData, total_supply: payload.total_supply.toString() };
+        return { ...prevData, total_supply: payload.total_supply };
       }
     });
-  }, [ queryClient, hashString ]);
+  }, [ queryClient, tokenQueryKey, hashString, chainId ]);
 
   const enableQuery = React.useCallback(() => setIsQueryEnabled(true), []);
 

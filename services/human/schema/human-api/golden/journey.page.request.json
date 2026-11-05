@@ -1,1 +1,4 @@
-{}
+{
+  "method": "GET",
+  "path": "/v1/journeys/page/cur_next"
+}

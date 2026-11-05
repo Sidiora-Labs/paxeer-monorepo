@@ -52,7 +52,9 @@ func TestSidioraFeeCollectionBlock(t *testing.T) {
 			require.NoError(t, testApp.BankKeeper.MintCoins(ctx, types.ModuleName, fees))
 			require.NoError(t, testApp.BankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, authtypes.FeeCollectorName, fees))
 			collector := testApp.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName)
-			_, _, _, err := testApp.ProcessBlock(ctx, nil, &app.BlockProcessRequest{Height: 1}, abci.CommitInfo{}, false, nil)
+			header := ctx.BlockHeader()
+			req := app.NewBlockProcessRequest(&abci.RequestFinalizeBlock{Header: &header})
+			_, _, _, err := testApp.ProcessBlock(ctx, nil, req, abci.CommitInfo{}, false, nil)
 			require.NoError(t, err)
 
 			held := sdk.NewCoins(sdk.NewInt64Coin("usid", 700), sdk.NewInt64Coin("uasset", 300))

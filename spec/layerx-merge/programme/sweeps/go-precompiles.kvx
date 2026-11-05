@@ -1,0 +1,1153 @@
+[sweep.go-precompiles]
+revision = "7478907943b4655b9831bc5605093828ecb974df"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+enumeration_command = "CGO_ENABLED=1 go list ./precompiles/..."
+enumeration_exit_code = 0
+prerequisite_command = "make paxd-native-libs"
+prerequisite_exit_code = 0
+environment = "CGO_ENABLED=1 GOMAXPROCS=2"
+parallel_targets = 4
+per_target_time_limit_seconds = 300
+source = "Task closure checkout after all eight prerequisite repair merges; the sandbox main reference remains at the earlier task base."
+qualification_record = "/out/logs/go-precompiles/qualification.json"
+targets_total = 223
+targets_passed = 210
+targets_failed = 6
+targets_not_run = 7
+
+[target.go-precompiles.1]
+target = "precompiles"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+
+[target.go-precompiles.2]
+target = "precompiles/addr"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+
+[target.go-precompiles.3]
+target = "precompiles/addr/legacy/v552"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+
+[target.go-precompiles.4]
+target = "precompiles/addr/legacy/v555"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+
+[target.go-precompiles.5]
+target = "precompiles/addr/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.6]
+target = "precompiles/addr/legacy/v575"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.7]
+target = "precompiles/addr/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.8]
+target = "precompiles/addr/legacy/v601"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.9]
+target = "precompiles/addr/legacy/v603"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.10]
+target = "precompiles/addr/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.11]
+target = "precompiles/addr/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.12]
+target = "precompiles/addr/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.13]
+target = "precompiles/addr/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.14]
+target = "precompiles/addr/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.15]
+target = "precompiles/addr/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.16]
+target = "precompiles/addr/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.17]
+target = "precompiles/addr/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.18]
+target = "precompiles/bank"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+
+[target.go-precompiles.19]
+target = "precompiles/bank/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.20]
+target = "precompiles/bank/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.21]
+target = "precompiles/bank/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.22]
+target = "precompiles/bank/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.23]
+target = "precompiles/bank/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.24]
+target = "precompiles/bank/legacy/v601"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.25]
+target = "precompiles/bank/legacy/v603"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.26]
+target = "precompiles/bank/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.27]
+target = "precompiles/bank/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.28]
+target = "precompiles/bank/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.29]
+target = "precompiles/bank/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.30]
+target = "precompiles/bank/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.31]
+target = "precompiles/bank/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.32]
+target = "precompiles/bank/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.33]
+target = "precompiles/bank/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.34]
+target = "precompiles/common"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+
+[target.go-precompiles.35]
+target = "precompiles/common/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.36]
+target = "precompiles/common/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.37]
+target = "precompiles/common/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.38]
+target = "precompiles/common/legacy/v575"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.39]
+target = "precompiles/common/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.40]
+target = "precompiles/common/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.41]
+target = "precompiles/common/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.42]
+target = "precompiles/common/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.43]
+target = "precompiles/common/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.44]
+target = "precompiles/common/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.45]
+target = "precompiles/common/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.46]
+target = "precompiles/common/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.47]
+target = "precompiles/common/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.48]
+target = "precompiles/common/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.49]
+target = "precompiles/common/legacy/v68"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.50]
+target = "precompiles/distribution"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.51]
+target = "precompiles/distribution/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.52]
+target = "precompiles/distribution/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.53]
+target = "precompiles/distribution/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.54]
+target = "precompiles/distribution/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.55]
+target = "precompiles/distribution/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.56]
+target = "precompiles/distribution/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.57]
+target = "precompiles/distribution/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.58]
+target = "precompiles/distribution/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.59]
+target = "precompiles/distribution/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.60]
+target = "precompiles/distribution/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.61]
+target = "precompiles/distribution/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.62]
+target = "precompiles/distribution/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.63]
+target = "precompiles/feetoken"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.64]
+target = "precompiles/gov"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.65]
+target = "precompiles/gov/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.66]
+target = "precompiles/gov/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.67]
+target = "precompiles/gov/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.68]
+target = "precompiles/gov/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.69]
+target = "precompiles/gov/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.70]
+target = "precompiles/gov/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.71]
+target = "precompiles/gov/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.72]
+target = "precompiles/gov/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.73]
+target = "precompiles/gov/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.74]
+target = "precompiles/gov/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.75]
+target = "precompiles/gov/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.76]
+target = "precompiles/gov/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.77]
+target = "precompiles/ibc"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.78]
+target = "precompiles/ibc/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.79]
+target = "precompiles/ibc/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.80]
+target = "precompiles/ibc/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.81]
+target = "precompiles/ibc/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.82]
+target = "precompiles/ibc/legacy/v601"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.83]
+target = "precompiles/ibc/legacy/v603"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.84]
+target = "precompiles/ibc/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.85]
+target = "precompiles/ibc/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.86]
+target = "precompiles/ibc/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.87]
+target = "precompiles/ibc/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.88]
+target = "precompiles/ibc/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.89]
+target = "precompiles/ibc/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.90]
+target = "precompiles/ibc/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.91]
+target = "precompiles/ibc/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.92]
+target = "precompiles/json"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.93]
+target = "precompiles/json/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.94]
+target = "precompiles/json/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.95]
+target = "precompiles/json/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.96]
+target = "precompiles/json/legacy/v603"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.97]
+target = "precompiles/json/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.98]
+target = "precompiles/json/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.99]
+target = "precompiles/json/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.100]
+target = "precompiles/json/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.101]
+target = "precompiles/json/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.102]
+target = "precompiles/json/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.103]
+target = "precompiles/json/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.104]
+target = "precompiles/json/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.105]
+target = "precompiles/launchpad"
+result = "failed"
+exit_code = 1
+observed = "TestOpticalHooksSeeTheContractCallers at precompiles/launchpad/optical_test.go:57 failed because solc was not found in PATH."
+assumption = "This failure is environmental because the Solidity compiler executable is not installed."
+
+[target.go-precompiles.106]
+target = "precompiles/launchpad/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.107]
+target = "precompiles/layerxagent/clearing"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.108]
+target = "precompiles/layerxagent/common"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.109]
+target = "precompiles/layerxagent/eip712"
+result = "failed"
+exit_code = 1
+observed = "TestProofEip7120x0908 at precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go:187 failed because the real gateway consumer could not find the tsx package."
+assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
+
+[target.go-precompiles.110]
+target = "precompiles/layerxagent/oracle"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.111]
+target = "precompiles/layerxagent/orob"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.112]
+target = "precompiles/layerxagent/pofq"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.113]
+target = "precompiles/layerxagent/scheduler"
+result = "failed"
+exit_code = 1
+observed = "TestProofScheduler0x0905ProducerTransportConsumer at precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:257 failed because the real wallet consumer could not find @noble/hashes imported by services/agent/sdk/typescript/src/exchange.ts."
+assumption = "This failure is environmental because the agent TypeScript SDK dependencies are not installed."
+
+[target.go-precompiles.114]
+target = "precompiles/layerxagent/served"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.115]
+target = "precompiles/layerxagent/streams"
+result = "failed"
+exit_code = 1
+observed = "TestProofStreams0x0906 at precompiles/layerxagent/streams/proof_streams_0x0906_test.go:180 failed because the real wallet consumer could not find the tsx package."
+assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
+
+[target.go-precompiles.116]
+target = "precompiles/layerxagent/teeattestor"
+result = "failed"
+exit_code = 1
+observed = "TestProofTeeAttestor0x0907 at precompiles/layerxagent/teeattestor/proof_tee_attestor_0x0907_test.go:213 failed because the gateway precompile consumer could not find the tsx package."
+assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
+
+[target.go-precompiles.117]
+target = "precompiles/layerxanchor"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.118]
+target = "precompiles/layerxauth"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.119]
+target = "precompiles/layerxbridge"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.120]
+target = "precompiles/layerxchains"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.121]
+target = "precompiles/layerxcustody"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.122]
+target = "precompiles/layerxexchange"
+result = "failed"
+exit_code = 1
+observed = "TestDepositMarginCustodiesNativeValue at precompiles/layerxexchange/layerxexchange_test.go:295 expected the LXP_EXCHANGE_RETIRED prefix but received the bare v6.12.0 retirement error."
+assumption = "The legacy retirement path appears to preserve bare revert text while these tests still expect the prefixed error after the decision 2505 repair."
+
+[target.go-precompiles.123]
+target = "precompiles/layerxledger"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.124]
+target = "precompiles/layerxpay"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.125]
+target = "precompiles/layerxpay/served"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.126]
+target = "precompiles/layerxprograms"
+result = "not_run"
+exit_code = 124
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxprograms/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -skip '^TestProofLayerxprograms0x101d$'"
+producer_input_tests = ["TestProofLayerxprograms0x101d"]
+exclusion_reason = "Decision 2509 permits excluding only TestProofLayerxprograms0x101d, named in repair.go-precompiles.126 as requiring external Python and TypeScript producer inputs; every other test and fuzz seed remains included."
+
+[target.go-precompiles.127]
+target = "precompiles/layerxprograms/types"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.128]
+target = "precompiles/layerxverify"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.129]
+target = "precompiles/oracle"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.130]
+target = "precompiles/oracle/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.131]
+target = "precompiles/oracle/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.132]
+target = "precompiles/oracle/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.133]
+target = "precompiles/oracle/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.134]
+target = "precompiles/oracle/legacy/v601"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.135]
+target = "precompiles/oracle/legacy/v603"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.136]
+target = "precompiles/oracle/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.137]
+target = "precompiles/oracle/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.138]
+target = "precompiles/oracle/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.139]
+target = "precompiles/oracle/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.140]
+target = "precompiles/oracle/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.141]
+target = "precompiles/oracle/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.142]
+target = "precompiles/oracle/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.143]
+target = "precompiles/oracle/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.144]
+target = "precompiles/p256"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.145]
+target = "precompiles/p256/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.146]
+target = "precompiles/p256/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.147]
+target = "precompiles/p256/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.148]
+target = "precompiles/p256/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.149]
+target = "precompiles/p256/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.150]
+target = "precompiles/p256/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.151]
+target = "precompiles/perps"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.152]
+target = "precompiles/perps/abi"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.153]
+target = "precompiles/pointer"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.154]
+target = "precompiles/pointer/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.155]
+target = "precompiles/pointer/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.156]
+target = "precompiles/pointer/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.157]
+target = "precompiles/pointer/legacy/v575"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.158]
+target = "precompiles/pointer/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.159]
+target = "precompiles/pointer/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.160]
+target = "precompiles/pointer/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.161]
+target = "precompiles/pointer/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.162]
+target = "precompiles/pointer/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.163]
+target = "precompiles/pointer/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.164]
+target = "precompiles/pointer/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.165]
+target = "precompiles/pointer/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.166]
+target = "precompiles/pointer/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.167]
+target = "precompiles/pointer/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.168]
+target = "precompiles/pointerview"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.169]
+target = "precompiles/pointerview/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.170]
+target = "precompiles/pointerview/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.171]
+target = "precompiles/pointerview/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.172]
+target = "precompiles/pointerview/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.173]
+target = "precompiles/pointerview/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.174]
+target = "precompiles/pointerview/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.175]
+target = "precompiles/pointerview/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.176]
+target = "precompiles/pointerview/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.177]
+target = "precompiles/pointerview/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.178]
+target = "precompiles/pointerview/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.179]
+target = "precompiles/pointerview/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.180]
+target = "precompiles/pricefeed"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.181]
+target = "precompiles/pricefeed/abi"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.182]
+target = "precompiles/solo"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.183]
+target = "precompiles/solo/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.184]
+target = "precompiles/solo/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.185]
+target = "precompiles/solo/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.186]
+target = "precompiles/solo/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.187]
+target = "precompiles/solo/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.188]
+target = "precompiles/spot"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.189]
+target = "precompiles/spot/abi"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.190]
+target = "precompiles/staking"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.191]
+target = "precompiles/staking/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.192]
+target = "precompiles/staking/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.193]
+target = "precompiles/staking/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.194]
+target = "precompiles/staking/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.195]
+target = "precompiles/staking/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.196]
+target = "precompiles/staking/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.197]
+target = "precompiles/staking/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.198]
+target = "precompiles/staking/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.199]
+target = "precompiles/staking/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.200]
+target = "precompiles/staking/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.201]
+target = "precompiles/staking/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.202]
+target = "precompiles/staking/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.203]
+target = "precompiles/testutil"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.204]
+target = "precompiles/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.205]
+target = "precompiles/wasmd"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.206]
+target = "precompiles/wasmd/legacy/v552"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.207]
+target = "precompiles/wasmd/legacy/v555"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.208]
+target = "precompiles/wasmd/legacy/v562"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.209]
+target = "precompiles/wasmd/legacy/v575"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.210]
+target = "precompiles/wasmd/legacy/v580"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.211]
+target = "precompiles/wasmd/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.212]
+target = "precompiles/wasmd/legacy/v601"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.213]
+target = "precompiles/wasmd/legacy/v603"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.214]
+target = "precompiles/wasmd/legacy/v605"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.215]
+target = "precompiles/wasmd/legacy/v606"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.216]
+target = "precompiles/wasmd/legacy/v610"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.217]
+target = "precompiles/wasmd/legacy/v614"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.218]
+target = "precompiles/wasmd/legacy/v620"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.219]
+target = "precompiles/wasmd/legacy/v630"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.220]
+target = "precompiles/wasmd/legacy/v640"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.221]
+target = "precompiles/wasmd/legacy/v65"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.222]
+target = "precompiles/xweb"
+result = "passed"
+exit_code = 0
+
+[target.go-precompiles.223]
+target = "precompiles/xweb/legacy/v68"
+result = "passed"
+exit_code = 0

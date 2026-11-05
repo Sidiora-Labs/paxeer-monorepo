@@ -168,33 +168,6 @@ fn verify_historical_documents(
     }
 }
 
-fn call_fixture() -> (Vec<u8>, AuthorizedBatch) {
-    let document: serde_json::Value = must(serde_json::from_str(include_str!(
-        "../../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-    )));
-    let bytes = must(hex::decode(
-        document["canonical_receipt_hex"]
-            .as_str()
-            .unwrap_or_else(|| panic!("receipt")),
-    ));
-    let fields = &document["authorized_batch"];
-    let field = |name: &str| {
-        must(hex::decode32(
-            fields[name]
-                .as_str()
-                .unwrap_or_else(|| panic!("authority field")),
-        ))
-    };
-    let authority = AuthorizedBatch::new(
-        field("batch_id_hex"),
-        field("asset_hex"),
-        field("previous_state_root_hex"),
-        field("resulting_state_root_hex"),
-        field("sequencer_public_key_hex"),
-    );
-    (bytes, authority)
-}
-
 fn module_offset(bytes: &[u8]) -> usize {
     let receipt = must(decode(bytes));
     let batch = receipt
@@ -259,16 +232,5 @@ fn malformed_state_module_version_and_signature_are_refused() {
     );
 }
 
-#[test]
-fn call_outcome_cannot_be_reclassified_as_state() {
-    let (bytes, authority) = call_fixture();
-    assert_eq!(verify_authorized_receipt(&bytes, &authority), Ok(()));
-    assert!(verify_outcome(&bytes, &authority).is_ok());
-    let offset = module_offset(&bytes);
-    let mut state_with_outcome = bytes;
-    state_with_outcome[offset + 10] = 0;
-    assert_eq!(
-        verify_authorized_receipt(&state_with_outcome, &authority),
-        Err(EvidenceRefusal::Receipt(ReceiptCheck::ReceiptShape))
-    );
-}
+#[path = "lifecycle_finality.rs"]
+mod lifecycle_finality;

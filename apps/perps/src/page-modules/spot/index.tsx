@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { cn } from "@/ui/utils/cn";
@@ -9,7 +9,7 @@ import { useIsMobile } from "@/hooks/ui/useMobile";
 import { ErrorBoundary } from "@/app/shell/ErrorBoundary";
 import { ChartSkeleton, OrderbookSkeleton, PositionsSkeleton, OrderFormSkeleton } from "@/ui/atoms/skeleton-panel";
 import { ResizeHandle } from "@/ui/atoms/resize-handle";
-import { SPOT_MARKETS, DEFAULT_SPOT_SYMBOL, type SpotMarket } from "@/core/spot/config";
+import { SPOT_MARKETS, getSpotMarket, DEFAULT_SPOT_SYMBOL, type SpotMarket } from "@/core/spot/config";
 import { MobileSpotAppLayout } from "@/widgets/mobile/MobileSpotAppLayout";
 
 const Chart = dynamic(
@@ -20,8 +20,12 @@ const SpotOrderbookWidget = dynamic(
   () => import("@/widgets/spot/SpotOrderbook").then((m) => ({ default: m.SpotOrderbook })),
   { ssr: false, loading: () => <OrderbookSkeleton /> },
 );
-const SpotOrderFormWidget = dynamic(
-  () => import("@/widgets/spot/SpotOrderForm").then((m) => ({ default: m.SpotOrderForm })),
+export function loadSpotOrderForm() {
+  return import("@/widgets/spot/SpotOrderForm").then((m) => ({ default: m.SpotOrderForm }));
+}
+
+export const SpotOrderFormWidget = dynamic(
+  loadSpotOrderForm,
   { ssr: false, loading: () => <OrderFormSkeleton /> },
 );
 const SpotPositionsPanelWidget = dynamic(
@@ -97,7 +101,7 @@ export default function SpotTradingInterface() {
   const isMobile = mounted && isMobileSnapshot;
 
   const selectedSymbol =
-    (router.query.market as string)?.toUpperCase() || DEFAULT_SPOT_SYMBOL;
+    typeof router.query.market === "string" ? router.query.market.toUpperCase() : DEFAULT_SPOT_SYMBOL;
   const selectedMarket = useMemo<SpotMarket>(
     () => SPOT_MARKETS.find((m) => m.symbol === selectedSymbol) ?? SPOT_MARKETS[0]!,
     [selectedSymbol],
@@ -180,6 +184,10 @@ export default function SpotTradingInterface() {
     }, 1000 - sinceLast);
     return () => window.clearTimeout(handle);
   }, [selectedMarket.symbol, marketPrice]);
+
+  if (router.query.market !== undefined && (
+    typeof router.query.market !== "string" || !getSpotMarket(router.query.market)
+  )) return <div role="alert">Unknown spot market.</div>;
 
   // ═══════════════════ MOBILE ═══════════════════
   // Mirrors the perps mobile shell exactly: dedicated MobileSpotAppLayout

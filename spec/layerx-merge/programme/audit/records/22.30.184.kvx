@@ -1,0 +1,1005 @@
+# Pre-upgrade audit, decision 2515. Product findings and proposed repairs only.
+
+[audit.22.30.184]
+task = "22.30.184"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 70
+findings = 49
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["validator-signing-rewind", "rehearsal-receipt-cycle", "binding-core-coordinate", "binding-web-authority"]
+
+[file.01]
+path = "tests/lxp_test_harness.c"
+lines = 118
+verdict = "issues"
+note = "Read in full: bounded registration and named dispatch are implemented; raw callback failure propagation disagrees with explanatory registry status notes."
+
+[file.02]
+path = "tests/lxp_test_harness.h"
+lines = 29
+verdict = "clean"
+note = "Read in full: callback typedef, registration/run APIs and assertion macros match the implementation and in-slice callers."
+
+[file.03]
+path = "tests/test_authority_multisig.c"
+lines = 624
+verdict = "issues"
+note = "Read in full: authority and timelock assertions retained; suite argument dispatch bypasses the declared single-case harness contract."
+
+[file.04]
+path = "tests/test_batch_header.c"
+lines = 126
+verdict = "clean"
+note = "Read in full: historical protocol-v1 batch-header codec golden, domain hash, round-trip and malformed input tests. This codec fixture is not a claim that the merged node publishes batch headers."
+
+[file.05]
+path = "tests/test_beta_withdrawal_genesis.py"
+lines = 93
+verdict = "issues"
+note = "Read in full: fee metadata boundary tests are useful; active public-bootstrap producer still provisions the retired separate daemon."
+
+[file.06]
+path = "tests/test_bridge_deposit.c"
+lines = 186
+verdict = "issues"
+note = "Read in full: retired reserve/checkpoint credit fixture and early finality refusals do not qualify native bank funding."
+
+[file.07]
+path = "tests/test_bridge_withdraw.c"
+lines = 463
+verdict = "issues"
+note = "Read in full: ledger/root and nullifier checks surround a positive retired checkpoint/challenge withdrawal lifecycle."
+
+[file.08]
+path = "tests/test_fee_replay.c"
+lines = 482
+verdict = "issues"
+note = "Read in full: custom fee wire and custom resulting-root producer are shared by writer/replay callbacks, leaving the real kernel receipt path unproven here."
+
+[file.09]
+path = "tests/test_fees.c"
+lines = 197
+verdict = "clean"
+note = "Read in full: fee pricing, u128 bounds, limits, parameter updates and settlement arithmetic exercise the declared C fee implementation; no independent deployment is assumed."
+
+[file.10]
+path = "tests/test_fees_v3.c"
+lines = 205
+verdict = "clean"
+note = "Read in full: preserved fee-v3 encoding and charging compatibility vectors use declared fee types and explicit version handling."
+
+[file.11]
+path = "tests/test_fees_v4.c"
+lines = 212
+verdict = "clean"
+note = "Read in full: fee-v4 module pricing, exclusions and canonical schedule vectors are low-level compatibility tests, without a retired service dependency."
+
+[file.12]
+path = "tests/test_fuzz_smoke.c"
+lines = 304
+verdict = "issues"
+note = "Read in full: real corpus fuzz/mutation loop has a negative numeric iteration input that escapes its intended smoke bounds."
+
+[file.13]
+path = "tests/test_gateway_requirement.c"
+lines = 142
+verdict = "clean"
+note = "Read in full: signed payment-requirement translation compares canonical bytes and hashes and refuses malformed service requirements; the test does not advertise a retired network route."
+
+[file.14]
+path = "tests/test_genesis_builder_cli.c"
+lines = 689
+verdict = "clean"
+note = "Read in full: actual builder CLI output and refusal cases, including absence of snapshot-issuance output, preserve the declared supported builder behavior."
+
+[file.15]
+path = "tests/test_genesis_import.c"
+lines = 84
+verdict = "clean"
+note = "Read in full: canonical import lengths, supported records, duplicate/refusal handling and imported values match the C genesis import consumer."
+
+[file.16]
+path = "tests/test_genesis_manifest.c"
+lines = 333
+verdict = "issues"
+note = "Read in full: module/asset routing and root corruption checks are substantive, but the positive bootstrap still gates on a separate settlement registration."
+
+[file.17]
+path = "tests/test_genesis_module_table.c"
+lines = 856
+verdict = "issues"
+note = "Read in full: no-handover, reserved/removed module and root assertions are useful; retained successful anchor bootstrap remains pre-merge behavior."
+
+[file.18]
+path = "tests/test_genesis_reconcile.c"
+lines = 125
+verdict = "issues"
+note = "Read in full: a signed external custody/checkpoint attestation is still the positive genesis backing authority."
+
+[file.19]
+path = "tests/test_governance_activation.c"
+lines = 141
+verdict = "clean"
+note = "Read in full: governance activation ordering, parameter timing and signature/refusal cases exercise the existing typed C governance boundary."
+
+[file.20]
+path = "tests/test_governance_emergency.c"
+lines = 90
+verdict = "clean"
+note = "Read in full: emergency policy flags, authorization and denied actions are unit assertions against the C governance policy; they do not launch a guarantor or checkpoint service."
+
+[file.21]
+path = "tests/test_governance_params.c"
+lines = 103
+verdict = "clean"
+note = "Read in full: parameter validation and governance authorization assertions match the producer and consumer C types and bounds."
+
+[file.22]
+path = "tests/test_legacy_readonly.c"
+lines = 60
+verdict = "clean"
+note = "Read in full: explicitly historical import reader is O_RDONLY, rejects custody writes and development settlement fallback, and verifies original bytes are unchanged; retired behavior is refused."
+
+[file.23]
+path = "tests/test_lxgb_producers.py"
+lines = 136
+verdict = "issues"
+note = "Read in full: accepted bootstrap artifacts depend on the retired relay producer and guarantor member model."
+
+[file.24]
+path = "tests/test_metering.c"
+lines = 163
+verdict = "clean"
+note = "Read in full: execution/storage metering limits, deterministic costs and arithmetic error cases use the declared meter API."
+
+[file.25]
+path = "tests/test_programs_oracle_read.c"
+lines = 615
+verdict = "clean"
+note = "Read in full: actual WASM oracle read uses committed perps/oracle state, rejects unknown/halted values and isolates pending overlays; its explicit historical guest ABI is compatibility coverage."
+
+[file.26]
+path = "tests/test_programs_web_read.c"
+lines = 78
+verdict = "clean"
+note = "Read in full: deliberate legacy ABI-v4 web_read refusal coverage expects MODULE_DISABLED and malformed capability refusal, with no state mutation; it does not enable retired kernel web."
+
+[file.27]
+path = "tests/test_qual_arith.c"
+lines = 24
+verdict = "clean"
+note = "Read in full: arithmetic qualification delegates to the actual deterministic integer qualification implementation and preserves errors."
+
+[file.28]
+path = "tests/test_qual_recovery.c"
+lines = 13
+verdict = "clean"
+note = "Read in full: fault-boundary qualification calls the actual C qualification entry point and propagates failures; this unit driver makes no separate daemon deployment claim."
+
+[file.29]
+path = "tests/test_qual_replay.c"
+lines = 53
+verdict = "clean"
+note = "Read in full: replay matrix driver checks errors and minimum corpus size with an explicit small-corpus development option; corpus/root-ledger comparison remains a low-level determinism gate."
+
+[file.30]
+path = "tests/test_reserve_reconcile.c"
+lines = 107
+verdict = "issues"
+note = "Read in full: active reserve/backing success assertions retain the retired external-custody model."
+
+[file.31]
+path = "tests/test_shadow_replay.c"
+lines = 91
+verdict = "clean"
+note = "Read in full: explicitly legacy read-only shadow comparison checks fee/receipt divergence, intentional differences and wall-clock refusal; synthetic outcomes scope it to comparator logic, not a live merged receipt proof."
+
+[file.32]
+path = "tests/test_snapshot.c"
+lines = 574
+verdict = "clean"
+note = "Read in full: serializer/state-store snapshot round-trip, corruption and allocation/refusal checks cover that low-level format. Its program fixture is serialization coverage, not deployed guest/restart qualification."
+
+[file.33]
+path = "tests/test_state_commitment_transition.c"
+lines = 1148
+verdict = "clean"
+note = "Read in full: signed actual kernel activities, state-root chaining, tamper refusal, snapshot reload and prepare/replay checks use real typed paths and preserve failure assertions."
+
+[file.34]
+path = "tests/test_web_program_path.c"
+lines = 542
+verdict = "issues"
+note = "Read in full: the active paid-program success scenario includes a deleted kernel-web header and registers the retired web module."
+
+[file.35]
+path = "tools/qualification/paxeer-x/mcp_binding_listener.py"
+lines = 784
+verdict = "issues"
+note = "Read in full: real Unix socket permissions, peer admission, secret redaction and restart checks are valuable; binding producer and current closed consumer schemas disagree."
+
+[file.36]
+path = "tools/release/build-paxd.sh"
+lines = 134
+verdict = "issues"
+note = "Read in full: actual release/native build paths inspected; retired asset, source revision provenance and compiler-selection findings prevent a clean release-contract verdict."
+
+[file.37]
+path = "tools/release/extld.sh"
+lines = 19
+verdict = "issues"
+note = "Read in full: literal ELF ORIGIN rpath forwarding is valid; the registry falsely advertises that token as a configurable environment variable."
+
+[file.38]
+path = "tools/release/feed_key.py"
+lines = 211
+verdict = "clean"
+note = "Read in full: secret key type/length/mode validation, public derivation and validator/feed-account identity checks match the release-side caller contract."
+
+[file.39]
+path = "tools/release/fleet-views.json"
+lines = 73
+verdict = "issues"
+note = "Read in full: the view inventory is valid for its old market slice but omits merged entry points and explicit retired-call refusals."
+
+[file.40]
+path = "tools/release/fleet_check.py"
+lines = 1044
+verdict = "issues"
+note = "Read in full: node inventory, version/height/hash checks, oracle/service probes and receipt validation reviewed; merged native transaction/recovery qualification is missing and the rehearsal handoff is cyclic."
+
+[file.41]
+path = "tools/release/rehearsal/pool_parity.py"
+lines = 221
+verdict = "clean"
+note = "Read in full: registry records use explicit block identity and decimal integer balances; check compares the same producer-shaped pool identities/reserves and rejects malformed or inconsistent input."
+
+[file.42]
+path = "tools/release/rehearsal/programme.py"
+lines = 3028
+verdict = "issues"
+note = "Read in full: ABI/calldata, EVM signing, logs and market scenario implementations reviewed; active import depends on a retired tree and the checklist omits merged lifecycle paths."
+
+[file.43]
+path = "tools/release/rehearsal/rewrite_genesis.py"
+lines = 203
+verdict = "clean"
+note = "Read in full: exported genesis reconstruction preserves application state and reconciles validator key/power identity rather than deleting auth state; errors are surfaced."
+
+[file.44]
+path = "tools/release/rehearsal/test_rewrite_genesis.py"
+lines = 351
+verdict = "clean"
+note = "Read in full: real rewrite function tested with validator membership, missing/duplicate keys and preserved exported state; fixtures represent the relevant genesis shape."
+
+[file.45]
+path = "tools/release/rehearse-v6120.sh"
+lines = 1054
+verdict = "issues"
+note = "Read in full: export, fresh consensus identities, halt, snapshot, swap, market checks, rollback and receipt emission traced; fresh markets step requires its own not-yet-produced final receipt."
+
+[file.46]
+path = "tools/release/reproducible-check.sh"
+lines = 58
+verdict = "clean"
+note = "Read in full: separate clean native builds and checksummed directory comparison are real build paths, with explicit failure propagation and retained divergence evidence."
+
+[file.47]
+path = "tools/release/rollback.sh"
+lines = 508
+verdict = "issues"
+note = "Read in full: archive/material verification and phased recovery traced; signer rewind, incomplete process matching and independent operation locks remain unsafe recovery conditions."
+
+[file.48]
+path = "tools/release/snapshot.sh"
+lines = 363
+verdict = "clean"
+note = "Read in full: stopped-home checks inspect explicit/environment/ambiguous homes; archive manifest, hashes, signing halt-state and expected release checks fail closed before snapshot use."
+
+[file.49]
+path = "tools/release/stage.sh"
+lines = 372
+verdict = "issues"
+note = "Read in full: source hashes, dependency checks, same-directory installation and staged identity verification are substantive; its lock is independent of other mutators of the same binary directory."
+
+[file.50]
+path = "tools/release/swap.sh"
+lines = 381
+verdict = "issues"
+note = "Read in full: halt/plan/hash and signer-state checks plus atomic binary activation reviewed; home discovery misses supported environment/default selections and the operation lock is not shared with rollback/stage."
+
+[file.51]
+path = "tools/release/tests/build.test.sh"
+lines = 210
+verdict = "issues"
+note = "Read in full: real build and dependency/source identity checks retain the retired daemon as a mandatory release asset."
+
+[file.52]
+path = "tools/release/tests/env_templates.test.sh"
+lines = 192
+verdict = "clean"
+note = "Read in full: environment parser/template and required-key compatibility checks cover operator input shape without printing private key contents."
+
+[file.53]
+path = "tools/release/tests/identity.test.sh"
+lines = 89
+verdict = "clean"
+note = "Read in full: real EVM key/account derivation, feed association and owner/refusal checks exercise release identity wiring."
+
+[file.54]
+path = "tools/release/tests/rehearse.test.sh"
+lines = 589
+verdict = "issues"
+note = "Read in full: actual chain evidence assertions exist, but accepting a finished WORK can avoid a fresh driver execution and conceal the circular receipt prerequisite."
+
+[file.55]
+path = "tools/release/tests/reproducible.test.sh"
+lines = 187
+verdict = "issues"
+note = "Read in full: real cross-path build/digest checks are substantive but force the retired daemon distribution option."
+
+[file.56]
+path = "tools/release/tests/rollback.test.sh"
+lines = 301
+verdict = "issues"
+note = "Read in full: actual candidate/snapshot/restart exercise explicitly expects a validator signer watermark rewind from height 25 to 20."
+
+[file.57]
+path = "tools/release/tests/run-all.sh"
+lines = 219
+verdict = "clean"
+note = "Read in full: release test orchestration enumerates actual scripts and propagates failure; this aggregator was inspected only, not executed for this bounded audit."
+
+[file.58]
+path = "tools/release/tests/seed_halt_export.py"
+lines = 91
+verdict = "clean"
+note = "Read in full: halted-chain export fixture preserves real chain state and constructs the declared upgrade/market configuration without a separate LayerX service."
+
+[file.59]
+path = "tools/release/tests/snapshot.test.sh"
+lines = 346
+verdict = "clean"
+note = "Read in full: real stopped-node archives, tampering, unsafe/live process and signing-state tests exercise snapshot producer and verifier, preserving all refusal assertions."
+
+[file.60]
+path = "tools/release/tests/stage.test.sh"
+lines = 285
+verdict = "clean"
+note = "Read in full: real candidate binaries and corrupt/unresolved dependency inputs exercise staging refusal and checksum verification; cross-command locking is recorded on the owning stage implementation."
+
+[file.61]
+path = "tools/release/tests/swap.test.sh"
+lines = 604
+verdict = "clean"
+note = "Read in full: real halt/swap/restart, binary checksum and invalid-plan tests exercise the explicit-home path; alternate supported home discovery is recorded on swap.sh."
+
+[file.62]
+path = "tools/release/tests/test_feed_key.py"
+lines = 106
+verdict = "clean"
+note = "Read in full: actual key decoding/public derivation and invalid file/mode/type boundaries correspond to the feed-key helper."
+
+[file.63]
+path = "tools/release/tests/test_fleet_check.py"
+lines = 1027
+verdict = "issues"
+note = "Read in full: inventory, failure and receipt parsing assertions exercise the consumer, but no fresh real rehearsal environment handoff exposes its prerequisite cycle."
+
+[file.64]
+path = "tools/release/tests/test_programme.py"
+lines = 648
+verdict = "issues"
+note = "Read in full: ABI golden/selectors, receipt/log decoders and scenario registration checks preserve the old sixteen-case market checklist without merged lifecycle qualification."
+
+[file.65]
+path = "tools/release/tests/verify-release.test.sh"
+lines = 110
+verdict = "issues"
+note = "Read in full: checksum/rpath/secret and tamper verification scenarios package the retired layerxd asset in the expected candidate."
+
+[file.66]
+path = "tools/release/tests/workflows.test.sh"
+lines = 336
+verdict = "clean"
+note = "Read in full: workflow file assertions check release triggers, artifact/download verification and ordering; these are workflow configuration checks, not a claim that source release builds ran in this audit."
+
+[file.67]
+path = "tools/release/upgrade_info.py"
+lines = 185
+verdict = "clean"
+note = "Read in full: release/node upgrade-info generation validates exact asset names, nonempty/checksummed metadata and supported height/name/hash encodings for node consumers."
+
+[file.68]
+path = "tools/release/upgradeinfo/upgradeinfo_test.go"
+lines = 255
+verdict = "clean"
+note = "Read in full: actual Go upgrade reader consumes Python-produced release/node documents and rejects shape/name/hash drift. The layerxd wrong-asset fixture is explicitly a refusal, not an active daemon requirement."
+
+[file.69]
+path = "tools/release/verify-release.sh"
+lines = 125
+verdict = "clean"
+note = "Read in full: candidate checksums, relocatable native dependencies, executable version and sensitive material scans inspect supplied assets; it does not itself require a layerxd asset."
+
+[file.70]
+path = "tools/release/version.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: version and upgrade plan both declare v6.12.0 consistently with these historical rollout tools; no new merged release version is inferred by the audit."
+
+[finding.validator-signing-rewind]
+file = "tools/release/rollback.sh"
+line = 383
+class = "restart-recovery"
+severity = "high"
+observed = "restore() replaces the current data directory with the halt snapshot, including priv_validator_state.json, clears halt-height and restarts the previous binary with the same validator keys and chain identity. There is no check against the current signing height. A candidate that signed beyond the halt can sign conflicting blocks after the restore; committed post-halt history is also discarded."
+expected = "A mainnet rollback must preserve validator anti-double-sign state and committed history. A disposable rehearsal fork with fresh consensus keys is not evidence that rewinding the same production validator is safe."
+proposal = "In tools/release/rollback.sh compare the live and snapshot signing high-water marks before any move, refuse a same-chain rewind after post-halt signing, and implement a supported forward recovery procedure. Permit destructive rewind only on an explicitly isolated fork with new consensus identities; exercise both refusal and restart recovery."
+owner_domain = 16
+
+[finding.rehearsal-receipt-cycle]
+file = "tools/release/rehearse-v6120.sh"
+line = 950
+class = "interface-mismatch"
+severity = "high"
+observed = "The generated rehearsal.env sets RECEIPT_DIR but no POOL_COUNT. The first markets call invokes fleet_check.py without --rehearsal or --no-rehearsal. load_config at fleet_check.py:883-906 requires RECEIPT_DIR/rehearsal.json with result=pass and rollback_rehearsed=true. write_receipt pass runs only at rehearse-v6120.sh:1053 after these checks and rollback, so a fresh rehearsal cannot produce its prerequisite."
+expected = "The rehearsal producer and fleet-check consumer must complete from an empty work directory. Completed rollback evidence is required for rollout, but cannot be an input required before the rehearsal that creates it."
+proposal = "Give tools/release/rehearse-v6120.sh and fleet_check.py an explicit internal rehearsal handoff containing the measured pool count and candidate identity before markets runs; keep completed rollback evidence mandatory for production rollout. Add a real fresh-directory driver-to-consumer check that reaches final receipt publication without pre-seeding success evidence."
+owner_domain = 16
+interface = "16.cli-release-release-fleet-check-opt-rehearsal"
+
+[finding.binding-core-coordinate]
+file = "tools/qualification/paxeer-x/mcp_binding_listener.py"
+line = 28
+class = "interface-mismatch"
+severity = "high"
+observed = "TOP_KEYS and producer_schema require core_sequence, matching BindingPublisher.document in services/agent/crates/layerx-agentd/src/enrolment.rs:807. The actual consumer Binding::parse in services/agent/crates/layerx-mcp/src/binding.rs:618 rejects that key with mcp.binding_retired_key and requires core_height at line 664. The real published binding cannot initialize this consumer."
+expected = "The binding.json producer, its file transport and the MCP reader must agree on the merged height coordinate and its numeric encoding, including loading the same binding after restart."
+proposal = "Change the domain-9 binding publisher in services/agent/crates/layerx-agentd/src/enrolment.rs to emit the consumer contract core_height from the verified chain height, update this harness TOP_KEYS and assertions, and prove enroll-to-file-to-MCP initialization plus restart with the actual publisher output."
+owner_domain = 9
+interface = "9.rs-agentd-enrolment-bindingpublisher"
+
+[finding.binding-web-authority]
+file = "tools/qualification/paxeer-x/mcp_binding_listener.py"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "WEB_KEYS and web_reference_emitted accept the six-field WebDeclaration document emitted by agentd enrolment.rs:399-407, including sequencer_public_key. MCP binding.rs:1190 rejects that retired field and its closed WEB_KEYS also requires payer_address, receiver_address, receipt_key_index, sequencer_id and first_batch_number/last_batch_number. Even with the top-level height fixed, the paid web binding is refused."
+expected = "Paid MCP web requests must carry the same payer, receiver and governed receipt-key/range authority that the MCP consumer validates; the harness must assert the actual supported producer-to-consumer document."
+proposal = "Replace WebDeclaration publication and its configuration in services/agent/crates/layerx-agentd/src/enrolment.rs with the declared MCP web schema, preserving authority checks and bounded key ranges. Update this harness and run an actual paid-tool initialization and restart using that emitted file, including refusal of a changed authority."
+owner_domain = 9
+interface = "9.rs-agentd-enrolment-webdeclaration"
+
+[finding.rollback-test-endorses-rewind]
+file = "tools/release/tests/rollback.test.sh"
+line = 230
+class = "test-gap"
+severity = "medium"
+observed = "advance_candidate signs through height 25, then restored_state_is_pre_h1 asserts the active validator signer state is back at 20 and keeps the height-25 watermark only in the set-aside directory. Subsequent cases restart the old binary. This test treats reuse of a rewound validator identity as the expected production result."
+expected = "A production rollback regression must reject signing-state rewind after the halt and must prove that safe recovery preserves the signer watermark. Fork-only destructive exercises must clearly use distinct chain and consensus identities."
+proposal = "In tools/release/tests/rollback.test.sh make the post-halt signed candidate exercise the rollback refusal, assert that no data or signer files changed, then test supported forward recovery. Keep any rewind experiment on an isolated fork with freshly generated keys and a separate explicit contract."
+owner_domain = 16
+
+[finding.retired-daemon-release-asset]
+file = "tools/release/build-paxd.sh"
+line = 116
+class = "retired-reference"
+severity = "medium"
+observed = "PAXD_RELEASE_LAYERXD=1 still invokes make layerxd and copies a layerxd release binary into the checksummed paxeer-network asset set. Release CI and build tests still set this option, so this is a reachable release path rather than a historical string."
+expected = "The merged release distributes the paxd node with its embedded kernel and required native libraries; the separate layerxd daemon is retired by brief network facts 1 and 2."
+proposal = "Remove the layerxd asset branch from tools/release/build-paxd.sh and retire PAXD_RELEASE_LAYERXD in its release workflow callers, tests and operations registry. Preserve reproducibility checks for paxd, sidecar and linked native dependencies."
+owner_domain = 16
+interface = "16.env-release-release-build-paxd-paxd-release-layerxd"
+
+[finding.release-source-provenance]
+file = "tools/release/build-paxd.sh"
+line = 58
+class = "security"
+severity = "medium"
+observed = "PAXD_COMMIT is accepted as the stamped version.Commit and epoch source, while make and go build compile the current working tree with -buildvcs=false. The script neither requires that commit to be HEAD nor rejects tracked modifications, so an artifact can claim a revision that did not supply its source."
+expected = "An operator must be able to map a published node binary and its native libraries to the exact reviewed source revision. A caller-supplied label cannot substitute for source provenance."
+proposal = "In tools/release/build-paxd.sh resolve the build revision to the actual checkout, reject mismatched PAXD_COMMIT and tracked source changes for a release, or build from an isolated checkout of the requested revision. Include the resolved revision in release evidence and test refusal with a deliberately changed source file."
+owner_domain = 16
+interface = "16.env-release-release-build-paxd-paxd-commit"
+
+[finding.compiler-pin-selects-other-driver]
+file = "tools/release/build-paxd.sh"
+line = 47
+class = "config-drift"
+severity = "medium"
+observed = "cc_pin validates cc -dumpfullversion, but the build later exports CC=gcc and CXX=g++. On a machine whose cc alternative differs from gcc, the check can pass while a different compiler builds CGO and native objects."
+expected = "The pinned release compiler must be the same executable used for every native build, so toolchain identity and reproducibility evidence refer to the compiled artifact."
+proposal = "Make tools/release/build-paxd.sh select a single explicit compiler command before validation and validate that exact driver and its C++ companion; pass those commands consistently to make and CGO. Cover a differing cc/gcc installation without weakening the version pin."
+owner_domain = 16
+
+[finding.build-test-daemon]
+file = "tools/release/tests/build.test.sh"
+line = 47
+class = "retired-reference"
+severity = "medium"
+observed = "The release test still includes layerxd in the candidate asset contract. Build and reproducibility cases enable PAXD_RELEASE_LAYERXD=1, while the verification fixture packages layerxd as a release asset; these expectations preserve the retired daemon distribution."
+expected = "The merged release test contract must qualify paxd and its real native dependencies without requiring the separate layerxd runtime to be built or distributed."
+proposal = "Update tools/release/tests/build.test.sh with the owning release builder change so the expected asset set is the merged paxd distribution. Retain checksum, native-linkage, tamper refusal and reproducibility assertions for every supported asset."
+owner_domain = 16
+
+[finding.reproducible-test-daemon]
+file = "tools/release/tests/reproducible.test.sh"
+line = 34
+class = "retired-reference"
+severity = "medium"
+observed = "The release test still includes layerxd in the candidate asset contract. Build and reproducibility cases enable PAXD_RELEASE_LAYERXD=1, while the verification fixture packages layerxd as a release asset; these expectations preserve the retired daemon distribution."
+expected = "The merged release test contract must qualify paxd and its real native dependencies without requiring the separate layerxd runtime to be built or distributed."
+proposal = "Update tools/release/tests/reproducible.test.sh with the owning release builder change so the expected asset set is the merged paxd distribution. Retain checksum, native-linkage, tamper refusal and reproducibility assertions for every supported asset."
+owner_domain = 16
+
+[finding.verification-fixture-daemon]
+file = "tools/release/tests/verify-release.test.sh"
+line = 17
+class = "retired-reference"
+severity = "medium"
+observed = "The release test still includes layerxd in the candidate asset contract. Build and reproducibility cases enable PAXD_RELEASE_LAYERXD=1, while the verification fixture packages layerxd as a release asset; these expectations preserve the retired daemon distribution."
+expected = "The merged release test contract must qualify paxd and its real native dependencies without requiring the separate layerxd runtime to be built or distributed."
+proposal = "Update tools/release/tests/verify-release.test.sh with the owning release builder change so the expected asset set is the merged paxd distribution. Retain checksum, native-linkage, tamper refusal and reproducibility assertions for every supported asset."
+owner_domain = 16
+
+[finding.deleted-web-module-happy-path]
+file = "tests/test_web_program_path.c"
+line = 6
+class = "retired-reference"
+severity = "medium"
+observed = "This suite includes the deleted layerx/lx_web.h, creates an lx_web_store and registers lx_web_module_iface at line 388, then expects a successful ABI-v4 paid request/answer program path. It depends on the retired kernel web module instead of native xweb."
+expected = "Requirements 1065.1-3 remove web/bridge registration and make legacy web_read return LXP_ERR_MODULE_DISABLED; requirement 16966.2 forbids tests including layerx/lx_web.h. Supported program web requests use the merged xweb path."
+proposal = "Port tests/test_web_program_path.c to an actual current guest/host registration and native xweb request, fee escrow, attestation and committed response lifecycle. Preserve the legacy refusal coverage in tests/test_programs_web_read.c and remove the deleted-header dependency only as part of that product migration."
+owner_domain = 16
+
+[finding.deposit-tests-retired-credit]
+file = "tests/test_bridge_deposit.c"
+line = 59
+class = "retired-reference"
+severity = "medium"
+observed = "The fixture opens system:paxeer-reserve and constructs checkpoint-backed lxp_bridge_deposit_credit contexts. Its mutation cases all expect DEPOSIT_PROOF_NOT_FINAL without first creating a finalized producer proof, so they also do not distinguish the later verification guards."
+expected = "Merged funding is a native bank send into a derived sub-account, and genesis has no bridge module under requirement 1065.1. Historical input refusal must not be presented as proof of native funding or successful cross-domain credit."
+proposal = "Replace the product funding scenario in tests/test_bridge_deposit.c with a real bank-send-to-sub-account execution and committed balance proof. Retain historical bridge refusal cases with explicit purpose, and make each retained malformed-proof test reach the intended guard using actual producer evidence."
+owner_domain = 16
+interface = "1.c-lxp-bridge-deposit-credit"
+
+[finding.withdraw-tests-retired-settlement]
+file = "tests/test_bridge_withdraw.c"
+line = 443
+class = "retired-reference"
+severity = "medium"
+observed = "The successful withdrawal regression uses a separate reserve/withdrawals ledger and checkpoint settlement, then exercises a guarantor challenge window and slashed attesters. It asserts the old cross-domain payout lifecycle as live behavior."
+expected = "Merged withdrawals are native bank/ledger changes final at block commit; outward transfers use bridgeOut. A separate checkpoint challenge or guarantor payout window is not the product lifecycle."
+proposal = "Migrate tests/test_bridge_withdraw.c product cases to the actual native withdrawal and bridgeOut producers, committed balances and restart-safe duplicate refusal. Preserve only explicitly historical codec/refusal coverage for the retired withdrawal entry points."
+owner_domain = 1
+interface = "1.c-lxp-bridge-withdraw-finalize"
+
+[finding.reserve-tests-retired-backing]
+file = "tests/test_reserve_reconcile.c"
+line = 8
+class = "retired-reference"
+severity = "medium"
+observed = "The reconciliation success fixture balances system:paxeer-reserve against a separate finalized custody attestation and outstanding withdrawal claims, and expects 70 reserve units and external backing in the report."
+expected = "The merged ledger uses native bank balances for derived sub-accounts; the retired custody disclosure and reserve-account model must not define the network backing invariant."
+proposal = "Replace the product invariant in tests/test_reserve_reconcile.c with native bank/ledger conservation through deposit, spend and withdrawal at committed heights, including persisted state restoration. Keep old report bytes only as explicitly historical decode coverage."
+owner_domain = 1
+interface = "1.c-lxp-reserve-reconcile"
+
+[finding.genesis-tests-retired-attestation]
+file = "tests/test_genesis_reconcile.c"
+line = 88
+class = "retired-reference"
+severity = "medium"
+observed = "The genesis success path signs a separate custody attestation, fabricates a finalized checkpoint registration and accepts the candidate only when those externally attested balances match. It establishes old settlement-domain evidence as the source of genesis backing."
+expected = "The merged chain genesis and bank state establish balances and finality within the same consensus domain; no separate checkpoint/custody authority should gate merged startup."
+proposal = "Migrate tests/test_genesis_reconcile.c with the genesis owner to validate native bank allocations, sub-account derivation and committed state consistency from the actual merged genesis producer. Retain old attestation parsing only behind an explicit historical import/refusal contract."
+owner_domain = 1
+interface = "1.c-lxp-genesis-reconcile"
+
+[finding.manifest-bootstrap-anchor]
+file = "tests/test_genesis_manifest.c"
+line = 242
+class = "retired-reference"
+severity = "medium"
+observed = "The suite builds a registration.settlement_anchor from the genesis receipt root, sets finalised=true and asserts lxp_genesis_bootstrap_verify enables execution. This successful standalone bootstrap contract still represents a separate settlement registration."
+expected = "Merged startup is driven by paxd genesis, chain parameters and committed state, without a separate LayerX settlement anchor. Useful module and root-tampering tests must continue to exercise their actual supported producer."
+proposal = "Migrate the bootstrap portion of tests/test_genesis_manifest.c to the merged genesis-to-node initialization contract and retain its root mismatch, module routing and tampering assertions. Restrict any old registration encoding test to explicit historical compatibility."
+owner_domain = 1
+interface = "1.c-lxp-genesis-bootstrap-verify"
+
+[finding.module-table-bootstrap-anchor]
+file = "tests/test_genesis_module_table.c"
+line = 643
+class = "retired-reference"
+severity = "medium"
+observed = "The suite builds a registration.settlement_anchor from the genesis receipt root, sets finalised=true and asserts lxp_genesis_bootstrap_verify enables execution. This successful standalone bootstrap contract still represents a separate settlement registration."
+expected = "Merged startup is driven by paxd genesis, chain parameters and committed state, without a separate LayerX settlement anchor. Useful module and root-tampering tests must continue to exercise their actual supported producer."
+proposal = "Migrate the bootstrap portion of tests/test_genesis_module_table.c to the merged genesis-to-node initialization contract and retain its root mismatch, module routing and tampering assertions. Restrict any old registration encoding test to explicit historical compatibility."
+owner_domain = 1
+interface = "1.c-lxp-genesis-bootstrap-verify"
+
+[finding.beta-test-retired-bootstrap]
+file = "tests/test_beta_withdrawal_genesis.py"
+line = 65
+class = "retired-reference"
+severity = "medium"
+observed = "The public-bootstrap test imports services/platform/hosted/paxeer/prepare-beta.py and passes --layerxd to construct a separate beta daemon/genesis deployment. Its positive path still provisions the pre-merge network."
+expected = "The merged beta runs paxd and initializes native chain state. The hosted Paxeer relay tree and layerxd deployment are retired, while fee metadata validation remains useful."
+proposal = "Move the active producer scenario in tests/test_beta_withdrawal_genesis.py to the paxd genesis producer and verify the resulting native state with the real node. Preserve the metadata boundary assertions without requiring prepare-beta or layerxd."
+owner_domain = 16
+
+[finding.lxgb-test-retired-producer]
+file = "tests/test_lxgb_producers.py"
+line = 23
+class = "retired-reference"
+severity = "medium"
+observed = "The LXGB producer test loads services/platform/hosted/paxeer/prepare-beta.py and constructs guarantor members to generate accepted public bootstrap requests. That producer belongs to the retired hosted relay and separate-chain deployment."
+expected = "Merged genesis producer tests must round-trip the actual paxd initialization format and native authorities. A historical standalone LXGB producer cannot qualify the deployed network."
+proposal = "Migrate tests/test_lxgb_producers.py to the supported merged genesis producer and real initialization consumer, retaining truncation/trailing-byte and fee binding tests where the format remains supported. Mark retained LXGB import cases explicitly historical and sever their dependency on the retired relay tree."
+owner_domain = 16
+
+[finding.fee-replay-private-wire]
+file = "tests/test_fee_replay.c"
+line = 261
+class = "test-gap"
+severity = "medium"
+observed = "The writer and replay callbacks both execute the local fee_wire/execute_wire model. Its resulting_state_root is a receipt-domain hash of locally assembled balances and sequence at lines 305-324, not a state root and receipt emitted by the kernel transaction path. Matching this model does not prove real fee receipt replay."
+expected = "Brief check 7 requires producer-shaped fixtures and a real producer-to-consumer path. Fee replay evidence must establish that committed kernel receipts, fee accounting and persisted state reconstruct the same result."
+proposal = "Add a real-path case beside tests/test_fee_replay.c that executes signed operations through the supported kernel/node fee path, persists its emitted records, reopens the consumer and compares committed fees and roots. Retain these arithmetic/codec unit cases with a narrower stated purpose."
+owner_domain = 16
+
+[finding.authority-selector-ignores-run]
+file = "tests/test_authority_multisig.c"
+line = 616
+class = "test-gap"
+severity = "medium"
+observed = "main recognizes only --list and otherwise invokes lxp_test_run_all. A caller asking --run authority.multisig-resolution, an unknown case or an invalid option silently runs every case and can return success."
+expected = "The declared C harness single-case contract requires exactly the named case for --run and exit 2 for unknown case names or arguments; qualification evidence must identify the case that actually ran."
+proposal = "Return lxp_test_main(argc, argv) after registration in tests/test_authority_multisig.c and cover a selected case, unknown name and unknown flag through the actual suite binary without changing its authority assertions."
+owner_domain = 16
+interface = "16.c-lxp-test-main-j59"
+
+[finding.negative-fuzz-count]
+file = "tests/test_fuzz_smoke.c"
+line = 271
+class = "runtime-risk"
+severity = "medium"
+observed = "The optional iteration count is parsed with strtoull and checks zero, errno and trailing bytes but not a leading minus sign. On a 64-bit host, -1 is accepted as UINT64_MAX and drives an effectively unbounded qualification loop."
+expected = "A bounded smoke-test input must reject signed-negative counts and invalid numeric syntax before entering its iteration loop, so operator mistakes cannot turn the smoke gate into a multi-year run."
+proposal = "Validate an unsigned decimal digit grammar and an explicit smoke-test iteration limit before conversion in tests/test_fuzz_smoke.c; preserve the requested positive workload and assert that -1, overflow and malformed values exit 2 without seeding or executing the corpus."
+owner_domain = 16
+
+[finding.fleet-view-merged-surface-gap]
+file = "tools/release/fleet-views.json"
+line = 2
+class = "test-gap"
+severity = "medium"
+observed = "The served table probes only 0x1015, 0x1017 and 0x1020-0x1025; no_code covers only 0x1026/0x1027. It contains no merged 0x101A-0x101D or 0x0901-0x0908 views and no 0x1012-0x1014 retired-method refusal contract. A passing presence check therefore omits the new kernel entry points."
+expected = "The pre-upgrade release inventory must expose the merged node surfaces and explicit retired-method refusals at activation, while distinguishing executable precompiles from ordinary eth_getCode results."
+proposal = "Extend tools/release/fleet-views.json and its fleet_check.py consumer with owner-declared read calls, return/error encodings and before/after activation expectations for the merged precompiles and retired calls. Drive them against the candidate nodes instead of inferring support from bytecode presence."
+owner_domain = 16
+interface = "16.cfg-release-fleet-views-served"
+
+[finding.fleet-merged-behavior-gap]
+file = "tools/release/fleet_check.py"
+line = 911
+class = "test-gap"
+severity = "medium"
+observed = "run_phase qualifies the v6.12.0 market/oracle/precompile rollout and process versions, but has no phase proving a merged kernel transaction receipt final at commit, current guest/host ABI registration, tenant state isolation or persistence after node restart. The existing market checks alone cannot establish merged-network readiness."
+expected = "A merged release gate must exercise its actual native producer, transport and consumer, including restart and tenant boundaries, as required by brief checks 1, 5 and 7 and guest fact 6."
+proposal = "Add explicit merged-plan checks in tools/release/fleet_check.py that submit actual transactions, validate committed receipt evidence, register the release guest within its payload limit, isolate two tenant namespaces and reopen node state. Keep the existing market/oracle checks and bind the added evidence to the candidate hash and activation height."
+owner_domain = 16
+
+[finding.programme-retired-helper-import]
+file = "tools/release/rehearsal/programme.py"
+line = 668
+class = "retired-reference"
+severity = "medium"
+observed = "The rehearsal dynamically imports its EVM signing helper from services/platform/hosted/paxeer/evm.py. That file currently exists, but its parent tree is explicitly retired as the hosted Paxeer relay; deleting the retired deployment breaks active release qualification imports."
+expected = "Release transaction signing must remain available after retirement of services/platform/hosted/paxeer, without retaining the relay runtime as a hidden dependency."
+proposal = "Move the shared signing helper to a supported common library owned by the release/client domain and update tools/release/rehearsal/programme.py and all its callers. Preserve the real transaction signing vectors and consumer tests before retiring the old relay tree."
+owner_domain = 16
+
+[finding.programme-merged-lifecycle-gap]
+file = "tools/release/rehearsal/programme.py"
+line = 2978
+class = "test-gap"
+severity = "medium"
+observed = "CHECKS lists sixteen launchpad, perps, spot, sidecar and version scenarios. It does not include merged kernel transaction-to-commit receipts, native program web lifecycle, tenant isolation or kernel state recovery after restart, although the release driver treats these programme checks as its behavioral qualification."
+expected = "The merged candidate needs real producer-to-consumer scenarios for its kernel, program and tenant interfaces; a successful historical market rollout is only part of that qualification."
+proposal = "Extend tools/release/rehearsal/programme.py and its driver with actual merged transaction, current ABI guest deployment, native xweb, tenant isolation and persisted restart scenarios. Bind each scenario to committed height and candidate identity while keeping all existing market scenarios."
+owner_domain = 16
+
+[finding.programme-test-fixes-old-checklist]
+file = "tools/release/tests/test_programme.py"
+line = 577
+class = "test-gap"
+severity = "medium"
+observed = "test_checks_and_driver_functions fixes the exact sixteen historical market/sidecar checks and proves wrapper text for that list. It provides no producer-to-driver assertion for the merged kernel, native program or tenant recovery scenarios absent from CHECKS."
+expected = "The release checklist test must ensure the merged behavioral scenarios are registered and actually invoked through the real driver; matching a fixed historical name list cannot stand in for those paths."
+proposal = "Update tools/release/tests/test_programme.py with the programme owner change to require the merged scenarios and exercise their driver invocation and evidence consumption, retaining the existing golden ABI and decoding assertions."
+owner_domain = 16
+
+[finding.fleet-test-misses-fresh-rehearsal]
+file = "tools/release/tests/test_fleet_check.py"
+line = 537
+class = "test-gap"
+severity = "medium"
+observed = "test_market_phases_read_rehearsal_receipt_by_default supplies an inventory and a completed rehearsal receipt to load_config in isolation. It never consumes the environment emitted by a fresh rehearse-v6120.sh run, leaving the driver receipt cycle undetected."
+expected = "The declared rehearsal interface needs a real producer-to-consumer test starting without completed rehearsal evidence, then a rollout test that consumes the resulting completed receipt."
+proposal = "Add a task-owned integration case through tools/release/tests/test_fleet_check.py and rehearse.test.sh that creates a fresh rehearsal work directory, uses the real emitted environment and reaches markets before final receipt publication; then verify rollout rejects incomplete or mismatched evidence."
+owner_domain = 16
+
+[finding.rehearsal-test-reuses-old-success]
+file = "tools/release/tests/rehearse.test.sh"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "The suite allows WORK to hold a finished rehearsal and then reads that evidence for the main acceptance cases. It does not require a new empty run tied to the current driver/fleet-check content, so stored success can hide the fresh-run receipt dependency defect."
+expected = "Qualification of the rehearsal producer must include a fresh real run and identify the candidate and driver revision that produced its evidence; inspecting an older completed run is a distinct evidence-reading operation."
+proposal = "Separate fresh execution from evidence inspection in tools/release/tests/rehearse.test.sh, require one empty-work producer run for driver qualification and bind reused evidence to candidate and tooling revision. Preserve all existing chain, rollback, feed and hash assertions."
+owner_domain = 16
+
+[finding.swap-unidentified-home-process]
+file = "tools/release/swap.sh"
+line = 131
+class = "runtime-risk"
+severity = "medium"
+observed = "node_process recognizes a paxd process only when its argv has --home or --home=. A node started with its default home or PAX_HOME is invisible, although daemon/paxd/cmd/root.go uses WithHomeDir and WithViper(PAX). The script can treat a live target home as stopped while replacing its binary/configuration."
+expected = "A release swap must identify every process that can own the target home or fail closed when home ownership is ambiguous. snapshot.sh already checks environment/default-home ambiguity rather than assuming no match means no process."
+proposal = "Use one shared fail-closed process/home resolver for tools/release/swap.sh, snapshot.sh and rollback.sh, including canonical paths, process environment and default-home ambiguity. Exercise the actual paxd process with explicit, relative, environment and default home selection before allowing a swap."
+owner_domain = 16
+
+[finding.rollback-unidentified-home-process]
+file = "tools/release/rollback.sh"
+line = 280
+class = "runtime-risk"
+severity = "medium"
+observed = "matching_pids compares only the literal explicit --home argument to the configured home. It ignores equivalent relative paths, PAX_HOME and the default home. In manager=none mode check_stopped can therefore pass while the data directory being restored is still in use."
+expected = "Rollback must prove that all processes owning the target data are stopped before any directory move or archive extraction; alternate supported home selection must not bypass that proof."
+proposal = "Replace tools/release/rollback.sh matching_pids with the shared canonical, fail-closed home ownership resolver and require an unambiguous stopped result before prepare/restore. Test a running node with a relative home and an environment-selected home, asserting refusal without filesystem changes."
+owner_domain = 16
+
+[finding.release-tools-disjoint-locks]
+file = "tools/release/stage.sh"
+line = 116
+class = "restart-recovery"
+severity = "medium"
+observed = "stage holds BIN_DIR/.stage.lock, swap holds .paxd-swap.lock and rollback holds .rollback.lock. These operations mutate the same paxd/paxd.new/previous binaries and release material, but their locks do not exclude one another, so concurrent operator invocations can interleave staged and restored identities."
+expected = "Release staging, activation and recovery on one BIN_DIR must be serialized across commands, and the binary selected at the end must match the evidence checked before mutation."
+proposal = "Use a single shared release-operation lock in tools/release/stage.sh, swap.sh and rollback.sh before any shared binary/material mutation, with consistent acquisition order for any home locks. Exercise concurrent real commands and assert only one mutator proceeds and evidence matches the final binary."
+owner_domain = 16
+
+[finding.readme-two-domains]
+file = "README.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 46-54 describe two execution domains and periodic checkpoint settlement; the build section around line 152 still instructs make layerxd, and the closing overview presents the merge as a draft while describing a separate runtime."
+expected = "The repository entry page must describe one paxd BFT network, EVM chain 125, an embedded kernel and receipts final at block commit; no separate LayerX daemon is a deployment prerequisite."
+proposal = "Rewrite README.md architecture, directory/build and release sections around the merged paxd distribution and native bank/program entry points. Link the actual root JSON-RPC and hosted gateway contracts and label any retained pre-merge material historical."
+owner_domain = 17
+
+[finding.docs-index-retired-node-api]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation table advertises wiki/LNI.md as Node interface v1.7 alongside the current integration references without a retirement or replacement warning."
+expected = "The merged documentation index must direct integrators to native chain JSON-RPC, precompile queries and the separately declared hosted gateway px_ contract rather than the retired LNI interface."
+proposal = "Replace the active LNI navigation row in docs/README.md with merged node/gateway documentation and clearly label any retained LNI history as retired. Keep the chain-ID and operator runbook links aligned with the shipped merged node."
+owner_domain = 17
+
+[finding.network-page-separate-settlement]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-19 describe Paxeer as a separate checkpoint/custody and guarantor settlement domain, with LayerX activity elsewhere and independent trust boundaries; line 38 lists retired anchor/custody modules as active. The virtual-chain namespace section is useful but sits inside this conflicting architecture."
+expected = "The network overview must describe the single chain-125 paxd consensus domain with native balances and commit finality, preserving the infrastructure-free tenant namespace description."
+proposal = "Rewrite docs/paxeer-network.md opening, ownership table and module layout for the merged chain; retain and cross-check its virtual-chain namespace/RPC details, and replace old checkpoint, guarantor and separate custody deployment guidance with native funding and committed block evidence."
+owner_domain = 17
+
+[finding.site-overview-old-finality]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-28 describe a LayerX domain behind one interface, ordinary activity outside Paxeer transactions, periodic checkpoints, separate deployment authority and guarantor settlement. The summary also treats the global activity sequence and batch DA as the current public model."
+expected = "The site landing page must match one chain-125 network whose native transactions commit receipts, without a separate LayerX interface, guarantor process or periodic settlement boundary."
+proposal = "Rewrite docs/site/docs/index.md architecture and key properties around paxd, committed block heights, native bank/PLX effects and current program registration; update the linked operator and developer path descriptions to the merged product."
+owner_domain = 17
+
+[finding.quickstart-retired-rpc-and-funding]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20, 167-215, 497-518 and 596 prescribe public /rpc and /rpc/ws; lines 131-132 and 646 prescribe anchor 0x1014, line 300 routes funding through custody 0x1013, and lines 154/277 use network 402 with sequencer trust. These steps conflict with the merged public endpoints and native funding/finality path."
+expected = "A current quickstart must use chain 125 and the public node root URLs, distinguish hosted gateway px_ methods, fund native derived sub-accounts and verify receipt finality at block commit without a retired router or anchor."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md commands and expected outputs against real merged CLI/node producers: api1 through api14 and api-mainnet-beta root JSON-RPC, native bank funding, current guest ABI and committed receipt proofs. Keep private disposable allocation instructions clearly separate from public mainnet behavior."
+owner_domain = 17
+
+[finding.locale-zh-cn-old-architecture]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-cn overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.locale-ru-old-architecture]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ru overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.locale-es-old-architecture]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The es overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.locale-pt-br-old-architecture]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-br overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.locale-ja-old-architecture]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ja overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.locale-de-old-architecture]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The de overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.locale-fr-old-architecture]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The fr overview at lines 18-20 says ordinary LayerX activity needs no Paxeer transaction and settles periodic checkpoints under separate trust/release boundaries. Its directory table at lines 100-106 still lists layerxd, old agent/human/interop paths and custody/checkpoint/guarantor contracts as active."
+expected = "Localized overviews must describe the same merged chain-125 paxd network as the canonical page, with embedded execution, commit finality, native balances and current services paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md from the corrected merged canonical overview, translating the one-network transaction/finality model and replacing the retired daemon, custody/checkpoint and old directory guidance. Check its quickstart commands and expected receipt fields against the current producer."
+owner_domain = 17
+
+[finding.operations-invented-home-flags]
+file = "spec/layerx-merge/contracts/operations.md"
+line = 12348
+class = "doc-drift"
+severity = "medium"
+observed = "The release-cli table declares --home on rollback.sh, snapshot.sh and swap.sh at lines 12348, 12359 and 12374. Those snippets inspect paxd process argv inside embedded Python; they are not flags accepted by those shell scripts. Similar qual-cli argv1/2/3 rows describe embedded client arguments rather than the top-level harness CLI."
+expected = "An interface registry and its rendered operations contract must distinguish an executable public command parser from arguments of child processes; operators must not be given flags that the advertised command rejects."
+proposal = "Correct the registry extraction ownership rules for nested shell/Python programs, reconcile 16.cli-release-release-rollback-opt-home, snapshot-opt-home, swap-opt-home and the MCP listener argv rows, then regenerate spec/layerx-merge/contracts/operations.md. Keep the real paxd --home interface under its producer."
+owner_domain = 17
+
+[finding.linker-origin-registry]
+file = "tools/release/extld.sh"
+line = 18
+class = "config-drift"
+severity = "low"
+observed = "The registry declares 16.env-release-release-extld-origin as an environment variable, but line 18 passes a single-quoted literal $ORIGIN to the linker. No shell ORIGIN value is read; an operator cannot configure the release rpath by setting that purported environment key."
+expected = "The environment registry must list values actually consumed by the executable and distinguish ELF dynamic-linker tokens from shell configuration variables."
+proposal = "Correct the env-variable extractor for quoted linker tokens, retire the spurious ORIGIN env row for tools/release/extld.sh and regenerate its operations contract. Preserve the literal relocatable $ORIGIN rpath and the real CC driver configuration."
+owner_domain = 16
+interface = "16.env-release-release-extld-origin"
+
+[finding.harness-result-contract-drift]
+file = "tests/lxp_test_harness.c"
+line = 63
+class = "config-drift"
+severity = "low"
+observed = "lxp_test_run_one returns the callback result verbatim, whereas lxp_test_run_all normalizes any nonzero callback result to 1. Registry row 16.c-lxp-test-run-one-j59 notes promise 1 for failure, while requirement 16242.1 says returns its result. A callback returning 7 exposes the conflicting declarations."
+expected = "The callback, named-case API, CLI exit status and registry must share one explicit result contract, including whether failure statuses are preserved or normalized. The existing requirement and explanatory registry notes must not disagree."
+proposal = "Reconcile the harness result contract in the owning specification and registry with tests/lxp_test_harness.c and lxp_test_harness.h. Document the permitted callback result domain and verify a nonstandard nonzero callback through run-one and the CLI; retain named-case failure and unknown-name distinctions."
+owner_domain = 16
+interface = "16.c-lxp-test-run-one-j59"
+
+[finding.harness-contract-historical-status]
+file = "spec/layerx-merge/contracts/test-harness.md"
+line = 18
+class = "doc-drift"
+severity = "low"
+observed = "The c-harness section at lines 18, 21 and 50 still marks lxp_test_main and lxp_test_run_one planned and says HEAD can only run all or list cases. Both functions are implemented in tests/lxp_test_harness.c at the audited revision. The page is explicitly frozen at 2a1033aa2, but current API navigation still leads to this historical status."
+expected = "The operator-facing current harness reference must distinguish implemented single-case selection from the explicitly pinned historical snapshot, without changing historical qualification claims into evidence for the current revision."
+proposal = "Regenerate or link a current c-harness reference in spec/layerx-merge/contracts/test-harness.md from reconciled API rows, and label/archive the old pinned status clearly. Describe supported --list and --run behavior while preserving the historical UNRUN evidence markers as historical facts."
+owner_domain = 17
+
+[doc.01]
+path = "README.md"
+status = "misleading"
+notes = "Read in full. Lines 46-54, 152 and the closing architecture section describe two domains, layerxd and checkpoint settlement; rewrite for one paxd chain and commit finality."
+
+[doc.02]
+path = "docs/README.md"
+status = "stale"
+notes = "Read in full. Line 21 advertises retired LNI as a current node interface; replace current navigation with merged node and hosted gateway contracts."
+
+[doc.03]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read in full. Lines 3-19 and 38 retain separate custody/checkpoint/guarantor ownership; preserve the accurate infrastructure-free virtual-chain namespace description at lines 25-29."
+
+[doc.04]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Read in full. Lines 3-28 and the global-sequence/batch-DA summary retain the separate domain, periodic checkpoint and guarantor model."
+
+[doc.05]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read in full. Wrong merged instructions at lines 20, 131-132, 154, 167-215, 277, 300-302, 497-518, 596 and 646: /rpc routes, network 402, sequencer trust and retired custody/anchor funding."
+
+[doc.06]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "stale"
+notes = "Reviewed the c-harness section, lines 1-75, and relevant fixture/retirement context. The page explicitly freezes revision 2a1033aa2; lines 18, 21 and 50 still label implemented run-one/main APIs planned. Historical qualification markers are not evidence of a gate run at the audited revision."
+
+[doc.07]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "misleading"
+notes = "Reviewed relevant qual-cli and release-cli/config/env/formats registry contracts, especially lines 12285-12676, plus the frozen-revision preamble. Lines 12348, 12359 and 12374 invent shell --home options from nested process-parser code; qual-cli argv rows likewise confuse child and top-level arguments. Other operations domains are outside this slice."
+
+[doc.08]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."
+
+[doc.09]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."
+
+[doc.13]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."
+
+[doc.14]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "misleading"
+notes = "Read in full. Lines 18-20 retain periodic settlement and separate trust/release boundaries; lines 100-106 advertise layerxd, old services paths and custody/checkpoint/guarantor deployment. Translate the corrected merged canonical overview and quickstart."

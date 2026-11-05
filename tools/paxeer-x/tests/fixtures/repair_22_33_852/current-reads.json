@@ -1,0 +1,183 @@
+{
+  "provenance": {
+    "kind": "Committed producer contract examples and recorded chain identity; not a new live capture",
+    "reads": "sdk/wallet/test/fixtures/endpoint/merged-contract.json, derived from services/platform/hosted/gateway/tests/one_source_reads.rs",
+    "chain_identity": "tests/agent/sdk/python/fixtures_22_33_701/chain-125-root.json",
+    "refusal": "rpc/px_account.go: pxUnavailable and GetBalances; services/platform/hosted/gateway/src/paxeer.rs: unavailable",
+    "websocket": "JSON-RPC 2.0 over RFC 6455; Explorer Phoenix v2 join and heartbeat protocol"
+  },
+  "rpc": {
+    "request": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_chainId",
+        "params": []
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "eth_blockNumber",
+        "params": []
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "px_getBalances",
+        "params": [
+          "0x102132435465768798a9bacbdcedfe0f1e2d3c4b"
+        ]
+      }
+    ],
+    "before": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x7d"
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": "0x10"
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "account": {
+            "evm_address": "0x102132435465768798a9bacbdcedfe0f1e2d3c4b",
+            "pax_address": "pax1exampleaccount",
+            "layerx_did": "did:layerx:6161616161616161616161616161616161616161616161616161616161616161",
+            "layerx_account": "457d8ff18e80b2c0671cb8dd37042120b6bfcfa2f2477389636a6d62e2e64de0",
+            "bound": true
+          },
+          "height": 16,
+          "balances": [
+            {
+              "amount": "123456789",
+              "denom": "ulxp"
+            },
+            {
+              "amount": "1606938044258990275541962092341162602522202993782792835301376",
+              "denom": "ibc/abababababababababababababababababababababababababababababababab"
+            }
+          ]
+        }
+      }
+    ],
+    "degraded": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x7d"
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": "0x10"
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "error": {
+          "code": -32001,
+          "message": "Paxeer read unavailable",
+          "data": {
+            "code": "invalid_paxeer_response"
+          }
+        }
+      }
+    ],
+    "recovered": [
+      {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x7d"
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": "0x10"
+      },
+      {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": {
+          "account": {
+            "evm_address": "0x102132435465768798a9bacbdcedfe0f1e2d3c4b",
+            "pax_address": "pax1exampleaccount",
+            "layerx_did": "did:layerx:6161616161616161616161616161616161616161616161616161616161616161",
+            "layerx_account": "457d8ff18e80b2c0671cb8dd37042120b6bfcfa2f2477389636a6d62e2e64de0",
+            "bound": true
+          },
+          "height": 16,
+          "balances": [
+            {
+              "amount": "123456789",
+              "denom": "ulxp"
+            },
+            {
+              "amount": "1606938044258990275541962092341162602522202993782792835301376",
+              "denom": "ibc/abababababababababababababababababababababababababababababababab"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "root_websocket": [
+    {
+      "send": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_chainId",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x7d"
+      }
+    }
+  ],
+  "phoenix_websocket": [
+    {
+      "send": [
+        "1",
+        "1",
+        "blocks:new_block",
+        "phx_join",
+        {}
+      ],
+      "response": [
+        "1",
+        "1",
+        "blocks:new_block",
+        "phx_reply",
+        {
+          "status": "ok",
+          "response": {}
+        }
+      ]
+    },
+    {
+      "send": [
+        null,
+        "2",
+        "phoenix",
+        "heartbeat",
+        {}
+      ],
+      "response": [
+        null,
+        "2",
+        "phoenix",
+        "phx_reply",
+        {
+          "status": "ok",
+          "response": {}
+        }
+      ]
+    }
+  ]
+}

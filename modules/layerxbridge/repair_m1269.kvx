@@ -1,0 +1,15 @@
+[repair.22.33.1269]
+acceptance = "22998.1"
+finding = "bridge-denom-doc"
+tests = ["TestRepairM_1269_DenomDocumentationAndKeeper", "TestRepairM_1269_DigestDomainParity"]
+implementation = "Retain the existing canonical Solana/Sidiora exception and generic derivation; state the explicit six-decimal SID conversion and unscaled integer bridge units in both attestation documents without changing binary layouts, domains or vectors."
+proof = "Production governance proposal producer, application protobuf codec, proposal handler, Msg service, bridge store, bank and tokenfactory keepers prove registration order, canonical metadata/admin, generic pairs, signed inbound mint and outbound burn in base units; production preimage/digest functions pin the unchanged documentation vectors and layouts."
+baseline = "Not run: the explicit implementation-first gate order and prohibition on running verify_cmd by hand conflict with the baseline clause. No baseline failures are claimed; the initial runner ledger contained no prior gate runs."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger and final JSON name the exact candidate revision, command, exit code and private log path; qualification requires passing hf-done on the built candidate."
+
+[gotcha.scope]
+observed = "The task forbids edits to spec/ and root GOTCHA.kvx; task records and encountered instruction conflicts are recorded in this in-scope file."
+
+[gotcha.existing_repair]
+observed = "The base module document already describes the canonical pair, registration order and metadata exponent; this task preserves that content and makes the base-unit conversion explicit."

@@ -38,8 +38,9 @@ defmodule EthereumJSONRPC.PaxeerX do
 
   The header mapping is CometBFT's, not Ethereum's: `stateRoot` is the
   `AppHash`, `transactionsRoot` is the `DataHash`, and `receiptsRoot` is the
-  `LastResultsHash`, which commits to the results of the *preceding* block. It
-  is therefore neither a Merkle-Patricia root over this block's receipts nor
+  `LastResultsHash` in both `newHeads` and `eth_getBlockByNumber`, which commits
+  to the results of the *preceding* block. It is therefore neither a
+  Merkle-Patricia root over this block's receipts nor
   unique per block: every empty block in a run shares one value.
 
   Nothing in the import pipeline may treat `receiptsRoot` as a checksum over the
@@ -48,29 +49,24 @@ defmodule EthereumJSONRPC.PaxeerX do
   for callers that would otherwise reach for such a check; the value itself is
   imported verbatim, as returned.
 
-  ## 3. `newHeads` headers disagree with the block body
+  ## 3. `newHeads` headers agree with the block body
 
-  A `newHeads` notification is rendered from the CometBFT header alone, before
-  the EVM-side block body is assembled, so for one and the same height it
-  reports an all-zero `logsBloom`, an all-zero `sha3Uncles` (the body reports
-  the RLP hash of the empty uncle list), a `gasUsed` summed over every CometBFT
-  transaction rather than over the EVM subset, and the raw `DataHash` as
-  `transactionsRoot` (the body substitutes the empty-transactions hash when the
-  EVM-filtered list is empty). It also omits `size`, `totalDifficulty`,
-  `transactions` and `uncles` altogether.
+  A `newHeads` header agrees with the `eth_getBlockByNumber` body for the same
+  block on every header field, including `logsBloom`, `gasUsed`,
+  `transactionsRoot`, `receiptsRoot` and `parentHash`. The notification omits
+  only the body fields `size`, `totalDifficulty`, `transactions` and `uncles`.
+  The pre-parity notification in `new_head.json` records the older behavior;
+  `new_head_full.json` freezes the header and body pair with parity.
 
-  A notification is therefore a hint that a height exists, never block data.
-  `fetch_block_by_new_head/2` fetches the body by the announced hash, checks
-  that the body agrees with the announced number, and refetches by number when
-  it does not - the body always wins.
+  `fetch_block_by_new_head/2` still fetches the body by the announced hash,
+  checks that the body agrees with the announced number, hash, parent hash and
+  receipts root, and refetches by number when it does not. The fetched body
+  supplies the data for import.
 
-  ## 4. `eth_syncing` always errors
+  ## 4. `eth_syncing` reports consensus catch-up
 
-  The RPC registers `eth_syncing` and then rejects it with JSON-RPC error
-  -32000; the node has no notion of a sync target to report. Consensus-level
-  catch-up is not observable over `eth_*` at all. `fetch_syncing_status/1`
-  reports an errored `eth_syncing` as synced, because on this chain the error is
-  the node's steady state and not a degraded one.
+  The node returns `false` when synced or an object with hex progress quantities
+  while catching up. Transport and consensus status errors remain errors.
 
   ## 5. Native coin decimals
 
@@ -97,6 +93,7 @@ defmodule EthereumJSONRPC.PaxeerX do
 
   @cosmos_transaction_type 0xFFFF_FFFF
   @default_cosmos_transaction_type 0x7F
+  @max_stored_transaction_type 0x7FFF_FFFF
 
   @bank_denom_decimals 6
   @evm_denom_decimals 18
@@ -131,13 +128,22 @@ defmodule EthereumJSONRPC.PaxeerX do
   The in-range transaction type Cosmos-originated transactions are stored with.
 
   Read from `config :ethereum_jsonrpc, EthereumJSONRPC.PaxeerX,
-  cosmos_transaction_type: integer`, defaulting to `0x7f`.
+  cosmos_transaction_type: integer`, defaulting to `0x7f` (127), the unused
+  last EIP-2718 byte. Replacements must be in 127..2147483647: supported
+  EVM types are below this range and the database uses a signed 32-bit integer.
   """
   @spec stored_cosmos_transaction_type() :: non_neg_integer()
   def stored_cosmos_transaction_type do
-    case config(:cosmos_transaction_type) do
-      type when is_integer(type) and type >= 0 -> type
-      _ -> @default_cosmos_transaction_type
+    type =
+      :ethereum_jsonrpc
+      |> Application.get_env(__MODULE__, [])
+      |> Keyword.get(:cosmos_transaction_type, @default_cosmos_transaction_type)
+
+    if is_integer(type) and type >= @default_cosmos_transaction_type and type <= @max_stored_transaction_type do
+      type
+    else
+      raise ArgumentError,
+            "cosmos_transaction_type must be an integer in 127..2147483647, outside supported EVM types and wire markers"
     end
   end
 
@@ -239,15 +245,16 @@ defmodule EthereumJSONRPC.PaxeerX do
   Whether a `newHeads` notification and a fetched block body describe the same
   block.
 
-  Only the height and the hash are compared. Every other header field is
-  expected to differ: the notification is rendered from the CometBFT header
-  before the EVM block body exists.
+  The height, hash, parent hash and receipts root must agree with the fetched
+  block body. The receipts root is compared for equality only.
   """
   @spec new_head_matches_block?(map(), map()) :: boolean()
   def new_head_matches_block?(new_head, block_params) when is_map(new_head) and is_map(block_params) do
     with {:ok, number} <- new_head_number(new_head),
          {:ok, hash} <- new_head_hash(new_head) do
-      number == block_params[:number] and hashes_equal?(hash, block_params[:hash])
+      number == block_params[:number] and hashes_equal?(hash, block_params[:hash]) and
+        hashes_equal?(new_head["parentHash"], block_params[:parent_hash]) and
+        hashes_equal?(new_head["receiptsRoot"], block_params[:receipts_root])
     else
       _ -> false
     end
@@ -258,9 +265,9 @@ defmodule EthereumJSONRPC.PaxeerX do
   body.
 
   The body is fetched by the announced hash. When that fetch yields no block, or
-  yields a body whose number disagrees with the announced one, the block is
-  refetched by number and that result is returned instead. The notification's
-  own header fields are never used.
+  yields a body whose number, hash, parent hash or receipts root disagrees with
+  the announced header, the block is refetched by number and that result is
+  returned instead. The notification's own header fields are never imported.
   """
   @spec fetch_block_by_new_head(map(), EthereumJSONRPC.json_rpc_named_arguments()) ::
           {:ok, Blocks.t()} | {:error, reason :: term()}
@@ -285,33 +292,26 @@ defmodule EthereumJSONRPC.PaxeerX do
   end
 
   @doc """
-  Reads `eth_syncing`, reporting an errored call as synced.
-
-  The Paxeer X RPC answers `eth_syncing` with JSON-RPC error -32000 at all
-  times; that is the node's normal answer, not a fault, so it is reported as
-  `{:ok, :synced}`. A node that does answer is read normally, so this stays
-  correct if the method is ever implemented.
+  Reads the node's false/progress contract and preserves operational errors.
   """
   @spec fetch_syncing_status(EthereumJSONRPC.json_rpc_named_arguments()) ::
           {:ok, :synced}
           | {:ok, {:syncing, current_block :: non_neg_integer(), highest_block :: non_neg_integer()}}
           | {:error, reason :: term()}
   def fetch_syncing_status(json_rpc_named_arguments) do
-    %{id: 0, method: "eth_syncing", params: []}
-    |> request()
-    |> json_rpc(json_rpc_named_arguments)
-    |> case do
-      {:ok, false} ->
-        {:ok, :synced}
+    syncing_request = request(%{id: 0, method: "eth_syncing", params: []})
 
-      {:ok, %{"currentBlock" => current_block, "highestBlock" => highest_block}} ->
-        {:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}
+    with {:ok, result} <- json_rpc(syncing_request, json_rpc_named_arguments) do
+      case result do
+        false ->
+          {:ok, :synced}
 
-      {:error, _reason} ->
-        {:ok, :synced}
+        %{"currentBlock" => current_block, "highestBlock" => highest_block} ->
+          {:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}
 
-      {:ok, other} ->
-        {:error, {:unexpected_syncing_result, other}}
+        other ->
+          {:error, {:unexpected_syncing_result, other}}
+      end
     end
   end
 

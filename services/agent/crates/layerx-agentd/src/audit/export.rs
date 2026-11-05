@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
-use layerx_proof::checkpoint::SettlementDomain;
 use layerx_proof::export::{
     verify as verify_protocol_evidence, ExportVerificationError, OfflineExport,
 };
@@ -14,8 +13,12 @@ use sha2::{Digest, Sha256};
 use crate::store::TenantId;
 use crate::tenant::{Config, RedactionPolicy};
 
-use super::log::{entry_hash, read_frames, verify_chain, AuditError, VerifiedFrame};
-use super::records::{decode_entry, Entry, RecordError};
+use super::log::{
+    committed_entry_hash, entry_hash, read_frames, verify_chain, AuditError, VerifiedFrame,
+};
+use super::records::{
+    commitment_root, decode_entry, record_commitments, record_digest, Entry, RecordError,
+};
 use super::PayloadEvidence;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -49,11 +52,20 @@ pub struct ExportedEntry {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainLink {
     pub sequence: u64,
+    pub field_commitments: bool,
+    pub payload_length: u32,
     pub previous_hash: [u8; 32],
     pub payload_digest: [u8; 32],
     pub entry_hash: [u8; 32],
     pub selected: bool,
     pub canonical_entry_bytes: Option<Vec<u8>>,
+    pub redaction_proof: Option<RedactionProof>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RedactionProof {
+    pub redacted_entry_bytes: Vec<u8>,
+    pub payload_commitment: [u8; 32],
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -105,6 +117,9 @@ pub enum ExportError {
     WrongTenant,
     InvalidTimeRange,
     EmptySlice,
+    RedactionProofUnavailable {
+        sequence: u64,
+    },
     EvidenceUnavailable {
         receipt_id: [u8; 32],
     },
@@ -125,6 +140,10 @@ impl Display for ExportError {
             Self::WrongTenant => formatter.write_str("audit export tenant does not own the data"),
             Self::InvalidTimeRange => formatter.write_str("audit export time range is reversed"),
             Self::EmptySlice => formatter.write_str("audit export slice contains no records"),
+            Self::RedactionProofUnavailable { sequence } => write!(
+                formatter,
+                "audit record {sequence} predates authenticated redaction"
+            ),
             Self::EvidenceUnavailable { receipt_id } => write!(
                 formatter,
                 "referenced receipt evidence {} is unavailable",
@@ -168,6 +187,7 @@ pub enum ChainError {
     Anchor,
     Selection,
     UnselectedPayload,
+    RedactionProof,
 }
 
 impl Display for ChainError {
@@ -181,6 +201,7 @@ impl Display for ChainError {
             Self::Anchor => "chain material does not reach the durable tail anchor",
             Self::Selection => "chain material does not identify an exported record",
             Self::UnselectedPayload => "chain material exposes an unselected record",
+            Self::RedactionProof => "selected record has missing or invalid redaction proof",
         };
         formatter.write_str(reason)
     }
@@ -233,7 +254,6 @@ pub struct ReviewReport {
     pub exported_entries: usize,
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
-    pub verified_checkpoints: usize,
     pub failed_records: usize,
 }
 
@@ -248,7 +268,6 @@ pub fn export(
     config: &Config,
     query: Query,
     evidence_store: &EvidenceStore,
-    expected_settlement_domain: SettlementDomain,
 ) -> Result<AuditExport, ExportError> {
     if query.tenant != config.tenant || evidence_store.tenant != config.tenant {
         return Err(ExportError::WrongTenant);
@@ -290,8 +309,7 @@ pub fn export(
         });
     }
 
-    let referenced_evidence =
-        collect_referenced_evidence(&entries, evidence_store, expected_settlement_domain)?;
+    let referenced_evidence = collect_referenced_evidence(&entries, evidence_store)?;
 
     let first_index = usize::try_from(first_sequence).map_err(|_| ExportError::EmptySlice)?;
     let links = chain_links(
@@ -300,7 +318,7 @@ pub fn export(
         &entries,
         &selected_sequences,
         first_index,
-    );
+    )?;
 
     Ok(AuditExport {
         query,
@@ -333,7 +351,6 @@ fn decode_owned_entries(
 fn collect_referenced_evidence(
     entries: &[ExportedEntry],
     evidence_store: &EvidenceStore,
-    expected_settlement_domain: SettlementDomain,
 ) -> Result<Vec<ReferencedEvidence>, ExportError> {
     let receipt_ids: BTreeSet<_> = entries
         .iter()
@@ -353,7 +370,7 @@ fn collect_referenced_evidence(
         {
             return Err(ExportError::EvidenceMismatch { receipt_id });
         }
-        verify_protocol_evidence(&protocol_facts, expected_settlement_domain)
+        verify_protocol_evidence(&protocol_facts)
             .map_err(|error| ExportError::EvidenceInvalid { receipt_id, error })?;
         referenced_evidence.push(ReferencedEvidence {
             receipt_id,
@@ -369,32 +386,48 @@ fn chain_links(
     entries: &[ExportedEntry],
     selected_sequences: &BTreeSet<u64>,
     first_index: usize,
-) -> Vec<ChainLink> {
+) -> Result<Vec<ChainLink>, ExportError> {
     frames
         .iter()
         .enumerate()
         .skip(first_index)
         .map(|(index, frame)| {
-            let sequence = index as u64;
+            let sequence = frame.sequence;
             let selected = selected_sequences.contains(&sequence);
-            let canonical_entry_bytes = if selected
+            let changed = selected
                 && entries
                     .iter()
                     .find(|entry| entry.sequence == sequence)
-                    .is_some_and(|entry| entry.entry == decoded[index])
-            {
-                Some(frame.payload.clone())
+                    .is_some_and(|entry| entry.entry != decoded[index]);
+            let redaction_proof = if changed {
+                if !frame.field_commitments {
+                    return Err(ExportError::RedactionProofUnavailable { sequence });
+                }
+                let (redacted_entry_bytes, payload_commitment) =
+                    record_commitments(&frame.payload)?;
+                Some(RedactionProof {
+                    redacted_entry_bytes,
+                    payload_commitment,
+                })
             } else {
                 None
             };
-            ChainLink {
+            Ok(ChainLink {
                 sequence,
+                field_commitments: frame.field_commitments,
+                payload_length: u32::try_from(frame.payload.len())
+                    .map_err(|_| ExportError::Record("audit payload too large".into()))?,
                 previous_hash: frame.previous_hash,
-                payload_digest: Sha256::digest(&frame.payload).into(),
+                payload_digest: if frame.field_commitments {
+                    record_digest(&frame.payload)?
+                } else {
+                    Sha256::digest(&frame.payload).into()
+                },
                 entry_hash: frame.entry_hash,
                 selected,
-                canonical_entry_bytes,
-            }
+                canonical_entry_bytes: (selected && !changed).then(|| frame.payload.clone()),
+                redaction_proof,
+            })
         })
         .collect()
 }
@@ -419,29 +452,64 @@ pub fn verify_chain_material(material: &ChainMaterial) -> Result<(), ChainError>
                 return Err(ChainError::Link);
             }
         }
-        match &link.canonical_entry_bytes {
-            Some(payload) => {
-                if !link.selected {
-                    return Err(ChainError::UnselectedPayload);
-                }
-                if <[u8; 32]>::from(Sha256::digest(payload)) != link.payload_digest {
+        if !link.selected
+            && (link.canonical_entry_bytes.is_some() || link.redaction_proof.is_some())
+        {
+            return Err(ChainError::UnselectedPayload);
+        }
+        match (&link.canonical_entry_bytes, &link.redaction_proof) {
+            (Some(payload), None) => {
+                if u32::try_from(payload.len()).ok() != Some(link.payload_length) {
                     return Err(ChainError::PayloadDigest);
                 }
-                let payload_length =
-                    u32::try_from(payload.len()).map_err(|_| ChainError::EntryHash)?;
-                if entry_hash(
-                    material.tenant_hash,
-                    link.sequence,
-                    link.previous_hash,
-                    payload_length,
-                    payload,
-                ) != link.entry_hash
+                let digest = if link.field_commitments {
+                    record_digest(payload).map_err(|_| ChainError::PayloadDigest)?
+                } else {
+                    Sha256::digest(payload).into()
+                };
+                if digest != link.payload_digest {
+                    return Err(ChainError::PayloadDigest);
+                }
+                if !link.field_commitments
+                    && entry_hash(
+                        material.tenant_hash,
+                        link.sequence,
+                        link.previous_hash,
+                        link.payload_length,
+                        payload,
+                    ) != link.entry_hash
                 {
                     return Err(ChainError::EntryHash);
                 }
             }
-            None if !link.selected => {}
-            None => {}
+            (None, Some(proof)) if link.field_commitments => {
+                let entry = decode_entry(&proof.redacted_entry_bytes)
+                    .map_err(|_| ChainError::RedactionProof)?;
+                if entry.submitted_bytes != Some(PayloadEvidence::Redacted) {
+                    return Err(ChainError::RedactionProof);
+                }
+                let (canonical, _) = record_commitments(&proof.redacted_entry_bytes)
+                    .map_err(|_| ChainError::RedactionProof)?;
+                if canonical != proof.redacted_entry_bytes
+                    || commitment_root(&proof.redacted_entry_bytes, proof.payload_commitment)
+                        != link.payload_digest
+                {
+                    return Err(ChainError::PayloadDigest);
+                }
+            }
+            (None, None) if !link.selected => {}
+            _ => return Err(ChainError::RedactionProof),
+        }
+        if link.field_commitments
+            && committed_entry_hash(
+                material.tenant_hash,
+                link.sequence,
+                link.previous_hash,
+                link.payload_length,
+                link.payload_digest,
+            ) != link.entry_hash
+        {
+            return Err(ChainError::EntryHash);
         }
     }
     let last = material.links.last().ok_or(ChainError::Empty)?;
@@ -459,11 +527,13 @@ pub fn verify_chain_material(material: &ChainMaterial) -> Result<(), ChainError>
 ///
 /// Returns an error when the export has been altered, falls outside its query, or contains
 /// protocol evidence that `layerx-proof` cannot verify.
-pub fn review(
-    exported: &AuditExport,
-    expected_settlement_domain: SettlementDomain,
-) -> Result<ReviewReport, ReviewError> {
+pub fn review(exported: &AuditExport) -> Result<ReviewReport, ReviewError> {
     verify_chain_material(&exported.chain)?;
+    if <[u8; 32]>::from(Sha256::digest(exported.query.tenant.as_str().as_bytes()))
+        != exported.chain.tenant_hash
+    {
+        return Err(ReviewError::Query);
+    }
     let selected: Vec<_> = exported
         .chain
         .links
@@ -482,7 +552,9 @@ pub fn review(
         }
         match &link.canonical_entry_bytes {
             Some(payload) if decode_entry(payload).ok().as_ref() == Some(&entry.entry) => {}
-            None if entry.entry.submitted_bytes == Some(PayloadEvidence::Redacted) => {}
+            None if link.redaction_proof.as_ref().is_some_and(|proof| {
+                decode_entry(&proof.redacted_entry_bytes).ok().as_ref() == Some(&entry.entry)
+            }) => {}
             _ => return Err(ReviewError::EntryBinding),
         }
     }
@@ -507,7 +579,6 @@ pub fn review(
         exported_entries: exported.entries.len(),
         verified_receipts: 0,
         verified_inclusions: 0,
-        verified_checkpoints: 0,
         failed_records: exported
             .entries
             .iter()
@@ -523,21 +594,18 @@ pub fn review(
         {
             return Err(ReviewError::EvidenceSet);
         }
-        let verified =
-            verify_protocol_evidence(&evidence.protocol_facts, expected_settlement_domain)
-                .map_err(|error| ReviewError::Evidence {
-                    receipt_id: evidence.receipt_id,
-                    error,
-                })?;
+        let verified = verify_protocol_evidence(&evidence.protocol_facts).map_err(|error| {
+            ReviewError::Evidence {
+                receipt_id: evidence.receipt_id,
+                error,
+            }
+        })?;
         report.verified_receipts = report
             .verified_receipts
             .saturating_add(verified.verified_receipts);
         report.verified_inclusions = report
             .verified_inclusions
             .saturating_add(verified.verified_inclusions);
-        report.verified_checkpoints = report
-            .verified_checkpoints
-            .saturating_add(verified.verified_checkpoints);
     }
     Ok(report)
 }

@@ -24,7 +24,7 @@ func TestCurrentMatchesFrozenDeployment(t *testing.T) {
 			PoolBeacon   string `json:"poolBeacon"`
 		}
 	}
-	b, e := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v1/chain/client-deployment.json")
+	b, e := os.ReadFile("../../../../../sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -64,15 +64,25 @@ func TestManifestRejectsMalformedAndUnknown(t *testing.T) {
 	}
 }
 func TestPublicExportSecretsRevisionAndHash(t *testing.T) {
-	m, r, b, p := newEVM(t, nil, 125)
-	a, e := Attest(t.Context(), r, m, b, p)
-	if e != nil {
-		t.Fatal(e)
-	}
-	ep := PublicEndpoints{"https://public.example/rpc", "https://scan.example", []string{"https://public.example/rpc"}, []string{"https://scan.example"}}
+	a, m, p, _ := attestSurface(t, nil)
+	ep := PublicEndpoints{"https://api1.mainnet-beta.paxeer.network", "https://scan.example", []string{"https://api1.mainnet-beta.paxeer.network"}, []string{"https://scan.example"}}
 	pub, e := PublicExport(m, a, p, ep)
 	if e != nil {
 		t.Fatal(e)
+	}
+	if pub.PublicRPC != "https://api1.mainnet-beta.paxeer.network" {
+		t.Fatalf("public export root RPC = %q", pub.PublicRPC)
+	}
+	encoded, e := json.Marshal(pub)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var consumed PublicNetworkConfig
+	if e = json.Unmarshal(encoded, &consumed); e != nil {
+		t.Fatal(e)
+	}
+	if consumed.PublicRPC != ep.RPC || consumed.ChainID != m.ChainID || consumed.ManifestHash != a.ManifestHash {
+		t.Fatalf("public export identity changed in JSON transport: %+v", consumed)
 	}
 	h, e := pub.Hash()
 	if e != nil || len(h) != 64 {
@@ -86,7 +96,7 @@ func TestPublicExportSecretsRevisionAndHash(t *testing.T) {
 	if h != h2 {
 		t.Fatal("nondeterministic public hash")
 	}
-	for _, url := range []string{"https://operator:secret@public.example/rpc", "https://public.example/rpc?apiKey=secret", "https://public.example/secret", "https://public.example/rpc#secret", "http://public.example/rpc"} {
+	for _, url := range []string{"https://operator:secret@public.example/rpc", "https://public.example/rpc?apiKey=secret", "https://public.example/secret", "https://public.example/rpc#secret", "http://public.example/rpc", ep.RPC + "/rpc", "https://operator:secret@api1.mainnet-beta.paxeer.network", ep.RPC + "?apiKey=secret", ep.RPC + "#secret", ep.RPC + "/secret", "http://api1.mainnet-beta.paxeer.network"} {
 		bad := ep
 		bad.RPC = url
 		out, e := PublicExport(m, a, p, bad)
@@ -141,7 +151,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
 	if e = json.Unmarshal([]byte(text[:end]), &frontend); e != nil {
 		t.Fatal(e)
 	}
-	roles := map[string]string{"Router": "router", "Quoter": "quoter", "FeesRouter": "feesRouter", "OpticalRegistry": "opticalRegistry", "ProtocolConfig": "protocolConfig", "SidioraFactory": "factory", "SidioraNFT": "nft", "EventEmitter": "eventEmitter", "FeeAccumulator": "feeAccumulator", "PoolRegistry": "poolRegistry", "PoolBeacon": "poolBeacon", "USDL": "usdl"}
+	roles := map[string]string{"Router": "router", "Quoter": "quoter", "FeesRouter": "feesRouter", "OpticalRegistry": "opticalRegistry", "ProtocolConfig": "protocolConfig", "SidioraFactory": "factory", "SidioraNFT": "nft", "EventEmitter": "eventEmitter", "FeeAccumulator": "feeAccumulator", "PoolRegistry": "poolRegistry", "PoolBeacon": "poolBeacon", "USDL": "usdl", "Treasury": "treasury", LaunchpadPrecompileRole: "launchpadPrecompile"}
 	addresses := map[string]string{}
 	for role, key := range roles {
 		s, ok := frontend[key].(string)

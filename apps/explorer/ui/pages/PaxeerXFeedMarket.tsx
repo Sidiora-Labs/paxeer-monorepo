@@ -12,15 +12,50 @@ import getQueryParamString from 'lib/router/getQueryParamString';
 import useSocketBuffer from 'lib/socket/useSocketBuffer';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import PaxeerXFeedMarketUpdatesTable from 'ui/paxeerX/feed/PaxeerXFeedMarketUpdatesTable';
-import useFeedSocket from 'ui/paxeerX/feed/useFeedSocket';
+import useFeedSocket, { FEED_HISTORY_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFeedSocket';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 import { ScanTableCard } from 'ui/shared/scan';
+import SocketAlert from 'ui/shared/SocketAlert';
+
+export const FEED_HISTORY_WINDOW_LIMIT = 2 * FEED_HISTORY_BUFFER_LIMIT;
 
 // Newest first, the order the endpoint pages in.
-const byNewest = (a: MarketUpdate, b: MarketUpdate) => b.block_number - a.block_number || b.sequence - a.sequence;
+const byNewest = (a: MarketUpdate, b: MarketUpdate) => b.block_number - a.block_number || b.index - a.index;
+
+function handleFlush(prevData: MarketUpdatesResponse | undefined, updates: Array<MarketUpdate>) {
+  if (!prevData) {
+    return prevData;
+  }
+
+  const known = new Set(prevData.items.map((item) => item.update_hash));
+  const fresh = updates.filter((item) => {
+    if (known.has(item.update_hash) || (prevData.items[0] && byNewest(item, prevData.items[0]) >= 0)) {
+      return false;
+    }
+
+    known.add(item.update_hash);
+    return true;
+  });
+
+  if (fresh.length === 0) {
+    return prevData;
+  }
+
+  const combined = [ ...fresh, ...prevData.items ].sort(byNewest);
+  const items = combined.slice(0, FEED_HISTORY_WINDOW_LIMIT);
+  const last = items[items.length - 1];
+  // The backend cursor is exclusive. Continue immediately after the last visible row so
+  // displaced rows, including the initial snapshot, remain reachable without retaining them.
+  const nextPageParams = combined.length > items.length ? {
+    block_number: last.block_number,
+    index: last.index,
+  } : prevData.next_page_params;
+
+  return { ...prevData, items, next_page_params: nextPageParams };
+}
 
 const PaxeerXFeedMarket = () => {
   const router = useRouter();
@@ -31,7 +66,18 @@ const PaxeerXFeedMarket = () => {
   const page = getQueryParamString(router.query.page);
   const isFirstPage = !page || page === '1';
 
-  const { channel, refetchInterval } = useFeedSocket({ topic: `paxeer_x_feed:market:${ id }`, isDisabled: !id || !isFirstPage });
+  const handleJoin = React.useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: getResourceKey('general:paxeer_x_feed_market_updates', { pathParams: { id } }),
+      exact: true,
+    });
+  }, [ id, queryClient ]);
+
+  const { channel, refetchInterval, isSocketDown } = useFeedSocket({
+    topic: `paxeer_x_feed:market:${ id }`,
+    isDisabled: !id || !isFirstPage,
+    onJoin: handleJoin,
+  });
 
   const marketsQuery = useApiQuery('general:paxeer_x_feed_markets');
   const market = marketsQuery.data?.items.find((item) => String(item.market_id) === id);
@@ -39,33 +85,16 @@ const PaxeerXFeedMarket = () => {
   const { data, isError, isPending, pagination } = useQueryWithPages({
     resourceName: 'general:paxeer_x_feed_market_updates',
     pathParams: { id },
-    options: { refetchInterval },
+    options: { refetchInterval: isFirstPage ? refetchInterval : false, gcTime: 0 },
   });
 
-  // ponytail: the first page keeps its length, so rows pushed off it by live updates are reached again only
-  // after a reload; the market history keyset has no update index in the socket item to move next_page_params.
-  const handleFlush = React.useCallback((updates: Array<MarketUpdate>) => {
+  const handleUpdatesFlush = React.useCallback((updates: Array<MarketUpdate>) => {
     queryClient.setQueryData(getResourceKey('general:paxeer_x_feed_market_updates', { pathParams: { id } }), (prevData: MarketUpdatesResponse | undefined) => {
-      if (!prevData) {
-        return prevData;
-      }
-
-      const known = new Set(prevData.items.map((item) => item.update_hash));
-      const fresh = updates.filter((item) => !known.has(item.update_hash) && (!prevData.items[0] || byNewest(item, prevData.items[0]) < 0));
-
-      if (fresh.length === 0) {
-        return prevData;
-      }
-
-      const items = [ ...fresh, ...prevData.items ]
-        .sort(byNewest)
-        .slice(0, Math.max(prevData.items.length, fresh.length));
-
-      return { ...prevData, items };
+      return handleFlush(prevData, updates);
     });
   }, [ id, queryClient ]);
 
-  const { push, hoverProps } = useSocketBuffer<MarketUpdate>({ onFlush: handleFlush });
+  const { push, hoverProps } = useSocketBuffer<MarketUpdate>({ onFlush: handleUpdatesFlush, limit: FEED_HISTORY_BUFFER_LIMIT });
 
   const handleNewUpdate: SocketMessage.PaxeerXFeedMarketNewUpdate['handler'] = React.useCallback((payload) => {
     push(payload);
@@ -83,6 +112,11 @@ const PaxeerXFeedMarket = () => {
   return (
     <>
       <PageTitle title={ title } withTextAd isLoading={ marketsQuery.isPending }/>
+      { isSocketDown && (
+        <Box role="alert" mb={ 4 }>
+          <SocketAlert/>
+        </Box>
+      ) }
       <DataListDisplay
         isError={ isError }
         itemsNum={ data?.items.length }

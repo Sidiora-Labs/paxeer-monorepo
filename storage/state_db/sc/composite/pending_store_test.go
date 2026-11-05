@@ -16,7 +16,6 @@ import (
 // is what a pending store is for.
 var forkStoreKeys = []string{
 	keys.LayerXCustodyStoreKey,
-	keys.LayerXAnchorStoreKey,
 	keys.LayerXExchangeStoreKey,
 	keys.LayerXBridgeStoreKey,
 	keys.LaunchpadStoreKey,

@@ -1,0 +1,1086 @@
+[audit.22.30.33]
+task = "22.30.33"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 114
+findings = 31
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["native-swap-qualification", "native-read-model-projection", "ambiguous-commit-live-recovery", "approved-history-rehydration", "lifetime-market-cap", "tenant-transaction-qualification", "explorer-dynamic-discoveries"]
+review_basis = "Static full-file review of 110 handwritten members plus 4 identified generated sqlc files; all 13 package requirements and 71 produced/400 explicitly listed consumed registry rows examined against real caller paths. Package consumes_total = 669 exceeds its 400 explicit IDs; coverage uses the actual list. No product code repaired and no runtime/test success claimed by this audit."
+
+[file.001]
+path = "services/launchpad/indexer/cmd/indexer-runtime-docs/main.go"
+lines = 134
+verdict = "clean"
+note = "Reviewed CLI flags, source-root resolution, pinned runtime hashes, anchor input and digest-labelled document rendering."
+
+[file.002]
+path = "services/launchpad/indexer/cmd/indexer-runtime-docs/main_test.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed option refusal and genuine document-generation prerequisites and assertions."
+
+[file.003]
+path = "services/launchpad/indexer/cmd/indexerd/main.go"
+lines = 22
+verdict = "clean"
+note = "Reviewed configuration load, application construction, cancellation and process shutdown wiring."
+
+[file.004]
+path = "services/launchpad/indexer/internal/app/anchor.go"
+lines = 128
+verdict = "issues"
+note = "Reviewed chain anchor binding, durable block identities and canonical creation recovery; lifetime market cap recorded below."
+
+[file.005]
+path = "services/launchpad/indexer/internal/app/app.go"
+lines = 1319
+verdict = "clean"
+note = "Reviewed all startup, runtime-document, secret, SQL, broker, worker, readiness and shutdown paths. Consumer defects in receipt, processor and status are recorded at their owning implementations."
+
+[file.006]
+path = "services/launchpad/indexer/internal/app/render.go"
+lines = 106
+verdict = "clean"
+note = "Reviewed manifest-bound runtime document generation, source identity, digests and lifecycle range limits."
+
+[file.007]
+path = "services/launchpad/indexer/internal/app/render_test.go"
+lines = 193
+verdict = "clean"
+note = "Reviewed generated runtime document fields and refusal assertions against real configuration types."
+
+[file.008]
+path = "services/launchpad/indexer/internal/chainreader/creation.go"
+lines = 112
+verdict = "clean"
+note = "Reviewed exact successful receipt identities, bounds, deduplication and native factory topic."
+
+[file.009]
+path = "services/launchpad/indexer/internal/chainreader/creation_abi_parity_test.go"
+lines = 27
+verdict = "clean"
+note = "Reviewed frozen factory ABI topic parity assertion for requirement 4277.1."
+
+[file.010]
+path = "services/launchpad/indexer/internal/chainreader/creation_reported_hash_test.go"
+lines = 85
+verdict = "clean"
+note = "Reviewed reported Comet block-hash authority and rejection of locally recomputed identity."
+
+[file.011]
+path = "services/launchpad/indexer/internal/chainreader/creation_resolution.go"
+lines = 127
+verdict = "clean"
+note = "Reviewed chain125 receipt hash resolution, bounded calls and committed block matching."
+
+[file.012]
+path = "services/launchpad/indexer/internal/chainreader/creation_resolution_test.go"
+lines = 109
+verdict = "clean"
+note = "Reviewed exact receipt separation and registry reconstruction across restart."
+
+[file.013]
+path = "services/launchpad/indexer/internal/chainreader/creation_test.go"
+lines = 130
+verdict = "clean"
+note = "Reviewed authentic frozen creation receipt and admission bounds."
+
+[file.014]
+path = "services/launchpad/indexer/internal/chainreader/historical.go"
+lines = 373
+verdict = "clean"
+note = "Reviewed bounded pinned optional reads, code/layout guards and hostile return handling; this helper has no current runtime caller."
+
+[file.015]
+path = "services/launchpad/indexer/internal/chainreader/historical_test.go"
+lines = 497
+verdict = "clean"
+note = "Reviewed actual Anvil contracts, pinned ownership, hostile metadata and upgrade assertions."
+
+[file.016]
+path = "services/launchpad/indexer/internal/chainreader/nft.go"
+lines = 38
+verdict = "clean"
+note = "Reviewed explicit legacy latest getter; production canonical legacy projection preloads NFT IDs from qualified creation facts."
+
+[file.017]
+path = "services/launchpad/indexer/internal/chainreader/nft_test.go"
+lines = 88
+verdict = "clean"
+note = "Reviewed legacy getter request shapes and error propagation."
+
+[file.018]
+path = "services/launchpad/indexer/internal/config/config.go"
+lines = 607
+verdict = "issues"
+note = "Reviewed typed environment parsing, manifest checks, source options and bounds; production backfill default disagrees with lifecycle admission."
+
+[file.019]
+path = "services/launchpad/indexer/internal/config/config_test.go"
+lines = 276
+verdict = "clean"
+note = "Reviewed environment validation, target secret alignment, source choices and production refusal cases."
+
+[file.020]
+path = "services/launchpad/indexer/internal/config/inline_document_test.go"
+lines = 83
+verdict = "clean"
+note = "Reviewed file versus inline document exclusivity and digest-binding validation."
+
+[file.021]
+path = "services/launchpad/indexer/internal/db/query.sql"
+lines = 147
+verdict = "clean"
+note = "Reviewed typed SQL parameters, cursors, pool/swap/fee/airdrop projections and backfill job lifecycle against schema and store wrappers."
+
+[file.022]
+path = "services/launchpad/indexer/internal/db/sqlcdb/db.go"
+lines = 32
+verdict = "generated"
+note = "Generated by sqlc from internal/db/query.sql and the declared schema inputs; generator header identified and generated verdict applied instead of hand-review."
+
+[file.023]
+path = "services/launchpad/indexer/internal/db/sqlcdb/models.go"
+lines = 166
+verdict = "generated"
+note = "Generated by sqlc from internal/db/query.sql and the declared schema inputs; generator header identified and generated verdict applied instead of hand-review."
+
+[file.024]
+path = "services/launchpad/indexer/internal/db/sqlcdb/querier.go"
+lines = 36
+verdict = "generated"
+note = "Generated by sqlc from internal/db/query.sql and the declared schema inputs; generator header identified and generated verdict applied instead of hand-review."
+
+[file.025]
+path = "services/launchpad/indexer/internal/db/sqlcdb/query.sql.go"
+lines = 620
+verdict = "generated"
+note = "Generated by sqlc from internal/db/query.sql and the declared schema inputs; generator header identified and generated verdict applied instead of hand-review."
+
+[file.026]
+path = "services/launchpad/indexer/internal/decode/correlation.go"
+lines = 388
+verdict = "issues"
+note = "Reviewed transaction evidence and actor ambiguity rules; legacy Swap role guard omits native economic emitters."
+
+[file.027]
+path = "services/launchpad/indexer/internal/decode/correlation_test.go"
+lines = 66
+verdict = "clean"
+note = "Reviewed authentic core preservation when optional actor evidence is absent."
+
+[file.028]
+path = "services/launchpad/indexer/internal/decode/decode.go"
+lines = 199
+verdict = "clean"
+note = "Reviewed legacy ABI layouts, aliases and compatibility conversions within the explicit legacy adapter."
+
+[file.029]
+path = "services/launchpad/indexer/internal/decode/decode_test.go"
+lines = 387
+verdict = "clean"
+note = "Reviewed legacy layout, boolean, concurrency and fuzz assertions."
+
+[file.030]
+path = "services/launchpad/indexer/internal/decode/dedup.go"
+lines = 49
+verdict = "clean"
+note = "Reviewed bounded input, committed log identities and conflicting duplicate rejection."
+
+[file.031]
+path = "services/launchpad/indexer/internal/decode/golden_test.go"
+lines = 115
+verdict = "clean"
+note = "Reviewed independent comparisons with authentic frozen receipts."
+
+[file.032]
+path = "services/launchpad/indexer/internal/decode/measurement.go"
+lines = 1257
+verdict = "clean"
+note = "Reviewed approved capture hashes, coverage, bounded admission, conservation and burst accounting."
+
+[file.033]
+path = "services/launchpad/indexer/internal/decode/measurement_test.go"
+lines = 197
+verdict = "clean"
+note = "Reviewed archived measurement evidence, restart discoveries and evidence protection assertions."
+
+[file.034]
+path = "services/launchpad/indexer/internal/decode/optional.go"
+lines = 269
+verdict = "clean"
+note = "Reviewed explicit capability dependencies and preservation of core decoding on optional failure."
+
+[file.035]
+path = "services/launchpad/indexer/internal/decode/optional_test.go"
+lines = 108
+verdict = "clean"
+note = "Reviewed optional absence, event routing and authentic core receipts."
+
+[file.036]
+path = "services/launchpad/indexer/internal/decode/registry.go"
+lines = 636
+verdict = "clean"
+note = "Reviewed native roles, immutable deployment provenance and epochs, exact ABI decoding and bounds; native role rejection is in consumers recorded below."
+
+[file.037]
+path = "services/launchpad/indexer/internal/decode/registry_test.go"
+lines = 719
+verdict = "clean"
+note = "Reviewed native dispatch, explicit synthetic layout cases, admission limits and provenance assertions."
+
+[file.038]
+path = "services/launchpad/indexer/internal/decode/scalars.go"
+lines = 141
+verdict = "clean"
+note = "Reviewed canonical ABI repacking, lengths and exact integer, tuple and array handling."
+
+[file.039]
+path = "services/launchpad/indexer/internal/httpapi/status.go"
+lines = 87
+verdict = "issues"
+note = "Reviewed all mounted routes; unauthorized dead-letter access and misleading canonical status are recorded below."
+
+[file.040]
+path = "services/launchpad/indexer/internal/internaltest/chainfixture/chainfixture.go"
+lines = 243
+verdict = "clean"
+note = "Reviewed actual chain deployment, receipt polling and fixture cleanup."
+
+[file.041]
+path = "services/launchpad/indexer/internal/internaltest/containers.go"
+lines = 132
+verdict = "clean"
+note = "Reviewed explicit external prerequisites, isolated PostgreSQL database lifecycle and cleanup."
+
+[file.042]
+path = "services/launchpad/indexer/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Reviewed serialized Goose global configuration, context handling and embedded migrations."
+
+[file.043]
+path = "services/launchpad/indexer/internal/processor/accounting_test.go"
+lines = 22
+verdict = "clean"
+note = "Reviewed exact large decimal accounting quantity and invalid-quantity assertions."
+
+[file.044]
+path = "services/launchpad/indexer/internal/processor/airdrop_test.go"
+lines = 263
+verdict = "issues"
+note = "Reviewed SQL persistence and legacy emitters; native FeeFlow coverage bypasses the actual decoder."
+
+[file.045]
+path = "services/launchpad/indexer/internal/processor/archive.go"
+lines = 152
+verdict = "clean"
+note = "Reviewed canonical archive manifests, source capture, reconstruction invocation and retained evidence lifecycle."
+
+[file.046]
+path = "services/launchpad/indexer/internal/processor/archive_test.go"
+lines = 69
+verdict = "clean"
+note = "Reviewed required real archive/source collaborators and refusal of incomplete reconstruction inputs."
+
+[file.047]
+path = "services/launchpad/indexer/internal/processor/backfill.go"
+lines = 37
+verdict = "clean"
+note = "Reviewed range iteration, cancellation and propagation of processor failures without advancing an unsuccessful range."
+
+[file.048]
+path = "services/launchpad/indexer/internal/processor/canonical.go"
+lines = 306
+verdict = "clean"
+note = "Reviewed qualified receipt binding, raw/core projections, accounting partitions and atomic durable publication staging."
+
+[file.049]
+path = "services/launchpad/indexer/internal/processor/canonical_test.go"
+lines = 464
+verdict = "clean"
+note = "Reviewed actual PostgreSQL atomicity, source identities, receipt qualification and projection assertions."
+
+[file.050]
+path = "services/launchpad/indexer/internal/processor/creation.go"
+lines = 456
+verdict = "clean"
+note = "Reviewed native creation facts, manifest authority, PoolRegistry binding and immutable token metadata persistence."
+
+[file.051]
+path = "services/launchpad/indexer/internal/processor/creation_precompile_test.go"
+lines = 79
+verdict = "clean"
+note = "Reviewed native factory creation projection and proof refusal assertions."
+
+[file.052]
+path = "services/launchpad/indexer/internal/processor/inventory.go"
+lines = 206
+verdict = "clean"
+note = "Reviewed baseline evidence, qualified inventory enrichment and partition identities without floating-point quantities."
+
+[file.053]
+path = "services/launchpad/indexer/internal/processor/inventory_publication_postgres_test.go"
+lines = 825
+verdict = "issues"
+note = "Reviewed actual source and SQL publication harness; its mirrored PNL consumer does not establish actual downstream acceptance."
+
+[file.054]
+path = "services/launchpad/indexer/internal/processor/legacy.go"
+lines = 173
+verdict = "issues"
+note = "Reviewed qualified legacy projection and creation-preloaded metadata; its emitter filter discards native family events."
+
+[file.055]
+path = "services/launchpad/indexer/internal/processor/live_ingest_postgres_test.go"
+lines = 371
+verdict = "issues"
+note = "Reviewed live ingestion setup and assertions; default historical range conflicts with the selected current deployment manifest."
+
+[file.056]
+path = "services/launchpad/indexer/internal/processor/measurement.go"
+lines = 1147
+verdict = "clean"
+note = "Reviewed candidate/topology authority, actual measurement collaborators, bounded load, evidence capture and retention."
+
+[file.057]
+path = "services/launchpad/indexer/internal/processor/measurement_test.go"
+lines = 143
+verdict = "issues"
+note = "Reviewed actual PostgreSQL trace assertions; missing-provider refusal is masked by absent topology inputs."
+
+[file.058]
+path = "services/launchpad/indexer/internal/processor/processor.go"
+lines = 803
+verdict = "issues"
+note = "Reviewed complete live and legacy loops, lease fencing, typed event projections and retry ordering; ambiguous canonical commits cannot reach live reconciliation."
+
+[file.059]
+path = "services/launchpad/indexer/internal/processor/qualified_legacy_postgres_test.go"
+lines = 247
+verdict = "clean"
+note = "Reviewed qualified historical EventEmitter projection, immutable creation metadata and cursor/outbox atomicity assertions within that generation."
+
+[file.060]
+path = "services/launchpad/indexer/internal/processor/quarantine.go"
+lines = 155
+verdict = "clean"
+note = "Reviewed original poison retention, durable repair classification, authorization and checkpoint association."
+
+[file.061]
+path = "services/launchpad/indexer/internal/processor/reconcile_test.go"
+lines = 164
+verdict = "clean"
+note = "Reviewed real lost-commit transport and explicit batch reconciliation; production Run retry mismatch is recorded separately."
+
+[file.062]
+path = "services/launchpad/indexer/internal/processor/replay.go"
+lines = 481
+verdict = "clean"
+note = "Reviewed authorized replay/rebuild ranges, fenced leases, durable checkpoints and immutable publication effects."
+
+[file.063]
+path = "services/launchpad/indexer/internal/processor/replay_postgres_test.go"
+lines = 355
+verdict = "clean"
+note = "Reviewed PostgreSQL replay resume, conflicts, poison repair and job lifecycle assertions."
+
+[file.064]
+path = "services/launchpad/indexer/internal/publisher/durable.go"
+lines = 181
+verdict = "clean"
+note = "Reviewed stable event identity, exact payload bytes, allowed subjects and transactional outbox enqueue."
+
+[file.065]
+path = "services/launchpad/indexer/internal/publisher/durable_test.go"
+lines = 40
+verdict = "clean"
+note = "Reviewed durable subject authorization, deterministic identities, payload hashes and SQL outbox behavior."
+
+[file.066]
+path = "services/launchpad/indexer/internal/publisher/publisher.go"
+lines = 426
+verdict = "issues"
+note = "Reviewed compatibility Redis and signed webhook fanout, deduplication, bounded retries and memory queue; legacy delivery is not restart durable."
+
+[file.067]
+path = "services/launchpad/indexer/internal/publisher/publisher_test.go"
+lines = 302
+verdict = "clean"
+note = "Reviewed actual HTTP signature, retry, target-secret and Redis deduplication assertions within the legacy adapter."
+
+[file.068]
+path = "services/launchpad/indexer/internal/publisher/shadow.go"
+lines = 31
+verdict = "clean"
+note = "Reviewed canonical/publication observation adapters and transactional shadow record staging."
+
+[file.069]
+path = "services/launchpad/indexer/internal/publisher/shadow_test.go"
+lines = 33
+verdict = "clean"
+note = "Reviewed the unit comparison of frozen identity and changed-payload rejection; this is not independent transport qualification evidence."
+
+[file.070]
+path = "services/launchpad/indexer/internal/publisher/webhook_bridge.go"
+lines = 46
+verdict = "clean"
+note = "Reviewed durable projection of canonical events, typed payload fields and transaction-scoped target staging."
+
+[file.071]
+path = "services/launchpad/indexer/internal/publisher/webhook_bridge_test.go"
+lines = 14
+verdict = "clean"
+note = "Reviewed durable webhook identity, raw amount precision and target staging assertions."
+
+[file.072]
+path = "services/launchpad/indexer/internal/receipt/archive.go"
+lines = 300
+verdict = "clean"
+note = "Reviewed canonical archive capture, qualified receipt reconstruction, source digests and immutable identities."
+
+[file.073]
+path = "services/launchpad/indexer/internal/receipt/archive_test.go"
+lines = 51
+verdict = "clean"
+note = "Reviewed required archive authority and rejection of insufficient capture/reconstruction evidence."
+
+[file.074]
+path = "services/launchpad/indexer/internal/receipt/discovery_surface_test.go"
+lines = 76
+verdict = "clean"
+note = "Reviewed actual discovery surface identity proof and exact token/pool admission refusals."
+
+[file.075]
+path = "services/launchpad/indexer/internal/receipt/identity.go"
+lines = 521
+verdict = "issues"
+note = "Reviewed pinned epoch/code identity, attestation and rehydration; approved earlier market generations are rejected during current boot."
+
+[file.076]
+path = "services/launchpad/indexer/internal/receipt/precompile_test.go"
+lines = 51
+verdict = "clean"
+note = "Reviewed native role runtime identity, configured manifest hashes and refusal cases."
+
+[file.077]
+path = "services/launchpad/indexer/internal/receipt/qualified.go"
+lines = 582
+verdict = "issues"
+note = "Reviewed bounded receipt/transaction/header identity, economic fills and sealed provenance; native Swap role and tenant signature guards reject valid merged traffic."
+
+[file.078]
+path = "services/launchpad/indexer/internal/receipt/qualified_test.go"
+lines = 125
+verdict = "clean"
+note = "Reviewed actual frozen receipt identity, hostile mutation and qualified-fill assertions within the covered historical generation."
+
+[file.079]
+path = "services/launchpad/indexer/internal/receipt/reserves_abi_parity_test.go"
+lines = 29
+verdict = "clean"
+note = "Reviewed frozen pool getReserves selector parity assertion for requirement 4278.1."
+
+[file.080]
+path = "services/launchpad/indexer/internal/receipt/rpc.go"
+lines = 1767
+verdict = "clean"
+note = "Reviewed all RPC trust, transport bounds, chain/receipt/code proofs, market discovery and canonical batch binding. The lifetime discovery cap is included in the anchor cap finding."
+
+[file.081]
+path = "services/launchpad/indexer/internal/receipt/rpc_test.go"
+lines = 287
+verdict = "clean"
+note = "Reviewed actual receipt authority, pinned reads, integrity refusals and source binding assertions."
+
+[file.082]
+path = "services/launchpad/indexer/internal/runtimedocs/paxeer_test.go"
+lines = 369
+verdict = "clean"
+note = "Reviewed actual Paxeer document generation and frozen deployment/history, anchor and runtime evidence assertions."
+
+[file.083]
+path = "services/launchpad/indexer/internal/runtimedocs/precompile_test.go"
+lines = 67
+verdict = "clean"
+note = "Reviewed native precompile epoch generation, surface discovery and manifest-bound identity assertions."
+
+[file.084]
+path = "services/launchpad/indexer/internal/runtimedocs/runtimedocs.go"
+lines = 258
+verdict = "clean"
+note = "Reviewed approved deployment authority, surface versus direct/beacon code epochs and generated receipt/lifecycle documents."
+
+[file.085]
+path = "services/launchpad/indexer/internal/source/archive.go"
+lines = 397
+verdict = "clean"
+note = "Reviewed bloom gating, full receipt binding, archive fallback, pruning floors, bounded readahead and lifecycle cancellation."
+
+[file.086]
+path = "services/launchpad/indexer/internal/source/archive_live_test.go"
+lines = 152
+verdict = "clean"
+note = "Reviewed real endpoint log, block identity and sender parity assertions and explicit live prerequisites."
+
+[file.087]
+path = "services/launchpad/indexer/internal/source/capacity.go"
+lines = 1182
+verdict = "issues"
+note = "Reviewed real-provider capacity measurements, integrity and recovery phases; archive concurrency acceptance differs from runtime permits."
+
+[file.088]
+path = "services/launchpad/indexer/internal/source/capacity_integration_test.go"
+lines = 93
+verdict = "clean"
+note = "Reviewed bound runtime inputs, actual providers and refusal of missing source authorities."
+
+[file.089]
+path = "services/launchpad/indexer/internal/source/committed.go"
+lines = 1435
+verdict = "issues"
+note = "Reviewed committed RPC trust, bounded permits, identity fences, caching and polling; quarantined endpoints lack runtime recovery wiring."
+
+[file.090]
+path = "services/launchpad/indexer/internal/source/committed_test.go"
+lines = 633
+verdict = "clean"
+note = "Reviewed bounded transport, cancellation, receipt fallback, epochs, quantities, cache bounds and lag hysteresis."
+
+[file.091]
+path = "services/launchpad/indexer/internal/source/evm.go"
+lines = 647
+verdict = "clean"
+note = "Reviewed the legacy adapter separately from committed receipt-qualified production ingestion; mixed backend reuse defect is owned by factory.go."
+
+[file.092]
+path = "services/launchpad/indexer/internal/source/evm_test.go"
+lines = 309
+verdict = "clean"
+note = "Reviewed legacy enrichment, failover, quarantine, empty/null results and error propagation."
+
+[file.093]
+path = "services/launchpad/indexer/internal/source/explorer_committed.go"
+lines = 426
+verdict = "clean"
+note = "Reviewed static explorer address/epoch contract and SQL receipt/header shapes; omitted dynamic discovery propagation is recorded on historical.go."
+
+[file.094]
+path = "services/launchpad/indexer/internal/source/factory.go"
+lines = 135
+verdict = "issues"
+note = "Reviewed all source-selection branches; mixed RPC modes incorrectly reuse the first EVM source configuration."
+
+[file.095]
+path = "services/launchpad/indexer/internal/source/factory_test.go"
+lines = 108
+verdict = "clean"
+note = "Reviewed identical-source reuse and mixed SQL/RPC tests; missing mixed RPC configurations are included in the factory finding."
+
+[file.096]
+path = "services/launchpad/indexer/internal/source/historical.go"
+lines = 437
+verdict = "issues"
+note = "Reviewed RPC/explorer fallback, pruning, discovery retry and live continuity; explorer fetch omits discovered emitter epochs."
+
+[file.097]
+path = "services/launchpad/indexer/internal/source/historical_integration_test.go"
+lines = 701
+verdict = "clean"
+note = "Reviewed real node-to-SQL parity, hostile recovery and saturation assertions; dynamic explorer discovery needs the repair coverage recorded below."
+
+[file.098]
+path = "services/launchpad/indexer/internal/source/parity.go"
+lines = 390
+verdict = "clean"
+note = "Reviewed canonical source identities, bounded disputes, raw/block digests, certification and report integrity."
+
+[file.099]
+path = "services/launchpad/indexer/internal/source/paxscan.go"
+lines = 249
+verdict = "clean"
+note = "Reviewed compatibility Blockscout queries, lifecycle and receipt metadata enrichment."
+
+[file.100]
+path = "services/launchpad/indexer/internal/source/paxscan_test.go"
+lines = 134
+verdict = "clean"
+note = "Reviewed SQL column shapes against actual legacy adapter queries."
+
+[file.101]
+path = "services/launchpad/indexer/internal/source/source.go"
+lines = 423
+verdict = "clean"
+note = "Reviewed shared source types, lifecycle limits, integrity fences, lag hysteresis and readiness contracts."
+
+[file.102]
+path = "services/launchpad/indexer/internal/store/archive.go"
+lines = 162
+verdict = "clean"
+note = "Reviewed actual archive producer manifest fields, source verification, digest checks and retention authorization."
+
+[file.103]
+path = "services/launchpad/indexer/internal/store/canonical.go"
+lines = 555
+verdict = "clean"
+note = "Reviewed atomic raw/projection/outbox/watermark commit, fences, epoch guards and deferred-inventory reconciliation."
+
+[file.104]
+path = "services/launchpad/indexer/internal/store/canonical_test.go"
+lines = 125
+verdict = "clean"
+note = "Reviewed PostgreSQL rollback, immutable conflicts, lease expiry/takeover and contiguous completeness."
+
+[file.105]
+path = "services/launchpad/indexer/internal/store/canonicaltest/postgres.go"
+lines = 190
+verdict = "clean"
+note = "Reviewed private fixture restrictions, exact database cleanup, migrations and lost-commit response transport."
+
+[file.106]
+path = "services/launchpad/indexer/internal/store/creation.go"
+lines = 154
+verdict = "clean"
+note = "Reviewed immutable source binding, creation facts, token transfers and conflict comparison."
+
+[file.107]
+path = "services/launchpad/indexer/internal/store/measurement.go"
+lines = 351
+verdict = "clean"
+note = "Reviewed exact SQL snapshots, canonical digests, plans, quantity handling and reconstruction comparisons."
+
+[file.108]
+path = "services/launchpad/indexer/internal/store/quarantine.go"
+lines = 295
+verdict = "clean"
+note = "Reviewed durable poison capture, scoped waivers, repair classification, committed heads and operation authorization."
+
+[file.109]
+path = "services/launchpad/indexer/internal/store/reconcile.go"
+lines = 119
+verdict = "clean"
+note = "Reviewed original batch identity, raw payload, completeness, outbox and watermark reconciliation within one snapshot."
+
+[file.110]
+path = "services/launchpad/indexer/internal/store/replay.go"
+lines = 445
+verdict = "clean"
+note = "Reviewed replay identity, authorization, leases, overlap quota, source checkpoints, immutable effects and resume transitions."
+
+[file.111]
+path = "services/launchpad/indexer/internal/store/store.go"
+lines = 190
+verdict = "clean"
+note = "Reviewed typed query wrappers, nullable/not-found handling and error propagation against generated queries."
+
+[file.112]
+path = "services/launchpad/indexer/internal/store/store_test.go"
+lines = 250
+verdict = "clean"
+note = "Reviewed actual SQL cursor, idempotent writes and backfill job lifecycle assertions."
+
+[file.113]
+path = "services/launchpad/indexer/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Reviewed embedded migration adapter selecting the SQL assets consumed by the migrator."
+
+[file.114]
+path = "services/launchpad/indexer/sqlc.yaml"
+lines = 43
+verdict = "clean"
+note = "Reviewed schema/query paths, pgx target and nullable type overrides against the declared generated layout."
+
+[finding.native-swap-qualification]
+file = "services/launchpad/indexer/internal/receipt/qualified.go"
+line = 242
+class = "interface-mismatch"
+severity = "high"
+observed = "The native producer precompiles/launchpad/pool.go emits Swap through emitFamily at 0x1017. Registry.Decode assigns LaunchpadPrecompile (or its co-bound SidioraPool origin) and primary economic authority, but Qualify rejects every economic fill whose EmitterRole is not EventEmitter. A real native swap therefore aborts canonical ingestion before accounting publication."
+expected = "The approved LaunchpadPrecompile role and EventEmitter-compatible native ABI must round-trip through receipt qualification to accounting.FillV1; attested native economic events are valid merged-network traffic under brief facts 1 and 7."
+proposal = "In services/launchpad/indexer/internal/receipt/qualified.go admit the approved primary economic Swap family for attested native and historical roles while retaining exact receipt, code and market proof. Prove actual native swap production through the receipt authority, durable accounting transport and real consumers, including restart."
+owner_domain = 4
+interface = "4.go-shared-config-deployment-launchpad-precompile-role"
+
+[finding.native-read-model-projection]
+file = "services/launchpad/indexer/internal/processor/legacy.go"
+line = 60
+class = "wiring-gap"
+severity = "high"
+observed = "Production enables LegacyProjection in app.go:584, but stageQualifiedLegacy ignores every raw record whose emitter differs from the configured EventEmitterAddress. Shared configuration binds that address to the historical 0x622E1bb90E0E2B6E6e5e9e2DbE1555389E8A3EF6 identity; native Swap and PoolStateUpdated family logs originate at 0x1017. Native activity consequently omits existing swaps, pools and fee read models even after native qualification is repaired."
+expected = "The service contract promises market/pool rows from committed native launchpad logs, and the existing API/SQL readers must observe qualified native economic changes atomically with canonical progress."
+proposal = "In services/launchpad/indexer/internal/processor/legacy.go project qualified family envelopes using verified native or historical role identities rather than one configured historical address. Preserve immutable event keys and SQL transaction boundaries, and verify actual native events through the existing API and typed SQL consumers."
+owner_domain = 4
+interface = "4.env-sdk-shared-config-event-emitter-address"
+
+[finding.ambiguous-commit-live-recovery]
+file = "services/launchpad/indexer/internal/processor/processor.go"
+line = 183
+class = "restart-recovery"
+severity = "high"
+observed = "After PostgreSQL commits but its COMMIT response is lost, Run leaves local last unchanged and halves the candidate range. The next canonicalRuntimeHead.Head reloads the advanced durable watermark into LiveQualifiedSource.DurableHeight; the retry from the old last+1 is rejected by historical.go:355-358 before ProcessBatch reaches ReconcileCanonicalCommit at line260. Ingestion retries indefinitely until restart, and the reduced batch identity also differs from the original commit."
+expected = "A lost commit acknowledgement must reconcile the original immutable batch or reload proven durable progress before choosing another live range, so committed delivery continues without operator restart or duplicate effects."
+proposal = "In services/launchpad/indexer/internal/processor/processor.go preserve and reconcile an ambiguous original batch before refetch/reslicing, or advance the running loop from the verified durable checkpoint. Extend the real lost-COMMIT-response transport coverage through Run, canonicalRuntimeHead and LiveQualifiedSource, asserting continued exactly-once canonical effects."
+owner_domain = 4
+interface = "4.go-shared-delivery-store-enqueue"
+
+[finding.approved-history-rehydration]
+file = "services/launchpad/indexer/internal/receipt/identity.go"
+line = 425
+class = "restart-recovery"
+severity = "high"
+observed = "Boot calls persistedMarkets over all canonical creations and passes them to RPCQualification.Rehydrate. Rehydrate rejects market.Height below the selected manifest ActivationHeight. Current activation is 37220320, while the approved historical real market creation is at 33963716, so an existing database containing that qualified history cannot boot with current deployment documents."
+expected = "An upgrade must retain approved historical market identity and resume its durable canonical state under the current deployment, without deleting earlier qualified creations or treating them as untrusted current-generation creations."
+proposal = "In services/launchpad/indexer/internal/receipt/identity.go and internal/app/anchor.go restore generation-aware market/code epochs from approved deployment history and durable provenance, then attest their current binding. Verify reopening a real database containing pre-activation creations across the current activation and resuming trades without rewriting source identities."
+owner_domain = 4
+interface = "4.go-shared-config-deployment-manifest"
+
+[finding.lifetime-market-cap]
+file = "services/launchpad/indexer/internal/app/anchor.go"
+line = 21
+class = "restart-recovery"
+severity = "high"
+observed = "persistedMarkets refuses more than 2040 lifetime canonical markets. Each discovered market permanently adds token/pool code epochs, and receipt/rpc.go:1509 and identity.go enforce a 4096-epoch total. Normal market growth therefore eventually stops live qualification; restart can fail earlier at the 2040-market guard despite valid persisted creations."
+expected = "The launchpad must continue indexing an increasing durable market inventory with bounded per-operation memory and proof work. A transport admission bound must not become an undocumented lifetime limit on network market creation."
+proposal = "Replace whole-history boot loading in services/launchpad/indexer/internal/app/anchor.go with durable paged or height-scoped authority recovery, and make receipt epoch lookup bounded per batch while retaining historical proof. Verify crossing the current 2040/4096 boundaries and restarting with all market identities preserved; do not merely widen the constants."
+owner_domain = 4
+interface = "4.go-shared-config-deployment-manifest"
+
+[finding.tenant-transaction-qualification]
+file = "services/launchpad/indexer/internal/receipt/qualified.go"
+line = 153
+class = "wiring-gap"
+severity = "high"
+observed = "coordinates rejects any signed transaction whose ChainId differs from 125 and recovers senders using a125-only signer. VirtualChains.md specifies shared EVM state and a full root transaction view, so a tenant-signed transaction (125000000 plus registry ID) can emit the same launchpad logs into a root block. The full-root qualified source then rejects that valid receipt and stalls its whole range."
+expected = "Brief fact 5 requires tenant domains to be a parameter. Root block identity remains Paxeer125, while receipt sender qualification must honor a valid admitted signed tenant chain ID rather than assuming every root-visible transaction was signed for 125."
+proposal = "In services/launchpad/indexer/internal/receipt/qualified.go validate the signed domain against the committed virtual-chain authority and recover the sender with that admitted chain ID. Preserve shared parent block identity and coordinate any signed-domain metadata with shared accounting/delivery consumers. Prove actual tenant launchpad execution through root RPC, qualification, publication and restart."
+owner_domain = 4
+interface = "4.env-sdk-shared-config-chain-id"
+
+[finding.explorer-dynamic-discoveries]
+file = "services/launchpad/indexer/internal/source/historical.go"
+line = 212
+class = "wiring-gap"
+severity = "high"
+observed = "FetchHistoricalWith passes coordinator discoveries to RPC.FetchCommitted but invokes Explorer.FetchLogs without them. ExplorerCommitted builds its address filter solely from initial options.Epochs. qualifyWithDiscoveries retries the same explorer filter after a creation discovers token/pool emitters, while receipt.QualifiedBatch independently reconstructs the complete receipt set and returns ErrBinding when those records are absent."
+expected = "Historical explorer and RPC transport must cover the same receipt-authorized emitter epochs from the market creation transaction onward, so pruning fallback can commit the same canonical history."
+proposal = "In services/launchpad/indexer/internal/source/historical.go and explorer_committed.go propagate approved discovery epochs into explorer filtering with the same activation and creation-transaction bounds as RPC. Verify real PostgreSQL explorer fallback over market creation, subsequent token/pool events and restarted qualification."
+owner_domain = 4
+interface = "4.env-indexer-paxscan-database-url"
+
+[finding.native-swap-actors]
+file = "services/launchpad/indexer/internal/decode/correlation.go"
+line = 329
+class = "wiring-gap"
+severity = "medium"
+observed = "Actor correlation only enriches Swap envelopes whose EmitterRole is EventEmitter. The approved registry correctly labels native economic Swap as LaunchpadPrecompile or SidioraPool, so even exact unique receipt transfer evidence cannot populate recipient/beneficiary after native qualification is repaired."
+expected = "Authorized primary economic Swap families should receive the same conservative actor-evidence analysis across native and historical emitters; absence and ambiguity must remain explicit."
+proposal = "In services/launchpad/indexer/internal/decode/correlation.go select approved primary economic Swap families using verified provenance rather than the legacy role string. Retain exact receipt identity and unique-transfer checks and prove actual native emission through receipt correlation and the downstream attribution consumer."
+owner_domain = 4
+interface = "4.go-shared-config-deployment-launchpad-precompile-role"
+
+[finding.dead-letter-authorization]
+file = "services/launchpad/indexer/internal/httpapi/status.go"
+line = 83
+class = "security"
+severity = "medium"
+observed = "GET /status/dead-letter at line72 exposes in-memory delivery payloads, target URLs and errors; POST /status/dead-letter/drain at line83 returns and clears them without authentication. app.go mounts both on the shared router without operator authorization. The security policy already provides authenticated, audited durable inspection and refuses unapproved drain."
+expected = "Operational delivery payload inspection and destructive retention actions require scoped operator authorization and auditability, with durable quarantine serving as the production source of truth."
+proposal = "Replace the direct handlers in services/launchpad/indexer/internal/httpapi/status.go with the authorized durable policy from services/launchpad/security/policy/deadletter.go or equivalent audited operations. Protect both read and drain routes and require the approved retention operation before deletion."
+owner_domain = 4
+interface = "4.http-indexer-post-status-dead-letter-drain"
+
+[finding.canonical-status-truth]
+file = "services/launchpad/indexer/internal/httpapi/status.go"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "The status handler ignores GetCursor errors, converts pool/swap query failures to zero and always emits status ok. Canonical ingestion advances indexer_ingest_watermarks rather than the legacy cursor, and durable delivery does not update the compatibility Publisher metrics returned here. A stopped or unavailable canonical service can appear healthy and stale."
+expected = "The declared status interface must report actual canonical progress and durable publication state, and distinguish unavailable database reads from a genuine empty or healthy service."
+proposal = "In services/launchpad/indexer/internal/httpapi/status.go read the configured canonical stream watermark and durable delivery health, expose explicit degraded/unavailable results for failed reads and preserve clear legacy-mode status when that adapter is selected. Verify the mounted route against canonical commits and a real database outage."
+owner_domain = 4
+interface = "4.http-indexer-get-status"
+
+[finding.archive-capacity-bounds]
+file = "services/launchpad/indexer/internal/source/capacity.go"
+line = 767
+class = "config-drift"
+severity = "medium"
+observed = "RunSourceCapacity rejects endpoint InFlight above 16 and aggregate InFlight above 64. Configured archive sources instead use independent HistoricalConcurrency permits (default 48, maximum 96) and deliberately bypass the primary process permit pool, so valid historical load can fail capacity qualification."
+expected = "Capacity evidence must compare each actual provider against its admitted primary or archive concurrency budget, including independently reserved historical work."
+proposal = "In services/launchpad/indexer/internal/source/capacity.go derive qualification limits from admitted provider configuration, retaining primary process bounds and separate historical reservations. Exercise real archive saturation at configured concurrency and assert both overload rejection and valid utilization."
+owner_domain = 4
+interface = "4.env-indexer-indexer-historical-concurrency"
+
+[finding.quarantine-runtime-rejoin]
+file = "services/launchpad/indexer/internal/source/committed.go"
+line = 420
+class = "wiring-gap"
+severity = "medium"
+observed = "Three qualifying transport/response failures quarantine a primary endpoint, and eligible excludes quarantined endpoints indefinitely. RejoinEndpoint and ApplySourceSelection have no production application or HTTP caller; the capacity harness is the only non-test rejoin caller. A temporary outage can leave all primaries unavailable until process restart."
+expected = "Temporary source failure requires bounded runtime recovery, while canonical disagreements must retain their identity checks and operator-authorization fence."
+proposal = "Wire bounded health probes and verified RejoinEndpoint calls into services/launchpad/indexer/internal/app/app.go, plus the authorized incident-selection operation for genuine disagreements. Verify failure, source restoration and resumed ingestion without restarting or bypassing identity fences."
+owner_domain = 4
+interface = "4.env-indexer-rpc-getlogs-health-interval-ms"
+
+[finding.mixed-rpc-source-selection]
+file = "services/launchpad/indexer/internal/source/factory.go"
+line = 51
+class = "config-drift"
+severity = "medium"
+observed = "The legacy source factory caches one EVMSource regardless of URL set or mode. Mixing rpc and rpc-getlogs for log/head selection returns the first instance for the second request, ignoring the second backend URLs and reported source name. The independently configured head can therefore monitor the wrong endpoint."
+expected = "The declared INDEXER_LOG_SOURCE and INDEXER_HEAD_SOURCE choices must select their own requested backends, with sharing only for identical effective configuration."
+proposal = "In services/launchpad/indexer/internal/source/factory.go key reuse by normalized source mode and endpoint configuration, or construct independent adapters when they differ. Extend factory tests with both mixed RPC/RPC-pool directions and assert actual requested head and log endpoints."
+owner_domain = 4
+interface = "4.env-indexer-indexer-head-source"
+
+[finding.legacy-webhook-restart-loss]
+file = "services/launchpad/indexer/internal/publisher/publisher.go"
+line = 215
+class = "restart-recovery"
+severity = "medium"
+observed = "The supported non-qualified compatibility path advances its database cursor before PublishBatch. PublishBatch reserves a Redis dedup key before scheduling delivery, and failed targets exist only in the bounded in-memory dead-letter queue. A crash after reservation or cursor advancement can lose delivery, and replay can be suppressed for 600 seconds. Production canonical publication uses a separate durable outbox and is not assigned this defect."
+expected = "Any retained compatibility path described as durable must persist target work before advancing source progress and resume delivery after restart without interpreting reservation as delivery acknowledgement."
+proposal = "Move compatibility target delivery in services/launchpad/indexer/internal/publisher/publisher.go onto transactionally staged durable work with per-target acknowledgement, or explicitly retire that delivery mode and its durability promise. Verify a crash between staging, cursor advancement and target acknowledgement with the real receiver."
+owner_domain = 4
+interface = "4.env-indexer-webhook-urls"
+
+[finding.production-backfill-default]
+file = "services/launchpad/indexer/internal/config/config.go"
+line = 100
+class = "config-drift"
+severity = "medium"
+observed = "BACKFILL_BATCH_SIZE defaults to 2000 in Config and its registry declaration, but production lifecycle validation in app.go:984 refuses any backfill batch larger than 64. Selecting backfill with otherwise valid issued documents and the declared default fails before work begins."
+expected = "A documented environment default must be admissible by the production source lifecycle, while preserving the receipt-qualified range bound of64 blocks."
+proposal = "In services/launchpad/indexer/internal/config/config.go choose an explicit production-safe default or separate named legacy and qualified backfill settings, and update the owning registry/deployment documentation consistently. Verify production backfill startup with the advertised default without increasing the receipt range limit."
+owner_domain = 4
+interface = "4.env-indexer-backfill-batch-size"
+
+[finding.live-test-generation]
+file = "services/launchpad/indexer/internal/processor/live_ingest_postgres_test.go"
+line = 128
+class = "test-gap"
+severity = "medium"
+observed = "The live ingestion test replaces historical receipt inputs with deployment.Current, activated at 37220320, but its default real range starts at 33963716 with anchor 33963715. ReceiptOptions rejects that anchor before the ingestion assertions, so the default genuine-path test cannot establish its claimed behavior."
+expected = "Requirement 181075.1 makes approved deployment history authoritative for receipt generations; a real-path test must select the generation whose activation covers its anchor and range."
+proposal = "In services/launchpad/indexer/internal/processor/live_ingest_postgres_test.go select the approved manifest for the requested anchor, split ranges at activation boundaries and retain separate current native cases. Keep the existing ingestion assertions and prove each generation with actual source and PostgreSQL inputs."
+owner_domain = 4
+interface = "4.go-shared-config-deployment-current"
+
+[finding.inventory-real-consumer-proof]
+file = "services/launchpad/indexer/internal/processor/inventory_publication_postgres_test.go"
+line = 389
+class = "test-gap"
+severity = "medium"
+observed = "consumeAsPnl manually mirrors acceptance checks and partition writes rather than invoking PNL AccountingConsumer.PrepareAndConsume and BaselineAuthority.qualifyFreshTx. The test claims every frame passes PNL checks at line 553, but omits the actual consumer RPC movement/balance replay, baseline-use persistence and source lease checks in baseline.go:570-739."
+expected = "Brief fact 7 and requirement 21057.1 require actual producer, durable transport and consumer proof, including baseline authority and restart/fence behavior; a copied acceptance algorithm cannot establish downstream acceptance."
+proposal = "Extend services/launchpad/indexer/internal/processor/inventory_publication_postgres_test.go with the actual services/launchpad/pnl-tracker accounting consumer and baseline authority over genuine committed source and durable frames. Verify restart and source-fence changes with inventory/cost results and persisted baseline-use evidence."
+owner_domain = 4
+interface = "4.go-shared-accounting-publication-v1"
+
+[finding.measurement-refusal-mask]
+file = "services/launchpad/indexer/internal/processor/measurement_test.go"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "TestMeasurementRejectsAbsentActualProviders supplies no TopologyPath or TopologySHA256. IngestMeasurementHarness.Run rejects the missing topology at measurement.go:187 before reaching the absent actual collaborator checks at line244, and the test accepts any error. Provider-guard regressions therefore leave this test passing."
+expected = "A provider-refusal test must reach each intended guard with all earlier authority inputs valid and assert its specific refusal without producing evidence."
+proposal = "In services/launchpad/indexer/internal/processor/measurement_test.go supply a valid pinned topology and source specification, then independently omit each required actual collaborator and assert its exact refusal plus absent evidence. Retain the changed-candidate rejection as a separate guard assertion."
+owner_domain = 4
+
+[finding.native-feeflow-test-path]
+file = "services/launchpad/indexer/internal/processor/airdrop_test.go"
+line = 135
+class = "test-gap"
+severity = "medium"
+observed = "feeFlowMirror constructs a decode.Event directly because the checked-in legacy EventEmitter binding lacks FeeFlow, then the every-emitted-shape test invokes processDecoded with that manufactured shape. It bypasses actual native ABI encoding, approved registry dispatch, receipt qualification and production emitter projection."
+expected = "The brief requires real producer-to-consumer interface proof; FeeFlow airdrop rows must be demonstrated from the event shape the native producer actually emits rather than an assumed decoded map."
+proposal = "In services/launchpad/indexer/internal/processor/airdrop_test.go add actual native FeeFlow production through the approved registry and qualified production persistence, asserting durable SQL rows and replay identity. Keep the direct processor unit checks separately and use the native ABI rather than manufacturing decoded events."
+owner_domain = 4
+interface = "4.go-protocol-bindings-event-emitter-meta-data"
+
+[finding.network-overview-architecture]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview presents Paxeer as settlement/custody for a separate LayerX execution system, checkpoint anchoring and sequencer components; its repository examples also retain the earlier layout."
+expected = "Brief facts 1-3 specify one paxd BFT network with an embedded kernel, committed receipt finality and root node JSON-RPC distinct from hosted px_ services."
+proposal = "Rewrite docs/paxeer-network.md around the merged paxd execution and finality model, current repository paths and root node versus hosted gateway namespaces, removing active checkpoint settlement and separate LayerX deployment guidance."
+owner_domain = 17
+
+[finding.operator-beta]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta runbook starts from separate Paxeer/LayerX daemons and authority boundaries and retains active custody 0x1013 and layerxd custody-profile instructions. Following it rehearses the retired bootstrap and settlement architecture."
+expected = "A beta operator must deploy the single merged paxd network and use its committed-state recovery and current precompile policy; retired daemon/custody profiles are not operating dependencies."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md with one merged paxd cluster, current authority and recovery procedures, root JSON-RPC endpoints and refusal semantics for retired custody/bootstrap paths. Align rehearsal commands with the current node layout and remove independent layerxd startup steps."
+owner_domain = 8
+
+[finding.wiki-beta]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta runbook starts from separate Paxeer/LayerX daemons and authority boundaries and retains active custody 0x1013 and layerxd custody-profile instructions. Following it rehearses the retired bootstrap and settlement architecture."
+expected = "A beta operator must deploy the single merged paxd network and use its committed-state recovery and current precompile policy; retired daemon/custody profiles are not operating dependencies."
+proposal = "Rewrite docs/wiki/BetaCluster.md with one merged paxd cluster, current authority and recovery procedures, root JSON-RPC endpoints and refusal semantics for retired custody/bootstrap paths. Align rehearsal commands with the current node layout and remove independent layerxd startup steps."
+owner_domain = 8
+
+[finding.readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.pt-BR.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.fr.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.ja.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.ru.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.readme-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.zh-CN.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.de.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains at line 37, active custody/checkpoint settlement at 39, independent boundaries at 41 and running layerxd tools at 80. Lines 150-225 retain the retired sequencer/guarantor/checkpoint and lx_* service graph; lines 81-88 use the stale directory layout."
+expected = "The translated introduction must describe the same merged single-network contract as the brief: paxd BFT execution, embedded kernel, committed finality and separate root node versus hosted gateway APIs."
+proposal = "Rewrite docs/readme/README.es.md in its existing language around the merged paxd architecture and current repository paths. Replace the retired daemon, custody/checkpoint and sequencer/guarantor operating graph with committed execution and distinguish root node JSON-RPC namespaces from hosted px_ methods."
+owner_domain = 17
+
+[finding.unified-network-page]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes two execution domains and a running layerxd component, treats retired 0x1012-0x1014 settlement/bootstrap surfaces as active, and presents a unified /rpc path as the intended routing surface."
+expected = "Brief facts 1-3 specify one paxd executor, retired pre-merge surfaces, no unified /rpc router and root node namespaces distinct from the hosted gateway."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md to document the embedded kernel and committed BFT finality, current precompile behavior and explicit retired-surface refusal. Replace unified router plans with the actual root JSON-RPC and separately hosted px_ contract."
+owner_domain = 17
+
+[finding.service-contract-catalogue]
+file = "spec/layerx-merge/contracts/services.md"
+line = 346
+class = "doc-drift"
+severity = "medium"
+observed = "The reviewed launchpad-indexer section 337-386 declares platform-gateway as its dependency and lists only PostgreSQL plus signed webhooks as writes and HMAC secrets as its secret inventory. Production actually wires committed RPC, durable accounting NATS publication and broker credentials; its stated automatic reorg/gap replay also omits fail-closed identity fencing."
+expected = "The service catalogue must describe the real source, durable accounting outputs, credential dependencies and operator-visible recovery behavior of the current launchpad indexer."
+proposal = "Update the owning service catalogue/spec source for spec/layerx-merge/contracts/services.md and regenerate its launchpad-indexer section. Include committed direct RPC, durable NATS accounting/outbox and credential requirements, and distinguish authorized gap recovery from canonical identity disagreement."
+owner_domain = 17
+
+[doc.01]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.02]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.03]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.04]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.05]
+path = "docs/readme/README.ja.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.06]
+path = "docs/readme/README.ru.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.07]
+path = "docs/readme/README.zh-CN.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.08]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.09]
+path = "docs/readme/README.es.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.10]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.11]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+
+[doc.12]
+path = "docs/wiki/VirtualChains.md"
+status = "accurate"
+notes = "Read the full feature 20 page: shared EVM state, signed tenant chain-ID mapping, root full transaction view, scoped RPC and hosted indexer interfaces agree with the normative domain model. Receipt consumer rejection is recorded as a code finding."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Reviewed launchpad-indexer section 337-386 in full, including interfaces and acceptance links. Dependency, durable-output/secret inventory and recovery description are stale; other service sections are outside this page review."

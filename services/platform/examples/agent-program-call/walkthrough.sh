@@ -2,69 +2,79 @@
 set -euo pipefail
 
 [[ $# -eq 0 ]] || { echo "usage: walkthrough.sh" >&2; exit 64; }
-registry=$(layerx --json program registry list)
-mapfile -t candidates < <(jq -er '.data.program_ids[]' <<<"$registry")
-program_id=
-discovery=
-for candidate in "${candidates[@]}"; do
-  observed=$(layerx --json program discover "$candidate")
-  if [[ $(jq -r '.data.lifecycle' <<<"$observed") == active ]]; then
-    program_id=$candidate; discovery=$observed; break
+example_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+state_file=${LAYERX_CALL_STATE_FILE:-${XDG_STATE_HOME:-$HOME/.local/state}/layerx/agent-program-call.json}
+rpc_url=${LAYERX_RPC_URL:?set LAYERX_RPC_URL to the published JSON-RPC endpoint ending in /rpc}
+
+if [[ -e $state_file || -L $state_file ]]; then
+  if ! result=$(node "$example_dir/submission.mjs" recover "$state_file" "$rpc_url"); then
+    jq . <<<"$result"
+    exit 75
   fi
-done
-[[ -n $program_id ]]
+else
+  registry=$(layerx --rpc "$rpc_url" --json program registry list)
+  mapfile -t candidates < <(jq -er '.data.program_ids[]' <<<"$registry")
+  program_id=
+  discovery=
+  for candidate in "${candidates[@]}"; do
+    observed=$(layerx --rpc "$rpc_url" --json program discover "$candidate")
+    if [[ $(jq -r '.data.lifecycle' <<<"$observed") == active ]]; then
+      program_id=$candidate; discovery=$observed; break
+    fi
+  done
+  [[ -n $program_id ]]
 
-interface_digest=absent
-if [[ $(jq -r '.data.interface_status // "published"' <<<"$discovery") == published ]]; then
-  interface=$(layerx --json program interface get "$program_id")
-  interface_digest=$(jq -er '.data.interface_digest' <<<"$interface")
+  interface_digest=absent
+  if [[ $(jq -r '.data.interface_status // "published"' <<<"$discovery") == published ]]; then
+    interface=$(layerx --rpc "$rpc_url" --json program interface get "$program_id")
+    interface_digest=$(jq -er '.data.interface_digest' <<<"$interface")
+  fi
+  fee_limit=50000000
+
+  simulateCall() {
+    layerx --rpc "$rpc_url" --json program simulate "$program_id" --fuel 1000000 --fee-limit "$fee_limit"
+  }
+
+  simulation=$(simulateCall)
+  if ! jq -e '.data.outcome.terminal_result == 0 and .data.outcome.terminal_kind == 1' <<<"$simulation" >/dev/null; then
+    jq -n --arg program_id "$program_id" --arg interface_digest "$interface_digest" \
+      --argjson refusal "$(jq -e '.data.outcome' <<<"$simulation")" \
+      '{program_id:$program_id,interface_digest:$interface_digest,status:"typed-refusal",refusal:$refusal}'
+    exit 0
+  fi
+
+  if ! result=$(node "$example_dir/submission.mjs" submit "$state_file" "$rpc_url" \
+    "$program_id" "$interface_digest" \
+    "${LAYERX_EVM_KEY_FILE:?set LAYERX_EVM_KEY_FILE to the wallet derive export file}"); then
+    jq . <<<"$result"
+    exit 75
+  fi
 fi
-account=$(layerx --json account get)
-account_sequence=$(jq -er '.data.next_sequence // .data.account_sequence' <<<"$account")
-not_before_ms=$(jq -er '.data.observed_at' <<<"$discovery")
-expires_at_ms=$((not_before_ms + 300000))
-nonce=$(printf '%s:%s:%s' "$program_id" "$account_sequence" "$not_before_ms" | sha256sum | cut -d' ' -f1)
-fee_limit=50000000
-call_nonce=$(printf 'call:%s' "$nonce" | sha256sum | cut -d' ' -f1)
 
-simulation=$(layerx --json program simulate "$program_id" --fuel 1000000 --fee-limit "$fee_limit" \
-  --idempotency-key "$nonce" --account-sequence "$account_sequence" \
-  --not-before-ms "$not_before_ms" --expires-at-ms "$expires_at_ms")
-[[ $(jq -r '.data.committed' <<<"$simulation") == false ]]
-if [[ $(jq -er '.data.outcome.status' <<<"$simulation") == refused ]]; then
-  jq -n --arg program_id "$program_id" --arg interface_digest "$interface_digest" \
-    --argjson refusal "$(jq '.data.outcome.failure' <<<"$simulation")" \
-    '{program_id:$program_id,interface_digest:$interface_digest,status:"typed-refusal",refusal:$refusal}'
-  exit 0
+program_id=$(jq -er '.program_id' <<<"$result")
+interface_digest=$(jq -er '.interface_digest' <<<"$result")
+if [[ $(jq -r '.submitted' <<<"$result") == false ]]; then
+  jq . <<<"$result"
+  exit 1
 fi
-
-call_output=$(mktemp)
+if ! jq -e '.tx_hash | type == "string" and test("^0x[0-9a-f]{64}$")' <<<"$result" >/dev/null; then
+  jq . <<<"$result"
+  exit 75
+fi
 call_error=$(mktemp)
-trap 'rm -f "$call_output" "$call_error"' EXIT
-if ! layerx --json program call "$program_id" --fuel 1000000 --fee-limit "$fee_limit" \
-  --idempotency-key "$call_nonce" --account-sequence "$account_sequence" \
-  --not-before-ms "$not_before_ms" --expires-at-ms "$expires_at_ms" >"$call_output" 2>"$call_error"; then
-  failure=$(<"$call_error")
-  jq -n --arg program_id "$program_id" --arg refusal "$failure" \
-    '{program_id:$program_id,status:"local-or-deterministic-refusal",refusal:$refusal,submitted:false}'
-  exit 0
+trap 'rm -f "$call_error"' EXIT
+tx_hash=$(jq -er '.tx_hash | select(test("^0x[0-9a-f]{64}$"))' <<<"$result")
+if ! resolved=$(layerx --rpc "$rpc_url" --json receipt get "$tx_hash" 2>"$call_error") \
+  || ! jq -e --arg tx_hash "$tx_hash" \
+    '.data.txHash == $tx_hash and .data.rung == "receipted" and
+     (.data.receipt | type == "string" and test("^0x[0-9a-fA-F]+$")) and
+     (.data.status == "0x1" or .data.status == "0x0")' <<<"$resolved" >/dev/null \
+  || ! rung=$(node "$example_dir/verify-receipt.mjs" "$tx_hash" 2>"$call_error"); then
+  jq -n --arg program_id "$program_id" --arg tx_hash "$tx_hash" --arg rung "submitted" \
+    '{program_id:$program_id,tx_hash:$tx_hash,rung:$rung,status:"unknown-fate",action:"Query receipt get with this transaction hash; do not resubmit the call"}'
+  exit 75
 fi
-result=$(<"$call_output")
-if [[ $(jq -r '.data.outcome.status' <<<"$result") == unknown ]]; then
-  retained_activity=$(jq -er '.data.activity_id' <<<"$result")
-  if resolved=$(layerx --json receipt get "$retained_activity" 2>/dev/null) \
-    && [[ $(jq -r '.data.receipt // empty' <<<"$resolved") != "" ]]; then
-    jq -n --arg program_id "$program_id" --arg idempotency_key "$call_nonce" --arg activity_id "$retained_activity" \
-      --argjson receipt "$(jq '.data' <<<"$resolved")" \
-      '{program_id:$program_id,idempotency_key:$idempotency_key,activity_id:$activity_id,status:"resolved-after-unknown",receipt:$receipt}'
-  else
-    jq -n --arg program_id "$program_id" --arg idempotency_key "$call_nonce" --arg activity_id "$retained_activity" \
-      '{program_id:$program_id,idempotency_key:$idempotency_key,activity_id:$activity_id,status:"unknown-fate",retained_bytes:true,action:"activity-bound receipt lookup returned no verified receipt; do not retry with a different idempotency key"}'
-  fi
-  exit 0
-fi
-jq -e '.data.outcome.status == "completed" or .data.outcome.status == "refused"' <<<"$result" >/dev/null
 jq -n --arg program_id "$program_id" --arg interface_digest "$interface_digest" \
-  --arg receipt_digest "$(jq -er '.data.receipt_digest' <<<"$result")" \
-  --argjson outcome "$(jq '.data.outcome' <<<"$result")" \
-  '{program_id:$program_id,interface_digest:$interface_digest,receipt_digest:$receipt_digest,status:"called",outcome:$outcome}'
+  --arg tx_hash "$tx_hash" --arg rung "$rung" \
+  --argjson outcome "$(jq '.data | {status,returnData,vmError}' <<<"$resolved")" \
+  '{program_id:$program_id,interface_digest:$interface_digest,tx_hash:$tx_hash,rung:$rung,status:"called",outcome:$outcome}'

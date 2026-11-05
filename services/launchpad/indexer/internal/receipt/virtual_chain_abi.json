@@ -1,0 +1,103 @@
+[
+  {
+    "type": "function",
+    "name": "getChain",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "uint32"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "operator",
+        "type": "address"
+      },
+      {
+        "name": "status",
+        "type": "uint8"
+      },
+      {
+        "name": "chainId",
+        "type": "uint64"
+      },
+      {
+        "name": "gasAllowance",
+        "type": "uint64"
+      },
+      {
+        "name": "byteAllowance",
+        "type": "uint64"
+      },
+      {
+        "name": "feeShareBps",
+        "type": "uint16"
+      },
+      {
+        "name": "bond",
+        "type": "uint256"
+      },
+      {
+        "name": "baseFeePerGas",
+        "type": "uint256"
+      },
+      {
+        "name": "createdHeight",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ChainCreated",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint32",
+        "indexed": true
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true
+      },
+      {
+        "name": "chainId",
+        "type": "uint64",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ChainStatusChanged",
+    "inputs": [
+      {
+        "name": "id",
+        "type": "uint32",
+        "indexed": true
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  }
+]

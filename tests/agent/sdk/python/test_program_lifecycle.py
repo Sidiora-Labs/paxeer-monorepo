@@ -25,6 +25,28 @@ from layerx_sdk.programs import (
 )
 
 
+def current_lifecycle_transaction(name):
+    """Sign the committed current ABI calldata with the SDK's EIP-1559 codec."""
+    from layerx_sdk.evm_transaction import Type2Transaction, activity_id, decode_signed
+    from test_evm_transaction import ADDRESS, signed_raw
+
+    root = Path(__file__).resolve().parents[4]
+    fixture = json.loads((root / "sdk/platform/conformance/fixtures" /
+                          ("native-program-" + name + "-v4.json")).read_text())
+    transaction = Type2Transaction(
+        chain_id=fixture["evm"]["chainId"], nonce=9, max_priority_fee_per_gas=1,
+        max_fee_per_gas=2, gas_limit=2_000_000,
+        to=bytes.fromhex(fixture["evm"]["to"][2:].zfill(40)), value=0,
+        data=bytes.fromhex(fixture["evm"]["calldata"][2:]),
+    )
+    raw = signed_raw(transaction)
+    decoded, signature = decode_signed(raw)
+    assert decoded == transaction
+    assert decoded.recover_signer(signature).lower() == ADDRESS.lower()
+    assert decoded.attach_signature(signature, ADDRESS) == raw
+    return fixture, raw, activity_id(raw).hex()
+
+
 class ProgramLifecycleTest(unittest.TestCase):
     def test_boundary_refusal_and_unknown_envelopes(self):
         with self.assertRaises(ProgramBoundaryError) as raised:
@@ -39,6 +61,7 @@ class ProgramLifecycleTest(unittest.TestCase):
                 _decode_program_boundary_error(status, value)
 
     def test_c_signed_fixtures_and_refusals(self):
+        """Historical/internal native payload and signature codec coverage."""
         fixtures = Path(__file__).resolve().parents[4] / "sdk/platform/conformance/fixtures"
         source = Path(__file__).resolve().parents[4] / "sdk/integrations/fastapi/layerx_fastapi/signatures.py"
         spec = importlib.util.spec_from_file_location("lifecycle_signatures", source)
@@ -47,13 +70,19 @@ class ProgramLifecycleTest(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         signatures = module.LayerXSignatureVerifier()
-        call_receipt = json.loads((fixtures / "receipt-programs-positive-v3.json").read_text())
-        recovery = {"activity_id": "41" * 32, "receipt": call_receipt["canonical_receipt_hex"]}
-        sequencer = bytes.fromhex(call_receipt["authorized_batch"]["sequencer_public_key_hex"])
+        call_receipt = json.loads((fixtures / "sequencer-receipt-v1.json").read_text())["cases"][0]
+        recovery = {"activity_id": "41" * 32, "receipt": call_receipt["signedReceipt"].removeprefix("0x")}
+        sequencer = bytes.fromhex(call_receipt["pinnedKey"]["publicKey"].removeprefix("0x"))
+        from layerx_sdk.verifier import ReceiptKey
+        pin = call_receipt["pinnedKey"]
+        receipt_keys = (ReceiptKey(bytes.fromhex(pin["keyId"][2:]), sequencer,
+                                   pin["firstHeight"], pin["lastHeight"]),)
         self.assertEqual(_decode_envelope(200, json.dumps({"result": recovery}).encode(), "program.receipt"), recovery)
         for result, expected in [(recovery, "42" * 32), ({**recovery, "program_id": "11" * 32}, recovery["activity_id"]), (recovery, recovery["activity_id"])]:
             with self.assertRaises((ValueError, PlatformSdkError)):
-                verify_lifecycle_recovery(result, expected, sequencer, signatures)
+                verify_lifecycle_recovery(result, expected, sequencer, signatures,
+                                          signed_activity=bytes.fromhex(call_receipt["rawTransaction"][2:]),
+                                          receipt_keys=receipt_keys)
         for name, ordinal, decoder in (
             ("deploy", 1, NativeProgramDeploy.decode), ("upgrade", 2, NativeProgramUpgrade.decode),
             *(("wind-down-" + operation, 7, NativeProgramWindDown.decode) for operation in ("route", "deprecate", "tombstone", "exit")),
@@ -73,7 +102,7 @@ class ProgramLifecycleTest(unittest.TestCase):
                 request = NativeProgramLifecycleRequest(ordinal, payload, signed)
                 bound = request.bind(fixture["idempotency_key_hex"])
                 expected_unknown = {"state": "unknown", "activity_id": fixture["activity_id_hex"], "idempotency_key": fixture["idempotency_key_hex"], "retained_signed_activity": fixture["signed_activity_hex"]}
-                damaged = bytearray.fromhex(call_receipt["canonical_receipt_hex"])
+                damaged = bytearray.fromhex(call_receipt["signedReceipt"].removeprefix("0x"))
                 damaged[-1] ^= 1
                 for response in (
                     {"state": "executed", "activity_id": bound.activity_id, "receipt": damaged.hex(), "terminal_payload": "", "call_graph": ""},
@@ -81,7 +110,8 @@ class ProgramLifecycleTest(unittest.TestCase):
                     {"state": "unknown", "activity_id": "00" * 32, "retry": "after", "retry_after_seconds": 2},
                 ):
                     decoded = _decode_envelope(200, json.dumps({"result": response}).encode(), "program.deploy")
-                    self.assertEqual(resolve_lifecycle_response(decoded, bound, sequencer, signatures), expected_unknown)
+                    self.assertEqual(resolve_lifecycle_response(decoded, bound, sequencer, signatures,
+                                                               receipt_keys=receipt_keys), expected_unknown)
                 for encoded in (b'{"result":', b'{"result":{},"extra":true}'):
                     with self.assertRaises(PlatformSdkError) as caught:
                         _decode_envelope(200, encoded, "program.deploy")

@@ -1,0 +1,6 @@
+[repair.go-wasm.7]
+target = "wasm/x/wasm/artifacts/v152/api"
+command = "CGO_ENABLED=1 go vet ./wasm/x/wasm/artifacts/v152/api/ && CGO_ENABLED=1 go test -count=1 ./wasm/x/wasm/artifacts/v152/api/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "wasm/x/wasm/artifacts/v152/api/lib_test.go uses a regular file as the cache directory parent to exercise directory creation failure independently of filesystem permissions."

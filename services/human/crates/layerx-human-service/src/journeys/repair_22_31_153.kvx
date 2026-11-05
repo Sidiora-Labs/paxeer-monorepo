@@ -1,0 +1,76 @@
+[task.22.31.153]
+status = "implemented-awaiting-qualification"
+baseline = "No baseline test existed in the initial tree and no earlier gate ledger existed; the explicit implementation-first and hf-done-only gate order prohibits the contradictory unchanged-tree verify step. No pre-change failure is claimed as executed."
+
+[continuation]
+source_revision = "dc1b5f6ad1987585345043a8d9dc539b50be0c8e"
+previous_result = "The supplied attempt evidence reports one passing test and history_state_schema_get_list_after_reopen failing the actual embedded get/list schema validation; no unchanged-tree verification was repeated."
+scope_resolution = "Attempt 3 authorizes schema.rs and human-api; current base already declares closed in journeys.kvx. Startup now checks it against the engine enum, the baseline explicitly includes closed, and the real get/list encoder regression remains intact."
+peer_resolution = "The integration test replays the committed node receipt, RPC view, signed sequence batch, Comet commit and transaction-proof transcript through a loopback server; it launches no subprocess and uses no environment, credential or live endpoint."
+commit_interface = "advance_bank_with_commit authenticates the receipt, pinned validator quorum, Comet transaction inclusion and signed sequence-batch coverage before persisting Committed; the original advance_bank remains receipt-only and cannot promote unsigned RPC landing information."
+
+[qualification.continuation-1]
+revision = "d30d360d5e601519d7b4a6493e985664519adb29"
+command = "cg spec done 22.31.153 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed; get/list rejected closed and the bank test opened a second writer on the journey store, returning WouldBlock."
+repair = "Custody now owns a separately installed principal store; sign_in_scope continues using the journey's principal scope, and every original restart, signature, fee, nonce and committed-rung assertion remains intact."
+
+[finding.history-state-schema]
+test = "history_state_schema_get_list_after_reopen"
+repair = "JourneyState has a serde closed variant and JourneyEngine::historical_response encodes retained legacy get/list members from the same state; retired kinds remain unconstructible."
+schema = "The live contract and compatibility baseline declare closed, ApiSchema checks the engine vocabulary at startup, and reopened get/list responses pass through the actual schema encoder and JourneyState consumer."
+
+[finding.receipt-operation-domain]
+test = "bank_plan_constructor_commit_reopen_two_sends"
+repair = "EVM receipt module 12/version 1/type 2 is checked independently of intent ordinals, against the exact durable signed transaction hash, canonical signature, sender, destination, nonce, fee and time limits, authenticated key/height and receipt authority; EVM execution uses its signed execution projection, while kernel receipts retain verify_outcome."
+
+[finding.bank-plan-cannot-commit]
+test = "bank_plan_constructor_commit_reopen_two_sends"
+repair = "MoveJourney commits every bank call to JourneyEngine and retains the canonical bank plan, transfer amounts, signed bytes, nonces, hashes and verified receipt/key/rung evidence; advance_bank uses SequencerEndpoint and lookup_authenticated and resumes the same transactions after reopening; advance_bank_with_commit retains the verified signed-batch inclusion proof and reaches Committed without another send."
+
+[wiring.history-server]
+request = "Domain 10: services/human/crates/layerx-human-service/src/server/production_reads.rs should delegate its existing closed-history encoding to JourneyEngine::historical_response after the schema contract is wired; server/http.rs must keep enforcing ApiSchema."
+
+[wiring.history-client]
+request = "Domain 10: regenerate apps/web/src/api/generated/index.ts JourneyState/decodeJourneyState from the schema and add the closed label/status in apps/web/copy/catalog.ts, apps/web/src/journeys/activity/model.ts and apps/web/src/journeys/approvals/model.ts."
+
+[wiring.bank-server]
+request = "Domain 10: services/human/crates/layerx-human-service/src/server/production_components.rs should route bank MoveJourney execution through advance_bank_with_commit with its governed receipt keys, pinned consensus validators, signed batch inclusion evidence and sequencer endpoint, replacing the separate intent-evm persistence path; preserve native-purpose approval for native journeys."
+
+[wiring.receipt-adapter]
+request = "Domain 10: services/human/crates/layerx-human-service/src/server/production_components.rs verify_move_evm_outcome must also check type 2 separately from the disclosed activity ordinal; server/agent_runtime.rs must retain authenticated ReceiptMaterial key, height and rung transport."
+
+[qualification.build-1]
+revision = "2ef4ad80e600b6f004277419327934a5b3462020"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The integration test omitted the directory helper import; the first repair's textual replacement did not match the formatted import."
+
+[qualification.build-2]
+revision = "74d4dd91840ae4fd036a4ceba9e03bc1ffa11868"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The same missing import remained; repair cycle two adds the import by an exact patch."
+
+[continuation.attempt-3]
+prior_failures = "Supplied attempt-2 gate: history_state_schema_get_list_after_reopen rejected closed through the get/list encoder; bank_plan_constructor_commit_reopen_two_sends timed out starting the external constructor. Both tests remain asserted, and the baseline gate is not repeated outside hf-done."
+producer = "The unchanged receipt/RPC codec declarations from node/sequencer/receipt.go, receiptkey.go, executor.go and rpc/sequencer_receipt.go (SHA-256 source hashes retained in the transcript) are compiled by a private one-shot Go constructor with the imported production Comet and sequence-batch producers to emit repair_22_31_153_transcript.json during implementation; qualification replays only its committed JSON through the Rust client. The synthetic fixture key is public test material."
+proof = "The bank test stops at Signed, reopens before sending, reaches Receipted, reopens, independently verifies batch inclusion and validator quorum to reach Committed, then reopens again and checks exact raw transactions, receipt bytes, nonces, hashes, fees, amounts and rung."
+refusals = "Damaged batch bytes, activity coverage, covering height and validator trust are refused; cross-leg receipt reuse, different signed calls, identity substitution, receipt nonce substitution and fee overrun stay refused."
+evidence = "hf-build and hf-done own the exact candidate revision, command, exit and private log; no completion is claimed before those declared gates pass on the same candidate."
+
+[gotcha.attempt-3]
+observed = "A receipted RPC response and ordinary EVM landing receipt do not authenticate a committed rung; recovery must retain the signed consensus header and sequence-batch inclusion proof as well as the signed execution receipt."
+resolution = "The bank adapter explicitly accepts pinned consensus evidence, verifies it through the existing daemon checkpoint and Comet proof codecs, retains the exact evidence, and refuses damaged proof material."
+
+[qualification.attempt-3-verify-1]
+revision = "f78257cb7c6087de710dcf50b7815872fb69eeba"
+command = "cg spec done 22.31.153 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The history encoder regression passed; the bank path reached Receipted and failed promotion because the Comet transaction proof verifies SHA-256(transaction), not the raw batch transaction bytes."
+repair = "Use the real Comet transaction hash as the inclusion leaf, bind it to the exact signed batch bytes, and assert its leaf hash equals the recorded Go producer proof; no existing assertion or bound changes."

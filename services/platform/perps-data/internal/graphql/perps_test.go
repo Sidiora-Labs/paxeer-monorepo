@@ -313,6 +313,42 @@ func check(t *testing.T, s *graphql.Schema, query, want string) {
 	}
 }
 
+func TestVaultBalanceHistoryAggregatesAccounts(t *testing.T) {
+	url := os.Getenv("PERPS_DATA_TEST_DATABASE_URL")
+	if url == "" {
+		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is unset")
+	}
+	db := openPerpsDB(t, url)
+	const (
+		usdl100 = "100000000"
+		usdl200 = "200000000"
+		usdl300 = "300000000"
+	)
+	b := &block{n: 100, at: time.Now().UTC().Truncate(time.Second)}
+	f := b.fact(0, false, "deposited", traderA)
+	b.add("CollateralDeposited", map[string]any{"amount": usdl100}, decode.CollateralDepositedRow{
+		Fact: f, AccountArg: traderA, Amount: usdl100, NewBalance: usdl100,
+	})
+	f = b.fact(1, false, "deposited", traderB)
+	b.add("CollateralDeposited", map[string]any{"amount": usdl200}, decode.CollateralDepositedRow{
+		Fact: f, AccountArg: traderB, Amount: usdl200, NewBalance: usdl200,
+	})
+	writeBlock(t, db, b, common.Hash{})
+	s, err := NewSchema(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check(t, s, `{ vaultBalanceHistory(vaultType: 0) { newBalance delta isIncrease txHash } }`,
+		fmt.Sprintf(`{"vaultBalanceHistory":[
+{"newBalance":%q,"delta":%q,"isIncrease":true,"txHash":%q},
+{"newBalance":%q,"delta":%q,"isIncrease":true,"txHash":%q}]}`,
+			usdl300, usdl200, txHex(100, 1), usdl100, usdl100, txHex(100, 0)))
+	check(t, s, `{ vaultBalanceHistory(tokenAddress: "`+lower(store.USDL)+`", vaultType: 0, limit: 1) { newBalance } }`,
+		fmt.Sprintf(`{"vaultBalanceHistory":[{"newBalance":%q}]}`, usdl300))
+	check(t, s, `{ vaultBalanceHistory(vaultType: 0, limit: 1, offset: 1) { newBalance } }`,
+		fmt.Sprintf(`{"vaultBalanceHistory":[{"newBalance":%q}]}`, usdl100))
+}
+
 func TestPerpsResolvers(t *testing.T) {
 	url := os.Getenv("PERPS_DATA_TEST_DATABASE_URL")
 	if url == "" {

@@ -56,7 +56,8 @@ func TestAddNative(t *testing.T) {
 	evm = vm.NewEVM(*blockCtx, statedb, cfg, vm.Config{}, testApp.EvmKeeper.CustomPrecompiles(ctx))
 	ret, g, err := p.RunAndCalculateGas(evm, caller, caller, append(p.GetExecutor().(*pointer.PrecompileExecutor).AddNativePointerID, args...), suppliedGas, nil, nil, false, false)
 	require.Nil(t, err)
-	require.Equal(t, uint64(8887314), g)
+	// AddNative deploys via UpsertERCNativePointer and charges deployment plus pointer-store registration gas.
+	require.Equal(t, uint64(0x8786ad), g)
 	outputs, err := m.Outputs.Unpack(ret)
 	require.Nil(t, err)
 	addr := outputs[0].(common.Address)

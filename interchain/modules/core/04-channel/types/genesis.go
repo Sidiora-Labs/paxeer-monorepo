@@ -49,6 +49,7 @@ func NewGenesisState(
 	return GenesisState{
 		Channels:            channels,
 		Acknowledgements:    acks,
+		Receipts:            receipts,
 		Commitments:         commitments,
 		SendSequences:       sendSeqs,
 		RecvSequences:       recvSeqs,
@@ -74,8 +75,7 @@ func DefaultGenesisState() GenesisState {
 // Validate performs basic genesis state validation returning an error upon any
 // failure.
 func (gs GenesisState) Validate() error {
-	// keep track of the max sequence to ensure it is less than
-	// the next sequence used in creating connection identifers.
+	// Keep track of the maximum imported channel sequence, including zero.
 	var maxSequence uint64 = 0
 
 	for i, channel := range gs.Channels {
@@ -93,7 +93,7 @@ func (gs GenesisState) Validate() error {
 		}
 	}
 
-	if maxSequence != 0 && maxSequence >= gs.NextChannelSequence {
+	if len(gs.Channels) != 0 && maxSequence >= gs.NextChannelSequence {
 		return fmt.Errorf("next channel sequence %d must be greater than maximum sequence used in channel identifier %d", gs.NextChannelSequence, maxSequence)
 	}
 

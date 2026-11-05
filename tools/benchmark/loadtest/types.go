@@ -32,22 +32,13 @@ const (
 	Limit                string = "limit"
 	Market               string = "market"
 	WasmMintNft          string = "wasm_mint_nft"
-	UNIV2                string = "univ2"
 	Vortex               string = "vortex"
 	WasmInstantiate      string = "wasm_instantiate"
-	WasmOccIteratorWrite string = "wasm_occ_iterator_write"
-	WasmOccIteratorRange string = "wasm_occ_iterator_range"
-	WasmOccParallelWrite string = "wasm_occ_parallel_write"
 )
 
-type WasmIteratorWriteMsg struct {
-	Values [][]uint64 `json:"values"`
-}
-
 type EVMAddresses struct {
-	ERC20        common.Address
-	ERC721       common.Address
-	UniV2Swapper common.Address
+	ERC20  common.Address
+	ERC721 common.Address
 }
 
 type Config struct {
@@ -67,14 +58,50 @@ type Config struct {
 	ContractDistr      ContractDistributions `json:"contract_distribution"`
 	PerMessageConfigs  MessageConfigs        `json:"message_configs"`
 	MetricsPort        uint64                `json:"metrics_port"`
+	TLSCAFile          string                `json:"tls_ca_file,omitempty"`
 	TLS                bool                  `json:"tls"`
-	PaxTesterAddress   string                `json:"pax_tester_address"`
 	PostTxEvmQueries   PostTxEvmQueries      `json:"post_tx_evm_queries"`
 	Ticks              uint64                `json:"ticks"`
 	EvmUseEip1559Txs   bool                  `json:"evm_use_eip1559_txs"` // setting this to true could make gas go up to infinity
 
 	// These are dynamically set at startup
 	EVMAddresses *EVMAddresses
+}
+
+func (c Config) Validate() error {
+	if err := c.ValidateMessageTypes(); err != nil {
+		return err
+	}
+	if c.ContainsAnyMessageTypes(WasmMintNft) {
+		if err := c.PriceDistr.Validate("price_distribution"); err != nil {
+			return err
+		}
+		if err := c.QuantityDistr.Validate("quantity_distribution"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c Config) ValidateMessageTypes() error {
+	valid := map[string]struct{}{
+		Bank: {}, EVM: {}, ERC20: {}, ERC721: {},
+		CollectRewards: {}, DistributeRewards: {},
+		FailureBankMalformed: {}, FailureBankInvalid: {},
+		FailureDexMalformed: {}, FailureDexInvalid: {},
+		Dex: {}, Staking: {}, Tokenfactory: {}, Limit: {}, Market: {},
+		WasmMintNft: {}, Vortex: {}, WasmInstantiate: {},
+	}
+	var unknown []string
+	for _, messageType := range c.MessageTypes {
+		if _, ok := valid[messageType]; !ok {
+			unknown = append(unknown, messageType)
+		}
+	}
+	if len(unknown) > 0 {
+		return fmt.Errorf("unrecognized message types: %q", unknown)
+	}
+	return nil
 }
 
 func (c *Config) EVMRpcEndpoint() string {
@@ -114,6 +141,22 @@ type NumericDistribution struct {
 	Min         sdk.Dec `json:"min"`
 	Max         sdk.Dec `json:"max"`
 	NumDistinct int64   `json:"number_of_distinct_values"`
+}
+
+func (d NumericDistribution) Validate(key string) error {
+	if d.NumDistinct <= 0 {
+		return fmt.Errorf("%s.number_of_distinct_values must be positive, got %d", key, d.NumDistinct)
+	}
+	if d.Min.IsNil() {
+		return fmt.Errorf("%s.min must be specified", key)
+	}
+	if d.Max.IsNil() {
+		return fmt.Errorf("%s.max must be specified", key)
+	}
+	if d.Min.GT(d.Max) {
+		return fmt.Errorf("%s.max must be greater than or equal to %s.min", key, key)
+	}
+	return nil
 }
 
 func (d *NumericDistribution) Sample() sdk.Dec {

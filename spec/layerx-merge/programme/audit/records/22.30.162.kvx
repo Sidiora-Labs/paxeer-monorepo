@@ -1,0 +1,2243 @@
+# Pre-upgrade product audit; repair proposals only.
+
+[audit.22.30.162]
+task = "22.30.162"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 242
+findings = 52
+docs_reviewed = 46
+upgrade_ready = false
+blocking = ["ss-restore-completion", "future-query-height", "slashing-window-last-bit", "slashing-rest-producer-encoding", "slashing-legacy-consumer-encoding", "upgrade-name-order"]
+requirements = ["7288.1", "15003.1", "15003.2", "4036.2", "4037.2", "15021.1", "15021.2", "15023.1", "15023.2", "15025.1", "15029.1", "15029.2", "15041.1", "15047.1", "15047.2", "15047.3", "15051.1", "15051.2", "15051.3", "15053.1", "15024.1", "15026.1", "15030.1", "15042.1", "15048.1", "15052.1", "15054.1"]
+produces_reviewed = 334
+consumes_reviewed = 400
+review_basis = "All 242 member files reviewed in full against the package requirement acceptance criteria, listed registry declarations/callers and documentation. The enumerated consumes list has 400 rows, although its package summary says 405; the explicit list is the review inventory. Requirement 22998.1 qualification for this audit is the declared record checker, not an assertion that proposed source repair tests have run."
+interface_review = "The 334 produced and 400 enumerated consumed registry rows were compared at SDK/ABCI, storage, protobuf/Any, CLI/REST/gRPC, key, error, event and configuration boundaries. Disagreements and real-path recovery/test proposals carry row identifiers below; no change to source or interfaces is made by this audit."
+
+[file.001]
+path = "sdk/baseapp/abci.go"
+lines = 1134
+verdict = "issues"
+note = "ABCI lifecycle, query dispatch, sealed commit and pruning reviewed against request/response and commit-hook contracts; retention and future-query labeling exceptions are recorded."
+
+[file.002]
+path = "sdk/baseapp/abci_query_metrics.go"
+lines = 86
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; abciQueryMetricRoute, abciStoreQueryMetricRoute, storeRegisteredForQuery, storeByNameLookup agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.003]
+path = "sdk/baseapp/abci_query_metrics_test.go"
+lines = 76
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestAbciQueryMetricRoute, TestAbciQueryMetricRoute_RegisteredStore agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.004]
+path = "sdk/baseapp/abci_test.go"
+lines = 300
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestGetBlockRentionHeight, TestBaseAppCreateQueryContext, Set, Has, paramStore, mockNonQueryableMultiStore agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.005]
+path = "sdk/baseapp/baseapp.go"
+lines = 1155
+verdict = "clean"
+note = "Application construction, transaction cache/ante/message execution and OCC recovery agree with the retained node override of CheckTx; the BaseApp default alone is not an authorization bypass."
+
+[file.006]
+path = "sdk/baseapp/baseapp_test.go"
+lines = 166
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; newBaseApp, registerTestCodec, aminoTxEncoder, setupBaseApp, TestSetOccEnabled, TestListSnapshots agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.007]
+path = "sdk/baseapp/deliver_tx_batch_test.go"
+lines = 180
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; anteHandler, handlerKVStore, requireAttribute, TestDeliverTxBatch, TestDeliverTxBatchEmpty agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.008]
+path = "sdk/baseapp/deliver_tx_test.go"
+lines = 1901
+verdict = "issues"
+note = "Full file review found the product issues detailed in concurrent-check-deliver-test, block-gas-test-disabled, snapshot-fixture-cache-bypass."
+
+[file.009]
+path = "sdk/baseapp/grpcrouter.go"
+lines = 126
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; NewGRPCQueryRouter, Route, RegisterService, SetInterfaceRegistry, serviceData, GRPCQueryHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.010]
+path = "sdk/baseapp/grpcrouter_helpers.go"
+lines = 68
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; NewQueryServerTestHelper, Invoke, NewStream, QueryServiceTestHelper agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.011]
+path = "sdk/baseapp/grpcrouter_test.go"
+lines = 75
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestGRPCGatewayRouter, TestRegisterQueryServiceTwice agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.012]
+path = "sdk/baseapp/grpcserver.go"
+lines = 98
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; GRPCQueryRouter, RegisterGRPCServer agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.013]
+path = "sdk/baseapp/legacy_abci_metrics_test.go"
+lines = 154
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestBaseappAbciEmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.014]
+path = "sdk/baseapp/legacy_runtx_metrics_test.go"
+lines = 71
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestBaseappRunTxEmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.015]
+path = "sdk/baseapp/metrics.go"
+lines = 132
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.016]
+path = "sdk/baseapp/msg_service_router.go"
+lines = 153
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; NewMsgServiceRouter, Handler, HandlerByTypeURL, RegisterService, MsgServiceHandler, CoinInterface agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.017]
+path = "sdk/baseapp/msg_service_router_test.go"
+lines = 157
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestRegisterMsgService, TestRegisterMsgServiceTwice, TestMsgService agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.018]
+path = "sdk/baseapp/occ_recovery_test.go"
+lines = 68
+verdict = "clean"
+note = "The declared recovery cases distinguish enabled OCC abort mapping from disabled OCC default panic handling, matching 15021.1/15021.2."
+
+[file.019]
+path = "sdk/baseapp/options.go"
+lines = 326
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; SetPruning, SetMinGasPrices, SetHaltHeight, SetHaltTime, SetMigrationHeight, SetTxPrioritizer agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.020]
+path = "sdk/baseapp/otel_block_metrics_test.go"
+lines = 94
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; midBlockDuration, endBlockDuration, processProposalDuration, finalizeBlockDuration, commitDuration, TestBlockLifecycleRecordsDurations agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.021]
+path = "sdk/baseapp/otel_query_metrics_test.go"
+lines = 54
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; abciQueryDuration, getTxPriorityHintDuration, TestQueryAndPriorityHintRecordDurations agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.022]
+path = "sdk/baseapp/otel_runtx_metrics_test.go"
+lines = 69
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; runTxDuration, runMsgsDuration, runMsgLatency, TestRunTxRecordsRunTxRunMsgsAndMsgLatency agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.023]
+path = "sdk/baseapp/otel_tx_metrics_test.go"
+lines = 80
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; deliverTxDuration, txCount, txResult, txGasUsed, txGasWanted, TestDeliverTxRecordsTxCountResultAndGas agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.024]
+path = "sdk/baseapp/params.go"
+lines = 173
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; ValidateBlockParams, ValidateEvidenceParams, ValidateValidatorParams, ValidateVersionParams, validateDurationPointer, ParamStore agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.025]
+path = "sdk/baseapp/params_test.go"
+lines = 65
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestValidateBlockParams, TestValidateEvidenceParams, TestValidateValidatorParams agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.026]
+path = "sdk/baseapp/query_grpc_error_test.go"
+lines = 74
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestHandleQueryGRPCKeepsModuleCodespace agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.027]
+path = "sdk/baseapp/queryrouter.go"
+lines = 48
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; NewQueryRouter, AddRoute, Route, QueryRouter agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.028]
+path = "sdk/baseapp/queryrouter_test.go"
+lines = 33
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestQueryRouter agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.029]
+path = "sdk/baseapp/recovery.go"
+lines = 97
+verdict = "clean"
+note = "OCC abort recovery is gated by OCC enablement; non-OCC panics retain the default recovery path required by 15021.1/15021.2."
+
+[file.030]
+path = "sdk/baseapp/recovery_test.go"
+lines = 64
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestRecoveryChain agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.031]
+path = "sdk/baseapp/router.go"
+lines = 41
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; NewRouter, AddRoute, Route, Router agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.032]
+path = "sdk/baseapp/router_test.go"
+lines = 31
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context test source reviewed in full; TestRouter agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.033]
+path = "sdk/baseapp/sealed_state_test.go"
+lines = 97
+verdict = "issues"
+note = "Full file review found the product issues detailed in sealed-retention-test."
+
+[file.034]
+path = "sdk/baseapp/state.go"
+lines = 48
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; CacheMultiStore, MultiStore, SetMultiStore, Context, SetContext, state agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.035]
+path = "sdk/baseapp/test_helpers.go"
+lines = 64
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; Check, Deliver, NewContext, NewUncachedContext, DeliverContext, GetContextForDeliverTx agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.036]
+path = "sdk/baseapp/testutil/buf.gen.yaml"
+lines = 5
+verdict = "clean"
+note = "Test protobuf generator configuration names the existing plugins and paths; this is configuration source, not generated output."
+
+[file.037]
+path = "sdk/baseapp/testutil/buf.yaml"
+lines = 4
+verdict = "clean"
+note = "Test protobuf module and dependency configuration agree with the helper schema imports."
+
+[file.038]
+path = "sdk/baseapp/testutil/messages.go"
+lines = 60
+verdict = "clean"
+note = "BaseApp lifecycle, dispatch and context source reviewed in full; RegisterInterfaces, GetSigners, ValidateBasic agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.039]
+path = "sdk/baseapp/testutil/messages.proto"
+lines = 39
+verdict = "clean"
+note = "Hand-maintained test message schema agrees with service-router helper use; generated protobuf outputs are outside this member list."
+
+[file.040]
+path = "sdk/storev2/commitment/store.go"
+lines = 216
+verdict = "clean"
+note = "Commitment query adapter preserves key/value and proof encoding from the SC child store, including range and error responses."
+
+[file.041]
+path = "sdk/storev2/commitment/store_test.go"
+lines = 22
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestLastCommitID, TestGetWorkingHashRequiresRootMultiStore agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.042]
+path = "sdk/storev2/rootmulti/flatkv_equivalence_test.go"
+lines = 225
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; addr20, storageKeyAt, nonceKeyOf, codeHashKeyOf, TestFlatKVDualWriteExhaustiveEquivalence, TestFlatKVDualWriteEquivalenceAtHistoricalVersions agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.043]
+path = "sdk/storev2/rootmulti/flatkv_hash_test.go"
+lines = 229
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestFlatKVDualWriteHashConsistency, TestFlatKVEVMMigratedHashConsistency, TestFlatKVLatticeHashDeterminism, TestFlatKVLatticeHashSensitivity, TestFlatKVDualWriteDoubleFlush, TestFlatKVMixedCosmosAndEVMBlocks agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.044]
+path = "sdk/storev2/rootmulti/flatkv_helpers_test.go"
+lines = 502
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; withTestMemIAVL, dualWriteConfig, evmMigratedConfig, flatKVOnlyConfig, evmTestData, commitRecord agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.045]
+path = "sdk/storev2/rootmulti/flatkv_migration_test.go"
+lines = 451
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; migrationVersionInFlatKV, readMigrationVersion, driveRootMultiMigration, driveDrainBlocks, TestRootMultiMigrateEVM_PostCompletionFlipToEVMMigrated, TestRootMultiMigrateEVM_DoubleFlushAppHashStable agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.046]
+path = "sdk/storev2/rootmulti/flatkv_modes_test.go"
+lines = 312
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestFlatKVQueryWithSSAndReadMode, TestFlatKVQueryNonExistentKey, TestFlatKVSSAsyncRestartConsistency agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.047]
+path = "sdk/storev2/rootmulti/flatkv_recovery_test.go"
+lines = 420
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestFlatKVRollbackWithLatticeHash, TestFlatKVCrashRecoveryThroughRootMulti, TestFlatKVEVMMigratedCrashRecovery, TestFlatKVReverseCrashRecoveryFlatKVAhead, TestFlatKVSequentialRollbacks, TestFlatKVRollbackThenCrashRecovery agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.048]
+path = "sdk/storev2/rootmulti/flatkv_snapshot_test.go"
+lines = 594
+verdict = "issues"
+note = "Full file review found the product issues detailed in snapshot-height-hash-test."
+
+[file.049]
+path = "sdk/storev2/rootmulti/flatkv_workload_test.go"
+lines = 359
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestFlatKVFullScanLtHashVerification, TestFlatKVDeleteAndOverwriteWorkload, TestFlatKVMultiAccountWorkload, TestFlatKVEVMMigratedReadRouting, TestFlatKVLargeChangesetDeterminism agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.050]
+path = "sdk/storev2/rootmulti/hash_consistency_test.go"
+lines = 174
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestCommitAndHistoricalQueryHashConsistency, TestCommitAndHistoricalQueryWithDoubleFlush agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.051]
+path = "sdk/storev2/rootmulti/legacy_metrics_test.go"
+lines = 138
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestStorev2EmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.052]
+path = "sdk/storev2/rootmulti/metrics.go"
+lines = 69
+verdict = "clean"
+note = "State commitment, historical query and recovery source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.053]
+path = "sdk/storev2/rootmulti/otel_commit_metrics_test.go"
+lines = 133
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; scCommitLatency, ssVersion, historicalAbciQuery, TestCommitAndFlushRecordLatencyAndSSVersion, TestHistoricalQueryRecordsHistoricalAbciQuery agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.054]
+path = "sdk/storev2/rootmulti/otel_snapshot_metrics_test.go"
+lines = 97
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; iavlTotalKeyBytes, iavlTotalValueBytes, iavlTotalNumKeys, stateSyncKeysExported, TestSnapshotRecordsIAVLGaugesAndExportedKeys agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.055]
+path = "sdk/storev2/rootmulti/store.go"
+lines = 1099
+verdict = "issues"
+note = "Commitment/history query routing, snapshot import/export, pruning and storage modes reviewed; future-height substitution and asynchronous SS restore are the recorded exceptions."
+
+[file.056]
+path = "sdk/storev2/rootmulti/store_test.go"
+lines = 449
+verdict = "clean"
+note = "State commitment, historical query and recovery test source reviewed in full; TestGetCommitKVStore_ReaderRespectsWriteLock, TestLastCommitID, TestCompatibilityWrappersRemainUsable, waitUntilSSVersion, TestCacheMultiStoreWithVersion_NoReentrantRLockDeadlock, TestQuery_LatestProofBypassesHistoricalPermit agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.057]
+path = "sdk/storev2/state/store.go"
+lines = 151
+verdict = "clean"
+note = "Versioned SS query adapter agrees with persisted state read types and query result/error encoding."
+
+[file.058]
+path = "sdk/x/capability/abci.go"
+lines = 22
+verdict = "clean"
+note = "Capability module source reviewed in full; BeginBlocker agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.059]
+path = "sdk/x/capability/capability_test.go"
+lines = 89
+verdict = "clean"
+note = "Capability module test source reviewed in full; SetupTest, TestInitializeMemStore, TestCapabilityTestSuite, CapabilityTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.060]
+path = "sdk/x/capability/genesis.go"
+lines = 46
+verdict = "clean"
+note = "Genesis import/export wires persisted index and owners into keeper initialization; missing input uniqueness/order validation is recorded on GenesisState.Validate."
+
+[file.061]
+path = "sdk/x/capability/genesis_test.go"
+lines = 56
+verdict = "clean"
+note = "Capability module test source reviewed in full; TestGenesis agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.062]
+path = "sdk/x/capability/keeper/keeper.go"
+lines = 475
+verdict = "clean"
+note = "Scoped capability creation, authentication, owner persistence and InitMemStore reconstruction reviewed; the accepted malformed genesis boundary is recorded in types/genesis.go."
+
+[file.063]
+path = "sdk/x/capability/keeper/keeper_test.go"
+lines = 561
+verdict = "clean"
+note = "Capability module test source reviewed in full; setupKeeper, TestSeal, TestNewCapability, TestAuthenticateCapability, TestKeeperGetSetOwners, TestReleaseCapability_FinalReleaseClearsPersistentEntry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.064]
+path = "sdk/x/capability/legacy_metrics_test.go"
+lines = 47
+verdict = "clean"
+note = "Capability module test source reviewed in full; TestCapabilityEmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.065]
+path = "sdk/x/capability/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Capability module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.066]
+path = "sdk/x/capability/module.go"
+lines = 184
+verdict = "clean"
+note = "Capability module source reviewed in full; NewAppModuleBasic, Name, RegisterLegacyAminoCodec, RegisterInterfaces, AppModuleBasic, AppModule agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.067]
+path = "sdk/x/capability/otel_metrics_test.go"
+lines = 48
+verdict = "clean"
+note = "Capability module test source reviewed in full; beginBlockerDuration, TestBeginBlockerRecordsCapabilityBeginBlockerDuration agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.068]
+path = "sdk/x/capability/simulation/decoder.go"
+lines = 33
+verdict = "clean"
+note = "Capability module source reviewed in full; NewDecodeStore agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.069]
+path = "sdk/x/capability/simulation/genesis.go"
+lines = 39
+verdict = "clean"
+note = "Capability module source reviewed in full; GenIndex, RandomizedGenState agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.070]
+path = "sdk/x/capability/spec/01_concepts.md"
+lines = 34
+verdict = "clean"
+note = "Scoped ownership, unforgeable process-local capability pointers and persistent owner reconstruction agree with the keeper design."
+
+[file.071]
+path = "sdk/x/capability/spec/02_state.md"
+lines = 11
+verdict = "issues"
+note = "Full file review found the product issues detailed in capability-state-empty."
+
+[file.072]
+path = "sdk/x/capability/spec/README.md"
+lines = 76
+verdict = "issues"
+note = "Full file review found the product issues detailed in capability-overview-genesis."
+
+[file.073]
+path = "sdk/x/capability/types/errors.go"
+lines = 18
+verdict = "clean"
+note = "Capability module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.074]
+path = "sdk/x/capability/types/genesis.go"
+lines = 49
+verdict = "issues"
+note = "Full file review found the product issues detailed in capability-genesis-invariants."
+
+[file.075]
+path = "sdk/x/capability/types/genesis_test.go"
+lines = 131
+verdict = "clean"
+note = "Capability module test source reviewed in full; TestValidateGenesis agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.076]
+path = "sdk/x/capability/types/keys.go"
+lines = 61
+verdict = "clean"
+note = "Capability module source reviewed in full; RevCapabilityKey, FwdCapabilityKey, IndexToKey, IndexFromKey agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.077]
+path = "sdk/x/capability/types/keys_test.go"
+lines = 51
+verdict = "clean"
+note = "Capability module test source reviewed in full; TestRevCapabilityKey, TestFwdCapabilityKey, TestIndexToKey, TestIndexFromKey, legacyFwdCapabilityKey, TestFwdCapabilityKeyCompatibility agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.078]
+path = "sdk/x/capability/types/types.go"
+lines = 87
+verdict = "clean"
+note = "Capability module source reviewed in full; NewCapability, String, NewOwner, Key, Remove, Get agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.079]
+path = "sdk/x/capability/types/types_test.go"
+lines = 69
+verdict = "clean"
+note = "Capability module test source reviewed in full; TestCapabilityKey, TestOwner, TestCapabilityOwners_Set, TestCapabilityOwners_Remove agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.080]
+path = "sdk/x/evidence/abci.go"
+lines = 35
+verdict = "clean"
+note = "Evidence module source reviewed in full; BeginBlocker agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.081]
+path = "sdk/x/evidence/atlas/atlas-v0.41.x.md"
+lines = 167
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-atlas-purpose."
+
+[file.082]
+path = "sdk/x/evidence/atlas/manifest.toml"
+lines = 48
+verdict = "clean"
+note = "The Cosmos SDK upstream homepage, issue tracker and v0.41 atlas metadata identify provenance; they are not treated as current node deployment configuration."
+
+[file.083]
+path = "sdk/x/evidence/client/cli/query.go"
+lines = 98
+verdict = "clean"
+note = "Evidence module source reviewed in full; GetQueryCmd, QueryEvidenceCmd, queryEvidence, queryAllEvidence agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.084]
+path = "sdk/x/evidence/client/cli/tx.go"
+lines = 44
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-cli-unmounted."
+
+[file.085]
+path = "sdk/x/evidence/client/evidence_handler.go"
+lines = 30
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewEvidenceHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.086]
+path = "sdk/x/evidence/client/rest/query.go"
+lines = 95
+verdict = "clean"
+note = "Evidence module source reviewed in full; registerQueryRoutes, queryEvidenceHandler, queryAllEvidenceHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.087]
+path = "sdk/x/evidence/client/rest/rest.go"
+lines = 33
+verdict = "clean"
+note = "Evidence module source reviewed in full; RegisterRoutes, EvidenceRESTHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.088]
+path = "sdk/x/evidence/client/rest/tx.go"
+lines = 11
+verdict = "clean"
+note = "The empty transaction route registration agrees with the documented query-only REST scope; custom evidence submission is a CLI/Msg extension point."
+
+[file.089]
+path = "sdk/x/evidence/client/testutil/cli_test.go"
+lines = 18
+verdict = "clean"
+note = "Evidence module test source reviewed in full; TestIntegrationTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.090]
+path = "sdk/x/evidence/client/testutil/suite.go"
+lines = 75
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewIntegrationTestSuite, SetupSuite, TearDownSuite, TestGetQueryCmd, IntegrationTestSuite agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.091]
+path = "sdk/x/evidence/doc.go"
+lines = 44
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-setup-example."
+
+[file.092]
+path = "sdk/x/evidence/exported/evidence.go"
+lines = 48
+verdict = "clean"
+note = "Evidence module source reviewed in full; Evidence, ValidatorEvidence, MsgSubmitEvidenceI agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.093]
+path = "sdk/x/evidence/genesis.go"
+lines = 53
+verdict = "clean"
+note = "Evidence module source reviewed in full; InitGenesis, ExportGenesis agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.094]
+path = "sdk/x/evidence/genesis_test.go"
+lines = 158
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-genesis-fixture."
+
+[file.095]
+path = "sdk/x/evidence/handler.go"
+lines = 26
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.096]
+path = "sdk/x/evidence/handler_test.go"
+lines = 127
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-handler-fixture."
+
+[file.097]
+path = "sdk/x/evidence/keeper/grpc_query.go"
+lines = 88
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-pagination-scan."
+
+[file.098]
+path = "sdk/x/evidence/keeper/grpc_query_test.go"
+lines = 143
+verdict = "clean"
+note = "Evidence module test source reviewed in full; TestQueryEvidence, TestQueryAllEvidence agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.099]
+path = "sdk/x/evidence/keeper/infraction.go"
+lines = 126
+verdict = "clean"
+note = "Evidence module source reviewed in full; HandleEquivocationEvidence agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.100]
+path = "sdk/x/evidence/keeper/infraction_test.go"
+lines = 139
+verdict = "clean"
+note = "Evidence module test source reviewed in full; TestHandleDoubleSign, TestHandleDoubleSign_TooOld agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.101]
+path = "sdk/x/evidence/keeper/init_test.go"
+lines = 11
+verdict = "clean"
+note = "Evidence module test source reviewed in full; TestKeeperTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.102]
+path = "sdk/x/evidence/keeper/keeper.go"
+lines = 173
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-node-router."
+
+[file.103]
+path = "sdk/x/evidence/keeper/keeper_test.go"
+lines = 213
+verdict = "clean"
+note = "Keeper suite explicitly installs and seals a router and exercises real persistence/handler/query paths; that setup does not establish the production node router invariant."
+
+[file.104]
+path = "sdk/x/evidence/keeper/msg_server.go"
+lines = 42
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewMsgServerImpl, SubmitEvidence, msgServer agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.105]
+path = "sdk/x/evidence/keeper/querier.go"
+lines = 80
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewQuerier, queryEvidence, queryAllEvidence agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.106]
+path = "sdk/x/evidence/keeper/querier_test.go"
+lines = 91
+verdict = "clean"
+note = "Evidence module test source reviewed in full; TestQuerier_QueryEvidence_Existing, TestQuerier_QueryEvidence_NonExisting, TestQuerier_QueryAllEvidence, TestQuerier_QueryAllEvidence_InvalidPagination agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.107]
+path = "sdk/x/evidence/legacy_metrics_test.go"
+lines = 33
+verdict = "clean"
+note = "Evidence module test source reviewed in full; TestEvidenceEmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.108]
+path = "sdk/x/evidence/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Evidence module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.109]
+path = "sdk/x/evidence/module.go"
+lines = 226
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewAppModuleBasic, Name, RegisterLegacyAminoCodec, DefaultGenesis, AppModuleBasic, AppModule agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.110]
+path = "sdk/x/evidence/otel_metrics_test.go"
+lines = 35
+verdict = "clean"
+note = "Evidence module test source reviewed in full; beginBlockerDuration, TestBeginBlockerRecordsEvidenceBeginBlockerDuration agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.111]
+path = "sdk/x/evidence/simulation/decoder.go"
+lines = 37
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewDecodeStore, EvidenceUnmarshaler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.112]
+path = "sdk/x/evidence/simulation/genesis.go"
+lines = 41
+verdict = "clean"
+note = "Evidence module source reviewed in full; GenEvidences, RandomizedGenState agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.113]
+path = "sdk/x/evidence/spec/01_concepts.md"
+lines = 78
+verdict = "clean"
+note = "Evidence/Handler routing and the exported evidence interface, including GetTotalPower, match the retained declarations; actual node router initialization is a separate implementation finding."
+
+[file.114]
+path = "sdk/x/evidence/spec/02_state.md"
+lines = 19
+verdict = "clean"
+note = "Evidence hash-key persistence and codec storage agree with the keeper prefix layout and query lookup."
+
+[file.115]
+path = "sdk/x/evidence/spec/03_messages.md"
+lines = 55
+verdict = "clean"
+note = "Submission wraps an evidence Any and dispatches through the evidence router before storage; malformed-address implementation gaps are recorded separately."
+
+[file.116]
+path = "sdk/x/evidence/spec/04_events.md"
+lines = 18
+verdict = "clean"
+note = "Evidence event names and attributes agree with message submission and keeper emission."
+
+[file.117]
+path = "sdk/x/evidence/spec/05_params.md"
+lines = 7
+verdict = "clean"
+note = "The module has no independent parameter set, matching its keeper and module wiring."
+
+[file.118]
+path = "sdk/x/evidence/spec/06_begin_block.md"
+lines = 154
+verdict = "clean"
+note = "ABCI equivocation handling and staking/slashing integration match the retained BeginBlock path."
+
+[file.119]
+path = "sdk/x/evidence/spec/07_client.md"
+lines = 188
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-grpc-hash, evidence-response-shapes."
+
+[file.120]
+path = "sdk/x/evidence/spec/README.md"
+lines = 40
+verdict = "clean"
+note = "The evidence contents and module responsibility links describe the retained evidence module; client example defects are recorded on the linked client page."
+
+[file.121]
+path = "sdk/x/evidence/types/codec.go"
+lines = 47
+verdict = "clean"
+note = "Evidence module source reviewed in full; RegisterLegacyAminoCodec, RegisterInterfaces, init agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.122]
+path = "sdk/x/evidence/types/errors.go"
+lines = 14
+verdict = "clean"
+note = "Evidence module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.123]
+path = "sdk/x/evidence/types/events.go"
+lines = 9
+verdict = "clean"
+note = "Evidence module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.124]
+path = "sdk/x/evidence/types/evidence.go"
+lines = 104
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-address-validation."
+
+[file.125]
+path = "sdk/x/evidence/types/evidence_test.go"
+lines = 79
+verdict = "clean"
+note = "The ABCI conversion test uses the real producer and compares decoded consensus-address identity; malformed-address coverage remains proposed on the validation finding."
+
+[file.126]
+path = "sdk/x/evidence/types/expected_keepers.go"
+lines = 30
+verdict = "clean"
+note = "Evidence module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.127]
+path = "sdk/x/evidence/types/genesis.go"
+lines = 66
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewGenesisState, DefaultGenesisState, Validate, UnpackInterfaces agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.128]
+path = "sdk/x/evidence/types/genesis_test.go"
+lines = 191
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-type-genesis-fixture."
+
+[file.129]
+path = "sdk/x/evidence/types/keys.go"
+lines = 20
+verdict = "clean"
+note = "Evidence module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.130]
+path = "sdk/x/evidence/types/msgs.go"
+lines = 96
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-submitter-validation."
+
+[file.131]
+path = "sdk/x/evidence/types/msgs_test.go"
+lines = 60
+verdict = "issues"
+note = "Full file review found the product issues detailed in evidence-message-fixture."
+
+[file.132]
+path = "sdk/x/evidence/types/params.go"
+lines = 11
+verdict = "clean"
+note = "Evidence module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.133]
+path = "sdk/x/evidence/types/querier.go"
+lines = 33
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewQueryEvidenceRequest, NewQueryAllEvidenceRequest, NewQueryAllEvidenceParams, QueryAllEvidenceParams agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.134]
+path = "sdk/x/evidence/types/router.go"
+lines = 81
+verdict = "clean"
+note = "Evidence module source reviewed in full; NewRouter, Seal, Sealed, AddRoute, HasRoute, GetRoute agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.135]
+path = "sdk/x/evidence/types/router_test.go"
+lines = 28
+verdict = "clean"
+note = "Evidence module test source reviewed in full; testHandler, TestRouterSeal, TestRouter agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.136]
+path = "sdk/x/slashing/README.md"
+lines = 148
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-readme-bitmap."
+
+[file.137]
+path = "sdk/x/slashing/abci.go"
+lines = 68
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-event-order."
+
+[file.138]
+path = "sdk/x/slashing/abci_test.go"
+lines = 501
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestBeginBlocker, TestResizeTrimResetValidatorMissedBlocksArray, TestResizeExpandValidatorMissedBlocksArray, TestResizeExpandShiftValidatorMissedBlocksArrayMultipleBitGroups, TestResizeTrimValidatorMissedBlocksArrayMultipleBitGroups, TestResizeTrimValidatorMissedBlocksArrayEliminateBitGroup agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.139]
+path = "sdk/x/slashing/app_test.go"
+lines = 94
+verdict = "clean"
+note = "Slashing module test source reviewed in full; checkValidator, checkValidatorSigningInfo, TestSlashingMsgs agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.140]
+path = "sdk/x/slashing/client/cli/flags.go"
+lines = 5
+verdict = "clean"
+note = "Slashing module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.141]
+path = "sdk/x/slashing/client/cli/query.go"
+lines = 142
+verdict = "clean"
+note = "Slashing module source reviewed in full; GetQueryCmd, GetCmdQuerySigningInfo, GetCmdQuerySigningInfos, GetCmdQueryParams agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.142]
+path = "sdk/x/slashing/client/cli/tx.go"
+lines = 52
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewTxCmd, NewUnjailTxCmd agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.143]
+path = "sdk/x/slashing/client/rest/grpc_query_test.go"
+lines = 134
+verdict = "clean"
+note = "Slashing module test source reviewed in full; SetupSuite, TearDownSuite, TestGRPCQueries, TestIntegrationTestSuite, IntegrationTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.144]
+path = "sdk/x/slashing/client/rest/query.go"
+lines = 111
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-rest-producer-encoding."
+
+[file.145]
+path = "sdk/x/slashing/client/rest/rest.go"
+lines = 15
+verdict = "clean"
+note = "Slashing module source reviewed in full; RegisterHandlers agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.146]
+path = "sdk/x/slashing/client/rest/tx.go"
+lines = 63
+verdict = "clean"
+note = "Slashing module source reviewed in full; registerTxHandlers, NewUnjailRequestHandlerFn, UnjailReq agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.147]
+path = "sdk/x/slashing/client/testutil/cli_test.go"
+lines = 18
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestIntegrationTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.148]
+path = "sdk/x/slashing/client/testutil/suite.go"
+lines = 183
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewIntegrationTestSuite, SetupSuite, TearDownSuite, TestGetCmdQuerySigningInfo, TestNewUnjailTxCmd, IntegrationTestSuite agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.149]
+path = "sdk/x/slashing/genesis.go"
+lines = 68
+verdict = "clean"
+note = "Slashing module source reviewed in full; InitGenesis, ExportGenesis agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.150]
+path = "sdk/x/slashing/genesis_test.go"
+lines = 61
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestExportAndInitGenesis agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.151]
+path = "sdk/x/slashing/handler.go"
+lines = 26
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.152]
+path = "sdk/x/slashing/handler_test.go"
+lines = 294
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestCannotUnjailUnlessJailed, TestCannotUnjailUnlessMeetMinSelfDelegation, TestJailedValidatorDelegations, TestInvalidMsg, TestHandleAbsentValidator agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.153]
+path = "sdk/x/slashing/init_test.go"
+lines = 10
+verdict = "clean"
+note = "Slashing module test source reviewed in full; suite setup and assertions agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.154]
+path = "sdk/x/slashing/keeper/common_test.go"
+lines = 8
+verdict = "clean"
+note = "Slashing module test source reviewed in full; suite setup and assertions agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.155]
+path = "sdk/x/slashing/keeper/grpc_query.go"
+lines = 74
+verdict = "clean"
+note = "Slashing module source reviewed in full; Params, SigningInfo, SigningInfos agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.156]
+path = "sdk/x/slashing/keeper/grpc_query_test.go"
+lines = 110
+verdict = "clean"
+note = "Slashing module test source reviewed in full; SetupTest, TestGRPCQueryParams, TestGRPCSigningInfo, TestGRPCSigningInfos, TestSlashingTestSuite, SlashingTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.157]
+path = "sdk/x/slashing/keeper/hooks.go"
+lines = 81
+verdict = "clean"
+note = "Slashing module source reviewed in full; AfterValidatorBonded, AfterValidatorCreated, AfterValidatorRemoved, Hooks, AfterDelegationModified, BeforeValidatorSlashed agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.158]
+path = "sdk/x/slashing/keeper/hooks_test.go"
+lines = 29
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestAfterValidatorBonded agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.159]
+path = "sdk/x/slashing/keeper/infractions.go"
+lines = 182
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-window-last-bit."
+
+[file.160]
+path = "sdk/x/slashing/keeper/infractions_test.go"
+lines = 58
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-resize-fixture."
+
+[file.161]
+path = "sdk/x/slashing/keeper/keeper.go"
+lines = 95
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewKeeper, AddPubkey, GetPubkey, Slash, GetStoreKey, Keeper agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.162]
+path = "sdk/x/slashing/keeper/keeper_test.go"
+lines = 314
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestUnJailNotBonded, TestHandleNewValidator, TestHandleAlreadyJailed, TestValidatorDippingInAndOut, TestSlash agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.163]
+path = "sdk/x/slashing/keeper/legacy_metrics_test.go"
+lines = 118
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestSlashingEmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.164]
+path = "sdk/x/slashing/keeper/metrics.go"
+lines = 27
+verdict = "clean"
+note = "Slashing module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.165]
+path = "sdk/x/slashing/keeper/migrations.go"
+lines = 252
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewMigrator, Migrate1to2, Migrate2to3, Migrate3to4, Migrator agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.166]
+path = "sdk/x/slashing/keeper/migrations_test.go"
+lines = 399
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestMigrate2to3, TestMigrate2to4, TestMigrate3to4 agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.167]
+path = "sdk/x/slashing/keeper/msg_server.go"
+lines = 46
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewMsgServerImpl, Unjail, msgServer agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.168]
+path = "sdk/x/slashing/keeper/otel_metrics_test.go"
+lines = 87
+verdict = "clean"
+note = "Slashing module test source reviewed in full; validatorSlashed, TestSlashRecordsValidatorSlashed agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.169]
+path = "sdk/x/slashing/keeper/params.go"
+lines = 54
+verdict = "clean"
+note = "Slashing module source reviewed in full; SignedBlocksWindow, MinSignedPerWindow, DowntimeJailDuration, SlashFractionDoubleSign, GetParams, SetParams agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.170]
+path = "sdk/x/slashing/keeper/querier.go"
+lines = 92
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-legacy-consumer-encoding."
+
+[file.171]
+path = "sdk/x/slashing/keeper/querier_test.go"
+lines = 56
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestNewQuerier, TestQueryParams agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.172]
+path = "sdk/x/slashing/keeper/signing_info.go"
+lines = 171
+verdict = "clean"
+note = "Slashing module source reviewed in full; GetValidatorSigningInfo, HasValidatorSigningInfo, SetValidatorSigningInfo, IterateValidatorSigningInfos, IsTombstoned, ClearValidatorMissedBlockBitArray agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.173]
+path = "sdk/x/slashing/keeper/signing_info_test.go"
+lines = 144
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestGetSetValidatorSigningInfo, TestTombstoned, TestJailUntil, TestParseBitGroupsAndBoolArrays, TestGetSetValidatorMissedArrayBit agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.174]
+path = "sdk/x/slashing/keeper/unjail.go"
+lines = 63
+verdict = "clean"
+note = "Slashing module source reviewed in full; Unjail agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.175]
+path = "sdk/x/slashing/metrics.go"
+lines = 33
+verdict = "clean"
+note = "Slashing module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.176]
+path = "sdk/x/slashing/module.go"
+lines = 214
+verdict = "clean"
+note = "Slashing module source reviewed in full; Name, RegisterLegacyAminoCodec, RegisterInterfaces, DefaultGenesis, AppModuleBasic, AppModule agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.177]
+path = "sdk/x/slashing/otel_metrics_test.go"
+lines = 50
+verdict = "clean"
+note = "Slashing module test source reviewed in full; beginBlockerDuration, TestBeginBlockerRecordsSlashingBeginBlockerDuration agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.178]
+path = "sdk/x/slashing/simulation/decoder.go"
+lines = 44
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewDecodeStore agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.179]
+path = "sdk/x/slashing/simulation/genesis.go"
+lines = 96
+verdict = "clean"
+note = "Slashing module source reviewed in full; GenSignedBlocksWindow, GenMinSignedPerWindow, GenDowntimeJailDuration, GenSlashFractionDoubleSign, GenSlashFractionDowntime, RandomizedGenState agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.180]
+path = "sdk/x/slashing/simulation/operations.go"
+lines = 135
+verdict = "clean"
+note = "Slashing module source reviewed in full; WeightedOperations, SimulateMsgUnjail agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.181]
+path = "sdk/x/slashing/simulation/params.go"
+lines = 40
+verdict = "clean"
+note = "Slashing module source reviewed in full; ParamChanges agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.182]
+path = "sdk/x/slashing/spec/01_concepts.md"
+lines = 59
+verdict = "clean"
+note = "Consensus key identity, downtime and double-sign responsibilities agree with staking and slashing interfaces."
+
+[file.183]
+path = "sdk/x/slashing/spec/02_state.md"
+lines = 51
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-state-layout."
+
+[file.184]
+path = "sdk/x/slashing/spec/03_messages.md"
+lines = 51
+verdict = "clean"
+note = "MsgUnjail constraints agree with the keeper checks for self delegation, jail time and tombstone status."
+
+[file.185]
+path = "sdk/x/slashing/spec/04_begin_block.md"
+lines = 98
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-beginblock-pseudocode."
+
+[file.186]
+path = "sdk/x/slashing/spec/05_hooks.md"
+lines = 40
+verdict = "clean"
+note = "Validator bond/removal hooks agree with signing-info creation and cleanup responsibilities."
+
+[file.187]
+path = "sdk/x/slashing/spec/06_events.md"
+lines = 45
+verdict = "clean"
+note = "Declared liveness and slash event names/attributes match the producer; concurrent ordering is a separate implementation finding."
+
+[file.188]
+path = "sdk/x/slashing/spec/07_tombstone.md"
+lines = 127
+verdict = "issues"
+note = "Full file review found the product issues detailed in slashing-tombstone-doc."
+
+[file.189]
+path = "sdk/x/slashing/spec/08_params.md"
+lines = 15
+verdict = "clean"
+note = "Window, signed fraction, jail duration and penalty parameter types agree with the maintained parameter definitions."
+
+[file.190]
+path = "sdk/x/slashing/spec/09_client.md"
+lines = 294
+verdict = "clean"
+note = "The CLI/gRPC slashing command and query descriptions agree with current declarations; the legacy REST address disagreement is recorded on producer and consumer code."
+
+[file.191]
+path = "sdk/x/slashing/spec/README.md"
+lines = 49
+verdict = "clean"
+note = "The slashing module overview and contents describe validator liveness/equivocation responsibilities; stale algorithm and layout details are recorded on the individual pages."
+
+[file.192]
+path = "sdk/x/slashing/testslashing/params.go"
+lines = 36
+verdict = "clean"
+note = "Slashing module source reviewed in full; TestParams, CreateBeginBlockReq agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.193]
+path = "sdk/x/slashing/types/codec.go"
+lines = 40
+verdict = "clean"
+note = "Slashing module source reviewed in full; RegisterLegacyAminoCodec, RegisterInterfaces, init agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.194]
+path = "sdk/x/slashing/types/errors.go"
+lines = 16
+verdict = "clean"
+note = "Slashing module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.195]
+path = "sdk/x/slashing/types/events.go"
+lines = 18
+verdict = "clean"
+note = "Slashing module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.196]
+path = "sdk/x/slashing/types/expected_keepers.go"
+lines = 63
+verdict = "clean"
+note = "Slashing module source reviewed in full; AccountKeeper, BankKeeper, ParamSubspace, StakingKeeper, StakingHooks agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.197]
+path = "sdk/x/slashing/types/genesis.go"
+lines = 59
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewGenesisState, DefaultGenesisState, ValidateGenesis agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.198]
+path = "sdk/x/slashing/types/keys.go"
+lines = 59
+verdict = "clean"
+note = "Slashing module source reviewed in full; ValidatorSigningInfoKey, ValidatorSigningInfoAddress, ValidatorMissedBlockBitArrayKey, AddrPubkeyRelationKey agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.199]
+path = "sdk/x/slashing/types/msg.go"
+lines = 45
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewMsgUnjail, Route, Type, GetSigners, GetSignBytes, ValidateBasic agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.200]
+path = "sdk/x/slashing/types/msg_test.go"
+lines = 20
+verdict = "clean"
+note = "Slashing module test source reviewed in full; TestMsgUnjailGetSignBytes agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.201]
+path = "sdk/x/slashing/types/params.go"
+lines = 144
+verdict = "clean"
+note = "Slashing module source reviewed in full; ParamKeyTable, NewParams, ParamSetPairs, DefaultParams, validateSlashFractionDoubleSign, validateSlashFractionDowntime agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.202]
+path = "sdk/x/slashing/types/querier.go"
+lines = 21
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewQuerySigningInfosParams, QuerySigningInfosParams agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.203]
+path = "sdk/x/slashing/types/signing_info.go"
+lines = 44
+verdict = "clean"
+note = "Slashing module source reviewed in full; NewValidatorSigningInfo, String, UnmarshalValSigningInfo agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.204]
+path = "sdk/x/upgrade/abci.go"
+lines = 140
+verdict = "clean"
+note = "Upgrade module source reviewed in full; BeginBlocker, panicUpgradeNeeded, applyUpgrade, skipUpgrade, BuildUpgradeNeededMsg, BuildUpgradeScheduledMsg agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.205]
+path = "sdk/x/upgrade/abci_test.go"
+lines = 367
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; setupTest, TestRequireName, TestRequireFutureBlock, TestDoHeightUpgrade, TestBinaryVersion, TestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.206]
+path = "sdk/x/upgrade/client/cli/query.go"
+lines = 156
+verdict = "clean"
+note = "Upgrade module source reviewed in full; GetQueryCmd, GetCurrentPlanCmd, GetAppliedPlanCmd, GetModuleVersionsCmd agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.207]
+path = "sdk/x/upgrade/client/cli/tx.go"
+lines = 168
+verdict = "clean"
+note = "Upgrade module source reviewed in full; GetTxCmd, NewCmdSubmitUpgradeProposal, NewCmdSubmitCancelUpgradeProposal, parseArgsToContent agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.208]
+path = "sdk/x/upgrade/client/proposal_handler.go"
+lines = 10
+verdict = "clean"
+note = "Upgrade module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.209]
+path = "sdk/x/upgrade/client/rest/query.go"
+lines = 73
+verdict = "clean"
+note = "Upgrade module source reviewed in full; registerQueryRoutes, getCurrentPlanHandler, getDonePlanHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.210]
+path = "sdk/x/upgrade/client/rest/rest.go"
+lines = 15
+verdict = "clean"
+note = "Upgrade module source reviewed in full; RegisterRoutes agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.211]
+path = "sdk/x/upgrade/client/rest/tx.go"
+lines = 123
+verdict = "clean"
+note = "Upgrade module source reviewed in full; registerTxHandlers, ProposalRESTHandler, ProposalCancelRESTHandler, newPostPlanHandler, PlanRequest, CancelRequest agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.212]
+path = "sdk/x/upgrade/client/testutil/cli_test.go"
+lines = 14
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; TestIntegrationTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.213]
+path = "sdk/x/upgrade/client/testutil/suite.go"
+lines = 113
+verdict = "clean"
+note = "Upgrade module source reviewed in full; NewIntegrationTestSuite, SetupSuite, TearDownSuite, TestModuleVersionsCLI, IntegrationTestSuite agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.214]
+path = "sdk/x/upgrade/doc.go"
+lines = 146
+verdict = "issues"
+note = "Full file review found the product issues detailed in upgrade-setup-api."
+
+[file.215]
+path = "sdk/x/upgrade/exported/exported.go"
+lines = 7
+verdict = "clean"
+note = "Upgrade module source reviewed in full; ProtocolVersionSetter agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.216]
+path = "sdk/x/upgrade/handler.go"
+lines = 36
+verdict = "clean"
+note = "Upgrade module source reviewed in full; NewSoftwareUpgradeProposalHandler, handleSoftwareUpgradeProposal, handleCancelSoftwareUpgradeProposal agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.217]
+path = "sdk/x/upgrade/keeper/grpc_query.go"
+lines = 72
+verdict = "clean"
+note = "Upgrade module source reviewed in full; CurrentPlan, AppliedPlan, UpgradedConsensusState, ModuleVersions agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.218]
+path = "sdk/x/upgrade/keeper/grpc_query_test.go"
+lines = 208
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; SetupTest, TestQueryCurrentPlan, TestAppliedCurrentPlan, TestModuleVersions, TestUpgradeTestSuite, UpgradeTestSuite agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.219]
+path = "sdk/x/upgrade/keeper/keeper.go"
+lines = 485
+verdict = "issues"
+note = "Full file review found the product issues detailed in upgrade-name-order, upgrade-info-atomicity."
+
+[file.220]
+path = "sdk/x/upgrade/keeper/keeper_test.go"
+lines = 326
+verdict = "issues"
+note = "Full file review found the product issues detailed in upgrade-lookup-test-order."
+
+[file.221]
+path = "sdk/x/upgrade/keeper/legacy_metrics_test.go"
+lines = 47
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; TestUpgradeEmitsNoLegacyTelemetry agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.222]
+path = "sdk/x/upgrade/keeper/metrics.go"
+lines = 27
+verdict = "clean"
+note = "Upgrade module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.223]
+path = "sdk/x/upgrade/keeper/otel_metrics_test.go"
+lines = 31
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; pendingPlanHeight, TestScheduleUpgradeRecordsPendingPlanHeight agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.224]
+path = "sdk/x/upgrade/keeper/querier.go"
+lines = 69
+verdict = "clean"
+note = "Upgrade module source reviewed in full; NewQuerier, queryCurrent, queryApplied agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.225]
+path = "sdk/x/upgrade/metrics.go"
+lines = 39
+verdict = "clean"
+note = "Upgrade module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.226]
+path = "sdk/x/upgrade/module.go"
+lines = 143
+verdict = "clean"
+note = "Upgrade module source reviewed in full; init, Name, RegisterLegacyAminoCodec, RegisterRESTRoutes, AppModuleBasic, AppModule agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.227]
+path = "sdk/x/upgrade/otel_metrics_test.go"
+lines = 38
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; beginBlockerDuration, planHeight, TestBeginBlockerRecordsUpgradeDurationAndPlanHeight agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.228]
+path = "sdk/x/upgrade/spec/01_concepts.md"
+lines = 113
+verdict = "issues"
+note = "Full file review found the product issues detailed in upgrade-endblock-doc."
+
+[file.229]
+path = "sdk/x/upgrade/spec/02_state.md"
+lines = 20
+verdict = "clean"
+note = "Scheduled plan and completed upgrade persistence agree with the keeper key/value layout."
+
+[file.230]
+path = "sdk/x/upgrade/spec/03_events.md"
+lines = 8
+verdict = "clean"
+note = "The module event description agrees with the retained upgrade hook behavior."
+
+[file.231]
+path = "sdk/x/upgrade/spec/04_client.md"
+lines = 459
+verdict = "issues"
+note = "Full file review found the product issues detailed in upgrade-plan-shape, upgrade-grpc-service."
+
+[file.232]
+path = "sdk/x/upgrade/spec/README.md"
+lines = 27
+verdict = "clean"
+note = "The upgrade overview and contents describe the retained coordinated plan and handler module."
+
+[file.233]
+path = "sdk/x/upgrade/types/codec.go"
+lines = 22
+verdict = "clean"
+note = "Upgrade module source reviewed in full; RegisterLegacyAminoCodec, RegisterInterfaces agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.234]
+path = "sdk/x/upgrade/types/handler.go"
+lines = 26
+verdict = "clean"
+note = "Upgrade module source reviewed in full; UpgradeHandler agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.235]
+path = "sdk/x/upgrade/types/keys.go"
+lines = 59
+verdict = "clean"
+note = "Upgrade module source reviewed in full; PlanKey, UpgradedClientKey, UpgradedConsStateKey agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.236]
+path = "sdk/x/upgrade/types/plan.go"
+lines = 74
+verdict = "clean"
+note = "Upgrade module source reviewed in full; String, ValidateBasic, ShouldExecute, DueAt, UpgradeDetails, IsMinorRelease agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.237]
+path = "sdk/x/upgrade/types/plan_test.go"
+lines = 236
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; mustParseTime, TestPlanString, TestPlanValid, TestShouldExecute, TestUpgradeDetails, TestIsMinorRelease agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.238]
+path = "sdk/x/upgrade/types/proposal.go"
+lines = 68
+verdict = "clean"
+note = "Upgrade module source reviewed in full; NewSoftwareUpgradeProposal, init, GetTitle, GetDescription, String, NewCancelSoftwareUpgradeProposal agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.239]
+path = "sdk/x/upgrade/types/proposal_test.go"
+lines = 105
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; TestContentAccessors, TestMarshalSoftwareUpdateProposal, ProposalWrapper agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[file.240]
+path = "sdk/x/upgrade/types/querier.go"
+lines = 7
+verdict = "clean"
+note = "Upgrade module source reviewed in full; constants, configuration and package declarations agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.241]
+path = "sdk/x/upgrade/types/storeloader.go"
+lines = 23
+verdict = "clean"
+note = "Upgrade module source reviewed in full; UpgradeStoreLoader agree with their declared callers and encoding/lifecycle contracts. No retired runtime reference found."
+
+[file.242]
+path = "sdk/x/upgrade/types/storeloader_test.go"
+lines = 149
+verdict = "clean"
+note = "Upgrade module test source reviewed in full; useUpgradeLoader, initStore, checkStore, TestSetLoader agree with the exercised producer shapes. No additional gap beyond the separately recorded findings."
+
+[finding.ss-restore-completion]
+file = "sdk/storev2/rootmulti/store.go"
+line = 915
+class = "restart-recovery"
+severity = "high"
+observed = "restore starts ssStore.Import in a goroutine, closes its input without joining it, and publishes earliest/latest version metadata before import completion. Import errors panic asynchronously and metadata errors are only logged, including after restoreErr. storage/state_db/ss/composite/store.go Import returns only after its import workers finish."
+expected = "A successful snapshot restore must mean that both commitment state and query history at that height are durable and immediately readable, with one recoverable completion boundary across restart."
+proposal = "In sdk/storev2/rootmulti/store.go join the SS importer, cancel and drain it on read or SC failure, return import and metadata errors, and publish version metadata only after all imports succeed. Coordinate domain 5 SS durability and prove immediate historical query, failed import and restart through the real storage backend."
+owner_domain = 15
+interface = "5.go-storage-state-db-ss-new-state-store"
+
+[finding.future-query-height]
+file = "sdk/storev2/rootmulti/store.go"
+line = 691
+class = "interface-mismatch"
+severity = "high"
+observed = "Store.Query converts any height above lastCommitInfo.Version to scStore.Version. sdk/baseapp/abci.go handleQueryStore then overwrites ResponseQuery.Height with the original requested height. A request for a future height can therefore receive current values and proofs labeled as that future height."
+expected = "ABCI RequestQuery.Height and ResponseQuery.Height must identify the same committed state; an unavailable future version must return an explicit query error rather than substitute a different state."
+proposal = "Reject heights above the committed tip in sdk/storev2/rootmulti/store.go and retain the actual resolved response height in sdk/baseapp/abci.go. Add real BaseApp-to-CMS queries for zero, tip and future heights, with and without proofs and SS enabled, asserting value, proof, error code and response height together."
+owner_domain = 15
+interface = "5.go-consensus-abci-types-request-query"
+
+[finding.slashing-window-last-bit]
+file = "sdk/x/slashing/keeper/infractions.go"
+line = 166
+class = "runtime-risk"
+severity = "high"
+observed = "ResizeMissedBlockArray copies the prefix before index but copies the suffix only when index+1 < old WindowSize. At index oldWindow-1 a set final bit is dropped while MissedBlocksCounter is unchanged. HandleValidatorSignatureConcurrent then updates the new zero slot, leaving a phantom miss that can cause premature slash or jail."
+expected = "Changing SignedBlocksWindow must preserve every retained missed-signature bit and keep MissedBlocksCounter equal to the population of the persisted window so validators are penalized only for actual missed votes."
+proposal = "In sdk/x/slashing/keeper/infractions.go retain the suffix beginning at index even at the last old slot, maintain the bitmap/counter invariant and document insertion semantics. Exercise governance expansion at every circular offset with real set bits, then restart and run BeginBlock through the penalty threshold."
+owner_domain = 15
+interface = "7.proto-cosmos-slashing-v1beta1-validatormissedblockarray-j39"
+
+[finding.slashing-resize-fixture]
+file = "sdk/x/slashing/keeper/infractions_test.go"
+line = 22
+class = "test-gap"
+severity = "medium"
+observed = "TestResizeMissedBlockArray creates ten uint64 words for a ten-bit window, sets no bits, and pairs that empty bitmap with MissedBlocksCounter=5. Assertions inspect sizes and unchanged counters but never the bits or the old final offset."
+expected = "The test must start with the packed bitmap emitted by the live keeper, a counter equal to its set bits, and boundary offsets that expose loss or duplication during expansion."
+proposal = "Replace the fixture in sdk/x/slashing/keeper/infractions_test.go with real packed missed votes, assert all retained bit positions and population counts, and cover index oldWindow-1 followed by live BeginBlock processing and persisted reload."
+owner_domain = 15
+interface = "7.proto-cosmos-slashing-v1beta1-validatormissedblockarray-j39"
+
+[finding.slashing-event-order]
+file = "sdk/x/slashing/abci.go"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "BeginBlocker launches one HandleValidatorSignatureConcurrent call per vote; that function emits liveness events directly into the shared EventManager at infractions.go:75. Ordered state writes after Wait do not restore vote order for those events; the EventManager mutex protects append safety but scheduler order still decides event order."
+expected = "The same committed votes should produce a stable ordered stream of validator events for indexers and consumers, independently of goroutine scheduling."
+proposal = "Return per-vote liveness events with SlashingWriteInfo and emit them in the existing ordered write loop in sdk/x/slashing/abci.go. Add a repeated real BeginBlock test with several missing validators that compares complete event order and attributes."
+owner_domain = 15
+interface = "15.go-x-slashing-types-event-type-liveness-j76"
+
+[finding.slashing-rest-producer-encoding]
+file = "sdk/x/slashing/client/rest/query.go"
+line = 46
+class = "interface-mismatch"
+severity = "high"
+observed = "signingInfoHandlerFn serializes pk.Address().String(), the consensus library hexadecimal address, into QuerySigningInfoRequest.ConsAddress. The gRPC and CLI request contract uses a Bech32 consensus address; the legacy consumer also fails to decode text, so the HTTP route cannot find the record keyed by the original address bytes."
+expected = "The REST producer, ABCI transport and signing-info keeper must exchange one canonical consensus address and resolve exactly the same persisted validator record."
+proposal = "In sdk/x/slashing/client/rest/query.go construct sdk.ConsAddress(pk.Address()).String(), coordinate the explicit Bech32 decoder in keeper/querier.go, and run a real registered HTTP-to-ABCI query against a persisted signing record with exact address and error assertions."
+owner_domain = 15
+interface = "7.proto-cosmos-slashing-v1beta1-querysigninginforequest-j39"
+
+[finding.slashing-legacy-consumer-encoding]
+file = "sdk/x/slashing/keeper/querier.go"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "querySigningInfo casts params.ConsAddress directly to sdk.ConsAddress. This converts the string to its ASCII bytes rather than decoding either the REST hexadecimal producer or the canonical Bech32 request, while GetValidatorSigningInfo keys records by raw consensus address bytes."
+expected = "QuerySigningInfoRequest.ConsAddress must decode to the same raw address used by signing_info.go, matching the gRPC consumer and preserving invalid-address and missing-record errors."
+proposal = "Decode the canonical Bech32 consensus address explicitly in sdk/x/slashing/keeper/querier.go and return a typed invalid-address error before lookup. Coordinate the REST producer change and prove REST, CLI and gRPC return the same real stored signing info, including malformed and unknown addresses."
+owner_domain = 15
+interface = "7.proto-cosmos-slashing-v1beta1-querysigninginforequest-j39"
+
+[finding.upgrade-name-order]
+file = "sdk/x/upgrade/keeper/keeper.go"
+line = 300
+class = "runtime-risk"
+severity = "high"
+observed = "GetClosestUpgrade seeds closest from the first reverse name-key entry even if its height is below the requested height. With z-old at 10 and a-new at 20, requesting 18 returns z-old at 10; requesting beyond all upgrades also returns a name. node/app.go RPCContextProvider and SnapshotAwareRPCContextProvider consume this value as the historical EVM upgrade name."
+expected = "Historical EVM contexts must select the nearest qualifying upgrade height independently of upgrade-name lexical order and return the empty sentinel when no qualifying upgrade exists so the node fallback applies."
+proposal = "Filter heights before selecting the minimum qualifying height in sdk/x/upgrade/keeper/keeper.go, return empty/zero when none qualify, and define equal-height handling. Add adversarial name/height order cases and prove historical RPC and snapshot-aware contexts choose identical upgrade behavior across restart."
+owner_domain = 15
+interface = "15.go-x-upgrade-keeper-keeper-j76"
+
+[finding.upgrade-lookup-test-order]
+file = "sdk/x/upgrade/keeper/keeper_test.go"
+line = 276
+class = "test-gap"
+severity = "medium"
+observed = "TestGetClosestUpgrade uses upgrade1, upgrade2 and upgrade3 with correspondingly increasing heights. This correlated lexical order hides the first-entry seeding defect and there is no assertion for a requested height beyond the last completed upgrade."
+expected = "Tests for an upgrade lookup consumed by historical RPC must vary names independently from heights and exercise requests before, between, exactly at and after completed upgrades."
+proposal = "Extend sdk/x/upgrade/keeper/keeper_test.go with z-old/a-new ordering, several insertion orders, equal-height policy and beyond-last empty results, then exercise the real node historical-context consumer with persisted completion records."
+owner_domain = 15
+interface = "15.go-x-upgrade-keeper-keeper-j76"
+
+[finding.upgrade-info-atomicity]
+file = "sdk/x/upgrade/keeper/keeper.go"
+line = 419
+class = "restart-recovery"
+severity = "medium"
+observed = "DumpUpgradeInfoWithInfoToDisk uses os.WriteFile directly on data/upgrade-info.json. A crash during truncate/write can leave empty or partial JSON; ReadUpgradeInfoFromDisk then returns an unmarshal error instead of a recoverable previous complete plan at the binary handoff."
+expected = "The upgrade handoff file must remain a complete durable old or new plan across process interruption so a node can restart with the intended store migrations."
+proposal = "Write a temporary sibling file, sync its contents, atomically rename it and sync the directory in sdk/x/upgrade/keeper/keeper.go. Define recovery for interrupted writes and test old/new handoff contents through ReadUpgradeInfoFromDisk and the real startup store-loader path."
+owner_domain = 15
+interface = "15.go-x-upgrade-keeper-keeper-j76"
+
+[finding.evidence-cli-unmounted]
+file = "sdk/x/evidence/client/cli/tx.go"
+line = 24
+class = "wiring-gap"
+severity = "medium"
+observed = "GetTxCmd constructs submitEvidenceCmd and adds supplied child commands to it, but never adds submitEvidenceCmd to the returned evidence root. A module can provide valid evidence submission commands and still receive a CLI tree with none reachable."
+expected = "The declared evidence submit CLI must be mounted under the returned evidence command and preserve the provided concrete evidence handlers."
+proposal = "Attach submitEvidenceCmd to cmd in sdk/x/evidence/client/cli/tx.go and execute a real supplied submission child through GetTxCmd in a command-tree test, checking arguments, signing flags and the created MsgSubmitEvidence."
+owner_domain = 15
+interface = "15.cli-x-evidence-client-cli-submit-j76"
+
+[finding.evidence-pagination-scan]
+file = "sdk/x/evidence/keeper/grpc_query.go"
+line = 58
+class = "runtime-risk"
+severity = "medium"
+observed = "AllEvidence calls k.GetAllEvidence(ctx) and discards its fully decoded result before running query.Paginate. Every small page therefore scans and allocates the entire evidence collection before the bounded response is assembled."
+expected = "A bounded evidence page should perform the work required by pagination and any explicitly requested total, without an additional unconditional full collection decode."
+proposal = "Remove the discarded full scan in sdk/x/evidence/keeper/grpc_query.go and exercise the real Query/AllEvidence service over a large persisted collection with a small page limit, checking bounded decoding and unchanged Any and pagination fields."
+owner_domain = 15
+interface = "7.qry-cosmos-evidence-v1beta1-allevidence-j39"
+
+[finding.evidence-address-validation]
+file = "sdk/x/evidence/types/evidence.go"
+line = 56
+class = "security"
+severity = "medium"
+observed = "Equivocation.ValidateBasic accepts any nonempty ConsensusAddress, while GetConsensusAddress discards ConsAddressFromBech32 errors and returns nil for malformed values. FromABCIEvidence emits Bech32, so accepted genesis or submitted evidence can carry an address that cannot resolve its validator."
+expected = "Accepted equivocation evidence must contain a correctly encoded consensus address of the configured prefix and valid length, and decoding must not silently erase identity."
+proposal = "Validate consensus-address decoding and length in sdk/x/evidence/types/evidence.go and propagate invalid-evidence errors before persistence or handler dispatch. Cover malformed hex/text, wrong prefix and the real FromABCIEvidence-to-Any-to-keeper round trip with address-byte equality."
+owner_domain = 15
+interface = "7.proto-cosmos-evidence-v1beta1-equivocation-j39"
+
+[finding.evidence-submitter-validation]
+file = "sdk/x/evidence/types/msgs.go"
+line = 46
+class = "security"
+severity = "medium"
+observed = "MsgSubmitEvidence.ValidateBasic rejects only an empty Submitter. For a nonempty malformed account address, GetSigners and GetSubmitter swallow the Bech32 decode error and return nil, so stateless validation does not establish the single signer promised by the message."
+expected = "Every accepted evidence submission must have one valid account submitter whose address is the required signer; malformed addresses must fail before authorization and execution."
+proposal = "Decode and validate Submitter in sdk/x/evidence/types/msgs.go ValidateBasic and preserve a typed invalid-address failure. Add malformed-address transactions through the real ante and Msg server path, asserting rejection and no evidence writes; retain valid signed submission coverage."
+owner_domain = 15
+interface = "7.proto-cosmos-evidence-v1beta1-msgsubmitevidence-j39"
+
+[finding.evidence-node-router]
+file = "sdk/x/evidence/keeper/keeper.go"
+line = 76
+class = "wiring-gap"
+severity = "medium"
+observed = "NewKeeper leaves router nil and SubmitEvidence/GetEvidenceHandler call router.HasRoute without a nil check. node/app.go:797-801 constructs and copies this keeper without SetRouter, while the evidence Msg service is registered. A new valid submission reaches a nil-router panic rather than ErrNoEvidenceHandlerExists; unit suites install their own router."
+expected = "The running node must initialize a sealed evidence routing policy before registering submission handlers and report a typed unsupported-evidence error when no approved route exists."
+proposal = "Make router initialization an explicit startup invariant in sdk/x/evidence/keeper/keeper.go and node/app.go, wiring approved routes or a sealed empty router. Exercise MsgSubmitEvidence using the actual node constructor, asserting either handler success or the declared unsupported-route code without panic."
+owner_domain = 15
+interface = "15.go-x-evidence-keeper-keeper-j76"
+
+[finding.evidence-genesis-fixture]
+file = "sdk/x/evidence/genesis_test.go"
+line = 57
+class = "test-gap"
+severity = "medium"
+observed = "The successful evidence fixture sets ConsensusAddress to pk.PubKey().Address().String(), which is hexadecimal. The live FromABCIEvidence producer emits Bech32 and GetConsensusAddress decodes Bech32; accepting this third fixture shape hides the missing address validation and does not prove validator identity survives transport."
+expected = "Positive fixtures must use the actual ABCI evidence producer and retain its consensus address through Any encoding, genesis/message transport and keeper decoding; malformed hexadecimal addresses belong in rejection cases."
+proposal = "In sdk/x/evidence/genesis_test.go construct positive evidence with types.FromABCIEvidence using a real validator address, round-trip it through the exercised codec and keeper, and compare decoded address bytes with the producer. Add explicit malformed-address rejection without weakening existing checks."
+owner_domain = 15
+interface = "7.proto-cosmos-evidence-v1beta1-equivocation-j39"
+
+[finding.evidence-handler-fixture]
+file = "sdk/x/evidence/handler_test.go"
+line = 85
+class = "test-gap"
+severity = "medium"
+observed = "The successful evidence fixture sets ConsensusAddress to pk.PubKey().Address().String(), which is hexadecimal. The live FromABCIEvidence producer emits Bech32 and GetConsensusAddress decodes Bech32; accepting this third fixture shape hides the missing address validation and does not prove validator identity survives transport."
+expected = "Positive fixtures must use the actual ABCI evidence producer and retain its consensus address through Any encoding, genesis/message transport and keeper decoding; malformed hexadecimal addresses belong in rejection cases."
+proposal = "In sdk/x/evidence/handler_test.go construct positive evidence with types.FromABCIEvidence using a real validator address, round-trip it through the exercised codec and keeper, and compare decoded address bytes with the producer. Add explicit malformed-address rejection without weakening existing checks."
+owner_domain = 15
+interface = "7.proto-cosmos-evidence-v1beta1-equivocation-j39"
+
+[finding.evidence-type-genesis-fixture]
+file = "sdk/x/evidence/types/genesis_test.go"
+line = 81
+class = "test-gap"
+severity = "medium"
+observed = "The successful evidence fixture sets ConsensusAddress to pk.PubKey().Address().String(), which is hexadecimal. The live FromABCIEvidence producer emits Bech32 and GetConsensusAddress decodes Bech32; accepting this third fixture shape hides the missing address validation and does not prove validator identity survives transport."
+expected = "Positive fixtures must use the actual ABCI evidence producer and retain its consensus address through Any encoding, genesis/message transport and keeper decoding; malformed hexadecimal addresses belong in rejection cases."
+proposal = "In sdk/x/evidence/types/genesis_test.go construct positive evidence with types.FromABCIEvidence using a real validator address, round-trip it through the exercised codec and keeper, and compare decoded address bytes with the producer. Add explicit malformed-address rejection without weakening existing checks."
+owner_domain = 15
+interface = "7.proto-cosmos-evidence-v1beta1-equivocation-j39"
+
+[finding.evidence-message-fixture]
+file = "sdk/x/evidence/types/msgs_test.go"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "The successful evidence fixture sets ConsensusAddress to pk.PubKey().Address().String(), which is hexadecimal. The live FromABCIEvidence producer emits Bech32 and GetConsensusAddress decodes Bech32; accepting this third fixture shape hides the missing address validation and does not prove validator identity survives transport."
+expected = "Positive fixtures must use the actual ABCI evidence producer and retain its consensus address through Any encoding, genesis/message transport and keeper decoding; malformed hexadecimal addresses belong in rejection cases."
+proposal = "In sdk/x/evidence/types/msgs_test.go construct positive evidence with types.FromABCIEvidence using a real validator address, round-trip it through the exercised codec and keeper, and compare decoded address bytes with the producer. Add explicit malformed-address rejection without weakening existing checks."
+owner_domain = 15
+interface = "7.proto-cosmos-evidence-v1beta1-equivocation-j39"
+
+[finding.capability-genesis-invariants]
+file = "sdk/x/capability/types/genesis.go"
+line = 27
+class = "restart-recovery"
+severity = "medium"
+observed = "GenesisState.Validate checks ranges and nonblank owner fields but accepts repeated capability indices, repeated module/name mappings and unsorted owner sets. InitGenesis and SetOwners persist these directly and InitMemStore rebuilds reverse mappings; CapabilityOwners.Get uses sort.Search. Accepted state can overwrite an index, bind a reverse name to another capability or make Remove miss an existing owner."
+expected = "Validated capability genesis must preserve unique persistent identities, unique module/name bindings and the canonical owner ordering required by lookup and release after memory reconstruction."
+proposal = "Reject duplicate indices and duplicate module/name bindings and validate or canonicalize owner ordering at the genesis boundary in sdk/x/capability/types/genesis.go with the keeper import path. Prove import, close/restart, InitMemStore, authenticate and release using real scoped keepers and conflicting/unsorted genesis cases."
+owner_domain = 15
+interface = "7.proto-cosmos-capability-v1beta1-genesisstate-j39"
+
+[finding.sealed-retention-context]
+file = "sdk/baseapp/abci.go"
+line = 764
+class = "runtime-risk"
+severity = "medium"
+observed = "Commit chooses its header and writes from stateToCommit, including externally sealed state, but GetBlockRetentionHeight reads consensus parameters from app.deliverState.ctx when minRetainBlocks is nonzero. A sealed-only caller can have no deliverState and panic; a different deliver state can supply the wrong evidence retention limit."
+expected = "The sealed commit hook in requirements 15003.1 and 15003.2 must use the selected commit context for every commit decision, including safe evidence retention under pruning."
+proposal = "Pass or select stateToCommit.ctx for retention computation in sdk/baseapp/abci.go and add sealed commit cases with pruning enabled, nil deliver state and divergent deliver/selected evidence parameters. Assert retained height, committed header and state all come from the sealed block."
+owner_domain = 15
+interface = "15.go-baseapp-set-sealed-state-to-commit-j56"
+
+[finding.sealed-retention-test]
+file = "sdk/baseapp/sealed_state_test.go"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The sealed-state tests exercise installing and committing an external cache but do not enable minRetainBlocks or test a missing/divergent deliver state. Default retention exits early, hiding Commit dependence on deliverState.ctx."
+expected = "The real sealed commit test must cover the pruning configuration that reads consensus evidence parameters, independently of legacy deliver-state initialization."
+proposal = "Extend sdk/baseapp/sealed_state_test.go with real Commit calls using nonzero minRetainBlocks, no deliver state and differing evidence parameters; assert no panic and the retention height dictated by the selected sealed context."
+owner_domain = 15
+interface = "15.go-baseapp-set-sealed-state-to-commit-j56"
+
+[finding.concurrent-check-deliver-test]
+file = "sdk/baseapp/deliver_tx_test.go"
+line = 433
+class = "test-gap"
+severity = "medium"
+observed = "TestConcurrentCheckDeliver has an empty TODO body. Its passing test name provides no assertion about concurrent CheckTx/DeliverTx state isolation or committed effects."
+expected = "Concurrent admission and delivery must be exercised through the actual node CheckTx implementation and BaseApp delivery path, with assertions on state isolation and post-commit visibility."
+proposal = "Implement TestConcurrentCheckDeliver in sdk/baseapp/deliver_tx_test.go or its owning real node integration target with synchronized overlapping transactions and exact check/deliver/commit state assertions. Preserve the test name and include both accepted and rejected transaction effects."
+owner_domain = 15
+
+[finding.block-gas-test-disabled]
+file = "sdk/baseapp/deliver_tx_test.go"
+line = 718
+class = "test-gap"
+severity = "medium"
+observed = "TestMaxBlockGasLimits is entirely commented out, leaving its max-block-gas transaction and boundary assertions unexecuted in the delivery suite."
+expected = "The active delivery suite must prove block gas exhaustion and boundary behavior through real gas meters, transaction results and committed state."
+proposal = "Restore an executable TestMaxBlockGasLimits in sdk/baseapp/deliver_tx_test.go using current transaction and consensus parameter types, preserving its substantive gas-limit assertions and adding exact-limit and over-limit committed-state checks."
+owner_domain = 15
+
+[finding.snapshot-fixture-cache-bypass]
+file = "sdk/baseapp/deliver_tx_test.go"
+line = 1698
+class = "test-gap"
+severity = "medium"
+observed = "The snapshot test message handler writes directly to bapp.cms.GetCommitKVStore instead of the transaction context KVStore. Its empty SS configuration also excludes real history import, so it does not establish transaction cache rollback or synchronous SS recovery."
+expected = "A snapshot recovery proof must create state through the same transactional cache path as production and verify both commitment and enabled history immediately after restore and restart."
+proposal = "Use ctx.KVStore in the sdk/baseapp/deliver_tx_test.go message handler, retain successful transaction assertions and add a failed transaction rollback case. Add an SS-enabled real snapshot/restore/reopen path with immediate value/version checks before another block commits."
+owner_domain = 15
+
+[finding.snapshot-height-hash-test]
+file = "sdk/storev2/rootmulti/flatkv_snapshot_test.go"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "TestFlatKVSnapshotRestoreWithLatticeHash explicitly omits equality between the source and restored lattice hash at snapshot height. Both dual-write and EVMMigrated cases assert nonempty hashes, then advance and compare later blocks; those later writes cannot prove every imported byte or the initial app hash was identical."
+expected = "State sync must preserve the application commitment and queryable state at the accepted snapshot height before any subsequent transaction changes it, including after a restart."
+proposal = "Assert exact source/restored LastCommitID and lattice-hash equality immediately after Restore and after reopening, with independent untouched account/code/storage keys, in sdk/storev2/rootmulti/flatkv_snapshot_test.go for every supported mode. If those assertions expose a serialization mismatch, repair the real export/import representation in domain 5 rather than weakening equality."
+owner_domain = 15
+interface = "5.go-storage-state-db-sc-composite-new-composite-commit-store"
+
+[finding.protocol-site]
+file = "docs/site/docs/protocol/index.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The protocol overview presents LayerX and Paxeer as separate systems with settlement/checkpoint stages, guarantors and a multi-stage finality ladder instead of the single merged BFT network."
+expected = "Audit brief network facts 1-3 specify one paxd BFT network, EVM chain id 125, receipts final at committed block and public node JSON-RPC at the root path."
+proposal = "Rewrite docs/site/docs/protocol/index.md around one Paxeer network, chain id 125, committed-block receipt finality and the root JSON-RPC listener; replace guarantor/checkpoint settlement diagrams and keep the site and wiki explanations consistent."
+owner_domain = 17
+
+[finding.protocol-wiki]
+file = "docs/wiki/Protocol.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The protocol overview presents LayerX and Paxeer as separate systems with settlement/checkpoint stages, guarantors and a multi-stage finality ladder instead of the single merged BFT network."
+expected = "Audit brief network facts 1-3 specify one paxd BFT network, EVM chain id 125, receipts final at committed block and public node JSON-RPC at the root path."
+proposal = "Rewrite docs/wiki/Protocol.md around one Paxeer network, chain id 125, committed-block receipt finality and the root JSON-RPC listener; replace guarantor/checkpoint settlement diagrams and keep the site and wiki explanations consistent."
+owner_domain = 17
+
+[finding.fork-runbook]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook starts with a v6.6 plan adding custody/anchor behavior and later mixes v7.0 and anchor-delete rehearsals. Its precompile and rehearsal instructions describe incompatible pre-merge operating states as one rollout."
+expected = "Operators need one current merged-network upgrade sequence with the actual binary/plan identity, active services, persisted-state checks and recovery boundary."
+proposal = "Rewrite docs/runbooks/paxeer-x-fork.md with the node/upgrades owners around the current paxd plan, retained modules, backup/restore and restart checks; label archival v6.6/v7.0/anchor procedures as historical and remove them from executable current steps."
+owner_domain = 17
+
+[finding.cli-router-doc]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires an explicit /rpc endpoint and later repeats the old router route, presenting a separate LayerX-facing transport as the current network interface."
+expected = "The merged node serves JSON-RPC at its root path with debug, echo, eth, net, pax, test and txpool namespaces; hosted px methods have a separate gateway contract."
+proposal = "Update docs/site/docs/platform/cli.md endpoint setup and examples to current root node RPC and distinguish hosted gateway commands by their declared contract; remove mandatory /rpc and separate-interface assumptions."
+owner_domain = 17
+
+[finding.cli-feature-status]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The guide lists wallet/token commands in its implemented CLI coverage but later says those commands and related global flags are unimplemented, leaving contradictory instructions for the same user workflow."
+expected = "CLI documentation must give one status and supported argument/flag set matching the shipped command tree so a user can complete wallet and token operations."
+proposal = "Reconcile the implemented and limitation sections of docs/site/docs/platform/cli.md against the maintained CLI command declarations; replace obsolete caveats with exact currently supported commands and identify any real remaining limits."
+owner_domain = 17
+
+[finding.agent-retired-transport]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The agent boundary guide instructs readers to use the LNI layerxd socket path and later treats sequencer plus authority-replica integration as the live execution path."
+expected = "The merged network has no running layerxd or separate sequencer service; agent authorization, transaction submission and recovery must terminate at the retained node and hosted services."
+proposal = "Replace retired socket/process diagrams and integration instructions in docs/site/docs/platform/agent-boundary.md with the current node transport, receipt verification, authorization and restart flow, coordinating the agent and node owners."
+owner_domain = 17
+
+[finding.hosted-core-daemon]
+file = "docs/site/docs/platform/hosted-core.md"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "Hosted core is described as a front end to layerxd with sibling LNI/replica deployment and sequencer-oriented readiness, which directs operators to retired running components."
+expected = "Hosted core deployment and readiness must describe retained services attached to the single Paxeer node and committed-block receipt finality."
+proposal = "Rewrite docs/site/docs/platform/hosted-core.md service topology, readiness and recovery steps around the current node and hosted boundaries, and remove layerxd/LNI/separate sequencer deployment requirements."
+owner_domain = 17
+
+[finding.hosted-gateway-router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway guide describes a unified router multiplexing eth/lx/px and current /rpc, /rpc/schema and /rpc/ws endpoints. It conflates the node listener with the hosted px contract despite otherwise useful authentication and token guidance."
+expected = "The node root JSON-RPC namespaces and services/platform/hosted/gateway/openrpc.json hosted px methods are distinct declared contracts; no unified router or separate LayerX interface runs."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md transport and endpoint sections against the node root listener and gateway openrpc contract, preserving supported gateway auth, Redis and token semantics while removing the retired multiplexing routes."
+owner_domain = 17
+
+[finding.registry-replica-doc]
+file = "docs/site/docs/platform/registry.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The registry guide configures a separate receipt-authority replica endpoint and replica identity and describes sequencer trust history as a current runtime dependency."
+expected = "Receipt trust and historical verification must use the merged network governed receipt key at height and native commit proof, with no retired independent authority replica service."
+proposal = "Rewrite docs/site/docs/platform/registry.md registry and receipt verification flow around current node proof and governed key sources, including persisted trust history and cache restart/recovery semantics; remove retired replica deployment configuration."
+owner_domain = 17
+
+[finding.programs-site]
+file = "docs/site/docs/programs/index.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "The programs overview routes simulation/execution through LNI and the daemon and describes native batch finality as a separate stage, retaining the pre-merge execution topology."
+expected = "Retained program ABI registration and simulation must be described within the single node execution and committed-block finality model, without a daemon or separate sequencer."
+proposal = "Update docs/site/docs/programs/index.md to show the current node program host, ABI agreement on registration and committed-block receipt lifecycle; preserve valid ABI tables and replace retired LNI/daemon/batch-finality and governance wording."
+owner_domain = 17
+
+[finding.programs-wiki]
+file = "docs/wiki/Programs.md"
+line = 120
+class = "doc-drift"
+severity = "medium"
+observed = "The programs overview routes simulation/execution through LNI and the daemon and describes native batch finality as a separate stage, retaining the pre-merge execution topology."
+expected = "Retained program ABI registration and simulation must be described within the single node execution and committed-block finality model, without a daemon or separate sequencer."
+proposal = "Update docs/wiki/Programs.md to show the current node program host, ABI agreement on registration and committed-block receipt lifecycle; preserve valid ABI tables and replace retired LNI/daemon/batch-finality and governance wording."
+owner_domain = 17
+
+[finding.programs-workspace-recipe]
+file = "docs/site/docs/programs/workspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide prescribes cmd/layerxd/lxp_daemon_batch_wal.c and a retired replay-golden target as active program host verification recipes."
+expected = "A maintained program workspace guide must name existing retained host determinism and node WAL/recovery gates while preserving frozen ABI checks."
+proposal = "Replace the retired daemon/WAL and replay recipes in docs/site/docs/programs/workspace.md with current node/host test commands and their actual artifacts; state which ABI and restart invariants each retained gate proves."
+owner_domain = 17
+
+[finding.capability-overview-genesis]
+file = "sdk/x/capability/spec/README.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says the capability keeper has no genesis state, although GenesisState, InitGenesis and ExportGenesis persist the global index and owners. Its setup example also uses capability.NewKeeper rather than the keeper package constructor."
+expected = "The capability overview must describe the persisted genesis index/owners and how InitMemStore reconstructs ephemeral scoped capabilities on startup."
+proposal = "Update sdk/x/capability/spec/README.md with the keeper package constructor, genesis import/export and initialization lifecycle, separating persisted owner identity from process-local capability pointers."
+owner_domain = 17
+
+[finding.capability-state-empty]
+file = "sdk/x/capability/spec/02_state.md"
+line = 7
+class = "doc-drift"
+severity = "low"
+observed = "The state page contains headings without the key layouts, owner ordering or persistent-to-memory reconstruction needed to understand capability recovery."
+expected = "Capability state documentation must define persisted index and owners, canonical ordering and the forward/reverse in-memory mappings used after restart."
+proposal = "Fill sdk/x/capability/spec/02_state.md from types/keys.go, types/types.go and keeper/keeper.go with key/value shapes, uniqueness rules and InitMemStore/release lifecycle, including the genesis validation boundary."
+owner_domain = 17
+
+[finding.evidence-atlas-purpose]
+file = "sdk/x/evidence/atlas/atlas-v0.41.x.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The evidence atlas opening describes a module that manages multi-asset coin transfers, which is bank behavior rather than evidence routing, equivocation and validator punishment."
+expected = "The evidence atlas must identify the module responsibilities and its actual staking/slashing and evidence submission/query integration."
+proposal = "Correct sdk/x/evidence/atlas/atlas-v0.41.x.md purpose and fork integration description to evidence routing, storage and equivocation handling, retaining explicitly labeled upstream provenance."
+owner_domain = 17
+
+[finding.evidence-setup-example]
+file = "sdk/x/evidence/doc.go"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "The package setup example calls evidence.NewKeeper, evidence.StoreKey and evidence.NewRouter, but the maintained declarations live in keeper.NewKeeper and types.StoreKey/types.NewRouter rather than the evidence root package."
+expected = "A copyable evidence module integration example must use real exported packages and initialize the sealed router before the module is registered."
+proposal = "Rewrite the setup example in sdk/x/evidence/doc.go with evidencekeeper and evidencetypes imports, actual constructor arguments, explicit SetRouter and the current module registration path; compile the example in the owning documentation repair task."
+owner_domain = 17
+
+[finding.evidence-grpc-hash]
+file = "sdk/x/evidence/spec/07_client.md"
+line = 142
+class = "doc-drift"
+severity = "medium"
+observed = "The grpcurl Evidence request passes the hexadecimal CLI/REST hash directly as evidence_hash. The protobuf field is bytes, whose protobuf JSON input is base64; the three transports therefore do not share that literal encoding."
+expected = "Examples must distinguish hexadecimal CLI and REST path arguments from protobuf JSON base64 bytes while all requests resolve the same evidence digest."
+proposal = "Replace the grpcurl request in sdk/x/evidence/spec/07_client.md with a base64 encoding of the shown digest and document the transport distinction; prove the example against the real Query/Evidence service and compare the returned evidence."
+owner_domain = 17
+interface = "7.proto-cosmos-evidence-v1beta1-queryevidencerequest-j39"
+
+[finding.evidence-response-shapes]
+file = "sdk/x/evidence/spec/07_client.md"
+line = 54
+class = "doc-drift"
+severity = "medium"
+observed = "The all-evidence CLI example shows a single object instead of a list, and JSON examples omit the Any type discriminator even though Keeper queries return Any and repeated Any values."
+expected = "Evidence query examples must preserve the actual repeated evidence shape and concrete Any type identity needed by client decoders."
+proposal = "Regenerate examples in sdk/x/evidence/spec/07_client.md from real single/all query responses with the current marshaler, showing the list and Any discriminator and retaining pagination fields and numeric encodings."
+owner_domain = 17
+interface = "7.proto-cosmos-evidence-v1beta1-queryallevidenceresponse-j39"
+
+[finding.slashing-readme-bitmap]
+file = "sdk/x/slashing/README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The fork README sizes packed MissedBlocks using floor(WindowSize/64), while HandleValidatorSignatureConcurrent allocates ceil(WindowSize/64). It also retains lazy per-height-key initialization wording despite storing a complete packed ValidatorMissedBlockArray."
+expected = "The state layout and memory sizing guidance must match the persisted packed array, including windows that are not multiples of 64 and parameter changes."
+proposal = "Correct sdk/x/slashing/README.md to ceiling division and one packed per-validator protobuf array, documenting allocation, unused bits, circular indexing and resize counter invariants."
+owner_domain = 17
+
+[finding.slashing-state-layout]
+file = "sdk/x/slashing/spec/02_state.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "The state specification describes individual varint-indexed missed-block keys and bool values, whereas the keeper stores one serialized packed ValidatorMissedBlockArray per validator."
+expected = "The slashing state specification must match the current keys and protobuf representation consumed by migrations, restart and liveness tracking."
+proposal = "Replace the obsolete per-index layout in sdk/x/slashing/spec/02_state.md with types/keys.go and keeper/signing_info.go packed state, and distinguish legacy migration input from current persisted output."
+owner_domain = 17
+
+[finding.slashing-beginblock-pseudocode]
+file = "sdk/x/slashing/spec/04_begin_block.md"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The BeginBlock pseudocode uses removed per-bit accessors and an unbounded IndexOffset, and initializes missing signing info as zero rather than describing the current required-record invariant and packed-array concurrent calculation."
+expected = "The algorithm reference must describe the real circular offset, packed state, missing-record behavior and ordered mutation stage used to determine validator penalties."
+proposal = "Rewrite sdk/x/slashing/spec/04_begin_block.md against abci.go and keeper/infractions.go with the packed bitmap, modulo offset, resize rules and explicit signing-info prerequisite; include stable event emission in the proposed repaired algorithm."
+owner_domain = 17
+
+[finding.slashing-tombstone-doc]
+file = "sdk/x/slashing/spec/07_tombstone.md"
+line = 86
+class = "doc-drift"
+severity = "medium"
+observed = "The tombstone discussion describes finite consensus-fault jailing as current behavior and infinite jail as a proposal, although the implemented equivocation path tombstones and permanently excludes the validator from unjailing."
+expected = "Operators and validators must be told the enforced permanent consequence of equivocation and how it differs from recoverable downtime jail."
+proposal = "Update sdk/x/slashing/spec/07_tombstone.md to mark the finite-jail discussion as historical and document actual Tombstone, permanent jail and MsgUnjail rejection behavior from the maintained keepers."
+owner_domain = 17
+
+[finding.upgrade-setup-api]
+file = "sdk/x/upgrade/doc.go"
+line = 48
+class = "doc-drift"
+severity = "medium"
+observed = "The integration example calls a nonexistent upgradeKeeper.BeginBlocker method and registers handlers with only context and plan and no result, while the current UpgradeHandler receives a module VersionMap and returns its updated map and error."
+expected = "Upgrade setup instructions must use the actual module BeginBlock hook and handler signature so migrations preserve and return module versions across the handoff."
+proposal = "Rewrite sdk/x/upgrade/doc.go examples using upgrade.BeginBlocker and the types.UpgradeHandler VersionMap/error contract, retaining the current store-loader and plan lifecycle; compile the examples as part of the owning documentation repair."
+owner_domain = 17
+
+[finding.upgrade-endblock-doc]
+file = "sdk/x/upgrade/spec/01_concepts.md"
+line = 53
+class = "doc-drift"
+severity = "medium"
+observed = "The concepts page states that the upgrade check occurs in EndBlock, whereas sdk/x/upgrade/abci.go performs the halt/handler decision in BeginBlocker before normal block processing."
+expected = "Upgrade timing documentation must identify the exact block phase where an old binary halts and the new binary runs migrations."
+proposal = "Correct sdk/x/upgrade/spec/01_concepts.md to BeginBlock and align its height/restart explanation with the module hook and the node registered ordering."
+owner_domain = 17
+
+[finding.upgrade-plan-shape]
+file = "sdk/x/upgrade/spec/04_client.md"
+line = 216
+class = "doc-drift"
+severity = "medium"
+observed = "CurrentPlan examples return plan as the string v2.1-upgrade, while the query contract returns a Plan object carrying name, height, time and info fields rather than a bare name."
+expected = "CurrentPlan client examples must reflect QueryCurrentPlanResponse.Plan and the actual protobuf JSON/YAML encodings that integrators decode."
+proposal = "Regenerate CurrentPlan examples in sdk/x/upgrade/spec/04_client.md from the real keeper query and gateway marshaler, showing the structured Plan and the no-plan behavior explicitly."
+owner_domain = 17
+interface = "7.proto-cosmos-upgrade-v1beta1-querycurrentplanresponse-j39"
+
+[finding.upgrade-grpc-service]
+file = "sdk/x/upgrade/spec/04_client.md"
+line = 355
+class = "doc-drift"
+severity = "medium"
+observed = "The CurrentPlan and ModuleVersions grpcurl commands address cosmos.slashing.v1beta1.Query, although those methods belong to cosmos.upgrade.v1beta1.Query and are not slashing methods."
+expected = "Copyable upgrade client commands must address the registered upgrade query service and return the declared current-plan and module-version responses."
+proposal = "Change both grpcurl service names in sdk/x/upgrade/spec/04_client.md to cosmos.upgrade.v1beta1.Query and validate the commands against the real registered upgrade service with scheduled plan and module-version state."
+owner_domain = 17
+
+[doc.001]
+path = "docs/site/docs/protocol/index.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in protocol-site."
+
+[doc.002]
+path = "docs/wiki/Protocol.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in protocol-wiki."
+
+[doc.003]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in fork-runbook."
+
+[doc.004]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "The complete porting guide describes ABI-2 adapters and bounds consistently with the retained host/guest contract; no retired runtime dependency was found."
+
+[doc.005]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in cli-router-doc, cli-feature-status."
+
+[doc.006]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in agent-retired-transport."
+
+[doc.007]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in hosted-core-daemon."
+
+[doc.008]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in hosted-gateway-router."
+
+[doc.009]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in registry-replica-doc."
+
+[doc.010]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in programs-site."
+
+[doc.011]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in programs-workspace-recipe."
+
+[doc.012]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in programs-wiki."
+
+[doc.013]
+path = "sdk/x/capability/spec/01_concepts.md"
+status = "accurate"
+notes = "Scoped ownership, unforgeable process-local capability pointers and persistent owner reconstruction agree with the keeper design."
+
+[doc.014]
+path = "sdk/x/capability/spec/02_state.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in capability-state-empty."
+
+[doc.015]
+path = "sdk/x/capability/spec/README.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in capability-overview-genesis."
+
+[doc.016]
+path = "sdk/x/evidence/atlas/atlas-v0.41.x.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in evidence-atlas-purpose."
+
+[doc.017]
+path = "sdk/x/evidence/atlas/manifest.toml"
+status = "accurate"
+notes = "The Cosmos SDK upstream homepage, issue tracker and v0.41 atlas metadata identify provenance; they are not treated as current node deployment configuration."
+
+[doc.018]
+path = "sdk/x/evidence/doc.go"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in evidence-setup-example."
+
+[doc.019]
+path = "sdk/x/evidence/spec/01_concepts.md"
+status = "accurate"
+notes = "Evidence/Handler routing and the exported evidence interface, including GetTotalPower, match the retained declarations; actual node router initialization is a separate implementation finding."
+
+[doc.020]
+path = "sdk/x/evidence/spec/02_state.md"
+status = "accurate"
+notes = "Evidence hash-key persistence and codec storage agree with the keeper prefix layout and query lookup."
+
+[doc.021]
+path = "sdk/x/evidence/spec/03_messages.md"
+status = "accurate"
+notes = "Submission wraps an evidence Any and dispatches through the evidence router before storage; malformed-address implementation gaps are recorded separately."
+
+[doc.022]
+path = "sdk/x/evidence/spec/04_events.md"
+status = "accurate"
+notes = "Evidence event names and attributes agree with message submission and keeper emission."
+
+[doc.023]
+path = "sdk/x/evidence/spec/05_params.md"
+status = "accurate"
+notes = "The module has no independent parameter set, matching its keeper and module wiring."
+
+[doc.024]
+path = "sdk/x/evidence/spec/06_begin_block.md"
+status = "accurate"
+notes = "ABCI equivocation handling and staking/slashing integration match the retained BeginBlock path."
+
+[doc.025]
+path = "sdk/x/evidence/spec/07_client.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in evidence-grpc-hash, evidence-response-shapes."
+
+[doc.026]
+path = "sdk/x/evidence/spec/README.md"
+status = "accurate"
+notes = "The evidence contents and module responsibility links describe the retained evidence module; client example defects are recorded on the linked client page."
+
+[doc.027]
+path = "sdk/x/slashing/README.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-readme-bitmap."
+
+[doc.028]
+path = "sdk/x/slashing/spec/01_concepts.md"
+status = "accurate"
+notes = "Consensus key identity, downtime and double-sign responsibilities agree with staking and slashing interfaces."
+
+[doc.029]
+path = "sdk/x/slashing/spec/02_state.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-state-layout."
+
+[doc.030]
+path = "sdk/x/slashing/spec/03_messages.md"
+status = "accurate"
+notes = "MsgUnjail constraints agree with the keeper checks for self delegation, jail time and tombstone status."
+
+[doc.031]
+path = "sdk/x/slashing/spec/04_begin_block.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-beginblock-pseudocode."
+
+[doc.032]
+path = "sdk/x/slashing/spec/05_hooks.md"
+status = "accurate"
+notes = "Validator bond/removal hooks agree with signing-info creation and cleanup responsibilities."
+
+[doc.033]
+path = "sdk/x/slashing/spec/06_events.md"
+status = "accurate"
+notes = "Declared liveness and slash event names/attributes match the producer; concurrent ordering is a separate implementation finding."
+
+[doc.034]
+path = "sdk/x/slashing/spec/07_tombstone.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in slashing-tombstone-doc."
+
+[doc.035]
+path = "sdk/x/slashing/spec/08_params.md"
+status = "accurate"
+notes = "Window, signed fraction, jail duration and penalty parameter types agree with the maintained parameter definitions."
+
+[doc.036]
+path = "sdk/x/slashing/spec/09_client.md"
+status = "accurate"
+notes = "The CLI/gRPC slashing command and query descriptions agree with current declarations; the legacy REST address disagreement is recorded on producer and consumer code."
+
+[doc.037]
+path = "sdk/x/slashing/spec/README.md"
+status = "accurate"
+notes = "The slashing module overview and contents describe validator liveness/equivocation responsibilities; stale algorithm and layout details are recorded on the individual pages."
+
+[doc.038]
+path = "sdk/x/upgrade/doc.go"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in upgrade-setup-api."
+
+[doc.039]
+path = "sdk/x/upgrade/spec/01_concepts.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in upgrade-endblock-doc."
+
+[doc.040]
+path = "sdk/x/upgrade/spec/02_state.md"
+status = "accurate"
+notes = "Scheduled plan and completed upgrade persistence agree with the keeper key/value layout."
+
+[doc.041]
+path = "sdk/x/upgrade/spec/03_events.md"
+status = "accurate"
+notes = "The module event description agrees with the retained upgrade hook behavior."
+
+[doc.042]
+path = "sdk/x/upgrade/spec/04_client.md"
+status = "stale"
+notes = "The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in upgrade-plan-shape, upgrade-grpc-service."
+
+[doc.043]
+path = "sdk/x/upgrade/spec/README.md"
+status = "accurate"
+notes = "The upgrade overview and contents describe the retained coordinated plan and handler module."
+
+[doc.044]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Pinned generated interface baseline consulted at the relevant SDK/ABCI and commit-hook anchors. Historical revision/status and UNRUN entries describe baseline evidence rather than a claim that current candidate gates passed."
+
+[doc.045]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Pinned generated interface baseline consulted at the relevant SDK/ABCI and commit-hook anchors. Historical revision/status and UNRUN entries describe baseline evidence rather than a claim that current candidate gates passed."
+
+[doc.046]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "The audit checklist and record grammar define the one-network root-RPC, committed finality and ownership basis used for this record."

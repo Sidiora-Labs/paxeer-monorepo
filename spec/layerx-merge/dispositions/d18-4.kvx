@@ -1,0 +1,124 @@
+[disposition.18.1049.1.1]
+finding = "18.1049.1.1"
+status = "resolved"
+evidence = "Commit 646a1205d repairs the bridge type-check configuration, including the ES2020 target at apps/bridge/tsconfig.json:3, and c5a114e11 subsequently lands the mounted ThemeProvider tests."
+
+[disposition.18.1065.1.1]
+finding = "18.1065.1.1"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 supplies a signed initial inventory with matching member pins and issuer and tenant at services/wallet/gateway/test/e2e/attestors.ts:245 and passes its public key and authority configuration to every attestor."
+
+[disposition.18.1065.1.2]
+finding = "18.1065.1.2"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 sets all four required wallet identity and inventory variables at services/wallet/gateway/test/e2e/gateway.e2e.test.ts:217 before importing the application."
+
+[disposition.18.1065.1.3]
+finding = "18.1065.1.3"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 adds per-key generation admissions at services/wallet/gateway/test/e2e/gateway.e2e.test.ts:239 and republishes the generated public keys with sign permission before completing provisioning."
+
+[disposition.18.1065.1.4]
+finding = "18.1065.1.4"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 replaces the retired sponsor top-up fixture with a local quote and submit station and asserts executeSponsored at services/wallet/gateway/test/e2e/gateway.e2e.test.ts:272."
+
+[disposition.18.1065.1.5]
+finding = "18.1065.1.5"
+status = "resolved"
+evidence = "The station dependency at services/wallet/gateway/src/routes/wallet.ts:65 replaces the retired sponsor dependency, and commit 3ac8ecf71 configures WALLET_GAS_STATION_URL and asserts active provisioning in the end-to-end setup."
+
+[disposition.18.1065.1.6]
+finding = "18.1065.1.6"
+status = "resolved"
+evidence = "The current readiness producer returns all four named components at services/wallet/gateway/src/routes/readiness.ts:147, and the end-to-end test at services/wallet/gateway/test/e2e/gateway.e2e.test.ts:397 asserts each component after the station and authority setup landed in 3ac8ecf71."
+
+[disposition.18.1065.1.7]
+finding = "18.1065.1.7"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 replaces the account-originated bind expectation with an empty account-originated transaction list and one sponsor-to-account executeSponsored transaction at services/wallet/gateway/test/e2e/gateway.e2e.test.ts:267."
+
+[disposition.18.1065.1.8]
+finding = "18.1065.1.8"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 selects the sponsor-to-account transaction at services/wallet/gateway/test/e2e/gateway.e2e.test.ts:268 and checks its EIP-7702 authorization delegates to PAYMASTER at line 288."
+
+[disposition.18.1069.1.1]
+finding = "18.1069.1.1"
+status = "resolved"
+evidence = "Commit f977a0dfa replaces the stale cursor with the canonical block 12 transaction 1 log 0 cursor retained at services/agent/sdk/typescript/test/px.test.ts:997."
+
+[disposition.18.1070.1.1]
+finding = "18.1070.1.1"
+status = "resolved"
+evidence = "Commit 0d81e82e9 supplies the receipt key and payer variables in fixture_env and removes the stale template-note expectation, with the current inputs at tools/bringup/tests/search-front.test.sh:39 and the no-note assertion at line 96."
+
+[disposition.18.1071.1.1]
+finding = "18.1071.1.1"
+status = "resolved"
+evidence = "Commit a945bc711 makes CTOR and server-variable matching accept lowercase new constructors at tools/docs/gen/gen_system_docs.py:67 and line 84 and regenerates the system documentation."
+
+[disposition.18.1076.1.1]
+finding = "18.1076.1.1"
+status = "resolved"
+evidence = "Commit 436303023 splits multi-application test arguments into separate mix invocations and gives each application a distinct database sidecar in services/explorer/deploy/tools/mix-in-builder.sh."
+
+[disposition.18.1076.1.2]
+finding = "18.1076.1.2"
+status = "resolved"
+evidence = "Commit 436303023 replaces the shared multi-application execution path in services/explorer/deploy/tools/mix-in-builder.sh with run_test_groups and per-application sidecars, preventing the second application from reusing the first migrated database."
+
+[disposition.18.1078.1.1]
+finding = "18.1078.1.1"
+status = "resolved"
+evidence = "Commit d200b84c0 removes rusqlite and libsqlite3-sys from the global ban at services/platform/tools/dependency-policy.sh:27 while retaining their transitive ban for the two ramps at line 53."
+
+[disposition.18.1089.1.1]
+finding = "18.1089.1.1"
+status = "resolved"
+evidence = "Commit 017ece0c4 replaces the retired Anchor changeset call with Ecto.Changeset.cast at services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs:390, and 436303023 isolates umbrella application database runs."
+
+[disposition.18.1089.1.2]
+finding = "18.1089.1.2"
+status = "resolved"
+evidence = "Commit c04f3042d changes the status, signature and signature-committed controller fixtures to keyed receipt answers while retaining bare lists as malformed cases, matching services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:198."
+
+[disposition.18.1106.1.1]
+finding = "18.1106.1.1"
+status = "resolved"
+evidence = "Commit 10e1ea6a2 repins wasm-runtime/libwasmvm-linux.sha256:1 to 7b645f7de8af0fd0bdbf6ef4501625f3fccf851ef267be1298ccfc5ffbe1f46e, which matches the committed libwasmvm.aarch64.so bytes."
+
+[disposition.18.1110.1.1]
+finding = "18.1110.1.1"
+status = "environment"
+evidence = "The failure was an absent prebuilt Rust consumer selected by PAXEER_X_NATIVE_CUSTODY_RUST_TEST at services/wallet/attestor/internal/server/native_purpose_test.go:321, and the current task gate at spec/layerx-merge/spec.kvx:219144 builds that consumer before exporting its path."
+
+[disposition.18.1110.1.2]
+finding = "18.1110.1.2"
+status = "resolved"
+evidence = "Commit c74d24029 changes the StepUpMismatch fixture to mutate owner_public_key at services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:570 and separately asserts InvalidEvidence for expiry skew."
+
+[disposition.18.1111.1.1]
+finding = "18.1111.1.1"
+status = "resolved"
+evidence = "Commit ae2c752c5 maps PayloadError to a formatted error before the question-mark conversion, retained at services/agent/crates/layerx-crypto/tests/disclosure_call.rs:621."
+
+[disposition.18.1113.1.1]
+finding = "18.1113.1.1"
+status = "resolved"
+evidence = "Commit e37d74f7d ports the provisioning fixtures to available kernel state and attestor-held agent keys with policy and signed origin, reflected at services/wallet/gateway/test/provisioning.test.ts:699 and line 839."
+
+[disposition.18.1113.1.3]
+finding = "18.1113.1.3"
+status = "resolved"
+evidence = "The current task declaration at spec/layerx-merge/spec.kvx:221379 names the exported provisionAccount and provisionDepsFromEnv functions instead of test titles, while e37d74f7d contains the landed provisioning flow implementation."
+
+[disposition.18.1119.1.1]
+finding = "18.1119.1.1"
+status = "resolved"
+evidence = "Commit 9ea5dac81 marks receipted deliveries BATCH_INCLUDED at services/human/crates/layerx-human-service/tests/activity.rs:296 and ports the corresponding evidence assertions to BatchIncluded."
+
+[disposition.18.1119.1.2]
+finding = "18.1119.1.2"
+status = "resolved"
+evidence = "Commit 9ea5dac81 removes the retired handshake_gate import and connects a local readiness node before calling gate.readiness_gate at services/human/crates/layerx-human-test-support/src/lib.rs:275."

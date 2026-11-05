@@ -1,0 +1,21 @@
+[repair.22.33.1106]
+audit = "22.30.46"
+base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+findings = ["24"]
+build = "hf-build"
+verify = "hf-done"
+evidence = "The gate runner records the candidate revision, command, exit and private log; the final response copies its last evidence line."
+baseline = "Not run: the explicit ordered instructions prohibit testing before implementation and running verify_cmd by hand; no prior gate ledger exists and repair_m1106_test.go is new, so no baseline failures are claimed."
+
+[finding.24]
+tests = ["TestRepairM_1106_PersistedHeightAndTimestamp", "TestRepairM_1106_UnproducedRowsFailQualification", "TestRepairM_1106_RemovedRowsFailQualification", "TestRepairM_1106_OutOfIntervalTimestampsFailQualification"]
+path = "Production EventSink IndexBlockEvents and IndexTxEvents write through database/sql to the committed embedded SQLite fixture using schema.sql; the same scanned height and timestamp helpers qualify the PostgreSQL integration suite and the focused repair tests."
+height = "Both expected heights are actually produced; queries bind the expected height and chain, scan the returned height, and compare it with producer input."
+timestamp = "Scan persisted timestamps in blocks, tx_results and tx_events and require them within the measured indexing interval; created_at is sink write time, not header time."
+negative = "Removing the expected block, transaction or view-producing events makes the shared qualification return sql.ErrNoRows even with another height present; unproduced heights and chains and timestamps outside both bounds also fail."
+wiring_requests = "None: the repair proposal requires no changes outside the declared package."
+
+[qualification.boundary]
+postgres = "The focused gate starts no PostgreSQL or Docker service; the existing PostgreSQL integration suite compiles and uses the repaired helpers, but its execution is not claimed."
+gotcha = "QueryRow.Err does not report an empty result; Scan is required to observe sql.ErrNoRows."
+scope = "Task records and gotchas are recorded here because the explicit scope forbids editing spec files and the root GOTCHA.kvx."

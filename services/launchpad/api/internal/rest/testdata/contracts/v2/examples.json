@@ -1,0 +1,62 @@
+{
+  "endpoints": {
+    "IF_STATS": {
+      "successes": [
+        {
+          "status": 200,
+          "body": {
+            "requestId": "11111111-1111-4111-8111-111111111111",
+            "data": {
+              "stats": {
+                "poolAddress": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "volume24hRaw": "147278912",
+                "buys24h": "1",
+                "sells24h": "1",
+                "holderCount": "2",
+                "realUsdlBalanceRaw": "49721088",
+                "indicativeTvlUsdlRaw": null,
+                "valuationMethod": null,
+                "windowStart": "2026-10-12T07:12:37.000Z",
+                "windowEnd": "2026-10-13T07:12:37.000Z",
+                "sourceUpperPosition": {
+                  "chainId": "125",
+                  "height": "33963749",
+                  "transactionIndex": "0",
+                  "logIndex": "2",
+                  "transactionHash": "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845",
+                  "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945"
+                },
+                "watermark": {
+                  "chainId": "125",
+                  "height": "33963749",
+                  "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+                  "projectionRevision": "1",
+                  "observedAt": "2026-10-13T08:17:31.628Z",
+                  "integrity": "healthy"
+                },
+                "totalSupplyValuationUsdlRaw": "10098226981",
+                "circulatingMarketCapUsdlRaw": "48505893",
+                "supplyValuationQuality": "verified",
+                "priceChangeBps24h": null,
+                "valuationChangeUsdlRaw": null,
+                "changeBaselineQuality": "insufficient_history"
+              }
+            },
+            "watermark": {
+              "chainId": "125",
+              "height": "33963749",
+              "blockHash": "0x1cd6b450aa87745be16a8760a928a2e7ddd1097e872bdcd99b31ff66f77c2945",
+              "projectionRevision": "1",
+              "observedAt": "2026-10-13T08:17:31.628Z",
+              "integrity": "healthy"
+            },
+            "revision": "1",
+            "quality": "partial",
+            "nextCursor": null,
+            "generatedAt": "2026-10-13T08:17:31.628Z"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -11,13 +11,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/user/migrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -27,9 +29,9 @@ import (
 func str(s string) *string { return &s }
 func fixture(t *testing.T) Store {
 	t.Helper()
-	dsn := os.Getenv("L35_TEST_POSTGRES")
+	dsn := os.Getenv("USER_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Fatal("L35_TEST_POSTGRES required: tests must exercise real PostgreSQL")
+		t.Fatal("USER_TEST_DATABASE_URL required: tests must exercise real PostgreSQL")
 	}
 	ctx := context.Background()
 	cfg, e := pgxpool.ParseConfig(dsn)
@@ -56,11 +58,16 @@ func fixture(t *testing.T) Store {
 		}
 		admin.Close()
 	})
-	b, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "handoffs", "L35", "schema.sql"))
+	sqlDB := stdlib.OpenDB(*cfg.ConnConfig)
+	defer sqlDB.Close()
+	// Version 1 owns the fixed legacy users schema; this fixture isolates only
+	// the account store in its private search_path.
+	provider, e := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.FS,
+		goose.WithExcludeVersions([]int64{1}))
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = pool.Exec(ctx, string(b)); e != nil {
+	if _, e = provider.Up(ctx); e != nil {
 		t.Fatal(e)
 	}
 	return Store{pool, func() time.Time { return time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC) }}

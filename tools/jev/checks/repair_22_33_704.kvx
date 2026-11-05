@@ -1,0 +1,36 @@
+[task]
+id = "22.33.704"
+audit = "22.30.169"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+qualification = "The exact verified candidate revision, command, exit and private log are recorded by hf-done in the gate ledger and the final evidence line; this record makes no pre-gate success claim."
+baseline = "Not run: the mandatory implementation-first order and hf-done-only verification override step 8's conflicting request to verify the unchanged tree; no baseline failures are claimed."
+proof = "Production scan validation, input collection, dependency indexing, docs catalog, comparison inputs and report serialization use committed cargo-deny transcripts and a loopback HTTP peer with the real Jev client, JSON codec, authorization/content headers and request/response digest logging; no external executable or environment setting is required."
+
+[finding.jev-moved-workspaces]
+tests = ["test_jev_moved_workspaces", "test_jev_selected_missing_manifest_is_nonzero"]
+repair = "Select all five maintained workspace manifests before launching a scan; normalize legacy capture names before classification and anchor construction; reject selected missing manifests."
+
+[finding.jev-scanner-failure-swallowed]
+tests = ["test_jev_scanner_successful_empty_scan", "test_jev_scanner_advisory_exit_keeps_findings", "test_jev_scanner_failure_is_nonzero_with_nonsecret_evidence", "test_jev_scanner_rejects_incomplete_or_contradictory_advisories", "test_jev_scanner_raw_capture_requires_completion"]
+repair = "Validate completion summaries, nonnegative counts, diagnostic shapes and exit consistency; retain advisory findings after supported advisory exits; fail closed with exit and stderr digest evidence. Recorded completion envelopes carry returncode and stderr; legacy JSONL captures require a completion summary."
+
+[finding.jev-docs-site-coverage]
+tests = ["test_jev_docs_site_catalog_and_independent_page_anchors", "test_jev_docs_empty_catalog_is_explicit"]
+repair = "Map both README translation trees, including all seven published site pages, to the English README; reject each empty configured catalog and retain a distinct anchor for every page."
+
+[finding.jev-docs-evidence-stripped]
+tests = ["test_jev_docs_operational_drift_reaches_real_client", "test_jev_docs_presentation_noise_and_missing_sections", "test_jev_docs_fenced_heading_and_command_normalization"]
+repair = "Preserve fenced and inline code plus Markdown, HTML, reference-link and bare URL destinations as explicit comparison evidence; remove image and presentation noise; prove command-only, endpoint-only and path-only drift through real HTTP evaluations."
+
+[wiring]
+request_1 = "tools/jev/tests/test_deps.py — domain 16: update legacy workspace identifiers, manifest roots and historical lockfile fixture expectations (audit jev-deps-test-roots); this task changes only checks/."
+request_2 = "tools/jev/tests/test_docs.py — domain 16: refresh README headings and the default catalog/preserved command and URL expectations (audit jev-doc-test-headings); this task changes only checks/."
+request_3 = "spec/layerx-merge/spec.kvx task.22.33.704 — domain 16/task runner: carry the finding-to-test mappings and exact hf-done candidate evidence into the central task record; direct spec edits are forbidden by this task's scope."
+
+[gotcha.gate-order]
+observed = "Step 8 requests an unchanged-tree verification while the mandatory order forbids pre-implementation tests and manual verification."
+resolution = "Use only hf-build followed by hf-done after full implementation; preserve the baseline limitation explicitly."
+
+[gotcha.candidate-bytecode]
+observed = "The inherited attempt includes ignored Python bytecode under the allowed directory; the candidate collector includes these files and qualification can rewrite them."
+resolution = "Remove inherited bytecode before qualification and direct Python bytecode into a private temporary cache for both gates so build and verify use the same source candidate."

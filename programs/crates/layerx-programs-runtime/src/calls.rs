@@ -353,7 +353,6 @@ impl CallGraph {
         evidence
     }
 
-    #[cfg(feature = "host-ffi")]
     pub(crate) fn write_canonical_evidence(&self, evidence: &mut Vec<u8>) {
         evidence.clear();
         evidence.extend_from_slice(GRAPH_DOMAIN);
@@ -453,7 +452,10 @@ impl CallGraph {
 const REPLAY_GRAPH_DOMAIN: &[u8] = b"LayerX/programs/replay-call-graph/v1\0";
 
 impl CallGraph {
-    pub fn replay_state_bytes(&self, maximum: usize) -> Result<Vec<u8>, crate::replay::ReplayWitnessError> {
+    pub fn replay_state_bytes(
+        &self,
+        maximum: usize,
+    ) -> Result<Vec<u8>, crate::replay::ReplayWitnessError> {
         use crate::replay::{append, maximum_bytes, ReplayWitnessError as E};
         maximum_bytes(maximum)?;
         let root = self.frames.first().ok_or(E::StateUnavailable)?;
@@ -462,28 +464,51 @@ impl CallGraph {
             .and_then(|n| n.checked_add(self.frames.len().checked_mul(81)?))
             .and_then(|n| n.checked_add(self.entered.len().checked_mul(36)?))
             .ok_or(E::Bounds)?;
-        if length > maximum { return Err(E::Bounds); }
+        if length > maximum {
+            return Err(E::Bounds);
+        }
         let mut out = Vec::new();
         out.try_reserve_exact(length).map_err(|_| E::Allocation)?;
         append(&mut out, REPLAY_GRAPH_DOMAIN, maximum)?;
-        for value in [self.rules.depth, self.rules.edges, self.rules.fanout, self.rules.visits] {
+        for value in [
+            self.rules.depth,
+            self.rules.edges,
+            self.rules.fanout,
+            self.rules.visits,
+        ] {
             append(&mut out, &value.to_be_bytes(), maximum)?;
         }
         append(&mut out, &self.principal.bytes(), maximum)?;
         append(&mut out, &root.program.bytes(), maximum)?;
-        append(&mut out, &u32::try_from(self.edges.len()).map_err(|_| E::Bounds)?.to_be_bytes(), maximum)?;
+        append(
+            &mut out,
+            &u32::try_from(self.edges.len())
+                .map_err(|_| E::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
         for edge in &self.edges {
             for frame in [edge.caller_frame, edge.callee_frame] {
                 let (path, depth) = frame.canonical_bytes();
                 append(&mut out, &path, maximum)?;
                 append(&mut out, &[depth], maximum)?;
             }
-            for program in [edge.caller.bytes(), edge.callee.bytes(), edge.principal.bytes()] {
+            for program in [
+                edge.caller.bytes(),
+                edge.callee.bytes(),
+                edge.principal.bytes(),
+            ] {
                 append(&mut out, &program, maximum)?;
             }
             append(&mut out, &edge.depth.to_be_bytes(), maximum)?;
         }
-        append(&mut out, &u32::try_from(self.frames.len()).map_err(|_| E::Bounds)?.to_be_bytes(), maximum)?;
+        append(
+            &mut out,
+            &u32::try_from(self.frames.len())
+                .map_err(|_| E::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
         for frame in &self.frames {
             let (path, depth) = frame.id.canonical_bytes();
             append(&mut out, &path, maximum)?;
@@ -493,7 +518,13 @@ impl CallGraph {
             append(&mut out, &frame.depth.to_be_bytes(), maximum)?;
             append(&mut out, &frame.calls.to_be_bytes(), maximum)?;
         }
-        append(&mut out, &u32::try_from(self.entered.len()).map_err(|_| E::Bounds)?.to_be_bytes(), maximum)?;
+        append(
+            &mut out,
+            &u32::try_from(self.entered.len())
+                .map_err(|_| E::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
         for (program, visits) in &self.entered {
             append(&mut out, &program.bytes(), maximum)?;
             append(&mut out, &visits.to_be_bytes(), maximum)?;
@@ -501,59 +532,103 @@ impl CallGraph {
         Ok(out)
     }
 
-    pub fn decode_untrusted_replay_state(encoded: &[u8], maximum: usize) -> Result<Self, crate::replay::ReplayWitnessError> {
+    pub fn decode_untrusted_replay_state(
+        encoded: &[u8],
+        maximum: usize,
+    ) -> Result<Self, crate::replay::ReplayWitnessError> {
         use crate::replay::{maximum_bytes, ReplayCursor, ReplayWitnessError as E};
         maximum_bytes(maximum)?;
-        if encoded.len() > maximum { return Err(E::Bounds); }
+        if encoded.len() > maximum {
+            return Err(E::Bounds);
+        }
         fn program(cursor: &mut ReplayCursor<'_>) -> Result<ProgramId, E> {
-            ProgramId::new(cursor.take(32)?.try_into().map_err(|_| E::Encoding)?).map_err(|_| E::Encoding)
+            ProgramId::new(cursor.take(32)?.try_into().map_err(|_| E::Encoding)?)
+                .map_err(|_| E::Encoding)
         }
         fn principal(cursor: &mut ReplayCursor<'_>) -> Result<PrincipalId, E> {
-            PrincipalId::new(cursor.take(32)?.try_into().map_err(|_| E::Encoding)?).map_err(|_| E::Encoding)
+            PrincipalId::new(cursor.take(32)?.try_into().map_err(|_| E::Encoding)?)
+                .map_err(|_| E::Encoding)
         }
         fn frame(cursor: &mut ReplayCursor<'_>) -> Result<CallFrameId, E> {
             let path = cursor.take(8)?.try_into().map_err(|_| E::Encoding)?;
             CallFrameId::from_canonical(path, cursor.u8()?).map_err(|_| E::Encoding)
         }
         let mut cursor = ReplayCursor::new(encoded);
-        if cursor.take(REPLAY_GRAPH_DOMAIN.len())? != REPLAY_GRAPH_DOMAIN { return Err(E::Encoding); }
-        let rules = CompositionRules::new(cursor.u32()?, cursor.u32()?, cursor.u32()?, cursor.u32()?).map_err(|_| E::Encoding)?;
+        if cursor.take(REPLAY_GRAPH_DOMAIN.len())? != REPLAY_GRAPH_DOMAIN {
+            return Err(E::Encoding);
+        }
+        let rules =
+            CompositionRules::new(cursor.u32()?, cursor.u32()?, cursor.u32()?, cursor.u32()?)
+                .map_err(|_| E::Encoding)?;
         let owner = principal(&mut cursor)?;
         let root = program(&mut cursor)?;
         let count = cursor.u32()?;
-        if count > rules.edges || u64::from(count) > encoded.len() as u64 / 118 { return Err(E::Bounds); }
+        if count > rules.edges || u64::from(count) > encoded.len() as u64 / 118 {
+            return Err(E::Bounds);
+        }
         let mut graph = Self::root(rules, root, owner);
-        graph.edges.try_reserve_exact(count as usize).map_err(|_| E::Allocation)?;
-        graph.frames.try_reserve_exact(8).map_err(|_| E::Allocation)?;
+        graph
+            .edges
+            .try_reserve_exact(count as usize)
+            .map_err(|_| E::Allocation)?;
+        graph
+            .frames
+            .try_reserve_exact(8)
+            .map_err(|_| E::Allocation)?;
         for _ in 0..count {
             let expected = CallEdge {
-                caller_frame: frame(&mut cursor)?, callee_frame: frame(&mut cursor)?,
-                caller: program(&mut cursor)?, callee: program(&mut cursor)?,
-                principal: principal(&mut cursor)?, depth: cursor.u32()?,
+                caller_frame: frame(&mut cursor)?,
+                callee_frame: frame(&mut cursor)?,
+                caller: program(&mut cursor)?,
+                callee: program(&mut cursor)?,
+                principal: principal(&mut cursor)?,
+                depth: cursor.u32()?,
             };
-            while graph.current().is_some_and(|current| current.id != expected.caller_frame) {
-                if graph.frames.len() <= 1 { return Err(E::Binding); }
+            while graph
+                .current()
+                .is_some_and(|current| current.id != expected.caller_frame)
+            {
+                if graph.frames.len() <= 1 {
+                    return Err(E::Binding);
+                }
                 graph.leave();
             }
             graph.enter(expected.callee).map_err(|_| E::Binding)?;
-            if graph.edges.last() != Some(&expected) { return Err(E::Binding); }
+            if graph.edges.last() != Some(&expected) {
+                return Err(E::Binding);
+            }
         }
         let frame_count = cursor.u32()? as usize;
-        if frame_count == 0 || frame_count > graph.frames.len() { return Err(E::Binding); }
-        while graph.frames.len() > frame_count { graph.leave(); }
+        if frame_count == 0 || frame_count > graph.frames.len() {
+            return Err(E::Binding);
+        }
+        while graph.frames.len() > frame_count {
+            graph.leave();
+        }
         for expected in &graph.frames {
             let actual = CallFrame {
-                id: frame(&mut cursor)?, program: program(&mut cursor)?,
-                principal: principal(&mut cursor)?, depth: cursor.u32()?, calls: cursor.u32()?,
+                id: frame(&mut cursor)?,
+                program: program(&mut cursor)?,
+                principal: principal(&mut cursor)?,
+                depth: cursor.u32()?,
+                calls: cursor.u32()?,
             };
-            if &actual != expected { return Err(E::Binding); }
+            if &actual != expected {
+                return Err(E::Binding);
+            }
         }
         let entered_count = cursor.u32()? as usize;
-        if entered_count != graph.entered.len() { return Err(E::Binding); }
-        for (expected_program, expected_visits) in &graph.entered {
-            if program(&mut cursor)? != *expected_program || cursor.u32()? != *expected_visits { return Err(E::Binding); }
+        if entered_count != graph.entered.len() {
+            return Err(E::Binding);
         }
-        if !cursor.done() || graph.replay_state_bytes(maximum)?.as_slice() != encoded { return Err(E::Encoding); }
+        for (expected_program, expected_visits) in &graph.entered {
+            if program(&mut cursor)? != *expected_program || cursor.u32()? != *expected_visits {
+                return Err(E::Binding);
+            }
+        }
+        if !cursor.done() || graph.replay_state_bytes(maximum)?.as_slice() != encoded {
+            return Err(E::Encoding);
+        }
         Ok(graph)
     }
 }
@@ -585,6 +660,22 @@ pub trait ProgramResolver: fmt::Debug {
         Ok(capabilities.clone())
     }
 
+    /// Resolves exactly the historical identity authorized by an open dispute.
+    fn dispute_artifact(
+        &self,
+        _program: ProgramId,
+        _hash: [u8; 32],
+        _abi: u16,
+        _metering: u32,
+    ) -> Option<std::sync::Arc<crate::CompiledModule>> {
+        None
+    }
+
+    /// Resolves the authenticated historical fee schedule, never node-current prices.
+    fn dispute_fee_schedule(&self, _version: u32) -> Option<crate::FeeSchedule> {
+        None
+    }
+
     /// Returns the validated module deployed under a program identifier.
     fn program_module(&self, program: ProgramId) -> Option<&ValidatedModule>;
 }
@@ -595,6 +686,7 @@ pub trait ProgramResolver: fmt::Debug {
 #[derive(Debug, Default)]
 pub struct ProgramCatalog {
     modules: BTreeMap<ProgramId, ValidatedModule>,
+    dispute_artifacts: crate::dispute_artifacts::DisputeArtifacts,
 }
 
 impl ProgramCatalog {
@@ -604,7 +696,17 @@ impl ProgramCatalog {
     pub fn new() -> Self {
         Self {
             modules: BTreeMap::new(),
+            dispute_artifacts: crate::dispute_artifacts::DisputeArtifacts::default(),
         }
+    }
+
+    #[must_use]
+    pub fn with_dispute_artifacts(
+        mut self,
+        artifacts: crate::dispute_artifacts::DisputeArtifacts,
+    ) -> Self {
+        self.dispute_artifacts = artifacts;
+        self
     }
 
     /// Publishes one caller-supplied validated module under its program
@@ -638,6 +740,20 @@ impl ProgramCatalog {
 }
 
 impl ProgramResolver for ProgramCatalog {
+    fn dispute_artifact(
+        &self,
+        program: ProgramId,
+        hash: [u8; 32],
+        abi: u16,
+        metering: u32,
+    ) -> Option<std::sync::Arc<crate::CompiledModule>> {
+        self.dispute_artifacts.module(program, hash, abi, metering)
+    }
+
+    fn dispute_fee_schedule(&self, version: u32) -> Option<crate::FeeSchedule> {
+        self.dispute_artifacts.fee_schedule(version)
+    }
+
     fn program_module(&self, program: ProgramId) -> Option<&ValidatedModule> {
         self.modules.get(&program)
     }
@@ -703,7 +819,9 @@ impl Default for CompositionContext {
 pub struct MeteringPlanIdentity(Box<[u8; 76]>);
 
 impl MeteringPlanIdentity {
-    pub(crate) fn from_untrusted_replay_bytes(bytes: [u8; 76]) -> Self { Self(Box::new(bytes)) }
+    pub(crate) fn from_untrusted_replay_bytes(bytes: [u8; 76]) -> Self {
+        Self(Box::new(bytes))
+    }
 }
 
 impl core::ops::Deref for MeteringPlanIdentity {
@@ -1495,11 +1613,14 @@ mod context_tests {
 
 #[cfg(test)]
 mod single_step_conformance {
-    use crate::test_support::{code_section, export_section, func_body, function_section,
-        import_section, module, raw_section, type_section, TYPE_I32, TYPE_I64};
-    use crate::{Abi, AuthorizationContext, CapabilitySet, FeeSchedule, Meter, PrincipalId,
-        ProgramId, ResourceBudget, Storage, TracePolicy, UnavailableReceiptOracle,
-        WasmEngine, WasmValue};
+    use crate::test_support::{
+        code_section, export_section, func_body, function_section, import_section, module,
+        raw_section, type_section, TYPE_I32, TYPE_I64,
+    };
+    use crate::{
+        Abi, AuthorizationContext, CapabilitySet, FeeSchedule, Meter, PrincipalId, ProgramId,
+        ResourceBudget, Storage, TracePolicy, UnavailableReceiptOracle, WasmEngine, WasmValue,
+    };
 
     fn check(body: &[u8], result_type: u8, expected: WasmValue) {
         let bytes = module(&[
@@ -1512,50 +1633,77 @@ mod single_step_conformance {
     }
 
     fn check_module(bytes: &[u8], abi_version: u16, expected: Option<WasmValue>) {
-        let abi = Abi::new(abi_version,
+        let abi = Abi::new(
+            abi_version,
             ProgramId::new([0x11; 32]).unwrap_or_else(|error| panic!("program: {error}")),
             AuthorizationContext::new(
                 PrincipalId::new([0x22; 32]).unwrap_or_else(|error| panic!("principal: {error}")),
-                CapabilitySet::empty()),
-            Storage::new(), &UnavailableReceiptOracle)
-            .unwrap_or_else(|error| panic!("ABI: {error}"));
+                CapabilitySet::empty(),
+            ),
+            Storage::new(),
+            &UnavailableReceiptOracle,
+        )
+        .unwrap_or_else(|error| panic!("ABI: {error}"));
         check_with_abi(bytes, abi_version, expected, abi);
     }
 
     fn check_with_abi(bytes: &[u8], abi_version: u16, expected: Option<WasmValue>, abi: Abi) {
         let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
-        let validated = engine.validate_versioned(abi_version, bytes)
+        let validated = engine
+            .validate_versioned(abi_version, bytes)
             .unwrap_or_else(|error| panic!("validation: {error}"));
         let budget = conformance_budget();
-        let instance = validated.instantiate_sandbox(
-            Meter::new(budget, FeeSchedule::declared()), abi)
+        let instance = validated
+            .instantiate_sandbox(Meter::new(budget, FeeSchedule::declared()), abi)
             .unwrap_or_else(|error| panic!("sandbox: {error}"));
         check_instance(&validated, instance, expected, bytes);
     }
 
     fn conformance_budget() -> ResourceBudget {
         let declared = ResourceBudget::declared();
-        ResourceBudget::new_complete(200_000_000, declared.memory_bytes(),
-            declared.storage_read_bytes(), declared.storage_write_bytes(), declared.output_values(),
-            declared.output_bytes(), declared.table_elements())
+        ResourceBudget::new_complete(
+            200_000_000,
+            declared.memory_bytes(),
+            declared.storage_read_bytes(),
+            declared.storage_write_bytes(),
+            declared.output_values(),
+            declared.output_bytes(),
+            declared.table_elements(),
+        )
     }
 
-    fn check_instance(validated: &crate::ValidatedModule, mut instance: crate::ProgramInstance,
-        expected: Option<WasmValue>, bytes: &[u8]) {
-        let trace = TracePolicy::new(1, 512).unwrap_or_else(|error| panic!("trace policy: {error}"));
-        let capture = instance.call_with_boundary_witnesses(validated, "run", &[], trace,
-            64 * 1024 * 1024).unwrap_or_else(|error| panic!("capture: {error:?}"));
+    fn check_instance(
+        validated: &crate::ValidatedModule,
+        mut instance: crate::ProgramInstance,
+        expected: Option<WasmValue>,
+        bytes: &[u8],
+    ) {
+        let trace =
+            TracePolicy::new(1, 512).unwrap_or_else(|error| panic!("trace policy: {error}"));
+        let capture = instance
+            .call_with_boundary_witnesses(validated, "run", &[], trace, 64 * 1024 * 1024)
+            .unwrap_or_else(|error| panic!("capture: {error:?}"));
         if let Some(expected) = expected {
-            assert_eq!(capture.values, vec![expected], "fixed integer vector {bytes:02x?}");
+            assert_eq!(
+                capture.values,
+                vec![expected],
+                "fixed integer vector {bytes:02x?}"
+            );
         } else {
             assert_eq!(capture.values.len(), 1);
-            assert!(matches!(capture.values[0], WasmValue::I32(value) if value <= 0)
-                || matches!(capture.values[0], WasmValue::I64(value) if value <= 0));
+            assert!(
+                matches!(capture.values[0], WasmValue::I32(value) if value <= 0)
+                    || matches!(capture.values[0], WasmValue::I64(value) if value <= 0)
+            );
         }
         assert!(!capture.boundaries.is_empty());
-        assert_eq!(capture.boundaries.len(), capture.trace.arbitration_steps().len());
+        assert_eq!(
+            capture.boundaries.len(),
+            capture.trace.arbitration_steps().len()
+        );
         for boundary in capture.boundaries {
-            boundary.replay(validated)
+            boundary
+                .replay(validated)
                 .unwrap_or_else(|error| panic!("single-step: {error:?}"));
         }
     }
@@ -1563,37 +1711,97 @@ mod single_step_conformance {
     #[test]
     fn fixed_i32_integer_vectors_replay_every_comparison_and_arithmetic_step() {
         for (opcode, expected) in [
-            (0x46, 0), (0x47, 1), (0x48, 0), (0x49, 0), (0x4a, 1),
-            (0x4b, 1), (0x4c, 0), (0x4d, 0), (0x4e, 1), (0x4f, 1),
-            (0x6a, 15), (0x6b, 9), (0x6c, 36), (0x6d, 4), (0x6e, 4),
-            (0x6f, 0), (0x70, 0), (0x71, 0), (0x72, 15), (0x73, 15),
-            (0x74, 96), (0x75, 1), (0x76, 1), (0x77, 96), (0x78, i32::MIN + 1),
+            (0x46, 0),
+            (0x47, 1),
+            (0x48, 0),
+            (0x49, 0),
+            (0x4a, 1),
+            (0x4b, 1),
+            (0x4c, 0),
+            (0x4d, 0),
+            (0x4e, 1),
+            (0x4f, 1),
+            (0x6a, 15),
+            (0x6b, 9),
+            (0x6c, 36),
+            (0x6d, 4),
+            (0x6e, 4),
+            (0x6f, 0),
+            (0x70, 0),
+            (0x71, 0),
+            (0x72, 15),
+            (0x73, 15),
+            (0x74, 96),
+            (0x75, 1),
+            (0x76, 1),
+            (0x77, 96),
+            (0x78, i32::MIN + 1),
         ] {
-            check(&[0x41, 12, 0x41, 3, opcode, 0x0b], TYPE_I32, WasmValue::I32(expected));
+            check(
+                &[0x41, 12, 0x41, 3, opcode, 0x0b],
+                TYPE_I32,
+                WasmValue::I32(expected),
+            );
         }
         for (opcode, expected) in [(0x45, 0), (0x67, 28), (0x68, 2), (0x69, 2)] {
-            check(&[0x41, 12, opcode, 0x0b], TYPE_I32, WasmValue::I32(expected));
+            check(
+                &[0x41, 12, opcode, 0x0b],
+                TYPE_I32,
+                WasmValue::I32(expected),
+            );
         }
     }
 
     #[test]
     fn fixed_i64_integer_vectors_replay_every_comparison_and_arithmetic_step() {
         for (opcode, expected) in [
-            (0x51, 0), (0x52, 1), (0x53, 0), (0x54, 0), (0x55, 1),
-            (0x56, 1), (0x57, 0), (0x58, 0), (0x59, 1), (0x5a, 1),
+            (0x51, 0),
+            (0x52, 1),
+            (0x53, 0),
+            (0x54, 0),
+            (0x55, 1),
+            (0x56, 1),
+            (0x57, 0),
+            (0x58, 0),
+            (0x59, 1),
+            (0x5a, 1),
         ] {
-            check(&[0x42, 12, 0x42, 3, opcode, 0x0b], TYPE_I32, WasmValue::I32(expected));
+            check(
+                &[0x42, 12, 0x42, 3, opcode, 0x0b],
+                TYPE_I32,
+                WasmValue::I32(expected),
+            );
         }
         check(&[0x42, 12, 0x50, 0x0b], TYPE_I32, WasmValue::I32(0));
         for (opcode, expected) in [
-            (0x7c, 15), (0x7d, 9), (0x7e, 36), (0x7f, 4), (0x80, 4),
-            (0x81, 0), (0x82, 0), (0x83, 0), (0x84, 15), (0x85, 15),
-            (0x86, 96), (0x87, 1), (0x88, 1), (0x89, 96), (0x8a, i64::MIN + 1),
+            (0x7c, 15),
+            (0x7d, 9),
+            (0x7e, 36),
+            (0x7f, 4),
+            (0x80, 4),
+            (0x81, 0),
+            (0x82, 0),
+            (0x83, 0),
+            (0x84, 15),
+            (0x85, 15),
+            (0x86, 96),
+            (0x87, 1),
+            (0x88, 1),
+            (0x89, 96),
+            (0x8a, i64::MIN + 1),
         ] {
-            check(&[0x42, 12, 0x42, 3, opcode, 0x0b], TYPE_I64, WasmValue::I64(expected));
+            check(
+                &[0x42, 12, 0x42, 3, opcode, 0x0b],
+                TYPE_I64,
+                WasmValue::I64(expected),
+            );
         }
         for (opcode, expected) in [(0x79, 60), (0x7a, 2), (0x7b, 2)] {
-            check(&[0x42, 12, opcode, 0x0b], TYPE_I64, WasmValue::I64(expected));
+            check(
+                &[0x42, 12, opcode, 0x0b],
+                TYPE_I64,
+                WasmValue::I64(expected),
+            );
         }
     }
 
@@ -1601,7 +1809,11 @@ mod single_step_conformance {
     fn fixed_integer_width_and_sign_extension_vectors_replay_real_steps() {
         check(&[0x42, 0x7f, 0xa7, 0x0b], TYPE_I32, WasmValue::I32(-1));
         check(&[0x41, 0x7f, 0xac, 0x0b], TYPE_I64, WasmValue::I64(-1));
-        check(&[0x41, 0x7f, 0xad, 0x0b], TYPE_I64, WasmValue::I64(4_294_967_295));
+        check(
+            &[0x41, 0x7f, 0xad, 0x0b],
+            TYPE_I64,
+            WasmValue::I64(4_294_967_295),
+        );
         for opcode in [0xc0, 0xc1] {
             check(&[0x41, 0x7f, opcode, 0x0b], TYPE_I32, WasmValue::I32(-1));
         }
@@ -1624,27 +1836,50 @@ mod single_step_conformance {
     #[test]
     fn fixed_integer_memory_width_growth_fill_and_copy_vectors_replay_real_steps() {
         for opcode in [0x28, 0x2c, 0x2d, 0x2e, 0x2f] {
-            check_memory(&[0x41, 0, 0x42, 42, 0x37, 0, 0, 0x41, 0, opcode, 0, 0, 0x0b],
-                TYPE_I32, WasmValue::I32(42));
+            check_memory(
+                &[0x41, 0, 0x42, 42, 0x37, 0, 0, 0x41, 0, opcode, 0, 0, 0x0b],
+                TYPE_I32,
+                WasmValue::I32(42),
+            );
         }
         for opcode in [0x29, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35] {
-            check_memory(&[0x41, 0, 0x42, 42, 0x37, 0, 0, 0x41, 0, opcode, 0, 0, 0x0b],
-                TYPE_I64, WasmValue::I64(42));
+            check_memory(
+                &[0x41, 0, 0x42, 42, 0x37, 0, 0, 0x41, 0, opcode, 0, 0, 0x0b],
+                TYPE_I64,
+                WasmValue::I64(42),
+            );
         }
         for opcode in [0x36, 0x3a, 0x3b] {
-            check_memory(&[0x41, 0, 0x41, 42, opcode, 0, 0, 0x41, 0, 0x28, 0, 0, 0x0b],
-                TYPE_I32, WasmValue::I32(42));
+            check_memory(
+                &[0x41, 0, 0x41, 42, opcode, 0, 0, 0x41, 0, 0x28, 0, 0, 0x0b],
+                TYPE_I32,
+                WasmValue::I32(42),
+            );
         }
         for opcode in [0x37, 0x3c, 0x3d, 0x3e] {
-            check_memory(&[0x41, 0, 0x42, 42, opcode, 0, 0, 0x41, 0, 0x29, 0, 0, 0x0b],
-                TYPE_I64, WasmValue::I64(42));
+            check_memory(
+                &[0x41, 0, 0x42, 42, opcode, 0, 0, 0x41, 0, 0x29, 0, 0, 0x0b],
+                TYPE_I64,
+                WasmValue::I64(42),
+            );
         }
         check_memory(&[0x3f, 0, 0x0b], TYPE_I32, WasmValue::I32(1));
         check_memory(&[0x41, 1, 0x40, 0, 0x0b], TYPE_I32, WasmValue::I32(1));
-        check_memory(&[0x41, 0, 0x41, 42, 0x41, 1, 0xfc, 0x0b, 0, 0x41, 0, 0x2d, 0, 0, 0x0b],
-            TYPE_I32, WasmValue::I32(42));
-        check_memory(&[0x41, 0, 0x41, 42, 0x3a, 0, 0, 0x41, 1, 0x41, 0, 0x41, 1,
-            0xfc, 0x0a, 0, 0, 0x41, 1, 0x2d, 0, 0, 0x0b], TYPE_I32, WasmValue::I32(42));
+        check_memory(
+            &[
+                0x41, 0, 0x41, 42, 0x41, 1, 0xfc, 0x0b, 0, 0x41, 0, 0x2d, 0, 0, 0x0b,
+            ],
+            TYPE_I32,
+            WasmValue::I32(42),
+        );
+        check_memory(
+            &[
+                0x41, 0, 0x41, 42, 0x3a, 0, 0, 0x41, 1, 0x41, 0, 0x41, 1, 0xfc, 0x0a, 0, 0, 0x41,
+                1, 0x2d, 0, 0, 0x0b,
+            ],
+            TYPE_I32,
+            WasmValue::I32(42),
+        );
     }
 
     #[test]
@@ -1659,7 +1894,8 @@ mod single_step_conformance {
             &[0x03, TYPE_I32, 0x41, 42, 0x0b, 0x0b],
             &[0x41, 42, 0x0f, 0x0b],
             &[0x41, 42, 0x41, 0, 0x41, 1, 0x1b, 0x0b],
-            &[0x41, 42, 0x41, 0, 0x41, 1, 0x1c, 1, TYPE_I32, 0x0b],
+            &[0x41, 42, 0x41, 0, 0x41, 2, 0x1b, 0x0b],
+            &[0x41, 0, 0x41, 42, 0x41, 0, 0x1b, 0x0b],
         ] {
             check(body, TYPE_I32, WasmValue::I32(42));
         }
@@ -1670,8 +1906,10 @@ mod single_step_conformance {
             export_section(&[("run", 1)]),
             code_section(&[
                 func_body(&[], &[0x41, 42, 0x0b]),
-                func_body(&[(1, TYPE_I32)], &[0x10, 0, 0x21, 0, 0x20, 0,
-                    0x22, 0, 0x24, 0, 0x23, 0, 0x0b]),
+                func_body(
+                    &[(1, TYPE_I32)],
+                    &[0x10, 0, 0x21, 0, 0x20, 0, 0x22, 0, 0x24, 0, 0x23, 0, 0x0b],
+                ),
             ]),
         ]);
         check_module(&bytes, 2, Some(WasmValue::I32(42)));
@@ -1685,24 +1923,44 @@ mod single_step_conformance {
         for (element, body, expected) in [
             (active.clone(), vec![0x41, 0, 0x11, 0, 0, 0x0b], 42),
             (active.clone(), vec![0xfc, 16, 0, 0x0b], 2),
-            (active, vec![0x41, 1, 0x41, 0, 0x41, 1, 0xfc, 14, 0, 0,
-                0x41, 1, 0x11, 0, 0, 0x0b], 42),
-            (passive, vec![0x41, 0, 0x41, 0, 0x41, 1, 0xfc, 12, 0, 0,
-                0xfc, 13, 0, 0x41, 0, 0x11, 0, 0, 0x0b], 42),
+            (
+                active,
+                vec![
+                    0x41, 1, 0x41, 0, 0x41, 1, 0xfc, 14, 0, 0, 0x41, 1, 0x11, 0, 0, 0x0b,
+                ],
+                42,
+            ),
+            (
+                passive,
+                vec![
+                    0x41, 0, 0x41, 0, 0x41, 1, 0xfc, 12, 0, 0, 0xfc, 13, 0, 0x41, 0, 0x11, 0, 0,
+                    0x0b,
+                ],
+                42,
+            ),
         ] {
             let bytes = module(&[
-                type_section(&[(&[], &[TYPE_I32])]), function_section(&[0, 0]),
-                table.clone(), export_section(&[("run", 0)]), element,
+                type_section(&[(&[], &[TYPE_I32])]),
+                function_section(&[0, 0]),
+                table.clone(),
+                export_section(&[("run", 0)]),
+                element,
                 code_section(&[func_body(&[], &body), func_body(&[], &[0x41, 42, 0x0b])]),
             ]);
             check_module(&bytes, 2, Some(WasmValue::I32(expected)));
         }
         let bytes = module(&[
-            type_section(&[(&[], &[TYPE_I32])]), function_section(&[0]),
-            raw_section(5, &[1, 1, 1, 1]), export_section(&[("run", 0)]),
+            type_section(&[(&[], &[TYPE_I32])]),
+            function_section(&[0]),
+            raw_section(5, &[1, 1, 1, 1]),
+            export_section(&[("run", 0)]),
             raw_section(12, &[1]),
-            code_section(&[func_body(&[], &[0x41, 0, 0x41, 0, 0x41, 1,
-                0xfc, 8, 0, 0, 0xfc, 9, 0, 0x41, 0, 0x2d, 0, 0, 0x0b])]),
+            code_section(&[func_body(
+                &[],
+                &[
+                    0x41, 0, 0x41, 0, 0x41, 1, 0xfc, 8, 0, 0, 0xfc, 9, 0, 0x41, 0, 0x2d, 0, 0, 0x0b,
+                ],
+            )]),
             raw_section(11, &[1, 1, 1, 42]),
         ]);
         check_module(&bytes, 2, Some(WasmValue::I32(42)));
@@ -1714,26 +1972,49 @@ mod single_step_conformance {
         use sha2::Digest;
         let program = ProgramId::new([0x11; 32]).unwrap();
         let mut answers = CommittedWebAnswers::new();
-        answers.commit(program, 0, WebAnswer {
-            content_digest: sha2::Sha256::digest([42_u8]).into(),
-            full_length: 1, response: vec![42],
-        }).unwrap();
-        let abi = Abi::new(4, program,
-            AuthorizationContext::new(PrincipalId::new([0x22; 32]).unwrap(), CapabilitySet::empty()),
-            Storage::new(), &UnavailableReceiptOracle).unwrap()
-            .with_committed_web(std::sync::Arc::new(answers));
+        answers
+            .commit(
+                program,
+                0,
+                WebAnswer {
+                    content_digest: sha2::Sha256::digest([42_u8]).into(),
+                    full_length: 1,
+                    response: vec![42],
+                },
+            )
+            .unwrap();
+        let abi = Abi::new(
+            4,
+            program,
+            AuthorizationContext::new(
+                PrincipalId::new([0x22; 32]).unwrap(),
+                CapabilitySet::empty(),
+            ),
+            Storage::new(),
+            &UnavailableReceiptOracle,
+        )
+        .unwrap()
+        .with_committed_web(std::sync::Arc::new(answers));
         let mut exports = export_section(&[("run", 1)]);
         exports[1] += 9;
         exports[2] += 1;
         exports.extend_from_slice(&[6, b'm', b'e', b'm', b'o', b'r', b'y', 2, 0]);
         let bytes = module(&[
-            type_section(&[(&[TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32], &[TYPE_I32]),
-                (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v4", "web_read", 0)]), function_section(&[1]),
-            raw_section(5, &[1, 1, 1, 1]), exports,
-            code_section(&[func_body(&[], &[0x41, 0, 0x41, 8, 0x41, 16, 0x41, 41,
-                0x10, 0, 0x41, 41, 0x47, 0x04, 0x40, 0, 0x0b,
-                0x41, 56, 0x2d, 0, 0, 0x0b])]),
+            type_section(&[
+                (&[TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32], &[TYPE_I32]),
+                (&[], &[TYPE_I32]),
+            ]),
+            import_section(&[("layerx_v4", "web_read", 0)]),
+            function_section(&[1]),
+            raw_section(5, &[1, 1, 1, 1]),
+            exports,
+            code_section(&[func_body(
+                &[],
+                &[
+                    0x41, 0, 0x41, 8, 0x41, 16, 0x41, 41, 0x10, 0, 0x41, 41, 0x47, 0x04, 0x40, 0,
+                    0x0b, 0x41, 56, 0x2d, 0, 0, 0x0b,
+                ],
+            )]),
         ]);
         check_with_abi(&bytes, 4, Some(WasmValue::I32(42)), abi);
     }
@@ -1745,19 +2026,37 @@ mod single_step_conformance {
         let program = ProgramId::new([0x11; 32]).unwrap();
         let market = [0x33; 32];
         let mut observations = CommittedOracleObservations::new();
-        observations.commit(OracleObservation {
-            market, price: 42, observed_at: 7, sequence: 3, source_set_digest: [0x44; 32],
-        }).unwrap();
-        let capabilities = CapabilitySet::new([Capability::StorageRead, Capability::StorageWrite,
-            Capability::SharedStorageRead, Capability::SharedStorageWrite, Capability::EmitEvent])
+        observations
+            .commit(OracleObservation {
+                market,
+                price: 42,
+                observed_at: 7,
+                sequence: 3,
+                source_set_digest: [0x44; 32],
+            })
             .unwrap();
-        let abi = Abi::new(3, program,
+        let capabilities = CapabilitySet::new([
+            Capability::StorageRead,
+            Capability::StorageWrite,
+            Capability::SharedStorageRead,
+            Capability::SharedStorageWrite,
+            Capability::EmitEvent,
+        ])
+        .unwrap();
+        let abi = Abi::new(
+            3,
+            program,
             AuthorizationContext::new(PrincipalId::new([0x22; 32]).unwrap(), capabilities),
-            Storage::new(), &UnavailableReceiptOracle).unwrap()
-            .with_committed_oracle(std::sync::Arc::new(observations));
+            Storage::new(),
+            &UnavailableReceiptOracle,
+        )
+        .unwrap()
+        .with_committed_oracle(std::sync::Arc::new(observations));
         let mut body = Vec::new();
         let call = |body: &mut Vec<u8>, arguments: &[i32], function: u8, status: i32| {
-            for argument in arguments { push_i32(body, *argument); }
+            for argument in arguments {
+                push_i32(body, *argument);
+            }
             body.extend_from_slice(&[0x10, function]);
             push_i32(body, status);
             body.extend_from_slice(&[0x47, 0x04, 0x40, 0, 0x0b]);
@@ -1777,7 +2076,9 @@ mod single_step_conformance {
         call(&mut body, &[2, 0, 1, 1, 1], 4, 0);
         call(&mut body, &[2, 0, 1, 160, 16], 5, 2);
         byte_at(&mut body, 160, i32::from(b'v'));
-        for argument in [2, 0, 1, 0, 0, 4, 256, 256, 512] { push_i32(&mut body, argument); }
+        for argument in [2, 0, 1, 0, 0, 4, 256, 256, 512] {
+            push_i32(&mut body, argument);
+        }
         body.extend_from_slice(&[0x10, 6, 0x41, 0, 0x4c, 0x04, 0x40, 0, 0x0b]);
         call(&mut body, &[1, 0, 1, 1, 1], 4, 0);
         call(&mut body, &[1, 0, 1, 192, 16], 5, 2);
@@ -1799,16 +2100,32 @@ mod single_step_conformance {
         data.resize(9 + 29, 0);
         data.extend_from_slice(&market);
         let bytes = module(&[
-            type_section(&[(&[TYPE_I32; 4], &[TYPE_I32]), (&[TYPE_I32; 2], &[TYPE_I32]),
-                (&[TYPE_I32; 5], &[TYPE_I32]), (&[TYPE_I32; 3], &[TYPE_I32]),
-                (&[TYPE_I32], &[TYPE_I32]), (&[TYPE_I32; 9], &[TYPE_I32]), (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v1", "storage_write", 0), ("layerx_v1", "storage_read", 0),
-                ("layerx_v1", "storage_delete", 1), ("layerx_v1", "event_emit", 0),
-                ("layerx_v2", "storage_write_scoped", 2), ("layerx_v2", "storage_read_scoped", 2),
-                ("layerx_v2", "storage_scan_scoped", 5), ("layerx_v2", "storage_delete_scoped", 3),
-                ("layerx_v2", "storage_drop_scoped", 4), ("layerx_v3", "oracle_read", 0)]),
-            function_section(&[6]), raw_section(5, &[1, 1, 1, 1]), exports,
-            code_section(&[func_body(&[], &body)]), raw_section(11, &data),
+            type_section(&[
+                (&[TYPE_I32; 4], &[TYPE_I32]),
+                (&[TYPE_I32; 2], &[TYPE_I32]),
+                (&[TYPE_I32; 5], &[TYPE_I32]),
+                (&[TYPE_I32; 3], &[TYPE_I32]),
+                (&[TYPE_I32], &[TYPE_I32]),
+                (&[TYPE_I32; 9], &[TYPE_I32]),
+                (&[], &[TYPE_I32]),
+            ]),
+            import_section(&[
+                ("layerx_v1", "storage_write", 0),
+                ("layerx_v1", "storage_read", 0),
+                ("layerx_v1", "storage_delete", 1),
+                ("layerx_v1", "event_emit", 0),
+                ("layerx_v2", "storage_write_scoped", 2),
+                ("layerx_v2", "storage_read_scoped", 2),
+                ("layerx_v2", "storage_scan_scoped", 5),
+                ("layerx_v2", "storage_delete_scoped", 3),
+                ("layerx_v2", "storage_drop_scoped", 4),
+                ("layerx_v3", "oracle_read", 0),
+            ]),
+            function_section(&[6]),
+            raw_section(5, &[1, 1, 1, 1]),
+            exports,
+            code_section(&[func_body(&[], &body)]),
+            raw_section(11, &data),
         ]);
         check_with_abi(&bytes, 3, Some(WasmValue::I32(42)), abi);
     }
@@ -1840,10 +2157,16 @@ mod single_step_conformance {
     }
 
     fn expect_call(body: &mut Vec<u8>, arguments: &[WasmValue], function: u8, status: WasmValue) {
-        for argument in arguments { push_value(body, *argument); }
+        for argument in arguments {
+            push_value(body, *argument);
+        }
         body.extend_from_slice(&[0x10, function]);
         push_value(body, status);
-        body.push(if matches!(status, WasmValue::I64(_)) { 0x52 } else { 0x47 });
+        body.push(if matches!(status, WasmValue::I64(_)) {
+            0x52
+        } else {
+            0x47
+        });
         body.extend_from_slice(&[0x04, 0x40, 0, 0x0b]);
     }
 
@@ -1864,52 +2187,177 @@ mod single_step_conformance {
         let source = derive_program_account(program, b"vault").unwrap().bytes();
         let pool = derive_program_account(program, b"pool").unwrap().bytes();
         let capabilities = CapabilitySet::new([
-            Capability::Transfer402 { asset, to: recipient, maximum_amount: 100 },
-            Capability::Transfer402 { asset, to: pool, maximum_amount: 100 },
-            Capability::ProgramSpend { owner_program: program, seed: b"vault".to_vec(),
-                source_account: source, asset, to: recipient, maximum_amount: 100 },
-            Capability::ReceiptRead { receipt_digest: digest },
-            Capability::BalanceView { account, asset, receipt_digest: digest },
-        ]).unwrap();
-        let receipts = [(digest, ReceiptView { receipt_digest: digest, result_code: 1, asset,
-            amount: 500, state_root: [0xe5; 32] })].into_iter().collect();
-        let balances = [((account, asset), Ok(BalanceView { account, asset, balance: 777,
-            receipt_digest: digest, state_root: [0xe5; 32], observed_sequence: 9 }))]
-            .into_iter().collect();
-        let abi = Abi::nested(2, program, AuthorizationContext::new(principal, capabilities),
-            Storage::new(), receipts, balances).unwrap();
+            Capability::Transfer402 {
+                asset,
+                to: recipient,
+                maximum_amount: 100,
+            },
+            Capability::Transfer402 {
+                asset,
+                to: pool,
+                maximum_amount: 100,
+            },
+            Capability::ProgramSpend {
+                owner_program: program,
+                seed: b"vault".to_vec(),
+                source_account: source,
+                asset,
+                to: recipient,
+                maximum_amount: 100,
+            },
+            Capability::ReceiptRead {
+                receipt_digest: digest,
+            },
+            Capability::BalanceView {
+                account,
+                asset,
+                receipt_digest: digest,
+            },
+        ])
+        .unwrap();
+        let receipts = [(
+            digest,
+            ReceiptView {
+                receipt_digest: digest,
+                result_code: 1,
+                asset,
+                amount: 500,
+                state_root: [0xe5; 32],
+            },
+        )]
+        .into_iter()
+        .collect();
+        let balances = [(
+            (account, asset),
+            Ok(BalanceView {
+                account,
+                asset,
+                balance: 777,
+                receipt_digest: digest,
+                state_root: [0xe5; 32],
+                observed_sequence: 9,
+            }),
+        )]
+        .into_iter()
+        .collect();
+        let abi = Abi::nested(
+            2,
+            program,
+            AuthorizationContext::new(principal, capabilities),
+            Storage::new(),
+            receipts,
+            balances,
+        )
+        .unwrap();
         let mut body = Vec::new();
-        expect_call(&mut body, &[I64(0), I64(40), I32(0), I32(32), I32(32), I32(32)], 0, I32(0));
-        expect_call(&mut body, &[I32(64), I32(32), I32(1024), I32(116)], 1, I32(116));
-        for (address, expected) in [(1024, 0xd3), (1059, 1), (1060, 0xa1), (1106, 1), (1107, 0xf4),
-            (1108, 0xe5)] {
+        expect_call(
+            &mut body,
+            &[I64(0), I64(40), I32(0), I32(32), I32(32), I32(32)],
+            0,
+            I32(0),
+        );
+        expect_call(
+            &mut body,
+            &[I32(64), I32(32), I32(1024), I32(116)],
+            1,
+            I32(116),
+        );
+        for (address, expected) in [
+            (1024, 0xd3),
+            (1059, 1),
+            (1060, 0xa1),
+            (1106, 1),
+            (1107, 0xf4),
+            (1108, 0xe5),
+        ] {
             expect_byte(&mut body, address, expected);
         }
-        expect_call(&mut body, &[I32(96), I32(32), I32(0), I32(32), I32(1280), I32(16)], 2,
-            I32(16));
+        expect_call(
+            &mut body,
+            &[I32(96), I32(32), I32(0), I32(32), I32(1280), I32(16)],
+            2,
+            I32(16),
+        );
         expect_byte(&mut body, 1294, 0x03);
         expect_byte(&mut body, 1295, 0x09);
-        expect_call(&mut body, &[I64(0), I64(30), I32(128), I32(5), I32(160), I32(32), I32(0),
-            I32(32), I32(32), I32(32)], 3, I32(0));
-        expect_call(&mut body, &[I64(0), I64(20), I32(192), I32(4), I32(224), I32(32), I32(0),
-            I32(32)], 4, I32(0));
+        expect_call(
+            &mut body,
+            &[
+                I64(0),
+                I64(30),
+                I32(128),
+                I32(5),
+                I32(160),
+                I32(32),
+                I32(0),
+                I32(32),
+                I32(32),
+                I32(32),
+            ],
+            3,
+            I32(0),
+        );
+        expect_call(
+            &mut body,
+            &[
+                I64(0),
+                I64(20),
+                I32(192),
+                I32(4),
+                I32(224),
+                I32(32),
+                I32(0),
+                I32(32),
+            ],
+            4,
+            I32(0),
+        );
         body.extend_from_slice(&[0x41, 42, 0x0b]);
         let bytes = module(&[
             type_section(&[
-                (&[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32], &[TYPE_I32]),
-                (&[TYPE_I32; 4], &[TYPE_I32]), (&[TYPE_I32; 6], &[TYPE_I32]),
-                (&[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
-                    TYPE_I32, TYPE_I32], &[TYPE_I32]),
-                (&[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
-                    &[TYPE_I32]),
-                (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v1", "transfer_402", 0), ("layerx_v1", "receipt_read", 1),
-                ("layerx_v2", "balance_read", 2), ("layerx_v2", "transfer_program_402", 3),
-                ("layerx_v2", "fund_program_402", 4)]),
-            function_section(&[5]), raw_section(5, &[1, 1, 1, 1]),
-            with_memory(export_section(&[("run", 5)])), code_section(&[func_body(&[], &body)]),
-            data_section(&[(0, &asset), (32, &recipient), (64, &digest), (96, &account),
-                (128, b"vault"), (160, &source), (192, b"pool"), (224, &pool)]),
+                (
+                    &[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
+                    &[TYPE_I32],
+                ),
+                (&[TYPE_I32; 4], &[TYPE_I32]),
+                (&[TYPE_I32; 6], &[TYPE_I32]),
+                (
+                    &[
+                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
+                        TYPE_I32, TYPE_I32, TYPE_I32,
+                    ],
+                    &[TYPE_I32],
+                ),
+                (
+                    &[
+                        TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32,
+                        TYPE_I32,
+                    ],
+                    &[TYPE_I32],
+                ),
+                (&[], &[TYPE_I32]),
+            ]),
+            import_section(&[
+                ("layerx_v1", "transfer_402", 0),
+                ("layerx_v1", "receipt_read", 1),
+                ("layerx_v2", "balance_read", 2),
+                ("layerx_v2", "transfer_program_402", 3),
+                ("layerx_v2", "fund_program_402", 4),
+            ]),
+            function_section(&[5]),
+            raw_section(5, &[1, 1, 1, 1]),
+            with_memory(export_section(&[("run", 5)])),
+            code_section(&[func_body(&[], &body)]),
+            data_section(&[
+                (0, &asset),
+                (32, &recipient),
+                (64, &digest),
+                (96, &account),
+                (128, b"vault"),
+                (160, &source),
+                (192, b"pool"),
+                (224, &pool),
+            ]),
         ]);
         check_with_abi(&bytes, 2, Some(WasmValue::I32(42)), abi);
     }
@@ -1929,14 +2377,45 @@ mod single_step_conformance {
         let secp_signature = secp_signature.to_bytes();
         let compressed = secp_key.verifying_key().to_encoded_point(true);
         let uncompressed = secp_key.verifying_key().to_encoded_point(false);
-        assert_eq!((compressed.as_bytes().len(), uncompressed.as_bytes().len()), (33, 65));
+        assert_eq!(
+            (compressed.as_bytes().len(), uncompressed.as_bytes().len()),
+            (33, 65)
+        );
         let mut body = Vec::new();
-        expect_call(&mut body, &[I32(1), I32(0), I32(18), I32(32), I32(32), I32(64), I32(64)], 0,
-            I32(0));
-        expect_call(&mut body, &[I32(2), I32(128), I32(32), I32(160), I32(33), I32(200), I32(64)],
-            0, I32(0));
-        expect_call(&mut body, &[I32(128), I32(32), I32(200), I32(64),
-            I32(i32::from(recovery.to_byte())), I32(512), I32(65)], 1, I32(65));
+        expect_call(
+            &mut body,
+            &[I32(1), I32(0), I32(18), I32(32), I32(32), I32(64), I32(64)],
+            0,
+            I32(0),
+        );
+        expect_call(
+            &mut body,
+            &[
+                I32(2),
+                I32(128),
+                I32(32),
+                I32(160),
+                I32(33),
+                I32(200),
+                I32(64),
+            ],
+            0,
+            I32(0),
+        );
+        expect_call(
+            &mut body,
+            &[
+                I32(128),
+                I32(32),
+                I32(200),
+                I32(64),
+                I32(i32::from(recovery.to_byte())),
+                I32(512),
+                I32(65),
+            ],
+            1,
+            I32(65),
+        );
         for offset in (0..64).step_by(8) {
             push_i32(&mut body, 512 + offset);
             body.extend_from_slice(&[0x29, 0, 0]);
@@ -1949,32 +2428,61 @@ mod single_step_conformance {
         body.extend_from_slice(&[0x2d, 0, 0, 0x47, 0x04, 0x40, 0, 0x0b, 0x41, 42, 0x0b]);
         let bytes = module(&[
             type_section(&[(&[TYPE_I32; 7], &[TYPE_I32]), (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v2", "signature_verify", 0),
-                ("layerx_v2", "signature_recover", 0)]),
-            function_section(&[1]), raw_section(5, &[1, 1, 1, 1]),
-            with_memory(export_section(&[("run", 2)])), code_section(&[func_body(&[], &body)]),
-            data_section(&[(0, message), (32, &ed_public), (64, &ed_signature), (128, &digest),
-                (160, compressed.as_bytes()), (200, secp_signature.as_slice()),
-                (272, uncompressed.as_bytes())]),
+            import_section(&[
+                ("layerx_v2", "signature_verify", 0),
+                ("layerx_v2", "signature_recover", 0),
+            ]),
+            function_section(&[1]),
+            raw_section(5, &[1, 1, 1, 1]),
+            with_memory(export_section(&[("run", 2)])),
+            code_section(&[func_body(&[], &body)]),
+            data_section(&[
+                (0, message),
+                (32, &ed_public),
+                (64, &ed_signature),
+                (128, &digest),
+                (160, compressed.as_bytes()),
+                (200, secp_signature.as_slice()),
+                (272, uncompressed.as_bytes()),
+            ]),
         ]);
         check_module(&bytes, 2, Some(WasmValue::I32(42)));
     }
 
     fn check_composed(bytes: &[u8], capabilities: CapabilitySet, catalog: super::ProgramCatalog) {
         use crate::abi::context::ExecutionContext;
-        let validated = WasmEngine::declared().unwrap().validate_versioned(2, bytes).unwrap();
+        let validated = WasmEngine::declared()
+            .unwrap()
+            .validate_versioned(2, bytes)
+            .unwrap();
         let program = ProgramId::new([0x11; 32]).unwrap();
         let principal = PrincipalId::new([0x22; 32]).unwrap();
-        let abi = Abi::new(2, program, AuthorizationContext::new(principal, capabilities),
-            Storage::new(), &UnavailableReceiptOracle).unwrap();
-        let composition = super::Composition::new(std::rc::Rc::new(catalog),
+        let abi = Abi::new(
+            2,
+            program,
+            AuthorizationContext::new(principal, capabilities),
+            Storage::new(),
+            &UnavailableReceiptOracle,
+        )
+        .unwrap();
+        let composition = super::Composition::new(
+            std::rc::Rc::new(catalog),
             super::CallGraph::root(super::CompositionRules::declared(), program, principal),
-            crate::AbiRevision::V2);
+            crate::AbiRevision::V2,
+        );
         let fees = FeeSchedule::declared();
-        let context = ExecutionContext::authenticated(5, 9, crate::RUNTIME_VERSION, 2,
-            fees.version()).unwrap();
-        let instance = validated.instantiate_composed_response_context_replay_retained(
-            Meter::new(conformance_budget(), fees), abi, composition, 64, Some(context), None)
+        let context =
+            ExecutionContext::authenticated(5, 9, crate::RUNTIME_VERSION, 2, fees.version())
+                .unwrap();
+        let instance = validated
+            .instantiate_composed_response_context_replay_retained(
+                Meter::new(conformance_budget(), fees),
+                abi,
+                composition,
+                64,
+                Some(context),
+                None,
+            )
             .unwrap_or_else(|refusal| panic!("response region: {refusal:?}"))
             .unwrap_or_else(|error| panic!("composed instance: {:?}", error.0));
         check_instance(&validated, instance, Some(WasmValue::I32(42)), bytes);
@@ -1985,47 +2493,94 @@ mod single_step_conformance {
         use crate::WasmValue::{I32, I64};
         let callee = ProgramId::new([0x55; 32]).unwrap();
         let callee_bytes = module(&[
-            type_section(&[(&[TYPE_I32, TYPE_I32], &[TYPE_I32])]), function_section(&[0]),
+            type_section(&[(&[TYPE_I32, TYPE_I32], &[TYPE_I32])]),
+            function_section(&[0]),
             raw_section(5, &[1, 1, 1, 1]),
             with_memory(export_section(&[(super::CALL_ENTRY_EXPORT, 0)])),
             code_section(&[func_body(&[], &[0x41, 7, 0x0b])]),
         ]);
         let mut catalog = super::ProgramCatalog::new();
-        catalog.insert(callee,
-            WasmEngine::declared().unwrap().validate_versioned(2, &callee_bytes).unwrap());
+        catalog.insert(
+            callee,
+            WasmEngine::declared()
+                .unwrap()
+                .validate_versioned(2, &callee_bytes)
+                .unwrap(),
+        );
         let mut body = Vec::new();
-        for (field, length, address, expected) in [(1, 32, 256, 0x11), (2, 1, 256, 0),
-            (3, 32, 256, 0x22), (4, 8, 263, 5)] {
+        for (field, length, address, expected) in [
+            (1, 32, 256, 0x11),
+            (2, 1, 256, 0),
+            (3, 32, 256, 0x22),
+            (4, 8, 263, 5),
+        ] {
             expect_call(&mut body, &[I32(field), I32(256), I32(33)], 2, I32(length));
             expect_byte(&mut body, address, expected);
         }
-        expect_call(&mut body, &[I32(0), I32(32), I32(0), I32(0), I32(32), I32(2)], 0, I32(7));
-        expect_call(&mut body, &[I32(0), I32(32), I32(0), I32(0), I32(32), I32(2), I32(512),
-            I32(16)], 1, I64(7 << 32));
+        expect_call(
+            &mut body,
+            &[I32(0), I32(32), I32(0), I32(0), I32(32), I32(2)],
+            0,
+            I32(7),
+        );
+        expect_call(
+            &mut body,
+            &[
+                I32(0),
+                I32(32),
+                I32(0),
+                I32(0),
+                I32(32),
+                I32(2),
+                I32(512),
+                I32(16),
+            ],
+            1,
+            I64(7 << 32),
+        );
         expect_call(&mut body, &[I32(42), I32(40), I32(2)], 3, I32(0));
         body.extend_from_slice(&[0x41, 42, 0x0b]);
         let caller = module(&[
-            type_section(&[(&[TYPE_I32; 6], &[TYPE_I32]), (&[TYPE_I32; 8], &[TYPE_I64]),
-                (&[TYPE_I32; 3], &[TYPE_I32]), (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v1", "program_call", 0),
-                ("layerx_v2", "program_call_response", 1), ("layerx_v2", "context_read", 2),
-                ("layerx_v2", "response_write", 2)]),
-            function_section(&[3]), raw_section(5, &[1, 1, 1, 1]),
-            with_memory(export_section(&[("run", 4)])), code_section(&[func_body(&[], &body)]),
+            type_section(&[
+                (&[TYPE_I32; 6], &[TYPE_I32]),
+                (&[TYPE_I32; 8], &[TYPE_I64]),
+                (&[TYPE_I32; 3], &[TYPE_I32]),
+                (&[], &[TYPE_I32]),
+            ]),
+            import_section(&[
+                ("layerx_v1", "program_call", 0),
+                ("layerx_v2", "program_call_response", 1),
+                ("layerx_v2", "context_read", 2),
+                ("layerx_v2", "response_write", 2),
+            ]),
+            function_section(&[3]),
+            raw_section(5, &[1, 1, 1, 1]),
+            with_memory(export_section(&[("run", 4)])),
+            code_section(&[func_body(&[], &body)]),
             data_section(&[(0, &callee.bytes()), (32, &[0, 0]), (40, b"ok")]),
         ]);
-        check_composed(&caller,
-            CapabilitySet::new([crate::Capability::Call { program: callee }]).unwrap(), catalog);
+        check_composed(
+            &caller,
+            CapabilitySet::new([crate::Capability::Call { program: callee }]).unwrap(),
+            catalog,
+        );
         let mut body = Vec::new();
         expect_call(&mut body, &[I32(1), I32(0), I32(6)], 0, I32(0));
         body.extend_from_slice(&[0x41, 42, 0x0b]);
         let refusal = module(&[
             type_section(&[(&[TYPE_I32; 3], &[TYPE_I32]), (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v2", "refusal_write", 0)]), function_section(&[1]),
-            raw_section(5, &[1, 1, 1, 1]), with_memory(export_section(&[("run", 1)])),
-            code_section(&[func_body(&[], &body)]), data_section(&[(0, b"denied")]),
+            import_section(&[("layerx_v2", "refusal_write", 0)]),
+            function_section(&[1]),
+            raw_section(5, &[1, 1, 1, 1]),
+            with_memory(export_section(&[("run", 1)])),
+            code_section(&[func_body(&[], &body)]),
+            data_section(&[(0, b"denied")]),
         ]);
-        check_composed(&refusal, CapabilitySet::empty(), super::ProgramCatalog::new());
+        check_composed(
+            &refusal,
+            CapabilitySet::empty(),
+            super::ProgramCatalog::new(),
+        );
     }
 
     fn push_i32(body: &mut Vec<u8>, mut value: i32) {
@@ -2054,15 +2609,22 @@ mod single_step_conformance {
         }
     }
 
-    fn check_integer_host(name: &str, arguments: &[i32], result_status: i32,
-        input: &[u8], expected: &[u8]) {
+    fn check_integer_host(
+        name: &str,
+        arguments: &[i32],
+        result_status: i32,
+        input: &[u8],
+        expected: &[u8],
+    ) {
         let parameters = vec![TYPE_I32; arguments.len()];
         let mut exports = export_section(&[("run", 1)]);
         exports[1] += 9;
         exports[2] += 1;
         exports.extend_from_slice(&[6, b'm', b'e', b'm', b'o', b'r', b'y', 2, 0]);
         let mut body = Vec::new();
-        for argument in arguments { push_i32(&mut body, *argument); }
+        for argument in arguments {
+            push_i32(&mut body, *argument);
+        }
         body.extend_from_slice(&[0x10, 0]);
         push_i32(&mut body, result_status);
         body.extend_from_slice(&[0x47, 0x04, 0x40, 0, 0x0b]);
@@ -2080,9 +2642,12 @@ mod single_step_conformance {
         data.extend_from_slice(input);
         let bytes = module(&[
             type_section(&[(&parameters, &[TYPE_I32]), (&[], &[TYPE_I32])]),
-            import_section(&[("layerx_v2", name, 0)]), function_section(&[1]),
-            raw_section(5, &[1, 1, 1, 1]), exports,
-            code_section(&[func_body(&[], &body)]), raw_section(11, &data),
+            import_section(&[("layerx_v2", name, 0)]),
+            function_section(&[1]),
+            raw_section(5, &[1, 1, 1, 1]),
+            exports,
+            code_section(&[func_body(&[], &body)]),
+            raw_section(11, &data),
         ]);
         check_module(&bytes, 2, Some(WasmValue::I32(42)));
     }
@@ -2090,9 +2655,21 @@ mod single_step_conformance {
     #[test]
     fn fixed_hash_and_wide_integer_host_successes_replay_actual_output_and_metering() {
         let digests: [&[u8]; 3] = [
-            &[0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55],
-            &[0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7, 0x03, 0xc0, 0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04, 0x5d, 0x85, 0xa4, 0x70],
-            &[0xaf, 0x13, 0x49, 0xb9, 0xf5, 0xf9, 0xa1, 0xa6, 0xa0, 0x40, 0x4d, 0xea, 0x36, 0xdc, 0xc9, 0x49, 0x9b, 0xcb, 0x25, 0xc9, 0xad, 0xc1, 0x12, 0xb7, 0xcc, 0x9a, 0x93, 0xca, 0xe4, 0x1f, 0x32, 0x62],
+            &[
+                0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
+                0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
+                0x78, 0x52, 0xb8, 0x55,
+            ],
+            &[
+                0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7,
+                0x03, 0xc0, 0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04,
+                0x5d, 0x85, 0xa4, 0x70,
+            ],
+            &[
+                0xaf, 0x13, 0x49, 0xb9, 0xf5, 0xf9, 0xa1, 0xa6, 0xa0, 0x40, 0x4d, 0xea, 0x36, 0xdc,
+                0xc9, 0x49, 0x9b, 0xcb, 0x25, 0xc9, 0xad, 0xc1, 0x12, 0xb7, 0xcc, 0x9a, 0x93, 0xca,
+                0xe4, 0x1f, 0x32, 0x62,
+            ],
         ];
         for (index, digest) in digests.into_iter().enumerate() {
             check_integer_host("hash", &[index as i32 + 1, 0, 0, 128], 0, &[], digest);
@@ -2102,17 +2679,29 @@ mod single_step_conformance {
         operands[63] = 3;
         operands[95] = 5;
         for (name, width, expected) in [
-            ("bigint_mul_256", 64, 36), ("bigint_div_256", 32, 4),
+            ("bigint_mul_256", 64, 36),
+            ("bigint_div_256", 32, 4),
             ("bigint_rem_256", 32, 0),
         ] {
             let mut output = vec![0; width as usize];
             output[width as usize - 1] = expected;
-            check_integer_host(name, &[0, 32, 32, 32, 128, width], width, &operands, &output);
+            check_integer_host(
+                name,
+                &[0, 32, 32, 32, 128, width],
+                width,
+                &operands,
+                &output,
+            );
         }
         let mut output = [0; 32];
         output[31] = 3;
-        check_integer_host("bigint_modexp_256", &[0, 32, 32, 32, 64, 32, 128, 32], 32,
-            &operands, &output);
+        check_integer_host(
+            "bigint_modexp_256",
+            &[0, 32, 32, 32, 64, 32, 128, 32],
+            32,
+            &operands,
+            &output,
+        );
     }
 
     #[test]
@@ -2130,10 +2719,15 @@ mod single_step_conformance {
             for function in functions {
                 let shape = manifest::permitted_import(version, namespace, function.name)
                     .unwrap_or_else(|| panic!("frozen import {}", function.name));
-                let types = |values: &[AbiValueType]| values.iter().map(|value| match value {
-                    AbiValueType::I32 => TYPE_I32,
-                    AbiValueType::I64 => TYPE_I64,
-                }).collect::<Vec<_>>();
+                let types = |values: &[AbiValueType]| {
+                    values
+                        .iter()
+                        .map(|value| match value {
+                            AbiValueType::I32 => TYPE_I32,
+                            AbiValueType::I64 => TYPE_I64,
+                        })
+                        .collect::<Vec<_>>()
+                };
                 let parameters = types(shape.params);
                 let results = types(shape.results);
                 let mut body = Vec::new();

@@ -1,6 +1,5 @@
-mod native_call;
-mod program_lifecycle;
 mod settlement;
+mod surface;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::ffi::{c_char, c_int, c_uchar, c_uint, c_ulonglong, c_void, CStr};
@@ -10,32 +9,15 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::ptr;
 use std::slice;
 use std::sync::{
+    atomic::{AtomicBool, Ordering},
     mpsc::{sync_channel, SyncSender, TrySendError},
     Arc, Mutex,
 };
 use std::thread;
 use std::time::Duration;
 
-use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_proof::program::{
-    verify_authorized_program_execution_with_payers, verify_program_execution_with_payers,
-    AuthorizedProgramExecutionExpectation, OccupancyPayer, ProgramExecutionExpectation,
-    VerifiedProgramExecution,
-};
-use layerx_proof::receipt::{
-    verify as verify_receipt, verify_sequencer_signature, AuthorizedBatch,
-};
-use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::intent::{
-    CallBudget, Calldata, CapabilityRequest, ProgramCall, ProgramCallFailure, ProgramCallOutcome,
-    ProgramId, ProgramLegacyValue, RequestedCapabilities,
-};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
-use layerx_wire::activity::{decode_signed, encode_signed_envelope, encode_unsigned_envelope};
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{activity_id as derive_activity_id, Domain};
+use ed25519_dalek::SigningKey;
+use layerx_types::ids::Did;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
@@ -62,60 +44,7 @@ const MAX_RETAINED_SIGNED_ACTIVITY_BYTES: usize = 1024 * 1024;
 const RECOVERY_SNAPSHOT_MAGIC: &[u8; 8] = b"LXEMR001";
 const RECOVERY_SNAPSHOT_VERSION: u32 = 4;
 const RECOVERY_SNAPSHOT_DIGEST_DOMAIN: &[u8] = b"layerx-emulator-recovery-snapshot-v1\0";
-const MOVE_QUOTE_DOMAIN: &[u8] = b"layerx-emulator-move-quote-v1\0";
-const MOVE_IDEMPOTENCY_DOMAIN: &[u8] = b"layerx-emulator-move-idempotency-v1\0";
 const MOVE_JOURNEY_DOMAIN: &[u8] = b"layerx-emulator-move-journey-v1\0";
-const MOVE_STAGE_DOMAIN: &[u8] = b"layerx-emulator-move-stage-v1\0";
-const MOVE_QUOTE_WINDOW_MS: u64 = 300_000;
-const ASSET_SEND_OPERATION: u16 = 5;
-const ASSET_SEND_TAG: u16 = 0x5301;
-const ASSET_SEND_FIELDS: u16 = 10;
-const NATIVE_ASSET: [u8; 32] = [
-    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-];
-
-#[repr(C)]
-struct CoreReceipt {
-    activity_id: [u8; 32],
-    batch_id: [u8; 32],
-    state_root: [u8; 32],
-    previous_state_root: [u8; 32],
-    asset: [u8; 32],
-    sequencer_public_key: [u8; 32],
-    global_sequence: c_ulonglong,
-    result_code: c_int,
-    metered_cost_hi: c_ulonglong,
-    metered_cost_lo: c_ulonglong,
-    bytes: *const c_uchar,
-    length: usize,
-    terminal_payload: *const c_uchar,
-    terminal_payload_length: usize,
-    call_graph: *const c_uchar,
-    call_graph_length: usize,
-    isolated_owner: *mut c_void,
-}
-
-#[repr(C)]
-struct CoreHead {
-    state_root: [u8; 32],
-    receipt_digest: [u8; 32],
-    sequencer_id: [u8; 32],
-    sequencer_public_key: [u8; 32],
-    header_signature: [u8; 64],
-    observed_sequence: u64,
-    observed_at: u64,
-    batch_number: u64,
-    authorization_first_batch: u64,
-    authorization_last_batch: u64,
-    receipt_bytes: *const u8,
-    receipt_length: usize,
-    header_bytes: *const u8,
-    header_length: usize,
-    proof_bytes: *const u8,
-    proof_length: usize,
-    activity_receipt_bytes: *const u8,
-    activity_receipt_length: usize,
-}
 
 #[repr(C)]
 struct CoreState {
@@ -128,49 +57,6 @@ struct CoreState {
     account_count: usize,
 }
 
-#[repr(C)]
-struct CoreProgram {
-    program_id: [u8; 32],
-    code_hash: [u8; 32],
-    deployment_receipt_digest: [u8; 32],
-    version: c_uint,
-    abi_version: u16,
-    lifecycle: u8,
-    interface_bytes: *const c_uchar,
-    interface_length: usize,
-    has_interface: u8,
-    state_root: [u8; 32],
-    observed_sequence: c_ulonglong,
-}
-
-/// The frozen ABI version that owns program value accounts
-/// (`LX_PROGRAMS_ACCOUNT_ABI_VERSION`).
-const PROGRAM_ACCOUNT_ABI_VERSION: u16 = 2;
-
-/// The number of program value accounts one registry read renders. A program
-/// holding more refuses the read instead of publishing a partial balance set.
-const PROGRAM_VALUE_ACCOUNT_CAPACITY: usize = 256;
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-struct CoreValueAccount {
-    account_id: [u8; 32],
-    asset_id: [u8; 32],
-    balance_hi: c_ulonglong,
-    balance_lo: c_ulonglong,
-    frozen: u8,
-}
-
-#[repr(C)]
-struct CoreValueAccountProof {
-    receipt_digest: [u8; 32],
-    state_root: [u8; 32],
-    observed_sequence: c_ulonglong,
-    observed_at: c_ulonglong,
-    abi_version: u16,
-    count: usize,
-}
-
 unsafe extern "C" {
     fn platform_emulator_create_for_protocol(
         network_id: c_uint,
@@ -179,7 +65,6 @@ unsafe extern "C" {
         protocol_version: u16,
     ) -> *mut c_void;
     fn platform_emulator_destroy(emulator: *mut c_void);
-    fn platform_emulator_head_read(emulator: *mut c_void, head: *mut CoreHead) -> c_int;
     fn platform_emulator_error_name(result: c_int) -> *const c_char;
     fn platform_emulator_set_time(emulator: *mut c_void, timestamp_ms: c_ulonglong) -> c_int;
     fn platform_emulator_advance_time(emulator: *mut c_void, delta_ms: c_ulonglong) -> c_int;
@@ -196,40 +81,7 @@ unsafe extern "C" {
         amount_hi: c_ulonglong,
         amount_lo: c_ulonglong,
     ) -> c_int;
-    fn platform_emulator_execute(
-        emulator: *mut c_void,
-        activity: *const c_uchar,
-        length: usize,
-        receipt: *mut CoreReceipt,
-    ) -> c_int;
-    fn platform_emulator_simulate(
-        emulator: *mut c_void,
-        activity: *const c_uchar,
-        length: usize,
-        receipt: *mut CoreReceipt,
-    ) -> c_int;
-    fn platform_emulator_receipt_release(receipt: *mut CoreReceipt);
     fn platform_emulator_inspect(emulator: *const c_void, state: *mut CoreState) -> c_int;
-    fn platform_emulator_program_read(
-        emulator: *mut c_void,
-        program_id: *const c_uchar,
-        program: *mut CoreProgram,
-    ) -> c_int;
-    fn platform_emulator_program_value_accounts(
-        emulator: *mut c_void,
-        program_id: *const c_uchar,
-        accounts: *mut CoreValueAccount,
-        capacity: usize,
-        proof: *mut CoreValueAccountProof,
-    ) -> c_int;
-    fn platform_emulator_program_value_accounts_profile2(
-        emulator: *mut c_void,
-        program_id: *const c_uchar,
-        accounts: *mut CoreValueAccount,
-        capacity: usize,
-        proof: *mut CoreValueAccountProof,
-        profile: *mut c_uchar,
-    ) -> c_int;
     fn platform_emulator_cell(
         emulator: *const c_void,
         index: usize,
@@ -270,7 +122,6 @@ struct Emulator {
     core: *mut c_void,
     signing_key: SigningKey,
     network_id: u32,
-    protocol_version: u16,
     receipts: HashMap<String, String>,
     receipt_order: VecDeque<String>,
     program_operations: HashMap<String, ProgramOperation>,
@@ -318,28 +169,6 @@ struct MoveOperation {
     body: String,
 }
 
-struct CoreAccountView {
-    id: [u8; 32],
-    balance: u128,
-    next_sequence: u64,
-}
-
-struct DecodedProgramActivity {
-    payload_hash: [u8; 32],
-    signed: Vec<u8>,
-    program_id: [u8; 32],
-    protocol_version: u16,
-    activity_id: [u8; 32],
-    idempotency_key: [u8; 32],
-}
-
-struct OwnedCoreReceipt {
-    activity_id: [u8; 32],
-    receipt: Vec<u8>,
-    terminal_payload: Vec<u8>,
-    call_graph: Vec<u8>,
-}
-
 impl Drop for Emulator {
     fn drop(&mut self) {
         unsafe { platform_emulator_destroy(self.core) };
@@ -364,78 +193,12 @@ struct Prefund {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ActivityBody {
-    activity: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramCallBudgetBody {
-    fuel: String,
-    fee_limit: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramCallBody {
-    program_id: String,
-    calldata: String,
-    budget: ProgramCallBudgetBody,
-    capabilities: Vec<String>,
-    signed_activity: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramSelectorBody {
-    program_id: String,
-    requested_verification_level: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramReceiptSelectorBody {
-    idempotency_key: String,
-    expected_activity_id: String,
-    requested_verification_level: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramActivitySelectorBody {
-    activity_id: String,
-    requested_verification_level: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct PrefundBody {
     did: String,
     public_key: String,
     #[serde(default)]
     amount_hi: u64,
     amount_lo: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MoveMoneyBody {
-    currency: String,
-    amount: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MoveQuoteBody {
-    source: String,
-    destination: String,
-    money: MoveMoneyBody,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MoveCommitBody {
-    quote_id: String,
 }
 
 #[derive(Deserialize)]
@@ -466,7 +229,6 @@ struct Request {
     method: String,
     path: String,
     content_type: String,
-    idempotency_key: Option<String>,
     body: Vec<u8>,
 }
 
@@ -522,10 +284,6 @@ fn hash_bytes(domain: &[u8], bytes: &[u8]) -> [u8; 32] {
     digest.finalize().into()
 }
 
-fn protocol_hash(domain: Domain, bytes: &[u8]) -> [u8; 32] {
-    hash_bytes(domain.tag(), bytes)
-}
-
 fn valid_human_idempotency(value: &str) -> bool {
     (16..=128).contains(&value.len())
         && value
@@ -533,42 +291,7 @@ fn valid_human_idempotency(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
-fn account_did(account: &str) -> Option<&str> {
-    account
-        .strip_prefix("agent:")
-        .and_then(|value| value.strip_suffix(":main"))
-        .filter(|value| !value.is_empty())
-}
-
-fn timestamp_text(timestamp_ms: u64) -> Result<String, String> {
-    if timestamp_ms > 253_402_300_799_999 {
-        return Err("emulator timestamp is outside the RFC 3339 range".to_owned());
-    }
-    let seconds = timestamp_ms / 1_000;
-    let days = i64::try_from(seconds / 86_400)
-        .map_err(|_| "emulator timestamp day count is invalid".to_owned())?;
-    let second_of_day = seconds % 86_400;
-    let z = days + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let day_of_era = z - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let mut year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
-    year += i64::from(month <= 2);
-    let hour = second_of_day / 3_600;
-    let minute = (second_of_day % 3_600) / 60;
-    let second = second_of_day % 60;
-    Ok(format!(
-        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{:03}Z",
-        timestamp_ms % 1_000
-    ))
-}
-
-fn core_account(emulator: &Emulator, expected_name: &str) -> Result<Option<CoreAccountView>, i32> {
+fn core_account(emulator: &Emulator, expected_name: &str) -> Result<Option<[u8; 32]>, i32> {
     let state = inspect_state(emulator)?;
     for index in 0..state.account_count {
         let mut id = [0_u8; 32];
@@ -597,11 +320,7 @@ fn core_account(emulator: &Emulator, expected_name: &str) -> Result<Option<CoreA
         }
         let name = unsafe { slice::from_raw_parts(name, name_length) };
         if name == expected_name.as_bytes() {
-            return Ok(Some(CoreAccountView {
-                id,
-                balance: (u128::from(balance_hi) << 64) | u128::from(balance_lo),
-                next_sequence,
-            }));
+            return Ok(Some(id));
         }
     }
     Ok(None)
@@ -622,151 +341,6 @@ fn core_identity_sequence(emulator: &Emulator, did: &str) -> Result<u64, i32> {
     } else {
         Err(code)
     }
-}
-
-fn asset_send_registry() -> Result<(ActivityType, ModuleRegistry), String> {
-    let activity_type = ActivityType::new(ModuleId::Asset, ASSET_SEND_OPERATION)
-        .map_err(|_| "Asset SEND activity type is unavailable".to_owned())?;
-    let registration = ModuleRegistration::new(ModuleId::Asset, &[activity_type])
-        .map_err(|_| "Asset module registration is unavailable".to_owned())?;
-    let registry = ModuleRegistry::new(&[registration])
-        .map_err(|_| "Asset module registry is unavailable".to_owned())?;
-    Ok((activity_type, registry))
-}
-
-fn move_idempotency(value: &str) -> [u8; 32] {
-    hash_bytes(MOVE_IDEMPOTENCY_DOMAIN, value.as_bytes())
-}
-
-fn move_context(
-    source: &[u8; 32],
-    destination: &[u8; 32],
-    amount: u128,
-    idempotency: &[u8; 32],
-) -> [u8; 32] {
-    let mut bytes = Vec::with_capacity(144);
-    bytes.extend_from_slice(source);
-    bytes.extend_from_slice(destination);
-    bytes.extend_from_slice(&NATIVE_ASSET);
-    bytes.extend_from_slice(&amount.to_be_bytes());
-    bytes.extend_from_slice(idempotency);
-    protocol_hash(Domain::ContextHash, &bytes)
-}
-
-fn move_send_payload(
-    signing_key: &SigningKey,
-    quote: &MoveQuoteRecord,
-    idempotency: [u8; 32],
-    network_id: u32,
-    protocol_version: u16,
-) -> Result<MovePayload, String> {
-    let public_key = signing_key.verifying_key().to_bytes();
-    let context = move_context(
-        &quote.source_id,
-        &quote.destination_id,
-        quote.amount,
-        &idempotency,
-    );
-    let mut authorization = Encoder::new(512);
-    authorization
-        .u16(ASSET_SEND_TAG)
-        .and_then(|()| authorization.fixed(&quote.source_id))
-        .and_then(|()| authorization.fixed(&quote.destination_id))
-        .and_then(|()| authorization.fixed(&NATIVE_ASSET))
-        .and_then(|()| authorization.u128(quote.amount))
-        .and_then(|()| authorization.u64(quote.source_sequence))
-        .and_then(|()| authorization.fixed(&idempotency))
-        .and_then(|()| authorization.u64(quote.expires_at))
-        .and_then(|()| authorization.fixed(&context))
-        .and_then(|()| authorization.u8(0))
-        .and_then(|()| authorization.u8(1))
-        .and_then(|()| authorization.fixed(&quote.source_id))
-        .and_then(|()| authorization.fixed(&context))
-        .and_then(|()| authorization.u32(network_id))
-        .and_then(|()| authorization.u16(protocol_version))
-        .map_err(|_| "move authorization exceeds its canonical bound".to_owned())?;
-    let authorization_hash = protocol_hash(Domain::SignaturePreimage, &authorization.finish());
-    let authorization_signature = signing_key.sign(&authorization_hash).to_bytes();
-    let mut payload = Encoder::new(512);
-    payload
-        .u16(ASSET_SEND_TAG)
-        .and_then(|()| payload.u16(ASSET_SEND_FIELDS))
-        .and_then(|()| payload.fixed(&quote.source_id))
-        .and_then(|()| payload.fixed(&quote.destination_id))
-        .and_then(|()| payload.fixed(&NATIVE_ASSET))
-        .and_then(|()| payload.u128(quote.amount))
-        .and_then(|()| payload.u64(quote.source_sequence))
-        .and_then(|()| payload.fixed(&idempotency))
-        .and_then(|()| payload.u64(quote.expires_at))
-        .and_then(|()| payload.fixed(&context))
-        .and_then(|()| payload.u8(0))
-        .and_then(|()| payload.u8(1))
-        .and_then(|()| payload.fixed(&quote.source_id))
-        .and_then(|()| payload.fixed(&public_key))
-        .and_then(|()| payload.fixed(&authorization_signature))
-        .and_then(|()| payload.fixed(&context))
-        .and_then(|()| payload.u32(network_id))
-        .and_then(|()| payload.u16(protocol_version))
-        .map_err(|_| "move payload exceeds its canonical bound".to_owned())?;
-    Ok((payload.finish(), context, authorization_hash))
-}
-
-fn signed_move_activity(
-    emulator: &Emulator,
-    quote: &MoveQuoteRecord,
-    idempotency: [u8; 32],
-) -> Result<SignedMoveActivity, String> {
-    let (activity_type, registry) = asset_send_registry()?;
-    let (payload_bytes, context_hash, authorization_hash) = move_send_payload(
-        &emulator.signing_key,
-        quote,
-        idempotency,
-        emulator.network_id,
-        emulator.protocol_version,
-    )?;
-    let payload = Payload::new(&registry, activity_type, &payload_bytes)
-        .map_err(|_| "move payload is not canonical".to_owned())?;
-    let payload_hash = protocol_hash(Domain::PayloadHash, payload.as_bytes());
-    let did = account_did(&quote.source)
-        .ok_or_else(|| "move source is not a canonical agent main account".to_owned())?;
-    let actor = Did::new(did.as_bytes()).map_err(|_| "move source DID is invalid".to_owned())?;
-    let authority = Authority::owner(&emulator.signing_key.verifying_key().to_bytes())
-        .map_err(|_| "move owner authority is invalid".to_owned())?;
-    let timestamps = TimestampBound::new(quote.created_at, quote.expires_at)
-        .map_err(|_| "move timestamp bound is invalid".to_owned())?;
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(emulator.protocol_version)
-        .and_then(|value| value.network_id(emulator.network_id))
-        .and_then(|value| value.activity_type(activity_type))
-        .and_then(|value| value.actor_did(actor))
-        .and_then(|value| value.authority(authority))
-        .and_then(|value| value.account_sequence(quote.identity_sequence))
-        .and_then(|value| value.timestamp_bound(timestamps))
-        .and_then(|value| value.idempotency_key(IdempotencyKey::new(idempotency)))
-        .and_then(|value| value.fee_limit(Amount::from_u128(0)))
-        .and_then(|value| value.payload_hash(payload_hash))
-        .and_then(|value| value.payload(payload))
-        .map_err(|_| "move envelope is invalid".to_owned())?;
-    let unsigned = builder
-        .build()
-        .map_err(|_| "move envelope is incomplete".to_owned())?;
-    let unsigned_bytes = encode_unsigned_envelope(&unsigned)
-        .map_err(|_| "move signing bytes are invalid".to_owned())?;
-    let signature = emulator
-        .signing_key
-        .sign(&protocol_hash(Domain::SignaturePreimage, &unsigned_bytes))
-        .to_bytes();
-    let signed = unsigned.attach_signature(
-        Signature::new(&signature).map_err(|_| "move signature is invalid".to_owned())?,
-    );
-    let canonical =
-        encode_signed_envelope(&signed).map_err(|_| "signed move is invalid".to_owned())?;
-    let decoded = decode_signed(&canonical, &registry)
-        .map_err(|_| "signed move did not decode canonically".to_owned())?;
-    let activity_id =
-        derive_activity_id(&decoded).map_err(|_| "signed move identity is invalid".to_owned())?;
-    Ok((canonical, activity_id, context_hash, authorization_hash))
 }
 
 fn decode_json<T: DeserializeOwned>(request: &Request) -> Result<T, String> {
@@ -798,20 +372,6 @@ fn escape_json(value: &str) -> String {
         }
     }
     escaped
-}
-
-fn remember_receipt(emulator: &mut Emulator, activity_id: String, receipt: String) {
-    if !emulator.receipts.contains_key(&activity_id) {
-        while emulator.receipts.len() >= MAX_RECEIPTS {
-            let Some(evicted) = emulator.receipt_order.pop_front() else {
-                emulator.receipts.clear();
-                break;
-            };
-            emulator.receipts.remove(&evicted);
-        }
-        emulator.receipt_order.push_back(activity_id.clone());
-    }
-    emulator.receipts.insert(activity_id, receipt);
 }
 
 fn core_error(code: i32) -> String {
@@ -847,421 +407,11 @@ fn core_response(trace: u64, code: i32) -> Response {
     refusal(trace, status, &name, "the LayerX core refused the request")
 }
 
-fn programs_route(method: &str, path: &str) -> bool {
-    match (method, path) {
-        (
-            "POST",
-            "/v1/programs/call"
-            | "/v1/programs/simulate"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down",
-        ) => true,
-        ("GET", path) if path.starts_with("/v1/programs/registry/") => {
-            let tail = &path[22..];
-            canonical_hex32_text(tail.strip_suffix("/interface").unwrap_or(tail))
-        }
-        ("GET", path) if path.starts_with("/v1/programs/receipts/by-idempotency/") => path
-            .strip_prefix("/v1/programs/receipts/by-idempotency/")
-            .is_some_and(canonical_hex32_text),
-        ("GET", path) if path.starts_with("/v1/programs/activities/") => path
-            .strip_prefix("/v1/programs/activities/")
-            .is_some_and(canonical_hex32_text),
-        _ => false,
-    }
-}
-
-fn programs_request_path(method: &str, path: &str) -> bool {
-    programs_route(method, path)
-}
-
-fn agent_error_class(status: u16, code: &str) -> &'static str {
-    if code.contains("idempotency") {
-        "IdempotencyConflict"
-    } else if code.contains("quota") {
-        "RateLimit"
-    } else if code.contains("authorization")
-        || code.contains("scope")
-        || code.contains("api_key")
-        || code.contains("identity")
-        || code.contains("not_active")
-        || code.contains("refused")
-    {
-        "PolicyRefusal"
-    } else if code.contains("verification")
-        || code.contains("unverified")
-        || code.contains("component_invalid")
-        || code.contains("invalid_output")
-        || code.contains("selector_mismatch")
-        || code.contains("binding_invalid")
-    {
-        "VerificationFailure"
-    } else if status == 404 || code.contains("absent") || code.contains("unknown_program") {
-        "UnavailableCapability"
-    } else if code.starts_with("LXP_ERR_") {
-        "CoreRejection"
-    } else if code.contains("invalid") || code.contains("required") || status == 415 {
-        "ProtocolIncompatibility"
-    } else if status >= 500 {
-        "TransportFailure"
-    } else {
-        "InternalFault"
-    }
-}
-
-fn agent_reason(code: &str) -> String {
-    let mut reason = String::with_capacity(code.len().min(128));
-    for byte in code.bytes().take(128) {
-        reason.push(char::from(match byte {
-            b'a'..=b'z' | b'0'..=b'9' | b'_' | b'.' => byte,
-            b'A'..=b'Z' => byte.to_ascii_lowercase(),
-            _ => b'_',
-        }));
-    }
-    if reason.is_empty() {
-        "program_request_failed".to_owned()
-    } else {
-        reason
-    }
-}
-
-fn program_verification_status(
-    value: &serde_json::Value,
-    sequencer_public_key: &[u8; 32],
-) -> serde_json::Value {
-    match value.get("state").and_then(serde_json::Value::as_str) {
-        Some("unknown" | "pending") => serde_json::json!({
-            "state": "Unverified",
-            "requested": "SequencerSigned",
-            "achieved": "Unverified",
-            "reason": "receipt_pending",
-        }),
-        _ if value
-            .get("verification")
-            .and_then(serde_json::Value::as_str)
-            == Some("registry-receipt-and-current-head-verified")
-            && program_discovery_proof_verified(value, sequencer_public_key) =>
-        {
-            serde_json::json!({
-                "state": "Achieved",
-                "level": "SequencerSigned",
-            })
-        }
-        _ if matches!(
-            value
-                .get("verification")
-                .and_then(serde_json::Value::as_str),
-            Some(
-                "registry-receipt-and-current-head-verified"
-                    | "deployment-interface-and-current-head-verified"
-            )
-        ) =>
-        {
-            serde_json::json!({
-                "state": "Unverified",
-                "requested": "SequencerSigned",
-                "achieved": "Unverified",
-                "reason": "server_side_receipt_verification_only",
-            })
-        }
-        _ => serde_json::json!({
-            "state": "Achieved",
-            "level": "SequencerSigned",
-        }),
-    }
-}
-
-const PROGRAM_DISCOVERY_PROOF_DOMAIN: &[u8] = b"LayerX/program-discovery-proof/v1\0";
-
-struct ProgramDiscoveryHead {
-    program_id: [u8; 32],
-    version: u32,
-    code_hash: [u8; 32],
-    abi_version: u16,
-    observed_sequence: u64,
-    observed_at: u64,
-    valid_through: u64,
-    state_root: [u8; 32],
-}
-
-fn program_discovery_proof_digest(head: &ProgramDiscoveryHead) -> [u8; 32] {
-    let mut proof = Vec::with_capacity(PROGRAM_DISCOVERY_PROOF_DOMAIN.len() + 135);
-    proof.extend_from_slice(PROGRAM_DISCOVERY_PROOF_DOMAIN);
-    proof.extend_from_slice(&head.program_id);
-    proof.push(1);
-    proof.extend_from_slice(&head.version.to_be_bytes());
-    proof.extend_from_slice(&head.code_hash);
-    proof.extend_from_slice(&head.abi_version.to_be_bytes());
-    proof.extend_from_slice(&head.observed_sequence.to_be_bytes());
-    proof.extend_from_slice(&head.observed_at.to_be_bytes());
-    proof.extend_from_slice(&head.valid_through.to_be_bytes());
-    proof.extend_from_slice(&head.state_root);
-    Sha256::digest(&proof).into()
-}
-
-fn sign_program_discovery(
-    signing_key: &SigningKey,
-    head: &ProgramDiscoveryHead,
-) -> ([u8; 32], [u8; 64]) {
-    let digest = program_discovery_proof_digest(head);
-    (digest, signing_key.sign(&digest).to_bytes())
-}
-
-fn document_hex32(value: &serde_json::Value, field: &str) -> Option<[u8; 32]> {
-    let text = value.get(field)?.as_str()?;
-    if !canonical_hex32_text(text) {
-        return None;
-    }
-    hex_decode(text).ok()?.try_into().ok()
-}
-
-fn document_u64(value: &serde_json::Value, field: &str) -> Option<u64> {
-    let item = value.get(field)?;
-    item.as_u64().or_else(|| {
-        item.as_str()
-            .and_then(|text| text.parse::<u64>().ok().map(|number| (text, number)))
-            .filter(|(text, number)| *text == number.to_string())
-            .map(|(_, number)| number)
-    })
-}
-
-fn program_discovery_proof_verified(
-    value: &serde_json::Value,
-    sequencer_public_key: &[u8; 32],
-) -> bool {
-    let Some(head) = (|| {
-        Some(ProgramDiscoveryHead {
-            program_id: document_hex32(value, "program_id")?,
-            version: u32::try_from(value.get("version")?.as_u64()?).ok()?,
-            code_hash: document_hex32(value, "code_hash")?,
-            abi_version: u16::try_from(value.get("abi_version")?.as_u64()?).ok()?,
-            observed_sequence: document_u64(value, "observed_sequence")?,
-            observed_at: document_u64(value, "observed_at")?,
-            valid_through: document_u64(value, "valid_through")?,
-            state_root: document_hex32(value, "state_root")?,
-        })
-    })() else {
-        return false;
-    };
-    let (Some(receipt_digest), Some(public_key), Some(signature)) = (
-        document_hex32(value, "receipt_digest"),
-        document_hex32(value, "discovery_public_key"),
-        value
-            .get("discovery_signature")
-            .and_then(serde_json::Value::as_str)
-            .filter(|text| text.len() == 128)
-            .and_then(|text| hex_decode(text).ok())
-            .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok()),
-    ) else {
-        return false;
-    };
-    if public_key != *sequencer_public_key {
-        return false;
-    }
-    let digest = program_discovery_proof_digest(&head);
-    if digest != receipt_digest {
-        return false;
-    }
-    let Ok(verifying_key) = ed25519_dalek::VerifyingKey::from_bytes(&public_key) else {
-        return false;
-    };
-    !verifying_key.is_weak()
-        && verifying_key
-            .verify_strict(&digest, &ed25519_dalek::Signature::from_bytes(&signature))
-            .is_ok()
-}
-
-fn normalize_program_u64s(value: &mut serde_json::Value) -> bool {
-    match value {
-        serde_json::Value::Object(object) => {
-            for (key, item) in object {
-                if key == "output_values" {
-                    let output_values = item.as_u64().or_else(|| {
-                        item.as_str().and_then(|text| {
-                            text.parse::<u64>()
-                                .ok()
-                                .filter(|number| text == number.to_string())
-                        })
-                    });
-                    let Some(output_values) =
-                        output_values.and_then(|number| u32::try_from(number).ok())
-                    else {
-                        return false;
-                    };
-                    *item = serde_json::json!(output_values);
-                } else if matches!(
-                    key.as_str(),
-                    "global_sequence"
-                        | "observed_sequence"
-                        | "observed_at"
-                        | "valid_through"
-                        | "cpu_fuel"
-                        | "memory_bytes"
-                        | "storage_read_bytes"
-                        | "storage_write_bytes"
-                        | "output_bytes"
-                ) {
-                    if let Some(number) = item.as_u64() {
-                        *item = serde_json::Value::String(number.to_string());
-                    } else if item
-                        .as_str()
-                        .and_then(|text| text.parse::<u64>().ok().map(|number| (text, number)))
-                        .is_none_or(|(text, number)| text != number.to_string())
-                    {
-                        return false;
-                    }
-                } else if !normalize_program_u64s(item) {
-                    return false;
-                }
-            }
-        }
-        serde_json::Value::Array(values) => {
-            for item in values {
-                if !normalize_program_u64s(item) {
-                    return false;
-                }
-            }
-        }
-        _ => {}
-    }
-    true
-}
-
-fn agent_response(trace: u64, response: Response, sequencer_public_key: &[u8; 32]) -> Response {
-    let Response {
-        status,
-        content_type: _,
-        body,
-    } = response;
-    let request_id = format!("emu-{trace:016x}");
-    let document = serde_json::from_slice::<serde_json::Value>(&body).ok();
-    let body = if (200..300).contains(&status) {
-        document
-            .as_ref()
-            .and_then(|value| value.get("value").or_else(|| value.get("result")))
-            .cloned()
-            .map_or_else(
-                || {
-                    serde_json::json!({
-                        "class": "InternalFault",
-                        "protocol_result_code": null,
-                        "retriability": "Retriable",
-                        "request_id": request_id.as_str(),
-                        "reason": "invalid_program_success",
-                    })
-                },
-                |mut value| {
-                    if normalize_program_u64s(&mut value) {
-                        let verification_status =
-                            program_verification_status(&value, sequencer_public_key);
-                        serde_json::json!({
-                            "request_id": request_id.as_str(),
-                            "value": value,
-                            "verification_status": verification_status,
-                        })
-                    } else {
-                        serde_json::json!({
-                            "class": "InternalFault",
-                            "protocol_result_code": null,
-                            "retriability": "Retriable",
-                            "request_id": request_id.as_str(),
-                            "reason": "invalid_program_u64",
-                        })
-                    }
-                },
-            )
-    } else {
-        let error = document.as_ref().and_then(|value| value.get("error"));
-        let code = error
-            .and_then(|value| value.get("code"))
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("program_request_failed");
-        let reason = agent_reason(code);
-        let protocol_result_code = error
-            .and_then(|value| value.get("protocol_result_code"))
-            .filter(|value| {
-                value
-                    .as_i64()
-                    .and_then(|number| i32::try_from(number).ok())
-                    .is_some()
-            })
-            .cloned()
-            .unwrap_or(serde_json::Value::Null);
-        serde_json::json!({
-            "class": agent_error_class(status, code),
-            "protocol_result_code": protocol_result_code,
-            "retriability": if status == 429 || status >= 500 { "Retriable" } else { "Terminal" },
-            "request_id": request_id.as_str(),
-            "reason": reason,
-        })
-    };
-    Response {
-        status: if (200..300).contains(&status) && body.get("class").is_some() {
-            500
-        } else {
-            status
-        },
-        content_type: "application/json",
-        body: body.to_string().into_bytes(),
-    }
-}
-
 fn canonical_hex32_text(value: &str) -> bool {
     value.len() == 64
         && value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-fn program_selector(request: &Request, expected_program: &str) -> Result<(), String> {
-    if request.body.is_empty() || request.body.len() > 1024 {
-        return Err("program selector must carry bounded canonical JSON".to_owned());
-    }
-    let selector = decode_json::<ProgramSelectorBody>(request)?;
-    if selector.program_id != expected_program
-        || !canonical_hex32_text(&selector.program_id)
-        || selector.requested_verification_level != "sequencer-signed"
-    {
-        return Err("program selector does not match the route and verification level".to_owned());
-    }
-    Ok(())
-}
-
-fn program_receipt_selector(
-    request: &Request,
-    expected_idempotency: &str,
-) -> Result<String, String> {
-    if request.body.is_empty() || request.body.len() > 1024 {
-        return Err("program receipt selector must carry bounded canonical JSON".to_owned());
-    }
-    let selector = decode_json::<ProgramReceiptSelectorBody>(request)?;
-    if selector.idempotency_key != expected_idempotency
-        || !canonical_hex32_text(&selector.idempotency_key)
-        || !canonical_hex32_text(&selector.expected_activity_id)
-        || selector.requested_verification_level != "sequencer-signed"
-    {
-        return Err(
-            "program receipt selector does not match the route and verification level".to_owned(),
-        );
-    }
-    Ok(selector.expected_activity_id)
-}
-
-fn program_activity_selector(request: &Request, expected_activity: &str) -> Result<(), String> {
-    if request.body.is_empty() || request.body.len() > 1024 {
-        return Err("program activity selector must carry bounded canonical JSON".to_owned());
-    }
-    let selector = decode_json::<ProgramActivitySelectorBody>(request)?;
-    if selector.activity_id != expected_activity
-        || !canonical_hex32_text(&selector.activity_id)
-        || selector.requested_verification_level != "sequencer-signed"
-    {
-        return Err(
-            "program activity selector does not match the route and verification level".to_owned(),
-        );
-    }
-    Ok(())
 }
 
 fn parse_request(stream: &mut TcpStream) -> Result<Request, String> {
@@ -1283,8 +433,7 @@ fn parse_request(stream: &mut TcpStream) -> Result<Request, String> {
             return Err("request headers exceed emulator limit".into());
         }
     };
-    let (method, path, content_type, idempotency_key, content_length) =
-        parse_request_headers(&bytes, header_end)?;
+    let (method, path, content_type, content_length) = parse_request_headers(&bytes, header_end)?;
     while bytes.len() - header_end < content_length {
         let read = stream.read(&mut chunk).map_err(|error| error.to_string())?;
         if read == 0 {
@@ -1302,7 +451,6 @@ fn parse_request(stream: &mut TcpStream) -> Result<Request, String> {
         method,
         path,
         content_type,
-        idempotency_key,
         body: bytes[header_end..header_end + content_length].to_vec(),
     })
 }
@@ -1315,6 +463,7 @@ fn write_response(stream: &mut TcpStream, response: &Response) -> std::io::Resul
         404 => "Not Found",
         405 => "Method Not Allowed",
         409 => "Conflict",
+        410 => "Gone",
         413 => "Content Too Large",
         415 => "Unsupported Media Type",
         503 => "Service Unavailable",
@@ -1322,367 +471,6 @@ fn write_response(stream: &mut TcpStream, response: &Response) -> std::io::Resul
     };
     write!(stream, "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n", response.status, reason, response.content_type, response.body.len())?;
     stream.write_all(&response.body)
-}
-
-fn submit(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
-    let activity = decode_activity(request);
-    let activity = match activity {
-        Ok(activity) if !activity.is_empty() => activity,
-        Ok(_) => return refusal(trace, 400, "invalid_argument", "activity must not be empty"),
-        Err(error) => return refusal(trace, 400, "invalid_argument", &error),
-    };
-    let mut receipt = CoreReceipt {
-        activity_id: [0; 32],
-        batch_id: [0; 32],
-        state_root: [0; 32],
-        previous_state_root: [0; 32],
-        asset: [0; 32],
-        sequencer_public_key: [0; 32],
-        global_sequence: 0,
-        result_code: 0,
-        metered_cost_hi: 0,
-        metered_cost_lo: 0,
-        bytes: ptr::null(),
-        length: 0,
-        terminal_payload: ptr::null(),
-        terminal_payload_length: 0,
-        call_graph: ptr::null(),
-        call_graph_length: 0,
-        isolated_owner: ptr::null_mut(),
-    };
-    let code = unsafe {
-        platform_emulator_execute(
-            emulator.core,
-            activity.as_ptr(),
-            activity.len(),
-            &raw mut receipt,
-        )
-    };
-    if code != 0 {
-        return core_response(trace, code);
-    }
-    let batch_id = receipt.batch_id;
-    let global_sequence = receipt.global_sequence;
-    let result_code = receipt.result_code;
-    let state_root = receipt.state_root;
-    let material = match take_core_receipt(&mut receipt) {
-        Ok(material) => material,
-        Err(error) => return refusal(trace, 503, "core_invalid_output", &error),
-    };
-    let receipt_hex = hex_encode(&material.receipt);
-    let activity_id = hex_encode(&material.activity_id);
-    remember_receipt(emulator, activity_id.clone(), receipt_hex.clone());
-    let state = if result_code == 0 {
-        "completed"
-    } else {
-        "refused"
-    };
-    success(trace, &format!("{{\"state\":\"{state}\",\"activity_id\":\"{activity_id}\",\"batch_id\":\"{}\",\"global_sequence\":{global_sequence},\"result_code\":{result_code},\"state_root\":\"{}\",\"receipt\":\"{receipt_hex}\"}}", hex_encode(&batch_id), hex_encode(&state_root)))
-}
-
-fn settle(emulator: &Emulator, request: &Request, trace: u64) -> Response {
-    let media_type = request
-        .content_type
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim();
-    if media_type != "application/json" {
-        return refusal(
-            trace,
-            415,
-            "unsupported_media_type",
-            "settlement requests must carry application/json",
-        );
-    }
-    let claim = match settlement::claim(&request.body) {
-        Ok(claim) => claim,
-        Err(refused) => {
-            return refusal(
-                trace,
-                400,
-                refused.reason(),
-                "the settlement request is not the seller settlement contract",
-            )
-        }
-    };
-    let activity_id = hex_encode(&claim.activity_id());
-    let Some(retained) = emulator.receipts.get(&activity_id) else {
-        return success(
-            trace,
-            &settlement::refused("activity_not_settled").to_string(),
-        );
-    };
-    let Ok(canonical) = hex_decode(retained) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt is not canonical hexadecimal",
-        );
-    };
-    if canonical.as_slice() != claim.receipt() {
-        return success(
-            trace,
-            &settlement::refused("settlement_receipt_mismatch").to_string(),
-        );
-    }
-    let Ok(decoded) = layerx_wire::receipt::decode(&canonical) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt is not canonically encoded",
-        );
-    };
-    let Some(protocol) = decoded.protocol() else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt carries no protocol body",
-        );
-    };
-    let authorized = AuthorizedBatch::new(
-        protocol.batch_id(),
-        protocol.asset(),
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        emulator.signing_key.verifying_key().to_bytes(),
-    );
-    let Ok(verified) = verify_receipt(&canonical, &authorized) else {
-        return success(
-            trace,
-            &settlement::refused("receipt_verification_failed").to_string(),
-        );
-    };
-    success(
-        trace,
-        &settlement::settled(&claim, verified.canonical_bytes(), &authorized).to_string(),
-    )
-}
-
-fn decode_activity(request: &Request) -> Result<Vec<u8>, String> {
-    let media_type = request
-        .content_type
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim();
-    if media_type == "application/octet-stream" {
-        Ok(request.body.clone())
-    } else if media_type == "application/json" {
-        decode_json::<ActivityBody>(request).and_then(|value| hex_decode(&value.activity))
-    } else {
-        Err("activity content type is not supported".into())
-    }
-}
-
-fn programs_registry() -> Result<(ActivityType, ModuleRegistry), String> {
-    let call_type = ActivityType::new(ModuleId::Programs, 3)
-        .map_err(|_| "Programs CALL activity type is unavailable".to_owned())?;
-    let operations = [1, 2, 3, 7]
-        .map(|ordinal| ActivityType::new(ModuleId::Programs, ordinal))
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| "Programs activity types are unavailable".to_owned())?;
-    let registration = ModuleRegistration::new(ModuleId::Programs, &operations)
-        .map_err(|_| "Programs module registration is unavailable".to_owned())?;
-    let registry = ModuleRegistry::new(&[registration])
-        .map_err(|_| "Programs module registry is unavailable".to_owned())?;
-    Ok((call_type, registry))
-}
-
-fn legacy_program_request(request: &Request) -> Result<(Vec<u8>, ProgramCall), String> {
-    let body = decode_json::<ProgramCallBody>(request)?;
-    if !canonical_hex32_text(&body.program_id) {
-        return Err("program id must be canonical 32-byte hexadecimal".to_owned());
-    }
-    let program_bytes = hex_decode(&body.program_id)?;
-    let program_id: [u8; 32] = program_bytes
-        .try_into()
-        .map_err(|_| "program id must be 32-byte hexadecimal".to_owned())?;
-    let program = ProgramId::new(program_id);
-    if program.is_zero() {
-        return Err("program id is reserved".to_owned());
-    }
-    let calldata_bytes = hex_decode(&body.calldata)?;
-    let calldata = Calldata::new(&calldata_bytes)
-        .map_err(|_| "program calldata exceeds its bound".to_owned())?;
-    let fuel = body
-        .budget
-        .fuel
-        .parse::<u64>()
-        .map_err(|_| "program fuel budget is invalid".to_owned())?;
-    if fuel.to_string() != body.budget.fuel {
-        return Err("program fuel budget is not canonical".to_owned());
-    }
-    let fee_limit = body
-        .budget
-        .fee_limit
-        .parse::<u128>()
-        .map_err(|_| "program fee limit is invalid".to_owned())?;
-    if fee_limit.to_string() != body.budget.fee_limit {
-        return Err("program fee limit is not canonical".to_owned());
-    }
-    let budget = CallBudget::new(fuel, Amount::from_u128(fee_limit))
-        .map_err(|_| "program budget is invalid".to_owned())?;
-    let requested = body
-        .capabilities
-        .iter()
-        .map(|capability| match capability.as_str() {
-            "storage_read" => Ok(CapabilityRequest::StorageRead),
-            "storage_write" => Ok(CapabilityRequest::StorageWrite),
-            "transfer" => Ok(CapabilityRequest::Transfer),
-            "emit_event" => Ok(CapabilityRequest::EmitEvent),
-            "compose" => Ok(CapabilityRequest::Compose),
-            _ => Err("program capability is invalid".to_owned()),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let capabilities = RequestedCapabilities::new(&requested)
-        .map_err(|_| "program capabilities are not canonical".to_owned())?;
-    if body.signed_activity.len() % 2 != 0 || body.signed_activity.len() / 2 > MAX_RECEIPT_BYTES {
-        return Err("signed program activity exceeds its bound".to_owned());
-    }
-    Ok((
-        hex_decode(&body.signed_activity)?,
-        ProgramCall::new(program, calldata, budget, capabilities),
-    ))
-}
-
-fn decode_program_activity(request: &Request) -> Result<DecodedProgramActivity, String> {
-    let media_type = request
-        .content_type
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim();
-    let (call_type, registry) = programs_registry()?;
-    if let Some(ordinal) = program_lifecycle::ordinal(&request.path) {
-        if media_type != "application/octet-stream" {
-            return Err("program lifecycle requires application/octet-stream".to_owned());
-        }
-        let program_id = program_lifecycle::validate(&request.body, &registry, ordinal)?;
-        let activity = decode_signed(&request.body, &registry)
-            .map_err(|_| "invalid signed lifecycle activity".to_owned())?;
-        return Ok(DecodedProgramActivity {
-            payload_hash: layerx_wire::hash::payload_hash(&activity)
-                .map_err(|_| "invalid program payload hash".to_owned())?,
-            activity_id: derive_activity_id(&activity)
-                .map_err(|_| "invalid lifecycle activity identity".to_owned())?,
-            idempotency_key: activity.idempotency_key(),
-            protocol_version: activity.protocol_version(),
-            program_id,
-            signed: request.body.clone(),
-        });
-    }
-    if media_type == "application/json" {
-        if let Some((signed, program_id)) = native_call::parse_json(&request.body, &registry)? {
-            let activity = decode_signed(&signed, &registry)
-                .map_err(|_| "signed native activity is invalid".to_owned())?;
-            return Ok(DecodedProgramActivity {
-                payload_hash: layerx_wire::hash::payload_hash(&activity)
-                    .map_err(|_| "invalid program payload hash".to_owned())?,
-                activity_id: derive_activity_id(&activity)
-                    .map_err(|_| "signed native activity identity is invalid".to_owned())?,
-                idempotency_key: activity.idempotency_key(),
-                protocol_version: activity.protocol_version(),
-                program_id,
-                signed,
-            });
-        }
-    }
-    let (signed, expected_call) = if media_type == "application/octet-stream" {
-        if request.body.len() > MAX_RECEIPT_BYTES {
-            return Err("signed program activity exceeds its bound".to_owned());
-        }
-        (request.body.clone(), None)
-    } else if media_type == "application/json" {
-        let (signed, call) = legacy_program_request(request)?;
-        (signed, Some(call))
-    } else {
-        return Err("program call content type is not supported".to_owned());
-    };
-    if signed.is_empty() {
-        return Err("program call activity must not be empty".to_owned());
-    }
-    let activity = decode_signed(&signed, &registry)
-        .map_err(|_| "signed program activity is invalid".to_owned())?;
-    if activity.activity_type() != call_type {
-        return Err("signed activity is not a Programs CALL".to_owned());
-    }
-    if activity.protocol_version() == 3 {
-        if expected_call.is_some() {
-            return Err("native protocol requires the native request model".to_owned());
-        }
-        let program_id = native_call::from_activity(&activity)?;
-        return Ok(DecodedProgramActivity {
-            payload_hash: layerx_wire::hash::payload_hash(&activity)
-                .map_err(|_| "invalid program payload hash".to_owned())?,
-            activity_id: derive_activity_id(&activity)
-                .map_err(|_| "signed native activity identity is invalid".to_owned())?,
-            idempotency_key: activity.idempotency_key(),
-            protocol_version: activity.protocol_version(),
-            program_id,
-            signed,
-        });
-    }
-    let call = ProgramCall::from_canonical_payload(activity.payload())
-        .map_err(|_| "signed program payload is not canonical".to_owned())?;
-    if expected_call
-        .as_ref()
-        .is_some_and(|expected| expected != &call)
-    {
-        return Err("signed program activity does not match the typed call".to_owned());
-    }
-    let activity_id = derive_activity_id(&activity)
-        .map_err(|_| "signed program activity identity is invalid".to_owned())?;
-    Ok(DecodedProgramActivity {
-        payload_hash: layerx_wire::hash::payload_hash(&activity)
-            .map_err(|_| "invalid program payload hash".to_owned())?,
-        signed,
-        program_id: call.callee().bytes(),
-        protocol_version: activity.protocol_version(),
-        activity_id,
-        idempotency_key: activity.idempotency_key(),
-    })
-}
-
-fn take_core_receipt(receipt: &mut CoreReceipt) -> Result<OwnedCoreReceipt, String> {
-    let result = if receipt.bytes.is_null()
-        || receipt.length == 0
-        || receipt.length > MAX_RECEIPT_BYTES
-        || receipt.terminal_payload_length > MAX_RECEIPT_BYTES
-        || (receipt.terminal_payload_length != 0 && receipt.terminal_payload.is_null())
-        || receipt.call_graph_length > MAX_RECEIPT_BYTES
-        || (receipt.call_graph_length != 0 && receipt.call_graph.is_null())
-    {
-        Err("the LayerX core returned invalid Programs receipt material".to_owned())
-    } else {
-        let receipt_bytes =
-            unsafe { slice::from_raw_parts(receipt.bytes, receipt.length) }.to_vec();
-        let terminal_payload = if receipt.terminal_payload_length == 0 {
-            Vec::new()
-        } else {
-            unsafe {
-                slice::from_raw_parts(receipt.terminal_payload, receipt.terminal_payload_length)
-            }
-            .to_vec()
-        };
-        let call_graph = if receipt.call_graph_length == 0 {
-            Vec::new()
-        } else {
-            unsafe { slice::from_raw_parts(receipt.call_graph, receipt.call_graph_length) }.to_vec()
-        };
-        Ok(OwnedCoreReceipt {
-            activity_id: receipt.activity_id,
-            receipt: receipt_bytes,
-            terminal_payload,
-            call_graph,
-        })
-    };
-    unsafe { platform_emulator_receipt_release(receipt) };
-    result
 }
 
 fn inspect_state(emulator: &Emulator) -> Result<CoreState, i32> {
@@ -1734,322 +522,12 @@ fn prefund_core(
     emulator.accounts.insert(
         account_name,
         EmulatorAccount {
-            id: account.id,
+            id: account,
             did: did.to_owned(),
             public_key,
         },
     );
     Ok(())
-}
-
-fn program_head(emulator: &mut Emulator, program_id: [u8; 32]) -> Result<CoreProgram, i32> {
-    let mut program = CoreProgram {
-        program_id: [0; 32],
-        code_hash: [0; 32],
-        deployment_receipt_digest: [0; 32],
-        version: 0,
-        abi_version: 0,
-        lifecycle: 0,
-        interface_bytes: ptr::null(),
-        interface_length: 0,
-        has_interface: 0,
-        state_root: [0; 32],
-        observed_sequence: 0,
-    };
-    let code = unsafe {
-        platform_emulator_program_read(emulator.core, program_id.as_ptr(), &raw mut program)
-    };
-    if code == 0 {
-        Ok(program)
-    } else {
-        Err(code)
-    }
-}
-
-fn program_head_error(trace: u64, code: i32) -> Response {
-    if code == -7 {
-        refusal(trace, 404, "unknown_program", "program is not registered")
-    } else {
-        core_response(trace, code)
-    }
-}
-
-fn active_program_head(
-    emulator: &mut Emulator,
-    program_id: [u8; 32],
-    trace: u64,
-) -> Result<CoreProgram, Response> {
-    let head =
-        program_head(emulator, program_id).map_err(|code| program_head_error(trace, code))?;
-    if head.lifecycle != 1 {
-        return Err(refusal(
-            trace,
-            409,
-            "program_not_active",
-            "program lifecycle does not permit calls",
-        ));
-    }
-    Ok(head)
-}
-
-fn program_failure_json(failure: ProgramCallFailure) -> serde_json::Value {
-    match failure {
-        ProgramCallFailure::UnknownProgram => serde_json::json!({"kind":"unknown_program"}),
-        ProgramCallFailure::Reentrancy => serde_json::json!({"kind":"reentrancy"}),
-        ProgramCallFailure::DepthExceeded { limit, attempted } => {
-            serde_json::json!({"kind":"depth_exceeded","limit":limit,"attempted":attempted})
-        }
-        ProgramCallFailure::FanoutExceeded { limit, attempted } => {
-            serde_json::json!({"kind":"fanout_exceeded","limit":limit,"attempted":attempted})
-        }
-        ProgramCallFailure::GuestRefused { code } => {
-            serde_json::json!({"kind":"guest_refused","code":code})
-        }
-        ProgramCallFailure::Authority => serde_json::json!({"kind":"authority"}),
-        ProgramCallFailure::Resource => serde_json::json!({"kind":"resource"}),
-        ProgramCallFailure::Response => serde_json::json!({"kind":"response"}),
-        ProgramCallFailure::Fault => serde_json::json!({"kind":"fault"}),
-    }
-}
-
-fn program_outcome_json(outcome: &ProgramCallOutcome) -> serde_json::Value {
-    match outcome {
-        ProgramCallOutcome::Completed(response) => serde_json::json!({
-            "kind":"completed",
-            "code":response.code(),
-            "response":hex_encode(response.body()),
-        }),
-        ProgramCallOutcome::LegacyCompleted(response) => serde_json::json!({
-            "kind":"legacy_completed",
-            "code":response.code(),
-            "values":response.values().iter().map(|value| match value {
-                ProgramLegacyValue::I32(value) => serde_json::json!({"type":"i32","value":value}),
-                ProgramLegacyValue::I64(value) => serde_json::json!({"type":"i64","value":value.to_string()}),
-            }).collect::<Vec<_>>(),
-        }),
-        ProgramCallOutcome::Refused(failure) => serde_json::json!({
-            "kind":"refused",
-            "failure":program_failure_json(*failure),
-        }),
-    }
-}
-
-fn verified_program_document(
-    verified: &VerifiedProgramExecution,
-    fields: ProgramDocumentFields<'_>,
-) -> Result<serde_json::Value, String> {
-    let ProgramDocumentFields {
-        terminal_payload,
-        call_graph,
-        program_id,
-        guest_abi_version,
-        sequencer_public_key,
-        state,
-        idempotency_key,
-    } = fields;
-    let protocol = verified
-        .receipt()
-        .receipt()
-        .protocol()
-        .ok_or_else(|| "verified Programs receipt has no protocol body".to_owned())?;
-    let receipt_digest = verified
-        .receipt()
-        .evidence()
-        .receipt_digest()
-        .ok_or_else(|| "verified Programs receipt has no digest".to_owned())?;
-    let state = if state == "executed" && !verified.outcome().is_completed() {
-        "refused"
-    } else {
-        state
-    };
-    let mut document = serde_json::json!({
-        "state":state,
-        "activity_id":hex_encode(&protocol.activity_id()),
-        "program_id":hex_encode(&program_id),
-        "guest_abi_version":guest_abi_version,
-        "module_version":protocol.module_version(),
-        "batch_id":hex_encode(&protocol.batch_id()),
-        "global_sequence":protocol.global_sequence().to_string(),
-        "result_code":verified.result_code(),
-        "state_root":hex_encode(&protocol.resulting_state_root()),
-        "receipt":hex_encode(verified.receipt().canonical_bytes()),
-        "receipt_digest":hex_encode(&receipt_digest),
-        "terminal_payload":hex_encode(terminal_payload),
-        "call_graph":hex_encode(call_graph),
-        "authority":{
-            "batch_id":hex_encode(&protocol.batch_id()),
-            "asset":hex_encode(&protocol.asset()),
-            "previous_state_root":hex_encode(&protocol.previous_state_root()),
-            "resulting_state_root":hex_encode(&protocol.resulting_state_root()),
-            "sequencer_public_key":hex_encode(&sequencer_public_key),
-        },
-        "usage":{
-            "cpu_fuel":verified.cpu_fuel().to_string(),
-            "memory_bytes":verified.memory_bytes().to_string(),
-            "storage_read_bytes":verified.storage_read_bytes().to_string(),
-            "storage_write_bytes":verified.storage_write_bytes().to_string(),
-            "output_values":verified.output_values(),
-            "output_bytes":verified.output_bytes().to_string(),
-            "fee_units":verified.fee_units().to_string(),
-        },
-        "outcome":program_outcome_json(verified.outcome()),
-        "verification":"receipt-terminal-and-call-graph-verified",
-    });
-    if let (Some(key), Some(object)) = (idempotency_key, document.as_object_mut()) {
-        object.insert(
-            "idempotency_key".to_owned(),
-            serde_json::Value::String(key.to_owned()),
-        );
-    }
-    Ok(document)
-}
-
-/// Offers every registered account as an occupancy payer. The verifier only
-/// uses an account it derives from the DID for a payer the settlement names.
-fn registered_occupancy_payers(emulator: &Emulator) -> Vec<OccupancyPayer<'_>> {
-    emulator
-        .accounts
-        .values()
-        .map(|account| OccupancyPayer {
-            did: account.did.as_bytes(),
-            account: Some(account.id),
-        })
-        .collect()
-}
-
-/// Names the DID behind every payment account the verified occupancy transfer
-/// root commits, so a client can prove the same accounts from the DID.
-fn occupancy_payers_json(
-    emulator: &Emulator,
-    verified: &VerifiedProgramExecution,
-) -> Option<serde_json::Value> {
-    let payers: Vec<serde_json::Value> = verified
-        .occupancy_payment_accounts()
-        .iter()
-        .filter_map(|proven| {
-            emulator
-                .accounts
-                .values()
-                .find(|account| account.id == proven.account())
-                .map(|account| {
-                    serde_json::json!({
-                        "did": account.did,
-                        "account_id": hex_encode(&proven.account()),
-                    })
-                })
-        })
-        .collect();
-    (!payers.is_empty()).then_some(serde_json::Value::Array(payers))
-}
-
-fn stored_program_operation_response(trace: u64, operation: &ProgramOperation) -> Response {
-    let public = lifecycle_public_response(operation).unwrap_or_else(|| operation.response.clone());
-    let mut response = success(trace, &public);
-    if serde_json::from_str::<serde_json::Value>(&operation.response)
-        .ok()
-        .and_then(|value| {
-            value
-                .get("state")
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_owned)
-        })
-        .is_some_and(|state| matches!(state.as_str(), "unknown" | "pending"))
-    {
-        response.status = 202;
-    }
-    response
-}
-
-fn lifecycle_public_response(operation: &ProgramOperation) -> Option<String> {
-    let signed = hex_decode(operation.retained_signed_activity.as_deref()?).ok()?;
-    let (_, registry) = programs_registry().ok()?;
-    let activity = decode_signed(&signed, &registry).ok()?;
-    let lifecycle = [1, 2, 7].into_iter().any(|ordinal| {
-        ActivityType::new(ModuleId::Programs, ordinal).ok() == Some(activity.activity_type())
-    });
-    if !lifecycle || hex_encode(&derive_activity_id(&activity).ok()?) != operation.activity_id {
-        return None;
-    }
-    let key = hex_encode(&activity.idempotency_key());
-    if !canonical_program_response(&operation.response, &operation.activity_id, &key) {
-        return None;
-    }
-    let mut document: serde_json::Value = serde_json::from_str(&operation.response).ok()?;
-    document.as_object_mut()?.remove("idempotency_key");
-    Some(document.to_string())
-}
-
-fn program_call(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
-    let lifecycle = program_lifecycle::ordinal(&request.path).is_some();
-    let request_idempotency = match request.idempotency_key.as_deref() {
-        Some(value) if canonical_hex32_text(value) => value,
-        _ => {
-            return refusal(
-                trace,
-                400,
-                "idempotency_key_required",
-                "Idempotency-Key must be canonical 32-byte hexadecimal",
-            )
-        }
-    };
-    let media_type = request
-        .content_type
-        .split(';')
-        .next()
-        .unwrap_or_default()
-        .trim();
-    if request.body.is_empty()
-        || !matches!(media_type, "application/json" | "application/octet-stream")
-        || (lifecycle && media_type != "application/octet-stream")
-    {
-        return refusal(
-            trace,
-            415,
-            "activity_content_type_required",
-            "program call requires bounded JSON or octet-stream content",
-        );
-    }
-    let decoded = match decode_program_activity(request) {
-        Ok(activity) => activity,
-        Err(error) => return refusal(trace, 400, "invalid_program_activity", &error),
-    };
-    let protocol_idempotency = hex_encode(&decoded.idempotency_key);
-    if request_idempotency != protocol_idempotency {
-        return refusal(
-            trace,
-            409,
-            "protocol_idempotency_mismatch",
-            "Idempotency-Key must equal the signed activity idempotency key",
-        );
-    }
-    let activity_id = hex_encode(&decoded.activity_id);
-    if let Some(existing) = emulator.program_operations.get(&protocol_idempotency) {
-        if existing.activity_id == activity_id {
-            return stored_program_operation_response(trace, existing);
-        }
-        return refusal(
-            trace,
-            409,
-            "idempotency_conflict",
-            "the idempotency key is already bound to a different activity",
-        );
-    }
-    if emulator.program_operations.len() >= MAX_PROGRAM_OPERATIONS {
-        return refusal(
-            trace,
-            503,
-            "persistence_unavailable",
-            "program recovery index reached its bounded capacity",
-        );
-    }
-    execute_program_call(
-        emulator,
-        &decoded,
-        lifecycle,
-        protocol_idempotency,
-        activity_id,
-        trace,
-    )
 }
 
 fn inspect(emulator: &Emulator, trace: u64) -> Response {
@@ -2188,112 +666,13 @@ fn sequencer_identity_body(network_id: u32, sequencer_public_key: &[u8; 32]) -> 
     .to_string()
 }
 
-fn current_head(emulator: &mut Emulator, trace: u64) -> Response {
-    let mut head: CoreHead = unsafe { std::mem::zeroed() };
-    let code = unsafe { platform_emulator_head_read(emulator.core, &raw mut head) };
-    if code != 0 {
-        return refusal(
-            trace,
-            503,
-            "principal_state_proof_unavailable",
-            &core_error(code),
-        );
-    }
-    if head.receipt_bytes.is_null()
-        || head.header_bytes.is_null()
-        || head.proof_bytes.is_null()
-        || head.activity_receipt_bytes.is_null()
-        || head.receipt_length == 0
-        || head.receipt_length > 524_288
-        || head.header_length == 0
-        || head.header_length > 65_536
-        || head.proof_length == 0
-        || head.proof_length > 65_536
-        || head.activity_receipt_length == 0
-        || head.activity_receipt_length > MAX_RECEIPT_BYTES
-    {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "invalid current-head evidence buffer",
-        );
-    }
-    let receipt =
-        unsafe { slice::from_raw_parts(head.receipt_bytes, head.receipt_length) }.to_vec();
-    let header = unsafe { slice::from_raw_parts(head.header_bytes, head.header_length) }.to_vec();
-    let proof = unsafe { slice::from_raw_parts(head.proof_bytes, head.proof_length) }.to_vec();
-    let activity_receipt =
-        unsafe { slice::from_raw_parts(head.activity_receipt_bytes, head.activity_receipt_length) }
-            .to_vec();
-    let key = emulator.signing_key.verifying_key().to_bytes();
-    let id: [u8; 32] = Sha256::digest(key).into();
-    let authorization = layerx_proof::inclusion::SequencerAuthorization::new(id, key, 1, u64::MAX);
-    let verified = (|| {
-        if head.sequencer_public_key != key
-            || head.sequencer_id != id
-            || head.authorization_first_batch != 1
-            || head.authorization_last_batch != u64::MAX
-        {
-            return Err(());
-        }
-        let path = layerx_wire::receipt::decode_merkle_proof(&proof).map_err(|_| ())?;
-        let path = layerx_proof::merkle::Proof::new(
-            path.leaf_index(),
-            path.leaf_count(),
-            path.siblings().to_vec(),
-        )
-        .map_err(|_| ())?;
-        let evidence = layerx_proof::inclusion::verify_receipt(
-            &receipt,
-            &path,
-            &header,
-            &head.header_signature,
-            &authorization,
-        )
-        .map_err(|_| ())?;
-        let signed = evidence.header().header();
-        let maintenance =
-            layerx_wire::batch_maintenance::decode_maintenance(&receipt).map_err(|_| ())?;
-        maintenance.verify_header(signed).map_err(|_| ())?;
-        if signed.network_id() != emulator.network_id
-            || signed.protocol_version() != emulator.protocol_version
-            || signed.resulting_state_root() != head.state_root
-            || signed.last_sequence() != head.observed_sequence
-            || signed.timestamp_ms() != head.observed_at
-            || signed.batch_number() != head.batch_number
-            || <[u8; 32]>::from(Sha256::digest(&receipt)) != head.receipt_digest
-        {
-            return Err(());
-        }
-        let live = inspect_state(emulator).map_err(|_| ())?;
-        if live.canonical_state_root != head.state_root
-            || live.next_sequence.checked_sub(1) != Some(head.observed_sequence)
-            || live.batch_number != head.batch_number
-        {
-            return Err(());
-        }
-        Ok(())
-    })();
-    if verified.is_err() {
-        return refusal(
-            trace,
-            503,
-            "state_proof_unverified",
-            "current-head batch evidence failed verification",
-        );
-    }
-    success(trace, &serde_json::json!({
-        "current": true, "receipt_hex": hex_encode(&receipt), "receipt_digest": hex_encode(&head.receipt_digest),
-        "state_root": hex_encode(&head.state_root), "observed_sequence": head.observed_sequence,
-        "observed_at": head.observed_at,
-        "batch_evidence": { "header_hex": hex_encode(&header), "header_signature": hex_encode(&head.header_signature),
-            "receipt_proof_hex": hex_encode(&proof), "batch_identity": {
-                "kind": "occupancy_maintenance_v2", "receipt_hex": hex_encode(&receipt),
-                "receipt_proof_hex": hex_encode(&proof), "activity_receipts_hex": [hex_encode(&activity_receipt)]
-            }
-        }
-    }).to_string())
+fn current_head(trace: u64) -> Response {
+    refusal(
+        trace,
+        503,
+        "principal_state_proof_unavailable",
+        "legacy batch head evidence is retired; use merged-node block-commit evidence",
+    )
 }
 
 fn health(emulator: &Emulator, trace: u64) -> Response {
@@ -2315,7 +694,7 @@ fn health(emulator: &Emulator, trace: u64) -> Response {
             "the LayerX core did not return a readable state",
         );
     }
-    success(trace, "{\"status\":\"ready\",\"core\":\"layerx\"}")
+    success(trace, "{\"status\":\"ready\",\"core\":\"layerx\",\"surface\":\"/v1/surface\",\"payments_supported\":false}")
 }
 
 fn prefund(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
@@ -2358,233 +737,6 @@ fn prefund(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
         Ok(()) => success(trace, "{\"prefunded\":true}"),
         Err(code) => core_response(trace, code),
     }
-}
-
-fn move_quote_document(quote: &MoveQuoteRecord) -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({
-        "quote_id":quote.quote_id,
-        "description_copy_key":"move.quote.send-to-account",
-        "mechanism":"transfer",
-        "money":{"amount":quote.amount.to_string(),"currency":quote.currency},
-        "fee_estimate":{"amount":"0","currency":quote.currency},
-        "fee_ceiling":{"amount":"0","currency":quote.currency},
-        "arrival_estimate":timestamp_text(quote.created_at)?,
-        "expires_at":timestamp_text(quote.expires_at)?,
-        "irreversibility_copy_key":"move.irreversible.send-to-account",
-    }))
-}
-
-fn move_quote(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
-    let body = match decode_json::<MoveQuoteBody>(request) {
-        Ok(body) => body,
-        Err(error) => return refusal(trace, 400, "invalid_move_quote", &error),
-    };
-    if body.source == body.destination
-        || account_did(&body.source).is_none()
-        || account_did(&body.destination).is_none()
-        || body.source.len() > 512
-        || body.destination.len() > 512
-    {
-        return refusal(
-            trace,
-            400,
-            "invalid_move_quote",
-            "source and destination must name distinct bounded agent main accounts",
-        );
-    }
-    if body.money.currency != "LXP" {
-        return refusal(
-            trace,
-            400,
-            "unsupported_move_asset",
-            "the emulator canonical asset is LXP",
-        );
-    }
-    let amount = match body.money.amount.parse::<u128>() {
-        Ok(value) if value != 0 && value.to_string() == body.money.amount => value,
-        _ => {
-            return refusal(
-                trace,
-                400,
-                "invalid_move_amount",
-                "move amount must be a positive canonical protocol integer",
-            )
-        }
-    };
-    if emulator.move_quotes.len() >= MAX_MOVE_QUOTES {
-        return refusal(
-            trace,
-            503,
-            "persistence_unavailable",
-            "move quote recovery index reached its bounded capacity",
-        );
-    }
-    quote_accounts(emulator, body, amount, trace)
-}
-
-fn empty_core_receipt() -> CoreReceipt {
-    CoreReceipt {
-        activity_id: [0; 32],
-        batch_id: [0; 32],
-        state_root: [0; 32],
-        previous_state_root: [0; 32],
-        asset: [0; 32],
-        sequencer_public_key: [0; 32],
-        global_sequence: 0,
-        result_code: 0,
-        metered_cost_hi: 0,
-        metered_cost_lo: 0,
-        bytes: ptr::null(),
-        length: 0,
-        terminal_payload: ptr::null(),
-        terminal_payload_length: 0,
-        call_graph: ptr::null(),
-        call_graph_length: 0,
-        isolated_owner: ptr::null_mut(),
-    }
-}
-
-fn stored_move_operation(operation: &MoveOperation) -> Response {
-    Response {
-        status: operation.status,
-        content_type: "application/json",
-        body: operation.body.as_bytes().to_vec(),
-    }
-}
-
-fn retain_move_response(
-    emulator: &mut Emulator,
-    idempotency: String,
-    quote_id: &str,
-    response: &Response,
-) {
-    let body = String::from_utf8_lossy(&response.body).into_owned();
-    emulator.move_operations.insert(
-        idempotency.clone(),
-        MoveOperation {
-            quote_id: quote_id.to_owned(),
-            status: response.status,
-            body,
-        },
-    );
-    if let Some(quote) = emulator.move_quotes.get_mut(quote_id) {
-        quote.committed_idempotency = Some(idempotency);
-    }
-}
-
-fn move_unknown(
-    emulator: &mut Emulator,
-    idempotency: String,
-    quote_id: &str,
-    trace: u64,
-    code: &str,
-    detail: &str,
-) -> Response {
-    let response = refusal(trace, 503, code, detail);
-    retain_move_response(emulator, idempotency, quote_id, &response);
-    response
-}
-
-fn move_journey(
-    quote: &MoveQuoteRecord,
-    idempotency: &str,
-    activity_id: [u8; 32],
-    receipt_digest: [u8; 32],
-    updated_at: u64,
-) -> Result<serde_json::Value, String> {
-    let journey_digest = hash_bytes(MOVE_JOURNEY_DOMAIN, idempotency.as_bytes());
-    let stage_digest = hash_bytes(MOVE_STAGE_DOMAIN, &journey_digest);
-    let evidence_id = format!("evd_{}", hex_encode(&receipt_digest));
-    let evidence = serde_json::json!({
-        "evidence_id":evidence_id,
-        "class":"layerx-receipt",
-        "verification":"receipt-verified",
-        "source_ref":format!("/v1/receipts/{}", hex_encode(&activity_id)),
-    });
-    Ok(serde_json::json!({
-        "journey_id":format!("jrn_{}", hex_encode(&journey_digest)),
-        "kind":"move",
-        "state":"done",
-        "state_copy_key":"status.done",
-        "stages":[{
-            "stage_id":format!("stg_{}", hex_encode(&stage_digest)),
-            "copy_key":"move.stage.send-to-account",
-            "state":"done",
-            "evidence":[evidence.clone()],
-        }],
-        "evidence":[evidence],
-        "started_at":timestamp_text(quote.created_at)?,
-        "updated_at":timestamp_text(updated_at)?,
-    }))
-}
-
-fn move_commit(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
-    let idempotency = match request.idempotency_key.as_deref() {
-        Some(value) if valid_human_idempotency(value) => value.to_owned(),
-        _ => {
-            return refusal(
-                trace,
-                400,
-                "idempotency_key_required",
-                "Idempotency-Key must be 16-128 safe ASCII characters",
-            )
-        }
-    };
-    let body = match decode_json::<MoveCommitBody>(request) {
-        Ok(value) => value,
-        Err(error) => return refusal(trace, 400, "invalid_move_commit", &error),
-    };
-    if let Some(operation) = emulator.move_operations.get(&idempotency) {
-        if operation.quote_id == body.quote_id {
-            return stored_move_operation(operation);
-        }
-        return refusal(
-            trace,
-            409,
-            "idempotency_conflict",
-            "the idempotency key is already bound to another move quote",
-        );
-    }
-    if emulator.move_operations.len() >= MAX_MOVE_OPERATIONS {
-        return refusal(
-            trace,
-            503,
-            "persistence_unavailable",
-            "move operation recovery index reached its bounded capacity",
-        );
-    }
-    let quote = match emulator.move_quotes.get(&body.quote_id) {
-        Some(value) => value.clone(),
-        None => {
-            return refusal(
-                trace,
-                404,
-                "move_quote_not_found",
-                "move quote is not present in this emulator process",
-            )
-        }
-    };
-    if quote.committed_idempotency.is_some() {
-        return refusal(
-            trace,
-            409,
-            "move_quote_already_committed",
-            "move quote is already bound to another commit attempt",
-        );
-    }
-    let state = match inspect_state(emulator) {
-        Ok(value) => value,
-        Err(code) => return core_response(trace, code),
-    };
-    if state.timestamp_ms > quote.expires_at {
-        return refusal(
-            trace,
-            409,
-            "move_quote_expired",
-            "move quote expired before commitment",
-        );
-    }
-    validate_move_commit(emulator, idempotency, quote, state, trace)
 }
 
 fn update_time(emulator: &mut Emulator, request: &Request, trace: u64, advance: bool) -> Response {
@@ -2981,7 +1133,7 @@ fn import_snapshot(emulator: &mut Emulator, body: &[u8], trace: u64) -> Response
             core_account(emulator, name)
                 .ok()
                 .flatten()
-                .is_some_and(|account| account.id == expected.id)
+                .is_some_and(|account| account == expected.id)
         });
     if !recovered_accounts_match {
         let rollback = unsafe {
@@ -3018,178 +1170,34 @@ fn advance_trace(trace: &mut u64) -> Option<u64> {
     Some(next)
 }
 
-fn program_receipt(emulator: &Emulator, request: &Request, trace: u64) -> Response {
-    let Some(idempotency) = request
-        .path
-        .strip_prefix("/v1/programs/receipts/by-idempotency/")
-    else {
-        return refusal(
-            trace,
-            404,
-            "program_receipt_not_found",
-            "program receipt route is invalid",
-        );
-    };
-    if !canonical_hex32_text(idempotency) {
-        return refusal(
-            trace,
-            400,
-            "invalid_argument",
-            "idempotency key must be canonical 32-byte hexadecimal",
-        );
-    }
-    let expected_activity = match program_receipt_selector(request, idempotency) {
-        Ok(value) => value,
-        Err(error) => return refusal(trace, 400, "invalid_program_receipt_selector", &error),
-    };
-    match emulator.program_operations.get(idempotency) {
-        Some(operation) if operation.activity_id == expected_activity => {
-            stored_program_operation_response(trace, operation)
-        }
-        Some(_) => refusal(
-            trace,
-            409,
-            "program_receipt_selector_mismatch",
-            "the expected activity is not bound to this idempotency key",
-        ),
-        None => refusal(
-            trace,
-            404,
-            "program_receipt_not_found",
-            "program receipt is not present in this emulator process",
-        ),
-    }
-}
-
-fn program_activity(emulator: &Emulator, request: &Request, trace: u64) -> Response {
-    let Some(activity_id) = request.path.strip_prefix("/v1/programs/activities/") else {
-        return refusal(
-            trace,
-            404,
-            "program_activity_not_found",
-            "program activity route is invalid",
-        );
-    };
-    if !canonical_hex32_text(activity_id) {
-        return refusal(
-            trace,
-            400,
-            "invalid_argument",
-            "activity id must be canonical 32-byte hexadecimal",
-        );
-    }
-    if let Err(error) = program_activity_selector(request, activity_id) {
-        return refusal(trace, 400, "invalid_program_activity_selector", &error);
-    }
-    let operation = emulator
-        .program_activity_operations
-        .get(activity_id)
-        .and_then(|idempotency| emulator.program_operations.get(idempotency));
-    match operation {
-        Some(operation) if operation.activity_id == activity_id => {
-            stored_program_operation_response(trace, operation)
-        }
-        Some(_) => refusal(
-            trace,
-            404,
-            "program_activity_not_found",
-            "program activity is not present",
-        ),
-        None => refusal(
-            trace,
-            404,
-            "program_activity_not_found",
-            "program activity is not present in this emulator process",
-        ),
-    }
-}
-
-fn receipt_read(emulator: &Emulator, activity_id: &str, receipt_hex: &str, trace: u64) -> Response {
-    let sequencer_public_key = emulator.signing_key.verifying_key().to_bytes();
-    let Ok(bytes) = hex_decode(receipt_hex) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt is not hexadecimal",
-        );
-    };
-    let Ok(receipt) = verify_sequencer_signature(&bytes, sequencer_public_key) else {
-        return refusal(
-            trace,
-            503,
-            "receipt_verification_failed",
-            "the retained receipt does not verify under this emulator sequencer key",
-        );
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt carries no protocol body",
-        );
-    };
-    success(
+fn receipt_read(trace: u64) -> Response {
+    refusal(
         trace,
-        &serde_json::json!({
-            "activity_id": activity_id,
-            "receipt": receipt_hex,
-            "authority": {
-                "batch_id": hex_encode(&protocol.batch_id()),
-                "asset": hex_encode(&protocol.asset()),
-                "previous_state_root": hex_encode(&protocol.previous_state_root()),
-                "resulting_state_root": hex_encode(&protocol.resulting_state_root()),
-                "sequencer_public_key": hex_encode(&sequencer_public_key),
-            },
-        })
-        .to_string(),
+        410,
+        "legacy_receipt_verification_retired",
+        "historical receipts remain in snapshots; use pax_sequencerReceipt with pinned node keys for merged transaction evidence",
     )
 }
 
-fn evidence_read(emulator: &Emulator, evidence_id: &str, trace: u64) -> Response {
-    let Some(digest) = evidence_id
+fn evidence_read(evidence_id: &str, trace: u64) -> Response {
+    if evidence_id
         .strip_prefix("evd_")
         .filter(|hex| hex.len() == 64)
         .and_then(|hex| hex_decode(hex).ok())
-    else {
+        .is_none()
+    {
         return refusal(
             trace,
             400,
             "invalid_evidence_id",
             "evidence id must be evd_ followed by a 64-character hex digest",
         );
-    };
-    let sequencer_public_key = emulator.signing_key.verifying_key().to_bytes();
-    for receipt_hex in emulator.receipts.values() {
-        let Ok(bytes) = hex_decode(receipt_hex) else {
-            continue;
-        };
-        let Ok(receipt) = verify_sequencer_signature(&bytes, sequencer_public_key) else {
-            continue;
-        };
-        let Ok(unsigned) = layerx_wire::receipt::encode_unsigned(&receipt) else {
-            continue;
-        };
-        if layerx_wire::hash::receipt_digest(&unsigned).is_ok_and(|value| value[..] == digest[..]) {
-            return success(
-                trace,
-                &serde_json::json!({
-                    "evidence_id": evidence_id,
-                    "class": "layerx-receipt",
-                    "verification": "receipt-verified",
-                    "content_type": "application/vnd.layerx.receipt",
-                    "bytes_base64": base64_encode(&bytes),
-                })
-                .to_string(),
-            );
-        }
     }
     refusal(
         trace,
-        404,
-        "not_found",
-        "evidence is not present in this emulator process",
+        410,
+        "legacy_receipt_verification_retired",
+        "legacy receipt digest lookup is retired; use pax_sequencerReceipt with pinned node keys for merged transaction evidence",
     )
 }
 
@@ -3228,35 +1236,7 @@ fn journey_read(emulator: &Emulator, journey_id: &str, trace: u64) -> Response {
     )
 }
 
-fn base64_encode(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let first = chunk[0];
-        let second = chunk.get(1).copied().unwrap_or(0);
-        let third = chunk.get(2).copied().unwrap_or(0);
-        encoded.push(char::from(ALPHABET[usize::from(first >> 2)]));
-        encoded.push(char::from(
-            ALPHABET[usize::from(((first & 0x03) << 4) | (second >> 4))],
-        ));
-        if chunk.len() > 1 {
-            encoded.push(char::from(
-                ALPHABET[usize::from(((second & 0x0f) << 2) | (third >> 6))],
-            ));
-        } else {
-            encoded.push('=');
-        }
-        if chunk.len() > 2 {
-            encoded.push(char::from(ALPHABET[usize::from(third & 0x3f)]));
-        } else {
-            encoded.push('=');
-        }
-    }
-    encoded
-}
-
 fn route(emulator: &mut Emulator, request: &Request) -> Response {
-    let program_request = programs_request_path(&request.method, &request.path);
     let Some(trace) = advance_trace(&mut emulator.trace) else {
         let result = refusal(
             u64::MAX,
@@ -3264,51 +1244,22 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
             "trace_exhausted",
             "the emulator trace space is exhausted",
         );
-        return if program_request {
-            agent_response(
-                u64::MAX,
-                result,
-                &emulator.signing_key.verifying_key().to_bytes(),
-            )
-        } else {
-            result
-        };
+        return result;
     };
-    let result = match (request.method.as_str(), request.path.as_str()) {
+    match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/healthz") => health(emulator, trace),
+        ("GET", "/v1/surface") => success(trace, &surface::document()),
         ("GET", "/v1/sequencer") => sequencer_identity(emulator, trace),
-        ("GET", "/v1/protocol/account-state/head") => current_head(emulator, trace),
-        ("POST", "/v1/activities") => submit(emulator, request, trace),
-        ("POST", "/v1/settle") => settle(emulator, request, trace),
-        ("POST", "/v1/moves/quote") => move_quote(emulator, request, trace),
-        ("POST", "/v1/moves") => move_commit(emulator, request, trace),
-        (
-            "POST",
-            "/v1/programs/call"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down",
-        ) => program_call(emulator, request, trace),
-        ("POST", "/v1/programs/simulate") => program_simulate(emulator, request, trace),
-        ("GET", path)
-            if programs_route("GET", path)
-                && path.starts_with("/v1/programs/receipts/by-idempotency/") =>
-        {
-            program_receipt(emulator, request, trace)
-        }
-        ("GET", path)
-            if programs_route("GET", path) && path.starts_with("/v1/programs/activities/") =>
-        {
-            program_activity(emulator, request, trace)
-        }
+        ("GET", "/v1/protocol/account-state/head") => current_head(trace),
+        (_, "/v1/settle") => refusal(
+            trace,
+            410,
+            settlement::RETIRED_CODE,
+            settlement::RETIRED_DETAIL,
+        ),
         ("GET", "/v1/state") => inspect(emulator, trace),
         ("GET", path) if path.starts_with("/v1/dids/") && path.ends_with("/sequence") => {
             identity_sequence_read(emulator, path, trace)
-        }
-        ("GET", path)
-            if programs_route("GET", path) && path.starts_with("/v1/programs/registry/") =>
-        {
-            program_registry_read(emulator, request, path, trace)
         }
         ("POST", "/__emulator/accounts/prefund") => prefund(emulator, request, trace),
         ("POST", "/__emulator/time/set") => update_time(emulator, request, trace, false),
@@ -3316,16 +1267,14 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
         ("POST", "/__emulator/faults") => inject_fault(emulator, request, trace),
         ("GET", "/__emulator/snapshot") => export_snapshot(emulator, trace),
         ("PUT", "/__emulator/snapshot") => import_snapshot(emulator, &request.body, trace),
-        ("GET", path) if path.starts_with("/v1/evidence/") => {
-            evidence_read(emulator, &path[13..], trace)
-        }
+        ("GET", path) if path.starts_with("/v1/evidence/") => evidence_read(&path[13..], trace),
         ("GET", path) if path.starts_with("/v1/journeys/") => {
             journey_read(emulator, &path[13..], trace)
         }
         ("GET", path) if path.starts_with("/v1/receipts/") => {
             let id = &path[13..];
             match emulator.receipts.get(id) {
-                Some(receipt) => receipt_read(emulator, id, receipt, trace),
+                Some(_) => receipt_read(trace),
                 None => refusal(
                     trace,
                     404,
@@ -3336,12 +1285,9 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
         }
         (
             _,
-            "/v1/sequencer"
+            "/v1/surface"
+            | "/v1/sequencer"
             | "/v1/protocol/account-state/head"
-            | "/v1/activities"
-            | "/v1/moves/quote"
-            | "/v1/moves"
-            | "/v1/settle"
             | "/v1/state"
             | "/__emulator/accounts/prefund"
             | "/__emulator/time/set"
@@ -3355,209 +1301,7 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
             "method is not supported for this route",
         ),
         _ => refusal(trace, 404, "not_found", "route does not exist"),
-    };
-    if program_request
-        && !(request.method == "POST"
-            && (request.path == "/v1/programs/call"
-                || program_lifecycle::ordinal(&request.path).is_some())
-            && (200..300).contains(&result.status))
-    {
-        agent_response(
-            trace,
-            result,
-            &emulator.signing_key.verifying_key().to_bytes(),
-        )
-    } else {
-        result
     }
-}
-
-fn program_registry_read(
-    emulator: &mut Emulator,
-    request: &Request,
-    path: &str,
-    trace: u64,
-) -> Response {
-    let tail = &path[22..];
-    let (program_text, interface_only) = match tail.strip_suffix("/interface") {
-        Some(value) => (value, true),
-        None => (tail, false),
-    };
-    if !canonical_hex32_text(program_text) {
-        return refusal(
-            trace,
-            400,
-            "invalid_argument",
-            "program id must be canonical 32-byte hexadecimal",
-        );
-    }
-    if let Err(error) = program_selector(request, program_text) {
-        return refusal(trace, 400, "invalid_program_selector", &error);
-    }
-    let bytes = match hex_decode(program_text) {
-        Ok(bytes) if bytes.len() == 32 => bytes,
-        _ => {
-            return refusal(
-                trace,
-                400,
-                "invalid_argument",
-                "program id must be 32-byte hex",
-            )
-        }
-    };
-    let mut program = CoreProgram {
-        program_id: [0; 32],
-        code_hash: [0; 32],
-        deployment_receipt_digest: [0; 32],
-        version: 0,
-        abi_version: 0,
-        lifecycle: 0,
-        interface_bytes: ptr::null(),
-        interface_length: 0,
-        has_interface: 0,
-        state_root: [0; 32],
-        observed_sequence: 0,
-    };
-    let code =
-        unsafe { platform_emulator_program_read(emulator.core, bytes.as_ptr(), &raw mut program) };
-    if code != 0 {
-        return program_head_error(trace, code);
-    }
-    let mut live = CoreState {
-        canonical_state_root: [0; 32],
-        receipt_state_root: [0; 32],
-        next_sequence: 0,
-        batch_number: 0,
-        timestamp_ms: 0,
-        cell_count: 0,
-        account_count: 0,
-    };
-    let inspect_code = unsafe { platform_emulator_inspect(emulator.core, &raw mut live) };
-    if inspect_code != 0 {
-        return core_response(trace, inspect_code);
-    }
-    let Some(valid_through) = live.timestamp_ms.checked_add(300_000) else {
-        return refusal(trace, 503, "core_invalid_output", "freshness overflow");
-    };
-    let value_accounts = if interface_only {
-        None
-    } else {
-        match program_value_accounts(emulator, &program, trace) {
-            Ok(value) => Some(value),
-            Err(refused) => return refused,
-        }
-    };
-    program_registry_document(
-        &program,
-        &live,
-        valid_through,
-        interface_only,
-        trace,
-        &emulator.signing_key,
-        value_accounts.as_ref(),
-    )
-}
-
-fn program_simulate(emulator: &mut Emulator, request: &Request, trace: u64) -> Response {
-    let decoded = match decode_program_activity(request) {
-        Ok(activity) => activity,
-        Err(error) => return refusal(trace, 400, "invalid_program_call", &error),
-    };
-    let program_id = decoded.program_id;
-    let head = match active_program_head(emulator, program_id, trace) {
-        Ok(head) => head,
-        Err(response) => return response,
-    };
-    let live = match inspect_state(emulator) {
-        Ok(state) => state,
-        Err(code) => return core_response(trace, code),
-    };
-    let mut receipt = CoreReceipt {
-        activity_id: [0; 32],
-        batch_id: [0; 32],
-        state_root: [0; 32],
-        previous_state_root: [0; 32],
-        asset: [0; 32],
-        sequencer_public_key: [0; 32],
-        global_sequence: 0,
-        result_code: 0,
-        metered_cost_hi: 0,
-        metered_cost_lo: 0,
-        bytes: ptr::null(),
-        length: 0,
-        terminal_payload: ptr::null(),
-        terminal_payload_length: 0,
-        call_graph: ptr::null(),
-        call_graph_length: 0,
-        isolated_owner: ptr::null_mut(),
-    };
-    let code = unsafe {
-        platform_emulator_simulate(
-            emulator.core,
-            decoded.signed.as_ptr(),
-            decoded.signed.len(),
-            &raw mut receipt,
-        )
-    };
-    if code != 0 {
-        return core_response(trace, code);
-    }
-    let material = match take_core_receipt(&mut receipt) {
-        Ok(material) => material,
-        Err(error) => return refusal(trace, 503, "core_invalid_output", &error),
-    };
-    let verified = match verify_program_execution_with_payers(
-        &material.receipt,
-        &material.terminal_payload,
-        &material.call_graph,
-        ProgramExecutionExpectation {
-            sequencer_public_key: emulator.signing_key.verifying_key().to_bytes(),
-            previous_state_root: head.state_root,
-            activity_id: decoded.activity_id,
-            payload_hash: decoded.payload_hash,
-            program_id,
-            guest_abi_version: head.abi_version,
-        },
-        &registered_occupancy_payers(emulator),
-    ) {
-        Ok(verified)
-            if verified
-                .receipt()
-                .receipt()
-                .protocol()
-                .is_some_and(|protocol| {
-                    protocol.protocol_version() == decoded.protocol_version
-                }) =>
-        {
-            verified
-        }
-        Ok(_) | Err(_) => {
-            return refusal(
-                trace,
-                503,
-                "program_simulation_unverified",
-                "the simulated result did not verify against the discovered program head",
-            )
-        }
-    };
-    let execution = match verified_program_document(
-        &verified,
-        ProgramDocumentFields {
-            terminal_payload: &material.terminal_payload,
-            call_graph: &material.call_graph,
-            program_id,
-            guest_abi_version: head.abi_version,
-            sequencer_public_key: emulator.signing_key.verifying_key().to_bytes(),
-            state: "simulated",
-            idempotency_key: None,
-        },
-    ) {
-        Ok(document) => document,
-        Err(error) => return refusal(trace, 503, "core_invalid_output", &error),
-    };
-    program_simulation_document(
-        emulator, &decoded, &head, &live, &verified, &execution, trace,
-    )
 }
 
 fn parse_amount(value: &str) -> Result<(u64, u64), String> {
@@ -3597,7 +1341,7 @@ fn parse_config(arguments: impl IntoIterator<Item = String>) -> Result<Config, S
     let mut config = Config {
         listen: SocketAddr::from(([127, 0, 0, 1], DEFAULT_PORT)),
         network_id: DEFAULT_NETWORK_ID,
-        protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+        protocol_version: 2,
         timestamp_ms: DEFAULT_TIME_MS,
         prefunds: Vec::new(),
         sequencer_seed: None,
@@ -3654,7 +1398,7 @@ fn parse_config(arguments: impl IntoIterator<Item = String>) -> Result<Config, S
 }
 
 /// Starts the local gateway adapter around the production `LayerX` transition.
-fn platform_emulator(config: &Config) -> Result<(), String> {
+fn platform_emulator(config: &Config, shutdown: Arc<AtomicBool>) -> Result<(), String> {
     layerx_programs_runtime::retain_host_ffi_exports();
     layerx_programs_sandbox::retain_host_ffi_exports();
     let seed = config.sequencer_seed.ok_or_else(|| {
@@ -3679,7 +1423,6 @@ fn platform_emulator(config: &Config) -> Result<(), String> {
         core,
         signing_key: SigningKey::from_bytes(&seed),
         network_id: config.network_id,
-        protocol_version: config.protocol_version,
         receipts: HashMap::new(),
         receipt_order: VecDeque::new(),
         program_operations: HashMap::new(),
@@ -3704,7 +1447,7 @@ fn platform_emulator(config: &Config) -> Result<(), String> {
             ));
         }
     }
-    serve_emulator(config, emulator)
+    serve_emulator(config, emulator, shutdown)
 }
 
 /// Runs the emulator subcommand behind the unified `layerx` CLI dispatcher.
@@ -3714,7 +1457,19 @@ fn platform_emulator(config: &Config) -> Result<(), String> {
 /// Returns configuration, core-initialisation, or listener failures without
 /// terminating the owning CLI process.
 pub fn run(arguments: impl IntoIterator<Item = String>) -> Result<(), String> {
-    parse_config(arguments).and_then(|config| platform_emulator(&config))
+    run_until(arguments, Arc::new(AtomicBool::new(false)))
+}
+
+/// Runs the same gateway as [`run`] until the owner requests shutdown.
+/// Accepted requests drain before the listener, workers and core are released.
+///
+/// # Errors
+/// Returns configuration, core-initialisation, listener or worker failures.
+pub fn run_until(
+    arguments: impl IntoIterator<Item = String>,
+    shutdown: Arc<AtomicBool>,
+) -> Result<(), String> {
+    parse_config(arguments).and_then(|config| platform_emulator(&config, shutdown))
 }
 
 #[cfg(test)]
@@ -3804,366 +1559,8 @@ mod boundary_tests {
 }
 
 #[cfg(test)]
-mod program_call_tests {
-    use super::{
-        agent_error_class, agent_response, decode_activity, decode_program_activity,
-        decode_recovery_snapshot, encode_recovery_snapshot, hex_decode, hex_encode,
-        program_activity_selector, program_discovery_proof_digest, program_receipt_selector,
-        program_selector, programs_route, refusal, sign_program_discovery,
-        stored_program_operation_response, success, EmulatorAccount, MoveOperation,
-        MoveQuoteRecord, ProgramDiscoveryHead, ProgramOperation, Request, MAX_RECEIPT_BYTES,
-    };
-    use ed25519_dalek::SigningKey;
-    use sha2::{Digest as _, Sha256};
-    use std::collections::{HashMap, VecDeque};
-
-    const TEST_SEQUENCER_SEED: [u8; 32] = [0x42; 32];
-
-    fn test_sequencer_public_key() -> [u8; 32] {
-        SigningKey::from_bytes(&TEST_SEQUENCER_SEED)
-            .verifying_key()
-            .to_bytes()
-    }
-
-    fn discovery_head() -> ProgramDiscoveryHead {
-        ProgramDiscoveryHead {
-            program_id: [0x11; 32],
-            version: 3,
-            code_hash: [0x22; 32],
-            abi_version: 2,
-            observed_sequence: 77,
-            observed_at: 1_700_000_000_000,
-            valid_through: 1_700_000_300_000,
-            state_root: [0x33; 32],
-        }
-    }
-
-    fn signed_discovery_document() -> serde_json::Value {
-        let head = discovery_head();
-        let key = SigningKey::from_bytes(&TEST_SEQUENCER_SEED);
-        let (digest, signature) = sign_program_discovery(&key, &head);
-        serde_json::json!({
-            "program_id":hex_encode(&head.program_id),
-            "lifecycle":"active",
-            "version":head.version,
-            "code_hash":hex_encode(&head.code_hash),
-            "abi_version":head.abi_version,
-            "receipt_digest":hex_encode(&digest),
-            "deployment_receipt_digest":hex_encode(&[0x44; 32]),
-            "discovery_public_key":hex_encode(&key.verifying_key().to_bytes()),
-            "discovery_signature":hex_encode(&signature),
-            "state_root":hex_encode(&head.state_root),
-            "observed_sequence":head.observed_sequence.to_string(),
-            "observed_at":head.observed_at.to_string(),
-            "valid_through":head.valid_through.to_string(),
-            "verification":"registry-receipt-and-current-head-verified",
-        })
-    }
-
-    #[test]
-    fn discovery_proof_digest_matches_the_cli_layout_byte_for_byte() {
-        let head = discovery_head();
-        let mut expected = b"LayerX/program-discovery-proof/v1\0".to_vec();
-        expected.extend_from_slice(&[0x11; 32]);
-        expected.push(1);
-        expected.extend_from_slice(&3_u32.to_be_bytes());
-        expected.extend_from_slice(&[0x22; 32]);
-        expected.extend_from_slice(&2_u16.to_be_bytes());
-        expected.extend_from_slice(&77_u64.to_be_bytes());
-        expected.extend_from_slice(&1_700_000_000_000_u64.to_be_bytes());
-        expected.extend_from_slice(&1_700_000_300_000_u64.to_be_bytes());
-        expected.extend_from_slice(&[0x33; 32]);
-        assert_eq!(expected.len(), 34 + 32 + 1 + 4 + 32 + 2 + 8 + 8 + 8 + 32);
-        let expected_digest: [u8; 32] = Sha256::digest(&expected).into();
-        assert_eq!(program_discovery_proof_digest(&head), expected_digest);
-    }
-
-    #[test]
-    fn signed_discovery_is_sequencer_signed_only_under_the_trusted_key(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let document = signed_discovery_document();
-        let output = agent_response(
-            11,
-            success(11, &document.to_string()),
-            &test_sequencer_public_key(),
-        );
-        let wrapped: serde_json::Value = serde_json::from_slice(&output.body)?;
-        assert_eq!(
-            wrapped["verification_status"],
-            serde_json::json!({"state":"Achieved","level":"SequencerSigned"})
-        );
-        assert_eq!(
-            wrapped["value"]["receipt_digest"],
-            document["receipt_digest"]
-        );
-        assert_eq!(
-            wrapped["value"]["deployment_receipt_digest"],
-            document["deployment_receipt_digest"]
-        );
-
-        let unverified = serde_json::json!({
-            "state":"Unverified",
-            "requested":"SequencerSigned",
-            "achieved":"Unverified",
-            "reason":"server_side_receipt_verification_only",
-        });
-        let other_key = SigningKey::from_bytes(&[0x43; 32])
-            .verifying_key()
-            .to_bytes();
-        let output = agent_response(12, success(12, &document.to_string()), &other_key);
-        let wrapped: serde_json::Value = serde_json::from_slice(&output.body)?;
-        assert_eq!(wrapped["verification_status"], unverified);
-
-        for (field, tampered) in [
-            ("version", serde_json::json!(4)),
-            ("observed_sequence", serde_json::json!("78")),
-            ("valid_through", serde_json::json!("1700000300001")),
-            ("state_root", serde_json::json!(hex_encode(&[0x34; 32]))),
-            ("code_hash", serde_json::json!(hex_encode(&[0x23; 32]))),
-            ("abi_version", serde_json::json!(1)),
-            (
-                "discovery_signature",
-                serde_json::json!(hex_encode(&[0x55; 64])),
-            ),
-        ] {
-            let mut altered = document.clone();
-            altered[field] = tampered;
-            let output = agent_response(
-                13,
-                success(13, &altered.to_string()),
-                &test_sequencer_public_key(),
-            );
-            let wrapped: serde_json::Value = serde_json::from_slice(&output.body)?;
-            assert_eq!(wrapped["verification_status"], unverified, "{field}");
-        }
-        let mut unsigned = document.clone();
-        unsigned
-            .as_object_mut()
-            .map(|object| object.remove("discovery_signature"));
-        let output = agent_response(
-            14,
-            success(14, &unsigned.to_string()),
-            &test_sequencer_public_key(),
-        );
-        let wrapped: serde_json::Value = serde_json::from_slice(&output.body)?;
-        assert_eq!(wrapped["verification_status"], unverified);
-        Ok(())
-    }
-
-    /// A representative canonical program-call activity. The value only has to
-    /// be the exact bytes both ingress forms carry unchanged; the emulator hands
-    /// these same bytes to the real transition on every path.
-    const CANONICAL_ACTIVITY_HEX: &str = "4c61796572582f70726f6772616d732f63616c6c2f763100111111111111111111111111111111111111111111111111111111111111111100000000000003e8000000000000000000000000000000fa0002010300000002aabb";
-
-    fn json_request(hex: &str) -> Request {
-        Request {
-            method: "POST".to_string(),
-            path: "/v1/programs/call".to_string(),
-            content_type: "application/json".to_string(),
-            idempotency_key: None,
-            body: format!("{{\"activity\":\"{hex}\"}}").into_bytes(),
-        }
-    }
-
-    fn octet_request(bytes: &[u8]) -> Request {
-        Request {
-            method: "POST".to_string(),
-            path: "/v1/programs/call".to_string(),
-            content_type: "application/octet-stream".to_string(),
-            idempotency_key: None,
-            body: bytes.to_vec(),
-        }
-    }
-
-    #[test]
-    fn both_ingress_forms_feed_identical_bytes_to_the_transition() {
-        let Ok(expected) = hex_decode(CANONICAL_ACTIVITY_HEX) else {
-            panic!("golden activity hex did not decode");
-        };
-        let Ok(from_json) = decode_activity(&json_request(CANONICAL_ACTIVITY_HEX)) else {
-            panic!("program-call activity hex did not decode");
-        };
-        let Ok(from_octets) = decode_activity(&octet_request(&expected)) else {
-            panic!("octet-stream program-call activity did not decode");
-        };
-        assert_eq!(from_json, expected);
-        assert_eq!(from_octets, expected);
-        assert_eq!(from_json, from_octets);
-    }
-
-    #[test]
-    fn missing_activity_is_rejected() {
-        let request = Request {
-            method: "POST".to_string(),
-            path: "/v1/programs/call".to_string(),
-            content_type: "application/json".to_string(),
-            idempotency_key: None,
-            body: b"{}".to_vec(),
-        };
-        assert!(decode_activity(&request).is_err());
-    }
-
-    #[test]
-    fn duplicate_or_unknown_activity_fields_are_rejected() {
-        let duplicate = Request {
-            method: "POST".to_string(),
-            path: "/v1/programs/call".to_string(),
-            content_type: "application/json".to_string(),
-            idempotency_key: None,
-            body: b"{\"activity\":\"00\",\"activity\":\"11\"}".to_vec(),
-        };
-        let unknown = Request {
-            method: "POST".to_string(),
-            path: "/v1/programs/call".to_string(),
-            content_type: "application/json".to_string(),
-            idempotency_key: None,
-            body: b"{\"activity\":\"00\",\"trusted\":true}".to_vec(),
-        };
-        assert!(decode_activity(&duplicate).is_err());
-        assert!(decode_activity(&unknown).is_err());
-    }
-
-    #[test]
-    fn program_routes_share_the_exact_agent_envelope() -> Result<(), Box<dyn std::error::Error>> {
-        for state in ["refused", "unknown", "pending", "executed"] {
-            let mut inner = success(
-                7,
-                &format!(
-                    "{{\"state\":\"{state}\",\"global_sequence\":{},\"usage\":{{\"output_values\":\"7\"}}}}",
-                    u64::MAX
-                ),
-            );
-            if matches!(state, "unknown" | "pending") {
-                inner.status = 202;
-            }
-            let output = agent_response(7, inner, &test_sequencer_public_key());
-            let document: serde_json::Value = serde_json::from_slice(&output.body)?;
-            let verification_status = if matches!(state, "unknown" | "pending") {
-                serde_json::json!({
-                    "state":"Unverified",
-                    "requested":"SequencerSigned",
-                    "achieved":"Unverified",
-                    "reason":"receipt_pending",
-                })
-            } else {
-                serde_json::json!({"state":"Achieved","level":"SequencerSigned"})
-            };
-            assert_eq!(
-                document,
-                serde_json::json!({
-                    "request_id":"emu-0000000000000007",
-                    "value":{
-                        "state":state,
-                        "global_sequence":u64::MAX.to_string(),
-                        "usage":{"output_values":7}
-                    },
-                    "verification_status":verification_status,
-                })
-            );
-        }
-
-        let output = agent_response(
-            8,
-            refusal(8, 409, "idempotency_conflict", "different activity"),
-            &test_sequencer_public_key(),
-        );
-        let document: serde_json::Value = serde_json::from_slice(&output.body)?;
-        assert_eq!(
-            document,
-            serde_json::json!({
-                "class":"IdempotencyConflict",
-                "protocol_result_code":null,
-                "retriability":"Terminal",
-                "request_id":"emu-0000000000000008",
-                "reason":"idempotency_conflict",
-            })
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn discovery_is_explicitly_server_verified_only() -> Result<(), Box<dyn std::error::Error>> {
-        for verification in [
-            "registry-receipt-and-current-head-verified",
-            "deployment-interface-and-current-head-verified",
-        ] {
-            let output = agent_response(
-                9,
-                success(
-                    9,
-                    &serde_json::json!({
-                        "program_id":"a".repeat(64),
-                        "verification":verification
-                    })
-                    .to_string(),
-                ),
-                &test_sequencer_public_key(),
-            );
-            let document: serde_json::Value = serde_json::from_slice(&output.body)?;
-            assert_eq!(
-                document["verification_status"],
-                serde_json::json!({
-                    "state":"Unverified",
-                    "requested":"SequencerSigned",
-                    "achieved":"Unverified",
-                    "reason":"server_side_receipt_verification_only",
-                })
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn retained_unknown_operation_is_recoverable_without_a_false_signature_claim(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let operation = ProgramOperation {
-            activity_id: "a".repeat(64),
-            response: serde_json::json!({
-                "state":"unknown",
-                "activity_id":"a".repeat(64),
-                "idempotency_key":"b".repeat(64),
-                "retained_signed_activity":"00ff",
-            })
-            .to_string(),
-            retained_signed_activity: Some("00ff".to_owned()),
-        };
-        let stored = stored_program_operation_response(10, &operation);
-        assert_eq!(stored.status, 202);
-        let output = agent_response(10, stored, &test_sequencer_public_key());
-        let document: serde_json::Value = serde_json::from_slice(&output.body)?;
-        assert_eq!(document["value"]["retained_signed_activity"], "00ff");
-        assert_eq!(
-            document["verification_status"],
-            serde_json::json!({
-                "state":"Unverified",
-                "requested":"SequencerSigned",
-                "achieved":"Unverified",
-                "reason":"receipt_pending",
-            })
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn program_error_classes_are_stable_for_provider_parity() {
-        for (status, code, expected) in [
-            (409, "idempotency_conflict", "IdempotencyConflict"),
-            (429, "quota_exceeded", "RateLimit"),
-            (403, "activity_authorization_refused", "PolicyRefusal"),
-            (
-                503,
-                "program_receipt_verification_failed",
-                "VerificationFailure",
-            ),
-            (404, "program_interface_absent", "UnavailableCapability"),
-            (400, "LXP_ERR_BUDGET_EXCEEDED", "CoreRejection"),
-            (400, "invalid_argument", "ProtocolIncompatibility"),
-            (503, "persistence_unavailable", "TransportFailure"),
-            (400, "program_request_failed", "InternalFault"),
-        ] {
-            assert_eq!(agent_error_class(status, code), expected);
-        }
-    }
+mod recovery_snapshot_tests {
+    use super::*;
 
     #[test]
     fn recovery_snapshot_is_deterministic_and_preserves_program_indexes(
@@ -4325,127 +1722,6 @@ mod program_call_tests {
         assert!(decode_recovery_snapshot(&encoded).is_err());
         Ok(())
     }
-
-    #[test]
-    fn emulator_exposes_only_the_six_program_operation_routes() {
-        for path in [
-            "/v1/programs/deploy",
-            "/v1/programs/upgrade",
-            "/v1/programs/wind-down",
-        ] {
-            assert!(programs_route("POST", path));
-            assert!(!programs_route("GET", path));
-            assert!(!programs_route("PUT", path));
-            assert!(!programs_route("POST", &format!("{path}/")));
-        }
-        let id = "a".repeat(64);
-        assert!(programs_route("POST", "/v1/programs/call"));
-        assert!(programs_route("POST", "/v1/programs/simulate"));
-        assert!(programs_route(
-            "GET",
-            &format!("/v1/programs/registry/{id}")
-        ));
-        assert!(programs_route(
-            "GET",
-            &format!("/v1/programs/registry/{id}/interface")
-        ));
-        assert!(programs_route(
-            "GET",
-            &format!("/v1/programs/receipts/by-idempotency/{id}")
-        ));
-        assert!(programs_route(
-            "GET",
-            &format!("/v1/programs/activities/{id}")
-        ));
-        assert!(!programs_route("GET", "/v1/programs/registry"));
-        assert!(!programs_route(
-            "GET",
-            &format!("/v1/programs/registry/{id}/source")
-        ));
-        assert!(!programs_route(
-            "GET",
-            &format!("/v1/programs/activities/{}", "A".repeat(64))
-        ));
-    }
-
-    #[test]
-    fn program_get_selectors_bind_route_and_expected_activity() {
-        let program = "a".repeat(64);
-        let discovery = Request {
-            method: "GET".to_owned(),
-            path: format!("/v1/programs/registry/{program}"),
-            content_type: "application/json".to_owned(),
-            idempotency_key: None,
-            body: serde_json::json!({
-                "program_id":program.as_str(),
-                "requested_verification_level":"sequencer-signed",
-            })
-            .to_string()
-            .into_bytes(),
-        };
-        assert!(program_selector(&discovery, &program).is_ok());
-
-        let idempotency = "b".repeat(64);
-        let activity = "c".repeat(64);
-        let receipt = Request {
-            method: "GET".to_owned(),
-            path: format!("/v1/programs/receipts/by-idempotency/{idempotency}"),
-            content_type: "application/json".to_owned(),
-            idempotency_key: None,
-            body: serde_json::json!({
-                "idempotency_key":idempotency.as_str(),
-                "expected_activity_id":activity.as_str(),
-                "requested_verification_level":"sequencer-signed",
-            })
-            .to_string()
-            .into_bytes(),
-        };
-        assert_eq!(
-            program_receipt_selector(&receipt, &idempotency).as_deref(),
-            Ok(activity.as_str())
-        );
-        assert!(program_receipt_selector(&receipt, &"d".repeat(64)).is_err());
-
-        let lookup = Request {
-            method: "GET".to_owned(),
-            path: format!("/v1/programs/activities/{activity}"),
-            content_type: "application/json".to_owned(),
-            idempotency_key: None,
-            body: serde_json::json!({
-                "activity_id":activity.as_str(),
-                "requested_verification_level":"sequencer-signed",
-            })
-            .to_string()
-            .into_bytes(),
-        };
-        assert!(program_activity_selector(&lookup, &activity).is_ok());
-    }
-
-    #[test]
-    fn signed_program_activity_is_bounded_to_one_mebibyte() {
-        let request = Request {
-            method: "POST".to_owned(),
-            path: "/v1/programs/call".to_owned(),
-            content_type: "application/octet-stream".to_owned(),
-            idempotency_key: Some("a".repeat(64)),
-            body: vec![0; MAX_RECEIPT_BYTES + 1],
-        };
-        assert!(decode_program_activity(&request).is_err());
-    }
-}
-
-type MovePayload = (Vec<u8>, [u8; 32], [u8; 32]);
-type SignedMoveActivity = (Vec<u8>, [u8; 32], [u8; 32], [u8; 32]);
-
-#[derive(Clone, Copy)]
-struct ProgramDocumentFields<'a> {
-    terminal_payload: &'a [u8],
-    call_graph: &'a [u8],
-    program_id: [u8; 32],
-    guest_abi_version: u16,
-    sequencer_public_key: [u8; 32],
-    state: &'a str,
-    idempotency_key: Option<&'a str>,
 }
 
 fn parse_request_headers(bytes: &[u8], header_end: usize) -> Result<RequestHeaders, String> {
@@ -4499,21 +1775,12 @@ fn parse_request_headers(bytes: &[u8], header_end: usize) -> Result<RequestHeade
             has_host = true;
         } else if name.eq_ignore_ascii_case("idempotency-key") {
             if idempotency_key.is_some()
-                || if target == "/v1/programs/call" {
-                    value.is_empty() || value.len() > 128
-                } else if target == "/v1/moves" {
-                    !valid_human_idempotency(value)
-                } else {
-                    value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit())
-                }
+                || value.len() != 64
+                || !value.bytes().all(|byte| byte.is_ascii_hexdigit())
             {
                 return Err("invalid idempotency key".into());
             }
-            idempotency_key = Some(if matches!(target, "/v1/programs/call" | "/v1/moves") {
-                value.to_owned()
-            } else {
-                value.to_ascii_lowercase()
-            });
+            idempotency_key = Some(value.to_ascii_lowercase());
         } else if name.eq_ignore_ascii_case("transfer-encoding") {
             return Err("transfer encoding is not supported".into());
         }
@@ -4524,21 +1791,17 @@ fn parse_request_headers(bytes: &[u8], header_end: usize) -> Result<RequestHeade
     if matches!(method, "POST" | "PUT") && !has_content_length {
         return Err("write request is missing content length".into());
     }
-    let programs_get = method == "GET"
-        && (target.starts_with("/v1/programs/registry/")
-            || target.starts_with("/v1/programs/receipts/by-idempotency/")
-            || target.starts_with("/v1/programs/activities/"));
-    if !matches!(method, "POST" | "PUT") && !programs_get && content_length != 0 {
+    if !matches!(method, "POST" | "PUT") && content_length != 0 {
         return Err("read request may not carry a body".into());
     }
     if content_length > MAX_REQUEST_BYTES {
         return Err("request body exceeds emulator limit".into());
     }
     let method = method.to_owned();
-    Ok((method, path, content_type, idempotency_key, content_length))
+    Ok((method, path, content_type, content_length))
 }
 
-type RequestHeaders = (String, String, String, Option<String>, usize);
+type RequestHeaders = (String, String, String, usize);
 
 fn parse_request_line(request_line: &str) -> Result<(&str, &str), String> {
     let mut request_fields = request_line.split(' ');
@@ -4560,303 +1823,16 @@ fn parse_request_line(request_line: &str) -> Result<(&str, &str), String> {
     Ok((method, target))
 }
 
-fn program_lifecycle_name(lifecycle: u8) -> Option<&'static str> {
-    match lifecycle {
-        1 => Some("active"),
-        2 => Some("deprecated"),
-        3 => Some("tombstoned"),
-        _ => None,
-    }
-}
-
-/// Reads the program's receipt-proven value accounts out of the core and
-/// renders them in the hosted registry's `value_accounts` shape
-/// (`services/platform/hosted/registry/src/routes.rs`): the frozen ABI-one programs that
-/// cannot own accounts publish the account-incapable block, and an ABI-two
-/// program publishes its own balances under the account-primary and state proof
-/// the core verified against the current head.
-fn program_value_accounts(
-    emulator: &mut Emulator,
-    program: &CoreProgram,
-    trace: u64,
-) -> Result<serde_json::Value, Response> {
-    let mut accounts = [CoreValueAccount {
-        account_id: [0; 32],
-        asset_id: [0; 32],
-        balance_hi: 0,
-        balance_lo: 0,
-        frozen: 0,
-    }; PROGRAM_VALUE_ACCOUNT_CAPACITY];
-    let mut proof = CoreValueAccountProof {
-        receipt_digest: [0; 32],
-        state_root: [0; 32],
-        observed_sequence: 0,
-        observed_at: 0,
-        abi_version: 0,
-        count: 0,
-    };
-    let mut account_profile = [0_u8; 33];
-    let code = unsafe {
-        if layerx_programs_runtime::abi_policy::account_profile2_guest_supported(
-            program.abi_version,
-        ) {
-            platform_emulator_program_value_accounts_profile2(
-                emulator.core,
-                program.program_id.as_ptr(),
-                accounts.as_mut_ptr(),
-                accounts.len(),
-                &raw mut proof,
-                account_profile.as_mut_ptr(),
-            )
-        } else {
-            platform_emulator_program_value_accounts(
-                emulator.core,
-                program.program_id.as_ptr(),
-                accounts.as_mut_ptr(),
-                accounts.len(),
-                &raw mut proof,
-            )
-        }
-    };
-    if code != 0 {
-        return Err(refusal(
-            trace,
-            503,
-            "balance_read_unavailable",
-            &format!(
-                "the core refused a receipt-proven program balance read: {}",
-                core_error(code)
-            ),
-        ));
-    }
-    if proof.abi_version != program.abi_version || proof.count > accounts.len() {
-        return Err(refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "program balance proof does not match the program or account capacity",
-        ));
-    }
-    if proof.abi_version == 1 && proof.count == 0 {
-        return Ok(serde_json::json!({
-            "status":"account-incapable-abi1",
-            "accounts":[],
-        }));
-    }
-    let profile2 = account_profile[0] == 2
-        && account_profile[1..].iter().any(|byte| *byte != 0)
-        && layerx_programs_runtime::abi_policy::account_profile2_guest_supported(proof.abi_version);
-    let legacy_profile =
-        account_profile == [0; 33] && proof.abi_version == PROGRAM_ACCOUNT_ABI_VERSION;
-    if !profile2 && !legacy_profile {
-        return Err(refusal(
-            trace,
-            502,
-            "balance_protocol_unsupported",
-            "program value accounts require the frozen ABI-two account protocol",
-        ));
-    }
-    let Some(lifecycle) = program_lifecycle_name(program.lifecycle) else {
-        return Err(refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "program lifecycle is invalid",
-        ));
-    };
-    if proof.observed_sequence == 0
-        || proof.observed_at == 0
-        || proof.receipt_digest == [0; 32]
-        || proof.state_root == [0; 32]
-    {
-        return Err(refusal(
-            trace,
-            503,
-            "balance_read_unavailable",
-            "the program balance proof is not current at the observed head",
-        ));
-    }
-    let mut document = serde_json::json!({
-        "status":"current",
-        "lifecycle":lifecycle,
-        "accounts":accounts[..proof.count].iter().map(|account| serde_json::json!({
-            "account_id":hex_encode(&account.account_id),
-            "asset_id":hex_encode(&account.asset_id),
-            "balance":((u128::from(account.balance_hi) << 64) | u128::from(account.balance_lo)).to_string(),
-            "frozen":account.frozen == 1,
-        })).collect::<Vec<serde_json::Value>>(),
-        "receipt":{
-            "receipt_digest":hex_encode(&proof.receipt_digest),
-            "state_root":hex_encode(&proof.state_root),
-            "observed_sequence":proof.observed_sequence.to_string(),
-            "observed_at":proof.observed_at.to_string(),
-            "verification":"account-primary-and-state-proof-verified",
-        },
-    });
-    if profile2 {
-        document["account_profile"] = serde_json::json!({
-            "version":2,
-            "owner":hex_encode(&account_profile[1..]),
-        });
-    }
-    Ok(document)
-}
-
-fn program_registry_document(
-    program: &CoreProgram,
-    live: &CoreState,
-    valid_through: u64,
-    interface_only: bool,
-    trace: u64,
-    signing_key: &SigningKey,
-    value_accounts: Option<&serde_json::Value>,
-) -> Response {
-    let Some(lifecycle) = program_lifecycle_name(program.lifecycle) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "program lifecycle is invalid",
-        );
-    };
-    if !interface_only {
-        let head = ProgramDiscoveryHead {
-            program_id: program.program_id,
-            version: program.version,
-            code_hash: program.code_hash,
-            abi_version: program.abi_version,
-            observed_sequence: program.observed_sequence,
-            observed_at: live.timestamp_ms,
-            valid_through,
-            state_root: program.state_root,
-        };
-        let (proof_digest, proof_signature) = sign_program_discovery(signing_key, &head);
-        let mut discovery = serde_json::json!({
-            "program_id":hex_encode(&program.program_id),
-            "lifecycle":lifecycle,
-            "version":program.version,
-            "code_hash":hex_encode(&program.code_hash),
-            "abi_version":program.abi_version,
-            "receipt_digest":hex_encode(&proof_digest),
-            "deployment_receipt_digest":hex_encode(&program.deployment_receipt_digest),
-            "discovery_public_key":hex_encode(&signing_key.verifying_key().to_bytes()),
-            "discovery_signature":hex_encode(&proof_signature),
-            "state_root":hex_encode(&program.state_root),
-            "observed_sequence":program.observed_sequence.to_string(),
-            "observed_at":live.timestamp_ms.to_string(),
-            "valid_through":valid_through.to_string(),
-            "verification":"registry-receipt-and-current-head-verified",
-        });
-        let (Some(value_accounts), Some(object)) = (value_accounts, discovery.as_object_mut())
-        else {
-            return refusal(
-                trace,
-                503,
-                "balance_read_unavailable",
-                "a current receipt-proven program balance read is not available",
-            );
-        };
-        object.insert("value_accounts".to_owned(), value_accounts.clone());
-        return success(trace, &discovery.to_string());
-    }
-    if program.has_interface == 0 {
-        return refusal(
-            trace,
-            404,
-            "program_interface_absent",
-            "program has no published interface",
-        );
-    }
-    if program.has_interface != 1
-        || program.interface_bytes.is_null()
-        || program.interface_length == 0
-        || program.interface_length > 952
-    {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "program interface state is invalid",
-        );
-    }
-    let interface =
-        unsafe { slice::from_raw_parts(program.interface_bytes, program.interface_length) };
-    let interface_digest: [u8; 32] = Sha256::digest(interface).into();
-    let interface = serde_json::json!({
-        "program_id":hex_encode(&program.program_id),
-        "version":program.version,
-        "code_hash":hex_encode(&program.code_hash),
-        "abi_version":program.abi_version,
-        "interface":hex_encode(interface),
-        "interface_digest":hex_encode(&interface_digest),
-        "receipt_digest":hex_encode(&program.deployment_receipt_digest),
-        "state_root":hex_encode(&program.state_root),
-        "observed_sequence":program.observed_sequence.to_string(),
-        "observed_at":live.timestamp_ms.to_string(),
-        "valid_through":valid_through.to_string(),
-        "source":{"status":"unpublished"},
-        "verification":"deployment-interface-and-current-head-verified",
-    });
-    success(trace, &interface.to_string())
-}
-
-fn program_simulation_document(
-    emulator: &Emulator,
-    decoded: &DecodedProgramActivity,
-    head: &CoreProgram,
-    live: &CoreState,
-    verified: &VerifiedProgramExecution,
-    execution: &serde_json::Value,
-    trace: u64,
-) -> Response {
-    let signing = &emulator.signing_key;
-    let mut boundary_material = b"LayerX/emulator/simulation-boundary/v1\0".to_vec();
-    boundary_material.extend_from_slice(&signing.verifying_key().to_bytes());
-    let boundary_id: [u8; 32] = Sha256::digest(&boundary_material).into();
-    let mut evidence = b"LayerX/agent/program-simulation-evidence/v1\0".to_vec();
-    evidence.extend_from_slice(&boundary_id);
-    evidence.extend_from_slice(&decoded.activity_id);
-    evidence.extend_from_slice(&head.state_root);
-    let hypothetical_state_root = verified
-        .receipt()
-        .receipt()
-        .protocol()
-        .map(layerx_wire::receipt::ProtocolReceipt::resulting_state_root);
-    let Some(hypothetical_state_root) = hypothetical_state_root else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "verified simulation has no protocol state root",
-        );
-    };
-    evidence.extend_from_slice(&hypothetical_state_root);
-    evidence.extend_from_slice(&head.observed_sequence.to_be_bytes());
-    evidence.extend_from_slice(&live.timestamp_ms.to_be_bytes());
-    evidence.push(0);
-    let evidence_digest: [u8; 32] = Sha256::digest(&evidence).into();
-    let evidence_signature = signing.sign(&evidence_digest).to_bytes();
-    let response = serde_json::json!({
-        "committed":false,
-        "execution":execution,
-        "simulation_evidence":{
-            "boundary_id":hex_encode(&boundary_id),
-            "activity_id":hex_encode(&decoded.activity_id),
-            "previous_state_root":hex_encode(&head.state_root),
-            "hypothetical_state_root":hex_encode(&hypothetical_state_root),
-            "observed_sequence":head.observed_sequence.to_string(),
-            "observed_at":live.timestamp_ms.to_string(),
-            "committed":false,
-            "public_key":hex_encode(&signing.verifying_key().to_bytes()),
-            "signature":hex_encode(&evidence_signature),
-        },
-    });
-    success(trace, &response.to_string())
-}
-
-fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String> {
+fn serve_emulator(
+    config: &Config,
+    mut emulator: Emulator,
+    shutdown: Arc<AtomicBool>,
+) -> Result<(), String> {
     let listener = TcpListener::bind(config.listen)
         .map_err(|error| format!("cannot listen on {}: {error}", config.listen))?;
+    listener
+        .set_nonblocking(true)
+        .map_err(|error| error.to_string())?;
     eprintln!(
         "LayerX emulator ready on http://{} (network {}, deterministic time {})",
         config.listen, config.network_id, config.timestamp_ms
@@ -4865,50 +1841,56 @@ fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String>
     let admission_receiver = Arc::new(Mutex::new(admission_receiver));
     let (transition_sender, transition_receiver) =
         sync_channel::<ParsedConnection>(TRANSITION_CAPACITY);
+    let mut workers = Vec::with_capacity(PARSER_WORKERS);
     for index in 0..PARSER_WORKERS {
         let admission_receiver = Arc::clone(&admission_receiver);
         let transition_sender = transition_sender.clone();
-        thread::Builder::new()
-            .name(format!("layerx-emulator-http-{index}"))
-            .spawn(move || loop {
-                let stream = match admission_receiver.lock() {
-                    Ok(receiver) => receiver.recv(),
-                    Err(_) => return,
-                };
-                let Ok(mut stream) = stream else {
-                    return;
-                };
-                if stream
-                    .set_read_timeout(Some(IO_TIMEOUT))
-                    .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
-                    .is_err()
-                {
-                    continue;
-                }
-                let request = parse_request(&mut stream);
-                let (response_sender, response_receiver) = sync_channel(1);
-                if transition_sender
-                    .send(ParsedConnection {
-                        request,
-                        response: response_sender,
-                    })
-                    .is_err()
-                {
-                    return;
-                }
-                let Ok(response) = response_receiver.recv() else {
-                    return;
-                };
-                let _ = write_response(&mut stream, &response);
-            })
-            .map_err(|error| format!("could not start emulator HTTP worker {index}: {error}"))?;
+        workers.push(
+            thread::Builder::new()
+                .name(format!("layerx-emulator-http-{index}"))
+                .spawn(move || loop {
+                    let stream = match admission_receiver.lock() {
+                        Ok(receiver) => receiver.recv(),
+                        Err(_) => return,
+                    };
+                    let Ok(mut stream) = stream else {
+                        return;
+                    };
+                    if stream
+                        .set_read_timeout(Some(IO_TIMEOUT))
+                        .and_then(|()| stream.set_write_timeout(Some(IO_TIMEOUT)))
+                        .is_err()
+                    {
+                        continue;
+                    }
+                    let request = parse_request(&mut stream);
+                    let (response_sender, response_receiver) = sync_channel(1);
+                    if transition_sender
+                        .send(ParsedConnection {
+                            request,
+                            response: response_sender,
+                        })
+                        .is_err()
+                    {
+                        return;
+                    }
+                    let Ok(response) = response_receiver.recv() else {
+                        return;
+                    };
+                    let _ = write_response(&mut stream, &response);
+                })
+                .map_err(|error| {
+                    format!("could not start emulator HTTP worker {index}: {error}")
+                })?,
+        );
     }
     drop(transition_sender);
-    thread::Builder::new()
+    let admission_shutdown = Arc::clone(&shutdown);
+    let admission = thread::Builder::new()
         .name("layerx-emulator-admission".to_owned())
         .spawn(move || {
-            for connection in listener.incoming() {
-                match connection {
+            while !admission_shutdown.load(Ordering::Acquire) {
+                match listener.accept().map(|(stream, _)| stream) {
                     Ok(stream) => match admission_sender.try_send(stream) {
                         Ok(()) => {}
                         Err(TrySendError::Full(mut stream)) => {
@@ -4923,7 +1905,13 @@ fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String>
                         }
                         Err(TrySendError::Disconnected(_)) => return,
                     },
-                    Err(error) => eprintln!("emulator connection error: {error}"),
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => {
+                        eprintln!("emulator connection error: {error}");
+                        return;
+                    }
                 }
             }
         })
@@ -4946,468 +1934,17 @@ fn serve_emulator(config: &Config, mut emulator: Emulator) -> Result<(), String>
         };
         let _ = work.response.send(response);
     }
-    Err("all emulator HTTP workers stopped".into())
-}
-
-fn quote_accounts(
-    emulator: &mut Emulator,
-    body: MoveQuoteBody,
-    amount: u128,
-    trace: u64,
-) -> Response {
-    let source_authority = match emulator.accounts.get(&body.source) {
-        Some(value) => value.clone(),
-        None => {
-            return refusal(
-                trace,
-                404,
-                "move_source_not_found",
-                "source account is not registered in this emulator",
-            )
-        }
-    };
-    if source_authority.public_key != emulator.signing_key.verifying_key().to_bytes() {
-        return refusal(
-            trace,
-            409,
-            "move_source_not_managed",
-            "source account is not controlled by the emulator signing authority",
-        );
+    admission
+        .join()
+        .map_err(|_| "emulator admission worker panicked")?;
+    for worker in workers {
+        worker.join().map_err(|_| "emulator HTTP worker panicked")?;
     }
-    let source = match core_account(emulator, &body.source) {
-        Ok(Some(value)) => value,
-        Ok(None) => {
-            return refusal(
-                trace,
-                404,
-                "move_source_not_found",
-                "source account is absent from canonical state",
-            )
-        }
-        Err(code) => return core_response(trace, code),
-    };
-    let identity_sequence = match core_identity_sequence(emulator, &source_authority.did) {
-        Ok(value) => value,
-        Err(code) => return core_response(trace, code),
-    };
-    if identity_sequence.checked_add(1).is_none() || source.next_sequence.checked_add(1).is_none() {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "move source sequence is exhausted",
-        );
-    }
-    let destination = match core_account(emulator, &body.destination) {
-        Ok(Some(value)) => value,
-        Ok(None) => {
-            return refusal(
-                trace,
-                404,
-                "move_destination_not_found",
-                "destination account is absent from canonical state",
-            )
-        }
-        Err(code) => return core_response(trace, code),
-    };
-    if destination.balance.checked_add(amount).is_none() {
-        return refusal(
-            trace,
-            409,
-            "move_balance_unavailable",
-            "destination canonical balance cannot accept the requested move",
-        );
-    }
-    if source.id != source_authority.id || source.balance < amount {
-        return refusal(
-            trace,
-            409,
-            "move_balance_unavailable",
-            "source canonical balance cannot cover the requested move",
-        );
-    }
-    retain_move_quote(
-        emulator,
-        body,
-        amount,
-        &source,
-        &destination,
-        identity_sequence,
-        trace,
-    )
-}
-
-fn retain_move_quote(
-    emulator: &mut Emulator,
-    body: MoveQuoteBody,
-    amount: u128,
-    source: &CoreAccountView,
-    destination: &CoreAccountView,
-    identity_sequence: u64,
-    trace: u64,
-) -> Response {
-    let state = match inspect_state(emulator) {
-        Ok(value) => value,
-        Err(code) => return core_response(trace, code),
-    };
-    let Some(expires_at) = state.timestamp_ms.checked_add(MOVE_QUOTE_WINDOW_MS) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "move quote expiry overflowed",
-        );
-    };
-    if timestamp_text(state.timestamp_ms).is_err() || timestamp_text(expires_at).is_err() {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "move quote timestamp is outside the supported range",
-        );
-    }
-    let mut quote_material = Vec::new();
-    let Ok(source_length) = u16::try_from(body.source.len()) else {
-        return refusal(
-            trace,
-            400,
-            "invalid_move_quote",
-            "move account length exceeds its canonical bound",
-        );
-    };
-    quote_material.extend_from_slice(&source_length.to_be_bytes());
-    quote_material.extend_from_slice(body.source.as_bytes());
-    let Ok(destination_length) = u16::try_from(body.destination.len()) else {
-        return refusal(
-            trace,
-            400,
-            "invalid_move_quote",
-            "move account length exceeds its canonical bound",
-        );
-    };
-    quote_material.extend_from_slice(&destination_length.to_be_bytes());
-    quote_material.extend_from_slice(body.destination.as_bytes());
-    quote_material.extend_from_slice(&amount.to_be_bytes());
-    quote_material.extend_from_slice(&state.timestamp_ms.to_be_bytes());
-    quote_material.extend_from_slice(&expires_at.to_be_bytes());
-    quote_material.extend_from_slice(&identity_sequence.to_be_bytes());
-    quote_material.extend_from_slice(&source.next_sequence.to_be_bytes());
-    quote_material.extend_from_slice(&state.canonical_state_root);
-    quote_material.extend_from_slice(&state.receipt_state_root);
-    let quote_id = format!(
-        "qte_{}",
-        hex_encode(&hash_bytes(MOVE_QUOTE_DOMAIN, &quote_material))
-    );
-    let quote = MoveQuoteRecord {
-        quote_id: quote_id.clone(),
-        source: body.source,
-        destination: body.destination,
-        source_id: source.id,
-        destination_id: destination.id,
-        amount,
-        currency: body.money.currency,
-        created_at: state.timestamp_ms,
-        expires_at,
-        identity_sequence,
-        source_sequence: source.next_sequence,
-        committed_idempotency: None,
-    };
-    let document = match move_quote_document(&quote) {
-        Ok(value) => value,
-        Err(error) => return refusal(trace, 503, "core_invalid_output", &error),
-    };
-    emulator.move_quotes.insert(quote_id, quote);
-    success(trace, &document.to_string())
-}
-
-fn execute_program_call(
-    emulator: &mut Emulator,
-    decoded: &DecodedProgramActivity,
-    lifecycle: bool,
-    protocol_idempotency: String,
-    activity_id: String,
-    trace: u64,
-) -> Response {
-    let program_id = decoded.program_id;
-    let head = match if lifecycle {
-        Ok(None)
+    if shutdown.load(Ordering::Acquire) {
+        Ok(())
     } else {
-        active_program_head(emulator, program_id, trace).map(Some)
-    } {
-        Ok(head) => head,
-        Err(response) => return response,
-    };
-    let before = match inspect_state(emulator) {
-        Ok(state) => state,
-        Err(code) => return core_response(trace, code),
-    };
-    let mut receipt = CoreReceipt {
-        activity_id: [0; 32],
-        batch_id: [0; 32],
-        state_root: [0; 32],
-        previous_state_root: [0; 32],
-        asset: [0; 32],
-        sequencer_public_key: [0; 32],
-        global_sequence: 0,
-        result_code: 0,
-        metered_cost_hi: 0,
-        metered_cost_lo: 0,
-        bytes: ptr::null(),
-        length: 0,
-        terminal_payload: ptr::null(),
-        terminal_payload_length: 0,
-        call_graph: ptr::null(),
-        call_graph_length: 0,
-        isolated_owner: ptr::null_mut(),
-    };
-    let code = unsafe {
-        platform_emulator_execute(
-            emulator.core,
-            decoded.signed.as_ptr(),
-            decoded.signed.len(),
-            &raw mut receipt,
-        )
-    };
-    if code == -904 {
-        let retained_signed_activity = hex_encode(&decoded.signed);
-        let response = serde_json::json!({
-            "state":"unknown",
-            "activity_id":activity_id.as_str(),
-            "idempotency_key":protocol_idempotency.as_str(),
-            "retained_signed_activity":retained_signed_activity.as_str(),
-        })
-        .to_string();
-        emulator
-            .program_activity_operations
-            .insert(activity_id.clone(), protocol_idempotency.clone());
-        let operation = ProgramOperation {
-            activity_id,
-            response,
-            retained_signed_activity: Some(retained_signed_activity),
-        };
-        let result = stored_program_operation_response(trace, &operation);
-        emulator
-            .program_operations
-            .insert(protocol_idempotency, operation);
-        return result;
+        Err("all emulator HTTP workers stopped".into())
     }
-    if code != 0 {
-        return core_response(trace, code);
-    }
-    let authority = AuthorizedBatch::new(
-        receipt.batch_id,
-        receipt.asset,
-        receipt.previous_state_root,
-        receipt.state_root,
-        emulator.signing_key.verifying_key().to_bytes(),
-    );
-    let lifecycle_result_code = receipt.result_code;
-    let material = match take_core_receipt(&mut receipt) {
-        Ok(material) => material,
-        Err(error) => return refusal(trace, 503, "core_invalid_output", &error),
-    };
-    retain_program_execution(
-        emulator,
-        ProgramExecutionResult {
-            decoded,
-            lifecycle,
-            protocol_idempotency,
-            activity_id,
-            head,
-            before,
-            authority,
-            lifecycle_result_code,
-            material,
-        },
-        trace,
-    )
-}
-
-fn retain_program_execution(
-    emulator: &mut Emulator,
-    result: ProgramExecutionResult<'_>,
-    trace: u64,
-) -> Response {
-    let ProgramExecutionResult {
-        decoded,
-        lifecycle,
-        protocol_idempotency,
-        activity_id,
-        head,
-        before,
-        authority,
-        lifecycle_result_code,
-        material,
-    } = result;
-    let program_id = decoded.program_id;
-    if authority.previous_state_root() != before.receipt_state_root {
-        return refusal(
-            trace,
-            503,
-            "program_receipt_verification_failed",
-            "the core batch does not continue from the trusted state boundary",
-        );
-    }
-    if lifecycle {
-        return retain_lifecycle_execution(
-            emulator,
-            LifecycleExecution {
-                decoded,
-                protocol_idempotency,
-                activity_id,
-                authority,
-                lifecycle_result_code,
-                material: &material,
-            },
-            trace,
-        );
-    }
-    let Some(head) = head else {
-        return refusal(
-            trace,
-            503,
-            "program_head_unavailable",
-            "call requires a verified program head",
-        );
-    };
-    let verified = match verify_authorized_program_execution_with_payers(
-        &material.receipt,
-        &material.terminal_payload,
-        &material.call_graph,
-        &AuthorizedProgramExecutionExpectation {
-            authority,
-            activity_id: decoded.activity_id,
-            payload_hash: decoded.payload_hash,
-            program_id,
-            guest_abi_version: head.abi_version,
-        },
-        &registered_occupancy_payers(emulator),
-    ) {
-        Ok(verified)
-            if verified
-                .receipt()
-                .receipt()
-                .protocol()
-                .is_some_and(|protocol| {
-                    protocol.protocol_version() == decoded.protocol_version
-                }) =>
-        {
-            verified
-        }
-        Ok(_) | Err(_) => {
-            return refusal(
-                trace,
-                503,
-                "program_receipt_verification_failed",
-                "the core result did not verify against the submitted call and trusted state",
-            )
-        }
-    };
-    let mut document = match verified_program_document(
-        &verified,
-        ProgramDocumentFields {
-            terminal_payload: &material.terminal_payload,
-            call_graph: &material.call_graph,
-            program_id,
-            guest_abi_version: head.abi_version,
-            sequencer_public_key: emulator.signing_key.verifying_key().to_bytes(),
-            state: "executed",
-            idempotency_key: Some(&protocol_idempotency),
-        },
-    ) {
-        Ok(document) => document,
-        Err(error) => return refusal(trace, 503, "core_invalid_output", &error),
-    };
-    if let (Some(payers), Some(object)) = (
-        occupancy_payers_json(emulator, &verified),
-        document.as_object_mut(),
-    ) {
-        object.insert("occupancy_payers".to_owned(), payers);
-    }
-    document["retained_signed_activity"] = serde_json::Value::String(hex_encode(&decoded.signed));
-    let response = document.to_string();
-    let receipt_hex = hex_encode(&material.receipt);
-    remember_receipt(emulator, activity_id.clone(), receipt_hex);
-    emulator
-        .program_activity_operations
-        .insert(activity_id.clone(), protocol_idempotency.clone());
-    emulator.program_operations.insert(
-        protocol_idempotency,
-        ProgramOperation {
-            activity_id,
-            response: response.clone(),
-            retained_signed_activity: Some(hex_encode(&decoded.signed)),
-        },
-    );
-    success(trace, &response)
-}
-
-struct ProgramExecutionResult<'a> {
-    decoded: &'a DecodedProgramActivity,
-    lifecycle: bool,
-    protocol_idempotency: String,
-    activity_id: String,
-    head: Option<CoreProgram>,
-    before: CoreState,
-    authority: AuthorizedBatch,
-    lifecycle_result_code: c_int,
-    material: OwnedCoreReceipt,
-}
-
-struct LifecycleExecution<'a> {
-    decoded: &'a DecodedProgramActivity,
-    protocol_idempotency: String,
-    activity_id: String,
-    authority: AuthorizedBatch,
-    lifecycle_result_code: c_int,
-    material: &'a OwnedCoreReceipt,
-}
-fn retain_lifecycle_execution(
-    emulator: &mut Emulator,
-    result: LifecycleExecution<'_>,
-    trace: u64,
-) -> Response {
-    let LifecycleExecution {
-        decoded,
-        protocol_idempotency,
-        activity_id,
-        authority,
-        lifecycle_result_code,
-        material,
-    } = result;
-    let valid =
-        program_lifecycle::verify_receipt(&material.receipt, &authority, decoded.activity_id)
-            .is_ok();
-    if !valid || material.activity_id != decoded.activity_id {
-        return refusal(
-            trace,
-            503,
-            "program_receipt_verification_failed",
-            "lifecycle receipt does not bind the submitted activity and state",
-        );
-    }
-    let receipt_hex = hex_encode(&material.receipt);
-    let response = serde_json::json!({
-        "activity_id": activity_id, "receipt": receipt_hex,
-        "idempotency_key": protocol_idempotency,
-        "state": if lifecycle_result_code == 0 { "completed" } else { "refused" },
-        "terminal_payload": "", "call_graph": "",
-    })
-    .to_string();
-    remember_receipt(emulator, activity_id.clone(), receipt_hex);
-    emulator
-        .program_activity_operations
-        .insert(activity_id.clone(), protocol_idempotency.clone());
-    let operation = ProgramOperation {
-        activity_id,
-        response: response.clone(),
-        retained_signed_activity: Some(hex_encode(&decoded.signed)),
-    };
-    let response = stored_program_operation_response(trace, &operation);
-    emulator
-        .program_operations
-        .insert(protocol_idempotency, operation);
-    response
 }
 
 #[derive(Clone, Copy)]
@@ -5832,671 +2369,4 @@ fn decode_snapshot_moves(
         }
     }
     Ok(move_operations)
-}
-
-fn validate_move_commit(
-    emulator: &mut Emulator,
-    idempotency: String,
-    quote: MoveQuoteRecord,
-    state: CoreState,
-    trace: u64,
-) -> Response {
-    let source_authority = match emulator.accounts.get(&quote.source) {
-        Some(value)
-            if value.id == quote.source_id
-                && value.public_key == emulator.signing_key.verifying_key().to_bytes() =>
-        {
-            value.clone()
-        }
-        _ => {
-            return refusal(
-                trace,
-                409,
-                "move_quote_stale",
-                "source authority or account sequence changed after quotation",
-            )
-        }
-    };
-    let identity_sequence = match core_identity_sequence(emulator, &source_authority.did) {
-        Ok(value) if value == quote.identity_sequence => value,
-        Ok(_) => {
-            return refusal(
-                trace,
-                409,
-                "move_quote_stale",
-                "source identity sequence changed after quotation",
-            )
-        }
-        Err(code) => return core_response(trace, code),
-    };
-    let source = match core_account(emulator, &quote.source) {
-        Ok(Some(value))
-            if value.id == quote.source_id
-                && value.next_sequence == quote.source_sequence
-                && value.balance >= quote.amount =>
-        {
-            value
-        }
-        Ok(_) => {
-            return refusal(
-                trace,
-                409,
-                "move_balance_unavailable",
-                "source canonical balance cannot cover the quoted move",
-            )
-        }
-        Err(code) => return core_response(trace, code),
-    };
-    let destination = match core_account(emulator, &quote.destination) {
-        Ok(Some(value)) if value.id == quote.destination_id => value,
-        Ok(_) => {
-            return refusal(
-                trace,
-                409,
-                "move_quote_stale",
-                "destination account changed after quotation",
-            )
-        }
-        Err(code) => return core_response(trace, code),
-    };
-    let _ = (source_authority, identity_sequence);
-    execute_move_commit(
-        emulator,
-        MoveCommitContext {
-            idempotency,
-            quote,
-            state,
-            source,
-            destination,
-        },
-        trace,
-    )
-}
-
-fn execute_move_commit(
-    emulator: &mut Emulator,
-    context: MoveCommitContext,
-    trace: u64,
-) -> Response {
-    let MoveCommitContext {
-        idempotency,
-        quote,
-        state,
-        source,
-        destination,
-    } = context;
-    let protocol_idempotency = move_idempotency(&idempotency);
-    let (activity, expected_activity_id, expected_context_hash, expected_authorization_hash) =
-        match signed_move_activity(emulator, &quote, protocol_idempotency) {
-            Ok(value) => value,
-            Err(error) => return refusal(trace, 503, "move_encoding_failed", &error),
-        };
-    let mut receipt = empty_core_receipt();
-    let code = unsafe {
-        platform_emulator_execute(
-            emulator.core,
-            activity.as_ptr(),
-            activity.len(),
-            &raw mut receipt,
-        )
-    };
-    if code != 0 && code != -904 {
-        return core_response(trace, code);
-    }
-    let batch_id = receipt.batch_id;
-    let previous_state_root = receipt.previous_state_root;
-    let resulting_state_root = receipt.state_root;
-    let asset = receipt.asset;
-    let sequencer_public_key = receipt.sequencer_public_key;
-    let result_code = receipt.result_code;
-    let material = match take_core_receipt(&mut receipt) {
-        Ok(value) => value,
-        Err(error) => {
-            return move_unknown(
-                emulator,
-                idempotency,
-                &quote.quote_id,
-                trace,
-                "move_receipt_unavailable",
-                &error,
-            );
-        }
-    };
-    if result_code != 0 {
-        let refused = core_response(trace, result_code);
-        retain_move_response(emulator, idempotency, &quote.quote_id, &refused);
-        return refused;
-    }
-    let authorised = AuthorizedBatch::new(
-        batch_id,
-        asset,
-        previous_state_root,
-        resulting_state_root,
-        sequencer_public_key,
-    );
-    verify_move_commit(
-        emulator,
-        MoveExecutionResult {
-            context: MoveCommitContext {
-                idempotency,
-                quote,
-                state,
-                source,
-                destination,
-            },
-            material,
-            authorised,
-            expected_activity_id,
-            expected_context_hash,
-            expected_authorization_hash,
-            code,
-        },
-        trace,
-    )
-}
-
-struct MoveCommitContext {
-    idempotency: String,
-    quote: MoveQuoteRecord,
-    state: CoreState,
-    source: CoreAccountView,
-    destination: CoreAccountView,
-}
-
-fn verify_move_commit(
-    emulator: &mut Emulator,
-    result: MoveExecutionResult,
-    trace: u64,
-) -> Response {
-    let MoveExecutionResult {
-        context,
-        material,
-        authorised,
-        expected_activity_id,
-        expected_context_hash,
-        expected_authorization_hash,
-        code,
-    } = result;
-    let MoveCommitContext {
-        idempotency,
-        quote,
-        state,
-        source,
-        destination,
-    } = context;
-    let Ok(verified) = verify_receipt(&material.receipt, &authorised) else {
-        return move_unknown(
-            emulator,
-            idempotency,
-            &quote.quote_id,
-            trace,
-            "move_receipt_verification_failed",
-            "core committed a move but its returned receipt did not verify",
-        );
-    };
-    let expected_source_after = source.balance - quote.amount;
-    let expected_destination_after = destination.balance + quote.amount;
-    let protocol = match verified.receipt().protocol() {
-        Some(value)
-            if material.activity_id == expected_activity_id
-                && value.protocol_version() == emulator.protocol_version
-                && value.activity_id() == expected_activity_id
-                && value.result_code() == 0
-                && value.module_id() == 1
-                && u16::from(value.operation()) == ASSET_SEND_OPERATION
-                && value.asset() == NATIVE_ASSET
-                && value.amount() == quote.amount
-                && value.from() == quote.source_id
-                && value.to() == quote.destination_id
-                && value.debit_balance_before() == source.balance
-                && value.debit_balance_after() == expected_source_after
-                && value.credit_balance_before() == destination.balance
-                && value.credit_balance_after() == expected_destination_after
-                && value.debit_sequence() == quote.source_sequence
-                && value.batch_id() == authorised.batch_id()
-                && value.previous_state_root() == authorised.previous_state_root()
-                && value.resulting_state_root() == authorised.resulting_state_root()
-                && authorised.previous_state_root() == state.receipt_state_root
-                && value.resulting_state_root() != value.previous_state_root()
-                && value.context_hash() == expected_context_hash
-                && value.authorization_hash() == expected_authorization_hash
-                && value.transfer_set_root() != [0; 32]
-                && value.effects().len() == 1
-                && value.effects()[0].module_id() == 1
-                && value.effects()[0].kind() == 2
-                && value.effects()[0].monetary()
-                && value.effects()[0].transfer_set_root() == value.transfer_set_root() =>
-        {
-            value
-        }
-        _ => {
-            return move_unknown(
-                emulator,
-                idempotency,
-                &quote.quote_id,
-                trace,
-                "move_receipt_binding_failed",
-                "verified receipt does not bind the exact quoted move",
-            )
-        }
-    };
-    if let Err(response) = validate_move_post_state(
-        emulator,
-        idempotency.clone(),
-        &quote,
-        &state,
-        &authorised,
-        protocol,
-        trace,
-    ) {
-        return response;
-    }
-    finish_verified_move(
-        emulator,
-        MoveCommitContext {
-            idempotency,
-            quote,
-            state,
-            source,
-            destination,
-        },
-        &material,
-        expected_activity_id,
-        &verified,
-        code,
-        trace,
-    )
-}
-
-struct MoveExecutionResult {
-    context: MoveCommitContext,
-    material: OwnedCoreReceipt,
-    authorised: AuthorizedBatch,
-    expected_activity_id: [u8; 32],
-    expected_context_hash: [u8; 32],
-    expected_authorization_hash: [u8; 32],
-    code: c_int,
-}
-
-fn validate_move_post_state(
-    emulator: &mut Emulator,
-    idempotency: String,
-    quote: &MoveQuoteRecord,
-    state: &CoreState,
-    authorised: &AuthorizedBatch,
-    protocol: &layerx_wire::receipt::ProtocolReceipt,
-    trace: u64,
-) -> Result<(), Response> {
-    let post_source = match core_account(emulator, &quote.source) {
-        Ok(Some(value)) => value,
-        Ok(None) => {
-            return Err(move_unknown(
-                emulator,
-                idempotency,
-                &quote.quote_id,
-                trace,
-                "move_receipt_binding_failed",
-                "committed source account disappeared from canonical state",
-            ));
-        }
-        Err(code) => return Err(core_response(trace, code)),
-    };
-    let post_destination = match core_account(emulator, &quote.destination) {
-        Ok(Some(value)) => value,
-        Ok(None) => {
-            return Err(move_unknown(
-                emulator,
-                idempotency,
-                &quote.quote_id,
-                trace,
-                "move_receipt_binding_failed",
-                "committed destination account disappeared from canonical state",
-            ));
-        }
-        Err(code) => return Err(core_response(trace, code)),
-    };
-    let post_state = match inspect_state(emulator) {
-        Ok(value) => value,
-        Err(code) => return Err(core_response(trace, code)),
-    };
-    if post_source.balance != protocol.debit_balance_after()
-        || post_source.next_sequence != quote.source_sequence + 1
-        || post_destination.balance != protocol.credit_balance_after()
-        || authorised.resulting_state_root() != protocol.resulting_state_root()
-        || authorised.previous_state_root() != protocol.previous_state_root()
-        || post_state.canonical_state_root == state.canonical_state_root
-    {
-        return Err(move_unknown(
-            emulator,
-            idempotency,
-            &quote.quote_id,
-            trace,
-            "move_receipt_binding_failed",
-            "receipt economic facts disagree with canonical account state",
-        ));
-    }
-    Ok(())
-}
-
-fn publish_move_commit(
-    emulator: &mut Emulator,
-    context: MoveCommitContext,
-    material: &OwnedCoreReceipt,
-    expected_activity_id: [u8; 32],
-    receipt_digest: [u8; 32],
-    code: c_int,
-    trace: u64,
-) -> Response {
-    let MoveCommitContext {
-        idempotency,
-        quote,
-        state,
-        ..
-    } = context;
-    remember_receipt(
-        emulator,
-        hex_encode(&expected_activity_id),
-        hex_encode(&material.receipt),
-    );
-    let journey = match move_journey(
-        &quote,
-        &idempotency,
-        expected_activity_id,
-        receipt_digest,
-        state.timestamp_ms,
-    ) {
-        Ok(value) => value,
-        Err(error) => {
-            return move_unknown(
-                emulator,
-                idempotency,
-                &quote.quote_id,
-                trace,
-                "move_journey_encoding_failed",
-                &error,
-            )
-        }
-    };
-    let completed = success(trace, &journey.to_string());
-    retain_move_response(emulator, idempotency, &quote.quote_id, &completed);
-    if code == -904 {
-        refusal(
-            trace,
-            503,
-            "move_acknowledgement_lost",
-            "move committed and was retained under the original idempotency key",
-        )
-    } else {
-        completed
-    }
-}
-
-fn finish_verified_move(
-    emulator: &mut Emulator,
-    context: MoveCommitContext,
-    material: &OwnedCoreReceipt,
-    expected_activity_id: [u8; 32],
-    verified: &layerx_proof::receipt::VerifiedReceipt,
-    code: c_int,
-    trace: u64,
-) -> Response {
-    let MoveCommitContext {
-        ref idempotency,
-        ref quote,
-        ..
-    } = context;
-    let Some(receipt_digest) = verified.evidence().receipt_digest() else {
-        return move_unknown(
-            emulator,
-            idempotency.clone(),
-            &quote.quote_id,
-            trace,
-            "move_receipt_binding_failed",
-            "verified receipt omitted its digest",
-        );
-    };
-    publish_move_commit(
-        emulator,
-        context,
-        material,
-        expected_activity_id,
-        receipt_digest,
-        code,
-        trace,
-    )
-}
-
-#[cfg(test)]
-mod maintenance_head_tests {
-    use super::*;
-
-    fn new_emulator(seed: [u8; 32]) -> Result<Emulator, String> {
-        layerx_programs_runtime::retain_host_ffi_exports();
-        layerx_programs_sandbox::retain_host_ffi_exports();
-        let core = unsafe {
-            platform_emulator_create_for_protocol(402, DEFAULT_TIME_MS, seed.as_ptr(), 3)
-        };
-        if core.is_null() {
-            return Err("actual core initialization failed".into());
-        }
-        Ok(Emulator {
-            core,
-            signing_key: SigningKey::from_bytes(&seed),
-            network_id: 402,
-            protocol_version: 3,
-            receipts: HashMap::new(),
-            receipt_order: VecDeque::new(),
-            program_operations: HashMap::new(),
-            program_activity_operations: HashMap::new(),
-            accounts: HashMap::new(),
-            move_quotes: HashMap::new(),
-            move_operations: HashMap::new(),
-            trace: 0,
-        })
-    }
-
-    fn json_request(path: &str, body: serde_json::Value) -> Request {
-        Request {
-            method: "POST".into(),
-            path: path.into(),
-            content_type: "application/json".into(),
-            idempotency_key: Some("maintenance-head-send-0001".into()),
-            body: body.to_string().into_bytes(),
-        }
-    }
-
-    fn document(response: Response) -> Result<serde_json::Value, String> {
-        if response.status != 200 {
-            return Err(format!(
-                "actual route status {}: {}",
-                response.status,
-                String::from_utf8_lossy(&response.body)
-            ));
-        }
-        let parsed: serde_json::Value =
-            serde_json::from_slice(&response.body).map_err(|error| error.to_string())?;
-        parsed
-            .get("result")
-            .cloned()
-            .ok_or("actual response omitted result".into())
-    }
-
-    fn verify_document(value: &serde_json::Value, key: [u8; 32]) -> Result<(), String> {
-        fn bytes(value: &serde_json::Value, pointer: &str) -> Result<Vec<u8>, String> {
-            hex_decode(
-                value
-                    .pointer(pointer)
-                    .and_then(serde_json::Value::as_str)
-                    .ok_or("head field missing")?,
-            )
-        }
-        if value["current"] != true {
-            return Err("not current".into());
-        }
-        let receipt = bytes(value, "/receipt_hex")?;
-        let header = bytes(value, "/batch_evidence/header_hex")?;
-        let signature: [u8; 64] = bytes(value, "/batch_evidence/header_signature")?
-            .try_into()
-            .map_err(|_| "signature length")?;
-        let encoded = bytes(value, "/batch_evidence/receipt_proof_hex")?;
-        let path = layerx_wire::receipt::decode_merkle_proof(&encoded)
-            .map_err(|error| format!("{error:?}"))?;
-        let proof = layerx_proof::merkle::Proof::new(
-            path.leaf_index(),
-            path.leaf_count(),
-            path.siblings().to_vec(),
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        let authority = layerx_proof::inclusion::SequencerAuthorization::new(
-            Sha256::digest(key).into(),
-            key,
-            1,
-            u64::MAX,
-        );
-        let evidence = layerx_proof::inclusion::verify_receipt(
-            &receipt, &proof, &header, &signature, &authority,
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        let signed = evidence.header().header();
-        let maintenance = layerx_wire::batch_maintenance::decode_maintenance(&receipt)
-            .map_err(|error| format!("{error:?}"))?;
-        maintenance
-            .verify_header(signed)
-            .map_err(|error| format!("{error:?}"))?;
-        assert_eq!(signed.network_id(), 402);
-        assert_eq!(signed.protocol_version(), 3);
-        if bytes(value, "/state_root")? != signed.resulting_state_root()
-            || value["observed_sequence"].as_u64() != Some(signed.last_sequence())
-            || value["observed_at"].as_u64() != Some(signed.timestamp_ms())
-            || bytes(value, "/receipt_digest")? != <[u8; 32]>::from(Sha256::digest(&receipt))
-        {
-            return Err("signed head claims mismatch".into());
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn retained_maintenance_head_is_verified_and_survives_restart() -> Result<(), String> {
-        let seed = [0x42; 32];
-        let mut emulator = new_emulator(seed)?;
-        let key = emulator.signing_key.verifying_key().to_bytes();
-        assert_eq!(current_head(&mut emulator, 1).status, 503);
-        println!("MAINTENANCE_HEAD_CASE unavailable-before-seal");
-        prefund_core(&mut emulator, "did:layerx:maintenance-source", key, 0, 1000)
-            .map_err(core_error)?;
-        prefund_core(
-            &mut emulator,
-            "did:layerx:maintenance-destination",
-            key,
-            0,
-            0,
-        )
-        .map_err(core_error)?;
-        let genesis_snapshot = export_snapshot(&mut emulator, 1);
-        assert_eq!(genesis_snapshot.status, 200);
-        let quoted = move_quote(
-            &mut emulator,
-            &json_request(
-                "/v1/moves/quote",
-                serde_json::json!({
-                    "source":"agent:did:layerx:maintenance-source:main", "destination":"agent:did:layerx:maintenance-destination:main",
-                    "money":{"currency":"LXP","amount":"250"}
-                }),
-            ),
-            2,
-        );
-        let quoted = document(quoted)?;
-        let request = json_request(
-            "/v1/moves",
-            serde_json::json!({"quote_id":quoted["quote_id"]}),
-        );
-        let committed = move_commit(&mut emulator, &request, 3);
-        let _ = document(committed)?;
-        let head = document(current_head(&mut emulator, 4))?;
-        verify_document(&head, key)?;
-        let live = inspect_state(&emulator).map_err(core_error)?;
-        assert_eq!(head["state_root"], hex_encode(&live.canonical_state_root));
-        assert_eq!(
-            head["observed_sequence"].as_u64(),
-            live.next_sequence.checked_sub(1)
-        );
-        println!("MAINTENANCE_HEAD_CASE current-signed-maintenance");
-        let original = emulator
-            .receipts
-            .values()
-            .next()
-            .ok_or("actual activity receipt missing")?;
-        let original = hex_decode(original)?;
-        let activity =
-            verify_sequencer_signature(&original, key).map_err(|error| format!("{error:?}"))?;
-        assert_ne!(
-            activity
-                .protocol()
-                .ok_or("activity protocol missing")?
-                .resulting_state_root(),
-            live.canonical_state_root
-        );
-        let mut stale = head.clone();
-        stale["receipt_hex"] = serde_json::Value::String(hex_encode(&original));
-        assert!(verify_document(&stale, key).is_err());
-        println!("MAINTENANCE_HEAD_CASE stale-activity-receipt");
-        for pointer in [
-            "/receipt_hex",
-            "/batch_evidence/header_hex",
-            "/batch_evidence/header_signature",
-            "/batch_evidence/receipt_proof_hex",
-            "/state_root",
-        ] {
-            let mut changed = head.clone();
-            let original = changed
-                .pointer(pointer)
-                .and_then(serde_json::Value::as_str)
-                .ok_or("tamper field missing")?;
-            let mut raw = hex_decode(original)?;
-            let last = raw.last_mut().ok_or("empty evidence")?;
-            *last ^= 1;
-            *changed
-                .pointer_mut(pointer)
-                .ok_or("tamper target missing")? = serde_json::Value::String(hex_encode(&raw));
-            assert!(
-                verify_document(&changed, key).is_err(),
-                "tampered {pointer} accepted"
-            );
-            println!("MAINTENANCE_HEAD_CASE tamper-{pointer}");
-        }
-        let wrong_key = SigningKey::from_bytes(&[0x43; 32])
-            .verifying_key()
-            .to_bytes();
-        assert!(verify_document(&head, wrong_key).is_err());
-        println!("MAINTENANCE_HEAD_CASE foreign-authority");
-        let snapshot = export_snapshot(&mut emulator, 5);
-        assert_eq!(snapshot.status, 200);
-        let mut restarted = new_emulator(seed)?;
-        assert_eq!(
-            import_snapshot(&mut restarted, &snapshot.body, 6).status,
-            200
-        );
-        let reopened = document(current_head(&mut restarted, 7))?;
-        assert_eq!(reopened, head);
-        verify_document(&reopened, key)?;
-        println!("MAINTENANCE_HEAD_CASE restart");
-        let mut corrupted = snapshot.body.clone();
-        let last = corrupted.last_mut().ok_or("empty snapshot")?;
-        *last ^= 1;
-        assert_ne!(import_snapshot(&mut restarted, &corrupted, 8).status, 200);
-        assert_eq!(document(current_head(&mut restarted, 9))?, head);
-        println!("MAINTENANCE_HEAD_CASE snapshot-tamper");
-        assert_eq!(
-            import_snapshot(&mut restarted, &genesis_snapshot.body, 10).status,
-            200
-        );
-        let restored = inspect_state(&restarted).map_err(core_error)?;
-        assert_ne!(
-            head["state_root"],
-            hex_encode(&restored.canonical_state_root)
-        );
-        assert_eq!(current_head(&mut restarted, 10).status, 503);
-        println!("MAINTENANCE_HEAD_CASE stale-root");
-        Ok(())
-    }
 }

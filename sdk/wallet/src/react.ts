@@ -60,46 +60,94 @@ export interface UseWalletResult {
   refresh: () => void;
 }
 
-export function useWallet(client: PaxeerWallet): UseWalletResult {
-  const [wallet, setWallet] = useState<PublicWallet | null>(null);
-  const [chain, setChain] = useState<ChainInfo | null>(null);
+function useAuthenticatedAccount(
+  client: PaxeerWallet,
+  mode: 'wallet' | 'standard',
+  pollMs?: number
+): UseStandardAccountResult {
+  const [data, setData] = useState<{ wallet: PublicWallet; chain: ChainInfo } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    let generation = 0;
+    let request = 0;
+    let principal: string | null = null;
+    setData(null);
+    setError(null);
     setLoading(true);
-    void (async () => {
+
+    async function fetchOnce(): Promise<void> {
+      const currentGeneration = generation;
+      const currentRequest = ++request;
+      if (!principal) return;
+      setLoading(true);
+      const current = () => alive && generation === currentGeneration && request === currentRequest;
       try {
-        const session = await client.getSession();
-        if (!session) {
-          if (alive) {
-            setWallet(null);
-            setChain(null);
-            setLoading(false);
-          }
-          return;
-        }
-        const r = await client.getWallet();
-        if (!alive) return;
-        setWallet(r.wallet);
-        setChain(r.chain);
+        const result = await (mode === 'wallet' ? client.getWallet() : client.getStandardSelf());
+        if (!current()) return;
+        setData(result);
         setError(null);
       } catch (err) {
-        if (alive) setError(err as Error);
+        if (current()) {
+          setData(null);
+          setError(err as Error);
+        }
       } finally {
-        if (alive) setLoading(false);
+        if (current()) setLoading(false);
       }
-    })();
+    }
+
+    function acceptSession(session: Session | null): void {
+      if (!alive) return;
+      generation += 1;
+      principal = session?.user.id ?? null;
+      setData(null);
+      setError(null);
+      setLoading(principal !== null);
+      // Supabase invokes auth callbacks while holding its session lock.
+      // Start reads after the callback returns, and discard superseded work.
+      const acceptedGeneration = generation;
+      void Promise.resolve().then(() => {
+        if (alive && generation === acceptedGeneration) return fetchOnce();
+      });
+    }
+
+    const unsub = client.onAuthStateChange((_event, session) => acceptSession(session));
+    const initialGeneration = generation;
+    void client.getSession().then(
+      (session) => {
+        if (alive && generation === initialGeneration) acceptSession(session);
+      },
+      (err: Error) => {
+        if (alive && generation === initialGeneration) {
+          setError(err);
+          setLoading(false);
+        }
+      }
+    );
+    const timer = pollMs && pollMs > 0 ? setInterval(() => void fetchOnce(), pollMs) : null;
     return () => {
       alive = false;
+      generation += 1;
+      unsub();
+      if (timer) clearInterval(timer);
     };
-  }, [client, tick]);
+  }, [client, mode, tick, pollMs]);
 
   return useMemo(
-    () => ({ wallet, chain, loading, error, refresh: () => setTick((t) => t + 1) }),
-    [wallet, chain, loading, error],
+    () => ({ data, loading, error, refresh: () => setTick((t) => t + 1) }),
+    [data, loading, error]
+  );
+}
+
+export function useWallet(client: PaxeerWallet): UseWalletResult {
+  const { data, loading, error, refresh } = useAuthenticatedAccount(client, 'wallet');
+  return useMemo(
+    () => ({ wallet: data?.wallet ?? null, chain: data?.chain ?? null, loading, error, refresh }),
+    [data, loading, error, refresh]
   );
 }
 
@@ -107,7 +155,7 @@ export function usePaxeerWallet(config: PaxeerWalletConfig): PaxeerWallet {
   return useMemo(
     () => new PaxeerWallet(config),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [config.apiUrl, config.supabaseUrl, config.supabaseAnonKey],
+    [config.apiUrl, config.supabaseUrl, config.supabaseAnonKey]
   );
 }
 
@@ -138,56 +186,9 @@ export interface UseStandardAccountResult {
  */
 export function useStandardAccount(
   client: PaxeerWallet,
-  options: UseStandardAccountOptions = {},
+  options: UseStandardAccountOptions = {}
 ): UseStandardAccountResult {
-  const { pollMs } = options;
-  const [data, setData] = useState<{ wallet: PublicWallet; chain: ChainInfo } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    async function fetchOnce(): Promise<void> {
-      try {
-        const session = await client.getSession();
-        if (!session) {
-          if (alive) {
-            setData(null);
-            setError(null);
-            setLoading(false);
-          }
-          return;
-        }
-        const res = await client.getStandardSelf();
-        if (!alive) return;
-        setData(res);
-        setError(null);
-      } catch (err) {
-        if (alive) setError(err as Error);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-
-    void fetchOnce();
-    if (pollMs && pollMs > 0) {
-      timer = setInterval(() => {
-        void fetchOnce();
-      }, pollMs);
-    }
-    return () => {
-      alive = false;
-      if (timer) clearInterval(timer);
-    };
-  }, [client, tick, pollMs]);
-
-  return useMemo(
-    () => ({ data, loading, error, refresh: () => setTick((t) => t + 1) }),
-    [data, loading, error],
-  );
+  return useAuthenticatedAccount(client, 'standard', options.pollMs);
 }
 
 /* ============================================================================
@@ -259,7 +260,7 @@ export interface UseFundedAccountResult {
  */
 export function useFundedAccount(
   client: PaxeerWallet,
-  options: UseFundedAccountOptions = {},
+  options: UseFundedAccountOptions = {}
 ): UseFundedAccountResult {
   const { pollMs } = options;
   const [data, setData] = useState<FundedSelfResponse | null>(null);
@@ -308,6 +309,6 @@ export function useFundedAccount(
 
   return useMemo(
     () => ({ data, loading, error, refresh: () => setTick((t) => t + 1) }),
-    [data, loading, error],
+    [data, loading, error]
   );
 }

@@ -218,7 +218,15 @@ func (server msgServer) SetDenomMetadata(goCtx context.Context, msg *types.MsgSe
 }
 
 func (server msgServer) SetDenomPaused(goCtx context.Context, msg *types.MsgSetDenomPaused) (*types.MsgSetDenomPausedResponse, error) {
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+
 	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	if _, found := server.bankKeeper.GetDenomMetaData(ctx, msg.Denom); !found {
+		return nil, types.ErrDenomDoesNotExist.Wrapf("denom: %s", msg.Denom)
+	}
 
 	authorityMetadata, err := server.GetAuthorityMetadata(ctx, msg.Denom)
 	if err != nil {
@@ -229,6 +237,10 @@ func (server msgServer) SetDenomPaused(goCtx context.Context, msg *types.MsgSetD
 		return nil, types.ErrUnauthorized
 	}
 
+	if authorityMetadata.IssuerDid != "" {
+		return nil, types.ErrIssuerMismatch.Wrap("denom is issuer bound")
+	}
+
 	if err := server.setDenomPaused(ctx, msg.Denom, msg.Paused); err != nil {
 		return nil, err
 	}
@@ -237,7 +249,7 @@ func (server msgServer) SetDenomPaused(goCtx context.Context, msg *types.MsgSetD
 		sdk.NewEvent(
 			types.TypeMsgSetDenomPaused,
 			sdk.NewAttribute(types.AttributeDenom, msg.Denom),
-			sdk.NewAttribute("paused", strconv.FormatBool(msg.Paused)),
+			sdk.NewAttribute(types.AttributePaused, strconv.FormatBool(msg.Paused)),
 		),
 	})
 

@@ -82,6 +82,7 @@ func (s *ShardedSender) GetWorkerStats() []WorkerStats {
 			WorkerID:      i,
 			Endpoint:      worker.GetEndpoint(),
 			ChannelLength: worker.GetChannelLength(),
+			Receipts:      worker.GetReceiptStats(),
 		}
 	}
 	return stats
@@ -89,6 +90,7 @@ func (s *ShardedSender) GetWorkerStats() []WorkerStats {
 
 // WorkerStats contains statistics for a single worker
 type WorkerStats struct {
+	Receipts      ReceiptStats
 	WorkerID      int
 	Endpoint      string
 	ChannelLength int
@@ -147,5 +149,13 @@ func (s *ShardedSender) SetStatsCollector(collector *stats.Collector, logger *st
 	// Pass to all workers
 	for _, worker := range s.workers {
 		worker.SetStatsCollector(collector, logger)
+	}
+}
+
+// CloseInput ends admission after the dispatcher has joined. Run drains every
+// accepted transaction and its receipt before returning.
+func (s *ShardedSender) CloseInput() {
+	for _, worker := range s.workers {
+		worker.CloseInput()
 	}
 }

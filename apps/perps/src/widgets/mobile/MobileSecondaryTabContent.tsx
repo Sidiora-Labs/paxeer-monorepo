@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { fetchWithPolicy } from "@/core/net/fetch";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import { marketLabel } from "@/core/perps/marketLabel";
 import { ExternalLink, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { usePortfolioStats } from "@/hooks/perps/usePortfolioStats";
@@ -10,15 +16,14 @@ import { useTradeSettlements } from "@/hooks/perps/useAnalytics";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { computePositionPnl, formatPnlPercent, formatWadFixed, markPriceWad, parsePositionRow, wadToDecimal } from "@/core/perps/pnlHelpers";
 import {
-  subgraphQuery,
   ORDERS_QUERY,
   TRADES_QUERY,
 } from "@/hooks/perps/useSubgraph";
 import {
-  PERPS_MARKETS,
   coinLogoUrl,
   EXPLORER_URL,
   COLLATERAL_TOKENS,
+  INDEXER_GRAPHQL,
 } from "@/core/perps/config";
 import {
   fmtUsd,
@@ -60,7 +65,23 @@ interface MobileSecondaryTabContentProps {
   activeTab: string;
 }
 
+const MobileMarketCatalog = createContext<Parameters<typeof marketLabel>[1]>([]);
+
 export function MobileSecondaryTabContent({ activeTab }: MobileSecondaryTabContentProps) {
+  const { catalog } = usePerpsMarkets();
+  return (
+    <MobileMarketCatalog.Provider
+      value={catalog.map((market) => ({
+        marketId: BigInt(market.marketId),
+        symbol: market.symbol,
+      }))}
+    >
+      <MobileSecondaryTabs activeTab={activeTab} />
+    </MobileMarketCatalog.Provider>
+  );
+}
+
+function MobileSecondaryTabs({ activeTab }: MobileSecondaryTabContentProps) {
   const { address, isConnected } = usePerpsWallet();
 
   if (!isConnected) {
@@ -118,6 +139,66 @@ function LoadingState() {
   );
 }
 
+function WalletRowsError({ text, retry }: { text: string; retry: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col items-center gap-3 py-10" style={LABEL}>
+      <span>{text}</span>
+      <button type="button" onClick={retry}>Retry</button>
+    </div>
+  );
+}
+
+function useMobileWalletRows(address: string, kind: "orders" | "trades") {
+  const generation = useRef(0);
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<{
+    address: string;
+    rows: any[];
+    status: "loading" | "success" | "error";
+  }>({ address, rows: [], status: "loading" });
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const request = ++generation.current;
+    const isCurrent = () => !controller.signal.aborted && generation.current === request;
+    setState({ address, rows: [], status: "loading" });
+    async function load() {
+      try {
+        const response = await fetchWithPolicy(INDEXER_GRAPHQL.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            query: kind === "orders" ? ORDERS_QUERY : TRADES_QUERY,
+            variables: kind === "orders"
+              ? { userAddress: address, status: "active" }
+              : { userAddress: address, limit: 50 },
+          }),
+        });
+        const result = await response.json();
+        if (result?.errors?.length || !Array.isArray(result?.data?.[kind])) {
+          throw new Error("Invalid wallet history response");
+        }
+        if (isCurrent()) setState({ address, rows: result.data[kind], status: "success" });
+      } catch {
+        if (isCurrent()) setState({ address, rows: [], status: "error" });
+      }
+    }
+    void load();
+    return () => {
+      ++generation.current;
+      controller.abort();
+    };
+  }, [address, kind, attempt]);
+
+  return {
+    rows: state.address === address ? state.rows : [],
+    status: state.address === address ? state.status : "loading",
+    retry,
+  };
+}
+
 function TxLink({ hash }: { hash: string }) {
   return (
     <a
@@ -164,9 +245,11 @@ function fmtTs(ts: string | null | undefined): string {
   });
 }
 
-function getMarketSymbol(marketId: number | string): string {
-  const id = typeof marketId === "string" ? parseInt(marketId, 10) : marketId;
-  return PERPS_MARKETS.find((m) => m.marketId === id)?.symbol ?? `MKT-${id}`;
+function getMarketSymbol(
+  marketId: number | string,
+  catalog: Parameters<typeof marketLabel>[1],
+): string {
+  return marketLabel(BigInt(marketId), catalog);
 }
 
 function getTokenSymbol(addr: string): string {
@@ -288,6 +371,7 @@ function BalanceRow({ balance }: { balance: PerfdbBalance }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function PositionsTab() {
+  const catalog = useContext(MobileMarketCatalog);
   const { positions, isLoading } = usePortfolioStats();
   const { tickers } = useRealtimePrices();
 
@@ -297,7 +381,7 @@ function PositionsTab() {
   return (
     <div className="flex flex-col gap-2 p-3 overflow-y-auto" style={SCROLL_STYLE}>
       {positions.map((pos: any) => {
-        const symbol = getMarketSymbol(pos.marketId);
+        const symbol = getMarketSymbol(pos.marketId, catalog);
         const markPrice = tickers[symbol]?.mark_price ?? 0;
         return (
           <PositionCard key={pos.positionId} pos={pos} symbol={symbol} markPrice={markPrice} />
@@ -309,8 +393,22 @@ function PositionsTab() {
 
 function PositionCard({ pos, symbol, markPrice }: { pos: any; symbol: string; markPrice: number }) {
   const parsed = parsePositionRow(pos, symbol);
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () => getPublicClient().readContract(buildGetMarginTiers(BigInt(parsed.marketId))),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <div role={tiersError || tiers ? "alert" : "status"}>
+        {tiersError || tiers
+          ? "Market margin tiers unavailable. Please try again."
+          : "Loading market margin tiers…"}
+      </div>
+    );
+  }
   const mark = markPriceWad(markPrice);
-  const pnlData = mark > 0n ? computePositionPnl(parsed, mark) : null;
+  const pnlData = mark > 0n ? computePositionPnl(parsed, mark, tiers) : null;
   const pnlColor = (pnlData?.unrealizedPnl ?? 0n) >= 0n ? "var(--success)" : "var(--danger)";
   const sideColor = pos.isLong ? "var(--success)" : "var(--danger)";
 
@@ -400,7 +498,8 @@ function OutcomesTab({ address }: { address: string }) {
 }
 
 function OutcomeRow({ s }: { s: TradeSettlement }) {
-  const symbol = getMarketSymbol(s.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(s.marketId, catalog);
   const grossPnl = parse18(s.grossPnl);
   const pnlColor = grossPnl >= 0 ? "var(--success)" : "var(--danger)";
   const size = parse18(s.sizeUsd);
@@ -433,27 +532,10 @@ function OutcomeRow({ s }: { s: TradeSettlement }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function OpenOrdersTab({ address }: { address: string }) {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { rows: orders, status, retry } = useMobileWalletRows(address, "orders");
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await subgraphQuery<{ orders: any[] }>(ORDERS_QUERY, {
-        userAddress: address,
-        status: "active",
-      });
-      setOrders(res.orders ?? []);
-    } catch {
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  if (loading) return <LoadingState />;
+  if (status === "loading") return <LoadingState />;
+  if (status === "error") return <WalletRowsError text="Failed to load open orders" retry={retry} />;
   if (orders.length === 0) return <EmptyState text="No open orders" />;
 
   return (
@@ -469,7 +551,8 @@ function OpenOrdersTab({ address }: { address: string }) {
 }
 
 function OrderRow({ o }: { o: any }) {
-  const symbol = getMarketSymbol(o.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(o.marketId, catalog);
   const trigPrice = parse18(o.triggerPrice);
   const size = parse18(o.sizeUsd);
   const sideColor = o.isLong ? "var(--success)" : "var(--danger)";
@@ -551,27 +634,10 @@ function TwapTab() {
    ═══════════════════════════════════════════════════════════════ */
 
 function TradeHistoryTab({ address }: { address: string }) {
-  const [trades, setTrades] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { rows: trades, status, retry } = useMobileWalletRows(address, "trades");
 
-  const fetchTrades = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await subgraphQuery<{ trades: any[] }>(TRADES_QUERY, {
-        userAddress: address,
-        limit: 50,
-      });
-      setTrades(res.trades ?? []);
-    } catch {
-      setTrades([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  useEffect(() => { fetchTrades(); }, [fetchTrades]);
-
-  if (loading) return <LoadingState />;
+  if (status === "loading") return <LoadingState />;
+  if (status === "error") return <WalletRowsError text="Failed to load trade history" retry={retry} />;
   if (trades.length === 0) return <EmptyState text="No trade history" />;
 
   return (
@@ -587,7 +653,8 @@ function TradeHistoryTab({ address }: { address: string }) {
 }
 
 function TradeRow({ t }: { t: any }) {
-  const symbol = getMarketSymbol(t.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(t.marketId, catalog);
   const price = parse18(t.price);
   const realizedPnl = parse18(t.realizedPnl);
   const size = parse18(t.sizeUsd);
@@ -648,7 +715,8 @@ function FundingTab({ address }: { address: string }) {
 }
 
 function FundingRow({ p }: { p: FundingPayment }) {
-  const symbol = getMarketSymbol(p.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(p.marketId, catalog);
   const payment = parse18(p.fundingPaymentUsd);
   const newCollateral = parse18(p.newCollateralUsd);
   const paymentColor = payment >= 0 ? "var(--success)" : "var(--danger)";

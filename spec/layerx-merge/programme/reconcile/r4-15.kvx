@@ -1,0 +1,99 @@
+[reconcile.r4-15]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 12
+
+[row.r4-15.1]
+interface = "interface.4.go-launchpad-types-parse-airdrop-claim-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 89
+symbol = "ParseAirdropClaimKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.7. The legacy typesv610 package retains func ParseAirdropClaimKey(key []byte) (string, []byte, uint64, bool); modules/launchpad/legacy/v610/keeper/genesis.go:79 calls it when exporting legacy claims."
+
+[row.r4-15.2]
+interface = "interface.4.go-launchpad-types-holding-history-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 104
+symbol = "HoldingHistoryKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.8. The legacy typesv610 package retains func HoldingHistoryKey(denom string) []byte; modules/launchpad/legacy/v610/keeper/history.go:33 and :51 use it to read and write the legacy holding-history marker."
+
+[row.r4-15.3]
+interface = "interface.4.go-launchpad-types-holding-count-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 109
+symbol = "HoldingCountKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.9. The legacy typesv610 package retains func HoldingCountKey(denom string, holder []byte) []byte; modules/launchpad/legacy/v610/keeper/history.go:57 and :147 use it for the legacy holder checkpoint count."
+
+[row.r4-15.4]
+interface = "interface.4.go-launchpad-types-holding-entry-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 114
+symbol = "HoldingEntryKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.10. The legacy typesv610 package retains func HoldingEntryKey(denom string, holder []byte, index uint64) []byte; modules/launchpad/legacy/v610/keeper/history.go:68 and :146 use it for indexed legacy holding checkpoints."
+
+[row.r4-15.5]
+interface = "interface.4.go-launchpad-types-airdrop-basis-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 119
+symbol = "AirdropBasisKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.11. The legacy typesv610 package retains func AirdropBasisKey(denom string, epoch uint64) []byte; modules/launchpad/legacy/v610/keeper/keeper.go:290 and :307 use it for the legacy epoch funding basis."
+
+[row.r4-15.6]
+interface = "interface.4.go-launchpad-types-parse-holding-history-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 124
+symbol = "ParseHoldingHistoryKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.12. The legacy typesv610 package retains func ParseHoldingHistoryKey(key []byte) (string, bool); modules/launchpad/legacy/v610/keeper/genesis.go:89 calls it when exporting legacy holding histories."
+
+[row.r4-15.7]
+interface = "interface.4.go-launchpad-types-parse-holding-entry-key"
+verdict = "served_elsewhere"
+path = "modules/launchpad/legacy/v610/types/keys.go"
+line = 134
+symbol = "ParseHoldingEntryKey"
+evidence = "Absent from modules/launchpad/types/keys.go after generation 1 retirement under decision.409 and override.J28.13. The legacy typesv610 package retains func ParseHoldingEntryKey(key []byte) (string, []byte, uint64, bool); modules/launchpad/legacy/v610/keeper/genesis.go:112 calls it when exporting legacy holding checkpoints."
+
+[row.r4-15.8]
+interface = "interface.4.fmt-lppc-launchpad-sol-j28"
+verdict = "served"
+path = "precompiles/launchpad/Launchpad.sol"
+line = 12
+symbol = "ILaunchpad"
+evidence = "interface ILaunchpad now declares 64 custom error signatures, including Overflow(), MissingRole(address, bytes32), MulticallFailed(uint256, bytes) and Retired(address), replacing the registry note that no custom error is declared. The direct 0x1017 mirror still declares 113 functions and 12 events, matching abi.json."
+
+[row.r4-15.9]
+interface = "interface.4.fmt-lppc-direct-abi-json-j28"
+verdict = "served"
+path = "precompiles/launchpad/abi.json"
+line = 3221
+symbol = "AccessControlUnauthorizedAccount"
+evidence = "The direct 0x1017 ABI now contains 113 function entries, 12 event entries and 64 error entries instead of the registered 0 errors. Its first error entry names AccessControlUnauthorizedAccount(address,bytes32) at line 3221 with type error at line 3222; the custom error signatures are also declared in Launchpad.sol."
+
+[row.r4-15.10]
+interface = "interface.4.go-lppc-pool-keeper-j28"
+verdict = "served"
+path = "precompiles/launchpad/pool.go"
+line = 35
+symbol = "PoolKeeper"
+evidence = "type PoolKeeper interface remains declared; its current Swap signature takes launchpadkeeper.SwapState and returns (sdk.Context, launchpadkeeper.SwapResult, error), while SyncReserves takes launchpadkeeper.TransientStore and returns (sdk.Context, types.Market, error). pool.go:53 now asserts var _ PoolKeeper = (*launchpadkeeper.Keeper)(nil), replacing the registry's runtime-assertion description; run.go:82 passes p.keeper directly into poolCall."
+
+[row.r4-15.11]
+interface = "interface.4.go-lppc-get-versioned"
+verdict = "served"
+path = "precompiles/launchpad/setup.go"
+line = 12
+symbol = "GetVersioned"
+evidence = "func GetVersioned(latestUpgrade string, keepers utils.Keepers) utils.VersionedPrecompiles retains its registered signature. The returned map now binds latestUpgrade and v6.12.0 to the current NewPrecompile and preserves the historical v6.10 key with launchpadv610.NewPrecompile; versions now lists v6.10 and v6.12.0 rather than the stale v6.5 described by the registry."
+
+[row.r4-15.12]
+interface = "interface.4.go-lppc-surface-runtime"
+verdict = "served"
+path = "precompiles/launchpad/surface.go"
+line = 13
+symbol = "SurfaceRuntime"
+evidence = "var SurfaceRuntime = common.CopyBytes(launchpadkeeper.SurfaceRuntime) replaces the registered common.FromHex bytecode literal, retaining a []byte export while sourcing the keeper's 41-byte runtime without aliasing it. This implements override.J28.18; InstallSurface at surface.go:30 installs launchpadkeeper.SurfaceRuntime directly."

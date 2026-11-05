@@ -1,3 +1,6 @@
+#[path = "retired_crypto_codec_2.rs"]
+mod retired_crypto_codec_2;
+
 use layerx_human_test_support as support;
 
 use std::fs;
@@ -305,6 +308,16 @@ fn key_export_ceremony_is_the_only_route_that_ever_returns_the_primary_key() {
         .unwrap_or_else(|error| panic!("custody posture: {error}")));
 
     let prepared = prepared(public_key, seed, 25);
+    layerx_agentd::prepare::verify_disclosure_binding(&prepared)
+        .unwrap_or_else(|error| panic!("key export preparation: {error:?}"));
+    let restored = layerx_agentd::prepare::restore_canonical(
+        &prepared.canonical_bytes,
+        prepared.observed_head_sequence,
+        &registry(),
+        Some(prepared.envelope.authority()),
+    )
+    .unwrap_or_else(|error| panic!("restore export signing subject: {error:?}"));
+    assert_eq!(restored, prepared);
     let signer = CustodySigner::new(
         fixture.keystore(),
         fixture.store(),

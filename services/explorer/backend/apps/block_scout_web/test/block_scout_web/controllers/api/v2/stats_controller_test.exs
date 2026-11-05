@@ -2,7 +2,11 @@ defmodule BlockScoutWeb.API.V2.StatsControllerTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain.Address
-  alias Explorer.Chain.Cache.Counters.{AddressesCount, AverageBlockTime}
+  alias Explorer.Chain.Cache.Counters.{AddressesCount, AverageBlockTime, TransactionsCount}
+  alias Explorer.Chain.PaxeerX.PriceFeed
+
+  @feeder "0xb97e177fe6e701db2cf85c1ba1307688166318cc"
+  @feeder_bech32 "pax1h9lpwllxuuqakt8ctsd6zvrk3qtxxxxvyfs9jc"
 
   describe "/stats" do
     setup do
@@ -16,6 +20,22 @@ defmodule BlockScoutWeb.API.V2.StatsControllerTest do
       end)
 
       :ok
+    end
+
+    test "total_transactions counts the price-feed submissions ever stored", %{conn: conn} do
+      TransactionsCount.set_count(10)
+
+      on_exit(fn ->
+        Supervisor.terminate_child(Explorer.Supervisor, TransactionsCount.child_id())
+        Supervisor.restart_child(Explorer.Supervisor, TransactionsCount.child_id())
+      end)
+
+      assert json_response(get(conn, "/api/v2/stats"), 200)["total_transactions"] == "10"
+
+      block = insert(:block)
+      assert {:ok, 2} = PriceFeed.replace_block_updates(block, [submission(0), submission(1)])
+
+      assert json_response(get(conn, "/api/v2/stats"), 200)["total_transactions"] == "12"
     end
 
     test "get all fields", %{conn: conn} do
@@ -320,5 +340,29 @@ defmodule BlockScoutWeb.API.V2.StatsControllerTest do
       assert Address.checksum(normal.hash) in hashes2
       assert Address.checksum(scam.hash) in hashes2
     end
+  end
+
+  defp submission(index, options \\ []) do
+    %{
+      hash: "0x" <> Base.encode16(:crypto.strong_rand_bytes(32), case: :lower),
+      index: index,
+      feeder_bech32: @feeder_bech32,
+      feeder_hash: @feeder,
+      status: Keyword.get(options, :status, 1),
+      gas_used: Keyword.get(options, :gas_used, 100_000),
+      gas_wanted: 200_000,
+      observations: Keyword.get(options, :observations, [observation(0, 1)])
+    }
+  end
+
+  defp observation(market_id, value) do
+    %{
+      market_id: market_id,
+      accepted: true,
+      sequence: value,
+      index_price: value * 1_000_000_000_000_000_000,
+      mark_price: (value + 1) * 1_000_000_000_000_000_000,
+      source_timestamp_ms: 1_792_636_042_000 + value
+    }
   end
 end

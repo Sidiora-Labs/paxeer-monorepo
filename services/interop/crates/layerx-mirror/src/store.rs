@@ -4,16 +4,16 @@ use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use sha2::{Digest, Sha256};
 
-use crate::{ArchiveCommitment, CheckpointCoordinate, MirrorCursor, NodeHead};
+use crate::{ArchiveCommitment, CommittedCoordinate, MirrorCursor, NodeHead};
 
-const JOURNAL_MAGIC: &[u8; 8] = b"LXMJNL02";
-const HEAD_MAGIC: &[u8; 8] = b"LXMHED02";
-const SPOOL_MAGIC: &[u8; 8] = b"LXMSPL02";
-const RECORD_VERSION: u16 = 2;
+const JOURNAL_MAGIC: &[u8; 8] = b"LXMJNL03";
+const HEAD_MAGIC: &[u8; 8] = b"LXMHED03";
+const SPOOL_MAGIC: &[u8; 8] = b"LXMSPL03";
+const RECORD_VERSION: u16 = 3;
 const MAX_RECORD_BYTES: usize = 512 * 1024;
 const MAX_SIGNED_PAYLOAD_BYTES: usize = 384 * 1024;
 const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
@@ -129,7 +129,7 @@ pub struct PublicationRecord {
     pub chain: MirrorChain,
     pub batch_number: u64,
     pub commitment: ArchiveCommitment,
-    pub checkpoint: Option<CheckpointCoordinate>,
+    pub committed: Option<CommittedCoordinate>,
     pub stage: PublicationStage,
     pub phase: PublicationPhase,
     pub stage_payload_digest: [u8; 32],
@@ -222,7 +222,9 @@ impl From<PublicationStage> for PublicationStageKey {
 impl PublicationJournal {
     /// Opens and fully replays a lane after validating the atomically sealed
     /// high-water offset and hash chain. A truncated but internally valid
-    /// prefix is rejected against the independent head file.
+    /// prefix is rejected against the independent head file. An incomplete
+    /// unsealed append returns `RecoveryRequired` without discarding bytes;
+    /// use `recover_unsealed_suffix` explicitly after preserving the directory.
     ///
     /// # Errors
     /// Returns an error for invalid batch origin, lock conflict, corrupt journal or filesystem failure.
@@ -231,10 +233,34 @@ impl PublicationJournal {
         chain: MirrorChain,
         first_batch_number: u64,
     ) -> Result<Self, StoreError> {
+        Self::open_inner(directory.into(), chain, first_batch_number, false)
+    }
+
+    /// Explicitly recovers an incomplete unsealed append after validating the
+    /// sealed head and every complete frame. Retains complete valid extensions,
+    /// truncates only the incomplete suffix, syncs it, then atomically seals the
+    /// recovered head. Stop the publisher and retain a copy of the state first.
+    ///
+    /// # Errors
+    /// Refuses missing recovery authority, sealed-prefix damage, invalid complete
+    /// frames, rollback, lock conflicts and filesystem failures without truncation.
+    pub fn recover_unsealed_suffix(
+        directory: impl Into<PathBuf>,
+        chain: MirrorChain,
+        first_batch_number: u64,
+    ) -> Result<Self, StoreError> {
+        Self::open_inner(directory.into(), chain, first_batch_number, true)
+    }
+
+    fn open_inner(
+        directory: PathBuf,
+        chain: MirrorChain,
+        first_batch_number: u64,
+        recover: bool,
+    ) -> Result<Self, StoreError> {
         if first_batch_number == 0 {
             return Err(StoreError::InvalidTransition);
         }
-        let directory = directory.into();
         fs::create_dir_all(&directory).map_err(StoreError::Io)?;
         let log_path = directory.join(format!("{}.journal", lane_name(chain)));
         let head_path = directory.join(format!("{}.head", lane_name(chain)));
@@ -255,7 +281,19 @@ impl PublicationJournal {
             .map_err(StoreError::Io)?;
         let on_disk_head = read_head(&head_path)?;
         let (head, records) = replay(&mut log, chain, on_disk_head)?;
+        let actual_length = log.metadata().map_err(StoreError::Io)?.len();
+        if actual_length != head.offset {
+            if !recover {
+                return Err(StoreError::RecoveryRequired {
+                    valid_bytes: head.offset,
+                    trailing_bytes: actual_length - head.offset,
+                });
+            }
+            log.set_len(head.offset).map_err(StoreError::Io)?;
+            log.sync_all().map_err(StoreError::Io)?;
+        }
         if on_disk_head != Some(head) {
+            log.sync_all().map_err(StoreError::Io)?;
             write_head(&directory, &head_path, head)?;
         }
         Ok(Self {
@@ -339,7 +377,7 @@ impl PublicationJournal {
     #[must_use]
     pub fn cursor(&self) -> MirrorCursor {
         let mut next = self.first_batch_number;
-        let mut latest_checkpoint = None;
+        let mut latest_committed = None;
         loop {
             let confirmed = self.records.values().find(|record| {
                 record.batch_number == next
@@ -349,8 +387,8 @@ impl PublicationJournal {
             let Some(record) = confirmed else {
                 break;
             };
-            if let Some(checkpoint) = record.checkpoint {
-                latest_checkpoint = Some(checkpoint);
+            if let Some(committed) = record.committed {
+                latest_committed = Some(committed);
             }
             let Some(incremented) = next.checked_add(1) else {
                 break;
@@ -360,7 +398,7 @@ impl PublicationJournal {
         let latest_batch = (next > self.first_batch_number).then_some(next - 1);
         MirrorCursor {
             latest_batch,
-            latest_checkpoint,
+            latest_committed,
         }
     }
 
@@ -376,17 +414,39 @@ pub struct SpooledArchive {
     pub node_head: NodeHead,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct OrderedSpoolIndex {
+    first: Option<u64>,
+    last: u64,
+    count: usize,
+}
+
+impl OrderedSpoolIndex {
+    fn include(&mut self, height: u64) {
+        if self
+            .first
+            .is_some_and(|first| height >= first && height <= self.last)
+        {
+            return;
+        }
+        self.first = Some(self.first.map_or(height, |first| first.min(height)));
+        self.last = self.last.max(height);
+        self.count += 1;
+    }
+}
+
 /// Immutable content-addressed spool shared by independent chain workers.
 #[derive(Clone, Debug)]
 pub struct ArchiveSpool {
     directory: PathBuf,
     _lock: Arc<File>,
+    index: Arc<Mutex<Option<OrderedSpoolIndex>>>,
 }
 
 impl ArchiveSpool {
     ///
     /// # Errors
-    /// Returns an error if the directory or lock cannot be opened or the spool is already locked.
+    /// Returns an error for an invalid stored object, filesystem failure or an already locked spool.
     pub fn open(directory: impl Into<PathBuf>) -> Result<Self, StoreError> {
         let directory = directory.into();
         fs::create_dir_all(&directory).map_err(StoreError::Io)?;
@@ -398,10 +458,15 @@ impl ArchiveSpool {
             .open(directory.join(".spool.lock"))
             .map_err(StoreError::Io)?;
         lock.try_lock().map_err(|_| StoreError::Conflict)?;
-        Ok(Self {
+        let spool = Self {
             directory,
             _lock: Arc::new(lock),
-        })
+            index: Arc::new(Mutex::new(None)),
+        };
+        for commitment in spool.commitments()? {
+            spool.get(commitment)?;
+        }
+        Ok(spool)
     }
 
     /// Writes once by commitment using temp-file sync and atomic rename. An
@@ -418,10 +483,32 @@ impl ArchiveSpool {
         if bytes.is_empty() || bytes.len() > MAX_ARCHIVE_BYTES {
             return Err(StoreError::Length);
         }
+        let mut index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        let height = if let Some(ordered) = index.as_ref() {
+            let height = crate::ArchiveData::decode(bytes)
+                .map_err(|_| StoreError::Corrupt)?
+                .batch_number;
+            if let Some(first) = ordered.first {
+                if height >= first && height <= ordered.last {
+                    if self.read_index_entry(height)? != commitment {
+                        return Err(StoreError::Conflict);
+                    }
+                } else if ordered.last.checked_add(1) != Some(height) {
+                    return Err(StoreError::Conflict);
+                }
+            }
+            Some(height)
+        } else {
+            None
+        };
         let path = self.path(commitment);
         if path.exists() {
             let existing = self.get(commitment)?;
             return if existing.bytes == bytes && existing.node_head == node_head {
+                if let Some(height) = height {
+                    self.write_index_entry(height, commitment)?;
+                    index.as_mut().ok_or(StoreError::Corrupt)?.include(height);
+                }
                 Ok(())
             } else {
                 Err(StoreError::Conflict)
@@ -441,7 +528,211 @@ impl ArchiveSpool {
         file.sync_all().map_err(StoreError::Io)?;
         fs::rename(&temporary, &path).map_err(StoreError::Io)?;
         sync_directory(&self.directory)?;
+        if let Some(height) = height {
+            self.write_index_entry(height, commitment)?;
+            index.as_mut().ok_or(StoreError::Corrupt)?.include(height);
+        }
         Ok(())
+    }
+
+    /// Initializes and reconciles the durable height index once per spool open.
+    /// Missing entries are recovered from immutable objects after an interrupted
+    /// put. Conflicts, missing objects and damaged entries are never discarded.
+    pub fn ordered_bounds(&self) -> Result<Option<(u64, u64, usize)>, StoreError> {
+        self.ensure_index()?;
+        let index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        let ordered = index.as_ref().ok_or(StoreError::Corrupt)?;
+        Ok(ordered
+            .first
+            .map(|first| (first, ordered.last, ordered.count)))
+    }
+
+    /// Selects a bounded ordered range without loading historical archive bytes.
+    pub fn ordered_range(
+        &self,
+        first: u64,
+        limit: usize,
+    ) -> Result<Vec<(u64, ArchiveCommitment)>, StoreError> {
+        if limit == 0 || limit > 128 {
+            return Err(StoreError::Length);
+        }
+        self.ensure_index()?;
+        let index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        let ordered = index.as_ref().ok_or(StoreError::Corrupt)?;
+        let Some(origin) = ordered.first else {
+            return Ok(Vec::new());
+        };
+        let start = first.max(origin);
+        if start > ordered.last {
+            return Ok(Vec::new());
+        }
+        let mut entries = Vec::with_capacity(limit);
+        let mut height = start;
+        for _ in 0..limit {
+            entries.push((height, self.read_index_entry(height)?));
+            if height == ordered.last {
+                break;
+            }
+            height = height.checked_add(1).ok_or(StoreError::Corrupt)?;
+        }
+        Ok(entries)
+    }
+
+    /// Retained history belongs to the operator's archival storage policy. The
+    /// runtime never deletes archives or journals; provision and monitor disk,
+    /// and stop acquisition on storage refusal rather than losing history.
+    fn ensure_index(&self) -> Result<(), StoreError> {
+        let mut index = self.index.lock().map_err(|_| StoreError::Conflict)?;
+        if index.is_some() {
+            return Ok(());
+        }
+        let directory = self.directory.join(".order");
+        fs::create_dir_all(&directory).map_err(StoreError::Io)?;
+        let mut ordered = OrderedSpoolIndex::default();
+        for commitment in self.commitments()? {
+            let stored = self.get(commitment)?;
+            let archive = crate::Archive::from_spool(stored.bytes, stored.node_head)
+                .map_err(|_| StoreError::Corrupt)?;
+            let height = archive.data().batch_number;
+            self.write_index_entry(height, commitment)?;
+            ordered.first = Some(ordered.first.map_or(height, |first| first.min(height)));
+            ordered.last = ordered.last.max(height);
+            ordered.count += 1;
+        }
+        let mut entries = 0;
+        for entry in fs::read_dir(&directory).map_err(StoreError::Io)? {
+            let entry = entry.map_err(StoreError::Io)?;
+            let name = entry.file_name();
+            let name = name.to_str().ok_or(StoreError::Corrupt)?;
+            if name.starts_with('.') {
+                continue;
+            }
+            let height: u64 = name.parse().map_err(|_| StoreError::Corrupt)?;
+            if name != format!("{height:020}")
+                || ordered
+                    .first
+                    .is_none_or(|first| height < first || height > ordered.last)
+            {
+                return Err(StoreError::Corrupt);
+            }
+            entries += 1;
+        }
+        if entries != ordered.count
+            || ordered.first.is_some_and(|first| {
+                ordered
+                    .last
+                    .checked_sub(first)
+                    .and_then(|span| span.checked_add(1))
+                    != Some(ordered.count as u64)
+            })
+        {
+            return Err(StoreError::Corrupt);
+        }
+        *index = Some(ordered);
+        Ok(())
+    }
+
+    fn read_index_entry(&self, height: u64) -> Result<ArchiveCommitment, StoreError> {
+        let path = self.directory.join(".order").join(format!("{height:020}"));
+        let bytes = fs::read(path).map_err(StoreError::Io)?;
+        Ok(ArchiveCommitment::from_bytes(
+            bytes.try_into().map_err(|_| StoreError::Corrupt)?,
+        ))
+    }
+
+    fn write_index_entry(
+        &self,
+        height: u64,
+        commitment: ArchiveCommitment,
+    ) -> Result<(), StoreError> {
+        let directory = self.directory.join(".order");
+        fs::create_dir_all(&directory).map_err(StoreError::Io)?;
+        let path = directory.join(format!("{height:020}"));
+        if path.exists() {
+            return if fs::read(path).map_err(StoreError::Io)?.as_slice()
+                == commitment.as_bytes().as_slice()
+            {
+                Ok(())
+            } else {
+                Err(StoreError::Conflict)
+            };
+        }
+        self.atomic_metadata(&directory, &format!("{height:020}"), commitment.as_bytes())
+    }
+
+    fn atomic_metadata(
+        &self,
+        directory: &Path,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<(), StoreError> {
+        let temporary = directory.join(format!(".{name}.tmp"));
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open(&temporary)
+            .map_err(StoreError::Io)?;
+        file.write_all(bytes).map_err(StoreError::Io)?;
+        file.sync_all().map_err(StoreError::Io)?;
+        fs::rename(temporary, directory.join(name)).map_err(StoreError::Io)?;
+        sync_directory(directory)?;
+        sync_directory(&self.directory)
+    }
+
+    /// Reads a sealed lane cursor; the corresponding immutable archive must exist.
+    pub fn lane_cursor(
+        &self,
+        lane: MirrorChain,
+    ) -> Result<Option<CommittedCoordinate>, StoreError> {
+        let path = self.directory.join(format!(".{}.cursor", lane_name(lane)));
+        let bytes = match fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(StoreError::Io(error)),
+        };
+        if bytes.len() != 72 || &Sha256::digest(&bytes[..40])[..] != &bytes[40..] {
+            return Err(StoreError::Corrupt);
+        }
+        let height = u64::from_be_bytes(bytes[..8].try_into().map_err(|_| StoreError::Corrupt)?);
+        let block_hash = bytes[8..40].try_into().map_err(|_| StoreError::Corrupt)?;
+        let coordinate = CommittedCoordinate { height, block_hash };
+        self.check_cursor(coordinate)?;
+        Ok(Some(coordinate))
+    }
+
+    fn check_cursor(&self, coordinate: CommittedCoordinate) -> Result<(), StoreError> {
+        let (_, commitment) = self
+            .ordered_range(coordinate.height, 1)?
+            .into_iter()
+            .next()
+            .filter(|(height, _)| *height == coordinate.height)
+            .ok_or(StoreError::Corrupt)?;
+        let stored = self.get(commitment)?;
+        let data = crate::ArchiveData::decode(&stored.bytes).map_err(|_| StoreError::Corrupt)?;
+        if data.committed_coordinate() != Some(coordinate) {
+            return Err(StoreError::Conflict);
+        }
+        Ok(())
+    }
+
+    /// Saves only canonical readback-acknowledged progress, independently per lane.
+    /// This is a scheduling cursor, never authority for chain finality on reopen.
+    pub fn save_lane_cursor(
+        &self,
+        lane: MirrorChain,
+        coordinate: CommittedCoordinate,
+    ) -> Result<(), StoreError> {
+        self.check_cursor(coordinate)?;
+        let mut bytes = coordinate.height.to_be_bytes().to_vec();
+        bytes.extend_from_slice(&coordinate.block_hash);
+        let digest = Sha256::digest(&bytes);
+        bytes.extend_from_slice(&digest);
+        self.atomic_metadata(
+            &self.directory,
+            &format!(".{}.cursor", lane_name(lane)),
+            &bytes,
+        )
     }
 
     ///
@@ -496,6 +787,12 @@ pub enum StoreError {
     Conflict,
     InvalidTransition,
     Rollback,
+    /// A verified sealed prefix and complete extensions precede an incomplete
+    /// append. Ordinary open never discards it; use `recover_unsealed_suffix`.
+    RecoveryRequired {
+        valid_bytes: u64,
+        trailing_bytes: u64,
+    },
 }
 
 impl Clone for StoreError {
@@ -507,6 +804,13 @@ impl Clone for StoreError {
             Self::Conflict => Self::Conflict,
             Self::InvalidTransition => Self::InvalidTransition,
             Self::Rollback => Self::Rollback,
+            Self::RecoveryRequired {
+                valid_bytes,
+                trailing_bytes,
+            } => Self::RecoveryRequired {
+                valid_bytes: *valid_bytes,
+                trailing_bytes: *trailing_bytes,
+            },
         }
     }
 }
@@ -515,6 +819,16 @@ impl PartialEq for StoreError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Io(left), Self::Io(right)) => left.kind() == right.kind(),
+            (
+                Self::RecoveryRequired {
+                    valid_bytes: left,
+                    trailing_bytes: left_tail,
+                },
+                Self::RecoveryRequired {
+                    valid_bytes: right,
+                    trailing_bytes: right_tail,
+                },
+            ) => left == right && left_tail == right_tail,
             (Self::Corrupt, Self::Corrupt)
             | (Self::Length, Self::Length)
             | (Self::Conflict, Self::Conflict)
@@ -534,7 +848,7 @@ fn validate_transition(
     if previous.chain != next.chain
         || previous.batch_number != next.batch_number
         || previous.commitment != next.commitment
-        || previous.checkpoint != next.checkpoint
+        || previous.committed != next.committed
         || previous.stage != next.stage
         || previous.stage_payload_digest != next.stage_payload_digest
     {
@@ -572,20 +886,15 @@ fn validate_transition(
                 | PublicationPhase::Pending
                 | PublicationPhase::PermanentRefusal
         ),
-        PublicationPhase::BroadcastUnknown => matches!(
-            next.phase,
+        PublicationPhase::BroadcastUnknown | PublicationPhase::Pending => match next.phase {
             PublicationPhase::BroadcastUnknown
-                | PublicationPhase::BroadcastExpired
-                | PublicationPhase::Pending
-                | PublicationPhase::Finalized
-                | PublicationPhase::PermanentRefusal
-        ),
-        PublicationPhase::Pending => matches!(
-            next.phase,
-            PublicationPhase::Pending
-                | PublicationPhase::Finalized
-                | PublicationPhase::PermanentRefusal
-        ),
+            | PublicationPhase::Pending
+            | PublicationPhase::Finalized
+            | PublicationPhase::PermanentRefusal => true,
+            PublicationPhase::Reorged => previous.chain == MirrorChain::Ethereum,
+            PublicationPhase::BroadcastExpired => previous.chain == MirrorChain::Solana,
+            _ => false,
+        },
         PublicationPhase::Finalized => matches!(
             next.phase,
             PublicationPhase::Finalized
@@ -626,31 +935,55 @@ fn replay(
         offset: 0,
         digest: [0; 32],
     };
-    let mut sealed_prefix_seen = expected_head.is_none() || expected_head == Some(head);
+    let mut sealed_prefix_seen = expected_head == Some(head);
+    let actual_length = log.metadata().map_err(StoreError::Io)?.len();
     loop {
-        let mut sequence_bytes = [0_u8; 8];
-        match log.read_exact(&mut sequence_bytes) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
-            Err(error) => return Err(StoreError::Io(error)),
+        let remaining = actual_length
+            .checked_sub(head.offset)
+            .ok_or(StoreError::Corrupt)?;
+        if remaining == 0 {
+            break;
         }
+        // A partial frame is recoverable only beyond a verified independent head.
+        // Missing heads and incomplete authenticated prefixes never authorize loss.
+        if remaining < 8 {
+            if !sealed_prefix_seen {
+                return Err(StoreError::Corrupt);
+            }
+            break;
+        }
+        let mut sequence_bytes = [0_u8; 8];
+        log.read_exact(&mut sequence_bytes)
+            .map_err(StoreError::Io)?;
         let sequence = u64::from_be_bytes(sequence_bytes);
+        if sequence != head.sequence.checked_add(1).ok_or(StoreError::Length)? {
+            return Err(StoreError::Corrupt);
+        }
+        if remaining < 12 {
+            if !sealed_prefix_seen {
+                return Err(StoreError::Corrupt);
+            }
+            break;
+        }
         let mut length_bytes = [0_u8; 4];
-        log.read_exact(&mut length_bytes)
-            .map_err(|_| StoreError::Corrupt)?;
+        log.read_exact(&mut length_bytes).map_err(StoreError::Io)?;
         let length =
             usize::try_from(u32::from_be_bytes(length_bytes)).map_err(|_| StoreError::Length)?;
         if length == 0 || length > MAX_RECORD_BYTES {
             return Err(StoreError::Length);
         }
+        let frame_length = 12 + u64::try_from(length).map_err(|_| StoreError::Length)? + 32;
+        if remaining < frame_length {
+            if !sealed_prefix_seen {
+                return Err(StoreError::Corrupt);
+            }
+            break;
+        }
         let mut body = vec![0_u8; length];
-        log.read_exact(&mut body).map_err(|_| StoreError::Corrupt)?;
+        log.read_exact(&mut body).map_err(StoreError::Io)?;
         let mut digest = [0_u8; 32];
-        log.read_exact(&mut digest)
-            .map_err(|_| StoreError::Corrupt)?;
-        if sequence != head.sequence.checked_add(1).ok_or(StoreError::Length)?
-            || digest != record_digest(head.digest, sequence, &body)
-        {
+        log.read_exact(&mut digest).map_err(StoreError::Io)?;
+        if digest != record_digest(head.digest, sequence, &body) {
             return Err(StoreError::Corrupt);
         }
         let record = decode_record(&body)?;
@@ -678,11 +1011,7 @@ fn replay(
             sealed_prefix_seen = true;
         }
     }
-    let actual_length = log.metadata().map_err(StoreError::Io)?.len();
-    if actual_length != head.offset {
-        return Err(StoreError::Corrupt);
-    }
-    if !sealed_prefix_seen {
+    if expected_head.is_some() && !sealed_prefix_seen {
         return Err(StoreError::Rollback);
     }
     log.seek(SeekFrom::End(0)).map_err(StoreError::Io)?;
@@ -707,7 +1036,7 @@ fn encode_record(record: &PublicationRecord) -> Result<Vec<u8>, StoreError> {
     bytes.push(record.chain.tag());
     bytes.extend_from_slice(&record.batch_number.to_be_bytes());
     bytes.extend_from_slice(record.commitment.as_bytes());
-    encode_checkpoint(&mut bytes, record.checkpoint);
+    encode_committed(&mut bytes, record.committed);
     match record.stage {
         PublicationStage::Manifest => bytes.push(1),
         PublicationStage::Chunk(index) => {
@@ -735,7 +1064,7 @@ fn decode_record(bytes: &[u8]) -> Result<PublicationRecord, StoreError> {
     let chain = MirrorChain::from_tag(reader.u8()?)?;
     let batch_number = reader.u64()?;
     let commitment = ArchiveCommitment::from_bytes(reader.array()?);
-    let checkpoint = decode_checkpoint(&mut reader)?;
+    let committed = decode_committed(&mut reader)?;
     let stage = match reader.u8()? {
         1 => PublicationStage::Manifest,
         2 => PublicationStage::Chunk(reader.u32()?),
@@ -752,7 +1081,7 @@ fn decode_record(bytes: &[u8]) -> Result<PublicationRecord, StoreError> {
         chain,
         batch_number,
         commitment,
-        checkpoint,
+        committed,
         stage,
         phase,
         stage_payload_digest,
@@ -764,22 +1093,22 @@ fn decode_record(bytes: &[u8]) -> Result<PublicationRecord, StoreError> {
     Ok(record)
 }
 
-fn encode_checkpoint(output: &mut Vec<u8>, value: Option<CheckpointCoordinate>) {
+fn encode_committed(output: &mut Vec<u8>, value: Option<CommittedCoordinate>) {
     if let Some(value) = value {
         output.push(1);
-        output.extend_from_slice(&value.batch_number.to_be_bytes());
-        output.extend_from_slice(&value.checkpoint_id);
+        output.extend_from_slice(&value.height.to_be_bytes());
+        output.extend_from_slice(&value.block_hash);
     } else {
         output.push(0);
     }
 }
 
-fn decode_checkpoint(reader: &mut Reader<'_>) -> Result<Option<CheckpointCoordinate>, StoreError> {
+fn decode_committed(reader: &mut Reader<'_>) -> Result<Option<CommittedCoordinate>, StoreError> {
     match reader.u8()? {
         0 => Ok(None),
-        1 => Ok(Some(CheckpointCoordinate {
-            batch_number: reader.u64()?,
-            checkpoint_id: reader.array()?,
+        1 => Ok(Some(CommittedCoordinate {
+            height: reader.u64()?,
+            block_hash: reader.array()?,
         })),
         _ => Err(StoreError::Corrupt),
     }
@@ -887,8 +1216,8 @@ fn write_head(directory: &Path, path: &Path, head: JournalHead) -> Result<(), St
 fn encode_spool(bytes: &[u8], head: NodeHead) -> Result<Vec<u8>, StoreError> {
     let mut output = Vec::with_capacity(96 + bytes.len());
     output.extend_from_slice(SPOOL_MAGIC);
-    output.extend_from_slice(&head.latest_sealed_batch.to_be_bytes());
-    encode_checkpoint(&mut output, head.latest_finalised_checkpoint);
+    output.extend_from_slice(&head.sealed_height().to_be_bytes());
+    encode_committed(&mut output, head.latest_committed);
     push_bytes(&mut output, bytes, MAX_ARCHIVE_BYTES)?;
     let digest: [u8; 32] = Sha256::digest(&output).into();
     output.extend_from_slice(&digest);
@@ -908,8 +1237,8 @@ fn decode_spool(bytes: &[u8], commitment: ArchiveCommitment) -> Result<SpooledAr
     if reader.take(8)? != SPOOL_MAGIC {
         return Err(StoreError::Corrupt);
     }
-    let latest_sealed_batch = reader.u64()?;
-    let latest_finalised_checkpoint = decode_checkpoint(&mut reader)?;
+    let sealed_height = reader.u64()?;
+    let committed = decode_committed(&mut reader)?;
     let archive = reader.bytes(MAX_ARCHIVE_BYTES)?.to_vec();
     reader.finish()?;
     if crate::archive_commitment(&archive) != commitment {
@@ -917,10 +1246,7 @@ fn decode_spool(bytes: &[u8], commitment: ArchiveCommitment) -> Result<SpooledAr
     }
     Ok(SpooledArchive {
         bytes: archive,
-        node_head: NodeHead {
-            latest_sealed_batch,
-            latest_finalised_checkpoint,
-        },
+        node_head: NodeHead::new(sealed_height, committed),
     })
 }
 

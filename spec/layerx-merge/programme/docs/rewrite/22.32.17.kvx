@@ -1,0 +1,34 @@
+[manifest]
+task = "22.32.17"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+bytes = 34956
+source_1 = "record 22.30.100 [doc.07] (stale): Lines 3-12 and 39-51 describe a standalone layerxd topology; lines 437-489 retain LNI and the page retains external authority replicas. Replace running-component and ingress instructions."
+source_2 = "record 22.30.114 [doc.9] (stale): Read in full. Deployable layerxd sequencer/replica, LNI sockets and old settlement configuration are not the finished merged node."
+source_3 = "record 22.30.116 [doc.10] (misleading): Read the page and checked its network, endpoint and lifecycle claims. The page defines the hosted node as an in-cluster sequencer pod running layerxd and documents a separate daemon supervisor, replica authority and settlement workflow as current deployment architecture. Rewrite proposal: Replace docs/site/docs/platform/hosted-node.md with paxd BFT node and integrated-kernel startup, shared network configuration, committed finality and current snapshot/restart recovery; label any retained daemon material as historical."
+source_4 = "record 22.30.117 [doc.2] (misleading): Read the whole page: retired layerxd sequencer deployment, bootstrap, settlement and recovery model begins at line 3."
+source_5 = "record 22.30.12 [doc.009] (stale): Lines 3-12 prescribe an in-cluster sequencer and layerxd --serve; lines 241-370 and 492 onward continue its keys, supervisors and listeners. Replace public deployment guidance with the kernel inside paxd and committed-block recovery."
+source_6 = "record 22.30.16 [doc.04] (stale): Read in full; opening and startup/recovery sections operate retired layerxd/sequencer/authority services. See hosted-node-retired."
+source_7 = "record 22.30.170 [doc.010] (stale): Lines 3-13 define an in-cluster sequencer running layerxd with serve/authority-replica modes; later sections instruct LNI socket and sequencer-key lifecycle operations. See finding.package_doc_10 for the concrete rewrite."
+source_8 = "record 22.30.172 [doc.005] (stale): Complete page read. Page-specific finding identifies separate LayerX/sequencer/daemon claims requiring rewrite around integrated paxd and commit-final receipts."
+source_9 = "record 22.30.182 [doc.11] (misleading): Lines 3, 39-42, 96-303 and 435-589 provision layerxd, custody/LXGB, settlement configuration and retired listeners; see hosted-node-runbook."
+source_10 = "record 22.30.20 [doc.12] (stale): Read in full. Lines 4-22,39-43,161 and 261-303 describe layerxd/separate sequencer roles, guarantors, network 402 and kernel checkpoint/settlement operation, all incompatible with merged bring-up."
+source_11 = "record 22.30.22 [doc.01] (stale): Lines 3-12, 39-40, 130-131 and 357 onward describe the retired layerxd sequencer/replica lifecycle; see hosted-node-doc."
+source_12 = "record 22.30.23 [doc.2] (stale): Lines 3-13 and 39-43 describe separate layerxd sequencer/replica deployments; lines 261-303 bind retired anchor/settlement configuration; lines 433 onward describe daemon LNI ingress."
+source_13 = "record 22.30.27 [doc.001] (misleading): Stale at lines 3-40 (layerxd and replica), 287-315 (settlement/anchor), and 435-459 (LNI boundary); rewrite the integrated paxd operating path."
+source_14 = "record 22.30.28 [doc.001] (stale): The page presents a running layerxd sequencer pod and separate authority replica, with LNI, guarantors and checkpoint-settlement bootstrap and recovery (lines 3-22, 39-42 and 433 onward)."
+source_15 = "record 22.30.29 [doc.04] (misleading): site-node: line4 The page advertises an image that builds layerxd and documents layerxd --serve, an authority replica and the LNI Unix socket as the running hosted node stack, including daemon configuration and receipt-authority routes."
+source_16 = "record 22.30.31 [doc.010] (misleading): Lines 3-12 and 39-42 describe the retired layerxd sequencer, authority replica and guarantors; lines 70-71 retain the LNI socket. Rewrite bootstrap and recovery around paxd."
+source_17 = "record 22.30.37 [doc.d012] (stale): Reviewed all 677 lines. Lines 3-47, 153-157 and 281-294 retain layerxd/replica/guarantor/relay deployment, network 402 and retired anchor settlement; see docs-hosted-node-retired-daemon."
+source_18 = "record 22.30.43 [doc.008] (misleading): Lines 4-12, 39-42 and 570-589 document removed layerxd and authority-replica services; the bootstrap, LNI and checkpoint sections require a merged-node rewrite."
+source_19 = "record 22.30.6 [doc.10] (misleading): Read all 677 lines. Deployment, LNI, secrets, replica/guarantor and recovery procedures assume retired standalone layerxd topology; see hosted-retired-topology."
+source_20 = "record 22.30.79 [doc.002] (misleading): Lines 4-13 and 39-40 describe a layerxd sequencer and authority replica; line 71 and checkpoint recovery instructions retain LNI/anchor dependencies. Rewrite deployment, storage and recovery for merged paxd and the retained hosted receipt services."
+source_21 = "record 22.30.83 [doc.node] (misleading): Reviewed node page: active layerxd/replica/guarantors at 4-42, anchor at 282 and LNI at 433 onward are retired; process namespace at 422 disagrees with deployment; see node-operator-page."
+source_22 = "record 22.30.91 [doc.hosted_node_site] (misleading): Read the complete bootstrap, supervisor, replica, LNI, environment, failure and deployment reference. Lines 3-12 define the running node as layerxd; lines 39-40 and 437 onward document retired supervisor/replica and LNI architecture rather than the merged paxd network."
+source_23 = "record 22.30.95 [doc.6] (misleading): The operational walkthrough starts a separate layerxd sequencer, network 402 and LNI/checkpoint topology as the current hosted node; it conflicts with the merged paxd chain-125 model."
+source_24 = "record 22.30.96 [doc.d06] (misleading): Lines 3: The hosted node guide describes a standalone sequencer pod built from layerxd, local LNI bootstrap and guarantor authority; its bootstrap example configures the former network rather than the single merged chain. Replace the retired layerxd/sequencer provisioning path with the paxd embedded-kernel deployment, chain id 125 and current node/gateway root endpoints. Remove LNI and guarantor secret/setup instructions and document validator commit recovery."

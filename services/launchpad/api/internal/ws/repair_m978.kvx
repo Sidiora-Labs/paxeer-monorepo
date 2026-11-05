@@ -1,0 +1,8 @@
+[task.22.33.978]
+finding = "legacy-websocket-bounds"
+tests = ["TestRepairM_978_FrameLimit", "TestRepairM_978_CanonicalPoolAddresses", "TestRepairM_978_IncrementalPoolBudget", "TestRepairM_978_InitialPoolBudget"]
+repair = "Legacy messages are bounded to 16 KiB before reading; pool updates validate nonzero 20-byte hex addresses, canonicalize routing keys and atomically enforce 128 distinct pools per connection."
+proof = "Loopback WebSockets exercise both mounted legacy endpoints and the real broker transform, subscription filter, writer and client; includes fragmented oversized messages, cleanup, rejected updates, duplicate aliases and capacity reclaimed by unsubscribe."
+baseline = "Not run: the ordered qualification instructions prohibit tests before full implementation and allow verification only through hf-done after hf-build; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The final hf-done receipt records the exact verified candidate revision, command, exit code and private log location."

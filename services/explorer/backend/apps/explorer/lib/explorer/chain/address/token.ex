@@ -60,7 +60,12 @@ defmodule Explorer.Chain.Address.Token do
   defp order(query) do
     from(
       token in subquery(query),
-      order_by: fragment("? DESC, ? ASC NULLS LAST", token.type, token.name)
+      order_by: [
+        desc: token.type,
+        asc_nulls_last: fragment("LOWER(?)", token.name),
+        desc: token.inserted_at,
+        asc: token.contract_address_hash
+      ]
     )
   end
 
@@ -90,13 +95,46 @@ defmodule Explorer.Chain.Address.Token do
   end
 
   @doc """
+  Builds the continuation key for the address token ordering.
+  """
+  def paging_key(%__MODULE__{} = token) do
+    {token.name, token.type, token.inserted_at, token.contract_address_hash}
+  end
+
+  @doc """
   Builds the pagination according to the given key within `PagingOptions`.
 
   * it just returns the given query when the key is nil.
-  * it composes another where clause considering the `type`, `name` and `inserted_at`.
+  * it compares type descending, lowercase name ascending with nulls last,
+    insertion time descending and contract address ascending.
 
   """
   def page_tokens(query, %PagingOptions{key: nil}), do: query
+
+  def page_tokens(query, %PagingOptions{key: {nil, type, inserted_at, contract_address_hash}}) do
+    where(
+      query,
+      [token],
+      token.type < ^type or
+        (token.type == ^type and is_nil(token.name) and
+           (token.inserted_at < ^inserted_at or
+              (token.inserted_at == ^inserted_at and token.contract_address_hash > ^contract_address_hash)))
+    )
+  end
+
+  def page_tokens(query, %PagingOptions{key: {name, type, inserted_at, contract_address_hash}}) do
+    lower_name = String.downcase(name)
+
+    where(
+      query,
+      [token],
+      token.type < ^type or
+        (token.type == ^type and (fragment("LOWER(?)", token.name) > ^lower_name or is_nil(token.name))) or
+        (token.type == ^type and fragment("LOWER(?)", token.name) == ^lower_name and
+           (token.inserted_at < ^inserted_at or
+              (token.inserted_at == ^inserted_at and token.contract_address_hash > ^contract_address_hash)))
+    )
+  end
 
   def page_tokens(query, %PagingOptions{key: {nil, type, inserted_at}}) do
     where(

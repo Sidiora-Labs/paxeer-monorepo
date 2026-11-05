@@ -8,7 +8,14 @@ Charge for a route handler in the App Router. Eight lines, plus a bundle scanner
 npm install @sidiora/layerx-next next react react-dom
 ```
 
-The declared configuration is the same as [Express](framework-express.html), read from the environment on the first request rather than at module scope. `next build` collects your route modules, so a key read at module scope becomes a build input; reading it on the first request keeps `next build` runnable with no key present.
+The declared seller configuration includes `LAYERX_RECEIPT_KEYS_JSON`, a JSON array of one to thirty-two pinned receipt keys. Each entry has nonzero 32-byte hex `keyId` and `publicKey` fields and decimal-string `firstHeight` and `lastHeight` bounds (inclusive). Read the configuration from the environment on the first request rather than at module scope. `next build` collects your route modules, so a key read at module scope becomes a build input; reading it on the first request keeps `next build` runnable with no key present.
+
+| Variable | Requirement |
+|---|---|
+| `LAYERX_X402_SCHEME` | Required: `exact`, `metered` or `subscription`. |
+| `LAYERX_PAYMENT_PURPOSE_HASH` | Required for every scheme other than `exact`; optional for `exact`. When supplied, it must be a nonzero 32-byte hex value. |
+
+Missing `LAYERX_PAYMENT_PURPOSE_HASH` for a non-exact scheme refuses construction with an error naming the variable and the scheme. With `mountLayerXOnRequest`, this check runs on the first request.
 
 ## The integration
 
@@ -95,7 +102,7 @@ export class FileFulfillmentRepository {
     const resource = await release();
     const record = JSON.stringify({
       requestDigest: proposed.requestDigest,
-      receipt: Buffer.from(proposed.canonicalReceipt).toString("base64"),
+      receipt: proposed.receiptDigest,
       resource,
     });
     let file;
@@ -114,12 +121,11 @@ export class FileFulfillmentRepository {
 
   async read(path, proposed) {
     const stored = JSON.parse(await readFile(path, "utf8"));
-    if (stored.requestDigest !== proposed.requestDigest) {
+    if (stored.requestDigest !== proposed.requestDigest || stored.receipt !== proposed.receiptDigest) {
       throw new MiddlewareError("fulfillment-conflict");
     }
     return {
       ...proposed,
-      canonicalReceipt: Uint8Array.from(Buffer.from(stored.receipt, "base64")),
       resource: stored.resource,
     };
   }
@@ -140,7 +146,7 @@ npm run dev
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | The route verifies the receipt from its own bytes against an authorised batch. |
+| Offline receipt verification | `protocol` | The route verifies the receipt from its own bytes against the pinned receipt keys in `LAYERX_RECEIPT_KEYS_JSON`. |
 | Atomic settlement | `protocol` | The payment behind a released body happened whole or not at all. |
 | Receipt-gated resource release | `service` | The route handler releases only against a verified receipt. |
 | Refusal to publish a secret | `service` | The scanner fails a build whose client bundle carries a declared secret. It is a build-time control, so run it. |

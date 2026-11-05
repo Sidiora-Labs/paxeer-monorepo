@@ -1,0 +1,9 @@
+[repair.22.33.166]
+finding = "push-delete-ownership"
+tests = ["push_delete_ownership_requires_proof", "push_delete_ownership_refuses_different_wallet", "push_delete_ownership_binds_operation_endpoint_owner_and_time", "push_delete_ownership_accepts_only_current_stored_owner", "push_delete_ownership_accepts_fresh_unsubscribe_intent"]
+implementation = "DELETE verifies a five-minute EIP-191 paxport:push-unsubscribe intent with at most sixty seconds of clock skew, bound to the exact endpoint, stored owner and signed issuedAt; validation and removal share the production AtomicJsonStore file lock."
+baseline = "Not run: ordered task rules require implementation before any test and prohibit manually running verify_cmd; no pre-change execution is claimed. The unsigned-delete test asserts 401 where the prior route returned 200 and removed the record."
+wiring_request = "Domain 12: apps/wallet/src/lib/push.ts must sign pushUnsubscribeMessage(endpoint, wallet.address, issuedAt) from apps/wallet/src/app/api/push/subscribe/unsubscribe-intent.ts and send endpoint, walletAddress, issuedAt and signature on DELETE; check the response before reporting server removal."
+evidence = "The runner hf-done gate ledger records the verified candidate revision, command, exit code and private log location."
+gotcha = "pnpm --dir apps/wallet dlx prettier resolved relative file arguments from the repository root; use absolute file paths. Recorded here because GOTCHA.kvx is outside the authorized scope."
+registration_gotcha = "Vitest 4.1.12 treats test(function) as todo without executing it; register each declared function with test(function.name, function). The initial gate at 518391552c3f74a4a9812ab563e160dfa31ff994 exited zero with five todo tests in /out/logs/verify-1.log and is not behavioral evidence."

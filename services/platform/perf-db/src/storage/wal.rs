@@ -1,10 +1,10 @@
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufWriter, Read, Write};
+use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crc32fast::Hasher as Crc32Hasher;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::core::types::IndexedEvent;
 use crate::error::PerfDbError;
@@ -89,16 +89,19 @@ impl Default for WalConfig {
     }
 }
 
-/// On-disk entry format:
-/// ```text
-/// [len: u32 LE] [crc32: u32 LE] [type: u8] [payload: len bytes]
-/// ```
-///
-/// `type` is the bincode tag for the `WalEntry` enum (first byte of bincode output).
-/// `payload` is the full bincode-serialized `WalEntry`.
-/// `len` is the byte length of `payload`.
-/// `crc32` covers `[type][payload]`.
-const ENTRY_HEADER_SIZE: usize = 4 + 4; // len + crc32
+/// On-disk entry format: `[len: u32 LE][crc32: u32 LE][payload: len bytes]`.
+/// The payload is the complete bincode value (including its enum discriminant);
+/// the checksum covers exactly the payload. There is no separate type byte.
+const ENTRY_HEADER_SIZE: usize = 8;
+const MAX_ENTRY_SIZE: usize = 128 * 1024 * 1024;
+
+/// Exclusive end of an applied frame. Unlike a block height, this also orders
+/// multiple events from the same block and survives segment rotation/pruning.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct WalPosition {
+    pub segment: u64,
+    pub offset: u64,
+}
 
 pub struct WalWriter {
     config: WalConfig,
@@ -111,11 +114,25 @@ pub struct WalWriter {
 impl WalWriter {
     /// Open or create a WAL in the given directory.
     pub fn open(config: WalConfig) -> Result<Self, PerfDbError> {
-        fs::create_dir_all(&config.dir).map_err(|e| PerfDbError::Io {
-            context: format!("create WAL dir: {}", config.dir.display()),
-            source: e,
-        })?;
+        Self::open_for::<WalEntry>(config)
+    }
 
+    fn open_for<T: DeserializeOwned>(config: WalConfig) -> Result<Self, PerfDbError> {
+        create_storage_dir(&config.dir)?;
+
+        // Validate every segment before changing the final one or enabling writes.
+        let (_, damaged_tail) = scan_wal::<T>(&config.dir, |_| Ok(()))?;
+        if let Some((segment, valid_offset)) = damaged_tail {
+            let path = segment_path(&config.dir, segment);
+            let file = OpenOptions::new()
+                .write(true)
+                .open(&path)
+                .map_err(|e| io_error("open damaged WAL tail", e))?;
+            file.set_len(valid_offset)
+                .map_err(|e| io_error("truncate damaged WAL tail", e))?;
+            file.sync_all()
+                .map_err(|e| io_error("sync repaired WAL tail", e))?;
+        }
         let current_segment = find_latest_segment(&config.dir)?;
         let seg_path = segment_path(&config.dir, current_segment);
 
@@ -128,10 +145,17 @@ impl WalWriter {
                 source: e,
             })?;
 
-        let segment_bytes = file.metadata().map_err(|e| PerfDbError::Io {
-            context: "WAL segment metadata".into(),
-            source: e,
-        })?.len();
+        file.sync_all()
+            .map_err(|e| io_error("sync WAL segment", e))?;
+        sync_directory(&config.dir)?;
+
+        let segment_bytes = file
+            .metadata()
+            .map_err(|e| PerfDbError::Io {
+                context: "WAL segment metadata".into(),
+                source: e,
+            })?
+            .len();
 
         Ok(Self {
             config,
@@ -149,24 +173,39 @@ impl WalWriter {
             detail: e.to_string(),
         })?;
 
+        self.append_payload(&payload)
+    }
+
+    fn append_payload(&mut self, payload: &[u8]) -> Result<(), PerfDbError> {
+        if payload.len() > MAX_ENTRY_SIZE {
+            return Err(PerfDbError::InvalidArgument(
+                "WAL entry exceeds maximum size".into(),
+            ));
+        }
         let len = payload.len() as u32;
 
         let mut hasher = Crc32Hasher::new();
         hasher.update(&payload);
         let crc = hasher.finalize();
 
-        self.writer.write_all(&len.to_le_bytes()).map_err(|e| PerfDbError::Io {
-            context: "WAL write len".into(),
-            source: e,
-        })?;
-        self.writer.write_all(&crc.to_le_bytes()).map_err(|e| PerfDbError::Io {
-            context: "WAL write crc".into(),
-            source: e,
-        })?;
-        self.writer.write_all(&payload).map_err(|e| PerfDbError::Io {
-            context: "WAL write payload".into(),
-            source: e,
-        })?;
+        self.writer
+            .write_all(&len.to_le_bytes())
+            .map_err(|e| PerfDbError::Io {
+                context: "WAL write len".into(),
+                source: e,
+            })?;
+        self.writer
+            .write_all(&crc.to_le_bytes())
+            .map_err(|e| PerfDbError::Io {
+                context: "WAL write crc".into(),
+                source: e,
+            })?;
+        self.writer
+            .write_all(&payload)
+            .map_err(|e| PerfDbError::Io {
+                context: "WAL write payload".into(),
+                source: e,
+            })?;
 
         self.segment_bytes += ENTRY_HEADER_SIZE as u64 + payload.len() as u64;
 
@@ -195,10 +234,13 @@ impl WalWriter {
             context: "WAL flush".into(),
             source: e,
         })?;
-        self.writer.get_ref().sync_data().map_err(|e| PerfDbError::Io {
-            context: "WAL fsync".into(),
-            source: e,
-        })?;
+        self.writer
+            .get_ref()
+            .sync_data()
+            .map_err(|e| PerfDbError::Io {
+                context: "WAL fsync".into(),
+                source: e,
+            })?;
         self.last_sync = Instant::now();
         Ok(())
     }
@@ -211,6 +253,13 @@ impl WalWriter {
     /// Total bytes written to current segment.
     pub fn segment_bytes(&self) -> u64 {
         self.segment_bytes
+    }
+
+    pub fn position(&self) -> WalPosition {
+        WalPosition {
+            segment: self.current_segment,
+            offset: self.segment_bytes,
+        }
     }
 
     fn rotate(&mut self) -> Result<(), PerfDbError> {
@@ -228,6 +277,9 @@ impl WalWriter {
                 source: e,
             })?;
 
+        file.sync_all()
+            .map_err(|e| io_error("sync new WAL segment", e))?;
+        sync_directory(&self.config.dir)?;
         self.writer = BufWriter::with_capacity(64 * 1024, file);
         self.segment_bytes = 0;
 
@@ -237,98 +289,257 @@ impl WalWriter {
     }
 }
 
-/// Replay all WAL entries from all segments in order.
-///
-/// Calls `callback` for each valid entry. Stops on the first corrupted entry
-/// within a segment (truncation-safe: partial writes at the end are ignored).
+/// Replay the valid prefix. Only a damaged final append may be ignored;
+/// corruption preceding another valid record or a later segment is an error.
 pub fn replay(
     dir: impl AsRef<Path>,
-    mut callback: impl FnMut(WalEntry) -> Result<(), PerfDbError>,
+    callback: impl FnMut(WalEntry) -> Result<(), PerfDbError>,
 ) -> Result<u64, PerfDbError> {
-    let dir = dir.as_ref();
+    scan_wal(dir.as_ref(), callback).map(|(count, _)| count)
+}
+
+pub fn replay_positioned(
+    dir: impl AsRef<Path>,
+    callback: impl FnMut(WalEntry, WalPosition) -> Result<(), PerfDbError>,
+) -> Result<u64, PerfDbError> {
+    scan_wal_positioned(dir.as_ref(), callback).map(|(count, _)| count)
+}
+
+fn decode_record<T: DeserializeOwned>(payload: &[u8]) -> Result<T, bincode::Error> {
+    use bincode::Options;
+    bincode::DefaultOptions::new()
+        .with_fixint_encoding()
+        .reject_trailing_bytes()
+        .with_limit(MAX_ENTRY_SIZE as u64)
+        .deserialize(payload)
+}
+
+fn scan_wal<T: DeserializeOwned>(
+    dir: &Path,
+    mut callback: impl FnMut(T) -> Result<(), PerfDbError>,
+) -> Result<(u64, Option<(u64, u64)>), PerfDbError> {
+    scan_wal_positioned(dir, |entry, _| callback(entry))
+}
+
+fn scan_wal_positioned<T: DeserializeOwned>(
+    dir: &Path,
+    mut callback: impl FnMut(T, WalPosition) -> Result<(), PerfDbError>,
+) -> Result<(u64, Option<(u64, u64)>), PerfDbError> {
     let mut segments = list_segments(dir)?;
-    segments.sort();
-
-    let mut count = 0u64;
-
-    for seg_id in segments {
-        let seg_path = segment_path(dir, seg_id);
-        let mut file = File::open(&seg_path).map_err(|e| PerfDbError::Io {
-            context: format!("open WAL segment for replay: {}", seg_path.display()),
-            source: e,
-        })?;
-
-        let file_len = file.metadata().map_err(|e| PerfDbError::Io {
-            context: "segment metadata".into(),
-            source: e,
-        })?.len();
-
-        let mut pos = 0u64;
-
-        while pos + ENTRY_HEADER_SIZE as u64 <= file_len {
+    segments.sort_unstable();
+    if segments
+        .windows(2)
+        .any(|w| w[0].checked_add(1) != Some(w[1]))
+    {
+        return Err(PerfDbError::Corruption(
+            "missing interior WAL segment".into(),
+        ));
+    }
+    let mut count = 0;
+    for (index, &segment) in segments.iter().enumerate() {
+        let path = segment_path(dir, segment);
+        let mut file = File::open(&path).map_err(|e| io_error("read WAL segment", e))?;
+        let file_len = file
+            .metadata()
+            .map_err(|e| io_error("WAL metadata", e))?
+            .len();
+        let mut offset = 0;
+        while offset < file_len {
             let mut header = [0u8; ENTRY_HEADER_SIZE];
-            if file.read_exact(&mut header).is_err() {
-                break;
-            }
-
-            let len = u32::from_le_bytes(header[0..4].try_into().unwrap()) as u64;
-            let expected_crc = u32::from_le_bytes(header[4..8].try_into().unwrap());
-
-            if len > 128 * 1024 * 1024 {
-                tracing::warn!(
-                    segment = seg_id,
-                    offset = pos,
-                    len = len,
-                    "WAL entry too large, stopping replay at this segment"
-                );
-                break;
-            }
-
-            if pos + ENTRY_HEADER_SIZE as u64 + len > file_len {
-                break;
-            }
-
-            let mut payload = vec![0u8; len as usize];
-            if file.read_exact(&mut payload).is_err() {
-                break;
-            }
-
-            let mut hasher = Crc32Hasher::new();
-            hasher.update(&payload);
-            let actual_crc = hasher.finalize();
-
-            if actual_crc != expected_crc {
-                tracing::warn!(
-                    segment = seg_id,
-                    offset = pos,
-                    expected_crc,
-                    actual_crc,
-                    "WAL CRC mismatch, stopping replay at this segment"
-                );
-                break;
-            }
-
-            match bincode::deserialize::<WalEntry>(&payload) {
-                Ok(entry) => {
-                    callback(entry)?;
-                    count += 1;
+            let mut frame_end = None;
+            let record = if file_len - offset < ENTRY_HEADER_SIZE as u64 {
+                None
+            } else {
+                file.read_exact(&mut header)
+                    .map_err(|e| io_error("read WAL header", e))?;
+                let len = u32::from_le_bytes(header[..4].try_into().unwrap()) as usize;
+                let crc = u32::from_le_bytes(header[4..].try_into().unwrap());
+                if len > MAX_ENTRY_SIZE || len as u64 > file_len - offset - ENTRY_HEADER_SIZE as u64
+                {
+                    None
+                } else {
+                    frame_end = Some(offset + ENTRY_HEADER_SIZE as u64 + len as u64);
+                    let mut payload = vec![0; len];
+                    file.read_exact(&mut payload)
+                        .map_err(|e| io_error("read WAL payload", e))?;
+                    if crc32fast::hash(&payload) == crc {
+                        decode_record::<T>(&payload).ok().map(|entry| (entry, len))
+                    } else {
+                        None
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!(
-                        segment = seg_id,
-                        offset = pos,
-                        error = %e,
-                        "WAL entry deserialize failed, stopping replay"
-                    );
-                    break;
-                }
+            };
+            if let Some((entry, len)) = record {
+                offset += ENTRY_HEADER_SIZE as u64 + len as u64;
+                callback(entry, WalPosition { segment, offset })?;
+                count += 1;
+                continue;
             }
-
-            pos += ENTRY_HEADER_SIZE as u64 + len;
+            if index + 1 != segments.len()
+                || frame_end.is_some_and(|end| end < file_len)
+                || valid_record_after::<T>(&mut file, offset + 1)?
+            {
+                return Err(PerfDbError::Corruption(format!(
+                    "interior WAL corruption at segment {segment}, offset {offset}"
+                )));
+            }
+            return Ok((count, Some((segment, offset))));
         }
     }
+    Ok((count, None))
+}
 
-    Ok(count)
+fn valid_record_after<T: DeserializeOwned>(
+    file: &mut File,
+    offset: u64,
+) -> Result<bool, PerfDbError> {
+    file.seek(SeekFrom::Start(offset))
+        .map_err(|e| io_error("seek damaged WAL", e))?;
+    let mut tail = Vec::new();
+    file.read_to_end(&mut tail)
+        .map_err(|e| io_error("read damaged WAL", e))?;
+    for start in 0..tail.len().saturating_sub(ENTRY_HEADER_SIZE - 1) {
+        let header = &tail[start..start + ENTRY_HEADER_SIZE];
+        let len = u32::from_le_bytes(header[..4].try_into().unwrap()) as usize;
+        if len == 0 || len > MAX_ENTRY_SIZE || len > tail.len() - start - ENTRY_HEADER_SIZE {
+            continue;
+        }
+        let payload = &tail[start + ENTRY_HEADER_SIZE..start + ENTRY_HEADER_SIZE + len];
+        let crc = u32::from_le_bytes(header[4..].try_into().unwrap());
+        if crc32fast::hash(payload) == crc && decode_record::<T>(payload).is_ok() {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+pub(crate) fn io_error(context: &str, source: std::io::Error) -> PerfDbError {
+    PerfDbError::Io {
+        context: context.into(),
+        source,
+    }
+}
+
+pub(crate) fn create_storage_dir(dir: &Path) -> Result<(), PerfDbError> {
+    let mut missing = Vec::new();
+    let mut cursor = dir;
+    while !cursor.exists() && !cursor.as_os_str().is_empty() {
+        missing.push(cursor.to_path_buf());
+        match cursor.parent() {
+            Some(parent) => cursor = parent,
+            None => break,
+        }
+    }
+    fs::create_dir_all(dir).map_err(|e| io_error("create storage directory", e))?;
+    for path in missing.iter().rev() {
+        sync_directory(path)?;
+        let parent = path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        sync_directory(parent)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn sync_directory(dir: &Path) -> Result<(), PerfDbError> {
+    File::open(dir)
+        .and_then(|file| file.sync_all())
+        .map_err(|e| io_error("sync storage directory", e))
+}
+
+/// Versioned, separately namespaced relational WAL. The legacy enum and its
+/// discriminants remain readable by existing engine callers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RelationalWalEntry {
+    pub version: u32,
+    pub sequence: u64,
+    pub mutation: RelationalMutation,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RelationalMutation {
+    PutAlert(crate::relational::alerts::Alert),
+    DeleteAlert(u64),
+    PutApiKey(crate::relational::api_keys::ApiKey),
+    DeleteApiKey(String),
+    PutCompetition(crate::relational::competitions::Competition),
+    PutCompetitionEntry(crate::relational::competitions::CompetitionEntry),
+    SetReferralTiers(Vec<super::snapshot::SnapshotReferralTier>),
+}
+
+pub struct RelationalWalWriter(WalWriter);
+
+impl RelationalWalWriter {
+    pub fn open(mut config: WalConfig) -> Result<Self, PerfDbError> {
+        config.sync_policy = SyncPolicy::EveryWrite;
+        Ok(Self(WalWriter::open_for::<RelationalWalEntry>(config)?))
+    }
+
+    pub fn append(&mut self, entry: &RelationalWalEntry) -> Result<(), PerfDbError> {
+        if entry.version != 1 {
+            return Err(PerfDbError::InvalidArgument(
+                "unsupported relational WAL version".into(),
+            ));
+        }
+        let payload = bincode::serialize(entry).map_err(|e| PerfDbError::Serialization {
+            context: "relational WAL serialize".into(),
+            detail: e.to_string(),
+        })?;
+        self.0.append_payload(&payload)
+    }
+
+    pub fn sync(&mut self) -> Result<(), PerfDbError> {
+        self.0.sync()
+    }
+}
+
+pub fn replay_relational(
+    dir: &Path,
+    mut callback: impl FnMut(RelationalWalEntry) -> Result<(), PerfDbError>,
+) -> Result<u64, PerfDbError> {
+    scan_wal(dir, |entry: RelationalWalEntry| {
+        if entry.version != 1 {
+            return Err(PerfDbError::Corruption(
+                "unsupported relational WAL version".into(),
+            ));
+        }
+        callback(entry)
+    })
+    .map(|(count, _)| count)
+}
+
+/// A fallback snapshot may be used only with a validated, retained WAL span.
+/// Without a precise snapshot cursor, require the original segment zero and a
+/// durable checkpoint at or beyond the damaged snapshot's advertised height.
+pub fn verify_snapshot_coverage(
+    dir: &Path,
+    from_block: u64,
+    through_block: u64,
+) -> Result<(), PerfDbError> {
+    let mut segments = list_segments(dir)?;
+    segments.sort_unstable();
+    if segments.first() != Some(&0) {
+        return Err(PerfDbError::Corruption(
+            "snapshot fallback lacks retained WAL origin".into(),
+        ));
+    }
+    let mut checkpoint = 0;
+    let (_, tail) = scan_wal(dir, |entry: WalEntry| {
+        if let WalEntry::Checkpoint { block_number } = entry {
+            if block_number < checkpoint {
+                return Err(PerfDbError::Corruption("WAL checkpoints regress".into()));
+            }
+            checkpoint = block_number;
+        }
+        Ok(())
+    })?;
+    if tail.is_some() || checkpoint < through_block || from_block > through_block {
+        return Err(PerfDbError::Corruption(
+            "snapshot fallback lacks verified WAL coverage".into(),
+        ));
+    }
+    Ok(())
 }
 
 /// Delete all segments before (not including) the given segment number.
@@ -350,6 +561,7 @@ pub fn truncate_before(dir: impl AsRef<Path>, keep_from: u64) -> Result<u64, Per
     }
 
     if removed > 0 {
+        sync_directory(dir)?;
         tracing::info!(removed, keep_from, "WAL segments truncated");
     }
 
@@ -360,7 +572,7 @@ fn segment_path(dir: &Path, id: u64) -> PathBuf {
     dir.join(format!("wal_{:08}.bin", id))
 }
 
-fn list_segments(dir: &Path) -> Result<Vec<u64>, PerfDbError> {
+pub(crate) fn list_segments(dir: &Path) -> Result<Vec<u64>, PerfDbError> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
@@ -379,7 +591,10 @@ fn list_segments(dir: &Path) -> Result<Vec<u64>, PerfDbError> {
         let name = entry.file_name();
         let name = name.to_string_lossy();
 
-        if let Some(num_str) = name.strip_prefix("wal_").and_then(|s| s.strip_suffix(".bin")) {
+        if let Some(num_str) = name
+            .strip_prefix("wal_")
+            .and_then(|s| s.strip_suffix(".bin"))
+        {
             if let Ok(id) = num_str.parse::<u64>() {
                 ids.push(id);
             }
@@ -418,9 +633,11 @@ mod tests {
                 timestamp_ns: 1_000_000,
                 market_id: 0,
                 price: 67_000.0,
-            }).unwrap();
+            })
+            .unwrap();
 
-            wal.append(&WalEntry::Checkpoint { block_number: 42 }).unwrap();
+            wal.append(&WalEntry::Checkpoint { block_number: 42 })
+                .unwrap();
 
             wal.sync().unwrap();
         }
@@ -429,12 +646,15 @@ mod tests {
         let count = replay(dir.path(), |e| {
             entries.push(e);
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
 
         assert_eq!(count, 2);
 
         match &entries[0] {
-            WalEntry::PriceTick { market_id, price, .. } => {
+            WalEntry::PriceTick {
+                market_id, price, ..
+            } => {
                 assert_eq!(*market_id, 0);
                 assert_eq!(*price, 67_000.0);
             }
@@ -466,13 +686,21 @@ mod tests {
                 timestamp_ns: i * 1_000_000,
                 market_id: 0,
                 price: 60_000.0 + i as f64,
-            }).unwrap();
+            })
+            .unwrap();
         }
 
-        assert!(wal.current_segment() > 0, "expected rotation, got segment 0");
+        assert!(
+            wal.current_segment() > 0,
+            "expected rotation, got segment 0"
+        );
 
         let mut count = 0u64;
-        replay(dir.path(), |_| { count += 1; Ok(()) }).unwrap();
+        replay(dir.path(), |_| {
+            count += 1;
+            Ok(())
+        })
+        .unwrap();
         assert_eq!(count, 50);
     }
 
@@ -492,7 +720,8 @@ mod tests {
                 timestamp_ns: i,
                 market_id: 0,
                 price: 1.0,
-            }).unwrap();
+            })
+            .unwrap();
         }
         wal.sync().unwrap();
 
@@ -516,7 +745,8 @@ mod tests {
         {
             let config = test_config(dir.path());
             let mut wal = WalWriter::open(config).unwrap();
-            wal.append(&WalEntry::Checkpoint { block_number: 1 }).unwrap();
+            wal.append(&WalEntry::Checkpoint { block_number: 1 })
+                .unwrap();
             wal.sync().unwrap();
         }
 
@@ -526,7 +756,11 @@ mod tests {
         }
 
         let mut count = 0u64;
-        replay(dir.path(), |_| { count += 1; Ok(()) }).unwrap();
+        replay(dir.path(), |_| {
+            count += 1;
+            Ok(())
+        })
+        .unwrap();
         assert_eq!(count, 1);
     }
 }

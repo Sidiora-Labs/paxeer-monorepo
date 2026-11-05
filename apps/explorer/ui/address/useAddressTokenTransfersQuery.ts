@@ -14,6 +14,7 @@ import { getTokenTransfersStub } from 'stubs/token';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
 
 export type Filters = {
+  token?: string;
   type: Array<TokenType>;
   filter: AddressFromToFilter | undefined;
 };
@@ -30,6 +31,7 @@ const getFilters = (query: Record<string, string | Array<string> | undefined>, c
 
   return {
     filter: getAddressFilterValue(filterParam),
+    token: getQueryParamString(query.token) || undefined,
     type: getFilterValuesFromQuery(
       Object.keys(getTokenTypes(false, chainConfig?.app_config)),
       typeParam,

@@ -1,0 +1,13 @@
+[repair.22.33.828]
+mode = "BUILD"
+base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+findings = ["22.30.18/6", "22.30.18/12", "22.30.18/11", "22.30.18/13"]
+proof_6 = "TestRepairM_828_LatestIndex: real WriteBlock -> market and records.Symbol registered routes; index-only aggregate then skipped aggregate; exact funding strings."
+proof_12 = "TestRepairM_828_UnknownKind: registered mux; both streak and unknown return the one-field JSON 404 error contract; malformed limits remain 400."
+proof_11 = "TestRepairM_828_DurableBoard and TestRepairM_828_EmptyBoard: WriteBlock -> FoldSpotBoard -> committed generation and durable per-account omissions -> reopened SQL connection -> registered mux, including published empty rankings."
+proof_13 = "TestRepairM_828_DurableBoard; TestSpotLeaderboardProjection reuses its real writer/reopen/mux scenario; old cache assertions now check immediate generation visibility and concurrent bounded reads without request-time folds."
+baseline = "Not run: ordered implementation-first and single hf-done instructions supersede do_8's conflicting unchanged-tree verification request; no baseline failure is claimed."
+wiring = "Domain 3, services/platform/perps-data/migrations: install the additive schema in internal/rest/repair_m828_schema.sql and refold existing board history through the store recovery path before deploying the board writer/readers; migration directory is outside this task's scope."
+initial_state = "Runner-owned .cgignore and spec task-status modifications were present before this repair and preserved."
+attempt_2 = "Replaced attempt 1's unrecorded SQL playback with isolated PostgreSQL databases provisioned through PERPS_DATA_TEST_DATABASE_URL (gotcha 2980), using real store.Open, store.Migrate, WriteBlock and FoldSpotBoard; preserved exact-value, omission, bounded-read, cancellation and error assertions."
+qualification = "hf-build and hf-done record the exact candidate revision, commands, exit codes and private log locations in the runner gate ledger; no baseline gate or passed gate is claimed here."

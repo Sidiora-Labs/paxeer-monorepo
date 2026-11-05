@@ -11,28 +11,9 @@ func buildBrief(wf *Doc) string {
 	var b strings.Builder
 	name := wf.Str("meta", "name")
 	fmt.Fprintf(&b, "# %s\n\n", name)
-	b.WriteString("The single source of truth for how to work in this repo is **`spec/`** (kvx).\n")
-	b.WriteString("This file is a GENERATED pointer to it. Do not hand-edit it; edit `spec/workflow.kvx` and run `spec/specgen`.\n\n")
-
-	if sot := wf.Str("meta", "source_of_truth"); sot != "" {
-		fmt.Fprintf(&b, "> %s\n\n", sot)
-	}
-
-	b.WriteString("## Principles\n\n")
-	for _, kv := range wf.OrderedKV("principle", "") {
-		fmt.Fprintf(&b, "- **%s**: %s\n", humanize(kv[0]), kv[1])
-	}
-
-	b.WriteString("\n## The loop (every session)\n\n")
-	n := 0
-	for _, kv := range wf.OrderedKV("loop", "") {
-		n++
-		fmt.Fprintf(&b, "%d. %s\n", n, kv[1])
-	}
-
-	b.WriteString("\n## Persistent project memory (when configured)\n\n")
-	for _, kv := range wf.OrderedKV("cortex", "") {
-		fmt.Fprintf(&b, "- **%s**: %s\n", humanize(kv[0]), kv[1])
+	b.WriteString("This file is a generated pointer. The single workflow source is `spec/workflow.kvx`; edit it and run `hyperfide spec render`, never this file.\n")
+	if owners := wf.Str("render", "generated_owners"); owners != "" {
+		fmt.Fprintf(&b, "%s\n", owners)
 	}
 
 	if active := wf.Str("meta", "active_feature"); active != "" {
@@ -40,15 +21,28 @@ func buildBrief(wf *Doc) string {
 		fmt.Fprintf(&b, "`spec/%s/spec.kvx` — read its `[meta]` status, `[req.*]` acceptance criteria, and the `[task.*]` list (status + wave + requires). Work one task at a time in wave order; update `status` in the kvx as you go.\n", active)
 	}
 
-	b.WriteString("\n## Hard rules\n\n")
-	for _, kv := range wf.OrderedKV("hard_rules", "") {
-		fmt.Fprintf(&b, "- **%s**: %s\n", humanize(kv[0]), kv[1])
+	b.WriteString("\n## The loop (every session)\n\n")
+	for i, kv := range wf.OrderedKV("loop", "") {
+		fmt.Fprintf(&b, "%d. %s\n", i+1, kv[1])
 	}
+
+	var sections []string
+	for _, section := range []string{"principle", "hard_rules", "status_values", "human", "asks", "publication", "memory"} {
+		if wf.Has(section) {
+			sections = append(sections, "`["+section+"]`")
+		}
+	}
+	if len(sections) > 0 {
+		b.WriteString("\n## Where the rules are\n\n")
+		fmt.Fprintf(&b, "Principles, hard rules and policies live only in `spec/workflow.kvx`: %s. Read them there.\n", strings.Join(sections, ", "))
+	}
+
 	return b.String()
 }
 
 // adapter renders one IDE pointer file from the shared brief + a banner.
 func adapter(label, brief, banner string) string {
+	owned := "<!-- hyperfide-owned: generated-spec v1 -->\n"
 	cmt := "<!-- " + banner + " -->\n\n"
 	switch label {
 	case "cursor":
@@ -57,18 +51,18 @@ func adapter(label, brief, banner string) string {
 			"description: Ion portable spec workflow (task-driven + cortex)\n" +
 			"alwaysApply: true\n" +
 			"---\n\n"
-		return fm + cmt + brief
+		return owned + fm + cmt + brief
 	case "windsurf_workflow":
-		return cmt + brief
+		return owned + cmt + brief
 	case "kiro":
 		// Kiro steering: frontmatter inclusion=always.
 		fm := "---\n" +
 			"inclusion: always\n" +
 			"---\n\n"
-		return fm + cmt + brief
+		return owned + fm + cmt + brief
 	default:
 		// windsurf_rules, claude (CLAUDE.md), codex (AGENTS.md), copilot — plain md.
-		return cmt + brief
+		return owned + cmt + brief
 	}
 }
 

@@ -1,14 +1,19 @@
 //! AI market client: proof-bound finalized views, operation planning over the existing
 //! `NativeProgramCall`, owner review and signing, and durable exact-byte submission with
-//! receipt and checkpoint resolution.
+//! receipt and block-commit resolution.
 
-use std::fs::{self, File};
+use std::cell::Cell;
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use layerx_crypto::disclosure::{self, DisclosedNativeOperation, Disclosure, DisclosureError};
-use layerx_crypto::signer::{sign_disclosed, SignError, Signer};
-use layerx_crypto::{ed25519, SignatureMessage, VerifyError};
+use layerx_crypto::disclosure::call::{decode_program_call, encode_program_call};
+use layerx_crypto::disclosure::{DisclosedNativeOperation, Disclosure, DisclosureError};
+use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
+use layerx_crypto::payments::bind_call;
+use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
+use layerx_crypto::VerifyError;
 use layerx_programs_ai_market::codec::{
     decode_envelope, decode_roster, encode_envelope, Envelope, RosterView,
 };
@@ -37,29 +42,150 @@ use layerx_programs_ai_market::types::{
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
-use layerx_proof::checkpoint::{verify_declared_certificate, Certificate, CheckpointError};
-use layerx_types::activity::{
-    ActivityBuildError, Authority, EnvelopeBuilder, Signature, TimestampBound, UnsignedEnvelope,
-};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey, LengthError};
+use layerx_types::activity::ActivityBuildError;
+use layerx_types::ids::{Did, LengthError};
 use layerx_types::intent;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry, Payload, PayloadError};
+use layerx_types::payload::{ModuleRegistry, PayloadError};
 use layerx_types::program_call::{InvalidNativeCall, NativeProgramCall, Resources};
 use layerx_types::result::{KnownResult, Retriability};
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::activity::{
-    decode_signed, encode_signed, encode_signed_envelope, encode_unsigned, encode_unsigned_envelope,
-};
-use layerx_wire::hash::{activity_id, payload_hash_for, Domain};
-use layerx_wire::WireError;
 
-use crate::lni::schema::Version as InterfaceVersion;
-use crate::lni::transport::FrameTransport;
-use crate::receipt::{
-    lookup_authenticated, AuthenticatedLookup, AuthenticatedLookupContext, ReceiptError,
+use layerx_wire::WireError;
+use sha2::{Digest as _, Sha256};
+
+use layerx_types::rung::Rung;
+
+use crate::rpc::receipt::{
+    lookup_authenticated, lookup_authenticated_with_commit, AuthenticatedLookup,
+    AuthenticatedLookupContext, AuthenticatedReceipt, ReceiptError,
 };
-use crate::submit::{submit_signed, Submission, SubmissionContext, SubmitError};
+use crate::rpc::receipt_commit::ReceiptCommitEvidence;
+use crate::rpc::submit::{submit_signed, Submission, SubmitError};
+use crate::sequencer::{SequencerEndpoint, SequencerError};
+use layerx_programs_registry::chain_proof::{
+    decode::ProofOp, state::verify_state, VerifiedChainHead,
+};
+
+/// A host program namespace authenticated under a verified Comet app hash.
+/// The constructor verifies the real `progstor` head, manifest and AI state blob.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VerifiedProgramState {
+    block_height: u64,
+    block_hash: [u8; 32],
+    app_hash: [u8; 32],
+    chain: ChainDomain,
+    program: ProgramId,
+    native_root: [u8; 32],
+    digest: [u8; 32],
+    revision: u64,
+    total_bytes: u32,
+    proof_digest: [u8; 32],
+}
+
+impl VerifiedProgramState {
+    /// Verify an SDK/IAVL namespace head and its content-addressed manifest.
+    /// `expected_chain_id` comes from the caller's pinned chain verifier.
+    pub fn verify(
+        head: &VerifiedChainHead,
+        expected_chain_id: &str,
+        program: ProgramId,
+        namespace_head: &[u8],
+        manifest: &[u8],
+        state: &[u8],
+        ops: &[ProofOp],
+    ) -> Result<Self, AiClientError> {
+        let invalid = || AiClientError::FinalityMismatch;
+        if head.chain_id() != expected_chain_id
+            || expected_chain_id.is_empty()
+            || namespace_head.len() != 38
+            || namespace_head[..2] != [0, 1]
+            || manifest.len() > MAX_STATE_BYTES
+            || state.len() > MAX_STATE_BYTES
+        {
+            return Err(invalid());
+        }
+        let mut key = vec![1, 0, 9];
+        key.extend_from_slice(b"progstor");
+        key.extend_from_slice(program.as_bytes());
+        key.push(1);
+        let state_height =
+            verify_state(head, "lxphost", &key, namespace_head, ops).map_err(|_| invalid())?;
+        let count = u32::from_be_bytes(namespace_head[2..6].try_into().map_err(|_| invalid())?);
+        if count == 0
+            || count > 65_536
+            || Sha256::digest(manifest).as_slice() != &namespace_head[6..]
+            || manifest.len() < 6
+            || manifest[..2] != [0, 1]
+            || manifest[2..6] != namespace_head[2..6]
+        {
+            return Err(invalid());
+        }
+        let mut remaining = &manifest[6..];
+        let mut previous: &[u8] = &[];
+        let mut found = false;
+        for _ in 0..count {
+            let length_bytes = remaining.get(..2).ok_or_else(invalid)?;
+            let length = usize::from(u16::from_be_bytes(
+                length_bytes.try_into().map_err(|_| invalid())?,
+            ));
+            remaining = &remaining[2..];
+            let key = remaining.get(..length).ok_or_else(invalid)?;
+            if length == 0 || length > 1024 || key <= previous {
+                return Err(invalid());
+            }
+            previous = key;
+            remaining = &remaining[length..];
+            let digest = remaining.get(..32).ok_or_else(invalid)?;
+            let length_bytes = remaining.get(32..36).ok_or_else(invalid)?;
+            let value_length = u32::from_be_bytes(length_bytes.try_into().map_err(|_| invalid())?);
+            if key == layerx_programs_ai_market::SHARED_STATE_KEY {
+                if usize::try_from(value_length).ok() != Some(state.len())
+                    || Sha256::digest(state).as_slice() != digest
+                {
+                    return Err(invalid());
+                }
+                found = true;
+            }
+            remaining = &remaining[36..];
+        }
+        if !remaining.is_empty() || !found {
+            return Err(invalid());
+        }
+        let chain = ChainDomain::new(layerx_programs_ai_market::MERGED_CHAIN_DOMAIN)?;
+        let header = read_header(state, chain, program)?;
+        let outer = crate::storage_witness::existence(&ops[1].data).map_err(|_| invalid())?;
+        let native_root = outer.value.try_into().map_err(|_| invalid())?;
+        let mut hash = Sha256::new();
+        for op in ops {
+            hash.update((op.data.len() as u64).to_be_bytes());
+            hash.update(&op.data);
+        }
+        // Comet header H authenticates application state H-1.
+        let block_height = u64::try_from(state_height + 1).map_err(|_| invalid())?;
+        Ok(Self {
+            block_height,
+            block_hash: head.header_hash(),
+            app_hash: head.app_hash(),
+            chain,
+            program,
+            native_root,
+            digest: header.digest.bytes(),
+            revision: header.revision,
+            total_bytes: header.total_bytes,
+            proof_digest: hash.finalize().into(),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct ReceiptCoverageFacts {
+    activity_id: [u8; 32],
+    sequence: u64,
+    execution_height: u64,
+    resulting_root: [u8; 32],
+    receipt_digest: [u8; 32],
+    block_height: u64,
+    block_hash: [u8; 32],
+}
 
 /// F02 live-authority freshness bound: a snapshot lagging verified authority by more refuses.
 pub const AUTHORITY_FRESHNESS_HEIGHTS: u64 = 8;
@@ -74,7 +200,8 @@ pub const NATIVE_CALL_PROTOCOL_VERSION: u16 = 3;
 /// Programs module activity ordinal of a native program call.
 pub const PROGRAM_CALL_ORDINAL: u16 = 3;
 
-const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP1";
+const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP3";
+const LEGACY_RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
 const RECORD_EXTENSION: &str = "op";
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
@@ -82,16 +209,17 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AiClientError {
     Query(QueryError),
-    Checkpoint(CheckpointError),
     StaleAuthority { lag: u64, limit: u64 },
     NativeCall(InvalidNativeCall),
     Activity(ActivityBuildError),
     Actor(LengthError),
     Payload(PayloadError),
     Wire(WireError),
+    Transaction(EvmTransactionError),
     Disclosure(DisclosureError),
     NotNativeProgramCall,
     NotMutation,
+    TransactionRequired,
     ReviewMismatch(ReviewField),
     UnauthorizedKey,
     Sign(SignError),
@@ -104,6 +232,7 @@ pub enum AiClientError {
     HistoryUnavailable(EpochStatus),
     Journal(io::ErrorKind),
     CorruptRecord,
+    StaleRecord,
 }
 
 macro_rules! from_refusal {
@@ -118,12 +247,12 @@ macro_rules! from_refusal {
 
 from_refusal!(
     QueryError => Query,
-    CheckpointError => Checkpoint,
     InvalidNativeCall => NativeCall,
     ActivityBuildError => Activity,
     LengthError => Actor,
     PayloadError => Payload,
     WireError => Wire,
+    EvmTransactionError => Transaction,
     DisclosureError => Disclosure,
     SignError => Sign,
     VerifyError => Signature,
@@ -143,78 +272,112 @@ impl From<io::Error> for AiClientError {
     }
 }
 
-/// Facts of a checkpoint certificate verified at checkpoint-finalised level.
+/// Block facts plus optional opaque verified evidence. `new` retains assertions only.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CheckpointFinality {
-    network_id: u32,
-    checkpoint: Digest32,
-    state_root: Digest32,
-    first_sequence: u64,
-    last_sequence: u64,
-    batch_number: u64,
+pub struct CommitFinality {
+    block_height: u64,
+    block_hash: Digest32,
+    app_hash: Digest32,
+    store_proof_digest: Digest32,
+    program: Option<VerifiedProgramState>,
+    coverage: Option<ReceiptCoverageFacts>,
 }
 
-impl CheckpointFinality {
-    /// Verifies a certificate against its declared settlement domain and registered id.
-    ///
+impl CommitFinality {
     /// # Errors
-    /// Checkpoint verifier refusals, and `FinalityUnavailable` below checkpoint-finalised level
-    /// or without a checkpoint identifier.
-    pub fn verify(
-        certificate: &Certificate,
-        domain: &str,
-        checkpoint_id: &[u8; 32],
+    /// `FinalityUnavailable` for a zero block or app hash; digest validation refusals.
+    pub fn new(
+        block_height: u64,
+        block_hash: [u8; 32],
+        app_hash: [u8; 32],
+        store_proof_digest: [u8; 32],
     ) -> Result<Self, AiClientError> {
-        let report = verify_declared_certificate(certificate, domain, checkpoint_id, None)?;
-        if report.level() < VerificationLevel::CHECKPOINT_FINALISED {
+        if block_hash == [0; 32] || app_hash == [0; 32] {
             return Err(QueryError::FinalityUnavailable.into());
         }
-        let checkpoint = report
-            .evidence()
-            .checkpoint_id()
-            .ok_or(QueryError::FinalityUnavailable)?;
         Ok(Self {
-            network_id: report.network_id(),
-            checkpoint: Digest32::new(checkpoint)?,
-            state_root: Digest32::new(report.resulting_state_root())?,
-            first_sequence: report.first_sequence(),
-            last_sequence: report.last_sequence(),
-            batch_number: report.batch_number(),
+            block_height,
+            block_hash: Digest32::new(block_hash)?,
+            app_hash: Digest32::new(app_hash)?,
+            store_proof_digest: Digest32::new(store_proof_digest)?,
+            program: None,
+            coverage: None,
         })
     }
 
-    #[must_use]
-    pub const fn network_id(&self) -> u32 {
-        self.network_id
+    /// Construct finality only after the node commit and namespace proofs verify.
+    pub fn from_verified_program(
+        head: &VerifiedChainHead,
+        witness: &VerifiedProgramState,
+    ) -> Result<Self, AiClientError> {
+        if head.header_hash() != witness.block_hash
+            || head.app_hash() != witness.app_hash
+            || u64::try_from(head.height()).ok() != Some(witness.block_height)
+        {
+            return Err(AiClientError::FinalityMismatch);
+        }
+        let mut finality = Self::new(
+            witness.block_height,
+            witness.block_hash,
+            witness.app_hash,
+            witness.proof_digest,
+        )?;
+        finality.program = Some(*witness);
+        Ok(finality)
+    }
+
+    /// Requires the authenticated receipt path to have verified signed batch inclusion,
+    /// sequence coverage and the receipt's resulting root under this exact commit.
+    pub fn from_verified_receipt(receipt: &AuthenticatedReceipt) -> Result<Self, AiClientError> {
+        let head = receipt
+            .committed_header()
+            .ok_or(AiClientError::FinalityMismatch)?;
+        if receipt.rung() != Rung::Committed {
+            return Err(AiClientError::FinalityMismatch);
+        }
+        let protocol = receipt
+            .receipt()
+            .protocol()
+            .ok_or(AiClientError::ReceiptMismatch)?;
+        let receipt_digest = Sha256::digest(receipt.canonical_bytes()).into();
+        let block_height =
+            u64::try_from(head.height()).map_err(|_| AiClientError::FinalityMismatch)?;
+        let mut finality = Self::new(
+            block_height,
+            head.header_hash(),
+            head.app_hash(),
+            receipt_digest,
+        )?;
+        finality.coverage = Some(ReceiptCoverageFacts {
+            activity_id: receipt.activity_id(),
+            sequence: receipt.global_sequence(),
+            execution_height: receipt.height(),
+            resulting_root: protocol.resulting_state_root(),
+            receipt_digest,
+            block_height,
+            block_hash: head.header_hash(),
+        });
+        Ok(finality)
     }
 
     #[must_use]
-    pub const fn checkpoint(&self) -> Digest32 {
-        self.checkpoint
+    pub const fn block_height(&self) -> u64 {
+        self.block_height
     }
 
     #[must_use]
-    pub const fn state_root(&self) -> Digest32 {
-        self.state_root
+    pub const fn block_hash(&self) -> Digest32 {
+        self.block_hash
     }
 
     #[must_use]
-    pub const fn first_sequence(&self) -> u64 {
-        self.first_sequence
+    pub const fn app_hash(&self) -> Digest32 {
+        self.app_hash
     }
 
     #[must_use]
-    pub const fn last_sequence(&self) -> u64 {
-        self.last_sequence
-    }
-
-    #[must_use]
-    pub const fn batch_number(&self) -> u64 {
-        self.batch_number
-    }
-
-    const fn covers(&self, sequence: u64) -> bool {
-        self.first_sequence <= sequence && sequence <= self.last_sequence
+    pub const fn store_proof_digest(&self) -> Digest32 {
+        self.store_proof_digest
     }
 }
 
@@ -280,26 +443,35 @@ impl ObservedSnapshot {
         &self.facts
     }
 
-    /// Promotes the capture only with checkpoint-finalised evidence for the same root.
+    /// Promotes the capture with a block commit covering its observed height.
     ///
     /// # Errors
-    /// `FinalityUnavailable` without evidence, `BindingMismatch` for evidence over another root
-    /// or a checkpoint that does not cover the observed sequence, and binding refusals.
+    /// `FinalityUnavailable` without evidence, `BindingMismatch` for a commit below the
+    /// observed height, and binding refusals.
     pub fn finalize(
         self,
-        finality: Option<&CheckpointFinality>,
+        finality: Option<&CommitFinality>,
         publication_time_ms: u64,
     ) -> Result<FinalizedSnapshot, AiClientError> {
         let finality = finality.ok_or(QueryError::FinalityUnavailable)?;
-        if finality.state_root != self.facts.proof.native_state_root
-            || !finality.covers(self.facts.proof.observed_sequence)
+        let verified = finality.program.ok_or(QueryError::FinalityUnavailable)?;
+        if finality.block_height.checked_sub(1) != Some(self.facts.proof.execution_height)
+            || verified.chain != self.facts.proof.chain
+            || verified.program != self.facts.proof.program
+            || verified.native_root != self.facts.proof.native_state_root.bytes()
+            || verified.digest != self.facts.digest.bytes()
+            || verified.revision != self.facts.revision
+            || verified.total_bytes != self.facts.total_bytes
+            || verified.block_hash != self.facts.proof.block_hash.bytes()
         {
             return Err(QueryError::BindingMismatch.into());
         }
         let evidence = FinalityEvidence {
-            native_state_root: finality.state_root,
-            checkpoint: finality.checkpoint,
-            settlement: Presence::Absent,
+            native_state_root: self.facts.proof.native_state_root,
+            block_height: finality.block_height,
+            block_hash: finality.block_hash,
+            app_hash: finality.app_hash,
+            store_proof_digest: finality.store_proof_digest,
             rank: FINALIZED_RANK,
         };
         let binding = bind_snapshot(&self.state, &self.facts, &evidence, publication_time_ms)?;
@@ -311,6 +483,7 @@ impl ObservedSnapshot {
             header,
             binding,
             snapshot_id,
+            commit: *finality,
         })
     }
 }
@@ -318,6 +491,21 @@ impl ObservedSnapshot {
 fn market_header(state: &[u8]) -> Result<MarketHeader, AiClientError> {
     let shared = decode_shared_state(state)?;
     Ok(PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?.header)
+}
+
+/// Decodes a canonical v2 binding, including its block-commit evidence.
+/// The encoded length follows field presence, up to `BINDING_MAX_BYTES`.
+///
+/// # Errors
+/// `BAD_VERSION` for a schema version other than 1; `NON_CANONICAL` for a length
+/// above `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
+/// or a rank above 4; `BindingMismatch` when the commit predates execution.
+pub fn decode_snapshot_binding(bytes: &[u8]) -> Result<SnapshotBinding, AiClientError> {
+    let binding = SnapshotBinding::decode(bytes)?;
+    if binding.block_height < binding.execution_height {
+        return Err(QueryError::BindingMismatch.into());
+    }
+    Ok(binding)
 }
 
 /// Public inspection of a finalized snapshot; staleness is labelled, never hidden.
@@ -329,13 +517,14 @@ pub struct Inspection {
     pub clock: MarketClock,
 }
 
-/// A rank-4 snapshot bound to its exact root, state and checkpoint.
+/// A rank-4 snapshot bound to its exact root, state and block commit.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FinalizedSnapshot {
     state: Vec<u8>,
     header: MarketHeader,
     binding: SnapshotBinding,
     snapshot_id: Digest32,
+    commit: CommitFinality,
 }
 
 /// Exact common request of one F01..F09 mutation.
@@ -351,7 +540,7 @@ pub struct OperationRequest<'a> {
     pub required_rank: u8,
 }
 
-/// Native activity terms selected by the caller; every field is shown at review.
+/// Programs call and EIP-1559 terms selected by the caller.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NativeTerms<'a> {
     pub network_id: u32,
@@ -366,6 +555,9 @@ pub struct NativeTerms<'a> {
     pub access_declaration: &'a [u8],
     pub response_capacity: u32,
     pub resources: Resources,
+    pub gas_limit: u64,
+    pub max_fee_per_gas: u128,
+    pub max_priority_fee_per_gas: u128,
 }
 
 /// Previewed semantic effect; advisory, re-checked by the program at execution.
@@ -395,6 +587,11 @@ pub enum OperationEffect {
 }
 
 impl FinalizedSnapshot {
+    #[must_use]
+    pub const fn commit(&self) -> &CommitFinality {
+        &self.commit
+    }
+
     #[must_use]
     pub const fn binding(&self) -> &SnapshotBinding {
         &self.binding
@@ -492,14 +689,14 @@ impl FinalizedSnapshot {
     }
 
     /// Plans one mutation over this finalized context: the canonical PAXAI envelope becomes
-    /// the calldata of a `NativeProgramCall` inside an unsigned protocol-3 activity.
+    /// the calldata of a `NativeProgramCall` inside an unsigned EIP-1559 transaction.
     ///
     /// # Errors
     /// `StaleAuthority`, `FinalityUnavailable` for an unmet rank, `NotMutation` for a read
     /// selector, envelope/roster refusals, typed preview refusals and native encoding refusals.
     pub fn prepare(
         &self,
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         authority_height: u64,
         request: &OperationRequest<'_>,
         terms: &NativeTerms<'_>,
@@ -542,7 +739,23 @@ impl FinalizedSnapshot {
         calldata.truncate(length);
         let intent = decode_envelope(&calldata)?.request_digest()?;
         let effect = preview(&self.header, &envelope, roster.as_ref())?;
-        let call = NativeProgramCall {
+        Did::new(terms.actor_did)?;
+        if terms.network_id != 125
+            || terms.not_before != 0
+            || terms.not_after != request.expiry
+            || terms.idempotency_key != request.request.bytes()
+            || terms.gas_limit == 0
+            || terms.max_priority_fee_per_gas > terms.max_fee_per_gas
+            || u128::from(terms.gas_limit)
+                .checked_mul(terms.max_fee_per_gas)
+                .is_none()
+        {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        if terms.owner_public_key == [0; 32] {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        let native = NativeProgramCall {
             program_id: intent::ProgramId::new(self.binding.program.bytes()),
             guest_abi: GUEST_ABI,
             entrypoint: ENTRYPOINT,
@@ -551,13 +764,26 @@ impl FinalizedSnapshot {
             access_declaration: terms.access_declaration,
             response_capacity: terms.response_capacity,
             resources: terms.resources,
-        }
-        .encode()?;
-        let unsigned = unsigned_activity(registry, terms, &call)?;
-        let canonical = encode_unsigned_envelope(&unsigned)?;
+        };
+        let native_bytes = native.encode()?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
+        let call = Eip1559Call {
+            chain_id: 125,
+            nonce: terms.account_sequence,
+            gas_limit: terms.gas_limit,
+            max_fee_per_gas: terms.max_fee_per_gas,
+            max_priority_fee_per_gas: terms.max_priority_fee_per_gas,
+            to: target,
+            data: encode_program_call(&native, terms.fee_limit),
+        };
+        let canonical = call.encode_unsigned();
         Ok(PreparedOperation {
-            unsigned,
+            call,
             canonical,
+            native: native_bytes,
+            fee_limit: terms.fee_limit,
+            owner_public_key: terms.owner_public_key,
             binding: self.binding,
             snapshot_id: self.snapshot_id,
             header: self.header,
@@ -565,30 +791,6 @@ impl FinalizedSnapshot {
             effect,
         })
     }
-}
-
-fn unsigned_activity(
-    registry: &ModuleRegistry,
-    terms: &NativeTerms<'_>,
-    call: &[u8],
-) -> Result<UnsignedEnvelope, AiClientError> {
-    let activity_type = ActivityType::new(ModuleId::Programs, PROGRAM_CALL_ORDINAL)?;
-    let payload = Payload::new(registry, activity_type, call)?;
-    let payload_hash = payload_hash_for(&payload)?;
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(NATIVE_CALL_PROTOCOL_VERSION)?
-        .network_id(terms.network_id)?
-        .activity_type(activity_type)?
-        .actor_did(Did::new(terms.actor_did)?)?
-        .authority(Authority::owner(&terms.owner_public_key)?)?
-        .account_sequence(terms.account_sequence)?
-        .timestamp_bound(TimestampBound::new(terms.not_before, terms.not_after)?)?
-        .idempotency_key(IdempotencyKey::new(terms.idempotency_key))?
-        .fee_limit(Amount::from_u128(terms.fee_limit))?
-        .payload_hash(payload_hash)?
-        .payload(payload)?;
-    Ok(builder.build()?)
 }
 
 /// Semantic effect decoded from the exact payload, without any precondition.
@@ -706,11 +908,14 @@ fn roster_worker(
     Ok(None)
 }
 
-/// Planned operation: exact unsigned activity bytes plus the binding they were planned on.
+/// Planned operation: exact unsigned type-2 transaction and its snapshot binding.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PreparedOperation {
-    unsigned: UnsignedEnvelope,
+    call: Eip1559Call,
     canonical: Vec<u8>,
+    native: Vec<u8>,
+    fee_limit: u128,
+    owner_public_key: [u8; 32],
     binding: SnapshotBinding,
     snapshot_id: Digest32,
     header: MarketHeader,
@@ -745,6 +950,7 @@ pub enum ReviewField {
     IdempotencyKey,
     Authority,
     Commitment,
+    Transaction,
 }
 
 /// Every term the owner approves, derived from the disclosure of the exact canonical bytes.
@@ -772,6 +978,7 @@ pub struct ApprovalTerms {
     pub idempotency_key: [u8; 32],
     pub authority: Vec<u8>,
     pub commitment: [u8; 32],
+    pub transaction: Option<(Eip1559Call, [u8; 20])>,
 }
 
 impl PreparedOperation {
@@ -801,8 +1008,8 @@ impl PreparedOperation {
     }
 
     #[must_use]
-    pub const fn payload_digest(&self) -> [u8; 32] {
-        self.unsigned.payload_hash()
+    pub fn payload_digest(&self) -> [u8; 32] {
+        Sha256::digest(&self.native).into()
     }
 
     #[must_use]
@@ -810,18 +1017,47 @@ impl PreparedOperation {
         self.binding.revision
     }
 
-    /// Discloses the exact canonical bytes through the existing owner-consent binder and
-    /// derives every approval term from that disclosure, not from the planning inputs.
+    /// Binds the exact programs-precompile transaction and its sender before owner approval.
     ///
     /// # Errors
-    /// Disclosure refusals, `NotNativeProgramCall` for any other operation, ABI or program,
-    /// and `IntegrityFailure` when the calldata no longer matches the planned intent or effect.
-    pub fn review(self, registry: &ModuleRegistry) -> Result<Review, AiClientError> {
-        let disclosure = disclosure::bind(&self.canonical, registry)?;
+    /// Refuses a transaction differing from the plan or unsupported by the call disclosure binder.
+    pub fn review_call(
+        self,
+        registry: &ModuleRegistry,
+        call: Eip1559Call,
+        from: [u8; 20],
+    ) -> Result<Review, AiClientError> {
+        if call != self.call {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        self.review(registry, from)
+    }
+
+    /// Reviews the stored transaction for the EVM sender that will sign it.
+    ///
+    /// # Errors
+    /// Disclosure, program identity, domain, intent or effect mismatches.
+    pub fn review(
+        self,
+        _registry: &ModuleRegistry,
+        from: [u8; 20],
+    ) -> Result<Review, AiClientError> {
+        let native = NativeProgramCall::decode(&self.native)?;
+        if evm_transaction::decode_unsigned(&self.canonical)? != self.call
+            || self.call.data != encode_program_call(&native, self.fee_limit)
+        {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        let (decoded, fee_limit) = decode_program_call(&self.call.data)?;
+        if decoded.native() != native || fee_limit != self.fee_limit {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        let disclosure = bind_call(&self.call, from)?;
         let Some(DisclosedNativeOperation::ProgramCall(call)) = &disclosure.native_operation else {
             return Err(AiClientError::NotNativeProgramCall);
         };
-        if call.guest_abi != GUEST_ABI
+        if call.native() != native
+            || call.guest_abi != GUEST_ABI
             || call.entrypoint != ENTRYPOINT
             || call.program_id.bytes() != self.binding.program.bytes()
         {
@@ -836,6 +1072,12 @@ impl PreparedOperation {
         )?;
         if validated.request_digest()? != self.intent
             || effect_of(&self.header, &envelope)? != self.effect
+            || disclosure.fee_limit != u128::from(self.call.gas_limit) * self.call.max_fee_per_gas
+            || disclosure.authority != from
+            || disclosure.idempotency_key != envelope.request.bytes()
+            || disclosure.expiry.not_before != 0
+            || disclosure.expiry.not_after != envelope.expiry
+            || disclosure.expiry.payload_expires_at != envelope.expiry
         {
             return Err(QueryError::IntegrityFailure.into());
         }
@@ -855,13 +1097,14 @@ impl PreparedOperation {
             access_declaration: call.access_declaration.clone(),
             response_capacity: call.response_capacity,
             resources: call.resources,
-            fee_limit: disclosure.fee_limit,
+            fee_limit: self.fee_limit,
             not_before: disclosure.expiry.not_before,
             not_after: disclosure.expiry.not_after,
             expiry: envelope.expiry,
             idempotency_key: disclosure.idempotency_key,
             authority: disclosure.authority.clone(),
             commitment: disclosure.audit_digest()?,
+            transaction: Some((self.call.clone(), from)),
         };
         Ok(Review {
             prepared: self,
@@ -879,7 +1122,7 @@ pub struct Review {
     terms: ApprovalTerms,
 }
 
-/// Owner approval of exactly the reviewed terms by the key the activity names.
+/// Owner approval of exactly the reviewed terms by the prepared operation's owner key.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Approval {
     review: Review,
@@ -898,7 +1141,7 @@ impl Review {
     }
 
     /// Accepts the owner's approved terms only when every term equals the disclosed bytes and
-    /// the approving key is the activity's owner authority.
+    /// the approving key is the prepared operation's owner key.
     ///
     /// # Errors
     /// `ReviewMismatch` naming the first differing term, then `UnauthorizedKey`.
@@ -910,8 +1153,16 @@ impl Review {
         if let Some(field) = first_difference(&self.terms, approved) {
             return Err(AiClientError::ReviewMismatch(field));
         }
-        if self.disclosure.authority.as_slice() != key.as_slice() {
+        if self.prepared.owner_public_key != key {
             return Err(AiClientError::UnauthorizedKey);
+        }
+        let (call, from) = self
+            .terms
+            .transaction
+            .as_ref()
+            .ok_or(AiClientError::TransactionRequired)?;
+        if call != &self.prepared.call || bind_call(call, *from)? != self.disclosure {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
         }
         Ok(Approval { review: self, key })
     }
@@ -967,6 +1218,10 @@ fn first_difference(actual: &ApprovalTerms, approved: &ApprovalTerms) -> Option<
         (
             actual.commitment == approved.commitment,
             ReviewField::Commitment,
+        ),
+        (
+            actual.transaction == approved.transaction,
+            ReviewField::Transaction,
         ),
     ];
     let unequal = |checks: &[(bool, ReviewField)]| {
@@ -1065,16 +1320,14 @@ impl Approval {
         &self.review
     }
 
-    /// Signs exactly the approved canonical bytes through the existing disclosure-bound
-    /// signer, verifies the signature, and returns the durable `Signed` record.
+    /// Signs the approved EIP-1559 call and verifies its recovered sender.
     ///
     /// # Errors
-    /// `StaleAuthority`, `UnauthorizedKey` for a signer other than the approver, signer and
-    /// signature refusals, and wire refusals of the signed activity.
+    /// `TransactionRequired` without a call review, freshness, key, disclosure or signature refusals.
     pub async fn sign(
         self,
         signer: &dyn Signer,
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         authority_height: u64,
     ) -> Result<OperationRecord, AiClientError> {
         let prepared = &self.review.prepared;
@@ -1088,26 +1341,25 @@ impl Approval {
         if signer.public_key() != self.key {
             return Err(AiClientError::UnauthorizedKey);
         }
-        let signature = sign_disclosed(
-            signer,
-            &prepared.canonical,
-            &self.review.disclosure,
-            registry,
+        let (call, from) = self
+            .review
+            .terms
+            .transaction
+            .as_ref()
+            .ok_or(AiClientError::TransactionRequired)?;
+        let disclosure = &self.review.disclosure;
+        if signer.evm_address() != Some(*from) {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;
+        if evm_transaction::recover_sender(call, &signature)? != *from {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        OperationRecord::from_signed_transaction(
+            evm_transaction::assemble(call, &signature),
+            prepared.intent.bytes(),
+            self.review.terms.not_after,
         )
-        .await?;
-        let message = SignatureMessage::new(
-            Domain::SignaturePreimage,
-            prepared.unsigned.protocol_version(),
-            prepared.unsigned.network_id(),
-            &prepared.canonical,
-        )?;
-        ed25519::verify(&self.key, signature.as_bytes(), message)?;
-        let authenticated = prepared
-            .unsigned
-            .clone()
-            .attach_signature(Signature::new(signature.as_bytes())?);
-        let signed_bytes = encode_signed_envelope(&authenticated)?;
-        OperationRecord::signed(signed_bytes, self.key, prepared.intent.bytes(), registry)
     }
 }
 
@@ -1183,40 +1435,31 @@ struct SignedIdentity {
     not_after: u64,
 }
 
-fn signed_identity(
-    signed_bytes: &[u8],
-    key: &[u8; 32],
-    registry: &ModuleRegistry,
-) -> Result<SignedIdentity, AiClientError> {
-    let activity = decode_signed(signed_bytes, registry)?;
-    if encode_signed(&activity)? != signed_bytes || activity.authority() != key.as_slice() {
-        return Err(AiClientError::CorruptRecord);
-    }
-    let signature: &[u8; 64] = activity
-        .signature()
-        .ok_or(AiClientError::CorruptRecord)?
-        .try_into()
-        .map_err(|_| AiClientError::CorruptRecord)?;
-    let unsigned = encode_unsigned(&activity)?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &unsigned,
-    )?;
-    ed25519::verify(key, signature, message)?;
-    Ok(SignedIdentity {
-        activity_id: activity_id(&activity)?,
-        idempotency_key: activity.idempotency_key(),
-        protocol_version: activity.protocol_version(),
-        network_id: activity.network_id(),
-        not_after: activity.timestamp_bound().not_after,
-    })
+fn transaction_identity(
+    raw: &[u8],
+    not_after: u64,
+) -> Result<(SignedIdentity, [u8; 32]), AiClientError> {
+    let (call, signature) = evm_transaction::decode_signed(raw)?;
+    let sender = evm_transaction::recover_sender(&call, &signature)?;
+    let mut key = [0; 32];
+    key[12..].copy_from_slice(&sender);
+    let tx_hash = evm_transaction::transaction_hash(raw);
+    Ok((
+        SignedIdentity {
+            activity_id: tx_hash,
+            idempotency_key: tx_hash,
+            protocol_version: 2,
+            network_id: u32::try_from(call.chain_id).map_err(|_| AiClientError::CorruptRecord)?,
+            not_after,
+        },
+        key,
+    ))
 }
 
 /// Durable record of one signed operation; the signed bytes never change after signing.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OperationRecord {
+    generation: Cell<[u8; 32]>,
     state: OperationState,
     domain: DomainStatus,
     protocol_version: u16,
@@ -1229,19 +1472,29 @@ pub struct OperationRecord {
     attempt: u32,
     result_code: Option<i32>,
     global_sequence: Option<u64>,
+    execution_height: Option<u64>,
+    receipt_root: Option<[u8; 32]>,
+    receipt_digest: Option<[u8; 32]>,
+    coverage: Option<ReceiptCoverageFacts>,
     checkpoint: Option<[u8; 32]>,
+    rung: Option<Rung>,
     signed_bytes: Vec<u8>,
 }
 
 impl OperationRecord {
-    fn signed(
+    /// Retains a canonical signed EIP-1559 transaction for exact-byte delivery.
+    /// `not_after` is the operation's expiry approved by the caller.
+    ///
+    /// # Errors
+    /// Transaction decoding or signature refusals, or an unsupported chain id.
+    pub fn from_signed_transaction(
         signed_bytes: Vec<u8>,
-        key: [u8; 32],
         intent: [u8; 32],
-        registry: &ModuleRegistry,
+        not_after: u64,
     ) -> Result<Self, AiClientError> {
-        let identity = signed_identity(&signed_bytes, &key, registry)?;
-        Ok(Self {
+        let (identity, key) = transaction_identity(&signed_bytes, not_after)?;
+        let record = Self {
+            generation: Cell::new([0; 32]),
             state: OperationState::Signed,
             domain: DomainStatus::Pending,
             protocol_version: identity.protocol_version,
@@ -1250,13 +1503,27 @@ impl OperationRecord {
             idempotency_key: identity.idempotency_key,
             intent,
             signer_public_key: key,
-            not_after: identity.not_after,
+            not_after,
             attempt: 0,
             result_code: None,
             global_sequence: None,
+            execution_height: None,
+            receipt_root: None,
+            receipt_digest: None,
+            coverage: None,
             checkpoint: None,
+            rung: None,
             signed_bytes,
-        })
+        };
+        record
+            .generation
+            .set(Sha256::digest(record.encode()?).into());
+        Ok(record)
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> Option<Rung> {
+        self.rung
     }
 
     #[must_use]
@@ -1320,6 +1587,16 @@ impl OperationRecord {
     }
 
     #[must_use]
+    pub const fn execution_height(&self) -> Option<u64> {
+        self.execution_height
+    }
+
+    #[must_use]
+    pub const fn receipt_root(&self) -> Option<[u8; 32]> {
+        self.receipt_root
+    }
+
+    #[must_use]
     pub const fn checkpoint(&self) -> Option<[u8; 32]> {
         self.checkpoint
     }
@@ -1351,6 +1628,23 @@ impl OperationRecord {
         put_optional(&mut out, self.result_code.map(i32::to_be_bytes));
         put_optional(&mut out, self.global_sequence.map(u64::to_be_bytes));
         put_optional(&mut out, self.checkpoint);
+        put_optional(&mut out, self.rung.map(|rung| [rung.wire_rank()]));
+        put_optional(&mut out, self.execution_height.map(u64::to_be_bytes));
+        put_optional(&mut out, self.receipt_root);
+        put_optional(&mut out, self.receipt_digest);
+        match self.coverage {
+            None => out.push(0),
+            Some(coverage) => {
+                out.push(1);
+                out.extend_from_slice(&coverage.activity_id);
+                out.extend_from_slice(&coverage.sequence.to_be_bytes());
+                out.extend_from_slice(&coverage.execution_height.to_be_bytes());
+                out.extend_from_slice(&coverage.resulting_root);
+                out.extend_from_slice(&coverage.receipt_digest);
+                out.extend_from_slice(&coverage.block_height.to_be_bytes());
+                out.extend_from_slice(&coverage.block_hash);
+            }
+        }
         out.extend_from_slice(&length.to_be_bytes());
         out.extend_from_slice(&self.signed_bytes);
         Ok(out)
@@ -1361,14 +1655,21 @@ impl OperationRecord {
     /// # Errors
     /// `CorruptRecord` for malformed, trailing, inconsistent or pre-signing records, and
     /// wire or signature refusals of the retained bytes.
-    pub fn decode(bytes: &[u8], registry: &ModuleRegistry) -> Result<Self, AiClientError> {
+    pub fn decode(bytes: &[u8], _registry: &ModuleRegistry) -> Result<Self, AiClientError> {
+        Self::decode_bytes(bytes)
+    }
+
+    fn decode_bytes(bytes: &[u8]) -> Result<Self, AiClientError> {
         let mut input = Cursor(bytes);
-        if &input.take::<8>()? != RECORD_MAGIC {
+        let magic = input.take::<8>()?;
+        let legacy = &magic == LEGACY_RECORD_MAGIC;
+        if &magic != RECORD_MAGIC && !legacy {
             return Err(AiClientError::CorruptRecord);
         }
         let state = OperationState::from_code(input.take::<1>()?[0])?;
         let domain = DomainStatus::from_code(input.take::<1>()?[0])?;
-        let record = Self {
+        let mut record = Self {
+            generation: Cell::new(Sha256::digest(bytes).into()),
             state,
             domain,
             protocol_version: u16::from_be_bytes(input.take()?),
@@ -1382,9 +1683,50 @@ impl OperationRecord {
             result_code: input.optional()?.map(i32::from_be_bytes),
             global_sequence: input.optional()?.map(u64::from_be_bytes),
             checkpoint: input.optional()?,
+            rung: match input.optional()? {
+                None => None,
+                Some([0]) => Some(Rung::Submitted),
+                Some([1]) => Some(Rung::Receipted),
+                Some([2]) => Some(Rung::Committed),
+                _ => return Err(AiClientError::CorruptRecord),
+            },
+            execution_height: if legacy {
+                None
+            } else {
+                input.optional()?.map(u64::from_be_bytes)
+            },
+            receipt_root: if legacy { None } else { input.optional()? },
+            receipt_digest: if legacy { None } else { input.optional()? },
+            coverage: if legacy {
+                None
+            } else {
+                match input.take::<1>()? {
+                    [0] => None,
+                    [1] => Some(ReceiptCoverageFacts {
+                        activity_id: input.take()?,
+                        sequence: u64::from_be_bytes(input.take()?),
+                        execution_height: u64::from_be_bytes(input.take()?),
+                        resulting_root: input.take()?,
+                        receipt_digest: input.take()?,
+                        block_height: u64::from_be_bytes(input.take()?),
+                        block_hash: input.take()?,
+                    }),
+                    _ => return Err(AiClientError::CorruptRecord),
+                }
+            },
             signed_bytes: input.rest()?.to_vec(),
         };
-        let identity = signed_identity(&record.signed_bytes, &record.signer_public_key, registry)?;
+        // Old records have no authenticated height/root/coverage: retain the execution,
+        // but revoke the old unsupported finality claim rather than manufacturing evidence.
+        if legacy && record.state == OperationState::Finalized {
+            record.state = OperationState::Executed;
+            record.checkpoint = None;
+            record.rung = Some(Rung::Receipted);
+        }
+        let (identity, key) = transaction_identity(&record.signed_bytes, record.not_after)?;
+        if key != record.signer_public_key {
+            return Err(AiClientError::CorruptRecord);
+        }
         if identity.activity_id != record.activity_id
             || identity.idempotency_key != record.idempotency_key
             || identity.protocol_version != record.protocol_version
@@ -1397,19 +1739,45 @@ impl OperationRecord {
         Ok(record)
     }
 
-    const fn consistent(&self) -> bool {
-        let pristine = self.result_code.is_none()
+    fn consistent(&self) -> bool {
+        if self.execution_height.is_some() != self.receipt_root.is_some()
+            || self.execution_height.is_some() != self.receipt_digest.is_some()
+            || (self.execution_height.is_some() && self.global_sequence.is_none())
+        {
+            return false;
+        }
+        if let Some(coverage) = self.coverage {
+            if !self.covers(&coverage) {
+                return false;
+            }
+        }
+        let pristine = self.execution_height.is_none()
+            && self.coverage.is_none()
+            && self.result_code.is_none()
             && self.global_sequence.is_none()
             && self.checkpoint.is_none();
         let executed = matches!(self.result_code, Some(0)) && self.global_sequence.is_some();
+        if self.global_sequence.is_some()
+            != matches!(self.rung, Some(Rung::Receipted | Rung::Committed))
+        {
+            return false;
+        }
         match self.state {
             OperationState::Prepared | OperationState::Reviewed => false,
-            OperationState::Signed => pristine && self.attempt == 0,
-            OperationState::Submitting | OperationState::Pending | OperationState::Unknown => {
-                pristine && self.attempt > 0
+            OperationState::Signed => pristine && self.attempt == 0 && self.rung.is_none(),
+            OperationState::Pending => {
+                pristine && self.attempt > 0 && matches!(self.rung, Some(Rung::Submitted))
             }
+            OperationState::Submitting | OperationState::Unknown => pristine && self.attempt > 0,
             OperationState::Executed => executed && self.checkpoint.is_none() && self.attempt > 0,
-            OperationState::Finalized => executed && self.checkpoint.is_some() && self.attempt > 0,
+            OperationState::Finalized => {
+                executed
+                    && self.attempt > 0
+                    && self
+                        .coverage
+                        .is_some_and(|coverage| self.checkpoint == Some(coverage.block_hash))
+                    && self.rung == Some(Rung::Committed)
+            }
             OperationState::Failed => {
                 self.checkpoint.is_none()
                     && match self.result_code {
@@ -1418,6 +1786,14 @@ impl OperationRecord {
                     }
             }
         }
+    }
+    fn covers(&self, coverage: &ReceiptCoverageFacts) -> bool {
+        coverage.activity_id == self.activity_id
+            && Some(coverage.sequence) == self.global_sequence
+            && Some(coverage.execution_height) == self.execution_height
+            && Some(coverage.resulting_root) == self.receipt_root
+            && Some(coverage.receipt_digest) == self.receipt_digest
+            && coverage.block_height >= coverage.execution_height
     }
 }
 
@@ -1491,20 +1867,86 @@ impl OperationJournal {
             .join(format!("{}.{RECORD_EXTENSION}", hex(activity_id)))
     }
 
-    /// Atomically replaces the record file and syncs file and directory.
-    ///
-    /// # Errors
-    /// `Journal` for any filesystem failure, `CorruptRecord` for an unencodable record.
+    fn acquire(&self, activity_id: &[u8; 32]) -> Result<File, AiClientError> {
+        // The lock inode is permanent: unlinking it would allow a second owner.
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(self.record_path(activity_id).with_extension("lock"))?;
+        file.try_lock().map_err(|error| match error {
+            std::fs::TryLockError::WouldBlock => AiClientError::Journal(io::ErrorKind::WouldBlock),
+            std::fs::TryLockError::Error(error) => error.into(),
+        })?;
+        Ok(file)
+    }
+
+    fn current(&self, record: &OperationRecord) -> Result<Option<OperationRecord>, AiClientError> {
+        let bytes = match fs::read(self.record_path(&record.activity_id)) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        if <[u8; 32]>::from(Sha256::digest(&bytes)) != record.generation.get() {
+            return Err(AiClientError::StaleRecord);
+        }
+        let previous = OperationRecord::decode_bytes(&bytes)?;
+        if !same_operation(&previous, record) {
+            return Err(AiClientError::CorruptRecord);
+        }
+        Ok(Some(previous))
+    }
+
+    /// Generation-checked atomic replacement under exclusive process-safe ownership.
+    /// A record cloned before another transition cannot overwrite the newer state.
     pub fn persist(&self, record: &OperationRecord) -> Result<(), AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.persist_owned(record)
+    }
+
+    fn persist_owned(&self, record: &OperationRecord) -> Result<(), AiClientError> {
+        if !record.consistent() {
+            return Err(AiClientError::CorruptRecord);
+        }
+        if let Some(previous) = self.current(record)? {
+            if !monotonic(&previous, record) {
+                return Err(AiClientError::InvalidTransition {
+                    from: previous.state,
+                });
+            }
+        }
         let bytes = record.encode()?;
         let path = self.record_path(&record.activity_id);
-        let partial = path.with_extension("partial");
-        let mut file = File::create(&partial)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&partial, &path)?;
-        File::open(&self.directory)?.sync_all()?;
+        static NEXT_PARTIAL: AtomicU64 = AtomicU64::new(0);
+        let (partial, mut file) = loop {
+            let partial = path.with_extension(format!(
+                "{}.{}.partial",
+                std::process::id(),
+                NEXT_PARTIAL.fetch_add(1, Ordering::Relaxed)
+            ));
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&partial)
+            {
+                Ok(file) => break (partial, file),
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error.into()),
+            }
+        };
+        let result = (|| -> io::Result<()> {
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            drop(file);
+            fs::rename(&partial, &path)?;
+            File::open(&self.directory)?.sync_all()
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&partial);
+        }
+        result?;
+        record.generation.set(Sha256::digest(&bytes).into());
         Ok(())
     }
 
@@ -1517,14 +1959,18 @@ impl OperationJournal {
         activity_id: &[u8; 32],
         registry: &ModuleRegistry,
     ) -> Result<OperationRecord, AiClientError> {
-        let mut record =
-            OperationRecord::decode(&fs::read(self.record_path(activity_id))?, registry)?;
+        let _owner = self.acquire(activity_id)?;
+        let bytes = fs::read(self.record_path(activity_id))?;
+        let migrated = bytes.starts_with(LEGACY_RECORD_MAGIC);
+        let mut record = OperationRecord::decode(&bytes, registry)?;
         if record.activity_id != *activity_id {
             return Err(AiClientError::CorruptRecord);
         }
         if record.state == OperationState::Submitting {
             record.state = OperationState::Unknown;
-            self.persist(&record)?;
+            self.persist_owned(&record)?;
+        } else if migrated {
+            self.persist_owned(&record)?;
         }
         Ok(record)
     }
@@ -1535,80 +1981,85 @@ impl OperationJournal {
     /// `InvalidTransition` unless the record is `Signed`; journal failures.
     pub fn record_signed(&self, record: &OperationRecord) -> Result<(), AiClientError> {
         require(record, &[OperationState::Signed])?;
-        self.persist(record)
+        let _owner = self.acquire(&record.activity_id)?;
+        match fs::read(self.record_path(&record.activity_id)) {
+            Ok(bytes) => {
+                let current = OperationRecord::decode_bytes(&bytes)?;
+                if !same_operation(&current, record) {
+                    return Err(AiClientError::CorruptRecord);
+                }
+                // Registration is idempotent, even after execution. Keep the caller's
+                // old generation so a later mutation must reload the current record.
+                if current.state == OperationState::Signed {
+                    record.generation.set(current.generation.get());
+                }
+                Ok(())
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => self.persist_owned(record),
+            Err(error) => Err(error.into()),
+        }
     }
 
     /// First transmission of the exact signed bytes. `Submitting` is durable before sending;
     /// acknowledgment means pending, and lost or indeterminate delivery means unknown.
     ///
     /// # Errors
-    /// `InvalidTransition` unless `Signed`; pre-send verification refusals restore `Signed`.
+    /// `InvalidTransition` unless `Signed`; transaction or journal refusals.
     pub fn submit(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        registry: &ModuleRegistry,
-        interface_version: InterfaceVersion,
-        correlation_id: u64,
+        endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Signed])?;
-        self.deliver(
-            record,
-            transport,
-            registry,
-            interface_version,
-            correlation_id,
-        )
+        self.deliver(record, endpoint)
     }
 
     /// Separately authorised resend of the same signed bytes from `Unknown`; never re-signs.
     ///
     /// # Errors
-    /// `InvalidTransition` unless `Unknown`; pre-send verification refusals restore `Unknown`.
+    /// `InvalidTransition` unless `Unknown`; transaction or journal refusals.
     pub fn resend_exact(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        registry: &ModuleRegistry,
-        interface_version: InterfaceVersion,
-        correlation_id: u64,
+        endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Unknown])?;
-        self.deliver(
-            record,
-            transport,
-            registry,
-            interface_version,
-            correlation_id,
-        )
+        self.deliver(record, endpoint)
     }
 
     fn deliver(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        registry: &ModuleRegistry,
-        interface_version: InterfaceVersion,
-        correlation_id: u64,
+        endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
-        let (prior_state, prior_attempt) = (record.state, record.attempt);
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
+        let (identity, key) = transaction_identity(&record.signed_bytes, record.not_after)?;
+        if identity.activity_id != record.activity_id
+            || identity.idempotency_key != record.idempotency_key
+            || identity.protocol_version != record.protocol_version
+            || identity.network_id != record.network_id
+            || key != record.signer_public_key
+        {
+            return Err(AiClientError::CorruptRecord);
+        }
         record.attempt = record
             .attempt
             .checked_add(1)
             .ok_or(AiClientError::CorruptRecord)?;
         record.state = OperationState::Submitting;
-        self.persist(record)?;
-        let context = SubmissionContext {
-            interface_version,
-            protocol_version: record.protocol_version,
-            network_id: record.network_id,
-            correlation_id,
-            signer_public_key: record.signer_public_key,
-            attempt: record.attempt,
-        };
-        record.state = match submit_signed(transport, registry, context, &record.signed_bytes) {
-            Ok(Submission::Acknowledged(_)) => OperationState::Pending,
-            Err(SubmitError::CoreRefusal { result, .. })
+        self.persist_owned(record)?;
+        record.state = match submit_signed(endpoint, &record.signed_bytes) {
+            Ok(Submission::Submitted { tx_hash, rung }) if tx_hash == record.activity_id => {
+                record.rung = Some(rung);
+                OperationState::Pending
+            }
+            Ok(Submission::Submitted { .. }) => {
+                record.state = OperationState::Unknown;
+                self.persist_owned(record)?;
+                return Err(AiClientError::ReceiptMismatch);
+            }
+            Err(SubmitError::Refused { result, .. })
                 if record.attempt == 1
                     && result.retriability() == Retriability::Terminal
                     && result.known() != Some(KnownResult::IdempotentReplay) =>
@@ -1616,84 +2067,130 @@ impl OperationJournal {
                 record.result_code = Some(result.raw());
                 OperationState::Failed
             }
-            Ok(Submission::Unknown(_))
-            | Err(
-                SubmitError::CoreRefusal { .. }
-                | SubmitError::Envelope(_)
-                | SubmitError::UnavailableCapability
-                | SubmitError::Disconnected,
-            ) => OperationState::Unknown,
-            Err(
-                error @ (SubmitError::Wire(_)
-                | SubmitError::SignatureLength(_)
-                | SubmitError::Signature(_)
-                | SubmitError::ProtocolVersion { .. }
-                | SubmitError::Network { .. }),
-            ) => {
-                record.state = prior_state;
-                record.attempt = prior_attempt;
-                self.persist(record)?;
+            Ok(Submission::Unknown(_)) | Err(SubmitError::Refused { .. }) => {
+                OperationState::Unknown
+            }
+            Err(error @ SubmitError::Sequencer(SequencerError::Endpoint | SequencerError::Tls)) => {
+                record.state = OperationState::Unknown;
+                self.persist_owned(record)?;
+                return Err(error.into());
+            }
+            Err(error @ SubmitError::Sequencer(_)) => {
+                record.state = OperationState::Unknown;
+                self.persist_owned(record)?;
                 return Err(error.into());
             }
         };
-        self.persist(record)?;
+        self.persist_owned(record)?;
         Ok(record.state)
     }
 
-    /// Resolves `Pending` or `Unknown` only from an authenticated receipt for this activity;
-    /// absence or a wait timeout leaves the state unchanged.
+    /// Resolves `Pending` or `Unknown` from an authenticated sequencer receipt.
+    /// Absence or a submitted-only answer leaves the state unchanged.
     ///
     /// # Errors
-    /// `InvalidTransition`, receipt lookup refusals (state unchanged), and `ReceiptMismatch`
-    /// for a receipt of another activity or module.
+    /// `InvalidTransition`, receipt lookup refusals, or `ReceiptMismatch` for another call.
     pub fn resolve(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        context: AuthenticatedLookupContext,
+        endpoint: &SequencerEndpoint,
+        context: AuthenticatedLookupContext<'_>,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Pending, OperationState::Unknown])?;
-        let receipt = match lookup_authenticated(transport, record.activity_id, context)? {
-            AuthenticatedLookup::Absent | AuthenticatedLookup::TimedOut => return Ok(record.state),
+        let receipt = match lookup_authenticated(endpoint, record.activity_id, context)? {
+            AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => {
+                return Ok(record.state);
+            }
             AuthenticatedLookup::Verified(receipt) => receipt,
         };
+        self.apply_receipt(record, receipt)
+    }
+
+    /// Resolve with real node batch inclusion evidence; retained coverage survives reopen.
+    pub fn resolve_with_commit(
+        &self,
+        record: &mut OperationRecord,
+        endpoint: &SequencerEndpoint,
+        context: AuthenticatedLookupContext<'_>,
+        evidence: &ReceiptCommitEvidence<'_>,
+    ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
+        require(record, &[OperationState::Pending, OperationState::Unknown])?;
+        match lookup_authenticated_with_commit(endpoint, record.activity_id, context, evidence)? {
+            AuthenticatedLookup::Verified(receipt) => self.apply_receipt(record, receipt),
+            _ => Ok(record.state),
+        }
+    }
+
+    fn apply_receipt(
+        &self,
+        record: &mut OperationRecord,
+        receipt: AuthenticatedReceipt,
+    ) -> Result<OperationState, AiClientError> {
+        let (call, signature) = evm_transaction::decode_signed(&record.signed_bytes)?;
+        let sender = evm_transaction::recover_sender(&call, &signature)?;
         if receipt.activity_id() != record.activity_id
-            || receipt.module_id() != ModuleId::Programs as u16
+            || receipt.execution().to != call.to
+            || receipt.execution().from != sender
+            || receipt.execution().nonce != call.nonce
         {
             return Err(AiClientError::ReceiptMismatch);
         }
         let code = receipt.result_code().raw();
         record.result_code = Some(code);
         record.global_sequence = Some(receipt.global_sequence());
+        record.execution_height = Some(receipt.height());
+        record.receipt_root = Some(
+            receipt
+                .receipt()
+                .protocol()
+                .ok_or(AiClientError::ReceiptMismatch)?
+                .resulting_state_root(),
+        );
+        record.receipt_digest = Some(Sha256::digest(receipt.canonical_bytes()).into());
+        record.coverage = if receipt.rung() == Rung::Committed {
+            CommitFinality::from_verified_receipt(&receipt)?.coverage
+        } else {
+            None
+        };
+        record.rung = Some(receipt.rung());
         record.state = if code == 0 {
             OperationState::Executed
         } else {
             OperationState::Failed
         };
-        self.persist(record)?;
+        self.persist_owned(record)?;
         Ok(record.state)
     }
 
-    /// Promotes a successful execution with checkpoint-finalised evidence covering it.
+    /// Promotes a successful execution with a block commit covering its receipt height.
     ///
     /// # Errors
-    /// `InvalidTransition` unless `Executed`; `FinalityMismatch` for another network or a
-    /// checkpoint range that excludes the receipt sequence.
+    /// `InvalidTransition` unless `Executed`; `FinalityMismatch` when the receipt height
+    /// exceeds the committed height or is unavailable.
     pub fn finalize(
         &self,
         record: &mut OperationRecord,
-        finality: &CheckpointFinality,
+        finality: &CommitFinality,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Executed])?;
-        let covered = record
-            .global_sequence
-            .is_some_and(|sequence| finality.covers(sequence));
-        if finality.network_id != record.network_id || !covered {
+        let coverage = finality.coverage.ok_or(AiClientError::FinalityMismatch)?;
+        if !record.covers(&coverage)
+            || coverage.block_height != finality.block_height
+            || coverage.block_hash != finality.block_hash.bytes()
+        {
             return Err(AiClientError::FinalityMismatch);
         }
-        record.checkpoint = Some(finality.checkpoint.bytes());
+        record.coverage = Some(coverage);
+        record.checkpoint = Some(finality.block_hash.bytes());
+        record.rung = Some(Rung::Committed);
         record.state = OperationState::Finalized;
-        self.persist(record)?;
+        self.persist_owned(record)?;
         Ok(record.state)
     }
 
@@ -1707,13 +2204,43 @@ impl OperationJournal {
         record: &mut OperationRecord,
         now: u64,
     ) -> Result<OperationState, AiClientError> {
+        let _owner = self.acquire(&record.activity_id)?;
+        self.current(record)?.ok_or(AiClientError::StaleRecord)?;
         require(record, &[OperationState::Signed])?;
         if now > record.not_after {
             record.state = OperationState::Failed;
-            self.persist(record)?;
+            self.persist_owned(record)?;
         }
         Ok(record.state)
     }
+}
+
+fn same_operation(left: &OperationRecord, right: &OperationRecord) -> bool {
+    left.signed_bytes == right.signed_bytes
+        && left.intent == right.intent
+        && left.not_after == right.not_after
+        && left.activity_id == right.activity_id
+}
+
+fn monotonic(previous: &OperationRecord, next: &OperationRecord) -> bool {
+    use OperationState::{Executed, Failed, Finalized, Pending, Signed, Submitting, Unknown};
+    if previous.state == next.state {
+        return previous.encode().ok() == next.encode().ok();
+    }
+    let allowed = matches!(
+        (previous.state, next.state),
+        (Signed, Submitting | Failed)
+            | (Submitting, Pending | Unknown | Failed)
+            | (Pending | Unknown, Executed | Failed)
+            | (Unknown, Submitting)
+            | (Executed, Finalized)
+    );
+    let attempt = if next.state == Submitting {
+        previous.attempt.checked_add(1) == Some(next.attempt)
+    } else {
+        previous.attempt == next.attempt
+    };
+    allowed && attempt
 }
 
 fn require(record: &OperationRecord, allowed: &[OperationState]) -> Result<(), AiClientError> {

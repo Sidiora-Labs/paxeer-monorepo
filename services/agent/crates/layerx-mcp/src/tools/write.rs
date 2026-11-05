@@ -2,7 +2,6 @@
 
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::track::{ReceiptRef, SubmissionRef, SubmissionState, TrackedSubmission};
-use layerx_agent_api::verify::Level;
 use layerx_types::result::ResultCode;
 use layerx_types::rung::Rung;
 
@@ -49,7 +48,7 @@ pub struct StageFailure {
 pub struct VerifiedReceipt {
     pub receipt_ref: ReceiptRef,
     pub canonical_receipt: CanonicalBytes,
-    pub verification_level: Level,
+    pub rung: Rung,
     pub evidence_ids: Vec<[u8; 32]>,
 }
 
@@ -66,14 +65,17 @@ pub struct WriteTranscript {
 pub enum WriteOutcome {
     Executed {
         submission_ref: SubmissionRef,
+        rung: Rung,
         receipt: VerifiedReceipt,
     },
     Unknown {
         submission_ref: SubmissionRef,
+        rung: Rung,
         age_ms: u64,
     },
     Pending {
         submission_ref: SubmissionRef,
+        rung: Rung,
         state: SubmissionState,
     },
 }
@@ -296,34 +298,32 @@ fn invocation_outcome(result: &Result<WriteOutcome, WriteToolError>) -> Invocati
     }
 }
 
-fn receipt_rung(level: Level) -> Option<Rung> {
-    match level {
-        Level::Unverified => Some(Rung::Submitted),
-        Level::SequencerSigned | Level::BatchIncluded | Level::StateProven => Some(Rung::Receipted),
-        Level::CheckpointFinalised | Level::SettlementAnchored => None,
-    }
-}
-
 fn classify_submission(
     submission: TrackedSubmission,
     receipt: Option<VerifiedReceipt>,
     unknown_age_ms: u64,
 ) -> Result<WriteOutcome, WriteToolError> {
     let submission_ref = submission.submission_ref.clone();
+    let minimum_rung = if matches!(&submission.state, SubmissionState::Committed { .. }) {
+        Rung::Committed
+    } else {
+        Rung::Receipted
+    };
     match submission.state {
-        SubmissionState::Executed { receipt_ref } => {
+        SubmissionState::Executed { receipt_ref } | SubmissionState::Committed { receipt_ref } => {
             let receipt = receipt.ok_or(WriteToolError::SuccessWithoutVerifiedReceipt)?;
             if receipt.receipt_ref != receipt_ref {
                 return Err(WriteToolError::ReceiptMismatch);
             }
-            if submission.rung < Rung::Receipted
-                || receipt_rung(receipt.verification_level) != Some(submission.rung)
+            if submission.rung < minimum_rung
+                || receipt.rung != submission.rung
                 || receipt.evidence_ids.is_empty()
             {
                 return Err(WriteToolError::SuccessWithoutVerifiedReceipt);
             }
             Ok(WriteOutcome::Executed {
                 submission_ref,
+                rung: submission.rung,
                 receipt,
             })
         }
@@ -334,6 +334,7 @@ fn classify_submission(
         })),
         SubmissionState::Unknown => Ok(WriteOutcome::Unknown {
             submission_ref,
+            rung: submission.rung,
             age_ms: unknown_age_ms,
         }),
         state => {
@@ -342,6 +343,7 @@ fn classify_submission(
             }
             Ok(WriteOutcome::Pending {
                 submission_ref,
+                rung: submission.rung,
                 state,
             })
         }
@@ -387,10 +389,64 @@ fn lower_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-pub(crate) fn execute_native_alias<F>(
+/// Encodes the native owner answer from a verified EIP-1559 preparation.
+///
+/// # Errors
+/// Refuses a preparation whose call, sender, signing hash or disclosure binding changed.
+pub fn native_call_preparation_answer(
+    prepared: &layerx_agentd::prepare::evm::Prepared,
+    approval_id: Option<[u8; 32]>,
+) -> Result<serde_json::Value, crate::boundary::BoundaryRefusal> {
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+    layerx_agentd::prepare::evm::verify_call_binding(prepared).map_err(|_| {
+        crate::boundary::BoundaryRefusal::Malformed("mcp.native_call_binding".into())
+    })?;
+    let canonical = prepared.call.encode_unsigned();
+    let id: [u8; 32] = Sha256::digest(&canonical).into();
+    Ok(json!({
+        "version": "1", "preparation_id": lower_hex(&id),
+        "canonical_bytes": lower_hex(&canonical),
+        "signing_preimage": lower_hex(&prepared.signing_hash),
+        "activity": {"version": "1", "module": (prepared.disclosure.activity_type.module() as u16).to_string(),
+            "ordinal": prepared.disclosure.activity_type.ordinal().to_string()},
+        "approval_required": approval_id.is_some(), "approval_id": approval_id.map(|id| lower_hex(&id)),
+    }))
+}
+
+/// Encodes disclosure fields bound to the authenticated sender of a prepared call.
+///
+/// # Errors
+/// Refuses an inconsistent preparation or a disclosure that cannot be canonically encoded.
+pub fn native_call_disclosure_answer(
+    prepared: &layerx_agentd::prepare::evm::Prepared,
+) -> Result<serde_json::Value, crate::boundary::BoundaryRefusal> {
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+    let refuse = || crate::boundary::BoundaryRefusal::Malformed("mcp.native_call_binding".into());
+    layerx_agentd::prepare::evm::verify_call_binding(prepared).map_err(|_| refuse())?;
+    let canonical = prepared.call.encode_unsigned();
+    let id: [u8; 32] = Sha256::digest(&canonical).into();
+    let d = &prepared.disclosure;
+    Ok(json!({
+        "version": "1", "preparation_id": lower_hex(&id), "canonical_bytes": lower_hex(&canonical),
+        "disclosure_digest": lower_hex(&d.audit_digest().map_err(|_| refuse())?),
+        "activity_type": d.activity_type.value().to_string(), "actor": lower_hex(&d.actor),
+        "authority": lower_hex(&d.authority), "asset": lower_hex(&d.asset), "fee_limit": d.fee_limit.to_string(),
+        "not_before": d.expiry.not_before.to_string(), "not_after": d.expiry.not_after.to_string(),
+        "payload_expires_at": d.expiry.payload_expires_at.to_string(), "idempotency_key": lower_hex(&d.idempotency_key),
+    }))
+}
+
+/// Executes a native alias against its authenticated owner boundary.
+///
+/// # Errors
+/// Refuses call bytes, intent, sender, preparation or disclosure fields that disagree,
+/// and preserves the owner's preparation, signing, submission and tracking refusals.
+pub fn execute_native_alias<F>(
     name: &str,
     arguments: &serde_json::Value,
-    registry: &layerx_types::payload::ModuleRegistry,
+    _registry: &layerx_types::payload::ModuleRegistry,
     key: [u8; 32],
     mut owner: F,
 ) -> Result<serde_json::Value, crate::boundary::BoundaryRefusal>
@@ -434,16 +490,55 @@ where
         .step_by(2)
         .map(|i| u8::from_str_radix(&canonical_text[i..i + 2], 16).map_err(|_| refuse()))
         .collect::<Result<Vec<_>, _>>()?;
-    let preview = layerx_crypto::disclosure::bind(&canonical, registry).map_err(|_| refuse())?;
+    let call = layerx_crypto::evm_transaction::decode_unsigned(&canonical).map_err(|_| refuse())?;
+    let signer = arguments
+        .get("signer_address")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(refuse)?;
+    let sender_text = signer.strip_prefix("0x").unwrap_or(signer);
+    if sender_text.len() != 40
+        || !sender_text
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(refuse());
+    }
+    let mut sender = [0; 20];
+    for (index, byte) in sender.iter_mut().enumerate() {
+        *byte =
+            u8::from_str_radix(&sender_text[index * 2..index * 2 + 2], 16).map_err(|_| refuse())?;
+    }
+    let signature = arguments.get("signature").ok_or_else(refuse)?;
+    let signature_text = signature.as_str().ok_or_else(refuse)?;
+    let signature_text = signature_text.strip_prefix("0x").unwrap_or(signature_text);
+    if signature_text.len() != 130
+        || !signature_text
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(refuse());
+    }
+    let signature_bytes = (0..signature_text.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&signature_text[i..i + 2], 16).map_err(|_| refuse()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let authenticated_signature = layerx_crypto::signer::AgentSignature::new(
+        signature_bytes.try_into().map_err(|_| refuse())?,
+    )
+    .map_err(|_| refuse())?;
+    if layerx_crypto::evm_transaction::recover_sender(&call, &authenticated_signature)
+        .map_err(|_| refuse())?
+        != sender
+    {
+        return Err(refuse());
+    }
+    let preview =
+        layerx_crypto::disclosure::call::bind_call(&call, sender).map_err(|_| refuse())?;
     use sha2::{Digest, Sha256};
     let signed = preparation.get("purpose").ok_or_else(refuse)?;
     let purpose = signed.get("purpose").ok_or_else(refuse)?;
     let same_decimal = |field: &str, n: u128| {
-        preparation
-            .get(field)
-            .and_then(serde_json::Value::as_str)
-            .and_then(|v| v.parse::<u128>().ok())
-            == Some(n)
+        preparation.get(field).and_then(serde_json::Value::as_str) == Some(n.to_string().as_str())
     };
     let supplied_activity = preparation.get("activity").ok_or_else(refuse)?;
     if <[u8; 32]>::from(Sha256::digest(&canonical)) != expected_id
@@ -465,13 +560,17 @@ where
         || preparation
             .get("actor")
             .and_then(serde_json::Value::as_str)
-            .map(str::as_bytes)
-            != Some(preview.actor.as_slice())
+            .filter(|actor| !actor.is_empty())
+            != purpose.get("agent_did").and_then(serde_json::Value::as_str)
+        || purpose
+            .get("agent_did")
+            .and_then(serde_json::Value::as_str)
+            .is_none()
         || preparation
             .get("authority")
             .and_then(serde_json::Value::as_str)
-            .map(str::as_bytes)
-            != Some(preview.authority.as_slice())
+            .map(|text| text.strip_prefix("0x").unwrap_or(text))
+            != Some(lower_hex(&preview.authority).as_str())
         || !same_decimal("account_sequence", u128::from(preview.envelope_sequence()))
         || !same_decimal("fee_limit", preview.fee_limit)
         || !same_decimal("not_before", u128::from(preview.expiry.not_before))
@@ -480,8 +579,23 @@ where
             .get("payload")
             .and_then(serde_json::Value::as_str)
             != Some(lower_hex(preview.canonical_payload()).as_str())
+        || preparation
+            .get("payload_hash")
+            .and_then(serde_json::Value::as_str)
+            .and_then(identifier)
+            != Some(
+                Sha256::new()
+                    .chain_update(b"LXP/v1/payload-hash\0")
+                    .chain_update(preview.canonical_payload())
+                    .finalize()
+                    .into(),
+            )
+        || preparation
+            .get("idempotency_key")
+            .and_then(serde_json::Value::as_str)
+            .and_then(identifier)
+            != Some(key)
         || preview.idempotency_key != key
-        || arguments.get("signer_public_key") != signed.get("owner_public_key")
     {
         return Err(refuse());
     }
@@ -489,7 +603,12 @@ where
     let prepared_value = owner(Operation::Prepare, preparation)?;
     let prepared = layerx_sdk::agent_envelope::decode_native_preparation(&prepared_value)
         .ok_or_else(refuse)?;
-    if prepared.preparation_id != expected_id || prepared.canonical_bytes != canonical {
+    if prepared.preparation_id != expected_id
+        || prepared.canonical_bytes != canonical
+        || prepared.signing_preimage != call.signing_hash()
+        || prepared.activity.module != preview.activity_type.module() as u16
+        || prepared.activity.ordinal != preview.activity_type.ordinal()
+    {
         return Err(refuse());
     }
     let disclosed_value = owner(
@@ -503,8 +622,13 @@ where
     {
         return Err(refuse());
     }
-    let disclosure = layerx_crypto::disclosure::bind(&prepared.canonical_bytes, registry)
+    let returned_call = layerx_crypto::evm_transaction::decode_unsigned(&prepared.canonical_bytes)
         .map_err(|_| refuse())?;
+    let disclosure =
+        layerx_crypto::disclosure::call::bind_call(&returned_call, sender).map_err(|_| refuse())?;
+    if disclosure != preview {
+        return Err(refuse());
+    }
     if <[u8; 32]>::from(Sha256::digest(&prepared.canonical_bytes)) != prepared.preparation_id
         || disclosure.audit_digest().map_err(|_| refuse())? != exported.disclosure_digest
         || disclosure.activity_type.value() != exported.activity_type
@@ -525,14 +649,12 @@ where
         return Ok(prepared_value);
     }
     let reference = lower_hex(&prepared.preparation_id);
-    let signature = arguments.get("signature").ok_or_else(refuse)?;
-    let signer = arguments.get("signer_public_key").ok_or_else(refuse)?;
     owner(
         Operation::Sign,
         &json!({"preparation_ref":reference,"signature":signature}),
     )?;
     let mut submit =
-        json!({"preparation_ref":reference,"signature":signature,"signer_public_key":signer});
+        json!({"preparation_ref":reference,"signature":signature,"signer_address":signer});
     if matches!(name, "wallet.send" | "token.transfer") {
         submit["variant"] = json!("native_send_submit_v1");
     }
@@ -599,7 +721,9 @@ fn verify_native_intent(
             matches!(&d.payment,Some(Payment::IssueGrant(g)) if g.recipient==id("beneficiary")? && g.asset==id("asset")? && g.allowance==amount("amount")? && u128::from(g.expiration)==amount("expires_at_ms")?)
         }
         "grant.draw" => {
-            matches!(&d.payment,Some(Payment::Receive{grant,amount:value,..}) if *grant==id("grant_id")? && *value==amount("amount")?)
+            matches!(d.construct_method().map_err(|_| refused())?,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw { grant, amount: value, .. })
+                    if grant == id("grant_id")? && value == amount("amount")?)
         }
         "token.create" => {
             matches!(&d.payment,Some(Payment::Register(r)) if intent.get("symbol").and_then(serde_json::Value::as_str)==Some(r.symbol.as_str()) && amount("decimals")?==u128::from(r.decimals) && amount("supply_cap")?==r.supply_cap)

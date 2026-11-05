@@ -5,6 +5,7 @@ import { bindSignedProgramLifecycle } from "./program-wire.js";
 import { encodeNativeEffectPrepareRequest, type NativeEffectPrepareRequestV1 } from "./native-effect.js";
 
 import {
+  Rung,
   encodeNativePrepareRequest, encodeNativeApprovalDecision, encodeNativeApprovalGet,
   decodeNativePrepareResult, decodeNativeApprovalResult, decodeNativeApprovalListResult,
   type NativePrepareRequestV1, type NativePrepareResultV1, type NativeApprovalDecisionV1,
@@ -14,6 +15,7 @@ import type { IdempotencyKey } from "./production.js";
 import type { Operation as AgentOperation } from "./generated/client.js";
 import {
   PlatformSdkError,
+  RETIRED_OPERATION_NAMES,
   SecretBytes,
   type ProductionTransport,
   type SdkErrorCode,
@@ -88,6 +90,22 @@ export interface AgentHttpTransportOptions {
   readonly maximumResponseBytes?: number;
 }
 
+export class RetiredOperationError extends PlatformSdkError {
+  public readonly class = "UnavailableCapability";
+  public readonly retriability = "Terminal";
+  public readonly reason: string;
+
+  public constructor(operation: string) {
+    super({ code: "unavailable-capability", retry: "never" });
+    if (!RETIRED_OPERATION_NAMES.includes(operation)) throw invalidArgument();
+    this.reason = `unavailable_capability.${operation}`;
+  }
+
+  public override toJSON() {
+    return { ...super.toJSON(), class: this.class, reason: this.reason, retriability: this.retriability };
+  }
+}
+
 /** Exact HTTP transport for the six schema-routed Programs operations. */
 export class AgentHttpTransport implements ProductionTransport {
   readonly #endpoint: URL;
@@ -105,6 +123,7 @@ export class AgentHttpTransport implements ProductionTransport {
 
   public async call<TRequest, TResponse>(call: TransportCall<TRequest>): Promise<TResponse> {
     if (call.plane !== "agent") throw unavailableCapability();
+    if (RETIRED_OPERATION_NAMES.includes(call.operation)) return this.callRetiredOperation(call.operation);
     const route = PROGRAM_ROUTES[call.operation as AgentOperation];
     if (route === undefined) throw unavailableCapability();
     const request = record(call.request);
@@ -143,6 +162,10 @@ export class AgentHttpTransport implements ProductionTransport {
       this.#credential.use((authorization) => { headers.Authorization = authorization; });
     }
     return await this.dispatch<TResponse>(endpoint, route.method, headers, body, call.operation as AgentOperation);
+  }
+
+  public async callRetiredOperation(operation: string): Promise<never> {
+    throw new RetiredOperationError(operation);
   }
 
   private dispatch<TResponse>(
@@ -375,21 +398,26 @@ function decodeFailure(requestId?: string): PlatformSdkError {
 
 export const AGENT_ENVELOPE_VERSION = 1 as const;
 export const AGENT_ENVELOPE_PATH = "/v1/agent/rpc" as const;
-export const AGENT_DAEMON_RPC_PATH = "/rpc" as const;
-export type AgentEnvelopeSurface = "gateway" | "daemon";
+/** @deprecated Retired listener: no daemon RPC path exists. Migrate to node JSON-RPC or AGENT_ENVELOPE_PATH. */
+export const AGENT_DAEMON_RPC_PATH = null;
+export type AgentEnvelopeSurface = "gateway";
 const MAX_TENANT_BYTES = 255;
 const MAX_U64 = (1n << 64n) - 1n;
 const CANONICAL_DECIMAL = /^(?:0|[1-9][0-9]{0,19})$/u;
 const MAX_ENVELOPE_BYTES = 1_048_576;
-const BOOTSTRAP_OPERATIONS: ReadonlySet<string> = new Set<AgentOperation>(["agent.register", "session.open"]);
-const VERIFICATION_LEVELS: ReadonlySet<string> = new Set([
-  "Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored",
+const RUNG_NAMES = new Map<Rung, string>([
+  [Rung.Submitted, "submitted"], [Rung.Receipted, "receipted"], [Rung.Committed, "committed"],
 ]);
+
+function decodeRung(value: unknown): Rung {
+  for (const [rung, name] of RUNG_NAMES) if (value === name) return rung;
+  throw decodeFailure();
+}
 /** The 50 catalogue names (Operation::name()), sorted ascending. */
 export const AGENT_ENVELOPE_OPERATION_NAMES: readonly AgentOperation[] = Object.freeze<AgentOperation[]>([
   "agent.register", "approval.approve", "approval.get", "approval.list", "approval.reject", "availability.fetch",
   "budget.create", "budget.fund", "budget.list", "budget.reconciliation", "budget.revoke",
-  "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline", "faucet.claim",
+  "capability.attenuate", "capability.create", "capability.list", "capability.revoke", "export.offline",
   "prepare", "program.activity", "program.call", "program.deploy", "program.discover", "program.interface",
   "program.receipt", "program.simulate", "program.upgrade", "program.wind-down", "project",
   "read.account", "read.balance", "read.batch", "read.checkpoint", "read.history", "read.module_state", "read.proof_bundle",
@@ -405,7 +433,7 @@ const ENVELOPE_MUTATIONS: ReadonlySet<string> = new Set<AgentOperation>([
   "subscription.acknowledge", "subscription.create", "subscription.delete", "subscription.pause", "subscription.resume",
 ]);
 
-/** Full daemon session coordinates; the token never appears in string or JSON renderings of this object. */
+/** Hosted operation session coordinates; the token never appears in string or JSON renderings of this object. */
 export class AgentSessionCredential {
   readonly #tenant: string;
   readonly #sessionId: string;
@@ -444,15 +472,11 @@ export class AgentSessionCredential {
 
 export interface AgentEnvelopeTransportOptions {
   readonly endpoint: URL | string;
-  /** "gateway" (default) posts to /v1/agent/rpc; "daemon" posts to the daemon mTLS listener at /rpc. */
+  /** Hosted envelopes use /v1/agent/rpc. */
   readonly surface?: AgentEnvelopeSurface;
-  /** Daemon surface only (required there): client certificate PEM presented for mutual TLS. */
-  readonly clientCertificate?: SecretBytes;
-  /** Daemon surface only (required there): client private key PEM presented for mutual TLS. */
-  readonly clientKey?: SecretBytes;
-  /** Required for every operation except the bootstrap set agent.register and session.open, which carry a null credential. */
+  /** Required for every agent operation. */
   readonly session?: AgentSessionCredential;
-  /** Gateway API-key admission; a separate authority from the daemon session credential. */
+  /** Hosted API-key admission, required independently of the operation session. */
   readonly gatewayCredential?: LayerXKeyCredential;
   /** Explicit trusted server CA (PEM) replacing the platform store; server identity is always verified. */
   readonly trustedCa?: string | Buffer;
@@ -460,6 +484,13 @@ export interface AgentEnvelopeTransportOptions {
   readonly maximumResponseBytes?: number;
   /** Observes the HTTP status and bounded raw response body before decoding; never receives request credentials. */
   readonly onResponse?: (status: number, body: Buffer) => void;
+}
+
+/** @deprecated Declaration-only migration bridge; construction always refuses the retired transport. */
+export interface RetiredDaemonTransportOptions extends Omit<AgentEnvelopeTransportOptions, "surface"> {
+  readonly surface: "daemon";
+  readonly clientCertificate?: SecretBytes;
+  readonly clientKey?: SecretBytes;
 }
 
 export interface AgentEnvelopeSuccess<TValue = unknown> {
@@ -502,13 +533,13 @@ export function decodeTenantReadiness(value: unknown): TenantReadinessV1 {
 export function checkTenantReadinessResponse(response: AgentEnvelopeSuccess): TenantReadinessV1 {
   try {
     const status = record(response.verification_status);
-    exactKeys(status, ["state", "level"]);
-    if (status.state !== "achieved" || status.level !== "Unverified") throw decodeFailure();
+    exactKeys(status, ["state", "rung"]);
+    if (status.state !== "achieved" || status.rung !== Rung.Submitted) throw decodeFailure();
     return decodeTenantReadiness(response.value);
   } catch { throw decodeFailure(response.request_id); }
 }
 
-export type ProofBundleVerificationLevel = "Unverified" | "SequencerSigned" | "BatchIncluded" | "StateProven" | "CheckpointFinalised" | "SettlementAnchored";
+export type ProofBundleVerificationLevel = Rung;
 
 export interface ProofBundleRequest {
   readonly target: string;
@@ -517,7 +548,7 @@ export interface ProofBundleRequest {
 
 export interface ProofBundleRead {
   readonly value: { readonly target: string; readonly proofs: readonly [string] };
-  readonly achieved_verification_level: "BatchIncluded" | "StateProven";
+  readonly achieved_verification_level: Rung.Receipted | Rung.Committed;
   readonly freshness: {
     readonly chain_head: string;
     readonly latest_sealed_batch: string;
@@ -545,7 +576,7 @@ export function encodeProofBundleRequest(value: unknown): ProofBundleRequest {
     exactKeys(request, ["target", "requested_verification_level"]);
     const target = request.target, level = request.requested_verification_level;
     if (typeof target !== "string" || (target.length !== 70 && target.length !== 134)
-      || !/^[0-9a-f]+$/u.test(target) || typeof level !== "string" || !VERIFICATION_LEVELS.has(level)) throw invalidArgument();
+      || !/^[0-9a-f]+$/u.test(target) || typeof level !== "number" || !RUNG_NAMES.has(level)) throw invalidArgument();
     const bytes = Buffer.from(target, "hex"), kind = bytes[2];
     if (bytes.readUInt16BE(0) !== 1 || (kind !== 1 && kind !== 2 && kind !== 3)
       || bytes.length !== (kind === 2 ? 67 : 35) || bytes.subarray(3, 35).every((byte) => byte === 0)
@@ -592,12 +623,11 @@ export function checkProofBundleResponse(request: ProofBundleRequest, response: 
     const kind = Buffer.from(expected.target, "hex")[2];
     if (kind === 1 && proof.variant !== 1 || kind === 3 && proof.variant !== 3
       || kind === 2 && proof.variant !== 2 && proof.variant !== 4) throw decodeFailure();
-    const achieved = kind === 2 ? "StateProven" : "BatchIncluded";
-    const levels = [...VERIFICATION_LEVELS];
+    const achieved = kind === 2 ? Rung.Committed : Rung.Receipted;
     const status = record(response.verification_status);
-    exactKeys(status, ["state", "level"]);
-    if (read.achieved_verification_level !== achieved || levels.indexOf(achieved) < levels.indexOf(expected.requested_verification_level)
-      || status.state !== "achieved" || status.level !== achieved) throw decodeFailure();
+    exactKeys(status, ["state", "rung"]);
+    if (read.achieved_verification_level !== achieved || achieved < expected.requested_verification_level
+      || status.state !== "achieved" || status.rung !== achieved) throw decodeFailure();
     const freshness = record(read.freshness);
     exactKeys(freshness, ["chain_head", "latest_sealed_batch", "latest_finalised_checkpoint", "value_sequence", "relative_to"]);
     const relative = record(freshness.relative_to);
@@ -623,28 +653,22 @@ export class AgentEnvelopeTransport implements ProductionTransport {
   readonly #session: AgentSessionCredential | undefined;
   readonly #gatewayCredential: LayerXKeyCredential | undefined;
   readonly #trustedCa: string | Buffer | undefined;
-  readonly #clientCertificate: SecretBytes | undefined;
-  readonly #clientKey: SecretBytes | undefined;
   readonly #timeoutMs: number;
   readonly #maximumResponseBytes: number;
   readonly #onResponse: ((status: number, body: Buffer) => void) | undefined;
 
-  public constructor(options: AgentEnvelopeTransportOptions) {
+  public constructor(options: AgentEnvelopeTransportOptions);
+  /** @deprecated The daemon listener is retired; this overload always throws invalid-argument. */
+  public constructor(options: RetiredDaemonTransportOptions);
+  public constructor(options: AgentEnvelopeTransportOptions | RetiredDaemonTransportOptions) {
     if (options.session !== undefined && !(options.session instanceof AgentSessionCredential)) throw invalidArgument();
-    const surface = options.surface ?? "gateway";
-    if (surface !== "gateway" && surface !== "daemon") throw invalidArgument();
+    if (options.surface !== undefined && options.surface !== "gateway"
+      || "clientCertificate" in options || "clientKey" in options
+      || !(options.gatewayCredential instanceof LayerXKeyCredential)) throw invalidArgument();
     const endpoint = validateEndpoint(options.endpoint);
-    if (surface === "daemon") {
-      if (endpoint.protocol !== "https:" || options.gatewayCredential !== undefined
-        || !(options.clientCertificate instanceof SecretBytes) || !(options.clientKey instanceof SecretBytes)) throw invalidArgument();
-    } else if (options.clientCertificate !== undefined || options.clientKey !== undefined) {
-      throw invalidArgument();
-    }
-    this.#endpoint = routeEndpoint(endpoint, surface === "daemon" ? AGENT_DAEMON_RPC_PATH : AGENT_ENVELOPE_PATH);
+    this.#endpoint = routeEndpoint(endpoint, AGENT_ENVELOPE_PATH);
     this.#session = options.session;
     this.#gatewayCredential = options.gatewayCredential;
-    this.#clientCertificate = options.clientCertificate;
-    this.#clientKey = options.clientKey;
     if (options.trustedCa !== undefined && (this.#endpoint.protocol !== "https:" || options.trustedCa.length === 0)) throw invalidArgument();
     this.#trustedCa = options.trustedCa;
     this.#onResponse = options.onResponse;
@@ -654,7 +678,9 @@ export class AgentEnvelopeTransport implements ProductionTransport {
   }
 
   public async call<TRequest, TResponse>(call: TransportCall<TRequest>): Promise<TResponse> {
-    if (call.plane !== "agent" || !AGENT_ENVELOPE_OPERATIONS.has(call.operation)) throw unavailableCapability();
+    if (call.plane !== "agent") throw unavailableCapability();
+    if (RETIRED_OPERATION_NAMES.includes(call.operation)) return this.callRetiredOperation(call.operation);
+    if (!AGENT_ENVELOPE_OPERATIONS.has(call.operation)) throw unavailableCapability();
     const operation = call.operation as AgentOperation;
     const mutation = ENVELOPE_MUTATIONS.has(operation);
     if (mutation) {
@@ -681,6 +707,10 @@ export class AgentEnvelopeTransport implements ProductionTransport {
       return Object.freeze({ ...envelope, value: checkTenantReadinessResponse(envelope) }) as TResponse;
     }
     return response;
+  }
+
+  public async callRetiredOperation(operation: string): Promise<never> {
+    throw new RetiredOperationError(operation);
   }
 
   public async tenantReadiness(): Promise<AgentEnvelopeSuccess<TenantReadinessV1>> {
@@ -778,10 +808,6 @@ export class AgentEnvelopeTransport implements ProductionTransport {
       };
       const options: https.RequestOptions = { method: "POST", headers, timeout: this.#timeoutMs, rejectUnauthorized: true };
       if (this.#trustedCa !== undefined) options.ca = this.#trustedCa;
-      if (this.#clientCertificate !== undefined && this.#clientKey !== undefined) {
-        options.cert = this.#clientCertificate.withBytes((bytes) => Buffer.from(bytes));
-        options.key = this.#clientKey.withBytes((bytes) => Buffer.from(bytes));
-      }
       const request = driver.request(this.#endpoint, options, (response) => {
         const chunks: Buffer[] = [];
         let received = 0;
@@ -801,7 +827,7 @@ export class AgentEnvelopeTransport implements ProductionTransport {
             this.#onResponse?.(status, Buffer.concat(chunks));
             if (status >= 300 && status < 400) throw ambiguous();
             if (response.headers["content-type"] !== "application/json") throw ambiguous();
-            finish(resolve, decodeAgentEnvelopeResponse(status, Buffer.concat(chunks), mutation, requestId) as TResponse);
+            finish(resolve, decodeAgentEnvelopeResponse(status, Buffer.concat(chunks), mutation, requestId, proofBundle) as TResponse);
           } catch (error) {
             finish(reject, error);
           }
@@ -828,17 +854,18 @@ export function encodeAgentEnvelope(
   if (!CANONICAL_DECIMAL.test(requestId) || BigInt(requestId) > MAX_U64) throw invalidArgument();
   const mutation = ENVELOPE_MUTATIONS.has(operation);
   if (mutation ? idempotency === undefined || !HEX32.test(idempotency) : idempotency !== undefined) throw invalidArgument();
-  let credential: Readonly<Record<string, string>> | null;
-  if (BOOTSTRAP_OPERATIONS.has(operation)) credential = null;
-  else if (session === undefined) throw invalidArgument();
-  else credential = session.encode();
+  if (session === undefined) throw invalidArgument();
+  const credential = session.encode();
+  const proofRequest = operation === "read.proof_bundle" ? encodeProofBundleRequest(request) : undefined;
+  const payload = proofRequest === undefined ? record(request)
+    : { ...proofRequest, requested_verification_level: RUNG_NAMES.get(proofRequest.requested_verification_level) };
   let text: string;
   try {
     text = JSON.stringify({
       version: AGENT_ENVELOPE_VERSION,
       request_id: requestId,
       operation,
-      request: canonicalRequest(record(request), 0),
+      request: canonicalRequest(payload, 0),
       credential,
       idempotency_key: mutation ? idempotency : null,
     });
@@ -887,7 +914,7 @@ function canonicalRequest(value: unknown, depth: number): unknown {
  * Reads: a non-JSON body or a gateway edge reply is transport-failure (safe); well-formed JSON that violates the
  * exact ApiSuccess / ApiError schema (missing or extra field, wrong type, request_id mismatch) is decode-failure (never).
  */
-export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mutation: boolean, sentRequestId: string): AgentEnvelopeSuccess {
+export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mutation: boolean, sentRequestId: string, proofBundle = false): AgentEnvelopeSuccess {
   const ambiguous = (requestId?: string): PlatformSdkError => mutation
     ? new PlatformSdkError({ code: "unknown-outcome", retry: "unknown-outcome", ...(requestId === undefined ? {} : { requestId }) })
     : decodeFailure(requestId);
@@ -927,23 +954,42 @@ export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mut
   try { exactKeys(envelope, ["request_id", "value", "verification_status"]); }
   catch { throw ambiguous(requestId); }
   if (status !== 200 || envelope.request_id !== sentRequestId) throw ambiguous(requestId);
-  const verification = envelope.verification_status;
-  if (!validVerificationStatus(verification)) {
+  let verification: Readonly<Record<string, unknown>>;
+  try { verification = decodeVerificationStatus(envelope.verification_status); }
+  catch {
     throw new PlatformSdkError({ code: "verification-failure", retry: mutation ? "unknown-outcome" : "never", requestId: sentRequestId });
   }
-  return Object.freeze({ request_id: sentRequestId, value: envelope.value, verification_status: verification });
+  let value = envelope.value;
+  if (proofBundle) {
+    try {
+      const read = record(value);
+      value = Object.freeze({ ...read, achieved_verification_level: decodeRung(read.achieved_verification_level) });
+    } catch { throw decodeFailure(sentRequestId); }
+  }
+  return Object.freeze({ request_id: sentRequestId, value, verification_status: verification });
 }
 
-function validVerificationStatus(value: unknown): boolean {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
-  const status = value as Readonly<Record<string, unknown>>;
+function decodeVerificationStatus(value: unknown): Readonly<Record<string, unknown>> {
+  const status = record(value);
   if (status.state === "achieved") {
-    return Object.keys(status).length === 2 && typeof status.level === "string" && VERIFICATION_LEVELS.has(status.level);
+    exactKeys(status, ["state", "rung"]);
+    return Object.freeze({ state: "achieved", rung: decodeRung(status.rung) });
   }
-  return status.state === "unverified" && Object.keys(status).length === 4
-    && typeof status.requested === "string" && VERIFICATION_LEVELS.has(status.requested)
-    && typeof status.achieved === "string" && VERIFICATION_LEVELS.has(status.achieved)
-    && typeof status.reason === "string" && /^[a-z0-9_.]{1,128}$/u.test(status.reason);
+  if (status.state === "pending") {
+    exactKeys(status, ["state", "requested", "achieved"]);
+    const requested = decodeRung(status.requested), achieved = decodeRung(status.achieved);
+    if (achieved >= requested) throw decodeFailure();
+    return Object.freeze({ state: "pending", requested, achieved });
+  }
+  if (status.state === "absent") {
+    exactKeys(status, ["state", "requested"]);
+    return Object.freeze({ state: "absent", requested: decodeRung(status.requested) });
+  }
+  exactKeys(status, ["state", "requested", "achieved", "reason"]);
+  const requested = decodeRung(status.requested), achieved = decodeRung(status.achieved);
+  if (status.state !== "unverified" || achieved >= requested || typeof status.reason !== "string"
+    || !/^[a-z0-9_.]{1,128}$/u.test(status.reason)) throw decodeFailure();
+  return Object.freeze({ state: "unverified", requested, achieved, reason: status.reason });
 }
 
 function exactU64(value: bigint | string): bigint {

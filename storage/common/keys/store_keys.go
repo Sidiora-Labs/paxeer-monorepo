@@ -1,6 +1,9 @@
 package keys
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // Cosmos-SDK module store keys mounted on the memiavl backend in default
 // production deployments. Defined as raw string literals (rather than
@@ -43,8 +46,11 @@ const (
 	LayerXLedgerStoreKey   = "layerxledger"   // modules/layerxledger/types.StoreKey
 	LayerXAuthStoreKey     = "layerxauth"     // modules/layerxauth/types.StoreKey
 	LayerXPayStoreKey      = "layerxpay"      // modules/layerxpay/types.StoreKey
-	LayerXProgramsStoreKey = "layerxprograms" // modules/layerxprograms/types.StoreKey
+	LayerXChainsStoreKey   = "layerxchains"   // modules/layerxchains/types.StoreKey
+	LayerXProgramsStoreKey = "layerxprograms" // precompiles/layerxprograms
 	SequencerStoreKey      = "sequencer"      // modules/sequencer/types.StoreKey
+	LayerXAgentStoreKey    = "layerxagent"    // modules/layerxagent/keeper.StoreKey
+	LayerXHostStoreKey     = "lxphost"        // modules/lxphost.StoreKey; immutable on-disk name
 )
 
 // MemIAVLStoreKeys is the canonical list of module KV store keys that are
@@ -82,6 +88,22 @@ var MemIAVLStoreKeys = []string{
 	PriceFeedStoreKey,
 	XWebStoreKey,
 	SequencerStoreKey,
+	LayerXLedgerStoreKey,
+	LayerXAuthStoreKey,
+	LayerXPayStoreKey,
+	LayerXChainsStoreKey,
+	LayerXProgramsStoreKey,
+	LayerXAgentStoreKey,
+	LayerXHostStoreKey,
+}
+
+// SortedMemIAVLStoreKeys returns the canonical mount names in lexical order.
+// Replay callers may sort or filter their mount list without changing the
+// production inventory or the membership checks used by migration routers.
+func SortedMemIAVLStoreKeys() []string {
+	names := slices.Clone(MemIAVLStoreKeys)
+	slices.Sort(names)
+	return names
 }
 
 // memIAVLStoreKeySet is MemIAVLStoreKeys materialized as a set for O(1)

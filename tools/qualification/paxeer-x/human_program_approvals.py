@@ -10,9 +10,52 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE
+
 spec = importlib.util.spec_from_file_location('human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(B)
+
+C = sys.modules.get('human_committed_projections')
+if C is None:
+    spec = importlib.util.spec_from_file_location('human_committed_projections', Path(__file__).with_name('human-canonical-projections.py'))
+    C = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = C
+    spec.loader.exec_module(C)
+
+
+def qualify_budget(client, foreign, chain, approval_id, trust):
+    path = '/v1/program-approvals/' + approval_id
+    detail = client.call('GET', path)
+    material = client.call('GET', path + '/material')
+    C.require(detail['approval_id'] == approval_id and detail['held_digest'] == trust['held_digest']
+              and detail['agent_id'] == trust['agent_id'] and material['held_digest'] == trust['held_digest']
+              and material['provenance'] == 'local-owned', 'held digest or approval owner differs')
+    for name in ('canonical_unsigned', 'immutable_carrier', 'budget_reservation'):
+        ref = material[name]
+        C.require(ref['verification'] == 'unverified', 'held material cannot establish committed authority')
+        C.evidence(client, foreign, ref)
+    C.require(material['immutable_carrier']['evidence_id'] == 'evd_' + detail['held_digest'], 'immutable carrier digest differs')
+    budget = client.call('GET', path + '/budget')
+    C.require(budget == detail['budget'] and budget['approval_id'] == approval_id
+              and budget['held_digest'] == detail['held_digest'] and budget['verification'] == 'checkpoint-finalised'
+              and budget['within_bound'] is True, 'shared committed budget projection differs')
+    proofs = [ref for ref in budget['evidence'] if ref['evidence_id'] == 'evd_' + budget['proof_digest']]
+    C.require(len(proofs) == 1, 'one exact exported bank proof required')
+    _, raw = C.evidence(client, foreign, proofs[0])
+    verified = C.committed_budget(raw, chain, trust['tenant'], trust['principal'], trust['owner'], trust['now_ms'])
+    C.require(budget['proof_digest'] == verified['proof_digest'] and budget['budget_id'] == verified['budget_id']
+              and budget['source_account'] == verified['source_account'] and budget['asset_id'] == verified['asset_id']
+              and int(budget['remaining']) == verified['remaining']
+              and int(budget['observed_head_sequence']) == verified['height']
+              and int(budget['age_sequences']) == verified['age_blocks']
+              and int(budget['maximum_age_sequences']) == verified['maximum_age_blocks']
+              and budget['checkpoint_digest'] == verified['block_hash'], 'budget amount or block-based freshness differs')
+    for suffix in ('', '/material', '/budget'):
+        C.denied(lambda suffix=suffix: foreign.call('GET', path + suffix))
+    return verified
+
 
 CLIENT = r'''
 import {readFile,writeFile} from 'node:fs/promises';
@@ -53,7 +96,7 @@ for(const item of all){
  const material=await client.approvalProgramMaterial(item.approval_id);check(material.provenance==='local-owned'&&material.held_digest===item.held_digest,'actual local held material');
  for(const ref of [material.canonical_unsigned,material.immutable_carrier,material.budget_reservation]){check(ref.verification==='unverified','owned held bytes never promoted');await evidence(ref);}
  check(material.immutable_carrier.evidence_id==='evd_'+item.held_digest,'actual held digest bound');
- if(detail.budget){const budget=await client.approvalProgramBudget(item.approval_id);check(stable(budget)===stable(detail.budget)&&budget.within_bound&&budget.age_sequences<=budget.maximum_age_sequences,'same truthful bounded budget');check(['checkpoint-finalised','settlement-anchored'].includes(budget.verification),'independently verified proof');check(budget.evidence.some(r=>r.evidence_id==='evd_'+budget.proof_digest),'actual raw budget proof reference');for(const ref of budget.evidence)await evidence(ref);}
+ if(detail.budget){const budget=await client.approvalProgramBudget(item.approval_id);check(stable(budget)===stable(detail.budget)&&budget.within_bound&&budget.age_sequences<=budget.maximum_age_sequences,'same truthful bounded budget');check(['checkpoint-finalised'].includes(budget.verification),'independently verified proof');check(budget.evidence.some(r=>r.evidence_id==='evd_'+budget.proof_digest),'actual raw budget proof reference');for(const ref of budget.evidence)await evidence(ref);}
  await denied(()=>foreign.approvalProgramGet(item.approval_id),['not-found','forbidden']);
  await denied(()=>foreign.approvalProgramMaterial(item.approval_id),['not-found','forbidden']);
  observed.set(item.approval_id,detail);
@@ -92,7 +135,7 @@ def main():
     sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
     from candidate import catalogue, load_private, validate
     candidate = load_private(args.candidate_manifest)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     fixture = os.environ.get('PAXEER_X_HUMAN_PROGRAM_APPROVALS_MANIFEST')
     B.require(fixture, 'genuine protected Programs process authority fixture required')
     material = B.load(fixture)
@@ -124,7 +167,7 @@ def main():
     source = digest.hexdigest()
     directory = B.private(material['evidence_directory'], True)
     B.require(not any(directory.iterdir()), 'fresh private evidence directory')
-    roles = ('service', 'components', 'agent', 'core', 'paxeer')
+    roles = ('service', 'components', 'agent', 'paxd')
     artifacts = {name: B.executable(row, revision, source) for name, row in material['artifacts'].items()}
     B.require(all(role in artifacts for role in roles), 'actual source-bound production artifacts')
     node = Path(material['node'])
@@ -156,6 +199,10 @@ def main():
         for row in material['processes']:
             processes.start(row)
         ready()
+        owner, foreign, chain = C.current_clients(material)
+        budget_observations = {row['approval_id']: qualify_budget(owner, foreign, chain, row['approval_id'], row)
+                               for row in material['committed_budgets']}
+        C.require(budget_observations, 'real committed budget producer required')
         runner = directory / 'program-approvals.mts'
         runner.write_text(CLIENT)
         runner.chmod(0o600)
@@ -166,6 +213,8 @@ def main():
                 row = dict(row, name=row['name'] + '-restart')
                 processes.start(row)
                 ready()
+                C.require({row['approval_id']: qualify_budget(owner, foreign, chain, row['approval_id'], row)
+                           for row in material['committed_budgets']} == budget_observations, 'budget projection survives restart')
             output = directory / (phase + '.json')
             with (directory / (phase + '.log')).open('xb') as log:
                 os.chmod(log.name, 0o600)

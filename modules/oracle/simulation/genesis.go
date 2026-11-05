@@ -5,6 +5,7 @@ package simulation
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -84,7 +85,16 @@ func RandomizedGenState(simState *module.SimulationState) {
 	var slashWindow uint64
 	simState.AppParams.GetOrGenerate(
 		simState.Cdc, slashWindowKey, &slashWindow, simState.Rand,
-		func(r *rand.Rand) { slashWindow = GenSlashWindow(r) },
+		func(r *rand.Rand) {
+			if votePeriod == 0 {
+				panic("oracle simulation vote period must be positive")
+			}
+			multiple := GenSlashWindow(r)
+			if votePeriod > math.MaxUint64/multiple {
+				panic("oracle simulation slash window overflows uint64")
+			}
+			slashWindow = votePeriod * multiple
+		},
 	)
 
 	var minValidPerWindow sdk.Dec
@@ -93,25 +103,28 @@ func RandomizedGenState(simState *module.SimulationState) {
 		func(r *rand.Rand) { minValidPerWindow = GenMinValidPerWindow(r) },
 	)
 
+	params := types.DefaultParams()
+	params.VotePeriod = votePeriod
+	params.VoteThreshold = voteThreshold
+	params.RewardBand = rewardBand
+	params.Whitelist = types.DenomList{
+		{Name: utils.MicroPaxDenom},
+		{Name: utils.MicroAtomDenom},
+	}
+	params.SlashFraction = slashFraction
+	params.SlashWindow = slashWindow
+	params.MinValidPerWindow = minValidPerWindow
 	oracleGenesis := types.NewGenesisState(
-		types.Params{
-			VotePeriod:    votePeriod,
-			VoteThreshold: voteThreshold,
-			RewardBand:    rewardBand,
-			Whitelist: types.DenomList{
-				{Name: utils.MicroPaxDenom},
-				{Name: utils.MicroAtomDenom},
-			},
-			SlashFraction:     slashFraction,
-			SlashWindow:       slashWindow,
-			MinValidPerWindow: minValidPerWindow,
-		},
+		params,
 		[]types.ExchangeRateTuple{},
 		[]types.FeederDelegation{},
 		[]types.PenaltyCounter{},
 		[]types.AggregateExchangeRateVote{},
 		types.PriceSnapshots{},
 	)
+	if err := types.ValidateGenesis(oracleGenesis); err != nil {
+		panic(fmt.Errorf("invalid randomized oracle genesis: %w", err))
+	}
 
 	bz, err := json.MarshalIndent(&oracleGenesis.Params, "", " ")
 	if err != nil {

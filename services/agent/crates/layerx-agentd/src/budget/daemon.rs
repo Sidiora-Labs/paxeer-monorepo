@@ -77,6 +77,28 @@ pub fn daemon_limit_id(budget_id: [u8; 32]) -> LimitId {
 }
 
 impl DaemonLimitRecord {
+    /// Reserves the spend and maximum projected gas fee before a transaction is sent.
+    /// Both amounts must use this limit's asset denomination.
+    pub fn reserve_pending_transaction(
+        &self,
+        limiter: &BudgetLimiter,
+        request: &super::ReservationRequest,
+        transaction: &layerx_crypto::evm_transaction::Eip1559Call,
+    ) -> Result<super::BudgetReservation, DaemonLimitError> {
+        if !request.applicable_limits.contains(&self.limit_id) || self.revoked {
+            return Err(DaemonLimitError::Invalid);
+        }
+        let projected_fee = u128::from(transaction.gas_limit)
+            .checked_mul(transaction.max_fee_per_gas)
+            .ok_or(DaemonLimitError::Arithmetic)?;
+        let mut request = request.clone();
+        request.amount = request
+            .amount
+            .checked_add(projected_fee)
+            .ok_or(DaemonLimitError::Arithmetic)?;
+        Ok(super::reserve(limiter, &request)?)
+    }
+
     fn encode(&self) -> Result<Vec<u8>, DaemonLimitError> {
         let mut encoder = Encoder::new(RECORD_BYTES);
         let corrupt = |_| DaemonLimitError::Corrupt;
@@ -253,7 +275,18 @@ pub fn create_daemon_limit(
         return Err(error.into());
     }
     limiter.install(record.config())?;
-    limiter.bind_program_denominations(&[(record.limit_id, super::ProgramLimitDenomination { asset: record.asset, source: None }, true, true)], || Ok::<(), DaemonLimitError>(()))?;
+    limiter.bind_program_denominations(
+        &[(
+            record.limit_id,
+            super::ProgramLimitDenomination {
+                asset: record.asset,
+                source: None,
+            },
+            true,
+            true,
+        )],
+        || Ok::<(), DaemonLimitError>(()),
+    )?;
     Ok(record)
 }
 
@@ -331,7 +364,18 @@ pub fn load_daemon_limits(
     for tenant in store.tenant_ids_for_kind(ObjectKind::Configuration) {
         for record in daemon_limits(store, &tenant)? {
             limiter.install(record.config())?;
-            limiter.bind_program_denominations(&[(record.limit_id, super::ProgramLimitDenomination { asset: record.asset, source: None }, true, true)], || Ok::<(), DaemonLimitError>(()))?;
+            limiter.bind_program_denominations(
+                &[(
+                    record.limit_id,
+                    super::ProgramLimitDenomination {
+                        asset: record.asset,
+                        source: None,
+                    },
+                    true,
+                    true,
+                )],
+                || Ok::<(), DaemonLimitError>(()),
+            )?;
             if record.revoked {
                 limiter.retire(record.limit_id)?;
             }
@@ -365,7 +409,8 @@ pub fn applicable_daemon_limits(
         .collect())
 }
 
-/// Builds the durable consumed-total updates for the daemon limits named by executed holds.
+/// Builds durable totals from holds, including the projected transaction fee reserved
+/// by `DaemonLimitRecord::reserve_pending_transaction`.
 /// The caller writes them in the same store batch as the preparation's terminal transition,
 /// so a verified execution is consumed exactly once across restarts.
 ///
@@ -396,7 +441,10 @@ pub fn consumption_updates(
             }
         };
         let record = &mut records[position];
-        if hold.scope != LimitScope::Agent(record.agent_digest) || hold.ceiling != record.ceiling {
+        if hold.scope != LimitScope::Agent(record.agent_digest)
+            || hold.ceiling != record.ceiling
+            || hold.digest != hold.canonical_digest()
+        {
             return Err(DaemonLimitError::Corrupt);
         }
         record.consumed = record
@@ -411,13 +459,24 @@ pub fn consumption_updates(
         .collect()
 }
 
-
-pub(super) fn program_denomination(store: &Store, tenant: &TenantId, id: LimitId)
-    -> Result<super::ProgramLimitDenomination, DaemonLimitError>
-{
-    let index = store.get(&index_key(tenant, id)?).ok_or(DaemonLimitError::Unknown)?;
-    let budget_id = index.bytes().try_into().map_err(|_| DaemonLimitError::Corrupt)?;
+pub(super) fn program_denomination(
+    store: &Store,
+    tenant: &TenantId,
+    id: LimitId,
+) -> Result<super::ProgramLimitDenomination, DaemonLimitError> {
+    let index = store
+        .get(&index_key(tenant, id)?)
+        .ok_or(DaemonLimitError::Unknown)?;
+    let budget_id = index
+        .bytes()
+        .try_into()
+        .map_err(|_| DaemonLimitError::Corrupt)?;
     let record = stored(store, tenant, budget_id)?.ok_or(DaemonLimitError::Unknown)?;
-    if record.limit_id != id { return Err(DaemonLimitError::Corrupt); }
-    Ok(super::ProgramLimitDenomination { asset: record.asset, source: None })
+    if record.limit_id != id {
+        return Err(DaemonLimitError::Corrupt);
+    }
+    Ok(super::ProgramLimitDenomination {
+        asset: record.asset,
+        source: None,
+    })
 }

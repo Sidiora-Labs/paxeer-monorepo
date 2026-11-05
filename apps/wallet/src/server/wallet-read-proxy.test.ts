@@ -1,5 +1,5 @@
 import 'next/dist/server/node-environment-baseline';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import {
   getRedirectUrl,
@@ -17,6 +17,7 @@ import { GET as rates } from '../app/api/fx/latest/USD/route';
 import { HttpBoundaryError, timeoutSignal } from './http';
 import {
   proxyWalletRead,
+  readPnsApiOrigin,
   walletReadRequest,
   walletReadResponse,
   type WalletReadRoute,
@@ -24,7 +25,16 @@ import {
 
 const ORIGIN = 'https://api-mainnet-beta.paxeer.network';
 const ADDRESS = '0xe5ccf339d1c89c7e6c6768b28507f78b861fc1de';
-const PNS = 'https://paxeer-name-service-production.up.railway.app';
+const PNS = 'https://names-indexer.example';
+
+beforeEach(() => {
+  vi.stubEnv('PNS_API_ORIGIN', PNS);
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 interface RouteCase {
   route: WalletReadRoute;
@@ -78,6 +88,71 @@ const CASES: RouteCase[] = [
   },
 ];
 
+async function proxy_refuses_name_routes_until_the_origin_is_configured() {
+  vi.stubEnv('PNS_API_ORIGIN', undefined);
+  const fetchUpstream = vi.fn<typeof fetch>();
+  vi.stubGlobal('fetch', fetchUpstream);
+  const names = CASES.filter((entry) => entry.route.startsWith('pns-'));
+  expect(names).toHaveLength(5);
+
+  for (const entry of names) {
+    const response = await proxyWalletRead(
+      new NextRequest(`${ORIGIN}${entry.path}`),
+      entry.route,
+      entry.parameters
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: { code: 'name_service_not_configured', message: 'Name service is not configured' },
+    });
+    expect(response.headers.get('cache-control')).toBe('no-store');
+  }
+  expect(fetchUpstream).not.toHaveBeenCalled();
+
+  for (const entry of CASES.filter((entry) => !entry.route.startsWith('pns-'))) {
+    expect(
+      walletReadRequest(new NextRequest(`${ORIGIN}${entry.path}`), entry.route, entry.parameters)
+        .url
+    ).toBe(entry.upstream);
+  }
+
+  for (const invalid of [
+    '',
+    'not a URL',
+    'ftp://names-indexer.example',
+    `${PNS}/`,
+    `${PNS}/api/v1`,
+    `${PNS}?query=value`,
+    `${PNS}#fragment`,
+    'https://user:password@names-indexer.example',
+  ]) {
+    vi.stubEnv('PNS_API_ORIGIN', invalid);
+    expect(() => readPnsApiOrigin()).toThrow(HttpBoundaryError);
+    const response = await proxyWalletRead(
+      new NextRequest(`${ORIGIN}${names[0].path}`),
+      names[0].route
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: { code: 'name_service_not_configured' } });
+  }
+  expect(fetchUpstream).not.toHaveBeenCalled();
+
+  for (const origin of [PNS, 'http://127.0.0.1:8123']) {
+    vi.stubEnv('PNS_API_ORIGIN', origin);
+    expect(readPnsApiOrigin()).toBe(origin);
+    for (const entry of names) {
+      const outgoing = walletReadRequest(
+        new NextRequest(`${ORIGIN}${entry.path}`),
+        entry.route,
+        entry.parameters
+      );
+      expect(outgoing.url).toBe(entry.upstream.replace(PNS, origin));
+    }
+  }
+}
+
+test(proxy_refuses_name_routes_until_the_origin_is_configured);
+
 describe('portable PNS route bindings', () => {
   it.each([
     {
@@ -100,7 +175,9 @@ describe('portable PNS route bindings', () => {
       expect(getRedirectUrl(redirect)).toBe(canonicalUrl);
 
       const rewrite = await unstable_getResponseFromNextConfig({ url: canonicalUrl, nextConfig });
-      expect(getRewrittenUrl(rewrite)).toBe(`${ORIGIN}/wallet/api/pns/api/v1/${portablePath}/?${query}`);
+      expect(getRewrittenUrl(rewrite)).toBe(
+        `${ORIGIN}/wallet/api/pns/api/v1/${portablePath}/?${query}`
+      );
     }
   );
 
@@ -144,16 +221,19 @@ describe('finite wallet provider requests', () => {
   it.each(CASES)('rejects query-based upstream selection for $route', (entry) => {
     const url = new URL(entry.path, ORIGIN);
     url.searchParams.set('url', 'https://untrusted.invalid/private');
-    expect(() => walletReadRequest(new NextRequest(url), entry.route, entry.parameters))
-      .toThrow(HttpBoundaryError);
+    expect(() => walletReadRequest(new NextRequest(url), entry.route, entry.parameters)).toThrow(
+      HttpBoundaryError
+    );
   });
 
   it('rejects duplicate allowlisted query keys and oversized query values', () => {
     for (const query of ['name=one.pax&name=two.pax', `name=${'a'.repeat(257)}`]) {
-      expect(() => walletReadRequest(
-        new NextRequest(`${ORIGIN}/wallet/api/pns/api/v1/domains:lookup?${query}`),
-        'pns-lookup',
-      )).toThrow(HttpBoundaryError);
+      expect(() =>
+        walletReadRequest(
+          new NextRequest(`${ORIGIN}/wallet/api/pns/api/v1/domains:lookup?${query}`),
+          'pns-lookup'
+        )
+      ).toThrow(HttpBoundaryError);
     }
   });
 
@@ -171,23 +251,28 @@ describe('finite wallet provider requests', () => {
   it.each(['..', '.', 'a/b', 'a\\b', '%2e%2e', '%252f', 'a?b', 'a#b', '\u0000', 'a'.repeat(97)])(
     'rejects traversal, encoded separators and oversized path segment %j',
     (name) => {
-      expect(() => walletReadRequest(
-        new NextRequest(`${ORIGIN}/wallet/api/pns/api/v1/domains/value`),
-        'pns-domain',
-        { name },
-      )).toThrow(HttpBoundaryError);
-    },
+      expect(() =>
+        walletReadRequest(
+          new NextRequest(`${ORIGIN}/wallet/api/pns/api/v1/domains/value`),
+          'pns-domain',
+          { name }
+        )
+      ).toThrow(HttpBoundaryError);
+    }
   );
 
   it('rejects missing and extra dynamic parameters and forged route identifiers', () => {
     const request = new NextRequest(`${ORIGIN}/wallet/api/fx/latest/USD`);
     expect(() => walletReadRequest(request, 'pns-domain')).toThrow(HttpBoundaryError);
-    expect(() => walletReadRequest(request, 'pns-domain', { name: 'example.pax', url: PNS }))
-      .toThrow(HttpBoundaryError);
-    expect(() => walletReadRequest(request, 'fx-usd', { name: 'example.pax' }))
-      .toThrow(HttpBoundaryError);
-    expect(() => Reflect.apply(walletReadRequest, undefined, [request, 'constructor']))
-      .toThrow(HttpBoundaryError);
+    expect(() =>
+      walletReadRequest(request, 'pns-domain', { name: 'example.pax', url: PNS })
+    ).toThrow(HttpBoundaryError);
+    expect(() => walletReadRequest(request, 'fx-usd', { name: 'example.pax' })).toThrow(
+      HttpBoundaryError
+    );
+    expect(() => Reflect.apply(walletReadRequest, undefined, [request, 'constructor'])).toThrow(
+      HttpBoundaryError
+    );
   });
 
   it('propagates parent cancellation into the real outbound request', () => {
@@ -208,28 +293,42 @@ describe('finite wallet provider requests', () => {
 });
 
 describe('wallet provider response boundary', () => {
-  it.each([200, 404, 429, 503])('preserves real response bytes and HTTP status %i', async (status) => {
-    const body = status === 200 ? '{"found":false,"balance":null}' : '{"error":"provider_refused"}';
-    const response = await walletReadResponse(new Response(body, {
-      status,
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Set-Cookie': 'provider-cookie=not-forwarded',
-      },
-    }));
-    expect(response.status).toBe(status);
-    expect(await response.text()).toBe(body);
-    expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(response.headers.has('set-cookie')).toBe(false);
-  });
+  it.each([200, 404, 429, 503])(
+    'preserves real response bytes and HTTP status %i',
+    async (status) => {
+      const body =
+        status === 200 ? '{"found":false,"balance":null}' : '{"error":"provider_refused"}';
+      const response = await walletReadResponse(
+        new Response(body, {
+          status,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Set-Cookie': 'provider-cookie=not-forwarded',
+          },
+        })
+      );
+      expect(response.status).toBe(status);
+      expect(await response.text()).toBe(body);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(response.headers.has('set-cookie')).toBe(false);
+    }
+  );
 
   it('refuses non-JSON content and actual oversized bodies without content-length', async () => {
-    await expect(walletReadResponse(new Response('<html>unavailable</html>', {
-      headers: { 'Content-Type': 'text/html' },
-    }))).rejects.toMatchObject({ status: 502, code: 'UPSTREAM_TYPE_INVALID' });
-    await expect(walletReadResponse(new Response('x'.repeat(1_048_577), {
-      headers: { 'Content-Type': 'application/json' },
-    }))).rejects.toMatchObject({ status: 502, code: 'UPSTREAM_TOO_LARGE' });
+    await expect(
+      walletReadResponse(
+        new Response('<html>unavailable</html>', {
+          headers: { 'Content-Type': 'text/html' },
+        })
+      )
+    ).rejects.toMatchObject({ status: 502, code: 'UPSTREAM_TYPE_INVALID' });
+    await expect(
+      walletReadResponse(
+        new Response('x'.repeat(1_048_577), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    ).rejects.toMatchObject({ status: 502, code: 'UPSTREAM_TOO_LARGE' });
   });
 });
 
@@ -237,30 +336,50 @@ describe('real Next wallet read handlers', () => {
   const handlers: Array<{ name: string; call: (request: NextRequest) => Promise<Response> }> = [
     { name: 'owned', call: owned },
     { name: 'lookup', call: lookup },
-    { name: 'domain', call: (request) => domain(request, { params: Promise.resolve({ name: 'example.pax' }) }) },
-    { name: 'events', call: (request) => events(request, { params: Promise.resolve({ name: 'example.pax' }) }) },
-    { name: 'address', call: (request) => addressName(request, { params: Promise.resolve({ address: ADDRESS }) }) },
-    { name: 'points', call: (request) => points(request, { params: Promise.resolve({ address: ADDRESS }) }) },
+    {
+      name: 'domain',
+      call: (request) => domain(request, { params: Promise.resolve({ name: 'example.pax' }) }),
+    },
+    {
+      name: 'events',
+      call: (request) => events(request, { params: Promise.resolve({ name: 'example.pax' }) }),
+    },
+    {
+      name: 'address',
+      call: (request) => addressName(request, { params: Promise.resolve({ address: ADDRESS }) }),
+    },
+    {
+      name: 'points',
+      call: (request) => points(request, { params: Promise.resolve({ address: ADDRESS }) }),
+    },
     { name: 'rates', call: rates },
   ];
 
-  it.each(handlers)('$name refuses an unknown query before contacting a provider', async ({ call }) => {
-    const response = await call(new NextRequest(`${ORIGIN}/wallet/api/read?url=https://untrusted.invalid`));
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: { code: 'QUERY_INVALID' } });
-  });
+  it.each(handlers)(
+    '$name refuses an unknown query before contacting a provider',
+    async ({ call }) => {
+      const response = await call(
+        new NextRequest(`${ORIGIN}/wallet/api/read?url=https://untrusted.invalid`)
+      );
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: { code: 'QUERY_INVALID' } });
+    }
+  );
 
-  it.each(handlers)('$name refuses mutation methods without contacting a provider', async ({ call }) => {
-    const response = await call(new NextRequest(`${ORIGIN}/wallet/api/read`, { method: 'POST' }));
-    expect(response.status).toBe(405);
-    expect(await response.json()).toMatchObject({ error: { code: 'METHOD_NOT_ALLOWED' } });
-  });
+  it.each(handlers)(
+    '$name refuses mutation methods without contacting a provider',
+    async ({ call }) => {
+      const response = await call(new NextRequest(`${ORIGIN}/wallet/api/read`, { method: 'POST' }));
+      expect(response.status).toBe(405);
+      expect(await response.json()).toMatchObject({ error: { code: 'METHOD_NOT_ALLOWED' } });
+    }
+  );
 
   it('returns a bounded path refusal from the production proxy', async () => {
     const response = await proxyWalletRead(
       new NextRequest(`${ORIGIN}/wallet/api/pns/api/v1/domains/value`),
       'pns-domain',
-      { name: '../admin' },
+      { name: '../admin' }
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: { code: 'PATH_INVALID' } });

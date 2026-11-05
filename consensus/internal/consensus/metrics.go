@@ -258,11 +258,14 @@ func (m *Metrics) MarkStep(s cstypes.RoundStepType) {
 
 func (m *Metrics) MarkStepLatency(s cstypes.RoundStepType) {
 	now := time.Now().UnixNano()
-	m.StepLatency.With("step", s.String()).Add(float64(now - m.lastRecordedStepLatencyNano))
+	if m.lastRecordedStepLatencyNano != 0 {
+		m.StepLatency.With("step", s.String()).Add(float64(now - m.lastRecordedStepLatencyNano))
+	}
 	m.lastRecordedStepLatencyNano = now
 }
 
 func (m *Metrics) ClearStepMetrics() {
+	m.lastRecordedStepLatencyNano = time.Now().UnixNano()
 	for _, st := range []cstypes.RoundStepType{
 		cstypes.RoundStepNewHeight,
 		cstypes.RoundStepNewRound,

@@ -1,3 +1,6 @@
+#[path = "retired_crypto_codec_2.rs"]
+mod retired_crypto_codec_2;
+
 use layerx_human_test_support as support;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -16,14 +19,13 @@ use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest,
     TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState as OutboxState};
 use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest, Prepared,
+    prepare_activity, prepare_budget_mutation_for_protocol, CorePreparationBoundary,
+    CorePreparationState, CoreStateError, PreparationDefaults, PrepareRequest, Prepared,
 };
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit};
+use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningPreparation};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_service::custody::{
     CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, Operation, SigningLimits,
@@ -34,7 +36,9 @@ use layerx_human_service::journeys::{
     ReceiptMaterial,
 };
 use layerx_human_service::notify::JourneyId;
-use layerx_human_service::store::{PrincipalId, PrincipalStore, TenancyDigest};
+use layerx_human_service::store::{
+    PrincipalId, PrincipalScope, PrincipalStore, Table, TenancyDigest,
+};
 use layerx_human_service::trace::TraceId;
 use layerx_intents::{Intent, IntentKind, LxpSend};
 use layerx_proof::receipt::AuthorizedBatch;
@@ -48,6 +52,7 @@ use layerx_types::intent::{
     SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use support::{directory, principal, retention_uniform, tenancy};
@@ -87,7 +92,7 @@ fn registry() -> ModuleRegistry {
     .unwrap_or_else(|error| panic!("asset registration: {error:?}"));
     let budget = ModuleRegistration::new(
         ModuleId::Budget,
-        &[ActivityType::new(ModuleId::Budget, 7)
+        &[ActivityType::new(ModuleId::Budget, 8)
             .unwrap_or_else(|error| panic!("defund activity type: {error:?}"))],
     )
     .unwrap_or_else(|error| panic!("budget registration: {error:?}"));
@@ -104,7 +109,7 @@ fn payload_activity_type(payload: &[u8]) -> Result<ActivityType, AgentBoundaryEr
     match tag {
         0x5301 => ActivityType::new(ModuleId::Asset, 5),
         0x5201 => ActivityType::new(ModuleId::Asset, 6),
-        0x4207 => ActivityType::new(ModuleId::Budget, 7),
+        0x0001 => ActivityType::new(ModuleId::Budget, 8),
         _ => return Err(AgentBoundaryError::Refused),
     }
     .map_err(|_| AgentBoundaryError::CorruptResponse)
@@ -191,6 +196,213 @@ impl CorePreparationBoundary for RecordedCore {
     }
 }
 
+fn prepare_bound(
+    prepared: &Prepared,
+    actor_address: [u8; 20],
+) -> Result<layerx_agentd::prepare::EvmPrepared, AgentBoundaryError> {
+    use layerx_agentd::prepare::evm::{
+        AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
+        PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
+    };
+    use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
+
+    let payload = prepared.envelope.payload();
+    let activity = payload.activity_type();
+    let mut to = [0; 20];
+    let data = match (activity.module(), activity.ordinal()) {
+        (ModuleId::Asset, 5) => {
+            to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+            let mut data = ledger_selector("send(bytes)").to_vec();
+            let mut offset = [0; 32];
+            offset[31] = 32;
+            data.extend_from_slice(&offset);
+            let mut length = [0; 32];
+            length[24..].copy_from_slice(
+                &u64::try_from(payload.as_bytes().len())
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                    .to_be_bytes(),
+            );
+            data.extend_from_slice(&length);
+            data.extend_from_slice(payload.as_bytes());
+            data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+            data
+        }
+        (ModuleId::Asset, 6) => {
+            to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+            let payment = layerx_crypto::payments::Payment::decode(
+                ModuleId::Asset,
+                6,
+                payload.as_bytes(),
+                &prepared.disclosure.actor,
+            )
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            encode_payment_call(&payment, &prepared.disclosure.actor)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+        }
+        (ModuleId::Budget, 8) => {
+            to[18..].copy_from_slice(&0x101b_u16.to_be_bytes());
+            let mut budget = layerx_wire::decode::Decoder::new(payload.as_bytes(), 0);
+            if budget
+                .u16()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                != 1
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            let mut data = ledger_selector("budgetDefund(bytes32,uint128)").to_vec();
+            data.extend_from_slice(
+                budget
+                    .fixed(32)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+            );
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(
+                &budget
+                    .u128()
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                    .to_be_bytes(),
+            );
+            budget
+                .finish()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            data
+        }
+        _ => return Err(AgentBoundaryError::Refused),
+    };
+    let target = match activity.module() {
+        ModuleId::Budget => PrecompileTarget::Pay,
+        ModuleId::Asset => PrecompileTarget::Ledger,
+        _ => return Err(AgentBoundaryError::Refused),
+    };
+    assert_eq!(to, target.address());
+    let selector = data[..4]
+        .try_into()
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    let arguments = data[4..]
+        .chunks(32)
+        .map(|word| {
+            word.try_into()
+                .map(AbiArgument::Word)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let fee_limit = prepared.envelope.fee_limit().value();
+    let transaction = layerx_agentd::prepare::evm::prepare_bound(
+        EvmPreparationState {
+            chain_id: u64::from(NETWORK_ID),
+            pending_nonce: prepared.envelope.account_sequence(),
+            base_fee_per_gas: 0,
+            head_height: prepared.observed_head_sequence,
+        },
+        EvmDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 1,
+            maximum_payload_bytes: 2_048,
+        },
+        EvmRequest {
+            from: actor_address,
+            call: PrecompileCall {
+                target,
+                selector,
+                arguments,
+            },
+            expected_nonce: Some(prepared.envelope.account_sequence()),
+            max_priority_fee_per_gas: Some(1),
+            max_fee_per_gas: Some(1),
+            declared_payload_limit: 2_048,
+        },
+        u64::try_from(fee_limit).map_err(|_| AgentBoundaryError::CorruptResponse)?,
+    )
+    .map_err(|_| AgentBoundaryError::Refused)?;
+    assert_eq!(transaction.call.data, data);
+    assert_eq!(transaction.call.nonce, prepared.envelope.account_sequence());
+    assert_eq!(
+        u128::from(transaction.call.gas_limit) * transaction.call.max_fee_per_gas,
+        fee_limit
+    );
+    Ok(transaction)
+}
+
+fn signing_preparation(
+    prepared: &Prepared,
+    actor_address: [u8; 20],
+) -> Result<SigningPreparation, AgentBoundaryError> {
+    Ok(SigningPreparation {
+        transaction: prepare_bound(prepared, actor_address)?,
+        actor_address,
+    })
+}
+
+#[derive(Debug)]
+struct TransactionSigner;
+
+impl layerx_crypto::signer::Signer for TransactionSigner {
+    fn public_key(&self) -> [u8; 32] {
+        layerx_crypto::signer::Signer::public_key(&layerx_crypto::local::LocalSigner::new(
+            [0x51; 32],
+        ))
+    }
+
+    fn sign<'a>(
+        &'a self,
+        request: layerx_crypto::signer::SigningRequest<'a>,
+    ) -> layerx_crypto::signer::SignFuture<'a> {
+        Box::pin(async move {
+            layerx_crypto::signer::Signer::sign(
+                &layerx_crypto::local::LocalSigner::new([0x51; 32]),
+                request,
+            )
+            .await
+        })
+    }
+
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        let key = k256::ecdsa::SigningKey::from_slice(&[0x51; 32]).expect("fixture secp256k1 key");
+        Some(
+            layerx_crypto::secp256k1::evm_address(
+                key.verifying_key().to_encoded_point(false).as_bytes(),
+            )
+            .expect("fixture wallet"),
+        )
+    }
+
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+    ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+        Box::pin(async move {
+            let raw = call
+                .sign(&[0x51; 32])
+                .map_err(|_| layerx_crypto::signer::SignError::KeyRejected)?;
+            let (_, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+                .map_err(|_| layerx_crypto::signer::SignError::ReturnedSignatureInvalid)?;
+            Ok(signature)
+        })
+    }
+}
+
+fn sign_disclosed_call(signing: &SigningPreparation) -> layerx_crypto::signer::AgentSignature {
+    use layerx_crypto::signer::Signer as _;
+    let signer = TransactionSigner;
+    assert_eq!(signer.evm_address(), Some(signing.actor_address));
+    let disclosure = layerx_crypto::disclosure::call::bind_call(
+        &signing.transaction.call,
+        signing.actor_address,
+    )
+    .expect("fixture call disclosure");
+    ready(layerx_crypto::signer::sign_disclosed_call(
+        &signer,
+        &signing.transaction.call,
+        &disclosure,
+        signing.actor_address,
+    ))
+    .expect("disclosure-bound transaction signature")
+}
+
+fn transaction_hash(raw: &[u8]) -> [u8; 32] {
+    layerx_crypto::evm_transaction::transaction_hash(raw)
+}
+
 /// Test adapter over the real agentd prepare, signature-verification, durable
 /// outbox, and receipt store. Faults are injected only after the named real
 /// operation has completed, reproducing a service crash in the acknowledgement
@@ -198,8 +410,10 @@ impl CorePreparationBoundary for RecordedCore {
 struct RealAgentLayer {
     store: AgentStore,
     outbox: Outbox,
+    outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
     tenant: TenantId,
     registry: ModuleRegistry,
+    sender: Option<[u8; 20]>,
     preparations: BTreeMap<[u8; 32], Prepared>,
     preparation_bodies: BTreeMap<[u8; 32], [u8; 32]>,
     observations: BTreeMap<[u8; 32], AgentObservation>,
@@ -220,8 +434,10 @@ impl RealAgentLayer {
         Self {
             store: AgentStore::open(root).unwrap_or_else(|error| panic!("agent store: {error}")),
             outbox: Outbox::default(),
+            outbox_submissions: BTreeMap::new(),
             tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
             registry: registry(),
+            sender: None,
             preparations: BTreeMap::new(),
             preparation_bodies: BTreeMap::new(),
             observations: BTreeMap::new(),
@@ -269,9 +485,9 @@ impl RealAgentLayer {
             }]
         });
         let rung = if evidence.is_empty() {
-            layerx_types::rung::Rung::Submitted
+            Rung::Submitted
         } else {
-            layerx_types::rung::Rung::Receipted
+            Rung::Receipted
         };
         TrackedSubmission {
             submission_ref: SubmissionRef::new(format!("sub-{}", hex(&key)))
@@ -303,9 +519,83 @@ impl RealAgentLayer {
             receipt: Some(material),
         }
     }
+
+    fn record_contract_divergence(&self, scope: &PrincipalScope<'_>) {
+        for row in scope.keys(Table::Journeys) {
+            if !row.as_str().starts_with("journey-") {
+                continue;
+            }
+            let record: serde_json::Value = serde_json::from_slice(
+                scope
+                    .get(Table::Journeys, &row)
+                    .unwrap_or_else(|| panic!("journey diagnostic row disappeared"))
+                    .bytes(),
+            )
+            .unwrap_or_else(|error| panic!("journey diagnostic JSON: {error}"));
+            for leg in record["legs"]
+                .as_array()
+                .unwrap_or_else(|| panic!("journey diagnostic legs missing"))
+            {
+                if leg["signed"].is_null() {
+                    continue;
+                }
+                let key: [u8; 32] = serde_json::from_value(leg["action_key"].clone())
+                    .unwrap_or_else(|error| panic!("journey diagnostic action key: {error}"));
+                let signature: Vec<u8> = serde_json::from_value(leg["signed"]["signature"].clone())
+                    .unwrap_or_else(|error| panic!("journey diagnostic signature: {error}"));
+                let prepared = self
+                    .preparations
+                    .get(&key)
+                    .unwrap_or_else(|| panic!("signed journey diagnostic preparation missing"));
+                let signing =
+                    signing_preparation(prepared, self.sender.expect("bound journey wallet"))
+                        .expect("journey diagnostic preparation");
+                let signed = attach_external_signature(
+                    &signing,
+                    signature
+                        .as_slice()
+                        .try_into()
+                        .expect("65-byte journey signature"),
+                )
+                .expect("journey diagnostic signed bytes");
+                let (signed_call, recovered_signature) =
+                    layerx_crypto::evm_transaction::decode_signed(&signed)
+                        .expect("journey diagnostic type-2 transaction");
+                let sender = layerx_crypto::evm_transaction::recover_sender(
+                    &signed_call,
+                    &recovered_signature,
+                )
+                .expect("journey diagnostic sender");
+                let verified = verify_before_submit(&signed, &signing, &sender, &self.registry);
+                eprintln!(
+                    "reclaim contract divergence: action_key={} pending_nonce={} prepared_nonce={} signed_nonce={} prepared_unsigned={} signing_preimage={} custody_signature={} custody_signature_length={} signed_transaction={} exact_signature_verification={:?}",
+                    hex(&key), leg["preparation"]["account_sequence"],
+                    prepared.envelope.account_sequence(), signed_call.nonce,
+                    hex(&layerx_human_kms::attestor::unsigned_evm_transaction(&signing.transaction.call)),
+                    hex(&signing.transaction.signing_hash), hex(&signature), signature.len(), hex(&signed),
+                    verified.as_ref().map(|verified| verified.activity_id()),
+                );
+                assert_eq!(signed_call.nonce, prepared.envelope.account_sequence());
+                assert_eq!(signed_call, signing.transaction.call);
+                assert_eq!(sender, signing.actor_address);
+                assert!(
+                    verified.is_ok(),
+                    "custody must sign the exact prepared activity: {verified:?}"
+                );
+            }
+        }
+    }
 }
 
 impl AgentBoundary for RealAgentLayer {
+    fn bind_transaction_sender(&mut self, sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
+        if sender == [0; 20] || self.sender.is_some_and(|bound| bound != sender) {
+            return Err(AgentBoundaryError::Refused);
+        }
+        self.sender = Some(sender);
+        Ok(())
+    }
+
     fn prepare(
         &mut self,
         call: &Call<IdempotentMutation<ApiPrepareRequest>>,
@@ -327,38 +617,96 @@ impl AgentBoundary for RealAgentLayer {
                 observed_head_sequence: 88,
                 module_registry: self.registry.clone(),
             });
-            let prepared = prepare_activity(
-                &mut core,
-                PreparationDefaults {
-                    timestamp_span: request
-                        .timestamp_bound
-                        .not_after
-                        .get()
-                        .saturating_sub(request.timestamp_bound.not_before.get()),
-                    fee_limit: Amount::from_u128(request.fee_limit.get()),
-                    maximum_payload_bytes: 1_024,
-                },
-                PrepareRequest {
-                    actor: Did::new(request.actor.as_str().as_bytes())
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                    authority: Authority::owner(request.authority.as_str().as_bytes())
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                    activity_type: activity,
-                    expected_account_sequence: Some(request.account_sequence.get()),
-                    timestamp_bound: Some(
-                        TimestampBound::new(
-                            request.timestamp_bound.not_before.get(),
-                            request.timestamp_bound.not_after.get(),
-                        )
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-                    ),
-                    fee_limit: Some(Amount::from_u128(request.fee_limit.get())),
-                    idempotency_key: IdempotencyKey::new(key),
-                    payload: request.payload.as_bytes().to_vec(),
-                    declared_payload_limit: 1_024,
-                },
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
+            let defaults = PreparationDefaults {
+                timestamp_span: request
+                    .timestamp_bound
+                    .not_after
+                    .get()
+                    .saturating_sub(request.timestamp_bound.not_before.get()),
+                fee_limit: Amount::from_u128(request.fee_limit.get()),
+                maximum_payload_bytes: 1_024,
+            };
+            let mut preparation = PrepareRequest {
+                actor: Did::new(request.actor.as_str().as_bytes())
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                authority: Authority::owner(request.authority.as_str().as_bytes())
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                activity_type: activity,
+                expected_account_sequence: Some(request.account_sequence.get()),
+                timestamp_bound: Some(
+                    TimestampBound::new(
+                        request.timestamp_bound.not_before.get(),
+                        request.timestamp_bound.not_after.get(),
+                    )
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                ),
+                fee_limit: Some(Amount::from_u128(request.fee_limit.get())),
+                idempotency_key: IdempotencyKey::new(key),
+                payload: request.payload.as_bytes().to_vec(),
+                declared_payload_limit: 1_024,
+            };
+            let prepared = if matches!(
+                (activity.module(), activity.ordinal()),
+                (ModuleId::Budget, 2 | 8 | 9)
+            ) {
+                // Resolve the API authority reference to the fixture's actual protocol owner key.
+                let owner_key = layerx_crypto::signer::Signer::public_key(
+                    &layerx_crypto::local::LocalSigner::new([0x51; 32]),
+                );
+                preparation.authority = Authority::owner(&owner_key)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                let protocol = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
+                let account_id = |name: &str| {
+                    layerx_intents::canonical::account_id_for_protocol(
+                        &account(name),
+                        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                    )
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)
+                };
+                let actor = request.actor.as_str();
+                let owner = account_id(&format!("agent:{actor}:main"))?;
+                // This is the worker's one-unit operations budget used by the reclaim fixture.
+                // Keep its balance independent of the requested amount so overdraws are refused.
+                let budget_id: [u8; 32] = preparation
+                    .payload
+                    .get(2..34)
+                    .ok_or(AgentBoundaryError::CorruptResponse)?
+                    .try_into()
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                let context = layerx_crypto::disclosure::BudgetStateContext {
+                    budget_id,
+                    owner,
+                    budget_account: account_id(&format!(
+                        "agent:{actor}:budget:{}",
+                        hex(&budget_id)
+                    ))?,
+                    asset: [0x33; 32],
+                    source_account: owner,
+                    native_source: false,
+                    revocation_sequence: 3,
+                    balance: 1,
+                    state_digest: [0x81; 32],
+                    observed_head_sequence: 88,
+                    purpose_hash: [0x82; 32],
+                };
+                prepare_budget_mutation_for_protocol(
+                    &mut core,
+                    defaults,
+                    preparation,
+                    protocol,
+                    &context,
+                )
+            } else {
+                prepare_activity(&mut core, defaults, preparation)
+            }
+            .map_err(|error| {
+                eprintln!("agent preparation for {activity:?} refused: {error:?}");
+                AgentBoundaryError::Refused
+            })?;
+            assert_eq!(
+                prepared.envelope.account_sequence(),
+                request.account_sequence.get()
+            );
             self.preparation_bodies.insert(key, mutation.body_digest.0);
             self.preparations.insert(key, prepared);
         }
@@ -368,15 +716,24 @@ impl AgentBoundary for RealAgentLayer {
             .cloned()
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         let request = &mutation.operation;
+        let signing =
+            signing_preparation(&prepared, self.sender.ok_or(AgentBoundaryError::Refused)?)?;
+        let transaction = &signing.transaction.call;
+        let disclosure =
+            layerx_crypto::disclosure::call::bind_call(transaction, signing.actor_address)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let result = AgentPreparation {
             preparation_ref: PreparationRef::new(format!("prep-{}", hex(&key)))
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            unsigned_canonical_bytes: prepared.canonical_bytes.clone(),
-            signing_preimage: prepared.signing_preimage.to_vec(),
-            disclosure: prepared.disclosure.clone(),
+            unsigned_canonical_bytes: layerx_human_kms::attestor::unsigned_evm_transaction(
+                transaction,
+            ),
+            signing_preimage: transaction.signing_hash().to_vec(),
+            disclosure,
             actor: request.actor.clone(),
             authority: request.authority.clone(),
             account_sequence: request.account_sequence.get(),
+            pending_nonce: transaction.nonce,
             not_before: request.timestamp_bound.not_before.get(),
             not_after: request.timestamp_bound.not_after.get(),
             fee_limit: request.fee_limit.get(),
@@ -409,29 +766,67 @@ impl AgentBoundary for RealAgentLayer {
         if mutation.operation.preparation_ref.as_str() != format!("prep-{}", hex(&key)) {
             return Err(AgentBoundaryError::Refused);
         }
-        let signature: [u8; 64] = mutation
+        let signature: [u8; 65] = mutation
             .operation
             .signature
             .as_bytes()
             .try_into()
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let signed = attach_external_signature(&prepared, signature)
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        let verified = verify_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        let activity_id = verified.activity_id();
-        match self
-            .outbox
-            .enqueue(&mut self.store, self.tenant.clone(), key, verified)
+        if signer_public_key
+            != layerx_crypto::signer::Signer::public_key(&layerx_crypto::local::LocalSigner::new(
+                [0x51; 32],
+            ))
         {
-            Ok(()) => {}
+            return Err(AgentBoundaryError::Refused);
+        }
+        let signing =
+            signing_preparation(&prepared, self.sender.ok_or(AgentBoundaryError::Refused)?)?;
+        let signed = attach_external_signature(&signing, signature)
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        let fixture_signature = sign_disclosed_call(&signing);
+        let expected_raw =
+            layerx_crypto::evm_transaction::assemble(&signing.transaction.call, &fixture_signature);
+        assert_eq!(
+            signed, expected_raw,
+            "service and fixture sign the same prepared call"
+        );
+        let (decoded, recovered_signature) = layerx_crypto::evm_transaction::decode_signed(&signed)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        assert_eq!(decoded, signing.transaction.call);
+        assert_eq!(
+            layerx_crypto::evm_transaction::recover_sender(&decoded, &recovered_signature)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+            signing.actor_address
+        );
+        let verified =
+            verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+        assert_eq!(verified.exact_bytes(), signed);
+        assert_eq!(verified.idempotency_key(), key);
+        assert_eq!(verified.activity_id(), transaction_hash(&signed));
+        let raw = if let Some(id) = self.outbox_submissions.get(&key) {
+            self.outbox
+                .exact_signed_bytes(*id)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                .to_vec()
+        } else {
+            verified.into_exact_bytes()
+        };
+        let activity_id = transaction_hash(&raw);
+        let submission_id = match self
+            .outbox
+            .enqueue(&mut self.store, self.tenant.clone(), raw)
+        {
+            Ok(id) => id,
             Err(OutboxError::Duplicate) => return Err(AgentBoundaryError::CorruptResponse),
             Err(_) => return Err(AgentBoundaryError::Refused),
-        }
+        };
+        self.outbox_submissions.insert(key, submission_id);
+        assert_eq!(activity_id, submission_id);
         self.outbox
             .transition(
                 &mut self.store,
-                key,
+                submission_id,
                 OutboxState::Submitted,
                 "real transport accepted exact bytes",
                 None,
@@ -458,8 +853,8 @@ impl AgentBoundary for RealAgentLayer {
                 self.outbox
                     .transition(
                         &mut self.store,
-                        key,
-                        OutboxState::Acknowledged,
+                        submission_id,
+                        OutboxState::Submitted,
                         "core acknowledged",
                         None,
                     )
@@ -474,7 +869,7 @@ impl AgentBoundary for RealAgentLayer {
                 self.outbox
                     .transition(
                         &mut self.store,
-                        key,
+                        submission_id,
                         OutboxState::Unknown,
                         "transport outcome unavailable",
                         None,
@@ -506,40 +901,77 @@ impl AgentBoundary for RealAgentLayer {
         if self.modes.get(&key) == Some(&DeliveryMode::UnknownThenLookup) {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        let submission_id = *self
+            .outbox_submissions
+            .get(&key)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
         let activity_id = self
             .outbox
-            .status(key)
+            .status(submission_id)
             .map(|status| status.activity_id)
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         let current = self
             .outbox
-            .status(key)
+            .status(submission_id)
             .map(|status| status.state)
             .ok_or(AgentBoundaryError::CorruptResponse)?;
-        if current == OutboxState::Acknowledged {
+        if current == OutboxState::Submitted {
             let material = self
                 .receipt_material
                 .get(&key)
                 .ok_or(AgentBoundaryError::CorruptResponse)?;
             let signer = SigningKey::from_bytes(&[key[0].saturating_add(4); 32]);
+            let decoded = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            let protocol = decoded
+                .protocol()
+                .ok_or(AgentBoundaryError::CorruptResponse)?;
+            if protocol.previous_state_root() != material.authorised_batch.previous_state_root()
+                || protocol.resulting_state_root()
+                    != material.authorised_batch.resulting_state_root()
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
             let raw = support::raw_receipt_evidence(
                 material.canonical_bytes.clone(),
-                material.authorised_batch,
+                signer.verifying_key().to_bytes(),
+                material.authorised_batch.previous_state_root(),
+                material.authorised_batch.resulting_state_root(),
                 u64::from(key[0]),
                 &signer,
             );
             let verified = support::evidence_verifier(&signer)
                 .verify_receipt(&raw)
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            self.outbox
-                .transition(
+            let executed = self
+                .outbox
+                .record_execution(
                     &mut self.store,
-                    key,
-                    OutboxState::Executed,
-                    "verified receipt attached",
-                    Some(verified),
+                    submission_id,
+                    verified,
+                    material.block_height,
+                    0,
                 )
                 .map_err(|_| AgentBoundaryError::Refused)?;
+            assert_eq!(executed.state, OutboxState::Executed);
+            let block = layerx_client::sequencer::SequencerBlock {
+                number: material.block_height,
+                hash: material.receipt_hash,
+                parent_hash: material.authorised_batch.previous_state_root(),
+                timestamp: 1_000,
+                transactions_root: submission_id,
+                receipts_root: material.receipt_hash,
+                transactions: vec![self
+                    .outbox
+                    .exact_signed_bytes(submission_id)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+                    .to_vec()],
+            };
+            let committed = self
+                .outbox
+                .reconcile_committed_block(&mut self.store, submission_id, &block)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+            assert_eq!(committed.state, OutboxState::Committed);
         }
         let observation = self.executed_observation(key, activity_id);
         self.observations.insert(key, observation.clone());
@@ -609,11 +1041,11 @@ fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> Receipt
         activity_id,
         previous_state_root: [marker.saturating_add(1); 32],
         resulting_state_root: [marker.saturating_add(2); 32],
-        batch_id: support::committed_execution_batch_id(
-            [marker.saturating_add(1); 32],
-            [0x81; 32],
-            u64::from(marker),
-        ),
+        batch_id: {
+            let mut height = [0; 32];
+            height[24..].copy_from_slice(&u64::from(marker).to_be_bytes());
+            height
+        },
         asset: [0x33; 32],
         module: activity.module(),
         operation: u8::try_from(activity.ordinal())
@@ -626,8 +1058,21 @@ fn receipt(activity_id: [u8; 32], marker: u8, activity: ActivityType) -> Receipt
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
+    let canonical_bytes = encode_receipt(&fields, Some(signature.to_bytes()));
     ReceiptMaterial {
-        canonical_bytes: encode_receipt(&fields, Some(signature.to_bytes())),
+        receipt_hash: Sha256::digest(&canonical_bytes).into(),
+        signed_receipt: canonical_bytes.clone(),
+        canonical_bytes,
+        tx_hash: fields.activity_id,
+        block_height: fields.sequence,
+        rung: Rung::Receipted,
+        receipt_key: layerx_human_service::journeys::ReceiptKeyEntry {
+            key_id: [0x94; 32],
+            public_key: signer.verifying_key().to_bytes(),
+            first_height: 1,
+            last_height: u64::MAX,
+        },
+        inclusion_height: fields.sequence,
         authorised_batch: AuthorizedBatch::new(
             fields.batch_id,
             fields.asset,
@@ -780,6 +1225,7 @@ impl Fixture {
                     AuthorityRef::new("custody-human-primary")
                         .unwrap_or_else(|error| panic!("authority: {error:?}")),
                     ACCOUNT_SEQUENCE,
+                    ACCOUNT_SEQUENCE,
                     995,
                     1_010,
                     7,
@@ -849,6 +1295,9 @@ fn drive_with_restart(
             &fixture.trace,
             start_time.saturating_add(offset),
         ));
+        if result.is_err() {
+            agent.record_contract_divergence(&scope);
+        }
         drop(scope);
         drop(store);
         if let Err(error) = result {

@@ -3,6 +3,7 @@ package voice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
 	"github.com/jackc/pgx/v5"
 	"sync"
@@ -12,118 +13,139 @@ import (
 type SessionFinder interface {
 	Find(context.Context, string) (string, bool, error)
 }
-type ReconcileResult struct{ Examined, Adopted, Terminated, Revoked, Orphans int }
+type ReconcileResult struct{ Examined, Adopted, Terminated, Revoked, Orphans, Failed, Retried int }
+
+type reconciliationRetry struct {
+	attempts int
+	next     time.Time
+}
+type reconciliationState struct {
+	sync.Mutex
+	roomCursor, recordingCursor string
+	retries                     map[string]reconciliationRetry
+}
 
 func (c *Control) Reconcile(ctx context.Context) (ReconcileResult, error) {
+	if c.DB == nil {
+		return ReconcileResult{}, ErrUnavailable
+	}
+	return c.reconcileWithStore(ctx, postgresReconciliationStore{c})
+}
+
+func (c *Control) reconcileWithStore(ctx context.Context, store reconciliationStore) (ReconcileResult, error) {
 	var result ReconcileResult
-	if c.DB == nil || c.Provider == nil {
+	if c.Provider == nil {
 		return result, ErrUnavailable
 	}
 	finder, ok := c.Provider.(SessionFinder)
 	if !ok {
 		return result, ErrUnavailable
 	}
-	rows, e := c.DB.Query(ctx, `SELECT id,start_key,state,provider_session,updated_at,host_wallet,pool_id FROM voice_rooms WHERE state IN ('draft','live','ending') ORDER BY updated_at,id LIMIT 100`)
-	if e != nil {
-		return result, e
+	state := &c.reconciliation
+	state.Lock()
+	defer state.Unlock()
+	if state.retries == nil {
+		state.retries = make(map[string]reconciliationRetry)
 	}
-	type item struct {
-		id, key, state, session string
-		updated                 time.Time
-		host, pool              string
-	}
-	items := []item{}
-	for rows.Next() {
-		var v item
-		if e = rows.Scan(&v.id, &v.key, &v.state, &v.session, &v.updated, &v.host, &v.pool); e != nil {
-			rows.Close()
-			return result, e
+	var failures error
+	attempt := func(key string, work func() error) {
+		retry := state.retries[key]
+		if c.now().Before(retry.next) {
+			failures = errors.Join(failures, fmt.Errorf("%s retry deferred until %s: %w", key, retry.next.Format(time.RFC3339), ErrUnavailable))
+			return
 		}
-		items = append(items, v)
+		if retry.attempts > 0 {
+			result.Retried++
+		}
+		if err := work(); err != nil {
+			result.Failed++
+			// Scheduling state never changes lifecycle timestamps or revisions.
+			retry.attempts++
+			retry.next = c.now().Add(time.Minute * time.Duration(1<<min(retry.attempts-1, 5)))
+			state.retries[key] = retry
+			failures = errors.Join(failures, fmt.Errorf("%s attempt %d: %w", key, retry.attempts, err))
+		} else {
+			delete(state.retries, key)
+		}
 	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return result, e
+	ids, err := store.roomsAfter(ctx, state.roomCursor)
+	if err == nil && len(ids) == 0 && state.roomCursor != "" {
+		state.roomCursor = ""
+		ids, err = store.roomsAfter(ctx, "")
 	}
-	for _, v := range items {
-		if e = c.reconcileRoom(ctx, finder, v.id, &result); e != nil {
-			return result, e
+	if err != nil {
+		failures = errors.Join(failures, err)
+	} else {
+		for _, id := range ids {
+			if err := ctx.Err(); err != nil {
+				return result, errors.Join(failures, err)
+			}
+			// Advance even on a locked room, a deferred retry, or a provider error.
+			state.roomCursor = id
+			attempt("room:"+id, func() error { return c.reconcileRoom(ctx, store, finder, id, &result) })
 		}
 	}
 	if recorder, ok := c.Provider.(Recorder); ok {
-		rows, e := c.DB.Query(ctx, `SELECT rec.id,rec.room_id,rec.provider_id,r.provider_session,rec.state,rec.revision,r.state FROM voice_recordings rec JOIN voice_rooms r ON r.id=rec.room_id WHERE rec.state IN ('starting','stopping') OR (rec.state='recording' AND r.state IN ('ending','ended')) ORDER BY rec.created_at,rec.id LIMIT 100`)
-		if e != nil {
-			return result, e
+		recordings, err := store.recordingsAfter(ctx, state.recordingCursor)
+		if err == nil && len(recordings) == 0 && state.recordingCursor != "" {
+			state.recordingCursor = ""
+			recordings, err = store.recordingsAfter(ctx, "")
 		}
-		type recordingItem struct {
-			id, room, provider, session, state string
-			revision                           int64
-			roomState                          string
-		}
-		recordings := []recordingItem{}
-		for rows.Next() {
-			var r recordingItem
-			if e = rows.Scan(&r.id, &r.room, &r.provider, &r.session, &r.state, &r.revision, &r.roomState); e != nil {
-				rows.Close()
-				return result, e
-			}
-			recordings = append(recordings, r)
-		}
-		e = rows.Err()
-		rows.Close()
-		if e != nil {
-			return result, e
-		}
-		for _, r := range recordings {
-			call, cancel := context.WithTimeout(ctx, 4*time.Second)
-			service := safety.Principal{Wallet: "service:voice-reconciler", SessionID: "runtime-worker"}
-			if r.state == "starting" && r.roomState == "live" && c.recordingReady() && c.Gates.Ready() {
-				id, err := recorder.Record(call, r.session, r.id)
-				cancel()
-				if err != nil {
-					return result, err
+		if err != nil {
+			failures = errors.Join(failures, err)
+		} else {
+			for _, r := range recordings {
+				if err := ctx.Err(); err != nil {
+					return result, errors.Join(failures, err)
 				}
-				if e = c.recordingTransition(ctx, r.id, r.room, r.revision, "starting", "recording", id, service); e != nil {
-					return result, e
-				}
-				continue
-			}
-			if r.provider == "" {
-				finder, ok := c.Provider.(interface {
-					FindRecording(context.Context, string, string) (string, bool, error)
-				})
-				if !ok {
-					cancel()
-					return result, ErrUnavailable
-				}
-				id, exists, err := finder.FindRecording(call, r.session, r.id)
-				if err != nil || !exists {
-					cancel()
-					return result, ErrUnavailable
-				}
-				r.provider = id
-			}
-			e = recorder.StopRecording(call, r.session, r.provider)
-			cancel()
-			if e != nil {
-				return result, e
-			}
-			if e = c.recordingTransition(ctx, r.id, r.room, r.revision, r.state, "stopped", r.provider, service); e != nil {
-				return result, e
+				state.recordingCursor = r.id
+				attempt("recording:"+r.id, func() error { return c.reconcileRecording(ctx, store, recorder, r) })
 			}
 		}
 	}
+	return result, failures
+}
 
-	return result, nil
+func (c *Control) reconcileRecording(ctx context.Context, store reconciliationStore, recorder Recorder, r reconciliationRecording) error {
+	call, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	service := safety.Principal{Wallet: "service:voice-reconciler", SessionID: "runtime-worker"}
+	if r.state == "starting" && r.roomState == "live" && c.recordingReady() && c.Gates.Ready() {
+		id, err := recorder.Record(call, r.session, r.id)
+		if err != nil {
+			return err
+		}
+		return store.transitionRecording(ctx, r, "recording", id, service)
+	}
+	if r.provider == "" {
+		finder, ok := c.Provider.(interface {
+			FindRecording(context.Context, string, string) (string, bool, error)
+		})
+		if !ok {
+			return ErrUnavailable
+		}
+		id, exists, err := finder.FindRecording(call, r.session, r.id)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return ErrUnavailable
+		}
+		r.provider = id
+	}
+	if err := recorder.StopRecording(call, r.session, r.provider); err != nil {
+		return err
+	}
+	return store.transitionRecording(ctx, r, "stopped", r.provider, service)
 }
 func (c *Control) RunReconciler(ctx context.Context, observe func(ReconcileResult, error)) error {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for {
 		result, e := c.Reconcile(ctx)
-		if e == nil && c.RecordingPolicy.Enabled {
-			_, e = c.DeleteExpiredRecordings(ctx)
+		if c.RecordingPolicy.Enabled {
+			_, cleanupErr := c.DeleteExpiredRecordings(ctx)
+			e = errors.Join(e, cleanupErr)
 		}
 		if observe != nil {
 			observe(result, e)
@@ -319,17 +341,15 @@ func (c *Control) ApplyPolicyUpdate(ctx context.Context, banID string, expected 
 	return nil
 }
 
-func (c *Control) reconcileRoom(ctx context.Context, finder SessionFinder, id string, result *ReconcileResult) error {
+func (c *Control) reconcileRoom(ctx context.Context, store reconciliationStore, finder SessionFinder, id string, result *ReconcileResult) error {
 	call, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	tx, e := c.DB.Begin(call)
+	tx, e := store.beginRoom(call, id)
 	if e != nil {
 		return e
 	}
 	defer tx.Rollback(context.WithoutCancel(ctx))
-	var r Room
-	var updated time.Time
-	e = tx.QueryRow(call, `SELECT id,start_key,state,provider_session,updated_at,host_wallet,pool_id FROM voice_rooms WHERE id=$1 FOR UPDATE SKIP LOCKED`, id).Scan(&r.ID, &r.StartKey, &r.State, &r.ProviderSession, &updated, &r.HostWallet, &r.PoolID)
+	r, updated, e := tx.room(call)
 	if e == pgx.ErrNoRows {
 		return nil
 	}
@@ -356,7 +376,7 @@ func (c *Control) reconcileRoom(ctx context.Context, finder SessionFinder, id st
 				return ErrUnavailable
 			}
 			if c.ready() && c.permission(call, r.HostWallet, r.ID, r.PoolID) == nil {
-				if _, e = tx.Exec(call, `UPDATE voice_rooms SET state='live',provider_session=$2,revision=revision+1,updated_at=$3 WHERE id=$1`, id, session, c.now()); e != nil {
+				if e = tx.adopt(call, session, c.now()); e != nil {
 					return e
 				}
 				r.State = "live"
@@ -385,10 +405,7 @@ func (c *Control) reconcileRoom(ctx context.Context, finder SessionFinder, id st
 		if e = c.Provider.End(call, r.ProviderSession); e != nil {
 			return e
 		}
-		if _, e = tx.Exec(call, `UPDATE voice_participants SET revoked=true,muted=true,grant_state='revoked',revision=revision+1 WHERE room_id=$1 AND (NOT revoked OR grant_state<>'revoked')`, id); e != nil {
-			return e
-		}
-		if _, e = tx.Exec(call, `UPDATE voice_rooms SET state='ended',revision=revision+1,updated_at=$2 WHERE id=$1`, id, c.now()); e != nil {
+		if e = tx.end(call, c.now()); e != nil {
 			return e
 		}
 		if e = tx.Commit(call); e != nil {
@@ -401,25 +418,7 @@ func (c *Control) reconcileRoom(ctx context.Context, finder SessionFinder, id st
 	if e != nil || !exists || session != r.ProviderSession {
 		return ErrUnavailable
 	}
-	rows, e := tx.Query(call, `SELECT wallet,revision FROM voice_participants WHERE room_id=$1 AND grant_state IN ('granting','revoking') ORDER BY wallet LIMIT 100 FOR UPDATE`, id)
-	if e != nil {
-		return e
-	}
-	type grant struct {
-		wallet   string
-		revision int64
-	}
-	grants := []grant{}
-	for rows.Next() {
-		var g grant
-		if e = rows.Scan(&g.wallet, &g.revision); e != nil {
-			rows.Close()
-			return e
-		}
-		grants = append(grants, g)
-	}
-	e = rows.Err()
-	rows.Close()
+	grants, e := tx.pendingGrants(call)
 	if e != nil {
 		return e
 	}
@@ -427,7 +426,7 @@ func (c *Control) reconcileRoom(ctx context.Context, finder SessionFinder, id st
 		if e = c.Provider.Revoke(call, r.ProviderSession, g.wallet); e != nil {
 			return e
 		}
-		if _, e = tx.Exec(call, `UPDATE voice_participants SET muted=true,grant_state='revoked' WHERE room_id=$1 AND wallet=$2 AND revision=$3 AND grant_state IN ('granting','revoking')`, id, g.wallet, g.revision); e != nil {
+		if e = tx.revokeGrant(call, g); e != nil {
 			return e
 		}
 	}

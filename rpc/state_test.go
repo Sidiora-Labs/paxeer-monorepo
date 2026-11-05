@@ -14,6 +14,7 @@ import (
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
@@ -243,7 +244,7 @@ func TestGetProof(t *testing.T) {
 		}
 	}
 	watermarks := evmrpc.NewWatermarkManager(client, ctxProvider, nil, testApp.EvmKeeper.ReceiptStore())
-	stateAPI := evmrpc.NewStateAPI(client, &testApp.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, watermarks)
+	stateAPI := evmrpc.NewStateAPI(client, &testApp.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, watermarks, testApp.CommitMultiStore().(storetypes.Queryable))
 	require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000616263", testApp.EvmKeeper.GetState(testApp.GetCheckCtx(), evmAddr, common.BytesToHash(key)).Hex())
 	// hex-encode the storage slot as eth_getProof requires
 	hexKey := common.BytesToHash(key).Hex()

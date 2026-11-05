@@ -1,0 +1,37 @@
+[repair.22.33.1374]
+audit = "22.30.75"
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+status = "implemented_pending_qualification"
+qualification = "hf-build followed by hf-done; exact candidate revision and private logs are recorded by the runner ledger and final evidence."
+baseline = "Not executed: the explicit ordered gate rules prohibit verification before complete implementation and allow verification only through hf-done after hf-build; the declared repair target did not exist on the unchanged tree."
+
+[finding.event-effects-test-gap]
+proving_tests = ["event_effects_all_variants", "event_effects_position_opened", "event_effects_position_modified", "event_effects_position_closed", "event_effects_order_placed", "event_effects_order_executed", "event_effects_short_order_placed", "event_effects_order_cancelled", "event_effects_liquidation", "event_effects_adl", "event_effects_price_updated", "event_effects_funding_settled_projection", "event_effects_funding_rate_updated", "event_effects_market_created_projection", "event_effects_market_paused", "event_effects_collateral_deposited", "event_effects_collateral_withdrawn", "event_effects_vault_created", "event_effects_vault_deficit_projection", "event_effects_complete_snapshot", "snapshot_reopens_alerts", "snapshot_reopens_api_keys", "snapshot_reopens_referral_tiers", "snapshot_reopens_competitions", "snapshot_reopens_live_candle", "event_effects_invalid_events_refused_before_cursor", "event_effects_recorded_producer_roundtrip", "snapshot_reopens_deleted_alert_allocator"]
+proof = "Production engine processing emits WAL frames; the production decoder checks their complete event payloads and the engine reopens and asserts consumer views; no producer implementation is replaced."
+projection_contract = "The current base projects hourly signed funding settlements and reported token deficits through EventStore, and static market creation enables and unpauses its registered market; assert these effects and exact reopen equality, while invalid registry/deficit inputs remain refused before WAL and cursor advancement."
+accounting = "Existing production ADL, price conversion and checked lifecycle exposure remain authoritative; fixtures now encode leverage with 18 decimals and distinguish settlement records from per-position funding debits."
+persistence = "The real engine atomically snapshots relational records alongside its exact WAL cursor; reopen restores secondary indexes, the complete alert allocation high-water mark and owned custom referral tier names without static registration or leaking memory."
+
+[finding.recovery-tail-followup-test]
+proving_tests = ["recovery_tail_interrupted_followup", "recovery_tail_corrupt_followup", "recovery_tail_interior_corruption_rejected"]
+proof = "Damage a final frame emitted by the real engine, verify the exact three-event prefix, reopen, append and sync a fresh event, decode its WAL and reopen twice asserting old and fresh state."
+corruption_contract = "Corrupting an interior CRC with a later intact engine-produced frame must make replay and engine open fail without rewriting the segment; only a damaged final append is recoverable."
+
+[finding.recovery-test-stale-exposure]
+proving_tests = ["recovery_exposure_modification_live_and_reopen", "exposure_long_modification_wal", "exposure_short_modification_wal", "exposure_long_partial_close_wal", "exposure_short_partial_close_wal", "exposure_long_liquidation_wal", "exposure_short_liquidation_wal", "exposure_long_modification_snapshot", "exposure_short_modification_snapshot", "exposure_long_partial_close_snapshot", "exposure_short_partial_close_snapshot", "exposure_long_liquidation_snapshot", "exposure_short_liquidation_snapshot"]
+proof = "Modify size from 1000000 to 1500000, partially close 500000 and liquidate the remaining 1000000; assert exact side exposure and complete live/reopen position and trader-stat equality, with WAL-only and snapshot recovery."
+accounting = "The current production implementation already applies modification deltas and removes remaining exposure on liquidation; keep exact side exposure and live/reopen state and trader-stat assertions on both WAL and snapshot paths."
+
+[qualification.first]
+revision = "0c7d5c372fefd42a5d0af1a227361bd16267f13f"
+command = "cg spec done 22.33.1374 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "43 cases ran: 14 passed; 27 exposed unchanged engine exposure, ignored effects and missing relational persistence outside scope, while two damaged-tail fixtures incorrectly checkpointed the frame they damaged and are repaired by checkpointing only the valid prefix."
+
+[continuation]
+source_attempt = 1
+source_revision = "b99bad124a3b15282c9eccb483b3701a983c8097"
+source_result = "The supplied prior gate failed with 16 passing and 27 failing cases; no baseline gate is repeated because the ordered qualification contract only authorizes hf-build followed by hf-done after implementation."
+wiring_requests = []
+qualification = "The unchanged final candidate is built by hf-build and verified by hf-done; the runner ledger and final evidence identify the exact candidate revision, commands, exits and private logs."

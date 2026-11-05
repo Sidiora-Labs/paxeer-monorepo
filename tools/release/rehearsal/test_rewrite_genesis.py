@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 sys.dont_write_bytecode = True
-from rewrite_genesis import rewrite
+from rewrite_genesis import public_key, rewrite
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = Path(__file__).with_name("rewrite_genesis.py")
@@ -107,6 +107,7 @@ func main() {
 	}
 	root, _ := cmd.NewRootCmd()
 	if err := svrcmd.Execute(root, app.DefaultNodeHome); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
@@ -215,6 +216,8 @@ class RewriteGenesisTests(unittest.TestCase):
         return run([cls.paxd, *args, "--home", home])
 
     def test_four_validators_equal_power(self):
+        self.assertNotIn("layerxanchor", self.exported["app_state"])
+        self.command(self.homes[0], "validate-genesis", str(self.export_path))
         before = copy.deepcopy(self.exported)
         keys_before = copy.deepcopy(self.keys)
         rewritten = rewrite(self.exported, self.keys)
@@ -240,6 +243,9 @@ class RewriteGenesisTests(unittest.TestCase):
                 "pub_key"
             ]["value"]
             self.assertEqual(new, expected)
+            address, consensus = public_key(expected["consensus_pubkey"]["key"])
+            self.assertEqual(address, self.keys[old["operator_address"]]["address"])
+            self.assertEqual(consensus, self.new_consensus[old["operator_address"]])
         self.assertEqual(rewritten["app_state"]["bank"]["supply"], [])
         preserved = copy.deepcopy(rewritten)
         preserved["validators"] = before["validators"]

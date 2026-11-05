@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"math/big"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -14,12 +13,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
@@ -137,30 +136,11 @@ func (d *networkReads) deployment(w http.ResponseWriter, r *http.Request) {
 	writeNetworkEnvelope(w, r, "DeploymentResponse", data, "partial", "public, max-age=60")
 }
 
-// rpcReceipt is the subset of eth_getTransactionReceipt the contract needs.
-type rpcReceipt struct {
-	TransactionHash   common.Hash     `json:"transactionHash"`
-	TransactionIndex  hexutil.Uint64  `json:"transactionIndex"`
-	BlockHash         common.Hash     `json:"blockHash"`
-	BlockNumber       *hexutil.Big    `json:"blockNumber"`
-	From              common.Address  `json:"from"`
-	To                *common.Address `json:"to"`
-	Status            *hexutil.Uint64 `json:"status"`
-	GasUsed           *hexutil.Big    `json:"gasUsed"`
-	EffectiveGasPrice *hexutil.Big    `json:"effectiveGasPrice"`
-}
-
-type rpcTransaction struct {
-	Hash     common.Hash  `json:"hash"`
-	GasPrice *hexutil.Big `json:"gasPrice"`
-}
-
-func decimal(v *hexutil.Big) string { return (*big.Int)(v).String() }
-
 // transaction serves TxStatusData. A receipt yields included_success or
 // included_reverted from its status field; a transaction the node knows
-// without a receipt is submitted; anything else is unknown. Elapsed time never
-// changes the status.
+// without a receipt is submitted; anything else is unknown. Missing receipts
+// for mined transactions and conflicting chain evidence are refused. Log-free
+// receipts share the SDK projection and its transaction identity with logIndex zero.
 func (d *networkReads) transaction(w http.ResponseWriter, r *http.Request) {
 	raw := chi.URLParam(r, "transactionHash")
 	if !transactionHashPattern.MatchString(raw) || len(r.URL.Query()) != 0 {
@@ -174,66 +154,15 @@ func (d *networkReads) transaction(w http.ResponseWriter, r *http.Request) {
 	hash := common.HexToHash(raw)
 	ctx, cancel := context.WithTimeout(r.Context(), d.timeout)
 	defer cancel()
-	var receipt *rpcReceipt
-	if err := d.rpc.CallContext(ctx, &receipt, "eth_getTransactionReceipt", hash); err != nil {
+	data, err := chain.TransactionStatus(ctx, d.rpc, hash)
+	if err != nil {
 		d.logger.Warn("transaction status unavailable", "reason", err.Error())
-		rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		code := "DEPENDENCY_UNAVAILABLE"
+		if errors.Is(err, chain.ErrReceiptIntegrity) {
+			code = "INTEGRITY_QUARANTINED"
+		}
+		rest.WriteV2APIError(w, r, 503, code)
 		return
 	}
-	var tx *rpcTransaction
-	if receipt == nil || receipt.EffectiveGasPrice == nil {
-		if err := d.rpc.CallContext(ctx, &tx, "eth_getTransactionByHash", hash); err != nil {
-			d.logger.Warn("transaction status unavailable", "reason", err.Error())
-			rest.WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
-			return
-		}
-		if tx != nil && tx.Hash != hash {
-			rest.WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
-			return
-		}
-	}
-	if receipt == nil {
-		status := "unknown"
-		if tx != nil {
-			status = "submitted"
-		}
-		writeNetworkEnvelope(w, r, "TxStatusResponse", map[string]any{"status": status, "receipt": nil}, "complete", "no-store")
-		return
-	}
-	gasPrice := receipt.EffectiveGasPrice
-	if gasPrice == nil && tx != nil {
-		gasPrice = tx.GasPrice
-	}
-	if receipt.TransactionHash != hash || receipt.BlockNumber == nil || receipt.BlockHash == (common.Hash{}) || receipt.Status == nil || *receipt.Status > 1 || receipt.GasUsed == nil || gasPrice == nil {
-		rest.WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
-		return
-	}
-	var to any
-	if receipt.To != nil {
-		to = receipt.To.Hex()
-	}
-	height := decimal(receipt.BlockNumber)
-	success := *receipt.Status == 1
-	status := "included_reverted"
-	if success {
-		status = "included_success"
-	}
-	writeNetworkEnvelope(w, r, "TxStatusResponse", map[string]any{"status": status, "receipt": map[string]any{
-		"transactionHash":      hash.Hex(),
-		"blockHash":            receipt.BlockHash.Hex(),
-		"height":               height,
-		"from":                 receipt.From.Hex(),
-		"to":                   to,
-		"success":              success,
-		"gasUsedRaw":           decimal(receipt.GasUsed),
-		"effectiveGasPriceRaw": decimal(gasPrice),
-		"position": map[string]any{
-			"chainId":          "125",
-			"height":           height,
-			"transactionIndex": strconv.FormatUint(uint64(receipt.TransactionIndex), 10),
-			"logIndex":         "0",
-			"transactionHash":  hash.Hex(),
-			"blockHash":        receipt.BlockHash.Hex(),
-		},
-	}}, "complete", "no-store")
+	writeNetworkEnvelope(w, r, "TxStatusResponse", data, "complete", "no-store")
 }

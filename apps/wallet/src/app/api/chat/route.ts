@@ -3,13 +3,12 @@ import { createRateLimiter } from '@/lib/rateLimit';
 import {
   boundaryErrorResponse,
   HttpBoundaryError,
-  limitReadableStream,
   publicError,
   readBoundedJson,
-  timeoutSignal,
   trustedClientIdentity,
 } from '@/server/http';
 import { captureError, logApiRequest } from '@/lib/observability';
+import { fetchChatStream } from './stream';
 
 const chatLimiter = createRateLimiter({
   limit: 20,
@@ -35,7 +34,7 @@ function parseChatInput(input: unknown): {
   }
   const record = input as Record<string, unknown>;
   const unknownFields = Object.keys(record).filter(
-    (key) => key !== 'messages' && key !== 'walletAddress',
+    (key) => key !== 'messages' && key !== 'walletAddress'
   );
   if (unknownFields.length > 0 || !Array.isArray(record.messages)) {
     throw new HttpBoundaryError(400, 'CHAT_INPUT_INVALID', 'Chat input is invalid');
@@ -44,50 +43,31 @@ function parseChatInput(input: unknown): {
     throw new HttpBoundaryError(
       400,
       'CHAT_MESSAGES_INVALID',
-      'Chat messages are outside allowed bounds',
+      'Chat messages are outside allowed bounds'
     );
   }
   const messages = record.messages.map((message): ChatMessage => {
-    if (
-      typeof message !== 'object' ||
-      message === null ||
-      Array.isArray(message)
-    ) {
-      throw new HttpBoundaryError(
-        400,
-        'CHAT_MESSAGE_INVALID',
-        'A chat message is invalid',
-      );
+    if (typeof message !== 'object' || message === null || Array.isArray(message)) {
+      throw new HttpBoundaryError(400, 'CHAT_MESSAGE_INVALID', 'A chat message is invalid');
     }
     const candidate = message as Record<string, unknown>;
     if (
-      Object.keys(candidate).some(
-        (key) => key !== 'role' && key !== 'content',
-      ) ||
+      Object.keys(candidate).some((key) => key !== 'role' && key !== 'content') ||
       (candidate.role !== 'user' && candidate.role !== 'assistant') ||
       typeof candidate.content !== 'string' ||
       candidate.content.trim().length < 1 ||
       candidate.content.length > 2_000
     ) {
-      throw new HttpBoundaryError(
-        400,
-        'CHAT_MESSAGE_INVALID',
-        'A chat message is invalid',
-      );
+      throw new HttpBoundaryError(400, 'CHAT_MESSAGE_INVALID', 'A chat message is invalid');
     }
     return { role: candidate.role, content: candidate.content.trim() };
   });
   let walletConnected = false;
   if (record.walletAddress !== undefined) {
     walletConnected =
-      typeof record.walletAddress === 'string' &&
-      /^0x[0-9a-fA-F]{40}$/.test(record.walletAddress);
+      typeof record.walletAddress === 'string' && /^0x[0-9a-fA-F]{40}$/.test(record.walletAddress);
     if (!walletConnected) {
-      throw new HttpBoundaryError(
-        400,
-        'WALLET_CONTEXT_INVALID',
-        'Wallet context is invalid',
-      );
+      throw new HttpBoundaryError(400, 'WALLET_CONTEXT_INVALID', 'Wallet context is invalid');
     }
   }
   return { messages, walletConnected };
@@ -108,66 +88,41 @@ export async function POST(request: NextRequest) {
         {
           status: 429,
           headers: { 'Retry-After': String(limit.retryAfter ?? 60) },
-        },
+        }
       );
     }
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return publicError(
-        503,
-        'CHAT_UNAVAILABLE',
-        'The assistant is currently unavailable',
-      );
+      return publicError(503, 'CHAT_UNAVAILABLE', 'The assistant is currently unavailable');
     }
     const body = parseChatInput(await readBoundedJson(request, 32_768));
     const context = body.walletConnected
       ? `${SYSTEM_PROMPT}\n\nThe application reports that a wallet is connected. No address or balance data is available to you.`
       : SYSTEM_PROMPT;
-    const timeout = timeoutSignal(request.signal, 20_000);
-    let upstream: Response;
-    try {
-      upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+    const stream = await fetchChatStream(
+      'https://api.openai.com/v1/chat/completions',
+      {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        signal: timeout.signal,
         redirect: 'error',
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           stream: true,
-          messages: [
-            { role: 'system', content: context },
-            ...body.messages,
-          ],
+          messages: [{ role: 'system', content: context }, ...body.messages],
           max_tokens: 600,
           temperature: 0.4,
         }),
-      });
-    } finally {
-      timeout.dispose();
-    }
-    if (!upstream.ok || !upstream.body) {
-      return publicError(
-        502,
-        'CHAT_UPSTREAM_FAILED',
-        'The assistant is currently unavailable',
-      );
-    }
-    const contentType = upstream.headers.get('content-type');
-    if (!contentType?.toLowerCase().startsWith('text/event-stream')) {
-      return publicError(
-        502,
-        'CHAT_UPSTREAM_INVALID',
-        'The assistant returned an invalid response',
-      );
-    }
+      },
+      request.signal
+    );
     logApiRequest(request, '/api/chat', 200, startedAt, {
       messages: body.messages.length,
       walletConnected: body.walletConnected,
     });
-    return new Response(limitReadableStream(upstream.body, 262_144), {
+    return new Response(stream, {
       headers: {
         'Cache-Control': 'no-cache, no-store, no-transform',
         'Content-Type': 'text/event-stream; charset=utf-8',

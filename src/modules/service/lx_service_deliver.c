@@ -16,6 +16,9 @@ lxp_result lx_service_deliverable_check(
         delivery->deliverable_count == 0U ||
         delivery->deliverable_count > LX_SERVICE_MAX_DELIVERABLES)
         return LXP_ERR_NON_CANONICAL;
+    if (memcmp(delivery->agreement_id, agreement->agreement_id, 32U) != 0 ||
+        memcmp(delivery->provider, agreement->provider, 32U) != 0)
+        return LXP_ERR_AGREEMENT_STATE;
     status = lx_service_offer_lookup(ctx, agreement->offer_id, &offer);
     if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
     for (i = 0U; i < delivery->deliverable_count; ++i) {
@@ -25,7 +28,7 @@ lxp_result lx_service_deliverable_check(
             return LXP_ERR_DELIVERABLE_MISMATCH;
         if (item->artifact_size == 0U ||
             lxp_ct_is_zero(item->availability_reference, 32U))
-            return LXP_ERR_DA_MISSING;
+            return LXP_ERR_NON_CANONICAL;
     }
     return LXP_OK;
 }
@@ -96,8 +99,14 @@ lxp_result lx_service_deliver_execute(
     delivery.global_sequence = lxp_ctx_global_sequence(ctx);
     status = lx_service_delivery_put(ctx, &delivery);
     if (status != LXP_OK) return status;
-    if (agreement.state == LX_SERVICE_AGREEMENT_COMMITTED)
-        agreement.state = LX_SERVICE_AGREEMENT_DELIVERED;
+    agreement.state = LX_SERVICE_AGREEMENT_DELIVERED;
+    agreement.rejection_reason = 0U;
+    agreement.contested_hash_count = 0U;
+    (void)memset(agreement.contested_hashes, 0,
+                 sizeof(agreement.contested_hashes));
+    agreement.default_applied = false;
+    agreement.outcome_sequence = 0U;
+    agreement.outcome_timestamp = 0U;
     status = lx_service_agreement_put(ctx, &agreement);
     if (status != LXP_OK) return status;
     *result = delivery;

@@ -1,0 +1,124 @@
+[disposition.8.94.3.2]
+finding = "8.94.3.2"
+status = "resolved"
+evidence = "Commit f2e14e618 added the signing_key field to executed_receipt, retained at services/platform/ramps/toolkit/tests/custody_rungs.rs:73."
+
+[disposition.8.94.3.3]
+finding = "8.94.3.3"
+status = "superseded"
+evidence = "Commit 75e68b502 supplied chain_receipts to config, and commit 7f570f950 subsequently deleted head_attestation_tests.rs with the retired agent-boundary head-attestation route."
+
+[disposition.8.94.3.4]
+finding = "8.94.3.4"
+status = "resolved"
+evidence = "Commits 6bc45dc7f and 75e68b502 completed the authority payments re-export port and installed the codec sweep, whose surviving source list at services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs:11 contains no forbidden codec reference."
+
+[disposition.8.94.3.5]
+finding = "8.94.3.5"
+status = "resolved"
+evidence = "Commit 6bc45dc7f moved both authority SponsoredRegistration decodes to payments, including the production decode at services/platform/hosted/authority/src/human/dynamic.rs:217."
+
+[disposition.8.94.6.1]
+finding = "8.94.6.1"
+status = "superseded"
+evidence = "Commit 4cfd3a413 deleted services/platform/hosted/gateway/tests/local/build.rs with the retired lifecycle harness, removing its requirement for LAYERX_TEST_CORE_BIN."
+
+[disposition.8.94.6.2]
+finding = "8.94.6.2"
+status = "superseded"
+evidence = "Commit 65345dc39 corrected the metadata fixture path to five parent levels, and commit 4cfd3a413 subsequently deleted the adapting build script with the retired gateway lifecycle harness."
+
+[disposition.8.96.5.1]
+finding = "8.96.5.1"
+status = "resolved"
+evidence = "Commit b91c390c3 removed the undefined lxp_guarantor_withhold call from lxp_guarantor_process_batch and its orphaned header declaration, eliminating the reported linker dependency."
+
+[disposition.8.98.1.2]
+finding = "8.98.1.2"
+status = "resolved"
+evidence = "Commit 266364186 removed the stale layerx-programs-protocol-adapter dependency from the registry lock entry, whose current dependency list begins at services/platform/Cargo.lock:1548."
+
+[disposition.8.98.2.1]
+finding = "8.98.2.1"
+status = "superseded"
+evidence = "Commit 7f570f950 deleted head_attestation.rs and head_attestation_tests.rs with the retired route, and commit 9b049e2f5 installed the surviving deployment-only retired-module scan."
+
+[disposition.8.98.3.2]
+finding = "8.98.3.2"
+status = "resolved"
+evidence = "Commit fee6cbfed retired the authority kernel socket and removed trust::checkpoint, limits and their LNI transport imports from services/platform/hosted/authority/src/trust.rs."
+
+[disposition.8.98.4.1]
+finding = "8.98.4.1"
+status = "resolved"
+evidence = "The current sources scanned at services/platform/hosted/authority/tests/retired_client_modules.rs:3 no longer import the reported retired client modules, with trust.rs using pinned receipt keys and budget_state.rs using sequencer and network endpoints."
+
+[disposition.8.98.5]
+finding = "8.98.5"
+status = "resolved"
+evidence = "Commits f069b7d2b, c6fc21853 and c6729f9bf implemented the core endpoint, public-read and custody ports instead of import renames, with read_custody_profile taking a SequencerEndpoint at services/platform/hosted/core/src/lib.rs:709."
+
+[disposition.8.98.5.1]
+finding = "8.98.5.1"
+status = "resolved"
+evidence = "Commit c6729f9bf replaced the FrameTransport custody block with sequencer eth_call reads, retained at services/platform/hosted/core/src/lib.rs:717 without the invented rpc transport or evidence types."
+
+[disposition.8.98.5.2]
+finding = "8.98.5.2"
+status = "resolved"
+evidence = "Commit c6729f9bf replaced the legacy custody block with ABI-decoded registry and anchor reads, and services/platform/hosted/core/src/lib.rs:709 no longer depends on VerifiedEffectiveAsset or the nonexistent rpc evidence imports."
+
+[disposition.8.98.5.3]
+finding = "8.98.5.3"
+status = "resolved"
+evidence = "Commit c6729f9bf implemented the custody port and removed the core LNI connection helpers, with services/platform/hosted/core/src/lib.rs:746 taking real sequencer and network endpoints for read_custody_asset."
+
+[disposition.8.98.5.4]
+finding = "8.98.5.4"
+status = "resolved"
+evidence = "The custody implementation at services/platform/hosted/core/src/lib.rs:715 builds getAsset calldata and calls the sequencer directly, replacing the failed rpc::transport and rpc::evidence rewrite in commit c6729f9bf."
+
+[disposition.8.98.5.5]
+finding = "8.98.5.5"
+status = "resolved"
+evidence = "Commit 266364186 refreshed the platform lockfile by removing the obsolete registry adapter dependency, absent from the current registry package at services/platform/Cargo.lock:1546."
+
+[disposition.8.98.5.6]
+finding = "8.98.5.6"
+status = "resolved"
+evidence = "Commit c6729f9bf removed connect_client, connect_raw and the core LNI imports and restored lni to the retired-module scan at services/platform/hosted/core/tests/retired_client_modules_w2.rs:5."
+
+[disposition.8.98.5.7]
+finding = "8.98.5.7"
+status = "resolved"
+evidence = "Commit c6729f9bf removed treasury_sequence and the layerx_client::read::ReadError import, while the current core imports at services/platform/hosted/core/src/main.rs:4 use the sequencer and network endpoints."
+
+[disposition.8.98.6.1]
+finding = "8.98.6.1"
+status = "resolved"
+evidence = "Commit c6fc21853 deleted caps_reads.rs and its mod declaration from main.rs, whose remaining module declarations are at services/platform/hosted/core/src/main.rs:1."
+
+[disposition.8.98.6.2]
+finding = "8.98.6.2"
+status = "resolved"
+evidence = "Commit c6fc21853 ported public reads to the network and RPC interfaces, and services/platform/hosted/core/src/public_reads.rs:1 now imports px, rpc and sequencer instead of the retired payments, evidence, head and read modules."
+
+[disposition.8.98.7.1]
+finding = "8.98.7.1"
+status = "superseded"
+evidence = "Commit 4cfd3a413 deleted services/platform/hosted/gateway/tests/local/funding.rs with the retired kernel lifecycle harness, leaving no LNI funding lookup to migrate."
+
+[disposition.8.98.7.2]
+finding = "8.98.7.2"
+status = "superseded"
+evidence = "Commit 4cfd3a413 deleted services/platform/hosted/gateway/tests/local/build.rs, retiring the parent-built core binary requirement that caused the qualification panic."
+
+[disposition.8.98.8]
+finding = "8.98.8"
+status = "environment"
+evidence = "The standalone workspace declaration at services/platform/hosted/gateway/tests/local/Cargo.toml:7 requires selecting its own manifest, so the historical parent-workspace package lookup used the wrong qualification context, while commit 4cfd3a413 retired the lifecycle build script and fixtures."
+
+[disposition.8.98.8.1]
+finding = "8.98.8.1"
+status = "superseded"
+evidence = "Commit 4cfd3a413 deleted services/platform/hosted/gateway/tests/local/registry_runtime.rs with the retired lifecycle harness, removing its LNI handshake and SignedBatchHeader lookup."

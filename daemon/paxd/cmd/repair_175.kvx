@@ -1,0 +1,10 @@
+[repair.22.31.175]
+finding = "init-recovery-mnemonic-shadow"
+proving_test = "TestRepair_175_InitRecoveryMnemonicRestart"
+producer_transport_consumer = "Production root and server Execute in a subprocess, piped operator mnemonic, init --recover, on-disk validator key and state, privval.LoadFilePV and consensus vote signing."
+restart = "Wait for init to exit, reopen both files, check the independently derived public key, sign a vote, reopen again and check the persisted identity, height and signature. Repeat recovery into another fresh home."
+failure_paths = "Reject invalid mnemonic before creating validator files; propagate a real validator-state persistence failure."
+baseline_verify = "Not run: the ordered implementation-first and hf-build-before-hf-done instructions prohibit the contradictory unchanged-tree verification request; no baseline failure is claimed."
+qualification_repair = "The first verify rejected the invalid-input fixture assumption: Cosmos IsMnemonicValid checks word count and word membership, not checksum. Use an unknown word and assert the fixture is invalid while retaining rejection and no-files assertions."
+wiring_request = "sdk/x/genutil/utils.go, domain 5 / fm-node-runtime: persist mnemonic-derived FilePV for shared SDK callers; paxd init saves its recovered validator within this task's scope."
+qualification_evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."

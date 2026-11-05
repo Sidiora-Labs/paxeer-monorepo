@@ -1,3 +1,5 @@
+Code.require_file("repair_transport.exs", __DIR__)
+
 defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
   @moduledoc """
   What the capability probe is allowed to do to the boot of the application.
@@ -20,6 +22,12 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
   @head "0x16c1320"
 
   @bytecode "0x60806040523480156100105760006000fd"
+  @view_calls %{
+    "0x0000000000000000000000000000000000001015" => "0xb71d031c" <> String.duplicate("0", 64),
+    "0x0000000000000000000000000000000000001016" => "0xb187bd26",
+    "0x0000000000000000000000000000000000001017" => "0x8eec5d70"
+  }
+  @view_word "0x" <> String.duplicate("0", 64)
 
   # `(address, string, bytes32, bytes32)` with no binding: four head words and
   # then the empty `paxAddr`, which is what the addr precompile answers once it
@@ -113,6 +121,10 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
     end
   end
 
+  test "capability_boot_transport_proof re-probes after process restart" do
+    Explorer.Chain.PaxeerX.Repair2233523.Transport.capability_recovery()
+  end
+
   # A node that holds every request it is given instead of answering it, the way
   # a node behaves under a deployment's in-flight caps when it is saturated.
   # `refuse_held_request/1` ends the held request and `answer_from_now_on/1` puts
@@ -155,6 +167,14 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesBootTest do
 
   defp answer(%{id: id, method: "eth_getCode"}),
     do: %{id: id, jsonrpc: "2.0", result: @bytecode}
+
+  defp answer(%{id: id, method: "eth_call", params: [%{to: to, data: data}, block]})
+       when is_map_key(@view_calls, to) do
+    assert data == Map.fetch!(@view_calls, to)
+    assert block == EthereumJSONRPC.integer_to_quantity(EthereumJSONRPC.quantity_to_integer(@head))
+
+    %{id: id, jsonrpc: "2.0", result: @view_word}
+  end
 
   defp answer(%{id: id, method: "eth_call"}),
     do: %{id: id, jsonrpc: "2.0", result: @unified_account_answer}

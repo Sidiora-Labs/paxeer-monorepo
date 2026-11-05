@@ -31,8 +31,8 @@ prepare_builds() {
   checkout "$checkout_a"
   mkdir -p "$outputs" "$checkout_a/build/generated" "$checkout_a/programs/target"
   touch "$checkout_a/build/generated/clean-probe" "$checkout_a/programs/target/clean-probe"
-  export PAXD_COMMIT=$revision PAXD_RELEASE_LAYERXD=1
-  unset SOURCE_DATE_EPOCH CARGO_TARGET_DIR
+  export PAXD_COMMIT=$revision
+  unset SOURCE_DATE_EPOCH CARGO_TARGET_DIR PAXD_RELEASE_LAYERXD
   build_twice "$checkout_a" "$outputs"
 }
 
@@ -44,6 +44,12 @@ two_builds_identical() {
   require_builds
   cmp "$outputs/a/SHA256SUMS" "$outputs/b/SHA256SUMS"
   cmp "$outputs/a/native-libs.sha256" "$outputs/b/native-libs.sha256"
+  local asset
+  for asset in paxd-v6.12.0-linux-amd64 price-sidecar-v6.12.0-linux-amd64 \
+    libwasmvm.x86_64.so libwasmvm152.x86_64.so libwasmvm155.x86_64.so \
+    native-libs.sha256 upgrade-info.json; do
+    cmp "$outputs/a/$asset" "$outputs/b/$asset"
+  done
   compare_builds "$outputs/a" "$outputs/b" >"$work/identical.out"
   grep -qxF 'reproducible-check: identical' "$work/identical.out"
   (cd "$outputs/a" && sha256sum --check --strict SHA256SUMS)
@@ -64,7 +70,6 @@ native_libraries_rebuilt_clean() {
   require_builds
   [ ! -e "$checkout_a/build/generated/clean-probe" ] || fail "generated files survived the second build"
   [ ! -e "$checkout_a/programs/target/clean-probe" ] || fail "program artifacts survived the second build"
-  [ -s "$checkout_a/build/generated/lxp_checkpoint_settlement.h" ] || fail "checkpoint header was not rebuilt"
   [ -s "$checkout_a/build/liblayerx.a" ] || fail "kernel library was not rebuilt"
   [ -s "$checkout_a/programs/target/release/liblayerx_programs_sandbox.a" ] || fail "sandbox library was not rebuilt"
   (cd "$checkout_a" && sha256sum --check --strict "$outputs/b/native-libs.sha256")
@@ -76,8 +81,8 @@ paths_remapped() {
   require_builds
   checkout "$checkout_b"
   (
-    export PAXD_COMMIT=$revision PAXD_RELEASE_LAYERXD=1
-    unset SOURCE_DATE_EPOCH CARGO_TARGET_DIR
+    export PAXD_COMMIT=$revision
+    unset SOURCE_DATE_EPOCH CARGO_TARGET_DIR PAXD_RELEASE_LAYERXD
     PAXD_DIST_DIR="$outputs/c" "$checkout_b/tools/release/build-paxd.sh"
   )
   cmp "$outputs/a/SHA256SUMS" "$outputs/c/SHA256SUMS"
@@ -104,7 +109,7 @@ epoch_from_commit() {
       [ "$(stat -c %Y "$file")" = "$epoch" ] || fail "wrong commit timestamp: $file"
       count=$((count + 1))
     done
-    [ "$count" -eq 9 ] || fail "expected 9 release files, found $count"
+    [ "$count" -eq 8 ] || fail "expected 8 release files, found $count"
   done
 }
 

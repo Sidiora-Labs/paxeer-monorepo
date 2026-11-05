@@ -1,0 +1,50 @@
+[repair.22.31.29]
+finding = "reward-request-schema"
+proof = "TestRepair_29_RewardRequestSchemaRecovery; TestRepair_29_RewardSchemaReadiness"
+implementation = "Admit the reward ledger and report readiness only with the deployed request/audit columns, types, primary keys and SELECT/INSERT privileges; never create tables at runtime or rewrite persisted identities."
+migration = "Reuse launchpad/spec/production-system/integration/migrations/180000.sql and 180001.sql, already checked in and registered; the proof no longer creates replacement reward tables."
+recovery = "Production Solidity constructors and transactions in go-ethereum, signed HTTP requests, runtime ledger, deployed SQL in isolated PGlite WASM storage and the real interface decoder; stop and reopen the database and service, asserting identical bytes and complete request/audit/outbox rows with no duplicate or conflicting replay effects."
+baseline = "Not run: task order and allowed gates require implementation first and forbid running verify_cmd by hand; no pre-change failure is claimed."
+evidence = "The runner binds the candidate revision, exact command, exit code and private log path in hf-build/hf-done evidence; this source record does not claim an unexecuted gate."
+wiring_request = "Domain 4 launchpad with the L07 storage deployment owner: qualify owner approval for launchpad/spec/production-system/integration/migrations/180001.sql via registry.json, include it in readiness.json and the deployed EXPECTED_SCHEMA attestation with grants.json privileges before reward routes become ready; retain existing request/audit identities."
+gotcha = "The audit's missing-table observation predates an existing registered 180001.sql; do not introduce duplicate DDL or replace its UUID request keys with the proof's former text keys."
+
+[qualification.environment]
+revision = "fba75b17cb850cd95ed64cda77fcf227b6d1abd5"
+command = "cg spec done 22.31.29 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The existing TestProofLaunchpadPnlTracker and new recovery proof cannot start because anvil is absent from PATH; the unrelated environment prerequisite is recorded, not replaced or skipped."
+
+[repair.cycle1]
+observed = "proofLaunchpadPostgres applies the legacy migration, which already creates pnl; use that schema when applying the real reward migrations."
+
+[repair.attempt2]
+implementation = "Retain app.go admission and readiness checks; replace external-infrastructure repair proofs with real deployment SQL, pgx storage and an in-process chain, preserving every schema/type/key/privilege refusal assertion."
+baseline = "Attempt 1 verification failed before this continuation: TestRepair_29_RewardRequestSchemaRecovery required Anvil and readiness encountered an existing pnl schema; its recorded evidence above is retained, not rerun."
+dependencies = "Install the pinned test-only PGlite/socket and Solidity compiler dependencies from internal/app/testdata/repair29/npm-shrinkwrap.json; the Go verification starts only temporary embedded engines and owns each schema and database directory."
+gotcha = "PGliteSocketServer is an EventTarget, and its ephemeral listener address is available from getServerConn after start; it is not a Node EventEmitter."
+gotcha_dependencies = "The gate snapshots all files under a directory touch, including ignored node_modules; keep installed dependencies in an external cache through a local directory symlink, and publish the pinned npm shrinkwrap with its test manifest."
+
+[repair.attempt2_qualification]
+revision = "589e505dbafb0b1ed3c89601f1cb9f3ebd687a20"
+command = "cg spec done 22.31.29 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Readiness passes; the contract compiler rejects imports with Callback not supported, so include the complete transitive production source input instead of relying on a callback."
+
+[repair.continuation]
+implementation = "Preserve the app.go admission and health checks, isolated migration-backed database recovery proof and all existing assertions; load the full Solidity import closure, including named imports, and assert unmigrated admission neither provisions tables nor fails for an unrelated reason."
+environment = "The retained PGlite WASM engine runs in an owned local Node host, not inside the Go process; the chain executes in-process in go-ethereum and no PostgreSQL service, Anvil executable, credentials or live RPC endpoint is used."
+gotcha = "A failed embedded-store startup must reap its process before reading captured stderr, and mark it stopped so cleanup does not signal an already exited child."
+
+[qualification.continuation1]
+revision = "a7cd054bfa889f865ee21f61b8a768f7a1a45313"
+command = "cg spec done 22.31.29 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Readiness passed; the simulated swap reverted after a latest-block gas estimate underpriced the next block's ERC20 checkpoint storage appends."
+
+[repair.pending_estimate]
+implementation = "Estimate fixture transactions through the real node's eth_estimateGas at pending before mining, preserving receipt-success assertions and avoiding any arbitrary gas padding or bound change."
+gotcha = "ERC20 checkpoint transfers can update an existing checkpoint during latest-block estimation but append new storage during next-block execution; gas must be estimated against the pending execution block."

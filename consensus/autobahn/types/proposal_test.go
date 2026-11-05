@@ -1,11 +1,13 @@
 package types
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/protoutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/require"
 )
@@ -168,14 +170,16 @@ func TestProposalVerifyRejectsNonMonotoneTimestamp(t *testing.T) {
 			map[LaneID]*LaneQC{lane: lQC},
 			utils.None[*AppQC](),
 		))
-		fp0b := utils.OrPanic1(NewProposal(
-			proposer0,
-			committee,
-			vs0,
-			utils.OrPanic1(fp0a.Proposal().Msg().NextTimestamp()).Add(time.Hour),
-			map[LaneID]*LaneQC{lane: lQC},
-			utils.None[*AppQC](),
-		))
+		// Build the conflicting certified history explicitly: the honest
+		// producer now refuses this far-future timestamp before signing.
+		var ranges []*LaneRange
+		for _, r := range fp0a.Proposal().Msg().laneRanges {
+			ranges = append(ranges, r)
+		}
+		fp0b := &FullProposal{
+			proposal: Sign(proposer0, newProposal(vs0.View(), utils.OrPanic1(fp0a.Proposal().Msg().NextTimestamp()).Add(time.Hour), ranges, utils.None[*AppProposal]())),
+			laneQCs:  map[LaneID]*LaneQC{lane: lQC},
+		}
 
 		vs1a := ViewSpec{CommitQC: utils.Some(makeCommitQCFromProposal(keys, fp0a))}
 		vs1b := ViewSpec{CommitQC: utils.Some(makeCommitQCFromProposal(keys, fp0b))}
@@ -237,9 +241,13 @@ func TestProposalVerifyRejectsForgedSignature(t *testing.T) {
 	vs := ViewSpec{}
 	proposerKey := leaderKey(committee, keys, vs.View())
 
-	// Build two valid proposals with different timestamps.
+	// Build two signed proposals with different timestamps.
 	fp1 := utils.OrPanic1(NewProposal(proposerKey, committee, vs, time.Now(), nil, utils.None[*AppQC]()))
-	fp2 := utils.OrPanic1(NewProposal(proposerKey, committee, vs, time.Now().Add(time.Hour), nil, utils.None[*AppQC]()))
+	var ranges []*LaneRange
+	for _, r := range fp1.Proposal().Msg().laneRanges {
+		ranges = append(ranges, r)
+	}
+	fp2 := &FullProposal{proposal: Sign(proposerKey, newProposal(vs.View(), time.Now().Add(time.Hour), ranges, utils.None[*AppProposal]()))}
 
 	// Graft fp1's signature onto fp2 (different content).
 	fp2.proposal.sig = fp1.proposal.sig
@@ -591,49 +599,56 @@ func TestProposalVerifyRejectsMissingAppQC(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestProposalVerifyRejectsAppQCMismatch(t *testing.T) {
-	rng := utils.TestRng()
-	committee, keys := GenCommittee(rng, 4)
-	vs := ViewSpec{}
-	leader := leaderKey(committee, keys, vs.View())
-	initialBlock := committee.FirstBlock()
-
-	// Build a valid proposal with an AppQC, then swap in a different one.
-	goodAppQC := makeAppQCFor(keys, initialBlock, 0, GenAppHash(rng))
-	fp := utils.OrPanic1(NewProposal(leader, committee, vs, time.Now(), nil, utils.Some(goodAppQC)))
-
-	differentAppQC := makeAppQCFor(keys, initialBlock, 0, GenAppHash(rng))
-	tamperedFP := &FullProposal{
-		proposal: fp.proposal,
-		appQC:    utils.Some(differentAppQC),
+func finalizedAppProposal(t *testing.T) (*Committee, []SecretKey, ViewSpec, *FullProposal) {
+	t.Helper()
+	committee, keys := GenCommittee(utils.TestRng(), 4)
+	payload, err := (PayloadBuilder{CreatedAt: time.Now(), Txs: [][]byte{[]byte("finalized application input")}}).Build()
+	require.NoError(t, err)
+	block := NewBlock(keys[0].Public(), 0, BlockHeaderHash{}, payload)
+	var votes []*Signed[*LaneVote]
+	for _, k := range keys {
+		votes = append(votes, Sign(k, NewLaneVote(block.Header())))
 	}
-	err := tamperedFP.Verify(committee, vs)
-	require.Error(t, err)
+	first := makeFullProposal(committee, keys, utils.None[*CommitQC](), map[LaneID]*LaneQC{block.Header().Lane(): NewLaneQC(votes)}, utils.None[*AppQC]())
+	require.NoError(t, first.Verify(committee, ViewSpec{}))
+	committed := makeCommitQC(keys, first)
+	require.NoError(t, NewFullCommitQC(committed, []*BlockHeader{block.Header()}).Verify(committee))
+	vs := ViewSpec{CommitQC: utils.Some(committed)}
+	appQC := makeAppQCFor(keys, committed.GlobalRange(committee).First, committed.Index(), AppHash("finalized application state"))
+	require.NoError(t, appQC.Proposal().Verify(committee, committed))
+	fp := makeFullProposal(committee, keys, utils.Some(committed), nil, utils.Some(appQC))
+	transported, err := FullProposalConv.Unmarshal(FullProposalConv.Marshal(fp))
+	require.NoError(t, err)
+	require.NoError(t, transported.Verify(committee, vs))
+	return committee, keys, vs, fp
+}
+
+func TestProposalVerifyRejectsAppQCMismatch(t *testing.T) {
+	committee, keys, vs, fp := finalizedAppProposal(t)
+	good := fp.appQC.OrPanic("missing application certificate").Proposal()
+	raw := FullProposalConv.Encode(fp)
+	raw.AppQc = AppQCConv.Encode(makeAppQCFor(keys, good.GlobalNumber(), good.RoadIndex(), AppHash("different application state")))
+	transported, err := FullProposalConv.Unmarshal(protoutils.Marshal(raw))
+	require.NoError(t, err)
+	err = transported.Verify(committee, vs)
+	if err == nil || err.Error() != "appQC doesn't match the proposal" {
+		t.Fatalf("wrong mismatch rejection: %v", err)
+	}
 }
 
 func TestProposalVerifyRejectsInvalidAppQCSignature(t *testing.T) {
-	rng := utils.TestRng()
-	committee, keys := GenCommittee(rng, 4)
-	vs := ViewSpec{}
-	leader := leaderKey(committee, keys, vs.View())
-	initialBlock := committee.FirstBlock()
-
-	appHash := GenAppHash(rng)
-	goodAppQC := makeAppQCFor(keys, initialBlock, 0, appHash)
-	fp := utils.OrPanic1(NewProposal(leader, committee, vs, time.Now(), nil, utils.Some(goodAppQC)))
-
-	// Swap in an AppQC signed by NON-committee keys (same hash).
-	otherKeys := make([]SecretKey, len(keys))
-	for i := range otherKeys {
-		otherKeys[i] = GenSecretKey(rng).ForCommittee(committee)
+	committee, _, vs, fp := finalizedAppProposal(t)
+	good := fp.appQC.OrPanic("missing application certificate").Proposal()
+	outsider := GenSecretKey(utils.TestRng()).ForCommittee(committee)
+	raw := FullProposalConv.Encode(fp)
+	raw.AppQc = AppQCConv.Encode(makeAppQCFor([]SecretKey{outsider}, good.GlobalNumber(), good.RoadIndex(), good.AppHash()))
+	transported, err := FullProposalConv.Unmarshal(protoutils.Marshal(raw))
+	require.NoError(t, err)
+	err = transported.Verify(committee, vs)
+	want := fmt.Sprintf("appQC: %q is not a replica", outsider.Public())
+	if err == nil || err.Error() != want {
+		t.Fatalf("wrong signer rejection: %v, want %s", err, want)
 	}
-	badAppQC := makeAppQCFor(otherKeys, initialBlock, 0, appHash)
-	tamperedFP := &FullProposal{
-		proposal: fp.proposal,
-		appQC:    utils.Some(badAppQC),
-	}
-	err := tamperedFP.Verify(committee, vs)
-	require.Error(t, err)
 }
 
 func TestProposalVerifyRejectsLaneQCHeaderHashMismatch(t *testing.T) {

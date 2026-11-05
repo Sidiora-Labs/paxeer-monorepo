@@ -3,7 +3,6 @@
 use super::backend::ApiFailure;
 use crate::store::{PrincipalScope, RowKey, StoreError, Table};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use layerx_proof::checkpoint::SettlementDomain;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -51,16 +50,29 @@ struct Event {
     payload: Value,
 }
 
+impl Event {
+    fn decode(bytes: &[u8]) -> Result<(Self, bool), ApiFailure> {
+        let mut value: Value =
+            serde_json::from_slice(bytes).map_err(|_| ApiFailure::upstream_degraded())?;
+        let legacy = settlement_domain(&mut value);
+        let event = serde_json::from_value(value).map_err(|_| ApiFailure::upstream_degraded())?;
+        Ok((event, legacy))
+    }
+}
+
+fn settlement_domain(record: &mut Value) -> bool {
+    record
+        .as_object_mut()
+        .and_then(|record| record.remove("settlement_domain"))
+        .is_some()
+}
+
 pub struct StreamJournal {
     key: [u8; 32],
-    settlement_domain: SettlementDomain,
 }
 impl StreamJournal {
-    pub const fn new(key: [u8; 32], settlement_domain: SettlementDomain) -> Self {
-        Self {
-            key,
-            settlement_domain,
-        }
+    pub const fn new(key: [u8; 32]) -> Self {
+        Self { key }
     }
 
     pub fn append(
@@ -165,9 +177,35 @@ impl StreamJournal {
                 .map_err(|error| store_failure(&error))?,
             );
         }
-        scope
-            .put_batch(observed_at, rows)
-            .map_err(|error| store_failure(&error))?;
+        let mut legacy_rows = Vec::new();
+        for key in scope.keys(Table::Stream) {
+            let Some(sequence) = key.as_str().strip_prefix("stream-event-") else {
+                continue;
+            };
+            let row = scope
+                .get(Table::Stream, &key)
+                .ok_or_else(ApiFailure::unavailable)?;
+            let (event, legacy) = Event::decode(row.bytes())?;
+            if legacy {
+                if u64::from_str_radix(sequence, 16).ok() != Some(event.sequence) {
+                    return Err(ApiFailure::upstream_degraded());
+                }
+                let bytes =
+                    serde_json::to_vec(&event).map_err(|_| ApiFailure::upstream_degraded())?;
+                legacy_rows.push((key, row.written_at(), bytes));
+            }
+        }
+        if legacy_rows.is_empty() {
+            scope.put_batch(observed_at, rows)
+        } else {
+            scope.transaction(|scope| {
+                for (key, written_at, bytes) in legacy_rows {
+                    scope.put(Table::Stream, key, written_at, bytes)?;
+                }
+                scope.put_batch(observed_at, rows)
+            })
+        }
+        .map_err(|error| store_failure(&error))?;
         changed();
         Ok(())
     }
@@ -190,8 +228,7 @@ impl StreamJournal {
             let row = scope
                 .get(Table::Stream, &key)
                 .ok_or_else(ApiFailure::unavailable)?;
-            let event: Event =
-                serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
+            let (event, _) = Event::decode(row.bytes())?;
             if event.sequence != sequence {
                 return Err(ApiFailure::upstream_degraded());
             }
@@ -211,13 +248,7 @@ impl StreamJournal {
                     })
                     .transpose()?
                     .flatten()
-                    .map(|journey| {
-                        super::production_reads::journey_json(
-                            scope,
-                            self.settlement_domain,
-                            &journey,
-                        )
-                    })
+                    .map(|journey| super::production_reads::journey_json(scope, &journey))
                     .transpose()?
             } else {
                 None

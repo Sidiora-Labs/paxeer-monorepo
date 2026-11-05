@@ -5,7 +5,7 @@ use crate::identity::{
 };
 use crate::read::{AccountRef, ModuleRef};
 use crate::track::ReceiptRef;
-use crate::verify::Level;
+use crate::verify::Rung;
 use crate::{Sequence, TimestampSeconds};
 use layerx_types::result::ResultCode;
 
@@ -117,7 +117,11 @@ impl SubscriptionFilter {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Cursor(pub Sequence);
+pub struct Cursor {
+    pub block_height: u64,
+    pub tx_index: u32,
+    pub log_index: u32,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SubscriptionCreate {
@@ -201,10 +205,7 @@ impl DeduplicationId {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReceiptReference {
     None,
-    Verified {
-        receipt_ref: ReceiptRef,
-        verification_level: Level,
-    },
+    Verified { receipt_ref: ReceiptRef, rung: Rung },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -214,6 +215,25 @@ pub struct EventDelivery {
     pub deduplication_id: DeduplicationId,
     pub cursor: Cursor,
     pub receipt_reference: ReceiptReference,
+}
+
+impl ReceiptReference {
+    /// A verified receipt must have reached at least the receipted rung.
+    ///
+    /// # Errors
+    /// Returns an out-of-range error for a hash-only reference presented as verified.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if matches!(
+            self,
+            Self::Verified {
+                rung: Rung::Submitted,
+                ..
+            }
+        ) {
+            return Err(ContractError::OutOfRange("receipt_reference_rung"));
+        }
+        Ok(())
+    }
 }
 
 impl EventDelivery {
@@ -227,6 +247,7 @@ impl EventDelivery {
         cursor: Cursor,
         receipt_reference: ReceiptReference,
     ) -> Result<Self, ContractError> {
+        receipt_reference.validate()?;
         if event_bytes.is_empty() {
             return Err(ContractError::Empty("event_bytes"));
         }

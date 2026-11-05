@@ -1,25 +1,17 @@
 use ed25519_dalek::SigningKey;
-use layerx_agentd::budget::{
-    budget_state_key, hold_unknown, ProtocolBudgetState, UnknownReservation, BUDGET_MODULE_ID,
-};
+use layerx_agentd::budget::{hold_unknown, ProtocolBudgetState, UnknownReservation};
 use layerx_agentd::human_runtime::{recover_tenant_budget, BudgetRecoveryRequest, RecoveryRefusal};
 use layerx_agentd::outbox::RecoveryError;
-use layerx_agentd::protocol_evidence::{
-    EvidenceAuthority, RawReceiptEvidence, RawStateEvidence, StateEvidenceError,
-    VerifierPolicyError,
-};
+use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence};
 use layerx_agentd::receipt::{
     evidence_inventory, persist_evidence, serve_evidence, store as store_receipt,
     ReceiptEvidenceInventory, ReceiptStoreError,
 };
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::evidence::RootSelector;
 use layerx_proof::receipt::AuthorizedBatch;
-use layerx_proof::state_witness::StateWitness;
-use layerx_types::verify::VerificationLevel;
 use layerx_wire::hash::program_execution_batch_id;
 
-use support::{directory, tenant, StateHeaderIdentity};
+use support::{directory, tenant};
 
 mod support;
 
@@ -80,90 +72,8 @@ fn store_served_receipt(
     assert_eq!(metadata.idempotency_key, idempotency_key);
 }
 
-fn sequencer_pin() -> [u8; 32] {
-    SigningKey::from_bytes(&SEQUENCER_SEED)
-        .verifying_key()
-        .to_bytes()
-}
-
-fn budget_witness(record: &[u8]) -> StateWitness {
-    StateWitness {
-        module_id: BUDGET_MODULE_ID,
-        key: budget_state_key(BUDGET_ID),
-        value: record.to_vec(),
-        account_path: None,
-        leaf_index_a: 0,
-        leaf_count_a: 1,
-        siblings_a: Vec::new(),
-        leaf_count_b: 10,
-        siblings_b: vec![[0x61; 32], [0x62; 32], [0x63; 32], [0x64; 32]],
-    }
-}
-
-fn module_proof_material(
-    witness: &StateWitness,
-    signing_seed: [u8; 32],
-    pinned_key: [u8; 32],
-    observed_head: u64,
-) -> Vec<u8> {
-    let root = witness
-        .root()
-        .unwrap_or_else(|error| panic!("witness root: {error:?}"));
-    let (header, signature) = support::signed_batch_header(
-        StateHeaderIdentity {
-            signing_seed,
-            protocol_version: 3,
-            network_id: 42,
-            epoch: 2,
-            batch_number: 7,
-        },
-        pinned_key,
-        observed_head,
-        root,
-    );
-    let witness_bytes = witness
-        .encode()
-        .unwrap_or_else(|error| panic!("witness encode: {error:?}"));
-    let mut material = Vec::new();
-    material.extend_from_slice(&1_u16.to_be_bytes());
-    material.push(4);
-    material.push(1);
-    material.extend_from_slice(
-        &u32::try_from(witness_bytes.len())
-            .unwrap_or_else(|_| panic!("witness length"))
-            .to_be_bytes(),
-    );
-    material.extend_from_slice(&witness_bytes);
-    material.extend_from_slice(&1_u16.to_be_bytes());
-    material.extend_from_slice(&pinned_key);
-    material.extend_from_slice(&pinned_key);
-    material.extend_from_slice(&7_u64.to_be_bytes());
-    material.extend_from_slice(&7_u64.to_be_bytes());
-    material.extend_from_slice(
-        &u32::try_from(header.len())
-            .unwrap_or_else(|_| panic!("header length"))
-            .to_be_bytes(),
-    );
-    material.extend_from_slice(&header);
-    material.extend_from_slice(&signature);
-    material.push(0);
-    material
-}
-
-fn module_witness_evidence(record: &[u8], pinned_key: [u8; 32]) -> RawStateEvidence {
-    let witness = budget_witness(record);
-    RawStateEvidence::module_witness(
-        record.to_vec(),
-        BUDGET_MODULE_ID,
-        budget_state_key(BUDGET_ID),
-        module_proof_material(&witness, SEQUENCER_SEED, pinned_key, 99),
-        RootSelector::Latest,
-        pinned_key,
-    )
-}
-
 #[test]
-fn receipt_evidence_round_trips_through_a_real_store() {
+fn legacy_receipt_evidence_is_refused_after_restart() {
     let root = directory("receipt-evidence");
     let tenant = tenant();
     let raw = support::raw_receipt_at([0x11; 32], 0, 25, 100);
@@ -208,23 +118,19 @@ fn receipt_evidence_round_trips_through_a_real_store() {
     drop(durable);
 
     let reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
-    assert_eq!(
-        serve_evidence(&reopened, tenant.clone(), [0x44; 32])
-            .unwrap_or_else(|error| panic!("serve after reopen: {error:?}")),
-        Some(record.clone())
-    );
+    assert!(matches!(
+        serve_evidence(&reopened, tenant.clone(), [0x44; 32]),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     assert_eq!(
         serve_evidence(&reopened, tenant.clone(), [0x45; 32])
             .unwrap_or_else(|error| panic!("serve older after reopen: {error:?}")),
         None
     );
-    let inventory = evidence_inventory(&reopened, &tenant)
-        .unwrap_or_else(|error| panic!("inventory: {error:?}"));
-    assert_eq!(inventory.with_evidence, vec![record]);
-    assert_eq!(inventory.without_evidence.len(), 1);
-    assert_eq!(inventory.without_evidence[0].idempotency_key, [0x45; 32]);
-    assert_eq!(inventory.without_evidence[0].activity_id, [0x12; 32]);
-    assert_eq!(inventory.without_evidence[0].global_sequence, 101);
+    assert!(matches!(
+        evidence_inventory(&reopened, &tenant),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -430,168 +336,5 @@ fn startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidenc
 
     assert_tenant_without_receipts_blocks_writes(&mut reopened, &protocol, &verifier);
     assert_budget_state_refusals(&mut reopened, &tenant_a, &protocol, &verifier, &inventory_a);
-    let _ = std::fs::remove_dir_all(&root);
-}
-
-#[test]
-fn module_witness_state_evidence_verifies_only_under_the_handshake_pin() {
-    let pin = sequencer_pin();
-    let record = core_budget_record(500, 25);
-    let evidence = module_witness_evidence(&record, pin);
-    assert!(evidence.proof().is_none());
-    assert!(evidence.resulting_state_root().is_none());
-    assert!(evidence.canonical_header().is_none());
-    assert!(evidence.header_signature().is_none());
-    assert!(evidence.proof_material().is_some());
-    assert_eq!(evidence.canonical_state(), record.as_slice());
-
-    let authority = EvidenceAuthority::pinned_to_handshake(3, 42, pin)
-        .unwrap_or_else(|error| panic!("pinned authority: {error:?}"));
-    let verified = authority
-        .verify_state(&evidence)
-        .unwrap_or_else(|error| panic!("verify module witness: {error:?}"));
-    assert_eq!(verified.level(), VerificationLevel::STATE_PROVEN);
-    assert_eq!(verified.observed_head_sequence(), 99);
-    assert_eq!(verified.canonical_state(), record.as_slice());
-
-    let tampered = RawStateEvidence::module_witness(
-        core_budget_record(500, 26),
-        BUDGET_MODULE_ID,
-        budget_state_key(BUDGET_ID),
-        module_proof_material(&budget_witness(&record), SEQUENCER_SEED, pin, 99),
-        RootSelector::Latest,
-        pin,
-    );
-    assert!(matches!(
-        authority.verify_state(&tampered),
-        Err(StateEvidenceError::Module(_))
-    ));
-
-    let wrong_selector = RawStateEvidence::module_witness(
-        record.clone(),
-        BUDGET_MODULE_ID,
-        budget_state_key(BUDGET_ID),
-        module_proof_material(&budget_witness(&record), SEQUENCER_SEED, pin, 99),
-        RootSelector::Batch(7),
-        pin,
-    );
-    assert!(matches!(
-        authority.verify_state(&wrong_selector),
-        Err(StateEvidenceError::Module(_))
-    ));
-
-    let other_pin = SigningKey::from_bytes(&[0x3b; 32])
-        .verifying_key()
-        .to_bytes();
-    let unsigned_by_pin = module_witness_evidence(&record, other_pin);
-    assert!(matches!(
-        authority.verify_state(&unsigned_by_pin),
-        Err(StateEvidenceError::Module(_))
-    ));
-
-    let other_authority = EvidenceAuthority::pinned_to_handshake(3, 42, other_pin)
-        .unwrap_or_else(|error| panic!("other pinned authority: {error:?}"));
-    assert_eq!(
-        other_authority.verify_state(&evidence),
-        Err(StateEvidenceError::Policy(
-            VerifierPolicyError::HandshakeKey
-        ))
-    );
-
-    let protocol_two = EvidenceAuthority::pinned_to_handshake(2, 42, pin)
-        .unwrap_or_else(|error| panic!("protocol-2 pinned authority: {error:?}"));
-    assert!(matches!(
-        protocol_two.verify_state(&evidence),
-        Err(StateEvidenceError::Module(_))
-    ));
-
-    assert_eq!(
-        EvidenceAuthority::pinned_to_handshake(0, 42, pin).err(),
-        Some(VerifierPolicyError::EmptyPolicy)
-    );
-    assert_eq!(
-        EvidenceAuthority::pinned_to_handshake(3, 0, pin).err(),
-        Some(VerifierPolicyError::EmptyPolicy)
-    );
-    assert_eq!(
-        EvidenceAuthority::pinned_to_handshake(3, 42, [0; 32]).err(),
-        Some(VerifierPolicyError::InvalidAuthorization)
-    );
-}
-
-#[test]
-fn startup_recovery_accepts_module_witness_budget_state() {
-    let root = directory("module-witness-recovery");
-    let tenant_c = TenantId::new("tenant-c").unwrap_or_else(|error| panic!("tenant: {error}"));
-    let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    let pin = sequencer_pin();
-    let verifier = EvidenceAuthority::pinned_to_handshake(3, 42, pin)
-        .unwrap_or_else(|error| panic!("pinned authority: {error:?}"));
-    let recovery = recover_tenant_budget(
-        &mut durable,
-        &tenant_c,
-        &BudgetRecoveryRequest {
-            budget_id: BUDGET_ID,
-            protocol_budget: ProtocolBudgetState {
-                evidence: module_witness_evidence(&core_budget_record(500, 0), pin),
-            },
-            verifier,
-            receipts_with_evidence: &[],
-            receipts_without_evidence: &[],
-            ceiling_maximum: 1_000,
-            current_sequence: 1,
-        },
-    )
-    .unwrap_or_else(|error| panic!("recover tenant c: {error:?}"));
-    let accounting = recovery.recovered.budget_accounting;
-    assert_eq!(accounting.protocol_consumed, Some(0));
-    assert_eq!(accounting.receipt_consumed, 0);
-    assert_eq!(accounting.held_unresolved, 0);
-    assert!(accounting.reconciled);
-    assert!(recovery
-        .recovered
-        .ceiling
-        .snapshot()
-        .is_ok_and(|snapshot| snapshot.reconciled));
-    assert!(recovery.recovered.require_write_ready().is_ok());
-    assert!(recovery.admission.is_ok());
-
-    let unreconciled = recover_tenant_budget(
-        &mut durable,
-        &tenant_c,
-        &BudgetRecoveryRequest {
-            budget_id: BUDGET_ID,
-            protocol_budget: ProtocolBudgetState {
-                evidence: module_witness_evidence(&core_budget_record(500, 25), pin),
-            },
-            verifier: EvidenceAuthority::pinned_to_handshake(3, 42, pin)
-                .unwrap_or_else(|error| panic!("pinned authority: {error:?}")),
-            receipts_with_evidence: &[],
-            receipts_without_evidence: &[],
-            ceiling_maximum: 1_000,
-            current_sequence: 1,
-        },
-    )
-    .unwrap_or_else(|error| panic!("recover unreconciled tenant c: {error:?}"));
-    let accounting = unreconciled.recovered.budget_accounting;
-    assert_eq!(accounting.protocol_consumed, Some(25));
-    assert!(!accounting.reconciled);
-    assert_eq!(
-        unreconciled
-            .recovered
-            .ceiling
-            .snapshot()
-            .map(|snapshot| snapshot.reconciled),
-        Ok(false)
-    );
-    assert!(matches!(
-        unreconciled.recovered.require_write_ready(),
-        Err(RecoveryError::WritesBlocked)
-    ));
-    assert!(matches!(
-        unreconciled.admission,
-        Err(RecoveryRefusal::WritesBlocked { budget_id, accounting: blocked })
-            if budget_id == BUDGET_ID && blocked == accounting
-    ));
     let _ = std::fs::remove_dir_all(&root);
 }

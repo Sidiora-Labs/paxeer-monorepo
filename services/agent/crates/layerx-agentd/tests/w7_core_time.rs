@@ -98,7 +98,10 @@ fn send_payload() -> Vec<u8> {
     text(encoder.fixed(&[0x77; 64]), "payload signature");
     text(encoder.fixed(&[0x55; 32]), "signed context");
     text(encoder.u32(17), "network");
-    text(encoder.u16(layerx_wire::limits::PROTOCOL_VERSION), "version");
+    text(
+        encoder.u16(layerx_wire::limits::PROTOCOL_VERSION),
+        "version",
+    );
     send_authorization::sign(encoder.finish())
 }
 
@@ -256,7 +259,10 @@ impl Drop for Harness {
 #[test]
 fn expiry_predicate_admits_equality_and_refuses_one_millisecond_past_not_after() {
     let lifecycle = PreparationLifecycle::default();
-    text(lifecycle.register([1; 32], &prepared(), Vec::new()), "register");
+    text(
+        lifecycle.register([1; 32], &prepared(), Vec::new()),
+        "register",
+    );
     assert_eq!(lifecycle.check_unexpired([1; 32], NOT_AFTER_MS - 1), Ok(()));
     assert_eq!(lifecycle.check_unexpired([1; 32], NOT_AFTER_MS), Ok(()));
     assert_eq!(
@@ -319,7 +325,10 @@ fn admit_signing_requires_the_sign_operation_and_the_exact_bound_preparation() {
         sign.admit_signing(&harness.control, [3; 32], NOT_AFTER_MS),
         Err(SessionControlError::Lifecycle(LifecycleError::NotFound))
     ));
-    assert_eq!(harness.lifecycle.state([2; 32]), Ok(LifecycleState::Prepared));
+    assert_eq!(
+        harness.lifecycle.state([2; 32]),
+        Ok(LifecycleState::Prepared)
+    );
     assert_eq!(harness.lifecycle.has_signed_bytes([2; 32]), Ok(false));
 }
 
@@ -344,7 +353,10 @@ fn expired_preparation_is_refused_before_any_signing_mutation() {
             LifecycleError::PreparationExpired
         ))
     ));
-    assert_eq!(harness.lifecycle.state([4; 32]), Ok(LifecycleState::Signing));
+    assert_eq!(
+        harness.lifecycle.state([4; 32]),
+        Ok(LifecycleState::Signing)
+    );
     assert_eq!(harness.lifecycle.has_signed_bytes([4; 32]), Ok(false));
 
     assert!(matches!(
@@ -378,7 +390,10 @@ fn external_submission_checks_time_before_mutation_and_keeps_sequences_as_sequen
             LifecycleError::PreparationExpired
         ))
     ));
-    assert_eq!(harness.lifecycle.state([5; 32]), Ok(LifecycleState::Prepared));
+    assert_eq!(
+        harness.lifecycle.state([5; 32]),
+        Ok(LifecycleState::Prepared)
+    );
     assert_eq!(harness.lifecycle.has_signed_bytes([5; 32]), Ok(false));
 
     assert!(matches!(
@@ -446,7 +461,10 @@ fn expiry_sweep_decides_on_milliseconds_and_records_only_sequences() {
         "reserve",
     );
     let lifecycle = PreparationLifecycle::default();
-    text(lifecycle.register([6; 32], &prepared(), vec![[6; 32]]), "register");
+    text(
+        lifecycle.register([6; 32], &prepared(), vec![[6; 32]]),
+        "register",
+    );
     text(
         lifecycle.transition([6; 32], LifecycleState::Signing, CURRENT_SEQUENCE - 10),
         "signing",

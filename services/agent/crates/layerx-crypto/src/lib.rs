@@ -1,9 +1,11 @@
-//! Key custody and disclosure-bound `LayerX` signing, including payment payload codecs.
+#![doc = include_str!("api-contract.md")]
 
 #[cfg(feature = "custody")]
 pub mod account_derivation;
 #[cfg(feature = "custody")]
 pub mod authority_grant;
+#[cfg(feature = "custody")]
+pub mod binding;
 #[cfg(feature = "custody")]
 pub mod ct;
 #[cfg(feature = "custody")]
@@ -15,6 +17,7 @@ pub mod keystore;
 #[cfg(feature = "custody")]
 pub mod local;
 #[cfg(feature = "custody")]
+#[deprecated(note = "Use binding::BindAuthorization for EVM identity registration")]
 pub mod onboarding;
 #[cfg(feature = "custody")]
 pub mod payments;
@@ -24,13 +27,11 @@ pub mod purpose;
 pub mod redact;
 #[cfg(feature = "custody")]
 pub mod remote;
-pub mod rotation;
 pub mod secp256k1;
 #[cfg(feature = "custody")]
 pub mod send;
 #[cfg(feature = "custody")]
 pub mod session;
-pub mod settlement_recipient;
 #[cfg(feature = "custody")]
 pub mod signer;
 

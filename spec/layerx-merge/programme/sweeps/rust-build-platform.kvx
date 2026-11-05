@@ -1,0 +1,117 @@
+[sweep.rust-build-platform]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cargo build --locked --manifest-path services/platform/Cargo.toml -p TARGET --all-targets"
+targets_total = 22
+targets_passed = 22
+targets_failed = 0
+targets_not_run = 0
+
+[target.rust-build-platform.1]
+target = "layerx-ramp-toolkit"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.2]
+target = "layerx-reference-ramp"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.3]
+target = "layerx-platform-faucet"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.4]
+target = "layerx-platform-core"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.5]
+target = "layerx-platform-internal"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.6]
+target = "layerx-platform-authority"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.7]
+target = "layerx-runtime-clock"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.8]
+target = "layerx-platform-agent-boundary"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.9]
+target = "layerx-platform-identity"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.10]
+target = "layerx-platform-paxeer-boundary"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.11]
+target = "layerx-platform-gateway"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.12]
+target = "layerx-indexer"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.13]
+target = "layerx-platform-registry"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.14]
+target = "layerx-platform-webhooks"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.15]
+target = "layerx-paxai-worker"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.16]
+target = "layerx-platform-dashboard"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.17]
+target = "layerx-platform-testnet"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.18]
+target = "layerx-oracle-feeder"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.19]
+target = "layerx-ai-evaluator"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.20]
+target = "layerx-platform-kvx"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.21]
+target = "layerx-platform-workspace-gate"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-platform.22]
+target = "layerx-platform-benchmark"
+result = "passed"
+exit_code = 0

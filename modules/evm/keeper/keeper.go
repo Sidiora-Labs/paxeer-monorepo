@@ -240,6 +240,21 @@ func (k *Keeper) SetCustomPrecompileActivation(activations []CustomPrecompileAct
 	k.customPrecompileActivationIndex = index
 }
 
+func (k *Keeper) ActivationAddressesWithoutPrecompile() []common.Address {
+	var missing []common.Address
+	for _, activation := range k.customPrecompileActivations {
+		for addr := range activation.Modules {
+			if _, exists := k.customPrecompiles[addr]; !exists {
+				missing = append(missing, addr)
+			}
+		}
+	}
+	sort.Slice(missing, func(i, j int) bool {
+		return bytes.Compare(missing[i][:], missing[j][:]) < 0
+	})
+	return missing
+}
+
 // CustomPrecompiles returns the custom precompile set for the block of ctx.
 // Ordinary execution serves the latest version of every custom precompile
 // whose upgrades the block's height has reached; tracing serves the version

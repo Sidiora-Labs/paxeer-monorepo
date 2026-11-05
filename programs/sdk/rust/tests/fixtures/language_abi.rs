@@ -35,15 +35,6 @@ fn handle(input: &[u8]) -> Result<i32, sdk::ProgramError> {
             record[32..].copy_from_slice(&observation.source_set_digest);
             publish(&record)
         }
-        2 => {
-            let mut record = [0; sdk::RECORD_BYTES];
-            let length = {
-                let answer =
-                    sdk::web::read(0x0102_0304_0506_0708, &mut record)?.ok_or_else(invalid)?;
-                sdk::ANSWER_HEADER_BYTES + answer.response.len()
-            };
-            publish(&record[..length])
-        }
         3 => {
             sdk::call::publish_refusal(sdk::ProgramRefusal::new(
                 sdk::RefusalClass::Rejected,

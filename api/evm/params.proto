@@ -9,6 +9,9 @@ option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 message Params {
   option (gogoproto.goproto_stringer) = false;
 
+  reserved 1, 5, 6, 7;
+  reserved "base_denom", "chain_config", "chain_id", "whitelisted_codehashes_bank_send";
+
   // string base_denom = 1 [
   //   (gogoproto.moretags)   = "yaml:\"base_denom\"",
   //   (gogoproto.jsontag) = "base_denom"

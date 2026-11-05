@@ -1,0 +1,8 @@
+[repair.22.33.77]
+finding = "graphql-auth-cache"
+implementation = "Endpoint-local non-secret auth generations scope request deduplication, polling snapshots and WebSocket connections; changing a factory endpoint generation cancels prior requests, discards queued snapshots and restarts active consumers with current authentication."
+tests = ["graphqlAuthCacheIsolatesConcurrentSessions", "graphqlAuthGenerationCancelsPreviousRequests", "graphqlAuthCacheClearsSnapshotsAndRestartsSubscribers", "graphqlAuthGenerationIsolatesAndRestartsConnections"]
+test_path = "apps/perps/tests/repair-22-33-77.test.ts"
+baseline = "Not run: the task's ordered qualification instructions prohibit testing before implementation and prohibit invoking verify_cmd outside hf-done; no baseline failure is claimed."
+wiring_request = "Domain 3 (fm-markets): apps/perps/src/core/perfdb/client.ts and its session lifecycle owner must increment PERFDB_GRAPHQL.authGeneration after login, logout, expiry or principal replacement, after updating the auth state read by getAuthHeaders."
+evidence = "The runner's hf-build/hf-done ledger records the exact verified candidate revision, command, exit and private log; no qualification claimed before that gate passes."

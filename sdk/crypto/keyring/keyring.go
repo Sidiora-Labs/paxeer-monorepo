@@ -1,22 +1,18 @@
 package keyring
 
 import (
-	"bufio"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/99designs/keyring"
-	tmcrypto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	bip39 "github.com/cosmos/go-bip39"
 	"github.com/pkg/errors"
-	"github.com/tendermint/crypto/bcrypt"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/input"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/legacy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
@@ -74,7 +70,8 @@ type Keyring interface {
 	NewMnemonic(uid string, language Language, hdPath, bip39Passphrase string, algo SignatureAlgo) (Info, string, error)
 
 	// NewAccount converts a mnemonic to a private key and BIP-39 HD Path and persists it.
-	// It fails if there is an existing key Info with the same address.
+	// It fails if a different record exists with the same name or address.
+	// An identical retry returns the existing account without replacing it.
 	NewAccount(uid, mnemonic, bip39Passphrase, hdPath string, algo SignatureAlgo) (Info, error)
 
 	// SaveLedgerKey retrieves a public key reference from a Ledger device and persists it.
@@ -143,7 +140,7 @@ type Options struct {
 
 // NewInMemory creates a transient keyring useful for testing
 // purposes and on-the-fly key generation.
-// Keybase options can be applied when generating this new Keybase.
+// Keyring options can be applied to the new instance.
 func NewInMemory(opts ...Option) Keyring {
 	return NewInMemoryWithKeyring(keyring.NewArrayKeyring(nil), opts...)
 }
@@ -155,7 +152,7 @@ func NewInMemoryWithKeyring(kr keyring.Keyring, opts ...Option) Keyring {
 }
 
 // New creates a new instance of a keyring.
-// Keyring ptions can be applied when generating the new instance.
+// Keyring options can be applied when generating the new instance.
 // Available backends are "os", "file", "kwallet", "memory", "pass", "test".
 func New(
 	appName, backend, rootDir string, userInput io.Reader, opts ...Option,
@@ -186,26 +183,39 @@ func New(
 		return nil, err
 	}
 
-	return newKeystore(db, opts...), nil
+	ks := newKeystore(db, opts...)
+	if err := ks.recoverOperation(); err != nil {
+		return nil, err
+	}
+	return ks, nil
 }
 
 type keystore struct {
 	db      keyring.Keyring
 	options Options
+	mu      *sync.Mutex
 }
 
 func newKeystore(kr keyring.Keyring, opts ...Option) keystore {
 	// Default options for keybase
 	options := Options{
 		SupportedAlgos:       SigningAlgoList{hd.Sr25519, hd.Secp256k1},
-		SupportedAlgosLedger: SigningAlgoList{hd.Sr25519, hd.Secp256k1},
+		SupportedAlgosLedger: SigningAlgoList{hd.Secp256k1},
 	}
 
 	for _, optionFn := range opts {
 		optionFn(&options)
 	}
 
-	return keystore{kr, options}
+	ledgerAlgos := make(SigningAlgoList, 0, len(options.SupportedAlgosLedger))
+	for _, algo := range options.SupportedAlgosLedger {
+		if algo.Name() == hd.Secp256k1Type {
+			ledgerAlgos = append(ledgerAlgos, algo)
+		}
+	}
+	options.SupportedAlgosLedger = ledgerAlgos
+
+	return keystore{db: kr, options: options, mu: new(sync.Mutex)}
 }
 
 func (ks keystore) ExportPrivKeyArmor(uid, encryptPassphrase string) (armor string, err error) {
@@ -278,18 +288,30 @@ func (ks keystore) ImportPrivKey(uid, armor, passphrase string) error {
 	}
 
 	var privKey types.PrivKey
-	if algo == string(hd.Sr25519Type) {
+	switch hd.PubKeyType(algo) {
+	case hd.Sr25519Type:
+		if !ks.options.SupportedAlgos.Contains(hd.Sr25519) {
+			return ErrUnsupportedSigningAlgo
+		}
 		typedKey := &sr25519.PrivKey{}
 		if err := typedKey.UnmarshalJSON(privKeyBytes); err != nil {
 			return err
 		}
+		if len(typedKey.Bytes()) != sr25519.PrivKeySize {
+			return fmt.Errorf("invalid sr25519 private key size")
+		}
 		privKey = typedKey
-	} else {
+	case hd.Secp256k1Type:
+		if !ks.options.SupportedAlgos.Contains(hd.Secp256k1) {
+			return ErrUnsupportedSigningAlgo
+		}
 		secpKey := &secp256k1.PrivKey{}
 		if err := secpKey.UnmarshalAmino(privKeyBytes); err != nil {
 			return err
 		}
 		privKey = secpKey
+	default:
+		return fmt.Errorf("%w: armor algorithm %q", ErrUnsupportedSigningAlgo, algo)
 	}
 
 	_, err = ks.writeLocalKey(uid, privKey, hd.PubKeyType(algo))
@@ -352,7 +374,7 @@ func (ks keystore) SignByAddress(address sdk.Address, msg []byte) ([]byte, types
 }
 
 func (ks keystore) SaveLedgerKey(uid string, algo SignatureAlgo, hrp string, coinType, account, index uint32) (Info, error) {
-	if !ks.options.SupportedAlgosLedger.Contains(algo) {
+	if algo.Name() != hd.Secp256k1Type || !ks.options.SupportedAlgosLedger.Contains(algo) {
 		return nil, fmt.Errorf(
 			"%w: signature algo %s is not defined in the keyring options",
 			ErrUnsupportedSigningAlgo, algo.Name(),
@@ -383,7 +405,14 @@ func (ks keystore) SaveMultisig(uid string, pubkey types.PubKey) (Info, error) {
 }
 
 func (ks keystore) SavePubKey(uid string, pubkey types.PubKey, algo hd.PubKeyType) (Info, error) {
-	return ks.writeOfflineKey(uid, pubkey, algo)
+	actual, err := publicKeyAlgorithm(pubkey)
+	if err != nil {
+		return nil, err
+	}
+	if algo != "" && algo != actual {
+		return nil, fmt.Errorf("%w: public key type %s does not match %s", ErrUnsupportedSigningAlgo, actual, algo)
+	}
+	return ks.writeOfflineKey(uid, pubkey, actual)
 }
 
 func (ks keystore) DeleteByAddress(address sdk.Address) error {
@@ -401,32 +430,35 @@ func (ks keystore) DeleteByAddress(address sdk.Address) error {
 }
 
 func (ks keystore) Delete(uid string) error {
-	info, err := ks.Key(uid)
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	recovered, err := ks.recoverOperationLocked()
 	if err != nil {
 		return err
 	}
-
-	err = ks.db.Remove(addrHexKeyAsString(info.GetAddress()))
+	if recovered != nil && recovered.Operation == "delete" && recovered.NameKey == infoKey(uid) {
+		return nil
+	}
+	info, err := ks.key(infoKey(uid))
 	if err != nil {
 		return err
 	}
-
-	err = ks.db.Remove(infoKey(uid))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ks.persistOperation("delete", info)
 }
 
 func (ks keystore) KeyByAddress(address sdk.Address) (Info, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	if _, err := ks.recoverOperationLocked(); err != nil {
+		return nil, err
+	}
 	ik, err := ks.db.Get(addrHexKeyAsString(address))
 	if err != nil {
 		return nil, wrapKeyNotFound(err, fmt.Sprint("key with address", address, "not found"))
 	}
 
 	if len(ik.Data) == 0 {
-		return nil, wrapKeyNotFound(err, fmt.Sprint("key with address", address, "not found"))
+		return nil, sdkerrors.Wrap(sdkerrors.ErrKeyNotFound, fmt.Sprint("key with address", address, "not found"))
 	}
 	return ks.key(string(ik.Data))
 }
@@ -439,54 +471,32 @@ func wrapKeyNotFound(err error, msg string) error {
 }
 
 func (ks keystore) List() ([]Info, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	if _, err := ks.recoverOperationLocked(); err != nil {
+		return nil, err
+	}
 	res := []Info{}
-
 	keys, err := ks.db.Keys()
 	if err != nil {
 		return nil, err
 	}
-
-	if len(keys) == 0 {
-		return res, nil
-	}
-
 	sort.Strings(keys)
+	corruption := &CorruptionError{}
 	for _, key := range keys {
-		if strings.HasSuffix(key, infoSuffix) {
-			rawInfo, err := ks.db.Get(key)
-			if err != nil {
-				fmt.Printf("err for key %s: %q\n", key, err)
-
-				// add the name of the key in case the user wants to retrieve it
-				// afterwards
-				info := newOfflineInfo(key, nil, hd.PubKeyType(""))
-				res = append(res, info)
-				continue
-			}
-
-			if len(rawInfo.Data) == 0 {
-				fmt.Println(sdkerrors.Wrap(sdkerrors.ErrKeyNotFound, key))
-
-				// add the name of the key in case the user wants to retrieve it
-				// afterwards
-				info := newOfflineInfo(key, nil, hd.PubKeyType(""))
-				res = append(res, info)
-				continue
-			}
-
-			info, err := unmarshalInfo(rawInfo.Data)
-			if err != nil {
-				fmt.Printf("err for key %s: %q\n", key, err)
-
-				// add the name of the key in case the user wants to retrieve it
-				// afterwards
-				info = newOfflineInfo(key, nil, hd.PubKeyType(""))
-			}
-
-			res = append(res, info)
+		if !strings.HasSuffix(key, "."+infoSuffix) {
+			continue
 		}
+		info, err := ks.key(key)
+		if err != nil {
+			corruption.Entries = append(corruption.Entries, &EntryError{Entry: key, Err: err})
+			continue
+		}
+		res = append(res, info)
 	}
-
+	if len(corruption.Entries) != 0 {
+		return res, corruption
+	}
 	return res, nil
 }
 
@@ -536,13 +546,6 @@ func (ks keystore) NewAccount(name string, mnemonic string, bip39Passphrase stri
 
 	privKey := algo.Generate()(derivedPriv)
 
-	// check if the a key already exists with the same address and return an error
-	// if found
-	address := sdk.AccAddress(privKey.PubKey().Address())
-	if _, err := ks.KeyByAddress(address); err == nil {
-		return nil, fmt.Errorf("account with address %s already exists in keyring, delete the key first if you want to recreate it", address)
-	}
-
 	return ks.writeLocalKey(name, privKey, algo.Name())
 }
 
@@ -558,10 +561,22 @@ func (ks keystore) key(infoKey string) (Info, error) {
 	if len(bs.Data) == 0 {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrKeyNotFound, infoKey)
 	}
-	return unmarshalInfo(bs.Data)
+	info, err := unmarshalInfo(bs.Data)
+	if err != nil {
+		return nil, &EntryError{Entry: infoKey, Err: errors.New("invalid encoded key information")}
+	}
+	if err := validateInfo(info); err != nil {
+		return nil, &EntryError{Entry: infoKey, Err: err}
+	}
+	return info, nil
 }
 
 func (ks keystore) Key(uid string) (Info, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	if _, err := ks.recoverOperationLocked(); err != nil {
+		return nil, err
+	}
 	return ks.key(infoKey(uid))
 }
 
@@ -650,91 +665,6 @@ func newFileBackendKeyringConfig(name, dir string, buf io.Reader) keyring.Config
 	}
 }
 
-func newRealPrompt(dir string, buf io.Reader) func(string) (string, error) {
-	return func(prompt string) (string, error) {
-		keyhashStored := false
-		keyhashFilePath := filepath.Clean(filepath.Join(dir, "keyhash"))
-
-		var keyhash []byte
-
-		_, err := os.Stat(keyhashFilePath)
-
-		switch {
-		case err == nil:
-			keyhash, err = os.ReadFile(keyhashFilePath)
-			if err != nil {
-				return "", fmt.Errorf("failed to read %s: %v", keyhashFilePath, err)
-			}
-
-			keyhashStored = true
-
-		case os.IsNotExist(err):
-			keyhashStored = false
-
-		default:
-			return "", fmt.Errorf("failed to open %s: %v", keyhashFilePath, err)
-		}
-
-		failureCounter := 0
-
-		for {
-			failureCounter++
-			if failureCounter > maxPassphraseEntryAttempts {
-				return "", fmt.Errorf("too many failed passphrase attempts")
-			}
-
-			buf := bufio.NewReader(buf)
-			pass, err := input.GetPassword("Enter keyring passphrase:", buf)
-			if err != nil {
-				// NOTE: LGTM.io reports a false positive alert that states we are printing the password,
-				// but we only log the error.
-				//
-				// lgtm [go/clear-text-logging]
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				continue
-			}
-
-			if keyhashStored {
-				if err := bcrypt.CompareHashAndPassword(keyhash, []byte(pass)); err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, "incorrect passphrase")
-					continue
-				}
-
-				return pass, nil
-			}
-
-			reEnteredPass, err := input.GetPassword("Re-enter keyring passphrase:", buf)
-			if err != nil {
-				// NOTE: LGTM.io reports a false positive alert that states we are printing the password,
-				// but we only log the error.
-				//
-				// lgtm [go/clear-text-logging]
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				continue
-			}
-
-			if pass != reEnteredPass {
-				_, _ = fmt.Fprintln(os.Stderr, "passphrase do not match")
-				continue
-			}
-
-			saltBytes := tmcrypto.CRandBytes(16)
-			passwordHash, err := bcrypt.GenerateFromPassword(saltBytes, []byte(pass), 2)
-			if err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				continue
-			}
-
-			name := filepath.Clean(filepath.Join(dir, "keyhash"))
-			if err := os.WriteFile(name, passwordHash, 0600); err != nil {
-				return "", err
-			}
-
-			return pass, nil
-		}
-	}
-}
-
 func (ks keystore) writeLocalKey(name string, priv types.PrivKey, algo hd.PubKeyType) (Info, error) {
 	// encrypt private key using keyring
 	pub := priv.PubKey()
@@ -757,34 +687,32 @@ func (ks keystore) writeLocalKey(name string, priv types.PrivKey, algo hd.PubKey
 }
 
 func (ks keystore) writeInfo(info Info) error {
-	key := infoKeyBz(info.GetName())
-	serializedInfo := marshalInfo(info)
-
+	if err := validateInfo(info); err != nil {
+		return err
+	}
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	recovered, err := ks.recoverOperationLocked()
+	if err != nil {
+		return err
+	}
+	// An interrupted create may be retried only with the identical complete record.
+	if recovered != nil && recovered.Operation == "create" && recovered.NameKey == infoKey(info.GetName()) && string(recovered.Data) == string(marshalInfo(info)) {
+		return nil
+	}
 	exists, err := ks.existsInDb(info)
 	if err != nil {
 		return err
 	}
 	if exists {
+		saved, nameErr := ks.db.Get(infoKey(info.GetName()))
+		index, addressErr := ks.db.Get(addrHexKeyAsString(info.GetAddress()))
+		if nameErr == nil && addressErr == nil && string(saved.Data) == string(marshalInfo(info)) && string(index.Data) == infoKey(info.GetName()) {
+			return nil
+		}
 		return errors.New("public key already exists in keybase")
 	}
-
-	err = ks.db.Set(keyring.Item{
-		Key:  string(key),
-		Data: serializedInfo,
-	})
-	if err != nil {
-		return err
-	}
-
-	err = ks.db.Set(keyring.Item{
-		Key:  addrHexKeyAsString(info.GetAddress()),
-		Data: key,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ks.persistOperation("create", info)
 }
 
 // existsInDb returns true if key is in DB. Error is returned only when we have error

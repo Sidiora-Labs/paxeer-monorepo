@@ -95,14 +95,15 @@ impl Capability {
         to: AccountId,
         maximum_amount: Amount,
     ) -> Result<Self, ProgramError> {
-        if maximum_amount.is_zero() {
-            return Err(ProgramError::value(Field::Amount, Reason::Zero));
-        }
-        Ok(Self::Transfer402 {
+        let grant = Self::Transfer402 {
             asset,
             to,
             maximum_amount,
-        })
+        };
+        match grant.validate() {
+            Ok(()) => Ok(grant),
+            Err(error) => Err(error),
+        }
     }
 
     /// Grants read authority over the facts of one verified receipt.
@@ -130,6 +131,25 @@ impl Capability {
 
     pub(crate) fn authority_key_cmp(self, other: Self) -> Ordering {
         self.key().cmp(&other.key())
+    }
+
+    pub(crate) const fn validate(self) -> Result<(), ProgramError> {
+        // Identifier fields already carry their nonzero constructor invariant.
+        match self {
+            Self::Transfer402 { maximum_amount, .. } => {
+                if maximum_amount.is_zero() {
+                    return Err(ProgramError::value(Field::Amount, Reason::Zero));
+                }
+                Ok(())
+            }
+            Self::StorageRead
+            | Self::StorageWrite
+            | Self::SharedStorageRead
+            | Self::SharedStorageWrite
+            | Self::EmitEvent
+            | Self::Call { .. }
+            | Self::ReceiptRead { .. } => Ok(()),
+        }
     }
 
     const fn key(self) -> CapabilityKey {
@@ -175,8 +195,8 @@ impl<const N: usize> CapabilitySet<N> {
     ///
     /// # Errors
     ///
-    /// Refuses a duplicate authority key and a list past the declared
-    /// capacity or the ABI's grant ceiling.
+    /// Refuses a zero monetary ceiling, a duplicate authority key and a list
+    /// past the declared capacity or the ABI's grant ceiling.
     pub fn from_grants(grants: &[Capability]) -> Result<Self, ProgramError> {
         let mut set = Self::empty();
         for grant in grants {
@@ -189,9 +209,10 @@ impl<const N: usize> CapabilitySet<N> {
     ///
     /// # Errors
     ///
-    /// Refuses a duplicate authority key and a set past the declared capacity
-    /// or the ABI's grant ceiling.
+    /// Refuses a zero monetary ceiling, a duplicate authority key and a set
+    /// past the declared capacity or the ABI's grant ceiling.
     pub fn insert(&mut self, grant: Capability) -> Result<(), ProgramError> {
+        grant.validate()?;
         if self.length >= N || self.length >= MAX_CAPABILITIES {
             return Err(ProgramError::value(Field::Capability, Reason::TooLarge));
         }

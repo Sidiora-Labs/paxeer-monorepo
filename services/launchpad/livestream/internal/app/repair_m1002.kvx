@@ -1,0 +1,19 @@
+[task]
+id = "22.33.1002"
+audit = "22.30.34"
+finding = "009"
+policy = "Studio stream.idle is resumable READY; stream.started is LIVE. Neither callback proves explicit termination. Preserve provider event createdAt for lifecycle ordering."
+tests = ["TestRepairM_1002_IdleThenStarted", "TestRepairM_1002_ReorderedPollWebhook", "TestRepairM_1002_DecoderRestart", "TestRepairM_1002_RejectInvalidTerminationEvidence"]
+baseline = "Not executed: the task's ordered bounded-gate instructions prohibit pre-implementation verification. No baseline failures are claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, commands, exits and private log paths in the runner ledger; no qualification is claimed before those gates pass."
+boundary = "Tests drive real Studio authentication, app decoding, Livepeer HTTP client and creator operation projection. Restart reopens the stateless authentication/decoder receiver; durable LifecycleStore recovery is not certified by this credential-free gate."
+
+[wiring.009]
+owner = "domain 4 / fm-launchpad"
+request = "services/launchpad/livestream/internal/streams/{normalized_webhook.go,reconcile_worker.go,connected_routes.go}: centralize inactive READY versus explicit-termination ENDED policy, use it in both normalized codecs and reconciliation, and wire the connected StudioWebhook route (which currently bypasses the app decoder); retain authenticated transport and duplicate/stale/terminal guards."
+creator = "apps/launchpad/web: domain 4 owns creator reconnect guidance for READY after disconnect; retain the provider identity and ingest credential and distinguish resuming broadcast from explicit termination."
+recovery = "services/launchpad/livestream/internal/streams/{lifecycle_test.go,repair_57_test.go,repair_57_integration_test.go}: domain 4 owns updated normalized-idle assertions and real-store restart/reordered poll-webhook recovery proof; these files and the PostgreSQL-backed component are outside this task's scope."
+
+[gotcha]
+observed = "ConnectedRuntime sets StudioWebhook=true; its normalizer uses streams.DecodeStudioWebhook and VerifyNormalizedProviderWebhook instead of the supplied app decoder. Both still map idle/inactive to ENDED and require the out-of-path wiring above."
+constraint = "Keep this finding-specific record inside app: the task forbids editing spec files and the root gotcha ledger."

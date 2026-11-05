@@ -1,0 +1,7 @@
+[issue.1520]
+number = 1520
+title = "[Coherence] The explorer-frontend Dockerfile still copies seven of the deleted tool lock files, so the image no longer builds"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "duplicate"
+evidence = "Issue #1519 in spec/layerx-merge/programme/issues/input/1519.md:5 and :40 covers restoring all nine yarn.lock files deleted by commit 9d5d654de1d8d26e3cd97efc2e7c5b046e9c5fcc, including the seven still required by docker/explorer-frontend/Dockerfile:26, :33, :39, :45, :51, :57 and :63 and the favicon frozen install at apps/explorer/deploy/scripts/favicon_generator.sh:6-7, so both reports require the same lockfile restoration."
+close_comment = "Closing as a duplicate of #1519: the seven missing tool lockfiles required by the explorer image and favicon installer are part of the same nine-lockfile deletion. The fix tracked in #1519 must restore matching, committed lockfiles for these tools so Docker can copy them and frozen installs use pinned dependency versions."

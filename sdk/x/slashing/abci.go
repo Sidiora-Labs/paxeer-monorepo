@@ -5,7 +5,6 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/types"
@@ -17,6 +16,7 @@ type SlashingWriteInfo struct {
 	SigningInfo types.ValidatorSigningInfo
 	ShouldSlash bool
 	SlashInfo   keeper.SlashInfo
+	Events      sdk.Events
 }
 
 // BeginBlocker check for infraction evidence or downtime of validators
@@ -25,8 +25,6 @@ func BeginBlocker(ctx sdk.Context, votes []abci.VoteInfo, k keeper.Keeper) {
 	beginBlockerStart := time.Now()
 	defer func() {
 		slashingMetrics.beginBlockerDuration.Record(ctx.Context(), time.Since(beginBlockerStart).Seconds())
-		// TODO(PLT-414): remove once slashing_begin_blocker_duration verified
-		telemetry.ModuleMeasureSince(types.ModuleName, beginBlockerStart, telemetry.MetricKeyBeginBlocker)
 	}()
 
 	var wg sync.WaitGroup
@@ -43,13 +41,14 @@ func BeginBlocker(ctx sdk.Context, votes []abci.VoteInfo, k keeper.Keeper) {
 		go func(valIndex int) {
 			defer wg.Done()
 			vInfo := allVotes[valIndex]
-			consAddr, missedInfo, signInfo, shouldSlash, slashInfo := k.HandleValidatorSignatureConcurrent(ctx, vInfo.Validator.Address, vInfo.Validator.Power, vInfo.SignedLastBlock)
+			consAddr, missedInfo, signInfo, shouldSlash, slashInfo, events := k.HandleValidatorSignatureConcurrent(ctx, vInfo.Validator.Address, vInfo.Validator.Power, vInfo.SignedLastBlock)
 			slashingWriteInfo[valIndex] = &SlashingWriteInfo{
 				ConsAddr:    consAddr,
 				MissedInfo:  missedInfo,
 				SigningInfo: signInfo,
 				ShouldSlash: shouldSlash,
 				SlashInfo:   slashInfo,
+				Events:      events,
 			}
 		}(i)
 	}
@@ -59,6 +58,7 @@ func BeginBlocker(ctx sdk.Context, votes []abci.VoteInfo, k keeper.Keeper) {
 		if writeInfo == nil {
 			panic("Expected slashing write info to be non-nil")
 		}
+		ctx.EventManager().EmitEvents(writeInfo.Events)
 		// Update the validator missed block bit array by index if different from last value at the index
 		if writeInfo.ShouldSlash {
 			k.ClearValidatorMissedBlockBitArray(ctx, writeInfo.ConsAddr)

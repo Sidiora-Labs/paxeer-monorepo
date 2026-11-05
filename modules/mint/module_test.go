@@ -1,19 +1,46 @@
 package mint_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 )
 
+func registerQueryRoutes() *mux.Router {
+	router := mux.NewRouter()
+	mint.AppModuleBasic{}.RegisterRESTRoutes(client.Context{}, router)
+	return router
+}
+
+func TestRegisterRESTRoutesMountsNoLegacyQuery(t *testing.T) {
+	router := registerQueryRoutes()
+	for _, path := range []string{"/minting/parameters", "/minting/minter"} {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			var match mux.RouteMatch
+			require.False(t, router.Match(request, &match), "legacy query route %s is still mounted", path)
+			require.ErrorIs(t, match.MatchErr, mux.ErrNotFound)
+			require.Nil(t, match.Route)
+		})
+	}
+}
+
 func TestNewProposalHandler(t *testing.T) {
+	started := time.Now()
+	t.Log("initializing node fixture")
 	app := app.Setup(t, false, false, false)
+	t.Logf("node fixture initialized after %s", time.Since(started))
 
 	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
 	app.MintKeeper.SetParams(ctx, types.DefaultParams())

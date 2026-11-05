@@ -148,7 +148,10 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
     .is_err());
 }
 
-fn actual_submission(bytes: &[u8], public: &[u8; 32]) -> crate::sign::VerifiedSubmission {
+fn actual_submission(
+    bytes: &[u8],
+    public: &[u8; 32],
+) -> (crate::sign::VerifiedSubmission, [u8; 32]) {
     use crate::prepare::{PreparationAuditEntry, Prepared};
     use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
     use layerx_types::payload::{
@@ -200,25 +203,69 @@ fn actual_submission(bytes: &[u8], public: &[u8; 32]) -> crate::sign::VerifiedSu
             disclosure_digest: disclosed.digest,
         },
     };
-    checked(crate::sign::verify_before_submit(
-        bytes, &prepared, public, &registry,
-    ))
+    let signature: &[u8; 64] = checked(activity.signature().expect("fixture signature").try_into());
+    let message = checked(layerx_crypto::SignatureMessage::new(
+        layerx_wire::hash::Domain::SignaturePreimage,
+        activity.protocol_version(),
+        activity.network_id(),
+        &prepared.canonical_bytes,
+    ));
+    checked(layerx_crypto::ed25519::verify(public, signature, message));
+    let native_id = checked(layerx_wire::hash::activity_id(&activity));
+    (
+        crate::human_runtime::activity_submission_index_tests::transaction_submission(
+            prepared, &registry,
+        ),
+        native_id,
+    )
 }
 
 fn prove_terminal_recovery(activity: &[u8], credit: &[u8], terminal: &VerifiedReceiptEvidence) {
     use crate::outbox::{Outbox, SubmissionState};
     use crate::store::{Store, TenantId};
-    let verified = actual_submission(activity, &checked(credit[139..171].try_into()));
-    assert_eq!(verified.activity_id(), terminal.activity_id());
-    let id = verified.idempotency_key();
+    let (verified, native_activity_id) =
+        actual_submission(activity, &checked(credit[139..171].try_into()));
+    assert_eq!(native_activity_id, terminal.activity_id());
+    let transaction_hash = layerx_crypto::evm_transaction::transaction_hash(verified.exact_bytes());
+    assert_eq!(verified.activity_id(), transaction_hash);
+    assert_ne!(transaction_hash, native_activity_id);
+    let signed_transaction = verified.exact_bytes().to_vec();
+    let idempotency_key = verified.idempotency_key();
+    let authority = checked(
+        crate::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            42,
+            ed25519_dalek::SigningKey::from_bytes(&[0x3a; 32])
+                .verifying_key()
+                .to_bytes(),
+        ),
+    );
+    let transaction_terminal = checked(authority.verify_receipt(
+        &crate::human_runtime::activity_submission_index_tests::settlement_receipt(
+            transaction_hash,
+            0,
+            1,
+            1,
+            1,
+        ),
+    ));
+    assert_eq!(transaction_terminal.activity_id(), transaction_hash);
     let root = std::env::temp_dir().join(format!("native-terminal-{}", std::process::id()));
     let tenant = checked(TenantId::new("native-terminal"));
     let mut store = checked(Store::open(&root));
     let mut outbox = Outbox::default();
-    checked(outbox.enqueue(&mut store, tenant.clone(), id, verified));
+    let id = checked(outbox.enqueue_with_origin(
+        &mut store,
+        tenant.clone(),
+        verified.idempotency_key(),
+        verified,
+        None,
+        None,
+    ));
+    assert_eq!(id, transaction_hash);
     checked(outbox.transition(
         &mut store,
-        id,
+        transaction_hash,
         SubmissionState::Submitted,
         "submitted exact native bytes",
         None,
@@ -234,17 +281,25 @@ fn prove_terminal_recovery(activity: &[u8], credit: &[u8], terminal: &VerifiedRe
     drop(store);
     let mut store = checked(Store::open(&root));
     let mut restored = Outbox::default();
-    checked(restored.restore(&store, tenant.clone(), id));
+    assert!(matches!(
+        restored.restore(&store, tenant.clone(), idempotency_key),
+        Err(crate::outbox::OutboxError::NotFound)
+    ));
+    checked(restored.restore(&store, tenant.clone(), transaction_hash));
     assert_eq!(
         restored.status(id).map(|status| status.state),
         Some(SubmissionState::Unknown)
     );
-    checked(restored.transition(
+    assert!(matches!(
+        restored.record_execution(&mut store, transaction_hash, terminal.clone(), 1, 0),
+        Err(crate::outbox::OutboxError::ReceiptMismatch)
+    ));
+    checked(restored.record_execution(
         &mut store,
-        id,
-        SubmissionState::Executed,
-        "authenticated maintained outcome",
-        Some(terminal.clone()),
+        transaction_hash,
+        transaction_terminal.clone(),
+        1,
+        0,
     ));
     drop(restored);
     drop(store);
@@ -259,9 +314,12 @@ fn prove_terminal_recovery(activity: &[u8], credit: &[u8], terminal: &VerifiedRe
         status
             .evidence
             .map(crate::outbox::ReceiptEvidence::receipt_ref),
-        Some(terminal.receipt_ref())
+        Some(transaction_terminal.receipt_ref())
     );
-    assert_eq!(checked(restored.exact_signed_bytes(id)), activity);
+    assert_eq!(
+        checked(restored.exact_signed_bytes(transaction_hash)),
+        signed_transaction
+    );
     assert!(restored.bytes_for_transmission(id).is_err());
 }
 

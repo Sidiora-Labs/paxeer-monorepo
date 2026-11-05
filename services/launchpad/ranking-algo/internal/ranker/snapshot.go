@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -86,11 +87,11 @@ type CategoryPolicy struct {
 	Description       string  `json:"description"`
 }
 
+var Categories = [...]string{"trending", "breakout", "volume", "gainers", "losers", "movers", "unusual", "new"}
+
 // Policies are returned by value, so callers cannot mutate the release policy.
 func Policy(category string) (CategoryPolicy, error) {
-	switch category {
-	case "trending", "breakout", "volume", "movers", "unusual", "new":
-	default:
+	if !slices.Contains(Categories[:], category) {
 		return CategoryPolicy{}, fmt.Errorf("input-invalid: category")
 	}
 	freshness, traders := int64(90), 1

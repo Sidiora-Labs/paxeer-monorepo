@@ -13,6 +13,51 @@ pub struct EvmTransaction {
     pub calldata: Vec<u8>,
 }
 
+impl EvmTransaction {
+    /// Builds the canonical bank call for an exact first-funding disclosure.
+    pub fn with_bank_transfer(
+        mut self,
+        sender: [u8; 20],
+        recipient: [u8; 20],
+        denom: &str,
+        amount: [u8; 32],
+    ) -> Result<Self, super::CustodyError> {
+        let mut bank = [0; 20];
+        bank[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
+        if self.to != bank
+            || self.value != [0; 32]
+            || !self.calldata.is_empty()
+            || sender == [0; 20]
+            || recipient == [0; 20]
+            || amount == [0; 32]
+            || denom.is_empty()
+            || denom.len() > 128
+            || !denom.is_ascii()
+        {
+            return Err(super::CustodyError::InvalidEvidence);
+        }
+        let mut data = layerx_crypto::disclosure::call::ledger_selector(
+            "send(address,address,string,uint256)",
+        )
+        .to_vec();
+        for address in [sender, recipient] {
+            data.extend_from_slice(&[0; 12]);
+            data.extend_from_slice(&address);
+        }
+        let mut word = [0; 32];
+        word[31] = 128;
+        data.extend_from_slice(&word);
+        data.extend_from_slice(&amount);
+        word = [0; 32];
+        word[24..].copy_from_slice(&(denom.len() as u64).to_be_bytes());
+        data.extend_from_slice(&word);
+        data.extend_from_slice(denom.as_bytes());
+        data.resize(4 + 160 + denom.len().div_ceil(32) * 32, 0);
+        self.calldata = data;
+        Ok(self)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EvmPlanAuthorization {
@@ -41,6 +86,56 @@ pub struct EvmAction {
 pub struct EvmAcknowledgement {
     pub action_key: [u8; 32],
     pub transaction_hash: [u8; 32],
+}
+
+/// An executable bank transfer retaining the complete recoverable signature.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SignedBankTransfer {
+    raw_transaction: Vec<u8>,
+    signature: [u8; 65],
+    sender: [u8; 20],
+}
+
+impl SignedBankTransfer {
+    pub fn raw_transaction(&self) -> &[u8] {
+        &self.raw_transaction
+    }
+
+    pub const fn signature(&self) -> &[u8; 65] {
+        &self.signature
+    }
+
+    pub const fn sender(&self) -> [u8; 20] {
+        self.sender
+    }
+
+    pub fn transaction_hash(&self) -> [u8; 32] {
+        layerx_crypto::evm_transaction::transaction_hash(&self.raw_transaction)
+    }
+}
+
+impl super::CustodySigner {
+    /// Authorizes first funding as an exact EIP-1559 bank transfer.
+    pub fn authorize_send_transaction(
+        &self,
+        principal: &crate::store::PrincipalId,
+        key: &super::KeyId,
+        plan: &EvmPlanAuthorization,
+        recipient: [u8; 20],
+        denom: String,
+        amount: [u8; 32],
+    ) -> Result<SignedBankTransfer, super::CustodyError> {
+        let raw_transaction = self
+            .creation_keystore()
+            .authorize_send_transaction(principal, key, plan, recipient, denom, amount)?;
+        let (_, signature) = layerx_crypto::evm_transaction::decode_signed(&raw_transaction)
+            .map_err(|_| super::CustodyError::Kms(super::KmsError::InvalidResponse))?;
+        Ok(SignedBankTransfer {
+            raw_transaction,
+            signature: *signature.as_bytes(),
+            sender: plan.wallet,
+        })
+    }
 }
 
 use super::{CustodyError, KeyId, Keystore, KmsError};
@@ -205,24 +300,112 @@ pub struct SendPlanAuthorization {
     pub not_before: u64,
     pub not_after: u64,
 }
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct EvmSendAuthorization {
+    pub(super) authorization: EvmPlanAuthorization,
+    pub(super) disclosure: SendDisclosure,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct SendDisclosure {
+    pub(super) recipient: [u8; 20],
+    pub(super) denom: String,
+    pub(super) amount: [u8; 32],
+}
+
 impl Keystore {
-    /// Authorizes a canonical owner SEND message for an approved plan.
+    /// Signs an exact bank transfer with its recipient and amount disclosure.
     /// # Errors
-    /// Refuses wrong principals, expiry, protocol scope and action conflicts.
-    pub fn authorize_send(
+    /// Refuses a mismatched binding, wallet, transaction or signed response.
+    pub fn authorize_send_transaction(
         &self,
         principal: &PrincipalId,
         key: &KeyId,
-        authorization: &SendPlanAuthorization,
-    ) -> Result<[u8; 64], CustodyError> {
-        if authorization.principal != principal.as_str() {
+        plan: &EvmPlanAuthorization,
+        recipient: [u8; 20],
+        denom: String,
+        amount: [u8; 32],
+    ) -> Result<Vec<u8>, CustodyError> {
+        let binding = self.evm_binding(principal, key)?;
+        if plan.principal != principal.as_str()
+            || plan.binding_digest != binding.digest()
+            || plan.transaction.chain_id != u64::from(binding.network_id())
+            || plan.wallet != self.evm_wallet(principal, key)?
+            || plan.transaction.value != [0; 32]
+        {
             return Err(CustodyError::Kms(KmsError::Refused));
         }
-        let payload = serde_json::to_vec(authorization)
+        let tx = &plan.transaction;
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: tx.chain_id,
+            nonce: tx.nonce,
+            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.into(),
+            max_fee_per_gas: tx.max_fee_per_gas.into(),
+            gas_limit: tx.gas_limit,
+            to: tx.to,
+            data: tx.calldata.clone(),
+        };
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, plan.wallet)
+            .map_err(|_| CustodyError::Kms(KmsError::Refused))?;
+        match disclosure
+            .construct_method()
+            .map_err(|_| CustodyError::Kms(KmsError::Refused))?
+        {
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                from,
+                to,
+                denom: disclosed_denom,
+                amount: disclosed_amount,
+            }) if from == plan.wallet
+                && to == recipient
+                && disclosed_denom == denom
+                && disclosed_amount == amount => {}
+            _ => return Err(CustodyError::Kms(KmsError::Refused)),
+        }
+        let authorization = EvmSendAuthorization {
+            authorization: plan.clone(),
+            disclosure: SendDisclosure {
+                recipient,
+                denom,
+                amount,
+            },
+        };
+        let payload = serde_json::to_vec(&authorization)
             .map_err(|_| CustodyError::Kms(KmsError::InvalidConfiguration))?;
-        self.evm_call(principal, key, 11, &payload)?
-            .try_into()
-            .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))
+        let raw = self.evm_call(principal, key, 11, &payload)?;
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+            .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))?;
+        let tx = &authorization.authorization.transaction;
+        if call.chain_id != tx.chain_id
+            || call.nonce != tx.nonce
+            || call.to != tx.to
+            || call.data != tx.calldata
+            || call.gas_limit != tx.gas_limit
+            || call.max_fee_per_gas != u128::from(tx.max_fee_per_gas)
+            || call.max_priority_fee_per_gas != u128::from(tx.max_priority_fee_per_gas)
+            || tx.value != [0; 32]
+            || layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))?
+                != authorization.authorization.wallet
+        {
+            return Err(CustodyError::Kms(KmsError::Integrity));
+        }
+        Ok(raw)
+    }
+
+    /// Refuses the retired kernel SEND authorization, which has no EIP-1559 call.
+    /// Callers must supply an exact transaction to `authorize_send_transaction`.
+    pub fn authorize_send(
+        &self,
+        _principal: &PrincipalId,
+        _key: &KeyId,
+        _authorization: &SendPlanAuthorization,
+    ) -> Result<[u8; 64], CustodyError> {
+        Err(CustodyError::Sign(
+            layerx_crypto::signer::SignError::InvalidDisclosure,
+        ))
     }
 }
 

@@ -10,6 +10,9 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE, catalogue, load_private, validate
+
 spec = importlib.util.spec_from_file_location('human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(B)
@@ -18,18 +21,28 @@ if os.environ.get('PAXEER_X_TASK_DEADLINE_UNIX'):
     B.DEADLINE = min(B.DEADLINE, time.monotonic() + float(os.environ['PAXEER_X_TASK_DEADLINE_UNIX']) - time.time())
 
 
-def inventory():
-    roots = (ROOT / 'human', ROOT / 'agent', ROOT / 'crates', ROOT / 'services/platform')
-    paths = {ROOT / 'tools/qualification/paxeer-x/native_send_purpose.py',
-             ROOT / 'apps/web/e2e/software-authenticator.ts'}
-    paths.add(ROOT / 'services/agent/schema/agent-api/v1.kvx')
-    for root in roots:
-        for directory, children, files in os.walk(root):
-            children[:] = [name for name in children if name not in ('target', 'node_modules', '.git', '.next')]
+def inventory(root=None):
+    root = ROOT if root is None else Path(root)
+    roots = tuple(root / name for name in (
+        'services/human', 'services/agent', 'services/wallet',
+        'services/platform', 'services/interop', 'programs',
+        'sdk', 'core', 'layerxproof', 'modules', 'precompiles',
+        'admin', 'api', 'consensus', 'custodyproof', 'daemon', 'include',
+        'interchain', 'node', 'rpc', 'src', 'storage', 'utils', 'wasm', 'wasm-runtime'))
+    paths = {root / 'tools/qualification/paxeer-x/native_send_purpose.py',
+             root / 'apps/web/e2e/software-authenticator.ts'}
+    paths.add(root / 'services/agent/schema/agent-api/v1.kvx')
+    paths.update(root / name for name in ('go.mod', 'go.sum', 'go.work',
+                                        'go.work.sum', 'rust-toolchain.toml')
+                 if (root / name).is_file())
+    for source_root in roots:
+        for directory, children, files in os.walk(source_root):
+            children[:] = [name for name in children if name not in (
+                'target', 'node_modules', '.git', '.next', '__pycache__', '.pytest_cache', '.venv')]
+            # Rust include_bytes!/include_str! and Go embed accept arbitrary suffixes.
             for name in files:
-                if name.endswith(('.rs', '.go', '.proto')) or name in ('Cargo.toml', 'Cargo.lock', 'go.mod', 'go.sum', 'build.rs'):
-                    paths.add(Path(directory) / name)
-    return {str(path.relative_to(ROOT)): B.digest(path) for path in sorted(paths) if not path.is_symlink()}
+                paths.add(Path(directory) / name)
+    return {str(path.relative_to(root)): B.digest(path) for path in sorted(paths)}
 
 
 def source_digest(files):
@@ -46,6 +59,20 @@ def run(command, log, cwd, environment):
                                 stdout=output, stderr=subprocess.STDOUT, timeout=B.remaining())
     print('command=' + json.dumps(command) + ' exit=' + str(result.returncode) + ' log=' + str(log), flush=True)
     B.require(result.returncode == 0, 'bounded native custody command failed')
+
+
+def admit_build(material, candidate_revision, revision=None, root=None):
+    B.require(material['schema'] == 'layerx-human-native-send-purpose-build.v1', 'closed protected real-process build authority')
+    files = inventory(root)
+    if revision is None:
+        revision = B.git('rev-parse', 'HEAD').decode().strip()
+    source = source_digest(files)
+    B.require(material['source_files'] == files and material['source_digest'] == source
+              and material['source_revision'] == revision and candidate_revision == revision,
+              'actual frozen candidate source binding')
+    artifacts = {name: B.executable(row, revision, source) for name, row in material['artifacts'].items()}
+    B.require(set(artifacts) == {'attestor', 'go_corpus', 'rust_corpus'}, 'actual compiled production daemon and focused real consumers')
+    return artifacts
 
 
 def main():
@@ -98,20 +125,10 @@ def main():
             json.dump(document, output)
         print('native-send-purpose build manifest=' + str(manifest))
         return
-    sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-    from candidate import catalogue, load_private, validate
     candidate = load_private(args.candidate_manifest)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     material = B.load(os.environ.get('PAXEER_X_NATIVE_SEND_BUILD_MANIFEST', str(destination / 'build.json')))
-    B.require(material['schema'] == 'layerx-human-native-send-purpose-build.v1', 'closed protected real-process build authority')
-    files = inventory()
-    revision = B.git('rev-parse', 'HEAD').decode().strip()
-    source = source_digest(files)
-    B.require(material['source_files'] == files and material['source_digest'] == source
-              and material['source_revision'] == revision and candidate['source']['revision'] == revision,
-              'actual frozen candidate source binding')
-    artifacts = {name: B.executable(row, revision, source) for name, row in material['artifacts'].items()}
-    B.require(set(artifacts) == {'attestor', 'go_corpus', 'rust_corpus'}, 'actual compiled production daemon and focused real consumers')
+    artifacts = admit_build(material, candidate['source']['revision'])
     environment = dict(os.environ, PAXEER_X_NATIVE_SEND_RUST_TEST=str(artifacts['rust_corpus']),
                        PATH='/root/lx-toolchains/node24/bin:/usr/local/go/bin:/root/.cargo/bin:' + os.environ.get('PATH', ''))
     log = destination / 'native-send-purpose-verify.log'
@@ -123,7 +140,10 @@ def main():
               and 'native custody principal digest forgery ceremony-replay and consumed-evidence refusals verified' in observed
               and '\nPASS\n' in observed and 'SKIP' not in observed,
               'both real Go corpus and actual Rust custody/provider consumer ran without skips')
-    print('human-native-send-purpose: PASS revision=' + revision)
+    B.require(material['source_files'] == inventory()
+              and material['source_revision'] == B.git('rev-parse', 'HEAD').decode().strip(),
+              'source remained frozen through native qualification')
+    print('human-native-send-purpose: PASS revision=' + material['source_revision'])
 
 
 if __name__ == '__main__':

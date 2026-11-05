@@ -1,87 +1,169 @@
 import { expect } from 'chai';
+import assert from 'node:assert/strict';
 import { ethers } from 'ethers';
-import { sleep, waitUntil } from './chainUtils';
+import { sleep } from './chainUtils';
 import { ADDRESS, HASH32, HEX_QUANTITY, HEX_DATA, BLOOM256, NONCE8, OPAQUE_HEX_ID } from './format';
 import { ZERO_HASH, ZERO_NONCE } from './constants';
 
+interface PendingCall {
+    resolve: (value: any) => void;
+    reject: (error: any) => void;
+    timer: ReturnType<typeof setTimeout>;
+    method: string;
+}
+
 export class WsClient {
     private nextId = 1;
-    private readonly pending = new Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>();
+    private readonly pending = new Map<number, PendingCall>();
     private readonly buffers = new Map<string, any[]>();
+    private failure: Error | undefined;
 
-    private constructor(private readonly socket: any) {
+    private constructor(
+        private readonly socket: any,
+        private readonly callTimeoutMs: number,
+        private readonly maxBuffer: number,
+    ) {
         socket.onmessage = (ev: any) => this.onMessage(String(ev.data));
+        socket.onclose = () => this.fail(new Error('WsClient: connection closed'));
+        socket.onerror = () => this.fail(new Error('WsClient: connection error'));
     }
 
-    static open(url: string, timeoutMs = 10_000): Promise<WsClient> {
+    static open(url: string, timeoutMs = 10_000, callTimeoutMs = 10_000, maxBuffer = 1024): Promise<WsClient> {
+        if (![timeoutMs, callTimeoutMs, maxBuffer].every(n => Number.isSafeInteger(n) && n > 0)) {
+            throw new Error('WsClient: deadlines and buffer capacity must be positive integers');
+        }
         const Impl: any = (globalThis as any).WebSocket;
         if (!Impl) throw new Error('global WebSocket unavailable (Node >= 21 required)');
         return new Promise<WsClient>((resolve, reject) => {
             const socket = new Impl(url);
-            const client = new WsClient(socket);
+            const client = new WsClient(socket, callTimeoutMs, maxBuffer);
             const timer = setTimeout(() => {
-                try { socket.close(); } catch { /* noop */ }
-                reject(new Error(`WsClient.open: timed out connecting to ${url}`));
+                client.close();
+                reject(new Error('WsClient.open: connection deadline exceeded'));
             }, timeoutMs);
             socket.onopen = () => { clearTimeout(timer); resolve(client); };
-            socket.onerror = () => { clearTimeout(timer); reject(new Error(`WsClient.open: cannot reach ${url}`)); };
+            socket.onerror = () => {
+                clearTimeout(timer);
+                client.close();
+                reject(new Error('WsClient.open: connection error'));
+            };
+            socket.onclose = () => {
+                clearTimeout(timer);
+                client.fail(new Error('WsClient: connection closed'));
+                reject(client.failure);
+            };
         });
     }
 
+    private fail(error: Error): void {
+        if (!this.failure) this.failure = error;
+        for (const pending of this.pending.values()) {
+            clearTimeout(pending.timer);
+            pending.reject(this.failure);
+        }
+        this.pending.clear();
+        this.buffers.clear();
+    }
+
     private onMessage(raw: string): void {
+        if (this.failure) return;
         let msg: any;
-        try { msg = JSON.parse(raw); } catch { return; }
+        try { msg = JSON.parse(raw); } catch {
+            this.fail(new Error('WsClient: invalid JSON message'));
+            this.socket.close();
+            return;
+        }
+        if (!msg || typeof msg !== 'object') {
+            this.fail(new Error('WsClient: invalid RPC message'));
+            this.socket.close();
+            return;
+        }
         if (msg.id !== undefined && this.pending.has(msg.id)) {
-            const p = this.pending.get(msg.id)!;
+            const pending = this.pending.get(msg.id)!;
+            clearTimeout(pending.timer);
             this.pending.delete(msg.id);
-            msg.error ? p.reject(msg.error) : p.resolve(msg.result);
+            if (msg.error) {
+                pending.reject(msg.error);
+            } else if (pending.method === 'eth_subscribe') {
+                if (typeof msg.result !== 'string' || this.buffers.has(msg.result)) {
+                    pending.reject(new Error('WsClient: invalid subscription id'));
+                    this.fail(new Error('WsClient: invalid subscription id'));
+                    this.socket.close();
+                } else {
+                    // Install before resolving: a notification may immediately follow the reply.
+                    this.buffers.set(msg.result, []);
+                    pending.resolve(msg.result);
+                }
+            } else {
+                pending.resolve(msg.result);
+            }
             return;
         }
         if (msg.method === 'eth_subscription' && msg.params) {
-            const subId = msg.params.subscription;
-            let buf = this.buffers.get(subId);
-            if (!buf) {
-                buf = [];
-                this.buffers.set(subId, buf);
+            const buf = this.buffers.get(msg.params.subscription);
+            // Ignore late notifications after unsubscribe; never allocate an unsolicited buffer.
+            if (!buf) return;
+            if (buf.length >= this.maxBuffer) {
+                this.fail(new Error('WsClient: subscription buffer overflow'));
+                this.socket.close();
+                return;
             }
             buf.push(msg.params.result);
         }
     }
 
     private call(method: string, params: unknown[]): Promise<any> {
+        if (this.failure) return Promise.reject(this.failure);
         const id = this.nextId++;
         return new Promise((resolve, reject) => {
-            this.pending.set(id, { resolve, reject });
-            this.socket.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+            const timer = setTimeout(() => {
+                this.fail(new Error(`WsClient: ${method} deadline exceeded`));
+                this.socket.close();
+            }, this.callTimeoutMs);
+            this.pending.set(id, { resolve, reject, timer, method });
+            try {
+                this.socket.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+            } catch {
+                this.fail(new Error(`WsClient: ${method} send failed`));
+                this.socket.close();
+            }
         });
     }
 
-    /** eth_subscribe; returns the opaque subscription id and starts buffering its notifications. */
-    async subscribe(params: unknown[]): Promise<string> {
-        const id: string = await this.call('eth_subscribe', params);
-        if (!this.buffers.has(id)) this.buffers.set(id, []);
-        return id;
+    /** eth_subscribe; starts buffering before its promise resolves. */
+    subscribe(params: unknown[]): Promise<string> {
+        return this.call('eth_subscribe', params);
     }
 
-    /** Block until `want` notifications have arrived for `subId`, then return the first `want`. */
+    /** Consume exactly `want` notifications, rejecting disconnects and released subscriptions. */
     async waitFor(subId: string, want: number, timeoutMs = 30_000): Promise<any[]> {
-        const buf = this.buffers.get(subId);
-        if (!buf) throw new Error(`WsClient.waitFor: unknown subscription ${subId}`);
-        const deadline = Date.now() + timeoutMs;
-        while (buf.length < want && Date.now() < deadline) await sleep(100);
-        if (buf.length < want) {
-            throw new Error(`WsClient.waitFor(${subId}): got ${buf.length}/${want} notifications before timeout`);
+        if (!Number.isSafeInteger(want) || want < 1 || want > this.maxBuffer) {
+            throw new Error('WsClient.waitFor: invalid notification count');
         }
-        return buf.slice(0, want);
+        const deadline = Date.now() + timeoutMs;
+        for (;;) {
+            if (this.failure) throw this.failure;
+            const buf = this.buffers.get(subId);
+            if (!buf) throw new Error('WsClient.waitFor: unknown subscription');
+            if (buf.length >= want) return buf.splice(0, want);
+            if (Date.now() >= deadline) {
+                throw new Error(`WsClient.waitFor: got ${buf.length}/${want} notifications before timeout`);
+            }
+            await sleep(Math.min(25, Math.max(1, deadline - Date.now())));
+        }
     }
 
-    /** eth_unsubscribe; returns the node's boolean result. */
-    unsubscribe(subId: string): Promise<boolean> {
-        return this.call('eth_unsubscribe', [subId]);
+    async unsubscribe(subId: string): Promise<boolean> {
+        try {
+            return await this.call('eth_unsubscribe', [subId]);
+        } finally {
+            this.buffers.delete(subId);
+        }
     }
 
     close(): void {
-        try { this.socket.close(); } catch { /* noop */ }
+        this.fail(new Error('WsClient: connection closed'));
+        this.socket.close();
     }
 }
 
@@ -108,12 +190,14 @@ export const NEW_HEAD_FIELDS = [
     'receiptsRoot',
     'sha3Uncles',
     'stateRoot',
+    'size',
     'timestamp',
     'transactionsRoot',
     'withdrawalsRoot',
 ] as const;
 
 const HEAD_QUANTITY_FIELDS = [
+    'size',
     'number',
     'gasLimit',
     'gasUsed',
@@ -138,15 +222,15 @@ const HEAD_HASH_FIELDS = [
 
 /** Assert a newHeads payload carries exactly the documented fields, each canonically encoded. */
 export function assertNewHeadSchema(head: any): void {
-    NEW_HEAD_FIELDS.forEach(f => expect(head, `newHead has ${f}`).to.have.property(f));
+    assert.deepEqual(Object.keys(head).sort(), [...NEW_HEAD_FIELDS].sort(), 'complete newHeads schema');
     HEAD_QUANTITY_FIELDS.forEach(f =>
-        expect(head[f], `newHead.${f} is a canonical quantity`).to.match(HEX_QUANTITY),
+        assert.match(head[f], HEX_QUANTITY, `newHead.${f} is a canonical quantity`),
     );
-    HEAD_HASH_FIELDS.forEach(f => expect(head[f], `newHead.${f} is a 32-byte hash`).to.match(HASH32));
-    expect(head.miner, 'newHead.miner').to.match(ADDRESS);
-    expect(head.logsBloom, 'newHead.logsBloom').to.match(BLOOM256);
-    expect(head.nonce, 'newHead.nonce').to.match(NONCE8);
-    expect(head.extraData, 'newHead.extraData').to.match(HEX_DATA);
+    HEAD_HASH_FIELDS.forEach(f => assert.match(head[f], HASH32, `newHead.${f} is a 32-byte hash`));
+    assert.match(head.miner, ADDRESS, 'newHead.miner');
+    assert.match(head.logsBloom, BLOOM256, 'newHead.logsBloom');
+    assert.match(head.nonce, NONCE8, 'newHead.nonce');
+    assert.match(head.extraData, HEX_DATA, 'newHead.extraData');
 }
 
 /** The PoW/PoS-only header fields Pax cannot populate must be their canonical zero values. */
@@ -158,51 +242,20 @@ export function assertNewHeadInapplicableZeros(head: any): void {
     expect(head.extraData, 'extraData is empty').to.equal('0x');
 }
 
-/**
- * Cross-check a pushed head against the canonical block the node reports for the same height:
- * the deterministic identity/proposer/time fields must agree exactly. gasUsed is intentionally
- * excluded. 
- */
+/** Compare every canonical header field at the notification's own height. */
 export function assertNewHeadMatchesBlock(head: any, block: any): void {
-    expect(BigInt(head.number), 'number matches the canonical block').to.equal(BigInt(block.number));
-    expect(head.hash, 'hash matches the canonical block').to.equal(block.hash);
-    expect(head.miner.toLowerCase(), 'miner matches the canonical block').to.equal(
-        block.miner.toLowerCase(),
-    );
-    expect(BigInt(head.timestamp), 'timestamp matches the canonical block').to.equal(
-        BigInt(block.timestamp),
-    );
-    expect(BigInt(head.gasLimit), 'gasLimit matches the canonical block').to.equal(
-        BigInt(block.gasLimit),
-    );
+    assertNewHeadSchema(head);
+    for (const field of NEW_HEAD_FIELDS) {
+        assert.deepEqual(head[field], block[field], `newHead.${field} matches the same-height canonical block`);
+    }
 }
 
-/**
- * Verify a live head's baseFeePerGas against canonical state, tolerating a one-block commit-boundary
- * race. Both the newHeads notifier and eth_getBlockByNumber derive the fee for height H from the
- * single, non-height-prefixed NextBaseFeePerGas key via GetNextBaseFeePerGas(ctx(H-1)). At the instant
- * H commits, the notifier's historical context can momentarily resolve to H's freshly-written value —
- * i.e. the fee for H+1 — so the pushed head can legitimately run exactly one block ahead. Accept the
- * canonical fee for the head's own height or its immediate successor, and nothing else.
- */
+/** A successor's fee cannot prove the fee of the block that was announced. */
 export async function assertNewHeadBaseFeeTracksChain(
     head: any,
     provider: ethers.JsonRpcProvider,
 ): Promise<void> {
-    const headBase = BigInt(head.baseFeePerGas);
-    const num = BigInt(head.number);
-
     const canonical = await provider.send('eth_getBlockByNumber', [head.number, false]);
-    expect(canonical, `canonical block exists for ${head.number}`).to.not.equal(null);
-    if (BigInt(canonical.baseFeePerGas) === headBase) return; // exact: the overwhelmingly common case
-
-    // Off by exactly one block — confirm the head carries the successor's canonical base fee.
-    const successor = await waitUntil(
-        () => provider.send('eth_getBlockByNumber', [ethers.toQuantity(num + 1n), false]),
-        { timeoutMs: 15_000, label: `block ${num + 1n} for newHead base-fee cross-check` },
-    );
-    expect(
-        BigInt(successor.baseFeePerGas),
-        `newHead.baseFeePerGas ${headBase} equals the canonical fee for height ${num} (${canonical.baseFeePerGas}) or its successor`,
-    ).to.equal(headBase);
+    assert.notEqual(canonical, null, `canonical block exists for ${head.number}`);
+    assertNewHeadMatchesBlock(head, canonical);
 }

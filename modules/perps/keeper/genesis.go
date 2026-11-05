@@ -33,25 +33,33 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	}
 }
 
-func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
+func ValidateGenesis(gs types.GenesisState) error {
 	full, err := rebuildIndexes(gs)
 	if err != nil {
 		return err
 	}
 	if err := types.ValidateGenesis(full); err != nil {
+		return types.ErrInvalidGenesis.Wrapf("%v", err)
+	}
+	return matchSuppliedIndexes(gs, full)
+}
+
+func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
+	if err := ValidateGenesis(gs); err != nil {
 		return err
 	}
-	if err := matchSuppliedIndexes(gs, full); err != nil {
+	full, err := rebuildIndexes(gs)
+	if err != nil {
 		return err
 	}
 	if err := k.setParams(ctx, gs.Params); err != nil {
-		return fmt.Errorf("%w: %w", types.ErrInvalidGenesis, err)
+		return types.ErrInvalidGenesis.Wrapf("%v", err)
 	}
 	store := k.store(ctx)
 	for _, market := range gs.Markets {
 		bz, err := json.Marshal(market)
 		if err != nil {
-			return fmt.Errorf("%w: market %d: %v", types.ErrInvalidGenesis, market.ID, err)
+			return types.ErrInvalidGenesis.Wrapf("market %d: %v", market.ID, err)
 		}
 		store.Set(types.MarketKey(market.ID), bz)
 	}
@@ -96,6 +104,13 @@ func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	for _, entry := range derivedEntries(full) {
 		store.Set(entry.key, entry.value)
 	}
+	for _, order := range gs.Orders {
+		if order.Status == types.OrderStatusUntriggered && order.ReduceOnly {
+			if err := k.TriggerInsert(ctx, order); err != nil {
+				return types.ErrInvalidGenesis.Wrapf("protective trigger %s: %v", order.ID.Dec(), err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -119,8 +134,7 @@ func rebuildIndexes(gs types.GenesisState) (types.GenesisState, error) {
 		case types.OrderStatusUntriggered:
 			direction, err := TriggerDirection(order)
 			if err != nil {
-				return types.GenesisState{}, fmt.Errorf("%w: untriggered order %s: %w", types.ErrInvalidGenesis,
-					order.ID.Dec(), err)
+				return types.GenesisState{}, types.ErrInvalidGenesis.Wrapf("untriggered order %s: %v", order.ID.Dec(), err)
 			}
 			full.TriggerEntries = append(full.TriggerEntries, types.TriggerEntry{
 				MarketID: order.MarketID, Direction: direction, TriggerPrice: order.TriggerPrice,
@@ -173,8 +187,7 @@ func matchSuppliedIndexes(gs, full types.GenesisState) error {
 			continue
 		}
 		if len(check.supplied) != len(check.stored) {
-			return fmt.Errorf("%w: %d %s entries where the records give %d", types.ErrInvalidGenesis,
-				len(check.supplied), check.name, len(check.stored))
+			return types.ErrInvalidGenesis.Wrapf("%d %s entries where the records give %d", len(check.supplied), check.name, len(check.stored))
 		}
 		want := make(map[string]string, len(check.stored))
 		for _, entry := range check.stored {
@@ -183,7 +196,7 @@ func matchSuppliedIndexes(gs, full types.GenesisState) error {
 		for _, entry := range check.supplied {
 			value, ok := want[string(entry.key)]
 			if !ok || value != string(entry.value) {
-				return fmt.Errorf("%w: %s entry %x disagrees with the records", types.ErrInvalidGenesis, check.name, entry.key)
+				return types.ErrInvalidGenesis.Wrapf("%s entry %x disagrees with the records", check.name, entry.key)
 			}
 			delete(want, string(entry.key))
 		}
@@ -239,9 +252,9 @@ func adlRankEntry(e types.AdlRankEntry) indexEntry {
 	return indexEntry{key: types.AdlRankIndexKey(e.MarketID, e.Side, e.RankScore, e.PositionID), value: []byte{}}
 }
 
-// ExportGenesis exports every stored prefix except the derived book, cloid,
-// trigger, expiry, MarginRatioIndex and AdlRankIndex entries, which
-// InitGenesis rebuilds. It panics with ErrInvalidGenesis on a corrupt record.
+// ExportGenesis exports canonical records and their derived indexes so the
+// result is accepted by both the public validator and InitGenesis. It panics
+// with ErrInvalidGenesis on a corrupt record.
 func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	gs, err := k.exportGenesis(ctx)
 	if err != nil {
@@ -254,14 +267,14 @@ func (k *Keeper) exportGenesis(ctx sdk.Context) (*types.GenesisState, error) {
 	gs := types.DefaultGenesis()
 	params, err := k.GetParams(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", types.ErrInvalidGenesis, err)
+		return nil, types.ErrInvalidGenesis.Wrapf("%v", err)
 	}
 	gs.Params = params
 	if err := k.IterateMarkets(ctx, func(market types.Market) bool {
 		gs.Markets = append(gs.Markets, market)
 		return false
 	}); err != nil {
-		return nil, fmt.Errorf("%w: %w", types.ErrInvalidGenesis, err)
+		return nil, types.ErrInvalidGenesis.Wrapf("%v", err)
 	}
 	store := k.store(ctx)
 	for _, export := range []struct {
@@ -368,7 +381,11 @@ func (k *Keeper) exportGenesis(ctx sdk.Context) (*types.GenesisState, error) {
 	if err := k.exportSingletons(ctx, gs); err != nil {
 		return nil, err
 	}
-	return gs, nil
+	full, err := rebuildIndexes(*gs)
+	if err != nil {
+		return nil, err
+	}
+	return &full, nil
 }
 
 // exportSingletons reads the counters, the sweep cursor and the venue books;
@@ -421,7 +438,7 @@ func wordOf(bz []byte) *uint256.Int {
 
 func corruptRecord(name string, key []byte, cause error) error {
 	if cause == nil {
-		return fmt.Errorf("%w: corrupt %s record %x", types.ErrInvalidGenesis, name, key)
+		return types.ErrInvalidGenesis.Wrapf("corrupt %s record %x", name, key)
 	}
-	return fmt.Errorf("%w: corrupt %s record %x: %v", types.ErrInvalidGenesis, name, key, cause)
+	return types.ErrInvalidGenesis.Wrapf("corrupt %s record %x: %v", name, key, cause)
 }

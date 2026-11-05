@@ -41,7 +41,6 @@ paxeer-proto-registry.yml       push                             publishing-cred
 paxeer-release-publish.yml      releaser                         publishing-credential ubuntu-latest
 platform.yml                    ios-application-artifact         macos             macos-15
 platform.yml                    real-ios-journey                 macos             macos-15
-platform.yml                    replay-matrix                    matrix-runner     ${{ matrix.runner }}
 platform.yml                    release-pipeline                 release-pipeline  ubuntu-24.04
 platform.yml                    publish-crates-io                publish           ubuntu-24.04
 platform.yml                    publish-npm                      publish           ubuntu-24.04
@@ -51,6 +50,10 @@ platform.yml                    publish-maven-central            publish        
 platform.yml                    publish-swiftpm                  publish           ubuntu-24.04
 platform.yml                    publish-nuget                    publish           ubuntu-24.04
 programs-conformance.yml        deterministic-execution          matrix-runner     ${{ matrix.os }}
+publish-images.yml              plan                             publish           ubuntu-latest
+publish-images.yml              images                           publish           ubuntu-latest
+publish-images.yml              images-dependent                 publish           ubuntu-latest
+publish-images.yml              gate                             publish           ubuntu-latest
 publish-images.yml              publish                          docker-command    ubuntu-24.04
 publish-images.yml              attest                           docker-command    ubuntu-24.04
 publish-images.yml              promote                          docker-command    ubuntu-24.04

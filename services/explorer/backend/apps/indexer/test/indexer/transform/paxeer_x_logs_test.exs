@@ -2,7 +2,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
   use ExUnit.Case, async: true
 
   alias ABI.TypeEncoder
-  alias Explorer.Chain.PaxeerX.{AccountBinding, Anchor, CustodyEvent, DepositRoot, GuarantorEvent, MarketEvent, Receipt}
+  alias Explorer.Chain.PaxeerX.{AccountBinding, MarketEvent}
   alias Indexer.Transform.PaxeerXLogs
 
   @addr_precompile "0x0000000000000000000000000000000000001004"
@@ -14,35 +14,63 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
 
   @erc20_transfer_topic "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
-  @schemas %{
-    lx_account_bindings: AccountBinding,
-    lx_custody_events: CustodyEvent,
-    lx_deposit_roots: DepositRoot,
-    lx_anchors: Anchor,
-    lx_guarantor_events: GuarantorEvent,
-    lx_market_events: MarketEvent,
-    lx_receipts: Receipt
-  }
+  @schemas %{lx_account_bindings: AccountBinding, lx_market_events: MarketEvent}
+  @empty %{lx_account_bindings: [], lx_market_events: [], undecoded_log_count: 0}
+  @row_tables [:lx_account_bindings, :lx_market_events]
+  @retired_keys [:lx_custody_events, :lx_deposit_roots, :lx_anchors, :lx_guarantor_events, :lx_receipts]
 
-  @empty %{
-    lx_account_bindings: [],
-    lx_custody_events: [],
-    lx_deposit_roots: [],
-    lx_anchors: [],
-    lx_guarantor_events: [],
-    lx_receipts: [],
-    lx_market_events: [],
-    undecoded_log_count: 0
-  }
+  test "a v6.12.0 perps collateral deposit at 0x1015 decodes into an exchange market event" do
+    account = <<0x77::160>>
+    amount = 1_000_000
+    new_balance = 2_000_000
 
-  @row_tables [
-    :lx_account_bindings,
-    :lx_custody_events,
-    :lx_deposit_roots,
-    :lx_anchors,
-    :lx_guarantor_events,
-    :lx_market_events
-  ]
+    deposit = %{
+      address_hash: @exchange_precompile,
+      block_hash: bytes32(0x78),
+      block_number: 4_000_000,
+      transaction_hash: bytes32(0x79),
+      index: 0,
+      first_topic:
+        "0x" <> Base.encode16(ExKeccak.hash_256("CollateralDeposited(address,uint256,uint256)"), case: :lower),
+      second_topic: topic(:address, account),
+      third_topic: nil,
+      fourth_topic: nil,
+      data: "0x" <> Base.encode16(TypeEncoder.encode([amount, new_balance], [{:uint, 256}, {:uint, 256}]), case: :lower)
+    }
+
+    assert %{lx_market_events: [row], undecoded_log_count: 0} = PaxeerXLogs.parse([deposit])
+    assert row.domain == :exchange
+    assert row.kind == "collateral_deposited"
+    assert row.address_hash == address(0x77)
+    assert row.amount == amount
+    assert row.event_name == "CollateralDeposited"
+    assert row.parameters == %{"account" => address(0x77), "amount" => amount, "newBalance" => new_balance}
+    assert row.account == nil
+    assert_schema_row(:lx_market_events, row)
+
+    legacy =
+      log(
+        definition!(@exchange_precompile, "MarginDeposited(bytes32,bytes32,address,bytes32,uint256,bytes32,uint64)"),
+        1,
+        %{
+          "intentId" => <<0x31::256>>,
+          "account" => <<0x32::256>>,
+          "owner" => account,
+          "assetId" => <<0x34::256>>,
+          "amount" => amount,
+          "depositId" => <<0x35::256>>,
+          "nonce" => 3
+        }
+      )
+
+    assert %{lx_market_events: [^row, legacy_row], undecoded_log_count: 0} = PaxeerXLogs.parse([deposit, legacy])
+    assert legacy_row.domain == :exchange
+    assert legacy_row.kind == "margin_deposited"
+    assert legacy_row.address_hash == address(0x77)
+    assert legacy_row.account == bytes32(0x32)
+    assert legacy_row.amount == amount
+    assert_schema_row(:lx_market_events, legacy_row)
+  end
 
   describe "definitions/0" do
     test "every topic0 constant is keccak256 of the event signature from the precompile ABI" do
@@ -59,10 +87,8 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
       by_table = Enum.group_by(PaxeerXLogs.definitions(), & &1.table, & &1.address)
 
       assert by_table |> Map.fetch!(:lx_account_bindings) |> Enum.uniq() == [@addr_precompile]
-      assert by_table |> Map.fetch!(:lx_custody_events) |> Enum.uniq() == [@custody_precompile]
-      assert by_table |> Map.fetch!(:lx_deposit_roots) |> Enum.uniq() == [@custody_precompile]
-      assert by_table |> Map.fetch!(:lx_anchors) |> Enum.uniq() == [@anchor_precompile]
-      assert by_table |> Map.fetch!(:lx_guarantor_events) |> Enum.uniq() == [@anchor_precompile]
+      for table <- @retired_keys, do: refute(Map.has_key?(by_table, table))
+      refute Enum.any?(PaxeerXLogs.definitions(), &(&1.address in [@custody_precompile, @anchor_precompile]))
 
       assert by_table |> Map.fetch!(:lx_market_events) |> Enum.uniq() |> Enum.sort() == [
                @exchange_precompile,
@@ -81,54 +107,38 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
       refute Enum.any?(PaxeerXLogs.definitions(), &(&1.table == :lx_receipts))
     end
 
-    test "the custody definitions cover the kinds and directions the schema declares" do
-      custody = Enum.filter(PaxeerXLogs.definitions(), &(&1.table == :lx_custody_events))
+    test "the retired custody kinds and directions cannot produce rows" do
+      assert_retired_abi(
+        "layerxcustody",
+        @custody_precompile,
+        ~w(CustodyDeposit ClaimQueued ClaimFinalised CustodyRelease EmergencyExitExecuted DepositRootRegistered)
+      )
+    end
 
-      assert custody |> Enum.map(& &1.kind) |> Enum.sort() == Enum.sort(CustodyEvent.kinds())
+    test "the retired submitted and final anchor statuses cannot produce rows" do
+      assert_retired_abi("layerxanchor", @anchor_precompile, ~w(CheckpointSubmitted CheckpointFinalized))
+    end
 
-      for definition <- custody do
-        assert definition.direction in CustodyEvent.directions(),
-               "#{definition.name} carries a direction the schema does not declare"
+    test "the ten retired guarantor event kinds cannot produce rows" do
+      assert_retired_abi(
+        "layerxanchor",
+        @anchor_precompile,
+        ~w(AvailabilityAttested BondIncreased ChallengeOpened ChallengeResolved GuarantorActivated GuarantorRegistered
+           GuarantorSlashed SequencerAuthorized UnbondBegun UnbondCompleted)
+      )
+    end
+
+    test "retired deposit root registration cannot produce a table" do
+      assert_retired_abi("layerxcustody", @custody_precompile, ~w(DepositRootRegistered))
+    end
+
+    test "every committed anchor and custody event is explicitly rejected" do
+      for {name, address} <- [{"layerxcustody", @custody_precompile}, {"layerxanchor", @anchor_precompile}] do
+        events = retired_definitions(name, address)
+        assert length(events) == if(name == "layerxcustody", do: 6, else: 12)
+        fixtures = Enum.map(Enum.with_index(events), &fixture/1)
+        assert_retired_logs(Enum.map(fixtures, & &1.log))
       end
-    end
-
-    test "the anchor definitions carry a status the schema declares" do
-      statuses =
-        PaxeerXLogs.definitions()
-        |> Enum.filter(&(&1.table == :lx_anchors))
-        |> Enum.map(& &1.status)
-
-      assert statuses == [:submitted, :final]
-      assert Enum.all?(statuses, &(&1 in Anchor.statuses()))
-    end
-
-    test "the guarantor definitions cover the kinds the schema declares" do
-      guarantor = Enum.filter(PaxeerXLogs.definitions(), &(&1.table == :lx_guarantor_events))
-
-      assert guarantor |> Enum.map(& &1.kind) |> Enum.sort() == Enum.sort(GuarantorEvent.kinds())
-      assert length(guarantor) == 10
-    end
-
-    test "the deposit root registration is the only definition of its table" do
-      assert [definition] = Enum.filter(PaxeerXLogs.definitions(), &(&1.table == :lx_deposit_roots))
-
-      assert definition.name == "DepositRootRegistered"
-
-      assert definition.arguments |> Enum.map(fn {name, _type, _indexed?} -> name end) |> Enum.sort() ==
-               ~w(checkpointId commitment depositRoot version)
-    end
-
-    test "every anchor and custody precompile event of the committed ABI has a definition" do
-      by_address = Enum.group_by(PaxeerXLogs.definitions(), & &1.address, & &1.name)
-
-      assert by_address |> Map.fetch!(@anchor_precompile) |> Enum.sort() ==
-               ~w(AvailabilityAttested BondIncreased ChallengeOpened ChallengeResolved CheckpointFinalized
-                  CheckpointSubmitted GuarantorActivated GuarantorRegistered GuarantorSlashed SequencerAuthorized
-                  UnbondBegun UnbondCompleted)
-
-      assert by_address |> Map.fetch!(@custody_precompile) |> Enum.sort() ==
-               ~w(ClaimFinalised ClaimQueued CustodyDeposit CustodyRelease DepositRootRegistered
-                  EmergencyExitExecuted)
     end
 
     test "the market definitions cover the domains the schema declares" do
@@ -173,7 +183,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a binding log fills the promoted account binding columns" do
-      definition = definition!("LayerXBound")
+      definition = definition!(@addr_precompile, "LayerXBound(address,bytes32,uint64)")
 
       log =
         log(definition, 12, %{
@@ -196,7 +206,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "an unbinding log is the same row with bound false" do
-      definition = definition!("LayerXUnbound")
+      definition = definition!(@addr_precompile, "LayerXUnbound(address,bytes32,uint64)")
 
       log =
         log(definition, 13, %{
@@ -213,8 +223,9 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
       assert_schema_row(:lx_account_bindings, row)
     end
 
-    test "a custody deposit log is a deposit of the payer, not of the precompile" do
-      definition = definition!("CustodyDeposit")
+    test "retired: a custody deposit log is a deposit of the payer, not of the precompile is rejected" do
+      definition =
+        retired_definition!(@custody_precompile, "CustodyDeposit(bytes32,bytes32,address,bytes32,uint256,uint64)")
 
       log =
         log(definition, 3, %{
@@ -226,24 +237,12 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "nonce" => 42
         })
 
-      assert %{lx_custody_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :custody_deposit
-      assert row.direction == :deposit
-      assert row.reference_id == "0x00000000000000000000000000000000000000000000000000000000000000ab"
-      assert row.asset_id == "0x00000000000000000000000000000000000000000000000000000000000000cd"
-      assert row.address_hash == "0x00000000000000000000000000000000000000ef"
-      assert row.account == "0x0000000000000000000000000000000000000000000000000000000000000099"
-      assert row.amount == 1_500_000_000_000_000_000
-      assert row.nullifier == nil
-      assert row.checkpoint_hash == nil
-      assert row.parameters["nonce"] == 42
-
-      assert_schema_row(:lx_custody_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a claim queued log keeps the claim, the nullifier and the checkpoint apart" do
-      definition = definition!("ClaimQueued")
+    test "retired: a claim queued log keeps the claim, the nullifier and the checkpoint apart is rejected" do
+      definition =
+        retired_definition!(@custody_precompile, "ClaimQueued(bytes32,bytes32,bytes32,bytes32,address,uint256,uint64)")
 
       log =
         log(definition, 4, %{
@@ -256,40 +255,23 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "availableAt" => 1_700_000_000
         })
 
-      assert %{lx_custody_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :claim_queued
-      assert row.direction == :withdrawal
-      assert row.reference_id == bytes32(1)
-      assert row.nullifier == bytes32(2)
-      assert row.checkpoint_hash == bytes32(3)
-      assert row.asset_id == bytes32(4)
-      assert row.address_hash == address(5)
-      assert row.amount == 250
-      assert row.parameters["availableAt"] == 1_700_000_000
-
-      assert_schema_row(:lx_custody_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a claim finalisation is a balance delta that carries only its linkage" do
-      definition = definition!("ClaimFinalised")
+    test "retired: a claim finalisation is a balance delta that carries only its linkage is rejected" do
+      definition = retired_definition!(@custody_precompile, "ClaimFinalised(bytes32,bytes32)")
 
       log = log(definition, 2, %{"claimId" => <<0x01::256>>, "nullifier" => <<0x02::256>>})
 
-      assert %{lx_custody_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :claim_finalised
-      assert row.direction == :balance_delta
-      assert row.reference_id == bytes32(1)
-      assert row.nullifier == bytes32(2)
-      assert row.amount == nil
-      assert row.address_hash == nil
-
-      assert_schema_row(:lx_custody_events, row)
+      assert_retired_logs([log])
     end
 
-    test "an emergency exit is a withdrawal of its recipient crediting its kernel account" do
-      definition = definition!("EmergencyExitExecuted")
+    test "retired: an emergency exit is a withdrawal of its recipient crediting its kernel account is rejected" do
+      definition =
+        retired_definition!(
+          @custody_precompile,
+          "EmergencyExitExecuted(bytes32,bytes32,bytes32,bytes32,bytes32,address,uint256)"
+        )
 
       log =
         log(definition, 14, %{
@@ -302,18 +284,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "amount" => 9
         })
 
-      assert %{lx_custody_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :emergency_exit
-      assert row.direction == :withdrawal
-      assert row.account == bytes32(4)
-      assert row.address_hash == address(6)
-
-      assert_schema_row(:lx_custody_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a checkpoint submission fills the promoted anchor columns with the submitted status" do
-      definition = definition!("CheckpointSubmitted")
+    test "retired: a checkpoint submission fills the promoted anchor columns with the submitted status is rejected" do
+      definition = retired_definition!(@anchor_precompile, "CheckpointSubmitted(uint64,bytes32,bytes32,bytes32,uint8)")
 
       log =
         log(definition, 0, %{
@@ -324,20 +299,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "signers" => 9
         })
 
-      assert %{lx_anchors: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.status == :submitted
-      assert row.batch_number == 91_234
-      assert row.checkpoint_id == bytes32(0x7A)
-      assert row.state_root == bytes32(0x7B)
-      assert row.receipt_root == bytes32(0x7C)
-      assert row.signers == 9
-
-      assert_schema_row(:lx_anchors, row)
+      assert_retired_logs([log])
     end
 
-    test "a checkpoint finalization is the same checkpoint with the final status" do
-      definition = definition!("CheckpointFinalized")
+    test "retired: a checkpoint finalization is the same checkpoint with the final status is rejected" do
+      definition = retired_definition!(@anchor_precompile, "CheckpointFinalized(uint64,bytes32,bytes32,bytes32)")
 
       log =
         log(definition, 1, %{
@@ -347,18 +313,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "receiptRoot" => <<0x7C::256>>
         })
 
-      assert %{lx_anchors: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.status == :final
-      assert row.batch_number == 91_234
-      assert row.checkpoint_id == bytes32(0x7A)
-      assert row.signers == nil
-
-      assert_schema_row(:lx_anchors, row)
+      assert_retired_logs([log])
     end
 
-    test "a guarantor registration fills the signer, the operator and the bond" do
-      definition = definition!("GuarantorRegistered")
+    test "retired: a guarantor registration fills the signer, the operator and the bond is rejected" do
+      definition = retired_definition!(@anchor_precompile, "GuarantorRegistered(bytes32,address,address,uint256,uint8)")
 
       log =
         log(definition, 20, %{
@@ -369,42 +328,20 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "status" => 1
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :guarantor_registered
-      assert row.event_name == "GuarantorRegistered"
-      assert row.log_index == 20
-      assert row.guarantor_id == bytes32(0x1A)
-      assert row.signer_address_hash == address(0x21)
-      assert row.operator_address_hash == address(0x22)
-      assert row.bond == 5_000_000_000_000_000_000
-      assert row.amount == nil
-      assert row.batch_number == nil
-      assert row.challenge_id == nil
-      assert row.parameters["status"] == 1
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a guarantor activation carries its guarantor and nothing else" do
-      definition = definition!("GuarantorActivated")
+    test "retired: a guarantor activation carries its guarantor and nothing else is rejected" do
+      definition = retired_definition!(@anchor_precompile, "GuarantorActivated(bytes32)")
 
       log = log(definition, 21, %{"guarantorId" => <<0x1A::256>>})
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :guarantor_activated
-      assert row.guarantor_id == bytes32(0x1A)
-      assert row.bond == nil
-      assert row.amount == nil
-      assert row.signer_address_hash == nil
-      assert row.parameters == %{"guarantorId" => bytes32(0x1A)}
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a slash records the slashed value, the batch and the reporter's reward" do
-      definition = definition!("GuarantorSlashed")
+    test "retired: a slash records the slashed value, the batch and the reporter's reward is rejected" do
+      definition =
+        retired_definition!(@anchor_precompile, "GuarantorSlashed(bytes32,uint8,uint64,uint256,address,uint256)")
 
       log =
         log(definition, 22, %{
@@ -416,22 +353,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "reporterReward" => 400_000_000_000_000_000
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :guarantor_slashed
-      assert row.guarantor_id == bytes32(0x1A)
-      assert row.batch_number == 91_234
-      assert row.amount == 4_000_000_000_000_000_000
-      assert row.reporter_address_hash == address(0x31)
-      assert row.reporter_reward == 400_000_000_000_000_000
-      assert row.bond == nil
-      assert row.parameters["reason"] == 2
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a bond increase keeps the moved value apart from the resulting bond" do
-      definition = definition!("BondIncreased")
+    test "retired: a bond increase keeps the moved value apart from the resulting bond is rejected" do
+      definition = retired_definition!(@anchor_precompile, "BondIncreased(bytes32,uint256,uint256)")
 
       log =
         log(definition, 23, %{
@@ -440,19 +366,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "bond" => 6_000_000_000_000_000_000
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :bond_increased
-      assert row.guarantor_id == bytes32(0x1A)
-      assert row.amount == 1_000_000_000_000_000_000
-      assert row.bond == 6_000_000_000_000_000_000
-      assert row.completion_time == nil
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a begun unbonding carries the value and the moment it becomes claimable" do
-      definition = definition!("UnbondBegun")
+    test "retired: a begun unbonding carries the value and the moment it becomes claimable is rejected" do
+      definition = retired_definition!(@anchor_precompile, "UnbondBegun(bytes32,uint256,uint64)")
 
       log =
         log(definition, 24, %{
@@ -461,33 +379,19 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "completionTime" => 1_700_000_000
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :unbond_begun
-      assert row.guarantor_id == bytes32(0x1A)
-      assert row.amount == 2_000_000_000_000_000_000
-      assert row.completion_time == 1_700_000_000
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a completed unbonding is the same guarantor without a completion time" do
-      definition = definition!("UnbondCompleted")
+    test "retired: a completed unbonding is the same guarantor without a completion time is rejected" do
+      definition = retired_definition!(@anchor_precompile, "UnbondCompleted(bytes32,uint256)")
 
       log = log(definition, 25, %{"guarantorId" => <<0x1A::256>>, "amount" => 2_000_000_000_000_000_000})
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :unbond_completed
-      assert row.guarantor_id == bytes32(0x1A)
-      assert row.amount == 2_000_000_000_000_000_000
-      assert row.completion_time == nil
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "an opened challenge keeps its kind, its evidence and its challenger" do
-      definition = definition!("ChallengeOpened")
+    test "retired: an opened challenge keeps its kind, its evidence and its challenger is rejected" do
+      definition = retired_definition!(@anchor_precompile, "ChallengeOpened(uint64,uint64,uint8,bytes32,address)")
 
       log =
         log(definition, 26, %{
@@ -498,39 +402,19 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "challenger" => <<0x4B::160>>
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :challenge_opened
-      assert row.challenge_id == 77
-      assert row.batch_number == 91_234
-      assert row.challenge_kind == 3
-      assert row.evidence_hash == bytes32(0x4A)
-      assert row.challenger_address_hash == address(0x4B)
-      assert row.guarantor_id == nil
-      assert row.upheld == nil
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a resolved challenge records whether it was upheld" do
-      definition = definition!("ChallengeResolved")
+    test "retired: a resolved challenge records whether it was upheld is rejected" do
+      definition = retired_definition!(@anchor_precompile, "ChallengeResolved(uint64,uint64,bool)")
 
       log = log(definition, 27, %{"challengeId" => 77, "batchNumber" => 91_234, "upheld" => true})
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :challenge_resolved
-      assert row.challenge_id == 77
-      assert row.batch_number == 91_234
-      assert row.upheld == true
-      assert row.evidence_hash == nil
-      assert row.challenger_address_hash == nil
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "an availability attestation keeps the classes it covers and the ones it reports available" do
-      definition = definition!("AvailabilityAttested")
+    test "retired: an availability attestation keeps the classes it covers and the ones it reports available is rejected" do
+      definition = retired_definition!(@anchor_precompile, "AvailabilityAttested(uint64,bytes32,uint8,uint8)")
 
       log =
         log(definition, 28, %{
@@ -540,20 +424,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "availabilityMask" => 1
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :availability_attested
-      assert row.batch_number == 91_234
-      assert row.guarantor_id == bytes32(0x5E)
-      assert row.class_mask == 3
-      assert row.availability_mask == 1
-      assert row.amount == nil
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a sequencer authorisation carries its public key and the batch range it covers" do
-      definition = definition!("SequencerAuthorized")
+    test "retired: a sequencer authorisation carries its public key and the batch range it covers is rejected" do
+      definition = retired_definition!(@anchor_precompile, "SequencerAuthorized(bytes32,bytes32,uint64,uint64)")
 
       log =
         log(definition, 29, %{
@@ -563,20 +438,11 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "lastBatchNumber" => 92_000
         })
 
-      assert %{lx_guarantor_events: [row]} = PaxeerXLogs.parse([log])
-
-      assert row.kind == :sequencer_authorized
-      assert row.sequencer_id == bytes32(0x6A)
-      assert row.sequencer_public_key == bytes32(0x6B)
-      assert row.first_batch_number == 91_000
-      assert row.last_batch_number == 92_000
-      assert row.guarantor_id == nil
-
-      assert_schema_row(:lx_guarantor_events, row)
+      assert_retired_logs([log])
     end
 
-    test "a deposit root registration is a deposit root, not a custody movement" do
-      definition = definition!("DepositRootRegistered")
+    test "retired: a deposit root registration is a deposit root, not a custody movement is rejected" do
+      definition = retired_definition!(@custody_precompile, "DepositRootRegistered(bytes32,bytes32,bytes32,uint16)")
 
       log =
         log(definition, 30, %{
@@ -586,21 +452,12 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
           "version" => 1
         })
 
-      assert %{lx_deposit_roots: [row], lx_custody_events: []} = PaxeerXLogs.parse([log])
-
-      assert row.event_name == "DepositRootRegistered"
-      assert row.log_index == 30
-      assert row.checkpoint_id == bytes32(0x7A)
-      assert row.deposit_root == bytes32(0x7B)
-      assert row.commitment == bytes32(0x7C)
-      assert row.version == 1
-      assert row.parameters["version"] == 1
-
-      assert_schema_row(:lx_deposit_roots, row)
+      assert_retired_logs([log])
     end
 
     test "an exchange log is a market event of the exchange domain" do
-      definition = definition!("OrderPlaced")
+      definition =
+        definition!(@exchange_precompile, "OrderPlaced(bytes32,bytes32,address,uint8,uint256,uint256,uint8,uint64)")
 
       log =
         log(definition, 5, %{
@@ -629,7 +486,8 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a margin deposit keeps both the EVM owner and the kernel account" do
-      definition = definition!("MarginDeposited")
+      definition =
+        definition!(@exchange_precompile, "MarginDeposited(bytes32,bytes32,address,bytes32,uint256,bytes32,uint64)")
 
       log =
         log(definition, 15, %{
@@ -654,7 +512,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a bridge log decodes its dynamic denom and keeps the source chain" do
-      definition = definition!("BridgeIn")
+      definition = definition!(@bridge_precompile, "BridgeIn(uint64,bytes32,address,uint64,address,uint256,string)")
 
       log =
         log(definition, 6, %{
@@ -682,7 +540,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a bridge out log reads its nonce from the third topic" do
-      definition = definition!("BridgeOut")
+      definition = definition!(@bridge_precompile, "BridgeOut(uint64,address,uint256,address,uint64)")
 
       log =
         log(definition, 7, %{
@@ -704,7 +562,8 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a launchpad swap prefers the trader over the recipient as the acting address" do
-      definition = definition!("Swap")
+      definition =
+        definition!(@launchpad_precompile, "Swap(address,address,address,bool,uint256,uint256,uint256,uint256)")
 
       log =
         log(definition, 8, %{
@@ -732,7 +591,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a launchpad market creation decodes its three dynamic strings" do
-      definition = definition!("MarketCreated")
+      definition = definition!(@launchpad_precompile, "MarketCreated(address,address,string,string,string,uint8)")
 
       log =
         log(definition, 9, %{
@@ -757,7 +616,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a topic0 written in upper case still matches" do
-      definition = definition!("FeesBurned")
+      definition = definition!(@launchpad_precompile, "FeesBurned(address,uint256)")
 
       log =
         definition
@@ -772,10 +631,12 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
       assert_schema_row(:lx_market_events, row)
     end
 
-    test "lx_receipts stays empty: a kernel receipt is not an EVM event" do
+    test "retired result keys are absent: a kernel receipt is not an EVM event" do
       fixtures = Enum.map(Enum.with_index(PaxeerXLogs.definitions()), &fixture/1)
 
-      assert %{lx_receipts: []} = fixtures |> Enum.map(& &1.log) |> PaxeerXLogs.parse()
+      result = fixtures |> Enum.map(& &1.log) |> PaxeerXLogs.parse()
+      assert Enum.sort(Map.keys(result)) == Enum.sort(Map.keys(@empty))
+      for key <- @retired_keys, do: refute(Map.has_key?(result, key))
     end
 
     test "an empty log list yields empty lists" do
@@ -800,7 +661,8 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     end
 
     test "a precompile topic0 emitted by an ordinary contract yields nothing" do
-      definition = definition!("CustodyDeposit")
+      definition =
+        retired_definition!(@custody_precompile, "CustodyDeposit(bytes32,bytes32,address,bytes32,uint256,uint64)")
 
       log =
         definition
@@ -817,19 +679,10 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
       assert PaxeerXLogs.parse([log]) == @empty
     end
 
-    test "an unknown topic0 at a precompile address yields no row and one undecoded log" do
-      definition = definition!("CustodyDeposit")
-
+    test "an unknown topic0 at a retained precompile address yields no row and one undecoded log" do
       log =
-        definition
-        |> log(3, %{
-          "depositId" => <<0xAB::256>>,
-          "assetId" => <<0xCD::256>>,
-          "payer" => <<0xEF::160>>,
-          "beneficiary" => <<0x99::256>>,
-          "amount" => 1,
-          "nonce" => 1
-        })
+        definition!(@addr_precompile, "LayerXBound(address,bytes32,uint64)")
+        |> log(3, %{"evm" => <<0x11::160>>, "didPublicKey" => <<0x22::256>>, "nonce" => 7})
         |> Map.put(:first_topic, @erc20_transfer_topic)
 
       assert PaxeerXLogs.parse([log]) == %{@empty | undecoded_log_count: 1}
@@ -846,7 +699,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
 
     test "a precompile log whose topic0 no definition matches is counted rather than dropped" do
       unknown = %{
-        address_hash: @anchor_precompile,
+        address_hash: @addr_precompile,
         block_hash: "0x79594150677f083756a37eee7b97ed99ab071f502104332cb3835bac345711ca",
         block_number: 42,
         data: "0x" <> Base.encode16(TypeEncoder.encode([5], [{:uint, 256}]), case: :lower),
@@ -858,39 +711,62 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
         transaction_hash: "0x43dfd761974e8c3351d285ab65bee311454eb45b149a015fe7804a33252f19e5"
       }
 
-      decoded = log(definition!("GuarantorActivated"), 1, %{"guarantorId" => <<0x1A::256>>})
+      decoded =
+        log(definition!(@addr_precompile, "LayerXBound(address,bytes32,uint64)"), 1, %{
+          "evm" => <<0x11::160>>,
+          "didPublicKey" => <<0x22::256>>,
+          "nonce" => 7
+        })
 
       result = PaxeerXLogs.parse([unknown, decoded])
 
       assert result.undecoded_log_count == 1
-      assert [%{kind: :guarantor_activated}] = result.lx_guarantor_events
+      assert [%{event_name: "LayerXBound", nonce: 7}] = result.lx_account_bindings
+      assert result.lx_market_events == []
+      for key <- @retired_keys, do: refute(Map.has_key?(result, key))
     end
 
     test "a log missing an indexed topic yields no row and one undecoded log" do
-      definition = definition!("ClaimFinalised")
-
       log =
-        definition
-        |> log(2, %{"claimId" => <<0x01::256>>, "nullifier" => <<0x02::256>>})
+        definition!(@addr_precompile, "LayerXBound(address,bytes32,uint64)")
+        |> log(2, %{"evm" => <<0x11::160>>, "didPublicKey" => <<0x22::256>>, "nonce" => 7})
         |> Map.put(:third_topic, nil)
 
       assert PaxeerXLogs.parse([log]) == %{@empty | undecoded_log_count: 1}
     end
 
     test "a log carrying no data for its unindexed arguments yields no row and one undecoded log" do
-      definition = definition!("CheckpointFinalized")
-
       log =
-        definition
-        |> log(4, %{
-          "batchNumber" => 9,
-          "checkpointId" => <<0x07::256>>,
-          "stateRoot" => <<0x08::256>>,
-          "receiptRoot" => <<0x09::256>>
-        })
+        definition!(@addr_precompile, "LayerXBound(address,bytes32,uint64)")
+        |> log(4, %{"evm" => <<0x11::160>>, "didPublicKey" => <<0x22::256>>, "nonce" => 7})
         |> Map.put(:data, "0x")
 
       assert PaxeerXLogs.parse([log]) == %{@empty | undecoded_log_count: 1}
+    end
+
+    test "current perps OrderPlaced uses its own topic and address account layout" do
+      definition = definition!(@exchange_precompile, "OrderPlaced(uint256,address,uint256,uint8,bool,uint256,uint256)")
+
+      values = %{
+        "orderId" => 91,
+        "user" => <<0x23::160>>,
+        "marketId" => 22,
+        "orderType" => 1,
+        "isLong" => true,
+        "triggerPrice" => 42_000_000,
+        "sizeUsd" => 3_000_000
+      }
+
+      log = log(definition, 31, values)
+      assert %{lx_market_events: [row], lx_account_bindings: [], undecoded_log_count: 0} = PaxeerXLogs.parse([log])
+      assert row.domain == :exchange
+      assert row.kind == "order_placed"
+      assert row.address_hash == address(0x23)
+      assert row.account == nil
+      assert row.parameters == Map.put(values, "user", address(0x23))
+      refute Map.has_key?(row.parameters, "intentId")
+      refute Map.has_key?(row.parameters, "nonce")
+      assert_schema_row(:lx_market_events, row)
     end
   end
 
@@ -911,7 +787,64 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
     changeset
   end
 
-  defp definition!(name), do: Enum.find(PaxeerXLogs.definitions(), &(&1.name == name))
+  defp definition!(address, signature) do
+    [definition] = Enum.filter(PaxeerXLogs.definitions(), &(&1.address == address and &1.signature == signature))
+    definition
+  end
+
+  defp assert_retired_logs(logs) do
+    assert logs != []
+
+    for log <- logs do
+      assert log.address_hash in [@custody_precompile, @anchor_precompile]
+      refute Enum.any?(PaxeerXLogs.definitions(), &(&1.address == log.address_hash))
+    end
+
+    result = PaxeerXLogs.parse(logs)
+    assert result == @empty
+    for key <- @retired_keys, do: refute(Map.has_key?(result, key))
+  end
+
+  defp assert_retired_abi(name, address, names) do
+    definitions = retired_definitions(name, address) |> Enum.filter(&(&1.name in names))
+    assert Enum.sort(Enum.map(definitions, & &1.name)) == Enum.sort(names)
+
+    for {definition, index} <- Enum.with_index(definitions) do
+      assert_retired_logs([fixture({definition, index}).log])
+    end
+  end
+
+  defp retired_definition!(address, signature) do
+    name = if address == @custody_precompile, do: "layerxcustody", else: "layerxanchor"
+    [definition] = Enum.filter(retired_definitions(name, address), &(&1.signature == signature))
+    definition
+  end
+
+  defp retired_definitions(name, address) do
+    root = System.get_env("PAXEER_PRECOMPILES_DIR") || Path.expand("../../../../../../../../precompiles", __DIR__)
+
+    root
+    |> Path.join("#{name}/abi.json")
+    |> File.read!()
+    |> Jason.decode!()
+    |> Enum.filter(&(&1["type"] == "event"))
+    |> Enum.map(fn event ->
+      signature = event["name"] <> "(" <> Enum.map_join(event["inputs"], ",", & &1["type"]) <> ")"
+
+      %{
+        address: address,
+        name: event["name"],
+        signature: signature,
+        topic: "0x" <> Base.encode16(ExKeccak.hash_256(signature), case: :lower),
+        arguments: Enum.map(event["inputs"], &{&1["name"], from_abi_type(&1["type"]), &1["indexed"]})
+      }
+    end)
+  end
+
+  defp from_abi_type("address"), do: :address
+  defp from_abi_type("bool"), do: :bool
+  defp from_abi_type("bytes32"), do: {:bytes, 32}
+  defp from_abi_type("uint" <> bits), do: {:uint, String.to_integer(bits)}
 
   defp bytes32(value), do: "0x" <> (value |> Integer.to_string(16) |> String.downcase() |> String.pad_leading(64, "0"))
 
@@ -926,6 +859,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
   defp abi_type(:string), do: "string"
   defp abi_type({:bytes, size}), do: "bytes#{size}"
   defp abi_type({:uint, bits}), do: "uint#{bits}"
+  defp abi_type({:int, bits}), do: "int#{bits}"
 
   defp fixture({definition, index}) do
     values =
@@ -950,6 +884,7 @@ defmodule Indexer.Transform.PaxeerXLogsTest do
   defp sample({:bytes, 32}, seed), do: <<seed::256>>
   defp sample({:uint, bits}, seed) when bits <= 16, do: rem(seed, 200) + 1
   defp sample({:uint, _bits}, seed), do: seed * 7 + 3
+  defp sample({:int, 256}, seed), do: -(seed * 7 + 3)
   defp sample(:bool, seed), do: rem(seed, 2) == 0
   defp sample(:string, seed), do: "denom-#{seed}"
 

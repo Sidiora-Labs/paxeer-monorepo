@@ -1,0 +1,243 @@
+[reconcile.r11-175]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r11-175.1]
+interface = "interface.11.rs-xws-payment-gate-payment-required"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1342
+symbol = "payment_required"
+evidence = "PaymentGate declares pub fn payment_required(&self, request: &Request, payer: Option<[u8; 20]>) -> Result<PaymentRequired, Response>. The payer changed from Option<&str> to an optional 20-byte address; this is the declaration, not the Seller call or challenge error literal."
+
+[row.r11-175.2]
+interface = "interface.11.rs-xws-payment-gate-purpose"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1267
+symbol = "purpose"
+evidence = "PaymentGate declares pub const fn purpose(&self) -> [u8; 32] and returns self.receiver.purpose. The method signature is unchanged; the receiver field and offer uses are separate occurrences."
+
+[row.r11-175.3]
+interface = "interface.11.fmt-xws-journal-state-labels"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 523
+symbol = "code"
+evidence = "JournalState::code is declared as pub const fn code(self) -> &'static str. Its match still defines exactly the labels signed, fulfilled, already_fulfilled, refunded and reorged; this declaration owns the vocabulary used by journal serialization."
+
+[row.r11-175.4]
+interface = "interface.11.rs-xws-decode-request-view"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 417
+symbol = "decode_request_view"
+evidence = "The free function declares pub fn decode_request_view(answer: &[u8], request_id: u64) -> Option<RequestView>. It checks the eleven-word tuple and request id before constructing RequestView; request_status contains a call, not the declaration."
+
+[row.r11-175.5]
+interface = "interface.11.rs-xws-fees"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 214
+symbol = "Fees"
+evidence = "pub struct Fees declares max_fee_per_gas and max_priority_fee_per_gas as u128 fields. This is the struct declaration used by Transaction.fees, rather than a field type or constructor occurrence."
+
+[row.r11-175.6]
+interface = "interface.11.rs-xws-fulfil-gas-limit"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 201
+symbol = "fulfil_gas_limit"
+evidence = "The free function declares pub fn fulfil_gas_limit(calldata: &[u8], signatures: usize, callback_gas: u64) -> u64. It includes callback gas and callback record gas, distinguishing it from fulfil_program_gas_limit and from the submit call site."
+
+[row.r11-175.7]
+interface = "interface.11.rs-xws-journal"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 633
+symbol = "Journal"
+evidence = "pub struct Journal declares its private directory: PathBuf field. The following impl Journal defines persistence methods; Submitter.journal and Journal::open are uses of this struct."
+
+[row.r11-175.8]
+interface = "interface.11.rs-xws-journal-entry"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 555
+symbol = "JournalEntry"
+evidence = "pub struct JournalEntry declares request_id: u64, state: JournalState and transaction: Option<(u64, SignedTransaction)>. The following impl supplies JSON encoding and decoding; later JournalEntry literals are constructors."
+
+[row.r11-175.9]
+interface = "interface.11.rs-xws-journal-load"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 667
+symbol = "load"
+evidence = "Journal declares pub fn load(&self, key: impl Into<JournalKey>) -> Result<Option<JournalEntry>, SubmitError>. The former request_id: u64 argument is now a convertible journal key supporting web and program entries; the return type is unchanged."
+
+[row.r11-175.10]
+interface = "interface.11.rs-xws-journal-open"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 640
+symbol = "open"
+evidence = "Inside impl Journal, pub fn open(directory: &Path) -> io::Result<Self> creates the directory and stores its PathBuf. Submitter::open is a different method taking RPC, signing key, chain id and journal directory."
+
+[row.r11-175.11]
+interface = "interface.11.rs-xws-journal-path"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 649
+symbol = "path"
+evidence = "Journal declares pub fn path(&self, key: impl Into<JournalKey>) -> PathBuf. The former request_id: u64 argument changed to a convertible JournalKey; the method selects web or program filenames and joins them to the directory."
+
+[row.r11-175.12]
+interface = "interface.11.rs-xws-journal-requests"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 713
+symbol = "requests"
+evidence = "Inside impl Journal, pub fn requests(&self) -> Result<Vec<u64>, SubmitError> reads numeric .json filenames and sorts the ids. Submitter::resume calls this method; its signature remains unchanged."
+
+[row.r11-175.13]
+interface = "interface.11.rs-xws-journal-state"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 509
+symbol = "JournalState"
+evidence = "pub enum JournalState declares Signed, Fulfilled, AlreadyFulfilled, Refunded and Reorged. This is the enum declaration, preceding its code and completed methods and its use as JournalEntry.state."
+
+[row.r11-175.14]
+interface = "interface.11.rs-xws-journal-state-code"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 523
+symbol = "code"
+evidence = "Inside impl JournalState, pub const fn code(self) -> &'static str declares the unchanged method mapping journal states to their stable string labels. The code parameter in parse and state.code() calls are other occurrences."
+
+[row.r11-175.15]
+interface = "interface.11.rs-xws-journal-state-completed"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 547
+symbol = "completed"
+evidence = "Inside impl JournalState, pub const fn completed(self) -> bool returns !matches!(self, Self::Signed). This declaration matches the registered owner; the later Outcome::completed declaration has the same signature but a different receiver type."
+
+[row.r11-175.16]
+interface = "interface.11.rs-xws-journal-store"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 689
+symbol = "store"
+evidence = "Inside impl Journal, pub fn store(&self, entry: &JournalEntry) -> Result<(), SubmitError> retains the registered signature. It delegates to store_at with JournalKey::Web(entry.request_id); later journal.store calls are uses."
+
+[row.r11-175.17]
+interface = "interface.11.rs-xws-outcome"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 733
+symbol = "Outcome"
+evidence = "pub enum Outcome declares Sent { hash: [u8; 32] }, Fulfilled, AlreadyFulfilled, Refunded, Reverted and Reorged. The following impl defines completed; Resumed and Submission refer to this enum."
+
+[row.r11-175.18]
+interface = "interface.11.rs-xws-outcome-completed"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 753
+symbol = "completed"
+evidence = "Inside impl Outcome, pub const fn completed(self) -> bool returns !matches!(self, Self::Sent { .. } | Self::Reverted). This is the registered Outcome method, distinct from the earlier JournalState::completed declaration."
+
+[row.r11-175.19]
+interface = "interface.11.rs-xws-request-status"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 435
+symbol = "request_status"
+evidence = "The free function declares pub fn request_status(rpc: &EvmRpc, request_id: u64) -> Result<u8, EvmError>. It calls getRequest through eth_call and decodes the status; request_status_at_depth calls it when confirmations is zero."
+
+[row.r11-175.20]
+interface = "interface.11.rs-xws-request-status-at-depth"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 444
+symbol = "request_status_at_depth"
+evidence = "The free function declares pub fn request_status_at_depth(rpc: &EvmRpc, request_id: u64, confirmations: u64) -> Result<u8, EvmError>. Its multiline signature is unchanged; it reads getRequest at the current block minus confirmations."
+
+[row.r11-175.21]
+interface = "interface.11.rs-xws-request-view"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 392
+symbol = "RequestView"
+evidence = "pub struct RequestView declares request_id: u64, status: u8, level: u8 and attestor: [u8; 20]. The later decode_request_view function returns and constructs this type; this line is its declaration."
+
+[row.r11-175.22]
+interface = "interface.11.rs-xws-request-view-words"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 381
+symbol = "REQUEST_VIEW_WORDS"
+evidence = "pub const REQUEST_VIEW_WORDS: usize = 11 declares the getRequest tuple length. The decoder multiplies it by 32 and the tests reference it; those are uses rather than the constant declaration."
+
+[row.r11-175.23]
+interface = "interface.11.rs-xws-resumed"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 759
+symbol = "Resumed"
+evidence = "pub type Resumed = Vec<(u64, Result<Outcome, SubmitError>)> declares the unchanged alias for per-request rebroadcast results. Submitter::resume uses the alias as its return type; the adjacent Submission alias is separate."
+
+[row.r11-175.24]
+interface = "interface.11.rs-xws-signed-transaction"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 232
+symbol = "SignedTransaction"
+evidence = "pub struct SignedTransaction declares raw: Vec<u8> and hash: [u8; 32] for the signed type-2 envelope. Transaction::sign returns this type and JournalEntry stores it; neither occurrence is its declaration."
+
+[row.r11-175.25]
+interface = "interface.11.rs-xws-submitter"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 763
+symbol = "Submitter"
+evidence = "pub struct Submitter declares rpc, key, address, chain_id, journal and confirmations fields. The following impl Submitter owns submission and recovery methods; the struct declaration still implements the registered type."
+
+[row.r11-175.26]
+interface = "interface.11.rs-xws-submitter-abandon"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 897
+symbol = "abandon"
+evidence = "Inside impl Submitter, pub fn abandon(&self, request_id: u64) -> Result<(), SubmitError> retains the registered signature. It preserves any stored transaction and writes JournalState::Reorged; later self.abandon calls are uses."
+
+[row.r11-175.27]
+interface = "interface.11.rs-xws-submitter-address"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 801
+symbol = "address"
+evidence = "Inside impl Submitter, pub const fn address(&self) -> [u8; 20] returns self.address with the unchanged signature. The earlier private address(word: &[u8]) decoder and the struct field are different occurrences."
+
+[row.r11-175.28]
+interface = "interface.11.rs-xws-submitter-resume-request"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 984
+symbol = "resume_request"
+evidence = "Inside impl Submitter, pub fn resume_request(&self, request_id: u64) -> Result<Option<Outcome>, SubmitError> loads the journal, checks confirmation and rebroadcasts signed bytes. The signature is unchanged; resume calls this declaration."
+
+[row.r11-175.29]
+interface = "interface.11.rs-xws-submitter-submit"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 1122
+symbol = "submit"
+evidence = "Inside impl Submitter, pub fn submit(&self, ready: &Ready) -> Result<Outcome, SubmitError> retains the registered signature. It checks signer ordering, handles journalled requests, and signs and stores a fulfil transaction before broadcasting; submit_program is separate."
+
+[row.r11-175.30]
+interface = "interface.11.rs-xws-transaction"
+verdict = "served"
+path = "services/interop/crates/x-websearch/src/submit.rs"
+line = 221
+symbol = "Transaction"
+evidence = "pub struct Transaction declares chain_id, nonce, fees, gas_limit, to and data for an EIP-1559 transaction. The later impl Transaction and construction in Submitter::submit refer to this declaration."

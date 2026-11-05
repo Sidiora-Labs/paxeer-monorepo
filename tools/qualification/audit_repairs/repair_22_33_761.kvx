@@ -1,0 +1,80 @@
+[meta]
+task = "22.33.761"
+audit = "22.30.172"
+base_revision = "cfe99ca0f6e389c490375eed57c49af7d14b30b8"
+continuation_base_revision = "aa5e0820b3652890f3812a220f4b91f4f8a45387"
+verified_revision = "The immutable candidate revision and private command/exit/log receipt are emitted by hf-build and hf-done; the final response copies the hf-done receipt without editing the qualified tree."
+implementation = "Eight existing executable shell entry points dispatch to upgrade_runtime.py. The shared runtime owns real subprocesses, /proc process identity, bounded RPC checks, retained committed-block checkpoints, per-attempt logs and exact governance/upgrade evidence. Unrelated scripts are unchanged."
+baseline = "Pre-change verify not run: the task's explicit Order forbids testing before full implementation and allows verification only through hf-done after hf-build. No pre-existing failure is claimed."
+proof = "The pytest module parses each repaired shell with bash -n, checks exact guarded dispatch and real command/source ordering, and executes runtime validators. Real Python peer processes commit blocks and application state in SQLite and serve them over loopback HTTP; the real runtime stops/restarts them, reopens its checkpoint, checks retained blocks and verifies recovered application state. Failure cases prove bounded stalls, wrong identities, lost history and preserved attempt evidence."
+native_upgrade_proven = false
+review_only = "Native paxd upgrade semantics, SDK queries against an actual chain, Docker/make cluster launch, real governance vote inclusion and SDK panic emission require release qualification. The peer is a committed protocol/storage fixture, not a paxd implementation or proof of native kernel/EVM migration. Source assertions cover native producer command arguments and evidence consumption; they do not claim those external commands ran in this gate."
+qualification = "Only hf-build and hf-done are run, on the same candidate; hf-done owns the declared pytest command and graph checks. No independent baseline or verification run, commit or push is performed."
+gotcha = "The existing SDK upgrade-plan CLI exits nonzero with no upgrade scheduled after application; the runtime distinguishes that explicit response from query failures. Initial launch markers contain only Done, so identified per-container RPC progress is additionally mandatory."
+
+[finding.upgrade-launch-unbounded]
+test = "test_upgrade_launch_unbounded"
+repair = "Remove stale marker before launch, enforce fresh complete markers plus four distinct chain/node identities and committed progress, observe launcher exit status, bound clean/startup commands and readiness, retain launch logs and stop the owned launcher on failure."
+
+[finding.downgrade-process-only]
+test = "test_restart_recovery_retains_process_version_blocks_and_application_state"
+repair = "Downgrade retains exact child PID/start ticks/executable digest/version list and binary version, terminates only the owned predecessor, checkpoints committed identity/history, requires post-restart RPC identity and committed advancement, and archives every attempt without truncating predecessor evidence. Parameter v1.0.0 proves downgrade recovery; separate negative tests prove stalls and lost history fail."
+
+[finding.upgrade-process-only]
+test = "test_restart_recovery_retains_process_version_blocks_and_application_state"
+repair = "Upgrade appends and validates the requested version and uses the same persisted restart lifecycle; parameter v1.0.0,v2.0.0 proves upgrade recovery with application state retained. Successful process creation alone never reports PASS."
+
+[finding.upgrade-target-stalled-sample]
+test = "test_upgrade_target_stalled_sample"
+repair = "Retry finite real progress samples, pin chain/node identity, require positive height/time deltas and changed committed hash, multiply before dividing and round up, validate positive int64 input/target, reject stalls instead of assuming a block interval."
+
+[finding.upgrade-vote-rejection-success]
+test = "test_upgrade_vote_rejection_success"
+repair = "Reject malformed or nonzero CheckTx responses with failure, retain transaction identity, resolve the node_admin voter and poll committed gov vote state for the exact proposal/voter and full YES weight. Account sequence growth cannot substitute for the committed voting effect."
+
+[finding.upgrade-panic-false-positive]
+test = "test_upgrade_panic_false_positive"
+repair = "Require saved scheduled plan and exact target, loss of the retained process, exact named SDK upgrade event and matching fresh on-disk halt boundary; early-major panic additionally requires the named handler version and pre-target checkpoint. Unexplained death, live target-1 stall, wrong version/height and minor early-panic evidence fail."
+
+[finding.upgrade-running-process-only]
+test = "test_upgrade_running_process_only"
+repair = "Require retained process/version/executable identity, exact chain/node RPC identity, retained committed-block hash and bounded committed-height/hash advancement. Alive but stalled, reused PID, wrong version, different node or different chain cannot pass."
+
+[finding.upgrade-log-fallback]
+test = "test_upgrade_log_fallback"
+repair = "Raw and JSON-escaped exact named events remain mandatory with a full numeric height boundary; missing event fails with a target-1 diagnostic. A real shell-to-Python-to-log test proves success and failure exit behavior without a native node."
+
+[wiring]
+coordinator_context = "docker/docker-compose.yml and docker/localnode/scripts/localnode_runtime.py, owner domain 16: pass the disposable coordinator run ID/home/binary into integration invocations and bridge per-node launch markers to the legacy aggregate launch.complete contract; the bounded launcher fails when these external contracts are absent."
+identified_markers = "docker/localnode/scripts/step5_start_pax.sh, owner domain 16: optionally emit node/run identifiers instead of anonymous Done lines; current repair independently requires fresh markers plus four identified RPC nodes and does not trust line count as readiness."
+early_major = "tests/integration/upgrade_module/major_upgrade_test.yaml, owner domain 16: separate an explicitly expected early-major halt launch from a successful restart; paxd_upgrade.sh now correctly requires committed progress and fails when the deliberately incompatible binary panics."
+native_release = "tests/integration/upgrade_module/current_major_upgrade_test.yaml and current_minor_upgrade_test.yaml, owner domain 16: execute the existing digest-pinned native rehearsal on release infrastructure to prove actual SDK governance, kernel/EVM state and artifact behavior beyond this offline gate."
+
+[qualification_repair]
+revision = "2fcc54b428c1ab66c7927ba74f575eaebb00d111"
+command = "cg spec done 22.33.761 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "18 tests passed; four-node launch readiness timed out while peer logs showed HTTP reads timing out during concurrent SQLite block production."
+repair = "Use WAL for concurrent committed readers and the durable producer, close each SQLite transaction connection and serve requests independently; retain the existing launch deadline and every assertion. Include the last readiness error in production timeout diagnostics."
+
+[continuation_repair]
+inherited_revision = "41813d2419e06e0f231fa6dc6f758a131131d0dd"
+observed = "The inherited gate reported stale launch markers in test_upgrade_launch_unbounded, with 18 tests passing and one failing; the original private log path was not supplied in the continuation ruling."
+repair = "The launched child writes the complete markers after the start timestamp, matching production launch ordering; a short producer delay avoids filesystem timestamp granularity racing the nanosecond start clock. Freshness is asserted explicitly and all stale, incomplete, duplicate identity and failed-child assertions remain intact."
+gotcha = "A parent marker write immediately after time.time_ns can receive a filesystem timestamp earlier than that clock sample; have the launched producer write readiness evidence after launch instead of pre-populating it in the parent."
+scope = "Historical attempt-2 scope limitation; superseded by the current task scope, which explicitly includes the shared runtime, committed peer and launch wrapper."
+
+[continuation_4]
+observed = "Attempt 3 verification failed during collection because the runtime and its committed peer were absent; the launch wrapper also still contained the original unbounded wait."
+repair = "Create the declared shared runtime and WAL-backed committed peer, dispatch launch through the same runtime, preserve all inherited assertions, and add a shell-to-runtime-to-peer progress/stall test. Native actions select PAXD_BIN and PAX_HOME, persist process/version/checkpoint state in that home and use the real paxd CLI and RPC."
+gotcha = "Continuation seeds can contain thin wrappers and imports without their runtime/fixture dependencies; inspect every declared producer and consumer path before qualifying."
+verification = "test_target_shell_consumes_committed_peer_rpc proves the shell entry point consumes advancing committed state and fails a stalled peer; source assertions also check native binary/home propagation. The current gate receipts identify the final immutable candidate and supersede the historical failed receipts above."
+
+[continuation_4_qualification_repair]
+revision = "6e6bf8a55aa711a414f142e9b343abd3162a8f05"
+command = "cg spec done 22.33.761 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "19 tests passed; the lost-history assertion did not raise because close discarded the caller's changed checkpoint before reopening it."
+repair = "RestartState.close now flushes the owned checkpoint atomically before releasing its exclusive lock, preserving changes across close/reopen and allowing the unchanged test to exercise lost committed history."

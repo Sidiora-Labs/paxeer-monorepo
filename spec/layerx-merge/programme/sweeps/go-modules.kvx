@@ -1,0 +1,878 @@
+[sweep.go-modules]
+revision = "8b703ec72e65d1ee56c9e5c5c56ddefc2c1de22b"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 122
+targets_passed = 99
+targets_failed = 0
+targets_not_run = 23
+enumeration_command = "CGO_ENABLED=1 go list ./modules/..."
+enumeration_exit_code = 0
+main_reference = "origin/main"
+prerequisite_command = "make paxd-native-libs"
+prerequisite_exit_code = 0
+prerequisite_log = "/out/logs/native-libs.log"
+environment = "CGO_ENABLED=1; GOMAXPROCS=2; GOFLAGS=-p=2; four concurrent package commands"
+target_time_limit_seconds = 600
+qualification_record = "/out/logs/go-modules-closure-22.91.102/results.jsonl"
+time_budget = "Each target receives at most 600 seconds, capped by the remaining inventory allocation; three minutes are reserved for reporting and the declared qualification gates."
+excluded_go_tests = []
+producer_input_policy = "No Go test exclusions: the only named producer-input test in the repair records is the Rust test canonical_native_authority_matches_authenticated_historical_facts, outside this inventory."
+
+[target.go-modules.1]
+target = "modules/epoch"
+result = "not_run"
+exit_code = 124
+elapsed_seconds = 600.012
+reason = "The vet/test pair exceeded its 600.0-second inventory allocation before completing; no retry or product repair was attempted."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-001.log"
+
+[target.go-modules.2]
+target = "modules/epoch/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 360.581
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-002.log"
+
+[target.go-modules.3]
+target = "modules/epoch/client/wasm"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 361.053
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-003.log"
+
+[target.go-modules.4]
+target = "modules/epoch/client/wasm/bindings"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 360.429
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-004.log"
+
+[target.go-modules.5]
+target = "modules/epoch/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 363.015
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-005.log"
+
+[target.go-modules.6]
+target = "modules/epoch/simulation"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 16.204
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-006.log"
+
+[target.go-modules.7]
+target = "modules/epoch/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 15.725
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-007.log"
+
+[target.go-modules.8]
+target = "modules/evm"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 374.626
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-008.log"
+
+[target.go-modules.9]
+target = "modules/evm/ante"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 348.646
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-009.log"
+
+[target.go-modules.10]
+target = "modules/evm/artifacts"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 26.96
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-010.log"
+
+[target.go-modules.11]
+target = "modules/evm/artifacts/cw1155"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 20.541
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-011.log"
+
+[target.go-modules.12]
+target = "modules/evm/artifacts/cw20"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 20.714
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-012.log"
+
+[target.go-modules.13]
+target = "modules/evm/artifacts/cw721"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 16.272
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-013.log"
+
+[target.go-modules.14]
+target = "modules/evm/artifacts/erc1155"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 8.901
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-014.log"
+
+[target.go-modules.15]
+target = "modules/evm/artifacts/erc20"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 7.161
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-015.log"
+
+[target.go-modules.16]
+target = "modules/evm/artifacts/erc721"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 6.544
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-016.log"
+
+[target.go-modules.17]
+target = "modules/evm/artifacts/native"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 41.167
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-017.log"
+
+[target.go-modules.18]
+target = "modules/evm/artifacts/utils"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.86
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-018.log"
+
+[target.go-modules.19]
+target = "modules/evm/artifacts/wpax"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.629
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-019.log"
+
+[target.go-modules.20]
+target = "modules/evm/blocktest"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 4.596
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-020.log"
+
+[target.go-modules.21]
+target = "modules/evm/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 49.001
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-021.log"
+
+[target.go-modules.22]
+target = "modules/evm/client/wasm"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 31.025
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-022.log"
+
+[target.go-modules.23]
+target = "modules/evm/client/wasm/bindings"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.5
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-023.log"
+
+[target.go-modules.24]
+target = "modules/evm/config"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 3.031
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-024.log"
+
+[target.go-modules.25]
+target = "modules/evm/derived"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.075
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-025.log"
+
+[target.go-modules.26]
+target = "modules/evm/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 182.137
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-026.log"
+
+[target.go-modules.27]
+target = "modules/evm/migrations"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 50.636
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-027.log"
+
+[target.go-modules.28]
+target = "modules/evm/querier"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.245
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-028.log"
+
+[target.go-modules.29]
+target = "modules/evm/replay"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.052
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-029.log"
+
+[target.go-modules.30]
+target = "modules/evm/state"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 172.549
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-030.log"
+
+[target.go-modules.31]
+target = "modules/evm/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 33.611
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-031.log"
+
+[target.go-modules.32]
+target = "modules/evm/types/ethtx"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 8.82
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-032.log"
+
+[target.go-modules.33]
+target = "modules/launchpad"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 6.987
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-033.log"
+
+[target.go-modules.34]
+target = "modules/launchpad/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 206.8
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-034.log"
+
+[target.go-modules.35]
+target = "modules/launchpad/client/rest"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 73.558
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-035.log"
+
+[target.go-modules.36]
+target = "modules/launchpad/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 394.888
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-036.log"
+
+[target.go-modules.37]
+target = "modules/launchpad/launchpadtest"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 29.02
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-037.log"
+
+[target.go-modules.38]
+target = "modules/launchpad/legacy/v610/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 21.188
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-038.log"
+
+[target.go-modules.39]
+target = "modules/launchpad/legacy/v610/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 22.368
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-039.log"
+
+[target.go-modules.40]
+target = "modules/launchpad/simulation"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 8.184
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-040.log"
+
+[target.go-modules.41]
+target = "modules/launchpad/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 214.308
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-041.log"
+
+[target.go-modules.42]
+target = "modules/layerxagent"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 22.442
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-042.log"
+
+[target.go-modules.43]
+target = "modules/layerxagent/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 5.119
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-043.log"
+
+[target.go-modules.44]
+target = "modules/layerxagent/integration"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 48.423
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-044.log"
+
+[target.go-modules.45]
+target = "modules/layerxagent/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 35.283
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-045.log"
+
+[target.go-modules.46]
+target = "modules/layerxagent/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 8.681
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-046.log"
+
+[target.go-modules.47]
+target = "modules/layerxanchor"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 27.536
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-047.log"
+
+[target.go-modules.48]
+target = "modules/layerxanchor/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 79.607
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-048.log"
+
+[target.go-modules.49]
+target = "modules/layerxanchor/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 11.195
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-049.log"
+
+[target.go-modules.50]
+target = "modules/layerxauth"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 12.396
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-050.log"
+
+[target.go-modules.51]
+target = "modules/layerxauth/ante"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 61.916
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-051.log"
+
+[target.go-modules.52]
+target = "modules/layerxauth/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 46.158
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-052.log"
+
+[target.go-modules.53]
+target = "modules/layerxauth/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 6.89
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-053.log"
+
+[target.go-modules.54]
+target = "modules/layerxbridge"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.307
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-054.log"
+
+[target.go-modules.55]
+target = "modules/layerxbridge/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 7.87
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-055.log"
+
+[target.go-modules.56]
+target = "modules/layerxbridge/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 53.365
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-056.log"
+
+[target.go-modules.57]
+target = "modules/layerxbridge/testutil"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 5.503
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-057.log"
+
+[target.go-modules.58]
+target = "modules/layerxbridge/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 8.468
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-058.log"
+
+[target.go-modules.59]
+target = "modules/layerxchains"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 3.865
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-059.log"
+
+[target.go-modules.60]
+target = "modules/layerxchains/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 21.621
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-060.log"
+
+[target.go-modules.61]
+target = "modules/layerxchains/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 3.188
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-061.log"
+
+[target.go-modules.62]
+target = "modules/layerxcustody"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 26.958
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-062.log"
+
+[target.go-modules.63]
+target = "modules/layerxcustody/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 27.353
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-063.log"
+
+[target.go-modules.64]
+target = "modules/layerxcustody/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 11.0
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-064.log"
+
+[target.go-modules.65]
+target = "modules/layerxexchange"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.885
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-065.log"
+
+[target.go-modules.66]
+target = "modules/layerxexchange/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 24.289
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-066.log"
+
+[target.go-modules.67]
+target = "modules/layerxexchange/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 12.379
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-067.log"
+
+[target.go-modules.68]
+target = "modules/layerxgov"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 23.281
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-068.log"
+
+[target.go-modules.69]
+target = "modules/layerxgov/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.649
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-069.log"
+
+[target.go-modules.70]
+target = "modules/layerxgov/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 7.449
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-070.log"
+
+[target.go-modules.71]
+target = "modules/layerxledger"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 14.078
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-071.log"
+
+[target.go-modules.72]
+target = "modules/layerxledger/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 61.56
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-072.log"
+
+[target.go-modules.73]
+target = "modules/layerxledger/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 12.49
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-073.log"
+
+[target.go-modules.74]
+target = "modules/layerxpay"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 24.774
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-074.log"
+
+[target.go-modules.75]
+target = "modules/layerxpay/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 6.265
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-075.log"
+
+[target.go-modules.76]
+target = "modules/layerxpay/integration"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 30.396
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-076.log"
+
+[target.go-modules.77]
+target = "modules/layerxpay/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 33.004
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-077.log"
+
+[target.go-modules.78]
+target = "modules/layerxpay/testutil"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 4.047
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-078.log"
+
+[target.go-modules.79]
+target = "modules/layerxpay/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 69.88
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-079.log"
+
+[target.go-modules.80]
+target = "modules/lxphost"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 53.292
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-080.log"
+
+[target.go-modules.81]
+target = "modules/mint"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 28.943
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-081.log"
+
+[target.go-modules.82]
+target = "modules/mint/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 4.091
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-082.log"
+
+[target.go-modules.83]
+target = "modules/mint/client/rest"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 3.226
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-083.log"
+
+[target.go-modules.84]
+target = "modules/mint/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 71.323
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-084.log"
+
+[target.go-modules.85]
+target = "modules/mint/simulation"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 5.048
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-085.log"
+
+[target.go-modules.86]
+target = "modules/mint/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 13.873
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-086.log"
+
+[target.go-modules.87]
+target = "modules/oracle"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 8.584
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-087.log"
+
+[target.go-modules.88]
+target = "modules/oracle/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.529
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-088.log"
+
+[target.go-modules.89]
+target = "modules/oracle/client/rest"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.56
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-089.log"
+
+[target.go-modules.90]
+target = "modules/oracle/client/wasm"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.991
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-090.log"
+
+[target.go-modules.91]
+target = "modules/oracle/client/wasm/bindings"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.745
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-091.log"
+
+[target.go-modules.92]
+target = "modules/oracle/keeper"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 10.807
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-092.log"
+
+[target.go-modules.93]
+target = "modules/oracle/keeper/testutils"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 3.071
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-093.log"
+
+[target.go-modules.94]
+target = "modules/oracle/simulation"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 2.599
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-094.log"
+
+[target.go-modules.95]
+target = "modules/oracle/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 7.773
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-095.log"
+
+[target.go-modules.96]
+target = "modules/oracle/utils"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 1.597
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-096.log"
+
+[target.go-modules.97]
+target = "modules/perps"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 25.864
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-097.log"
+
+[target.go-modules.98]
+target = "modules/perps/keeper"
+result = "not_run"
+exit_code = 124
+elapsed_seconds = 114.054
+reason = "The vet/test pair exceeded its 113.9-second inventory allocation before completing; no retry or product repair was attempted."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-098.log"
+
+[target.go-modules.99]
+target = "modules/perps/types"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 17.208
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-099.log"
+
+[target.go-modules.100]
+target = "modules/pricefeed"
+result = "not_run"
+exit_code = 124
+elapsed_seconds = 97.455
+reason = "The vet/test pair exceeded its 97.2-second inventory allocation before completing; no retry or product repair was attempted."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-100.log"
+
+[target.go-modules.101]
+target = "modules/pricefeed/client/cli"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 12.365
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-101.log"
+
+[target.go-modules.102]
+target = "modules/pricefeed/keeper"
+result = "not_run"
+exit_code = 124
+elapsed_seconds = 93.439
+reason = "The vet/test pair exceeded its 93.4-second inventory allocation before completing; no retry or product repair was attempted."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-102.log"
+
+[target.go-modules.103]
+target = "modules/pricefeed/testutil"
+result = "passed"
+exit_code = 0
+elapsed_seconds = 13.483
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-103.log"
+
+[target.go-modules.104]
+target = "modules/pricefeed/types"
+result = "not_run"
+exit_code = 124
+elapsed_seconds = 70.15
+reason = "The vet/test pair exceeded its 70.1-second inventory allocation before completing; no retry or product repair was attempted."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-104.log"
+
+[target.go-modules.105]
+target = "modules/sequencer"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-105.log"
+
+[target.go-modules.106]
+target = "modules/sequencer/keeper"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-106.log"
+
+[target.go-modules.107]
+target = "modules/sequencer/types"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-107.log"
+
+[target.go-modules.108]
+target = "modules/spot"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-108.log"
+
+[target.go-modules.109]
+target = "modules/spot/keeper"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-109.log"
+
+[target.go-modules.110]
+target = "modules/spot/types"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-110.log"
+
+[target.go-modules.111]
+target = "modules/store"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-111.log"
+
+[target.go-modules.112]
+target = "modules/tokenfactory"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-112.log"
+
+[target.go-modules.113]
+target = "modules/tokenfactory/client/cli"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-113.log"
+
+[target.go-modules.114]
+target = "modules/tokenfactory/client/wasm"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-114.log"
+
+[target.go-modules.115]
+target = "modules/tokenfactory/client/wasm/bindings"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-115.log"
+
+[target.go-modules.116]
+target = "modules/tokenfactory/keeper"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-116.log"
+
+[target.go-modules.117]
+target = "modules/tokenfactory/types"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-117.log"
+
+[target.go-modules.118]
+target = "modules/xweb"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-118.log"
+
+[target.go-modules.119]
+target = "modules/xweb/client/cli"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-119.log"
+
+[target.go-modules.120]
+target = "modules/xweb/keeper"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-120.log"
+
+[target.go-modules.121]
+target = "modules/xweb/testutil"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-121.log"
+
+[target.go-modules.122]
+target = "modules/xweb/types"
+result = "not_run"
+exit_code = -1
+reason = "The remaining inventory allocation is reserved for reporting and the declared qualification gates."
+qualification_record = "/out/logs/go-modules-closure-22.91.102/target-122.log"

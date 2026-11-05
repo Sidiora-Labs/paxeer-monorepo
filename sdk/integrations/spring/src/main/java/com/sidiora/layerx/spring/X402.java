@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
+import com.sidiora.layerx.sdk.PlatformSdkException;
+import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -26,6 +28,8 @@ public final class X402 {
     private X402() {}
 
     public static final int VERSION = 2;
+    public static final String RECEIPT_FORMAT = "layerx-receipt-proof-v2";
+    public static final String NATIVE_NETWORK = "eip155:125";
     public static final String PAYMENT_REQUIRED_HEADER = "PAYMENT-REQUIRED";
     public static final String PAYMENT_SIGNATURE_HEADER = "PAYMENT-SIGNATURE";
     public static final String PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE";
@@ -142,16 +146,25 @@ public final class X402 {
         }
     }
 
-    public record ReceiptEvidence(String receipt, String receiptDigest, String verificationLevel) {
-        public static ReceiptEvidence sequencerSigned(String receipt, String receiptDigest) {
-            return new ReceiptEvidence(receipt, receiptDigest, "sequencer-signed");
+    public record ReceiptEvidence(String format, String verificationLevel, String rawTransaction, String signedReceipt,
+                                  String receiptDigest, LocalVerifier.ReceiptKey receiptKey) {
+        public static ReceiptEvidence receipted(String rawTransaction, String signedReceipt,
+                                                String receiptDigest, LocalVerifier.ReceiptKey receiptKey) {
+            return new ReceiptEvidence(RECEIPT_FORMAT, "receipted", rawTransaction, signedReceipt, receiptDigest, receiptKey);
         }
 
         public ObjectNode toNode() {
             ObjectNode node = NODES.objectNode();
-            node.put("receipt", receipt);
-            node.put("receiptDigest", receiptDigest);
+            node.put("format", format);
             node.put("verificationLevel", verificationLevel);
+            node.put("rawTransaction", rawTransaction);
+            node.put("signedReceipt", signedReceipt);
+            node.put("receiptDigest", receiptDigest);
+            ObjectNode key = node.putObject("receiptKey");
+            key.put("keyId", "0x" + hex(receiptKey.keyId()));
+            key.put("publicKey", "0x" + hex(receiptKey.publicKey()));
+            key.put("firstHeight", "0x" + receiptKey.firstHeight().toString(16));
+            key.put("lastHeight", "0x" + receiptKey.lastHeight().toString(16));
             return node;
         }
     }
@@ -356,16 +369,49 @@ public final class X402 {
         MiddlewareException.Code code = MiddlewareException.Code.INVALID_PAYMENT_PAYLOAD;
         ObjectNode object = NODES.objectNode();
         for (Map.Entry<String, JsonNode> entry : payload.entrySet()) object.set(entry.getKey(), entry.getValue());
-        exactKeys(object, List.of("receipt", "receiptDigest", "verificationLevel"), List.of("idempotencyKey"), code);
         JsonNode level = object.get("verificationLevel");
-        if (!level.isTextual() || !"sequencer-signed".equals(level.textValue())) {
-            fail(MiddlewareException.Code.VERIFICATION_FAILURE);
+        if (level == null || !level.isTextual() || !"receipted".equals(level.textValue())) fail(code);
+        exactKeys(object, List.of("format", "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey",
+            "verificationLevel"), List.of(), code);
+        if (!RECEIPT_FORMAT.equals(boundedString(object.get("format"), 64, code))) fail(code);
+        String digest = boundedString(object.get("receiptDigest"), 66, code);
+        receiptHex32(digest, code);
+        ObjectNode key = asObject(object.get("receiptKey"), code);
+        exactKeys(key, List.of("keyId", "publicKey", "firstHeight", "lastHeight"), List.of(), code);
+        LocalVerifier.ReceiptKey receiptKey;
+        try {
+            receiptKey = new LocalVerifier.ReceiptKey(
+                receiptHex32(boundedString(key.get("keyId"), 66, code), code),
+                receiptHex32(boundedString(key.get("publicKey"), 66, code), code),
+                receiptHeight(key.get("firstHeight"), code), receiptHeight(key.get("lastHeight"), code));
+        } catch (PlatformSdkException error) {
+            throw MiddlewareException.of(code);
         }
-        JsonNode digest = object.get("receiptDigest");
-        if (!digest.isTextual()) fail(code);
-        parseHex32(digest.textValue(), code);
-        return ReceiptEvidence.sequencerSigned(
-            boundedString(object.get("receipt"), MAX_HEADER_BYTES, code), digest.textValue());
+        String rawTransaction = boundedString(object.get("rawTransaction"), MAX_HEADER_BYTES, code);
+        String signedReceipt = boundedString(object.get("signedReceipt"), MAX_HEADER_BYTES, code);
+        parseReceiptHex(rawTransaction, code);
+        parseReceiptHex(signedReceipt, code);
+        return ReceiptEvidence.receipted(rawTransaction, signedReceipt, digest, receiptKey);
+    }
+
+    private static byte[] receiptHex32(String value, MiddlewareException.Code code) {
+        byte[] bytes = parseReceiptHex(value, code);
+        if (bytes.length != 32) fail(code);
+        return bytes;
+    }
+
+    private static BigInteger receiptHeight(JsonNode value, MiddlewareException.Code code) {
+        String text = boundedString(value, 18, code);
+        if (!text.matches("0x(?:0|[1-9a-f][0-9a-f]{0,15})")) fail(code);
+        BigInteger height = new BigInteger(text.substring(2), 16);
+        if (height.bitLength() > 64) fail(code);
+        return height;
+    }
+
+    static byte[] parseReceiptHex(String value, MiddlewareException.Code code) {
+        if (value == null || value.length() < 4 || value.length() > MAX_HEADER_BYTES
+                || !value.matches("0x(?:[0-9a-f]{2})+")) fail(code);
+        return java.util.HexFormat.of().parseHex(value.substring(2));
     }
 
     public static SettlementResponse refusal(PaymentRequirements requirements, String reason) {
@@ -466,9 +512,7 @@ public final class X402 {
     public static String parseNetwork(JsonNode value) {
         if (!value.isTextual()) fail(MiddlewareException.Code.INVALID_PAYMENT_REQUIRED);
         String text = value.textValue();
-        String[] parts = text.split(":", -1);
-        if (parts.length != 2 || !"layerx".equals(parts[0]) || !bounded(parts[1], 64)
-                || !IDENTIFIER.matcher(parts[1]).matches()) {
+        if (!NATIVE_NETWORK.equals(text)) {
             fail(MiddlewareException.Code.UNSUPPORTED_PAYMENT);
         }
         return text;

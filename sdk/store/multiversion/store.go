@@ -268,53 +268,67 @@ func (s *Store) validateIterator(index int, tracker iterationTracker) bool {
 	}
 	validChannel := make(chan bool, 1)
 	abortChannel := make(chan occ.Abort, 1)
+	cancel := make(chan struct{})
+	done := make(chan struct{})
 
-	// listen for abort while iterating
-	go func(iterationTracker iterationTracker, items *db.MemDB, returnChan chan bool, abortChan chan occ.Abort) {
-		var parentIter types.Iterator
-		expectedKeys := iterationTracker.iteratedKeys
+	go func() {
+		defer close(done)
+		valid := false
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				if _, ok := recovered.(occ.Abort); !ok {
+					panic(recovered)
+				}
+				valid = false
+			}
+			validChannel <- valid
+		}()
+		expectedKeys := tracker.iteratedKeys
 		foundKeys := 0
-		iter := s.newMVSValidationIterator(index, iterationTracker.startKey, iterationTracker.endKey, items, iterationTracker.ascending, iterationTracker.writeset, abortChan)
-		if iterationTracker.ascending {
-			parentIter = s.parentStore.Iterator(iterationTracker.startKey, iterationTracker.endKey)
+		iter := s.newMVSValidationIterator(index, tracker.startKey, tracker.endKey, sortedItems, tracker.ascending, tracker.writeset, s.parentStore, abortChannel)
+		iter.cancel = cancel
+		defer func() { _ = iter.Close() }()
+		var parentIter types.Iterator
+		if tracker.ascending {
+			parentIter = s.parentStore.Iterator(tracker.startKey, tracker.endKey)
 		} else {
-			parentIter = s.parentStore.ReverseIterator(iterationTracker.startKey, iterationTracker.endKey)
+			parentIter = s.parentStore.ReverseIterator(tracker.startKey, tracker.endKey)
 		}
-		// create a new MVSMergeiterator
-		mergeIterator := NewMVSMergeIterator(parentIter, iter, iterationTracker.ascending, NoOpHandler{})
-		defer func() { _ = mergeIterator.Close() }()
-		for ; mergeIterator.Valid(); mergeIterator.Next() {
-			if (len(expectedKeys) - foundKeys) == 0 {
-				// if we have no more expected keys, then the iterator is invalid
-				returnChan <- false
+		defer func() { _ = parentIter.Close() }()
+		mergeIterator := NewMVSMergeIterator(parentIter, iter, tracker.ascending, NoOpHandler{})
+		for {
+			select {
+			case <-cancel:
+				return
+			default:
+			}
+			if !mergeIterator.Valid() {
+				break
+			}
+			if len(expectedKeys) == foundKeys {
 				return
 			}
 			key := mergeIterator.Key()
-			// TODO: is this ok to not delete the key since we shouldnt have duplicate keys?
 			if _, ok := expectedKeys[string(key)]; !ok {
-				// if key isn't found
-				returnChan <- false
 				return
 			}
-			// remove from expected keys
-			foundKeys += 1
-			// delete(expectedKeys, string(key))
-
-			// if our iterator key was the early stop, then we can break
-			if bytes.Equal(key, iterationTracker.earlyStopKey) {
+			foundKeys++
+			if bytes.Equal(key, tracker.earlyStopKey) {
 				break
 			}
+			mergeIterator.Next()
 		}
-		// return whether we found the exact number of expected keys
-		returnChan <- foundKeys >= len(expectedKeys)
-	}(tracker, sortedItems, validChannel, abortChannel)
+		valid = mergeIterator.Error() == nil && foundKeys >= len(expectedKeys)
+	}()
+	var valid bool
 	select {
 	case <-abortChannel:
-		// if we get an abort, then we know that the iterator is invalid
-		return false
-	case valid := <-validChannel:
-		return valid
+		valid = false
+	case valid = <-validChannel:
 	}
+	close(cancel)
+	<-done
+	return valid
 }
 
 func (s *Store) checkIteratorAtIndex(index int) bool {

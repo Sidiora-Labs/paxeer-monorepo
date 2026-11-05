@@ -39,7 +39,7 @@ var (
 // AppModuleBasic
 // ----------------------------------------------------------------------------
 
-// AppModuleBasic implements the AppModuleBasic interface for the capability module.
+// AppModuleBasic registers tokenfactory codecs and the CLI command producers.
 type AppModuleBasic struct{}
 
 func NewAppModuleBasic() AppModuleBasic {
@@ -138,8 +138,8 @@ func (am AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier {
 	return nil
 }
 
-// RegisterServices registers a GRPC query service to respond to the
-// module-specific GRPC queries.
+// RegisterServices connects the CLI query and transaction messages to the real
+// tokenfactory keeper through the SDK query and message service routers.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
@@ -160,7 +160,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 }
 
 // RegisterInvariants registers the modules/tokenfactory module's invariants.
-func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
+func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
+	keeper.RegisterInvariants(ir, am.keeper)
+}
 
 // InitGenesis performs the modules/tokenfactory module's genesis initialization. It
 // returns no validator updates.
@@ -182,11 +184,10 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 
 // ExportGenesisStream returns the tokenfactory module's exported genesis state as raw JSON bytes in a streaming fashion.
 func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-chan json.RawMessage {
-	ch := make(chan json.RawMessage)
-	go func() {
-		ch <- am.ExportGenesis(ctx, cdc)
-		close(ch)
-	}()
+	snapshot := am.ExportGenesis(ctx, cdc)
+	ch := make(chan json.RawMessage, 1)
+	ch <- snapshot
+	close(ch)
 	return ch
 }
 

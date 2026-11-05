@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { SPOT_MARKETS } from "@/core/spot/config";
 import { formatUnits, type Address } from "viem";
 import { cn } from "@/ui/utils/cn";
 import { Info } from "lucide-react";
@@ -19,15 +20,15 @@ import {
   type SpotOrderbook,
 } from "@/hooks/spot/useSpotMarketStream";
 import { useSpotPortfolio } from "@/hooks/spot/useSpotPortfolio";
-import { dStrToToken } from "@/core/spot/api";
+import { useSpotTokenState } from "@/hooks/spot/useSpotTokenState";
+import type { SpotTokenState } from "@/core/spot/tokenState";
+import { ERROR_CATALOG } from "@/core/errors/catalog";
+import { dStrToToken, type SpotHoldingsResponse } from "@/core/spot/api";
 import { erc20Abi } from "@/core/perps/config";
 import { WEI_PER_UHPX } from "@/core/spot/calls";
 import { toPlainDecimal } from "@/ui/utils/format";
 import { readContract } from "@/hooks/perps/useContract";
-import {
-  type SpotMarket,
-  SPOT_STABLECOINS,
-} from "@/core/spot/config";
+import { type SpotMarket, SPOT_STABLECOINS } from "@/core/spot/config";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
 import {
@@ -83,8 +84,8 @@ import {
      · stop-limit       → PECORStopOrders.placeStopLimitBuy / Sell
 
    The stable side is chosen by `selectStableForBuy / Sell`:
-     · BUY  → highest user balance ≥ amount
-     · SELL → deepest vault liquidity ≥ expected output
+     · BUY  → USDL balance ≥ amount
+     · SELL → USDL vault liquidity ≥ expected output
    ══════════════════════════════════════════════════════════════════════ */
 
 type SizeMode = "BASE" | "USD";
@@ -106,17 +107,32 @@ export function spotOrderUnits(p: {
   baseDecimals: number;
   quoteDecimals: number;
 }): { baseUnits: bigint; quoteUnits: bigint } {
-  const priceUnits = p.price.trim() === "" ? 0n : parsePrice(toPlainDecimal(p.price));
+  const priceUnits =
+    p.price.trim() === "" ? 0n : parsePrice(toPlainDecimal(p.price));
   const baseScale = 10n ** BigInt(p.baseDecimals);
   const quoteScale = 10n ** BigInt(p.quoteDecimals);
   if (p.sizeMode === "BASE") {
-    const baseUnits = parseTokenAmount(toPlainDecimal(p.amount), p.baseDecimals);
+    const baseUnits = parseTokenAmount(
+      toPlainDecimal(p.amount),
+      p.baseDecimals,
+    );
     if (priceUnits <= 0n) return { baseUnits, quoteUnits: 0n };
-    return { baseUnits, quoteUnits: (baseUnits * priceUnits * quoteScale) / (baseScale * PRICE_SCALE) };
+    return {
+      baseUnits,
+      quoteUnits:
+        (baseUnits * priceUnits * quoteScale) / (baseScale * PRICE_SCALE),
+    };
   }
-  const quoteUnits = parseTokenAmount(toPlainDecimal(p.amount), p.quoteDecimals);
+  const quoteUnits = parseTokenAmount(
+    toPlainDecimal(p.amount),
+    p.quoteDecimals,
+  );
   if (priceUnits <= 0n) return { baseUnits: 0n, quoteUnits };
-  return { baseUnits: (quoteUnits * baseScale * PRICE_SCALE) / (priceUnits * quoteScale), quoteUnits };
+  return {
+    baseUnits:
+      (quoteUnits * baseScale * PRICE_SCALE) / (priceUnits * quoteScale),
+    quoteUnits,
+  };
 }
 
 function isPositivePrice(value: string): boolean {
@@ -148,11 +164,46 @@ export function spotConversionPrice(p: {
       : { price: "", reason: "Enter a limit price" };
   }
   const level = p.side === "BUY" ? p.book?.asks[0] : p.book?.bids[0];
-  if (level && isPositivePrice(level.priceText)) return { price: level.priceText, reason: null };
+  if (level && isPositivePrice(level.priceText))
+    return { price: level.priceText, reason: null };
   return {
     price: "",
-    reason: p.side === "BUY" ? "No asks in the book to price this buy" : "No bids in the book to price this sell",
+    reason:
+      p.side === "BUY"
+        ? "No asks in the book to price this buy"
+        : "No bids in the book to price this sell",
   };
+}
+
+export function spotPercentageAmount(p: {
+  side: "BUY" | "SELL";
+  sizeMode: SizeMode;
+  balance: { raw: string; decimals: number } | null;
+  pct: number;
+  price: string;
+  baseDecimals: number;
+  quoteDecimals: number;
+}): string | null {
+  if (!p.balance) return null;
+  const naturalMode = p.side === "BUY" ? "USD" : "BASE";
+  const naturalDecimals = p.side === "BUY" ? p.quoteDecimals : p.baseDecimals;
+  const balanceUnits = parseTokenAmount(
+    formatUnits(BigInt(p.balance.raw), p.balance.decimals),
+    naturalDecimals,
+  );
+  if (balanceUnits <= 0n) return null;
+  if (p.sizeMode !== naturalMode && !isPositivePrice(p.price)) return null;
+  const targetUnits = (balanceUnits * BigInt(p.pct)) / 100n;
+  const units = spotOrderUnits({
+    sizeMode: naturalMode,
+    amount: formatUnits(targetUnits, naturalDecimals),
+    price: p.price,
+    baseDecimals: p.baseDecimals,
+    quoteDecimals: p.quoteDecimals,
+  });
+  return p.sizeMode === "BASE"
+    ? formatUnits(units.baseUnits, p.baseDecimals)
+    : formatUnits(units.quoteUnits, p.quoteDecimals);
 }
 
 /**
@@ -178,6 +229,29 @@ export function spotSellExceedsBalance(
       ? raw / 10n ** BigInt(holding.decimals - baseDecimals)
       : raw * 10n ** BigInt(baseDecimals - holding.decimals);
   return baseUnits > held;
+}
+
+export function spotSubmitBlocked(
+  state: SpotTokenState | null,
+):
+  | "TRADE_MARKET_HALTED"
+  | "TokenNotRegistered"
+  | "TokenStateUnavailable"
+  | null {
+  if (
+    !state ||
+    typeof state.paused !== "boolean" ||
+    typeof state.tradeable !== "boolean" ||
+    (state.paused
+      ? state.tradeable || state.reason !== "TokenPaused"
+      : state.tradeable
+        ? state.reason !== null
+        : state.reason !== "TokenNotRegistered")
+  )
+    return "TokenStateUnavailable";
+  if (state.paused) return "TRADE_MARKET_HALTED";
+  if (!state.tradeable) return "TokenNotRegistered";
+  return null;
 }
 
 const ORDER_TYPE_LABELS: Record<SpotOrderType, string> = {
@@ -305,6 +379,59 @@ interface SpotOrderFormProps {
 }
 
 export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
+  const registered = SPOT_MARKETS.find(
+    (entry) => entry.symbol === market.symbol,
+  );
+  if (
+    !registered ||
+    market.baseAddress !== registered.baseAddress ||
+    market.baseDecimals !== registered.baseDecimals ||
+    market.baseToken !== registered.baseToken ||
+    market.quoteToken !== registered.quoteToken ||
+    market.baseTokenMeta.address !== registered.baseTokenMeta.address ||
+    market.baseTokenMeta.isNative !== registered.baseTokenMeta.isNative
+  )
+    throw new Error("Invalid spot order market");
+  return <ConnectedSpotOrderForm market={market} compact={compact} />;
+}
+
+export function spotBaseHolding(
+  market: SpotMarket,
+  holdings: SpotHoldingsResponse | null,
+): { raw: string; decimals: number } | null {
+  const row = holdings?.erc20.find(
+    (e) => e.token.toLowerCase() === market.baseAddress.toLowerCase(),
+  );
+  return row ? { raw: row.balance, decimals: market.baseDecimals } : null;
+}
+
+export function spotTimeInForceOptions(
+  orderType: SpotOrderType,
+): readonly TimeInForce[] {
+  return orderType === "stop-limit" ? ["GTC"] : ["GTC", "IOC", "FOK"];
+}
+
+export function spotBuyFunding(
+  holdings: SpotHoldingsResponse | null,
+  amountUsd: bigint,
+) {
+  const balances = buildStableAmountMap(
+    SPOT_STABLECOINS.map((stable) => ({
+      address: stable.address,
+      amount: BigInt(
+        holdings?.erc20.find(
+          (row) => row.token.toLowerCase() === stable.address.toLowerCase(),
+        )?.balance ?? "0",
+      ),
+    })),
+  );
+  return { balances, selection: selectStableForBuy({ amountUsd, balances }) };
+}
+
+function ConnectedSpotOrderForm({
+  market,
+  compact = false,
+}: SpotOrderFormProps) {
   const { isConnected, connect, isCorrectChain, switchToPaxeer, address } =
     usePerpsWallet();
 
@@ -323,6 +450,19 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   const orderbook = useSpotOrderbook(market.symbol);
   const stats = useSpotStats(market.symbol);
   const portfolio = useSpotPortfolio(address);
+  const tokenState = useSpotTokenState(
+    market.baseAddress,
+    market.baseTokenMeta.isNative,
+  );
+  const tokenBlockReason = spotSubmitBlocked(tokenState.state);
+  const tokenBlockMessage =
+    tokenBlockReason === "TRADE_MARKET_HALTED"
+      ? ERROR_CATALOG.TRADE_MARKET_HALTED.message
+      : tokenBlockReason === "TokenNotRegistered"
+        ? "This token is not registered for trading."
+        : tokenBlockReason === "TokenStateUnavailable"
+          ? (tokenState.error ?? "Checking token trading status…")
+          : null;
 
   const bestBid = orderbook?.bids[0]?.price ?? 0;
   const bestAsk = orderbook?.asks[0]?.price ?? 0;
@@ -334,7 +474,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   // PAX is the uhpx bank coin: its balance is `balanceOf` on the uhpx
   // pointer, at the 6 decimals of the token entry.
   const isNativeBase = market.baseTokenMeta.isNative;
-  const [paxPointerBalance, setPaxPointerBalance] = useState<bigint | null>(null);
+  const [paxPointerBalance, setPaxPointerBalance] = useState<bigint | null>(
+    null,
+  );
   useEffect(() => {
     if (!isNativeBase || !address) {
       setPaxPointerBalance(null);
@@ -369,38 +511,20 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
         ? null
         : { raw: paxPointerBalance.toString(), decimals: market.baseDecimals };
     }
-    if (!portfolio.holdings) return null;
-    const row = portfolio.holdings.erc20.find((e) => {
-      if (e.symbol && e.symbol.toUpperCase() === market.baseToken.toUpperCase())
-        return true;
-      return false;
-    });
-    if (row) {
-      const dec =
-        typeof row.decimals === "number"
-          ? row.decimals
-          : typeof row.decimals === "string"
-            ? parseInt(row.decimals, 10)
-            : market.baseDecimals;
-      return { raw: row.balance, decimals: dec };
-    }
-    return null;
+    return spotBaseHolding(market, portfolio.holdings);
   }, [portfolio.holdings, market, isNativeBase, paxPointerBalance]);
-  const baseBalance = baseHolding ? dStrToToken(baseHolding.raw, baseHolding.decimals) : 0;
+  const baseBalance = baseHolding
+    ? dStrToToken(baseHolding.raw, baseHolding.decimals)
+    : 0;
 
-  const quoteBalance = useMemo(() => {
-    if (!portfolio.holdings) return 0;
-    let total = 0;
-    for (const stable of SPOT_STABLECOINS) {
-      const row = portfolio.holdings.erc20.find(
-        (e) => e.token.toLowerCase() === stable.address.toLowerCase(),
-      );
-      if (row) {
-        total += dStrToToken(row.balance, stable.decimals);
-      }
-    }
-    return total;
-  }, [portfolio.holdings]);
+  const funding = useMemo(
+    () => spotBuyFunding(portfolio.holdings, 0n),
+    [portfolio.holdings],
+  );
+  const stableBalanceMap = funding.balances;
+  const quoteBalance = Number(
+    formatUnits(funding.selection.available, funding.selection.stable.decimals),
+  );
 
   const availableBalance = side === "BUY" ? quoteBalance : baseBalance;
 
@@ -412,7 +536,12 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   // Exact (base, quote) units at the order's own conversion price; floats
   // only for display.
   const decimalsStable = quoteDecimals(SPOT_STABLECOINS);
-  const conversion = spotConversionPrice({ orderType, side, limitPrice, book: orderbook });
+  const conversion = spotConversionPrice({
+    orderType,
+    side,
+    limitPrice,
+    book: orderbook,
+  });
   const orderUnits = useMemo(() => {
     if (amountNum <= 0) return null;
     try {
@@ -426,9 +555,20 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     } catch {
       return null;
     }
-  }, [amountNum, sizeMode, amount, conversion.price, market.baseDecimals, decimalsStable]);
-  const baseAmount = orderUnits ? Number(formatUnits(orderUnits.baseUnits, market.baseDecimals)) : 0;
-  const quoteAmount = orderUnits ? Number(formatUnits(orderUnits.quoteUnits, decimalsStable)) : 0;
+  }, [
+    amountNum,
+    sizeMode,
+    amount,
+    conversion.price,
+    market.baseDecimals,
+    decimalsStable,
+  ]);
+  const baseAmount = orderUnits
+    ? Number(formatUnits(orderUnits.baseUnits, market.baseDecimals))
+    : 0;
+  const quoteAmount = orderUnits
+    ? Number(formatUnits(orderUnits.quoteUnits, decimalsStable))
+    : 0;
 
   // ── Slippage / min received (market orders) ──
   const slippageBps = Math.round(slippagePct * 100);
@@ -444,13 +584,31 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     // SELL — receiving quote. Worst-case fill at best bid × (1 - slip).
     const worstPrice = bestBid > 0 ? bestBid * (1 - slippagePct / 100) : 0;
     return baseAmount * worstPrice;
-  }, [orderType, refPrice, baseAmount, quoteAmount, side, bestAsk, bestBid, slippagePct]);
+  }, [
+    orderType,
+    refPrice,
+    baseAmount,
+    quoteAmount,
+    side,
+    bestAsk,
+    bestBid,
+    slippagePct,
+  ]);
 
   // ── Validation ──
   const insufficientBalance =
     side === "BUY"
-      ? quoteAmount > quoteBalance + 1e-9
-      : orderUnits !== null && spotSellExceedsBalance(orderUnits.baseUnits, baseHolding, market.baseDecimals);
+      ? orderUnits !== null &&
+        !selectStableForBuy({
+          amountUsd: orderUnits.quoteUnits,
+          balances: stableBalanceMap,
+        }).sufficient
+      : orderUnits !== null &&
+        spotSellExceedsBalance(
+          orderUnits.baseUnits,
+          baseHolding,
+          market.baseDecimals,
+        );
   const limitInvalid =
     (orderType === "limit" || orderType === "stop-limit") && limitNum <= 0;
   const stopInvalid = orderType === "stop-limit" && stopNum <= 0;
@@ -462,6 +620,7 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   const submitDisabled =
+    tokenBlockReason !== null ||
     !isConnected ||
     !isCorrectChain ||
     amountInvalid ||
@@ -476,25 +635,22 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
   // ── % shortcuts ──
   const handlePctClick = (pct: number) => {
-    const max = side === "BUY" ? quoteBalance : baseBalance;
-    if (max <= 0) return;
-    const target = (max * pct) / 100;
-    if (sizeMode === (side === "BUY" ? "USD" : "BASE")) {
-      setAmount(String(target));
-    } else if (refPrice > 0) {
-      // We need to convert from the user's max in the natural unit to
-      // the displayed unit.
-      if (sizeMode === "BASE") {
-        // BUY: target was in quote; convert quote → base via price.
-        // SELL: target was already in base.
-        setAmount(side === "BUY" ? String(target / refPrice) : String(target));
-      } else {
-        // sizeMode === USD
-        setAmount(side === "BUY" ? String(target) : String(target * refPrice));
-      }
-    } else {
-      setAmount(String(target));
-    }
+    const nextAmount = spotPercentageAmount({
+      side,
+      sizeMode,
+      balance:
+        side === "BUY"
+          ? {
+              raw: funding.selection.available.toString(),
+              decimals: funding.selection.stable.decimals,
+            }
+          : baseHolding,
+      pct,
+      price: conversion.price,
+      baseDecimals: market.baseDecimals,
+      quoteDecimals: decimalsStable,
+    });
+    if (nextAmount !== null) setAmount(nextAmount);
   };
 
   // Auto-tune Post-Only flag — only legal on limit + GTC.
@@ -504,29 +660,11 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     }
   }, [orderType]);
   useEffect(() => {
-    if (postOnly && tif !== "GTC") setTif("GTC");
-  }, [postOnly, tif]);
+    if ((postOnly || orderType === "stop-limit") && tif !== "GTC")
+      setTif("GTC");
+  }, [postOnly, tif, orderType]);
 
   // ── Submit ──
-
-  /**
-   * Compute the user's stablecoin balances as a lowercased-address →
-   * bigint map, ready to pass into `selectStableForBuy`.
-   */
-  const stableBalanceMap = useMemo(() => {
-    if (!portfolio.holdings) return {};
-    return buildStableAmountMap(
-      SPOT_STABLECOINS.map((s) => {
-        const row = portfolio.holdings!.erc20.find(
-          (e) => e.token.toLowerCase() === s.address.toLowerCase(),
-        );
-        return {
-          address: s.address,
-          amount: row ? BigInt(row.balance) : 0n,
-        };
-      }),
-    );
-  }, [portfolio.holdings]);
 
   const submit = async () => {
     if (submitDisabled) return;
@@ -537,7 +675,11 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     setSubmitSuccess(null);
 
     const decimalsBase = market.baseDecimals;
-    const rail = spotOrderRail(orderType, tif, postOnly);
+    const rail = spotOrderRail(
+      orderType,
+      orderType === "stop-limit" ? "GTC" : tif,
+      postOnly,
+    );
     const atLimit = orderType === "limit";
     const conversionPrice = conversion.price;
 
@@ -551,7 +693,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
       });
 
       // PAX trades as the uhpx pointer the market rail reports.
-      const tokenAddr = isNativeBase ? await getPaxPointer() : market.baseAddress;
+      const tokenAddr = isNativeBase
+        ? await getPaxPointer()
+        : market.baseAddress;
       if (rail === "market") {
         // ── Market rail. An IOC / FOK limit sends the live quote with its
         //    output set to `limitMinOut` and zero slippage, so the call's
@@ -683,7 +827,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
             user: address as `0x${string}`,
           });
         }
-        setSubmitSuccess(`Limit ${side === "BUY" ? "buy" : "sell"} placed @ $${limitNum}`);
+        setSubmitSuccess(
+          `Limit ${side === "BUY" ? "buy" : "sell"} placed @ $${limitNum}`,
+        );
       } else {
         const stopPriceBig = parsePrice(toPlainDecimal(stopPrice));
         const limitPriceBig = parsePrice(toPlainDecimal(limitPrice));
@@ -725,7 +871,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
             user: address as `0x${string}`,
           });
         }
-        setSubmitSuccess(`Stop-limit ${side === "BUY" ? "buy" : "sell"} placed`);
+        setSubmitSuccess(
+          `Stop-limit ${side === "BUY" ? "buy" : "sell"} placed`,
+        );
       }
 
       // Form reset on success.
@@ -744,7 +892,10 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     } catch (err) {
       // Never surface raw err.message — always go through the classifier
       // so the inline error gets a friendly, actionable string.
-      const ufe = classifyError(err, `spot-order/${orderType}/${side.toLowerCase()}`);
+      const ufe = classifyError(
+        err,
+        `spot-order/${orderType}/${side.toLowerCase()}`,
+      );
       setSubmitError(
         ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
       );
@@ -755,9 +906,10 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     }
   };
 
-  const accentBg = side === "BUY"
-    ? "linear-gradient(135deg, var(--brand-green), #04A859)"
-    : "linear-gradient(135deg, var(--brand-red), #E04E58)";
+  const accentBg =
+    side === "BUY"
+      ? "linear-gradient(135deg, var(--brand-green), #04A859)"
+      : "linear-gradient(135deg, var(--brand-red), #E04E58)";
 
   const inputStyle = compact ? FIELD_INPUT_COMPACT : FIELD_INPUT;
   const padOuter = compact ? "p-3" : "p-4";
@@ -765,7 +917,11 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
   return (
     <div
-      className={cn("flex flex-col h-full overflow-y-auto scrollbar-custom", padOuter, gapOuter)}
+      className={cn(
+        "flex flex-col h-full overflow-y-auto scrollbar-custom",
+        padOuter,
+        gapOuter,
+      )}
       style={{ background: "var(--bg-subtle)", borderRadius: compact ? 8 : 12 }}
     >
       {/* SPOT badge */}
@@ -942,14 +1098,14 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
           <div className="flex items-center justify-between px-1">
             <span style={META_LABEL}>Time in Force</span>
             <div className="flex items-center gap-1">
-              {(["GTC", "IOC", "FOK"] as TimeInForce[]).map((opt) => (
+              {spotTimeInForceOptions(orderType).map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => setTif(opt)}
                   className={cn(
                     "px-2 py-0.5 text-[10px] font-mono rounded-[var(--radius-md)] transition-colors",
-                    tif === opt
+                    (orderType === "stop-limit" ? "GTC" : tif) === opt
                       ? "bg-primary/20 text-primary"
                       : "bg-surface-0 text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
                   )}
@@ -983,7 +1139,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
           </span>
         </div>
         <div className="flex flex-col items-end">
-          <span style={{ ...META_LABEL, textAlign: "right" }}>Wallet (USD)</span>
+          <span style={{ ...META_LABEL, textAlign: "right" }}>
+            Spendable ({funding.selection.stable.symbol})
+          </span>
           <span
             className="tabular-nums text-foreground"
             style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
@@ -999,8 +1157,8 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
           <Info className="w-3 h-3 shrink-0 mt-0.5" />
           <span>
             {side === "BUY"
-              ? "Pooled stablecoin balance (USDL + USDC + USDT) is used to fill spot buys."
-              : `${market.symbol} sells settle to a unified USD stablecoin balance.`}
+              ? `Each buy spends only ${funding.selection.stable.symbol}; balances of other tokens cannot be combined.`
+              : `${market.symbol} sells settle in a single stablecoin: ${funding.selection.stable.symbol}.`}
           </span>
         </div>
       </div>
@@ -1011,8 +1169,12 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
           label="Est. Price"
           value={
             orderType === "market"
-              ? conversion.price ? `$${Number(conversion.price).toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "—"
-              : limitNum > 0 ? `$${limitNum.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "—"
+              ? conversion.price
+                ? `$${Number(conversion.price).toLocaleString("en-US", { maximumFractionDigits: 4 })}`
+                : "—"
+              : limitNum > 0
+                ? `$${limitNum.toLocaleString("en-US", { maximumFractionDigits: 4 })}`
+                : "—"
           }
         />
         <DetailRow
@@ -1022,7 +1184,7 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
         <DetailRow
           label="Quote Total"
           value={quoteAmount > 0 ? fmtUsd(quoteAmount) : "—"}
-          tooltip="USD-equivalent total drawn from the pooled stablecoin balance."
+          tooltip={`Total settled in ${funding.selection.stable.symbol} only.`}
         />
         {orderType === "market" && minReceived > 0 ? (
           <DetailRow
@@ -1039,12 +1201,23 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
       {/* Submit / Connect / Switch */}
       <div className="mt-auto pt-2">
+        {tokenBlockMessage && (
+          <p
+            className="mb-2 text-[10px] text-amber-400 text-center font-mono"
+            role="status"
+          >
+            {tokenBlockMessage}
+          </p>
+        )}
         {!isConnected ? (
           <button
             type="button"
             onClick={connect}
             className="w-full py-3 rounded-[var(--radius-md)] text-sm font-semibold text-white transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg, var(--brand-blue), var(--brand-blue-dark, var(--brand-blue)))" }}
+            style={{
+              background:
+                "linear-gradient(135deg, var(--brand-blue), var(--brand-blue-dark, var(--brand-blue)))",
+            }}
           >
             Connect Wallet
           </button>

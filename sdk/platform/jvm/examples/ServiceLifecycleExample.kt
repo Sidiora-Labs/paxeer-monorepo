@@ -1,46 +1,76 @@
 package com.sidiora.layerx.sdk.examples
 
+import com.fasterxml.jackson.databind.node.TextNode
 import com.sidiora.layerx.sdk.*
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.CompletionStage
 
-/**
- * Kotlin example: Service lifecycle with budget constraints.
- * 
- * Demonstrates idiomatic Kotlin usage of the LayerX SDK.
- */
-fun main() {
-    val apiKey = System.getenv("LAYERX_API_KEY")
-        ?: error("Set LAYERX_API_KEY environment variable")
+/** An owner-session DaemonLimit protects only calls through this daemon. */
+class ServiceLifecycleExample {
+    companion object {
+        @JvmStatic
+        fun createBudget(
+            humanOrigin: URI,
+            agentOrigin: URI,
+            bearer: HttpProductionTransport.BearerCredential,
+            ownerSession: HttpProductionTransport.AgentSessionCredential,
+            tenant: String,
+            agentDid: String,
+            asset: String,
+            limit: ProtocolAmount,
+            expirySeconds: String,
+            key: IdempotencyKey,
+        ): CompletionStage<GeneratedSchema.AgentOperations.BudgetCreateResponse> {
+            val client = ProductionClient(
+                HttpProductionTransport.create(
+                    ExampleConfiguration.serviceOrigin(humanOrigin.toString()),
+                    ExampleConfiguration.serviceOrigin(agentOrigin.toString()),
+                    bearer,
+                    ownerSession,
+                ),
+            )
+            val request = GeneratedSchema.AgentOperations.BudgetCreateRequest(
+                TextNode.valueOf(tenant),
+                TextNode.valueOf(agentDid),
+                TextNode.valueOf(asset),
+                TextNode.valueOf(limit.toString()),
+                TextNode.valueOf("DaemonLimit"),
+                TextNode.valueOf(expirySeconds),
+            )
+            return client.agent(GeneratedSchema.AgentOperations.BUDGET_CREATE, request, ProductionClient.Options.idempotent(key))
+        }
 
-    val credential = HttpProductionTransport.BearerCredential(
-        SecretBytes(apiKey.toByteArray()))
-    val transport = HttpProductionTransport.create(
-        URI.create("https://api-mainnet-beta.paxeer.network"),
-        URI.create("https://machine.paxeer.network/rpc"),
-        credential)
-    val client = ProductionClient(transport)
-
-    val budgetAmount = protocolAmount("5000000")
-    val createBudget = mapOf(
-        "name" to "example-service-budget",
-        "limit" to budgetAmount.toString(),
-        "asset" to "USD")
-    
-    val budgetOptions = idempotencyKey("budget-${System.currentTimeMillis()}")
-        .asOptions()
-    
-    val budgetResult: CompletionStage<Map<String, Any>> = client.agent(
-        "budget.create",
-        createBudget,
-        Map::class,
-        budgetOptions)
-
-    budgetResult.thenAccept { result ->
-        println("Budget created: ${result["budget_id"]}")
-        println("Limit: ${result["limit"]}")
-        println("Available: ${result["available"]}")
-    }.toCompletableFuture().join()
-
-    println("Service lifecycle setup complete")
+        @JvmStatic
+        fun main(args: Array<String>) {
+            val key = ExampleConfiguration.randomKey()
+            println("Budget idempotency reference: ${key.value()}")
+            HttpProductionTransport.BearerCredential(
+                SecretBytes(ExampleConfiguration.required("LAYERX_API_KEY").toByteArray(StandardCharsets.UTF_8)),
+            ).use { bearer ->
+                val tenant = ExampleConfiguration.required("LAYERX_TENANT")
+                ExampleConfiguration.session(
+                    tenant,
+                    ExampleConfiguration.required("LAYERX_SESSION_ID"),
+                    ExampleConfiguration.required("LAYERX_SESSION_TOKEN_ID"),
+                    ExampleConfiguration.required("LAYERX_SESSION_GENERATION"),
+                ).use { ownerSession ->
+                    val result = createBudget(
+                        ExampleConfiguration.serviceOrigin(ExampleConfiguration.required("LAYERX_HUMAN_ORIGIN")),
+                        ExampleConfiguration.serviceOrigin(ExampleConfiguration.required("LAYERX_AGENT_ORIGIN")),
+                        bearer,
+                        ownerSession,
+                        tenant,
+                        ExampleConfiguration.required("LAYERX_AGENT_DID"),
+                        ExampleConfiguration.required("LAYERX_ASSET"),
+                        ProtocolAmount.parse(ExampleConfiguration.required("LAYERX_BUDGET_LIMIT")),
+                        ExampleConfiguration.required("LAYERX_BUDGET_EXPIRY_SECONDS"),
+                        key,
+                    ).toCompletableFuture().join()
+                    println("Budget created: ${result.value().required("budget_id").textValue()}")
+                    println(result.value().required("notice").textValue())
+                }
+            }
+        }
+    }
 }

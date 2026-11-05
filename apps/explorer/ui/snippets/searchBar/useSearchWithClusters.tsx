@@ -26,6 +26,15 @@ function extractClusterName(term: string): string {
   return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 
+function isUnknownClusterError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+
+  const resourceError = error as ResourceError<{ error?: { data?: { code?: string; path?: string } } }>;
+  return resourceError.status === 404 &&
+    resourceError.payload?.error?.data?.code === 'NOT_FOUND' &&
+    resourceError.payload.error.data.path === 'names.get';
+}
+
 function transformClusterToSearchResult(cluster: {
   name: string;
   clusterId?: string;
@@ -76,7 +85,8 @@ export default function useSearchWithClusters() {
         }) as ClusterQueryResult;
         return result;
       } catch (error) {
-        return null;
+        if (!signal.aborted && isUnknownClusterError(error)) return null;
+        throw error;
       }
     },
     enabled: isClustersEnabled && isClusterQuery && clusterName.length > 0,

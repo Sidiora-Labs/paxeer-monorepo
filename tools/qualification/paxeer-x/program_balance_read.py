@@ -19,7 +19,6 @@ REQUIRED = {
 BALANCE_CASES = {f'BAL-{index:02d}' for index in range(1, 10)}
 OWN = [
     'Makefile', 'rust-toolchain.toml', 'migrations/0007_history_index.sql',
-    'tests/programs/test_balance_read.c',
     'tests/programs/balance_read_guests.h',
     'tests/programs/test_accounts.c',
     'tools/qualification/paxeer-x/program_balance_read.py',
@@ -77,7 +76,7 @@ def sources():
     tracked = subprocess.check_output([
         'git', 'ls-files', '-z', '--', 'src', 'include', 'programs',
         'services/agent/crates', 'services/agent/Cargo.toml', 'services/agent/Cargo.lock',
-        'contracts/config/checkpoint-settlement.json', 'tests/programs', '.cargo',
+        'tests/programs', '.cargo',
     ], cwd=ROOT).decode().split('\0')
     names = set(OWN)
     for name in tracked:
@@ -228,20 +227,20 @@ def verify(_args):
 
 def main():
     os.umask(0o077)
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     sub = parser.add_subparsers(dest='operation', required=True)
-    before = sub.add_parser('snapshot')
+    before = sub.add_parser('snapshot', allow_abbrev=False)
     before.add_argument('--compiler', required=True)
     before.add_argument('--cargo', required=True)
     before.add_argument('--cppflags', required=True)
     before.add_argument('--cflags', required=True)
     before.add_argument('--ldflags', required=True)
     before.set_defaults(run=snapshot)
-    producer = sub.add_parser('record')
+    producer = sub.add_parser('record', allow_abbrev=False)
     for name in ['native', 'accounts-tests', 'library', 'staticlib', 'cargo-json', 'guests', 'generated-header']:
         producer.add_argument('--' + name, required=True)
     producer.set_defaults(run=record)
-    gate = sub.add_parser('verify')
+    gate = sub.add_parser('verify', allow_abbrev=False)
     gate.set_defaults(run=verify)
     args = parser.parse_args()
     try:

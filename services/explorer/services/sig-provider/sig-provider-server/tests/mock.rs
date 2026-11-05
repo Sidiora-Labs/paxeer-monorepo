@@ -5,6 +5,24 @@ use serde_json::Value;
 use sig_provider_server::{EthBytecodeDbSettings, SourcesSettings};
 use std::{cell::RefCell, time::Duration};
 
+#[path = "support/import_lifecycle.rs"]
+mod import_lifecycle;
+
+#[test]
+fn import_acknowledgement_survives_restart() {
+    import_lifecycle::acknowledged_import_survives_restart();
+}
+
+#[tokio::test]
+async fn import_upstream_refusal_is_observable() {
+    import_lifecycle::upstream_refusal_is_observable().await;
+}
+
+#[tokio::test]
+async fn import_single_upstream_refusal_is_observable() {
+    import_lifecycle::single_upstream_refusal_is_observable().await;
+}
+
 async fn run_server(sources: &SourceMocks<'_>) -> url::Url {
     let mut settings = sig_provider_server::Settings::default();
     let (server_settings, base) = test_server::get_test_server_settings();
@@ -13,6 +31,7 @@ async fn run_server(sources: &SourceMocks<'_>) -> url::Url {
     settings.tracing.enabled = false;
 
     settings.sources = SourcesSettings {
+        precompiles: Default::default(),
         fourbyte: format!("http://127.0.0.1:{}/", sources.fourbyte.port())
             .parse()
             .unwrap(),
@@ -114,8 +133,16 @@ async fn create() {
     let route = "/api/v1/signatures";
     let request = serde_json::json!({"abi":"[{\"constant\":false,\"inputs\":[],\"name\":\"f\",\"outputs\":[],\"type\":\"function\"},{\"inputs\":[],\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"name\":\"\",\"type\":\"string\",\"indexed\":true}],\"name\":\"E\",\"type\":\"event\"}]"});
     let response: serde_json::Value = test_server::send_post_request(&base, route, &request).await;
-    // allow async handle to work
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if mocks.mocks.borrow().iter().all(|mock| mock.hits() > 0) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("accepted import did not reach every upstream");
 
     mocks.assert();
 

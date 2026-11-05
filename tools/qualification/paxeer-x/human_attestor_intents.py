@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+import argparse
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import ssl
 import subprocess
@@ -9,9 +11,83 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE, catalogue, load_private, validate
+
 spec = importlib.util.spec_from_file_location('human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(B)
+
+C = sys.modules.get('human_committed_projections')
+if C is None:
+    spec = importlib.util.spec_from_file_location('human_committed_projections', Path(__file__).with_name('human-canonical-projections.py'))
+    C = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = C
+    spec.loader.exec_module(C)
+
+
+def qualify_plan(chain, plan, expected):
+    C.require(plan == expected and plan['journey_kind'] == 'move'
+              and re.fullmatch('[0-9a-f]{64}', plan['plan_digest']) and plan['legs'],
+              'exact observed signed-intent plan required')
+    capabilities = chain.capabilities()
+    C.require(capabilities['pay'] and capabilities['ledger'], 'merged bank and budget capabilities required')
+    requirements = plan['signing_requirements']
+    C.require(len(requirements) == len(plan['legs']), 'one exact signing requirement per leg')
+    fee = 0
+    for index, (leg, requirement) in enumerate(zip(plan['legs'], requirements, strict=True)):
+        C.require(leg['index'] == index and leg['chain_id'] == 125 and leg['value'] == '0'
+                  and leg['source']['kind'] != 'paxeer-wallet' and leg['destination']['kind'] != 'paxeer-wallet'
+                  and leg['mechanism'] in ('send', 'budget-defund')
+                  and requirement['leg_index'] == index
+                  and re.fullmatch('[0-9a-f]{64}', requirement['action_key'])
+                  and re.fullmatch('[0-9a-f]{64}', requirement['signing_context']),
+                  'single-chain executable intent capability required')
+        raw = bytes.fromhex(leg['calldata'].removeprefix('0x'))
+        if leg['mechanism'] == 'send':
+            C.require(leg['to'] == '0x' + '00' * 18 + '1001'
+                      and raw[:4] == C.merged.evm.encode_call('send', ['address', 'address', 'string', 'uint256'],
+                                                            [bytes(20), bytes(20), '', 0])[:4],
+                      'current bank send capability required')
+            fields = C.merged.decode_abi(['address', 'address', 'string', 'uint256'], '0x' + raw[4:].hex())
+            C.require(fields[3] == int(leg['money']['amount']) and fields[2], 'bank send amount and denomination differ')
+        else:
+            C.require(leg['to'] == C.PAY and raw[:4] == C.merged.evm.encode_call('budgetDefund', ['bytes32', 'uint128'],
+                                                                                       [bytes(32), 0])[:4],
+                      'current budget return capability required')
+            fields = C.merged.decode_abi(['bytes32', 'uint128'], '0x' + raw[4:].hex())
+            C.require(fields[1] == int(leg['money']['amount']), 'budget return amount differs')
+        C.require(leg['fee']['currency'] == plan['total_fee']['currency']
+                  and int(leg['fee']['amount']) == leg['gas_limit'] * int(leg['max_fee_per_gas']),
+                  'exact disclosed EVM fee required')
+        fee += int(leg['fee']['amount'])
+    C.require(fee == int(plan['total_fee']['amount']), 'exact total intent fee required')
+    return plan
+
+
+def qualify_intent(client, foreign, chain, case):
+    plan = client.call('POST', '/v1/intents/plan', case['request'])
+    qualify_plan(chain, plan, case['expected_plan'])
+    body = case['submission']
+    C.require(body == case['expected_submission'] and body['plan_digest'] == plan['plan_digest']
+              and re.fullmatch('[0-9a-f]{64}', body['signed_digest'])
+              and len(body['bindings']) == len(plan['legs']), 'exact independently signed intent required')
+    for binding, requirement, leg in zip(body['bindings'], plan['signing_requirements'], plan['legs'], strict=True):
+        C.require(binding['leg_index'] == leg['index'] and binding['action_key'] == requirement['action_key']
+                  and binding['account_sequence'] == leg['nonce'] and binding['authority'] == requirement['authority']
+                  and binding['fee_limit'] == leg['fee'], 'signed intent leg binding differs')
+    C.denied(lambda: foreign.call('POST', '/v1/intents/submit', body, case['idempotency_key']))
+    first = client.call('POST', '/v1/intents/submit', body, case['idempotency_key'])
+    C.require(first['plan_digest'] == plan['plan_digest'] and first['state'] == 'processing',
+              'intent submission is only submitted progress')
+    C.require(client.call('POST', '/v1/intents/submit', body, case['idempotency_key']) == first,
+              'exact signed intent retry differs')
+    changed = C.deepcopy(body)
+    changed['signed_digest'] = ('0' if body['signed_digest'][0] != '0' else '1') + body['signed_digest'][1:]
+    C.denied(lambda: client.call('POST', '/v1/intents/submit', changed, case['idempotency_key']),
+             ('conflict', 'forbidden', 'invalid-request'), (400, 403, 409))
+    return first
+
 
 CLIENT = r'''
 import {readFile,writeFile} from 'node:fs/promises';
@@ -48,18 +124,21 @@ if(row.operation==='intent.plan'){
 check(/^[a-f0-9]{64}$/.test(result.plan_digest)&&result.legs.length>0,'actual deterministic sealed plan');
 check(result.total_fee.amount===BigInt(row.expected_fee)&&result.total_fee.currency===row.currency,'exact real fee disclosure');
 check(result.legs[0].money.amount===BigInt(row.expected_amount)&&result.legs[0].money.currency===row.currency,'exact actual amount disclosure');
-if(row.coverage==='native-send')check(result.legs.length===1&&result.legs[0].domain==='layerx'&&result.legs[0].mechanism==='send','native SEND with no custody movement leg');
-if(row.coverage==='wallet')check(result.legs.some(leg=>leg.domain==='paxeer'),'real bound wallet movement path');
+if(row.coverage==='native-send')check(result.legs.length===1&&result.legs[0].chain_id===125&&result.legs[0].mechanism==='send','native SEND with no custody movement leg');
+if(row.coverage==='budget-return')check(result.legs.some(leg=>leg.chain_id===125&&leg.mechanism==='budget-defund'),'real merged budget return path');
 }
 if(row.replay_of)check(stable(result)===stable(outputs.get(row.replay_of)),'durable exact idempotent outcome after restart');
 if(row.operation==='journey.get'){
 check(result.state==='done','actual canonical verified final journey required');
 const refs=[...result.evidence,...result.stages.flatMap(stage=>stage.evidence)];
-check(refs.some(ref=>['receipt-verified','checkpoint-finalised','settlement-anchored'].includes(ref.verification)),'real verified protocol outcome');
-for(const ref of refs.filter(ref=>['receipt-verified','checkpoint-finalised','settlement-anchored'].includes(ref.verification))){
+check(refs.some(ref=>ref.class==='layerx-receipt'&&['receipt-verified','checkpoint-finalised'].includes(ref.verification)),'real verified native outcome');
+for(const ref of refs.filter(ref=>ref.class==='layerx-receipt'&&['receipt-verified','checkpoint-finalised'].includes(ref.verification))){
 const material=await input.client.evidenceGet(ref.evidence_id);const bytes=Buffer.from(material.bytes_base64,'base64');
-check(bytes.length>0&&material.verification===ref.verification,'actual tenant-owned verified receipt export');
-if(/^evd_[a-f0-9]{64}$/.test(ref.evidence_id))check('evd_'+createHash('sha256').update(bytes).digest('hex')===ref.evidence_id,'exact actual outcome evidence digest');
+const portable=JSON.parse(bytes.toString('utf8'));
+check(bytes.length>0&&material.verification==='checkpoint-finalised'&&material.rung==='committed'&&portable.format==='layerx-receipt-proof-v2','actual tenant-owned committed receipt export');
+const signed=Buffer.from(portable.signedReceipt.slice(2),'hex');
+const committedReference=fixture.committed_journeys.some(row=>'evd_'+row.transaction_hash.slice(2)===ref.evidence_id);
+check(/^evd_[a-f0-9]{64}$/.test(ref.evidence_id)&&('evd_'+createHash('sha256').update(signed).digest('hex')===ref.evidence_id||committedReference),'exact signed receipt or independently committed transaction identity');
 }}
 }
 await writeFile(output,stable({tests,outputs:[...outputs]}),{mode:0o600});
@@ -67,14 +146,13 @@ await writeFile(output,stable({tests,outputs:[...outputs]}),{mode:0o600});
 
 
 def main():
+    argparse.ArgumentParser(description='Qualify human attestor intents using protected manifests.').parse_args()
     B.require(len(sys.argv) == 1, 'no arguments accepted')
     candidate_path = os.environ.get('PAXEER_X_CANDIDATE_MANIFEST')
     fixture_path = os.environ.get('PAXEER_X_HUMAN_ATTESTOR_INTENTS_MANIFEST')
     B.require(candidate_path and fixture_path, 'genuine protected candidate and attestor signing fixture required')
-    sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-    from candidate import catalogue, load_private, validate
     candidate = load_private(candidate_path)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     revision, source = B.identity()
     B.require(candidate['source']['revision'] == revision and not candidate['source']['dirty'], 'genuine clean candidate source')
     fixture = B.load(fixture_path)
@@ -84,7 +162,7 @@ def main():
     state_root = B.private(fixture['disposable_state_directory'], True)
     B.require(state_root != directory and not any(state_root.iterdir()), 'fresh disposable qualification authority state')
     artifacts = {name: B.executable(row, revision, source) for name, row in fixture['artifacts'].items()}
-    roles = ('service', 'components', 'agent', 'core', 'paxeer', 'gateway', 'attestor')
+    roles = ('service', 'components', 'agent', 'paxd', 'gateway', 'attestor')
     B.require(all(role in artifacts for role in roles), 'actual gateway Human core wallet attestor production artifacts')
     node = Path(fixture['node'])
     B.require(node.is_absolute() and node.is_file() and os.access(node, os.X_OK) and B.digest(node) == fixture['node_sha256'], 'pinned genuine Node runtime')
@@ -102,12 +180,12 @@ def main():
         B.require(row['state_directory'].startswith(str(state_root) + '/'), 'qualification process state isolated from funded live services')
         for endpoint in row['qualification_endpoints']:
             B.endpoint(endpoint)
-    required = {'native-send', 'wallet', 'wrong-principal', 'changed-disclosure', 'missing-wallet', 'provider-refusal', 'restart-replay', 'verified-native-outcome'}
+    required = {'native-send', 'budget-return', 'wrong-principal', 'changed-disclosure', 'missing-wallet', 'provider-refusal', 'restart-replay', 'verified-native-outcome'}
     coverage = {row['coverage'] for phase in ('live', 'restart') for row in fixture['cases'][phase]}
     B.require(required <= coverage, 'all actual positive refusal restart and verified outcome cases required without skips')
     for phase in ('live', 'restart'):
         for row in fixture['cases'][phase]:
-            if row['coverage'] in ('native-send', 'wallet'):
+            if row['coverage'] in ('native-send', 'budget-return'):
                 B.require(row['operation'] == 'intent.plan' and not row.get('error_codes'), 'real positive planning coverage')
             elif row['coverage'] in ('wrong-principal', 'changed-disclosure', 'missing-wallet', 'provider-refusal'):
                 B.require(row['operation'] in ('intent.plan', 'intent.submit') and isinstance(row.get('error_codes'), list) and row['error_codes'], 'actual refusal case required')
@@ -133,6 +211,8 @@ def main():
         for row in fixture['processes']:
             processes.start(row)
         ready()
+        owner, foreign, chain = C.current_clients(fixture)
+        initial = qualify_intent(owner, foreign, chain, fixture['current_intent'])
         runner = directory / 'attestor-intents.mts'
         runner.write_text(CLIENT)
         runner.chmod(0o600)
@@ -144,6 +224,8 @@ def main():
                     (directory / (row['name'] + '.log')).rename(directory / (row['name'] + '-before-restart.log'))
                     processes.start(row)
                 ready()
+                C.require(qualify_intent(owner, foreign, chain, fixture['current_intent']) == initial, 'signed intent survives restart')
+                C.qualify_projections(owner, foreign, chain, fixture)
             output = directory / (phase + '-result.json')
             with (directory / (phase + '.log')).open('xb') as log:
                 os.chmod(log.name, 0o600)

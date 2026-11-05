@@ -55,11 +55,13 @@ const (
 	ClassTimeout          = "timeout"
 	ClassTransport        = "transport_error"
 	ClassSignatureInvalid = "signature_invalid"
+	KindLXSendAuth        = server.KindLXSendAuth
 )
 
 type endpoint struct {
-	ID   string
-	Addr string
+	ID   string `json:"id"`
+	Addr string `json:"address"`
+	Pin  string `json:"spki_sha256,omitempty"`
 }
 
 type settings struct {
@@ -74,6 +76,10 @@ type settings struct {
 	concurrency    int
 	sessionTimeout time.Duration
 	keygenTimeout  time.Duration
+	manifestPath   string
+	phase          string
+	pins           string
+	manifest       *RunManifest
 }
 
 type Latency struct {
@@ -130,15 +136,32 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	if err != nil {
 		return Summary{}, err
 	}
+	if err := prepareManifest(cfg); err != nil {
+		return Summary{}, err
+	}
+	if cfg.phase == "export" {
+		return Summary{}, exportManifest(stdout, stderr, cfg.manifest)
+	}
 	client, err := mtlsClient(cfg)
 	if err != nil {
 		return Summary{}, err
 	}
+	defer client.CloseIdleConnections()
 	lt := &loadTester{cfg: cfg, client: client, quorums: quorums(cfg.endpoints, int(dealer.Threshold))}
 	if lt.runID, err = randomHex(8); err != nil {
 		return Summary{}, err
 	}
 	if err := lt.checkEndpoints(ctx); err != nil {
+		return Summary{}, err
+	}
+	if cfg.phase == "generate" {
+		lt.runID = cfg.manifest.RunID
+		if err := lt.generateManifest(ctx); err != nil {
+			return Summary{}, err
+		}
+		return Summary{}, exportManifest(stdout, stderr, cfg.manifest)
+	}
+	if err := lt.useManifestKeys(); err != nil {
 		return Summary{}, err
 	}
 	summary, err := lt.execute(ctx)
@@ -168,6 +191,9 @@ func load(args []string, getenv func(string) string, stderr io.Writer) (*setting
 	concurrency := fs.String("concurrency", "", "number of signing sessions kept in flight ("+EnvConcurrency+")")
 	sessionTimeout := fs.String("session-timeout", "", "Go duration one signing session may take, default 2m ("+EnvSessionTimeout+")")
 	keygenTimeout := fs.String("keygen-timeout", "", "Go duration one key generation may take, default 10m ("+EnvKeygenTimeout+")")
+	manifestPath := fs.String("manifest", "", "private run manifest path; export, approve generation inventory, generate, approve signing inventory, then sign")
+	phase := fs.String("phase", "sign", "inventory handoff stage: export, generate, or sign (resume approved existing keys)")
+	pins := fs.String("pins", "", "for export: comma-separated node-id=SPKI-SHA256 hex pins")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -202,6 +228,7 @@ func load(args []string, getenv func(string) string, stderr io.Writer) (*setting
 		return nil, fmt.Errorf("required settings are not set: %s", strings.Join(missing, ", "))
 	}
 	cfg := &settings{certFile: values[EnvClientCertFile], keyFile: values[EnvClientKeyFile], caFile: values[EnvCAFile], token: values[EnvToken]}
+	cfg.manifestPath, cfg.phase, cfg.pins = *manifestPath, *phase, *pins
 	var err error
 	if cfg.endpoints, err = parseEndpoints(values[EnvEndpoints]); err != nil {
 		return nil, err
@@ -279,6 +306,9 @@ func tokenSubject(token string) (string, error) {
 }
 
 func mtlsClient(cfg *settings) (*http.Client, error) {
+	if cfg.manifest == nil {
+		return nil, errors.New("a pinned run manifest is required")
+	}
 	pair, err := tls.LoadX509KeyPair(cfg.certFile, cfg.keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("client certificate: %w", err)
@@ -291,10 +321,42 @@ func mtlsClient(cfg *settings) (*http.Client, error) {
 	if !roots.AppendCertsFromPEM(bundle) {
 		return nil, fmt.Errorf("%s holds no PEM certificate", EnvCAFile)
 	}
-	return &http.Client{Transport: &http.Transport{
-		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair}, RootCAs: roots},
-		MaxIdleConnsPerHost: cfg.concurrency * 2,
-		ForceAttemptHTTP2:   true,
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair}, RootCAs: roots}
+	tr := &http.Transport{
+		TLSClientConfig: tlsConfig, MaxIdleConnsPerHost: cfg.concurrency * 2,
+		ForceAttemptHTTP2: true,
+	}
+	tr.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		var pin string
+		for _, ep := range cfg.endpoints {
+			if ep.Addr == addr {
+				pin = ep.Pin
+				break
+			}
+		}
+		if pin == "" {
+			return nil, fmt.Errorf("endpoint %s has no manifest pin", addr)
+		}
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		config := tlsConfig.Clone()
+		config.ServerName = host
+		config.VerifyConnection = func(cs tls.ConnectionState) error {
+			if len(cs.PeerCertificates) == 0 {
+				return errors.New("attestor certificate missing")
+			}
+			digest := sha256.Sum256(cs.PeerCertificates[0].RawSubjectPublicKeyInfo)
+			if hex.EncodeToString(digest[:]) != pin {
+				return errors.New("attestor SPKI pin mismatch")
+			}
+			return nil
+		}
+		return (&tls.Dialer{Config: config}).DialContext(ctx, network, addr)
+	}
+	return &http.Client{Transport: tr, CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+		return errors.New("attestor redirects are not allowed")
 	}}, nil
 }
 
@@ -425,6 +487,9 @@ func (lt *loadTester) checkEndpoints(ctx context.Context) error {
 		if err := json.Unmarshal(raw, &report); err != nil {
 			return fmt.Errorf("health of %s: status %d: %v", ep.ID, resp.StatusCode, err)
 		}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("health of %s: status %d", ep.ID, resp.StatusCode)
+		}
 		if report.NodeID != ep.ID {
 			return fmt.Errorf("endpoint configured as %s reports node id %q", ep.ID, report.NodeID)
 		}
@@ -452,38 +517,16 @@ func (lt *loadTester) generate(ctx context.Context, curve, account string) (serv
 		if err := json.Unmarshal(r.body, &kr); err != nil {
 			return server.KeyResponse{}, took, fmt.Errorf("generate %s on %s: %v", curve, lt.cfg.endpoints[i].ID, err)
 		}
+		if kr.NodeID != lt.cfg.endpoints[i].ID || kr.KeyID != keyID || kr.Curve != curve || kr.AuditSequence == 0 || kr.Epoch != 0 || !sameMembers(kr.Participants, lt.cfg.endpoints) {
+			return server.KeyResponse{}, took, fmt.Errorf("generate %s: response identity or audit evidence differs on %s", curve, lt.cfg.endpoints[i].ID)
+		}
 		if i == 0 {
 			first = kr
-		} else if kr.PublicKey != first.PublicKey {
+		} else if kr.PublicKey != first.PublicKey || kr.Address != first.Address || kr.DID != first.DID {
 			return server.KeyResponse{}, took, fmt.Errorf("generate %s: %s holds public key %s, %s holds %s", curve, lt.cfg.endpoints[i].ID, kr.PublicKey, lt.cfg.endpoints[0].ID, first.PublicKey)
 		}
 	}
 	return first, took, nil
-}
-
-func (lt *loadTester) generateKeys(ctx context.Context) ([]KeySummary, error) {
-	evm, evmTook, err := lt.generate(ctx, store.CurveSecp256k1, "")
-	if err != nil {
-		return nil, err
-	}
-	if !common.IsHexAddress(evm.Address) {
-		return nil, fmt.Errorf("generated secp256k1 key has no address: %q", evm.Address)
-	}
-	lt.evmKey, lt.evmAddress = evm.KeyID, common.HexToAddress(evm.Address)
-	ed, edTook, err := lt.generate(ctx, store.CurveEd25519, lt.evmAddress.Hex())
-	if err != nil {
-		return nil, err
-	}
-	pub, err := hex.DecodeString(ed.PublicKey)
-	if err != nil || len(pub) != ed25519.PublicKeySize {
-		return nil, fmt.Errorf("generated ed25519 key has public key %q", ed.PublicKey)
-	}
-	lt.edKey = ed.KeyID
-	copy(lt.edPublic[:], pub)
-	return []KeySummary{
-		{Curve: evm.Curve, KeyID: evm.KeyID, PublicKey: evm.PublicKey, Address: evm.Address, GenerateMillis: millis(evmTook)},
-		{Curve: ed.Curve, KeyID: ed.KeyID, PublicKey: ed.PublicKey, DID: ed.DID, GenerateMillis: millis(edTook)},
-	}, nil
 }
 
 type outcome struct {
@@ -530,22 +573,28 @@ func (lt *loadTester) kernelRequest(seq uint64) (server.SignRequest, func(server
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
-	program := sha256.Sum256([]byte("attestor load test program"))
-	value := make([]byte, 16)
-	value[15] = 1
-	payload := append(append([]byte{}, program[:]...), 0, 1)
-	payload = append(append(append(append(payload, from[:]...), make([]byte, 32)...), to[:]...), value...)
 	now := uint64(time.Now().Unix())
+	idempotency := sha256.Sum256([]byte("attestor load test " + lt.runID + " " + strconv.FormatUint(seq, 10)))
+	send := &lxwire.Send{
+		From: from, To: to, Amount: lxwire.Uint128{Lo: 1}, SourceSequence: seq,
+		IdempotencyKey: idempotency, ExpiresAt: now + 600,
+		AuthorizationKind: lxwire.OwnerAuthorization, Controller: from, PublicKey: lt.edPublic,
+		NetworkID: uint32(lt.cfg.chainID), ProtocolVersion: lxwire.MaxProtocolVersion,
+	}
+	payload, err := send.Encode()
+	if err != nil {
+		return server.SignRequest{}, nil, err
+	}
 	a := &lxwire.Activity{
 		ProtocolVersion: lxwire.MaxProtocolVersion,
 		NetworkID:       uint32(lt.cfg.chainID),
-		Type:            lx.OpProgramCall,
+		Type:            lx.OpAssetTransfer,
 		ActorDID:        []byte(did),
 		Authority:       append([]byte{}, lt.edPublic[:]...),
 		AccountSequence: seq,
 		NotBefore:       now - 60,
 		NotAfter:        now + 600,
-		IdempotencyKey:  sha256.Sum256([]byte("attestor load test " + lt.runID + " " + strconv.FormatUint(seq, 10))),
+		IdempotencyKey:  idempotency,
 		FeeLimit:        lxwire.Uint128{Lo: 1000},
 		PayloadHash:     lxwire.PayloadHash(payload),
 		Payload:         payload,
@@ -554,11 +603,11 @@ func (lt *loadTester) kernelRequest(seq uint64) (server.SignRequest, func(server
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
-	pre, err := lxwire.SignaturePreimage(a)
+	pre, err := send.AuthorizationDigest()
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
-	effect, err := lx.DecodeEffect(a)
+	_, effect, err := lx.DecodeSendAuthorization(a)
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
@@ -580,7 +629,7 @@ func (lt *loadTester) kernelRequest(seq uint64) (server.SignRequest, func(server
 		sig, err := hex.DecodeString(r.Signature)
 		return err == nil && r.SignedBytes == hex.EncodeToString(pre[:]) && ed25519.Verify(pub, pre[:], sig)
 	}
-	return server.SignRequest{SessionID: session, KeyID: lt.edKey, Kind: server.KindLXActivity, Activity: hex.EncodeToString(unsigned), Disclosure: disclosure, Approval: approval}, verify, nil
+	return server.SignRequest{SessionID: session, KeyID: lt.edKey, Kind: KindLXSendAuth, Activity: hex.EncodeToString(unsigned), Disclosure: disclosure, Approval: approval}, verify, nil
 }
 
 func (lt *loadTester) sessionID(seq uint64) string {
@@ -624,9 +673,9 @@ func (lt *loadTester) session(ctx context.Context, seq uint64) outcome {
 	if class != "" {
 		return outcome{curve: curve, class: class, latency: took}
 	}
-	for _, r := range replies {
+	for i, r := range replies {
 		var sr server.SignResponse
-		if err := json.Unmarshal(r.body, &sr); err != nil || sr.KeyID != req.KeyID || !verify(sr) {
+		if err := json.Unmarshal(r.body, &sr); err != nil || sr.NodeID != quorum[i].ID || sr.KeyID != req.KeyID || sr.Kind != req.Kind || sr.AuditSequence == 0 || !verify(sr) {
 			return outcome{curve: curve, class: ClassSignatureInvalid, latency: took}
 		}
 	}
@@ -634,10 +683,10 @@ func (lt *loadTester) session(ctx context.Context, seq uint64) outcome {
 }
 
 func (lt *loadTester) execute(ctx context.Context) (Summary, error) {
-	keys, err := lt.generateKeys(ctx)
-	if err != nil {
-		return Summary{}, err
-	}
+	return lt.measure(ctx, lt.cfg.manifest.Keys)
+}
+
+func (lt *loadTester) measure(ctx context.Context, keys []KeySummary) (Summary, error) {
 	var next atomic.Uint64
 	var mu sync.Mutex
 	var outcomes []outcome

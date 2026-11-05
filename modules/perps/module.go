@@ -1,6 +1,6 @@
 // Package perps is the native perpetuals venue reached from the EVM through
-// the perps precompile at 0x…1015. It has no Msg service: every state change
-// enters through the precompile, governance and the end block.
+// the perps precompile at 0x…1015. State changes enter through the precompile,
+// the governance Msg service and the end block.
 package perps
 
 import (
@@ -31,11 +31,13 @@ func NewAppModuleBasic() AppModuleBasic { return AppModuleBasic{} }
 
 func (AppModuleBasic) Name() string { return types.ModuleName }
 
-// RegisterLegacyAminoCodec registers nothing: the module has no messages.
-func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	types.RegisterLegacyAminoCodec(cdc)
+}
 
-// RegisterInterfaces registers nothing: the module has no messages.
-func (AppModuleBasic) RegisterInterfaces(_ cdctypes.InterfaceRegistry) {}
+func (AppModuleBasic) RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
+	types.RegisterInterfaces(registry)
+}
 
 func mustMarshalGenesis(gs *types.GenesisState) json.RawMessage {
 	bz, err := json.Marshal(gs)
@@ -49,12 +51,26 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 	return mustMarshalGenesis(types.DefaultGenesis())
 }
 
+// genesisDecodeError exposes the registered refusal to the SDK's Cause walk
+// while retaining the JSON decoder error for errors.As callers.
+type genesisDecodeError struct {
+	error
+	decodeErr error
+}
+
+func (e genesisDecodeError) Cause() error { return e.error }
+
+func (e genesisDecodeError) Unwrap() []error { return []error{e.error, e.decodeErr} }
+
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
 	var genState types.GenesisState
 	if err := json.Unmarshal(bz, &genState); err != nil {
-		return fmt.Errorf("%w: failed to unmarshal %s genesis state: %w", types.ErrInvalidGenesis, types.ModuleName, err)
+		return genesisDecodeError{
+			error:     types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err),
+			decodeErr: err,
+		}
 	}
-	return types.ValidateGenesis(genState)
+	return keeper.ValidateGenesis(genState)
 }
 
 func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, genesisCh <-chan json.RawMessage) error {
@@ -93,8 +109,10 @@ func (AppModule) QuerierRoute() string { return types.ModuleName }
 
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
-// RegisterServices registers no Msg or query service.
-func (AppModule) RegisterServices(_ module.Configurator) {}
+// RegisterServices registers the governance Msg service; reads use the precompile.
+func (am AppModule) RegisterServices(cfg module.Configurator) {
+	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+}
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
 	keeper.RegisterInvariants(registry, am.keeper)

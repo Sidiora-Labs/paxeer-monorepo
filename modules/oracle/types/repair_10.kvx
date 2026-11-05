@@ -1,0 +1,24 @@
+[task]
+id = "22.31.10"
+audit = "22.30.13"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+
+[finding.001]
+repair = "Both median methods use totalPower/2 + totalPower%2, return zero for zero total power, and skip zero-power votes; even-power ties still select the lower rate."
+tests = ["TestRepair_10_WeightedMedian", "TestRepair_10_AssertionRejectsUnsorted", "TestRepair_10_MidBlockOddTotalOne", "TestRepair_10_MidBlockOddTotalThree", "TestRepair_10_MidBlockEvenTie"]
+path = "Real staking handler and validator-set update -> oracle vote handler -> protobuf vote store -> OrganizeBallotByDenom -> MidBlocker reference and cross-rate tallies -> protobuf price store -> ExchangeRate query."
+wiring_requests = []
+
+[qualification]
+baseline = "Not run: the ordered bounded-gate instructions prohibit testing before implementation and reserve the single verify run for hf-done; no baseline failures are claimed."
+build = "hf-build: go build ./modules/oracle/types/..."
+verify = "hf-done: cg spec done 22.31.10 -f layerx-merge --root /work/paxeer-monorepo (go test -count=1 ./modules/oracle/types/)"
+evidence = "The runner's private /out/run/gates.jsonl records the exact candidate revision, command, exit code and log for each gate; the final response copies the last gate result."
+
+[qualification.fixture_isolation]
+revision = "cc0d61e1fea9024d177658de6dc3422771987f31"
+command = "cg spec done 22.31.10 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Existing TestParamsValid mutates DefaultWhitelist through its shared slice; CreateTestInput then panicked validating that whitelist before the new MidBlock assertions ran."
+repair = "The new regression fixture supplies its own valid whitelist and restores the previous global value with cleanup; existing tests and production parameter validation remain unchanged."

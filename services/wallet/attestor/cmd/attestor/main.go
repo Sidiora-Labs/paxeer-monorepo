@@ -18,6 +18,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/jwt"
@@ -132,10 +134,35 @@ func policies(cfg *config.Config, st *store.Store) (*policy.Policy, *policy.Spen
 	return engine, ledger, kernel, nil
 }
 
+func NewMetrics(registry *prometheus.Registry) (*health.Metrics, error) {
+	codes := server.ErrorCodes()
+	refusalCodes := make([]string, 0, len(codes))
+	for code := range codes {
+		refusalCodes = append(refusalCodes, code)
+	}
+	return health.NewMetrics(registry, refusalCodes)
+}
+
+func tokenVerifierConfig(cfg *config.Config, st *store.Store) jwt.Config {
+	return jwt.Config{
+		JWKSURL:            cfg.JWKSURL,
+		Issuer:             cfg.JWTIssuer,
+		Audience:           cfg.JWTAudience,
+		MinRefreshInterval: time.Minute,
+		HTTPClient:         &http.Client{Timeout: 10 * time.Second},
+		MaxAge:             cfg.JWTMaxAge,
+		Replay:             st,
+	}
+}
+
 func run(ctx context.Context, getenv func(string) string, ready func(listening)) error {
 	cfg, err := config.Load(getenv)
 	if err != nil {
 		return err
+	}
+	metrics, err := NewMetrics(prometheus.NewRegistry())
+	if err != nil {
+		return fmt.Errorf("attestor: metrics: %w", err)
 	}
 	if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" || cfg.TLSCAFile == "" || cfg.OperatorCAFile == "" {
 		return errors.New("attestor: TLS certificate, key, peer CA and operator CA files are required")
@@ -174,19 +201,12 @@ func run(ctx context.Context, getenv func(string) string, ready func(listening))
 	}
 	var tokens *jwt.TokenVerifier
 	if cfg.JWKSURL != "" {
-		tokens, err = jwt.NewTokenVerifier(jwt.Config{
-			JWKSURL:    cfg.JWKSURL,
-			Issuer:     cfg.JWTIssuer,
-			Audience:   cfg.JWTAudience,
-			HTTPClient: &http.Client{Timeout: 10 * time.Second},
-			MaxAge:     cfg.JWTMaxAge,
-			Replay:     st,
-		})
+		tokens, err = jwt.NewTokenVerifier(tokenVerifierConfig(cfg, st))
 		if err != nil {
 			return err
 		}
 	}
-	authority, err := agent.NewAuthority(agent.AuthorityConfig{PublicKeyFile: cfg.AuthorityPublicKey, Issuer: cfg.AuthorityIssuer, Tenant: cfg.AuthorityTenant, Store: st, ChainID: cfg.ChainID})
+	authority, err := agent.NewAuthority(agent.AuthorityConfig{PublicKeyFile: cfg.AuthorityPublicKey, Issuer: cfg.AuthorityIssuer, Tenant: cfg.AuthorityTenant, Store: st, ChainID: cfg.ChainID, Paymaster: cfg.AgentPaymaster})
 	if err != nil {
 		return fmt.Errorf("attestor: pinned custody producer authority: %w", err)
 	}
@@ -309,6 +329,7 @@ func run(ctx context.Context, getenv func(string) string, ready func(listening))
 		PeerProbe:  server.TCPPeerProbe(probe),
 		Replica:    replicaState,
 		Snapshots:  snapshots,
+		Metrics:    metrics,
 	})
 	if err != nil {
 		return err

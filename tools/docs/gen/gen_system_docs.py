@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Paxeer X Network system reference under docs/system/ from source."""
+"""Generate precompiles.md by default, or the full system reference in an output directory."""
 import ast
 import json
 import re
@@ -64,7 +64,7 @@ def gen_routes():
 
 # EVM JSON-RPC --------------------------------------------------------------
 
-CTOR = re.compile(r"func (New\w+)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\(?\*?(\w+)[^{\n]*\{")
+CTOR = re.compile(r"func ([Nn]ew\w+)\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\(?\*?(\w+)[^{\n]*\{")
 METHOD = re.compile(r"^func \(\w+ \*?(\w+)\) ([A-Z]\w*)\((.*?)\)\s*(.*?)\s*\{\s*$", re.M)
 STRUCT = re.compile(r"^type (\w+) struct \{\n(.*?)^\}", re.M | re.S)
 
@@ -81,12 +81,15 @@ def gen_rpc():
         for typ, body in STRUCT.findall(text):
             embeds[typ] = re.findall(r"^\t\*?([A-Z]\w*)\s*$", body, re.M)
     server = read(rpc / "server.go")
-    variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= (New\w+)\(", server))
+    variables = dict(re.findall(r"(\w+)(?:, \w+)? :?= ([Nn]ew\w+)\(", server))
+    closures = dict(re.findall(r"(\w+) := func\([^)]*\)\s*\*(\w+)\s*\{", server))
 
     def resolve(expr):
         if expr.startswith("&"):
             return expr[1:]
-        if expr.startswith("New"):
+        if expr in closures:
+            return closures[expr]
+        if expr.startswith(("New", "new")):
             return ctors.get(expr)
         return ctors.get(variables.get(expr, ""))
 
@@ -135,18 +138,54 @@ def abi_signature(entry):
 
 def gen_precompiles():
     out = [HEADER, "# Precompile ABIs\n\n",
-           "Source: `precompiles/<name>/abi.json`, the address constants in `precompiles/<name>/*.go` and the "
-           "Solidity interfaces in `contracts/src/precompiles/`.\n"]
+           "Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and "
+           "the `abiJSON` constants in `precompiles/layerxagent/*/*.go`, "
+           "the endpoint registrations in `precompiles/setup.go` and each package's constructors, and the "
+           "Solidity interfaces in `contracts/src/precompiles/`. "
+           "Addresses list the package's fixed endpoint addresses, shared across its ABI rows; "
+           "the spot share ABI describes dynamically allocated share-token pointers.\n"]
     addr_re = re.compile(r'(\w*Address)\s*=\s*"(0x[0-9a-fA-F]{40})"')
     rows = []
     sections = []
-    for abi_path in sorted((ROOT / "precompiles").glob("*/*abi*.json")):
-        pkg = abi_path.parent
-        addresses = sorted({a for src in go_sources(pkg) for _, a in addr_re.findall(read(src))})
-        entries = json.loads(read(abi_path))
-        rows.append([pkg.name, f"`{rel(abi_path)}`", ", ".join(f"`{a}`" for a in addresses) or "-",
+    precompiles = ROOT / "precompiles"
+    setup = read(precompiles / "setup.go")
+    setup_imports = re.findall(r'^\s*(?:(\w+)\s+)?"([^"]+)"', setup, re.M)
+    abi_paths = set(precompiles.glob("*/*abi*.json")) | set(precompiles.glob("*/abi/*.json"))
+    abis = []
+    for abi_path in sorted(abi_paths):
+        pkg = abi_path.parent.parent if abi_path.parent.name == "abi" else abi_path.parent
+        abis.append((pkg, rel(abi_path), abi_path.name, json.loads(read(abi_path))))
+    for src in sorted((precompiles / "layerxagent").glob("*/*.go")):
+        if src.name.endswith("_test.go"):
+            continue
+        for raw in re.findall(r"\babiJSON\s*=\s*`([^`]*)`", read(src)):
+            abis.append((src.parent, f"{rel(src)}:abiJSON", "abiJSON", json.loads(raw)))
+    for pkg, source, abi_name, entries in abis:
+        package_text = "\n".join(read(src) for src in go_sources(pkg))
+        module_text = "\n".join(read(src) for src in go_sources(ROOT / "modules" / pkg.name / "types"))
+        constants = dict(addr_re.findall(module_text))
+        constants.update(addr_re.findall(package_text))
+        for local, target in re.findall(r'\b(\w*Address)\s*=\s*types\.(\w*Address)\b', package_text):
+            if target in constants:
+                constants[local] = constants[target]
+        # Select endpoint constants, never arbitrary address references in handlers.
+        references = set(re.findall(
+            r'(?:\baddress:\s*|\bRegisterMergeConstructor\(\s*)'
+            r'\w+\.HexToAddress\(\s*(?:types\.)?(\w*Address)\s*\)', package_text))
+        for alias, path in setup_imports:
+            if path.endswith("/precompiles/" + pkg.relative_to(precompiles).as_posix()) or path.endswith(
+                    "/modules/" + pkg.name + "/types"):
+                qualifier = alias or path.rsplit("/", 1)[1]
+                references.update(re.findall(
+                    r'\becommon\.HexToAddress\(\s*' + re.escape(qualifier) + r'\.(\w*Address)\s*\)', setup))
+        missing = references - constants.keys()
+        if missing:
+            raise SystemExit(f"precompiles: cannot resolve endpoint constants in {rel(pkg)}: {sorted(missing)}")
+        addresses = sorted({constants[name] for name in references})
+        name = pkg.relative_to(precompiles).as_posix()
+        rows.append([name, f"`{source}`", ", ".join(f"`{a}`" for a in addresses) or "-",
                      sum(1 for e in entries if e.get("type") == "function")])
-        sec = [f"\n## {pkg.name} (`{abi_path.name}`)\n\n"]
+        sec = [f"\n## {name} (`{abi_name}`)\n\n"]
         if addresses:
             sec.append("Address: " + ", ".join(f"`{a}`" for a in addresses) + "\n\n")
         for kind in ("function", "event", "error"):
@@ -397,8 +436,12 @@ TITLES = {
 
 
 def main():
+    if len(sys.argv) == 1:
+        name, text = gen_precompiles()
+        (ROOT / "docs/system" / name).write_text(text.rstrip("\n") + "\n", encoding="utf-8")
+        return
     if len(sys.argv) != 2:
-        raise SystemExit("usage: gen_system_docs.py <output-dir>")
+        raise SystemExit("usage: gen_system_docs.py [output-dir]")
     dest = Path(sys.argv[1])
     dest.mkdir(parents=True, exist_ok=True)
     docs = dict(g() for g in (gen_routes, gen_rpc, gen_precompiles, gen_chain_modules, gen_kernel_modules,

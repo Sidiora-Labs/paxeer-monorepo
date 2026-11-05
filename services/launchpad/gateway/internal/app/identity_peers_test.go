@@ -462,7 +462,11 @@ func runService(t *testing.T, name, binary string, env []string, plainURL string
 		t.Fatal(err)
 	}
 	exited := make(chan error, 1)
-	go func() { exited <- cmd.Wait() }()
+	go func() {
+		exited <- cmd.Wait()
+		// Both readiness and cleanup may wait for the same process exit.
+		close(exited)
+	}()
 	t.Cleanup(func() {
 		cancel()
 		<-exited
@@ -847,7 +851,7 @@ func TestPlatformPeersThroughGatewayIdentityListener(t *testing.T) {
 		if resp.StatusCode != http.StatusOK || json.Unmarshal(raw, &session) != nil || session.Token == "" {
 			t.Fatalf("viewer session through the gateway: %d %s", resp.StatusCode, raw)
 		}
-		if resp, raw = e2eSend(t, nil, http.MethodPost, edge.URL+"/v2/streams/"+live+"/heartbeat", map[string]string{"sessionId": session.SessionID, "token": session.Token}, map[string]string{"Origin": e2eOrigin}); resp.StatusCode != http.StatusOK || !strings.Contains(string(raw), `"viewerCount":1`) {
+		if resp, raw = e2eSend(t, nil, http.MethodPost, edge.URL+"/v2/streams/"+live+"/viewers:heartbeat", map[string]string{"playbackSessionId": session.SessionID, "viewerToken": session.Token}, map[string]string{"Origin": e2eOrigin}); resp.StatusCode != http.StatusOK || interfaces.ValidateJSON("StreamHeartbeatResponse", raw) != nil || !strings.Contains(string(raw), `"viewerCount":1`) {
 			t.Fatalf("heartbeat through the gateway: %d %s", resp.StatusCode, raw)
 		}
 		// Broadcaster actions need a session at the gateway; with one they

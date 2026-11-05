@@ -55,14 +55,14 @@ export default function useReCaptcha() {
       return result;
     } catch (error) {
       const statusCode = error instanceof Error ? getErrorCauseStatusCode(error) : getErrorObjStatusCode(error);
-      if (statusCode === 429 && !isDisabled) {
+      if (statusCode === 429 && !isDisabled && !token) {
         const token = await executeAsync();
 
         if (!token) {
           throw new Error('ReCaptcha is not solved');
         }
 
-        return fetchProtectedResource(fetcher, token);
+        return fetcher(token);
       }
 
       throw error;

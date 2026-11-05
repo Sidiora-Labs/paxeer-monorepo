@@ -19,6 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/rpcutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/stats"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -50,6 +51,12 @@ const PendingCtxHeight int64 = -2
 // no open block. It maps to JSON-RPC error -32000.
 var ErrPendingServedBySequencer error = &ErrEVMNotSupported{Msg: "pending served by sequencer"}
 
+var ErrLayerNotOpen = errors.New("sequencer: no block is open")
+
+var ErrPendingBlockClosed error = &ErrEVMNotSupported{Msg: "no block is open; retry"}
+
+const PendingOpenWait = 2 * time.Second
+
 // PendingSnapshot is the open block the sequencer and standby execute
 // transactions into; sequencer.Executor satisfies it.
 type PendingSnapshot interface {
@@ -70,8 +77,30 @@ type PendingTx struct {
 	Result  *abci.ExecTxResult
 }
 
-// EVM launch block heights for different chains
-const Pacific1EVMLaunchHeight int64 = 79123881
+// simulationContextAtHeight resolves speculative heights before asking the state
+// provider, which only accepts the pending sentinel while a block is open.
+func simulationContextAtHeight(ctx context.Context, provider func(int64) sdk.Context, wm *WatermarkManager, height int64) sdk.Context {
+	latest := provider(LatestCtxHeight)
+	if height == PendingCtxHeight || height > latest.BlockHeight() {
+		if wm != nil && wm.pending != nil {
+			snapshot, pendingHeight, open, err := wm.pendingSnapshot(ctx)
+			if err != nil {
+				return latest
+			}
+			if open && (height == PendingCtxHeight || height == pendingHeight) {
+				return snapshot
+			}
+			if !open && height == PendingCtxHeight {
+				return provider(pendingHeight)
+			}
+		}
+		if height == PendingCtxHeight {
+			return provider(latest.BlockHeight())
+		}
+		return latest
+	}
+	return provider(height)
+}
 
 // ErrBlockNotFoundByHash is returned when no block exists for the given hash (e.g. empty or unknown hash).
 // Ethereum-compatible RPCs should return result: null for this case instead of an error.
@@ -250,18 +279,6 @@ func waitForRPCRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-// ValidateEVMBlockHeight checks if the requested block height is valid for EVM queries
-func ValidateEVMBlockHeight(chainID string, blockHeight int64) error {
-	// Only validate for pacific-1 chain
-	if chainID != "pacific-1" {
-		return nil
-	}
-	if blockHeight < Pacific1EVMLaunchHeight {
-		return fmt.Errorf("EVM is only supported from block %d onwards", Pacific1EVMLaunchHeight)
-	}
-	return nil
-}
-
 type indexedMsg struct {
 	msg   sdk.Msg
 	index int
@@ -343,6 +360,11 @@ func validateBlockExecutionReceipts(
 	decoder := txConfigProvider(blockHeight).TxDecoder()
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for txIndex, txBytes := range block.Block.Txs {
+		if txIndex == 0 {
+			if _, err := seqtypes.DecodeSequenceBatchTx(txBytes); err == nil {
+				continue
+			}
+		}
 		tx, err := decoder(txBytes)
 		if err != nil {
 			return fmt.Errorf("decode consensus transaction %d in block %d: %w", txIndex, block.Block.Height, err)
@@ -409,6 +431,21 @@ func filterTransactions(
 	cacheCreationMutex *sync.Mutex,
 	globalBlockCache BlockCache,
 ) []indexedMsg {
+	txs, _ := filterTransactionsWithReceiptErrors(k, ctxProvider, txConfigProvider, block, includeSyntheticTxs, includeBankTransfers, cacheCreationMutex, globalBlockCache, false)
+	return txs
+}
+
+func filterTransactionsWithReceiptErrors(
+	k *keeper.Keeper,
+	ctxProvider func(int64) sdk.Context,
+	txConfigProvider func(int64) client.TxConfig,
+	block *coretypes.ResultBlock,
+	includeSyntheticTxs bool,
+	includeBankTransfers bool,
+	cacheCreationMutex *sync.Mutex,
+	globalBlockCache BlockCache,
+	strict bool,
+) ([]indexedMsg, error) {
 	txs := []indexedMsg{}
 	txCounts := make(map[string]uint64)
 	startOfBlockNonce := make(map[string]uint64)
@@ -436,8 +473,11 @@ func filterTransactions(
 				if err != nil {
 					continue
 				}
-				receipt, found := getOrSetCachedReceipt(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
-				if !found || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) || isReceiptFromAnteError(ctx, receipt) { //nolint:gosec
+				receipt, err := getOrSetCachedReceiptErr(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
+				if strict && err != nil && !errors.Is(err, receiptstore.ErrNotFound) {
+					return nil, fmt.Errorf("load receipt %s: %w", hash, err)
+				}
+				if err != nil || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) || isReceiptFromAnteError(ctx, receipt) { //nolint:gosec
 					continue
 				}
 				txCount := txCounts[sender.Hex()]
@@ -460,8 +500,11 @@ func filterTransactions(
 					continue
 				}
 				th := sha256.Sum256(block.Block.Txs[i])
-				_, found := getOrSetCachedReceipt(cacheCreationMutex, globalBlockCache, latestCtx, k, block, th)
-				if !found {
+				_, err := getOrSetCachedReceiptErr(cacheCreationMutex, globalBlockCache, latestCtx, k, block, th)
+				if strict && err != nil && !errors.Is(err, receiptstore.ErrNotFound) {
+					return nil, fmt.Errorf("load synthetic receipt %x: %w", th, err)
+				}
+				if err != nil {
 					continue
 				}
 				txs = append(txs, indexedMsg{index: i, msg: msg})
@@ -473,7 +516,7 @@ func filterTransactions(
 			}
 		}
 	}
-	return txs
+	return txs, nil
 }
 
 func recordMetrics(ctx context.Context, apiMethod string, connectionType ConnectionType, startTime time.Time) {
@@ -489,12 +532,10 @@ func recordMetricsWithError(ctx context.Context, apiMethod string, connectionTyp
 	}
 
 	recordRPCLatency(ctx, apiMethod, string(connectionType), success, err, panicValue != nil, startTime)
-	// TODO(PLT-326): remove legacy dual-emit once dashboards are migrated to evmrpc_* OTEL metrics. Use metrics.requestLatencySeconds histogram instead.
-	utilmetrics.IncrementRpcRequestCounter(apiMethod, string(connectionType), success)
-	utilmetrics.MeasureRpcRequestLatency(apiMethod, string(connectionType), startTime)
 	stats.RecordAPIInvocation(apiMethod, string(connectionType), startTime, success)
 
 	if panicValue != nil {
+		logger.Error("rpc handler panicked", "method", apiMethod, "panic", fmt.Sprint(panicValue), "stack", string(debug.Stack()))
 		panic(panicValue)
 	}
 }
@@ -545,8 +586,26 @@ func getTxHashesFromBlock(
 	cacheCreationMutex *sync.Mutex,
 	globalBlockCache BlockCache,
 ) []typedTxHash {
+	hashes, _ := getTxHashesFromBlockWithReceiptErrors(ctxProvider, txConfigProvider, k, block, shouldIncludeSynthetic, cacheCreationMutex, globalBlockCache, false)
+	return hashes
+}
+
+func getTxHashesFromBlockWithReceiptErrors(
+	ctxProvider func(int64) sdk.Context,
+	txConfigProvider func(int64) client.TxConfig,
+	k *keeper.Keeper,
+	block *coretypes.ResultBlock,
+	shouldIncludeSynthetic bool,
+	cacheCreationMutex *sync.Mutex,
+	globalBlockCache BlockCache,
+	strict bool,
+) ([]typedTxHash, error) {
 	txHashes := []typedTxHash{}
-	for _, tx := range filterTransactions(k, ctxProvider, txConfigProvider, block, shouldIncludeSynthetic, false, cacheCreationMutex, globalBlockCache) {
+	txs, err := filterTransactionsWithReceiptErrors(k, ctxProvider, txConfigProvider, block, shouldIncludeSynthetic, false, cacheCreationMutex, globalBlockCache, strict)
+	if err != nil {
+		return nil, err
+	}
+	for _, tx := range txs {
 		switch tx.msg.(type) {
 		case *types.MsgEVMTransaction:
 			ethtx, _ := tx.msg.(*types.MsgEVMTransaction).AsTransaction()
@@ -558,13 +617,16 @@ func getTxHashesFromBlock(
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for _, kind := range keeper.SyntheticReceiptKinds {
 		hash := keeper.SyntheticReceiptHash(kind, block.Block.Height)
-		receipt, found := getOrSetCachedReceipt(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
-		if !found || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) { //nolint:gosec
+		receipt, err := getOrSetCachedReceiptErr(cacheCreationMutex, globalBlockCache, latestCtx, k, block, hash)
+		if strict && err != nil && !errors.Is(err, receiptstore.ErrNotFound) {
+			return nil, fmt.Errorf("load venue receipt %s: %w", hash, err)
+		}
+		if err != nil || receipt == nil || receipt.BlockNumber != uint64(block.Block.Height) { //nolint:gosec
 			continue
 		}
 		txHashes = append(txHashes, typedTxHash{hash: hash, isEvm: true, txIndex: syntheticTxIndex(block, kind)})
 	}
-	return txHashes
+	return txHashes, nil
 }
 
 func isReceiptFromAnteError(ctx sdk.Context, receipt *types.Receipt) bool {

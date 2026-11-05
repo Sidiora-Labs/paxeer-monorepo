@@ -1,0 +1,30 @@
+{
+ "slug": "apps-perps-2",
+ "manifests": [
+  "apps/perps/package.json",
+  "apps/perps/package-lock.json",
+  "apps/perps/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-8988-4f7v-96qf",
+   "number": 3954,
+   "package": "@opentelemetry/core",
+   "ecosystem": "npm",
+   "manifest": "apps/perps/package-lock.json",
+   "severity": "medium",
+   "range": "< 2.8.0",
+   "patched": "2.8.0"
+  },
+  {
+   "ghsa": "GHSA-8988-4f7v-96qf",
+   "number": 4058,
+   "package": "@opentelemetry/core",
+   "ecosystem": "npm",
+   "manifest": "apps/perps/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": "< 2.8.0",
+   "patched": "2.8.0"
+  }
+ ]
+}

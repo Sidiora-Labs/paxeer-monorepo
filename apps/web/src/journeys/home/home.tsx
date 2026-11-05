@@ -21,6 +21,7 @@ import {
   agentsSummary,
   classifyHomeFailure,
   homeActions,
+  homeAction,
   homeActivityRows,
   homeAgentRows,
   homeBalance,
@@ -33,6 +34,28 @@ type HomeLoad =
   | Readonly<{ kind: "loaded"; data: HomeData; }>
   | Readonly<{ kind: "offline"; }>
   | Readonly<{ kind: "error"; }>;
+
+export function HomeQuickActions({ onNavigate }: Readonly<{ onNavigate: (route: string) => void }>) {
+  return <ActionGrid actions={homeActions()} onAction={(id) => { onNavigate(homeAction(id).route); }} />;
+}
+
+export function HomeActivityList({ entries }: Readonly<{ entries: HomeData["entries"] }>) {
+  const activity = homeActivityRows(entries);
+  return <KitList>{activity.map((row) => (
+    <KitListItem key={row.id} title={row.title} subtitle={row.when} trailing={
+      <span className="flex items-center gap-2">
+        {row.amount === undefined || row.currency === undefined ? null : (
+          <PrivateFigure className="contents"><SignedWordedAmount
+            value={protocolAmount(row.direction === "outbound" ? row.amount * -1 : row.amount)}
+            currency={row.currency} locale={AMOUNT_LOCALE} decimals={0}
+            {...(row.direction === undefined ? {} : { direction: row.direction })}
+          /></PrivateFigure>
+        )}
+        <StatusPill status={row.status} />
+      </span>
+    } />
+  ))}</KitList>;
+}
 
 export function Home() {
   const router = useRouter();
@@ -137,15 +160,7 @@ export function Home() {
               ) : null}
             </div>
           )}
-          <ActionGrid
-            actions={homeActions()}
-            onAction={(id) => {
-              const action = homeActions().find((candidate) => candidate.id === id);
-              if (action !== undefined) {
-                router.push(action.route);
-              }
-            }}
-          />
+          <HomeQuickActions onNavigate={(route) => { router.push(route); }} />
           <div className="flex items-center gap-3">
             <CountBadge
               variant={approvals.count > 0 ? "warning" : "neutral"}
@@ -207,31 +222,7 @@ export function Home() {
             {activity.length === 0 ? (
               <p className="text-sm text-muted-foreground">{copyEntry("home.activity.empty").message}</p>
             ) : (
-              <KitList>
-                {activity.map((row) => (
-                  <KitListItem
-                    key={row.id}
-                    title={row.title}
-                    subtitle={row.when}
-                    trailing={
-                      <span className="flex items-center gap-2">
-                        {row.amount === undefined || row.currency === undefined ? null : (
-                          <PrivateFigure className="contents">
-                            <SignedWordedAmount
-                              value={protocolAmount(row.direction === "outbound" ? row.amount * -1 : row.amount)}
-                              currency={row.currency}
-                              locale={AMOUNT_LOCALE}
-                              decimals={0}
-                              {...(row.direction === undefined ? {} : { direction: row.direction })}
-                            />
-                          </PrivateFigure>
-                        )}
-                        <StatusPill status={row.status} />
-                      </span>
-                    }
-                  />
-                ))}
-              </KitList>
+              <HomeActivityList entries={load.data.entries} />
             )}
           </div>
         </section>

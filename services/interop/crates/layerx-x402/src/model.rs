@@ -15,8 +15,8 @@ pub const PAYMENT_REQUIRED_HEADER: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE_HEADER: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE_HEADER: &str = "PAYMENT-RESPONSE";
 
-/// CAIP-2 namespace of every network that settles through a `LayerX` receipt.
-pub const LAYERX_NETWORK_NAMESPACE: &str = "layerx";
+/// CAIP-2 network that settles through a `LayerX` receipt.
+pub const LAYERX_NETWORK: &str = "eip155:125";
 /// Maximum byte length of an `extra.layerx.account` reference.
 pub const MAX_ACCOUNT_REFERENCE_BYTES: usize = 512;
 /// Maximum byte length of the identifier inside an account reference.
@@ -178,8 +178,10 @@ impl PaymentRequirements {
         }
         if self.is_layerx_network() {
             self.layerx_terms()?;
-        } else {
-            layerx_profile(self.extra.as_ref(), parse_hex32(&self.asset).ok().as_ref())?;
+        } else if layerx_profile(self.extra.as_ref(), parse_hex32(&self.asset).ok().as_ref())?
+            .is_some()
+        {
+            return Err(X402Error::ProfileMismatch);
         }
         Ok(())
     }
@@ -187,9 +189,7 @@ impl PaymentRequirements {
     /// Whether this offer settles on a `LayerX` network.
     #[must_use]
     pub fn is_layerx_network(&self) -> bool {
-        self.network
-            .split_once(':')
-            .is_some_and(|(namespace, _)| namespace == LAYERX_NETWORK_NAMESPACE)
+        self.network == LAYERX_NETWORK
     }
 
     /// The quote terms a `LayerX` payer needs to reach the human API:
@@ -475,6 +475,9 @@ impl SettlementResponse {
                 return Err(X402Error::InvalidPayload);
             }
         }
+        if !self.transaction.is_empty() {
+            crate::seller::validate_transaction(&self.transaction)?;
+        }
         Ok(())
     }
 }
@@ -490,6 +493,9 @@ pub enum X402Error {
     InvalidAmount,
     InvalidRequirements,
     InvalidPayload,
+    PaymentIdentityMissing,
+    PaymentIdentityMalformed,
+    PaymentIdentityMismatch,
     ProfileMissing,
     ProfileMismatch,
     UnsupportedOffer,
@@ -497,6 +503,7 @@ pub enum X402Error {
     ExtensionsMismatch,
     PaymentPending,
     PaymentRefused,
+    TransactionForm,
     EvidenceMissing,
     EvidenceMismatch,
     Gateway(GatewayError),
@@ -512,6 +519,14 @@ impl Display for X402Error {
             Self::InvalidAmount => formatter.write_str("x402 amount is not a canonical integer"),
             Self::InvalidRequirements => formatter.write_str("x402 requirements are invalid"),
             Self::InvalidPayload => formatter.write_str("x402 payment payload is invalid"),
+            Self::PaymentIdentityMissing => {
+                formatter.write_str("native payment idempotencyKey is missing")
+            }
+            Self::PaymentIdentityMalformed => {
+                formatter.write_str("native payment idempotencyKey is malformed")
+            }
+            Self::PaymentIdentityMismatch => formatter
+                .write_str("native payment idempotencyKey conflicts with the requested key"),
             Self::ProfileMissing => formatter
                 .write_str("layerx offer carries no extra.layerx account and currency terms"),
             Self::ProfileMismatch => {
@@ -526,6 +541,9 @@ impl Display for X402Error {
             }
             Self::PaymentPending => formatter.write_str("payment remains pending"),
             Self::PaymentRefused => formatter.write_str("payment was refused"),
+            Self::TransactionForm => formatter.write_str(
+                "x402 settlement transaction is not a 0x-prefixed 32-byte transaction hash",
+            ),
             Self::EvidenceMissing => formatter.write_str("settlement has no backing evidence"),
             Self::EvidenceMismatch => formatter.write_str("settlement evidence does not match"),
             Self::Gateway(error) => write!(formatter, "gateway translation failed: {error}"),
@@ -586,7 +604,7 @@ fn validate_url(value: &str) -> Result<(), X402Error> {
     Ok(())
 }
 
-fn parse_hex32(value: &str) -> Result<[u8; 32], X402Error> {
+pub(crate) fn parse_hex32(value: &str) -> Result<[u8; 32], X402Error> {
     let digits = value.strip_prefix("0x").unwrap_or(value);
     if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(X402Error::InvalidRequirements);

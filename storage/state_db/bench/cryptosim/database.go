@@ -2,6 +2,7 @@ package cryptosim
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
@@ -33,7 +34,7 @@ type Database struct {
 	batch *SyncMap[string, []byte]
 
 	// A method that flushes the executors.
-	flushFunc func()
+	flushFunc func() error
 
 	// The metrics for the benchmark.
 	metrics *CryptosimMetrics
@@ -128,10 +129,15 @@ func (d *Database) FinalizeBlock(
 
 	// Wait for all transactions in the current block to be executed.
 	if d.flushFunc != nil {
-		d.flushFunc()
+		if err := d.flushFunc(); err != nil {
+			return fmt.Errorf("failed to flush executors: %w", err)
+		}
 	}
 
 	if d.transactionsInCurrentBlock == 0 {
+		if forceCommit {
+			return d.commitPendingBlocks()
+		}
 		return nil
 	}
 
@@ -170,14 +176,13 @@ func (d *Database) FinalizeBlock(
 
 	// Persist the block number counter in every batch.
 	blockNumberValue := make([]byte, 8)
-	binary.BigEndian.PutUint64(blockNumberValue, d.nextBlockNumber)
+	binary.BigEndian.PutUint64(blockNumberValue, d.nextBlockNumber+1)
 	changeSets = append(changeSets, &proto.NamedChangeSet{
 		Name: wrappers.EVMStoreName,
 		Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
 			{Key: BlockNumberCounterKey(), Value: blockNumberValue},
 		}},
 	})
-	d.nextBlockNumber++
 
 	entry := &proto.ChangelogEntry{
 		Version:    d.db.Version() + 1,
@@ -188,19 +193,16 @@ func (d *Database) FinalizeBlock(
 		return fmt.Errorf("failed to apply change sets: %w", err)
 	}
 
+	d.nextBlockNumber++
 	d.metrics.ReportBlockFinalized(d.transactionsInCurrentBlock)
 	d.transactionsInCurrentBlock = 0
 
 	// Periodically commit the changes to the database.
 	d.uncommittedBlockCount++
 	if forceCommit || d.uncommittedBlockCount >= int64(d.config.BlocksPerCommit) {
-		d.metrics.SetMainThreadPhase("committing")
-		_, err := d.db.Commit()
-		if err != nil {
-			return fmt.Errorf("failed to commit: %w", err)
+		if err := d.commitPendingBlocks(); err != nil {
+			return err
 		}
-		d.metrics.ReportDBCommit()
-		d.uncommittedBlockCount = 0
 	}
 
 	d.metrics.SetMainThreadPhase("executing")
@@ -208,21 +210,30 @@ func (d *Database) FinalizeBlock(
 	return nil
 }
 
+// commitPendingBlocks flushes applied blocks even when the current block is empty.
+func (d *Database) commitPendingBlocks() error {
+	if d.uncommittedBlockCount == 0 {
+		return nil
+	}
+	d.metrics.SetMainThreadPhase("committing")
+	if _, err := d.db.Commit(); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+	d.metrics.ReportDBCommit()
+	d.uncommittedBlockCount = 0
+	return nil
+}
+
 // Close the database and release any resources.
 func (d *Database) Close(nextAccountID int64, nextErc20ContractID int64) error {
 	fmt.Printf("Committing final batch.\n")
 
+	var finalErr error
 	if err := d.FinalizeBlock(nextAccountID, nextErc20ContractID, true); err != nil {
-		return fmt.Errorf("failed to commit batch: %w", err)
+		finalErr = fmt.Errorf("failed to commit batch: %w", err)
 	}
 
-	fmt.Printf("Closing database.\n")
-	err := d.db.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close database: %w", err)
-	}
-
-	return nil
+	return errors.Join(finalErr, d.CloseWithoutFinalizing())
 }
 
 // Close the database and release any resources without finalizing the last batch.
@@ -237,6 +248,6 @@ func (d *Database) CloseWithoutFinalizing() error {
 }
 
 // Set the function that flushes the executors. This setter is required to break a circular dependency.
-func (d *Database) SetFlushFunc(flushFunc func()) {
+func (d *Database) SetFlushFunc(flushFunc func() error) {
 	d.flushFunc = flushFunc
 }

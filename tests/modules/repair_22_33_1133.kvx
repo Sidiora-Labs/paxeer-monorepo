@@ -1,0 +1,14 @@
+[task]
+id = "22.33.1133"
+finding = "22.30.5.7"
+repair = "Cached commitment success authenticates the stored provider and compares provider, agreement, task, escrow, deadline and resource bound; cached abandonment success authenticates the stored provider and requires the original nonzero abandonment reason."
+proving_tests = ["test_commit_retry_authorization_and_payload", "test_abandon_retry_authorization_and_reason"]
+test_path = "tests/modules/test_service_commit.c"
+proof = "Real offer, proposal, acceptance, commitment and abandonment activities create the records through the production kernel dispatcher. Both active and abandoned commitment retries reject another principal and independently conflicting agreement, task, escrow, deadline and resource bound. Abandonment retries reject another principal and a changed reason. Every refusal asserts the exact module error, no effects before rollback and an unchanged complete kernel state root. Matching retries still emit the exact expected service event."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and invoking verify_cmd by hand. No earlier hf-build/hf-done ledger existed at session entry; no pre-change test failures are claimed."
+evidence = "The private /out/run/gates.jsonl ledger records the candidate revision, exact command, exit and private log for hf-build and hf-done; the final response copies the last gate evidence."
+wiring_requests = []
+
+[gotcha.1]
+symptom = "The audit steps request pre-change verification while the explicit ordered gate rules prohibit pre-implementation tests and manual verify runs."
+resolution = "Follow the explicit gate order and disclose the absent baseline. The strict task scope prohibits edits to GOTCHA.kvx or spec task records, so this in-scope repair record carries the closure and gotcha."

@@ -1,0 +1,51 @@
+[task.22.33.744]
+mode = "BUILD"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+acceptance = "22998.1: retain the GIGA workload and both Go suites; qualify the repaired source contracts through the declared build and verify gates without skipping or weakening cases."
+scope = ["tests/integration/evm_module/scripts", "tools/qualification/audit_repairs/repair_22_33_744.kvx", "tools/qualification/audit_repairs/test_repair_22_33_744.py"]
+repair = "Require all four mixed-mode validators to advance after the workload and return equal AppHash/LastResultsHash at one committed header above every post-workload baseline; diagnose failures through an exit-status-preserving EXIT trap. Require frozen npm ci. Make sender lookup, sequence advancement, both deployments, successful matching receipts and mandatory Go fixture bindings fail closed."
+source_proof = "Pytest parses each changed shell script individually with bash -n and checks production function bodies and command ordering. It tokenizes the actual bounded validator transport and receipt request, parses the JSON payload, checks response/error/status/hash/height/address guards, traces CLI Transaction hash output through Docker arguments and receipt lookup to exports consumed by the existing Go runner, and checks all waits and bindings precede both unchanged suites. It checks the three finding-to-test mappings in this parsed record. No stub, fake, mock, credential, live endpoint, npm/Go toolchain or native artifact is used."
+review_only = "Source review establishes the intended control-flow contract; runtime execution of Docker, curl, jq, paxd, npm, Hardhat and Go is not qualified here. The only test subprocess is the explicitly requested bash -n syntax parser, also used by the declared build; no subprocess build toolchain runs. Live mixed-executor consensus, CLI signing, sequence progression and on-chain receipt contents require integration review. These are test-gap/config-drift findings, with no restart-recovery or interface-mismatch repair."
+baseline = "Unchanged-tree verify was not run: the explicit Order requires full implementation before testing and permits verify only through hf-done after hf-build, superseding the conflicting baseline clause. No baseline failing test is claimed. Initial scoped files had no changes; the only dirty files were runner-prepared .cgignore and spec status. gate.json recorded zero builds and verifies; no gates.jsonl existed."
+build_cmd = "bash -n tests/integration/evm_module/scripts/evm_giga_mixed_tests.sh tests/integration/evm_module/scripts/evm_giga_tests.sh tests/integration/evm_module/scripts/evm_rpc_tests.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_744.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger record the exact verified candidate revision, command, exit code and log path. Both gates must name the same candidate. This source record is written before qualification because embedding its own content-derived revision would change the candidate. The runner publishes the result; no manual commit or push is performed."
+wiring_requests = ["contracts/package-lock.json (manifest contracts/package.json): owning dependency domain 16 must repair any frozen-install failure in a separate dependency task with its own evidence; this task removes only the fallback and does not change the lock or claim it installs."]
+
+[finding.giga-mixed-final-agreement]
+audit = "22.30.172"
+file = "tests/integration/evm_module/scripts/evm_giga_mixed_tests.sh"
+class = "test-gap"
+tests = ["test_repaired_shell_syntax", "test_giga_mixed_final_agreement_all_validators_progress_at_one_height", "test_giga_mixed_final_agreement_transport_rejects_unready_or_bad_responses", "test_giga_mixed_final_agreement_exit_trap_preserves_failure_and_logs"]
+
+[finding.giga-unfrozen-fallback]
+audit = "22.30.172"
+file = "tests/integration/evm_module/scripts/evm_giga_tests.sh"
+class = "config-drift"
+tests = ["test_repaired_shell_syntax", "test_giga_unfrozen_fallback_only_frozen_install_before_workload"]
+
+[finding.io-setup-suppressed]
+audit = "22.30.172"
+file = "tests/integration/evm_module/scripts/evm_rpc_tests.sh"
+class = "test-gap"
+tests = ["test_repaired_shell_syntax", "test_io_setup_suppressed_sender_and_sequence_fail_closed", "test_io_setup_suppressed_cli_to_container_to_receipt_wiring", "test_io_setup_suppressed_receipts_require_success_and_committed_contract", "test_io_setup_suppressed_all_waits_and_bindings_precede_both_suites"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. Follow .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions; preserve each script's existing indentation."
+
+[gotcha.1]
+observed = "The baseline-verify clause conflicts with the explicit implementation-first, wrapper-only gate order."
+resolution = "Follow the explicit order, claim no baseline result, and record the contradiction here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Combined workflow, graph and audit reads exceeded the output budget, and guessed neighboring repair paths did not exist."
+resolution = "Use bounded task-specific reads and actual paths; no extra gate was run and no out-of-scope file was changed."
+
+[gotcha.3]
+observed = "The CLI deploy producer emits a Transaction hash label, whereas associate-address emits a Response-prefixed JSON-RPC envelope and can return a JSON-RPC error with a successful process exit."
+resolution = "Parse the precise hash label; reject association envelopes with an error or missing result before waiting and submitting the next signed transaction."
+
+[gotcha.4]
+observed = "The declared multi-path bash -n invocation parses the first script and passes later paths as arguments."
+resolution = "Keep the exact declared build command and parse all three production scripts separately in the declared pytest module."

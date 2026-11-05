@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -61,7 +62,7 @@ func netCall(t *testing.T, method, url string) (int, []byte, http.Header) {
 	return resp.StatusCode, body, resp.Header
 }
 
-// Every path the adapter mounts is a frozen v2 OpenAPI operation with the same
+// Every path the adapter mounts is a frozen v2 catalog operation with the same
 // method; nothing outside the contract is invented.
 func TestDevelopmentNetworkReadsMountOnlyFrozenOperations(t *testing.T) {
 	d, err := newDevelopmentNetworkReads(context.Background(), "", nil)
@@ -70,21 +71,15 @@ func TestDevelopmentNetworkReadsMountOnlyFrozenOperations(t *testing.T) {
 	}
 	router := chi.NewRouter()
 	d.register(router, nil)
-	raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v2/openapi.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var document struct {
-		Paths map[string]map[string]json.RawMessage `json:"paths"`
-	}
-	if err = json.Unmarshal(raw, &document); err != nil {
-		t.Fatal(err)
+	operations := make(map[string]struct{})
+	for _, op := range internaltest.FrozenV2Operations(t) {
+		operations[op.Method+" "+op.Path] = struct{}{}
 	}
 	count := 0
 	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		count++
-		if _, ok := document.Paths[path][strings.ToLower(method)]; !ok {
-			t.Errorf("mounted operation absent from frozen v2 OpenAPI: %s %s", method, path)
+		if _, ok := operations[method+" "+path]; !ok {
+			t.Errorf("mounted operation absent from frozen v2 catalog: %s %s", method, path)
 		}
 		return nil
 	})
@@ -236,7 +231,11 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 		nonce++
 		return tx.Hash()
 	}
-	recipient := common.HexToAddress("0x00000000000000000000000000000000000000aa")
+	// Install a real LOG0 receiver, so the frozen receipt has a genuine event
+	// position. Native log-free transfers are explicitly refused below.
+	recipient := crypto.CreateAddress(from, nonce)
+	send(nil, common.FromHex("0x6006600c60003960066000f360006000a000"), big.NewInt(0))
+	backend.Commit()
 	transfer := send(&recipient, nil, big.NewInt(1))
 	// Contract creation whose init code reverts: PUSH1 0 PUSH1 0 REVERT.
 	reverted := send(nil, common.FromHex("0x60006000fd"), big.NewInt(0))
@@ -275,12 +274,16 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 	if status != "included_success" || receipt["success"] != true || !strings.EqualFold(receipt["from"].(string), from.Hex()) || !strings.EqualFold(receipt["to"].(string), recipient.Hex()) || receipt["height"] != chainReceipt.BlockNumber.String() || receipt["blockHash"] != chainReceipt.BlockHash.Hex() || receipt["gasUsedRaw"] != fmt.Sprint(chainReceipt.GasUsed) || receipt["effectiveGasPriceRaw"] != chainReceipt.EffectiveGasPrice.String() {
 		t.Fatalf("transfer: %s %v (chain %+v)", status, receipt, chainReceipt)
 	}
-	status, receipt = read(reverted)
-	if status != "included_reverted" || receipt["success"] != false || receipt["to"] != nil {
-		t.Fatalf("reverted: %s %v", status, receipt)
+	code, body, _ := netCall(t, http.MethodGet, srv.URL+"/v2/transactions/"+reverted.Hex())
+	if code != 503 || interfaces.ValidateJSON("Error", body) != nil || !strings.Contains(string(body), `"code":"INTEGRITY_QUARANTINED"`) {
+		t.Fatalf("log-free reversion must refuse an invented event position: %d %s", code, body)
+	}
+	revertedReceipt, err := client.TransactionReceipt(ctx, reverted)
+	if err != nil || revertedReceipt == nil || revertedReceipt.Status != 0 || len(revertedReceipt.Logs) != 0 {
+		t.Fatalf("real log-free reversion: %+v %v", revertedReceipt, err)
 	}
 	position := receipt["position"].(map[string]any)
-	if position["transactionIndex"] != "1" || position["chainId"] != "125" {
+	if position["transactionIndex"] != "0" || position["logIndex"] != "0" || position["chainId"] != "125" {
 		t.Fatalf("position %v", position)
 	}
 	if status, receipt = read(pending); status != "submitted" || receipt != nil {

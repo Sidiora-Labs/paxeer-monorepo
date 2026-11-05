@@ -1,0 +1,41 @@
+[repair.22.33.472]
+audit = "22.30.149"
+acceptance = "22998.1"
+evidence = "The bounded hf-build/hf-done ledger records the exact verified candidate revision, command, exit and private log; no qualification is claimed before hf-done passes."
+baseline = "Not run: the explicit gate order requires implementation before build and hf-done, and prohibits a manual verify run; the unchanged baseline had no repair_22_33_472_test.exs."
+
+[finding.block-interval-genesis-division]
+test = "block-interval-genesis-division: heads 0 and 1 poll without samples and head 2 estimates committed timestamps"
+proof = "Production RPC readers use recorded HTTP block shapes at heads 0, 1 and 2; the returned head reaches the real block decoder and Block schema. Additional cases cover default polling and unsupported safe tags."
+repair = "Use the configured realtime polling period, defaulting to 2000ms, below height 2 without requesting timestamp samples."
+
+[finding.range-chunk-extra-interval]
+test = "range-chunk-extra-interval: exact multiple reaches the log schema exactly once per height"
+proof = "Exact multiples, singleton ranges, partial final chunks, size one and oversized chunks drive production Logs.request, HTTP batch transport, response decoder and Log schema. Invalid sizes/ranges and integer boundaries are asserted separately."
+repair = "Use integer division to compute the exact positive chunk count; accept only positive integer chunk sizes and ascending unit-step ranges."
+
+[finding.batch-rpc-error-return]
+test = "batch-rpc-error-return: exhausted mixed batch is a typed error preserving successes by id"
+proof = "Reordered HTTP batches contain both result and error elements; retry exhaustion preserves ids and successful schema-consumable logs inside a tagged error. Retry recovery and the real Celo EpochLogs consumer are exercised."
+repair = "Return {:error, {:batch_rpc_error, responses}} for exhausted element failures; successful batches and transport errors retain their existing return shapes."
+wiring_requests = "None: all proposed production changes are inside the declared indexer library scope."
+
+[gotcha.1]
+observed = "The task detail requests a baseline verification and spec edits, while the explicit gate order prohibits early verification and the scope prohibits spec edits."
+action = "Follow the explicit bounded gate order; keep the finding-to-test mapping in this in-scope repair record and do not claim a baseline execution."
+
+[qualification.initial]
+revision = "f65759f8ea98fa22d94c66067ee3410cb7554f2a"
+command = "cg spec done 22.33.472 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "13 tests ran; four fixture failures: two head request assertions treated batches as maps, and two pure range tests unnecessarily registered an HTTP expectation."
+repair = "Flatten captured head requests for assertions and instantiate the loopback peer only for RPC tests; all behavioral assertions remain intact."
+
+[gotcha.2]
+observed = "EthereumJSONRPC.fetch_block_number_by_tag sends a one-element batch, while timestamp readers send single requests."
+action = "Normalize captured envelopes with List.flatten for assertions; retain original batch envelopes when proving retry counts."
+
+[gotcha.3]
+observed = "A Bypass expectation registered in shared setup fails pure range validation tests because they correctly send no HTTP requests."
+action = "Keep pure validation cases enabled and run their assertions without creating an unused RPC peer."

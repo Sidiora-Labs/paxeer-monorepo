@@ -1,0 +1,6 @@
+[repair.go-precompiles.151]
+target = "precompiles/perps"
+command = "CGO_ENABLED=1 go vet ./precompiles/perps/ && CGO_ENABLED=1 go test -count=1 ./precompiles/perps/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "precompiles/common/precompiles.go, precompiles/layerxexchange/layerxexchange.go and precompiles/layerxcustody/layerxcustody.go preserve bare legacy revert reasons under decision 2505; precompiles/perps/switch_test.go restores historical module versions and asserts full-genesis perpetuals selection."

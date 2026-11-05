@@ -18,6 +18,8 @@ pub mod evaluators {
     pub mod codec;
     pub mod model;
 }
+#[cfg(target_arch = "wasm32")]
+mod guest_cell;
 pub mod host_adapter;
 pub mod policy;
 pub mod queries;
@@ -35,14 +37,34 @@ pub mod types;
 pub mod value_adapter;
 pub mod workers;
 
-#[cfg(any(target_arch = "wasm32", test))]
+pub fn merged_chain_domain(chain_id: u64) -> [u8; 32] {
+    let mut hash = codec::Sha256State::new();
+    hash.update(b"PAXAI/chain-domain/v1");
+    hash.update(&chain_id.to_be_bytes());
+    hash.finalize()
+}
+
+/// Activation identity of the merged chain. Packaging overrides must match this domain.
+pub const MERGED_CHAIN_ID: u64 = 125;
+pub const MERGED_CHAIN_DOMAIN: [u8; 32] = [
+    0x62, 0xb6, 0xb1, 0x47, 0x34, 0xfa, 0x76, 0x9c, 0x3e, 0x0f, 0xbc, 0x94, 0xde, 0x49, 0x5a, 0x3d,
+    0x03, 0x8b, 0xe4, 0x9a, 0x25, 0x24, 0xb1, 0xc0, 0x71, 0xd7, 0x5d, 0x0a, 0x4e, 0xed, 0x71, 0xf6,
+];
+
+pub fn deployment_chain_domain() -> CodecResult<ChainDomain> {
+    deployment_chain_domain_from_setting(option_env!("PAXAI_CHAIN_DOMAIN"))
+}
+
+/// Validates a packaging domain against Paxeer chain 125, using its domain when unset.
+///
+/// # Errors
+/// Returns `WRONG_DOMAIN` for a malformed setting or any foreign chain domain.
+pub fn deployment_chain_domain_from_setting(setting: Option<&str>) -> CodecResult<ChainDomain> {
+    deployment::chain_domain(setting)
+}
+
 mod deployment {
     use crate::{errors::WRONG_DOMAIN, ChainDomain, CodecResult};
-
-    const CHAIN_DOMAIN: Option<[u8; 32]> = match option_env!("PAXAI_CHAIN_DOMAIN") {
-        Some(hex) => parse_domain(hex.as_bytes()),
-        None => None,
-    };
 
     const fn nibble(byte: u8) -> Option<u8> {
         match byte {
@@ -78,13 +100,20 @@ mod deployment {
         ChainDomain::new(bytes.ok_or(WRONG_DOMAIN)?).map_err(|_| WRONG_DOMAIN)
     }
 
-    pub(super) fn chain_domain() -> CodecResult<ChainDomain> {
-        checked_domain(CHAIN_DOMAIN)
+    pub(super) fn chain_domain(setting: Option<&str>) -> CodecResult<ChainDomain> {
+        let domain = checked_domain(match setting {
+            Some(hex) => parse_domain(hex.as_bytes()),
+            None => Some(crate::MERGED_CHAIN_DOMAIN),
+        })?;
+        if domain.bytes() != crate::merged_chain_domain(crate::MERGED_CHAIN_ID) {
+            return Err(WRONG_DOMAIN);
+        }
+        Ok(domain)
     }
 
     #[cfg(test)]
     mod tests {
-        use super::{chain_domain, checked_domain, parse_domain, CHAIN_DOMAIN};
+        use super::{chain_domain, checked_domain, parse_domain};
         use crate::{
             codec::{decode_envelope, derive_market, encode_envelope, Envelope},
             dispatch::BeginAggregation,
@@ -104,7 +133,16 @@ mod deployment {
                 parse_domain(b"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
             assert_eq!(DOMAIN, Some(BYTES));
             assert_eq!(checked_domain(DOMAIN)?.bytes(), BYTES);
-            assert_eq!(chain_domain(), checked_domain(CHAIN_DOMAIN));
+            let setting = option_env!("PAXAI_CHAIN_DOMAIN");
+            let configured = checked_domain(match setting {
+                Some(hex) => parse_domain(hex.as_bytes()),
+                None => Some(crate::MERGED_CHAIN_DOMAIN),
+            })?;
+            if configured.bytes() == crate::merged_chain_domain(crate::MERGED_CHAIN_ID) {
+                assert_eq!(chain_domain(setting)?, configured);
+            } else {
+                assert_eq!(chain_domain(setting), Err(WRONG_DOMAIN));
+            }
             Ok(())
         }
 
@@ -198,7 +236,7 @@ mod guest {
         result: [u8; MAX_RESULT_BYTES],
     }
 
-    static ARENA: spin::Mutex<Arena> = spin::Mutex::new(Arena {
+    static ARENA: crate::guest_cell::GuestCell<Arena> = crate::guest_cell::GuestCell::new(Arena {
         current: [0; MAX_STATE_BYTES],
         next: [0; MAX_STATE_BYTES],
         scratch: [0; SCRATCH_BYTES],
@@ -209,9 +247,9 @@ mod guest {
     const EMPTY_REFUSAL: ProgramRefusal<'static> = match RefusalReason::new(&[]) {
         Ok(reason) => match ProgramRefusal::new(RefusalClass::Rejected, reason) {
             Ok(refusal) => refusal,
-            Err(_) => panic!("Rejected is guest publishable"),
+            Err(_) => panic!(),
         },
-        Err(_) => panic!("an empty reason is within the ABI bound"),
+        Err(_) => panic!(),
     };
 
     fn rejected(reason: &'static [u8]) -> ProgramRefusal<'static> {
@@ -233,7 +271,7 @@ mod guest {
     }
 
     fn handle(input: &[u8]) -> Result<EntryResponse<'static>, ProgramRefusal<'static>> {
-        let arena = spin::MutexGuard::leak(ARENA.try_lock().ok_or(EMPTY_REFUSAL)?);
+        let arena = ARENA.try_borrow_mut().ok_or(EMPTY_REFUSAL)?.leak();
         let Arena {
             current,
             next,
@@ -246,7 +284,7 @@ mod guest {
             Err(AdapterError::Application(error)) => return Err(failure(error, result)),
             Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
         };
-        let chain = match crate::deployment::chain_domain() {
+        let chain = match crate::deployment_chain_domain() {
             Ok(chain) => chain,
             Err(error) => return Err(failure(error, result)),
         };

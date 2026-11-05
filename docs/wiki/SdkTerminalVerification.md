@@ -1,373 +1,214 @@
 # SDK terminal verification
 
-A Programs CALL receipt carries one terminal: the `terminal_payload` bytes
-whose SHA-256 is `terminal_payload_root` on the program outcome
-(`services/agent/sdk/python/layerx_sdk/program_wire.py:173-174`,
-`include/layerx/lxp_receipt.h:69-70`). Kernel terminal kinds are
-`LXP_PROGRAM_TERMINAL_SUCCESS = 1`, `FAILURE = 2`, `RESOURCE = 3`
-(`include/layerx/lxp_receipt.h:34-38`). The outcome fields describe that
-one runtime terminal; they are not a second receipt
-(`include/layerx/lxp_receipt.h:43-44`).
+Paxeer is one BFT network. The kernel executes inside `paxd` and participates
+in block proposal. A transaction receipt becomes final when its block commits;
+there is no later settlement on a separate execution network.
 
-Python returns `DecodedProgramTerminal` with `outcome`, `usage`, and
-`transfer_verification` of `"reconstructed"` or
-`"recorded_terminal_root_not_locally_reconstructable"`
-(`services/agent/sdk/python/layerx_sdk/program_wire.py:54-57, 285-286`). The
-reference entry point is `decode_and_verify_program_terminal`
-(`services/agent/sdk/python/layerx_sdk/program_wire.py:164-170`). Shared vectors
-are verified after `verify_receipt_outcome` on protocol 3
-(`sdk/platform/conformance/terminal-v4.test.py:25-33`).
+Use JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or the
+numbered hosts `https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`. EVM chain ID is 125 (`0x7d`).
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+and `txpool`. Hosted gateway `px_` methods have their own declared contract in
+[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json);
+do not assume every node exposes every gateway method.
 
----
+The reference node receipt API is `pax_sequencerReceipt`. Its name refers to
+the node's execution/proposal role. The stored V1–V4 files under
+[`daemon/committed-fixture/vectors/`](../../daemon/committed-fixture/vectors/)
+are test vectors, not receipt protocol versions. The directory name does not
+require an additional runtime process.
 
-## Check order
+## Receipt progress and trust
 
-`decode_and_verify_program_terminal` runs these steps in order.
+[`rpc/sequencer_receipt.go`](../../rpc/sequencer_receipt.go) defines three rungs:
 
-### Framing and payload digest binding
-
-1. Refuse an empty `call_graph` or a graph whose SHA-256 is not
-   `receipt.call_graph_root` (`program_wire.py:171-172`).
-2. Refuse an empty `terminal_payload`, a payload longer than
-   `1_048_576` bytes, or a payload whose SHA-256 is not
-   `receipt.terminal_payload_root` (`program_wire.py:173-174`).
-3. When `encoding_version == 4`, require the domain
-   `LXP/programs/terminal-applied-legs/v1\0`, a nonempty inner detail
-   of at most `1_048_576` bytes, an applied-leg span of at most
-   `256 * 115` bytes, and no trailing bytes after that wrapper
-   (`program_wire.py:176-185, 804-805`).
-4. When `encoding_version != 4`, leave `inner` equal to the full
-   payload (`program_wire.py:175-176`;
-   `sdk/platform/go/programs.go:2124-2126`).
-
-A truncated or trailing-byte `executed-v4` payload fails step 2 because
-the SHA-256 no longer matches `terminal_payload_root`
-(`program_wire.py:173-174`;
-`sdk/platform/conformance/terminal-v4.test.py:34-39`).
-
-### Signature and digest binding
-
-Shared tests bind the signed receipt before the terminal decoder
-(`sdk/platform/conformance/terminal-v4.test.py:25-27`):
-
-- Shared tests pass `protocol_version=3`. The verifier refuses unless
-  that argument is 2 or 3 and equals `receipt.protocol_version`
-  (`services/agent/sdk/python/layerx_sdk/verifier.py:889-890`;
-  `terminal-v4.test.py:25`).
-- The sequencer signs SHA-256 of domain `LXP/v1/receipt\0` plus the
-  unsigned receipt (`verifier.py:22, 66-71, 930-936`).
-- `receipt_digest` must equal the fixture digest
-  (`terminal-v4.test.py:26`).
-- `activity_id` must equal SHA-256 of `LXP/v1/activity-id\0` plus the
-  signed activity (`program_wire.py:12`; `terminal-v4.test.py:27`).
-
-Encoding 4 is wire tag `0x50524734`. It appends a 32-byte
-`applied_legs_digest` on the program outcome and is admitted only on
-protocol 3 (`verifier.py:614-615, 648, 668`). Encoding 4 requires a
-nonzero `applied_legs_digest`; encodings 1–3 require it all-zero
-(`verifier.py:670`). Those outcome bytes sit in the unsigned receipt
-hashed for the sequencer signature (`verifier.py:857, 930-936`).
-
-Encoding tags 1–3 are `PROGRAM_OUTCOME_TAGS`
-(`services/agent/sdk/python/layerx_sdk/generated/receipt.py:6`;
-`verifier.py:32, 610-619`). Protocol 1 admits encodings 1 and 3;
-protocols 2 and 3 admit encodings 2 and 3; protocol 3 also admits
-encoding 4 (`verifier.py:665-668`).
-
-### Applied-leg reconstruction
-
-On encoding 4, after the wrapper parses, SHA-256 of the raw leg bytes
-must equal `receipt.applied_legs_digest` (`program_wire.py:186-187`).
-`_verify_applied_legs` then reconstructs the transfer root
-(`program_wire.py:289-298`):
-
-- Length is a multiple of 115 and at most `256 * 115`
-  (`program_wire.py:290-291`).
-- Each 115-byte leaf is reserved `0`, 32-byte source, 32-byte
-  destination, 32-byte asset, 16-byte amount, kind `0x00 0x01`; every
-  address and the amount are nonzero (`program_wire.py:293-296`).
-- Merkle root over domain `LXP/v1/merkle-leaf\0` / `LXP/v1/merkle-internal\0`
-  must equal `receipt.transfer_root`. An empty list is the 32-byte zero
-  root (`program_wire.py:34-35, 297-298, 743-749`).
-
-Empty legs against a zero root pass; empty legs against a nonzero root
-fail (`terminal-v4.test.py:41-44`).
-
-### Historical selection
-
-After the encoding-4 wrapper (or the skip), unwrap at most one
-authority wrapper `LXP/program-execution-with-transfer-authority/v2\0`
-then at most one occupancy wrapper
-`LXP/program-execution-with-occupancy/v1\0`. A second authority or
-occupancy prefix is `program terminal wrapper order`
-(`program_wire.py:18-19, 189-204`).
-
-Inner domain then selects the terminal body
-(`program_wire.py:15-17, 20-23, 209-253`):
-
-| Prefix | Requirement | Outcome kind |
-| --- | --- | --- |
-| `LXP/program-execution/v2\0` or `/v3\0` | `terminal_kind == 1` and `abi_version == 1` | `legacy_completed` |
-| `LXP/program-execution/v4\0` | `terminal_kind` matches, `abi_version == 2`, program id matches, embedded graph equals `call_graph` | `completed` / `refused` |
-| `LXP/programs/failure-detail/v1\0` | `terminal_kind == 2` | `refused` / `guest_refused` |
-| `LXP/programs/resource-detail/v1\0` | `terminal_kind == 3` | `refused` / `resource` |
-| `LXP/programs/settlement-failure/v1\0` | `terminal_kind == 2`, length domain+1, last byte in `1..12` | `refused` / `guest_refused` |
-| `LXP/programs/callback-failure/v1\0` | `terminal_kind == 2`, length domain+5 | `refused` / `guest_refused` |
-
-Occupancy is required iff `protocol_version in (2, 3)` and the terminal
-is successful (`program_wire.py:338`).
-
-The occupancy settlement always binds `occupancy_byte_batches` and
-`occupancy_fee_units`. `occupancy_transfer_root` is rebuilt differently
-per protocol version. Before the state commitment the kernel debits the
-payer principal named by the settlement, so the verifier rebuilds the
-root from those principals with no caller input. Under protocol 3 the
-kernel debits the payer DID's account, which the settlement does not
-carry, so the caller offers the payer DIDs it knows
-(`OccupancyPayer` in `program_wire.py:72-75`,
-`program-wire.ts:61-64`, `programs.go:299-304`). Each offered DID is
-proven against the settlement: its principal
-`SHA-256("LXP/v1/did-id\0" || u16be(len(did)) || did)` must be one the
-settlement charges, and only the two accounts that DID derives for the
-receipt asset are admissible —
-`SHA-256("LX:ACCOUNT:v1" || u32be(len(name)) || name)` over
-`agent:<did>:main` and `agent:<did>:asset:<asset hex>`. A caller may
-instead offer one of those two account identifiers directly, and an
-identifier neither derivation produces is refused. The verifier then
-enumerates the account selections in ascending payer-principal order,
-bounded at 256 candidates, and returns the one selection whose Merkle
-root equals `occupancy_transfer_root`; no selection is
-`occupancy transfer root`. A protocol 3 receipt that paid an occupancy
-charge is therefore refused when no payer is offered — the verifier
-never falls back to the principal root
-(`program_wire.py:909-949`, `program-wire.ts:860-902`,
-`programs.go:1257-1339`). The proven accounts are returned as
-`occupancy_payment_accounts` / `occupancyPaymentAccounts` /
-`OccupancyPaymentAccounts`; pre-state-commitment verification returns
-none.
-
-Transfer authority is
-required for a candidate (`/v4`) body, or for encoding 4 on a
-successful terminal, unless the historical recorded path applies
-(`program_wire.py:272-276`). The Python and TypeScript decoders
-branch require encoding-4 authority bytes to start directly with
-`LayerX/programs/402LXP/transfer-set/v2\0`
-(`services/agent/sdk/python/layerx_sdk/program_wire.py:24-25, 278-281`;
-`services/agent/sdk/typescript/src/program-wire.ts:18-19, 240-247`).
-`protocol_version` must be 1, 2, or 3 (`program_wire.py:283-284`).
-
-The runtime and the Go, JVM, Swift, and .NET SDKs are documented as also
-accepting `LayerX/programs/402LXP/account-bound-set/v1\0`. That wrapper tag
-appears nowhere in this tree, so nothing here implements or rejects it yet. That wrapper contains
-the u32 length and bytes of the original transfer set, followed by one
-u16-length-prefixed canonical account name per leg. Verification refuses a
-nested wrapper or trailing bytes, recomputes principal/program-funding source
-accounts from those names, requires an empty name for a program-account debit,
-rebuilds the 115-byte applied legs, and compares their Merkle root with the
-receipt transfer root
-(`programs/crates/layerx-programs-runtime/src/transfer.rs:882-955`;
-`sdk/platform/go/programs.go:1212-1275`;
-`sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:1034-1072`;
-`sdk/platform/swift/Sources/LayerXSDK/Programs.swift:730-769`;
-`sdk/platform/dotnet/Programs.cs:727-766`). The original set inside the wrapper
-retains the signer principal and invocation authority; the account names bind
-the actual debit endpoints.
-
-`recorded` is true when `encoding_version != 4`, no authority wrapper
-is present, and `transfer_root` is nonzero. That path returns
-`"recorded_terminal_root_not_locally_reconstructable"` without
-rebuilding legs from the terminal. Every other accepted path returns
-`"reconstructed"` (`program_wire.py:272-273, 285-286`).
-
----
-
-## Refusals
-
-Python raises `ValueError("invalid {boundary}")`
-(`program_wire.py:772-773`). The terminal decoder and applied-leg
-checker use these boundaries:
-
-| Boundary | Input |
+| Rung | Evidence and meaning |
 | --- | --- |
-| `program call graph root` | empty graph, or SHA-256 ≠ `call_graph_root` (`program_wire.py:248`) |
-| `program terminal root` | empty payload, payload longer than `1_048_576`, or SHA-256 ≠ `terminal_payload_root` (`program_wire.py:250`) |
-| `applied terminal domain` | encoding 4 payload that does not start with `LXP/programs/terminal-applied-legs/v1\0` (`program_wire.py:259`) |
-| `empty applied terminal detail` | encoding 4 inner length 0 (`program_wire.py:262`) |
-| `applied legs digest` | SHA-256 of the leg span ≠ `applied_legs_digest` (`program_wire.py:266`) |
-| `trailing canonical bytes` | leftover bytes after the applied-leg, authority, or occupancy wrapper (`program_wire.py:1049`) |
-| `applied legs bounds` | leg span length not a multiple of 115, or greater than `256 * 115` (`program_wire.py:417`) |
-| `applied leg canonical fields` | reserved byte, kind, or a zero source, destination, asset, or amount (`program_wire.py:422`) |
-| `applied transfer root` | reconstructed Merkle root ≠ `transfer_root` (`program_wire.py:424`) |
-| `program terminal wrapper order` | authority or occupancy prefix after those wrappers were already consumed (`program_wire.py:283`) |
-| `legacy terminal kind` | `/v2` or `/v3` body with `terminal_kind != 1` or `abi_version != 1` (`program_wire.py:290`) |
-| `candidate terminal binding` | `/v4` body whose kind, ABI 2, or program id does not match the receipt (`program_wire.py:301`) |
-| `candidate call graph` | `/v4` embedded graph ≠ supplied `call_graph` (`program_wire.py:304`) |
-| `failure terminal kind` | failure-detail body with `terminal_kind != 2` (`program_wire.py:317`) |
-| `resource terminal kind` | resource-detail body with `terminal_kind != 3` (`program_wire.py:322`) |
-| `settlement terminal` | settlement body with `terminal_kind != 2`, wrong length, or code outside `1..12` (`program_wire.py:327`) |
-| `callback terminal` | callback body with `terminal_kind != 2` or length ≠ domain+5 (`program_wire.py:331`) |
-| `unknown terminal domain` | inner prefix not one of the domains above (`program_wire.py:334`) |
-| `occupancy attachment presence` | occupancy wrapper present XOR not (`protocol 2 or 3` and success) (`program_wire.py:338`) |
-| `empty occupancy attachment` | empty occupancy bytes with a nonzero occupancy commitment (`program_wire.py:343`) |
-| `occupancy evidence digest` | SHA-256 of occupancy bytes ≠ `occupancy_evidence_digest` (`program_wire.py:346`) |
-| `occupancy receipt binding` | occupancy usage ≠ receipt, or a pre-state-commitment transfer root ≠ receipt (`program_wire.py:350, 913`) |
-| `occupancy asset length` | occupancy asset identity not 32 bytes (`program_wire.py:901, 915`) |
-| `occupancy asset` | all-zero occupancy asset identity (`program_wire.py:902, 916`) |
-| `occupancy payer did` | empty payer DID, DID longer than 255 bytes, or a zero derived principal (`program_wire.py:980, 982`) |
-| `occupancy payment account` | a protocol 3 paying payer with no proven payment account, or an offered account neither DID derivation produces (`program_wire.py:930, 973`) |
-| `occupancy payment account bound` | more than `2 * 256` proven accounts, more than 256 paying payers, or more than 256 account candidates to enumerate (`program_wire.py:920, 933, 936`) |
-| `occupancy transfer root` | no protocol 3 candidate selection rebuilds `occupancy_transfer_root` (`program_wire.py:949`) |
-| `unexpected occupancy commitment` | no occupancy wrapper, but receipt occupancy fields are nonzero (`program_wire.py:355`) |
-| `transfer authority presence` | authority wrapper presence disagrees with `transfer_root` outside the recorded path (`program_wire.py:360`) |
-| `transfer authority root` | empty authority bytes, or wrapper root ≠ `transfer_root` (`program_wire.py:363`) |
-| `V2 transfer authority required` | encoding 4 authority that does not start with transfer-set v2 (`program_wire.py:633`) |
-| `account-bound transfer authority` | nested wrapper, malformed original-set length, missing/extra account names, invalid canonical account name, nonempty program-debit name, trailing bytes, or rebuilt root mismatch (`programs/crates/layerx-programs-runtime/src/transfer.rs:882-955`) |
-| `program receipt protocol` | `protocol_version` not in `(1, 2, 3)` (`program_wire.py:367`) |
-| `terminal receipt metadata` | runtime, ABI, fee schedule, metering, or usage disagrees with the receipt (`program_wire.py:612`) |
+| `submitted` | The node holds the transaction, but no signed receipt is available. |
+| `receipted` | A signed execution receipt is available before its batch commits. |
+| `committed` | A committed block's `MsgSequenceBatch` covers the receipt. |
 
-Shared-vector refusals:
+Execution success and block commitment are separate properties of a receipt.
+A receipted revert is an authenticated execution failure. A signature or an
+RPC response claiming `committed` alone does not independently prove consensus
+commitment. V4 demonstrates how to verify that claim against chain evidence.
 
-- `mutated-leg-v4` raises `applied transfer root`
-  (`terminal-v4.test.py:29-31`). The fixture retains the original
-  transfer root after toggling an applied amount byte and re-signing
-  with recomputed applied and terminal digests
-  (`sdk/platform/conformance/fixtures/receipt-programs-mutated-leg-v4.json:20`).
-- Every proper prefix of `executed-v4` `terminal_payload` raises
-  `ValueError` (`terminal-v4.test.py:34-37`).
-- `executed-v4` payload plus a trailing `0x00` raises `ValueError`
-  (`terminal-v4.test.py:38-39`).
-- Empty applied legs against a nonzero root raise `ValueError`
-  (`terminal-v4.test.py:41-44`).
+Obtain receipt-key authorization and chain trust independently of the receipt
+response. Governed receipt pins bind `keyId`, `publicKey`, `firstHeight` and
+`lastHeight`; both bounds are inclusive. The node's receipt-key API is named
+`px_getReceiptKeys`, and the gateway relays it. Endpoint configuration controls
+whether these APIs are served locally or forwarded; an unconfigured node can
+return JSON-RPC error `-32000` with `served by sequencer`.
+The `signingKey` beside a receipt is not its own trust anchor.
 
-Go unwrap reports `"Programs applied transfer root mismatch"`
-(`sdk/platform/go/programs.go:2160-2161`). JVM
-`unwrapAppliedTerminal` throws `IllegalArgumentException("applied transfer root")`
-(`sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:1422`);
-`verifyTerminal` wraps that as `PlatformSdkException`
-(`ProgramsClient.java:786-789`). .NET `VerifyAppliedLegs` throws
-`InvalidDataException("applied transfer root")`
-(`sdk/platform/dotnet/Programs.cs:975`). TypeScript rejects with
-`/applied transfer root/`
-(`services/agent/sdk/typescript/test/program-executed-v3.test.ts:51`).
+The fixtures' `receiptKeys`, `authorization` and validator sets authorize their
+local test chain. Production verification needs authenticated receipt-key
+history and validator history or a trusted light-client checkpoint. Preserve
+the network and tenant bindings of any higher-level operation, including
+[Human owner registration](HumanOwnerRegistration.md).
 
----
+## Shared sequencer vectors
 
-## Stored V3 without regeneration
+All file paths below are relative to
+`daemon/committed-fixture/vectors/`; tests are in its parent directory.
 
-Encoding 3 is selected by the outcome tag, not by rewriting the
-terminal. `receipt-programs-executed-v3.json` stores
-`program_outcome_encoding_version` 3
-(`sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json:35`).
-The packager verifies and decodes the original evidence; it does not
-construct outcomes, change receipt fields, or sign receipts
-(`receipt-programs-executed-v3.json:5-6`;
-`sdk/platform/conformance/fixtures/generate_executed_program_fixture.py:55-72, 114-117`).
-
-On encoding 3 the applied-leg wrapper is not consumed: Go returns the
-payload unchanged (`sdk/platform/go/programs.go:2125-2126`); Python
-skips the encoding-4 block (`program_wire.py:175-176`). The V3 vector
-has no authority wrapper and a nonzero `transfer_root`, so `recorded`
-is true and `transfer_verification` is
-`"recorded_terminal_root_not_locally_reconstructable"`
-(`program_wire.py:272-273, 285-286`;
-`terminal-v4.test.py:19, 33`). Legs are not rebuilt from the terminal.
-
-Encoding 1 uses the same skip: it is not encoding 4
-(`verifier.py:666`; `program_wire.py:176`;
-`programs.go:2125-2126`). Protocol 1 admits encodings 1 and 3
-(`verifier.py:666`). The shared four-vector test does not load a V1
-receipt; it loads `executed-v3` for the historical recorded path
-(`terminal-v4.test.py:18-21`).
-
----
-
-## Shared fixtures
-
-The Python/TypeScript conformance tests load
-`sdk/platform/conformance/fixtures/receipt-programs-{name}.json` for
-`executed-v4`, `principal-v4`, `mutated-leg-v4`, and `executed-v3`
-(`terminal-v4.test.py:18-21`). The Go, JVM, Swift, and .NET receipt tests are
-documented as additionally loading
-`programs/fixtures/pay5/receipt-account-bound-v4.json`, which is not in this
-tree. Each V4 file carries
-`canonical_receipt_hex`, `signed_activity_hex`, `program_id_hex`,
-`receipt_digest_hex`, `terminal_payload_hex`, `call_graph_hex`,
-`authorized_batch`, and `provenance`
-(`receipt-programs-executed-v4.json:2-17`).
-
-| File | What it proves |
-| --- | --- |
-| `receipt-programs-executed-v4.json` | Encoding 4 CALL with reconstructed applied legs. `transfer_verification == "reconstructed"`. Truncation of every prefix and a trailing byte are refused (`terminal-v4.test.py:18, 33-39`; provenance generator `--dump-executed-v4`, mutation `none` at `receipt-programs-executed-v4.json:18-20`). |
-| `receipt-programs-principal-v4.json` | Encoding 4 CALL whose inner body is the ABI-1 legacy path (`legacy_completed` in JVM/Swift/.NET; Python `/v2` or `/v3` requires `abi_version == 1`). `transfer_verification == "reconstructed"` (`terminal-v4.test.py:18, 33`; `sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/TerminalV4Test.java:34-36`; `program_wire.py:209-217`; provenance `--dump-principal-v4` at `receipt-programs-principal-v4.json:18-20`). |
-| `receipt-programs-mutated-leg-v4.json` | Encoding 4 CALL whose applied amount byte was toggled after execution; applied and terminal digests were recomputed and the receipt signed again; `transfer_root` retained. Decoder refuses `applied transfer root` (`receipt-programs-mutated-leg-v4.json:18-20`; `terminal-v4.test.py:29-31`). |
-| `receipt-programs-executed-v3.json` | Stored encoding 3 CALL, ABI 2, module 9 version 4, operation 3. Verified without regeneration. `transfer_verification == "recorded_terminal_root_not_locally_reconstructable"` (`receipt-programs-executed-v3.json:2-6, 26-28, 35, 37`; `terminal-v4.test.py:19, 33`). |
-| `programs/fixtures/pay5/receipt-account-bound-v4.json` | Encoding 4 CALL with a native per-Asset account name bound into transfer authority. The four platform SDK test suites accept the source vector, then require reconstructed transfer verification (`sdk/platform/go/terminal_v4_test.go:12-18, 83-85`; `sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/TerminalV4Test.java:30-31, 54-56`; `sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift:24-25, 56-58`; `sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs:40-42, 67-69`). |
-
----
-
-## SDK entry points
-
-| SDK | Function | Test |
+| File | Stored evidence | Reference test |
 | --- | --- | --- |
-| Python | `decode_and_verify_program_terminal` (`services/agent/sdk/python/layerx_sdk/program_wire.py:164`) | `sdk/platform/conformance/terminal-v4.test.py` (`TerminalV4.test_signed_shared_vectors` at `:17`) |
-| TypeScript | `decodeAndVerifyProgramTerminal` (`services/agent/sdk/typescript/src/program-wire.ts:135`) | `services/agent/sdk/typescript/test/program-executed-v3.test.ts` (four-vector loop at `:36-56`) |
-| Go | `verifyProgramTerminal` (`sdk/platform/go/programs.go:479`) | `sdk/platform/go/terminal_v4_test.go` (`TestSignedTerminalV4Vectors` at `:12`) |
-| JVM | `ProgramsClient.verifyTerminal` (`sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:652`) | `sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/TerminalV4Test.java` (`signedSharedVectors` at `:19`) |
-| Swift | `verifyTerminal` (`sdk/platform/swift/Sources/LayerXSDK/Programs.swift:556`) | `sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift` (`testSignedTerminalV4Vectors` at `:7`) |
-| .NET | `ProgramsClient.VerifyTerminal` (`sdk/platform/dotnet/Programs.cs:546`) | `sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ReceiptFixtureTests.cs` (`SignedTerminalV4Vectors` at `:14`) |
+| `vector-v1-receipted-positive.json` | EIP-1559 contract creation with two constructor logs, raw transaction, signed receipt, RPC view, key pin and recording provenance. | `vector_v1_test.go`: `TestVectorV1ReceiptedPositiveVerifies` |
+| `vector-v2-receipted-revert.json` | LayerXLedger insufficient-balance revert, raw transaction, signed RPC receipt, key pin and provenance. RPC status is zero, signed result code is one, and the reason is `LXP_INSUFFICIENT_BALANCE: insufficient balance`. | `vector_v2_test.go`: `TestVectorV2ReceiptedRevertVerifies` |
+| `vector-v3-receipt-refusals.json` | Positive baseline and six named mutations with expected refusals. Provenance identifies the source receipt and its re-signing under an ephemeral test key. | `vector_v3_test.go`: `TestVectorV3EveryRefusalIsRefused` |
+| `vector-v4-committed.json` | Recorded `payExact` receipt, a recorder-built signed inclusion envelope, two envelope refusals and BFT block evidence in the `settlement` field. | `vector_v4_test.go`: `TestVectorV4CommittedVerifies` |
 
-Go also unwraps through `unwrapAppliedProgramTerminal` before
-`decodeProgramTerminal` (`programs.go:491, 2124`;
-`terminal_v4_test.go:48`). JVM, Swift, and .NET unwrap through
-`unwrapAppliedTerminal` / `UnwrapAppliedTerminal` then match a
-document outcome (`ProgramsClient.java:657`;
-`Programs.swift:563`; `Programs.cs:553`). Python and TypeScript decode
-the outcome from the terminal bytes (`program_wire.py:209-253`;
-`program-wire.ts:178-219`).
+V1's current recorder covers contract creation; it does not record the Programs
+call and authenticated `ProgramCallOutcome` needed for broader Programs
+conformance. Do not infer that coverage from this positive vector.
 
-Status strings match Go `ProgramTransfersReconstructed` /
-`ProgramTransfersRecorded` (`sdk/platform/go/programs.go:287-288, 533-536`).
+The stored V2 and V3 identify cases in
+[`sequencer-receipt-v1.json`](../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json).
+The current V2 producer in
+[`vector_v2.go`](../../daemon/committed-fixture/vector_v2.go) selects its home's
+primary key from the validated genesis pins, binds payer and payee DIDs,
+registers an asset, opens their accounts and records an unfunded `payExact`
+revert. It verifies the result, builds a canonical source case and derives
+copies from that source. This is a producer pipeline, not a requirement to
+reuse a stored transaction from a different recording.
 
----
+For an intentional fresh recording, the existing recorder interface is:
 
-## Disagreements left intact
+```text
+committed-fixture record --paxd PATH --out DIRECTORY --vector vector-v2-receipted-revert
+```
 
-1. C `lxp_program_outcome` has no `applied_legs_digest` field
-   (`include/layerx/lxp_receipt.h:45-72`). Python encoding 4 reads that
-   digest from tag `0x50524734` (`verifier.py:614-615, 648`).
-2. Python `_fail` raises `ValueError` (`program_wire.py:772-773`). JVM
-   `verifyTerminal` wraps into `PlatformSdkException`
-   (`ProgramsClient.java:786-789`). .NET catches and throws the SDK
-   verification error (`Programs.cs:643`). Swift throws
-   `programVerification()` (`Programs.swift:649`). Go returns `error`
-   strings (`programs.go:488-531`).
-3. Python occupancy uses the `protocol_version` argument
-   (`program_wire.py:243, 336`). Go occupancy uses
-   `receipt.ProtocolVersion` (`programs.go:507`).
-4. The account-bound transfer-authority wrapper is not recognized by any SDK
-   in this tree. Python and TypeScript require direct `transfer-set/v2`
-   authority bytes, and no account-bound fixture exists in the shared-vector
-   loop.
+V2 writes the canonical source and SDK group under `DIRECTORY/conformance/`
+and the node vector under `DIRECTORY/`. Compare copies within the same
+recording: transaction hash, signed bytes, pin, refusal code and provenance
+must remain identical to that recording's canonical source. New recordings
+have new transaction identities and must not be substituted for stored
+fixtures without reviewing the complete derived set.
 
-Sources:
+The stored-vector test verifies the checked-in V2 against its checked-in
+source; it does not execute the recorder. The producer-path test is
+`TestRepair_174_FixtureV2SourceContract` in `repair_174_test.go`, which drives
+`recordV2RPC` through a real node/RPC path. Keep these evidence claims separate.
+The [platform conformance guide](../../sdk/platform/conformance/README.md)
+describes the SDK schemas and additional portable cases; the node V1 creation
+and V3 re-signing are not byte-for-byte substitutes for all SDK cases.
 
-- `include/layerx/lxp_receipt.h:34-72`
-- `services/agent/sdk/python/layerx_sdk/program_wire.py:12-19, 54-57, 164-298, 484-486, 743-749, 772-773, 804-805`
-- `services/agent/sdk/python/layerx_sdk/verifier.py:22, 32, 66-71, 279-302, 610-716, 857, 877-942`
-- `services/agent/sdk/python/layerx_sdk/generated/receipt.py:6`
-- `services/agent/sdk/typescript/src/program-wire.ts:135-155, 178-219`
-- `sdk/platform/go/programs.go:287-288, 479-536, 2124-2163`
-- `sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java:652-657, 785-789, 1405-1423`
-- `sdk/platform/swift/Sources/LayerXSDK/Programs.swift:556-649, 962-972`
-- `sdk/platform/dotnet/Programs.cs:546-643, 950-975`
-- `sdk/platform/conformance/terminal-v4.test.py:16-44`
-- `sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json:2-20`
-- `sdk/platform/conformance/fixtures/receipt-programs-principal-v4.json:18-20`
-- `sdk/platform/conformance/fixtures/receipt-programs-mutated-leg-v4.json:18-20`
-- `sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json:2-6, 26-28, 35, 37`
-- `sdk/platform/conformance/fixtures/generate_executed_program_fixture.py:55-72, 114-117`
-- `programs/crates/layerx-programs-runtime/src/transfer.rs:882-955`
-- `programs/fixtures/pay5/receipt-account-bound-v4.json`
-- `programs/fixtures/pay5/account-authorization-vectors.json`
+## Verify a receipted execution
 
-[Home](Home.md)
+The signature primitive is `ReceiptSignature` in
+[`layerxproof/verify/receipt.go`](../../layerxproof/verify/receipt.go).
+Key-pin validation lives in `modules/sequencer/keeper/`;
+`SequencerReceiptResult.Verify(pins)` in `rpc/sequencer_receipt.go` checks
+RPC view binding. Passing no pins checks consistency without authenticating
+the signer's authority.
+
+1. Canonically decode the signed receipt and select an independently trusted
+   pin by key identifier and height. Require the height inside its inclusive
+   range and the returned public key to match the pin.
+2. Verify the signature. `ReceiptSignature` checks canonical bytes, a
+   supported protocol, a nonzero activity ID, a present signature and the
+   strict Ed25519 signature over the receipt digest. It does not select or
+   authorize a key pin.
+3. Bind the activity ID to `keccak256(rawTransaction)`. Check the signed
+   transaction's chain, sender and nonce. Compute `SeqHash` from its
+   predecessor, global sequence and activity ID; authenticate the predecessor
+   against trusted history when establishing continuity.
+4. Bind the RPC status, return data, logs and their order, gas and fee fields
+   to the signed receipt. In V1, check both constructor logs. In V2, require
+   status zero and signed result code one, bind `SHA-256(returnData)` to
+   `ActivityRoot`, and decode the ABI `Error(string)` reason.
+
+V3 demonstrates why signatures must be followed by these bindings. Except
+for the noncanonical case, its mutated receipts still pass `ReceiptSignature`;
+the full verifier must refuse each case:
+
+| Mutation | Required refusal |
+| --- | --- |
+| `key-id-not-pinned` | No trusted pin authorizes the key identifier. |
+| `height-outside-range` | Receipt height is outside the pin's range. |
+| `activity-id-not-raw-hash` | Activity ID differs from the raw transaction hash. |
+| `sequence-hash-mismatch` | Sequence hash does not follow from predecessor, sequence and activity ID. |
+| `tampered-log` | JSON log differs from the authenticated log commitment. |
+| `non-canonical-receipt-bytes` | Receipt encoding is noncanonical. |
+
+The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
+Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
+`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
+`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
+
+## Verify committed evidence with V4
+
+[`vector_v4_test.go`](../../daemon/committed-fixture/vector_v4_test.go) uses
+`codec.DecodeBatchHeader`, `verify.ReceiptAtRoot` and `verify.Ed25519Digest`.
+The Go proof package does not expose the removed `BatchHeader` and
+`ReceiptInclusion` verifier functions. `codec.BatchHeader` is a data type;
+SDK types with similar names are separate APIs.
+
+The V4 `positive` envelope is assembled and signed by the recorder under its
+receipt pin. It demonstrates receipt authenticity and inclusion under that
+root. It is not itself a consensus certificate. Its `settlement` field holds
+the recorded chain evidence for the same transaction on the same network.
+
+For the inclusion envelope:
+
+1. Decode the header with `codec.DecodeBatchHeader` and require canonical
+   encoding, as the reference test does by re-encoding it. Independently
+   check its network, protocol, sequencer identity and authorized inclusive
+   batch-number range against trusted policy.
+2. Require a 64-byte header signature. Verify it using
+   `verify.Ed25519Digest(trustedPublicKey, signature, codec.BatchHeaderDigest(headerBytes))`.
+3. Use `verify.ReceiptAtRoot(receiptBytes, proof, header.ReceiptMerkleRoot,
+   trustedPublicKey)`. This checks the receipt signature and Merkle path;
+   it does not authenticate the header or enforce its policy/range bindings.
+4. Explicitly require the receipt and header protocols to agree and its
+   global sequence to lie in the header's first/last sequence range.
+   The key must be authorized for the receipt height as well as the batch.
+5. Refuse `flipped-proof-sibling` with `codec.ErrMerkleRootMismatch` while
+   retaining a valid header signature. Refuse
+   `header-signature-by-unpinned-key` even if the signature verifies under
+   the untrusted key carried by that refusal.
+
+For BFT commitment, verify the `settlement` fields together:
+
+1. Authenticate `receipt` under trusted height-bounded pins, bind
+   `raw_transaction` to its activity ID and `txHash`, and require its block
+   number/hash to identify `execution_header`.
+2. Verify `sequence_batch_proof` and `transaction_proof` against that
+   execution header's `data_hash`. Decode `MsgSequenceBatch`, verify its
+   signature and height, and check the sequence range and transaction
+   position. The proven Cosmos transaction must wrap the same signed EVM
+   transaction as `raw_transaction`.
+3. Re-encode `exec_tx_result` deterministically, compare
+   `exec_tx_result_bytes`, and verify `exec_tx_result_proof` against the
+   successor `header.last_results_hash`. Require success and matching gas.
+   The successor carries the results commitment for the execution block;
+   this proof layout does not introduce another settlement phase.
+4. Verify `execution_commit` for `execution_header` and `commit` for the
+   successor `header` under authenticated validator history and chain ID.
+   Bind successor height, previous block and last-commit hash to the
+   execution block and commit. Match the validator-set commitment and
+   require more than two thirds of voting power. Refuse
+   `commit_at_most_two_thirds`.
+5. Decode the `payExact` calldata and bind payment reference, source,
+   destination, asset and amount to the authenticated `PaymentExact` log.
+
+The fixture validator set is test evidence. Matching its hash to a header
+and verifying its signatures proves consistency with that set; production
+callers must establish why that set is trusted at that height.
+
+## Reference verification command
+
+From the repository root, the stored node-vector tests are:
+
+```bash
+go test -count=1 ./daemon/committed-fixture/ -run '^(TestVectorV1ReceiptedPositiveVerifies|TestVectorV2ReceiptedRevertVerifies|TestVectorV3EveryRefusalIsRefused|TestVectorV4CommittedVerifies)$'
+```
+
+This command checks stored receipt evidence, named refusals and V4 block
+proofs. It does not regenerate fixtures, exercise every producer path, prove
+Programs-call coverage or establish live public-node readiness. For the SDK's
+adapted vectors and verification entry points, see the
+[platform conformance guide](../../sdk/platform/conformance/README.md).
+
+[Human owner registration](HumanOwnerRegistration.md) · [Home](Home.md)

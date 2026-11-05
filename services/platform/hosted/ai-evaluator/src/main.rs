@@ -64,13 +64,12 @@ const PROGRAMS_PRECOMPILE: [u8; 20] = [
 const CALL_SELECTOR: [u8; 4] = [0x54, 0xbd, 0x2b, 0x48];
 /// `simulateCall` with the `call` arguments.
 const SIMULATE_SELECTOR: [u8; 4] = [0x30, 0x44, 0xbd, 0x56];
-/// `getStateHead(bytes32)`.
-const STATE_HEAD_SELECTOR: [u8; 4] = [0x08, 0x33, 0x65, 0x0b];
+/// `getProgram(bytes32)` supplies the active flag.
+const PROGRAM_SELECTOR: [u8; 4] = programs_wire::PROGRAM_SELECTOR;
 const GUEST_ABI: u16 = 5;
 const ENTRYPOINT: &str = "layerx_call";
 const CALL_HEAD_BYTES: usize = 15 * 32;
 const TERMINAL_SUCCESS: u8 = 1;
-const LIFECYCLE_ACTIVE: u8 = 1;
 const CHUNK_REQUEST_BYTES: usize = 46;
 const CONFIG_VARIABLE: &str = "LAYERX_AI_EVALUATOR_CONFIG";
 const KEY_VARIABLE: &str = "LAYERX_AI_EVALUATOR_KEY_FILE";
@@ -954,72 +953,84 @@ fn word_u128(value: u128) -> [u8; 32] {
     word
 }
 
-fn abi_word(data: &[u8], index: usize) -> Result<&[u8], String> {
-    index
-        .checked_mul(32)
-        .and_then(|start| data.get(start..start.checked_add(32)?))
-        .ok_or_else(|| "short ABI return".to_owned())
-}
+// PROGRAMS_WIRE_BEGIN: this dependency-free module is also compiled by the Go path proof.
+pub mod programs_wire {
+    pub const PROGRAM_SELECTOR: [u8; 4] = [0xb1, 0xff, 0xb3, 0xd4];
 
-fn abi_usize(word: &[u8]) -> Result<usize, String> {
-    let (high, low) = word.split_at_checked(24).ok_or("short ABI word")?;
-    if high.iter().any(|byte| *byte != 0) {
-        return Err("ABI word out of range".to_owned());
+    fn abi_word(data: &[u8], index: usize) -> Result<&[u8], String> {
+        index
+            .checked_mul(32)
+            .and_then(|start| data.get(start..start.checked_add(32)?))
+            .ok_or_else(|| "short ABI return".to_owned())
     }
-    let low: [u8; 8] = low.try_into().map_err(|_| "short ABI word".to_owned())?;
-    usize::try_from(u64::from_be_bytes(low)).map_err(|_| "ABI word out of range".to_owned())
-}
 
-/// The dynamic `bytes` whose offset is head word `index`.
-fn abi_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, String> {
-    let offset = abi_usize(abi_word(data, index)?)?;
-    let len = abi_usize(
-        data.get(offset..offset.saturating_add(32))
-            .ok_or("short ABI return")?,
-    )?;
-    offset
-        .checked_add(32)
-        .and_then(|start| data.get(start..start.checked_add(len)?))
-        .map(<[u8]>::to_vec)
-        .ok_or_else(|| "short ABI return".to_owned())
-}
-
-/// `(int32 terminalResult, uint8 terminalKind, bytes response)`.
-fn decode_terminal(data: &[u8]) -> Result<(i32, u8, Vec<u8>), String> {
-    let result: [u8; 4] = abi_word(data, 0)?[28..]
-        .try_into()
-        .map_err(|_| "short ABI word".to_owned())?;
-    let kind = abi_word(data, 1)?[31];
-    Ok((i32::from_be_bytes(result), kind, abi_bytes(data, 2)?))
-}
-
-/// `getStateHead` record: `LXPS2 || len:u32 || LXPS1 || program32 || lifecycle || ...`, or the
-/// bare `LXPS1` record.
-fn require_active(record: &[u8], program: &[u8; 32]) -> Result<(), String> {
-    let inner = match record.strip_prefix(b"LXPS2") {
-        Some(wrapped) => {
-            let (len, rest) = wrapped.split_at_checked(4).ok_or("truncated state head")?;
-            let len = usize::try_from(u32::from_be_bytes(
-                len.try_into()
-                    .map_err(|_| "truncated state head".to_owned())?,
-            ))
-            .map_err(|_| "state head length overflow".to_owned())?;
-            rest.get(..len).ok_or("truncated state head")?
+    fn abi_usize(word: &[u8]) -> Result<usize, String> {
+        let (high, low) = word.split_at_checked(24).ok_or("short ABI word")?;
+        if high.iter().any(|byte| *byte != 0) {
+            return Err("ABI word out of range".to_owned());
         }
-        None => record,
-    };
-    let body = inner
-        .strip_prefix(b"LXPS1")
-        .ok_or("state head is not a program record")?;
-    if body.get(..32) != Some(program.as_slice()) {
-        return Err("state head names another program".to_owned());
+        let low: [u8; 8] = low.try_into().map_err(|_| "short ABI word".to_owned())?;
+        usize::try_from(u64::from_be_bytes(low)).map_err(|_| "ABI word out of range".to_owned())
     }
-    match body.get(32) {
-        Some(&LIFECYCLE_ACTIVE) => Ok(()),
-        Some(lifecycle) => Err(format!("program lifecycle {lifecycle} is not active")),
-        None => Err("truncated state head".to_owned()),
+
+    /// Canonical dynamic bytes in a return with exactly `index + 1` head words.
+    pub fn abi_bytes(data: &[u8], index: usize) -> Result<Vec<u8>, String> {
+        let offset = abi_usize(abi_word(data, index)?)?;
+        if offset != (index + 1) * 32 {
+            return Err("noncanonical ABI offset".to_owned());
+        }
+        let len = abi_usize(abi_word(data, index + 1)?)?;
+        if len > 1_048_576 {
+            return Err("ABI bytes exceed capacity".to_owned());
+        }
+        let start = offset + 32;
+        let end = start.checked_add(len).ok_or("ABI length overflow")?;
+        let padded = end.checked_add(31).ok_or("ABI length overflow")? / 32 * 32;
+        if data.len() != padded
+            || data
+                .get(end..)
+                .ok_or("short ABI return")?
+                .iter()
+                .any(|b| *b != 0)
+        {
+            return Err("noncanonical ABI bytes".to_owned());
+        }
+        Ok(data.get(start..end).ok_or("short ABI return")?.to_vec())
+    }
+
+    /// `(int32 terminalResult, uint8 terminalKind, bytes response)`.
+    pub fn decode_terminal(data: &[u8]) -> Result<(i32, u8, Vec<u8>), String> {
+        let word = abi_word(data, 0)?;
+        let result = i32::from_be_bytes(word[28..].try_into().map_err(|_| "short ABI word")?);
+        let sign = if result < 0 { 0xff } else { 0 };
+        let kind = abi_usize(abi_word(data, 1)?)?;
+        if word[..28].iter().any(|byte| *byte != sign)
+            || !(1..=3).contains(&kind)
+            || (kind == 1) != (result == 0)
+        {
+            return Err("noncanonical terminal result".to_owned());
+        }
+        Ok((result, kind as u8, abi_bytes(data, 2)?))
+    }
+
+    /// getProgram returns six ABI words; getStateHead is a storage manifest, not lifecycle.
+    pub fn require_active(data: &[u8]) -> Result<(), String> {
+        if data.len() != 192
+            || abi_usize(abi_word(data, 0)?)? > u8::MAX as usize
+            || abi_usize(abi_word(data, 3)?)? > u16::MAX as usize
+            || abi_usize(abi_word(data, 4)?)? > u32::MAX as usize
+        {
+            return Err("noncanonical program record".to_owned());
+        }
+        match abi_usize(abi_word(data, 5)?)? {
+            1 => Ok(()),
+            0 => Err("program is not active".to_owned()),
+            _ => Err("noncanonical active flag".to_owned()),
+        }
     }
 }
+// PROGRAMS_WIRE_END
+use programs_wire::{decode_terminal, require_active};
 
 fn data_bytes(value: &Value) -> Result<Vec<u8>, String> {
     value
@@ -1174,14 +1185,11 @@ impl Chain {
         )
     }
 
-    /// Refuses unless 0x101D `getStateHead` reports the program ACTIVE at `block`.
+    /// Refuses unless 0x101D `getProgram` reports the program active at `block`.
     fn require_active(&self, block: u64) -> Result<(), String> {
-        let mut data = STATE_HEAD_SELECTOR.to_vec();
+        let mut data = PROGRAM_SELECTOR.to_vec();
         data.extend_from_slice(&self.program);
-        require_active(
-            &abi_bytes(&self.view_call(None, &data, block)?, 0)?,
-            &self.program,
-        )
+        require_active(&self.view_call(None, &data, block)?)
     }
 
     /// One `simulateCall` read from `from` at `block`, answering the guest result frame.
@@ -1189,6 +1197,9 @@ impl Chain {
         let data = self.calldata(SIMULATE_SELECTOR, envelope);
         let (result, kind, response) =
             decode_terminal(&self.view_call(Some(from), &data, block)?)?;
+        if response.len() > self.response_capacity as usize {
+            return Err("simulateCall response exceeds configured capacity".to_owned());
+        }
         if response.is_empty() {
             return Err(format!(
                 "simulateCall ended with kind {kind} result {result} and no response"
@@ -1256,7 +1267,7 @@ fn tick(chain: &Chain, sender: &EvmSender, evaluator: &mut Evaluator) -> Result<
         native_state_root: head.state_root,
         observed_sequence: head.number,
         execution_height: head.number,
-        batch_id: head.hash,
+        block_hash: head.hash,
     };
     let state = capture_state(&identity, &proof, |envelope| {
         chain.simulate(sender.address(), head.number, envelope)

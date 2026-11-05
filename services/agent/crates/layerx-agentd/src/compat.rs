@@ -1,9 +1,7 @@
 //! Published daemon compatibility matrix and release-time validation.
 
-use layerx_client::lni::schema::Version;
-
 pub const DAEMON_VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const CONTRACT_VERSION: u16 = 1;
+pub const CONTRACT_VERSION: u16 = 2;
 pub const SDK_VERSION: &str = "0.1.0";
 pub const PUBLISHED_MATRIX: &str = include_str!("../../../COMPATIBILITY.md");
 
@@ -40,14 +38,14 @@ pub const fn matrix() -> &'static [Compatibility] {
     &MATRIX
 }
 
-/// Validates one complete daemon, node-interface, contract, and SDK version tuple.
+/// Validates a daemon, node `web3_clientVersion`, contract, and SDK version tuple.
 ///
 /// # Errors
 ///
 /// Names the incompatible dimension when no published row supports the tuple.
 pub fn verify(
     daemon_version: &str,
-    node_interface: Version,
+    node_client_version: &str,
     contract_version: u16,
     sdk_version: &str,
 ) -> Result<Compatibility, CompatibilityError> {
@@ -58,13 +56,11 @@ pub fn verify(
     if daemon_rows.is_empty() {
         return Err(CompatibilityError::UnsupportedDaemon);
     }
+    let node_major =
+        client_major(node_client_version).ok_or(CompatibilityError::UnsupportedNodeInterface)?;
     let node_rows: Vec<_> = daemon_rows
         .into_iter()
-        .filter(|row| {
-            row.node_interface_major == node_interface.major
-                && node_interface.minor >= row.minimum_node_interface_minor
-                && node_interface.minor <= row.maximum_node_interface_minor
-        })
+        .filter(|row| row.node_interface_major == node_major)
         .collect();
     if node_rows.is_empty() {
         return Err(CompatibilityError::UnsupportedNodeInterface);
@@ -102,4 +98,30 @@ pub fn verify_published() -> Result<(), CompatibilityError> {
     } else {
         Err(CompatibilityError::PublishedMatrixDrift)
     }
+}
+
+fn client_major(client_version: &str) -> Option<u16> {
+    let mut parts = client_version.split('/');
+    let product = parts.next()?;
+    if product.is_empty() || product.bytes().any(|byte| byte.is_ascii_whitespace()) {
+        return None;
+    }
+    let version = parts.next()?;
+    let version = version.strip_prefix('v').unwrap_or(version);
+    let mut release = version.split('.');
+    let major = release.next()?;
+    let minor = release.next()?;
+    let patch = release.next()?;
+    let patch_number = patch.split(['-', '+']).next()?;
+    if major.is_empty()
+        || minor.is_empty()
+        || patch_number.is_empty()
+        || !major.bytes().all(|byte| byte.is_ascii_digit())
+        || !minor.bytes().all(|byte| byte.is_ascii_digit())
+        || !patch_number.bytes().all(|byte| byte.is_ascii_digit())
+        || release.next().is_some()
+    {
+        return None;
+    }
+    major.parse().ok()
 }

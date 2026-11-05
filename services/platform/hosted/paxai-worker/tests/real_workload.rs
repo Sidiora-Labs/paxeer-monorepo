@@ -8,7 +8,7 @@
 //! file in `PAXAI_REAL_WORKLOAD` (see [`Provisioned`]); cases that need them fail with
 //! `Unprovisioned` when it is absent, they are never skipped.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, decode_acknowledgment, decode_service, encode_service,
@@ -925,7 +925,7 @@ fn capture(state: &[u8], at: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
         native_state_root: Digest32::new(ROOT)?,
         observed_sequence: 77,
         execution_height: at,
-        batch_id: Digest32::new([0xBB; 32])?,
+        block_hash: Digest32::new([0xBB; 32])?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state, &chunk_payload(0, None, 0), &mut out)?;
@@ -1345,14 +1345,20 @@ impl Market {
                 facts: &facts,
                 finality: &FinalityEvidence {
                     native_state_root: Digest32::new(ROOT)?,
-                    checkpoint: Digest32::new([0xC1; 32])?,
-                    settlement: Presence::Present(Digest32::new([0xD3; 32])?),
+                    block_height: at,
+                    block_hash: Digest32::new([0xBB; 32])?,
+                    app_hash: Digest32::new([0xC1; 32])?,
+                    store_proof_digest: Digest32::new([0xD3; 32])?,
                     rank: 4,
                 },
-                head: Head {
-                    chain_sequence: 77,
-                    sealed_batch: at + MAX_FINALITY_LAG,
-                    finalised_checkpoint: [0xC1; 32],
+                head: PxNetworkHead {
+                    network_id: "paxeer".to_owned(),
+                    paxeer: PxPaxeerHead {
+                        chain_id: 125,
+                        latest_block: at + MAX_FINALITY_LAG,
+                    },
+                    layerx: None,
+                    latest_committed_height: at + MAX_FINALITY_LAG,
                 },
                 owner: IdentityEvidence {
                     principal: owner,
@@ -1737,13 +1743,27 @@ fn serve(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Running> {
     config.insert("market".into(), text(hex(market.as_bytes())));
     config.insert("worker".into(), text(hex(worker.as_bytes())));
     config.insert("owner".into(), text(hex(owner.as_bytes())));
+    config.insert("state_dir".into(), path("state"));
+    config.insert("input_dir".into(), path("inputs"));
+    config.insert(
+        "runner".into(),
+        text(env!("CARGO_BIN_EXE_layerx-paxai-runner").to_owned()),
+    );
+    config.insert("authority_reader".into(), path("authority-reader"));
+    config.insert("sponsored_sender".into(), path("sponsored-sender"));
+    config.insert("chain_config".into(), path("chain.json"));
+    config.insert("capabilities".into(), serde_json::json!([]));
+    config.insert("access_declaration".into(), serde_json::json!([]));
+    config.insert("response_capacity".into(), serde_json::json!(16384));
+    config.insert("budget".into(), serde_json::json!([1, 2, 3, 4, 5, 6, 7]));
+    config.insert("fee_limit".into(), serde_json::json!(100));
     let config_path = file("worker.json");
     fs::write(&config_path, serde_json::to_string(&Value::Object(config))?)?;
     let mut child = Command::new(env!("CARGO_BIN_EXE_layerx-paxai-worker"))
         .arg("--config")
         .arg(&config_path)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .spawn()?;
     let stdout = child.stdout.take();
     let running = Running(child);
@@ -3024,4 +3044,19 @@ fn a19_real_revoked_delegate_keeps_completed_evidence_and_evaluator_samples() ->
         (Some(saved), evidence, output)
     );
     scored(&mut real.m, result)
+}
+
+// The self-contained listener/store/chain regressions also run under the focused repair
+// target; they do not depend on the licensed workload provisioning of the tests above.
+#[path = "support/participant.rs"]
+mod participant;
+
+#[test]
+fn participant_tls_same_store_chain_commit_and_restart() {
+    participant::participant_tls_same_store_chain_commit_and_restart();
+}
+
+#[test]
+fn participant_tls_cancel_survives_store_reopen() {
+    participant::participant_tls_cancel_survives_store_reopen();
 }

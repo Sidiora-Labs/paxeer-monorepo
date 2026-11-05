@@ -1,10 +1,12 @@
-//! Total API error, idempotency, and verification-level contract.
+//! Total API error, idempotency, and verification-rung contract.
 
 use layerx_types::error::ErrorClass as LayerErrorClass;
 use layerx_types::result::ResultCode;
-use layerx_types::verify::VerificationLevel;
+pub use layerx_types::result::Retriability;
 
 use crate::identity::ContractError;
+
+pub type Rung = layerx_types::rung::Rung;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RequestId(pub u64);
@@ -87,12 +89,6 @@ impl From<LayerErrorClass> for ErrorClass {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Retriability {
-    Terminal,
-    Retriable,
-}
-
 /// One lossless error envelope used by all generated SDKs.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApiError {
@@ -104,6 +100,27 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    /// Preserves the core's exact result and its canonical retry classification.
+    #[must_use]
+    pub fn core_rejection(request_id: RequestId, result: ResultCode, reason: ReasonCode) -> Self {
+        Self {
+            class: ErrorClass::CoreRejection,
+            protocol_result_code: Some(result),
+            retriability: result.retriability(),
+            request_id,
+            reason,
+        }
+    }
+
+    #[must_use]
+    pub fn idempotent_replay(request_id: RequestId) -> Self {
+        Self::core_rejection(
+            request_id,
+            ResultCode::from_raw(-302),
+            ReasonCode("idempotent_replay".into()),
+        )
+    }
+
     /// Constructs the non-emulated unavailable-capability error.
     ///
     /// # Errors
@@ -123,39 +140,36 @@ impl ApiError {
     }
 }
 
-/// Ordered contract-level verification lattice shared by every SDK.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum Level {
-    Unverified = 0,
-    SequencerSigned = 1,
-    BatchIncluded = 2,
-    StateProven = 3,
-    CheckpointFinalised = 4,
-    SettlementAnchored = 5,
-}
-
-impl From<VerificationLevel> for Level {
-    fn from(value: VerificationLevel) -> Self {
-        match value.wire_rank() {
-            0 => Self::Unverified,
-            1 => Self::SequencerSigned,
-            2 => Self::BatchIncluded,
-            3 => Self::StateProven,
-            4 => Self::CheckpointFinalised,
-            _ => Self::SettlementAnchored,
-        }
-    }
-}
+pub type VerificationStatus = RungStatus;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum VerificationStatus {
-    Achieved(Level),
-    Unverified {
-        requested: Level,
-        achieved: Level,
+pub enum RungStatus {
+    Achieved(Rung),
+    Below {
+        requested: Rung,
+        achieved: Rung,
         reason: ReasonCode,
     },
+}
+
+impl RungStatus {
+    /// Refuses an impossible shortfall before a transport renders it as success.
+    ///
+    /// # Errors
+    /// Returns a mismatch when a Below status has already reached its requested rung.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if let Self::Below {
+            requested,
+            achieved,
+            ..
+        } = self
+        {
+            if achieved >= requested {
+                return Err(ContractError::Mismatch("verification.inconsistent"));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The only successful API envelope; verification status cannot be omitted.

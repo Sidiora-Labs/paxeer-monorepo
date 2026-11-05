@@ -21,12 +21,14 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery/natsdriver"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ws"
 )
 
@@ -218,9 +220,18 @@ func TestSubscriptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSchema: %v", err)
 	}
-	providers, err := feeds.NewProviders(ctx, db, nil)
+	metrics, err := telemetry.New(config.Gateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	providers, err := feeds.NewProviders(ctx, db, nil, metrics)
 	if err != nil {
 		t.Fatalf("NewProviders: %v", err)
+	}
+	scrape := httptest.NewRecorder()
+	metrics.ServeHTTP(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if scrape.Code != http.StatusOK || !strings.Contains(scrape.Body.String(), feeds.GatewayMarketsMetric+" 18\n") {
+		t.Fatalf("served market gauge: %d %s", scrape.Code, scrape.Body.String())
 	}
 	hub, err := ws.NewHub(subFeeds{providers}, subChain, subSnapshotID, nil)
 	if err != nil {
@@ -369,6 +380,14 @@ func TestSubscriptions(t *testing.T) {
 		c.wantNext(t, "s", fmt.Sprintf(`{"latestPricesUpdated":[
 			{"marketId":0,"price":"100","onchainTimestamp":%[1]d,"blockNumber":10,"updatedAt":%[2]q},
 			{"marketId":1,"price":"200","onchainTimestamp":%[1]d,"blockNumber":10,"updatedAt":%[2]q}]}`, subAt(10).Unix(), subStamp(10)))
+		c.quiet(t)
+		indexPrice(t, 0, 11, 0, "aggregate", "110")
+		publish(t, "0.index")
+		c.wantNext(t, "s", fmt.Sprintf(`{"latestPricesUpdated":[
+			{"marketId":0,"price":"110","onchainTimestamp":%d,"blockNumber":11,"updatedAt":%q},
+			{"marketId":1,"price":"200","onchainTimestamp":%d,"blockNumber":10,"updatedAt":%q}]}`, subAt(11).Unix(), subStamp(11), subAt(10).Unix(), subStamp(10)))
+		indexPrice(t, 0, 12, 0, "skipped", nil)
+		publish(t, "0.index")
 		c.quiet(t)
 	})
 

@@ -31,7 +31,13 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 }
 
 func (m Migrator) Migrate2to3(ctx sdk.Context) error {
-	defaultParams := types.DefaultParams()
-	m.keeper.SetParams(ctx, defaultParams)
+	params := types.Params{DisableSeqnoCheck: types.DefaultParams().DisableSeqnoCheck}
+	subspace := m.keeper.paramSubspace
+	subspace.Get(ctx, types.KeyMaxMemoCharacters, &params.MaxMemoCharacters)
+	subspace.Get(ctx, types.KeyTxSigLimit, &params.TxSigLimit)
+	subspace.Get(ctx, types.KeyTxSizeCostPerByte, &params.TxSizeCostPerByte)
+	subspace.Get(ctx, types.KeySigVerifyCostED25519, &params.SigVerifyCostED25519)
+	subspace.Get(ctx, types.KeySigVerifyCostSecp256k1, &params.SigVerifyCostSecp256k1)
+	m.keeper.SetParams(ctx, params)
 	return nil
 }

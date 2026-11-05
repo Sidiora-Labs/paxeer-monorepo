@@ -1,8 +1,15 @@
+Code.require_file("repair_evidence.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
   use BlockScoutWeb.ConnCase, async: false
 
   alias Explorer.Chain.Address
-  alias Explorer.Chain.PaxeerX.PriceFeed
+  alias Explorer.Chain.PaxeerX.{PriceFeed, PriceFeedScannedBlock, PriceObservation, PriceUpdate}
+  alias Explorer.Repo
+  alias Indexer.BufferedTask
+  alias Indexer.Fetcher.PaxeerX.PriceUpdates
+  alias BlockScoutWeb.API.V2.PaxeerX.Repair2233416Evidence, as: Evidence
+  alias Phoenix.Socket.Broadcast
 
   @feeder "0xb97e177fe6e701db2cf85c1ba1307688166318cc"
   @feeder_bech32 "pax1h9lpwllxuuqakt8ctsd6zvrk3qtxxxxvyfs9jc"
@@ -40,6 +47,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
                "update_hash" => latest,
                "block_number" => 11,
                "timestamp" => iso(newer.timestamp),
+               "index" => 0,
                "index_price" => price(101),
                "mark_price" => price(102),
                "source_timestamp_ms" => 1_792_636_042_101,
@@ -88,6 +96,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
                  "observations" => [
                    %{
                      "market_id" => 0,
+                     "accepted" => true,
                      "symbol" => "BTC-USD",
                      "index_price" => price(5),
                      "mark_price" => price(6),
@@ -96,6 +105,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
                    },
                    %{
                      "market_id" => 2,
+                     "accepted" => true,
                      "symbol" => "SOL-USD",
                      "index_price" => price(7),
                      "mark_price" => price(8),
@@ -167,6 +177,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
       assert response["hash"] == hash
       assert response["index"] == 2
       assert response["price_update"]["observation_count"] == 1
+      assert [%{"market_id" => 0, "accepted" => true}] = response["price_update"]["observations"]
     end
 
     test "answers 404 for an unknown hash", %{conn: conn} do
@@ -409,6 +420,225 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
     end
   end
 
+  def prove_producer_restart(conn) do
+    prepare_live_feed()
+    recorded = Evidence.fixture("block_txs.json")
+    height = String.to_integer(recorded["block"]["header"]["height"])
+    {:ok, timestamp, _offset} = DateTime.from_iso8601(recorded["block"]["header"]["time"])
+    block = insert(:block, number: height, hash: Base.decode64!(recorded["block_id"]["hash"]), timestamp: timestamp)
+    state = %{Evidence.feed_node() | start_block: height}
+    subscribe_feed(Enum.to_list(0..17))
+    Explorer.Chain.Events.Subscriber.to(:paxeer_x_price_updates, :realtime)
+    start_supervised!({Task.Supervisor, name: Repair2233416PriceTasks})
+
+    spec =
+      Supervisor.child_spec(
+        {BufferedTask,
+         [
+           {PriceUpdates,
+            state: state,
+            poll: false,
+            flush_interval: 10,
+            max_batch_size: 1,
+            max_concurrency: 1,
+            task_supervisor: Repair2233416PriceTasks},
+           [name: PriceUpdates]
+         ]},
+        id: :repair_price_updates
+      )
+
+    fetcher = start_supervised!(spec)
+    assert_receive {:chain_event, :paxeer_x_price_updates, :realtime, [^height]}, 5_000
+    hash = "0xa57f246774eee2ec5ac6ac506b279d22682af01a62812d9aa642447751b0fadf"
+    detail = feed_detail(conn, hash)
+    assert detail["block_hash"] == to_string(block.hash)
+    assert detail["price_update"]["observation_count"] == 18
+    assert detail["price_update"]["feeder_bech32"] == @feeder_bech32
+    raw_observations = get_in(recorded, ["txs", Access.at(0), "body", "messages", Access.at(0), "observations"])
+
+    for {observation, raw} <- Enum.zip(detail["price_update"]["observations"], raw_observations) do
+      assert observation["market_id"] == String.to_integer(raw["market_id"])
+      assert observation["sequence"] == String.to_integer(raw["sequence"])
+      assert observation["index_price"] == raw["index_price"]
+      assert observation["mark_price"] == raw["mark_price"]
+      assert observation["source_timestamp_ms"] == String.to_integer(raw["source_timestamp_ms"])
+      assert observation["accepted"] == true
+    end
+
+    assert_live_detail(detail)
+    assert_market_parity(conn, Enum.to_list(0..17), hash)
+    wait_idle(fetcher)
+    assert %PriceFeedScannedBlock{status: "scanned"} = Repo.get!(PriceFeedScannedBlock, height)
+    assert PriceFeed.compact_scanned_blocks(height, 100) == height
+    assert Repo.get(PriceFeedScannedBlock, height) == nil
+    assert PriceFeed.scanned_through(height) == height
+    assert :ok = stop_supervised(:repair_price_updates)
+    refute Process.alive?(fetcher)
+    reopened = start_supervised!(spec)
+    assert reopened != fetcher
+    wait_idle(reopened)
+    assert PriceFeed.scanned_through(height) == height
+    assert PriceUpdates.init([], &[&1 | &2], state) == []
+    assert :ok = GenServer.call(reopened, {:push_back, [height]})
+    wait_idle(reopened)
+    assert feed_detail(conn, hash) == detail
+    assert Repo.aggregate(PriceUpdate, :count) == 1
+    assert Repo.aggregate(PriceObservation, :count) == 18
+    refute_receive {:chain_event, :paxeer_x_price_updates, :realtime, _}, 200
+    refute_receive %Broadcast{topic: "paxeer_x_feed:new_update"}, 200
+    refute_receive %Broadcast{event: "new_update"}, 200
+
+    Repo.update!(Ecto.Changeset.change(block, consensus: false))
+    assert json_response(get(conn, "/api/v2/paxeer-x/feed/updates/#{hash}"), 404) == %{"message" => "Not found"}
+    assert Enum.all?(feed_markets(conn), &is_nil(&1["latest"]))
+    replacement = insert(:block, number: height, timestamp: timestamp)
+    assert :ok = GenServer.call(reopened, {:push_back, [height]})
+    wait_idle(reopened)
+    replaced = feed_detail(conn, hash)
+    assert replaced == Map.put(detail, "block_hash", to_string(replacement.hash))
+    assert Repo.aggregate(PriceUpdate, :count) == 1
+    assert Repo.aggregate(PriceObservation, :count) == 18
+
+    for market <- 0..17 do
+      assert [%{"update_hash" => ^hash}] = market_history(conn, market)["items"]
+    end
+
+    refute_receive %Broadcast{event: "new_update"}, 200
+  end
+
+  def prove_refused_observations(conn, variant) do
+    prepare_live_feed()
+
+    PriceFeed.upsert_markets([
+      %{market_id: 0, symbol: "BTC", chainflow_symbol: "BTC"},
+      %{market_id: 1, symbol: "ETH", chainflow_symbol: "ETH"}
+    ])
+
+    for number <- 1..51 do
+      store(insert(:block, number: number), [
+        submission(0, observations: [observation(0, number), observation(1, number)])
+      ])
+    end
+
+    before = Map.new(feed_markets(conn), &{&1["market_id"], &1["latest"]})
+    boundaries = Map.new(0..1, &{&1, market_history(conn, &1)})
+    subscribe_feed(Enum.to_list(0..17))
+    refused = if variant == :mixed, do: [0], else: Enum.to_list(0..17)
+    results = Evidence.fixture("block_results.json")
+    [result] = results["txs_results"]
+
+    events =
+      Enum.map(refused, fn market ->
+        %{
+          "type" => "pricefeed_observation_refused",
+          "attributes" => [
+            %{"key" => Base.encode64("market_id"), "value" => Base.encode64(to_string(market)), "index" => true}
+          ]
+        }
+      end)
+
+    result = result |> Map.put("code", if(variant == :failed, do: 7, else: 0)) |> Map.put("events", events)
+    state = Evidence.feed_node(Map.put(results, "txs_results", [result]))
+    insert(:block, number: 52)
+    assert :ok = PriceUpdates.run([52], state)
+    hash = "0xa57f246774eee2ec5ac6ac506b279d22682af01a62812d9aa642447751b0fadf"
+    detail = feed_detail(conn, hash)
+    assert detail["status"] == if(variant == :failed, do: "error", else: "ok")
+    assert detail["result"] == if(variant == :failed, do: "failed", else: "success")
+
+    for observation <- detail["price_update"]["observations"] do
+      assert observation["accepted"] == (variant != :failed and observation["market_id"] not in refused)
+    end
+
+    assert_live_detail(detail)
+    after_markets = Map.new(feed_markets(conn), &{&1["market_id"], &1["latest"]})
+
+    for market <- 0..17 do
+      accepted? = variant == :mixed and market != 0
+
+      if accepted? do
+        assert after_markets[market]["update_hash"] == hash
+        assert_market_parity(conn, [market], hash)
+      else
+        assert after_markets[market] == before[market]
+        topic = "paxeer_x_feed:market:#{market}"
+        refute_receive %Broadcast{topic: ^topic}, 100
+      end
+    end
+
+    for market <- 0..1 do
+      history = market_history(conn, market)
+      accepted? = variant == :mixed and market == 1
+      assert length(history["items"]) == 50
+      assert history["next_page_params"] == %{"block_number" => if(accepted?, do: 3, else: 2), "index" => 0}
+
+      if accepted? do
+        assert hd(history["items"])["update_hash"] == hash
+      else
+        assert history == boundaries[market]
+        refute Enum.any?(history["items"], &(&1["update_hash"] == hash))
+      end
+
+      second = market_history(conn, market, history["next_page_params"])
+      assert Enum.map(second["items"], & &1["block_number"]) == if(accepted?, do: [2, 1], else: [1])
+      assert second["next_page_params"] == nil
+      refute Enum.any?(second["items"], &(&1["update_hash"] == hash))
+    end
+
+    assert [%{"hash" => ^hash}] =
+             json_response(get(conn, "/api/v2/paxeer-x/feed/updates", %{"market_id" => "17"}), 200)["items"]
+
+    refute_receive %Broadcast{event: "new_update"}, 100
+  end
+
+  defp prepare_live_feed do
+    alias Explorer.Chain.Cache.Counters.AverageBlockTime
+    previous = Application.fetch_env(:explorer, AverageBlockTime)
+    on_exit(fn -> Evidence.restore_env(:explorer, AverageBlockTime, previous) end)
+    Application.put_env(:explorer, AverageBlockTime, enabled: true, cache_period: 1_800_000)
+    start_supervised!(AverageBlockTime)
+    assert is_pid(Process.whereis(BlockScoutWeb.RealtimeEventHandlers.Main))
+  end
+
+  defp subscribe_feed(markets) do
+    @endpoint.subscribe("paxeer_x_feed:new_update")
+    Enum.each(markets, &@endpoint.subscribe("paxeer_x_feed:market:#{&1}"))
+  end
+
+  defp wait_idle(fetcher) do
+    Evidence.wait_until(fn ->
+      state = GenServer.call(fetcher, :state)
+
+      state.init_task == :complete and map_size(state.task_ref_to_batch) == 0 and
+        GenServer.call(fetcher, {:debug_count, true}) == %{buffer: 0, tasks: 0}
+    end)
+  end
+
+  defp feed_detail(conn, hash), do: json_response(get(conn, "/api/v2/paxeer-x/feed/updates/#{hash}"), 200)
+  defp feed_markets(conn), do: json_response(get(conn, "/api/v2/paxeer-x/feed/markets"), 200)["items"]
+
+  defp market_history(conn, market, params \\ %{}),
+    do: json_response(get(conn, "/api/v2/paxeer-x/feed/markets/#{market}/updates", params), 200)
+
+  defp assert_live_detail(detail) do
+    hash = detail["hash"]
+    assert_receive %Broadcast{topic: "paxeer_x_feed:new_update", event: "new_update", payload: payload}, 5_000
+    assert payload["hash"] == hash
+    assert payload |> Jason.encode!() |> Jason.decode!() == detail
+  end
+
+  defp assert_market_parity(conn, markets, hash) do
+    latest = Map.new(feed_markets(conn), &{&1["market_id"], &1["latest"]})
+
+    for market <- markets do
+      topic = "paxeer_x_feed:market:#{market}"
+      assert_receive %Broadcast{topic: ^topic, event: "new_update", payload: payload}, 5_000
+      assert payload["update_hash"] == hash
+      assert hd(market_history(conn, market)["items"]) == payload |> Jason.encode!() |> Jason.decode!()
+      assert latest[market] == payload |> Jason.encode!() |> Jason.decode!()
+    end
+  end
+
   defp store(block, submissions) do
     {:ok, _count} = PriceFeed.replace_block_updates(block, submissions)
     Enum.map(submissions, & &1.hash)
@@ -430,6 +660,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
   defp observation(market_id, value) do
     %{
       market_id: market_id,
+      accepted: true,
       sequence: value,
       index_price: value * 1_000_000_000_000_000_000,
       mark_price: (value + 1) * 1_000_000_000_000_000_000,

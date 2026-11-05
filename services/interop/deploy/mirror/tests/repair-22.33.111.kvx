@@ -1,0 +1,25 @@
+[task]
+id = "22.33.111"
+audit = "22.30.112"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+baseline = "No prior scoped changes or gate ledger existed; no baseline ran because the ordered task instructions prohibit tests before full implementation and require verify_cmd to run only through hf-done. No pre-change test failure is claimed."
+qualification = "The verified candidate revision, exact command, exit code and private log are recorded by hf-done in /out/run/gates.jsonl and copied verbatim into the final response."
+
+[finding.mirror_shell_rpc]
+test = "TestRepairM_111_MirrorShellRPC"
+repair = "Both ordinary and refusal-scenario Paxeer endpoint pairs use the root path; every successful shell rendering asserts root Paxeer paths and unchanged foreign-provider paths."
+proof = "Recorded real renderer output for the shell's endpoint inputs is checked against source and renderer digests; both Ethereum-only and Solana configurations preserve endpoint identity and quorum, and their exact Paxeer HTTPS URLs drive the production geth JSON-RPC client, loopback TLS transport and node JSON-RPC handler's built-in rpc_modules service at root."
+
+[finding.mirror_python_rpc]
+test = "TestRepairM_111_MirrorPythonRPC"
+repair = "The shared endpoint producer chooses root for Paxeer and /rpc for Ethereum; each rendering asserts the exact path for every Paxeer, Ethereum and optional Solana endpoint."
+proof = "The fixture recorder executes the actual Python endpoint producer AST and production renderer main; Go verifies source/renderer provenance and both recorded configurations, then sends their exact Paxeer HTTPS URLs through real JSON-RPC client/transport/handler paths and asserts the observed POST target, Host and decoded rpc_modules result."
+
+[fixtures]
+recorder = "PYTHONDONTWRITEBYTECODE=1 python3 services/interop/deploy/mirror/tests/testdata/repair_m111/record.py"
+location = "services/interop/deploy/mirror/tests/testdata/repair_m111/rendered.json"
+runtime = "The qualification tests use committed production outputs and in-process TLS servers; they invoke no subprocess, Python, Cargo, native node runtime, credential, environment variable or live endpoint."
+limit = "The production node JSON-RPC HTTP handler is exercised at root using its real metadata service; the full native node startup and chain-state methods are outside this endpoint-fixture repair."
+
+[wiring]
+requests = "None: the renderer preserves caller URLs and the node already serves the root JSON-RPC surface; both fixture producers and their assertions are in scope."

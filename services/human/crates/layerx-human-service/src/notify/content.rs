@@ -1,5 +1,7 @@
 use std::fmt::Write as _;
 
+use crate::approvals::ApprovalNotification;
+
 use super::class::{DetailLevel, NotificationClass};
 use super::event::{AgentId, Event, JourneyOutcome, Money, NotificationId};
 
@@ -16,8 +18,18 @@ pub(crate) struct Content {
     pub deep_link: String,
     pub payload_agent: Option<AgentId>,
     pub payload_money: Option<Money>,
+    pub payload_approval: Option<ApprovalNotification>,
     pub email_subject: String,
     pub email_lines: Vec<String>,
+}
+
+impl Content {
+    pub(crate) fn bind_approval(&mut self, binding: ApprovalNotification) {
+        self.email_lines
+            .push(format!("Amount: {}", binding.amount()));
+        self.email_lines.push(format!("Asset: {}", binding.asset()));
+        self.payload_approval = Some(binding);
+    }
 }
 
 pub(crate) fn build(event: &Event, detail: DetailLevel) -> Content {
@@ -53,6 +65,7 @@ pub(crate) fn build(event: &Event, detail: DetailLevel) -> Content {
         deep_link: deep_link(event),
         payload_agent: payload_agent.clone(),
         payload_money: payload_money.clone(),
+        payload_approval: None,
         email_subject: email_subject(event, detail),
         email_lines: email_lines(
             event,
@@ -129,11 +142,10 @@ fn deep_link(event: &Event) -> String {
 
 fn event_money(event: &Event) -> Option<Money> {
     match event {
-        Event::ApprovalWaiting { money, .. } | Event::JourneyFinished { money, .. } => {
-            money.clone()
-        }
+        Event::JourneyFinished { money, .. } => money.clone(),
         Event::MoneyArrived { money, .. } | Event::ClaimReady { money, .. } => Some(money.clone()),
-        Event::SecurityNewDevice { .. }
+        Event::ApprovalWaiting { .. }
+        | Event::SecurityNewDevice { .. }
         | Event::SecurityRecovery { .. }
         | Event::SecurityWalletRebinding { .. }
         | Event::SecurityKeyRotation { .. }
@@ -212,6 +224,10 @@ pub(crate) fn push_payload(content: &Content, id: &NotificationId, created_at: u
     if let Some(agent) = &content.payload_agent {
         members.push(text_member("agent_id", agent.as_str()));
     }
+    if let Some(approval) = &content.payload_approval {
+        members.push(text_member("amount", &approval.amount().to_string()));
+        members.push(text_member("asset", approval.asset()));
+    }
     if let Some(money) = &content.payload_money {
         members.push(format!(
             "\"money\":{{\"amount\":\"{}\",\"currency\":\"{}\"}}",
@@ -238,6 +254,10 @@ pub(crate) fn in_app_payload(content: &Content, id: &NotificationId, created_at:
     }
     if let Some(agent) = &content.payload_agent {
         members.push(text_member("agent_id", agent.as_str()));
+    }
+    if let Some(approval) = &content.payload_approval {
+        members.push(text_member("amount", &approval.amount().to_string()));
+        members.push(text_member("asset", approval.asset()));
     }
     if let Some(money) = &content.payload_money {
         members.push(format!(

@@ -7,12 +7,12 @@ use serde_json::{json, Map, Value};
 
 use crate::config::ServiceConfig;
 use crate::journal::{Admission, Completion, JournalError, Key};
-use crate::policy::PolicyRefusal;
+use crate::policy::{PolicyRefusal, DID_BUDGET_INTERVAL_SECONDS};
 use crate::price::{PriceError, PriceSource};
 use crate::quote::{keccak, word, Address, Word};
 use crate::rpc::{
-    bytes, hex, ConfiguredRpc, Execution, HttpsExchange, JsonRpc, RpcFault, Rung,
-    SequencerEndpoint, SequencerReceipt,
+    bytes, hex, ConfiguredRpc, Execution, FullSequencerReceipt, HttpsExchange, JsonRpc, RpcFault,
+    Rung, SequencerEndpoint, SequencerReceipt,
 };
 use crate::signer::QuoteSigner;
 use crate::station::{GasStation, Progress, QuoteOutcome, Recovery, StationError, SubmitRequest};
@@ -190,7 +190,8 @@ impl From<&StationError> for ServiceError {
             )
             | StationError::Price(_)
             | StationError::Quote(
-                QuoteError::Price(_) | QuoteError::Policy(PolicyRefusal::ClockRegression),
+                QuoteError::Price(_)
+                | QuoteError::Policy(PolicyRefusal::ClockRegression | PolicyRefusal::DidUnavailable),
             ) => Self::Unavailable,
             StationError::Rpc(RpcFault::Configuration)
             | StationError::Journal(_)
@@ -219,6 +220,7 @@ impl Default for Limits {
 /// The quote and sponsored submission endpoints over one gas station.
 pub struct Service<S, R, P, C> {
     station: GasStation<S, R, P>,
+    policy_ready: Result<(), ServiceError>,
     chain_id: u64,
     token: Address,
     decimals: u8,
@@ -243,12 +245,16 @@ where
     #[must_use]
     pub fn new(
         config: &ServiceConfig,
-        station: GasStation<S, R, P>,
+        mut station: GasStation<S, R, P>,
         clock: C,
         limits: Limits,
     ) -> Self {
+        let policy_ready = station
+            .configure_service(config)
+            .map_err(|error| ServiceError::from(&error));
         Self {
             station,
+            policy_ready,
             chain_id: config.station.chain_id,
             token: config.station.token,
             decimals: config.station.decimals,
@@ -282,6 +288,7 @@ where
     /// # Errors
     /// Returns the refusal whose status the response carries.
     pub fn respond(&mut self, route: &str, body: &[u8]) -> Result<Value, ServiceError> {
+        self.policy_ready?;
         let body = serde_json::from_slice::<StrictValue>(body)
             .map_err(|_| ServiceError::Malformed)?
             .0;
@@ -317,7 +324,9 @@ where
     /// The sequencer receipt of the submission `hash` at sponsor nonce
     /// `nonce`; a receipt naming another nonce, or a sponsor other than the
     /// one a successful sponsored write carries, is refused as malformed.
-    fn sequencer_receipt(
+    /// The RPC decoder maps a failed execution's zero address to no sponsor;
+    /// a nonzero failed sponsor remains malformed evidence.
+    fn sequencer_summary(
         &self,
         sponsor: Address,
         nonce: u64,
@@ -336,16 +345,35 @@ where
         Ok(receipt)
     }
 
+    fn sequencer_receipt(
+        &self,
+        sponsor: Address,
+        nonce: u64,
+        hash: &Word,
+    ) -> Result<Option<FullSequencerReceipt>, ServiceError> {
+        if executed(self.sequencer_summary(sponsor, nonce, hash)?)
+            .is_some_and(|(_, run)| !run.succeeded)
+        {
+            return Err(ServiceError::Refused);
+        }
+        let fault = |fault| ServiceError::from(&StationError::Rpc(fault));
+        let sequencer = self.sequencer.as_ref().map_err(|error| fault(*error))?;
+        let receipt = sequencer.full_receipt(hash).map_err(fault)?;
+        if receipt.as_ref().is_some_and(|receipt| {
+            receipt.nonce != nonce
+                || executed(Some(SequencerReceipt {
+                    nonce: receipt.nonce,
+                    rung: receipt.rung,
+                }))
+                .is_some_and(|(_, run)| run.sponsor != run.succeeded.then_some(sponsor))
+        }) {
+            return Err(fault(RpcFault::Malformed));
+        }
+        Ok(receipt)
+    }
+
     fn next_quote_nonce(&self) -> Result<Word, ServiceError> {
-        let last = self
-            .station
-            .journal()
-            .state()
-            .items
-            .keys()
-            .map(|key| key.quote_nonce)
-            .max()
-            .unwrap_or_default();
+        let last = self.station.journal().state().quote_nonce_high_water;
         increment(last).ok_or(ServiceError::Unavailable)
     }
 
@@ -498,6 +526,24 @@ where
         if call.to != account || call.value != word(0) || call.data != expected {
             return Err(ServiceError::Refused);
         }
+        // A retained failed execution still refuses a repeated submission after
+        // restart. Finalized settlement is handled by the station's recovery
+        // pass and is not required to report the sequencer's existing refusal.
+        if let Some(submission) = self
+            .station
+            .journal()
+            .state()
+            .items
+            .get(&key)
+            .filter(|item| item.completion.is_none())
+            .and_then(|item| item.submission.as_ref())
+        {
+            if executed(self.sequencer_summary(key.sponsor, submission.nonce, &submission.hash)?)
+                .is_some_and(|(_, run)| !run.succeeded)
+            {
+                return Err(ServiceError::Refused);
+            }
+        }
         let local_now = self.now()?;
         if deadline < local_now
             && self
@@ -564,15 +610,40 @@ where
             .map(|submission| (submission.nonce, submission.hash))
             .ok_or(missing)?;
         let receipt = self.sequencer_receipt(key.sponsor, nonce, &hash)?;
-        match (receipt, executed(receipt)) {
+        let execution = executed(receipt.as_ref().map(|receipt| SequencerReceipt {
+            nonce: receipt.nonce,
+            rung: receipt.rung,
+        }));
+        match (receipt, execution) {
             (None, _) => Err(ServiceError::Refused),
             (Some(_), None) => Ok(json!({ "transactionHash": hex(&hash), "rung": "submitted" })),
             (Some(_), Some((_, run))) if !run.succeeded => Err(ServiceError::Refused),
-            (Some(_), Some((rung, run))) => Ok(json!({
-                "transactionHash": hex(&hash),
-                "rung": rung,
-                "seq": run.seq.to_string(),
-            })),
+            (Some(receipt), Some((rung, run))) => {
+                let mut answer = json!({
+                    "transactionHash": hex(&hash),
+                    "rung": rung,
+                    "seq": run.seq.to_string(),
+                    "height": receipt.height.ok_or(ServiceError::Unavailable)?.to_string(),
+                    "status": receipt.status.ok_or(ServiceError::Unavailable)?.to_string(),
+                    "logs": receipt.logs.iter().map(|log| json!({
+                        "address": hex(&log.address),
+                        "topics": log.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>(),
+                        "data": hex(&log.data),
+                        "logIndex": log.log_index.to_string(),
+                    })).collect::<Vec<_>>(),
+                    "keyId": hex(&receipt.key_id.ok_or(ServiceError::Unavailable)?),
+                    "receipt": hex(&receipt.receipt),
+                });
+                if matches!(receipt.rung, Rung::Committed(_)) {
+                    answer["blockNumber"] = json!(receipt
+                        .block_number
+                        .ok_or(ServiceError::Unavailable)?
+                        .to_string());
+                    answer["blockHash"] =
+                        json!(hex(&receipt.block_hash.ok_or(ServiceError::Unavailable)?));
+                }
+                Ok(answer)
+            }
         }
     }
 
@@ -580,6 +651,7 @@ where
     /// # Errors
     /// Returns the station's refusal; an unusable clock is unavailable.
     pub fn recover(&mut self, budget: Duration) -> Result<Recovery, StationError> {
+        self.policy_ready.map_err(|_| StationError::Conflict)?;
         let now = (self.clock)().ok_or(StationError::Rpc(RpcFault::Unavailable))?;
         self.station.recover(now, budget)
     }
@@ -600,7 +672,7 @@ where
     }
 
     fn report(
-        &self,
+        &mut self,
         key: Key,
         account: Address,
         relayer: &[u8; 65],
@@ -609,6 +681,28 @@ where
             .station
             .status(key, account, relayer)
             .map_err(|error| ServiceError::from(&error))?;
+        let now = self.now()?;
+        let day = now / DID_BUDGET_INTERVAL_SECONDS;
+        let day_ends = day
+            .checked_add(1)
+            .and_then(|next| next.checked_mul(DID_BUDGET_INTERVAL_SECONDS))
+            .ok_or(ServiceError::Unavailable)?;
+        let budget_key = self
+            .station
+            .journal()
+            .state()
+            .items
+            .get(&key)
+            .and_then(|item| item.quote.as_ref())
+            .ok_or(ServiceError::Internal)?
+            .budget_key()
+            .map_err(|_| ServiceError::Internal)?;
+        let budget = self.station.policy().did_budget();
+        let used_gas = budget.used(budget_key.as_str(), day);
+        let remaining_gas = budget
+            .gas_limit
+            .checked_sub(used_gas)
+            .ok_or(ServiceError::Internal)?;
         let transaction = |pair: Option<(u64, Word)>| {
             pair.map_or(Value::Null, |(nonce, hash)| {
                 json!({"sponsorNonce": nonce.to_string(), "transactionHash": hex(&hash)})
@@ -619,7 +713,7 @@ where
             None => match status.submission {
                 None => ("quoted", Value::Null),
                 Some((nonce, hash)) => {
-                    match executed(self.sequencer_receipt(key.sponsor, nonce, &hash)?) {
+                    match executed(self.sequencer_summary(key.sponsor, nonce, &hash)?) {
                         None => ("pending", Value::Null),
                         Some((rung, run)) if run.succeeded => (
                             "completed",
@@ -661,10 +755,17 @@ where
             "deadline": status.deadline.to_string(),
             "submission": transaction(status.submission),
             "completion": outcome,
+            "budget": {
+                "key": budget_key.as_str(),
+                "gasLimit": budget.gas_limit.to_string(),
+                "usedGas": used_gas.to_string(),
+                "remainingGas": remaining_gas.to_string(),
+                "dayEnds": day_ends.to_string(),
+            },
         }))
     }
 
-    fn status(&self, body: &Value) -> Result<Value, ServiceError> {
+    fn status(&mut self, body: &Value) -> Result<Value, ServiceError> {
         let (key, account, relayer) = Self::identity(body)?;
         self.report(key, account, &relayer)
     }

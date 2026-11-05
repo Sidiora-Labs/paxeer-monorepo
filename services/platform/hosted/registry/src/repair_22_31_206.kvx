@@ -1,0 +1,91 @@
+[repair.22.31.206]
+mode = "BUILD"
+acceptance = "22998.1"
+qualification = "hf-build then hf-done on the same candidate; the runner records the verified revision, exact command, exit and private evidence location."
+baseline = "No earlier gate ledger or task implementation was present; no unchanged-tree test ran because the explicit ordered gate contract forbids it and permits only hf-build followed by hf-done."
+
+[continuation]
+baseline = "Attempt 1 supplied the implementation and recorded all four declared tests failing at TLS with CaUsedAsEndEntity; this continuation preserves it and qualifies the already-applied distinct CA/leaf repair through the ordered gates."
+repair = "Configure bare client credentials because NodeProgramStateSource adds Bearer, and retain the original HTTP request target in the loopback peer transport so historical height queries reach the production committed-head route."
+
+[gotcha.peer-transport]
+observed = "The registry HTTP parser strips queries and its node client adds the Bearer prefix; peer fixtures must preserve the raw target and configure bare credentials while still asserting authenticated headers."
+
+[finding.deployment-projection]
+test = "deployment_projection_post_get_source_and_restart"
+repair = "The authenticated service POST accepts canonical DeploymentProof bytes or an admission byte-array package, verifies committed execution and history, validates the registry transition, publishes the replay envelope, and rebuilds before acknowledgment; metadata alone cannot admit a deployment."
+
+[finding.head-authority-route]
+test = "head_authority_tls_current_and_historical_replay"
+repair = "Mount the shared authenticated current/historical committed-head route before generic query refusal, preserve the independent replica document and identity, and require exact claim/evidence agreement in the registry consumer."
+
+[finding.source-route-abi-five]
+test = "source_route_and_store_abi_five_publication_and_reopen"
+repair = "Use the runtime ABI admission policy for live source-deployment reads and replay; source lookup independently authenticates current program membership without requiring the unrelated account-balance projection."
+
+[finding.source-store-abi-five]
+test = "source_route_and_store_abi_five_publication_and_reopen"
+repair = "Record and decode ABI-five provenance with shared runtime admission, retain artifact/deployment equality, reopen the real source store and registry, and refuse zero, unknown and out-of-range ABI values."
+
+[finding.upgrade-journal-schema]
+test = "upgrade_journal_schema_deploy_upgrade_restart"
+repair = "Preserve the predecessor authenticated by the existing execution verifier; additionally bind claimed projection keys and contiguous predecessor versions, order hosted replay by committed sequence, and apply the predecessor-aware registry upgrade transition."
+
+[fixtures]
+abi_five = "repair_22_31_206_abi5.json: a signed ABI-five Programs deployment emitted by the repository's sdk/js LegacyTx, MsgEVMTransaction, TxBody and TxRaw encoders using precompiles/layerxprograms/abi.json and ethers 6.15.0."
+consensus = "Existing signed in-memory ChainFixture stores commit the recorded transactions and actual runtime-produced program records; the deploy and upgrade headers form one contiguous history."
+source = "The actual recorded module output passes through ReproducibleBuild::from_output, the source mirror, VerifiedSourceStore, registry verification and restart replay; the compiler boundary is not executed by this gate."
+transport = "Loopback TLS serves the same committed-head route mounted by authority/main.rs; authenticated loopback replica fixtures feed it unchanged; the real NodeProgramStateSource verifies both current and historical proofs."
+
+[wiring.admission-publisher]
+request = "rpc/ and services/agent/, node and agent owning domains: publish DeploymentExecutionProof with H prior-state, indexed successful result and H+1 program/interface witnesses, and send canonical admission bytes to POST /__registry/deployments; re-submit legacy metadata-only entries with that evidence."
+
+[wiring.independent-replica]
+request = "Independent receipt-authority replica deployment owning domain: serve the committed-head current/height contract with authority_replica_id and canonical chain_evidence on its authenticated loopback endpoint; the hosted authority now mounts and relays that contract over TLS."
+
+[wiring.legacy-fixtures]
+request = "services/platform/hosted/registry/tests/journal.rs and programs_chain.rs, hosted registry test owning domain: migrate obsolete payload-only and transaction-only fixtures to the execution-proof admission contract already required by Programs verification."
+
+[wiring.authority-record]
+request = "programs/crates/layerx-programs-registry/src/authority.rs, Programs owning domain: retain the existing strict predecessor validation; no schema weakening or invented old-code hash is needed."
+
+[gotcha.scope]
+observed = "The supplied runner had already modified .cgignore and spec.kvx; both were preserved, and the task's record and gotchas are kept here because its explicit scope forbids editing spec files and GOTCHA.kvx."
+
+[gotcha.fixture]
+observed = "Legacy deployment fixtures contain raw payloads rather than the authenticated execution-proof transport; the declared integration gate instead consumes the committed producer transcript and the actual runtime and consensus fixture producers."
+
+[qualification.first-build]
+revision = "73ee95dbfa6427145f8b190618e9d8581e7ebacd"
+command = "cargo build --locked --manifest-path services/platform/hosted/registry/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new test used SourceFile.bytes instead of content/executable and borrowed a TLS certificate where the client requires owned bytes; first repair corrects those fixture types."
+
+[gotcha.fixture-types]
+observed = "SourceFile carries content and an executable flag; ureq root certificates stored by an Agent need owned bytes."
+
+[qualification.first-verify]
+revision = "85c78cb3d34d0d34a09d013f73f1400a2029f1da"
+command = "cg spec done 22.31.206 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All four tests reached TLS and rejected the fixture CA as a server leaf; second repair supplies a distinct CA-signed non-CA server certificate while retaining peer verification."
+
+[gotcha.tls-certificate]
+observed = "Rustls rejects a CA certificate used as a server end entity; loopback fixtures need separate CA and server certificates."
+
+[continuation.attempt-three]
+review = "Preserved the supplied implementation and distinct CA/leaf TLS fixture; all five findings remain mapped to the four declared integration tests above."
+qualification = "Re-run hf-build, then hf-done including its dependency check on the current base containing the published Quantity producer repair 22.31.443; no standalone or unchanged-tree verify is run."
+
+[qualification.attempt-three-first-verify]
+revision = "fb64cb28cce234d19ffae78f7011ed71e3b6b04a"
+command = "cg spec done 22.31.206 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 32 dependent crates passed; three integration tests passed and ABI-five source lookup refused an authenticated absent interface because discovery requires interface membership."
+
+[gotcha.optional-interface]
+observed = "Programs admits deployments without an interface descriptor, so source verification must authenticate descriptor absence instead of invoking the descriptor-required discovery bundle verifier."
+repair = "A deployment-specific current-head verifier checks the pinned commitment, current program membership, interface absence, lifecycle proof and freshness; descriptor-bearing deployments retain the complete existing bundle verifier, with tamper, missing-proof, binding and stale-proof assertions in the ABI-five test."

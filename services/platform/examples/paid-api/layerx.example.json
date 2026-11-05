@@ -3,12 +3,11 @@
   "application": "paid-api",
   "environments": {
     "emulator": {
-      "receiptAuthorityUrl": "http://127.0.0.1:9402",
+      "rpcUrl": "http://127.0.0.1:8545",
+      "receiptKeysEnvironment": "LAYERX_RECEIPT_KEYS_JSON",
       "resourceUrl": "http://127.0.0.1:8081/paid",
       "scheme": "exact",
-      "network": "layerx:emulator",
-      "protocolVersion": 3,
-      "tokenEnvironment": "LAYERX_EMULATOR_TOKEN",
+      "network": "eip155:125",
       "assetEnvironment": "LAYERX_EMULATOR_ASSET",
       "payToEnvironment": "LAYERX_EMULATOR_SELLER",
       "accountEnvironment": "LAYERX_EMULATOR_SELLER_ACCOUNT",
@@ -19,12 +18,11 @@
       "port": 8081
     },
     "beta": {
-      "receiptAuthorityUrl": "https://api-mainnet-beta.paxeer.network",
+      "rpcUrl": "https://api-mainnet-beta.paxeer.network",
+      "receiptKeysEnvironment": "LAYERX_RECEIPT_KEYS_JSON",
       "resourceUrl": "http://127.0.0.1:8081/paid",
       "scheme": "exact",
-      "network": "layerx:beta",
-      "protocolVersion": 3,
-      "tokenEnvironment": "LAYERX_TESTNET_TOKEN",
+      "network": "eip155:125",
       "assetEnvironment": "LAYERX_TESTNET_ASSET",
       "payToEnvironment": "LAYERX_TESTNET_SELLER",
       "accountEnvironment": "LAYERX_TESTNET_SELLER_ACCOUNT",

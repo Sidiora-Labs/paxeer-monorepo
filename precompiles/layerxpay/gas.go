@@ -64,15 +64,21 @@ var methodGas = pcommon.GasTable{
 	"getStream":               {},
 	"streamAccrued":           {},
 	"getStreamResult":         {},
-	"getOffer":                {},
-	"getAgreement":            {},
-	"getCommitment":           {},
-	"getExecution":            {},
-	"getDelivery":             {},
-	"latestDelivery":          {},
-	"getProgress":             {},
-	"progressHighWater":       {},
-	"getDispute":              {},
+	"getOffer":                readGas(1000),
+	"getAgreement":            readGas(1000),
+	"getCommitment":           readGas(1000),
+	"getExecution":            readGas(1000),
+	"getDelivery":             readGas(1000),
+	"latestDelivery":          readGas(1000),
+	"getProgress":             readGas(1000),
+	"progressHighWater":       readGas(1000),
+	"getDispute":              readGas(1000),
+}
+
+// Reads pay the flat KV read charge plus calldata bytes. The served
+// precompile also meters the actual store work, including record scans.
+func readGas(flat uint64) pcommon.MethodGas {
+	return pcommon.MethodGas{Surcharge: flat - storetypes.KVGasConfig().ReadCostFlat}
 }
 
 func writeGas(flat uint64) pcommon.MethodGas {

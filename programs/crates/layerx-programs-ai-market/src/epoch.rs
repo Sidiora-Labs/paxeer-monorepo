@@ -15,7 +15,7 @@
 //!
 //! The frozen snapshot of an opened epoch lives in its producers: F08 holds epoch presence
 //! (`current_epoch`), membership and liveness baselines; F03 holds the frozen evaluator
-//! grant/key versions; F06 holds the budget, the core roster digest and the frozen recipient
+//! grant/key versions and full immutable worker entries; F06 holds the budget, the core roster digest and the frozen recipient
 //! slots; F01 holds the frozen config and policy, which only the next opening can replace.
 //!
 //! Producer gaps and the readings chosen here:
@@ -75,7 +75,10 @@ use crate::{
         replace_record, reset_segment, seal_history, set_status, split_joint, Region,
         SegmentBinding, WorkerObservation,
     },
-    rewards::{decode_reward_state, EpochStatus, RewardEpoch, RewardState, REWARD_STATE_BYTES},
+    rewards::{
+        decode_reward_state, EpochStatus, RewardEpoch, RewardOutcome, RewardState,
+        REWARD_STATE_BYTES,
+    },
     roster::{self, ROLLOVER_SCRATCH_BYTES},
     state::{
         decode_shared_state, encode_shared_state, ActorSlot, ReplayDecision, ReplayRequest,
@@ -135,7 +138,8 @@ pub const ADVANCE_SCRATCH_BYTES: usize =
     POLICY_CAP + CONTROL_CAP + MAX_STATE_BYTES + OPEN_SCRATCH_BYTES;
 
 /// The immutable binding one successful opening freezes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Frozen {
     pub epoch: u64,
     pub previous: Option<u64>,
@@ -149,7 +153,8 @@ pub struct Frozen {
     pub evaluators: u8,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum Outcome {
     Opened {
         frozen: Frozen,
@@ -162,8 +167,115 @@ pub enum Outcome {
     AlreadyApplied { epoch: u64, roster: RosterDigest },
 }
 
+/// Complete immutable roster recovered from the committed opening producers.
+pub struct CapturedRoster {
+    pub binding: FrozenBinding,
+    workers: [WorkerRosterEntry; MAX_WORKERS],
+    worker_count: usize,
+    evaluators: [EvaluatorRosterEntry; MAX_EVALUATORS],
+    evaluator_count: usize,
+}
+impl CapturedRoster {
+    pub fn workers(&self) -> &[WorkerRosterEntry] {
+        &self.workers[..self.worker_count]
+    }
+    pub fn evaluators(&self) -> &[EvaluatorRosterEntry] {
+        &self.evaluators[..self.evaluator_count]
+    }
+    pub fn view(&self) -> Roster<'_> {
+        Roster {
+            market: self.binding.market,
+            epoch: self.binding.epoch,
+            config: self.binding.config,
+            workers: self.workers(),
+            evaluators: self.evaluators(),
+        }
+    }
+}
+
+/// Reads F08 epoch presence and cross-checks the F03 immutable snapshot against F06.
+/// Missing or disagreeing opening producers refuse instead of inventing a live roster.
+pub fn captured_roster(state: &SharedState<'_>) -> CodecResult<Option<CapturedRoster>> {
+    let (_, table) = split_joint(state.feature_sections[ADMISSION])?;
+    let admission = AdmissionTable::decode(table)?;
+    let region =
+        authority::evaluator_region(state.feature_sections[Section::IdentityRoster.index()])?;
+    let Some(epoch) = admission.current_epoch() else {
+        if region.snapshot().is_some() {
+            return Err(WRONG_ROSTER);
+        }
+        let settlement = state.feature_sections[Section::SettlementClaims.index()];
+        if !settlement.is_empty() {
+            let rewards =
+                decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(NON_CANONICAL)?)?;
+            if rewards.ledger()?.retained_epochs != 0 {
+                return Err(WRONG_ROSTER);
+            }
+        }
+        return Ok(None);
+    };
+    let snapshot = region
+        .snapshot()
+        .filter(|s| s.epoch == epoch)
+        .ok_or(WRONG_ROSTER)?;
+    let first_worker = *snapshot.workers().next().ok_or(WRONG_ROSTER)?;
+    let first_evaluator = snapshot.entries().next().ok_or(WRONG_ROSTER)?.entry;
+    let mut workers = [first_worker; MAX_WORKERS];
+    let mut worker_count = 0;
+    for (slot, entry) in workers.iter_mut().zip(snapshot.workers()) {
+        *slot = *entry;
+        worker_count += 1;
+    }
+    let mut evaluators = [first_evaluator; MAX_EVALUATORS];
+    for (slot, entry) in evaluators.iter_mut().zip(snapshot.entries()) {
+        *slot = entry.entry;
+    }
+    let policy = PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])?;
+    let settlement = state.feature_sections[Section::SettlementClaims.index()];
+    let rewards = decode_reward_state(settlement.get(..REWARD_STATE_BYTES).ok_or(WRONG_ROSTER)?)?;
+    let row = rewards.row(epoch)?;
+    let binding = FrozenBinding {
+        chain: policy.header.deployment_chain_domain,
+        program: policy.header.program_id,
+        market: policy.header.market_id,
+        epoch,
+        config: Version::new(policy.header.active_config_version)?,
+        roster: row.roster,
+    };
+    let roster = CapturedRoster {
+        binding,
+        workers,
+        worker_count,
+        evaluators,
+        evaluator_count: snapshot.len(),
+    };
+    if codec::roster_digest(&roster.view())? != row.roster {
+        return Err(WRONG_ROSTER);
+    }
+    // A validated no-score terminal releases its recipient slots; its retained digest
+    // still commits the complete immutable F03 roster.
+    match (row.status, row.outcome) {
+        (EpochStatus::Terminal, RewardOutcome::NoEligibleScore) => row.validate()?,
+        _ if row.entries().len() != worker_count => return Err(WRONG_ROSTER),
+        _ => {}
+    }
+    let dictionary = rewards.dictionary();
+    for entry in row.entries() {
+        let slot = dictionary.slot(entry.slot)?;
+        if !roster
+            .workers()
+            .iter()
+            .any(|w| w.worker == slot.worker && w.recipient == slot.recipient)
+        {
+            return Err(WRONG_ROSTER);
+        }
+    }
+    Ok(Some(roster))
+}
+
 /// Prerequisites an opening of `epoch` satisfies (or the opened epoch already satisfies).
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Readiness {
     pub epoch: u64,
     pub workers: usize,
@@ -171,7 +283,8 @@ pub struct Readiness {
     pub budget: Amount,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Activated {
     pub readiness: Readiness,
     pub activation_epoch: u64,
@@ -291,7 +404,7 @@ fn worker_roster(
     for (slot, entry) in roster.iter_mut().zip(found.iter().flatten()) {
         *slot = *entry;
     }
-    roster[..count].sort_unstable_by_key(|e| e.worker);
+    codec::sort_by(&mut roster[..count], |a, b| a.worker.cmp(&b.worker));
     Ok((roster, count))
 }
 
@@ -994,41 +1107,20 @@ pub fn carry_reputation<T>(
     })
 }
 
-/// The ascending frozen worker roster of `epoch`'s F06 row, rebuilt like F05 does: the row's
-/// worker and recipient with the live F02 attributes.
+/// The immutable opening roster also supplies the F07 seal and completion consumer.
 fn frozen_workers(
     state: &SharedState<'_>,
     rewards: &RewardState<'_>,
     row: &RewardEpoch,
 ) -> CodecResult<([WorkerRosterEntry; MAX_WORKERS], usize)> {
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
-    let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
-    let dictionary = rewards.dictionary();
-    let mut found = [None; MAX_WORKERS];
-    for (slot, entry) in found.iter_mut().zip(row.entries()) {
-        let frozen = dictionary.slot(entry.slot)?;
-        let record = live.get(frozen.worker).ok_or(WRONG_ROSTER)?;
-        *slot = Some(WorkerRosterEntry {
-            worker: frozen.worker,
-            owner: record.owner,
-            recipient: frozen.recipient,
-            generation: Version::new(record.generation)?,
-            key_version: Version::new(record.key_version)?,
-            public_key: record.delegate,
-            metadata: record.metadata,
-        });
+    let captured = captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+    if captured.binding.epoch != row.epoch
+        || captured.binding.roster != row.roster
+        || rewards.row(row.epoch)?.roster != row.roster
+    {
+        return Err(WRONG_ROSTER);
     }
-    let count = row.entries().len();
-    let first = found[0].ok_or(WRONG_ROSTER)?;
-    let mut roster = [first; MAX_WORKERS];
-    for (slot, entry) in roster.iter_mut().zip(found.iter().flatten()) {
-        *slot = *entry;
-    }
-    roster
-        .get_mut(..count)
-        .ok_or(CAPACITY)?
-        .sort_unstable_by_key(|e| e.worker);
-    Ok((roster, count))
+    Ok((captured.workers, captured.worker_count))
 }
 
 /// The opened epoch's F06 row in `state`.
@@ -1250,7 +1342,8 @@ pub fn aggregate(
 }
 
 /// Outcome of one `ResetHistory`/`SuspendHistory`/`ResumeHistory`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum HistoryOutcome {
     /// One revision increment composed into `next`, the retained result recorded under the
     /// actor's sequence and the `HistoryReset`/`HistoryStatus` event written into `event`.
@@ -1279,8 +1372,8 @@ fn parse_history(payload: &[u8]) -> CodecResult<HistoryRequest> {
     }
     let mut r = Reader::new(payload);
     let request = HistoryRequest {
-        worker: WorkerId::new(r.fixed()?)?,
-        segment: Digest32::new(r.fixed()?)?,
+        worker: r.worker_id()?,
+        segment: r.digest32()?,
         generation: r.u64()?,
         reason: r.u8()?,
     };

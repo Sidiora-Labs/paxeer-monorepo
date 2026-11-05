@@ -52,8 +52,8 @@ Interface blocks moved out of spec.kvx because the Hyperfide CLI parser is quadr
 | [plans/orchestration.md](plans/orchestration.md) | 200 | Execution plan for the orchestrator, seventeen feature managers and up to 500 task sandboxes on one task board. |
 | [plans/test-plan.md](plans/test-plan.md) | 705 | Test plan: one acceptance criterion, one test selector and one owning task, with counts per domain and gate kind. |
 | [plans/wave-plan.md](plans/wave-plan.md) | 954 | Wave plan: the pending tasks per wave 0-7 and domain, same-wave admission by requires and the wave gates. |
-| [decisions/INDEX.md](decisions/INDEX.md) | 621 | Index of all 615 decision blocks with title, affects and resolution count. |
-| `decisions/D<N>.md` (615 files, D1 to D1791) | - | One page per decision block: title, value, basis, affects and the resolution blocks that name it. |
+| [decisions/INDEX.md](decisions/INDEX.md) | 122 | Carry-forward index of decisions 1-94 and 1701-1720 (114 rows) with title, affects, resolution count and carry status. |
+| `decisions/D<N>.md` (615 files, D1 to D1791) | - | One page per decision block: title, value, basis, affects and the resolution blocks that name it. Pages outside the carried ranges have no index row and are reached by their `D<N>.md` file name. |
 
 ## Contracts (contracts/)
 

@@ -1,0 +1,87 @@
+{
+  "sourceRevision": "7fc896febbb27d599c34aa9b6e0a81d4a7905759",
+  "connectionAck": "{\"type\":\"connection_ack\"}\n",
+  "subscriptions": [
+    {
+      "request": {
+        "query": "subscription OrderChanged($userAddress: String!) { orderChanged(userAddress: $userAddress) { orderId status marketId orderType remainingSize blockTimestamp } }",
+        "variables": {
+          "userAddress": "0x00000000000000000000000000000000000000ab"
+        }
+      },
+      "messages": [
+        "{\"id\":\"1\",\"type\":\"next\",\"payload\":{\"data\":{\"orderChanged\":{\"orderId\":\"7\",\"status\":\"active\",\"marketId\":2,\"orderType\":4,\"remainingSize\":\"600\",\"blockTimestamp\":null}}}}\n",
+        "{\"id\":\"1\",\"type\":\"next\",\"payload\":{\"data\":{\"orderChanged\":{\"orderId\":\"8\",\"status\":\"active\",\"marketId\":2,\"orderType\":4,\"remainingSize\":\"0\",\"blockTimestamp\":\"2026-01-01T00:00:00.123456Z\"}}}}\n"
+      ]
+    },
+    {
+      "request": {
+        "query": "subscription TradeCreated($marketId: Int!) { tradeCreated(marketId: $marketId) { positionId userAddress sizeUsd executionPrice tradeType blockTimestamp } }",
+        "variables": {
+          "marketId": 2
+        }
+      },
+      "messages": [
+        "{\"id\":\"2\",\"type\":\"next\",\"payload\":{\"data\":{\"tradeCreated\":{\"positionId\":\"9\",\"userAddress\":\"0x00000000000000000000000000000000000000ab\",\"sizeUsd\":\"500\",\"executionPrice\":\"1800\",\"tradeType\":\"liquidation\",\"blockTimestamp\":\"2026-01-01T00:00:00.123456Z\"}}}}\n"
+      ]
+    },
+    {
+      "request": {
+        "query": "subscription Liquidations($marketId: Int!) { liquidationCreated(marketId: $marketId) { positionId userAddress sizeUsd executionPrice blockTimestamp } }",
+        "variables": {
+          "marketId": 2
+        }
+      },
+      "messages": [
+        "{\"id\":\"3\",\"type\":\"next\",\"payload\":{\"data\":{\"liquidationCreated\":{\"positionId\":\"9\",\"userAddress\":\"0x00000000000000000000000000000000000000ab\",\"sizeUsd\":\"500\",\"executionPrice\":\"1800\",\"blockTimestamp\":\"2026-01-01T00:00:00.123456Z\"}}}}\n"
+      ]
+    },
+    {
+      "request": {
+        "query": "subscription Liquidations($marketId: Int!) { liquidationCreated(marketId: $marketId) { positionId userAddress sizeUsd executionPrice blockTimestamp } }",
+        "variables": {
+          "marketId": 3
+        }
+      },
+      "messages": [
+        "{\"id\":\"4\",\"type\":\"next\",\"payload\":{\"data\":{\"liquidationCreated\":{\"positionId\":\"10\",\"userAddress\":\"0x00000000000000000000000000000000000000ab\",\"sizeUsd\":null,\"executionPrice\":\"1900\",\"blockTimestamp\":\"2026-01-01T00:00:00.123456Z\"}}}}\n"
+      ]
+    }
+  ],
+  "referrals": {
+    "unranked": {
+      "request": {
+        "query": "query UserReferrals($address: String!) { userReferrals(address: $address) { referralCode tier referralCount } referralTiers { tier minReferrals minVolume rewardBps feeDiscountBps } }",
+        "variables": {
+          "address": "0x00000000000000000000000000000000000000ab"
+        }
+      },
+      "response": "{\"data\":{\"userReferrals\":{\"referralCode\":\"PERSISTED\",\"tier\":null,\"referralCount\":0},\"referralTiers\":[{\"tier\":\"bronze\",\"minReferrals\":1,\"minVolume\":\"1000\",\"rewardBps\":500,\"feeDiscountBps\":100},{\"tier\":\"silver\",\"minReferrals\":2,\"minVolume\":\"2000\",\"rewardBps\":750,\"feeDiscountBps\":200}]}}"
+    },
+    "ranked": {
+      "request": {
+        "query": "query UserReferrals($address: String!) { userReferrals(address: $address) { referralCode tier referralCount } referralTiers { tier minReferrals minVolume rewardBps feeDiscountBps } }",
+        "variables": {
+          "address": "0x00000000000000000000000000000000000000ab"
+        }
+      },
+      "response": "{\"data\":{\"userReferrals\":{\"referralCode\":\"PERSISTED\",\"tier\":\"bronze\",\"referralCount\":1},\"referralTiers\":[{\"tier\":\"bronze\",\"minReferrals\":1,\"minVolume\":\"1000\",\"rewardBps\":500,\"feeDiscountBps\":100},{\"tier\":\"silver\",\"minReferrals\":2,\"minVolume\":\"2000\",\"rewardBps\":750,\"feeDiscountBps\":200}]}}"
+    },
+    "missing": {
+      "request": {
+        "query": "query UserReferrals($address: String!) { userReferrals(address: $address) { referralCode tier referralCount } referralTiers { tier minReferrals minVolume rewardBps feeDiscountBps } }",
+        "variables": {
+          "address": "0x00000000000000000000000000000000000000ad"
+        }
+      },
+      "response": "{\"data\":{\"userReferrals\":null,\"referralTiers\":[{\"tier\":\"bronze\",\"minReferrals\":1,\"minVolume\":\"1000\",\"rewardBps\":500,\"feeDiscountBps\":100},{\"tier\":\"silver\",\"minReferrals\":2,\"minVolume\":\"2000\",\"rewardBps\":750,\"feeDiscountBps\":200}]}}"
+    },
+    "tiersOnly": {
+      "request": {
+        "query": "query ReferralTiers { referralTiers { tier minReferrals minVolume rewardBps feeDiscountBps } }"
+      },
+      "response": "{\"data\":{\"referralTiers\":[{\"tier\":\"bronze\",\"minReferrals\":1,\"minVolume\":\"1000\",\"rewardBps\":500,\"feeDiscountBps\":100},{\"tier\":\"silver\",\"minReferrals\":2,\"minVolume\":\"2000\",\"rewardBps\":750,\"feeDiscountBps\":200}]}}"
+    }
+  },
+  "capture": "PostgreSQL persisted scenario; production NewSchema, UserReferrals, subscription SQL/scalars, TransportWS and relay.Handler; captured during fixture authoring, not executed by the task gate."
+}

@@ -11,7 +11,6 @@ use layerx_agent_api::subscription::{
     SubscriptionCreate, SubscriptionFilter, SubscriptionId, SubscriptionScope, SubscriptionTarget,
     TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::events::subscription::Store as SubscriptionStore;
 use layerx_agentd::events::{
     backfill, deliver, health, ingest, CoreEvent, DeliveryEngine, DeliveryError, DeliveryItem,
@@ -184,7 +183,11 @@ fn engine_with_events(
     let create = SubscriptionCreate {
         scope: scope(),
         filter: filter(),
-        start: ApiCursor(Sequence(subscription_start)),
+        start: ApiCursor {
+            block_height: subscription_start,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: text(DeliveryTarget::new("uds://consumer-a"), "target"),
     };
     if let Err(error) = subscriptions.create(id(), create) {
@@ -389,7 +392,14 @@ fn start_before_filter_subject_genesis_transitions_before_first_live_match() {
         other => panic!("pre-genesis transition missing: {other:?}"),
     };
     assert_eq!(transition.live_starts_at, 5);
-    assert_eq!(transition.resume_cursor, ApiCursor(Sequence(0)));
+    assert_eq!(
+        transition.resume_cursor,
+        ApiCursor {
+            block_height: 0,
+            tx_index: 0,
+            log_index: 0
+        }
+    );
     if let Err(error) = delivery.accept_front(1) {
         panic!("transition acceptance failed: {error}");
     }
@@ -399,7 +409,14 @@ fn start_before_filter_subject_genesis_transitions_before_first_live_match() {
     };
     assert_eq!(first_match.global_sequence, 5);
     assert_eq!(first_match.phase, DeliveryPhase::Live);
-    assert_eq!(first_match.delivery.cursor, ApiCursor(Sequence(6)));
+    assert_eq!(
+        first_match.delivery.cursor,
+        ApiCursor {
+            block_height: 6,
+            tx_index: 0,
+            log_index: 0
+        }
+    );
     if let Err(error) = delivery.accept_front(2) {
         panic!("first live event acceptance failed: {error}");
     }

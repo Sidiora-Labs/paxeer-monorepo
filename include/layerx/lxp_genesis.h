@@ -1,6 +1,11 @@
 #ifndef LAYERX_LXP_GENESIS_H
 #define LAYERX_LXP_GENESIS_H
 
+/* Governance parameter: a canonical 32-byte boolean, disabled when absent.
+ * This selects a programs interface without changing its module enable key. */
+#define LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER "module-enable:programs-retire"
+#define LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER "module-enable:programs-abi5"
+
 #define LXP_PERPS_ORDER_TIF_PARAMETER "perps-order-tif"
 #define LXP_PERPS_ORACLE_TRANSPORT_PARAMETER "perps-oracle-transport"
 
@@ -221,6 +226,8 @@ lxp_result lxp_genesis_manifest_commitment(
 lxp_result lxp_genesis_materialize(
     const lxp_genesis_manifest *manifest, lxp_arena *arena,
     struct lxp_kernel *kernel);
+#define LXP_GENESIS_CUSTODY_ASSET_COUNT 4
+lxp_result lxp_genesis_custody_asset_id(size_t index, uint8_t asset_id[32]);
 lxp_result lxp_genesis_fresh_empty_accounts(
     lxp_genesis_manifest *manifest, const uint8_t asset_id[32]);
 lxp_result lxp_genesis_parameter_version(

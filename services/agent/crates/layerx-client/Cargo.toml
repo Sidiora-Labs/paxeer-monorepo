@@ -6,22 +6,25 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+layerx_programs_registry = { package = "layerx-programs-registry", version = "=0.1.0", path = "../../../../programs/crates/layerx-programs-registry" }
 ed25519-dalek = "=2.2.0"
 layerx-crypto = { path = "../layerx-crypto" }
 layerx-types = { path = "../layerx-types" }
 layerx-wire = { path = "../layerx-wire" }
 layerx-proof = { path = "../layerx-proof" }
-layerx-paxeer-verifier = { path = "../layerx-paxeer-verifier" }
 layerx-programs-ai-market = { path = "../../../../programs/crates/layerx-programs-ai-market" }
 sha2 = "=0.10.9"
 rustls = { version = "0.23.32", default-features = false, features = ["ring", "std", "tls12"] }
 serde_json = "=1.0.151"
+tungstenite = { version = "=0.29.0", default-features = false, features = ["handshake", "__rustls-tls"] }
 ureq = { version = "=3.4.0", default-features = false, features = ["rustls-no-provider", "_ring"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rustix = { version = "=1.1.4", features = ["net", "process"] }
 
 [dev-dependencies]
+getrandom = "=0.4.3"
 layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
 
 [lints]

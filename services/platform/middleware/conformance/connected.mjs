@@ -6,8 +6,11 @@ import { open, realpath } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { authenticatedAgentTransport, loadAgentServiceProviders } from "@sidiora/layerx-agent-integrations";
-import { PlatformSdkError, idempotencyKey } from "@sidiora/layerx-sdk";
+import { PlatformSdkError, eip1559SigningHash, idempotencyKey } from "@sidiora/layerx-sdk";
 import { decodePaymentRequiredHeader, decodeSettlementHeader, encodePaymentPayloadHeader, verifyPaymentReceipt } from "@sidiora/layerx-seller-middleware";
+
+import { receiptKeysFromEnvironment } from "../../examples/support/runtime.mjs";
+import { readConnectedBalance, verifyConnectedRecovery } from "./connected-balance.mjs";
 
 const agentEntry = fileURLToPath(new URL("../../examples/agent-spend/index.mjs", import.meta.url));
 const merchantEntry = fileURLToPath(new URL("../../examples/merchant-checkout/index.mjs", import.meta.url));
@@ -85,7 +88,7 @@ async function main() {
   assert.ok(typeof fixture.walletReviewId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(fixture.walletReviewId));
   assert.ok(typeof fixture.payerAccount === "string" && /^[0-9a-f]{64}$/u.test(fixture.payerAccount));
   assert.equal(request.walletApprovalId, undefined);
-  assert.ok("variant" in object(request.preparation), "native daemon preparation required");
+  object(request.preparation);
   assert.equal(request.tenant, process.env.LAYERX_TENANT);
   endpoint(process.env.LAYERX_AGENT_RPC_URL);
   const base = endpoint(fixture.merchantUrl, true);
@@ -93,8 +96,9 @@ async function main() {
   assert.equal(config.application, "merchant-checkout");
   assert.ok(["emulator", "beta"].includes(fixture.merchantEnvironment));
   const selected = object(object(config.environments)[fixture.merchantEnvironment]);
-  endpoint(selected.settlementUrl); endpoint(selected.receiptAuthorityUrl);
-  assert.equal(selected.protocolVersion, Number(process.env.LAYERX_PROTOCOL_VERSION));
+  endpoint(selected.settlementUrl); endpoint(selected.rpcUrl);
+  assert.equal(selected.network, "eip155:125");
+  const receiptKeys = receiptKeysFromEnvironment(selected.receiptKeysEnvironment);
   assert.equal(base.port, String(selected.port));
   assert.equal(process.env.LAYERX_EXAMPLE_ENDPOINT, undefined, "acceptance must use its declared service origins");
   const checkout = object(fixture.checkout);
@@ -104,40 +108,45 @@ async function main() {
   const webhookHeaders = object(webhook.headers);
   for (const name of ["layerx-webhook-id", "layerx-webhook-timestamp", "layerx-webhook-key-id", "layerx-webhook-signature"]) assert.equal(typeof webhookHeaders[name], "string");
 
-  phase = "native preparation";
+  phase = "EVM preparation";
   const consent = await example("spend", request);
-  check(consent.kind === "owner-budget" && consent.ownerState === "wallet-consent" && consent.admissionObserved === true, "native preparation remains unsigned pending original-wallet consent");
+  check(consent.kind === "owner-budget" && consent.ownerState === "wallet-consent" && consent.admissionObserved === true, "EVM preparation remains unsigned pending original-wallet consent");
   const prepared = object(consent.prepared);
+  assert.match(prepared.signing_hash, /^[0-9a-f]{64}$/u);
+  assert.match(prepared.to, /^[0-9a-f]{40}$/u);
+  assert.match(prepared.data, /^(?:[0-9a-f]{2})*$/u);
+  assert.equal(prepared.chain_id, request.networkId);
+  assert.equal(prepared.signing_hash, Buffer.from(eip1559SigningHash({
+    chainId: BigInt(prepared.chain_id), nonce: BigInt(prepared.nonce),
+    maxPriorityFeePerGas: BigInt(prepared.max_priority_fee_per_gas), maxFeePerGas: BigInt(prepared.max_fee_per_gas),
+    gasLimit: BigInt(prepared.gas_limit), to: Buffer.from(prepared.to, "hex"),
+    value: 0n, data: Buffer.from(prepared.data, "hex"), accessList: [],
+  })).toString("hex"), "prepared signing hash binds the EVM transaction with zero value");
   phase = "original wallet consent";
   const status = await example("wallet-status", request, {
     LAYERX_WALLET_PREPARATION_REF: prepared.preparation_ref, LAYERX_WALLET_REVIEW_ID: fixture.walletReviewId,
   });
   const artifact = object(status.artifact);
-  check(artifact.state === "approved" && artifact.kind === "lx_activity" && artifact.activity === prepared.unsigned_canonical_bytes
-    && artifact.signing_preimage === prepared.signing_preimage && artifact.public_key === request.signerPublicKey,
-  "explicit original-wallet approval binds the retained native preparation");
+  check(artifact.state === "approved" && artifact.to === `0x${prepared.to}` && artifact.data === `0x${prepared.data}`
+    && artifact.signing_hash === `0x${prepared.signing_hash}` && artifact.public_key === request.signerPublicKey,
+  "explicit original-wallet approval binds the retained EVM preparation");
   const approved = { ...request, walletApprovalId: fixture.walletReviewId };
   phase = "approved submission";
   const settled = await example("spend", approved);
-  check(settled.kind === "owner-budget" && settled.ownerState === "settled" && /^[0-9a-f]{64}$/u.test(settled.receiptDigest), "approved native submission resolves a verified receipt");
+  check(settled.kind === "owner-budget" && settled.ownerState === "settled" && /^[0-9a-f]{64}$/u.test(settled.receiptDigest), "approved EVM submission resolves a verified receipt");
   const authenticated = authenticatedAgentTransport(process.env, {
     agentRpcUrl: process.env.LAYERX_AGENT_RPC_URL, tenant: request.tenant, requestTimeoutMs: remaining(),
   });
   try {
-    const balance = async () => {
-      const response = await authenticated.transport.call({ plane: "agent", operation: "read.balance", request: { tenant: request.tenant, agent: process.env.LAYERX_ACTOR } });
-      const value = object(response.value);
-      assert.equal(response.verification_status?.state, "achieved");
-      assert.ok(["CheckpointFinalised", "SettlementAnchored"].includes(response.verification_status.level));
-      assert.equal(value.account, fixture.payerAccount); assert.equal(value.asset, request.asset.replace(/^0x/u, ""));
-      assert.ok(typeof value.amount === "string" && /^(0|[1-9][0-9]*)$/u.test(value.amount));
-      return value.amount;
+    const coordinates = {
+      tenant: request.tenant, agent: process.env.LAYERX_ACTOR,
+      account: fixture.payerAccount, asset: request.asset,
     };
+    const balance = () => readConnectedBalance(authenticated.transport, coordinates);
     phase = "durable recovery without a second debit";
-    const before = await balance();
-    const recovered = await example("spend", approved);
+    const { before, recovered } = await verifyConnectedRecovery(authenticated.transport, coordinates, settled, () => example("spend", approved));
     check(recovered.kind === "owner-budget" && recovered.ownerState === "settled" && recovered.preparationId === settled.preparationId
-      && recovered.receiptDigest === settled.receiptDigest && await balance() === before, "fresh agent process reopens durable preparation and receipt without a second debit");
+      && recovered.receiptDigest === settled.receiptDigest, "fresh agent process reopens durable preparation and receipt without a second debit");
     const refused = async (input) => {
       try { await authenticated.transport.call(input); }
       catch (error) {
@@ -150,7 +159,7 @@ async function main() {
     phase = "daemon cross-tenant refusal";
     const cross = object(fixture.crossTenantPreparation);
     assert.ok(cross.actor !== request.preparation.actor && cross.purpose?.purpose?.tenant !== request.tenant, "genuine other-tenant preparation input required");
-    check(await refused({ plane: "agent", operation: "prepare", request: cross, idempotencyKey: idempotencyKey(cross.idempotency_key) }), "daemon refuses another tenant's native preparation");
+    check(await refused({ plane: "agent", operation: "prepare", request: cross, idempotencyKey: idempotencyKey(cross.idempotency_key) }), "daemon refuses another tenant's EVM preparation");
     phase = "daemon preparation and signed activity binding";
     const signed = await example("wallet-status", approved, { LAYERX_WALLET_PREPARATION_REF: prepared.preparation_ref, LAYERX_WALLET_REVIEW_ID: fixture.walletReviewId });
     assert.equal(signed.artifact?.state, "signed");
@@ -166,7 +175,7 @@ async function main() {
   let evidence;
   try { evidence = await providers.receipts.resolve(settled.receiptDigest); }
   finally { await providers.destroy?.(); }
-  const paymentDigest = createHash("sha256").update("LXP/v1/merkle-leaf\0").update(evidence.canonicalReceipt).digest("hex");
+  const paymentDigest = evidence.receiptDigest.slice(2);
 
   let child;
   try {
@@ -196,19 +205,19 @@ async function main() {
     check(unpaid.response.status === 402 && unpaid.value.state === "payment-required" && unpaid.value.order?.state === "awaiting-payment", "catalog checkout cannot render paid before receipt evidence");
     const offer = decodePaymentRequiredHeader(unpaid.response.headers.get("payment-required"));
     const requirements = offer.accepts.find((row) => row.scheme === "exact" && row.amount === request.amount && row.asset.replace(/^0x/u, "") === request.asset.replace(/^0x/u, "") && row.payTo.replace(/^0x/u, "") === request.recipient.replace(/^0x/u, ""));
-    assert.ok(requirements, "checkout offer must match actual native payment");
-    const verification = await verifyPaymentReceipt(evidence, requirements, undefined, { protocolVersion: Number(process.env.LAYERX_PROTOCOL_VERSION) });
+    assert.ok(requirements, "checkout offer must match actual EVM payment");
+    const verification = await verifyPaymentReceipt(evidence, requirements, receiptKeys);
     check(Buffer.from(verification.receiptDigest).toString("hex") === settled.receiptDigest, "merchant payment verifies the same daemon receipt");
-    const payload = { x402Version: 2, resource: offer.resource, accepted: requirements, extensions: offer.extensions ?? {}, payload: {
-      receipt: Buffer.from(evidence.canonicalReceipt).toString("base64"), receiptDigest: paymentDigest,
-      verificationLevel: verification.level, idempotencyKey: request.submitIdempotencyKey,
-    } };
+    const payload = { x402Version: 2, resource: offer.resource, accepted: requirements,
+      extensions: { ...offer.extensions, layerx: { info: { idempotencyKey: request.submitIdempotencyKey }, schema: { type: "object" } } },
+      payload: { ...evidence },
+    };
     const tamperCheckout = { ...checkout, checkout_key: `${checkout.checkout_key}-tamper` };
     const tamperOfferResponse = await post(base, "/checkout", tamperCheckout);
     assert.equal(tamperOfferResponse.response.status, 402);
     const tamperOffer = decodePaymentRequiredHeader(tamperOfferResponse.response.headers.get("payment-required"));
-    const corrupted = Uint8Array.from(evidence.canonicalReceipt); corrupted[corrupted.length - 1] ^= 1;
-    const bad = await post(base, "/checkout", tamperCheckout, { "payment-signature": encodePaymentPayloadHeader({ ...payload, resource: tamperOffer.resource, extensions: tamperOffer.extensions ?? {}, payload: { ...payload.payload, receipt: Buffer.from(corrupted).toString("base64") } }) });
+    const corrupted = Buffer.from(evidence.signedReceipt.slice(2), "hex"); corrupted[corrupted.length - 1] ^= 1;
+    const bad = await post(base, "/checkout", tamperCheckout, { "payment-signature": encodePaymentPayloadHeader({ ...payload, resource: tamperOffer.resource, extensions: { ...payload.extensions, layerx: { ...payload.extensions.layerx, info: { idempotencyKey: `${request.submitIdempotencyKey}-tamper` } } }, payload: { ...payload.payload, signedReceipt: `0x${corrupted.toString("hex")}` } }) });
     check(bad.response.status !== 200 && bad.value.order?.state !== "paid-verified", "tampered genuine receipt cannot pay checkout");
     const absent = await post(base, "/webhooks/settlement", webhook.body);
     check(absent.response.status >= 400, "unsigned settlement webhook is rejected");
@@ -218,7 +227,7 @@ async function main() {
     check(paid.response.status === 200 && paid.value.state === "paid" && paid.value.order?.state === "paid-verified"
       && paid.value.order.receiptDigest === paymentDigest, "real settlement authority pays receipt-backed merchant order");
     const settlement = decodeSettlementHeader(paid.response.headers.get("payment-response"));
-    check(settlement.success === true && settlement.extensions?.layerx?.receiptDigest === paymentDigest, "checkout returns matching verified settlement evidence");
+    check(settlement.success === true && settlement.extensions?.layerx?.receiptDigest === evidence.receiptDigest, "checkout returns matching verified settlement evidence");
     const replay = await post(base, "/checkout", checkout, headers);
     check(replay.response.status === 200 && replay.value.order?.receiptDigest === paymentDigest, "checkout replay retains the same receipt-backed order");
     phase = "signed settlement webhooks";

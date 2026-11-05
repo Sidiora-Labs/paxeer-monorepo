@@ -408,9 +408,9 @@ fn payment_log(submission: &CheckoutSubmission) -> Vec<u8> {
     let mut log = vec![0; 18];
     log.extend_from_slice(&[0x10, 0x1a, 4]);
     log.extend_from_slice(&PAYMENT_EXACT_TOPIC);
+    log.extend_from_slice(&submission.idempotency_key.gateway_key());
     log.extend_from_slice(&[0x41; 32]);
     log.extend_from_slice(&submission.layerx_recipient);
-    log.extend_from_slice(&submission.idempotency_key.gateway_key());
     let mut data = Vec::new();
     data.extend_from_slice(&submission.layerx_asset);
     data.extend_from_slice(&[0; 16]);
@@ -694,9 +694,10 @@ fn sequencer_receipt_refuses_wrong_settlement_identity() {
         (20, vec![5]),
         (21, vec![0]),
         (53, vec![0; 32]),
-        (53, submission.layerx_recipient.to_vec()),
-        (85, vec![0x44; 32]),
-        (117, vec![0x45; 32]),
+        (53, vec![0x45; 32]),
+        (85, vec![0; 32]),
+        (85, submission.layerx_recipient.to_vec()),
+        (117, vec![0x44; 32]),
     ] {
         let mut invalid = log.clone();
         invalid[offset..offset + replacement.len()].copy_from_slice(&replacement);
@@ -735,13 +736,13 @@ fn sequencer_receipt_requires_one_unambiguous_settlement() {
         &unsigned_receipt(&[log.clone(), log.clone()], RECEIPT_HEIGHT),
     );
     let mut conflicting = log.clone();
-    conflicting[85..117].fill(0x44);
+    conflicting[117..149].fill(0x44);
     assert_receipt_refused(
         &submission,
         &unsigned_receipt(&[log.clone(), conflicting], RECEIPT_HEIGHT),
     );
     let mut unrelated = log.clone();
-    unrelated[117..149].fill(0x45);
+    unrelated[53..85].fill(0x45);
     let (signed, digest) = signed_receipt(&unsigned_receipt(&[unrelated, log], RECEIPT_HEIGHT));
     assert_eq!(
         verify_sequencer_receipt(&submission, &signed, &[receipt_key(1, 16)]),
@@ -774,4 +775,12 @@ fn sequencer_receipt_refuses_invalid_checkout() {
         verify_sequencer_receipt(&invalid, &signed, &[receipt_key(1, 16)]),
         Err(UcpError::InvalidCheckout)
     );
+}
+
+#[path = "support/producer_checkout.rs"]
+mod producer_checkout;
+
+#[test]
+fn ucp_conformance_producer() {
+    producer_checkout::producer_checkout("ucp-conformance-producer");
 }

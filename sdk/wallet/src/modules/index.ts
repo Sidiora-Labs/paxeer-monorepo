@@ -1,5 +1,6 @@
 import {
   abiEventTopic,
+  precompileTransactionRequest,
   sendPrecompileCall,
   type DecodedPrecompileEvent,
   type Eip1193Requester,
@@ -7,6 +8,15 @@ import {
   type PrecompileEventSpec,
   type PrecompileLog,
 } from '@sidiora/layerx-sdk/browser';
+
+import {
+  authenticateSequencerReceipt,
+  matchReceiptTransaction,
+  requireAuthenticatedReceipt,
+  waitForSequencerReceipt,
+  type AuthenticatedSequencerReceiptAnswer,
+} from '../receipt.js';
+import { isRecord } from '../rpc.js';
 
 export type ModuleProvider = Eip1193Requester;
 export type ModuleTransaction = PrecompileCall;
@@ -50,16 +60,59 @@ export function retarget(call: PrecompileCall, address: string): ModuleTransacti
   return { to: address, data: call.data, value: call.value };
 }
 
-export function retargetEvents(specs: readonly PrecompileEventSpec[], address: string): readonly PrecompileEventSpec[] {
-  return specs.map((spec) => ({ name: spec.name, precompile: address, inputs: spec.inputs }));
+export function retargetEvents(
+  specs: readonly PrecompileEventSpec[],
+  address: string
+): readonly PrecompileEventSpec[] {
+  return specs.map((spec) => ({
+    name: spec.name,
+    precompile: address,
+    inputs: spec.inputs,
+  }));
 }
 
-export function sendModuleTransaction(provider: ModuleProvider, from: string, tx: ModuleTransaction): Promise<string> {
+export function sendModuleTransaction(
+  provider: ModuleProvider,
+  from: string,
+  tx: ModuleTransaction
+): Promise<string> {
   return sendPrecompileCall(provider, moduleAddress(from, 'from'), tx);
 }
 
+export async function sendModuleTransactionReceipted(
+  provider: ModuleProvider,
+  from: string,
+  tx: ModuleTransaction
+): Promise<AuthenticatedSequencerReceiptAnswer> {
+  const request = precompileTransactionRequest(moduleAddress(from, 'from'), tx);
+  const rpc = (method: string, params: readonly unknown[]) => provider.request({ method, params });
+  let value: unknown;
+  let expectedHash: string | undefined;
+  try {
+    value = await provider.request({
+      ...request,
+      method: 'paxeer_sendTransactionReceipted',
+    });
+  } catch (error) {
+    if (!isRecord(error) || error.code !== 4200) throw error;
+    expectedHash = await sendModuleTransaction(provider, from, tx);
+    value = await waitForSequencerReceipt(
+      (method, params) => provider.request({ method, params }),
+      expectedHash,
+      { rung: 'receipted' }
+    );
+  }
+  const answer = await authenticateSequencerReceipt(rpc, value, expectedHash);
+  requireAuthenticatedReceipt(answer);
+  matchReceiptTransaction(answer, from, tx);
+  return answer;
+}
+
 export async function ethCall(provider: ModuleProvider, to: string, data: string): Promise<string> {
-  const answer = await provider.request({ method: 'eth_call', params: [{ to, data }, 'latest'] });
+  const answer = await provider.request({
+    method: 'eth_call',
+    params: [{ to, data }, 'latest'],
+  });
   if (typeof answer !== 'string' || !HEX.test(answer)) {
     throw new ModuleError('invalid_answer', 'eth_call');
   }
@@ -79,7 +132,9 @@ export function hexBytes(value: string, field: string): Uint8Array {
     throw new ModuleError('invalid_value', field);
   }
   const body = value.slice(2);
-  return Uint8Array.from({ length: body.length / 2 }, (_, index) => Number.parseInt(body.slice(index * 2, index * 2 + 2), 16));
+  return Uint8Array.from({ length: body.length / 2 }, (_, index) =>
+    Number.parseInt(body.slice(index * 2, index * 2 + 2), 16)
+  );
 }
 
 export function bytesHex(bytes: Uint8Array): string {
@@ -204,10 +259,19 @@ function wordValue(type: WordType, bytes: Uint8Array, field: string): bigint | b
   }
 }
 
-export function decodeModuleEvent(specs: readonly ModuleEventSpec[], address: string, log: ModuleLog): DecodedModuleEvent {
+export function decodeModuleEvent(
+  specs: readonly ModuleEventSpec[],
+  address: string,
+  log: ModuleLog
+): DecodedModuleEvent {
   const topic0 = log.topics[0]?.toLowerCase();
   const spec = specs.find((candidate) => moduleEventTopic(candidate) === topic0);
-  if (typeof log.address !== 'string' || log.address.toLowerCase() !== address || spec === undefined || topic0 === undefined) {
+  if (
+    typeof log.address !== 'string' ||
+    log.address.toLowerCase() !== address ||
+    spec === undefined ||
+    topic0 === undefined
+  ) {
     throw new ModuleError('unknown_event', topic0 ?? 'topic0');
   }
   const indexed = spec.inputs.filter((input) => input.indexed);
@@ -266,32 +330,67 @@ export const HOLDER_RECORDS_PAGE = 100;
 const POSITION_CURSOR = /^[0-9a-f]{32}$/u;
 
 function height(value: unknown, field: string): bigint {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) throw new ModuleError('invalid_answer', field);
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+    throw new ModuleError('invalid_answer', field);
   return BigInt(value);
 }
 
 // Reads every px_listHolderRecords page of the address from the first to the last; the indexed height is the lowest
 // any page reported and the chain height the highest, so the freshness never overstates what was read.
-export async function listHolderRecords(provider: ModuleProvider, address: string, kind: HolderRecordKind): Promise<HolderRecords> {
+export async function listHolderRecords(
+  provider: ModuleProvider,
+  address: string,
+  kind: HolderRecordKind
+): Promise<HolderRecords> {
   const holder = moduleAddress(address);
   const items: Readonly<Record<string, unknown>>[] = [];
   let cursor: string | null = null;
   let indexedHeight: bigint | null | undefined;
   let chainHeight = 0n;
   for (;;) {
-    const page = await provider.request({ method: 'px_listHolderRecords', params: [holder, kind, cursor, HOLDER_RECORDS_PAGE] });
-    if (page === null || typeof page !== 'object' || Array.isArray(page)) throw new ModuleError('invalid_answer', 'px_listHolderRecords');
-    const { items: rows, next_cursor: next, indexedHeight: indexed, chainHeight: chain } = page as Record<string, unknown>;
-    if (!Array.isArray(rows) || rows.length > HOLDER_RECORDS_PAGE
-      || !rows.every((row) => row !== null && typeof row === 'object' && (row as Record<string, unknown>).holder === holder && (row as Record<string, unknown>).kind === kind)) {
+    const page = await provider.request({
+      method: 'px_listHolderRecords',
+      params: [holder, kind, cursor, HOLDER_RECORDS_PAGE],
+    });
+    if (page === null || typeof page !== 'object' || Array.isArray(page))
+      throw new ModuleError('invalid_answer', 'px_listHolderRecords');
+    const {
+      items: rows,
+      next_cursor: next,
+      indexedHeight: indexed,
+      chainHeight: chain,
+    } = page as Record<string, unknown>;
+    if (
+      !Array.isArray(rows) ||
+      rows.length > HOLDER_RECORDS_PAGE ||
+      !rows.every(
+        (row) =>
+          row !== null &&
+          typeof row === 'object' &&
+          (row as Record<string, unknown>).holder === holder &&
+          (row as Record<string, unknown>).kind === kind
+      )
+    ) {
       throw new ModuleError('invalid_answer', 'px_listHolderRecords.items');
     }
-    if (next !== null && (typeof next !== 'string' || !POSITION_CURSOR.test(next) || (cursor !== null && next <= cursor))) {
+    if (
+      next !== null &&
+      (typeof next !== 'string' ||
+        !POSITION_CURSOR.test(next) ||
+        (cursor !== null && next <= cursor))
+    ) {
       throw new ModuleError('invalid_answer', 'px_listHolderRecords.next_cursor');
     }
-    const pageIndexed = indexed === null ? null : height(indexed, 'px_listHolderRecords.indexedHeight');
-    indexedHeight = indexedHeight === undefined ? pageIndexed
-      : indexedHeight === null || pageIndexed === null ? null : pageIndexed < indexedHeight ? pageIndexed : indexedHeight;
+    const pageIndexed =
+      indexed === null ? null : height(indexed, 'px_listHolderRecords.indexedHeight');
+    indexedHeight =
+      indexedHeight === undefined
+        ? pageIndexed
+        : indexedHeight === null || pageIndexed === null
+          ? null
+          : pageIndexed < indexedHeight
+            ? pageIndexed
+            : indexedHeight;
     const pageChain = height(chain, 'px_listHolderRecords.chainHeight');
     if (pageChain > chainHeight) chainHeight = pageChain;
     items.push(...(rows as Record<string, unknown>[]));

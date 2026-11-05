@@ -1,0 +1,28 @@
+[repair.22.33.583]
+audit = "22.30.160"
+test = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_583.rs"
+baseline = "No pre-change gate ran: the explicit implementation-first order and hf-done-only verification prohibit the baseline run requested by step 6; no pre-change failures are claimed."
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit and private log in the runner gate ledger; cg spec done records the verified revision."
+
+[finding.cbor-backward-bound]
+proofs = ["solidity_cbor_backward_bound", "vyper_cbor_backward_bound"]
+path = "public standard-json verification -> compiler pool -> subprocess fixture -> production output decoder -> creation/runtime CBOR extraction -> verification artifacts"
+cases = "Recorded Solidity and Vyper metadata with zero, one or wrong trailing length bytes, at zero and after an already processed metadata value; valid one/two-value controls assert creation and runtime artifacts."
+
+[finding.compiler-execution-deadline]
+proofs = ["compiler_execution_deadline_reaps_all_adapters_and_recovers_permits", "compiler_cancellation_reaps_before_capacity_is_reused", "compiler_admission_queue_deadline_and_queue_cancellation_release_capacity", "compiler_spawn_and_output_errors_release_capacity"]
+path = "real catalogue over loopback -> ListFetcher -> production pool admission and queue -> Solidity standard-json, legacy CLI and Vyper subprocess adapters -> supervisor -> actual child exit/reap -> gauges and permits -> successful next compilation"
+configuration = "new_with_limits configures maximum admitted jobs, queue timeout and execution timeout; existing constructors enforce defaults of 64 admitted jobs, 30 seconds queued and 120 seconds executing."
+peer = "The integration executable dispatches committed compiler protocol fixtures before its test harness; tests require no environment variables, installed compiler, shell or separately built artifact."
+wiring_request = "Domain 14: expose pool limits in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/settings.rs and pass them to new_with_limits from src/services/solidity_verifier.rs and src/services/vyper_verifier.rs in that server crate; defaults are already enforced in this repair."
+
+[gotcha.process_ownership]
+observed = "Dropping a child wait future or killing on drop alone cannot prove reaping before a compile permit is reused."
+repair = "The supervisor owns admission, metrics and execution permits; the task-local process slot retains the Child across cancellation and is explicitly terminated and awaited before capacity is released."
+
+[gotcha.runner_bookkeeping]
+observed = "The runner supplied changes to .cgignore and spec.kvx; they were preserved, and task records are kept under the scoped verify directory because direct spec edits are forbidden."
+
+[gotcha.pinned_queue_future]
+observed = "The initial build reported E0505 because the pinned queue future retained borrows until the end of the test."
+repair = "End that future's lexical scope before moving the same values into the queue cancellation case; all queue assertions are preserved."

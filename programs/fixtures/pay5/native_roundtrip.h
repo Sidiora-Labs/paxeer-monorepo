@@ -1,4 +1,33 @@
-#include "layerx/lxp_history.h"
+#ifndef LXP_PAY5_ACCOUNT_PAYLOAD_H
+#define LXP_PAY5_ACCOUNT_PAYLOAD_H
+#include "layerx/programs.h"
+#include <string.h>
+
+static inline lxp_result pay5_account_payload(
+    uint8_t *payload, size_t capacity, const uint8_t program[32],
+    const uint8_t asset[32], const uint8_t *seed, size_t seed_length,
+    size_t *length)
+{
+    if (payload == NULL || program == NULL || asset == NULL || length == NULL ||
+        (seed == NULL && seed_length != 0U))
+        return LXP_ERR_NON_CANONICAL;
+    if (seed_length > LX_PROGRAMS_ACCOUNT_MAX_SEED_BYTES ||
+        capacity < 73U + seed_length)
+        return LXP_ERR_LENGTH_LIMIT;
+    (void)memcpy(payload, program, 32U);
+    (void)memcpy(payload + 32U, "LXPA1", 5U);
+    (void)memcpy(payload + 37U, asset, 32U);
+    payload[69U] = 0U;
+    payload[70U] = 0U;
+    payload[71U] = 0U;
+    payload[72U] = (uint8_t)seed_length;
+    if (seed_length != 0U) (void)memcpy(payload + 73U, seed, seed_length);
+    *length = 73U + seed_length;
+    return LXP_OK;
+}
+#endif
+
+#ifndef LXP_PAY5_ACCOUNT_PAYLOAD_ONLY
 #include "../../../src/modules/programs/storage.h"
 
 typedef struct pay5_native {
@@ -13,9 +42,6 @@ typedef struct pay5_native {
     lx_account_registry accounts;
     lx_programs_transfer_runtime runtime;
     lxp_transfer_asset_state assets[2];
-    lx_programs_state_feed_store feed;
-    lxp_history history;
-    lxp_log feed_log;
     lxp_log canonical_log;
     pthread_mutex_t mutex;
     lxp_arena arena;
@@ -142,10 +168,13 @@ static int pay5_execute(pay5_native *env, unsigned caller, uint32_t type,
 
 static int pay5_init(pay5_native *env)
 {
-    char feed_directory[] = "qual-logs/pay5/feed-XXXXXX";
-    char canonical_directory[] = "qual-logs/pay5/canonical-XXXXXX";
+    const char *qualification_directory = getenv("PAY5_QUAL_DIR");
+    char canonical_directory[4096];
     const uint8_t seed[32] = {0x33U};
     const uint8_t native_asset[32] = {9U};
+    int canonical_length = snprintf(canonical_directory, sizeof(canonical_directory),
+        "%s/canonical-XXXXXX", qualification_directory != NULL ? qualification_directory : "qual-logs/pay5");
+    PAY5_ASSERT(canonical_length > 0 && (size_t)canonical_length < sizeof(canonical_directory));
     (void)memset(env, 0, sizeof(*env));
     env->parameters = 1U;
     (void)memset(env->program, 0x55, 32U);
@@ -206,22 +235,9 @@ static int pay5_init(pay5_native *env)
     PAY5_OK(lxp_state_root(&env->kernel, env->kernel.current_state_root));
     PAY5_OK(lxp_arena_init(&env->arena, env->arena_bytes, sizeof(env->arena_bytes)));
     PAY5_OK(lxp_arena_init(&env->scratch, env->scratch_bytes, sizeof(env->scratch_bytes)));
-    PAY5_ASSERT(mkdtemp(feed_directory) != NULL && mkdtemp(canonical_directory) != NULL);
-    PAY5_OK(lxp_log_segment_create(&env->feed_log, feed_directory, 0U, 4U * 1024U * 1024U));
+    PAY5_ASSERT(mkdtemp(canonical_directory) != NULL);
     PAY5_OK(lxp_log_segment_create(&env->canonical_log, canonical_directory, 0U, 4U * 1024U * 1024U));
-    {
-        char database[256];
-        int length = snprintf(database, sizeof(database), "%s/history.sqlite", canonical_directory);
-        PAY5_ASSERT(length > 0 && (size_t)length < sizeof(database));
-        PAY5_OK(lxp_history_open(&env->history, &env->canonical_log, database,
-            "migrations/0007_history_index.sql"));
-    }
     PAY5_ASSERT(pthread_mutex_init(&env->mutex, NULL) == 0);
-    PAY5_OK(lxp_programs_state_feed_store_open(&env->feed, &env->feed_log,
-        &env->canonical_log, &env->history, &env->scratch, &env->mutex));
-    PAY5_OK(lxp_programs_state_feed_store_anchor(&env->feed, 1U, env->kernel.current_state_root));
-    env->runtime.state_feed = &env->feed.feed;
-    PAY5_OK(lxp_programs_bind_state_feed(&env->kernel, &env->feed.feed));
     env->authority.kind = LXP_AUTHORITY_OWNER;
     (void)memcpy(env->authority.verified_key, env->key, 32U);
     env->scope.module_mask = UINT64_C(1) << LXP_MODULE_PROGRAMS;
@@ -274,14 +290,12 @@ static int pay5_deploy(pay5_native *env, const char *wasm_path, const char *inte
         LXP_OK, 0U, false, label) == 0);
     if (interface_path != NULL) {
         lxp_module_ctx ctx;
-        uint8_t key[42], expected[65536];
+        uint8_t expected[65536];
         const uint8_t *value;
         size_t value_length, expected_length;
-        (void)memcpy(key, "interface", 10U);
-        (void)memcpy(key + 10U, env->program, 32U);
         PAY5_OK(lxp_module_ctx_init(&ctx, &env->kernel, LXP_MODULE_PROGRAMS,
             10U, 0U, env->state.next_sequence, 1000000U, &env->arena, false));
-        PAY5_OK(lxp_ctx_kv_get(&ctx, key, sizeof(key), &value, &value_length));
+        PAY5_OK(lxp_programs_interface_read(&ctx, env->program, &value, &value_length));
         PAY5_ASSERT(pay5_file("programs/fixtures/pay5/token-lxt20.registry-value",
             expected, sizeof(expected), &expected_length) == 0);
         PAY5_ASSERT(value_length == expected_length && memcmp(value, expected, value_length) == 0);
@@ -293,12 +307,10 @@ static int pay5_deploy(pay5_native *env, const char *wasm_path, const char *inte
 
 static int pay5_register(pay5_native *env, const uint8_t *seed, size_t length)
 {
-    (void)memcpy(env->payload, env->program, 32U);
-    (void)memcpy(env->payload + 32U, "LXPA1", 5U);
-    (void)memcpy(env->payload + 37U, env->asset_id, 32U);
-    write_u32(env->payload + 69U, (uint32_t)length);
-    (void)memcpy(env->payload + 73U, seed, length);
-    return pay5_execute(env, 0U, LX_PROGRAMS_ACCOUNT, 73U + length, LXP_OK, 0U, false, "account-register");
+    size_t payload_length;
+    PAY5_OK(pay5_account_payload(env->payload, sizeof(env->payload),
+        env->program, env->asset_id, seed, length, &payload_length));
+    return pay5_execute(env, 0U, LX_PROGRAMS_ACCOUNT, payload_length, LXP_OK, 0U, false, "account-register");
 }
 
 static size_t pay5_grants(pay5_native *env, uint8_t *out, unsigned owner,
@@ -457,8 +469,6 @@ static int pay5_token_roundtrip(void)
     PAY5_ASSERT(pay5_amount(&env, key, 40U, 999975U) == 0);
     (void)memcpy(key + 8U, env.pda[1], 32U);
     PAY5_ASSERT(pay5_amount(&env, key, 40U, 25U) == 0);
-    PAY5_OK(lxp_history_close(&env.history));
-    PAY5_OK(lxp_log_close(&env.feed_log));
     PAY5_OK(lxp_log_close(&env.canonical_log));
     PAY5_ASSERT(pthread_mutex_destroy(&env.mutex) == 0);
     while (env.kernel.blob_count != 0U) free(env.kernel.blobs[--env.kernel.blob_count].bytes);
@@ -493,7 +503,7 @@ static int pay5_merchant_roundtrip(void)
     grants[cursor++] = 7U; grants[cursor++] = 8U;
     lxp_u128 merchant_before = env.payment_account[1]->balance, collector_before = env.payment_account[2]->balance;
     PAY5_ASSERT(pay5_call(&env, 0U, "layerx_call", input, sizeof(input), funding, funding_length,
-        LXP_ERR_NON_CANONICAL, 0U, false) == 0);
+        LXP_ERR_PROGRAM_REFUSED, 0U, false) == 0);
     PAY5_ASSERT(pay5_account(&env, 0U)->balance.lo == 0U);
     PAY5_ASSERT(lxp_u128_cmp(merchant_before, env.payment_account[1]->balance) == 0 &&
         lxp_u128_cmp(collector_before, env.payment_account[2]->balance) == 0);
@@ -509,8 +519,6 @@ static int pay5_merchant_roundtrip(void)
     PAY5_ASSERT(env.payment_account[1]->balance.lo == merchant_before.lo + 90U &&
         env.payment_account[2]->balance.lo == collector_before.lo + 10U && pay5_account(&env, 0U)->balance.lo == 0U);
     PAY5_ASSERT(!lxp_ct_is_zero(env.receipt.program_outcome.transfer_root, 32U));
-    PAY5_OK(lxp_history_close(&env.history));
-    PAY5_OK(lxp_log_close(&env.feed_log));
     PAY5_OK(lxp_log_close(&env.canonical_log));
     PAY5_ASSERT(pthread_mutex_destroy(&env.mutex) == 0);
     while (env.kernel.blob_count != 0U) free(env.kernel.blobs[--env.kernel.blob_count].bytes);
@@ -519,3 +527,5 @@ static int pay5_merchant_roundtrip(void)
 }
 #undef PAY5_OK
 #undef PAY5_ASSERT
+
+#endif

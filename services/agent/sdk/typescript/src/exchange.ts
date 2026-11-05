@@ -20,7 +20,9 @@ export type PrecompileAbiErrorCode =
   | "data_length"
   | "non_canonical_word"
   | "invalid_string"
-  | "malformed_wallet_answer";
+  | "malformed_wallet_answer"
+  | "approve_reverted"
+  | "approve_not_mined";
 
 export class PrecompileAbiError extends Error {
   readonly code: PrecompileAbiErrorCode;
@@ -281,13 +283,20 @@ function dynamicType(type: string): boolean {
   return type.startsWith("(") && tupleTypes(type).some(dynamicType);
 }
 
+function headWidth(type: string): number {
+  if (!dynamicType(type) && type.startsWith("(") && type.endsWith(")")) {
+    return tupleTypes(type).reduce((width, item) => width + headWidth(item), 0);
+  }
+  return WORD;
+}
+
 function encodeSequence(types: readonly string[], values: readonly AbiArgument[], label: string): Uint8Array {
   if (types.length !== values.length) {
     throw new PrecompileAbiError("invalid_value", `${label} argument count`);
   }
   const heads: Uint8Array[] = [];
   const tails: Uint8Array[] = [];
-  let tailOffset = types.length * WORD;
+  let tailOffset = types.reduce((width, type) => width + headWidth(type), 0);
   types.forEach((type, index) => {
     const encoded = encodeArgument(type, values[index] as AbiArgument, `${label} argument ${index}`);
     if (dynamicType(type)) {
@@ -369,9 +378,18 @@ export function precompileTransactionRequest(from: string, call: PrecompileCall)
   if (!ADDRESS.test(from)) {
     throw new PrecompileAbiError("invalid_value", "from");
   }
+  if (!ADDRESS.test(call.to)) {
+    throw new PrecompileAbiError("invalid_value", "to");
+  }
+  if (!HEX.test(call.data) || call.data.length < 10) {
+    throw new PrecompileAbiError("invalid_value", "calldata");
+  }
+  if (typeof call.value !== "bigint" || call.value < 0n || call.value >= 1n << 256n) {
+    throw new PrecompileAbiError("invalid_value", "value");
+  }
   return {
     method: "eth_sendTransaction",
-    params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}` }],
+    params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}`, type: "0x2", chainId: "0x7d" }],
   };
 }
 
@@ -565,19 +583,29 @@ function exchangeCall(name: string, types: readonly PrecompileAbiType[], values:
   return { to: LAYERX_EXCHANGE_PRECOMPILE, data: encodeAbiCall(name, types, values), value };
 }
 
-/** `placeOrder(bytes32,uint8,uint256,uint256,uint8)`. */
-export function exchangePlaceOrderCall(order: {
-  readonly marketId: string;
-  readonly side: number;
-  readonly price: bigint;
-  readonly quantity: bigint;
-  readonly timeInForce: number;
-}): PrecompileCall {
-  return exchangeCall(
-    "placeOrder",
-    ["bytes32", "uint8", "uint256", "uint256", "uint8"],
-    [order.marketId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)],
-  );
+export type ExchangePlaceOrder = Readonly<{
+  marketId: string;
+  side: number;
+  price: bigint;
+  quantity: bigint;
+  timeInForce: number;
+}> & (Readonly<{ accountId: string }> | Readonly<{ accountId?: never }>);
+
+/** Encodes the published account-bearing or legacy placeOrder overload. */
+export function exchangePlaceOrderCall(order: ExchangePlaceOrder): PrecompileCall {
+  if (
+    !Number.isInteger(order.side) || order.side < 0 || order.side > 255 ||
+    !Number.isInteger(order.timeInForce) || order.timeInForce < 0 || order.timeInForce > 255
+  ) {
+    throw new PrecompileAbiError("invalid_value", "order uint8");
+  }
+  if ("accountId" in order) {
+    if (typeof order.accountId !== "string") throw new PrecompileAbiError("invalid_value", "order accountId");
+    return exchangeCall("placeOrder", ["bytes32", "bytes32", "uint8", "uint256", "uint256", "uint8"],
+      [order.marketId, order.accountId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)]);
+  }
+  return exchangeCall("placeOrder", ["bytes32", "uint8", "uint256", "uint256", "uint8"],
+    [order.marketId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)]);
 }
 
 /** `cancelOrder(bytes32)`. */

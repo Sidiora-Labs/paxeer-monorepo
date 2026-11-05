@@ -1,50 +1,67 @@
-# The kernel app image (services/wallet/deploy/human.toml): the union of
-# docker/platform-node, platform-core, platform-authority,
-# platform-agent-boundary, paxeer, interop-mirror and human-service plus layerx-mcp,
-# one machine running the node pod under docker/kernel/init.sh.
+# One paxd BFT network. The shared C/Rust kernel and its typed Go keepers
+# are linked into paxd; no standalone core, replica or receipt supervisor.
 FROM rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS build
 WORKDIR /src
 ARG CARGO_BUILD_JOBS=4
 ENV CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} MAKEFLAGS=-j${CARGO_BUILD_JOBS}
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential libssl-dev libsqlite3-dev pkg-config \
+        build-essential libssl-dev libsqlite3-dev pkg-config python3 \
     && rm -rf /var/lib/apt/lists/*
 COPY . .
-ARG LXP_REVISION=unknown
-RUN rustup show active-toolchain \
-    && make LXP_REVISION="$LXP_REVISION" layerxd layerx-genesis-build layerx-handover layerxctl layerx-guarantor layerx-module-registry \
-    && test -x build/bin/layerx-guarantor && test -x build/bin/layerxd && test -x build/bin/layerx-genesis-build \
-    && test -x build/bin/layerx-handover && test -x build/bin/layerxctl && test -x build/bin/layerx-module-registry \
-    && test -f programs/target/release/liblayerx_programs_sandbox.a
-RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml \
-        -p layerx-platform-core -p layerx-platform-authority -p layerx-runtime-clock -p layerx-platform-agent-boundary \
-        -p layerx-platform-paxeer-boundary -p layerx-oracle-feeder
-RUN CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
-        --package layerx-mirror --bin layerx-mirror-publisher --bin layerx-mirror-verify \
-    && CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
-        --package layerx-mirror-signer --bin layerx-mirror-signer
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms -p layerx-explorer-index --bins
-RUN cargo build --locked --release --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd -p layerx-mcp --bin layerx-mcp
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider -p layerx-human-movement-provider --bins
-# The relay archive origin of docker/kernel/init.sh (task 4.6): its codec.
-RUN make LXP_REVISION="$LXP_REVISION" layerx-archive-codec && test -x build/bin/layerx-archive-codec
-# The value loop of tools/bringup/value-loop.sh (task 1.6): the node probe and the credit signer.
-RUN make LXP_REVISION="$LXP_REVISION" build/tests/bridge/sign-credit && test -x build/tests/bridge/sign-credit
-RUN cargo build --locked --release --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml
-
-# The light credit of tools/bringup/value-loop.sh and the light profile of
-# tools/bringup/kernel-genesis.sh (task 1.6): the Go custody proof tool.
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS custody-proof
-WORKDIR /src
-COPY . .
-RUN make custody-proof-build && test -x build/bin/layerx-custody-proof \
-    && go list -mod=readonly -deps -f '{{if not .Standard}}{{range .GoFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .CgoFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .CFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .HFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .SFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{range .EmbedFiles}}{{$.Dir}}/{{.}}{{"\n"}}{{end}}{{end}}' \
-        ./daemon/layerx-custody-proof >build/custody-proof.deps \
-    && test -s build/custody-proof.deps
-
-FROM build AS native-manifest
 ARG LXP_REVISION
-COPY --from=custody-proof /src/build/bin/layerx-custody-proof /src/build/custody-proof.deps /src/build/custody-proof/
+RUN rustup show active-toolchain && make LXP_REVISION="$LXP_REVISION" paxd-native-libs \
+    && test -s build/liblayerx.a \
+    && test -s programs/target/release/liblayerx_programs_sandbox.a
+
+FROM golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS paxd-build
+WORKDIR /src
+ENV CGO_ENABLED=1 GOMAXPROCS=4 GOFLAGS=-p=4
+RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev python3 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/ /src/
+ARG LXP_REVISION
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    set -eu; \
+    VERSION_PKG=github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version; \
+    PAX_CHAIN_VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' tools/release/version.json); \
+    test -n "$PAX_CHAIN_VERSION"; \
+    go build -mod=readonly -tags 'netgo ledger' \
+        -ldflags "-checklinkname=0 -X $VERSION_PKG.Name=paxeer -X $VERSION_PKG.AppName=paxd -X $VERSION_PKG.Version=$PAX_CHAIN_VERSION -X $VERSION_PKG.Commit=$LXP_REVISION -X $VERSION_PKG.BuildTags=netgo,ledger" \
+        -o build/paxd ./daemon/paxd; \
+    go list -mod=readonly -tags 'netgo ledger' -deps -json ./daemon/paxd > /tmp/paxd-deps.json
+RUN python3 - <<'PY_GO_INPUTS'
+import json
+from pathlib import Path
+
+raw = Path("/tmp/paxd-deps.json").read_text()
+decoder = json.JSONDecoder()
+inputs = set()
+while raw.strip():
+    package, end = decoder.raw_decode(raw.lstrip())
+    raw = raw.lstrip()[end:]
+    directory = Path(package["Dir"])
+    if not directory.is_relative_to("/src"):
+        continue
+    for field in ("GoFiles", "CgoFiles", "CFiles", "CXXFiles", "HFiles", "SFiles", "SysoFiles", "EmbedFiles"):
+        inputs.update(str(directory / name) for name in package.get(field, []))
+Path("/src/build/paxd-source-inputs.txt").write_text("\n".join(sorted(inputs)) + "\n")
+PY_GO_INPUTS
+RUN set -eu; \
+    mkdir -p /native-libs; \
+    cp wasm-runtime/internal/api/libwasmvm.x86_64.so /native-libs/; \
+    cp wasm/x/wasm/artifacts/v152/api/libwasmvm152.x86_64.so /native-libs/; \
+    cp wasm/x/wasm/artifacts/v155/api/libwasmvm155.x86_64.so /native-libs/; \
+    for library in libwasmvm.x86_64.so libwasmvm152.x86_64.so libwasmvm155.x86_64.so; do \
+        expected=$(awk -v name="$library" '$2 == name { print $1 }' wasm-runtime/libwasmvm-linux.sha256); \
+        test "${#expected}" -eq 64; \
+        printf '%s  %s\n' "$expected" "$library" >> /native-libs/libwasmvm.sha256; \
+    done; \
+    cd /native-libs; \
+    sha256sum --check --strict libwasmvm.sha256
+
+FROM paxd-build AS native-manifest
+ARG LXP_REVISION
 RUN --mount=type=bind,source=.,target=/source,ro \
     python3 - "$LXP_REVISION" <<'PY_MANIFEST'
 import glob
@@ -68,26 +85,23 @@ src = "/src"
 source_root = Path("/source")
 c_deps = sorted(glob.glob(src + "/build/obj/**/*.d", recursive=True)) + [
     src + "/programs/target/release/liblayerx_programs_sandbox.d",
-    src + "/programs/target/debug/liblayerx_programs_sandbox.d",
 ]
-c_extra = ["Makefile"] + sorted(
+c_extra = ["Makefile", "services/platform/Makefile.inc", "programs/Cargo.toml",
+           "programs/Cargo.lock", "programs/.cargo/config.toml", "rust-toolchain.toml"] + sorted(
     os.path.relpath(path, src)
-    for pattern in ("cmd/layerx-genesis/*.[ch]", "cmd/layerx-module-registry/*.[ch]")
+    for pattern in ("tools/build/*", "tools/paxeer-x/build/*")
     for path in glob.glob(os.path.join(src, pattern))
+    if os.path.isfile(path)
 )
 artifacts = {
-    name: ("build/bin/" + name, c_deps, c_extra, None)
-    for name in ("layerxd", "layerx-genesis-build", "layerx-handover", "layerx-guarantor",
-                 "layerx-module-registry", "layerx-archive-codec")
+    "paxd": ("build/paxd", c_deps,
+             c_extra + ["go.mod", "go.sum", "tools/release/version.json",
+                        "wasm-runtime/libwasmvm-linux.sha256",
+                        "wasm-runtime/internal/api/libwasmvm.x86_64.so",
+                        "wasm/x/wasm/artifacts/v152/api/libwasmvm152.x86_64.so",
+                        "wasm/x/wasm/artifacts/v155/api/libwasmvm155.x86_64.so"],
+             src + "/build/paxd-source-inputs.txt"),
 }
-artifacts["layerxctl"] = ("build/bin/layerxctl", [src + "/cmd/layerxctl/target/release/layerxctl.d"], ["Makefile"], None)
-for name in ("layerx-core-boundary", "layerx-receipt-authority", "layerx-runtime-clock",
-             "layerx-agent-boundary", "layerx-paxeer-boundary"):
-    artifacts[name] = ("services/platform/target/release/" + name, [src + "/services/platform/target/release/" + name + ".d"], [], None)
-for name in ("layerx-mirror-signer", "layerx-mirror-publisher", "layerx-mirror-verify"):
-    artifacts[name] = (".lane-target/release/" + name, [src + "/.lane-target/release/" + name + ".d"], [], None)
-artifacts["layerx-custody-proof"] = ("build/custody-proof/layerx-custody-proof", [], ["Makefile", "go.mod", "go.sum"],
-                                     src + "/build/custody-proof/custody-proof.deps")
 
 
 def dep_paths(dep_file):
@@ -155,38 +169,21 @@ PY_MANIFEST
 
 FROM scratch AS native-artifacts
 COPY --from=native-manifest /native/ /
+COPY --from=paxd-build /native-libs/ /lib/
 
 FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS native-runtime
 ARG LXP_REVISION
 LABEL org.opencontainers.image.revision="$LXP_REVISION" \
       io.layerx.kernel.profile="native"
-ENV LAYERX_KERNEL_PROFILE=native
+ENV LAYERX_KERNEL_PROFILE=native PYTHONDONTWRITEBYTECODE=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates libssl3 libsqlite3-0 openssl socat bash coreutils jq curl util-linux \
-        python3 python3-venv python3-cryptography \
+        ca-certificates libssl3 bash coreutils util-linux python3 python3-cryptography \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 4020 layerx && useradd -M -u 4020 -g 4020 -s /usr/sbin/nologin layerx \
-    && mkdir -p /opt/layerx/migrations /opt/layerx/paxeer /etc/layerx/trust
+    && groupadd -g 4020 layerx && useradd -M -u 4020 -g 4020 -s /usr/sbin/nologin layerx
 RUN setpriv --help | grep -- --pdeathsig
-COPY cmd/layerx-guarantor/requirements.txt /opt/layerx/guarantor/requirements.txt
-RUN python3 -m venv /opt/layerx/guarantor/venv \
-    && /opt/layerx/guarantor/venv/bin/pip install --no-cache-dir -r /opt/layerx/guarantor/requirements.txt
-COPY --from=native-artifacts --chmod=0555 /bin/layerxd /usr/local/bin/layerxd
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-genesis-build /usr/local/bin/layerx-genesis-build
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-handover /usr/local/bin/layerx-handover
-COPY --from=native-artifacts --chmod=0555 /bin/layerxctl /usr/local/bin/layerxctl
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-guarantor /usr/local/bin/layerx-guarantor
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-module-registry /usr/local/bin/layerx-module-registry
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-archive-codec /usr/local/bin/layerx-archive-codec
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-core-boundary /usr/local/bin/layerx-core-boundary
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-receipt-authority /usr/local/bin/layerx-receipt-authority
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-runtime-clock /usr/local/bin/layerx-runtime-clock
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-agent-boundary /usr/local/bin/layerx-agent-boundary
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-paxeer-boundary /usr/local/bin/layerx-paxeer-boundary
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-custody-proof /usr/local/bin/layerx-custody-proof
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-mirror-signer /usr/local/bin/layerx-mirror-signer
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-mirror-publisher /usr/local/bin/layerx-mirror-publisher
-COPY --from=native-artifacts --chmod=0555 /bin/layerx-mirror-verify /usr/local/bin/layerx-mirror-verify
+COPY --from=native-artifacts --chmod=0555 /bin/paxd /usr/local/bin/paxd
+COPY --from=native-artifacts --chmod=0555 /lib/ /usr/lib/
+RUN cd /usr/lib && sha256sum --check --strict libwasmvm.sha256
 RUN --mount=type=bind,from=native-artifacts,target=/native-artifacts,ro \
     --mount=type=bind,source=.,target=/source,ro \
     python3 - "$LXP_REVISION" <<'PY_VERIFY'
@@ -299,13 +296,7 @@ if not isinstance(manifest, dict) or manifest.get("schema") != "layerx.native-ar
     refuse("unsupported schema")
 if manifest.get("candidate_revision") != revision:
     refuse("candidate revision mismatch")
-required = {
-    "layerxd", "layerx-genesis-build", "layerx-handover", "layerxctl",
-    "layerx-guarantor", "layerx-module-registry", "layerx-archive-codec",
-    "layerx-core-boundary", "layerx-receipt-authority", "layerx-runtime-clock",
-    "layerx-agent-boundary", "layerx-paxeer-boundary", "layerx-custody-proof",
-    "layerx-mirror-signer", "layerx-mirror-publisher", "layerx-mirror-verify",
-}
+required = {"paxd"}
 artifacts = manifest.get("artifacts")
 if not isinstance(artifacts, dict) or set(artifacts) != required:
     refuse("artifact set differs from the native profile")
@@ -346,93 +337,15 @@ for name, record in artifacts.items():
         if verified_sources[relative] != digest:
             refuse("producer source differs from candidate for " + name)
 PY_VERIFY
-COPY cmd/layerx-guarantor/settlement.py cmd/layerx-guarantor/publication.py \
-     cmd/layerx-guarantor/authorization.py /opt/layerx/guarantor/
-COPY services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/onboarding_socket.py \
-     services/platform/hosted/human/provision.py /opt/layerx/human/
-COPY migrations/0007_history_index.sql /opt/layerx/migrations/0007_history_index.sql
-COPY contracts/config/checkpoint-settlement.json /opt/layerx/checkpoint-settlement.json
-COPY services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh \
-     services/platform/hosted/node/sequencer-env.sh services/platform/hosted/node/genesis-modules.conf \
-     services/platform/hosted/node/genesis_fees.py services/platform/hosted/node/genesis-module-fees.json \
-     services/platform/hosted/node/data_directory.py services/platform/hosted/node/guarantor.sh \
-     services/platform/hosted/node/checkpoint-authority.py /opt/layerx/
-COPY services/platform/hosted/node/generation_client.py services/platform/hosted/node/generation_transport.py /opt/layerx/node/
-COPY precompiles/layerxanchor/abi.json /opt/layerx/precompiles/layerxanchor/abi.json
-COPY services/platform/hosted/node/signer /opt/layerx/signer
-COPY services/platform/hosted/paxeer/evm.py /opt/layerx/paxeer/evm.py
-COPY services/platform/hosted/tests/publication-policy.py /opt/layerx/publication-policy.py
-COPY services/platform/relay_archive/__init__.py services/platform/relay_archive/runtime.py \
-     services/platform/relay_archive/store.py services/platform/relay_archive/protocol.py \
-     services/platform/relay_archive/forward.py services/platform/relay_archive/peers.py /opt/layerx/relay_archive/
-COPY --chmod=0555 services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh
-COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
-     services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
-     services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
-     services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
-COPY --from=build --chmod=0555 /src/services/platform/target/release/layerx-oracle-feeder /usr/local/bin/layerx-oracle-feeder
-COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
+COPY services/platform/hosted/node/native_runtime.py services/platform/hosted/node/data_directory.py \
+     services/platform/hosted/node/reset_state.py /opt/layerx/node/
+COPY docker/kernel/kernel_runtime.py /opt/layerx/kernel_runtime.py
 COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
-RUN chmod 0555 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
+EXPOSE 8545 8546 26656 9460
 ENTRYPOINT ["/usr/local/bin/kernel-init"]
 
-FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates libssl3 libsqlite3-0 openssl socat bash coreutils jq curl util-linux \
-        python3 python3-venv python3-cryptography \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 4020 layerx && useradd -M -u 4020 -g 4020 -s /usr/sbin/nologin layerx \
-    && mkdir -p /opt/layerx/migrations /opt/layerx/paxeer /etc/layerx/trust
-RUN setpriv --help | grep -- --pdeathsig
-COPY --from=build /src/cmd/layerx-guarantor/requirements.txt /opt/layerx/guarantor/requirements.txt
-RUN python3 -m venv /opt/layerx/guarantor/venv \
-    && /opt/layerx/guarantor/venv/bin/pip install --no-cache-dir -r /opt/layerx/guarantor/requirements.txt
-COPY --from=build /src/build/bin/layerx-guarantor /src/build/bin/layerxd /src/build/bin/layerx-genesis-build \
-     /src/build/bin/layerx-handover /src/build/bin/layerx-module-registry /usr/local/bin/
-COPY --from=build /src/cmd/layerx-guarantor/settlement.py /src/cmd/layerx-guarantor/publication.py \
-     /src/cmd/layerx-guarantor/authorization.py /opt/layerx/guarantor/
-COPY --from=build /src/services/platform/hosted/human/recipient_binding.py /src/services/platform/hosted/human/onboarding_socket.py \
-     /src/services/platform/hosted/human/provision.py /opt/layerx/human/
-COPY --from=build /src/migrations/0007_history_index.sql /opt/layerx/migrations/0007_history_index.sql
-COPY --from=build /src/contracts/config/checkpoint-settlement.json /opt/layerx/checkpoint-settlement.json
-COPY --from=build /src/services/platform/hosted/node/bootstrap.sh /src/services/platform/hosted/node/genesis-modules.conf \
-     /src/services/platform/hosted/node/genesis_fees.py /src/services/platform/hosted/node/genesis-module-fees.json \
-     /src/services/platform/hosted/node/data_directory.py /src/services/platform/hosted/node/supervisor.sh \
-     /src/services/platform/hosted/node/guarantor.sh /src/services/platform/hosted/node/checkpoint-authority.py /opt/layerx/
-COPY --from=build /src/services/platform/hosted/node/generation_client.py /src/services/platform/hosted/node/generation_transport.py /opt/layerx/node/
-COPY --from=build /src/precompiles/layerxanchor/abi.json /opt/layerx/precompiles/layerxanchor/abi.json
-COPY --from=build /src/services/platform/hosted/node/signer /opt/layerx/signer
-COPY --from=build /src/services/platform/hosted/paxeer/evm.py /opt/layerx/paxeer/evm.py
-COPY --from=build /src/services/platform/hosted/tests/publication-policy.py /opt/layerx/publication-policy.py
-RUN chmod 0755 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
-COPY --from=build /src/services/platform/target/release/layerx-core-boundary /src/services/platform/target/release/layerx-receipt-authority \
-     /src/services/platform/target/release/layerx-runtime-clock /src/services/platform/target/release/layerx-agent-boundary \
-     /src/services/platform/target/release/layerx-paxeer-boundary /usr/local/bin/
-COPY --from=build /src/.lane-target/release/layerx-mirror-publisher /src/.lane-target/release/layerx-mirror-verify \
-     /src/.lane-target/release/layerx-mirror-signer /usr/local/bin/
-COPY --from=build /src/services/human/target/release/layerx-human-service /src/services/human/target/release/layerx-human-components \
-     /src/services/human/target/release/layerx-human-onboarding /src/services/human/target/release/layerx-human-kms \
-     /src/services/human/target/release/layerx-explorer-index /src/services/human/target/release/layerx-human-identity-provider \
-     /src/services/human/target/release/layerx-human-security-provider /src/services/human/target/release/layerx-human-movement-provider \
-     /src/services/agent/target/release/layerx-agentd /src/services/agent/target/release/layerx-mcp /usr/local/bin/
-COPY --from=build /src/cmd/layerxctl/target/release/layerxctl /usr/local/bin/layerxctl
-COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
-     services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
-     services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
-     services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
-COPY --chmod=0555 docker/human-service/entrypoint.sh /usr/local/bin/human-entrypoint
-# The relay archive origin of docker/kernel/init.sh (task 4.6): the codec, the
-# runtime modules and install.sh --config-only that renders its config.
-COPY --from=build /src/build/bin/layerx-archive-codec /usr/local/bin/layerx-archive-codec
-COPY --from=build /src/services/platform/relay_archive/__init__.py /src/services/platform/relay_archive/runtime.py \
-     /src/services/platform/relay_archive/store.py /src/services/platform/relay_archive/protocol.py \
-     /src/services/platform/relay_archive/forward.py /src/services/platform/relay_archive/peers.py /opt/layerx/relay_archive/
-COPY --from=build --chmod=0555 /src/services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh
-# The value loop of tools/bringup/value-loop.sh (task 1.6).
-COPY --from=build /src/services/platform/hosted/node/tests/probe/target/release/layerx-node-probe \
-     /src/build/tests/bridge/sign-credit /usr/local/bin/
-COPY --from=custody-proof /src/build/bin/layerx-custody-proof /usr/local/bin/layerx-custody-proof
-COPY --from=build /src/services/platform/target/release/layerx-oracle-feeder /usr/local/bin/layerx-oracle-feeder
-COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
-COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
+# The historical profile names select the same merged node assembly.
+FROM native-runtime AS full-runtime
+ENV LAYERX_KERNEL_PROFILE=full
+LABEL io.layerx.kernel.profile="full"
 ENTRYPOINT ["/usr/local/bin/kernel-init"]

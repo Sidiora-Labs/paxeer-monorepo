@@ -1,9 +1,8 @@
-import util from 'node:util';
 import { ethers } from 'ethers';
 import { Endpoints } from '../config/endpoints';
-import {DOCKER_NODE, PAXD_ENV} from "./constants";
+import { QueryParamsRequest, QueryParamsResponse } from 'cosmjs-types/cosmos/params/v1beta1/query';
+import { assertMergedEvmChainId } from './constants';
 
-const exec = util.promisify(require('node:child_process').exec);
 const POLLING_INTERVAL_MS = Number(process.env.RPC_POLLING_INTERVAL_MS ?? 100);
 
 const makeProvider = (url: string): ethers.JsonRpcProvider =>
@@ -61,7 +60,6 @@ export async function isReachable(url: string, timeoutMs = 2_500): Promise<boole
     }
 }
 
-
 export interface JsonRpcError {
     code: number;
     message: string;
@@ -81,30 +79,73 @@ export interface JsonRpcEnvelope<T = unknown> {
  * malformed bytes to reach the node untouched to verify the *node's* validation, not the
  * client's. Returns the raw envelope.
  */
+export interface RequestDeadline {
+    timeoutMs?: number;
+    deadline?: number;
+    signal?: AbortSignal;
+}
+
+export async function requestJson<T = unknown>(
+    url: string,
+    init: RequestInit = {},
+    options: RequestDeadline = {},
+): Promise<T> {
+    const timeout = Math.min(
+        options.timeoutMs ?? 10_000,
+        (options.deadline ?? Infinity) - Date.now(),
+    );
+    if (!(timeout > 0) || options.signal?.aborted) throw new Error('RPC request deadline expired');
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.addEventListener('abort', abort, { once: true });
+    const timer = setTimeout(abort, timeout);
+    try {
+        const res = await fetch(url, { ...init, signal: controller.signal });
+        if (!res.ok) throw new Error(`RPC HTTP ${res.status} from ${url}`);
+        return (await res.json()) as T;
+    } finally {
+        clearTimeout(timer);
+        options.signal?.removeEventListener('abort', abort);
+    }
+}
+
 export async function rawJsonRpc<T = unknown>(
     url: string,
     method: string,
     params: unknown,
     id: number | string = 1,
+    options: RequestDeadline = {},
 ): Promise<JsonRpcEnvelope<T>> {
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
-    });
-    return res.json() as Promise<JsonRpcEnvelope<T>>;
+    return requestJson<JsonRpcEnvelope<T>>(
+        url,
+        {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+        },
+        options,
+    );
 }
 
-export const rawPax = <T = unknown>(method: string, params: unknown) =>
-    rawJsonRpc<T>(Endpoints.pax.evmRpc, method, params);
+export const rawPax = <T = unknown>(
+    method: string,
+    params: unknown,
+    options: RequestDeadline = {},
+) => rawJsonRpc<T>(Endpoints.pax.evmRpc, method, params, 1, options);
 
 /** Raw POST to the primary geth reference. */
-export const rawGeth = <T = unknown>(method: string, params: unknown) =>
-    rawJsonRpc<T>(Endpoints.eth.geth, method, params);
+export const rawGeth = <T = unknown>(
+    method: string,
+    params: unknown,
+    options: RequestDeadline = {},
+) => rawJsonRpc<T>(Endpoints.eth.geth, method, params, 1, options);
 
 /** Raw POST to a keyless node (hosted RPC) — used to observe the empty-account case. */
-export const rawAccountless = <T = unknown>(method: string, params: unknown) =>
-    rawJsonRpc<T>(Endpoints.accountless, method, params);
+export const rawAccountless = <T = unknown>(
+    method: string,
+    params: unknown,
+    options: RequestDeadline = {},
+) => rawJsonRpc<T>(Endpoints.accountless, method, params, 1, options);
 
 /**
  * Resolve a promise expected to throw an ethers RPC error and return the underlying
@@ -140,7 +181,9 @@ export function expectJsonRpcError(
     const err = envelope.error;
     if (!err) {
         throw new Error(
-            `expectJsonRpcError: expected an error but got result: ${JSON.stringify(envelope.result)}`,
+            `expectJsonRpcError: expected an error but got result: ${JSON.stringify(
+                envelope.result,
+            )}`,
         );
     }
     if (err.code !== code) {
@@ -150,43 +193,68 @@ export function expectJsonRpcError(
     }
     if (messagePattern && !messagePattern.test(err.message)) {
         throw new Error(
-            `expectJsonRpcError: message ${JSON.stringify(err.message)} did not match ${messagePattern}`,
+            `expectJsonRpcError: message ${JSON.stringify(
+                err.message,
+            )} did not match ${messagePattern}`,
         );
     }
     return err;
 }
 
 export const sleep = (ms: number): Promise<void> =>
-    new Promise(resolve => setTimeout(resolve, ms));
+    new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Poll `fn` until it returns truthy or the timeout elapses; returns the truthy value or
  * throws. For short, deterministic guards (wait for the next Pax block, etc.), not retries.
  */
 export async function waitUntil<T>(
-    fn: () => Promise<T | undefined | null>,
+    fn: (signal: AbortSignal, deadline: number) => Promise<T | undefined | null>,
     opts: { timeoutMs: number; intervalMs?: number; label?: string } = { timeoutMs: 30_000 },
 ): Promise<T> {
     const interval = opts.intervalMs ?? 250;
     const deadline = Date.now() + opts.timeoutMs;
+    const controller = new AbortController();
     let lastError: unknown;
-    while (Date.now() < deadline) {
-        try {
-            const result = await fn();
-            if (result !== undefined && result !== null && result !== false) {
-                return result as T;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            controller.abort();
+            reject(
+                new Error(
+                    `waitUntil(${opts.label ?? 'condition'}) timed out after ${opts.timeoutMs}ms` +
+                        (lastError ? `: ${String(lastError)}` : ''),
+                ),
+            );
+        }, opts.timeoutMs);
+    });
+    try {
+        while (Date.now() < deadline) {
+            try {
+                const result = await Promise.race([fn(controller.signal, deadline), expired]);
+                if (
+                    Date.now() < deadline &&
+                    result !== undefined &&
+                    result !== null &&
+                    result !== false
+                ) {
+                    return result as T;
+                }
+            } catch (e) {
+                if (controller.signal.aborted) throw e;
+                lastError = e;
             }
-        } catch (e) {
-            lastError = e;
+            await Promise.race([
+                sleep(Math.min(interval, Math.max(0, deadline - Date.now()))),
+                expired,
+            ]);
         }
-        await sleep(interval);
+        return await expired;
+    } finally {
+        clearTimeout(timer);
+        controller.abort();
     }
-    throw new Error(
-        `waitUntil(${opts.label ?? 'condition'}) timed out after ${opts.timeoutMs}ms` +
-            (lastError ? `: ${(lastError as Error)?.message ?? lastError}` : ''),
-    );
 }
-
 
 /** EIP-1559 fee-market parameters as the chain applies them. */
 export interface Eip1559Params {
@@ -198,40 +266,134 @@ export interface Eip1559Params {
     maxFeePerGas: number;
 }
 
-/**
- * Read the live EIP-1559 params from the in-container `paxd`. Returns null when no local
- * docker devnet is reachable so callers can degrade to structural-only checks instead of
- * failing on a hosted/remote Pax endpoint.
- */
-export async function queryEip1559Params(): Promise<Eip1559Params | null> {
-    try {
-        const param = async (key: string): Promise<string> => {
-            const { stdout } = await exec(
-                `docker exec ${DOCKER_NODE} /bin/bash -c '${PAXD_ENV} && paxd query params subspace evm ${key} --output json'`,
-            );
-            return JSON.parse(stdout).value.replace(/"/g, '');
-        };
-        const { stdout: blockParams } = await exec(
-            `docker exec ${DOCKER_NODE} /bin/bash -c '${PAXD_ENV} && paxd query params blockparams --output json'`,
-        );
-        const [minFee, maxFee, upward, downward, target] = await Promise.all([
-            param('KeyMinFeePerGas'),
-            param('KeyMaximumFeePerGas'),
-            param('KeyMaxDynamicBaseFeeUpwardAdjustment'),
-            param('KeyMaxDynamicBaseFeeDownwardAdjustment'),
-            param('KeyTargetGasUsedPerBlock'),
-        ]);
-        return {
-            blockGasLimit: Number(JSON.parse(blockParams).max_gas),
-            targetGasUsedPerBlock: Number(target),
-            maxUpwardAdjustment: parseFloat(upward),
-            maxDownwardAdjustment: parseFloat(downward),
-            minFeePerGas: parseFloat(minFee),
-            maxFeePerGas: parseFloat(maxFee),
-        };
-    } catch {
-        return null;
+/** Read one successful JSON-RPC result, keeping transport and protocol failures mandatory. */
+export async function rpcResult(
+    url: string,
+    method: string,
+    params: unknown,
+    options: RequestDeadline = {},
+): Promise<any> {
+    const envelope = await rawJsonRpc(url, method, params, 1, options);
+    if (envelope.error || envelope.result === undefined || envelope.result === null) {
+        throw new Error(`${method}: ${JSON.stringify(envelope.error ?? envelope)}`);
     }
+    return envelope.result;
+}
+
+/** Bind the configured EVM and Cosmos transports to the same committed block. */
+export async function queryPaxChainHeight(
+    height?: number,
+    options: RequestDeadline = {},
+): Promise<number> {
+    assertMergedEvmChainId(await rpcResult(Endpoints.pax.evmRpc, 'eth_chainId', [], options));
+    const params = height === undefined ? {} : { height: String(height) };
+    const cosmos = await rpcResult(Endpoints.pax.cosmosRpc, 'block', params, options);
+    const pinned = Number(cosmos.block.header.height);
+    if (
+        !Number.isSafeInteger(pinned) ||
+        pinned <= 0 ||
+        (height !== undefined && pinned !== height)
+    ) {
+        throw new Error('Invalid Cosmos block height');
+    }
+    const evm = await rpcResult(
+        Endpoints.pax.evmRpc,
+        'eth_getBlockByNumber',
+        [ethers.toQuantity(pinned), false],
+        options,
+    );
+    const hash = cosmos.block_id.hash;
+    if (
+        typeof hash !== 'string' ||
+        !/^[0-9a-fA-F]{64}$/.test(hash) ||
+        String(evm.hash).toLowerCase() !== `0x${hash.toLowerCase()}` ||
+        Number(evm.number) !== pinned
+    ) {
+        throw new Error('Configured Cosmos and EVM endpoints do not share a committed block');
+    }
+    return pinned;
+}
+
+export function validateEip1559Params(p: Eip1559Params | null): Eip1559Params {
+    if (!p) throw new Error('Pax fee-formula checks require validated EIP-1559 parameters');
+    for (const key of [
+        'blockGasLimit',
+        'targetGasUsedPerBlock',
+        'minFeePerGas',
+        'maxFeePerGas',
+    ] as const) {
+        if (!Number.isSafeInteger(p[key]) || p[key] <= 0)
+            throw new Error(`Invalid EIP-1559 ${key}`);
+    }
+    for (const key of ['maxUpwardAdjustment', 'maxDownwardAdjustment'] as const) {
+        if (!Number.isFinite(p[key]) || p[key] < 0 || p[key] > 1)
+            throw new Error(`Invalid EIP-1559 ${key}`);
+    }
+    if (p.targetGasUsedPerBlock >= p.blockGasLimit || p.minFeePerGas > p.maxFeePerGas) {
+        throw new Error('Inconsistent EIP-1559 bounds');
+    }
+    return p;
+}
+
+/** Query the configured Cosmos endpoint at a height proven to belong to the EVM endpoint. */
+export async function queryEip1559Params(height?: number): Promise<Eip1559Params> {
+    const options = { deadline: Date.now() + 30_000 };
+    const pinned = await queryPaxChainHeight(height, options);
+    const param = async (subspace: string, key: string): Promise<any> => {
+        const data = QueryParamsRequest.encode({ subspace, key }).finish();
+        const result = await rpcResult(
+            Endpoints.pax.cosmosRpc,
+            'abci_query',
+            {
+                path: '/cosmos.params.v1beta1.Query/Params',
+                data: Buffer.from(data).toString('hex'),
+                height: String(pinned),
+                prove: false,
+            },
+            options,
+        );
+        const response = result.response;
+        if (
+            !response ||
+            Number(response.code ?? 0) !== 0 ||
+            Number(response.height) !== pinned ||
+            !response.value
+        ) {
+            throw new Error(
+                `Parameter query failed for ${subspace}/${key}: ${JSON.stringify(response)}`,
+            );
+        }
+        const decoded = QueryParamsResponse.decode(Buffer.from(response.value, 'base64')).param;
+        if (!decoded || decoded.subspace !== subspace || decoded.key !== key) {
+            throw new Error(`Parameter response mismatch for ${subspace}/${key}`);
+        }
+        return JSON.parse(decoded.value);
+    };
+    const [block, minFee, maxFee, upward, downward, target] = await Promise.all([
+        param('baseapp', 'BlockParams'),
+        param('evm', 'KeyMinFeePerGas'),
+        param('evm', 'KeyMaximumFeePerGas'),
+        param('evm', 'KeyMaxDynamicBaseFeeUpwardAdjustment'),
+        param('evm', 'KeyMaxDynamicBaseFeeDownwardAdjustment'),
+        param('evm', 'KeyTargetGasUsedPerBlock'),
+    ]);
+    const numeric = (value: unknown): number => {
+        if (
+            (typeof value !== 'string' && typeof value !== 'number') ||
+            String(value).trim() === '' ||
+            !/^[0-9]+(?:\.[0-9]+)?$/.test(String(value))
+        )
+            throw new Error('Invalid numeric fee parameter');
+        return Number(value);
+    };
+    return validateEip1559Params({
+        blockGasLimit: numeric(block.max_gas),
+        targetGasUsedPerBlock: numeric(target),
+        maxUpwardAdjustment: numeric(upward),
+        maxDownwardAdjustment: numeric(downward),
+        minFeePerGas: numeric(minFee),
+        maxFeePerGas: numeric(maxFee),
+    });
 }
 
 /**
@@ -246,9 +408,11 @@ export function nextBaseFeePax(
     blockGasUsed: number,
     p: Eip1559Params,
 ): number {
+    validateEip1559Params(p);
     let next: number;
     if (blockGasUsed > p.targetGasUsedPerBlock) {
-        const fullness = (blockGasUsed - p.targetGasUsedPerBlock) / (p.blockGasLimit - p.targetGasUsedPerBlock);
+        const fullness =
+            (blockGasUsed - p.targetGasUsedPerBlock) / (p.blockGasLimit - p.targetGasUsedPerBlock);
         next = prevBaseFee * (1 + p.maxUpwardAdjustment * fullness);
     } else {
         const emptiness = (p.targetGasUsedPerBlock - blockGasUsed) / p.targetGasUsedPerBlock;
@@ -273,7 +437,8 @@ export function nextBaseFeeGeth(prevBaseFee: bigint, gasUsed: bigint, gasLimit: 
     const target = gasLimit / GETH_ELASTICITY;
     if (gasUsed === target) return prevBaseFee;
     if (gasUsed > target) {
-        const delta = (prevBaseFee * (gasUsed - target)) / target / GETH_BASE_FEE_CHANGE_DENOMINATOR;
+        const delta =
+            (prevBaseFee * (gasUsed - target)) / target / GETH_BASE_FEE_CHANGE_DENOMINATOR;
         return prevBaseFee + (delta > 0n ? delta : 1n);
     }
     const delta = (prevBaseFee * (target - gasUsed)) / target / GETH_BASE_FEE_CHANGE_DENOMINATOR;

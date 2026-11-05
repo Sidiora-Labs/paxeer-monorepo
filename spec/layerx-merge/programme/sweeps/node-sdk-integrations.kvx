@@ -1,0 +1,28 @@
+[sweep.node-sdk-integrations]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cd TARGET && npm ci && npm run build && npm test"
+test_policy = "Run npm test only when package.json declares a test script; otherwise record the install and build result alone."
+targets_total = 4
+targets_passed = 4
+targets_failed = 0
+targets_not_run = 0
+
+[target.node-sdk-integrations.1]
+target = "sdk/integrations/agents"
+result = "passed"
+exit_code = 0
+
+[target.node-sdk-integrations.2]
+target = "sdk/integrations/express"
+result = "passed"
+exit_code = 0
+
+[target.node-sdk-integrations.3]
+target = "sdk/integrations/next"
+result = "passed"
+exit_code = 0
+
+[target.node-sdk-integrations.4]
+target = "sdk/integrations/next/example"
+result = "passed"
+exit_code = 0

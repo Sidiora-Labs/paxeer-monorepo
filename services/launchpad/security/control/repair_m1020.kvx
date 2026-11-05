@@ -1,0 +1,50 @@
+[repair.22.33.1020]
+audit = "22.30.38"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+qualification = "hf-build followed by hf-done on the unchanged candidate; exact revision, command, exit and private log are recorded in the runner gate ledger and final evidence line."
+baseline = "No pre-change verification was run: the explicit task order forbids tests before the whole implementation, and hf-done is the only allowed verify entrypoint. No pre-change failing test is claimed. README behavior and the formerly absent generic contract pages already existed on this base; the new tests qualify their current state."
+scope = "Only services/launchpad/security/control is edited. No spec, registry, migration, grant manifest, gateway or indexer source is edited; no commit or push is performed by this task."
+
+[finding.control-readme-behavior]
+tests = ["TestRepairM_1020_DocumentedBoundaries", "TestRepairM_1020_AuthenticatedRecoveryRestart", "TestRepairM_1020_SettlementDrainFairness"]
+change = "Keep the current checker path and accurate NewRuntime/SettlementWorker/RevocationProvider description; document fair durable scheduling, replay owner admission, uncertainty, verified recovery, native qualification and remaining production authority."
+
+[finding.replay-executor-missing]
+tests = ["TestRepairM_1020_ReplayExecutionRetryRestart", "TestRepairM_1020_ReplayUnavailableWithoutOwner", "TestRepairM_1020_ReplayRevokedApprovalCannotComplete"]
+change = "Persist proposal payload reference, action key and stable completion identity in jobs; add an explicit authenticated bounded HTTPS owner adapter, runtime worker, durable claims/backoff and strict result identity validation. Lost acknowledgements retry the same approved payload and identity; retained completions survive reopening. Public execution remains unavailable without the owner adapter."
+proof_boundary = "The real control producer, Store, ReplayWorker, HTTPS client and result consumer execute against a committed loopback owner-adapter transcript. This proves control handoff/retry, not actual indexer ReplayRunner projection effects or production authority."
+wiring = "Domain 4 indexer owner: services/launchpad/indexer/internal/processor/replay.go and internal/store/replay.go must expose the ReplayRunner owner adapter with approved source stream, target, generation, projection revision, mode, authorization ID and canonical checkpoint height/hash, atomic inbox/effect/checkpoint completion and control completion identity; domain 4 gateway owner must bind it in services/launchpad/gateway/internal/app/app.go before production replay admission."
+
+[finding.registry-contract-pages-missing]
+tests = ["TestRepairM_1020_RegistryContractPages", "TestRepairM_1020_DocumentedBoundaries"]
+change = "The five generic contract pages and registered launchpad-security anchor already resolve on the task base. Preserve registry row identity; add provider-contract.md documenting actual wire shapes, credentials, errors, uncertainty, scheduling and recovery, with links to current owning launchpad contract pages."
+wiring = "Domain 17 registry/documentation owner: spec/layerx-merge/interfaces.kvx must preserve all existing row IDs, link the control/provider lifecycle to services/launchpad/security/control/provider-contract.md, retain resolving current shared contract pages and use contracts/launchpad/README.md or operations/README.md for their actual Solidity ownership; do not replace native launchpad execution contracts with Solidity documentation."
+
+[finding.incident-drain-fairness]
+test = "TestRepairM_1020_IncidentDrainFairness"
+change = "Select unfinished outboxes only, persist per-incident retry claims before effects, order never-attempted work first, and exclude completed acknowledgements. Provider and individual revocation failures are observed without terminating the batch."
+proof = "Real detection creates 110 old incidents; real TLS acknowledgements complete them. Then 100 permanently failing older requests and a later identity are detected. Reopen Store/worker and prove later credential revocation and matching secret/cache acknowledgement, no repeat requests for completed work, and durable backoff for failures."
+
+[finding.settlement-drain-fairness]
+test = "TestRepairM_1020_SettlementDrainFairness"
+change = "Claim up to 100 unfinished obligations through the shared durable fair scheduler, with independent per-key backoff and visible uncertainty retained."
+proof = "Real ChainVerifier inventory, bounty transitions and award producers create 101 payable obligations. First 100 provider lookups remain unknown. After Store/worker reopen, later GET/PUT reaches the provider, real ChainVerifier consumes its independent JSON-RPC receipt transcript, settles the obligation and updates reserved/pending inventory. No early key is retried before its durable deadline."
+
+[finding.workflow-production-role-proof]
+tests = ["TestRepairM_1020_AuthenticatedRecoveryRestart", "TestPhase3ProductionRolesDetectRecoverAndRestart"]
+change = "Extend workflows_test.go with distinct setup/runtime database credentials, actual 470000/470001 SQL and manifest-derived control table/view grants, V2 owner-view inputs with operator MFA sessions, NewRuntime readiness, authenticated detection, real TLS revocation acknowledgements, rotation, verified recovery, runtime pool reopen and unrelated-write denial."
+proof_boundary = "The declared no-PostgreSQL gate executes authenticated recovery through the shared real Store, local snapshot backend, independent setup/reader credential store and actual HTTPS handlers/providers. It compiles the native production-role test but does not execute or claim actual PostgreSQL grant/view qualification."
+wiring = "Domain 4 security/integration qualification owner: run TestPhase3ProductionRolesDetectRecoverAndRestart with the real native fixtures in the services/launchpad/security/control module at the admitted integration gate; the current bounded gate explicitly forbids PostgreSQL."
+wiring_manifest = "Domain 4 integration owner: launchpad/spec/production-system/integration/migrations/grants.json declares objects_seq_seq although 470000.sql creates no such sequence; reconcile that out-of-scope row with its owning migration. The production-role fixture applies actual table/view grants and the real audit_seq_seq grant without inventing a sequence or widening privileges."
+
+[gotcha.native-fixture-startup]
+symptom = "TestMain previously started PostgreSQL and Anvil even for focused tests that use neither."
+repair = "Make fixture startup lazy at existing fixture/chain/ready/phase2 entrypoints, retaining all native assertions and startup failures. The bounded repair tests require no native binary, subprocess or environment configuration."
+
+[gotcha.gate-order]
+symptom = "Task step 10 asks for baseline verification, while the explicit ordered instructions prohibit testing before implementation and prohibit manual verify_cmd execution."
+resolution = "Follow the explicit allowed gates and record no observed baseline result."
+
+[gotcha.grant-manifest-path]
+symptom = "The production grant manifest is integration/migrations/grants.json, not integration/grants.json."
+resolution = "Read the existing migrations/grants.json without creating a replacement outside scope."

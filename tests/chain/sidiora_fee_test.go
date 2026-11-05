@@ -192,11 +192,11 @@ func TestSidioraFeePaid(t *testing.T) {
 				Payer:            s.payer.EVMAddr,
 				FeePaid:          sdk.NewInt(sidioraFeeConverted),
 				CollectedTxIndex: 0,
-				FeeCollected:     sdk.NewInt(sidioraFeeConverted),
-				// The end of the block routes nothing further: the network coin's
-				// own sweep is what moves a collected balance on to the fee
-				// collector, and it moves the network coin alone.
-				FeeRouted:      sdk.ZeroInt(),
+				FeeCollected:     sdk.ZeroInt(),
+				// The end-of-block sweep in modules/evm/keeper/abci.go moves
+				// Sidiora from the transaction coinbase to the block coinbase;
+				// routing leaves the fee collector and holding account with it.
+				FeeRouted:      sdk.NewInt(sidioraFeeConverted),
 				NetworkPayer:   s.network.EVMAddr,
 				NetworkFeePaid: sdk.NewInt(sidioraFeeInNetworkCoin),
 			}),

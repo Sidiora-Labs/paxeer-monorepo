@@ -4,15 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "npm --prefix ../../../.. run build:dependencies -- @sidiora/layerx-example-next",
     "dev": "next dev --port ${PORT:-8080}",
     "build": "next build",
     "start": "next start --port ${PORT:-8080}",
-    "scan": "layerx-scan-bundle .next/static public",
+    "scan": "layerx-scan-bundle dist/static public",
+    "test": "npm run test:fulfillment",
     "test:fulfillment": "node --test test/fulfillment.test.mjs"
   },
   "dependencies": {
     "@sidiora/layerx-next": "0.1.0",
-    "next": "16.3.1",
+    "next": "16.4.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

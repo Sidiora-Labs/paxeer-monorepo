@@ -1,0 +1,60 @@
+package decode
+
+import (
+	"encoding/json"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"os"
+	"reflect"
+	"testing"
+)
+
+func TestRepair37DecoderConsumer(t *testing.T) {
+	raw, err := os.ReadFile(os.Getenv("REPAIR37_LOGS"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var observations []struct {
+		Name string
+		Log  types.Log
+		Args map[string]any
+	}
+	if err = json.Unmarshal(raw, &observations); err != nil {
+		t.Fatal(err)
+	}
+	if len(observations) != 12 {
+		t.Fatalf("native logs = %d", len(observations))
+	}
+	decoder := NewDecoder()
+	for _, o := range observations {
+		if o.Log.Address != common.HexToAddress("0x1017") {
+			t.Fatalf("wrong producer %s", o.Log.Address)
+		}
+		got, err := decoder.Decode(o.Log)
+		if err != nil || got == nil {
+			t.Fatalf("%s decode = %+v, %v", o.Name, got, err)
+		}
+		// JSON normalizes small numeric widths in the same way as this transported expectation.
+		encoded, err := json.Marshal(got.Args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var args map[string]any
+		if err = json.Unmarshal(encoded, &args); err != nil {
+			t.Fatal(err)
+		}
+		if got.EventName != o.Name || !reflect.DeepEqual(args, o.Args) {
+			t.Fatalf("%s: decoded %+v, want %+v", o.Name, args, o.Args)
+		}
+		malformed := o.Log
+		malformed.Data = malformed.Data[:31]
+		if _, err := decoder.Decode(malformed); err == nil {
+			t.Fatalf("%s accepted truncated data", o.Name)
+		}
+	}
+	unknown := observations[0].Log
+	unknown.Topics = []common.Hash{common.HexToHash("0xdeadbeef")}
+	if got, err := decoder.Decode(unknown); got != nil || err != nil {
+		t.Fatalf("unknown topic = %+v, %v", got, err)
+	}
+}

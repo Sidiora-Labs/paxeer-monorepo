@@ -42,6 +42,7 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     }
 
     address public constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    uint256 public constant AIRDROP_CLAIM_WINDOW = 180 days;
 
     address public protocolConfig;
     address public treasury;
@@ -77,6 +78,7 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     mapping(address => uint256) public legacyAirdropUnallocated;
     mapping(address => mapping(uint256 => bytes32)) public legacyAirdropRoot;
     mapping(address => mapping(uint256 => uint256)) public legacyAirdropRemaining;
+    mapping(address => mapping(uint256 => uint256)) public airdropTriggeredAt;
     event AccountingMigrated(uint256 liabilities);
     event LegacyAirdropAllocated(address indexed pool, uint256 indexed epoch, bytes32 root, uint256 budget);
 
@@ -138,7 +140,7 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
                         _opticalSurplus[pool] += opticalDivert;
                         poolCut = adjustedPoolCut;
                         emit OpticalSurplusRecorded(pool, opticalDivert);
-        _mirrorFee(7, pool, address(0), opticalDivert, 0, 0, 0);
+                        _mirrorFee(7, pool, address(0), opticalDivert, 0, 0, 0);
                     }
                 }
             }
@@ -157,8 +159,14 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
 
         if (poolRegistry != address(0)) {
             address optical = IPoolRegistry(poolRegistry).getPoolMetadata(pool).optical;
-            if (optical != address(0) && BitFlag.hasFlag(IOpticalFee(optical).getFlags(), BitFlag.AFTER_FEE_DISTRIBUTION)) {
-                if (IOpticalFee(optical).afterFeeDistribution(pool, poolCut) != IOpticalFee.afterFeeDistribution.selector) revert Unauthorized();
+            if (
+                optical != address(0) &&
+                BitFlag.hasFlag(IOpticalFee(optical).getFlags(), BitFlag.AFTER_FEE_DISTRIBUTION)
+            ) {
+                if (
+                    IOpticalFee(optical).afterFeeDistribution(pool, poolCut) !=
+                    IOpticalFee.afterFeeDistribution.selector
+                ) revert Unauthorized();
             }
         }
         emit FeeRecorded(pool, feeAmount, protocolCut, poolCut);
@@ -184,9 +192,7 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     }
 
     /// @inheritdoc IFeeAccumulator
-    function burn(
-        address pool
-    ) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 amount) {
+    function burn(address pool) external override onlyRole(FEES_ROUTER_ROLE) nonReentrant returns (uint256 amount) {
         if (!accountingInitialized) revert Unauthorized();
         amount = _accumulatedFees[pool];
         if (amount == 0) revert NoFeesAccumulated();
@@ -213,8 +219,10 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
         if (!supportsAirdrop(pool)) revert UnsupportedSnapshotToken();
         uint256 snapshot = block.number - 1;
         ICheckpointToken token = ICheckpointToken(meta.token);
-        uint256 eligible = token.getPastTotalSupply(snapshot)
-            - token.getPastBalance(pool, snapshot) - token.getPastBalance(DEAD_ADDRESS, snapshot);
+        uint256 eligible =
+            token.getPastTotalSupply(snapshot) -
+                token.getPastBalance(pool, snapshot) -
+                token.getPastBalance(DEAD_ADDRESS, snapshot);
         if (eligible == 0) revert ZeroAmount();
         // Increment epoch and store snapshot
         uint256 newEpoch = _airdropEpoch[pool] + 1;
@@ -223,6 +231,7 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
         airdropSnapshotBlock[pool][newEpoch] = snapshot;
         airdropEligibleSupply[pool][newEpoch] = eligible;
         airdropEpochRemaining[pool][newEpoch] = totalAmount;
+        airdropTriggeredAt[pool][newEpoch] = block.timestamp;
         _airdropBalance[pool] += totalAmount;
 
         emit AirdropTriggered(pool, totalAmount, newEpoch);
@@ -230,23 +239,26 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     }
 
     /// @inheritdoc IFeeAccumulator
-    function claimAirdrop(
-        address pool,
-        address holder
-    ) external override nonReentrant returns (uint256 amount) {
+    function claimAirdrop(address pool, address holder) external override nonReentrant returns (uint256 amount) {
         if (!accountingInitialized) revert Unauthorized();
         return _claimAirdrop(pool, holder, _airdropEpoch[pool]);
     }
 
-    function claimAirdropEpoch(address pool, address holder, uint256 epoch)
-        external override nonReentrant returns (uint256 amount)
-    {
+    function claimAirdropEpoch(
+        address pool,
+        address holder,
+        uint256 epoch
+    ) external override nonReentrant returns (uint256 amount) {
         if (!accountingInitialized) revert Unauthorized();
         return _claimAirdrop(pool, holder, epoch);
     }
 
     function _claimAirdrop(address pool, address holder, uint256 epoch) internal returns (uint256 amount) {
         if (epoch == 0 || epoch > _airdropEpoch[pool]) revert AirdropNotTriggered();
+        uint256 triggeredAt = airdropTriggeredAt[pool][epoch];
+        if (triggeredAt != 0 && block.timestamp >= triggeredAt + AIRDROP_CLAIM_WINDOW) {
+            revert AirdropClaimWindowClosed();
+        }
         if (holder == pool || holder == DEAD_ADDRESS || holder == address(0)) revert Unauthorized();
         if (_airdropClaimed[pool][holder][epoch]) revert AlreadyClaimed();
         uint256 supply = airdropEligibleSupply[pool][epoch];
@@ -254,7 +266,7 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
         address token = IPoolRegistry(poolRegistry).getPoolMetadata(pool).token;
         uint256 balance = ICheckpointToken(token).getPastBalance(holder, airdropSnapshotBlock[pool][epoch]);
         if (balance == 0) revert ZeroAmount();
-        amount = _airdropEpochAmount[pool][epoch] * balance / supply;
+        amount = (_airdropEpochAmount[pool][epoch] * balance) / supply;
         _airdropClaimed[pool][holder][epoch] = true;
         uint256 claimedSupply = airdropClaimedSupply[pool][epoch] + balance;
         airdropClaimedSupply[pool][epoch] = claimedSupply;
@@ -266,6 +278,21 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
         TransferHelper.safeTransfer(usdlAddress, holder, amount);
         emit AirdropClaimed(pool, holder, amount, epoch);
         _mirrorFee(4, pool, holder, amount, 0, 0, epoch);
+    }
+
+    /// @inheritdoc IFeeAccumulator
+    function sweepExpiredAirdrop(address pool, uint256 epoch) external override nonReentrant returns (uint256 amount) {
+        if (!accountingInitialized) revert Unauthorized();
+        uint256 triggeredAt = airdropTriggeredAt[pool][epoch];
+        if (epoch == 0 || epoch > _airdropEpoch[pool] || triggeredAt == 0) revert AirdropNotTriggered();
+        if (block.timestamp < triggeredAt + AIRDROP_CLAIM_WINDOW) revert AirdropClaimWindowOpen();
+
+        amount = airdropEpochRemaining[pool][epoch];
+        airdropEpochRemaining[pool][epoch] = 0;
+        _airdropBalance[pool] -= amount;
+        _accumulatedFees[pool] += amount;
+
+        emit AirdropExpired(pool, epoch, amount);
     }
 
     /// @inheritdoc IFeeAccumulator
@@ -316,9 +343,13 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
         if (!ok || data.length != 32) return false;
         address token = abi.decode(data, (address));
         if (token.code.length == 0) return false;
-        (ok, data) = token.staticcall(abi.encodeWithSelector(ICheckpointToken.getPastTotalSupply.selector, block.number - 1));
+        (ok, data) = token.staticcall(
+            abi.encodeWithSelector(ICheckpointToken.getPastTotalSupply.selector, block.number - 1)
+        );
         if (!ok || data.length != 32) return false;
-        (ok, data) = token.staticcall(abi.encodeWithSelector(ICheckpointToken.getPastBalance.selector, pool, block.number - 1));
+        (ok, data) = token.staticcall(
+            abi.encodeWithSelector(ICheckpointToken.getPastBalance.selector, pool, block.number - 1)
+        );
         return ok && data.length == 32;
     }
 
@@ -327,28 +358,20 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     }
 
     /// @inheritdoc IFeeAccumulator
-    function hasClaimedAirdrop(
-        address pool,
-        address holder,
-        uint256 epoch
-    ) external view override returns (bool) {
+    function hasClaimedAirdrop(address pool, address holder, uint256 epoch) external view override returns (bool) {
         return _airdropClaimed[pool][holder][epoch];
     }
 
     // --- Internal ---
 
     function _getTokenBalance(address token, address account) internal view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSignature("balanceOf(address)", account)
-        );
+        (bool success, bytes memory data) = token.staticcall(abi.encodeWithSignature("balanceOf(address)", account));
         if (!success || data.length < 32) return 0;
         return abi.decode(data, (uint256));
     }
 
     function _getTokenTotalSupply(address token) internal view returns (uint256) {
-        (bool success, bytes memory data) = token.staticcall(
-            abi.encodeWithSignature("totalSupply()")
-        );
+        (bool success, bytes memory data) = token.staticcall(abi.encodeWithSignature("totalSupply()"));
         if (!success || data.length < 32) return 0;
         return abi.decode(data, (uint256));
     }
@@ -373,13 +396,10 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     }
 
     /// @inheritdoc IFeeAccumulator
-    function claimOpticalSurplus(
-        address pool,
-        uint256 amount,
-        address recipient
-    ) external override nonReentrant {
+    function claimOpticalSurplus(address pool, uint256 amount, address recipient) external override nonReentrant {
         if (!accountingInitialized) revert Unauthorized();
-        if (IPoolRegistry(poolRegistry).getPoolMetadata(pool).optical != msg.sender || msg.sender.code.length == 0) revert Unauthorized();
+        if (IPoolRegistry(poolRegistry).getPoolMetadata(pool).optical != msg.sender || msg.sender.code.length == 0)
+            revert Unauthorized();
         if (recipient == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (_opticalSurplus[pool] < amount) revert InsufficientSurplus();
@@ -433,29 +453,47 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
     /// @notice Assign existing legacy custody to an immutable, externally reconstructed entitlement root.
     /// @dev Root leaf is keccak256(abi.encode(pool, epoch, holder, amount)); historical claims must be excluded.
     ///      Administrator must publish the reconstruction and allocations before invoking this migration.
-    function allocateLegacyAirdrop(address pool, uint256 epoch, bytes32 root, uint256 budget)
-        external onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        if (!accountingInitialized || root == bytes32(0) || budget == 0 || epoch == 0 || epoch > _airdropEpoch[pool]
-            || airdropEligibleSupply[pool][epoch] != 0 || legacyAirdropRoot[pool][epoch] != bytes32(0)
-            || budget > legacyAirdropUnallocated[pool]) revert Unauthorized();
+    function allocateLegacyAirdrop(
+        address pool,
+        uint256 epoch,
+        bytes32 root,
+        uint256 budget
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (
+            !accountingInitialized ||
+            root == bytes32(0) ||
+            budget == 0 ||
+            epoch == 0 ||
+            epoch > _airdropEpoch[pool] ||
+            airdropEligibleSupply[pool][epoch] != 0 ||
+            legacyAirdropRoot[pool][epoch] != bytes32(0) ||
+            budget > legacyAirdropUnallocated[pool]
+        ) revert Unauthorized();
         legacyAirdropUnallocated[pool] -= budget;
         legacyAirdropRoot[pool][epoch] = root;
         legacyAirdropRemaining[pool][epoch] = budget;
         emit LegacyAirdropAllocated(pool, epoch, root, budget);
     }
 
-    function claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] calldata proof)
-        external nonReentrant
-    {
+    function claimLegacyAirdrop(
+        address pool,
+        uint256 epoch,
+        address holder,
+        uint256 amount,
+        bytes32[] calldata proof
+    ) external nonReentrant {
         if (!accountingInitialized || amount == 0 || holder == address(0)) revert Unauthorized();
         if (_airdropClaimed[pool][holder][epoch]) revert AlreadyClaimed();
         bytes32 hash = keccak256(abi.encode(pool, epoch, holder, amount));
         for (uint256 i; i < proof.length; ++i) {
             bytes32 sibling = proof[i];
-            hash = hash < sibling ? keccak256(abi.encodePacked(hash, sibling)) : keccak256(abi.encodePacked(sibling, hash));
+            hash =
+                hash < sibling
+                    ? keccak256(abi.encodePacked(hash, sibling))
+                    : keccak256(abi.encodePacked(sibling, hash));
         }
-        if (hash != legacyAirdropRoot[pool][epoch] || amount > legacyAirdropRemaining[pool][epoch]) revert Unauthorized();
+        if (hash != legacyAirdropRoot[pool][epoch] || amount > legacyAirdropRemaining[pool][epoch])
+            revert Unauthorized();
         _airdropClaimed[pool][holder][epoch] = true;
         legacyAirdropRemaining[pool][epoch] -= amount;
         _airdropBalance[pool] -= amount;
@@ -465,14 +503,24 @@ contract FeeAccumulator is IFeeAccumulator, Initializable, UUPSUpgradeable, Acce
         _mirrorFee(4, pool, holder, amount, 0, 0, epoch);
     }
 
-    function _mirrorFee(uint8 kind, address pool, address party, uint256 amount, uint256 protocolCut, uint256 poolCut, uint256 epoch) internal {
+    function _mirrorFee(
+        uint8 kind,
+        address pool,
+        address party,
+        uint256 amount,
+        uint256 protocolCut,
+        uint256 poolCut,
+        uint256 epoch
+    ) internal {
         if (eventEmitter == address(0)) return;
-        try IEventEmitter(eventEmitter).emitFeeFlow(kind, pool, party, amount, protocolCut, poolCut, epoch) {}
-        catch { emit MirrorFailed(IEventEmitter.emitFeeFlow.selector); }
+        try IEventEmitter(eventEmitter).emitFeeFlow(kind, pool, party, amount, protocolCut, poolCut, epoch) {} catch {
+            emit MirrorFailed(IEventEmitter.emitFeeFlow.selector);
+        }
     }
 
     function _requirePool(address pool) internal view {
-        if (msg.sender != pool || pool.code.length == 0 || !IPoolRegistry(poolRegistry).isRegisteredPool(pool)) revert Unauthorized();
+        if (msg.sender != pool || pool.code.length == 0 || !IPoolRegistry(poolRegistry).isRegisteredPool(pool))
+            revert Unauthorized();
     }
 
     function _requireBacking(uint256 amount) internal view {

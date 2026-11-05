@@ -1,0 +1,418 @@
+{
+  "histories": [
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/indexer/migrations/00001_init.sql",
+          "sha256": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
+          "version": 1
+        },
+        {
+          "path": "services/launchpad/indexer/migrations/00002_airdrop_claims.sql",
+          "sha256": "c1564eedaf42b200012365d15fd3013608d9cde146fb03e53ca8e514dec7f683",
+          "version": 2
+        }
+      ],
+      "proposed_history": "migration_control.indexer_versions",
+      "schema": "indexer",
+      "service": "core/indexer"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/trading-charts/migrations/00001_init.sql",
+          "sha256": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
+          "version": 1
+        },
+        {
+          "path": "services/launchpad/trading-charts/migrations/00002_processed_swaps.sql",
+          "sha256": "7a4f16b05e60d28af478ef0c1ba74ccd1fd2a7c664ad0634928f78938b3f5053",
+          "version": 2
+        }
+      ],
+      "proposed_history": "migration_control.trading_charts_versions",
+      "schema": "candles",
+      "service": "core/trading-charts"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/stats-workers/migrations/00001_init.sql",
+          "sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
+          "version": 1
+        }
+      ],
+      "proposed_history": "migration_control.stats_workers_versions",
+      "schema": "stats",
+      "service": "core/stats-workers"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/pnl-tracker/migrations/00001_init.sql",
+          "sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
+          "version": 1
+        }
+      ],
+      "proposed_history": "migration_control.pnl_tracker_versions",
+      "schema": "pnl",
+      "service": "core/pnl-tracker"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/user/migrations/00001_init.sql",
+          "sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
+          "version": 1
+        },
+        {
+          "path": "services/launchpad/user/migrations/00002_account_store.sql",
+          "sha256": "c90f5f100dd3b2591223a7011edba46b1f50d3a53aa4c19b868375d9b8a6f7b3",
+          "version": 2
+        }
+      ],
+      "proposed_history": "migration_control.user_versions",
+      "schema": "users",
+      "service": "media/user"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/social/migrations/00001_init.sql",
+          "sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
+          "version": 1
+        },
+        {
+          "path": "services/launchpad/social/migrations/00002_dev_v2_social.sql",
+          "sha256": "41e85a770feb168a1a5a726e46bb631a28d32b2935b090c25f013f8a13484796",
+          "version": 2
+        },
+        {
+          "path": "services/launchpad/social/migrations/00003_safety.sql",
+          "sha256": "1d1e90db8768efffc259330a389713b92cf891849c77f511791dbaf0a39187d9",
+          "version": 3
+        },
+        {
+          "path": "services/launchpad/social/migrations/00004_safety_bans_v1.sql",
+          "sha256": "f44531795ef4972b698b7a4135edfbc9f3be6ce9b2fa0692fa666f833bdee421",
+          "version": 4
+        },
+        {
+          "path": "services/launchpad/social/migrations/00005_dev_v2_social_graph.sql",
+          "sha256": "9093ba1516fccff0d3b53609cb17b5cd8362df9c7f5843a1958e70e3c60b20a7",
+          "version": 5
+        }
+      ],
+      "proposed_history": "migration_control.social_versions",
+      "schema": "chat",
+      "service": "media/social"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/metadata/migrations/00001_init.sql",
+          "sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
+          "version": 1
+        },
+        {
+          "path": "services/launchpad/metadata/migrations/00002_add_decimals.sql",
+          "sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
+          "version": 2
+        }
+      ],
+      "proposed_history": "migration_control.metadata_versions",
+      "schema": "metadata",
+      "service": "media/metadata"
+    },
+    {
+      "current_migrations": [
+        {
+          "path": "services/launchpad/livestream/migrations/00001_init.sql",
+          "sha256": "54a5f921759d466ae8f7a333f4bde1c401937b3916c9b42ce0173bd6b7cfdd56",
+          "version": 1
+        },
+        {
+          "path": "services/launchpad/livestream/migrations/00002_lifecycle_read_store.sql",
+          "sha256": "41a0ced38d877db4ed867efa441d54d936d7f139c3b42c27bb6c9d75b9e195e6",
+          "version": 2
+        }
+      ],
+      "proposed_history": "migration_control.livestream_versions",
+      "schema": "livestream",
+      "service": "media/livestream"
+    }
+  ],
+  "new_migration_entries": [],
+  "ranges": [
+    {
+      "lane": "L01",
+      "reserved_max": 19999,
+      "reserved_min": 10000
+    },
+    {
+      "lane": "L02",
+      "reserved_max": 29999,
+      "reserved_min": 20000
+    },
+    {
+      "lane": "L03",
+      "reserved_max": 39999,
+      "reserved_min": 30000
+    },
+    {
+      "lane": "L04",
+      "reserved_max": 49999,
+      "reserved_min": 40000
+    },
+    {
+      "lane": "L05",
+      "reserved_max": 59999,
+      "reserved_min": 50000
+    },
+    {
+      "lane": "L06",
+      "reserved_max": 69999,
+      "reserved_min": 60000
+    },
+    {
+      "lane": "L07",
+      "reserved_max": 79999,
+      "reserved_min": 70000
+    },
+    {
+      "lane": "L08",
+      "reserved_max": 89999,
+      "reserved_min": 80000
+    },
+    {
+      "lane": "L09",
+      "reserved_max": 99999,
+      "reserved_min": 90000
+    },
+    {
+      "lane": "L10",
+      "reserved_max": 109999,
+      "reserved_min": 100000
+    },
+    {
+      "lane": "L11",
+      "reserved_max": 119999,
+      "reserved_min": 110000
+    },
+    {
+      "lane": "L12",
+      "reserved_max": 129999,
+      "reserved_min": 120000
+    },
+    {
+      "lane": "L13",
+      "reserved_max": 139999,
+      "reserved_min": 130000
+    },
+    {
+      "lane": "L14",
+      "reserved_max": 149999,
+      "reserved_min": 140000
+    },
+    {
+      "lane": "L15",
+      "reserved_max": 159999,
+      "reserved_min": 150000
+    },
+    {
+      "lane": "L16",
+      "reserved_max": 169999,
+      "reserved_min": 160000
+    },
+    {
+      "lane": "L17",
+      "reserved_max": 179999,
+      "reserved_min": 170000
+    },
+    {
+      "lane": "L18",
+      "reserved_max": 189999,
+      "reserved_min": 180000
+    },
+    {
+      "lane": "L19",
+      "reserved_max": 199999,
+      "reserved_min": 190000
+    },
+    {
+      "lane": "L20",
+      "reserved_max": 209999,
+      "reserved_min": 200000
+    },
+    {
+      "lane": "L21",
+      "reserved_max": 219999,
+      "reserved_min": 210000
+    },
+    {
+      "lane": "L22",
+      "reserved_max": 229999,
+      "reserved_min": 220000
+    },
+    {
+      "lane": "L23",
+      "reserved_max": 239999,
+      "reserved_min": 230000
+    },
+    {
+      "lane": "L24",
+      "reserved_max": 249999,
+      "reserved_min": 240000
+    },
+    {
+      "lane": "L25",
+      "reserved_max": 259999,
+      "reserved_min": 250000
+    },
+    {
+      "lane": "L26",
+      "reserved_max": 269999,
+      "reserved_min": 260000
+    },
+    {
+      "lane": "L27",
+      "reserved_max": 279999,
+      "reserved_min": 270000
+    },
+    {
+      "lane": "L28",
+      "reserved_max": 289999,
+      "reserved_min": 280000
+    },
+    {
+      "lane": "L29",
+      "reserved_max": 299999,
+      "reserved_min": 290000
+    },
+    {
+      "lane": "L30",
+      "reserved_max": 309999,
+      "reserved_min": 300000
+    },
+    {
+      "lane": "L31",
+      "reserved_max": 319999,
+      "reserved_min": 310000
+    },
+    {
+      "lane": "L32",
+      "reserved_max": 329999,
+      "reserved_min": 320000
+    },
+    {
+      "lane": "L33",
+      "reserved_max": 339999,
+      "reserved_min": 330000
+    },
+    {
+      "lane": "L34",
+      "reserved_max": 349999,
+      "reserved_min": 340000
+    },
+    {
+      "lane": "L35",
+      "reserved_max": 359999,
+      "reserved_min": 350000
+    },
+    {
+      "lane": "L36",
+      "reserved_max": 369999,
+      "reserved_min": 360000
+    },
+    {
+      "lane": "L37",
+      "reserved_max": 379999,
+      "reserved_min": 370000
+    },
+    {
+      "lane": "L38",
+      "reserved_max": 389999,
+      "reserved_min": 380000
+    },
+    {
+      "lane": "L39",
+      "reserved_max": 399999,
+      "reserved_min": 390000
+    },
+    {
+      "lane": "L40",
+      "reserved_max": 409999,
+      "reserved_min": 400000
+    },
+    {
+      "lane": "L41",
+      "reserved_max": 419999,
+      "reserved_min": 410000
+    },
+    {
+      "lane": "L42",
+      "reserved_max": 429999,
+      "reserved_min": 420000
+    },
+    {
+      "lane": "L43",
+      "reserved_max": 439999,
+      "reserved_min": 430000
+    },
+    {
+      "lane": "L44",
+      "reserved_max": 449999,
+      "reserved_min": 440000
+    },
+    {
+      "lane": "L45",
+      "reserved_max": 459999,
+      "reserved_min": 450000
+    },
+    {
+      "lane": "L46",
+      "reserved_max": 469999,
+      "reserved_min": 460000
+    },
+    {
+      "lane": "L47",
+      "reserved_max": 479999,
+      "reserved_min": 470000
+    },
+    {
+      "lane": "L48",
+      "reserved_max": 489999,
+      "reserved_min": 480000
+    },
+    {
+      "lane": "L49",
+      "reserved_max": 499999,
+      "reserved_min": 490000
+    },
+    {
+      "lane": "L50",
+      "reserved_max": 509999,
+      "reserved_min": 500000
+    }
+  ],
+  "runtime_role_policy": {
+    "bypassrls": false,
+    "createdb": false,
+    "createrole": false,
+    "cross_schema_writes": false,
+    "ddl": false,
+    "migration_history_writes": false,
+    "own_schema_grants": [
+      "USAGE"
+    ],
+    "own_table_grants": [
+      "SELECT",
+      "INSERT",
+      "UPDATE",
+      "DELETE"
+    ],
+    "owns_business_objects": false,
+    "superuser": false
+  },
+  "scope": "Recorded current migration files and unchanged frozen privilege policy; no applied migrations or live database qualification."
+}

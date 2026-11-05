@@ -1,0 +1,41 @@
+[task.22.33.1396]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+source_revision = "9aaa3ddfafe7cfaf6c5e5ce619c0307096824d3b"
+readme_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+repair = "Decision 2525 assigns README.md to task 22.31.470. Preserve its published rewrite and add focused regression proof of audit 22.30.77/root-overview against the real README and its referenced production producer, transport and consumer source paths."
+source_proof = "Tests assert one embedded-kernel paxd BFT network, chain 125, the api1..api14 root JSON-RPC range and parsed curl JSON, signed native EVM transaction submission and forwarding, durable acknowledgement before receipt publication, submitted/receipted/committed rungs and sequence coverage, the diagram's execution-to-commit ordering, pinned execution signatures versus authenticated BFT commitment, retired custody/checkpoint refusal surfaces, native funding and paxd-only node bring-up. Production Go/C-host wiring and build target source facts are checked without invoking their toolchains."
+review_only = "Native builds, live endpoint availability, transaction execution, cryptographic correctness, BFT operation and WAL stop/reopen recovery are not executed by this documentation gate. Source checks prove documentation and its declared producer/transport/consumer connections; review establishes the interpretation of that code, not runtime certification. This doc-drift finding changes no stateful component or interface; restart and interface-driving tests do not apply."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec changes; both scoped artifacts were absent. Private gate.json recorded zero builds/verifies and two repair cycles remaining; gates.jsonl was absent. No pre-change tests ran and no baseline failures are claimed: the explicit implementation-first order and hf-done-only verification override the older step asking for an unchanged-tree verify. README.md remains unchanged from its owning task throughout this task."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1396.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact content-derived candidate revision is named by the final hf-done JSON and its verify row in /out/run/gates.jsonl, with command, exit code and private log path; build and verify must share that revision. This record is finalized before qualification because embedding its own candidate hash changes that hash. No qualification success is claimed in advance."
+wiring_requests = []
+scope = "Only this record and its pytest module change; README.md and all production sources are read-only. No missing expected README fact was found during implementation, so no wiring request to README owner domain 22/fm-programme task 22.31.470 is needed. The runner publishes the qualified candidate."
+
+[finding.root-overview]
+audit = "22.30.77"
+file = "README.md"
+audit_line = 44
+class = "doc-drift"
+severity = "medium"
+owner_domain = 8
+owner_task = "22.31.470"
+proposal = "Describe one paxd BFT network with the embedded kernel, native EVM transactions and block-commit finality; remove daemon bring-up and retired custody/checkpoint journeys."
+tests = ["test_root_overview_embeds_kernel_in_one_paxd_bft_network", "test_root_json_rpc_range_and_chain_probe", "test_transaction_producer_transport_and_committed_receipt_consumer", "test_execution_signature_and_block_commitment_have_distinct_trust", "test_custody_checkpoint_executors_are_retired_and_bringup_is_paxd"]
+closure = "The owning task supplied the documentation repair; this task closes its audit-specific regression proof only when hf-done passes. Historical anchor reads before store deletion remain explicitly archive-only and are not current checkpoint execution or finality."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository's .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after implementation."
+
+[gotcha.1]
+observed = "Broad Codify survey and combined ledger/spec reads can exceed output limits, and the Codify brief points at an unrelated next task; a guessed rpc/http.go path does not exist."
+resolution = "Use bounded named sections, git status/diff, private gate configuration and the real rpc/rpcstack.go root-path dispatcher. Keep these notes in the scoped repair record because GOTCHA.kvx and spec files are outside the authorized scope."
+
+[qualification.repair_1]
+revision = "f5ae70b753d5aaa279789d91873da09e80eb1480"
+command = "cg spec done 22.33.1396 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the root RPC test failed because the new section reader interpreted the curl code fence's shell comment as a Markdown heading and truncated the section before mirror guidance."
+repair = "Track backtick/tilde fences when extracting sections so code comments remain inside their section; retain every source assertion unchanged and rerun build and verify on the repaired candidate."

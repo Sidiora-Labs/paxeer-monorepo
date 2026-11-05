@@ -1,12 +1,15 @@
 import type { Pool, PoolClient } from 'pg';
-import { keccak256, type Hex } from 'viem';
+import type { Hex } from 'viem';
 import { env } from '../env.js';
-import { getPool } from '../db/pool.js';
-import { BROADCAST_GRACE_MS } from '../chain.js';
+import { getPool, withSigningSession } from '../db/pool.js';
+import { BROADCAST_GRACE_MS, transactionHash } from '../chain.js';
 import { TransactionRejectedError, sharedRpcPool, type TransactionLookup } from '../rpc/pool.js';
 
 export type PendingCountReader = (address: `0x${string}`) => Promise<number>;
-export type TransactionLookupReader = (hash: `0x${string}`, member: string | null) => Promise<TransactionLookup>;
+export type TransactionLookupReader = (
+  hash: `0x${string}`,
+  member: string | null
+) => Promise<TransactionLookup>;
 
 /** Outstanding broadcasts at most this far above the chain floor are asked for by hash on every allocation. */
 const RECONCILE_WINDOW = 64;
@@ -45,21 +48,24 @@ export async function broadcastReserved(
   lease: NonceLease,
   nonce: number,
   raw: Hex,
-  send: (raw: Hex) => Promise<{ hash: Hex; member: string | null }>,
+  send: (raw: Hex) => Promise<{ hash: Hex; member: string | null }>
 ): Promise<{ hash: Hex; error: null } | { hash: null; error: unknown }> {
   try {
     const { hash, member } = await send(raw);
-    await lease.track(nonce, keccak256(raw), member);
+    await lease.track(nonce, transactionHash(raw), member);
     return { hash, error: null };
   } catch (error) {
     if (error instanceof TransactionRejectedError) await lease.release(nonce);
-    else await lease.track(nonce, keccak256(raw), null);
+    else await lease.track(nonce, transactionHash(raw), null);
     return { hash: null, error };
   }
 }
 
 export class NonceBelowLatestError extends Error {
-  constructor(readonly nonce: number, readonly latest: number) {
+  constructor(
+    readonly nonce: number,
+    readonly latest: number
+  ) {
     super(`nonce ${nonce} is below the latest transaction count ${latest}`);
     this.name = 'NonceBelowLatestError';
   }
@@ -72,15 +78,41 @@ export class NonceOutstandingError extends Error {
   }
 }
 
+export class NonceLockReleaseError extends Error {
+  constructor(cause: unknown) {
+    super('nonce session lock could not be released', { cause });
+  }
+}
+
 /**
  * The next nonce depends on an outstanding one that pool members could not resolve; nothing is released.
  * Members are named by index out of `memberCount`, never by URL.
  */
 export class NonceUnresolvedError extends Error {
-  constructor(readonly nonce: number, readonly unreachable: number[], readonly memberCount: number) {
-    super(`nonce ${nonce} cannot be resolved: members ${unreachable.join(', ')} of ${memberCount} did not answer`);
+  constructor(
+    readonly nonce: number,
+    readonly unreachable: number[],
+    readonly memberCount: number
+  ) {
+    super(
+      `nonce ${nonce} cannot be resolved: members ${unreachable.join(', ')} of ${memberCount} did not answer`
+    );
     this.name = 'NonceUnresolvedError';
   }
+}
+
+export function nonceUnresolvedBody(error: NonceUnresolvedError): {
+  error: 'nonce_unresolved';
+  nonce: number;
+  unreachable: number[];
+  members: number;
+} {
+  return {
+    error: 'nonce_unresolved',
+    nonce: error.nonce,
+    unreachable: error.unreachable,
+    members: error.memberCount,
+  };
 }
 
 export interface NonceStoreOptions {
@@ -97,39 +129,48 @@ export class NonceStore {
     this.opts = opts;
   }
 
-  async withLock<T>(address: string, fn: (lease: NonceLease) => Promise<T>, ownerActionId?: string): Promise<T> {
+  async withLock<T>(
+    address: string,
+    fn: (lease: NonceLease) => Promise<T>,
+    ownerActionId?: string
+  ): Promise<T> {
     const key = address.toLowerCase();
     const client = await this.opts.pool.connect();
+    const lock = `wallet-nonce:${key}`;
+    let held = false;
     try {
+      await client.query('select pg_advisory_lock(hashtextextended($1, 0))', [lock]);
+      held = true;
       await client.query('BEGIN');
       await client.query(
         `insert into nonce_allocations (address, chain_id, next_nonce, needs_reconcile)
          values ($1, $2, 0, true)
          on conflict (address) do nothing`,
-        [key, this.opts.chainId],
+        [key, this.opts.chainId]
       );
       const { rows } = await client.query<{ next_nonce: string }>(
         `select next_nonce::text as next_nonce
            from nonce_allocations
           where address = $1
           for update`,
-        [key],
+        [key]
       );
       if (!rows[0]) throw new Error(`nonce store: row for ${key} vanished under lock`);
       const reservation = await client.query<{ action_id: string }>(
         'select action_id from custody_signing_reservations where address = $1 and chain_id = $2',
-        [key, this.opts.chainId],
+        [key, this.opts.chainId]
       );
       if (reservation.rows[0] && reservation.rows[0].action_id !== ownerActionId) {
-        throw new Error('wallet nonce is reserved by an action awaiting custody authorization or broadcast');
+        throw new Error(
+          'wallet nonce is reserved by an action awaiting custody authorization or broadcast'
+        );
       }
-      const custody = await client.query<{ id:string }>(
-        "select id from wallet_custody_submissions where address=$1 and chain_id=$2 and state='pending' limit 1",[key,this.opts.chainId]);
-      if(custody.rows[0]) throw new Error('wallet nonce is reserved by an unresolved custody submission');
       const lease = new Lease(client, key, this.opts.pendingCount, this.opts.lookupTransaction);
       const result = await fn(lease);
       if (lease.untracked.size > 0) {
-        throw new Error(`nonce store: reserved nonce ${[...lease.untracked].join(', ')} was neither tracked with a signed transaction hash nor released`);
+        throw new Error(
+          `nonce store: reserved nonce ${[...lease.untracked].join(', ')} was neither tracked with a signed transaction hash nor released`
+        );
       }
       await client.query('COMMIT');
       return result;
@@ -137,7 +178,79 @@ export class NonceStore {
       await client.query('ROLLBACK').catch(() => undefined);
       throw err;
     } finally {
+      try {
+        if (held) await client.query('select pg_advisory_unlock(hashtextextended($1, 0))', [lock]);
+      } catch (error) {
+        client.release(true);
+        throw error;
+      }
       client.release();
+    }
+  }
+
+  /**
+   * Signing accounting must commit before custody runs. Serialize against all
+   * nonce users with a session lock while allowing those short transactions on
+   * the same client. Unsigned holds survive process loss until reconciliation.
+   */
+  async withSigningLock<T>(
+    client: PoolClient,
+    address: string,
+    fn: (lease: NonceLease) => Promise<T>,
+    ownerActionId?: string
+  ): Promise<T> {
+    const key = address.toLowerCase();
+    const lock = `wallet-nonce:${key}`;
+    await client.query('select pg_advisory_lock(hashtextextended($1, 0))', [lock]);
+    try {
+      await client.query(
+        `insert into nonce_allocations (address, chain_id, next_nonce, needs_reconcile)
+         values ($1, $2, 0, true) on conflict (address) do nothing`,
+        [key, this.opts.chainId]
+      );
+      const reservation = await client.query(
+        'select action_id from custody_signing_reservations where address = $1 and chain_id = $2',
+        [key, this.opts.chainId]
+      );
+      if (reservation.rows[0] && reservation.rows[0].action_id !== ownerActionId)
+        throw new Error(
+          'wallet nonce is reserved by an action awaiting custody authorization or broadcast'
+        );
+      const lease = new Lease(client, key, this.opts.pendingCount, this.opts.lookupTransaction);
+      try {
+        const result = await withSigningSession(client, () => fn(lease));
+        if (lease.untracked.size > 0)
+          throw new Error(
+            `nonce store: reserved nonce ${[...lease.untracked].join(', ')} was neither tracked with a signed transaction hash nor released`
+          );
+        return result;
+      } catch (error) {
+        for (const nonce of lease.untracked) await lease.release(nonce);
+        throw error;
+      }
+    } finally {
+      try {
+        await client.query('select pg_advisory_unlock(hashtextextended($1, 0))', [lock]);
+      } catch (error) {
+        throw new NonceLockReleaseError(error);
+      }
+    }
+  }
+
+  async withSigningSession<T>(
+    address: string,
+    fn: (lease: NonceLease) => Promise<T>,
+    ownerActionId?: string
+  ): Promise<T> {
+    const client = await this.opts.pool.connect();
+    let discard = false;
+    try {
+      return await this.withSigningLock(client, address, fn, ownerActionId);
+    } catch (error) {
+      discard = error instanceof NonceLockReleaseError;
+      throw error;
+    } finally {
+      client.release(discard);
     }
   }
 }
@@ -151,7 +264,7 @@ class Lease implements NonceLease {
     private readonly client: PoolClient,
     address: string,
     private readonly latestCount: PendingCountReader,
-    private readonly lookup: TransactionLookupReader,
+    private readonly lookup: TransactionLookupReader
   ) {
     this.address = address;
   }
@@ -170,17 +283,24 @@ class Lease implements NonceLease {
     const { rows: seen } = await this.client.query<{ latest_seen: string }>(
       `update nonce_allocations set latest_seen = greatest(latest_seen, $2), updated_at = now()
         where address = $1 returning latest_seen::text as latest_seen`,
-      [this.address, latest],
+      [this.address, latest]
     );
     const floor = Number(seen[0]!.latest_seen);
-    await this.client.query('delete from nonce_outstanding where address = $1 and nonce < $2', [this.address, floor]);
-    const { rows: aged } = await this.client.query<{ nonce: string; tx_hash: Hex | null; member: string | null }>(
+    await this.client.query('delete from nonce_outstanding where address = $1 and nonce < $2', [
+      this.address,
+      floor,
+    ]);
+    const { rows: aged } = await this.client.query<{
+      nonce: string;
+      tx_hash: Hex | null;
+      member: string | null;
+    }>(
       `select nonce::text as nonce, tx_hash, member
          from nonce_outstanding
         where address = $1 and nonce <= $2
           and created_at <= now() - make_interval(secs => $3::double precision / 1000)
         order by nonce_outstanding.nonce`,
-      [this.address, floor + RECONCILE_WINDOW, BROADCAST_GRACE_MS],
+      [this.address, floor + RECONCILE_WINDOW, BROADCAST_GRACE_MS]
     );
     const unresolved: Array<{ nonce: number; unreachable: number[]; members: number }> = [];
     for (const row of aged) {
@@ -193,32 +313,40 @@ class Lease implements NonceLease {
           continue;
         }
       }
-      // ponytail: a sign-only nonce is held for the broadcast grace period only; a caller must broadcast
-      // its signed bytes before the deadline the sign response returns. A later broadcast after this nonce
-      // was reissued is refused by the node as nonce too low, so nothing double-pays; hold until the
-      // floor passes it if callers need longer.
-      await this.client.query('delete from nonce_outstanding where address = $1 and nonce = $2', [this.address, row.nonce]);
+      // A sign-only nonce is held for the broadcast grace period; callers must broadcast before the deadline.
+      // A late broadcast is refused as nonce too low only after the reissued transaction at that nonce has mined.
+      // While the reissued transaction is still pending, the late transaction can replace it or win the race.
+      await this.client.query('delete from nonce_outstanding where address = $1 and nonce = $2', [
+        this.address,
+        row.nonce,
+      ]);
     }
     const { rows } = await this.client.query<{ nonce: string }>(
       'select nonce::text as nonce from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
-      [this.address],
+      [this.address]
     );
     let next = floor;
     for (const row of rows) {
       if (Number(row.nonce) !== next) break;
       next += 1;
     }
-    if (!Number.isSafeInteger(next)) throw new Error(`nonce store: next nonce ${next} is not a safe integer`);
+    if (!Number.isSafeInteger(next))
+      throw new Error(`nonce store: next nonce ${next} is not a safe integer`);
     const blocking = unresolved.find((u) => u.nonce < next);
-    if (blocking) throw new NonceUnresolvedError(blocking.nonce, blocking.unreachable, blocking.members);
+    if (blocking)
+      throw new NonceUnresolvedError(blocking.nonce, blocking.unreachable, blocking.members);
     return { floor, next };
   }
 
-  private async hold(nonce: number, txHash: string | null, member: string | null = null): Promise<void> {
+  private async hold(
+    nonce: number,
+    txHash: string | null,
+    member: string | null = null
+  ): Promise<void> {
     await this.client.query(
       `insert into nonce_outstanding (address, nonce, tx_hash, member) values ($1, $2, $3, $4)
        on conflict (address, nonce) do update set tx_hash = excluded.tx_hash, member = excluded.member, updated_at = now()`,
-      [this.address, nonce, txHash, member],
+      [this.address, nonce, txHash, member]
     );
   }
 
@@ -235,7 +363,7 @@ class Lease implements NonceLease {
           set next_nonce = greatest((select max(nonce) + 1 from nonce_outstanding where address = $1), latest_seen),
               needs_reconcile = false, reconciled_at = now(), updated_at = now()
         where address = $1`,
-      [this.address],
+      [this.address]
     );
     return next;
   }
@@ -250,7 +378,7 @@ class Lease implements NonceLease {
     if (nonce < floor) throw new NonceBelowLatestError(nonce, floor);
     const { rows } = await this.client.query(
       'select 1 from nonce_outstanding where address = $1 and nonce = $2',
-      [this.address, nonce],
+      [this.address, nonce]
     );
     if (rows[0]) throw new NonceOutstandingError(nonce);
     await this.hold(nonce, null);
@@ -264,7 +392,10 @@ class Lease implements NonceLease {
 
   async release(nonce: number): Promise<void> {
     this.untracked.delete(nonce);
-    await this.client.query('delete from nonce_outstanding where address = $1 and nonce = $2', [this.address, nonce]);
+    await this.client.query('delete from nonce_outstanding where address = $1 and nonce = $2', [
+      this.address,
+      nonce,
+    ]);
   }
 }
 

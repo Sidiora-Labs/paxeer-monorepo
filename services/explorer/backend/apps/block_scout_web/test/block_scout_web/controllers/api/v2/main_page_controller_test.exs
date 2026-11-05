@@ -1,3 +1,5 @@
+Code.require_file("home_feed_scarcity.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.MainPageControllerTest do
   use BlockScoutWeb.ConnCase
 
@@ -73,6 +75,38 @@ defmodule BlockScoutWeb.API.V2.MainPageControllerTest do
 
       assert Enum.map(response, & &1["hash"]) == expected
       assert %{"transaction_types" => ["price_update"], "type" => 127} = hd(response)
+    end
+
+    for evm_count <- 0..2 do
+      test "fills six slots and preserves all #{evm_count} available EVM transactions", %{conn: conn} do
+        BlockScoutWeb.API.V2.HomeFeedScarcity.assert_page(conn, unquote(evm_count))
+      end
+    end
+
+    test "keeps three of the six slots for EVM transactions when submissions fill every block", %{conn: conn} do
+      blocks =
+        Enum.map(100..105, fn number ->
+          block = insert(:block, number: number)
+          transaction = insert(:transaction) |> with_block(block)
+          [update] = store(block, [submission(0)])
+
+          {update, to_string(transaction.hash)}
+        end)
+
+      response = json_response(get(conn, "/api/v2/main-page/transactions"), 200)
+
+      expected =
+        blocks
+        |> Enum.take(-3)
+        |> Enum.reverse()
+        |> Enum.flat_map(fn {update, transaction} -> [update, transaction] end)
+
+      assert length(response) == 6
+      assert Enum.map(response, & &1["hash"]) == expected
+
+      for update <- Enum.take_every(response, 2) do
+        assert update["transaction_types"] == ["price_update"]
+      end
     end
   end
 

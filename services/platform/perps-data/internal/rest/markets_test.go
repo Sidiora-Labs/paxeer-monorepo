@@ -10,12 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 )
 
 var recordFields = []string{
-	"symbol", "symbol_full", "price", "change_24h", "volume_24h", "open_interest", "funding_8h", "last_funding_rate_hourly",
+	"market_id", "symbol", "symbol_full", "price", "change_24h", "volume_24h", "open_interest", "funding_8h", "last_funding_rate_hourly",
 	"volume_7d", "volume_30d", "trades_count", "last_updated",
 	"perp_mark_price", "perp_index_price", "perp_basis_bps", "perp_funding_rate", "perp_next_funding_ms",
 	"perp_long_short_ratio", "perp_liq_volume_24h", "perp_oi_contracts", "perp_oi_usd",
@@ -134,6 +135,9 @@ func TestMarketsREST(t *testing.T) {
 		for i, rec := range records {
 			wantKeys(t, rec, slices.Clone(recordFields)...)
 			symbols[i] = field[string](t, rec, "symbol")
+			if got, want := field[string](t, rec, "market_id"), strconv.FormatInt(marketIDs[seedSymbols[i]], 10); got != want {
+				t.Fatalf("%s market_id %q, want %q", symbols[i], got, want)
+			}
 		}
 		if !slices.Equal(symbols, seedSymbols) {
 			t.Fatalf("symbols %v, want %v", symbols, seedSymbols)
@@ -173,11 +177,17 @@ func TestMarketsREST(t *testing.T) {
 			if got := field[string](t, rec, "symbol"); got != "BTC" {
 				t.Fatalf("%s: symbol %q", path, got)
 			}
+			if got := field[string](t, rec, "market_id"); got != "0" {
+				t.Fatalf("%s: market_id %q, want 0", path, got)
+			}
 			wantNumber(t, rec, "volume_24h", 100)
 		}
 		rec := field[map[string]json.RawMessage](t, serveOK(t, mux, "/api/markets/nas100"), "market")
 		if got := field[string](t, rec, "symbol"); got != "NAS100" {
 			t.Fatalf("symbol %q, want NAS100", got)
+		}
+		if got := field[string](t, rec, "market_id"); got != "7" {
+			t.Fatalf("NAS100 market_id %q, want 7", got)
 		}
 	})
 
@@ -350,5 +360,68 @@ func TestNoEstimatedFundingEmitter(t *testing.T) {
 	}
 	if len(found) != 0 {
 		t.Fatalf("%s still named in %v", needle, found)
+	}
+}
+
+// ProofRESTGet reads the wire response through the same JSON decoder as the
+// route consumers, using a real HTTP connection instead of a recorder.
+func ProofRESTGet(t *testing.T, client *http.Client, base, path string, status int) map[string]json.RawMessage {
+	t.Helper()
+	resp, err := client.Get(base + path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != status {
+		t.Fatalf("%s: status %d, want %d", path, resp.StatusCode, status)
+	}
+	if resp.Header.Get("Content-Type") != "application/json" {
+		t.Fatalf("%s: not JSON", path)
+	}
+	var body map[string]json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	return body
+}
+
+func ProofRESTSeedMarkets(t *testing.T, db *sql.DB, at time.Time) {
+	t.Helper()
+	markPrice(t, db, 0, 40, at, "70000", "69999")
+	fill(t, db, 0, 41, 0, at, true, "70000", "140000")
+	rollingStats(t, db, 0, "140000", "140000", "140000", 1, "100", "50", "70000")
+}
+
+func ProofRESTObserveMarkets(t *testing.T, client *http.Client, base string, mark float64) {
+	t.Helper()
+	for _, path := range []string{"/api/markets", "/api/markets/btc"} {
+		resp, err := client.Get(base + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.Header.Get("Cache-Control") != "no-store" {
+			t.Errorf("%s: market records must not be cached", path)
+		}
+		resp.Body.Close()
+		body := ProofRESTGet(t, client, base, path, http.StatusOK)
+		var rec map[string]json.RawMessage
+		if path == "/api/markets" {
+			all := field[[]map[string]json.RawMessage](t, body, "markets")
+			if len(all) != 18 {
+				t.Fatalf("markets: %d rows", len(all))
+			}
+			rec = all[0]
+		} else {
+			rec = field[map[string]json.RawMessage](t, body, "market")
+		}
+		if field[string](t, rec, "market_id") != "0" || field[string](t, rec, "symbol") != "BTC" {
+			t.Fatalf("market identity: %s", rec)
+		}
+		wantNumber(t, rec, "perp_mark_price", mark)
+		wantNumber(t, rec, "volume_24h", 140000)
+	}
+	body := ProofRESTGet(t, client, base, "/api/markets/UNKNOWN", http.StatusNotFound)
+	if field[string](t, body, "error") != "Unknown symbol: UNKNOWN" {
+		t.Fatal(body)
 	}
 }

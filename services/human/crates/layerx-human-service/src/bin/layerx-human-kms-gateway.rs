@@ -1,42 +1,10 @@
 use std::env;
-use std::fs::File;
-use std::io::Read;
-use std::net::{SocketAddr, TcpListener};
-use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::net::TcpListener;
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::time::Duration;
 
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
-use layerx_human_service::custody::{
-    GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
-};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use rustix::fs::{Mode, OFlags};
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use rustls::RootCertStore;
-use serde::Deserialize;
-use zeroize::Zeroizing;
-
-const PREFIX: &str = "LAYERX_HUMAN_KMS_GATEWAY";
-const REMOTE_PROVIDER: &str = "remote-lxkp";
-const MATERIAL_LIMIT: usize = 65_536;
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RegistrySnapshot {
-    network_id: u32,
-    protocol_version: u16,
-    modules: Vec<RegistryModule>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RegistryModule {
-    module_id: u16,
-    activity_types: Vec<u32>,
-}
+#[path = "kms_gateway/startup.rs"]
+mod startup;
 
 fn main() -> ExitCode {
     match run() {
@@ -49,83 +17,13 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
+    let binding = layerx_client::runtime_clock::ClockBinding::from_environment()
+        .map_err(|error| format!("runtime clock unavailable: {error}"))?;
+    let clock = startup::runtime_clock(binding)?;
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| "the TLS cryptographic provider is already configured".to_owned())?;
-    if required("PROVIDER_KIND")? != REMOTE_PROVIDER {
-        return Err(format!(
-            "{PREFIX}_PROVIDER_KIND must name the non-exportable remote KMS provider \
-             {REMOTE_PROVIDER}; development envelope providers never back the gateway"
-        ));
-    }
-    let listen: SocketAddr = required("LISTEN")?
-        .parse()
-        .map_err(|_| format!("{PREFIX}_LISTEN is invalid"))?;
-    let endpoint: SocketAddr = required("PROVIDER_ENDPOINT")?
-        .parse()
-        .map_err(|_| format!("{PREFIX}_PROVIDER_ENDPOINT is invalid"))?;
-    if endpoint == listen {
-        return Err("the gateway cannot be its own KMS provider".to_owned());
-    }
-    let mut roots = RootCertStore::empty();
-    roots
-        .add(CertificateDer::from(
-            material("PROVIDER_ROOT_CERTIFICATE_DER", false)?.to_vec(),
-        ))
-        .map_err(|_| "the KMS provider trust root is invalid".to_owned())?;
-    let relay = MutualTlsConfig::new(
-        roots,
-        vec![CertificateDer::from(
-            material("PROVIDER_CLIENT_CERTIFICATE_DER", false)?.to_vec(),
-        )],
-        PrivateKeyDer::try_from(material("PROVIDER_CLIENT_PRIVATE_KEY_DER", true)?.to_vec())
-            .map_err(|_| "the KMS provider client private key is invalid".to_owned())?,
-    )
-    .map_err(|_| "the KMS provider mutual TLS identity is invalid".to_owned())?;
-    let provider = RemoteKmsProvider::new(
-        required("PROVIDER_REFERENCE")?,
-        endpoint,
-        required("PROVIDER_SERVER_NAME")?,
-        relay,
-        Limits {
-            maximum_frame_bytes: number("PROVIDER_MAX_FRAME_BYTES")?,
-            maximum_connections: number("PROVIDER_MAX_CONNECTIONS")?,
-            maximum_streams: number("PROVIDER_MAX_STREAMS")?,
-            maximum_queued_bytes: number("PROVIDER_MAX_QUEUED_BYTES")?,
-            deadline: Duration::from_secs(number("PROVIDER_DEADLINE_SECONDS")?),
-        },
-    )
-    .map_err(|error| format!("the KMS provider was refused: {}", error.refusal_code()))?;
-    let tls = GatewayTls::new(
-        &material("CLIENT_CA_DER", false)?,
-        &material("TLS_CERT_DER", false)?,
-        &material("TLS_KEY_DER", true)?,
-        &material("CLIENT_CERT_DER", false)?,
-    )
-    .map_err(|error| {
-        format!(
-            "the gateway TLS identity was refused: {}",
-            error.refusal_code()
-        )
-    })?;
-    let (network_id, protocol_version, registry) = registry()?;
-    let gateway = LxkpGateway::new(
-        Arc::new(provider),
-        tls,
-        GatewayPolicy {
-            network_id,
-            protocol_version,
-            registry,
-            limits: GatewayLimits {
-                maximum_connections: number("MAX_CONNECTIONS")?,
-                maximum_frame_bytes: number("MAX_FRAME_BYTES")?,
-                deadline: Duration::from_secs(number("DEADLINE_SECONDS")?),
-                maximum_operations: number("RATE_MAXIMUM")?,
-                operation_window: Duration::from_secs(number("RATE_WINDOW_SECONDS")?),
-            },
-        },
-    )
-    .map_err(|error| format!("the gateway was refused: {}", error.refusal_code()))?;
+    let (listen, gateway) = startup::prepare(clock, &|name| env::var(name).ok())?;
     let listener =
         TcpListener::bind(listen).map_err(|_| "the gateway listener cannot bind".to_owned())?;
     Arc::new(gateway)
@@ -133,110 +31,44 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("the gateway stopped: {}", error.refusal_code()))
 }
 
-fn registry() -> Result<(u32, u16, ModuleRegistry), String> {
-    let snapshot: RegistrySnapshot = serde_json::from_slice(&material("REGISTRY_FILE", false)?)
-        .map_err(|_| "the registry snapshot is invalid".to_owned())?;
-    if snapshot.network_id == 0 || snapshot.modules.is_empty() || snapshot.modules.len() > 32 {
-        return Err("the registry snapshot scope was refused".to_owned());
-    }
-    let mut modules = Vec::with_capacity(snapshot.modules.len());
-    for module in snapshot.modules {
-        if module.activity_types.is_empty() || module.activity_types.len() > 256 {
-            return Err("a registry module was refused".to_owned());
-        }
-        let id = ModuleId::from_u16(module.module_id)
-            .map_err(|_| "a registry module is invalid".to_owned())?;
-        let kinds = module
-            .activity_types
-            .into_iter()
-            .map(ActivityType::from_u32)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| "a registry activity type is invalid".to_owned())?;
-        modules.push(
-            ModuleRegistration::new(id, &kinds)
-                .map_err(|_| "a registry registration is invalid".to_owned())?,
-        );
-    }
-    let registry =
-        ModuleRegistry::new(&modules).map_err(|_| "the registry is invalid".to_owned())?;
-    Ok((snapshot.network_id, snapshot.protocol_version, registry))
-}
-
-/// Reads one absolute, owner-held, bounded file without following links.
-/// Secret files must not be readable by group or others.
-fn material(suffix: &str, secret: bool) -> Result<Zeroizing<Vec<u8>>, String> {
-    let name = format!("{PREFIX}_{suffix}");
-    let path = PathBuf::from(required(suffix)?);
-    if !path.is_absolute() {
-        return Err(format!("{name} must be absolute"));
-    }
-    protected(&path, secret).map_err(|reason| format!("{name} {reason}"))
-}
-
-fn protected(path: &Path, secret: bool) -> Result<Zeroizing<Vec<u8>>, &'static str> {
-    let descriptor = rustix::fs::open(
-        path,
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-        Mode::empty(),
-    )
-    .map_err(|_| "cannot be opened")?;
-    let mut file = File::from(descriptor);
-    let metadata = file.metadata().map_err(|_| "has no metadata")?;
-    if !metadata.is_file()
-        || metadata.uid() != rustix::process::geteuid().as_raw()
-        || metadata.mode() & (if secret { 0o077 } else { 0o022 }) != 0
-    {
-        return Err("ownership or permissions were refused");
-    }
-    let mut bytes = Zeroizing::new(Vec::new());
-    file.by_ref()
-        .take(u64::try_from(MATERIAL_LIMIT).map_err(|_| "bound is invalid")? + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| "is unreadable")?;
-    if bytes.is_empty() || bytes.len() > MATERIAL_LIMIT {
-        return Err("size was refused");
-    }
-    Ok(bytes)
-}
-
-fn required(suffix: &str) -> Result<String, String> {
-    let name = format!("{PREFIX}_{suffix}");
-    env::var(&name)
-        .ok()
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| format!("{name} is required"))
-}
-
-fn number<T: std::str::FromStr>(suffix: &str) -> Result<T, String> {
-    required(suffix)?
-        .parse()
-        .map_err(|_| format!("{PREFIX}_{suffix} is invalid"))
-}
-
 #[cfg(test)]
 mod tests {
+    use layerx_types::clock::Deadline;
     use std::fs;
     use std::net::TcpStream;
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Child, Command, Output, Stdio};
-    use std::time::Instant;
 
-    use layerx_client::lni::framing::{read_frame, write_frame};
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, Disclosure};
     use layerx_crypto::ed25519::verify_digest;
     use layerx_human_service::custody::{
         CustodyError, EnvelopeKms, KeyClass, KmsError, KmsProvider, PrincipalKeyBinding,
         GATEWAY_FRAME_LIMIT,
     };
-    use layerx_intents::owner_activity::{unsigned_native, OwnerEnvelopeContext};
+    use layerx_human_service::frame::{read_frame, write_frame};
     use layerx_intents::NativeOwnerBootstrap;
     use layerx_types::ids::Did;
     use layerx_types::intent::PublicKey;
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
     use rustls::pki_types::ServerName;
     use rustls::{ClientConfig, ClientConnection, StreamOwned};
     use sha2::{Digest as _, Sha256};
 
+    use super::startup::protected;
     use super::*;
+    use layerx_client::runtime_clock::ClockBinding;
+    use layerx_human_service::custody::{
+        GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
+    };
+    use layerx_human_service::frame::{Limits, MutualTlsConfig};
+    use layerx_types::clock::Clock;
+    use layerx_types::payload::ModuleRegistry;
+    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+    use rustls::RootCertStore;
+    use std::net::SocketAddr;
+    use std::path::PathBuf;
+    use std::time::Duration;
+    use zeroize::Zeroizing;
 
     const OK: u8 = 0;
 
@@ -256,6 +88,48 @@ mod tests {
 
     fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> TestResult<T> {
         value.map_err(|error| format!("{error:?}").into())
+    }
+
+    struct OwnerEnvelopeContext {
+        owner_public_key: [u8; 32],
+        network_id: u32,
+        account_sequence: u64,
+        action_key: [u8; 32],
+        fee_limit: u128,
+    }
+
+    fn unsigned_native(
+        compiled: &layerx_intents::CompiledIntent,
+        context: &OwnerEnvelopeContext,
+    ) -> TestResult<(Vec<u8>, Disclosure)> {
+        let payload = compiled.payload().as_bytes();
+        let mut data =
+            layerx_crypto::disclosure::call::ledger_selector("recordLifecycle(bytes,bytes32)")
+                .to_vec();
+        let mut offset = [0; 32];
+        offset[31] = 64;
+        data.extend_from_slice(&offset);
+        data.extend_from_slice(&context.action_key);
+        let mut length = [0; 32];
+        length[24..].copy_from_slice(&u64::try_from(payload.len())?.to_be_bytes());
+        data.extend_from_slice(&length);
+        data.extend_from_slice(payload);
+        data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+        let mut to = [0; 20];
+        to[18..].copy_from_slice(&0x101c_u16.to_be_bytes());
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: u64::from(context.network_id),
+            nonce: context.account_sequence,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: context.fee_limit,
+            gas_limit: 1,
+            to,
+            data,
+        };
+        let sender = context.owner_public_key[12..].try_into()?;
+        let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, sender))?;
+        let bytes = call.encode_unsigned();
+        Ok((bytes, disclosure))
     }
 
     fn modules() -> TestResult<ModuleRegistry> {
@@ -370,21 +244,16 @@ mod tests {
             .compile(&registry),
         )?;
         let context = OwnerEnvelopeContext {
-            actor: did,
             owner_public_key: public,
             network_id: NETWORK,
             account_sequence: 10,
-            not_before_ms: 1_000,
-            not_after_ms: 61_000,
             action_key: [u8::try_from(compiled.activity_type().ordinal())?; 32],
             fee_limit: 100,
         };
-        let (unsigned, disclosure) = checked(unsigned_native(&compiled, &context, &registry))?;
-        let mut preimage = Sha256::new();
-        preimage.update(b"LXP/v1/signature-preimage\0");
-        preimage.update(&unsigned);
+        let (unsigned, disclosure) = checked(unsigned_native(&compiled, &context))?;
+        let call = checked(layerx_crypto::evm_transaction::decode_unsigned(&unsigned))?;
         Ok(Activity {
-            digest: preimage.finalize().into(),
+            digest: call.signing_hash(),
             encoded: encoded_disclosure(&disclosure)?,
             unsigned,
         })
@@ -439,6 +308,7 @@ mod tests {
     }
 
     struct Fixture {
+        clock: Arc<dyn Clock>,
         root: PathBuf,
         backend: SocketAddr,
         child: Option<Child>,
@@ -467,6 +337,7 @@ mod tests {
             fs::create_dir(&root)?;
             fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
             let fixture = Self {
+                clock: layerx_client::runtime_clock::RuntimeClock::from_environment()?,
                 root,
                 backend: free_address()?,
                 child: None,
@@ -570,6 +441,7 @@ mod tests {
                     &serde_json::json!({"network_id": NETWORK, "protocol_version": 3, "modules": modules}),
                 )?,
             )?;
+            fs::write(self.root.join("chain.json"), br#"{"chain_id":125}"#)?;
             for entry in fs::read_dir(&self.root)? {
                 fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
             }
@@ -604,13 +476,15 @@ mod tests {
             let binary = std::env::var(BACKEND_BINARY)
                 .map_err(|_| format!("{BACKEND_BINARY} must name the layerx-human-kms binary"))?;
             let mut command = Command::new(binary);
+            let clock_binding = ClockBinding::from_environment()?;
+            startup::forward_clock_binding(&mut command, &clock_binding);
             command
                 .env("LAYERX_HUMAN_KMS_LISTEN", self.backend.to_string())
                 .env("LAYERX_HUMAN_KMS_PROVIDER_REFERENCE", PROVIDER)
                 .env("LAYERX_HUMAN_KMS_STATE_DIR", self.path("state"))
                 .env("LAYERX_HUMAN_KMS_DEADLINE_SECONDS", "5");
             for (suffix, file) in [
-                ("REGISTRY_FILE", "registry.json"),
+                ("REGISTRY_FILE", "chain.json"),
                 ("CLIENT_CA_DER", "ca.der"),
                 ("TLS_CERT_DER", "backend.der"),
                 ("TLS_KEY_DER", "backend-key.der"),
@@ -625,7 +499,7 @@ mod tests {
                     .stderr(Stdio::null())
                     .spawn()?,
             );
-            let started = Instant::now();
+            let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(15))?;
             loop {
                 if self.provider(self.backend, "relay")?.probe().is_ok() {
                     return Ok(());
@@ -639,7 +513,7 @@ mod tests {
                 {
                     return Err("the KMS backend exited at startup".into());
                 }
-                if started.elapsed() > Duration::from_secs(15) {
+                if deadline.remaining(self.clock.as_ref())?.is_zero() {
                     return Err("the KMS backend startup deadline passed".into());
                 }
                 std::thread::sleep(Duration::from_millis(20));
@@ -662,6 +536,12 @@ mod tests {
 
         /// The production LXKP client, presenting `identity`, aimed at `endpoint`.
         fn provider(&self, endpoint: SocketAddr, identity: &str) -> TestResult<RemoteKmsProvider> {
+            let deadline_tls = ClientConfig::builder()
+                .with_root_certificates(self.roots()?)
+                .with_client_auth_cert(
+                    vec![CertificateDer::from(self.read(&format!("{identity}.der"))?)],
+                    PrivateKeyDer::try_from(self.read(&format!("{identity}-key.der"))?)?,
+                )?;
             Ok(RemoteKmsProvider::new(
                 PROVIDER,
                 endpoint,
@@ -674,7 +554,9 @@ mod tests {
                     maximum_queued_bytes: GATEWAY_FRAME_LIMIT,
                     deadline: Duration::from_secs(5),
                 },
-            )?)
+                Arc::clone(&self.clock),
+            )?
+            .with_deadline_transport(Arc::new(deadline_tls)))
         }
 
         fn tls(&self, pinned: &str) -> TestResult<GatewayTls> {
@@ -693,6 +575,7 @@ mod tests {
                 Arc::new(self.provider(self.backend, "relay")?),
                 self.tls("service")?,
                 policy(limits)?,
+                Arc::clone(&self.clock),
             )?);
             let listener = TcpListener::bind("127.0.0.1:0")?;
             let address = listener.local_addr()?;
@@ -762,6 +645,7 @@ mod tests {
             command
                 .env_clear()
                 .env("LAYERX_HUMAN_KMS_GATEWAY_PROVIDER_KIND", kind);
+            startup::forward_clock_binding(&mut command, &ClockBinding::from_environment()?);
             for (suffix, value) in [
                 ("LISTEN", listen.to_string()),
                 ("PROVIDER_REFERENCE", PROVIDER.to_owned()),
@@ -781,7 +665,7 @@ mod tests {
                 command.env(format!("LAYERX_HUMAN_KMS_GATEWAY_{suffix}"), value);
             }
             for (suffix, file) in [
-                ("REGISTRY_FILE", "registry.json"),
+                ("REGISTRY_FILE", "chain.json"),
                 ("CLIENT_CA_DER", "ca.der"),
                 ("TLS_CERT_DER", "gateway.der"),
                 ("TLS_KEY_DER", "gateway-key.der"),
@@ -799,10 +683,11 @@ mod tests {
         }
     }
 
-    fn refused_startup(output: &Output) -> bool {
+    fn refused_startup(output: &Output, reason: &str) -> bool {
         !output.status.success()
-            && String::from_utf8_lossy(&output.stderr)
-                .contains("layerx-human-kms-gateway refused startup")
+            && String::from_utf8_lossy(&output.stderr).contains(&format!(
+                "layerx-human-kms-gateway refused startup: {reason}"
+            ))
     }
 
     #[test]
@@ -813,6 +698,7 @@ mod tests {
             Arc::new(development),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(
             outcome,
@@ -828,6 +714,7 @@ mod tests {
             Arc::new(fixture.provider(free_address()?, "relay")?),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(absent, Err(CustodyError::Kms(_))));
         for bounds in [
@@ -856,6 +743,7 @@ mod tests {
                 Arc::new(fixture.provider(free_address()?, "relay")?),
                 fixture.tls("service")?,
                 policy(bounds)?,
+                Arc::clone(&fixture.clock),
             );
             assert!(matches!(outcome, Err(CustodyError::InvalidLimits)));
         }
@@ -866,6 +754,7 @@ mod tests {
                 network_id: 0,
                 ..policy(limits())?
             },
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(wrong_network, Err(CustodyError::InvalidNetwork)));
         Ok(())
@@ -1069,6 +958,7 @@ mod tests {
             Arc::new(fixture.provider(fixture.backend, "foreign")?),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(unauthenticated, Err(CustodyError::Kms(_))));
         let wrong_provider = fixture.call(address, Some("service"), &header(1, 0, "other-kms")?)?;
@@ -1120,15 +1010,29 @@ mod tests {
             let output = fixture
                 .binary(free_address()?, kind, fixture.backend)?
                 .output()?;
-            assert!(refused_startup(&output));
+            let reason = if kind.is_empty() {
+                "LAYERX_HUMAN_KMS_GATEWAY_PROVIDER_KIND is required"
+            } else {
+                "LAYERX_HUMAN_KMS_GATEWAY_PROVIDER_KIND must name the non-exportable remote KMS provider remote-lxkp"
+            };
+            assert!(
+                refused_startup(&output, reason),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
         let output = fixture
             .binary(free_address()?, "remote-lxkp", free_address()?)?
             .output()?;
-        assert!(refused_startup(&output));
+        assert!(
+            refused_startup(&output, "the gateway was refused: kms-timeout"),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         let same = free_address()?;
         assert!(refused_startup(
-            &fixture.binary(same, "remote-lxkp", same)?.output()?
+            &fixture.binary(same, "remote-lxkp", same)?.output()?,
+            "the gateway cannot be its own KMS provider"
         ));
         let listen = free_address()?;
         let mut gateway = fixture
@@ -1144,19 +1048,23 @@ mod tests {
 
     fn serve_probe(fixture: &Fixture, listen: SocketAddr, gateway: &mut Child) -> TestResult {
         let client = fixture.provider(listen, "service")?;
-        let started = Instant::now();
+        let mut deadline = Deadline::start(fixture.clock.as_ref(), Duration::from_secs(15))?;
         while client.probe().is_err() {
             if gateway.try_wait()?.is_some() {
                 return Err("the gateway binary exited at startup".into());
             }
-            if started.elapsed() > Duration::from_secs(15) {
+            if deadline.remaining(fixture.clock.as_ref())?.is_zero() {
                 return Err("the gateway binary startup deadline passed".into());
             }
             std::thread::sleep(Duration::from_millis(20));
         }
-        let binding =
+        let snapshot = startup::snapshot(&fixture.path("chain.json"))?;
+        let binding = startup::probe_binding(&snapshot, PROVIDER)?;
+        let wrong_network =
             PrincipalKeyBinding::new(b"carol".to_vec(), NETWORK, KeyClass::HumanPrimary, PROVIDER)?;
+        assert_eq!(client.create_key(&wrong_network), Err(KmsError::Refused));
         let created = client.create_key(&binding)?;
+        assert_eq!(created.binding_digest(), binding.digest());
         assert_eq!(client.describe_key(&binding, created.reference())?, created);
         Ok(())
     }

@@ -6,7 +6,9 @@ use layerx_wire::encode::Encoder;
 use layerx_wire::hash::Domain;
 use sha2::{Digest as _, Sha256};
 
+use crate::disclosure::call::bind_call;
 use crate::disclosure::{bind, Disclosure, DisclosureError};
+use crate::evm_transaction::Eip1559Call;
 use crate::signer::{SignError, Signer, SigningRequest};
 use crate::SignatureMessage;
 
@@ -157,6 +159,64 @@ impl SendDebit {
     }
 }
 
+pub struct CallOptions {
+    pub from: [u8; 20],
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
+    pub gas_limit: u64,
+}
+
+pub struct DisclosedCall {
+    pub call: Eip1559Call,
+    pub disclosure: Disclosure,
+}
+
+impl DisclosedCall {
+    /// Binds a prepared call at the consumer boundary, independently of its producer.
+    ///
+    /// # Errors
+    /// Refuses malformed or unsupported construct calldata.
+    pub fn from_call(call: Eip1559Call, from: [u8; 20]) -> Result<Self, DisclosureError> {
+        let disclosure = bind_call(&call, from)?;
+        Ok(Self { call, disclosure })
+    }
+}
+
+/// # Errors
+/// Rejects malformed send payloads and calls whose maximum fee overflows uint128.
+pub fn ledger_payment_call(
+    payload: &[u8],
+    options: &CallOptions,
+) -> Result<DisclosedCall, DisclosureError> {
+    let mut data = vec![0x2b, 0xb1, 0xae, 0x7c];
+    let mut offset = [0; 32];
+    offset[31] = 32;
+    data.extend_from_slice(&offset);
+    let mut length = [0; 32];
+    length[16..].copy_from_slice(&(payload.len() as u128).to_be_bytes());
+    data.extend_from_slice(&length);
+    data.extend_from_slice(payload);
+    let padding = (32 - payload.len() % 32) % 32;
+    data.resize(data.len() + padding, 0);
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+    let call = Eip1559Call {
+        chain_id: options.chain_id,
+        nonce: options.nonce,
+        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+        max_fee_per_gas: options.max_fee_per_gas,
+        gas_limit: options.gas_limit,
+        to,
+        data,
+    };
+    DisclosedCall::from_call(call, options.from)
+}
+
+#[deprecated(
+    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
+)]
 pub struct EnvelopeOptions<'a> {
     pub actor: &'a str,
     pub public_key: [u8; 32],
@@ -169,6 +229,9 @@ pub struct EnvelopeOptions<'a> {
     pub not_after: u64,
 }
 
+#[deprecated(
+    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
+)]
 pub struct DisclosedEnvelope {
     pub envelope: UnsignedEnvelope,
     pub registry: ModuleRegistry,
@@ -178,26 +241,18 @@ pub struct DisclosedEnvelope {
 
 /// # Errors
 /// Rejects malformed payloads and preserves independent source and identity sequences.
+#[deprecated(
+    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
+)]
 pub fn encode_send_envelope(
-    payload: &[u8],
-    options: &EnvelopeOptions<'_>,
-) -> Result<DisclosedEnvelope, DisclosureError> {
-    encode_payment_envelope(ModuleId::Asset, 5, payload, options)
-}
-
-/// # Errors
-/// Rejects unsupported types, malformed envelopes, signatures and incomplete disclosures.
-pub fn encode_payment_envelope(
-    module: ModuleId,
-    ordinal: u16,
     payload: &[u8],
     options: &EnvelopeOptions<'_>,
 ) -> Result<DisclosedEnvelope, DisclosureError> {
     fn bad<E>(_: E) -> DisclosureError {
         DisclosureError::MalformedPayload
     }
-    let kind = ActivityType::new(module, ordinal).map_err(bad)?;
-    let registration = ModuleRegistration::new(module, &[kind]).map_err(bad)?;
+    let kind = ActivityType::new(ModuleId::Asset, 5).map_err(bad)?;
+    let registration = ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(bad)?;
     let registry = ModuleRegistry::new(&[registration]).map_err(bad)?;
     let mut hash = Sha256::new();
     hash.update(Domain::PayloadHash.tag());

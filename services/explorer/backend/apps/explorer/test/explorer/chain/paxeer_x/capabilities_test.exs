@@ -12,8 +12,6 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
   @head_quantity "0x16C1320"
 
   @code_addresses %{
-    "0x0000000000000000000000000000000000001013" => :custody,
-    "0x0000000000000000000000000000000000001014" => :anchor,
     "0x0000000000000000000000000000000000001015" => :exchange,
     "0x0000000000000000000000000000000000001016" => :bridge,
     "0x0000000000000000000000000000000000001017" => :launchpad
@@ -21,6 +19,14 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
 
   @addr_precompile "0x0000000000000000000000000000000000001004"
   @get_unified_account "0x357feed6" <> String.duplicate("0", 64)
+  @view_calls %{
+    "0x0000000000000000000000000000000000001015" => "0xb71d031c" <> String.duplicate("0", 64),
+    "0x0000000000000000000000000000000000001016" => "0xb187bd26",
+    "0x0000000000000000000000000000000000001017" =>
+      "0x" <> (ExKeccak.hash_256("getPoolCount()") |> binary_part(0, 4) |> Base.encode16(case: :lower))
+  }
+  @view_word "0x" <> String.duplicate("0", 64)
+  @reverted %{error: %{code: -32_000, message: "execution reverted"}}
 
   # `(address, string, bytes32, bytes32)` as the addr precompile returns it for
   # an account with no binding: four head words, then the empty `paxAddr`.
@@ -35,6 +41,90 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
 
   setup :verify_on_exit!
 
+  test "reads native surfaces as live when their view calls answer one word and absent when they revert" do
+    set_mox_global()
+
+    live = %{result: @view_word}
+    node = start_supervised!({Agent, fn -> {live, live, live} end})
+
+    stub(EthereumJSONRPC.Mox, :json_rpc, fn
+      %{method: "eth_blockNumber", params: []}, _options ->
+        {:ok, @head}
+
+      requests, _options when is_list(requests) ->
+        {exchange, bridge, launchpad} = Agent.get(node, & &1)
+
+        assert length(requests) == 4
+        assert Enum.all?(requests, &(&1.method == "eth_call"))
+        assert requests |> Enum.map(& &1.id) |> Enum.uniq() |> length() == 4
+
+        responses =
+          Enum.map(requests, fn
+            %{id: id, method: "eth_call", params: [%{to: address, data: data}, block]}
+            when is_map_key(@view_calls, address) ->
+              assert Map.fetch!(@view_calls, address) == data
+              assert block == @head_quantity
+
+              response =
+                case address do
+                  "0x0000000000000000000000000000000000001015" -> exchange
+                  "0x0000000000000000000000000000000000001016" -> bridge
+                  "0x0000000000000000000000000000000000001017" -> launchpad
+                end
+
+              response |> Map.put(:id, id) |> Map.put(:jsonrpc, "2.0")
+
+            request ->
+              answer(request, "0x", %{result: @unified_account_answer})
+          end)
+
+        {:ok, Enum.reverse(responses)}
+    end)
+
+    start_supervised!(Capabilities)
+
+    for {exchange, bridge, launchpad, exchange_live, bridge_live, launchpad_live} <- [
+          {live, live, @reverted, true, true, false},
+          {live, live, live, true, true, true},
+          {@reverted, live, live, false, true, true},
+          {live, @reverted, live, true, false, true},
+          {@reverted, @reverted, live, false, false, true},
+          {@reverted, @reverted, @reverted, false, false, false}
+        ] do
+      Agent.update(node, fn _ -> {exchange, bridge, launchpad} end)
+
+      assert {:ok, snapshot} = Capabilities.refresh()
+      assert snapshot.exchange == exchange_live
+      assert snapshot.bridge == bridge_live
+      assert snapshot.launchpad == launchpad_live
+      assert snapshot.unified_account
+      assert %DateTime{} = snapshot.checked_at
+      assert Capabilities.all() == snapshot
+      assert Capabilities.live?(:exchange) == exchange_live
+      assert Capabilities.live?(:bridge) == bridge_live
+      assert Capabilities.live?(:launchpad) == launchpad_live
+    end
+
+    Agent.update(node, fn _ -> {live, live, live} end)
+    assert {:ok, stored} = Capabilities.refresh()
+
+    for surface <- [:exchange, :bridge, :launchpad],
+        malformed <- ["0x", "0x01", @view_word <> "00", "0x" <> String.duplicate("z", 64), nil] do
+      response = %{result: malformed}
+
+      Agent.update(node, fn _ ->
+        case surface do
+          :exchange -> {response, live, live}
+          :bridge -> {live, response, live}
+          :launchpad -> {live, live, response}
+        end
+      end)
+
+      assert {:error, {^surface, {:unexpected_response, %{result: ^malformed}}}} = Capabilities.refresh()
+      assert Capabilities.all() == stored
+    end
+  end
+
   describe "probe/1" do
     test "reads the surfaces the chain does not carry yet as absent" do
       expect_probe("0x", %{error: %{code: -32_000, message: "execution reverted"}})
@@ -42,8 +132,6 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       assert {:ok, snapshot} = Capabilities.probe(json_rpc_named_arguments())
 
       assert %{
-               custody: false,
-               anchor: false,
                exchange: false,
                bridge: false,
                launchpad: false,
@@ -59,8 +147,6 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       assert {:ok, snapshot} = Capabilities.probe(json_rpc_named_arguments())
 
       assert %{
-               custody: true,
-               anchor: true,
                exchange: true,
                bridge: true,
                launchpad: true,
@@ -71,18 +157,22 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
     test "reads an addr answer shorter than the declared layout as absent" do
       expect_probe(@bytecode, %{result: "0x" <> String.duplicate("0", 64)})
 
-      assert {:ok, %{custody: true, unified_account: false}} =
+      assert {:ok, %{exchange: true, bridge: true, launchpad: true, unified_account: false}} =
                Capabilities.probe(json_rpc_named_arguments())
     end
 
-    test "refuses an answer that is not a code string" do
+    test "refuses a malformed exchange view word" do
       EthereumJSONRPC.Mox
       |> expect(:json_rpc, fn %{method: "eth_blockNumber"}, _options -> {:ok, @head} end)
       |> expect(:json_rpc, fn requests, _options when is_list(requests) ->
-        {:ok, Enum.map(requests, &answer(&1, "0xzz", %{result: @unified_account_answer}))}
+        {:ok,
+         Enum.map(requests, fn request ->
+           response = answer(request, @bytecode, %{result: @unified_account_answer})
+           if request.id == 0, do: %{response | result: "0xzz"}, else: response
+         end)}
       end)
 
-      assert {:error, {:custody, {:unexpected_code, "zz"}}} =
+      assert {:error, {:exchange, {:unexpected_response, %{result: "0xzz"}}}} =
                Capabilities.probe(json_rpc_named_arguments())
     end
 
@@ -149,7 +239,7 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       assert_receive :probed
 
       assert {:error, :econnrefused} = Capabilities.refresh()
-      assert Capabilities.live?(:custody)
+      for surface <- [:unified_account, :exchange, :bridge, :launchpad], do: assert(Capabilities.live?(surface))
     end
   end
 
@@ -163,13 +253,23 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
     end
   end
 
+  test "retired capability names are rejected" do
+    assert Capabilities.surfaces() == [:unified_account, :exchange, :bridge, :launchpad]
+
+    for retired <- [:custody, :anchor] do
+      refute Map.has_key?(Capabilities.all(), retired)
+      assert_raise FunctionClauseError, fn -> Capabilities.address(retired) end
+      assert_raise FunctionClauseError, fn -> Capabilities.live?(retired) end
+    end
+  end
+
   defp expect_probe(code, unified_account_answer) do
     EthereumJSONRPC.Mox
     |> expect(:json_rpc, fn %{id: _, method: "eth_blockNumber", params: []}, _options ->
       {:ok, @head}
     end)
     |> expect(:json_rpc, fn requests, _options when is_list(requests) ->
-      assert length(requests) == map_size(@code_addresses) + 1
+      assert length(requests) == map_size(@view_calls) + 1
 
       {:ok, Enum.map(requests, &answer(&1, code, unified_account_answer))}
     end)
@@ -181,9 +281,23 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
          _unified_account_answer
        ) do
     assert Map.has_key?(@code_addresses, address)
+    assert address == "0x0000000000000000000000000000000000001017"
     assert block == @head_quantity
 
     %{id: id, jsonrpc: "2.0", result: code}
+  end
+
+  defp answer(
+         %{id: id, method: "eth_call", params: [%{to: to, data: data}, block]},
+         code,
+         _unified_account_answer
+       )
+       when is_map_key(@view_calls, to) do
+    assert data == Map.fetch!(@view_calls, to)
+    assert block == @head_quantity
+
+    response = if code == "0x", do: @reverted, else: %{result: @view_word}
+    response |> Map.put(:id, id) |> Map.put(:jsonrpc, "2.0")
   end
 
   defp answer(

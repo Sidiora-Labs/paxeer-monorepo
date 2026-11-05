@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 python_sdk_task_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-export PYTHONPATH="$python_sdk_task_root/agent/sdk/python${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$python_sdk_task_root/services/agent/sdk/python${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONDONTWRITEBYTECODE=1
 exec python3 - "$python_sdk_task_root" <<'PY'
 import importlib.util
@@ -17,8 +17,7 @@ if not os.environ.get('LAYERX_PYTHON_PROGRAM_HTTP_FIXTURE') or not os.environ.ge
                       'reason': 'protected real gateway/native cluster HTTP fixture and genuine signed native v5 corpus required'}))
     sys.exit(78)
 suite = unittest.TestSuite()
-paths = ['sdk/platform/conformance/terminal-v4.test.py',
-         'tests/agent/sdk/python/test_native_program_call.py',
+paths = ['tests/agent/sdk/python/test_native_program_call.py',
          'tests/agent/sdk/python/test_native_program_binding.py',
          'tests/agent/sdk/python/test_program_lifecycle.py',
          'tests/agent/sdk/python/test_program_executed_v3.py',

@@ -13,6 +13,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#define LXP_NATIVE_LEDGER_SUPPORT_ONLY
+#include "test_bridge_deposit.c"
+#undef LXP_NATIVE_LEDGER_SUPPORT_ONLY
+
+/* fee_wire is an arithmetic/codec unit model, not committed kernel evidence.
+ * test_kernel_fee_log_reopen below proves canonical producer/consumer replay. */
+
 enum { TEST_RECORDS = 4, WIRE_BYTES = 56, ENTRY_BYTES = 100 };
 
 typedef struct fee_wire {
@@ -408,7 +415,120 @@ static int policy_boundaries(void)
     return 0;
 }
 
-int main(void)
+
+typedef struct kernel_fee_consumer {
+    native_ledger_fixture *fixture;
+    lxp_receipt emitted;
+    size_t activities;
+    size_t receipts;
+} kernel_fee_consumer;
+
+static lxp_result consume_kernel_fee_record(void *opaque,
+    const lxp_log_record_header *header, const uint8_t *body)
+{
+    kernel_fee_consumer *consumer = opaque;
+    lxp_result status;
+    if (header->record_kind == (uint8_t)LXP_LOG_ACTIVITY) {
+        if (consumer->activities != consumer->receipts ||
+            header->global_sequence != consumer->fixture->state.next_sequence)
+            return LXP_FATAL_REPLAY_DIVERGENCE;
+        status = native_ledger_execute(consumer->fixture, body,
+            header->body_length, &consumer->emitted);
+        if (status == LXP_OK) ++consumer->activities;
+        return status;
+    }
+    if (header->record_kind == (uint8_t)LXP_LOG_RECEIPT) {
+        lxp_receipt persisted;
+        lxp_byte_span encoded;
+        uint8_t storage[LXP_MAX_ACTIVITY_BYTES];
+        lxp_arena arena;
+        if (consumer->activities != consumer->receipts + 1U ||
+            header->global_sequence != consumer->emitted.global_sequence)
+            return LXP_FATAL_REPLAY_DIVERGENCE;
+        status = lxp_receipt_decode(body, header->body_length, true, &persisted);
+        if (status == LXP_OK)
+            status = lxp_arena_init(&arena, storage, sizeof(storage));
+        if (status == LXP_OK)
+            status = lxp_receipt_verify(&persisted, consumer->fixture->public_key, &arena);
+        if (status == LXP_OK) status = lxp_arena_reset(&arena, 0U);
+        if (status == LXP_OK)
+            status = lxp_receipt_encode(&consumer->emitted, true, &arena, &encoded);
+        if (status == LXP_OK && (encoded.length != header->body_length ||
+            memcmp(encoded.bytes, body, encoded.length) != 0))
+            status = LXP_FATAL_REPLAY_DIVERGENCE;
+        if (status == LXP_OK) ++consumer->receipts;
+        return status;
+    }
+    return LXP_FATAL_REPLAY_DIVERGENCE;
+}
+
+static int test_kernel_fee_log_reopen(void)
+{
+    static native_ledger_fixture f;
+    char directory[] = "/tmp/lxp-kernel-fee-XXXXXX";
+    char path[128];
+    uint8_t canonical[2048], first[2048], root[32], recovered[32], receipt_root[32];
+    size_t length, first_length = 0U;
+    lxp_log log;
+    lxp_receipt receipt;
+    NATIVE_CHECK(native_ledger_init(&f) == 0);
+    NATIVE_CHECK(mkdtemp(directory) != NULL);
+    NATIVE_CHECK(lxp_log_segment_create(&log, directory, 0U, 65536U) == LXP_OK);
+    for (uint64_t index = 0U; index < 3U; ++index) {
+        uint8_t storage[LXP_MAX_ACTIVITY_BYTES];
+        lxp_arena arena;
+        lxp_byte_span encoded;
+        NATIVE_CHECK(native_ledger_activity(&f, index, 25U, canonical,
+            sizeof(canonical), &length) == 0);
+        if (index == 0U) {
+            first_length = length;
+            (void)memcpy(first, canonical, length);
+        }
+        NATIVE_CHECK(native_ledger_execute(&f, canonical, length, &receipt) == LXP_OK);
+        NATIVE_CHECK(receipt.result_code == LXP_OK && receipt.fee_charged.hi == 0U && receipt.fee_charged.lo == 7U);
+        NATIVE_CHECK(receipt.global_sequence == index + 1U);
+        NATIVE_CHECK(lxp_arena_init(&arena, storage, sizeof(storage)) == LXP_OK);
+        NATIVE_CHECK(lxp_receipt_verify(&receipt, f.public_key, &arena) == LXP_OK);
+        NATIVE_CHECK(lxp_arena_reset(&arena, 0U) == LXP_OK);
+        NATIVE_CHECK(lxp_receipt_encode(&receipt, true, &arena, &encoded) == LXP_OK);
+        NATIVE_CHECK(encoded.length <= LXP_STATE_MAX_RECEIPT_BYTES);
+        NATIVE_CHECK(lxp_log_append(&log, LXP_LOG_ACTIVITY, receipt.global_sequence,
+            canonical, (uint32_t)length, NULL) == LXP_OK);
+        NATIVE_CHECK(lxp_log_append(&log, LXP_LOG_RECEIPT, receipt.global_sequence,
+            encoded.bytes, (uint32_t)encoded.length, NULL) == LXP_OK);
+    }
+    NATIVE_CHECK(native_ledger_balance_proof(&f, f.sender, 904U) == 0);
+    NATIVE_CHECK(native_ledger_balance_proof(&f, f.recipient, 75U) == 0);
+    NATIVE_CHECK(native_ledger_balance_proof(&f, f.treasury, 21U) == 0);
+    NATIVE_CHECK(lxp_state_root(&f.kernel, root) == LXP_OK);
+    (void)memcpy(receipt_root, f.kernel.current_state_root, 32U);
+    NATIVE_CHECK(lxp_log_write_boundary(&log) == LXP_OK);
+    NATIVE_CHECK(lxp_log_close(&log) == LXP_OK);
+    NATIVE_CHECK(native_ledger_destroy(&f) == 0);
+    NATIVE_CHECK(snprintf(path, sizeof(path), "%s/%020u.lxp", directory, 0U) > 0);
+    for (unsigned restart = 0U; restart < 2U; ++restart) {
+        kernel_fee_consumer consumer = {0};
+        NATIVE_CHECK(native_ledger_init(&f) == 0);
+        consumer.fixture = &f;
+        NATIVE_CHECK(lxp_log_open(&log, path) == LXP_OK);
+        NATIVE_CHECK(lxp_log_recover(&log, consume_kernel_fee_record, &consumer) == LXP_OK);
+        NATIVE_CHECK(consumer.activities == 3U && consumer.receipts == 3U);
+        NATIVE_CHECK(lxp_state_root(&f.kernel, recovered) == LXP_OK && memcmp(root, recovered, 32U) == 0);
+        NATIVE_CHECK(memcmp(receipt_root, f.kernel.current_state_root, 32U) == 0);
+        NATIVE_CHECK(native_ledger_balance_proof(&f, f.sender, 904U) == 0);
+        NATIVE_CHECK(native_ledger_balance_proof(&f, f.recipient, 75U) == 0);
+        NATIVE_CHECK(native_ledger_balance_proof(&f, f.treasury, 21U) == 0);
+        NATIVE_CHECK(native_ledger_execute(&f, first, first_length, &receipt) == LXP_ERR_SEQUENCE_REUSED);
+        NATIVE_CHECK(lxp_state_root(&f.kernel, recovered) == LXP_OK && memcmp(root, recovered, 32U) == 0);
+        NATIVE_CHECK(f.sender->balance.lo == 904U && f.treasury->balance.lo == 21U);
+        NATIVE_CHECK(lxp_log_close(&log) == LXP_OK);
+        NATIVE_CHECK(native_ledger_destroy(&f) == 0);
+    }
+    NATIVE_CHECK(unlink(path) == 0 && rmdir(directory) == 0);
+    return 0;
+}
+
+static int test_fee_arithmetic_codec_log(void)
 {
     static fee_fixture committed_fixture;
     static fee_fixture replay_fixture;
@@ -479,4 +599,13 @@ int main(void)
         rmdir(directory) != 0)
         return 1;
     return 0;
+}
+
+#include "lxp_test_harness.c"
+
+int main(int argc, char **argv)
+{
+    NATIVE_CHECK(lxp_test_register("fees.kernel-log-reopen", test_kernel_fee_log_reopen) == 0);
+    NATIVE_CHECK(lxp_test_register("fees.arithmetic-codec-log", test_fee_arithmetic_codec_log) == 0);
+    return lxp_test_main(argc, argv);
 }

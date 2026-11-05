@@ -170,6 +170,12 @@ pub struct State {
     assertion: Option<AssertionVerifier>,
 }
 
+impl Drop for State {
+    fn drop(&mut self) {
+        let _ = self.lock.unlock();
+    }
+}
+
 impl State {
     pub(crate) fn install_assertion_verifier(
         &mut self,
@@ -252,7 +258,7 @@ impl State {
             match (recorded.as_deref(), did) {
                 (_, None) => return Ok((account.principal(), false)),
                 (Some(existing), Some(did)) if existing == did => {
-                    return Ok((account.principal(), false))
+                    return Ok((account.principal(), false));
                 }
                 (Some(_), Some(_)) => return Err(AssertionRefusal::Identity.into()),
                 (None, Some(did)) => account.did = Some(did.to_owned()),
@@ -861,4 +867,30 @@ fn read_protected(path: &Path, maximum: u64) -> io::Result<Vec<u8>> {
         return Err(invalid("file grew beyond bound"));
     }
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dropping_state_unlocks_retained_file_descriptors() -> io::Result<()> {
+        let directory = tempfile::tempdir()?;
+        let root = directory.path().join("state");
+        let policy = Policy {
+            root: [0x43; 32],
+            threshold: 1,
+            delay_seconds: 86_400,
+        };
+        let state = State::open(&root, policy.clone())?;
+        let retained = state.lock.try_clone()?;
+        assert!(State::open(&root, policy.clone()).is_err());
+        drop(state);
+        let reopened = State::open(&root, policy.clone())?;
+        drop(retained);
+        assert!(State::open(&root, policy.clone()).is_err());
+        drop(reopened);
+        State::open(&root, policy)?;
+        Ok(())
+    }
 }

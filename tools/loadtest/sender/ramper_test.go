@@ -28,6 +28,7 @@ func TestRamper_UpdateTPS_LimiterUpdate(t *testing.T) {
 	// Verify limiter was reset to 0
 	require.Equal(t, rate.Limit(1), limiter.Limit(), "Expected limiter to be reset to 1")
 
+	blockCollector.SetWindowBlockStats(stats.BlockStats{MaxBlockNumber: 1, SampleCount: 2})
 	ramper.startTime = time.Now() // simulate ramper starting
 
 	// Call UpdateTPS and verify limit is updated correctly (first step: 50 TPS)
@@ -82,6 +83,7 @@ func TestRamper_Run_TPSProgression(t *testing.T) {
 	mockBlockStats.SetPercentile(90, 500*time.Millisecond) // Good SLO initially
 	ramper := NewRamper(rampCurve, mockBlockStats, limiter)
 
+	mockBlockStats.SetWindowBlockStats(stats.BlockStats{MaxBlockNumber: 1, SampleCount: 2})
 	// Create a context with timeout to prevent infinite running
 	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
 	defer cancel()
@@ -184,4 +186,9 @@ func TestRampCurveStep_Properties(t *testing.T) {
 
 	require.Equal(t, startTps, rampCurve.GetStartTps(), "GetStartTps should return startTps")
 	require.Equal(t, incrementTps, rampCurve.GetIncrementTps(), "GetIncrementTps should return incrementTps")
+}
+
+func TestRamper_RealHeaderTransport(t *testing.T) {
+	TestRepairM_821_RamperLiveProgressSLOAndRestart(t)
+	TestRepairM_821_RamperStalledEvidence(t)
 }

@@ -1,21 +1,27 @@
 import {
+  encodePaymentCommitmentEvidence,
   paymentAccount,
   paymentCommitment,
   paymentCurrency,
   paymentPayer,
-  paymentPurpose,
+  paymentPurpose as readPaymentPurpose,
   verifyPaymentCommitment,
+  type PaymentCommitment,
+  type PaymentCommitmentEvidence,
   type PaymentCommitmentResolver,
 } from "./commitment.js";
 export * from "./commitment.js";
+export * from "./ledger.js";
+export * from "./fulfillment.js";
+import { decodePaymentExactLog, LAYERX_LEDGER_ADDRESS, decodePaymentDrawnLog, LEDGER_DRAW_SELECTOR, type PaymentExactEvent, type PaymentDrawnEvent } from "./ledger.js";
 import {
   PlatformSdkError,
-  isSelectableProtocolVersion,
-  verifyReceipt,
-  type AuthorizedReceiptBatch,
-  type ProtocolSelection,
-  type ReceiptVerification,
-  type SelectableProtocolVersion,
+  decodeRawEip1559,
+  recoverEip1559Sender,
+  keccak256,
+  verifySequencerReceipt,
+  type SequencerReceiptKey,
+  type SequencerReceiptVerification,
 } from "@sidiora/layerx-sdk";
 
 export const X402_VERSION = 2 as const;
@@ -25,8 +31,10 @@ export const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE" as const;
 
 const MAX_U128 = 340282366920938463463374607431768211455n;
 const MAX_HEADER_BYTES = 64 * 1024;
-const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
 const PAYMENT_KEY_DOMAIN = new TextEncoder().encode("LayerX/middleware/x402/idempotency\0");
+const RECEIPT_KEY_DOMAIN = new TextEncoder().encode("LayerX/middleware/x402/receipt\0");
+const TRANSACTION_KEY_DOMAIN = new TextEncoder().encode("LayerX/middleware/x402/transaction\0");
+const paymentPurpose = readPaymentPurpose;
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { readonly [key: string]: JsonValue };
 
@@ -70,11 +78,29 @@ export interface PaymentPayload {
   readonly extensions?: Readonly<Record<string, X402Extension>>;
 }
 
-export interface LayerXReceiptEvidence {
-  readonly receipt: string;
+export interface PortableReceiptV2 {
+  readonly format: "layerx-receipt-proof-v2";
+  readonly verificationLevel: PaymentCommitment;
+  readonly rawTransaction: string;
+  readonly signedReceipt: string;
   readonly receiptDigest: string;
-  readonly verificationLevel: "sequencer-signed";
-  readonly purposeHash?: string;
+  readonly receiptKey: {
+    readonly keyId: string;
+    readonly publicKey: string;
+    readonly firstHeight: string;
+    readonly lastHeight: string;
+  };
+}
+
+export interface PortableNodeReceiptV2 extends PortableReceiptV2 {
+  readonly receiptJson: Readonly<Record<string, JsonValue>>;
+}
+
+export interface PaymentReceiptVerification extends SequencerReceiptVerification {
+  readonly rung: PaymentCommitment;
+  readonly txHash: string;
+  readonly payment: PaymentExactEvent | PaymentDrawnEvent;
+  readonly commitmentEvidence?: PaymentCommitmentEvidence;
 }
 
 export interface SettlementResponse {
@@ -98,18 +124,13 @@ export type MiddlewareErrorCode =
   | "fulfillment-conflict"
   | "fulfillment-outcome-unknown"
   | "invalid-webhook"
-  | "webhook-replay"
-  | "missing-protocol-version";
+  | "webhook-replay";
 
 export class MiddlewareError extends Error {
-  public constructor(public readonly code: MiddlewareErrorCode) {
-    super(code);
+  public constructor(public readonly code: MiddlewareErrorCode, public readonly detail?: string) {
+    super(detail === undefined ? code : `${code}: ${detail}`);
     this.name = "MiddlewareError";
   }
-}
-
-export interface AuthorizedBatchResolver {
-  resolve(canonicalReceipt: Uint8Array): Promise<AuthorizedReceiptBatch>;
 }
 
 export interface SellerSettlementRequest {
@@ -123,25 +144,23 @@ export interface SellerSettlementRequest {
 export type SellerSettlementOutcome =
   | { readonly kind: "pending" }
   | { readonly kind: "refused"; readonly reason: string }
-  | {
-    readonly kind: "settled";
-    readonly canonicalReceipt: Uint8Array;
-    readonly authorizedBatch: AuthorizedReceiptBatch;
-  };
+  | (PortableReceiptV2 & { readonly kind: "settled" });
 
 export interface SellerPaymentAuthority {
   settle(request: SellerSettlementRequest): Promise<SellerSettlementOutcome>;
 }
 
-export interface StoredFulfillment<T> {
+export interface StoredFulfillment<T> extends PortableReceiptV2 {
   readonly idempotencyKey: string;
   readonly requestDigest: string;
-  readonly canonicalReceipt: Uint8Array;
-  readonly authorizedBatch: AuthorizedReceiptBatch;
+  readonly txHash: string;
+  readonly commitmentEvidence?: PaymentCommitmentEvidence;
   readonly resource: T;
 }
 
 export interface FulfillmentRepository<T> {
+  get(idempotencyKey: string): Promise<StoredFulfillment<T> | undefined>;
+  /** Atomically persist a receipt claim before release; an uncertain release must never be repeated. */
   fulfill(
     proposed: Omit<StoredFulfillment<T>, "resource">,
     release: () => Promise<T>,
@@ -150,21 +169,10 @@ export interface FulfillmentRepository<T> {
 
 export interface SellerMiddlewareConfig<T> {
   readonly paymentRequired: PaymentRequired;
-  readonly protocolVersion: SelectableProtocolVersion;
+  readonly receiptKeys: readonly SequencerReceiptKey[];
   readonly authority: SellerPaymentAuthority;
   readonly fulfillments: FulfillmentRepository<T>;
   readonly commitments?: PaymentCommitmentResolver;
-}
-
-export function requireProtocolVersion(value: unknown): SelectableProtocolVersion {
-  if (typeof value !== "number" || !Number.isInteger(value) || !isSelectableProtocolVersion(value)) {
-    throw new MiddlewareError("missing-protocol-version");
-  }
-  return value;
-}
-
-export function protocolSelection(value: unknown): ProtocolSelection {
-  return Object.freeze({ protocolVersion: requireProtocolVersion(value) });
 }
 
 export type SellerDecision<T> =
@@ -177,7 +185,7 @@ export type SellerDecision<T> =
   | { readonly kind: "pending"; readonly status: 202 }
   | {
     readonly kind: "refused";
-    readonly status: 402;
+    readonly status: 402 | 409;
     readonly headers: Readonly<Record<typeof PAYMENT_RESPONSE_HEADER, string>>;
     readonly settlement: SettlementResponse;
   }
@@ -186,44 +194,46 @@ export type SellerDecision<T> =
     readonly status: 200;
     readonly headers: Readonly<Record<typeof PAYMENT_RESPONSE_HEADER, string>>;
     readonly settlement: SettlementResponse;
-    readonly verification: ReceiptVerification;
+    readonly verification: PaymentReceiptVerification;
     readonly resource: T;
   };
 
 export class ReceiptPayloadAuthority implements SellerPaymentAuthority {
-  public constructor(private readonly authorizedBatches: AuthorizedBatchResolver) {}
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
+
+  public constructor(receiptKeys: readonly SequencerReceiptKey[]) {
+    this.#receiptKeys = copyReceiptKeys(receiptKeys);
+  }
 
   public async settle(request: SellerSettlementRequest): Promise<SellerSettlementOutcome> {
     const evidence = parseLayerXEvidence(request.payload.payload);
-    const canonicalReceipt = decodeBase64(evidence.receipt);
-    const digest = await merkleLeafDigest(canonicalReceipt);
-    if (!constantTimeEqualHex(evidence.receiptDigest, toHex(digest))) {
-      throw new MiddlewareError("verification-failure");
+    const signedReceipt = parseReceiptHex(evidence.signedReceipt);
+    const keys = matchingReceiptKeys(evidence.receiptKey, this.#receiptKeys);
+    try {
+      const verified = await verifySequencerReceipt(signedReceipt, parseReceiptHex(evidence.rawTransaction), keys);
+      verifyReceiptDigest(evidence.receiptDigest, verified.receiptDigest);
+      await verifyPortableNodeReceiptJson(evidence, verified);
+    } catch (error) {
+      if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
+      throw error;
     }
-    const authorizedBatch = await this.authorizedBatches.resolve(canonicalReceipt);
-    return { kind: "settled", canonicalReceipt, authorizedBatch };
+    return { kind: "settled", ...evidence };
   }
 }
 
 export class SellerMiddleware<T> {
   readonly #required: PaymentRequired;
-  readonly #protocolVersion: SelectableProtocolVersion;
-  readonly #protocol: ProtocolSelection;
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
   readonly #authority: SellerPaymentAuthority;
   readonly #fulfillments: FulfillmentRepository<T>;
   readonly #commitments: PaymentCommitmentResolver | undefined;
 
   public constructor(config: SellerMiddlewareConfig<T>) {
     this.#required = validatePaymentRequired(config.paymentRequired);
-    this.#protocolVersion = requireProtocolVersion(config.protocolVersion);
-    this.#protocol = protocolSelection(this.#protocolVersion);
+    this.#receiptKeys = copyReceiptKeys(config.receiptKeys);
     this.#authority = config.authority;
     this.#fulfillments = config.fulfillments;
     this.#commitments = config.commitments;
-  }
-
-  public get protocolVersion(): SelectableProtocolVersion {
-    return this.#protocolVersion;
   }
 
   public paymentRequired(): Extract<SellerDecision<T>, { readonly kind: "payment-required" }> {
@@ -231,7 +241,7 @@ export class SellerMiddleware<T> {
       kind: "payment-required",
       status: 402,
       headers: { [PAYMENT_REQUIRED_HEADER]: encodePaymentRequiredHeader(this.#required) },
-      body: this.#required,
+      body: structuredClone(this.#required),
     };
   }
 
@@ -248,57 +258,145 @@ export class SellerMiddleware<T> {
     }
     const payload = decodePaymentPayloadHeader(paymentHeader);
     const requirements = matchRequirements(this.#required, payload);
-    const canonical = canonicalJson(payload);
+    const canonical = canonicalJson({ principal, payload });
     const requestDigestBytes = await sha256(new TextEncoder().encode(canonical));
     const requestDigest = toHex(requestDigestBytes);
-    const idempotencyKey = toHex(await sha256(
+    const requestIdempotencyKey = toHex(await sha256(
       PAYMENT_KEY_DOMAIN,
       new TextEncoder().encode(principal),
       requestDigestBytes,
     ));
-    const outcome = await this.#authority.settle({
-      principal,
-      payload,
-      requirements,
-      idempotencyKey,
-      requestDigest,
-    });
-    if (outcome.kind === "pending") {
-      return { kind: "pending", status: 202 };
+    const rawHint = payload.payload["rawTransaction"];
+    const transactionHint = payload.payload["transaction"];
+    const paymentTransaction = rawHint === undefined
+      ? typeof transactionHint === "string" && /^0x[0-9a-f]{64}$/u.test(transactionHint)
+        ? transactionHint : undefined
+      : `0x${toHex(keccak256(parseReceiptHex(asString(rawHint, "invalid-payment-payload"))))}`;
+    if (transactionHint !== undefined && paymentTransaction !== transactionHint) {
+      throw new MiddlewareError("invalid-payment-payload");
     }
-    if (outcome.kind === "refused") {
-      return refusalDecision(requirements, outcome.reason);
+    const receiptHint = payload.payload["receiptDigest"];
+    let fulfillmentKey = paymentTransaction === undefined
+      ? undefined : await transactionFulfillmentKey(requirements, paymentTransaction);
+    let stored = fulfillmentKey === undefined ? undefined : await this.#fulfillments.get(fulfillmentKey);
+    // Preserve replay of receipt-keyed records written before transaction-only recovery.
+    const legacyKey = typeof receiptHint === "string" && /^0x[0-9a-f]{64}$/u.test(receiptHint)
+      ? await idempotencyKey(requirements, receiptHint)
+      : undefined;
+    if (stored === undefined && legacyKey !== undefined) {
+      stored = await this.#fulfillments.get(legacyKey);
+      if (stored !== undefined) fulfillmentKey = legacyKey;
     }
-    const proposed = {
-      idempotencyKey,
-      requestDigest,
-      canonicalReceipt: outcome.canonicalReceipt,
-      authorizedBatch: outcome.authorizedBatch,
-    };
-    const verification = await verifyPaymentReceipt(proposed, requirements, this.#commitments, this.#protocol);
-    const stored = await this.#fulfillments.fulfill(proposed, () => release(idempotencyKey));
-    if (stored.idempotencyKey !== idempotencyKey || stored.requestDigest !== requestDigest) {
+    if (stored !== undefined && stored.requestDigest !== requestDigest) {
+      return receiptReuseDecision(requirements);
+    }
+    if (stored === undefined) {
+      const outcome = await this.#authority.settle({
+        principal,
+        payload,
+        requirements,
+        idempotencyKey: requestIdempotencyKey,
+        requestDigest,
+      });
+      if (outcome.kind === "pending") {
+        return { kind: "pending", status: 202 };
+      }
+      if (outcome.kind === "refused") {
+        return refusalDecision(requirements, outcome.reason);
+      }
+      const proof: PortableReceiptV2 = structuredClone({
+        format: outcome.format,
+        verificationLevel: outcome.verificationLevel,
+        rawTransaction: outcome.rawTransaction,
+        signedReceipt: outcome.signedReceipt,
+        receiptDigest: outcome.receiptDigest,
+        receiptKey: outcome.receiptKey,
+        ...portableNodeFields(outcome),
+      });
+      const verification = await verifyPaymentReceipt(proof, requirements, this.#receiptKeys, this.#commitments);
+      if (paymentTransaction !== undefined && verification.txHash !== paymentTransaction) {
+        throw new MiddlewareError("verification-failure");
+      }
+      fulfillmentKey = await transactionFulfillmentKey(requirements, verification.txHash);
+      if (legacyKey === undefined) {
+        const previousKey = await idempotencyKey(requirements, proof.receiptDigest);
+        const previous = await this.#fulfillments.get(previousKey);
+        if (previous !== undefined) {
+          fulfillmentKey = previousKey;
+        }
+      }
+      const proposed = {
+        ...proof,
+        idempotencyKey: fulfillmentKey,
+        requestDigest,
+        txHash: verification.txHash,
+        ...(verification.commitmentEvidence === undefined ? {} : {
+          commitmentEvidence: verification.commitmentEvidence,
+        }),
+      };
+      stored = await this.#fulfillments.get(fulfillmentKey);
+      if (stored !== undefined && stored.requestDigest !== requestDigest) {
+        return receiptReuseDecision(requirements);
+      }
+      if (stored === undefined) {
+        try {
+          stored = await this.#fulfillments.fulfill(proposed, () => release(proposed.idempotencyKey));
+        } catch (error) {
+          if (error instanceof MiddlewareError && error.code === "fulfillment-conflict") {
+            const settled = await this.#fulfillments.get(fulfillmentKey);
+            if (settled === undefined || settled.requestDigest !== requestDigest) {
+              return receiptReuseDecision(requirements);
+            }
+          }
+          throw error;
+        }
+      }
+      if (stored.receiptDigest !== proposed.receiptDigest || stored.txHash !== proposed.txHash) {
+        throw new MiddlewareError("fulfillment-conflict");
+      }
+    }
+    if (stored.idempotencyKey !== fulfillmentKey) {
       throw new MiddlewareError("fulfillment-conflict");
     }
-    const storedVerification = await verifyPaymentReceipt(stored, requirements, this.#commitments, this.#protocol);
-    if (!equalBytes(verification.receiptDigest, storedVerification.receiptDigest)) {
+    if (stored.requestDigest !== requestDigest) {
+      return receiptReuseDecision(requirements);
+    }
+    const commitmentEvidence = stored.commitmentEvidence;
+    if (stored.verificationLevel === "committed" && commitmentEvidence === undefined) {
       throw new MiddlewareError("fulfillment-conflict");
     }
-    const receiptDigest = toHex(await merkleLeafDigest(stored.canonicalReceipt));
-    const purposeHash = paymentPurpose(requirements.extra);
-    const evidence: LayerXReceiptEvidence = {
-      receipt: encodeBase64(stored.canonicalReceipt),
-      receiptDigest,
-      verificationLevel: "sequencer-signed",
-      ...(purposeHash === undefined ? {} : { purposeHash }),
+    const storedVerification = await verifyPaymentReceipt(stored, requirements, this.#receiptKeys,
+      commitmentEvidence === undefined ? undefined : {
+        resolve: async () => structuredClone(commitmentEvidence),
+        resolveValidators: async (network, height) => {
+          if (this.#commitments === undefined) throw new MiddlewareError("verification-failure");
+          return this.#commitments.resolveValidators(network, height);
+        },
+      });
+    if (stored.txHash !== storedVerification.txHash) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    if (paymentTransaction !== undefined && storedVerification.txHash !== paymentTransaction) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    const evidence = {
+      format: stored.format,
+      verificationLevel: storedVerification.rung,
+      rawTransaction: stored.rawTransaction,
+      signedReceipt: stored.signedReceipt,
+      receiptDigest: stored.receiptDigest,
+      receiptKey: stored.receiptKey,
+      ...portableNodeFields(stored),
+      ...(storedVerification.commitmentEvidence === undefined ? {} :
+        encodePaymentCommitmentEvidence(storedVerification.commitmentEvidence)),
     };
     const settlement: SettlementResponse = {
       success: true,
       payer: toHex(storedVerification.receipt.from),
-      transaction: `lxp:${receiptDigest}`,
+      transaction: stored.txHash,
       network: requirements.network,
       amount: requirements.amount,
-      extensions: { layerx: evidence as unknown as JsonValue },
+      extensions: { layerx: evidence },
     };
     return {
       kind: "released",
@@ -339,44 +437,152 @@ export function decodeSettlementHeader(value: string): SettlementResponse {
   return parseSettlement(decodeHeader(value));
 }
 
+export function importPortableNodeReceipt(value: unknown): PortableNodeReceiptV2 {
+  const proof = parseLayerXEvidence(value);
+  const fields = portableNodeFields(proof);
+  if (!("receiptJson" in fields)) throw new MiddlewareError("invalid-payment-payload");
+  return { ...proof, ...fields };
+}
+
 export async function verifyPaymentReceipt(
-  evidence: Pick<StoredFulfillment<unknown>, "canonicalReceipt" | "authorizedBatch">,
+  evidence: PortableReceiptV2,
   requirements: PaymentRequirements,
+  receiptKeys: readonly SequencerReceiptKey[],
   commitments?: PaymentCommitmentResolver,
-  selection?: ProtocolSelection,
-): Promise<ReceiptVerification> {
-  let verified: ReceiptVerification;
+): Promise<PaymentReceiptVerification> {
+  const proof = parseLayerXEvidence({
+    format: evidence.format,
+    verificationLevel: evidence.verificationLevel,
+    rawTransaction: evidence.rawTransaction,
+    signedReceipt: evidence.signedReceipt,
+    receiptDigest: evidence.receiptDigest,
+    receiptKey: evidence.receiptKey,
+    ...portableNodeFields(evidence),
+  });
+  const signedReceipt = parseReceiptHex(proof.signedReceipt);
+  const keys = matchingReceiptKeys(proof.receiptKey, receiptKeys);
+  const raw = parseReceiptHex(proof.rawTransaction);
+  let transaction: ReturnType<typeof decodeRawEip1559>;
+  let verified: SequencerReceiptVerification;
   try {
-    verified = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, selection);
-  } catch (error) {
-    if (error instanceof PlatformSdkError) {
+    transaction = decodeRawEip1559(raw);
+    const sender = recoverEip1559Sender(raw).slice(2).toLowerCase().padStart(64, "0");
+    if (requirements.network !== `eip155:${transaction.chainId}`) throw new MiddlewareError("verification-failure");
+    verified = await verifySequencerReceipt(signedReceipt, raw, keys);
+    verifyReceiptDigest(proof.receiptDigest, verified.receiptDigest);
+    await verifyPortableNodeReceiptJson(proof, verified);
+    if (toHex(verified.receipt.from) !== sender
+      || !equalBytes(verified.receipt.to, concatenate(new Uint8Array(12), transaction.to))) {
       throw new MiddlewareError("verification-failure");
     }
-    throw error;
-  }
-  let payer: string | undefined;
-  try {
-    payer = paymentPayer(requirements.extra, requirements.scheme !== "exact");
   } catch (error) {
-    if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
-    throw error;
-  }
-  if (
-    verified.receipt.amount !== BigInt(requirements.amount)
-    || !equalBytes(verified.receipt.asset, parseHex32(requirements.asset))
-    || !equalBytes(verified.receipt.to, parseHex32(requirements.payTo))
-    || (payer !== undefined && !equalBytes(verified.receipt.from, parseHex32(payer)))
-  ) {
     throw new MiddlewareError("verification-failure");
   }
+  const { receipt } = verified;
+  if (!["exact", "metered", "subscription"].includes(requirements.scheme)
+    || receipt.resultCode !== 0 || receipt.moduleId <= 11) {
+    throw new MiddlewareError("verification-failure");
+  }
+  if (requirements.scheme !== "exact") {
+    try {
+      paymentPurpose(requirements.extra, true);
+    } catch (error) {
+      if (error instanceof PlatformSdkError) {
+        throw new MiddlewareError("verification-failure", "metered and subscription offers require a purpose hash");
+      }
+      throw error;
+    }
+  }
+  const summary = receipt.effects[0];
+  if (summary === undefined || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0
+    || summary.kind !== 1 || summary.monetary || summary.eventType !== 0
+    || summary.body.length < 110 || summary.body[108] === 0 || summary.body[108]! > 64
+    || summary.body.length !== 109 + summary.body[108]!
+    || new DataView(arrayBuffer(summary.body)).getUint32(104, false) !== receipt.effects.length - 1) {
+    throw new MiddlewareError("verification-failure");
+  }
+  let payer: string | undefined;
+  let reference: string | undefined;
   try {
-    await verifyPaymentCommitment(verified, evidence.authorizedBatch.sequencerPublicKey,
-      requirements.network, paymentCommitment(requirements.extra), commitments);
+    payer = paymentPayer(requirements.extra);
+    reference = paymentPurpose(requirements.extra, false);
   } catch (error) {
     if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
     throw error;
   }
-  return verified;
+  const amount = BigInt(parseAmount(requirements.amount));
+  // Signed log effects retain the data hash, so authenticate the expected ABI
+  // words against that hash before supplying them to the event decoder.
+  const draw = requirements.scheme !== "exact";
+  const calldata = transaction.data;
+  let data: Uint8Array;
+  if (draw) {
+    if (toHex(transaction.to) !== LAYERX_LEDGER_ADDRESS.slice(2) || transaction.value !== 0n
+      || calldata.length !== 228 || !equalBytes(calldata.subarray(0, 4), LEDGER_DRAW_SELECTOR)
+      || !equalBytes(calldata.subarray(36, 68), parseHex32(requirements.payTo))
+      || BigInt(`0x${toHex(calldata.subarray(68, 100))}`) !== amount
+      || BigInt(`0x${toHex(calldata.subarray(132, 164))}`) >= 1n << 64n
+      || reference === undefined || payer === undefined
+      || !equalBytes(calldata.subarray(164, 196), parseHex32(reference))) {
+      throw new MiddlewareError("verification-failure");
+    }
+    data = concatenate(parseHex32(requirements.asset), calldata.subarray(68, 132), calldata.subarray(196, 228));
+  } else {
+    data = concatenate(parseHex32(requirements.asset), new Uint8Array(16), uint128Bytes(amount));
+  }
+  const dataDigest = await sha256(data);
+  const topic = keccak256(new TextEncoder().encode(draw
+    ? "PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"
+    : "PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"));
+  const payments: (PaymentExactEvent | PaymentDrawnEvent)[] = [];
+  for (const [index, effect] of receipt.effects.slice(1).entries()) {
+    const body = effect.body;
+    const topicCount = body[20];
+    if (effect.moduleId !== receipt.moduleId || effect.ordinal !== index + 1
+      || effect.kind !== 3 || effect.monetary || effect.eventType !== 0
+      || topicCount === undefined || topicCount > 4 || body.length !== 53 + topicCount * 32) {
+      throw new MiddlewareError("verification-failure");
+    }
+    const address = `0x${toHex(body.subarray(0, 20))}`;
+    if (address !== LAYERX_LEDGER_ADDRESS || !equalBytes(body.subarray(21, 53), topic)) continue;
+    if (!equalBytes(body.subarray(body.length - 32), dataDigest)) throw new MiddlewareError("verification-failure");
+    const log = { address, data, topics: Array.from({ length: topicCount }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) };
+    const payment = draw ? decodePaymentDrawnLog(log) : decodePaymentExactLog(log);
+    if ("grantId" in payment) {
+      if (!equalBytes(payment.grantId, calldata.subarray(4, 36))) throw new MiddlewareError("verification-failure");
+    } else if (reference !== undefined && !equalBytes(payment.paymentReference, parseHex32(reference))) {
+      throw new MiddlewareError("verification-failure");
+    }
+    payments.push(payment);
+  }
+  const payment = payments[0];
+  if (payments.length !== 1 || payment === undefined || payment.amount !== amount
+    || !equalBytes(payment.assetId, parseHex32(requirements.asset))
+    || !equalBytes(payment.to, parseHex32(requirements.payTo))
+    || (payer !== undefined && !equalBytes(payment.from, parseHex32(payer)))) {
+    throw new MiddlewareError("verification-failure");
+  }
+  let commitmentEvidence: PaymentCommitmentEvidence | undefined;
+  const rung = proof.verificationLevel;
+  try {
+    if (paymentCommitment(requirements.extra) === "committed" && rung !== "committed") {
+      throw new MiddlewareError("verification-failure");
+    }
+    await verifyPaymentCommitment(verified, requirements.network, rung,
+      commitments === undefined ? undefined : {
+        resolveValidators: (network, height) => commitments.resolveValidators(network, height),
+        resolve: async (transactionHash, network) => {
+          commitmentEvidence = structuredClone(await commitments.resolve(transactionHash, network));
+          return commitmentEvidence;
+        },
+      });
+  } catch (error) {
+    if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
+    throw error;
+  }
+  return Object.freeze({ ...verified, rung, txHash: `0x${toHex(receipt.activityId)}`, payment,
+    ...(commitmentEvidence === undefined ? {} : { commitmentEvidence }),
+  });
 }
 
 export interface WebhookRequestHeaders {
@@ -504,7 +710,7 @@ export class VerifiedWebhookConsumer {
   }
 }
 
-function validatePaymentRequired(value: PaymentRequired): PaymentRequired {
+export function validatePaymentRequired(value: PaymentRequired): PaymentRequired {
   return parsePaymentRequired(value as unknown);
 }
 
@@ -703,24 +909,176 @@ function refusalDecision<T>(
   };
 }
 
-function parseLayerXEvidence(value: Readonly<Record<string, JsonValue>>): LayerXReceiptEvidence {
+async function idempotencyKey(requirements: PaymentRequirements, receiptDigest: string): Promise<string> {
+  return toHex(await sha256(RECEIPT_KEY_DOMAIN, new TextEncoder().encode(canonicalJson({ network: requirements.network, payTo: requirements.payTo.toLowerCase() })), parseReceiptHex(receiptDigest, 32)));
+}
+
+async function transactionFulfillmentKey(requirements: PaymentRequirements, transaction: string): Promise<string> {
+  return toHex(await sha256(TRANSACTION_KEY_DOMAIN,
+    new TextEncoder().encode(canonicalJson({ network: requirements.network, payTo: requirements.payTo.toLowerCase() })),
+    parseReceiptHex(transaction, 32)));
+}
+
+function receiptReuseDecision<T>(
+  requirements: PaymentRequirements,
+): Extract<SellerDecision<T>, { readonly kind: "refused" }> {
+  return { ...refusalDecision<T>(requirements, "receipt_reuse"), status: 409 };
+}
+
+function parseLayerXEvidence(value: unknown): PortableReceiptV2 {
   const object = asObject(value, "invalid-payment-payload");
-  exactKeys(object, ["receipt", "receiptDigest", "verificationLevel"], ["idempotencyKey", "purposeHash"], "invalid-payment-payload");
-  if (object["verificationLevel"] !== "sequencer-signed") {
+  exactKeys(object, ["format", "verificationLevel", "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey",
+    ...(Object.hasOwn(object, "receiptJson") ? ["receiptJson"] : [])], [], "invalid-payment-payload");
+  if (object["format"] !== "layerx-receipt-proof-v2"
+    || (object["verificationLevel"] !== "receipted" && object["verificationLevel"] !== "committed")) {
+    throw new MiddlewareError("invalid-payment-payload");
+  }
+  const key = asObject(object["receiptKey"], "invalid-payment-payload");
+  exactKeys(key, ["keyId", "publicKey", "firstHeight", "lastHeight"], [], "invalid-payment-payload");
+  const hex = (value: unknown, size?: number): string => {
+    const text = asString(value, "invalid-payment-payload");
+    parseReceiptHex(text, size);
+    return text;
+  };
+  const firstHeight = asString(key["firstHeight"], "invalid-payment-payload");
+  const lastHeight = asString(key["lastHeight"], "invalid-payment-payload");
+  if (receiptHeight(firstHeight) > receiptHeight(lastHeight)) throw new MiddlewareError("invalid-payment-payload");
+  return {
+    format: "layerx-receipt-proof-v2",
+    verificationLevel: object["verificationLevel"],
+    rawTransaction: hex(object["rawTransaction"]),
+    signedReceipt: hex(object["signedReceipt"]),
+    receiptDigest: hex(object["receiptDigest"], 32),
+    receiptKey: { keyId: hex(key["keyId"], 32), publicKey: hex(key["publicKey"], 32), firstHeight, lastHeight },
+    ...portableNodeFields(object),
+  };
+}
+
+function portableNodeFields(value: object): Pick<PortableNodeReceiptV2, "receiptJson"> | Record<never, never> {
+  if (!Object.hasOwn(value, "receiptJson")) return {};
+  const object = asObject(value, "invalid-payment-payload");
+  return { receiptJson: structuredClone(asJsonRecord(object["receiptJson"], "invalid-payment-payload")) };
+}
+
+async function verifyPortableNodeReceiptJson(proof: PortableReceiptV2, verified: SequencerReceiptVerification): Promise<void> {
+  const fields = portableNodeFields(proof);
+  if (!("receiptJson" in fields)) return;
+  const json = fields.receiptJson;
+  exactKeys(json, ["rung", "txHash", "nonce", "seq", "height", "index", "timestamp", "status", "returnData", "logs",
+    "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "paymentDenom", "feeDenom", "feeAmount", "sponsor", "from", "to",
+    "contractAddress", "vmError", "keyId", "signingKey", "receipt"], ["blockNumber", "blockHash"], "verification-failure");
+  const fail = (): never => { throw new MiddlewareError("verification-failure"); };
+  const quantity = (value: unknown): bigint => {
+    if (typeof value !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]*)$/u.test(value)) return fail();
+    return BigInt(value);
+  };
+  const bytes = (value: unknown, size?: number): Uint8Array => {
+    if (typeof value !== "string" || !/^0x(?:[0-9a-f]{2})*$/u.test(value)
+      || (size !== undefined && value.length !== 2 + size * 2)) return fail();
+    return Uint8Array.from(value.slice(2).match(/../gu) ?? [], (pair) => Number.parseInt(pair, 16));
+  };
+  const { receipt } = verified;
+  const summary = receipt.effects[0];
+  if (summary === undefined || summary.kind !== 1 || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0
+    || summary.eventType !== 0 || summary.monetary
+    || summary.body.length < 110 || summary.body[108] === 0 || summary.body[108]! > 64
+    || summary.body.length !== 109 + summary.body[108]!) return fail();
+  const body = summary.body;
+  const view = new DataView(arrayBuffer(body));
+  const transaction = decodeRawEip1559(parseReceiptHex(proof.rawTransaction));
+  if ((json["rung"] !== "receipted" && json["rung"] !== "committed")
+    || (proof.verificationLevel === "committed" && json["rung"] !== "committed")
+    || json["txHash"] !== `0x${toHex(receipt.activityId)}` || json["receipt"] !== proof.signedReceipt
+    || json["keyId"] !== `0x${toHex(receipt.contextHash)}`
+    || json["signingKey"] !== `0x${toHex(verified.receiptKey.publicKey)}`
+    || quantity(json["nonce"]) !== transaction.nonce || transaction.nonce !== receipt.fromSequence
+    || quantity(json["seq"]) !== receipt.globalSequence || quantity(json["height"]) !== verified.height
+    || quantity(json["timestamp"]) !== receipt.timestamp || quantity(json["index"]) !== BigInt(view.getUint32(24, false))
+    || quantity(json["status"]) !== (receipt.resultCode === 0 ? 1n : 0n)
+    || quantity(json["gasUsed"]) !== view.getBigUint64(0, false)
+    || quantity(json["cumulativeGasUsed"]) !== view.getBigUint64(8, false)
+    || quantity(json["effectiveGasPrice"]) !== view.getBigUint64(16, false)
+    || quantity(json["feeAmount"]) !== receipt.feeCharged
+    || !equalBytes(bytes(json["from"], 20), receipt.from.subarray(12))
+    || !equalBytes(bytes(json["to"], 20), receipt.to.subarray(12))
+    || !equalBytes(bytes(json["contractAddress"], 20), body.subarray(28, 48))
+    || !equalBytes(bytes(json["sponsor"], 20), body.subarray(48, 68))
+    || bytes(json["returnData"]).length !== view.getUint32(100, false)
+    || !equalBytes(await sha256(bytes(json["returnData"])), receipt.activityRoot)
+    || typeof json["vmError"] !== "string"
+    || !equalBytes(await sha256(new TextEncoder().encode(json["vmError"])), body.subarray(68, 100))
+    || typeof json["paymentDenom"] !== "string" || json["paymentDenom"].length === 0
+    || !equalBytes(await sha256(new TextEncoder().encode(json["paymentDenom"])), receipt.asset)
+    || typeof json["feeDenom"] !== "string"
+    || !equalBytes(new TextEncoder().encode(json["feeDenom"]), body.subarray(109))) return fail();
+  if (Object.hasOwn(json, "blockNumber") || Object.hasOwn(json, "blockHash")) {
+    if (json["rung"] !== "committed" || quantity(json["blockNumber"]) < verified.height) return fail();
+    bytes(json["blockHash"], 32);
+  }
+  const logs = asArray(json["logs"], "verification-failure");
+  if (logs.length !== receipt.effects.length - 1 || logs.length !== view.getUint32(104, false)) return fail();
+  for (const [index, value] of logs.entries()) {
+    const log = asObject(value, "verification-failure");
+    exactKeys(log, ["address", "topics", "data", "logIndex"], [], "verification-failure");
+    const effect = receipt.effects[index + 1]!;
+    const topics = asArray(log["topics"], "verification-failure");
+    if (effect.kind !== 3 || effect.moduleId !== receipt.moduleId || effect.ordinal !== index + 1 || effect.monetary || effect.eventType !== 0
+      || effect.body.length !== 53 + topics.length * 32 || topics.length > 4 || effect.body[20] !== topics.length
+      || quantity(log["logIndex"]) !== BigInt(index) || !equalBytes(bytes(log["address"], 20), effect.body.subarray(0, 20))
+      || !equalBytes(await sha256(bytes(log["data"])), effect.body.subarray(effect.body.length - 32))) return fail();
+    for (const [topicIndex, topic] of topics.entries()) {
+      if (!equalBytes(bytes(topic, 32), effect.body.subarray(21 + topicIndex * 32, 53 + topicIndex * 32))) return fail();
+    }
+  }
+}
+
+function parseReceiptHex(value: string, size?: number): Uint8Array {
+  if (value.length > MAX_HEADER_BYTES * 2 || !/^0x(?:[0-9a-f]{2})+$/u.test(value)
+    || (size !== undefined && value.length !== 2 + size * 2)) {
+    throw new MiddlewareError("invalid-payment-payload");
+  }
+  return Uint8Array.from(value.slice(2).match(/../gu)!, (pair) => Number.parseInt(pair, 16));
+}
+
+function receiptHeight(value: string): bigint {
+  if (!/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(value)) throw new MiddlewareError("invalid-payment-payload");
+  return BigInt(value);
+}
+
+function verifyReceiptDigest(digest: string, verifiedDigest: Uint8Array): void {
+  if (!constantTimeEqualHex(digest, `0x${toHex(verifiedDigest)}`)) {
     throw new MiddlewareError("verification-failure");
   }
-  const receiptDigest = asString(object["receiptDigest"], "invalid-payment-payload");
-  parseHex32(receiptDigest);
-  const purposeHash = object["purposeHash"] === undefined
-    ? undefined
-    : asString(object["purposeHash"], "invalid-payment-payload");
-  if (purposeHash !== undefined) parseHex32(purposeHash);
-  return {
-    receipt: asBoundedString(object["receipt"], MAX_HEADER_BYTES, "invalid-payment-payload"),
-    receiptDigest,
-    verificationLevel: "sequencer-signed",
-    ...(purposeHash === undefined ? {} : { purposeHash }),
-  };
+}
+
+function copyReceiptKeys(keys: readonly SequencerReceiptKey[]): readonly SequencerReceiptKey[] {
+  if (!Array.isArray(keys) || keys.length === 0) throw new MiddlewareError("verification-failure");
+  return Object.freeze(keys.map((key) => {
+    if (!(key.keyId instanceof Uint8Array) || key.keyId.length !== 32
+      || !(key.publicKey instanceof Uint8Array) || key.publicKey.length !== 32
+      || typeof key.first_height !== "bigint" || typeof key.last_height !== "bigint"
+      || key.first_height < 0n || key.last_height > 0xffff_ffff_ffff_ffffn || key.first_height > key.last_height) {
+      throw new MiddlewareError("verification-failure");
+    }
+    return Object.freeze({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() });
+  }));
+}
+
+function matchingReceiptKeys(key: PortableReceiptV2["receiptKey"], keys: readonly SequencerReceiptKey[]): readonly SequencerReceiptKey[] {
+  const pinned = copyReceiptKeys(keys).filter((pin) => equalBytes(pin.keyId, parseReceiptHex(key.keyId, 32))
+    && equalBytes(pin.publicKey, parseReceiptHex(key.publicKey, 32))
+    && pin.first_height === receiptHeight(key.firstHeight) && pin.last_height === receiptHeight(key.lastHeight));
+  if (pinned.length === 0) throw new MiddlewareError("verification-failure");
+  return pinned;
+}
+
+function uint128Bytes(value: bigint): Uint8Array {
+  const bytes = new Uint8Array(16);
+  for (let index = 15; index >= 0; index -= 1) {
+    bytes[index] = Number(value & 255n);
+    value >>= 8n;
+  }
+  return bytes;
 }
 
 function encodeHeader(value: unknown): string {
@@ -867,8 +1225,8 @@ function asIdentifier(value: unknown, limit: number, code: MiddlewareErrorCode):
 
 function parseNetwork(value: unknown): string {
   const text = asString(value, "invalid-payment-required");
-  const parts = text.split(":");
-  if (parts.length !== 2 || parts[0] !== "layerx" || !identifier(parts[1] ?? "", 64)) {
+  const chainId = /^eip155:([1-9][0-9]{0,9})$/u.exec(text)?.[1];
+  if (chainId === undefined || Number(chainId) > 0xffff_ffff) {
     throw new MiddlewareError("unsupported-payment");
   }
   return text;
@@ -969,10 +1327,11 @@ async function sha256(...values: readonly Uint8Array[]): Promise<Uint8Array> {
   return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", arrayBuffer(concatenate(...values))));
 }
 
-async function merkleLeafDigest(canonicalReceipt: Uint8Array): Promise<Uint8Array> {
-  return sha256(MERKLE_LEAF_DOMAIN, canonicalReceipt);
-}
-
-export * from "./rpc.js";
+export {
+  PaymentRpc,
+  PaymentRpcError,
+  rpcHex,
+  rpcObject,
+  verifyRpcPayment,
+} from "./rpc.js";
 export * from "./grant.js";
-export * from "./checkpoint.js";

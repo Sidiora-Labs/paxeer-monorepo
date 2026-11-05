@@ -1,33 +1,34 @@
-import { ExternalLinkIcon, LockIcon, PenLineIcon, ShieldCheckIcon } from "lucide-react";
+import { ExternalLinkIcon, LockIcon, PenLineIcon, ShieldCheckIcon } from 'lucide-react';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { BRIDGE_CHAINS } from "@/lib/bridge/chains";
-import { LAYERX_BRIDGE_ADDRESS } from "@/lib/bridge/contracts";
-import { foreignAddressUrl, paxeerAddressUrl } from "@/lib/bridge/explorer";
-import { shortenAddress } from "@/lib/trading";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { BRIDGE_CHAINS } from '@/lib/bridge/chains';
+import { LAYERX_BRIDGE_ADDRESS } from '@/lib/bridge/contracts';
+import { foreignAddressUrl, paxeerAddressUrl } from '@/lib/bridge/explorer';
+import { shortenAddress } from '@/lib/trading';
 
 const STEPS = [
   {
     icon: LockIcon,
-    title: "Lock or burn",
-    body: "A deposit locks the asset in PaxeerXVault on the source chain. A withdrawal burns the bridged denom on Paxeer. Nothing moves on the other side yet.",
+    title: 'Lock or burn',
+    body: 'A deposit locks the asset in PaxeerXVault on the source chain. A withdrawal burns the bridged denom on Paxeer. Nothing moves on the other side yet.',
   },
   {
     icon: PenLineIcon,
-    title: "Attestors sign",
-    body: "After the chain's finality depth, the attestor set signs the exact deposit or burn — vault, transaction, recipient, asset and amount, byte for byte.",
+    title: 'Attestors sign',
+    body: 'After the chain\'s finality depth, the attestor set signs the exact deposit or burn — vault, transaction, recipient, asset and amount, byte for byte.',
   },
   {
     icon: ShieldCheckIcon,
-    title: "Anyone settles",
-    body: "With a threshold of signatures, bridgeIn mints on Paxeer (or the vault releases back). You submit it from here; this app re-verifies every signature before your wallet opens.",
+    title: 'Anyone settles',
+    body: 'With a threshold of signatures, bridgeIn mints on Paxeer (or the vault releases back). You submit it from here; this app re-verifies every signature before your wallet opens.',
   },
 ] as const;
 
-export function HowItWorks() {
+export function HowItWorks({ explorerBase }: { explorerBase?: string }) {
+  const precompileUrl = paxeerAddressUrl(LAYERX_BRIDGE_ADDRESS, explorerBase);
   return (
     <section id="how-it-works" aria-label="How the bridge works" className="flex w-full flex-col gap-4">
       <h2 className="text-lg font-semibold tracking-tight">How it works</h2>
@@ -66,13 +67,15 @@ export function HowItWorks() {
                 {shortenAddress(LAYERX_BRIDGE_ADDRESS, 10, 6)}
               </Badge>
             </span>
-            <Button
-              variant="link"
-              size="sm"
-              render={<a href={paxeerAddressUrl(LAYERX_BRIDGE_ADDRESS)} target="_blank" rel="noreferrer" />}
-            >
-              Paxscan <ExternalLinkIcon />
-            </Button>
+            {precompileUrl ? (
+              <Button
+                variant="link"
+                size="sm"
+                render={<a href={precompileUrl} target="_blank" rel="noreferrer" />}
+              >
+                Paxscan <ExternalLinkIcon />
+              </Button>
+            ) : <span className="text-xs text-muted-foreground">Explorer unavailable</span>}
           </div>
           <Separator />
           <ul className="flex flex-col divide-y divide-border/60">
@@ -81,7 +84,7 @@ export function HowItWorks() {
                 <span className="flex items-center gap-2">
                   <span className="font-medium">{chain.label}</span>
                   <span className="text-xs text-muted-foreground">
-                    {chain.assets.map((a) => a.symbol).join(", ")} · {chain.finalityDepth.toLocaleString()}{" "}
+                    {chain.assets.map((a) => a.symbol).join(', ')} · {chain.finalityDepth.toLocaleString()}{' '}
                     confirmations
                   </span>
                 </span>
@@ -95,7 +98,7 @@ export function HowItWorks() {
                   </Button>
                 ) : (
                   <Badge variant="warning">
-                    {chain.kind === "solana" ? "Program pending" : "Vault not deployed"}
+                    {chain.kind === 'solana' ? 'Program pending' : 'Vault not deployed'}
                   </Badge>
                 )}
               </li>

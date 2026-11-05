@@ -1,0 +1,1254 @@
+[audit.22.30.22]
+task = "22.30.22"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 141
+findings = 31
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["mobile-watch-write", "mobile-unwatch-write", "mobile-profile-write", "mobile-preferences-write", "mobile-device-signature-header", "mobile-live-cache-version", "mobile-live-restore-version"]
+requirements = ["22076.1", "22998.1", "21140.1", "4500.1", "4501.1", "4502.1", "4503.1", "4504.1", "4505.1", "4505.2", "4506.1", "4506.2", "4507.1", "4508.1", "4508.2", "4509.1", "4509.2", "4510.1", "22012.1"]
+produces_reviewed = 65
+consumes_reviewed = 257
+review_basis = "Full member-file review against the package requirements, declared interfaces, merged-network brief and listed documentation. Producer/transport traces include user operation authorization, SDK schema versions, native persistence and integration recovery. Incidental registry matches do not establish a live dependency."
+evidence_limits = "Source audit only: product builds, native device tests, browser fault scenarios, capacity and elapsed72hour recovery were not executed or claimed. Proposed repairs belong to subsequent owning-domain tasks."
+
+[file.001]
+path = "apps/launchpad/mobile/ARCHITECTURE.md"
+lines = 36
+verdict = "issues"
+note = "Architecture and build guidance compared with current native entrypoints; see documentation finding."
+
+[file.002]
+path = "apps/launchpad/mobile/android/app/build.gradle"
+lines = 14
+verdict = "clean"
+note = "Read Android dependency, platform and managed release-signing configuration; no native build is claimed."
+
+[file.003]
+path = "apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/MainActivity.kt"
+lines = 11
+verdict = "clean"
+note = "Read activity lifecycle and registered native application entry."
+
+[file.004]
+path = "apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/MainApplication.kt"
+lines = 11
+verdict = "clean"
+note = "Read React host/package registration and native bootstrap."
+
+[file.005]
+path = "apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/PrivacyPreviewModule.kt"
+lines = 22
+verdict = "clean"
+note = "Read Android private-preview and biometric gate implementation."
+
+[file.006]
+path = "apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/SecureSessionModule.kt"
+lines = 84
+verdict = "issues"
+note = "Read entire native cookie, storage, push and video module; Firebase declaration finding applies."
+
+[file.007]
+path = "apps/launchpad/mobile/android/build.gradle"
+lines = 2
+verdict = "clean"
+note = "Read pinned Android build/toolchain repositories and dependency configuration."
+
+[file.008]
+path = "apps/launchpad/mobile/android/settings.gradle"
+lines = 6
+verdict = "clean"
+note = "Read Gradle plugin and React Native workspace integration."
+
+[file.009]
+path = "apps/launchpad/mobile/babel.config.cjs"
+lines = 1
+verdict = "clean"
+note = "Read Babel/React Native transformation configuration."
+
+[file.010]
+path = "apps/launchpad/mobile/index.js"
+lines = 4
+verdict = "clean"
+note = "Read registered Sidiora application bootstrap and compatibility initialization."
+
+[file.011]
+path = "apps/launchpad/mobile/ios/Sidiora/AppDelegate.swift"
+lines = 37
+verdict = "clean"
+note = "Read iOS React Native startup, link and push delegation."
+
+[file.012]
+path = "apps/launchpad/mobile/ios/Sidiora/Images.xcassets/AppIcon.appiconset/Contents.json"
+lines = 53
+verdict = "generated"
+note = "Template-generated Xcode app-icon asset catalogue metadata; reviewed as platform asset metadata, not runtime code."
+
+[file.013]
+path = "apps/launchpad/mobile/ios/Sidiora/Images.xcassets/Contents.json"
+lines = 6
+verdict = "generated"
+note = "Template-generated Xcode asset catalogue metadata; contains no protocol or service dependency."
+
+[file.014]
+path = "apps/launchpad/mobile/ios/Sidiora/PrivacyPreview.swift"
+lines = 64
+verdict = "clean"
+note = "Read iOS privacy preview and biometric lock bridge."
+
+[file.015]
+path = "apps/launchpad/mobile/ios/Sidiora/SecureSession.swift"
+lines = 191
+verdict = "clean"
+note = "Read complete iOS keychain, cookie, push, snapshot and video bridge implementation."
+
+[file.016]
+path = "apps/launchpad/mobile/metro.config.cjs"
+lines = 16
+verdict = "clean"
+note = "Read Metro workspace resolver and shared SDK source integration."
+
+[file.017]
+path = "apps/launchpad/mobile/package.json"
+lines = 45
+verdict = "clean"
+note = "Read mobile scripts and pinned runtime/package dependencies."
+
+[file.018]
+path = "apps/launchpad/mobile/src/App.tsx"
+lines = 30
+verdict = "issues"
+note = "Read all app startup, session, lifecycle, market and injected native authority wiring."
+
+[file.019]
+path = "apps/launchpad/mobile/src/contracts.ts"
+lines = 58
+verdict = "clean"
+note = "Read chain125 pending-operation, callback, push payload and execution gates."
+
+[file.020]
+path = "apps/launchpad/mobile/src/navigation.tsx"
+lines = 39
+verdict = "issues"
+note = "Read all resource/cache, retained-input, route and screen primitives; offline decoder finding applies."
+
+[file.021]
+path = "apps/launchpad/mobile/src/platform/privacy.ts"
+lines = 12
+verdict = "clean"
+note = "Read privacy preference persistence, native unlock and preview boundary."
+
+[file.022]
+path = "apps/launchpad/mobile/src/platform/protected-storage.ts"
+lines = 156
+verdict = "clean"
+note = "Read protected storage namespaces, native cookie transport and platform bridges."
+
+[file.023]
+path = "apps/launchpad/mobile/src/runtime/deep-links.ts"
+lines = 16
+verdict = "clean"
+note = "Read pending-operation persistence, exact callback validation and replay refusal."
+
+[file.024]
+path = "apps/launchpad/mobile/src/runtime/lifecycle.ts"
+lines = 651
+verdict = "issues"
+note = "Read all wallet handoff, quote freshness, receipt reconciliation and WalletConnect lifecycle paths."
+
+[file.025]
+path = "apps/launchpad/mobile/src/runtime/market-session.ts"
+lines = 102
+verdict = "clean"
+note = "Read v2 snapshot/stream startup, supported topic checks and bounded retry lifecycle."
+
+[file.026]
+path = "apps/launchpad/mobile/src/runtime/native-authority.ts"
+lines = 57
+verdict = "clean"
+note = "Read native chain125 authority and approved onchain capability checks."
+
+[file.027]
+path = "apps/launchpad/mobile/src/runtime/offline-cache.ts"
+lines = 37
+verdict = "issues"
+note = "Read entire bounded LRU, public disk envelope and validation/recovery logic."
+
+[file.028]
+path = "apps/launchpad/mobile/src/runtime/onchain-quote.ts"
+lines = 93
+verdict = "clean"
+note = "Read real onchain quote checks, decimal/raw amounts, deployment address and expiry rules."
+
+[file.029]
+path = "apps/launchpad/mobile/src/runtime/push.ts"
+lines = 190
+verdict = "clean"
+note = "Read permission, provider proof, token rotation, notification validation and device registration lifecycle."
+
+[file.030]
+path = "apps/launchpad/mobile/src/runtime/quote-transaction.ts"
+lines = 917
+verdict = "clean"
+note = "Read full transaction builder, approval persistence, canonical receipt/allowance and replacement recovery."
+
+[file.031]
+path = "apps/launchpad/mobile/src/runtime/routes/account.ts"
+lines = 15
+verdict = "clean"
+note = "Read v2 portfolio operation and generated response type boundary."
+
+[file.032]
+path = "apps/launchpad/mobile/src/runtime/routes/activity.ts"
+lines = 66
+verdict = "clean"
+note = "Read v2 stream/status operations and native onchain quote transport."
+
+[file.033]
+path = "apps/launchpad/mobile/src/runtime/routes/chat.ts"
+lines = 63
+verdict = "clean"
+note = "Read generated chat operations, authenticated routes and message body constraints."
+
+[file.034]
+path = "apps/launchpad/mobile/src/runtime/routes/market.ts"
+lines = 38
+verdict = "clean"
+note = "Read generated pool/search calls, limits and address validation."
+
+[file.035]
+path = "apps/launchpad/mobile/src/runtime/routes/notifications.ts"
+lines = 43
+verdict = "clean"
+note = "Read generated notification operations and read marking."
+
+[file.036]
+path = "apps/launchpad/mobile/src/runtime/service-client.ts"
+lines = 562
+verdict = "issues"
+note = "Read entire configuration, identity, SDK routes, profile/preferences/watchlist and device transport."
+
+[file.037]
+path = "apps/launchpad/mobile/src/runtime/session.ts"
+lines = 19
+verdict = "clean"
+note = "Read session establishment, restoration, expiry, logout and protected data purge."
+
+[file.038]
+path = "apps/launchpad/mobile/src/screens/chat.tsx"
+lines = 117
+verdict = "clean"
+note = "Read complete chat screen, retained input, room and message handling."
+
+[file.039]
+path = "apps/launchpad/mobile/src/screens/discovery.tsx"
+lines = 85
+verdict = "clean"
+note = "Read discovery screen, v2 pool/search presentation and retained filters."
+
+[file.040]
+path = "apps/launchpad/mobile/src/screens/live.tsx"
+lines = 87
+verdict = "clean"
+note = "Read live list and approved HTTPS native playback selection."
+
+[file.041]
+path = "apps/launchpad/mobile/src/screens/notifications.tsx"
+lines = 132
+verdict = "clean"
+note = "Read notification inbox, permission UI and push navigation handlers."
+
+[file.042]
+path = "apps/launchpad/mobile/src/screens/portfolio.tsx"
+lines = 72
+verdict = "clean"
+note = "Read portfolio quality, raw amounts, history and account resource presentation."
+
+[file.043]
+path = "apps/launchpad/mobile/src/screens/profile.tsx"
+lines = 2
+verdict = "clean"
+note = "Read profile editing, preferences and authenticated resource actions."
+
+[file.044]
+path = "apps/launchpad/mobile/src/screens/token.tsx"
+lines = 382
+verdict = "clean"
+note = "Read full token detail, approval, wallet submission and receipt UI."
+
+[file.045]
+path = "apps/launchpad/mobile/src/screens/watchlists.tsx"
+lines = 2
+verdict = "clean"
+note = "Read watchlist add/remove and alert preference presentation."
+
+[file.046]
+path = "apps/launchpad/mobile/test/contracts.test.ts"
+lines = 58
+verdict = "clean"
+note = "Read pending-journal, callback identity, push route and execution contract assertions."
+
+[file.047]
+path = "apps/launchpad/mobile/test/lifecycle.test.ts"
+lines = 2
+verdict = "clean"
+note = "Read lifecycle and pending recovery assertions; source review does not claim a native execution gate."
+
+[file.048]
+path = "apps/launchpad/mobile/test/offline-cache.test.ts"
+lines = 17
+verdict = "issues"
+note = "Read every cache assertion and test payload; positive producer/restart proof gap recorded."
+
+[file.049]
+path = "apps/launchpad/mobile/test/push.test.ts"
+lines = 3
+verdict = "clean"
+note = "Read push permission, stale-account, notification and token lifecycle assertions."
+
+[file.050]
+path = "apps/launchpad/mobile/test/vitest/harness.test.ts"
+lines = 21
+verdict = "clean"
+note = "Read test harness configuration and real boundary assertions."
+
+[file.051]
+path = "apps/launchpad/mobile/test/vitest/market-session.test.ts"
+lines = 162
+verdict = "issues"
+note = "Read full loopback snapshot fixture and request assertions; unsupported topic expectation is stale."
+
+[file.052]
+path = "apps/launchpad/mobile/test/vitest/native-authority.test.ts"
+lines = 173
+verdict = "clean"
+note = "Read native authority, deployment and chain identity assertions."
+
+[file.053]
+path = "apps/launchpad/mobile/test/vitest/onchain-quote.test.ts"
+lines = 405
+verdict = "clean"
+note = "Read onchain quote amount, slippage and authority assertions."
+
+[file.054]
+path = "apps/launchpad/mobile/test/vitest/proof_launchpad_mobile_app.test.ts"
+lines = 815
+verdict = "clean"
+note = "Read complete mobile proof fixture, real HTTP/WebSocket/storage and lifecycle assertions."
+
+[file.055]
+path = "apps/launchpad/mobile/test/vitest/routes-account.test.ts"
+lines = 159
+verdict = "clean"
+note = "Read v2 portfolio partial/unpriced shape and same-origin authentication assertions."
+
+[file.056]
+path = "apps/launchpad/mobile/test/vitest/routes-activity-quote.test.ts"
+lines = 350
+verdict = "clean"
+note = "Read actual native quote path configuration and quote boundary assertions."
+
+[file.057]
+path = "apps/launchpad/mobile/test/vitest/routes-activity.test.ts"
+lines = 192
+verdict = "clean"
+note = "Read stream/transaction v2 operation assertions and response types."
+
+[file.058]
+path = "apps/launchpad/mobile/test/vitest/routes-chat.test.ts"
+lines = 253
+verdict = "clean"
+note = "Read chat routes, authenticated message and transport assertions."
+
+[file.059]
+path = "apps/launchpad/mobile/test/vitest/routes-market.test.ts"
+lines = 211
+verdict = "clean"
+note = "Read current v2 pool/search route and schema assertions."
+
+[file.060]
+path = "apps/launchpad/mobile/test/vitest/routes-notifications.test.ts"
+lines = 181
+verdict = "clean"
+note = "Read notification route and mutation assertions."
+
+[file.061]
+path = "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"
+lines = 364
+verdict = "issues"
+note = "Read full scaffold response fixtures and route expectations; stale v1 contract finding recorded."
+
+[file.062]
+path = "apps/launchpad/mobile/tsconfig.json"
+lines = 11
+verdict = "clean"
+note = "Read TypeScript workspace compile configuration."
+
+[file.063]
+path = "apps/launchpad/mobile/vitest.config.ts"
+lines = 20
+verdict = "clean"
+note = "Read focused mobile Vitest discovery and environment configuration."
+
+[file.064]
+path = "apps/launchpad/web/eslint.config.mjs"
+lines = 29
+verdict = "clean"
+note = "Read web ESLint configuration and generated/build exclusions."
+
+[file.065]
+path = "apps/launchpad/web/src/widgets/profile/account-auth.test.ts"
+lines = 127
+verdict = "clean"
+note = "Read account signing, authorization, response and replay boundary assertions."
+
+[file.066]
+path = "apps/launchpad/web/src/widgets/profile/account-disclosure.ts"
+lines = 96
+verdict = "clean"
+note = "Read account disclosure state and supported failure copy."
+
+[file.067]
+path = "apps/launchpad/web/src/widgets/profile/account-panel.tsx"
+lines = 92
+verdict = "clean"
+note = "Read owner panel, controls and private account boundary."
+
+[file.068]
+path = "apps/launchpad/web/src/widgets/profile/account-preferences.tsx"
+lines = 124
+verdict = "clean"
+note = "Read preference forms, revisions, validation and export/device/session controls."
+
+[file.069]
+path = "apps/launchpad/web/src/widgets/profile/account-transport.ts"
+lines = 289
+verdict = "clean"
+note = "Read complete signed account operation, v3 extended profile/preferences, asset, wallet and export transports."
+
+[file.070]
+path = "apps/launchpad/web/src/widgets/profile/action-badge.tsx"
+lines = 21
+verdict = "clean"
+note = "Read activity action badge enum and presentation."
+
+[file.071]
+path = "apps/launchpad/web/src/widgets/profile/activity-row.tsx"
+lines = 97
+verdict = "clean"
+note = "Read activity row amounts, canonical positions and receipt navigation."
+
+[file.072]
+path = "apps/launchpad/web/src/widgets/profile/activity-tab.tsx"
+lines = 160
+verdict = "clean"
+note = "Read activity paging, quality and explicit unavailable states."
+
+[file.073]
+path = "apps/launchpad/web/src/widgets/profile/activity-transport.test.ts"
+lines = 134
+verdict = "clean"
+note = "Read activity contract/request and error assertions."
+
+[file.074]
+path = "apps/launchpad/web/src/widgets/profile/activity-transport.ts"
+lines = 234
+verdict = "clean"
+note = "Read current activity routes, shape validation, paging and quality boundary."
+
+[file.075]
+path = "apps/launchpad/web/src/widgets/profile/balance-visibility.test.tsx"
+lines = 62
+verdict = "clean"
+note = "Read masking persistence, accessible output and toggle assertions."
+
+[file.076]
+path = "apps/launchpad/web/src/widgets/profile/balance-visibility.tsx"
+lines = 95
+verdict = "issues"
+note = "Read stored visibility, first render and masking accessibility implementation."
+
+[file.077]
+path = "apps/launchpad/web/src/widgets/profile/leaderboard-panel.test.tsx"
+lines = 268
+verdict = "clean"
+note = "Read leaderboard live data, failure and ranking state assertions."
+
+[file.078]
+path = "apps/launchpad/web/src/widgets/profile/leaderboard-panel.tsx"
+lines = 209
+verdict = "clean"
+note = "Read leaderboard fetch, sorting and unavailable rendering."
+
+[file.079]
+path = "apps/launchpad/web/src/widgets/profile/net-worth-chart.tsx"
+lines = 61
+verdict = "clean"
+note = "Read net-worth series selection and portfolio chart composition."
+
+[file.080]
+path = "apps/launchpad/web/src/widgets/profile/not-served-states.test.tsx"
+lines = 265
+verdict = "clean"
+note = "Read owner action fail-closed/unserved capability assertions."
+
+[file.081]
+path = "apps/launchpad/web/src/widgets/profile/pnl-summary.tsx"
+lines = 73
+verdict = "clean"
+note = "Read exact raw PnL presentation and incomplete basis/pricing states."
+
+[file.082]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-block.tsx"
+lines = 167
+verdict = "clean"
+note = "Read owner portfolio composition and value/quality handling."
+
+[file.083]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-chart.tsx"
+lines = 119
+verdict = "issues"
+note = "Read all chart geometry, pointer, refresh and accessible readout code."
+
+[file.084]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-issue-state.tsx"
+lines = 32
+verdict = "clean"
+note = "Read portfolio issue classification and explicit retry/refresh actions."
+
+[file.085]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-owner-states.test.tsx"
+lines = 221
+verdict = "clean"
+note = "Read owner-only portfolio loading/issue/disconnected states."
+
+[file.086]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-transport.test.ts"
+lines = 173
+verdict = "clean"
+note = "Read portfolio transport shape, quality and error assertions."
+
+[file.087]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts"
+lines = 270
+verdict = "clean"
+note = "Read complete v3 portfolio/history/position route and exact field validation."
+
+[file.088]
+path = "apps/launchpad/web/src/widgets/profile/portfolio-widgets.test.tsx"
+lines = 280
+verdict = "clean"
+note = "Read portfolio widget display, raw-unit and partial-data assertions."
+
+[file.089]
+path = "apps/launchpad/web/src/widgets/profile/positions-open-closed.tsx"
+lines = 185
+verdict = "clean"
+note = "Read open/closed positions and completeness handling."
+
+[file.090]
+path = "apps/launchpad/web/src/widgets/profile/positions-tab.tsx"
+lines = 167
+verdict = "clean"
+note = "Read position filters, paging, supported/unserved trade data and owner checks."
+
+[file.091]
+path = "apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx"
+lines = 272
+verdict = "issues"
+note = "Read full modal loading, upload, validation, revision conflict and save lifecycle."
+
+[file.092]
+path = "apps/launchpad/web/src/widgets/profile/profile-edit-state.ts"
+lines = 40
+verdict = "clean"
+note = "Read extended profile validation and response/body field conversion."
+
+[file.093]
+path = "apps/launchpad/web/src/widgets/profile/profile-header.tsx"
+lines = 114
+verdict = "clean"
+note = "Read complete profile identity, owner actions, asset URLs and edit entrypoints."
+
+[file.094]
+path = "apps/launchpad/web/src/widgets/profile/profile-issues.test.tsx"
+lines = 149
+verdict = "clean"
+note = "Read all profile issue state, failure and recovery assertions."
+
+[file.095]
+path = "apps/launchpad/web/src/widgets/profile/profile-issues.tsx"
+lines = 131
+verdict = "clean"
+note = "Read public profile issue classification and retry presentation."
+
+[file.096]
+path = "apps/launchpad/web/src/widgets/profile/profile-layout.test.tsx"
+lines = 98
+verdict = "clean"
+note = "Read profile layout and responsive state assertions."
+
+[file.097]
+path = "apps/launchpad/web/src/widgets/profile/profile-layout.tsx"
+lines = 49
+verdict = "clean"
+note = "Read responsive profile layout, outlet and sticky panels."
+
+[file.098]
+path = "apps/launchpad/web/src/widgets/profile/profile-stats.tsx"
+lines = 61
+verdict = "clean"
+note = "Read profile stats, raw USDL formatting and absent-field rendering."
+
+[file.099]
+path = "apps/launchpad/web/src/widgets/profile/profile-tabs.test.ts"
+lines = 28
+verdict = "clean"
+note = "Read tab state, wallet and route selection assertions."
+
+[file.100]
+path = "apps/launchpad/web/src/widgets/profile/profile-tabs.tsx"
+lines = 103
+verdict = "clean"
+note = "Read profile tab parsing, URL and accessible selection behavior."
+
+[file.101]
+path = "apps/launchpad/web/src/widgets/profile/profile-view.tsx"
+lines = 146
+verdict = "clean"
+note = "Read complete profile view composition and public/owner boundaries."
+
+[file.102]
+path = "apps/launchpad/web/src/widgets/profile/referrals-tab.tsx"
+lines = 17
+verdict = "clean"
+note = "Read referral absent-capability presentation without invented values."
+
+[file.103]
+path = "apps/launchpad/web/src/widgets/profile/replies-tab.tsx"
+lines = 115
+verdict = "clean"
+note = "Read replies absent-capability presentation without invented messages."
+
+[file.104]
+path = "apps/launchpad/web/src/widgets/profile/share-profile-button.tsx"
+lines = 53
+verdict = "clean"
+note = "Read profile sharing and clipboard failure handling."
+
+[file.105]
+path = "apps/launchpad/web/src/widgets/profile/top-trades.tsx"
+lines = 110
+verdict = "clean"
+note = "Read top-trades supported fields and unavailable presentation."
+
+[file.106]
+path = "apps/launchpad/web/src/widgets/profile/use-account-session.ts"
+lines = 73
+verdict = "clean"
+note = "Read account session subscription and identity lifetime boundary."
+
+[file.107]
+path = "apps/launchpad/web/src/widgets/profile/use-private-account-query.ts"
+lines = 14
+verdict = "clean"
+note = "Read private query cancellation, session partitioning and expiry handling."
+
+[file.108]
+path = "apps/launchpad/web/src/widgets/profile/use-profile-data.test.ts"
+lines = 32
+verdict = "clean"
+note = "Read public profile loading/absence and projection quality assertions."
+
+[file.109]
+path = "apps/launchpad/web/src/widgets/profile/use-profile-data.ts"
+lines = 114
+verdict = "clean"
+note = "Read public profile data sourcing, absence handling and quality boundary."
+
+[file.110]
+path = "apps/launchpad/web/src/widgets/profile/utility-rows.tsx"
+lines = 215
+verdict = "clean"
+note = "Read profile utility rows and external/link action rendering."
+
+[file.111]
+path = "apps/launchpad/web/src/widgets/profile/wallet-links-transport.test.ts"
+lines = 26
+verdict = "clean"
+note = "Read signed wallet-link operations, validation and stale-account assertions."
+
+[file.112]
+path = "apps/launchpad/web/src/widgets/profile/wallet-links-transport.ts"
+lines = 45
+verdict = "clean"
+note = "Read full wallet-link/session signature, challenge, revision and recovery transports."
+
+[file.113]
+path = "apps/launchpad/web/src/widgets/profile/wallets-expander.tsx"
+lines = 72
+verdict = "clean"
+note = "Read wallet expansion, confirmation, linking, unlinking and stale owner handling."
+
+[file.114]
+path = "apps/launchpad/web/src/widgets/profile/watchlist-state.ts"
+lines = 116
+verdict = "clean"
+note = "Read immutable watchlist toggle/alert transitions."
+
+[file.115]
+path = "services/launchpad/pnl-tracker/internal/internaltest/chain.go"
+lines = 106
+verdict = "clean"
+note = "Read real EVM receipt/block fixture driver, bounded RPC, chain125 and deployed-code checks."
+
+[file.116]
+path = "services/launchpad/pnl-tracker/internal/internaltest/containers.go"
+lines = 223
+verdict = "clean"
+note = "Read real PostgreSQL/Redis test container/environment ownership, startup and cleanup."
+
+[file.117]
+path = "tools/launchpad/production/integration/README.md"
+lines = 15
+verdict = "issues"
+note = "Read all integration assurance documentation; adapter/prerequisite drift recorded."
+
+[file.118]
+path = "tools/launchpad/production/integration/__init__.py"
+lines = 4
+verdict = "clean"
+note = "Read complete package initializer; no runtime interface or retired dependency."
+
+[file.119]
+path = "tools/launchpad/production/integration/adapters.py"
+lines = 222
+verdict = "clean"
+note = "Read complete bounded HTTP/process tools and exact isolated container/named-volume fault ownership."
+
+[file.120]
+path = "tools/launchpad/production/integration/browser-journeys.mjs"
+lines = 244
+verdict = "issues"
+note = "Read every browser phase, signature/receipt assertion, fault path and result-reporting branch."
+
+[file.121]
+path = "tools/launchpad/production/integration/canonical-fixtures.json"
+lines = 1716
+verdict = "clean"
+note = "Read every canonical fixture field and block/event/candle expectation; synthetic oracle inputs are identified."
+
+[file.122]
+path = "tools/launchpad/production/integration/evidence_policy.py"
+lines = 203
+verdict = "clean"
+note = "Read complete evidence provenance, phase bounds, retention and qualification policy."
+
+[file.123]
+path = "tools/launchpad/production/integration/final-integrated-gate-readiness.json"
+lines = 67
+verdict = "clean"
+note = "Read entire readiness document; production/capacity/recovery remain explicitly unqualified."
+
+[file.124]
+path = "tools/launchpad/production/integration/fixtures.py"
+lines = 62
+verdict = "clean"
+note = "Read all independent fixture normalization, complete-block and duplicate identity rules."
+
+[file.125]
+path = "tools/launchpad/production/integration/journeys.py"
+lines = 445
+verdict = "clean"
+note = "Read full phase2/3 journey runner, frozen configuration, fault restoration and evidence checks."
+
+[file.126]
+path = "tools/launchpad/production/integration/oracle.py"
+lines = 212
+verdict = "clean"
+note = "Read complete independent integer/Fraction inventory, cost-basis and candle oracle."
+
+[file.127]
+path = "tools/launchpad/production/integration/persisted-state.py"
+lines = 326
+verdict = "clean"
+note = "Read all persisted SQL snapshots, accounting, row identities, recovery checksums and checkpoint validation."
+
+[file.128]
+path = "tools/launchpad/production/integration/phase-1-evidence-policy.json"
+lines = 42
+verdict = "clean"
+note = "Read all phase1 evidence-policy fields and provenance limits."
+
+[file.129]
+path = "tools/launchpad/production/integration/phase-1-scenario-manifest.json"
+lines = 215
+verdict = "clean"
+note = "Read every phase1 scenario declaration and required evidence."
+
+[file.130]
+path = "tools/launchpad/production/integration/phase-2-evidence-policy.json"
+lines = 45
+verdict = "clean"
+note = "Read every phase2 evidence policy and isolated qualification limit."
+
+[file.131]
+path = "tools/launchpad/production/integration/phase-2-scenario-manifest.json"
+lines = 109
+verdict = "clean"
+note = "Read every phase2 real journey/regression scenario and expected evidence."
+
+[file.132]
+path = "tools/launchpad/production/integration/phase-3-evidence-policy.json"
+lines = 52
+verdict = "clean"
+note = "Read every phase3 evidence policy and prohibited qualification shortcut."
+
+[file.133]
+path = "tools/launchpad/production/integration/phase-3-scenario-manifest.json"
+lines = 203
+verdict = "clean"
+note = "Read every phase3 isolated fault/security scenario and recovery evidence requirement."
+
+[file.134]
+path = "tools/launchpad/production/integration/phase-4-evidence-policy.json"
+lines = 64
+verdict = "clean"
+note = "Read every phase4 evidence policy, recovery budget and production qualification limit."
+
+[file.135]
+path = "tools/launchpad/production/integration/phase-4-scenario-manifest.json"
+lines = 116
+verdict = "clean"
+note = "Read every phase4 replay/PITR scenario and required independent evidence."
+
+[file.136]
+path = "tools/launchpad/production/integration/replay_restore.py"
+lines = 476
+verdict = "issues"
+note = "Read full replay, actual72hour journal/resume, physical restore, ownership and recovery qualification code."
+
+[file.137]
+path = "tools/launchpad/production/integration/scenario-inventory.json"
+lines = 208
+verdict = "clean"
+note = "Read complete scenario inventory and explicit blocked/unproven production status."
+
+[file.138]
+path = "tools/launchpad/production/integration/test_integration.py"
+lines = 219
+verdict = "clean"
+note = "Read every independent oracle, real loopback/process and isolation-boundary assertion."
+
+[file.139]
+path = "tools/launchpad/production/integration/test_phase2.py"
+lines = 49
+verdict = "clean"
+note = "Read complete environment-bound real phase2 integration suite and evidence assertions."
+
+[file.140]
+path = "tools/launchpad/production/integration/test_phase3.py"
+lines = 83
+verdict = "clean"
+note = "Read complete environment-bound phase3 fault/security suite and evidence assertions."
+
+[file.141]
+path = "tools/launchpad/production/integration/test_phase4.py"
+lines = 70
+verdict = "clean"
+note = "Read complete environment-bound replay/PITR/72hour phase4 suite and evidence assertions."
+
+[finding.mobile-watch-write]
+file = "apps/launchpad/mobile/src/runtime/service-client.ts"
+line = 268
+class = "interface-mismatch"
+severity = "high"
+observed = "MobileServices.watch sends an authenticated PUT with alertEnabled but no X-Kindle-Operation, X-Kindle-Operation-Signature or idempotency identity. SDK transport adds session/CSRF only. The live user GatewayHandler selects watchlist.update and calls OperationAuthorizer.AuthorizeRequest before the store mutation, so the request is denied."
+expected = "The declared PUT /v1/me/watchlist/{poolAddress} must carry a wallet-signed operation bound to the current account/session, method, route, body and operation identity through the gateway to the user service."
+proposal = "In apps/launchpad/mobile/src/runtime/service-client.ts and the owning SDK transport, wire the existing wallet authority to sign the exact watchlist operation and preserve its idempotency identity across an uncertain response. Prove a real authenticated mobile-to-gateway-to-user write and read-back."
+owner_domain = 4
+interface = "4.http-user-put-v1-me-watchlist-pool-address"
+
+[finding.mobile-unwatch-write]
+file = "apps/launchpad/mobile/src/runtime/service-client.ts"
+line = 281
+class = "interface-mismatch"
+severity = "high"
+observed = "MobileServices.unwatch sends DELETE with authenticated:true but no signed operation or idempotency key. services/launchpad/user/internal/account/preferences_http.go maps that route to watchlist.remove and requires AuthorizeRequest; session cookies and CSRF do not satisfy the operation check."
+expected = "The declared DELETE /v1/me/watchlist/{poolAddress} requires an operation signature for watchlist.remove that reaches the producer unchanged, including the empty-body digest and session binding."
+proposal = "Wire wallet-signed watchlist.remove authority into the mobile client and transport in apps/launchpad/mobile/src/runtime/service-client.ts; retain the operation identity for recovery and prove deletion plus safe repeated delivery through the real gateway and user service."
+owner_domain = 4
+interface = "4.http-user-delete-v1-me-watchlist-pool-address"
+
+[finding.mobile-profile-write]
+file = "apps/launchpad/mobile/src/runtime/service-client.ts"
+line = 295
+class = "interface-mismatch"
+severity = "high"
+observed = "MobileServices.editProfile PATCHes ProfilePatchBody using only session authentication. The live user GatewayHandler maps the profile path to profile.update and requires a signed operation. SdkClient does not create that operation and its custom-header allowlist rejects X-Kindle-Operation headers."
+expected = "The registered PATCH /v1/profiles/{wallet} must accept the mobile owner edit through the same signed operation boundary enforced by the user service, with exact body, target wallet and current identity."
+proposal = "In apps/launchpad/mobile/src/runtime/service-client.ts and sdk/launchpad/packages/sdk/src/transport.ts, connect the external wallet operation signer to profile.update and preserve its supported headers. Prove real owner edit/read-back and duplicate-response recovery without weakening user authorization."
+owner_domain = 4
+interface = "4.http-user-patch-v1-profiles-wallet"
+
+[finding.mobile-preferences-write]
+file = "apps/launchpad/mobile/src/runtime/service-client.ts"
+line = 318
+class = "interface-mismatch"
+severity = "high"
+observed = "MobileServices.updatePreferences supplies PreferencesUpdateBody and authenticated:true but no operation authority. GatewayHandler maps PATCH /v1/me/preferences to preferences.update and rejects it at AuthorizeRequest before applying preferences."
+expected = "The preferences PATCH interface requires a wallet-signed, session-bound operation and stable idempotency identity in addition to cookie/CSRF authentication."
+proposal = "Connect preferences.update signing in apps/launchpad/mobile/src/runtime/service-client.ts and the SDK transport, using the exact serialized body and authenticated principal. Verify a real gateway/user preference round trip and an uncertain-response retry with the same operation identity."
+owner_domain = 4
+interface = "4.http-user-patch-v1-me-preferences"
+
+[finding.mobile-device-signature-header]
+file = "apps/launchpad/mobile/src/runtime/service-client.ts"
+line = 384
+class = "interface-mismatch"
+severity = "high"
+observed = "deviceOperation sends authorization.signature as X-Kindle-Signature. The live user app configures OperationTransport.SignatureHeader as X-Kindle-Operation-Signature (services/launchpad/user/internal/app/app.go:274); shared/auth authorizationHeader requires that header. Thus even a supplied valid deviceAuthorization cannot authorize registration or revocation."
+expected = "PUT and DELETE /v1/me/devices/{deviceId} must transport the operation envelope and its signature under X-Kindle-Operation and X-Kindle-Operation-Signature through the gateway to the configured user authorizer."
+proposal = "Align the device operation signature header in apps/launchpad/mobile/src/runtime/service-client.ts with shared/auth OperationSignatureHeader. Prove native installation registration and revocation through the real gateway and user handler, including persisted installation restoration."
+owner_domain = 4
+interface = "4.http-user-put-v1-me-devices-device-id"
+related_interfaces = ["4.http-user-delete-v1-me-devices-device-id"]
+
+[finding.mobile-live-cache-version]
+file = "apps/launchpad/mobile/src/runtime/offline-cache.ts"
+line = 6
+class = "interface-mismatch"
+severity = "high"
+observed = "validatePublicSnapshot always uses the SDK v1 decodeContract, including StreamListResponse for live. activityRoutes.streams uses IF_STREAM_LIST /v2/streams. The live producer handlers.go stream view emits viewerCount:null with viewerQuality:unavailable when estimates are unavailable; v1 Stream requires an integer. App installs native publicSnapshotStorage, so put throws before persistence and disk read rejects that legitimate v2 response."
+expected = "A v2 public stream response must survive the live producer, mobile transport, cache persistence and restart without losing the distinction between unavailable viewer evidence and a real zero count."
+proposal = "Make public snapshot contracts version-aware in apps/launchpad/mobile/src/runtime/offline-cache.ts, validating live payloads with the same v2 contract used by Operations. Preserve viewerCount:null and viewerQuality, define stored-version migration/refusal, and prove real producer responses across native storage restart."
+owner_domain = 4
+interface = "4.ts-sdk-validate-decode-contract"
+related_interfaces = ["4.ts-mobile-routes-activity-j30"]
+
+[finding.mobile-live-restore-version]
+file = "apps/launchpad/mobile/src/navigation.tsx"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "useResource revalidates every recovered public snapshot with v1 decodeContract(publicContract(key),cached.value). For live this is StreamListResponse, whose v1 stream viewerCount must be integer. The v2 stream route legitimately returns viewerCount:null when the viewer estimator is unavailable, so even a corrected cache cannot restore that valid snapshot through navigation."
+expected = "Navigation must accept the same versioned stream shape as the producer and cache, including unavailable viewer evidence, and restore it with explicit offline age after restart."
+proposal = "Share the version-aware public snapshot decoder between apps/launchpad/mobile/src/navigation.tsx and runtime/offline-cache.ts. Exercise a real v2 live response with unavailable viewers through persistence, app restart and offline rendering; retain strict validation for malformed responses."
+owner_domain = 4
+interface = "4.ts-sdk-validate-decode-contract"
+
+[finding.android-firebase-declaration]
+file = "apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/SecureSessionModule.kt"
+line = 66
+class = "runtime-risk"
+severity = "medium"
+observed = "configuredFirebase declares appId, sender, apiKey and project using one val followed by comma-separated assignments. Kotlin local property declarations do not support this syntax, so this source cannot compile for the native Android application."
+expected = "The Android secure-session and push module must compile under the pinned Kotlin toolchain before a real installation can obtain and bind an FCM registration token."
+proposal = "Replace the comma-separated declarations with valid individual Kotlin declarations in SecureSessionModule.kt, preserving all Firebase validation. Qualify the actual Android application build and the native token-registration path under the pinned toolchain."
+owner_domain = 4
+interface = "4.cli-mobile-android-j30"
+
+[finding.mobile-default-push-authority]
+file = "apps/launchpad/mobile/src/App.tsx"
+line = 19
+class = "wiring-gap"
+severity = "medium"
+observed = "The registered index.js entry renders App without injected pushProofIssuer or deviceAuthorization. ConnectedApp consequently constructs NativePlatformPush with both undefined. registration throws when proofIssuer is absent, and PushController also requires authorizeDevice, so the shipped entry cannot enable push even with real OS permission and provider configuration."
+expected = "The real mobile entry must connect the installation/account/session/token proof issuer and wallet operation authority required by native registration; dependency injection alone does not make them available to an installed application."
+proposal = "Wire production proof issuance and external-wallet operation signing at apps/launchpad/mobile/src/App.tsx or its registered bootstrap, retaining fail-closed validation. Demonstrate installation registration, token rotation, app restart and revocation through actual native/provider/user paths."
+owner_domain = 4
+interface = "4.ts-mobile-mobile-services-j30"
+
+[finding.mobile-trade-unknown-recovery]
+file = "apps/launchpad/mobile/src/runtime/lifecycle.ts"
+line = 162
+class = "restart-recovery"
+severity = "medium"
+observed = "executeExternalWallet persists a pending operation before handoff and marks it unknown when the wallet request times out or the process loses its response. If no transactionHash was recorded, ForegroundLifecycle.reconcile only leaves receiptReconciled false. Wallet callbacks carry requestId only; the trade flow has no verified hash/nonce recovery path, so this persisted state can block subsequent execution across restarts."
+expected = "Requirement 21140.1 requires a real mobile recovery path. An uncertain wallet submission must remain safe while allowing authoritative reconciliation without discarding the pending operation or resubmitting a potentially executed trade."
+proposal = "Add an explicit trade recovery journey in apps/launchpad/mobile/src/runtime/lifecycle.ts and its screens that recovers the wallet transaction identity and verifies account, chain, nonce and canonical receipt. Prove process death after wallet acceptance but before the response, followed by restart and reconciliation without a duplicate trade."
+owner_domain = 4
+
+[finding.mobile-cache-positive-proof]
+file = "apps/launchpad/mobile/test/offline-cache.test.ts"
+line = 11
+class = "test-gap"
+severity = "medium"
+observed = "The public disk-boundary tests check approved key names and reject unrelated private payloads, but never persist and restore an accepted current producer response. The earlier cache tests omit native storage and use arbitrary public/a keys; they cannot expose rejection of valid v2 viewerCount:null stream documents."
+expected = "Brief checks 1, 5 and 7 and requirement 21140.1 require producer-compatible payloads to cross the real persistence/restart path; negative-shape rejection alone does not establish compatibility."
+proposal = "Extend apps/launchpad/mobile/test/offline-cache.test.ts and native qualification with actual v2 producer output, including unavailable viewer counts, disk persistence and a recreated consumer. Assert both successful restore and malformed/private payload refusal without weakening validation."
+owner_domain = 4
+
+[finding.mobile-route-scaffold-drift]
+file = "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"
+line = 220
+class = "test-gap"
+severity = "medium"
+observed = "expectedPairs contains /v1/pools?limit=50 and v1 market, portfolio, chat, notification, stream, quote and transaction routes. The reviewed runtime now dispatches generated v2 operations; marketRoutes.pools starts with /v2/pools?sort=new&limit=50. This loopback fixture returns 400 for that real request before the old route assertions, and quoting now needs configured onchain wallet authority."
+expected = "The mobile route scaffold test must assert the current generated route and producer response shape, and native quoting must exercise its actual onchain authority rather than the former POST /v1/quotes contract."
+proposal = "Replace stale route/fixture expectations in apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts with the declared current operations and actual producer-backed responses. Prove onchain quoting separately against the real chain125 quote interface and preserve all route/authentication assertions."
+owner_domain = 4
+interface = "4.ts-mobile-routes-market-j30"
+
+[finding.mobile-market-topic-test]
+file = "apps/launchpad/mobile/test/vitest/market-session.test.ts"
+line = 141
+class = "test-gap"
+severity = "medium"
+observed = "marketSessionUsesV2Snapshots awaits session.foreground with market.pool.<address> and then expects an HTTP /v2/snapshots request. MarketSession.foreground explicitly rejects that unsupported topic with TypeError before transport. The unhandled rejection prevents the later valid market.stats topic assertions."
+expected = "Tests must distinguish local unsupported-topic refusal from a transport rejection, and prove the real supported topic producer/transport/consumer path."
+proposal = "Update apps/launchpad/mobile/test/vitest/market-session.test.ts to assert local rejection and no request for market.pool, then verify the supported market.stats snapshot with current v2 producer output. Keep the unsupported topic check and the positive snapshot assertions."
+owner_domain = 4
+interface = "4.ts-mobile-market-session-j30"
+
+[finding.portfolio-hover-range]
+file = "apps/launchpad/web/src/widgets/profile/portfolio-chart.tsx"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "PortfolioChart retains hover as a numeric index across points updates. active only checks points.length>1, while the readout dereferences points[active].valueRaw/time/complete. Refreshing from a longer series to a shorter series with at least two points can leave active beyond the new array and throw during rendering."
+expected = "A live portfolio history refresh or window change must keep the chart and accessible hover readout usable even when the replacement series has fewer buckets."
+proposal = "Bound or clear selection when points change in apps/launchpad/web/src/widgets/profile/portfolio-chart.tsx, and render the readout only for an existing selected point. Verify a pointer selection followed by a shorter series update and an empty/single-point transition."
+owner_domain = 4
+
+[finding.profile-image-remove-draft]
+file = "apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx"
+line = 187
+class = "runtime-risk"
+severity = "medium"
+observed = "An approved upload writes its assetId into draft at line 91, but the ImagePicker Remove action only calls setUpload(null). Removing the visible selected upload therefore leaves its approved assetId in the save body, so Save can publish the image the user just removed."
+expected = "Removing a selected profile image must update the draft consistently with the visible choice, and a later save must not retain a supposedly removed upload."
+proposal = "Define the Remove action in apps/launchpad/web/src/widgets/profile/profile-edit-modal.tsx to clear the draft asset or restore the baseline according to the product choice, then verify upload approval, removal and save/read-back for both avatar and banner."
+owner_domain = 4
+
+[finding.balance-mask-first-render]
+file = "apps/launchpad/web/src/widgets/profile/balance-visibility.tsx"
+line = 38
+class = "security"
+severity = "medium"
+observed = "BalanceVisibilityProvider initializes hidden=false and reads sidiora_balances_hidden only in useEffect. A returning user with the hidden preference therefore has an initial render, including server/hydration output where balances are present, that exposes the unmasked financial values before the effect applies the saved choice."
+expected = "A persisted Hide balances choice must protect the first visible and accessible render on reopening a profile, including hydration, rather than masking only after the page has rendered."
+proposal = "Introduce a conservative unresolved-preference state in apps/launchpad/web/src/widgets/profile/balance-visibility.tsx and reveal amounts only after resolving the saved choice. Verify initial HTML/hydration and accessibility output for a returning hidden-balance user without a transient disclosure."
+owner_domain = 4
+
+[finding.browser-result-reporting]
+file = "tools/launchpad/production/integration/browser-journeys.mjs"
+line = 244
+class = "runtime-risk"
+severity = "medium"
+observed = "The final log unconditionally reads result.transactions.length for every non-registry phase. securityJourney returns requests, boundedFailure returns requests, and az-surviving/application-recovered return persisted_visible, all without transactions. After writing result.json, those successful branches throw TypeError and the subprocess exits nonzero, preventing Phase3Journey.browser from accepting their evidence."
+expected = "Each supported browser scenario must return a valid scenario-specific result and exit successfully when its actual assertions pass; security and recovery journeys need not submit transactions."
+proposal = "Give each branch in tools/launchpad/production/integration/browser-journeys.mjs an explicit validated checks count/result contract and report that count without assuming transactions. Exercise every supported phase through the actual subprocess and keep all security/fault assertions."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-integration-browser-journeys"
+
+[finding.recovery-poll-exception]
+file = "tools/launchpad/production/integration/replay_restore.py"
+line = 230
+class = "restart-recovery"
+severity = "medium"
+observed = "replay retries only persistence.PersistenceError, but its own require checks for disconnected-period fills and inbox advancement raise RecoveryError. resume72h similarly raises RecoveryError for nonzero pending cursors at line 286 while catching only PersistenceError. A valid snapshot before asynchronous catch-up can therefore terminate immediately despite an unspent replay_recovery_seconds budget."
+expected = "Recovery qualification must wait within its declared bounded interval for asynchronous fills, projection inboxes and durable cursors to catch up, while still failing immediately for permanent integrity violations."
+proposal = "Distinguish retryable not-yet-caught-up results from permanent corruption in tools/launchpad/production/integration/replay_restore.py. Poll the former until the existing deadline and prove real delayed consumer restart/catch-up for both replay modes, retaining all accounting and preservation assertions."
+owner_domain = 4
+interface = "4.cli-lp-tools-production-integration-replay-restore"
+
+[finding.mobile-architecture-doc]
+file = "apps/launchpad/mobile/ARCHITECTURE.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes only an unavailable-service screen and unimplemented secure storage/wallet adapters, but App, native protected storage, WalletConnect and routed screens are implemented. Lines 15 and 25 instruct builds from client/apps/mobile instead of apps/launchpad/mobile; release signing prose also does not describe the managed signing inputs required by build.gradle."
+expected = "The mobile architecture/build page must describe the checked-in bootstrap and implemented native boundaries, use the actual workspace path, and distinguish source implementation from unperformed device/build qualification."
+proposal = "Rewrite apps/launchpad/mobile/ARCHITECTURE.md around current routes, cookie vault, native storage/privacy, external wallet and push authority prerequisites. Correct build locations and managed signing inputs, and retain explicit limits on native/device evidence actually available."
+owner_domain = 4
+
+[finding.integration-readme-drift]
+file = "tools/launchpad/production/integration/README.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The README says persistent database/broker faults need a future named-volume extension, while adapters.py now provides RecoveryPermit/RecoveryFaults with exact named-volume ownership checks. Its initial-primitives description omits the phase2/3/4 entrypoints and required frozen configurations, although test discovery includes those environment-bound phases."
+expected = "The integration README must describe the current isolated recovery adapters, executable phase entrypoints and their prerequisites without implying that implemented harnesses establish production qualification."
+proposal = "Update tools/launchpad/production/integration/README.md with the phase-specific commands, frozen input/ownership/evidence requirements and current named-volume recovery limits. Preserve its accurate statements that synthetic arithmetic and source code alone do not prove production capacity or 72-hour recovery."
+owner_domain = 4
+
+[finding.hosted-node-doc]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page defines the hosted node as a separate sequencer pod building layerxd, and documents layerxd/authority-replica supervision, LNI, daemon configuration, snapshots and settlement as the current operational path (notably lines 3-12, 39-40, 130-131 and 357 onward)."
+expected = "Brief network facts 1 and 2 specify one BFT paxd network with kernel execution inside the node, committed-block finality and no running layerxd or separate sequencer service."
+proposal = "Replace this hosted-node runbook and its site/wiki counterpart with the merged paxd bootstrap, supervision, configuration, root RPC and committed-state recovery lifecycle. Clearly separate any retained historical material and remove retired daemon commands from operator instructions."
+owner_domain = 17
+
+[finding.hosted-node-wiki-doc]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page defines the hosted node as a separate sequencer pod building layerxd, and documents layerxd/authority-replica supervision, LNI, daemon configuration, snapshots and settlement as the current operational path (notably lines 3-12, 39-40, 130-131 and 357 onward)."
+expected = "Brief network facts 1 and 2 specify one BFT paxd network with kernel execution inside the node, committed-block finality and no running layerxd or separate sequencer service."
+proposal = "Replace this hosted-node runbook and its site/wiki counterpart with the merged paxd bootstrap, supervision, configuration, root RPC and committed-state recovery lifecycle. Clearly separate any retained historical material and remove retired daemon commands from operator instructions."
+owner_domain = 17
+
+[finding.quickstart-retired-endpoints]
+file = "docs/site/docs/overview/quickstart.md"
+line = 214
+class = "doc-drift"
+severity = "medium"
+observed = "The public quickstart gives https://api-mainnet-beta.paxeer.network/rpc and wss://api-mainnet-beta.paxeer.network/rpc/ws, then tells users to fund through custody credit submitted to that router. Earlier sections also advertise /rpc/schema and lx_ methods; the referenced custody page explicitly retires kernel custody credit."
+expected = "Brief network facts 1-3 require the merged chain125 node RPC at the public node root, no router or separate LayerX endpoint, and funding instructions compatible with the retired custody-credit path."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md with the merged public node names at the root and current supported account funding/submission/committed receipt steps. Remove /rpc, /rpc/ws and /rpc/schema examples and replace retired custody-credit instructions with the owning Human/ledger flow."
+owner_domain = 17
+
+[finding.boundary-legacy-topology]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes the layerx-node paxeer-relay sidecar, a separate custody-boundary client at line 7, and the old settlement/checkpoint deployment path as the active hosted topology. Its correct chain125/root POST details are mixed with retired separate-network dependencies."
+expected = "The finished network is one paxd execution domain. A boundary reference must describe the actual merged node and surviving hosted service responsibilities without requiring the retired layerxd/custody settlement path."
+proposal = "Revise docs/site/docs/concepts/paxeer-boundary.md to distinguish any surviving TLS relay implementation from retired node/custody topology. Document chain125 root RPC, current deployment ownership and committed-block finality; remove obsolete settlement bootstrap requirements."
+owner_domain = 17
+
+[finding.beta-cluster-legacy-topology]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator runbook presents the separate LayerX daemon/hosted-node cluster and later prescribes native custody deposit plus attested custody credit to fund Human and explorer principals. Those bring-up steps depend on components and funding transitions the merged-network brief and custody retirement notice remove."
+expected = "A beta operator must bring up the single merged paxd chain and current hosted dependencies, using supported principal funding and recovery rather than a second daemon network or retired custody-credit producer."
+proposal = "Replace the obsolete topology and funding steps in docs/site/docs/operators/beta-cluster.md with current merged node/dependency bring-up, readiness, principal funding and teardown instructions. Bind each qualification claim to actual evidence and remove retired daemon/credit prerequisites."
+owner_domain = 17
+
+[finding.agent-submit-rpc-doc]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The activity.submit description says a signed EIP-1559 transaction is sent with eth_sendRawTransaction to /rpc. That endpoint instruction retains the former router path even though the merged public node serves JSON-RPC at its root."
+expected = "Brief network facts 2 and 3 require public transaction submission to a root RPC on api1 through api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network, with chain125 identity and committed-block finality."
+proposal = "Correct docs/site/docs/agents/running.md submission/configuration examples to the current root node RPC and lifecycle. Keep the distinction between a submitted transaction hash and a committed receipt, and identify any surviving agentd interface separately from retired layerxd."
+owner_domain = 17
+
+[finding.cli-rpc-doc]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs to end in /rpc, repeats the restriction at line 131, and describes /rpc transaction submission near line 298. These instructions address the retired gateway router instead of the merged public node root."
+expected = "The CLI documentation must use the merged chain125 node root and clearly distinguish hosted px_ capabilities from node namespaces; no public /rpc router endpoint is part of the finished network."
+proposal = "Update endpoint validation guidance and every RPC example in docs/site/docs/platform/cli.md to current public root node URLs and method ownership. Have the CLI owner reconcile implementation validation where needed and document exact refusal behavior for unsupported endpoints."
+owner_domain = 17
+
+[finding.cli-command-status-doc]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The page first documents shipped global --rpc and wallet/token command implementations with source citations, then says these same command groups and flags have no counterpart in tools/platform/cli/src and that only --json is global (lines 106-137). A reader cannot determine the supported command surface from these contradictory instructions."
+expected = "A command reference must give one consistent current status for each command and global option, and separate planned capabilities from commands actually implemented in the binary."
+proposal = "Reconcile the command/status tables in docs/site/docs/platform/cli.md against the current CLI argument declarations and handlers. Remove the contradictory unimplemented section or rewrite it to list only genuinely absent capabilities, preserving exact refusal and receipt-recovery guidance."
+owner_domain = 17
+
+[finding.gateway-router-doc]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway page advertises public POST /rpc, GET /rpc/schema and GET /rpc/ws, repeats those routes in its table at lines 198-200 and describes the old combined public-core/activity routing path as the public network interface."
+expected = "The finished network has no unified router or /rpc paths. Public node RPC is at the root; hosted gateway px_ methods retain the separately declared services/platform/hosted/gateway/openrpc.json contract."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md around surviving hosted gateway responsibilities and the declared px_ contract, with an explicit root-node RPC handoff for chain methods. Remove public router endpoint and retired separate receipt/settlement assumptions."
+owner_domain = 17
+
+[finding.human-owner-funding-doc]
+file = "docs/site/docs/human/owner-registration-details.md"
+line = 63
+class = "doc-drift"
+severity = "medium"
+observed = "Owner registration details prescribe owner_custody.py bootstrap, native layerxcustody precompile deposits, bridge custody-profile verification and tests/bridge/custody_credit.py attestations to fund the owner. This contradicts the package custody retirement page and the merged-network execution model."
+expected = "Human owner enrollment/funding must use the current merged chain and supported account/authority transitions; retired kernel custody credit and its light-client/profile bootstrap must not be presented as an active onboarding prerequisite."
+proposal = "Rewrite docs/site/docs/human/owner-registration-details.md with the Human owner current enrollment, funding and unknown-outcome recovery path, retaining useful guardian isolation requirements while removing retired credit/profile/precompile instructions and linking the custody retirement notice."
+owner_domain = 17
+
+[finding.modules-daemon-doc]
+file = "docs/site/docs/protocol/modules.md"
+line = 115
+class = "doc-drift"
+severity = "medium"
+observed = "The module reference states that layerxd and the guarantor bind host runtimes through cmd/layerxd/lxp_daemon_modules.h. It also describes sequencer-term batch maintenance at line 113 and an authenticated custody-credit profile at lines 89 onward as current module operation."
+expected = "Module runtime execution belongs inside the merged paxd transaction/commit domain; layerxd, the guarantor and kernel custody-credit bootstrap are retired operational dependencies."
+proposal = "Replace the runtime binding/maintenance and custody profile descriptions in docs/site/docs/protocol/modules.md with current in-node module/precompile ownership, authority and commit behavior. Preserve valid module encodings while removing instructions that require retired daemons or credit paths."
+owner_domain = 17
+
+[doc.01]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Lines 3-12, 39-40, 130-131 and 357 onward describe the retired layerxd sequencer/replica lifecycle; see hosted-node-doc."
+
+[doc.02]
+path = "docs/wiki/HostedNode.md"
+status = "stale"
+notes = "Site mirror has the same retired daemon/bootstrap/runtime instructions, with wiki link targets; see hosted-node-wiki-doc."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20 and 167 onward advertise retired RPC routes; lines 214-219 instruct public router/custody funding; see quickstart-retired-endpoints."
+
+[doc.04]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Root POST and chain125 details are useful, but lines 5-7 and settlement sections retain the separate node/custody topology; see boundary-legacy-topology."
+
+[doc.05]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Line 3 and bring-up/funding sections retain separate daemon and attested custody-credit dependencies; see beta-cluster-legacy-topology."
+
+[doc.06]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Lines 508-513 prescribe /rpc for activity.submit; agentd itself is distinct from the retired layerxd; see agent-submit-rpc-doc."
+
+[doc.07]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Line 8 and later RPC guidance require /rpc; lines 106-137 contradict the implemented command/global flag descriptions; see both CLI findings."
+
+[doc.08]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 50-51 and 198-200 advertise the retired public router endpoints and old combined interface; see gateway-router-doc."
+
+[doc.09]
+path = "docs/site/docs/human/custody.md"
+status = "accurate"
+notes = "Read the complete retirement notice: kernel custody credit and its light client are retired; no active custody-profile funding recipe is offered."
+
+[doc.10]
+path = "docs/site/docs/human/owner-registration-details.md"
+status = "misleading"
+notes = "Lines 63-76 give retired native custody/profile/credit funding instructions despite the custody retirement notice; see human-owner-funding-doc."
+
+[doc.11]
+path = "docs/site/docs/interop/ucp.md"
+status = "accurate"
+notes = "Read the complete adapter-scoped UCP contract, authorized-batch verification and explicit deployment/qualification limits; it does not claim a public deployed origin."
+
+[doc.12]
+path = "docs/site/docs/protocol/modules.md"
+status = "stale"
+notes = "Lines 89 onward retain the custody-credit profile and lines 113-115 present daemon/guarantor host runtimes as current; see modules-daemon-doc."
+
+[doc.13]
+path = "apps/launchpad/mobile/ARCHITECTURE.md"
+status = "stale"
+notes = "Lines 7-11 predate implemented native boundaries; build working directories at lines 15/25 and signing guidance require correction; see mobile-architecture-doc."
+
+[doc.14]
+path = "tools/launchpad/production/integration/README.md"
+status = "stale"
+notes = "Lines 3 and 13 omit environment-bound phases and the implemented exact named-volume recovery extension; qualification limitations remain valid; see integration-readme-drift."

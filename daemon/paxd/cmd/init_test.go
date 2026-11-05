@@ -12,7 +12,6 @@ import (
 	tmcfg "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node/genesis"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	srvconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
@@ -84,7 +83,8 @@ func TestInitModeConfiguration(t *testing.T) {
 				require.False(t, v.GetBool("rosetta.enable"), "Rosetta is disabled by default for all modes")
 				require.True(t, v.GetBool("state-store.ss-enable"), "StateStore should be enabled")
 
-				// Note: EVM config requires custom template, tested separately in TestSetEVMConfigByMode and binary tests
+				require.True(t, v.GetBool("evm.http_enabled"))
+				require.True(t, v.GetBool("evm.ws_enabled"))
 			},
 		},
 		{
@@ -100,7 +100,8 @@ func TestInitModeConfiguration(t *testing.T) {
 				require.True(t, v.GetBool("api.enable"))
 				require.True(t, v.GetBool("grpc.enable"))
 
-				// Note: EVM config requires custom template, tested separately in TestSetEVMConfigByMode and binary tests
+				require.True(t, v.GetBool("evm.http_enabled"))
+				require.True(t, v.GetBool("evm.ws_enabled"))
 			},
 		},
 	}
@@ -130,19 +131,16 @@ func TestInitModeConfiguration(t *testing.T) {
 			// Write app.toml using our custom template that includes PaxDB configs
 			// This mirrors what initAppConfig does in root.go
 			appTomlPath := filepath.Join(configDir, "app.toml")
-			customConfig := NewCustomAppConfig(appConfig, evmrpcconfig.DefaultConfig)
+			customConfig := NewAppConfigForMode(appConfig, tt.mode)
 
-			// Apply mode-specific StateStore settings
+			// Apply mode-specific StateStore settings.
 			if tt.mode == params.NodeModeValidator || tt.mode == params.NodeModeSeed {
 				customConfig.StateStore.Enable = false
 			} else {
 				customConfig.StateStore.Enable = true
 			}
 
-			// Build custom template with all sections
-			customAppTemplate := srvconfig.ManualConfigTemplate + paxdbconfig.StateCommitConfigTemplate + paxdbconfig.StateStoreConfigTemplate +
-				paxdbconfig.ReceiptStoreConfigTemplate +
-				srvconfig.AutoManagedConfigTemplate // Simplified - just need the pruning config
+			customAppTemplate, _ := InitAppConfig()
 
 			srvconfig.SetConfigTemplate(customAppTemplate)
 			srvconfig.WriteConfigFile(appTomlPath, customConfig)
@@ -351,25 +349,6 @@ func TestLoadOrWriteGenesis_PathIsDirectory(t *testing.T) {
 	require.Contains(t, err.Error(), "directory")
 }
 
-// TestLoadOrWriteGenesis_WellKnownWritesEmbedded: well-known chain gets embedded genesis.
-func TestLoadOrWriteGenesis_WellKnownWritesEmbedded(t *testing.T) {
-	dir := t.TempDir()
-	genFile := filepath.Join(dir, "genesis.json")
-	const chainID = "atlantic-2"
-	require.True(t, genesis.IsWellKnown(chainID), "atlantic-2 should be well-known")
-	encCfg := app.MakeEncodingConfig()
-
-	genDoc, err := loadOrWriteGenesis(genFile, chainID, false, app.ModuleBasics, encCfg.Marshaler)
-	require.NoError(t, err)
-	require.NotNil(t, genDoc)
-	require.Equal(t, chainID, genDoc.ChainID)
-	require.NotEmpty(t, genDoc.AppState)
-
-	embedded, err := genesis.EmbeddedGenesisDoc(chainID)
-	require.NoError(t, err)
-	require.Equal(t, embedded.ChainID, genDoc.ChainID)
-}
-
 // TestLoadOrWriteGenesis_OverwriteReplacesFile: overwrite=true replaces existing file.
 func TestLoadOrWriteGenesis_OverwriteReplacesFile(t *testing.T) {
 	dir := t.TempDir()
@@ -388,22 +367,25 @@ func TestLoadOrWriteGenesis_OverwriteReplacesFile(t *testing.T) {
 
 // TestLoadOrWriteGenesis_UnknownChainWritesDefault: unknown chain gets default genesis.
 func TestLoadOrWriteGenesis_UnknownChainWritesDefault(t *testing.T) {
-	dir := t.TempDir()
-	genFile := filepath.Join(dir, "genesis.json")
-	const chainID = "custom-chain-1"
-	require.False(t, genesis.IsWellKnown(chainID), "custom-chain-1 should not be well-known")
+	for _, chainID := range []string{"custom-chain-1", "arctic-1", "atlantic-2", "pacific-1"} {
+		t.Run(chainID, func(t *testing.T) {
+			genFile := filepath.Join(t.TempDir(), "genesis.json")
+			encCfg := app.MakeEncodingConfig()
+			genDoc, err := loadOrWriteGenesis(genFile, chainID, false, app.ModuleBasics, encCfg.Marshaler)
+			require.NoError(t, err)
+			require.NotNil(t, genDoc)
+			require.Equal(t, chainID, genDoc.ChainID)
+			require.NotEmpty(t, genDoc.AppState)
 
-	encCfg := app.MakeEncodingConfig()
-	genDoc, err := loadOrWriteGenesis(genFile, chainID, false, app.ModuleBasics, encCfg.Marshaler)
-	require.NoError(t, err)
-	require.NotNil(t, genDoc)
-	require.Equal(t, chainID, genDoc.ChainID)
-	require.NotEmpty(t, genDoc.AppState)
+			var state map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(genDoc.AppState, &state))
+			require.Contains(t, state, "bank")
+			require.Contains(t, state, "staking")
+			require.Contains(t, state, "genutil")
 
-	// Should contain known module keys
-	var state map[string]json.RawMessage
-	require.NoError(t, json.Unmarshal(genDoc.AppState, &state))
-	require.Contains(t, state, "bank")
-	require.Contains(t, state, "staking")
-	require.Contains(t, state, "genutil")
+			want, err := json.Marshal(app.ModuleBasics.DefaultGenesis(encCfg.Marshaler))
+			require.NoError(t, err)
+			require.JSONEq(t, string(want), string(genDoc.AppState))
+		})
+	}
 }

@@ -1,0 +1,81 @@
+[sweep.rust-test-agent]
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p TARGET --no-fail-fast"
+enumeration_command = "cargo metadata --no-deps --format-version 1 --manifest-path services/agent/Cargo.toml"
+targets_total = 11
+targets_passed = 3
+targets_failed = 8
+targets_not_run = 0
+qualification_log = "/out/logs/rust-test-agent/qualification.jsonl"
+
+[target.rust-test-agent.1]
+target = "layerx-types"
+result = "failed"
+exit_code = 101
+observed = "services/agent/crates/layerx-types/tests/vectors.rs:39 failed repository_corpora_are_loaded_and_fully_accounted with published corpora failed to load."
+assumption = "The checkout likely lacks the published tests/vectors/codec/replay_corpus.lxb fixture, an environmental input required to load the corpus."
+
+[target.rust-test-agent.2]
+target = "layerx-wire"
+result = "failed"
+exit_code = 101
+observed = "services/agent/crates/layerx-wire/src/activity.rs:407 failed activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations with an Io error because tests/vectors/codec/replay_corpus.lxb was missing (os error 2)."
+assumption = "The missing replay corpus is an environmental fixture dependency of the unwrapped Cargo command."
+
+[target.rust-test-agent.3]
+target = "layerx-crypto"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-agent.4]
+target = "layerx-proof"
+result = "failed"
+exit_code = 101
+observed = "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:30 failed signed_terminal_mutations_cannot_invent_execution_effects_or_identity with genuine native terminal evidence: NotPresent."
+assumption = "The LAYERX_NATIVE_TERMINAL_RECORDS environment variable is unset, so the required native evidence inventory is unavailable in this environment."
+
+[target.rust-test-agent.5]
+target = "layerx-client"
+result = "failed"
+exit_code = 101
+observed = "runtime_clock::tests::exhausted_client_counter_refuses_without_disabling_authority failed with Error: Unavailable."
+assumption = "The unwrapped Cargo command lacks the runtime clock service required by these tests, an environmental dependency."
+
+[target.rust-test-agent.6]
+target = "layerx-identity-binding"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-agent.7]
+target = "layerx-agent-api"
+result = "passed"
+exit_code = 0
+
+[target.rust-test-agent.8]
+target = "layerx-agentd"
+result = "failed"
+exit_code = 101
+observed = "test agent_rpc_adapters::tests::freshness_serializes_block_height_coordinates ... FAILED; services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2559:9 asserted an unprefixed relative_to.hash, but the response contained a 0x-prefixed hash. The command completed with 33 failed test targets."
+assumption = "The freshness assertion likely retains an unprefixed-hash expectation while freshness_value delegates to Freshness::encode_json, which emits the 0x prefix."
+log = "/out/logs/rust-test-agent-layerx-agentd.log"
+
+[target.rust-test-agent.9]
+target = "layerx-sdk"
+result = "failed"
+exit_code = 101
+observed = "programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes failed with Error: Verification."
+assumption = "The native corpus likely contains evidence incompatible with the current program verification contract."
+
+[target.rust-test-agent.10]
+target = "layerx-agentd-host"
+result = "failed"
+exit_code = 101
+observed = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:708 failed serve_http::proof::invalid_program with real local node required: NotPresent."
+assumption = "The LOCAL_NODE_RPC environment variable is unset, so the real local node required by the test is unavailable in this environment."
+
+[target.rust-test-agent.11]
+target = "layerx-mcp"
+result = "failed"
+exit_code = 101
+observed = "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs:54 failed activity_submit_schema_declares_signer_address with native submit schema."
+assumption = "The test likely expects a native activity submission schema absent from the current MCP tool contract."

@@ -1,197 +1,16 @@
-#!/bin/bash
-# Runs as root inside the kernel app's machine (services/wallet/deploy/human.toml)
-# through flyctl ssh console, after docker/kernel/init.sh has made the volume
-# layout and the treasury key. The kernel genesis is made in two steps around
-# the governance step on chain 125:
-#
-#   kernel-genesis.sh keys [rotate]
-#       step A: generates the sequencer key, the checkpoint authority key, the
-#       deposit authority key and the publication recipient key under
-#       /data/layerx/keys and prints their public values, which the custody
-#       governance proposals must carry. Submit and enact those separately;
-#       tools/qualification/paxeer-x/custody_governance.py only qualifies the
-#       governance implementation: python3 tools/qualification/paxeer-x/custody_governance.py
-#       --produce ARTIFACT_DIR builds test artifacts; --manifest
-#       ARTIFACT_DIR/manifest.json runs them without compiling.
-#       rotate first runs the identity preflight of kernel-init
-#       --identity-generation and retires the kernel keys, the genesis outputs,
-#       the registry material and the node data into
-#       /data/layerx/identity/generations/<generation>; an interrupted rotate
-#       resumes when run again.
-#   kernel-genesis.sh plan
-#       the compatibility plan of the persisted trust history, receipt-authority
-#       replica bindings and Human role material against the current genesis,
-#       and its plan_sha256.
-#   kernel-genesis.sh migrate PLAN_SHA256
-#       the migration that plan authorizes: the old bindings are retained beside
-#       the retired generation, the role material is rebound to the new genesis
-#       and the new identity generation is recorded; durable Human state is
-#       never touched.
-#   kernel-genesis.sh genesis COMET=HOST SID=POINTER USDC=POINTER USDL=POINTER [SYMBOL=POINTER...]
-#       step C, once governance has set the custody asset map and the deposit
-#       root authority: reads PAX from nativeAssetId() and every pointer from
-#       assetByPointer() through the pod's paxeer relay, writes the LXGB v2
-#       genesis metadata with one canonical Asset record per mapped asset, the
-#       treasury recipient-binding policy and the guarantor's publication
-#       authorization, the PAX custody profile that layerx-custody-proof
-#       light-profile builds from the chain 125 Comet RPC at
-#       https://HOST/comet (the opening credit of the first-credit path verifies
-#       against it, bootstrap.sh --custody-profile) with that RPC URL beside
-#       it, and the kernel asset id (the PAX record) and replica id the init
-#       reads. The init then runs bootstrap.sh, whose
-#       layerx-genesis-build signs the manifest under /data/layerx/node; this
-#       step waits for it and prints the digests and the asset ids.
-#       Precondition: every registered asset id is the derivation
-#       sha256("layerx-asset:125:<SYMBOL>"); the step B proposer chooses the id
-#       and this step refuses a registered id that differs from it.
-#   kernel-genesis.sh render ENV_FILE OUTPUT_DIR
-#       renders the beta kernel genesis from the deploy inputs of ENV_FILE and
-#       runs layerx-genesis-build on it into OUTPUT_DIR/genesis; runs anywhere,
-#       not only inside the kernel machine. ENV_FILE holds KEY=VALUE lines:
-#         LAYERX_GENESIS_NETWORK_ID           decimal kernel network id
-#         LAYERX_GENESIS_SEQUENCER_PUBLIC_KEY 64 hex, the ed25519 sequencer key
-#         LAYERX_GENESIS_SEQUENCER_KEY_FILE   its seed (64 hex or 32 bytes), signs the genesis
-#         LAYERX_GENESIS_TREASURY_PUBLIC_KEY  64 hex, the issuer of the Asset records
-#         LAYERX_GENESIS_GUARANTORS           ID:PUBLIC ..., ID = sha256("layerx-beta-guarantor:<PUBLIC>")
-#         LAYERX_GENESIS_ASSETS               SYMBOL:ID:DECIMALS ..., PAX first (the kernel asset),
-#                                             ID = sha256("layerx-asset:125:<SYMBOL>")
-#         LAYERX_GENESIS_MODULES              escrow budget stream service perps spot web, or a subset
-#         LAYERX_GENESIS_TIMESTAMP_MS         optional, default now
-#       The binary is LAYERX_GENESIS_BUILD, else build/bin/layerx-genesis-build
-#       of this repository, else /usr/local/bin/layerx-genesis-build.
-#
-# Nothing secret is printed. rotate retires the kernel keys, the genesis
-# outputs and the node data; nothing is deleted.
+#!/usr/bin/env bash
+# Native chain initialization and retained paxd identity. Historical LXGB
+# rendering is isolated in explicit offline commands and never starts a node.
 set -euo pipefail
 umask 077
-
-layerx=/data/layerx
-node_data=$layerx/node
-keys=$layerx/keys
-genesis=$layerx/genesis
-[ "${1:-}" = render ] || network_id=${LAYERX_NODE_NETWORK_ID:?the kernel network id comes from the app env}
-rpc=http://127.0.0.1:${LAYERX_NODE_PAXEER_RELAY_PORT:-18545}
-custody=0x0000000000000000000000000000000000001013
-deposit_key=$keys/checkpoint-submitter/deposit-authority.pem
-key_files=("$keys/sequencer.key" "$keys/checkpoint-authority/key.pem" "$deposit_key" "$keys/publication/recipient.key")
-genesis_files=("$keys/publication/binding-policy.json" "$keys/publication/authorization.json"
-	"$genesis/metadata.lxgb" "$genesis/custody.profile" "$genesis/custody.registry" "$genesis/custody-assets.json" "$genesis/comet-url" "$genesis/asset-id" "$genesis/replica-id")
-kernel_init=/usr/local/bin/kernel-init
-retire_files=("${key_files[@]}" "$keys/checkpoint-authority/key.pem.lock" "${genesis_files[@]}"
-	"$layerx/guarantor-submitter/checkpoint-authority.pem" "$layerx/registry-material")
-rotation=$layerx/identity/rotation.json
-
-fail() {
-	printf 'kernel-genesis: %s\n' "$*" >&2
-	exit 1
-}
-
-if [ "${1:-}" != render ]; then
-	[ "$(id -u)" = 0 ] || fail "run as root inside the kernel machine"
-	[ -s "$keys/treasury.key" ] || fail "the init has not made $keys/treasury.key yet"
-fi
+fail() { printf 'kernel-genesis: %s\n' "$*" >&2; exit 1; }
+inspector="${BRINGUP_INSPECT_BIN:-bringup-inspect}"
 
 hex_public() {
 	python3 -c 'import sys; sys.stdout.buffer.write(bytes.fromhex("302e020100300506032b657004220420" + sys.argv[1]))' "$1" |
 		openssl pkey -inform DER -pubout -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n'
 }
-pem_public() { openssl pkey -in "$1" -pubout -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n'; }
-recipient_address() { python3 /opt/layerx/paxeer/evm.py address "$keys/publication/recipient.key" | tr 'A-F' 'a-f'; }
 
-identity() { "$kernel_init" --identity-generation "$@"; }
-rotation_pending() {
-	[ ! -e "$rotation" ] || fail "an identity rotation is pending at $rotation; run kernel-genesis.sh keys rotate to resume it"
-}
-
-[ "${1:-}" = render ] || treasury_public=$(hex_public "$(tr -d ' \r\n' <"$keys/treasury.key")")
-
-# public_values: the step A outputs, read back from the key files.
-public_values() {
-	sequencer_public=$(hex_public "$(cat "$keys/sequencer.key")")
-	replica_id=$(printf 'layerx-authority-replica:%s' "$sequencer_public" | sha256sum | cut -d' ' -f1)
-	recipient=$(recipient_address)
-	recipient=${recipient#0x}
-}
-
-keys_step() {
-	local file key
-	if [ "${1:-}" = rotate ]; then
-		identity retire "${retire_files[@]}" || fail "identity rotation refused; see kernel-genesis.sh plan"
-	elif [ -n "${1:-}" ]; then
-		fail "usage: kernel-genesis.sh keys [rotate]"
-	else
-		rotation_pending
-		for file in "${key_files[@]}"; do
-			[ ! -e "$file" ] || fail "$file exists; pass rotate to replace the kernel keys"
-		done
-	fi
-	# The sequencer seed, 64 hex characters as bootstrap.sh reads it, owned by the node user.
-	install -o 4020 -g 4020 -m 0600 /dev/null "$keys/sequencer.key"
-	openssl rand -hex 32 | tr -d '\n' >"$keys/sequencer.key"
-	python3 /opt/layerx/checkpoint-authority.py "$keys/checkpoint-authority/key.pem" >/dev/null ||
-		fail "checkpoint authority provisioning refused"
-	# The deposit authority signs deposit roots for the guarantor, which opens
-	# it as its own 0600 file (cmd/layerx-guarantor/authorization.py).
-	install -o 4021 -g 4020 -m 0600 /dev/null "$deposit_key"
-	openssl genpkey -algorithm ED25519 >"$deposit_key"
-	# The publication recipient: an EVM key of the pod's evm.py.
-	while :; do
-		key="0x$(openssl rand -hex 32)"
-		python3 /opt/layerx/paxeer/evm.py address /dev/stdin <<<"$key" >/dev/null 2>&1 && break
-	done
-	printf '%s' "$key" >"$keys/publication/recipient.key"
-	unset key
-	identity rotated "${key_files[@]}" || fail "identity rotation record refused"
-	public_values
-	echo "network_id=$network_id"
-	echo "sequencer_public_key=$sequencer_public"
-	echo "sequencer_id=$(printf 'layerx-sequencer:%s' "$sequencer_public" | sha256sum | cut -d' ' -f1)"
-	echo "replica_id=$replica_id"
-	echo "treasury_public_key=$treasury_public"
-	echo "checkpoint_authority_public_key=$(pem_public "$keys/checkpoint-authority/key.pem")"
-	echo "deposit_authority_public_key=$(pem_public "$deposit_key")"
-	echo "publication_recipient=0x$recipient"
-	echo "custody keys=$keys next=submit and enact custody governance separately; qualify with python3 tools/qualification/paxeer-x/custody_governance.py --produce ARTIFACT_DIR then python3 tools/qualification/paxeer-x/custody_governance.py --manifest ARTIFACT_DIR/manifest.json; after governance is enacted run kernel-genesis.sh genesis"
-}
-
-# call <data>: the eth_call answer of the custody precompile, or of $to.
-call() {
-	curl -fsS -m 15 "$rpc" -H 'content-type: application/json' \
-		-d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_call\",\"params\":[{\"to\":\"${to:-$custody}\",\"data\":\"$1\"},\"latest\"]}" |
-		jq -er '.result'
-}
-
-word() { printf '%064s' "${1#0x}" | tr ' ' 0; }
-# erc20 <pointer> <selector>: the decoded symbol (95d89b41) or decimals (313ce567).
-erc20() {
-	to=$1 call "0x$2" | python3 -c '
-import re
-import sys
-encoded = sys.stdin.read().strip()
-data = bytes.fromhex(encoded[2:])
-if sys.argv[1] == "313ce567":
-    print(int.from_bytes(data[:32], "big"))
-else:
-    if re.fullmatch(r"0x(?:[0-9a-fA-F]{2})+", encoded) is None:
-        raise SystemExit("symbol() returned invalid hex data")
-    if len(data) == 32:
-        symbol = data.rstrip(b"\0")
-    else:
-        if len(data) < 96 or int.from_bytes(data[:32], "big") != 32:
-            raise SystemExit("symbol() returned an invalid ABI offset")
-        size = int.from_bytes(data[32:64], "big")
-        padded_size = ((size + 31) // 32) * 32
-        if len(data) != 64 + padded_size or any(data[64 + size:]):
-            raise SystemExit("symbol() returned invalid ABI length or padding")
-        symbol = data[64:64 + size]
-    if not 0 < len(symbol) <= 16 or any(byte < 33 or byte > 126 for byte in symbol):
-        raise SystemExit("symbol() must contain 1 to 16 printable ASCII bytes")
-    print(symbol.decode("ascii"))
-' "$2"
-}
-
-# asset_id <SYMBOL>: the asset id step B registers for the symbol,
-# sha256("layerx-asset:125:<SYMBOL>").
 asset_id() {
 	printf 'layerx-asset:125:%s' "$1" | sha256sum | cut -d' ' -f1
 }
@@ -229,171 +48,62 @@ with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOL
 PY
 }
 
-# genesis_ids <asset-id> <replica-id>: the ids the init hands layerxd; written
-# last, so the init starts on a complete set.
-genesis_ids() {
-	printf '%s\n' "$1" >"$genesis/asset-id"
-	printf '%s\n' "$2" >"$genesis/replica-id"
-	chown 0:0 "$genesis/asset-id" "$genesis/replica-id"
-	chmod 0444 "$genesis/asset-id" "$genesis/replica-id"
-}
-
-genesis_step() {
-	local argument file symbol pointer id onchain decimals pax manifest record comet="" height
-	local -A pointers=()
-	local -a records=() approved_records=()
-	rotation_pending
-	for argument in "$@"; do
-		if [[ $argument =~ ^COMET=([a-z0-9.-]+)$ ]]; then
-			comet=https://${BASH_REMATCH[1]}/comet
-			continue
-		fi
-		[[ $argument =~ ^([A-Z0-9]{1,16})=(0x[0-9a-fA-F]{40})$ ]] || fail "not SYMBOL=POINTER: $argument"
-		symbol=${BASH_REMATCH[1]}
-		[ "$symbol" != PAX ] || fail "PAX uses the native custody mapping, not a token pointer"
-		[ -z "${pointers[$symbol]:-}" ] || fail "duplicate asset pointer input for $symbol"
-		pointers[$symbol]=${BASH_REMATCH[2],,}
-	done
-	for symbol in SID USDC USDL; do
-		[ -n "${pointers[$symbol]:-}" ] || fail "the pointer of $symbol is required"
-	done
-	[ -n "$comet" ] || fail "COMET=HOST, the chain 125 archive name serving /comet, is required"
-	command -v layerx-custody-proof >/dev/null || fail "layerx-custody-proof is not in the kernel image"
-	for file in "${key_files[@]}"; do
-		[ -s "$file" ] || fail "$file is absent; run kernel-genesis.sh keys first"
-	done
-	for file in "${genesis_files[@]}"; do
-		[ ! -e "$file" ] || fail "$file exists; run kernel-genesis.sh keys rotate to replace the kernel genesis"
-	done
-	[ "$(curl -fsS -m 15 "$rpc" -H 'content-type: application/json' \
-		-d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -r .result)" = 0x7d ] ||
-		fail "the paxeer relay at $rpc does not answer chain 125"
-	id=$(call 0xb4768600) || fail "eth_call depositRootAuthority() failed"
-	[ "${id#0x}" = "$(pem_public "$deposit_key")" ] ||
-		fail "the deposit root authority on chain 125 is not this deposit authority: eth_call $custody depositRootAuthority() answered $id"
-
-	pax=$(call 0xaafcde84) || fail "eth_call nativeAssetId() failed"
-	pax=${pax#0x}
-	if ! [[ $pax =~ ^[0-9a-f]{64}$ ]] || [ "$pax" = "$(word 0)" ]; then
-		fail "custody asset map has no PAX record: eth_call $custody nativeAssetId() answered 0x$pax"
-	fi
-	[ "$pax" = "$(asset_id PAX)" ] ||
-		fail "the PAX asset id 0x$pax is not sha256(\"layerx-asset:125:PAX\") 0x$(asset_id PAX)"
-	records+=("$pax:PAX:6")
-	approved_records+=("$pax:PAX:6:0x0000000000000000000000000000000000000000")
-
-	# The PAX custody profile of the opening credit: a light-client profile
-	# trusting the Comet header one below the latest, built from the chain.
-	height=$(curl -fsS -m 15 "$comet" -H 'content-type: application/json' \
-		-d '{"jsonrpc":"2.0","id":1,"method":"status","params":{}}' |
-		jq -er '(.result // .).sync_info.latest_block_height | tonumber') || fail "the Comet RPC at $comet did not answer status"
-	layerx-custody-proof light-profile --rpc "$comet" --asset "0x$pax" --network-id "$network_id" \
-		--trusted-height "$((height - 1))" --trusting-period-seconds 1209600 --output "$genesis/custody.profile" >/dev/null ||
-		fail "layerx-custody-proof light-profile refused the chain 125 custody state at height $((height - 1))"
-	[ "$(stat -c %s "$genesis/custody.profile")" = 223 ] || fail "the custody profile is not 223 bytes"
-	printf '%s\n' "$comet" >"$genesis/comet-url"
-	chown 4020:4020 "$genesis/custody.profile" "$genesis/comet-url"
-	chmod 0444 "$genesis/custody.profile" "$genesis/comet-url"
-	for symbol in "${!pointers[@]}"; do
-		pointer=${pointers[$symbol]}
-		id=$(call "0xca65021c$(word "$pointer")") || fail "eth_call assetByPointer($pointer) failed"
-		id=${id#0x}
-		[ "$id" != "$(word 0)" ] ||
-			fail "custody asset map has no $symbol record: eth_call $custody assetByPointer($pointer) answered 0x$id"
-		[ "$id" = "$(asset_id "$symbol")" ] ||
-			fail "the $symbol asset id 0x$id is not sha256(\"layerx-asset:125:$symbol\") 0x$(asset_id "$symbol")"
-		onchain=$(erc20 "$pointer" 95d89b41) || fail "symbol() of $pointer failed"
-		[ "$onchain" = "$symbol" ] || fail "$pointer is $onchain, not $symbol"
-		decimals=$(erc20 "$pointer" 313ce567) || fail "decimals() of $pointer failed"
-		records+=("$id:$symbol:$decimals")
-		case "$symbol" in
-		SID | USDC | USDL) approved_records+=("$id:$symbol:$decimals:$pointer") ;;
-		esac
-	done
-	python3 - "$genesis/custody-assets.json" "${approved_records[@]}" <<'PYMETA'
+regenerate_fixture() {
+	[ "$#" = 1 ] || fail "usage: kernel-genesis.sh offline-regenerate-fixture FIXTURE_DIR"
+	local fixture=$1 build
+	build=${LAYERX_GENESIS_BUILD:-$(cd "$(dirname "$0")/../.." && pwd)/build/bin/layerx-genesis-build}
+	[ -x "$build" ] || fail "layerx-genesis-build not found: $build"
+	python3 - "$fixture" "$build" <<'PYFIXTURE'
+import hashlib
 import json
-import os
+import pathlib
+import subprocess
 import sys
+import tempfile
 
-output = sys.argv[1]
-entries = {}
-for record in sys.argv[2:]:
-    asset, symbol, decimals, pointer = record.split(':')
-    if symbol in entries:
-        raise SystemExit('duplicate approved custody asset')
-    entries[symbol] = dict(symbol=symbol, asset_id=asset, token_pointer=pointer, decimals=int(decimals))
-if set(entries) != {'PAX', 'SID', 'USDC', 'USDL'}:
-    raise SystemExit('all four approved custody assets are required')
-with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'w') as handle:
-    json.dump(dict(assets=[entries[symbol] for symbol in ('PAX', 'SID', 'USDC', 'USDL')]), handle)
-    handle.write('\n')
-    handle.flush()
-    os.fsync(handle.fileno())
-PYMETA
-	layerx-custody-proof light-registry --rpc "$comet" --evm-rpc "$rpc" --registry "$genesis/custody-assets.json" \
-		--network-id "$network_id" --trusted-height "$((height - 1))" --trusting-period-seconds 1209600 \
-		--output "$genesis/custody.registry" >/dev/null || fail "approved four-asset custody registry verification refused"
-	[ "$(stat -c %s "$genesis/custody.registry")" = 901 ] || fail "the custody registry is not 901 bytes"
-	chown 4020:4020 "$genesis/custody.registry" "$genesis/custody-assets.json"
-	chmod 0444 "$genesis/custody.registry" "$genesis/custody-assets.json"
-	public_values
-
-	# The treasury signer's recipient-binding policy and the guarantor's
-	# publication authorization, in the shapes services/platform/hosted/tests/publication-policy.py
-	# writes for the beta cluster, with the kernel's socket paths and uids.
-	printf '{"asset_id": "%s", "network_id": %s, "recipient": "%s", "version": 1}\n' "$pax" "$network_id" "$recipient" \
-		>"$keys/publication/binding-policy.json"
-	python3 - "$keys/publication/authorization.json" "$network_id" "$pax" "$recipient" "$treasury_public" "$deposit_key" <<'PY'
-import json
-import os
-import sys
-
-output, network, asset, recipient, public, deposit = sys.argv[1:]
-anchor, vault = '0' * 36 + '1014', '0' * 36 + '1013'
-peers = dict(peer_uid=4020, peer_gid=4020)
-value = dict(version=1, network_id=int(network), chain_id=125, settlement_contract=anchor,
-             checkpoint_registry=anchor, vault=vault, custody_reference='00' * 12 + vault,
-             treasury=dict(socket='/run/layerx/node/treasury-signer.sock', **peers, public_key=public,
-                           asset_id=asset, recipient=recipient),
-             human=dict(socket='/run/layerx/human/recipient.sock', **peers),
-             deposit_authority_key_file=deposit)
-with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'w') as handle:
-    json.dump(value, handle, sort_keys=True)
-    handle.write('\n')
-PY
-
-	genesis_metadata "$genesis/metadata.lxgb" "$treasury_public" "${records[@]}"
-	chown 4020:4020 "$genesis/metadata.lxgb"
-	genesis_ids "$pax" "$replica_id"
-
-	manifest=$node_data/genesis/genesis.manifest
-	for _ in $(seq 120); do
-		[ -s "$manifest" ] && break
-		sleep 5
-	done
-	[ -s "$manifest" ] || fail "layerxd bootstrap wrote no $manifest within ten minutes; see /run/layerx/init/layerxd"
-
-	echo "network_id=$network_id"
-	echo "genesis_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)"
-	echo "metadata_sha256=$(sha256sum "$genesis/metadata.lxgb" | cut -d' ' -f1)"
-	echo "custody_profile_sha256=$(sha256sum "$genesis/custody.profile" | cut -d' ' -f1)"
-	echo "custody_registry_sha256=$(sha256sum "$genesis/custody.registry" | cut -d' ' -f1)"
-	echo "sequencer_public_key=$sequencer_public"
-	echo "replica_id=$replica_id"
-	echo "publication_recipient=0x$recipient"
-	for record in "${records[@]}"; do
-		IFS=: read -r id symbol decimals <<<"$record"
-		echo "asset $symbol id=$id decimals=$decimals"
-	done
-	echo "custody node=$node_data keys=$keys genesis=$genesis/metadata.lxgb digests=genesis_sha256,metadata_sha256"
+fixture = pathlib.Path(sys.argv[1]).resolve()
+expected = json.loads((fixture / 'expected.json').read_text())
+# These are public test identities, derived reproducibly without deployment keys.
+seed = hashlib.sha256(('layerx-public-fixture:' + fixture.name).encode()).digest()
+with tempfile.TemporaryDirectory(prefix='.regenerate-', dir=fixture) as scratch:
+    scratch = pathlib.Path(scratch)
+    key = scratch / 'signer.key'
+    key.write_bytes(seed)
+    key.chmod(0o600)
+    public = subprocess.run(
+        ['openssl', 'pkey', '-inform', 'DER', '-pubout', '-outform', 'DER'],
+        input=bytes.fromhex('302e020100300506032b657004220420') + seed,
+        stdout=subprocess.PIPE, check=True).stdout[-32:]
+    output = scratch / 'genesis'
+    subprocess.run([sys.argv[2], str(fixture / 'genesis-request.lxgb'),
+                    str(key), str(output)], check=True)
+    registration = (output / 'paxeer-registration-request.lxrr').read_bytes()
+    if len(registration) != 73 or registration[:5] != b'LXRR\x01':
+        raise SystemExit('unexpected genesis registration format')
+    if int.from_bytes(registration[5:9], 'big') != expected['network_id']:
+        raise SystemExit('genesis network differs from fixture')
+    root, receipt = registration[9:41].hex(), registration[41:73].hex()
+    if root != expected['canonical_state_root']:
+        expected['previous_canonical_state_root'] = expected['canonical_state_root']
+        expected['previous_receipt_state_root'] = expected['receipt_state_root']
+    expected['canonical_state_root'] = root
+    expected['receipt_state_root'] = receipt
+    expected['sequencer_public_key'] = public.hex()
+    for name in expected['sha256']:
+        data = (output / name).read_bytes()
+        (fixture / name).write_bytes(data)
+        expected['sha256'][name] = hashlib.sha256(data).hexdigest()
+    (fixture / 'sequencer.public').write_bytes(public)
+    (fixture / 'expected.json').write_text(json.dumps(expected, indent=2, sort_keys=True) + '\n')
+PYFIXTURE
 }
 
 render_step() {
-	[ "$#" = 2 ] || fail "usage: kernel-genesis.sh render ENV_FILE OUTPUT_DIR"
+	[ "$#" = 2 ] || fail "usage: kernel-genesis.sh offline-render ENV_FILE OUTPUT_DIR"
 	local env_file=$1 output=$2 line key value module entry id public symbol decimals seed build rc
 	local network sequencer_public treasury timestamp manifest
 	local -A input=() seen=()
-	local -a modules=() guarantors=() records=()
+	local -a modules=() records=()
 	[ -f "$env_file" ] && [ ! -L "$env_file" ] && [ -r "$env_file" ] || fail "the genesis env file must be a readable regular file: $env_file"
 	while IFS= read -r line || [ -n "$line" ]; do
 		[[ -z $line || $line = '#'* ]] && continue
@@ -401,7 +111,7 @@ render_step() {
 		key=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]}
 		case "$key" in
 		LAYERX_GENESIS_NETWORK_ID | LAYERX_GENESIS_SEQUENCER_PUBLIC_KEY | LAYERX_GENESIS_SEQUENCER_KEY_FILE | \
-			LAYERX_GENESIS_TREASURY_PUBLIC_KEY | LAYERX_GENESIS_GUARANTORS | LAYERX_GENESIS_ASSETS | \
+			LAYERX_GENESIS_TREASURY_PUBLIC_KEY | LAYERX_GENESIS_ASSETS | \
 			LAYERX_GENESIS_MODULES | LAYERX_GENESIS_TIMESTAMP_MS) ;;
 		*) fail "the genesis env file carries an unexpected key $key" ;;
 		esac
@@ -409,7 +119,7 @@ render_step() {
 		value=${value#\"} value=${value%\"}
 		input[$key]=$value
 	done <"$env_file"
-	for key in NETWORK_ID SEQUENCER_PUBLIC_KEY SEQUENCER_KEY_FILE TREASURY_PUBLIC_KEY GUARANTORS ASSETS MODULES; do
+	for key in NETWORK_ID SEQUENCER_PUBLIC_KEY SEQUENCER_KEY_FILE TREASURY_PUBLIC_KEY ASSETS MODULES; do
 		[ -n "${input[LAYERX_GENESIS_$key]:-}" ] || fail "LAYERX_GENESIS_$key is required"
 	done
 
@@ -436,22 +146,11 @@ render_step() {
 	[[ $treasury =~ ^[0-9a-f]{64}$ ]] || fail "LAYERX_GENESIS_TREASURY_PUBLIC_KEY must be 64 hex characters"
 	[ "$treasury" != "$sequencer_public" ] || fail "the sequencer and treasury keys must differ"
 
-	for entry in ${input[LAYERX_GENESIS_GUARANTORS],,}; do
-		[[ $entry =~ ^([0-9a-f]{64}):(0[23][0-9a-f]{64})$ ]] || fail "not a guarantor ID:PUBLIC: $entry"
-		id=${BASH_REMATCH[1]} public=${BASH_REMATCH[2]}
-		[ "$id" = "$(printf 'layerx-beta-guarantor:%s' "$public" | sha256sum | cut -d' ' -f1)" ] ||
-			fail "guarantor id $id is not sha256(\"layerx-beta-guarantor:$public\")"
-		[ -z "${seen[$id]:-}" ] || fail "guarantor $id repeated"
-		seen[$id]=1
-		guarantors+=("$id:$public")
-	done
-	[ "${#guarantors[@]}" -ge 1 ] && [ "${#guarantors[@]}" -le 32 ] || fail "LAYERX_GENESIS_GUARANTORS must name 1 to 32 guarantors"
-	mapfile -t guarantors < <(printf '%s\n' "${guarantors[@]}" | LC_ALL=C sort)
-
 	seen=()
 	for entry in ${input[LAYERX_GENESIS_ASSETS]}; do
 		[[ $entry =~ ^([A-Z0-9]{1,16}):([0-9a-fA-F]{64}):([0-9]{1,2})$ ]] || fail "not an asset SYMBOL:ID:DECIMALS: $entry"
 		symbol=${BASH_REMATCH[1]} id=${BASH_REMATCH[2],,} decimals=${BASH_REMATCH[3]}
+		[ "$((10#$decimals))" -le 38 ] || fail "asset $symbol decimals must be 0..38"
 		[ -z "${seen[$symbol]:-}" ] || fail "asset $symbol repeated"
 		seen[$symbol]=1
 		[ "$id" = "$(asset_id "$symbol")" ] ||
@@ -486,13 +185,12 @@ render_step() {
 	mkdir -m 0700 "$output"
 	genesis_metadata "$output/metadata.lxgb" "$treasury" "${records[@]}"
 	python3 - "$output/genesis-request.lxgb" "$network" "$timestamp" "${records[0]%%:*}" "$output/metadata.lxgb" \
-		"${#modules[@]}" "${modules[@]}" "${guarantors[@]}" <<'PY'
+		"${#modules[@]}" "${modules[@]}" <<'PY'
 import os
 import sys
 
 output, network, timestamp, asset, metadata_path, count = sys.argv[1:7]
 modules = sys.argv[7:7 + int(count)]
-guarantors = sys.argv[7 + int(count):]
 with open(metadata_path, 'rb') as handle:
     metadata = handle.read()
 
@@ -506,21 +204,18 @@ def parameter(key, value):
 
 
 # The request layout services/platform/hosted/node/bootstrap.sh writes: the module
-# enable rows, the fee authority and parameter version rows, the guarantors,
+# enable rows, the fee authority and parameter version rows,
 # the kernel asset and the beta fee and demand constants, then the metadata.
 request = b'LXGB' + b'\x02' + u(3, 2) + u(network, 4) + u(timestamp, 8) + u(2 + len(modules), 2)
 request += b''.join(parameter('module-enable:' + module, 1) for module in modules)
 request += parameter('native-fee-authority-version', 2) + parameter('parameter-version', 1)
-request += u(len(guarantors), 2)
-for entry in guarantors:
-    identifier, public = entry.split(':')
-    request += bytes.fromhex(identifier) + bytes.fromhex(public) + bytes(16)
+request += u(0, 2)
 request += bytes.fromhex(asset) + u(1, 4)
 request += b''.join(u(value, 8) for value in (1, 1, 1, 1, 1, 8, 8, 64, 8)) + u(1, 8) + b'\x01' + u(1, 4)
 request += b''.join(u(value, 8) for value in (1, 1, 2, 4, 1, 1, 100))
 request += b''.join(u(value, 8) for value in (100, 1, 1, 10, 1, 1000))
 request += metadata
-if len(request) != 380 + 81 * len(guarantors) + 66 * len(modules) + len(metadata):
+if len(request) != 380 + 66 * len(modules) + len(metadata):
     raise SystemExit('genesis request has an unexpected length')
 with os.fdopen(os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), 'wb') as handle:
     handle.write(request)
@@ -543,7 +238,6 @@ PY
 	echo "request_sha256=$(sha256sum "$output/genesis-request.lxgb" | cut -d' ' -f1)"
 	echo "sequencer_public_key=$sequencer_public"
 	echo "modules=${modules[*]}"
-	for entry in "${guarantors[@]}"; do echo "guarantor ${entry%%:*}"; done
 	for entry in "${records[@]}"; do
 		IFS=: read -r id symbol decimals <<<"$entry"
 		echo "asset $symbol id=$id decimals=$decimals"
@@ -551,17 +245,33 @@ PY
 	echo "genesis dir=$output/genesis"
 }
 
+
 case "${1:-}" in
-render) render_step "${@:2}" ;;
-keys) keys_step "${@:2}" ;;
-genesis) genesis_step "${@:2}" ;;
-plan)
-	[ "$#" = 1 ] || fail "usage: kernel-genesis.sh plan"
-	identity plan "${retire_files[@]}"
+init)
+	[ "$#" = 8 ] || fail "usage: kernel-genesis.sh init HOME MONIKER CHAIN_ID MODE GENESIS_JSON SHA256 STOPPED_UNIT"
+	home=$2 moniker=$3 chain=$4 mode=$5 approved=$6 digest=$7 unit=$8
+	# The operator names the exclusive service owner; never overwrite a live home.
+	[[ "$unit" =~ ^[a-zA-Z0-9_.@-]+\.service$ ]] || fail "invalid paxd unit"
+	exec 8>"${home}.bringup.lock"
+	flock -x 8
+	[ "$(systemctl show "$unit" -p MainPID --value)" = 0 ] || fail "paxd unit still has a running process"
+	state="$(systemctl show "$unit" -p ActiveState --value)"
+	[[ "$state" = inactive || "$state" = failed ]] || fail "paxd unit is not stopped"
+	"$inspector" paxd-init-check "$home" "$moniker" "$chain" "$mode"
+	"$inspector" paxd-genesis-check "$approved" "$chain" "$digest"
+	"${PAXD:-paxd}" init "$moniker" --home "$home" --chain-id "$chain" --mode "$mode"
+	install -m 0600 "$approved" "$home/config/genesis.json"
+	"$inspector" paxd-identity adopt "$home" "$chain"
 	;;
-migrate)
-	[ "$#" = 2 ] && [[ $2 =~ ^[0-9a-f]{64}$ ]] || fail "usage: kernel-genesis.sh migrate PLAN_SHA256"
-	identity migrate "$2" "${retire_files[@]}" || fail "identity migration refused"
+adopt | identity)
+	[ "$#" = 3 ] || fail "usage: kernel-genesis.sh adopt|identity HOME CHAIN_ID"
+	action=check; [ "$1" != adopt ] || action=adopt
+	"$inspector" paxd-identity "$action" "$2" "$3"
 	;;
-*) fail "usage: kernel-genesis.sh keys [rotate] | render ENV_FILE OUTPUT_DIR | genesis COMET=HOST SID=POINTER USDC=POINTER USDL=POINTER [SYMBOL=POINTER...] | plan | migrate PLAN_SHA256" ;;
+offline-render) render_step "${@:2}" ;;
+offline-regenerate-fixture) regenerate_fixture "${@:2}" ;;
+keys | genesis | plan | migrate | render | regenerate-fixture)
+	fail "retired live workflow; use init/adopt/identity for paxd, or explicit offline-render/offline-regenerate-fixture for historical artifacts"
+	;;
+*) fail "usage: kernel-genesis.sh init|adopt|identity|offline-render|offline-regenerate-fixture (see tools/bringup/paxd-initialization.md)" ;;
 esac

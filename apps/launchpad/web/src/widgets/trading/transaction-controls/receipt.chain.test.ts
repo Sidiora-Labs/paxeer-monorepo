@@ -3,6 +3,7 @@ import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import { createPublicClient, createWalletClient, createTestClient, http, defineChain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { resolveAnvilBinary } from '@/core/test-anvil';
 import { attemptState, CompletionLedger, type TxAttempt, type PendingAttemptRecord } from './domain';
 import { ReceiptRecoveryScheduler, type RecoveryUpdate } from './recovery';
 it('actual private chain125 receipt settles exact hash and revert never completes', async () => {
@@ -11,7 +12,7 @@ it('actual private chain125 receipt settles exact hash and revert never complete
   const guard = createServer();
   await new Promise<void>((resolve, reject) => { guard.once('error', reject); guard.listen(port, '127.0.0.1', resolve); });
   await new Promise<void>((resolve, reject) => guard.close(err => err ? reject(err) : resolve()));
-  const proc = spawn('/root/.foundry/bin/anvil', ['--port', String(port), '--chain-id', '125', '--silent'], { stdio: 'ignore' });
+  const proc = spawn(resolveAnvilBinary(process.env), ['--port', String(port), '--chain-id', '125', '--silent'], { stdio: 'ignore' });
   let spawnError: Error | undefined; proc.once('error', error => { spawnError = error; });
   const chain = defineChain({ id: 125, name: 'L26 private', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: [`http://127.0.0.1:${port}`] } } });
   const client = createPublicClient({ chain, transport: http() });

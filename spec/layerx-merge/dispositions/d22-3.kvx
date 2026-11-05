@@ -1,0 +1,53 @@
+[disposition.22.90.9.3]
+finding = "22.90.9.3"
+status = "open"
+evidence = "services/human/crates/layerx-human-kms/Cargo.toml:28 retains the layerx-wire dev-dependency added by 0108cb23e, while services/human/tools/boundary-check/src/lib.rs:255 still reports manifest dependencies as payload-authority-dependency violations pending the rule retirement in task 10.1.4."
+follow_up = "10.1.4"
+
+[disposition.22.9.37.1]
+finding = "22.9.37.1"
+status = "resolved"
+evidence = "Commit c31ded3a33b5c890e15e40b05be99c5b763307e9 replaced the retired bytes32 rows at services/agent/sdk/typescript/test/precompile-calls.test.ts:150 with the five-field openPosition input and one-argument cancelOrder input matching the current encoders."
+follow_up = "closure"
+
+[disposition.22.9.31.1]
+finding = "22.9.31.1"
+status = "open"
+evidence = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:100 still requires PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE, and the test at line 188 still calls that external-file helper rather than constructing the Human peer and approval state that pending task 22.9.38 supplies."
+follow_up = "22.9.38"
+
+[disposition.22.13.9.4]
+finding = "22.13.9.4"
+status = "resolved"
+evidence = "Commit f3baf8cd5c011b2e6f345fa36a935b571b54a5f6 added record_replay_trap for StackOverflow with host_trap false at programs/vendor/wasmi-0.31.2/src/engine/executor.rs:227, supplying the terminal record consumed by the unchanged recursive-trap replay assertion."
+follow_up = "closure"
+
+[disposition.22.7.3.3]
+finding = "22.7.3.3"
+status = "open"
+evidence = "rpc/tests/regression_test.go:42 and rpc/tests/regression_test.go:52 still replay the f15bb885 and 01aaf9dd transactions with their upstream-only oracle and sei wasm requirements, and both corresponding fixture files remain pending their deletion by task 22.7.3."
+follow_up = "22.7.3"
+
+[disposition.22.11.8.1]
+finding = "22.11.8.1"
+status = "open"
+evidence = "modules/evm/keeper/msg_server.go:214 still copies the raw execution error into the response while modules/evm/keeper/receipt.go:287 appends the coded suffix only to the receipt, leaving new programme task 22.11.9 to decide and implement the response and EvmTxInfo error contract."
+follow_up = "22.11.9"
+
+[disposition.22.12.5.1]
+finding = "22.12.5.1"
+status = "open"
+evidence = "sdk/wallet/tsconfig.json:10 still sets types to an empty array and includes src/**/* without excluding tests at line 12, so the node built-in imports at sdk/wallet/src/index.test.ts:1 remain in the build until task 22.24.26 excludes test files."
+follow_up = "22.24.26"
+
+[disposition.22.9.37.2]
+finding = "22.9.37.2"
+status = "open"
+evidence = "sdk/wallet/src/modules/exchange.ts:54 still passes orderId and accountId to perpsCancelOrderCall even though services/agent/sdk/typescript/src/perps.ts:752 accepts only a bigint orderId, leaving the caller migration to pending task 22.24.26."
+follow_up = "22.24.26"
+
+[disposition.22.7.3.4]
+finding = "22.7.3.4"
+status = "open"
+evidence = "rpc/tests/mock_data/transactions/0x5174c3eae7c0d87dca905c42a0f1241c2d3834c1421594ad8f067e0f486808a8.json:494 still encodes seiprotocol.seichain.oracle.MsgAggregateExchangeRateVote, while rpc/simulate.go:518 decodes every block transaction and returns decode errors against the paxprotocol.paxchain namespace declared at api/oracle/tx.proto:2, pending fixture isolation and re-encoding in task 22.7.3."
+follow_up = "22.7.3"

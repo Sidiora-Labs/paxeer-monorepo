@@ -1,5 +1,8 @@
+//go:build ignore
+
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_transfer.h"
+#include "layerx/programs.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -175,6 +178,111 @@ done:
     return result;
 }
 
+static int sandbox_ledger_admission_checks(const lxp_module_iface *iface)
+{
+    static const uint8_t did[] = "did:lxp:module-ctx";
+    static const uint8_t name[] = "agent:did:lxp:module-ctx:main";
+    static lx_account_registry accounts;
+    static lxp_state_store store;
+    static lxp_state_journal journal;
+    static lxp_kernel kernel;
+    static lxp_module_ctx ctx;
+    lx_programs_transfer_runtime runtime = {0};
+    lxp_authority_resolved authority = {0};
+    lxp_ledger_admission_facts saved;
+    lx_account *account = NULL;
+    uint8_t account_id[32];
+    uint8_t asset_id[32] = {0xC3U};
+    uint8_t arena_bytes[128];
+    lxp_arena arena;
+    uint64_t parameters = 1U;
+    uint64_t sequence = 0U;
+    const uint64_t legacy_sequence = 1000U;
+    int result = 1;
+
+    (void)memset(&journal, 0, sizeof(journal));
+    if (lxp_state_store_init(&store, legacy_sequence) != LXP_OK ||
+        lx_account_registry_init(&accounts) != LXP_OK)
+        return 1;
+    if (lxp_did_id_derive(did, sizeof(did) - 1U,
+                          authority.principal) != LXP_OK ||
+        lx_account_id_from_string(name, sizeof(name) - 1U, account_id) !=
+            LXP_OK ||
+        lx_account_open(&accounts, name, sizeof(name) - 1U, account_id,
+                         1U, LX_ACCOUNT_OPEN_GENESIS, NULL, &account) != LXP_OK ||
+        lxp_ledger_bootstrap_balance(account, asset_id,
+                                     (lxp_u128){0U, 100U}, 7U) != LXP_OK ||
+        lxp_state_store_bind_accounts(&store, &accounts) != LXP_OK ||
+        lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) !=
+            LXP_OK ||
+        lxp_kernel_register_module(&kernel, iface) != LXP_OK ||
+        lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK)
+        goto done;
+    runtime.accounts = &accounts;
+    (void)memcpy(runtime.occupancy_asset_id, asset_id, 32U);
+    (void)memcpy(authority.actor, authority.principal, 32U);
+    (void)memset(authority.verified_key, 0xA5, 32U);
+    if (lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_PROGRAMS,
+                                       &runtime) != LXP_OK ||
+        lxp_module_ctx_init(&ctx, &kernel, LXP_MODULE_PROGRAMS, 10U, 0U,
+                            legacy_sequence, 100U, &arena, true) != LXP_OK)
+        goto done;
+    ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    (void)memset(ctx.activity_id, 0x5A, 32U);
+    ctx.ledger_admission.activity_type = LX_PROGRAMS_SANDBOX;
+    if (ctx.ledger_admission.bound ||
+        lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) !=
+            LXP_ERR_CONTEXT_MISMATCH ||
+        lxp_kernel_bind_ledger_admission(&ctx, &authority,
+                                         LX_PROGRAMS_SANDBOX) != LXP_OK ||
+        !ctx.ledger_admission.bound ||
+        ctx.ledger_admission.activity_type != LX_PROGRAMS_SANDBOX ||
+        !ctx.ledger_admission.account_present ||
+        memcmp(ctx.ledger_admission.activity_binding, ctx.activity_id, 32U) != 0 ||
+        memcmp(ctx.ledger_admission.actor, authority.actor, 32U) != 0 ||
+        memcmp(ctx.ledger_admission.verified_key, authority.verified_key, 32U) != 0 ||
+        memcmp(ctx.ledger_admission.account_id, account_id, 32U) != 0 ||
+        ctx.ledger_admission.next_sequence != account->next_sequence ||
+        lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) != LXP_OK ||
+        sequence != account->next_sequence || sequence == legacy_sequence ||
+        lxp_kernel_bind_ledger_admission(&ctx, &authority,
+                                         LX_PROGRAMS_SANDBOX) !=
+            LXP_ERR_CONTEXT_MISMATCH)
+        goto done;
+    saved = ctx.ledger_admission;
+    ctx.ledger_admission.bound = false;
+    if (lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) != LXP_ERR_CONTEXT_MISMATCH)
+        goto done;
+    ctx.ledger_admission = saved;
+    ctx.ledger_admission.activity_binding[0] ^= 1U;
+    if (lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) != LXP_ERR_CONTEXT_MISMATCH)
+        goto done;
+    ctx.ledger_admission = saved;
+    ctx.ledger_admission.account_id[0] ^= 1U;
+    if (lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) != LXP_ERR_CONTEXT_MISMATCH)
+        goto done;
+    ctx.ledger_admission = saved;
+    ctx.ledger_admission.account_present = false;
+    if (lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) != LXP_ERR_CONTEXT_MISMATCH)
+        goto done;
+    ctx.ledger_admission = saved;
+    ++ctx.ledger_admission.next_sequence;
+    if (lxp_ctx_ledger_execution_sequence(&ctx, account_id, legacy_sequence,
+                                          &sequence) != LXP_ERR_CONTEXT_MISMATCH)
+        goto done;
+    result = 0;
+done:
+    lx_account_registry_release(&accounts);
+    if (lxp_state_store_destroy(&store) != LXP_OK) result = 1;
+    return result;
+}
+
 int main(void)
 {
     static const uint32_t types[] = { UINT32_C(0x00010001) };
@@ -319,5 +427,8 @@ int main(void)
         memcmp(preview_root, committed_root, 32U) != 0 ||
         lxp_state_store_destroy(&store) != LXP_OK) return 1;
     if (prepare_staging_checks() != 0) return 1;
+    if (sandbox_ledger_admission_checks(programs_module_registration_v4()) != 0 ||
+        sandbox_ledger_admission_checks(programs_module_registration_v5()) != 0)
+        return 1;
     return 0;
 }

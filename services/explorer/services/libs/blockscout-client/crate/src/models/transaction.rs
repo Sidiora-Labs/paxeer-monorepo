@@ -19,18 +19,18 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct Transaction {
-    pub timestamp: String,
+    pub timestamp: Option<String>,
     pub fee: models::Fee,
     pub gas_limit: Decimal,
-    pub block_number: Decimal,
-    pub status: String,
+    pub block_number: Option<Decimal>,
+    pub status: Option<String>,
     #[serde(default)]
     pub method: Option<String>,
 
     pub confirmations: Decimal,
-    pub r#type: Decimal,
-    pub exchange_rate: String,
-    pub to: models::AddressParam,
+    pub r#type: Option<Decimal>,
+    pub exchange_rate: Option<String>,
+    pub to: Option<models::AddressParam>,
     #[serde(default)]
     pub transaction_burnt_fee: Option<String>,
 
@@ -39,26 +39,26 @@ pub struct Transaction {
 
     pub result: String,
     pub hash: String,
-    pub gas_price: String,
+    pub gas_price: Option<String>,
     #[serde(default)]
     pub priority_fee: Option<Decimal>,
 
-    pub base_fee_per_gas: String,
+    pub base_fee_per_gas: Option<String>,
     pub from: models::AddressParam,
     #[serde(default)]
     pub token_transfers: Option<Vec<models::TokenTransfer>>,
 
     pub transaction_types: Vec<String>,
-    pub gas_used: String,
+    pub gas_used: Option<String>,
     #[serde(default)]
     pub created_contract: Option<models::AddressParam>,
 
-    pub position: Decimal,
+    pub position: Option<Decimal>,
     pub nonce: Decimal,
     #[serde(default)]
     pub has_error_in_internal_transactions: Option<bool>,
 
-    pub actions: Vec<models::TransactionAction>,
+    pub actions: Option<Vec<models::TransactionAction>>,
     #[serde(default)]
     pub decoded_input: Option<models::DecodedInput>,
 

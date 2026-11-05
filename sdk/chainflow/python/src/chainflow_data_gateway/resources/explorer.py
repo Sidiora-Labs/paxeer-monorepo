@@ -62,7 +62,11 @@ class ExplorerResource(SyncAPIResource):
         return self._get(
             "/api/explorer/health",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=ExplorerHealth,
         )
@@ -101,6 +105,7 @@ class ExplorerResource(SyncAPIResource):
         return self._get(
             "/api/explorer/blocks",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -144,6 +149,7 @@ class ExplorerResource(SyncAPIResource):
         return self._get(
             "/api/explorer/transactions",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -195,7 +201,11 @@ class AsyncExplorerResource(AsyncAPIResource):
         return await self._get(
             "/api/explorer/health",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"RestApiKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=ExplorerHealth,
         )
@@ -234,6 +244,7 @@ class AsyncExplorerResource(AsyncAPIResource):
         return await self._get(
             "/api/explorer/blocks",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
@@ -279,6 +290,7 @@ class AsyncExplorerResource(AsyncAPIResource):
         return await self._get(
             "/api/explorer/transactions",
             options=make_request_options(
+                security={"RestApiKey": True},
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,

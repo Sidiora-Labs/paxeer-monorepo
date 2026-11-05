@@ -1,5 +1,7 @@
 #include "test_service_helpers.h"
 
+#include "layerx/lx_escrow.h"
+
 #include <string.h>
 
 static const uint8_t delivery_prefix[LX_SERVICE_KEY_PREFIX_BYTES] = {
@@ -148,14 +150,24 @@ static int availability_check(lxp_module_ctx *ctx,
     delivery.deliverables[0].artifact_size = 0U;
     id32(delivery.deliverables[0].availability_reference, 20U);
     if (lx_service_deliverable_check(ctx, &agreement, &delivery) !=
-        LXP_ERR_DA_MISSING)
+        LXP_ERR_NON_CANONICAL)
         return 1;
     delivery.deliverables[0].artifact_size = 10U;
     (void)memset(delivery.deliverables[0].availability_reference, 0, 32U);
     if (lx_service_deliverable_check(ctx, &agreement, &delivery) !=
-        LXP_ERR_DA_MISSING)
+        LXP_ERR_NON_CANONICAL)
         return 1;
     id32(delivery.deliverables[0].availability_reference, 20U);
+    delivery.agreement_id[0] ^= 1U;
+    if (lx_service_deliverable_check(ctx, &agreement, &delivery) !=
+        LXP_ERR_AGREEMENT_STATE)
+        return 1;
+    delivery.agreement_id[0] ^= 1U;
+    delivery.provider[0] ^= 1U;
+    if (lx_service_deliverable_check(ctx, &agreement, &delivery) !=
+        LXP_ERR_AGREEMENT_STATE)
+        return 1;
+    delivery.provider[0] ^= 1U;
     delivery.deliverable_count = 0U;
     if (lx_service_deliverable_check(ctx, &agreement, &delivery) !=
         LXP_ERR_NON_CANONICAL)
@@ -345,14 +357,27 @@ int main(void)
         memcmp(delivery.delivery_id, delivery_two, 32U) != 0 ||
         delivery.deliverable_count != 1U || delivery.global_sequence != 13U ||
         lx_service_agreement_lookup(&ctx, formed, &agreement) != LXP_OK ||
+        agreement.state != LX_SERVICE_AGREEMENT_DELIVERED ||
+        agreement.rejection_reason != 0U ||
+        agreement.contested_hash_count != 0U || agreement.default_applied ||
+        agreement.outcome_sequence != 0U ||
+        agreement.outcome_timestamp != 0U)
+        return 1;
+
+    length = reject_payload(payload, formed, 7U, contested, 1U);
+    if (dispatch(LX_SERVICE_REJECT, payload, length, &buyer, 100U, 14U, 16U,
+                 &outcome) != LXP_OK || outcome != LXP_OK ||
+        open_ctx(&ctx, 100U, 15U) != 0 ||
+        lx_service_agreement_lookup(&ctx, formed, &agreement) != LXP_OK ||
         agreement.state != LX_SERVICE_AGREEMENT_REJECTED ||
-        agreement.rejection_reason != 7U || agreement.outcome_sequence != 11U ||
+        agreement.rejection_reason != 7U || agreement.outcome_sequence != 14U ||
         agreement.outcome_timestamp != 100U)
         return 1;
 
     {
         lx_service_dispute_request dispute_request;
         lx_service_dispute dispute;
+        lxp_authority_resolved arbiter = {0};
         uint64_t acceptance_end = agreement.acceptance_window_end;
         uint64_t dispute_end = agreement.dispute_window_end;
         if (lx_service_acceptance_default(&ctx, acceptance_end, 15U) != LXP_OK ||
@@ -368,12 +393,20 @@ int main(void)
         (void)memcpy(dispute_request.dispute.raiser, buyer.principal, 32U);
         dispute_request.dispute.evidence_hash_count = 1U;
         dispute_request.dispute.evidence_hashes[0][0] = 13U;
+        (void)memcpy(dispute_request.escrow_link.holder, agreement.buyer, 32U);
+        (void)memcpy(dispute_request.escrow_link.beneficiary,
+                     agreement.provider, 32U);
+        id32(dispute_request.escrow_link.asset_id, 11U);
+        id32(dispute_request.escrow_link.arbiter, 3U);
+        dispute_request.escrow_link.state = (uint8_t)LX_ESCROW_STATE_OPEN;
         if (lx_service_dispute_open_execute(&ctx, &dispute_request, &dispute) != LXP_OK ||
             lx_service_agreement_lookup(&ctx, formed, &agreement) != LXP_OK ||
             agreement.state != LX_SERVICE_AGREEMENT_DISPUTED) return 1;
         dispute_request.dispute.ruling = 1U;
         dispute_request.dispute.provider_basis_points = 5000U;
         id32(dispute_request.dispute.escrow_resolution_id, 94U);
+        id32(arbiter.principal, 3U);
+        dispute_request.authority = &arbiter;
         if (lx_service_dispute_resolve_execute(&ctx, &dispute_request, &dispute) != LXP_OK ||
             !dispute.resolved ||
             lx_service_agreement_lookup(&ctx, formed, &agreement) != LXP_OK ||
