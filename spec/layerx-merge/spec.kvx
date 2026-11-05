@@ -175099,7 +175099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.536]
 title = "Give the host repair test grant terms the receiver DID key the shared type now carries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
