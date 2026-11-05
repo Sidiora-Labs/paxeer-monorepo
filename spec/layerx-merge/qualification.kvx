@@ -31179,3 +31179,11 @@ symbol = "market_receipt_producer.c"
 observed = "Attempt 3: verify exit 1 twice; after the first repair one case failed, test_http_committed_offer_waits_for_verified_inclusion_after_restart, with invalid-sequencer-receipt raised at x402_rpc.py line 135 because the fixture receipted answer carried blockHash copied from the committed vector."
 assumption = "The fixture models a receipted answer with committed-only fields; the production SDK check is the contract."
 severity = "low"
+
+[finding.22.31.541.1]
+task = "22.31.541"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"
+symbol = "repair_22_31_535.rs"
+observed = "Attempt 1: build exit 0; verify exit 101 at 807b7e1eb8 in repair_22_31_535_remote_consumers_require_committed_producer_documents with Os NotFound at line 25, because the corpus under the temp dir is written only by the authority producer test, which the attempt-1 verify command did not run."
+assumption = "The task work is complete and correct; the gate shape was the defect."
+severity = "low"
