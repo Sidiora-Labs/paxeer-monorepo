@@ -1,5 +1,9 @@
 import { copyEntry } from "../../copy/runtime.ts";
 import { formatCopy } from "../../copy/format.ts";
+import type {
+  CommittedReceiptEvidence,
+  SequencerReceiptKey,
+} from "../../../../services/agent/sdk/typescript/src/verifier.ts";
 
 export const PATTERN_PAIRS = [
   "navigation",
@@ -87,6 +91,21 @@ export function statusKeyFromCopyKey(copyKey: string): StatusKey {
 
 export function verificationWord(level: string): string {
   return copyEntry(VERIFICATION_PRESENTATIONS[verificationRung(level)].copyKey).message;
+}
+
+export async function verifiedReceiptWord(
+  signedReceipt: Uint8Array,
+  rawTransaction: Uint8Array,
+  keys: readonly SequencerReceiptKey[],
+  evidence?: CommittedReceiptEvidence,
+): Promise<string> {
+  const { verifySequencerReceipt, verifyCommittedReceipt } = await import(
+    "../../../../services/agent/sdk/typescript/src/verifier.ts"
+  );
+  const receipt = await verifySequencerReceipt(signedReceipt, rawTransaction, keys);
+  if (evidence === undefined) return verificationWord("receipt-verified");
+  await verifyCommittedReceipt(receipt, evidence);
+  return verificationWord("checkpoint-finalised");
 }
 
 export function directionWord(direction: MoneyDirection): string {

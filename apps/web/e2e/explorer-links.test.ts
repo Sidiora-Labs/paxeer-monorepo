@@ -34,7 +34,7 @@ registerHooks({
 const { EXPLORER_LINK_KINDS, explorerLinkPath } = await import("../src/explorer/links.ts");
 
 function explorer_link_kinds_are_receipt_transaction_address() {
-  assert.deepEqual(EXPLORER_LINK_KINDS, ["receipt", "transaction", "address"]);
+  assert.deepEqual(EXPLORER_LINK_KINDS, ["receipt", "historical-receipt", "transaction", "address"]);
 }
 
 function explorer_link_path_refuses_anchor_kind() {
