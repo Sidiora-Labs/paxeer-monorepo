@@ -1,0 +1,31 @@
+[repair.22.31.559]
+acceptance = "22998.1"
+gotchas = [3190, 3142, 2962, 3206]
+decisions = [2632, 2640]
+problem = "Current transaction receipt evidence was stored and served but inventoried as missing after a restart, holding tenants from writes."
+
+[sites]
+inventory = "src/receipt.rs: ReceiptEvidenceRecord accepts a typed evidence parameter; CurrentReceiptEvidenceRecord and with_current_evidence retain the current kind. evidence_inventory decodes the public version 2 record, checks its served canonical bytes and index identities, preserves public version 1 records, and refuses legacy archive records with EvidenceVersion."
+authority = "src/protocol_evidence.rs: EvidenceAuthority installs governed ReceiptKeyEntry records, verifies current canonical signatures with verify_sequencer_signature and the signed key ID and block height, checks protocol version and persisted metadata, and issues VerifiedSpendReceipt without a batch header or inclusion proof."
+accounting = "src/budget/hold.rs, src/budget/mod.rs, src/budget/reconcile.rs: BudgetReceiptEvidence distinguishes legacy and current evidence. PersistedReceipt and SpendReceiptEvidence carry either through generic entry points; both rebuild and reconciliation verify their actual kind and enforce replay and activity binding. Existing legacy entry points remain source compatible, including empty receipt slices."
+outbox = "src/outbox/recover.rs: RecoveryInputs carries typed evidence through rebuild and reconciliation, preserving legacy recover callers and exposing the same recovery through the typed input method."
+runtime = "src/human_runtime.rs: budget_read_parts installs the governed node key windows; attribute_receipts carries all three lists; both inventory consumers merge the two evidenced lists for the budget window. BudgetRecoveryRequest and recover_tenant_budget_with_evidence accept either typed evidence or the mixed enum; the concrete recover_tenant_budget wrapper retains legacy empty-slice inference, and only receipts in without_evidence contribute to EvidenceMissing."
+managed = "src/managed_agent.rs: evidence_export searches every inventory list, including current evidence."
+
+[tests]
+ceiling = "Decision 2640: restart recovery passes no reservation-bound ceiling receipts, so the recovered ceiling snapshot has consumed 0 and is reconciled after budget reconciliation. The separate budget_accounting.receipt_consumed assertion retains the full positive transaction receipt amount."
+restart = "restart_recovers_current_receipts_holds_missing_evidence_and_refuses_corruption: loopback node serves recorded Go-producer PAX transfer evidence and governed Ed25519 keys on chain 0x7d; lookup_authenticated feeds store_verified_if_absent, store closes and reopens, inventory separates current and missing evidence, recovery admits tenant a with its positive receipt amount consumed and refuses tenant b with EvidenceMissing count 1. Corrupting a persisted signature byte and reopening holds tenant a."
+authority = "governed_current_receipt_authority_enforces_signature_version_and_height_windows: verifies current evidence independently of the state handshake key and refuses no governed keys, another signing key, a protocol mismatch, heights before and after the window, altered metadata height, and a forged canonical signature; exact inclusive height bounds pass."
+mixed = "mixed_inventory_rebuilds_both_formats_and_preserves_replay_and_archive_refusals: real persisted version 1 and version 2 evidence rebuild and reconcile together after reopening; duplicate receipts refuse, budget windows exclude earlier current receipts, and legacy archive evidence refuses with EvidenceVersion."
+failed = "failed_current_receipt_does_not_consume_budget: authenticates the producer revert receipt and verifies recovery consumes zero while admitting the reconciled tenant."
+legacy_header = "The existing legacy helper emits network 42; the mixed test changes its canonical header network field to 125 and signs the resulting header with the actual legacy fixture key before persisting it. The receipt, inclusion proof and execution batch identity are retained and fully verified. Current ingress uses its required transaction hash idempotency key, and outside-window tests install valid intervals that exclude the receipt. No assertion or check is relaxed."
+producer = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json: rpc/sequencer_receipt_vectors_test.go emitted the signed receipts and key entries. The test starts and stops its own loopback HTTP node, with no credential, external endpoint, environment variable or subprocess dependency."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The final verify row records the exact qualified revision and must match the successful build revision and candidate."
+build_command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_command = "cg spec done 22.31.559 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_559"
+results = "Read exact revision, command, exit and private log from the build and verify ledger rows; repair reruns, if needed, are recorded in subsequent rows. This record claims no result before execution and is not amended after qualification."
+publication = "The runner owns commits and publishing; inherited .cgignore and task-start bookkeeping are preserved without manual edits."
