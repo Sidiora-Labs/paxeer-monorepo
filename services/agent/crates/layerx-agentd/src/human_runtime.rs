@@ -21821,6 +21821,107 @@ pub fn history_operation_value(
     Ok(response)
 }
 
+pub fn retain_state_export(
+    context: &crate::export::ExportOwnerContext<'_>,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    activity_id: [u8; 32],
+    slots: &[[u8; 32]],
+) -> Result<(), HumanOperationError> {
+    use crate::export::{
+        decode_commit, decode_header, decode_validators, encode_storage_witnesses,
+    };
+    use layerx_agent_api::export::FactRef;
+    let account_id = context.bound_account.ok_or(HumanOperationError::Refused)?;
+    if account_id[..12] != [0; 12]
+        || account_id[12..] == [0; 20]
+        || slots.is_empty()
+        || slots.len() > 1024
+        || slots
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != slots.len()
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let receipt_fact = FactRef::new(format!(
+        "receipt:{}",
+        layerx_programs::hex::encode(&activity_id)
+    ))
+    .map_err(|_| HumanOperationError::Refused)?;
+    let mut artifact = crate::export::produce_retained(
+        context.store,
+        context.tenant,
+        None,
+        context.trust,
+        &[receipt_fact],
+    )
+    .map_err(export_refusal)?
+    .response
+    .value;
+    let bundle = &mut artifact.bundles[0];
+    let header = decode_header(
+        bundle
+            .block_header
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+    )
+    .map_err(export_refusal)?;
+    let validators = decode_validators(
+        bundle
+            .validator_set
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+    )
+    .map_err(export_refusal)?;
+    let commit = decode_commit(
+        bundle
+            .commit
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+        &validators,
+    )
+    .map_err(export_refusal)?;
+    let checkpoint = crate::read::checkpoint(
+        artifact.height,
+        &header.chain_id,
+        &header,
+        &commit,
+        &validators,
+    )
+    .map_err(|_| HumanOperationError::Refused)?;
+    let reads = crate::read::CommittedReads::at_checkpoint(endpoint, &checkpoint)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let address = account_id[12..]
+        .try_into()
+        .map_err(|_| HumanOperationError::Refused)?;
+    let witnesses = slots
+        .iter()
+        .map(|slot| reads.storage(address, *slot))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| HumanOperationError::Refused)?;
+    bundle.account_proof = Some(encode_storage_witnesses(&witnesses).map_err(export_refusal)?);
+    artifact.facts[0] = FactRef::new(format!(
+        "state:{}:{}",
+        layerx_programs::hex::encode(&activity_id),
+        layerx_programs::hex::encode(&account_id)
+    ))
+    .map_err(|_| HumanOperationError::Refused)?;
+    crate::export::retain_bundle(
+        &mut *context
+            .store
+            .lock()
+            .map_err(|_| HumanOperationError::Unavailable)?,
+        context.tenant.clone(),
+        artifact,
+        context.trust,
+    )
+    .map_err(export_refusal)
+}
+
 pub fn receipt_proof_operation(
     target: layerx_agent_api::proof::ProofBundleTarget,
     requested: layerx_types::rung::Rung,

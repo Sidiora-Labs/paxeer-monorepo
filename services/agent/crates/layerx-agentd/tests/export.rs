@@ -3,19 +3,20 @@ use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::ProofBundle;
 use layerx_agentd::export::{
-    build, decode_header, decode_validators, encode_commit, encode_header, encode_validators,
-    verify, ExportTrustSource,
+    build, decode_header, decode_validators, encode_commit, encode_header,
+    encode_storage_witnesses, encode_validators, verify, ExportTrustSource,
 };
 use layerx_agentd::read::{
     validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CommitTimestamp, CommitValidator,
     CommitVote,
 };
-use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
 use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::{MAX_MESSAGE_BYTES, MAX_SEQUENCER_EFFECTS, PROTOCOL_VERSION};
+use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 pub fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -40,6 +41,57 @@ pub fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     };
     out.extend_from_slice(payload);
     out
+}
+
+pub fn storage_vector() -> Value {
+    let vector: Value = must(serde_json::from_str(include_str!(
+        "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
+    )));
+    vector["entries"][0].clone()
+}
+
+pub fn storage_node(
+    answers: Vec<(&'static str, Value, Value)>,
+) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::time::Duration;
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let endpoint = must(SequencerEndpoint::new(
+        &format!("http://{}", must(listener.local_addr())),
+        &[],
+    ));
+    let server = std::thread::spawn(move || {
+        for (method, params, result) in answers {
+            let (stream, _) = must(listener.accept());
+            must(stream.set_read_timeout(Some(Duration::from_secs(5))));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.eq_ignore_ascii_case("content-length") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+            }
+            let mut bytes = vec![0; length.expect("HTTP request length")];
+            must(reader.read_exact(&mut bytes));
+            let request: Value = must(serde_json::from_slice(&bytes));
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["method"], method);
+            assert_eq!(request["params"], params);
+            let body = json!({"jsonrpc":"2.0", "id": request["id"], "result": result}).to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
+            must(stream.flush());
+        }
+    });
+    (endpoint, server)
 }
 
 pub struct Fixture {
@@ -211,42 +263,32 @@ impl Fixture {
                 }
             })
             .collect();
-        let account = [0x12; 20];
+        let vector = storage_vector();
+        let account: [u8; 20] = must(hex::decode(vector["address"].as_str().unwrap()))
+            .try_into()
+            .unwrap();
+        let slot: [u8; 32] = must(hex::decode(vector["slot"].as_str().unwrap()))
+            .try_into()
+            .unwrap();
         let mut account_id = [0; 32];
         account_id[12..].copy_from_slice(&account);
-        let storage_hash = transaction_hash(&[0x80]);
-        let code_hash = transaction_hash(&[]);
-        let account_value = rlp(
-            &[
-                rlp(&[1], false),
-                rlp(&[9], false),
-                rlp(&storage_hash, false),
-                rlp(&code_hash, false),
-            ]
-            .concat(),
-            true,
-        );
-        let account_leaf = rlp(
-            &[
-                rlp(&[&[0x20][..], &transaction_hash(&account)].concat(), false),
-                rlp(&account_value, false),
-            ]
-            .concat(),
-            true,
-        );
-        let state_root = transaction_hash(&account_leaf);
-        let account_proof = rlp(
-            &[
-                rlp(&account, false),
-                rlp(&[9], false),
-                rlp(&[1], false),
-                rlp(&storage_hash, false),
-                rlp(&code_hash, false),
-                rlp(&rlp(&account_leaf, false), true),
-            ]
-            .concat(),
-            true,
-        );
+        let (endpoint, server) = storage_node(vec![(
+            "eth_getProof",
+            json!([
+                format!("0x{}", hex::encode(account)),
+                [format!("0x{}", hex::encode(slot))],
+                format!("{height:#x}")
+            ]),
+            vector["response"].clone(),
+        )]);
+        let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
+        server.join().unwrap();
+        let account_proof = must(encode_storage_witnesses(&witnesses))
+            .as_bytes()
+            .to_vec();
+        let state_root = must(hex::decode(vector["app_hash"].as_str().unwrap()))
+            .try_into()
+            .unwrap();
         let header = CheckpointHeader {
             version_block: 11,
             version_app: 1,
