@@ -8715,6 +8715,12 @@ value = "Decision 2593 stands: the hosted authority emits VerificationLevel::COM
 basis = "Gotcha 3141: 22.31.535 converted the consumers it listed and missed two literal guards; the approval budget request path refused every committed budget state until the dependent suite exposed it."
 affects = ["22.31.535", "22.31.516"]
 
+[decision.2601]
+title = "COMMITTED is the only committed verification level in current code; the retired labels appear only in decoders of records written before the change, which map ranks 4 and 5 to COMMITTED"
+value = "Every producer in the agent daemon and the Human service labels committed evidence VerificationLevel::COMMITTED (wire rank 6) and every policy floor compares with COMMITTED through the level ordering or compare(). A decoder of a persisted or received record (the receipt store metadata, the owner receipt lookup frame, the identity document, the tenant verification configuration, the persisted MCP invocation record and the Human rank codes) decodes 6 as COMMITTED, maps the legacy codes 4 and 5 to COMMITTED, and otherwise decodes through from_wire_rank. The daemon consumer changes first and accepts both encodings; the Human service producer changes after it. The persisted MCP invocation record decoder is owned by 22.31.539, and 22.31.538 keeps its scope to the two hosted-authority rank guards. Decision 2600 stands."
+basis = "Gotcha 3143: the retired labels fail every policy comparison in layerx-types, so the floors that name them never refuse and the Human spend path never reaches the committed rung; the change must be ordered consumer before producer across the two services."
+affects = ["22.31.535", "22.31.538", "22.31.516"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37605,6 +37611,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.540]
+title = "Retire the checkpoint-finalised label in the Human service spend, export and receipt frame producers"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/src/agents/spend.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/server.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_540.kvx", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_156.rs", "services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-test-support/tests/evidence_gate_rungs.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"]
+verification_contract = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_540 --test agent_runtime_rungs --test agent_runtime_receipt_frame --test repair_22_31_156 --test agent_evidence_rungs && cargo test --locked --manifest-path services/human/crates/layerx-human-test-support/Cargo.toml --test evidence_gate_rungs"
+do_1 = "do_1 Gotcha 3143, decision 2601. In services/human/crates/layerx-human-service/src/agents/spend.rs the four comparisons at lines 286, 316, 394 and 428 compare with VerificationLevel::COMMITTED (compare(COMMITTED).is_ge()); activity/export.rs line 1307 exports COMMITTED for a committed receipt; the producer of the owner receipt lookup frame verification code and verification_level_name in src/server emit 6 and committed for COMMITTED. Search services/human for any other use of the two retired constants or their spellings in production code and convert it the same way."
+symbols = []
+
+[capability.22.31.539]
+title = "Retire the checkpoint-finalised label in the agent daemon: COMMITTED everywhere, legacy codes decoded as COMMITTED"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_539.kvx", "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/identity.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/operator.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1525.rs", "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs", "services/agent/qualification/pay2/sequence.rs", "services/agent/qualification/pay2/tests/repair_22_31_229.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_539 --test admin_retry_rung --test identity --test operator --test tenant_isolation --test bootstrap_bind_layerx --test native_send_preview_evm --test repair_22_31_219 --test repair_22_33_1525"
+do_1 = "do_1 Gotcha 3143, decision 2601. In services/agent/crates/layerx-agentd replace every production use of VerificationLevel::CHECKPOINT_FINALISED or VerificationLevel::SETTLEMENT_ANCHORED as a level with VerificationLevel::COMMITTED: receipt.rs line 601 (the committed-rung receipt metadata), human_runtime.rs production_rung_floor (line 19674) and the raise_verification_level call at line 13655, the identity floors at human_runtime.rs lines 5074, 11740, 11790, 12954 and 14248, managed_agent.rs line 592, read/committed.rs level() at lines 167 and 421, and services/agent/qualification/pay2/sequence.rs line 171. receipt_rung_code (human_runtime.rs about line 18036) encodes COMMITTED as 6 and the rung decoder of the agent RPC routing module (the file beside agent_rpc_adapters.rs) maps 6 to the committed rung and the legacy codes 4 and 5 to the committed rung as well."
+symbols = []
 
 [capability.22.31.538]
 title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
@@ -175146,6 +175170,69 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.540]
+title = "Retire the checkpoint-finalised label in the Human service spend, export and receipt frame producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.539"]
+reqs = ["22998.1"]
+capabilities = ["22.31.540"]
+interfaces = []
+do_1 = "do_1 Gotcha 3143, decision 2601. In services/human/crates/layerx-human-service/src/agents/spend.rs the four comparisons at lines 286, 316, 394 and 428 compare with VerificationLevel::COMMITTED (compare(COMMITTED).is_ge()); activity/export.rs line 1307 exports COMMITTED for a committed receipt; the producer of the owner receipt lookup frame verification code and verification_level_name in src/server emit 6 and committed for COMMITTED. Search services/human for any other use of the two retired constants or their spellings in production code and convert it the same way."
+do_2 = "do_2 Move the tests and the test support that name the labels to COMMITTED: tests/agent_runtime_receipt_frame.rs line 48, tests/agent_runtime_rungs.rs line 213, tests/repair_22_31_156.rs line 775, services/human/crates/layerx-human-test-support/src/lib.rs line 191 and its tests/evidence_gate_rungs.rs line 22."
+do_3 = "do_3 Add tests/repair_22_31_540.rs proving through the served spend path that a verified state at COMMITTED with a committed receipt classifies the spend as Rung::Committed, that a receipt at STATE_PROVEN lowers it to Rung::Receipted, and that the budget proof check at line 394 accepts a proof at COMMITTED and refuses one at STATE_PROVEN; and that the exported activity names committed for a committed receipt."
+do_4 = "do_4 Record in tests/repair_22_31_540.kvx every site, decision 2601 and the gate results by reference to the gate ledger; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/src/agents/spend.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/server.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_540.kvx", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_156.rs", "services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-test-support/tests/evidence_gate_rungs.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"]
+planned_paths = ["services/human/crates/layerx-human-service", "services/human/crates/layerx-human-test-support"]
+build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests && cargo build --locked --manifest-path services/human/crates/layerx-human-test-support/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_540 --test agent_runtime_rungs --test agent_runtime_receipt_frame --test repair_22_31_156 --test agent_evidence_rungs && cargo test --locked --manifest-path services/human/crates/layerx-human-test-support/Cargo.toml --test evidence_gate_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.539]
+title = "Retire the checkpoint-finalised label in the agent daemon: COMMITTED everywhere, legacy codes decoded as COMMITTED"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.538"]
+reqs = ["22998.1"]
+capabilities = ["22.31.539"]
+interfaces = []
+do_1 = "do_1 Gotcha 3143, decision 2601. In services/agent/crates/layerx-agentd replace every production use of VerificationLevel::CHECKPOINT_FINALISED or VerificationLevel::SETTLEMENT_ANCHORED as a level with VerificationLevel::COMMITTED: receipt.rs line 601 (the committed-rung receipt metadata), human_runtime.rs production_rung_floor (line 19674) and the raise_verification_level call at line 13655, the identity floors at human_runtime.rs lines 5074, 11740, 11790, 12954 and 14248, managed_agent.rs line 592, read/committed.rs level() at lines 167 and 421, and services/agent/qualification/pay2/sequence.rs line 171. receipt_rung_code (human_runtime.rs about line 18036) encodes COMMITTED as 6 and the rung decoder of the agent RPC routing module (the file beside agent_rpc_adapters.rs) maps 6 to the committed rung and the legacy codes 4 and 5 to the committed rung as well."
+do_2 = "do_2 Decoders of persisted or received records accept the legacy codes: receipt.rs decode_metadata (line 821) decodes 6 as COMMITTED and maps 4 and 5 to COMMITTED, encode_metadata keeps writing wire_rank(); human_receipt_frame.rs line 106 does the same and its module documentation names code 6 COMMITTED; human_runtime.rs rank() (line 11442) and the identity string decoder (line 17539) accept 6 and committed and map the legacy codes and spellings to COMMITTED; config.rs line 506 accepts committed and the two legacy spellings as COMMITTED; session_control.rs McpInvocationRecord::decode (line 3770) decodes the rank as above and requires at least STATE_PROVEN, the admission its writer at line 1434 applies, keeping Corrupt on refusal. events/ingest.rs uses the separate legacy type and is unchanged. After the change no production comparison names the retired constants and the daemon build emits no use-of-deprecated warning for them outside the legacy decode arms."
+do_3 = "do_3 Move the existing tests that name the labels as a current level to COMMITTED, keeping a legacy-decode case wherever a codec is under test: tests/admin_retry_rung.rs lines 47 and 69, bootstrap_bind_layerx.rs line 500, identity.rs line 163, native_send_preview_evm.rs line 546, operator.rs line 137, repair_22_31_219.rs line 671, repair_22_33_1525.rs line 665, tenant_isolation.rs line 241, the in-crate tests of the agent RPC routing module at lines 742 to 757, program_sources.rs line 239 and human_runtime.rs line 22276, pay2 tests/repair_22_31_229.rs line 328, and the test-only mentions in services/agent/crates/layerx-client/tests/evidence_rpc.rs and services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs."
+do_4 = "do_4 Add tests/repair_22_31_539.rs proving the real paths: a committed-rung receipt stored through the receipt store reloads with COMMITTED and metadata byte 6; a stored metadata record whose level byte is 4 reloads as COMMITTED; an identity at STATE_PROVEN is refused and one at COMMITTED accepted by the served operation that reads subject_identity at human_runtime.rs line 5074 (or the nearest served operation behind one of the five floors); a persisted MCP invocation record written at rank 6 and one at legacy rank 4 both decode and one at rank 2 is Corrupt; an owner receipt lookup frame carrying code 4 and one carrying code 6 both decode as COMMITTED."
+do_5 = "do_5 Record in tests/repair_22_31_539.kvx every site, decision 2601, the use-of-deprecated warning count before and after, and the gate results by reference to the gate ledger; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_539.kvx", "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/identity.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/operator.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1525.rs", "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs", "services/agent/qualification/pay2/sequence.rs", "services/agent/qualification/pay2/tests/repair_22_31_229.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd", "services/agent/qualification/pay2", "services/agent/crates/layerx-client/tests", "services/agent/crates/layerx-proof/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client -p layerx-proof --tests && cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_539 --test admin_retry_rung --test identity --test operator --test tenant_isolation --test bootstrap_bind_layerx --test native_send_preview_evm --test repair_22_31_219 --test repair_22_33_1525"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.538]
 title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
 status = "pending"
@@ -175160,7 +175247,7 @@ do_2 = "do_2 In services/agent/crates/layerx-agentd/src/budget/program_sources.r
 do_3 = "do_3 Add unit tests prefixed repair_22_31_538_ to the tests module of human_runtime.rs: the helper accepts VerificationLevel::COMMITTED.wire_rank() and refuses 0, 1, 2, 3, 4, 5, 7 and u8::MAX. Add to the tests module of src/budget/budget_proof.rs, which already verifies a proof through verify_budget_proof, a test that passes that committed proof and a reservation whose allocation row names the proof asset and source account to bind_program_presentation_budget_proof at the proof sequence and asserts Ok(()), and that the same call with a reservation whose allocation sequence exceeds the proof sequence returns ProgramSourceError::Snapshot; build the reservation with the constructors the budget module tests already use and record in the kvx how it was built."
 do_4 = "do_4 Record in services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx the two sites, decision 2600, the result of the search for other literal ranks and the gate results. Run the declared build and verify once and record the result. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_538.kvx", "services/agent/crates/layerx-agentd/src/session_control.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
@@ -175176,6 +175263,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotchas 3142 and 3143, decision 2601): the two guard changes (human_runtime.rs committed_budget_rank helper at the approval budget guard, program_sources.rs committed comparison) and their three tests stand. Revert the session_control.rs change and its test: the persisted MCP invocation record decoder is owned by 22.31.539, because its writer stores the receipt store level and receipt.rs line 601 labels committed receipts with wire rank 4 today. Record the search result (the third site found, handed to 22.31.539) in repair_22_31_538.kvx, record the gate commands and log paths by reference to the gate ledger, run the declared build and verify once, and amend no file after they run so the qualified revision is the candidate."
 
 [task.22.31.537]
 title = "Carry the actor DID in the stored held spend so the ticket names the agent, not the sender address"
