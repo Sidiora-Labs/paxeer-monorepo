@@ -30939,3 +30939,123 @@ symbol = "move_test.go"
 observed = "Attempt 2: build exit 0; verify exit 1 in both cycles: two rehearsal tests and three cmd/ceremony tests fail at identity generation with AttestorQuorumError participant_unavailable (the node endpoint is not ready for a key operation) from client.ts line 787 after client.health(); the earlier repair installed the agent SDK dependencies the producer imports."
 assumption = "The ceremony fixture attestors serve the same real protocol the Go client uses, so the gateway probe refusal is a contract mismatch on the probe or inventory side."
 severity = "high"
+
+[finding.22.31.521.5]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 5: build exit 0; verify exit 101: decide_nonces 2 passed; repair_22_31_159 0 passed, 3 failed, each at line 265 with assertion failed: !delivery.payload().contains(Amount:) for the bank denoms, native ids and LXP cases."
+assumption = "The Amount and Asset lines come from Content::bind_approval (src/notify/content.rs line 27) on the full-detail path the 159 fixture exercises, and no production change is needed."
+severity = "low"
+
+[finding.22.31.527.3]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 3: build exit 0; dependent-crate check passed; the first verify failed three cases and the repair fixed the two hold cases; the second verify: 2 passed, 1 failed, zero_generation_refuses_unavailable_without_a_hold panicked at tests/repair_22_31_527.rs line 130 with authenticated daemon invocation: Authority(InvocationUnknown)."
+assumption = "A refusal raised before any effect is deterministic and must not be recorded as an unknown outcome the daemon would reconcile."
+severity = "high"
+
+[finding.22.33.877.2]
+task = "22.33.877"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+symbol = "test_repair_22_33_877.py"
+observed = "Attempt 2 (requalification of attempt 1 on a base carrying 22.31.491): verify exit 1; 57 passed, 2 failed: test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles and test_f016_rejects_missing_role_and_changed_saved_capture, both RuntimeError preexecution refusal must preserve empty execution evidence at native-terminal-outcome.py line 118."
+assumption = "The committed insufficient-funds case satisfies the terminal-0 contract and the peer synthesises the block identity for it as it does for the other case."
+severity = "low"
+
+[finding.22.31.493.1]
+task = "22.31.493"
+file = "sdk/integrations/next/test/repair_22_31_493.test.mjs"
+symbol = "repair_22_31_493.test.mjs"
+observed = "Attempt 1: build exit 0; verify exit 1: the four repair cases and the Express receipt-keys suite pass; integrationSettlesSignedSequencerReceipt in the Next receipt-keys suite failed at line 296 with 409 where 402 is expected."
+assumption = "The Next receipt-keys suite passed at 22.8.11 attempt 15 under decision 2376 and fails only since 22.33.1400 restored the pre-verification refusal."
+severity = "low"
+
+[finding.22.31.529.1]
+task = "22.31.529"
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+symbol = "web.rs"
+observed = "Attempt 1: build exit 0; verify exit 1: 18 of 22 web cases pass; the four hold cases fail with Configuration(metered_receiver_approval) from approval_call because RecordedPayer reports a standing grant."
+assumption = "A product gap of 22.33.1551 (gotcha 3119), not a fixture gap; 22.31.531 restores the metered hold."
+severity = "low"
+
+[finding.22.31.522.2]
+task = "22.31.522"
+file = "apps/explorer/lib/metadata/getPageOgType.ts"
+symbol = "getPageOgType.ts"
+observed = "Attempt 2: build exit 0; verify exit 2: yarn tsc --noEmit failed with TS2307 for @juggle/resize-observer in toolkit/components/forms/fields/repair-22-33-270.spec.ts line 4; the task spec did not run."
+assumption = "The main-side defect of 22.33.270 (gotcha 3078) that 22.31.512 attempt 2 removes with a local stand-in; nothing in 522 changes."
+severity = "low"
+
+[finding.22.31.530.1]
+task = "22.31.530"
+file = "services/platform/middleware/seller/test/repair-22-31-530.test.mjs"
+symbol = "repair-22-31-530.test.mjs"
+observed = "Attempt 1: build exit 0; verify exit 1: the four repair cases and repair-22-31-434 pass; receiptReplayRefusesChangedRequestAndReplaysOriginal, receiptIdentityIsScopedToMerchant, unverifiedReceiptCannotClaimFulfillment, settlementResponseNamesTransactionHash, settlementResponseCarriesPortableReceipt and replayedSettlementAnswersStoredTransaction fail with verification-failure in verifyReceiptDigest; the Next suite was not reached."
+assumption = "The two suites compute the keccak-256 digest decision 2538 retired and have been red since 22.33.1400; 22.31.533 re-pins them."
+severity = "low"
+
+[finding.22.31.519.2]
+task = "22.31.519"
+file = "services/agent/crates/layerx-agentd/tests/approval_semantics.rs"
+symbol = "approval_semantics.rs"
+observed = "Attempt 2: build exit 0; verify exit 1: 4 cases fail: two with first open: Store and one with expiry: Store from the protected root refusing a pre-created default-mode directory, and hold_expiry_cannot_outlive_the_prepared_activity receives ClockRequired where it expects InvalidWindow because hold is the retired sequence-only entry."
+assumption = "Both are test-side gaps against contracts that landed before attempt 2 (22.33.1507 for the timed entries, the protected store root); no product defect."
+severity = "low"
+
+[finding.22.33.1510.5]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 5: build exit 0; verify exit 1: 1 of 3 cases pass; digest_bound_decisions_converge_and_export_the_agent_outcome and real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle panic at assert_budget with approval budget actor: NotFound from verified_budget_after; the daemon recovery log shows reconciled and admitted."
+assumption = "The daemon refuses the recorded budget state because its verification label is the committed label 6 that human_runtime.rs line 9893 and budget/program_sources.rs line 49 do not accept (gotcha 3124); the Human service maps the refusal to NotFound. 22.31.534 closes both."
+severity = "low"
+
+[finding.22.33.44.6]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 6: build exit 0; verify exit 1: 14 of 15 cases pass; the case expected Err(UnverifiedBudget) for a Submitted budget with evidence and received Ok(Rendered) carrying rung Submitted."
+assumption = "The retained assertion predates the 22.33.61 contract that the renderer and tests/repair_22_33_61.rs implement (gotcha 3125)."
+severity = "low"
+
+[finding.22.31.531.1]
+task = "22.31.531"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"
+symbol = "repair_22_31_531.rs"
+observed = "Attempt 1: build exit 0; verify exit 1: the lib target fails standing_grant_settles_metered_offer_without_issue at src/tools/web.rs line 2337 (selector 0x3f050cbc received where the double asserts 0x423fe4b2); the three integration targets did not run."
+assumption = "A pre-existing red unit test (gotcha 3127) uncovered because this task is the first gate running the lib target; not a defect of the attempt."
+severity = "low"
+
+[finding.22.31.533.1]
+task = "22.31.533"
+file = "services/platform/middleware/seller/test/receipt-replay.test.mjs"
+symbol = "receipt-replay.test.mjs"
+observed = "Attempt 1: build exit 0; verify exit 1: 18 of 22 cases pass with the five sites re-pinned; receiptIdentityIsScopedToMerchant, meteredOfferWithPurposeHashVerifies, settlementResponseCarriesPortableReceipt and replayedSettlementAnswersStoredTransaction fail on assertions that predate 22.31.434 and 22.31.530."
+assumption = "The two tasks were mutually dependent through settlement-response.test.mjs; decision 2588 moves the test alignment into 22.31.530 and makes this task the recording step after it."
+severity = "low"
+
+[finding.22.31.532.1]
+task = "22.31.532"
+file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs"
+symbol = "repair_22_31_532.rs"
+observed = "Attempt 1: build exit 0 after one repair; verify exit 1: payer 3 of 3; payer_evm 4 of 6, web_pay_exact_submits_a_signed_layerxpay_call failed Configuration(node_rpc) and web_grant_submits_a_signed_ledger_issue_grant_call failed Boundary(Refused); the repair_22_31_532 target never ran."
+assumption = "Both cases read configuration from the ambient environment that the qualification environment does not provide (gotcha 3128); pre-existing since 22.31.224 and 10.1.10, not a defect of the attempt."
+severity = "low"
+
+[finding.22.31.534.1]
+task = "22.31.534"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"
+symbol = "repair_22_31_534.rs"
+observed = "Attempt 1: build exit 101: the approval_semantics test target failed to compile with five errors (DecisionRequest without current_time at lines 171, 191, 245 and 269; get without the TimestampSeconds argument at line 298); verify never ran."
+assumption = "The five errors were introduced by 22.31.495 and repaired by 22.31.519 attempt 3; attempt 1 touched none of that suite and its own targets compiled."
+severity = "low"
+
+[finding.22.31.530.2]
+task = "22.31.530"
+file = "services/platform/middleware/seller/test/repair-22-31-530.test.mjs"
+symbol = "repair-22-31-530.test.mjs"
+observed = "Attempt 2: build exit 0; verify exit 1: all 27 seller cases pass; sdk/integrations/next/test/receipt-keys.test.mjs integrationSettlesSignedSequencerReceipt answered 500 where 200 was expected at line 273."
+assumption = "The consumer keccak digest check in sdk/integrations/next/src/index.ts line 480 predates decision 2538 and 22.31.493 ports it after 22.31.530."
+severity = "low"

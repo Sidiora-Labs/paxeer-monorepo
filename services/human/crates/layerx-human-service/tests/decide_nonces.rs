@@ -2,6 +2,7 @@ use layerx_human_test_support as support;
 
 use std::fmt::Display;
 use std::fs;
+use std::time::Duration;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -20,7 +21,7 @@ use layerx_agentd::approval::{
 use layerx_agentd::budget::BudgetLimiter;
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::policy::approval::{
-    hold, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
+    hold_at, ApprovalContext, ApprovalRegistry, ApprovalSequence, ApprovalState, ApproverId,
 };
 use layerx_agentd::prepare::evm::{
     prepare_bound, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareError,
@@ -40,7 +41,18 @@ use layerx_human_service::auth::{
 use layerx_human_service::custody::EvmTransaction;
 use layerx_human_service::store::PrincipalScope;
 use layerx_human_service::trace::TraceId;
-use layerx_types::ids::Did;
+use layerx_intents::{compile, Intent, IntentKind, LxpSend};
+use layerx_types::account::AccountId;
+use layerx_types::amount::Amount as IntentAmount;
+use layerx_types::clock::Clock as _;
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::intent::{
+    AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
+    SendAuthorizationKind, Sequence, TimestampSeconds as IntentTimestampSeconds,
+};
+use layerx_types::payload::{
+    ActivityType as PayloadActivityType, ModuleId, ModuleRegistration, ModuleRegistry,
+};
 use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -274,6 +286,59 @@ fn tenant() -> TenantId {
     TenantId::new("tenant-decisions").expect("tenant")
 }
 
+fn ledger_payload() -> Vec<u8> {
+    let signer = layerx_crypto::local::LocalSigner::new([0x51; 32]);
+    let public_key = layerx_crypto::signer::Signer::public_key(&signer);
+    let from = AccountId::parse("agent:did:layerx:decision-agent:main").expect("source account");
+    let to = AccountId::parse("agent:did:layerx:recipient:main").expect("destination account");
+    let protocol = layerx_intents::canonical::PROTOCOL_VERSION;
+    let debit = layerx_crypto::send::SendDebit {
+        from: layerx_intents::canonical::account_id_for_protocol(&from, protocol)
+            .expect("canonical source account"),
+        to: layerx_intents::canonical::account_id_for_protocol(&to, protocol)
+            .expect("canonical destination account"),
+        asset: [0x33; 32],
+        amount: 1,
+        source_sequence: 7,
+        idempotency_key: [4; 32],
+        expires_at: 200,
+        context_hash: [0x55; 32],
+        conditions: Vec::new(),
+        authorization_kind: SendAuthorizationKind::Owner as u8,
+        network_id: 77,
+        protocol_version: protocol,
+    };
+    let send = LxpSend::new(
+        from,
+        to,
+        AssetId::new(debit.asset),
+        IntentAmount::from_u128(debit.amount),
+        Sequence::from_u64(debit.source_sequence),
+        IdempotencyKey::new(debit.idempotency_key),
+        IntentTimestampSeconds::from_u64(debit.expires_at),
+        ContextHash::new(debit.context_hash),
+        support::sign_send(
+            &signer,
+            &debit,
+            SendAuthorization::new(
+                SendAuthorizationKind::Owner,
+                PublicKey::new(public_key),
+                AuthorizationSignature::new([0x77; 64]),
+            ),
+        ),
+        NetworkId::new(debit.network_id).expect("network"),
+        ProtocolVersion::new(protocol).expect("protocol"),
+    )
+    .expect("send intent");
+    let activity = PayloadActivityType::new(ModuleId::Asset, 5).expect("send activity");
+    let registration =
+        ModuleRegistration::new(ModuleId::Asset, &[activity]).expect("asset registration");
+    let registry = ModuleRegistry::new(&[registration]).expect("module registry");
+    let compiled =
+        compile(&Intent::v1(IntentKind::LxpSend(send)), &registry).expect("compiled send intent");
+    compiled.payload().as_bytes().to_vec()
+}
+
 fn pending_nonce(prepared_nonce: u64, pending: u64) -> Result<EvmPrepared, PrepareError> {
     prepare_bound(
         EvmPreparationState {
@@ -289,7 +354,7 @@ fn pending_nonce(prepared_nonce: u64, pending: u64) -> Result<EvmPrepared, Prepa
         },
         PrepareRequest {
             from: [0x11; 20],
-            call: PrecompileCall::ledger_transfer(vec![0x33; 32]),
+            call: PrecompileCall::ledger_transfer(ledger_payload()),
             expected_nonce: Some(prepared_nonce),
             max_priority_fee_per_gas: None,
             max_fee_per_gas: None,
@@ -335,6 +400,7 @@ fn preparation(evm: &EvmPrepared) -> Prepared {
 }
 
 struct AgentdDecisions<'a> {
+    clock: support::StepClock,
     service: ApprovalService<'a>,
     queue: &'a ApprovalSubmissionQueue,
     held: Prepared,
@@ -343,6 +409,17 @@ struct AgentdDecisions<'a> {
 }
 
 impl AgentdDecisions<'_> {
+    fn decision_time(&self) -> Result<TimestampSeconds, ApprovalBoundaryError> {
+        let reading = self
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(ApprovalBoundaryError::Unavailable);
+        }
+        Ok(TimestampSeconds(reading.unix_seconds()))
+    }
+
     fn normalize(
         decision: layerx_agentd::approval::ApprovalDecision,
     ) -> Result<AgentDecision, ApprovalBoundaryError> {
@@ -372,7 +449,7 @@ impl ApprovalBoundary for AgentdDecisions<'_> {
     ) -> Result<AgentApprovalRecord, ApprovalBoundaryError> {
         let record = self
             .service
-            .get(&tenant(), approval_id, at_sequence)
+            .get(&tenant(), approval_id, at_sequence, self.decision_time()?)
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         let state = match record.state {
             ApprovalState::AwaitingApproval => AgentApprovalState::AwaitingApproval,
@@ -403,9 +480,19 @@ impl ApprovalBoundary for AgentdDecisions<'_> {
         at_sequence: u64,
     ) -> Result<VerifiedBudgetAfter, ApprovalBoundaryError> {
         self.service
-            .get(&tenant(), hold.approval_id, at_sequence)
+            .get(
+                &tenant(),
+                hold.approval_id,
+                at_sequence,
+                self.decision_time()?,
+            )
             .map_err(|_| ApprovalBoundaryError::NotFound)?;
-        Err(ApprovalBoundaryError::VerificationFailed)
+        Ok(VerifiedBudgetAfter {
+            remaining: 975,
+            rung: Rung::Committed,
+            evidence_digest: [9; 32],
+            observed_at_sequence: at_sequence,
+        })
     }
 
     fn track_released(
@@ -460,6 +547,7 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                     approver: ApproverId::new("human:mara")
                         .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                     current_sequence: pending,
+                    current_time: self.decision_time()?,
                 },
                 &preparation(&current),
                 self.queue,
@@ -488,6 +576,7 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                 approver: ApproverId::new("human:mara")
                     .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                 current_sequence,
+                current_time: self.decision_time()?,
             })
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         Self::normalize(decision)
@@ -504,7 +593,15 @@ fn decide_at(pending: u64) {
     assert_eq!(evm.call.nonce, 7);
     assert_eq!(evm.observed_head_height, 88);
     let held = preparation(&evm);
-    hold(
+    let mut boundary = AgentdDecisions {
+        clock: support::StepClock::new(112_000),
+        service: ApprovalService::new(&registry, &limiter, &expiry),
+        queue: &queue,
+        held: held.clone(),
+        evm: evm.clone(),
+        stale: None,
+    };
+    hold_at(
         &registry,
         ApprovalContext {
             actor_address: evm.from,
@@ -516,17 +613,11 @@ fn decide_at(pending: u64) {
             request_id: [1; 32],
         },
         held.clone(),
-        1,
-        190,
+        ApprovalSequence(1),
+        ApprovalSequence(190),
+        boundary.decision_time().expect("hold time"),
     )
     .expect("hold");
-    let mut boundary = AgentdDecisions {
-        service: ApprovalService::new(&registry, &limiter, &expiry),
-        queue: &queue,
-        held: held.clone(),
-        evm: evm.clone(),
-        stale: None,
-    };
     let map = support::tenancy(&[("mara", "tenant-decisions")]);
     let (mut store, _) = support::install_and_open(
         &directory.join("human"),
@@ -596,7 +687,12 @@ fn decide_at(pending: u64) {
         assert_eq!(
             boundary
                 .service
-                .get(&tenant(), [1; 32], pending)
+                .get(
+                    &tenant(),
+                    [1; 32],
+                    pending,
+                    boundary.decision_time().expect("decision time"),
+                )
                 .expect("approved hold")
                 .state,
             ApprovalState::Approved
@@ -624,7 +720,12 @@ fn decide_at(pending: u64) {
         assert_eq!(
             boundary
                 .service
-                .get(&tenant(), [1; 32], pending)
+                .get(
+                    &tenant(),
+                    [1; 32],
+                    pending,
+                    boundary.decision_time().expect("decision time"),
+                )
                 .expect("unreleased hold")
                 .state,
             ApprovalState::AwaitingApproval

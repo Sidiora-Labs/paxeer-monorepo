@@ -5,6 +5,12 @@ on:
     paths:
       - 'services/wallet/attestor/**'
       - 'services/wallet/ceremony/**'
+      - 'services/wallet/gateway/**'
+      - 'services/wallet/pnpm-lock.yaml'
+      - 'services/wallet/pnpm-workspace.yaml'
+      - 'services/human/**'
+      - 'services/agent/**'
+      - 'tools/qualification/paxeer-x/wallet_go_consumers.py'
       - 'services/wallet/schema/attestor-api/**'
       - 'services/wallet/deploy/attestor-policy.json'
       - 'services/wallet/deploy/attestor-kernel-policy.json'
@@ -23,6 +29,12 @@ on:
     paths:
       - 'services/wallet/attestor/**'
       - 'services/wallet/ceremony/**'
+      - 'services/wallet/gateway/**'
+      - 'services/wallet/pnpm-lock.yaml'
+      - 'services/wallet/pnpm-workspace.yaml'
+      - 'services/human/**'
+      - 'services/agent/**'
+      - 'tools/qualification/paxeer-x/wallet_go_consumers.py'
       - 'services/wallet/schema/attestor-api/**'
       - 'services/wallet/deploy/attestor-policy.json'
       - 'services/wallet/deploy/attestor-kernel-policy.json'
@@ -55,6 +67,30 @@ jobs:
         with:
           go-version-file: services/wallet/attestor/go.mod
           cache-dependency-path: services/wallet/attestor/go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+      - name: Install pnpm
+        run: npm install --global pnpm@9.15.9
+      - name: Install gateway dependencies
+        working-directory: services/wallet/gateway
+        run: pnpm install --frozen-lockfile
+      - name: Install agent SDK dependencies for the gateway chain fixture
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --workspaces=false --no-audit --no-fund
+      - name: Install Rust custody consumer prerequisites
+        working-directory: .
+        run: |
+          rustup toolchain install 1.91.1 --profile minimal
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends build-essential libssl-dev pkg-config
+      - name: Build Rust custody consumers
+        working-directory: .
+        env:
+          CARGO_BUILD_JOBS: "4"
+          CARGO_TARGET_DIR: ${{ runner.temp }}/wallet-rust
+          RUSTUP_TOOLCHAIN: 1.91.1
+        run: python3 tools/qualification/paxeer-x/wallet_go_consumers.py --output "$RUNNER_TEMP/wallet-rust-consumers"
       - name: Test attestor (including TestABICopiesMatchRepository)
         run: go test ./...
 
@@ -77,5 +113,16 @@ jobs:
           node-version: 22
       - name: Install pnpm
         run: npm install --global pnpm@9.15.9
+      - name: Install gateway dependencies
+        working-directory: services/wallet/gateway
+        run: pnpm install --frozen-lockfile
+      - name: Install agent SDK dependencies for the gateway chain fixture
+        working-directory: services/agent/sdk/typescript
+        run: npm ci --workspaces=false --no-audit --no-fund
+      - name: Install PostgreSQL fixture binaries
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y --no-install-recommends postgresql
+          echo "PG_BIN_DIR=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -1)" >> "$GITHUB_ENV"
       - name: Test ceremony
         run: go test ./...
