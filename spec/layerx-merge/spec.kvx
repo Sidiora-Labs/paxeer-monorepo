@@ -179700,7 +179700,7 @@ do_13 = "Attempt 2 (continue after the first verify run): the attempt-1 tree sta
 
 [task.22.33.1493]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 2 of 3): restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
