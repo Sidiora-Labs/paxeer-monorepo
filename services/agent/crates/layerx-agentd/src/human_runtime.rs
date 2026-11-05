@@ -9900,7 +9900,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         if state.asset != asset
             || currency != record.held_activity.asset.as_str()
             || state.observed_head_sequence != current_sequence
-            || !(4..=5).contains(&state.verification)
+            || committed_budget_rank(state.verification).is_err()
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -11438,6 +11438,15 @@ impl OwnerInput<'_> {
         &self.bytes[self.at..]
     }
 }
+fn committed_budget_rank(rank: u8) -> Result<(), HumanOperationError> {
+    let level =
+        VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused)?;
+    if level != VerificationLevel::COMMITTED {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(())
+}
+
 fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     match value {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
@@ -22160,6 +22169,25 @@ mod tests {
     use serde_json::json;
     use std::io::{Read as _, Write as _};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn repair_22_31_538_approval_budget_accepts_committed_rank() {
+        assert_eq!(
+            committed_budget_rank(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn repair_22_31_538_approval_budget_refuses_other_ranks() {
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                committed_budget_rank(rank),
+                Err(HumanOperationError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
 
     #[test]
     fn budget_snapshot_round_trips_the_floor_of_every_current_rung() {
