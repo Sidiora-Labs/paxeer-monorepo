@@ -31155,3 +31155,27 @@ symbol = "budget_proof.rs"
 observed = "Attempt 1: build exit 0 and verify exit 0 (repair_22_31_538 four tests passed, dependent checks passed) at 31904c37e1; the attempt then appended the gate results to repair_22_31_538.kvx and committed 83b560a1f6, so same_candidate was unmet and the attempt was reported implemented, not qualified. Its session_control.rs decoder change would refuse every persisted committed MCP receipt on reload."
 assumption = "The gated work is correct for the two sites the task named; the record append and the third site are the only defects."
 severity = "low"
+
+[finding.22.31.516.5]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 5: build exit 101 at c9f432702e; the --tests build stopped in the repair_22_31_535 test target on unresolved crate::budget imports at budget_proof.rs lines 750 and 753, a break 22.31.538 landed on main with a --lib build gate. Verify did not run."
+assumption = "The attempt-5 work is unrelated to the failing target; once 541 lands the same tree should build and the two declared test targets run."
+severity = "low"
+
+[finding.22.31.539.1]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 1: build exit 101 at e79103fd65 in the human_projection_facts test target (E0432 crate::committed, loopback_http, Human and Policy in super, Config.human, a four-argument method called with three); verify did not run."
+assumption = "Both breaks are owned by tasks already on the board; this task carries no fix for them."
+severity = "low"
+
+[finding.22.33.18.3]
+task = "22.33.18"
+file = "services/agent/sdk/python/tests/market_receipt_producer.c"
+symbol = "market_receipt_producer.c"
+observed = "Attempt 3: verify exit 1 twice; after the first repair one case failed, test_http_committed_offer_waits_for_verified_inclusion_after_restart, with invalid-sequencer-receipt raised at x402_rpc.py line 135 because the fixture receipted answer carried blockHash copied from the committed vector."
+assumption = "The fixture models a receipted answer with committed-only fields; the production SDK check is the contract."
+severity = "low"

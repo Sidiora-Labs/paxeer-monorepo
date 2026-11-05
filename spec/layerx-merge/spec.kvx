@@ -8721,6 +8721,12 @@ value = "Every producer in the agent daemon and the Human service labels committ
 basis = "Gotcha 3143: the retired labels fail every policy comparison in layerx-types, so the floors that name them never refuse and the Human spend path never reaches the committed rung; the change must be ordered consumer before producer across the two services."
 affects = ["22.31.535", "22.31.538", "22.31.516"]
 
+[decision.2602]
+title = "An integration test reaches the library through its interface and never includes a library source file by path; in-crate tests run through the --lib target; every daemon task builds the --tests targets"
+value = "No file under a tests directory of a library crate includes a file under src by path. A test of private behaviour lives in the crate under cfg(test) and the verify command of the task that adds it names cargo test -p <crate> --lib with a filter; an integration test that needs an item the library does not export receives it through a doc-hidden public test-support export, never through a second compilation of the source. The build command of every task that touches services/agent/crates/layerx-agentd names --tests so the integration test targets compile before the verify runs. A binary crate without a library target (the sdk-gen tool, the isolation harness, the daemon host binary) keeps its by-path include of main.rs, which is the only way to test such a crate. Decisions 2600 and 2601 stand."
+basis = "Gotcha 3144: a by-path include compiles the included file with the test crate as its root, so crate:: paths inside it resolve differently or not at all, and a build gate that names --lib only lands the break on main unseen; the pattern already broke the daemon --tests build twice this round (the 535 test and the human projection facts test)."
+affects = ["22.31.535", "22.31.538", "22.31.516"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37611,6 +37617,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.542]
+title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/crates/layerx-agentd/tests/rotation_refused.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1514.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1531.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1543.rs", "services/agent/crates/layerx-agentd/src/lib.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/outbound_tls.rs", "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs", "services/agent/crates/layerx-agentd/src/outbound_tls/tests.rs", "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_542.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/crates/layerx-agentd/tests/rotation_refused.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1514.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1531.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1543.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test rpc_surface_major_two --test rotation_refused --test repair_22_33_1514 --test repair_22_33_1531 --test repair_22_33_1543 --test repair_22_31_535"
+do_1 = "do_1 Gotcha 3144, decision 2602. In services/agent/crates/layerx-agentd/tests the files rpc_surface_major_two.rs (includes src/lib.rs, src/agent_rpc_wire.rs and src/outbound_tls.rs), rotation_refused.rs (src/managed_agent_rotation.rs), repair_22_33_1514.rs (src/human_runtime/subject/registration_tests.rs), repair_22_33_1531.rs (src/outbound_tls/tests.rs) and repair_22_33_1543.rs (src/prepare/restore_tests.rs) stop including library source by path. An included file that is a test module is run through cargo test -p layerx-agentd --lib with its module filter and its cfg(test) declaration in the library is kept or added; an included production module is reached through the library interface, and an item the tests need that the library does not export becomes a doc-hidden public export in a test-support module of the library, with the test rewritten to use it. Every case the five files ran before still runs, either in the integration file or under --lib, and tests/repair_22_31_542.kvx maps each former include to where its cases now run."
+symbols = []
+
+[capability.22.31.541]
+title = "Remove the by-path include of the budget proof source from the 535 integration test and run the in-crate proof tests through the library target"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+do_1 = "do_1 Gotcha 3144, decision 2602. In services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs remove the by-path include of src/budget/budget_proof.rs (line 27 and the mod line after it) and the two pub use re-exports of layerx_agentd::read and layerx_agentd::budget::ProtocolBudgetState that exist only to serve that include (lines 25 and 26); the integration tests of the file stay as they are. Nothing under src changes."
+symbols = []
 
 [capability.22.31.540]
 title = "Retire the checkpoint-finalised label in the Human service spend, export and receipt frame producers"
@@ -167130,7 +167154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.510]
 title = "Carry the canonical receipt digest in the Python web-search SDK payment payload instead of a private merkle-leaf hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.514", "22.31.526"]
@@ -175170,6 +175194,65 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.542]
+title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.541", "22.31.516", "22.31.539"]
+reqs = ["22998.1"]
+capabilities = ["22.31.542"]
+interfaces = []
+do_1 = "do_1 Gotcha 3144, decision 2602. In services/agent/crates/layerx-agentd/tests the files rpc_surface_major_two.rs (includes src/lib.rs, src/agent_rpc_wire.rs and src/outbound_tls.rs), rotation_refused.rs (src/managed_agent_rotation.rs), repair_22_33_1514.rs (src/human_runtime/subject/registration_tests.rs), repair_22_33_1531.rs (src/outbound_tls/tests.rs) and repair_22_33_1543.rs (src/prepare/restore_tests.rs) stop including library source by path. An included file that is a test module is run through cargo test -p layerx-agentd --lib with its module filter and its cfg(test) declaration in the library is kept or added; an included production module is reached through the library interface, and an item the tests need that the library does not export becomes a doc-hidden public export in a test-support module of the library, with the test rewritten to use it. Every case the five files ran before still runs, either in the integration file or under --lib, and tests/repair_22_31_542.kvx maps each former include to where its cases now run."
+do_2 = "do_2 The verify command runs the library unit tests and the five integration test targets; the build command compiles every test target of the crate so no by-path include can return unseen. Build and verify run once at the final revision, the record lists the gates by reference to the gate ledger, and no file is amended after the gates run."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/crates/layerx-agentd/tests/rotation_refused.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1514.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1531.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1543.rs", "services/agent/crates/layerx-agentd/src/lib.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/outbound_tls.rs", "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs", "services/agent/crates/layerx-agentd/src/outbound_tls/tests.rs", "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_542.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs", "services/agent/crates/layerx-agentd/tests/rotation_refused.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1514.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1531.rs", "services/agent/crates/layerx-agentd/tests/repair_22_33_1543.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests", "services/agent/crates/layerx-agentd/src"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test rpc_surface_major_two --test rotation_refused --test repair_22_33_1514 --test repair_22_33_1531 --test repair_22_33_1543 --test repair_22_31_535"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.541]
+title = "Remove the by-path include of the budget proof source from the 535 integration test and run the in-crate proof tests through the library target"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.538"]
+reqs = ["22998.1"]
+capabilities = ["22.31.541"]
+interfaces = []
+do_1 = "do_1 Gotcha 3144, decision 2602. In services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs remove the by-path include of src/budget/budget_proof.rs (line 27 and the mod line after it) and the two pub use re-exports of layerx_agentd::read and layerx_agentd::budget::ProtocolBudgetState that exist only to serve that include (lines 25 and 26); the integration tests of the file stay as they are. Nothing under src changes."
+do_2 = "do_2 The in-crate tests of budget_proof.rs (repair_22_31_535_budget_verification_requires_committed and repair_22_31_538_program_presentation_binds_committed_proof_and_sequence among them) run through cargo test -p layerx-agentd --lib with the budget_proof::tests filter, which the verify command names; record in tests/repair_22_31_541.kvx the test names that filter runs, taken from the test output."
+do_3 = "do_3 Build and verify run once at the final revision; the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run, so the qualified revision is the candidate (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_541.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget_proof::tests && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.540]
 title = "Retire the checkpoint-finalised label in the Human service spend, export and receipt frame producers"
 status = "pending"
@@ -175206,7 +175289,7 @@ title = "Retire the checkpoint-finalised label in the agent daemon: COMMITTED ev
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.538"]
+requires = ["22.31.538", "22.31.541", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.31.539"]
 interfaces = []
@@ -175232,10 +175315,11 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 3144, decision 2602): the attempt-1 tree (25 files) stands. The --tests build of the daemon is red on main for two reasons that are not this task: the human_projection_facts target (eight errors, the by-path include of the hosted authority human module, repaired by 22.31.516) and the repair_22_31_535 target (crate::budget imports in the included budget_proof.rs, repaired by 22.31.541). Wait for both on main, rebase the attempt-1 tree onto them, resolve any overlap in human_runtime.rs and the test files in favour of the landed code while keeping the committed label changes of this task, then run the declared build and verify once; record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.538]
 title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.535"]
@@ -175548,7 +175632,7 @@ do_6 = "Attempt 4 (continue, decision 2581): attempt 3 stands; the two hold case
 
 [task.22.31.526]
 title = "Re-record the exact web-search payment fixtures from one type-2 chain-125 signing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.528", "22.31.529"]
@@ -175679,7 +175763,7 @@ title = "Replace the path-included authority human module in the daemon tests wi
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519", "22.31.535", "22.31.538"]
+requires = ["22.31.519", "22.31.535", "22.31.538", "22.31.541"]
 reqs = ["22998.1"]
 capabilities = ["22.31.516"]
 interfaces = []
@@ -175708,6 +175792,7 @@ do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the
 do_6 = "Attempt 3 (continue after 22.31.535, gotcha 3134, decision 2593): attempt 2 stands in full (the authority library exports, the dev-dependency and the stand-in removal). Rebase on main once 22.31.535 is there, keeping both the committed label it writes in src/human/budget_state.rs and src/human.rs and the library exports of attempt 2. In tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs move the recorded budget-state fixture literal and every assertion on the verification label to layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (on main: human_approval_budget_actor.rs lines 778, 1067 and the fixture at 1870 plus the fixture equality near line 530 of attempt 2; human_projection_facts.rs lines 249, 968, 1181 and the fixture at 2379); the projection metadata strings stay as recorded. Change nothing else, run the declared build and verify once and record the result."
 do_7 = "Attempt 4 (continue, gotcha 3136): attempt 3 stands in full (the authority library, both fixtures and assertions at COMMITTED.wire_rank(), the record). Rebase on main, which now carries 22.31.536 at 0935120943 with the receiver_did_key construction in the host repair test, change nothing, run the declared build and verify once and record the result."
 do_8 = "Attempt 5 (continue, gotcha 3141, decision 2600): attempt 4 stands in full, including the recorded authority responses and the assertions at VerificationLevel::COMMITTED.wire_rank(). Once 22.31.538 is on main, rebase once, change nothing, run the declared build and verify once and record the result."
+do_9 = "Attempt 6 (continue, gotcha 3144, decision 2602): the attempt-5 tree stands, including its replacement of the path-included authority human module in the daemon tests by the authority library as a dev-dependency and its rebase onto 22.31.538. Rebase once more when 22.31.541 is on main (it removes the by-path include of budget_proof.rs from the 535 test, which is the only reason the attempt-5 build failed), then run the declared build and verify once and change nothing else; record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
@@ -284233,7 +284318,7 @@ do_10 = "Prove each repair with a case added to the C test suite that the verify
 do_11 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_12 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/sdk/python/tests/market_receipt_producer.c", "services/agent/sdk/python/tests/test_ai_market_commit.py", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py", "services/agent/sdk/python/tests/test_web_search_sequencer.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "tests"]
+touches = ["services/agent/sdk/python/tests/market_receipt_producer.c", "services/agent/sdk/python/tests/test_ai_market_commit.py", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py", "services/agent/sdk/python/tests/test_web_search_sequencer.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "tests", "tests/ci/repair_22_33_18.kvx", "tests/ci/test_repair_22_33_18.py", "tests/protocol/lxp_test_repair_22_33_18.c", "tests/protocol/repair_22_33_18_receipts.h"]
 tests = []
 planned_paths = []
 build_cmd = "make -s all"
@@ -284251,6 +284336,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_13 = "Attempt 2 (continue): the verify ran the whole Python integration suite (gotcha 3032) and is now the task's test file plus the five SDK test files in the paths. The task's three failing cases: the retired-payment cases see settlement-receipt-mismatch where they expect receipt-unverified, and the metered TLS case stops on invalid-rpc-endpoint. Drive the real web-search server and read its refusal order: a retired payment is refused on receipt verification before any settlement comparison; if the server compares first, record that in the task record as a producer finding with the server symbol and assert the observed code with the finding id; give the metered case the loopback endpoint shape the SDK accepts (the node root path, no suffix). Run build and verify at the final revision."
 do_14 = "Attempt 3 (after 22.31.510): the refusal-order repair of attempt 2 stands with 79 cases passing. The one failure, test_web_search_public_exact_exchange_replays_server_offer_and_pending[False], compares the SDK's payment payload with the recorded exchange of services/interop/crates/x-websearch/tests/fixtures/client-exchange.json and differs only in receiptDigest: the Python SDK hashes the signed receipt under the merkle-leaf domain (web_search.py line 395) instead of the canonical receipt digest (gotcha 3059, decisions 1103 and 2538); 22.31.510 repairs the SDK and, if the recording is also stale, the recording. Re-run the attempt-2 tree once 510 is on main and change nothing else."
+do_15 = "Attempt 4 (continue, gotcha 3145): the attempt-3 tree stands (80 of 81 cases pass, the draw amount fix of repair cycle 1 included). In test_http_committed_offer_waits_for_verified_inclusion_after_restart the receipted step presents the view the node emits for that rung: the recorded receipt with rung receipted and without blockNumber and blockHash (rpc/sequencer_receipt.go lines 165 to 191 carry the two block fields only for the committed rung); the committed step keeps them. The SDK refusal of a receipted answer that carries blockHash (layerx_sdk/x402_rpc.py line 135) is correct and is not changed. Run the declared build and verify once at the final revision and change nothing else."
 
 [task.22.33.8]
 title = "Repair audit record 22.30.1 medium findings in src/storage (part 1 of 1): restart-recovery"
