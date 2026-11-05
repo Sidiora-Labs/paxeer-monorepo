@@ -66,7 +66,7 @@ describe('SearchBarSuggest', () => {
     const { container } = render(<Harness/>);
 
     await vi.waitFor(() => {
-      expect(shownCategories(container)).toEqual([ 'address', 'transaction', 'block' ]);
+      expect(shownCategories(container)).toEqual([ 'transaction', 'address', 'block' ]);
     }, { timeout: 30_000, interval: 100 });
   });
 

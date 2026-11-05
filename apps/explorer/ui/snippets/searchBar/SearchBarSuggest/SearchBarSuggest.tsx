@@ -26,7 +26,15 @@ import SearchBarSuggestBlockCountdown from './SearchBarSuggestBlockCountdown';
 import SearchBarSuggestItem from './SearchBarSuggestItem';
 import SearchBarSuggestZetaChainCCTX from './SearchBarSuggestZetaChainCCTX';
 
-const TABS_HEIGHT = 72;
+const TABS_HEIGHT = 52;
+const PROMPT_ORDER: Array<Category> = [ 'transaction', 'address', 'block', 'token', 'app' ];
+const PROMPT_CATEGORY: Partial<Record<Category, ApiCategory>> = {
+  nft: 'token', confidential_token: 'token', public_tag: 'address', domain: 'address', cluster: 'address',
+  user_operation: 'transaction', tac_operation: 'transaction',
+};
+const PROMPT_LABELS: Partial<Record<Category, string>> = {
+  transaction: 'TRANSACTIONS', address: 'ADDRESSES', block: 'BLOCKS', token: 'TOKENS', app: 'APPS',
+};
 
 interface Props {
   query: UseQueryResult<Array<QuickSearchResultItem>, ResourceError<unknown>>;
@@ -49,7 +57,10 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   const [ currentTab, setCurrentTab ] = React.useState<Category | undefined>(undefined);
 
   const visibleCategories = React.useMemo(() => {
-    return category ? searchCategories.filter((cat) => cat.id === category) : searchCategories;
+    const categories = category ? searchCategories.filter((cat) => cat.id === category) : searchCategories;
+    const rank = (id: Category) => PROMPT_ORDER.includes(id) ? PROMPT_ORDER.indexOf(id) : PROMPT_ORDER.length;
+    return categories.map(cat => ({ ...cat, title: PROMPT_LABELS[PROMPT_CATEGORY[cat.id] ?? cat.id] ?? cat.title.toUpperCase() }))
+      .sort((a, b) => rank(a.id) - rank(b.id));
   }, [ category ]);
 
   const handleScroll = React.useCallback(() => {
@@ -93,7 +104,8 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
     const map: Partial<ItemsCategoriesMap> = {};
 
     query.data?.forEach(item => {
-      const cat = getItemCategory(item) as ApiCategory;
+      const itemCategory = getItemCategory(item) as ApiCategory;
+      const cat = category ? itemCategory : PROMPT_CATEGORY[itemCategory] ?? itemCategory;
       if (cat) {
         if (cat in map) {
           map[cat]?.push(item);
@@ -122,7 +134,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
     }
 
     return map;
-  }, [ query.data, marketplaceApps.displayedApps, searchTerm, zetaChainCCTXQuery.data?.items ]);
+  }, [ query.data, marketplaceApps.displayedApps, searchTerm, zetaChainCCTXQuery.data?.items, category ]);
 
   React.useEffect(() => {
     const resultCategories = visibleCategories.filter(cat => itemsGroups[cat.id]);
@@ -199,7 +211,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
               overflowX: 'auto',
               mb: 0,
               mt: 0,
-              bgColor: 'dialog.bg',
+              bgColor: 'raised',
             }}
           />
         ) }
@@ -208,11 +220,11 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             return (
               <Box key={ cat.id } data-scroll-target={ `cat_${ cat.id }` }>
                 <Text
-                  textStyle="sm"
-                  fontWeight={ 600 }
-                  color="text.secondary"
-                  mt={ index === 0 ? 1 : 6 }
-                  mb={{ base: 2, lg: 3 }}
+                  textStyle="label"
+                  role="heading"
+                  aria-level={ 3 }
+                  mt={ index === 0 ? 1 : 4 }
+                  mb={ 2 }
                   ref={ (el: HTMLParagraphElement | null) => {
                     if (el) {
                       categoriesRefs.current.set(cat.id, el);
@@ -252,7 +264,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   return (
     <>
       { !isMobile && (
-        <Box pb={ 4 } mb={ 5 } borderColor="border.divider" borderBottomWidth="1px" _empty={{ display: 'none' }}>
+        <Box pb={ 4 } mb={ 5 } borderColor="hairline" borderBottomWidth="1px" _empty={{ display: 'none' }}>
           <TextAd textStyle={{ lg: 'sm' }}/>
         </Box>
       ) }

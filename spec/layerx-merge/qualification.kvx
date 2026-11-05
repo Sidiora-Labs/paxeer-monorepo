@@ -31147,3 +31147,51 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 4: build exit 0 at 03ef231d21, the dependent-crate check passed; verify: human_approval_budget_actor 0 passed, 1 failed, 1 ignored: human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings at line 1025 received the refusal byte for a valid EVM approval budget request because approval_budget_after at human_runtime.rs line 9903 accepts only the retired ranks 4 and 5; human_projection_facts did not run."
 assumption = "The attempt is correct; the production guard that 22.31.535 missed is repaired by 22.31.538."
 severity = "low"
+
+[finding.22.31.538.1]
+task = "22.31.538"
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+symbol = "budget_proof.rs"
+observed = "Attempt 1: build exit 0 and verify exit 0 (repair_22_31_538 four tests passed, dependent checks passed) at 31904c37e1; the attempt then appended the gate results to repair_22_31_538.kvx and committed 83b560a1f6, so same_candidate was unmet and the attempt was reported implemented, not qualified. Its session_control.rs decoder change would refuse every persisted committed MCP receipt on reload."
+assumption = "The gated work is correct for the two sites the task named; the record append and the third site are the only defects."
+severity = "low"
+
+[finding.22.31.516.5]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 5: build exit 101 at c9f432702e; the --tests build stopped in the repair_22_31_535 test target on unresolved crate::budget imports at budget_proof.rs lines 750 and 753, a break 22.31.538 landed on main with a --lib build gate. Verify did not run."
+assumption = "The attempt-5 work is unrelated to the failing target; once 541 lands the same tree should build and the two declared test targets run."
+severity = "low"
+
+[finding.22.31.539.1]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 1: build exit 101 at e79103fd65 in the human_projection_facts test target (E0432 crate::committed, loopback_http, Human and Policy in super, Config.human, a four-argument method called with three); verify did not run."
+assumption = "Both breaks are owned by tasks already on the board; this task carries no fix for them."
+severity = "low"
+
+[finding.22.33.18.3]
+task = "22.33.18"
+file = "services/agent/sdk/python/tests/market_receipt_producer.c"
+symbol = "market_receipt_producer.c"
+observed = "Attempt 3: verify exit 1 twice; after the first repair one case failed, test_http_committed_offer_waits_for_verified_inclusion_after_restart, with invalid-sequencer-receipt raised at x402_rpc.py line 135 because the fixture receipted answer carried blockHash copied from the committed vector."
+assumption = "The fixture models a receipted answer with committed-only fields; the production SDK check is the contract."
+severity = "low"
+
+[finding.22.31.541.1]
+task = "22.31.541"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"
+symbol = "repair_22_31_535.rs"
+observed = "Attempt 1: build exit 0; verify exit 101 at 807b7e1eb8 in repair_22_31_535_remote_consumers_require_committed_producer_documents with Os NotFound at line 25, because the corpus under the temp dir is written only by the authority producer test, which the attempt-1 verify command did not run."
+assumption = "The task work is complete and correct; the gate shape was the defect."
+severity = "low"
+
+[finding.22.35.3.1]
+task = "22.35.3"
+file = "apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+symbol = "repair-22-35-3.spec.tsx"
+observed = "Attempt 1: build exit 0 and verify exit 0 at 01d282f156, then held at publication with a three-way merge conflict in apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx against the integration that carries 22.35.2 (6affbc654e)."
+assumption = "The attempt is complete and correct against its base; only the merge with the sibling task is outstanding."
+severity = "low"
