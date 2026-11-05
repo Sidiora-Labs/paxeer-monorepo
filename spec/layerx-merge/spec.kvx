@@ -176634,7 +176634,7 @@ do_6 = "Attempt 3 (continue, gotcha 3057): the build passed and the dependent-cr
 
 [task.22.31.494]
 title = "Bind the submitted signed transaction and the inclusion material to the wallet's verified receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.497", "22.31.550"]
