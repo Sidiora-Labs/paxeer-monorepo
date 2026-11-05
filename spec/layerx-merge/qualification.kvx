@@ -30851,3 +30851,11 @@ symbol = "repair-22-33-1478.test.mjs"
 observed = "Attempt 10: build exit 0; verify exit 1 with 22 of 25 passing; sellerExportsPersistCommittedPaymentsAcrossConsumers failed receipt-not-backed, merchantConsumerRecoversPaidOrdersAndRefusesUnknownSku and rpcProducerEvidenceCrossesThePublicNextExports failed verification-failure."
 assumption = "Decision-2538 consumers outside the task (gotcha 3104)."
 severity = "low"
+
+[finding.22.31.527.1]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 1: build exit 101 twice; the second build failed on the four-argument list call at tests/support/session_transport.rs line 739, the attempt's third build on repair_22_33_1552.rs lines 530 and 607; verify did not run; the record names the daemon attach site and the dev-only layerx-client dependency as blockers."
+assumption = "A producer-to-consumer break left by 22.31.495 and a planned-path omission in the task (gotchas 3105, 3106)."
+severity = "high"

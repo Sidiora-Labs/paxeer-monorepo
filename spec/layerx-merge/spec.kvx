@@ -8553,6 +8553,12 @@ value = "services/interop/crates/x-websearch/tests/payment.rs asserts four exact
 basis = "22.31.169 (432a841275) retired the metered scheme and recorded the suite reconciliation as a wiring request in repair_22_31_169.kvx; 22.31.526 attempt 1 verify at 4c8ce718 shows the 17 stale cases (gotcha 3101)."
 affects = ["22.31.528", "22.31.526"]
 
+[decision.2574]
+title = "The MCP web authority receives the daemon runtime clock at the payer attach site"
+value = "layerx_mcp::binding::WebAuthority::new takes Arc<dyn layerx_types::clock::Clock> as its first argument. Its only production caller, attach_mcp_payers in services/agent/crates/layerx-agentd/src/main.rs, passes owner.mcp_clock(), the operations clock the daemon built from RuntimeClock::from_environment at start, and maps an unavailable clock to the same string refusal its neighbours use. The layerx-mcp binary attaches no web authority, so no MCP production code constructs a clock, reads the environment or depends on layerx-client; the RuntimeClock::from_environment leg of decision 2572 is withdrawn and the rest of 2572 stands. Tests construct the authority with layerx_types::test_support::DeterministicClock at the case time."
+basis = "Gotcha 3106; decision 2572; the daemon runtime clock is the single time source of decisions 2547 and 2560."
+affects = ["22.31.527", "22.31.515"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -174548,10 +174554,10 @@ do_1 = "do_1 Gotcha 3094, decision 2572. In services/agent/crates/layerx-mcp/src
 do_2 = "do_2 Every layerx-mcp test target compiles against the new signatures: tests that construct WebApproval or WebAuthority pass a DeterministicClock from layerx_types::test_support at the case's established time; where a test builds the daemon DecisionRequest it passes current_time from that clock, and where it calls the approval service get it passes the fourth argument (22.31.495). Change no assertion to make a case pass; a case whose expectation is wrong is named in the task record."
 do_3 = "do_3 Prove the real path in services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs with the real server, binding and route (as repair_22_33_1551 serves a hold): a web spend above the approval threshold is held (not refused), the hold carries the decision time the clock reports, approve through the served route decides it and the spend completes; a clock sample with zero generation refuses Unavailable and leaves no hold; after dropping and rebuilding the registry from the same store the held approval is recovered and decidable with the same clock advanced. Run the declared verify once; the restart cases of repair_22_33_1551 must pass on the final revision. Record in services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx the signatures changed, the clock sources, the files touched and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
 symbols = []
-touches = ["services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx"]
+touches = ["services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx", "services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs", "services/agent/crates/layerx-mcp/tests/support/session_transport.rs", "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs", "services/agent/crates/layerx-agentd/src/main.rs"]
 tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"]
-planned_paths = ["services/agent/crates/layerx-mcp/src", "services/agent/crates/layerx-mcp/tests"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+planned_paths = ["services/agent/crates/layerx-mcp/src", "services/agent/crates/layerx-mcp/tests", "services/agent/crates/layerx-agentd/src"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --bins"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_527 --test repair_22_33_1551"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -174560,10 +174566,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 150
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue): attempt 1's five production files, the shared web-hold fixture under tests/support and the three proofs stand; both builds failed on compile alone and verification never ran. (1) Gotcha 3105: port the remaining four-argument ApprovalService::list callers, services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs lines 530 and 607 and tests/support/session_transport.rs line 735 if it is still on four, to pass the case's deterministic clock time as the fifth TimestampSeconds argument exactly as attempt 1 did at line 739; change no assertion. (2) Decision 2574: in services/agent/crates/layerx-agentd/src/main.rs attach_mcp_payers (line 1052) pass owner.mcp_clock() mapped to the string refusal MCP approval clock is unavailable as the first WebAuthority::new argument; the accessor exists on SharedAgentOwner in human_runtime.rs line 2569; add no clock construction, no environment read and no layerx-client dependency to the MCP crate. (3) Test clocks come from layerx_types::test_support::DeterministicClock as do_2 asks; the tests/support/clock.rs adapter may stay only as a thin wrapper of that type, and the helpers the build warned were unused are removed or used. (4) The build now also compiles the daemon binary: run the declared build once, then the declared verify once; record the daemon site, the three ported callers and the gate results in repair_22_31_527.kvx and replace the production_wiring_blocker entry with the wiring done."
 
 [task.22.31.526]
 title = "Re-record the exact web-search payment fixtures from one type-2 chain-125 signing"
