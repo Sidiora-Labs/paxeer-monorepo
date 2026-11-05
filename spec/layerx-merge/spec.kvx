@@ -8847,6 +8847,12 @@ value = "services/agent/crates/layerx-agentd/tests/support/current_node.rs defin
 basis = "Four test targets rebuild the same node by hand and drift from each other; one constructor in the support module keeps the current node fields in one place and lets outbox_recover.rs compile against the helper it already names."
 affects = ["22.33.1537", "22.31.497"]
 
+[decision.2623]
+title = "Attempts that built the daemon test targets before 22.31.550 landed re-qualify behind it"
+value = "A task whose own build or dependent-crate check compiles the layerx-agentd test targets and whose last attempt failed on the gotcha-3166 E0308 lists 22.31.550 among its requirements and re-qualifies as it stands; 22.31.534 and 22.33.223 are the two remaining such tasks after batches 499 and 500. A new failure of that shape after this decision is a defect of the failing task, since every base now carries the repair."
+basis = "The repair is on main; the only thing these trees lack is a gate run on a base that includes it, and naming the requirement makes the dependency visible in the graph instead of in a note."
+affects = ["22.31.550", "22.31.534", "22.33.223"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -148175,7 +148181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.6]
 title = "Explorer entity pages: entity header, tabs and labelled sections for transactions, blocks, addresses and tokens"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1"]
@@ -176096,7 +176102,7 @@ title = "Judge budget-state verification through the shared label decoder and su
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519", "22.31.516"]
+requires = ["22.31.519", "22.31.516", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.534"]
 interfaces = []
@@ -176122,6 +176128,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.31.519, gotcha 3129, decision 2589): attempt 1 stands in full (the shared predicate, the two call sites, the Refused variant and its mapping, the two tests). Rebase on main, where tests/approval_semantics.rs builds again since d739b429df; change nothing of the product, run the declared build and verify once and record."
 do_5 = "Attempt 2 also waits for 22.31.516 (gotcha 3132, decision 2591): the declared build compiles tests/human_approval_budget_actor.rs, red on main until 516 lands; nothing else changes in the attempt-2 instruction."
+do_6 = "Attempt 3 (requalify after 22.31.550, gotcha 3172, decision 2623): the attempt-2 tree stands (the conflicts resolved, the shared decoder and the distinct Refused mapping preserved, the task record written); its --tests build failed only on the rpc_surface_major_two target that 22.31.545 broke on main and 22.31.550 repairs. Re-run the gates on the attempt-2 tree."
 
 [task.22.31.532]
 title = "Give the production web payer the approval resources and the held-transaction path"
@@ -184011,7 +184018,7 @@ title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.223"]
 interfaces = []
@@ -184046,6 +184053,7 @@ do_11 = "Attempt 4 (continue): nine cases pass; the fuel-cap case fails because 
 do_12 = "Attempt 5 (continue): the attempt-3 ruling stands, and in addition the guest operations exceed the 1,000,000 CPU budget by between 1 and 52 units: the meter accounting or the budget constant in src must agree with the compiled guest; rebuild the guest fixture from the current source and make the budget check use one definition."
 do_13 = "Attempt 6 (requalify after 22.31.485): the previous attempt built; the dependent-crate check failed in services/platform/hosted/core on the unported px read types (PxAssetEntry, Uint256 byte conversions), which 22.31.485 ports. Once 22.31.485 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_14 = "Attempt 7 (after 22.31.497): attempt 6 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-6 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_15 = "Attempt 8 (requalify after 22.31.550, gotcha 3172, decision 2623): the attempt-6 tree stands; attempt 7 re-ran the gates and the build passed while the dependent-crate check failed only on the rpc_surface_major_two target of layerx-agentd that 22.31.545 broke on main and 22.31.550 repairs. Re-run the gates on the attempt-6 tree."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"

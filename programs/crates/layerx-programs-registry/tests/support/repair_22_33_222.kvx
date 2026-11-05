@@ -1,0 +1,17 @@
+[repair.22.33.222]
+mode = "BUILD"
+acceptance = "22998.1"
+qualification = "hf-build then hf-done on the unchanged candidate; the runner's private gate ledger names the verified revision, exact command, exit code and log."
+baseline = "No prior task gate ledger or repair test existed on entry; no baseline test failure is claimed. The unchanged-tree verify instruction conflicts with the explicit implementation-first build-then-hf-done order, which takes precedence."
+
+[finding.deployment-support-producer]
+tests = ["deployment_support_producer_transports_original_admission", "deployment_support_producer_recovers_original_admission", "deployment_support_producer_refuses_synthetic_and_cross_wired_evidence", "deployment_support_producer_uses_consumer_trust"]
+repair = "Separate documented primitive constructors from an integration fixture that only decodes an exported canonical admission and verifies it with caller-owned production chain trust; preserve original signed TxRaw, indexed TxResult, H predecessor and H+1 state/interface witnesses without rebuilding any of them."
+producer = "Reuse the pinned committed node TxRaw/EVM/ABI and ResponseDeliverTx serializer transcript from repair_22_31_256.hex; the real runtime deploy/upgrade receipts supply expected state transitions."
+boundary = "The regression's consensus peer is an in-memory signed chain/store fixture, not a running node or host; its proof export exercises the production admission codec and verifier. No full node/host admission export exists in the committed transcript, so host execution provenance is not claimed by this gate."
+
+[wiring.node-host-export]
+request = "node/rpc and modules/lxphost, owning domain 13: export the original signed TxRaw, its indexed ResponseDeliverTx, H predecessor proof and linked H+1 committed program/interface/lifecycle witnesses as canonical DeploymentProof bytes for node_deployment_fixture; commit a full host-executed admission transcript without reconstructing post-state in registry support."
+
+[gotcha.fixture-authentication]
+observed = "The legacy support fixture carries bare native payloads, descriptor bytes and independently synthesized post-state, so it must remain primitive evidence and is explicitly refused by the new integration loader."

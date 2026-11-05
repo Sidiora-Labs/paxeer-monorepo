@@ -22648,6 +22648,10 @@ mod tests {
                 };
                 let mut rows = BTreeMap::new();
                 let mut rungs = BTreeMap::new();
+                let recordings: Value = must(serde_json::from_str(include_str!(
+                    "../../../../../rpc/testdata/px-history/responses.json"
+                )));
+                let freshness = &recordings[0]["body"]["freshness"];
                 for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
                     let (bytes, mut rung) =
                         signed_item(height, 1_700_000_000 - (8 - height) * 5, amount);
@@ -22721,7 +22725,7 @@ mod tests {
                             assert_eq!(params[0], rpc_hex(&[6; 20]));
                             assert_eq!(params[2], 256);
                             if params[1].is_null() {
-                                json!({"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8})
+                                json!({"account":params[0],"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
                             } else {
                                 assert_eq!(
                                     params[1],
@@ -22732,7 +22736,7 @@ mod tests {
                                     }
                                     .to_hex()
                                 );
-                                json!({"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8})
+                                json!({"account":params[0],"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
                             }
                         }
                         "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
