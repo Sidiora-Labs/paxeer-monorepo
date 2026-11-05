@@ -52,7 +52,6 @@ _MAX_REPLY_BYTES = 9 * 1048576
 _MAX_HEADER_CHARACTERS = 131072
 _MAX_RETRY_AFTER_SECONDS = 30
 _GRANT_BYTES = 346
-_RECEIPT_LEAF_DOMAIN = b"LXP/v1/merkle-leaf\x00"
 _SEQUENCER_MODULE_ID = 12
 _SEQUENCER_OPERATION = 2
 _TIMEOUT_SECONDS = 30.0
@@ -390,10 +389,6 @@ def _encode_header(value: object) -> str:
     return base64.b64encode(
         json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     ).decode("ascii")
-
-
-def _receipt_digest(receipt: bytes) -> str:
-    return hashlib.sha256(_RECEIPT_LEAF_DOMAIN + bytes(receipt)).hexdigest()
 
 
 def _error_of(reply: _Reply) -> str | None:
@@ -876,7 +871,7 @@ class WebSearchClient:
             if payment.raw_transaction is not None
             else None
         )
-        verify_sequencer_receipt(
+        verified = verify_sequencer_receipt(
             receipt, raw_transaction, offer, self._receipt_keys
         )
         if raw_transaction is None:
@@ -885,7 +880,7 @@ class WebSearchClient:
         transaction = decode_payment_transaction(raw_transaction)
         payload = {
             "txHash": "0x" + keccak256(raw_transaction).hex(),
-            "receiptDigest": _receipt_digest(receipt),
+            "receiptDigest": verified.receipt_digest.hex(),
             "verificationLevel": "receipted",
             "idempotencyKey": transaction.data[164:196].hex(),
         }
@@ -920,9 +915,6 @@ class WebSearchClient:
             raise WebSearchError("settlement-receipt-mismatch") from None
         if base64.b64encode(receipt).decode("ascii") != encoded:
             raise WebSearchError("settlement-receipt-mismatch")
-        digest = _receipt_digest(receipt)
-        if layerx.get("receiptDigest") != digest:
-            raise WebSearchError("settlement-receipt-mismatch")
         if payment.receipt is not None and payment.receipt != receipt:
             raise WebSearchError("settlement-receipt-mismatch")
         raw_transaction = payment.raw_transaction
@@ -942,6 +934,9 @@ class WebSearchClient:
         verified = verify_sequencer_receipt(
             receipt, raw_transaction, offer, self._receipt_keys, draw_terms=payment.draw_terms
         )
+        digest = verified.receipt_digest.hex()
+        if layerx.get("receiptDigest") != digest:
+            raise WebSearchError("settlement-receipt-mismatch")
         transaction = "0x" + verified.receipt.activity_id.hex()
         if settlement.get("transaction") != transaction:
             raise WebSearchError("settlement-receipt-mismatch")
