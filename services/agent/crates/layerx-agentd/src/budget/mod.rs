@@ -1,5 +1,21 @@
 //! Protocol-backed and explicitly local spending limits.
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BudgetVerificationError {
+    NotCommitted,
+    RetiredOrUnknown,
+}
+
+pub fn budget_state_is_committed(label: u8) -> Result<(), BudgetVerificationError> {
+    let level = layerx_types::verify::VerificationLevel::from_wire_rank(label)
+        .map_err(|_| BudgetVerificationError::RetiredOrUnknown)?;
+    if level.rung() == Some(layerx_types::rung::Rung::Committed) {
+        Ok(())
+    } else {
+        Err(BudgetVerificationError::NotCommitted)
+    }
+}
+
 #[path = "reconcile.rs"]
 mod accounting;
 pub mod budget_proof;

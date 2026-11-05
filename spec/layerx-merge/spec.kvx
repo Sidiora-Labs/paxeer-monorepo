@@ -193356,7 +193356,7 @@ do_5 = "Attempt 2 (continue): decision 2501. chain_not_supported_fail decodes a 
 
 [task.18.1578.1]
 title = "Issue #1578: Isolate the inherited live-node tests from the MCP native-read proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11", "22.95.1", "22.99.160", "22.31.558"]
