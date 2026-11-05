@@ -200,7 +200,8 @@ def verify_payment_receipt(
         transaction, _ = decode_signed_transaction(raw_transaction)
     except EvmTransactionError as error:
         raise PlatformSdkError(SdkErrorCode.VERIFICATION_FAILURE, "never") from error
-    if receipt.module_id != 12 or receipt.operation != 2 or not receipt.effects:
+    transaction_operation = 2 if raw_transaction[0] == 2 else 0
+    if receipt.module_id != 12 or receipt.operation != transaction_operation or not receipt.effects:
         _failure()
     summary = receipt.effects[0]
     body = summary.body
