@@ -31219,3 +31219,11 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 6: build exit 0 and dependent-crate check exit 0 at 128c6e20821b; verify exit 101 at tests/human_approval_budget_actor.rs line 1047, expected the nine-byte refusal frame, received the frame with length 17 and the bytes operation.refused; the second suite did not run."
 assumption = "The product change of the task is complete; the failing assertions predate the reason field of 22.31.219 and the test target only now compiles again, so amending them to the frame the encoder writes qualifies the attempt."
 severity = "medium"
+
+[finding.16.90.1.6]
+task = "16.90.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+symbol = "test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+observed = "Attempt 10: build exit 0 at 789dea382280; verify exit 1 on the lni subtest of test_deleted_trees_absent_and_catalogue_valid with four hits: layerx-agentd/README.md line 40, layerx-client/src/lib.rs line 7 and layerx-client/src/repair_22_33_1541.kvx lines 7 and 16; the other eight subtests passed."
+assumption = "The four hits describe the retirement and are not callers; two line allowances and one reworded doc comment clear the scan, and the acceptance tests themselves are already complete."
+severity = "medium"
