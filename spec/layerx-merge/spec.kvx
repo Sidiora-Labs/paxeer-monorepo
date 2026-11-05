@@ -8763,6 +8763,12 @@ value = "The retired-callers catalogue (tools/paxeer-x/retired_callers.json) car
 basis = "Gotcha 3151: the scan reached documentation of the retirement and a record of the retiring task; rewriting a record would falsify history and rewording the asserted README sentence would break the repair test that pins it."
 affects = ["16.90.1", "22.33.1532", "22.33.1541"]
 
+[decision.2609]
+title = "A gate whose test starts the local EVM names the binary in the command text, so the qualification environment provides it"
+value = "Every task whose declared build or verify command runs a test that spawns the local EVM process, today tests/native_send_preview_evm.rs of layerx-agentd (the LAYERX_TEST_ANVIL executable, anvil by default) and the agent SDK gas-station suite, opens its verify command with anvil --version and a shell conjunction before the test invocation, including when the test runs through a wrapper script such as tools/runtime/run-with-clock.sh. The Foundry toolchain is a property of the qualification environment, not of the task; a task whose only defect is the missing binary is re-qualified at the same revision once its gate names the tool. Decisions 2068 and 2423 generalise to this rule."
+basis = "Gotcha 3152: 22.31.543 attempt 1 failed only on the missing binary, and two pending gates (9.35.19, 9.35.20) reach the same test through a wrapper script that names no Foundry tool."
+affects = ["22.31.543", "9.35.19", "9.35.20", "18.1233.1", "22.9.10"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37659,7 +37665,7 @@ title = "Assert the reason-bearing human refusal frame in the retired-rung and n
 reqs = ["22998.1"]
 touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+verification_contract = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
 do_1 = "do_1 Gotcha 3150, decision 2607. In services/agent/crates/layerx-agentd/tests/human_peer_retired.rs line 18 the expected response to the ExportLevelUnattainable refusal becomes the magic LXHAGT01, status byte 1, the big-endian u32 length and the bytes of refusal.reason() (export.rung_unattainable), built with a field helper like the one in tests/human_peer_rungs.rs; the include_str assertions of that test stay."
 symbols = []
 
@@ -66990,7 +66996,7 @@ title = "Serve the Human API prepare, native, native-effect, native-send and nat
 reqs = ["22059.1"]
 touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
-verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+verification_contract = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
 do_1 = "In services/agent/crates/layerx-agentd/src/human_runtime.rs the prepared cache (the prepared map read at :7237-7251 and the transaction field at :2390) holds the EvmPrepared and its registry only; rpc_prepare (:7461), rpc_prepare_native (:5531), rpc_prepare_native_effect (:6429) and rpc_prepare_native_send (:6887) prepare the type-2 call through prepare::evm::prepare_activity against the node (ProductionEvmPreparationBoundary) and derive every answer field they read from the envelope today (actor at :5607, :6516, :6964, :7508; protocol version and not_after at :5709, :5830-5856, :6568, :6774-6807, :7016, :7217-7250; payload hash) from the call and its bound disclosure under the mapping of task 9.35.19; the legacy prepare_activity_for_protocol path and the prepare::legacy import at :51 are no longer called from these functions."
 symbols = ["rpc_prepare_native", "rpc_prepare_native_effect", "rpc_prepare_native_send", "rpc_native_disclosure"]
 
@@ -66999,7 +67005,7 @@ title = "Read the call-bound preparation in the native-effect carrier and the pr
 reqs = ["22058.1"]
 touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
-verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
+verification_contract = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
 do_1 = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs NativeEffectApprovalCarrier keeps canonical_bytes as the call's encode_unsigned() output, gains sender: [u8; 20] and drops the authority and envelope_not_after fields in favour of the disclosure's expiry; bind (:193-240) takes &EvmPrepared, verifies it with verify_call_binding, drops the protocol-version-3 check and reads the module from the disclosure's activity type, the reservation deadline from disclosure.expiry.not_after and the head from observed_head_height; disclosure() (:307-335) decodes the call and binds with bind_call(&call, self.sender), keeping the budget context comparison on the disclosure's budget fields; restore_prepared (:1093-1140) decodes the call with decode_unsigned, rebuilds the EvmPrepared through bind_call and the stored head height and no longer uses the envelope builder; a carrier of the previous version is refused as Corrupt and the preparation is prepared again, nothing is migrated."
 symbols = ["NativeEffectApprovalCarrier", "verify_call_binding"]
 
@@ -175258,7 +175264,7 @@ touches = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "s
 tests = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/human_peer_retired.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
+verify_cmd = "anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_peer_retired --test native_send_preview_evm"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -175270,6 +175276,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify, gotcha 3152, decision 2609): the attempt-1 tree at d32e243e779d stands unchanged: the full-frame assertions in tests/human_peer_retired.rs and tests/native_send_preview_evm.rs through a field helper and the repair record tests/repair_22_31_543.kvx. The verify command now opens with anvil --version so the qualification environment provides the local EVM binary the native preview test starts at line 161. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
@@ -193959,7 +193966,7 @@ touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services
 tests = ["services/agent/crates/layerx-agentd/tests/prepare_eip1559.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
+verify_cmd = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test prepare_eip1559 --test native_routes_rpc --test native_send_preview_evm --test write_path_evm --test rpc_surface_major_two"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -193990,7 +193997,7 @@ touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", 
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
+verify_cmd = "anvil --version && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"

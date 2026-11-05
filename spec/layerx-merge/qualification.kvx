@@ -31227,3 +31227,11 @@ symbol = "test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_de
 observed = "Attempt 10: build exit 0 at 789dea382280; verify exit 1 on the lni subtest of test_deleted_trees_absent_and_catalogue_valid with four hits: layerx-agentd/README.md line 40, layerx-client/src/lib.rs line 7 and layerx-client/src/repair_22_33_1541.kvx lines 7 and 16; the other eight subtests passed."
 assumption = "The four hits describe the retirement and are not callers; two line allowances and one reworded doc comment clear the scan, and the acceptance tests themselves are already complete."
 severity = "medium"
+
+[finding.22.31.543.1]
+task = "22.31.543"
+file = "services/agent/crates/layerx-agentd/tests/human_peer_retired.rs"
+symbol = "human_peer_retired.rs"
+observed = "Attempt 1: build exit 0 and dependent-crate check exit 0 at d32e243e779d; human_peer_retired passed 1 case; native_send_preview_evm failed at line 161 with Os error 2 NotFound spawning the local EVM before any assertion ran."
+assumption = "A gate text defect, not an implementation defect (gotcha 3152, decision 2609)."
+severity = "low"
