@@ -96,7 +96,11 @@ impl Case {
             .expect("retained preparation")
             .expect("held draw");
         assert_eq!(prepared.disclosure, ticket.disclosure);
-        assert_eq!(prepared.disclosure.actor.as_str(), hex(&[0xab; 20]));
+        assert_eq!(
+            prepared.disclosure.actor.as_str(),
+            hex(&[0xab; 20]),
+            "held disclosure actor must retain the sender address"
+        );
         assert_eq!(prepared.disclosure.fee_limit.0, 0);
         let bytes = prepared.unsigned_canonical_bytes.as_bytes();
         assert!(

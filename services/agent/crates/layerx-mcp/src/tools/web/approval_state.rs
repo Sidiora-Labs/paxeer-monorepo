@@ -31,6 +31,7 @@ struct StoredSpend {
     bytes: Vec<u8>,
     signing_hash: [u8; 32],
     digest: [u8; 32],
+    // The registry binds both the disclosure actor and hold agent to this sender.
     sender: [u8; 20],
     commitment: [u8; 32],
     expiry: u64,
