@@ -27,6 +27,7 @@ use crate::approval::{
     ApprovalDecision, ApprovalExpiry, ApprovalOutcome, ApprovalRecord, ApprovalService,
     ApprovalSubmissionQueue, DecisionKey, DecisionRequest,
 };
+use crate::budget::BudgetReceiptEvidence;
 use crate::budget::{
     budget_create_identity, budget_state_key, create_protocol_budget, BudgetCreationError,
     BudgetKind, BudgetLimiter, BudgetPipeline, BudgetRequest, CoreBudgetReceipt, LimitConfig,
@@ -54,7 +55,7 @@ use crate::prepare::legacy::{
 };
 use crate::prepare::PreparationLifecycle;
 use crate::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
-use crate::receipt::{ReceiptEvidenceRecord, ReceiptMetadata};
+use crate::receipt::{CurrentReceiptEvidenceRecord, ReceiptEvidenceRecord, ReceiptMetadata};
 use crate::session::{self, OpenRequest, SessionId, SessionRegistry};
 use crate::session_control::SessionControl;
 
@@ -2293,12 +2294,33 @@ pub struct TenantBudgetRecovery {
     pub admission: Result<(), RecoveryRefusal>,
 }
 
+fn budget_receipt_records(
+    legacy: &[ReceiptEvidenceRecord],
+    current: &[CurrentReceiptEvidenceRecord],
+) -> Vec<ReceiptEvidenceRecord<BudgetReceiptEvidence>> {
+    legacy
+        .iter()
+        .map(|receipt| ReceiptEvidenceRecord {
+            idempotency_key: receipt.idempotency_key,
+            activity_id: receipt.activity_id,
+            global_sequence: receipt.global_sequence,
+            evidence: BudgetReceiptEvidence::Legacy(receipt.evidence.clone()),
+        })
+        .chain(current.iter().map(|receipt| ReceiptEvidenceRecord {
+            idempotency_key: receipt.idempotency_key,
+            activity_id: receipt.activity_id,
+            global_sequence: receipt.global_sequence,
+            evidence: BudgetReceiptEvidence::Current(receipt.evidence.clone()),
+        }))
+        .collect()
+}
+
 /// Inputs for recovering one tenant budget from the durable store.
-pub struct BudgetRecoveryRequest<'a> {
+pub struct BudgetRecoveryRequest<'a, E = crate::protocol_evidence::RawReceiptEvidence> {
     pub budget_id: [u8; 32],
     pub protocol_budget: ProtocolBudgetState,
     pub verifier: EvidenceAuthority,
-    pub receipts_with_evidence: &'a [ReceiptEvidenceRecord],
+    pub receipts_with_evidence: &'a [ReceiptEvidenceRecord<E>],
     pub receipts_without_evidence: &'a [ReceiptMetadata],
     pub ceiling_maximum: u128,
     pub current_sequence: u64,
@@ -2321,6 +2343,14 @@ pub fn recover_tenant_budget(
     tenant: &TenantId,
     request: &BudgetRecoveryRequest<'_>,
 ) -> Result<TenantBudgetRecovery, RecoveryRefusal> {
+    recover_tenant_budget_with_evidence(store, tenant, request)
+}
+
+pub fn recover_tenant_budget_with_evidence<E: Clone + Into<BudgetReceiptEvidence>>(
+    store: &mut Store,
+    tenant: &TenantId,
+    request: &BudgetRecoveryRequest<'_, E>,
+) -> Result<TenantBudgetRecovery, RecoveryRefusal> {
     let budget_id = request.budget_id;
     let verified = request
         .verifier
@@ -2342,13 +2372,13 @@ pub fn recover_tenant_budget(
         });
     }
     let window = record.period_start..record.window_end_sequence();
-    let budget_receipts: Vec<PersistedReceipt> = request
+    let budget_receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = request
         .receipts_with_evidence
         .iter()
         .filter(|receipt| window.contains(&receipt.global_sequence))
         .map(|receipt| PersistedReceipt {
             expected_activity_id: receipt.activity_id,
-            evidence: receipt.evidence.clone(),
+            evidence: receipt.evidence.clone().into(),
         })
         .collect();
     let evidence_missing = request
@@ -2377,12 +2407,12 @@ pub fn recover_tenant_budget(
         unknown_ceiling_reservations: &[],
         current_sequence: request.current_sequence,
     };
-    let recovered = crate::outbox::recover(store, tenant, &inputs).map_err(|error| {
-        RecoveryRefusal::Recovery {
+    let recovered = inputs
+        .recover(store, tenant)
+        .map_err(|error| RecoveryRefusal::Recovery {
             budget_id,
             reason: format!("{error:?}"),
-        }
-    })?;
+        })?;
     let admission = if evidence_missing > 0 {
         Err(RecoveryRefusal::EvidenceMissing {
             budget_id,
@@ -12270,6 +12300,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             chain_id,
             key.public_key,
         )
+        .map_err(|_| HumanOperationError::Refused)?
+        .with_receipt_keys(
+            self.chain
+                .receipt_keys()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
         .map_err(|_| HumanOperationError::Refused)?;
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
         Ok((verifier, key.public_key, authorization))
@@ -14096,12 +14132,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
         let (verifier, sequencer_key, _) = self.budget_read_parts(peer)?;
         let budget_id = owner.active_budget_id;
-        let (with_evidence, without_evidence) = self.attribute_receipts(
+        let (legacy_evidence, current_evidence, without_evidence) = self.attribute_receipts(
             &peer.tenant,
             &registry,
             owner.agent_did.as_bytes(),
             &inventory,
         );
+        let with_evidence = budget_receipt_records(&legacy_evidence, &current_evidence);
         let pipeline =
             NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let (committed_record, committed_height) =
@@ -14127,7 +14164,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         {
             return Ok(None);
         }
-        let receipts: Vec<PersistedReceipt> = with_evidence
+        let receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = with_evidence
             .iter()
             .filter(|receipt| window.contains(&receipt.global_sequence))
             .map(|receipt| PersistedReceipt {
@@ -14148,7 +14185,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 let id: [u8; 32] = id.try_into().map_err(|_| HumanOperationError::Refused)?;
                 unknown_budget_ids.push(id);
             }
-            crate::budget::rebuild(
+            crate::budget::rebuild_with_evidence(
                 &store,
                 tenant,
                 &unknown_budget_ids,
@@ -14161,19 +14198,20 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if !accounting.reconciled {
             return Ok(None);
         }
-        let spend_receipts: Vec<crate::budget::SpendReceiptEvidence> = receipts
-            .iter()
-            .map(|receipt| crate::budget::SpendReceiptEvidence {
-                expected_activity_id: receipt.expected_activity_id,
-                evidence: receipt.evidence.clone(),
-            })
-            .collect();
+        let spend_receipts: Vec<crate::budget::SpendReceiptEvidence<BudgetReceiptEvidence>> =
+            receipts
+                .iter()
+                .map(|receipt| crate::budget::SpendReceiptEvidence {
+                    expected_activity_id: receipt.expected_activity_id,
+                    evidence: receipt.evidence.clone(),
+                })
+                .collect();
         let mut local = crate::budget::LocalAccounting {
             consumed: accounting.receipt_consumed,
             window_start_sequence: 0,
             last_receipt: None,
         };
-        crate::budget::reconcile(&mut local, &protocol, &spend_receipts, &verifier)
+        crate::budget::reconcile_with_evidence(&mut local, &protocol, &spend_receipts, &verifier)
             .map(Some)
             .map_err(|_| HumanOperationError::Refused)
     }
@@ -14491,12 +14529,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     ) -> Result<(), RecoveryRefusal> {
         let peer = context.peer;
         let budget_id = owner.active_budget_id;
-        let (with_evidence, without_evidence) = self.attribute_receipts(
+        let (legacy_evidence, current_evidence, without_evidence) = self.attribute_receipts(
             &peer.tenant,
             context.registry,
             owner.agent_did.as_bytes(),
             context.inventory,
         );
+        let with_evidence = budget_receipt_records(&legacy_evidence, &current_evidence);
         let pipeline =
             NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let (committed_record, committed_height) =
@@ -14548,7 +14587,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .store
                     .lock()
                     .map_err(|_| RecoveryRefusal::Store(HumanOperationError::Unavailable))?;
-                recover_tenant_budget(&mut store, context.tenant_id, &request)
+                recover_tenant_budget_with_evidence(&mut store, context.tenant_id, &request)
             }
             Err(error) => Err(RecoveryRefusal::BudgetState {
                 budget_id,
@@ -14604,9 +14643,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         registry: &ModuleRegistry,
         agent_did: &[u8],
         inventory: &crate::receipt::ReceiptEvidenceInventory,
-    ) -> (Vec<ReceiptEvidenceRecord>, Vec<ReceiptMetadata>) {
+    ) -> (
+        Vec<ReceiptEvidenceRecord>,
+        Vec<CurrentReceiptEvidenceRecord>,
+        Vec<ReceiptMetadata>,
+    ) {
         let Some(outbox) = self.outboxes.get(tenant) else {
-            return (Vec::new(), Vec::new());
+            return (Vec::new(), Vec::new(), Vec::new());
         };
         let attributed = |idempotency_key: [u8; 32]| {
             outbox
@@ -14621,13 +14664,19 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .filter(|record| attributed(record.idempotency_key))
             .cloned()
             .collect();
+        let current_evidence = inventory
+            .with_current_evidence
+            .iter()
+            .filter(|record| attributed(record.idempotency_key))
+            .cloned()
+            .collect();
         let without_evidence = inventory
             .without_evidence
             .iter()
             .filter(|metadata| attributed(metadata.idempotency_key))
             .copied()
             .collect();
-        (with_evidence, without_evidence)
+        (with_evidence, current_evidence, without_evidence)
     }
 
     fn registry_response(registry: &ModuleRegistry) -> Result<HumanResponse, HumanOperationError> {
