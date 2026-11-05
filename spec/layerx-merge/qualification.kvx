@@ -31875,3 +31875,11 @@ symbol = "repair_22_33_1537.rs"
 observed = "Attempt 6 at 6729ff11e3e0673fface985db243740c7f0169b0: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the task record states that ReceiptEvidenceRecord, PersistedReceipt, recover_tenant_budget and EvidenceAuthority::verify_receipt require RawReceiptEvidence and that no conversion from the current record exists."
 assumption = "The recovery consumer of current evidence is a production gap owned by 22.31.559; the remaining case of this task is its consumer."
 severity = "high"
+
+[finding.22.31.557.2]
+task = "22.31.557"
+file = "services/human/crates/layerx-intents/src/compile.rs"
+symbol = "compile.rs"
+observed = "Attempt 2 at e58ccca43dc2d3a544d477520c9303ad34615375: build exit 0, dependent-crate check exit 0, verify exit 101: compile 5 passed, differential 5 passed, repair_22_31_557 3 passed 1 failed: v3_public_key_did_rotation_matches_the_governance_actor_derivation, assertion left 75 right 74 at tests/repair_22_31_557.rs line 148."
+assumption = "A literal length slip in the test; the derivation assertions have not yet run."
+severity = "medium"

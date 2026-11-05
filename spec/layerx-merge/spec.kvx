@@ -8907,6 +8907,12 @@ value = "The budget recovery path of the daemon (evidence inventory, recover_ten
 basis = "Gotcha 3190: the version 2 producer landed without a recovery consumer, so every tenant with only current receipts is held after a restart."
 affects = ["22.31.559", "22.33.1537", "22.31.364"]
 
+[decision.2633]
+title = "Length pins in intent tests derive from the identifier prefix and the key encoding"
+value = "A test that asserts the byte length of a DID or another prefixed identifier derives the expected value from the prefix it used and the encoded key length (for example the length of did:layerx: plus 64 hex characters) instead of a literal sum, so a slip in the literal cannot stop a case before the assertions it exists for."
+basis = "Gotcha 3191: the protocol 3 rotation case of 22.31.557 failed on a literal 74 for a 75-byte DID before any derivation assertion ran."
+affects = ["22.31.557"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175628,6 +175634,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (requalify after 22.31.558, gotcha 3185, decisions 2628 and 2629): the attempt-1 tree stands (protocol-3 key rotation, protocol-aware DID derivation, disclosure support and four regression cases; build exit 0); the dependent-crate check failed on the stale site in layerx-human-service tests/native_send_producer.rs line 659 that 22.31.558 ports, before the verify ran. Re-run the gates as they stand once 22.31.558 is on main."
+do_5 = "Attempt 3 (continue after the first verify run, gotcha 3191, decision 2633): the attempt-2 tree stands (compile.rs and disclosure.rs admitting the protocol 3 rotation with the length-prefixed identifier, the four repair cases; build exit 0, dependent-crate check exit 0, compile and differential suites pass, three repair cases pass). The failing case stops at line 148 on its own length pin: the prefix did:layerx: is 11 bytes, so the public-key DID is 75 bytes. Pin the length as the prefix length plus 64, re-run, and read the derivation assertions that follow (the actor identifier equals did_id_for_protocol for protocol 3, payload bytes 4 to 36 equal it, the actor differs from the legacy did_id, the disclosure round trip reproduces rotation_bytes of the actor). If one of them fails, that failure names the production fact to repair inside the task paths; record it in the task record. Commit before the gates run."
 
 [task.22.31.556]
 title = "Promote committed logs to the current committed evidence level instead of the retired checkpoint label in the event ingestor"
