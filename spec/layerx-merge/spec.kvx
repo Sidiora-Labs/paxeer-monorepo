@@ -147588,7 +147588,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.524]
 title = "Decode the absent vote in the shared committed fixture of the seller tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
