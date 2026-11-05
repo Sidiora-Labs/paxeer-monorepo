@@ -31147,3 +31147,11 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 4: build exit 0 at 03ef231d21, the dependent-crate check passed; verify: human_approval_budget_actor 0 passed, 1 failed, 1 ignored: human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings at line 1025 received the refusal byte for a valid EVM approval budget request because approval_budget_after at human_runtime.rs line 9903 accepts only the retired ranks 4 and 5; human_projection_facts did not run."
 assumption = "The attempt is correct; the production guard that 22.31.535 missed is repaired by 22.31.538."
 severity = "low"
+
+[finding.22.31.538.1]
+task = "22.31.538"
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"
+symbol = "budget_proof.rs"
+observed = "Attempt 1: build exit 0 and verify exit 0 (repair_22_31_538 four tests passed, dependent checks passed) at 31904c37e1; the attempt then appended the gate results to repair_22_31_538.kvx and committed 83b560a1f6, so same_candidate was unmet and the attempt was reported implemented, not qualified. Its session_control.rs decoder change would refuse every persisted committed MCP receipt on reload."
+assumption = "The gated work is correct for the two sites the task named; the record append and the third site are the only defects."
+severity = "low"

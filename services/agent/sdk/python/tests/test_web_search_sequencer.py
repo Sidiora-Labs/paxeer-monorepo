@@ -48,7 +48,9 @@ OFFER = WebSearchOffer(
     account="agent:did:layerx:seller:main",
     payer=PAYER,
 )
-RECEIPT_DIGEST = sha256(b"LXP/v1/merkle-leaf\0" + SIGNED_RECEIPT).hexdigest()
+RECEIPT_DIGEST = verify_sequencer_receipt(
+    SIGNED_RECEIPT, RAW_TRANSACTION, (RECEIPT_KEY,)
+).receipt_digest.hex()
 SETTLEMENT = {
     "success": True,
     "network": OFFER.network,
@@ -290,7 +292,7 @@ def test_web_search_refuses_other_receipt_operations(scheme, module_id, operatio
             "layerx": {
                 **SETTLEMENT["extensions"]["layerx"],
                 "receipt": base64.b64encode(signed).decode("ascii"),
-                "receiptDigest": sha256(b"LXP/v1/merkle-leaf\0" + signed).hexdigest(),
+                "receiptDigest": verified.receipt_digest.hex(),
                 "purposeHash": offer.purpose_hash,
             }
         },
