@@ -166,6 +166,20 @@ fn successful_payload(response: &[u8]) -> &[u8] {
     &response[9..]
 }
 
+fn refusal_frame(reason: &[u8]) -> Vec<u8> {
+    fn field(bytes: &mut Vec<u8>, value: &[u8]) {
+        bytes.extend_from_slice(
+            &u32::try_from(value.len())
+                .expect("bounded field")
+                .to_be_bytes(),
+        );
+        bytes.extend_from_slice(value);
+    }
+    let mut frame = b"LXHAGT01\x01".to_vec();
+    field(&mut frame, reason);
+    frame
+}
+
 #[test]
 fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen() {
     use layerx_agentd::store::{ObjectKind, StorageClass, Store, TenantId, TenantKey};
@@ -211,18 +225,22 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
     assert!(created > 0 && created < expiry);
     let rejected =
         scoped_projection_exchange(&fixture, &get, fixture_text(&fixture, "foreign_principal"));
-    assert_eq!(rejected, b"LXHAGT01\x01");
+    assert_eq!(rejected, refusal_frame(b"operation.refused"));
     let mut legacy = fixture_id(&fixture, "legacy_approval_id").to_vec();
     legacy.extend_from_slice(&sequence.to_be_bytes());
-    assert_eq!(
-        scoped_projection_exchange(&fixture, &projection_operation(47, &legacy), principal),
-        b"LXHAGT01\x02"
-    );
+    let legacy_facts_response =
+        scoped_projection_exchange(&fixture, &projection_operation(47, &legacy), principal);
+    let legacy_facts = successful_payload(&legacy_facts_response);
+    assert_eq!(legacy_facts.get(2..34), Some(legacy[..32].as_ref()));
     let legacy_response =
         scoped_projection_exchange(&fixture, &projection_operation(10, &legacy), principal);
     assert_eq!(
         successful_payload(&legacy_response).get(..32),
         Some(legacy[..32].as_ref())
+    );
+    assert_eq!(
+        legacy_facts.len(),
+        successful_payload(&legacy_response).len() + 2 + 16
     );
     let held_digest = fixture_id(&fixture, "held_digest");
     let mut budget = approval.to_vec();
@@ -246,7 +264,10 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
             .parse::<u128>()
             .expect("actual post-hold bound")
     );
-    assert!((4..=5).contains(&budget_facts[82]));
+    assert_eq!(
+        budget_facts[82],
+        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+    );
     assert!(budget_facts[83..115].iter().any(|byte| *byte != 0));
     assert_eq!(&budget_facts[115..123], &sequence.to_be_bytes());
     assert_eq!(&budget_facts[123..155], &fixture_id(&fixture, "asset_id"));
@@ -263,19 +284,19 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
             &projection_operation(48, &stale_budget),
             principal
         ),
-        b"LXHAGT01\x01"
+        refusal_frame(b"operation.refused")
     );
     budget[32] ^= 1;
     assert_eq!(
         scoped_projection_exchange(&fixture, &projection_operation(48, &budget), principal),
-        b"LXHAGT01\x01"
+        refusal_frame(b"operation.refused")
     );
 
     let root = std::path::Path::new(fixture_text(&fixture, "retained_store"));
     let tenant = TenantId::new(fixture_text(&fixture, "agent_tenant")).expect("real tenant");
     let agent_id = fixture_text(&fixture, "agent_id");
     let digest = fixture_id(&fixture, "receipt_digest");
-    let store = Store::open(root).expect("actual retained store");
+    let store = Store::open_read_only(root).expect("actual retained store");
     let hold_key = TenantKey::new(
         tenant.clone(),
         ObjectKind::PreparedActivity,
@@ -366,7 +387,7 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
         layerx_agentd::managed_agent::evidence_export(&store, &tenant, agent_id, changed).is_err()
     );
     drop(store);
-    let reopened = Store::open(root).expect("actual reopened store");
+    let reopened = Store::open_read_only(root).expect("actual reopened store");
     assert_eq!(
         reopened
             .get(&hold_key)
@@ -384,6 +405,55 @@ fn real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_r
         scoped_projection_exchange(&fixture, &get, principal),
         approval_response
     );
+}
+
+#[test]
+fn pre_clock_hold_record_refuses_to_open() {
+    use layerx_agentd::human::HumanOperationError;
+    use layerx_agentd::policy::approval::{ApprovalError, ApprovalRegistry};
+
+    let server = InProcessProjection::prepare();
+    let tenant = must(TenantId::new(fixture_text(&server.facts, "agent_tenant")));
+    let legacy_id = fixture_id(&server.facts, "legacy_approval_id");
+    let store_path = Path::new(fixture_text(&server.facts, "retained_store"));
+    let mut store = must(Store::open(store_path));
+    let legacy_key = must(TenantKey::new(
+        tenant.clone(),
+        ObjectKind::PreparedActivity,
+        [b"approval-hold-v1:".as_slice(), &legacy_id].concat(),
+    ));
+    let timed_hold = store.get(&legacy_key).expect("durable legacy hold").bytes();
+    assert_eq!(&timed_hold[..8], b"LXAPHLD5");
+    let legacy_len = usize::try_from(u32::from_be_bytes(
+        timed_hold[8..12].try_into().expect("legacy payload length"),
+    ))
+    .expect("legacy payload fits usize");
+    let legacy_hold = timed_hold[12..12 + legacy_len].to_vec();
+    assert_eq!(&legacy_hold[..8], b"LXAPHLD4");
+    must(store.put_local(legacy_key.clone(), legacy_hold.clone()));
+    drop(store);
+
+    let shared = Arc::new(Mutex::new(must(Store::open(store_path))));
+    assert_eq!(
+        must(shared.lock())
+            .get(&legacy_key)
+            .expect("reopened pre-clock hold")
+            .bytes(),
+        legacy_hold
+    );
+    let owner = server
+        .runtime
+        .try_owner(&server.fixture, &server.peers, Arc::clone(&shared));
+    assert!(matches!(owner, Err(HumanOperationError::Refused)));
+    let approvals = ApprovalRegistry::with_store(shared);
+    let budgets = must(BudgetLimiter::new(Vec::new()));
+    assert_eq!(
+        approvals.replay_tenant(&tenant, &budgets),
+        Err(ApprovalError::LegacyTimeUnits)
+    );
+    assert!(must(approvals.hold_ids()).is_empty());
+    assert!(server.worker.is_none());
+    assert!(!Path::new(fixture_text(&server.facts, "human_socket")).exists());
 }
 
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -409,9 +479,7 @@ use layerx_agentd::identity::{
 };
 use layerx_agentd::managed_agent::{self, ManagedAgent};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::policy::approval::{
-    hold_reserved, hold_reserved_at, ApprovalContext, ApprovalState,
-};
+use layerx_agentd::policy::approval::{hold_reserved_at, ApprovalContext, ApprovalState};
 use layerx_agentd::prepare::evm::{
     prepare_bound, AbiArgument, PrecompileCall, PrecompileTarget, PreparationDefaults,
     PrepareRequest, ProductionEvmPreparationBoundary,
@@ -451,80 +519,41 @@ mod hex {
     }
 }
 
-#[path = "../../../../platform/hosted/authority/src/human"]
-mod authority_producer {
-    use super::*;
+fn record_authority_budget_state(url: String, fixture: &RecordedAuthority) -> Value {
+    use layerx_platform_authority::{
+        budget_state, human_policy::PrincipalPolicy, BudgetStateConfig,
+    };
 
-    pub struct Config {
-        pub chain_rpc_url: String,
-        pub protocol_network_id: u32,
-    }
-
-    #[derive(Deserialize)]
-    pub struct Identity {
-        pub did: String,
-        pub frozen: bool,
-    }
-
-    #[derive(Deserialize)]
-    pub struct PrincipalPolicy {
-        pub tenant: String,
-        pub principal: String,
-        pub account_id: String,
-        pub asset_id: String,
-        pub budgets: Vec<String>,
-        pub identities: Vec<Identity>,
-        pub maximum_age_seconds: u64,
-        pub maximum_age_sequences: u64,
-    }
-
-    #[derive(Debug)]
-    pub struct Response {
-        pub status: u16,
-        pub body: Vec<u8>,
-    }
-
-    fn digest(bytes: &[u8]) -> [u8; 32] {
-        Sha256::digest(bytes).into()
-    }
-
-    fn json(status: u16, value: &Value) -> Response {
-        Response {
-            status,
-            body: must(serde_json::to_vec(value)),
-        }
-    }
-
-    fn refusal(status: u16, code: &str, _: Option<u64>) -> Response {
-        json(status, &json!({"error":{"code":code}}))
-    }
-
-    fn unavailable(code: &str) -> Response {
-        refusal(503, code, None)
-    }
-
-    mod budget_state;
-
-    pub fn record(url: String, fixture: &RecordedAuthority) -> Value {
-        let config = Config {
-            chain_rpc_url: url,
-            protocol_network_id: fixture.chain_id as u32,
-        };
-        let policy: PrincipalPolicy = must(serde_json::from_value(json!({
-            "tenant":fixture.tenant, "principal":fixture.principal,
-            "account_id":hex::encode([2;32]), "asset_id":hex::encode([4;32]),
-            "budgets":[hex::encode(fixture.budget_id)],
-            "identities":[{"did":fixture.agent_did, "frozen":false}],
-            "maximum_age_seconds":315_360_000_u64, "maximum_age_sequences":100,
-        })));
-        let response = must(budget_state::read(
-            &config,
-            &policy,
-            &hex::encode(fixture.budget_id),
-        ));
-        assert_eq!(response.status, 200);
-        must(serde_json::from_slice(&response.body))
-    }
+    let config = BudgetStateConfig {
+        chain_rpc_url: url,
+        protocol_network_id: fixture.chain_id as u32,
+    };
+    let evidence = json!({
+        "activity_id": fixture.managed_receipt["activity_id"],
+        "receipt_digest": hex::encode(verified_managed_receipt(&fixture.managed_receipt)),
+    });
+    let key_policy = json!({
+        "policy_revision":1, "required_delay_seconds":0, "maximum_delay_seconds":0,
+        "effective_sequence":0, "evidence":evidence,
+    });
+    let policy: PrincipalPolicy = must(serde_json::from_value(json!({
+        "tenant":fixture.tenant, "principal":fixture.principal,
+        "account_id":hex::encode([2;32]), "asset_id":hex::encode([4;32]),
+        "activities":[], "budgets":[hex::encode(fixture.budget_id)],
+        "identities":[{
+            "did":fixture.agent_did, "frozen":false, "authorities":[],
+            "revocation_sequence":u64::from_be_bytes(fixture.budget_call[13 * 32 + 24..14 * 32].try_into().expect("canonical budget revocation sequence")),
+            "evidence":evidence, "capabilities":[], "rotation":key_policy, "recovery":key_policy,
+        }],
+        "maximum_age_seconds":315_360_000_u64, "maximum_age_sequences":100,
+    })));
+    let response = must(budget_state::read(
+        &config,
+        &policy,
+        &hex::encode(fixture.budget_id),
+    ));
+    assert_eq!(response.status, 200);
+    must(serde_json::from_slice(&response.body))
 }
 
 struct LocalServer {
@@ -557,7 +586,11 @@ fn read_http(stream: &mut (impl Read + Write)) -> (String, Vec<u8>) {
 
 fn write_http(stream: &mut impl Write, body: &Value) {
     let bytes = must(serde_json::to_vec(body));
-    must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()));
+    must(write!(
+        stream,
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        bytes.len()
+    ));
     must(stream.write_all(&bytes));
     must(stream.flush());
 }
@@ -960,12 +993,15 @@ fn record_human_projection_authority() {
         managed_receipt,
     };
     let (url, server) = LocalServer::node(&fixture);
-    fixture.budget_state = authority_producer::record(url, &fixture);
+    fixture.budget_state = record_authority_budget_state(url, &fixture);
     assert_eq!(
         fixture.budget_state["remaining"],
         record.remaining().to_string()
     );
-    assert_eq!(fixture.budget_state["verification"], 4);
+    assert_eq!(
+        fixture.budget_state["verification"],
+        layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+    );
     drop(server);
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/human_projection_facts.rs");
     let source = must(fs::read_to_string(&path));
@@ -1077,6 +1113,16 @@ impl Runtime {
         peers: &BTreeMap<u32, (String, String)>,
         store: Arc<Mutex<Store>>,
     ) -> UnifiedAgentOwner<RemoteHumanAuthority> {
+        must(self.try_owner(fixture, peers, store))
+    }
+
+    fn try_owner(
+        &self,
+        fixture: &AuthorityFixture,
+        peers: &BTreeMap<u32, (String, String)>,
+        store: Arc<Mutex<Store>>,
+    ) -> Result<UnifiedAgentOwner<RemoteHumanAuthority>, layerx_agentd::human::HumanOperationError>
+    {
         let mut operations = must(ProductionHumanOperations::new(
             fixture.connect(),
             must(SequencerEndpoint::new(&fixture.node_rpc_url, &[])),
@@ -1101,7 +1147,7 @@ impl Runtime {
             &keys,
             fs::Permissions::from_mode(0o700),
         ));
-        must(UnifiedAgentOwner::new(
+        UnifiedAgentOwner::new(
             operations,
             store,
             peers,
@@ -1118,7 +1164,7 @@ impl Runtime {
                 u32::try_from(fixture.chain_id).expect("protocol network"),
                 must(fs::metadata(&self.root)).uid(),
             )),
-        ))
+        )
     }
 }
 
@@ -1166,6 +1212,12 @@ struct InProcessProjection {
 
 impl InProcessProjection {
     fn start() -> Self {
+        let mut server = Self::prepare();
+        server.restart();
+        server
+    }
+
+    fn prepare() -> Self {
         let fixture = AuthorityFixture::load();
         let creation_receipt = verified_managed_receipt(&fixture.managed_receipt);
         let runtime = Runtime::start();
@@ -1178,7 +1230,10 @@ impl InProcessProjection {
         let state = must(authority.budget_state(&peer, fixture.budget_id));
         let (_, asset, currency, _, _, _, _) = must(authority.balance_context(&peer));
         assert_eq!(state.asset, asset);
-        assert!((4..=5).contains(&state.verification));
+        assert_eq!(
+            state.verification,
+            layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
+        );
         let endpoint = must(SequencerEndpoint::new(&fixture.node_rpc_url, &[]));
         let public_key: [u8; 32] = must(hex::decode(
             fixture
@@ -1450,7 +1505,7 @@ impl InProcessProjection {
         }]);
         legacy_prepared.disclosure.idempotency_key =
             must(IdempotencyRef::new(hex::encode(legacy_id)));
-        must(hold_reserved(
+        must(hold_reserved_at(
             &owner.approvals,
             ApprovalContext {
                 tenant: tenant.clone(),
@@ -1465,6 +1520,7 @@ impl InProcessProjection {
             sequence,
             window,
             &legacy_reservation,
+            runtime.clock.as_ref(),
         ));
         let ticket = must(hold_reserved_at(
             &owner.approvals,
@@ -1507,6 +1563,7 @@ impl InProcessProjection {
                 &tenant,
                 approval_id,
                 sequence,
+                TimestampSeconds(must(runtime.clock.sample(DEADLINE)).unix_seconds()),
             ),
         );
         assert_eq!(restored.held_activity.actor.as_str(), actor);
@@ -1529,16 +1586,14 @@ impl InProcessProjection {
             "sequencer_public_key":fixture.managed_receipt["sequencer_public_key"],
         });
         drop(owner);
-        let mut server = Self {
+        Self {
             facts,
             worker: None,
             stop: Arc::new(AtomicBool::new(false)),
             fixture,
             runtime,
             peers,
-        };
-        server.restart();
-        server
+        }
     }
 
     fn stop_peer(&mut self) {
@@ -2376,7 +2431,7 @@ impl Drop for InProcessProjection {
     "remaining": "77",
     "revocation_sequence": 31,
     "revoked": false,
-    "verification": 4
+    "verification": 6
   },
   "registry": {
     "modules": [
