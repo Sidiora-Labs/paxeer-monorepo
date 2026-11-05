@@ -150,6 +150,7 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
     trigger = (
       <Button
         variant="header"
+        aria-label="Search"
         flexShrink={ 0 }
         p={ 0 }
       >

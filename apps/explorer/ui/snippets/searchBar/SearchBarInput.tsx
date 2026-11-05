@@ -22,18 +22,24 @@ interface Props extends Omit<HTMLChakraProps<'form'>, 'onChange'> {
   onClear?: () => void;
   onFormClick?: (event: React.MouseEvent<HTMLFormElement>) => void;
   isHeroBanner?: boolean;
+  compact?: boolean;
   isSuggestOpen?: boolean;
   value?: string;
   readOnly?: boolean;
 }
 
 const SearchBarInput = (
-  { onChange, onSubmit, isHeroBanner, isSuggestOpen, onFocus, onBlur, onHide, onClear, onFormClick, value, readOnly, ...rest }: Props,
+  { onChange, onSubmit, isHeroBanner, compact, isSuggestOpen, onFocus, onBlur, onHide, onClear, onFormClick, value, readOnly, ...rest }: Props,
   ref: React.ForwardedRef<HTMLFormElement>,
 ) => {
   const innerRef = React.useRef<HTMLFormElement>(null);
   React.useImperativeHandle(ref, () => innerRef.current as HTMLFormElement, []);
   const isMobile = useIsMobile();
+  const [ shortcut, setShortcut ] = React.useState('Ctrl K');
+
+  React.useEffect(() => {
+    setShortcut(/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K');
+  }, []);
 
   const borderWidthHeroBanner = useColorModeValue(
     config.UI.homepage.heroBanner?.search?.border_width?.[0] ?? '1px',
@@ -46,6 +52,13 @@ const SearchBarInput = (
 
   const handleKeyPress = React.useCallback((event: KeyboardEvent) => {
     if (isMobile) {
+      return;
+    }
+
+    if (compact && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      innerRef.current?.querySelector('input')?.focus();
+      onFocus?.();
       return;
     }
 
@@ -70,7 +83,7 @@ const SearchBarInput = (
         break;
       }
     }
-  }, [ isMobile, isSuggestOpen, onFocus, onHide ]);
+  }, [ compact, isMobile, isSuggestOpen, onFocus, onHide ]);
 
   React.useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -97,13 +110,17 @@ const SearchBarInput = (
       <ClearButton onClick={ onClear } visible={ Boolean(value?.length) } mx={ 2 }/>
       { !isMobile && (
         <Center
-          boxSize="20px"
+          as="kbd"
+          minW={ compact ? '42px' : '20px' }
+          h="20px"
+          fontSize="11px"
+          color="text.muted"
           mr={ 2 }
           borderRadius="sm"
           borderWidth="1px"
           borderColor="input.element"
         >
-          /
+          { compact ? shortcut : '/' }
         </Center>
       ) }
     </>
@@ -117,8 +134,8 @@ const SearchBarInput = (
       onBlur={ onBlur }
       onClick={ onFormClick }
       w="100%"
-      backgroundColor="bg.primary"
-      borderRadius="base"
+      backgroundColor={ compact ? 'raised' : 'bg.primary' }
+      borderRadius={ compact ? '999px' : 'base' }
       position="relative"
       zIndex={ isSuggestOpen ? 'modal' : 'auto' }
       { ...rest }
@@ -128,8 +145,11 @@ const SearchBarInput = (
         endElement={ endElement }
       >
         <Input
+          h={ compact ? '36px' : undefined }
+          borderRadius={ compact ? '999px' : 'base' }
+          aria-label={ compact ? 'Search or ask' : undefined }
           size={{ base: isHeroBanner ? 'md' : 'sm', lg: 'md' }}
-          placeholder={ getPlaceholder() }
+          placeholder={ compact ? 'Search or ask' : getPlaceholder() }
           value={ value }
           onChange={ handleChange }
           onFocus={ onFocus }
@@ -138,7 +158,7 @@ const SearchBarInput = (
           borderStyle="solid"
           borderColor="input.border"
           color="input.fg"
-          backgroundColor={{ base: isHeroBanner ? 'input.bg' : 'dialog.bg', lg: 'input.bg' }}
+          backgroundColor={ compact ? 'raised' : { base: isHeroBanner ? 'input.bg' : 'dialog.bg', lg: 'input.bg' } }
           _hover={{ borderColor: 'input.border.hover' }}
           _focusWithin={{ _placeholder: { color: 'input.placeholder' }, borderColor: 'input.border.focus', _hover: { borderColor: 'input.border.focus' } }}
           enterKeyHint="search"

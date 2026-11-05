@@ -26,10 +26,11 @@ const paxeerXFeature = config.features.paxeerXLists;
 
 type Props = {
   isHeroBanner?: boolean;
+  compact?: boolean;
   category?: Category;
 };
 
-const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
+const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
   const inputRef = React.useRef<HTMLFormElement>(null);
   const menuWidth = React.useRef<number>(0);
 
@@ -192,6 +193,7 @@ const SearchBarDesktop = ({ isHeroBanner, category }: Props) => {
             onBlur={ handleBlur }
             onClear={ handleClear }
             isHeroBanner={ isHeroBanner }
+            compact={ compact }
             value={ searchTerm }
             isSuggestOpen={ open }
           />

@@ -8,7 +8,7 @@ import Footer from './Footer';
 
 const FOOTER_LINKS_URL = 'https://localhost:3000/footer-links.json';
 
-test.describe('with custom links, max cols', () => {
+test.describe('with custom links, all groups in three columns', () => {
   test.beforeEach(async({ render, mockApiResponse, mockConfigResponse, injectMetaMaskProvider, mockEnvs, mockAssetResponse }) => {
     await mockEnvs([
       [ 'NEXT_PUBLIC_FOOTER_LINKS', FOOTER_LINKS_URL ],
@@ -34,7 +34,7 @@ test.describe('with custom links, max cols', () => {
   test.describe('screen xl', () => {
     test.use({ viewport: pwConfig.viewport.xl });
 
-    test('base view', async({ page }) => {
+    test('base view +@dark-mode', async({ page }) => {
       await expect(page).toHaveScreenshot();
     });
   });
