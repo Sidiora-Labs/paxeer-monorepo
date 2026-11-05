@@ -175579,7 +175579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.552]
 title = "Give the store, capability consumption and approval ordering in-crate tests canonical private store roots with one live writer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178183,7 +178183,7 @@ do_13 = "Attempt 7 (continue after 22.31.516, gotcha 3132, decision 2591): attem
 
 [task.22.33.1538]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 3 of 3): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.550"]
@@ -179350,7 +179350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1500]
 title = "Repair audit record 22.30.89 medium findings in services/platform/docs/content (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
