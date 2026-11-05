@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { ed25519 } from "@noble/curves/ed25519.js";
 import { ProductionClient, keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
@@ -17,6 +15,7 @@ import {
   verifyPaymentReceipt,
 } from "@sidiora/layerx-seller-middleware";
 import { BuyerMiddleware, evidenceRung } from "../dist/index.js";
+import { recordedNamedPayeeFixture } from "../../conformance/test/named-payee-fixture.mjs";
 
 const document = JSON.parse(readFileSync(new URL("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url), "utf8"));
 const vector = document.cases.find((entry) => entry.id === "V1-layerxledger-pay-exact");
@@ -35,7 +34,7 @@ const proof = {
   verificationLevel: "receipted",
   rawTransaction: vector.rawTransaction,
   signedReceipt: vector.signedReceipt,
-  receiptDigest: hex(keccak256(bytes(vector.signedReceipt))),
+  receiptDigest: hex((await verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), [pin])).receiptDigest),
   receiptKey: {
     keyId: vector.pinnedKey.keyId,
     publicKey: vector.pinnedKey.publicKey,
@@ -61,14 +60,14 @@ const requirements = {
   } },
 };
 const required = { x402Version: 2, resource: { url: "https://merchant.example/paid" }, accepts: [requirements] };
-const requiredHeader = encodePaymentRequiredHeader(required);
 const golden = (operation) => JSON.parse(readFileSync(new URL(`../../../../human/schema/human-api/golden/${operation}.response.json`, import.meta.url), "utf8")).body.result;
 const now = Date.parse("2026-08-18T09:32:00Z");
 
 class RecordedHumanTransport {
   calls = [];
 
-  constructor({ verification = "receipted", contentType = "application/vnd.layerx.receipt-proof-v2+json", portable = proof } = {}) {
+  constructor({ verification = "receipted", contentType = "application/vnd.layerx.receipt-proof-v2+json", portable = proof } = {}, paymentRequirements = requirements) {
+    this.requirements = paymentRequirements;
     const evidence = golden("evidence.get");
     this.evidence = {
       ...evidence,
@@ -84,7 +83,7 @@ class RecordedHumanTransport {
       stages: [{ ...journey.stages[0], evidence: [reference] }],
     };
     const quote = golden("move.quote");
-    this.quote = { ...quote, money: { ...quote.money, amount: requirements.amount } };
+    this.quote = { ...quote, money: { ...quote.money, amount: this.requirements.amount } };
   }
 
   async call(call) {
@@ -94,8 +93,8 @@ class RecordedHumanTransport {
       case "move.quote":
         assert.deepEqual(call.request, {
           source: "acct:buyer-portable-receipts",
-          destination: requirements.extra.layerx.account,
-          money: { amount: requirements.amount, currency: "LXP" },
+          destination: this.requirements.extra.layerx.account,
+          money: { amount: this.requirements.amount, currency: "LXP" },
         });
         return structuredClone(this.quote);
       case "move.commit":
@@ -114,8 +113,8 @@ class RecordedHumanTransport {
   }
 }
 
-function fixture(options, receiptKeys = [pin], commitments) {
-  const transport = new RecordedHumanTransport(options);
+function fixture(options, receiptKeys = [pin], commitments, paymentRequirements = requirements) {
+  const transport = new RecordedHumanTransport(options, paymentRequirements);
   const buyer = new BuyerMiddleware({
     client: new ProductionClient(transport),
     source: "acct:buyer-portable-receipts",
@@ -125,7 +124,8 @@ function fixture(options, receiptKeys = [pin], commitments) {
     now: () => now,
     retry: { maximumQuoteAttempts: 1, maximumCommitAttempts: 1, maximumJourneyPolls: 1, baseDelayMs: 0 },
   });
-  return { buyer, transport, prepare: () => buyer.prepare(requiredHeader, "portable-receipt-payment") };
+  const header = encodePaymentRequiredHeader({ ...required, accepts: [paymentRequirements] });
+  return { buyer, transport, prepare: () => buyer.prepare(header, "portable-receipt-payment") };
 }
 
 function verificationFailure(error) {
@@ -173,7 +173,7 @@ async function prepareSendsPortableReceiptFromEvidence() {
 
   const badPin = { ...pin, publicKey: new Uint8Array(32).fill(0xff) };
   await assert.rejects(fixture(undefined, [badPin]).prepare(), verificationFailure);
-  await assert.rejects(fixture({ portable: { ...proof, receiptDigest: vector.receiptDigest } }).prepare(), verificationFailure);
+  await assert.rejects(fixture({ portable: { ...proof, receiptDigest: hex(keccak256(bytes(vector.signedReceipt))) } }).prepare(), verificationFailure);
   await assert.rejects(verifyPaymentReceipt(proof, {
     ...requirements, amount: (paid.amount + 1n).toString(),
   }, [pin]), verificationFailure);
@@ -254,54 +254,53 @@ function evidenceRungMapsHumanLabels() {
   }
 }
 
-function signedCommitment(verified) {
-  const secrets = [1, 2, 3, 4].map((value) => new Uint8Array(32).fill(value));
-  const validatorSet = secrets.map((secret) => {
-    const publicKey = ed25519.getPublicKey(secret);
-    return { publicKey, address: Uint8Array.from(createHash("sha256").update(publicKey).digest().subarray(0, 20)),
-      votingPower: 1n };
-  });
-  const blockId = { hash: new Uint8Array(32).fill(0x11),
-    partSetHeader: { total: 1, hash: new Uint8Array(32).fill(0x22) } };
-  const height = verified.height;
-  const heightBytes = Buffer.alloc(8);
-  heightBytes.writeBigInt64LE(height);
-  const signBytes = Buffer.concat([
-    Buffer.from("65080211", "hex"), heightBytes,
-    Buffer.from("22480a20", "hex"), blockId.hash,
-    Buffer.from("122408011220", "hex"), blockId.partSetHeader.hash,
-    Buffer.from("2a020801320a7061786565722d313235", "hex"),
-  ]);
-  const signatures = validatorSet.slice(0, 3).map((validator, index) => ({
-    blockIdFlag: 2, validatorAddress: validator.address, timestamp: { seconds: 1n, nanos: 0 },
-    signature: ed25519.sign(signBytes, secrets[index]),
-  }));
-  return { landingBlockHeight: height, blockHeader: { chainId: "paxeer-125", blockId },
-    receiptInclusion: { transactionHash: verified.receipt.activityId.slice(),
-      receiptDigest: verified.receiptDigest.slice(), sequence: verified.receipt.globalSequence },
-    commit: { height, round: 0, blockId, signatures }, validatorSet };
-}
-
 async function prepareSelectsHumanEvidenceRungs() {
   const receipted = await fixture({ verification: "receipt-verified" }).prepare();
   assert.equal(receipted.kind, "ready");
   assert.equal(receipted.payment.verification.rung, "receipted");
   assert.equal(decodePaymentPayloadHeader(receipted.payment.paymentHeader).payload.verificationLevel, "receipted");
 
-  const verified = await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(proof.rawTransaction), [pin]);
-  const commitment = signedCommitment(verified);
+  const { vector: committedVector, parties, pin: committedPin, verified,
+    evidence: commitment, resolver } = await recordedNamedPayeeFixture();
+  const committedProof = {
+    ...proof, verificationLevel: "committed", rawTransaction: committedVector.rawTransaction,
+    signedReceipt: committedVector.signedReceipt, receiptDigest: hex(verified.receiptDigest),
+    receiptKey: { keyId: committedVector.pinnedKey.keyId, publicKey: committedVector.pinnedKey.publicKey,
+      firstHeight: `0x${committedPin.first_height.toString(16)}`, lastHeight: `0x${committedPin.last_height.toString(16)}` },
+  };
+  const paymentExactTopic = hex(keccak256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")));
+  const committedLogs = committedVector.receiptJson.logs.filter((entry) => entry.topics[0] === paymentExactTopic);
+  assert.equal(committedLogs.length, 1);
+  const committedLog = committedLogs[0];
+  const committedPayment = decodePaymentExactLog({ address: committedLog.address,
+    topics: committedLog.topics.map(bytes), data: bytes(committedLog.data) });
+  const committedRequirements = {
+    ...requirements, amount: committedPayment.amount.toString(), asset: hex(committedPayment.assetId),
+    payTo: hex(committedPayment.to), extra: { layerx: { ...requirements.extra.layerx,
+      account: parties.payee_main_account.name,
+      payer: hex(committedPayment.from).slice(2), purposeHash: hex(committedPayment.paymentReference).slice(2) } },
+  };
+  assert.equal(committedRequirements.asset, parties.asset);
+  assert.equal(committedRequirements.payTo, parties.payee_asset_account.identifier);
+  assert.equal(committedRequirements.amount, parties.amount);
+  assert.equal(hex(committedPayment.paymentReference), parties.reference);
   const resolutions = [];
+  const validatorResolutions = [];
   const commitments = { async resolve(transactionHash, network) {
     resolutions.push({ transactionHash, network });
-    return structuredClone(commitment);
+    return resolver.resolve(transactionHash, network);
+  }, async resolveValidators(network, height) {
+    validatorResolutions.push({ network, height });
+    return resolver.resolveValidators(network, height);
   } };
   const committed = await fixture({ verification: "checkpoint-finalised",
-    portable: { ...proof, verificationLevel: "committed" } }, [pin], commitments).prepare();
+    portable: committedProof }, [committedPin], commitments, committedRequirements).prepare();
   assert.equal(committed.kind, "ready");
   assert.equal(committed.payment.verification.rung, "committed");
   assert.equal(decodePaymentPayloadHeader(committed.payment.paymentHeader).payload.verificationLevel, "committed");
   assert.deepEqual(committed.payment.verification.commitmentEvidence, commitment);
-  assert.deepEqual(resolutions, [{ transactionHash: hex(keccak256(bytes(proof.rawTransaction))), network: "eip155:125" }]);
+  assert.deepEqual(resolutions, [{ transactionHash: hex(keccak256(bytes(committedProof.rawTransaction))), network: "eip155:125" }]);
+  assert.deepEqual(validatorResolutions, [{ network: "eip155:125", height: commitment.landingBlockHeight }]);
   await assert.rejects(fixture({ verification: "checkpoint-finalised" }).prepare(), verificationFailure);
   await assert.rejects(fixture({ verification: "checkpoint-finalised",
     portable: { ...proof, verificationLevel: "committed" } }).prepare(), verificationFailure);
@@ -316,3 +315,26 @@ async function prepareSelectsHumanEvidenceRungs() {
 
 test(evidenceRungMapsHumanLabels);
 test(prepareSelectsHumanEvidenceRungs);
+
+async function prepareRefusesDifferentPayeeDid() {
+  const { parties } = await recordedNamedPayeeFixture();
+  const mismatched = { ...requirements, asset: parties.asset, payTo: parties.payee_asset_account.identifier,
+    extra: { layerx: { ...requirements.extra.layerx, account: `agent:${parties.payer_did}:main` } } };
+  const refused = fixture(undefined, [pin], undefined, mismatched);
+  await assert.rejects(refused.prepare(), (error) => error instanceof MiddlewareError && error.code === "requirements-mismatch");
+  assert.equal(refused.transport.calls.length, 0);
+}
+
+async function prepareAcceptsNamedMainAccountIdentifier() {
+  const { parties } = await recordedNamedPayeeFixture();
+  const main = { ...requirements, asset: parties.asset, payTo: parties.payee_main_account.identifier,
+    extra: { layerx: { ...requirements.extra.layerx, account: parties.payee_main_account.name } } };
+  const component = fixture({ verification: "unknown" }, [pin], undefined, main);
+  assert.equal((await component.prepare()).kind, "pending");
+  assert.equal(component.transport.calls.filter((call) => call.operation === "move.quote").length, 1);
+  assert.equal(component.transport.calls.find((call) => call.operation === "move.quote").request.destination,
+    parties.payee_main_account.name);
+}
+
+test(prepareRefusesDifferentPayeeDid);
+test(prepareAcceptsNamedMainAccountIdentifier);
