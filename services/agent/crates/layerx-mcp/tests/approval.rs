@@ -1,3 +1,7 @@
+#[path = "support/clock.rs"]
+mod test_clock;
+
+use layerx_types::clock::Clock as _;
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -133,6 +137,7 @@ fn amount_at_threshold_proceeds_and_one_unit_over_is_held() {
         context(1),
         prepared(100, 1),
         50,
+        &test_clock::TestClock::new(50),
     )
     .unwrap_or_else(|error| panic!("threshold: {error:?}"));
     assert!(matches!(
@@ -150,6 +155,7 @@ fn amount_at_threshold_proceeds_and_one_unit_over_is_held() {
         context(2),
         prepared(101, 2),
         50,
+        &test_clock::TestClock::new(50),
     )
     .unwrap_or_else(|error| panic!("above threshold: {error:?}"));
     assert!(matches!(above, Requirement::Required(_)));
@@ -166,6 +172,7 @@ fn approver_sees_the_disclosure_and_cannot_approve_an_altered_request() {
         context(3),
         prepared(101, 3),
         50,
+        &test_clock::TestClock::new(50),
     )
     .unwrap_or_else(|error| panic!("hold: {error:?}")) else {
         panic!("approval was not required");
@@ -175,7 +182,14 @@ fn approver_sees_the_disclosure_and_cannot_approve_an_altered_request() {
     let approver =
         ApproverId::new("human:alice").unwrap_or_else(|error| panic!("approver: {error:?}"));
     assert_eq!(
-        approve(&registry, ticket.hold_id, approver, &altered, 60),
+        approve(
+            &registry,
+            ticket.hold_id,
+            approver,
+            &altered,
+            60,
+            &test_clock::TestClock::new(60)
+        ),
         Err(ApprovalError::DisclosureChanged)
     );
     let audit = approve(
@@ -184,6 +198,7 @@ fn approver_sees_the_disclosure_and_cannot_approve_an_altered_request() {
         ApproverId::new("human:alice").unwrap_or_else(|error| panic!("approver: {error:?}")),
         &ticket.disclosure,
         60,
+        &test_clock::TestClock::new(60),
     )
     .unwrap_or_else(|error| panic!("approval: {error:?}"));
     assert_eq!(audit.decision, ApprovalState::Approved);
@@ -211,14 +226,16 @@ fn expiry_at_the_declared_sequence_is_terminal_and_never_auto_approves() {
         context(4),
         prepared(2, 4),
         50,
+        &test_clock::TestClock::new(50),
     )
     .unwrap_or_else(|error| panic!("hold: {error:?}")) else {
         panic!("approval was not required");
     };
-    assert!(expire(&registry, 119)
+    assert!(expire(&registry, 119, &test_clock::TestClock::new(119))
         .unwrap_or_else(|error| panic!("early expiry: {error:?}"))
         .is_empty());
-    let expired = expire(&registry, 120).unwrap_or_else(|error| panic!("expiry: {error:?}"));
+    let expired = expire(&registry, 120, &test_clock::TestClock::new(120))
+        .unwrap_or_else(|error| panic!("expiry: {error:?}"));
     assert_eq!(expired.len(), 1);
     assert_eq!(expired[0].decision, ApprovalState::Expired);
     assert!(expired[0].approver.is_none());
@@ -229,6 +246,7 @@ fn expiry_at_the_declared_sequence_is_terminal_and_never_auto_approves() {
             ApproverId::new("human:late").unwrap_or_else(|error| panic!("approver: {error:?}")),
             &ticket.disclosure,
             120,
+            &test_clock::TestClock::new(120),
         ),
         Err(ApprovalError::Daemon(DaemonApprovalError::AlreadyDecided(
             ApprovalState::Expired
@@ -270,7 +288,7 @@ pub fn reserved_hold(
     request_id: u8,
 ) -> layerx_agentd::policy::approval::ApprovalTicket {
     use layerx_agentd::budget::{LimitId, ReservationRequest};
-    layerx_agentd::policy::approval::reserve_and_hold(
+    layerx_agentd::policy::approval::reserve_and_hold_at(
         registry,
         limiter,
         context(request_id),
@@ -282,7 +300,13 @@ pub fn reserved_hold(
             current_sequence: 50,
             applicable_limits: vec![LimitId([1; 16])],
         },
-        120,
+        layerx_agentd::policy::approval::ApprovalSequence(120),
+        layerx_agent_api::TimestampSeconds(
+            test_clock::TestClock::new(50)
+                .sample(std::time::Duration::from_secs(1))
+                .expect("clock")
+                .unix_seconds(),
+        ),
     )
     .expect("durable reserved call hold")
 }

@@ -1,3 +1,6 @@
+#[path = "support/clock.rs"]
+mod test_clock;
+
 #[allow(dead_code)]
 #[path = "../../../../interop/crates/x-websearch/src/config.rs"]
 mod config;
@@ -864,6 +867,8 @@ fn context() -> ApprovalContext {
     }
 }
 
+static WEB_CLOCK: test_clock::TestClock = test_clock::TestClock::new(10);
+
 fn approval(registry: &ApprovalRegistry, threshold: u128) -> WebApproval<'_> {
     WebApproval {
         registry,
@@ -872,6 +877,7 @@ fn approval(registry: &ApprovalRegistry, threshold: u128) -> WebApproval<'_> {
         },
         context: context(),
         current_sequence: 10,
+        clock: &WEB_CLOCK,
     }
 }
 
@@ -1346,8 +1352,15 @@ fn an_unapproved_spend_is_held_and_never_paid() {
     assert!(payer.grants.is_empty());
 
     let approver = ApproverId::new("operator").unwrap_or_else(|error| panic!("{error:?}"));
-    approve(&registry, ticket.hold_id, approver, &ticket.disclosure, 11)
-        .unwrap_or_else(|error| panic!("approve: {error:?}"));
+    approve(
+        &registry,
+        ticket.hold_id,
+        approver,
+        &ticket.disclosure,
+        11,
+        &test_clock::TestClock::new(11),
+    )
+    .unwrap_or_else(|error| panic!("approve: {error:?}"));
     let outcome = web_tool(&config, &search_call(), &held, &mut payer)
         .unwrap_or_else(|error| panic!("approved search: {error:?}"));
     assert_eq!(settled(&outcome).amount, 3114);
@@ -1368,8 +1381,15 @@ fn a_rejected_spend_is_refused_without_payment() {
         panic!("expected an approval hold");
     };
     let approver = ApproverId::new("operator").unwrap_or_else(|error| panic!("{error:?}"));
-    reject(&registry, ticket.hold_id, approver, &ticket.disclosure, 11)
-        .unwrap_or_else(|error| panic!("reject: {error:?}"));
+    reject(
+        &registry,
+        ticket.hold_id,
+        approver,
+        &ticket.disclosure,
+        11,
+        &test_clock::TestClock::new(11),
+    )
+    .unwrap_or_else(|error| panic!("reject: {error:?}"));
     let refused = web_tool(&config, &search_call(), &held, &mut payer);
     assert!(
         matches!(
@@ -1910,6 +1930,7 @@ fn web_session(
             amount_threshold: threshold,
         },
         Box::new(RecordedPayer::new()),
+        Arc::new(test_clock::TestClock::new(10)),
     );
     let boundary = server
         .route_web(ProgramReads::new(surface), route)
@@ -1974,6 +1995,7 @@ fn opened_session(
     let mut binding = Binding::parse(&document.to_string())
         .unwrap_or_else(|error| panic!("binding: {}", error.detail()));
     binding.attach_web(WebAuthority::new(
+        Arc::new(test_clock::TestClock::new(10)),
         Arc::clone(approvals),
         Box::new(RecordedPayer::new()),
     ));
@@ -2256,6 +2278,7 @@ fn assert_held_until_approved<B: ToolBoundary>(
         approver,
         &ticket.disclosure,
         OBSERVED_SEQUENCE + 1,
+        &test_clock::TestClock::new(11),
     )
     .unwrap_or_else(|error| panic!("approve: {error:?}"));
     let released = paid(

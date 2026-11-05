@@ -1050,6 +1050,9 @@ fn attach_mcp_payers(
             .approvals
             .clone();
         binding.attach_web(layerx_mcp::binding::WebAuthority::new(
+            owner
+                .mcp_clock()
+                .map_err(|_| "MCP approval clock is unavailable")?,
             approvals,
             Box::new(payer.into_web_payer()),
         ));
