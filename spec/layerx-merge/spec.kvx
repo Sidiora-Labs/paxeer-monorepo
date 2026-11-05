@@ -175483,7 +175483,7 @@ do_4 = "Attempt 2 (continue after 22.31.516): the attempt-1 tree at 531f68e24974
 
 [task.22.31.545]
 title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.219"]
@@ -372717,7 +372717,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.490]
 title = "Repair audit record 22.30.150 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.277"]
