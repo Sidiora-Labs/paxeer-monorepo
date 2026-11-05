@@ -148140,7 +148140,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.4]
 title = "Explorer home: ticker strip, hero, stat tiles, network chart and dense latest tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.3"]
