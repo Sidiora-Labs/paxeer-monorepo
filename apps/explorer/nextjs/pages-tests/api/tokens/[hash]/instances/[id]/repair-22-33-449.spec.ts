@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 
 import { afterAll, beforeAll, expect, test } from 'vitest';
 
-import type * as MediaPolicy from './media-type';
+import type * as MediaPolicy from '../../../../../../../pages/api/tokens/[hash]/instances/[id]/media-type';
 
 let mediaPolicy: typeof MediaPolicy;
 
@@ -45,7 +45,7 @@ beforeAll(async() => {
   process.env.NEXT_PUBLIC_API_PROTOCOL = 'http';
   process.env.NEXT_PUBLIC_API_BASE_PATH = '';
 
-  mediaPolicy = await import('./media-type');
+  mediaPolicy = await import('../../../../../../../pages/api/tokens/[hash]/instances/[id]/media-type');
   const { 'default': handler } = mediaPolicy;
   routeServer = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost');

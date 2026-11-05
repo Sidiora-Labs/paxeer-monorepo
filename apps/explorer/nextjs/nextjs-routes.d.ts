@@ -50,6 +50,8 @@ declare module "nextjs-routes" {
     | DynamicRoute<"/chain/[chain_slug]/token/[hash]/instance/[id]", { "chain_slug": string; "hash": string; "id": string }>
     | DynamicRoute<"/chain/[chain_slug]/tx/[hash]", { "chain_slug": string; "hash": string }>
     | DynamicRoute<"/chain/[chain_slug]/visualize/sol2uml", { "chain_slug": string }>
+    | DynamicRoute<"/chains/[id]", { "id": string }>
+    | StaticRoute<"/chains">
     | StaticRoute<"/chakra">
     | StaticRoute<"/contract-verification">
     | DynamicRoute<"/cross-chain-tx/[id]", { "id": string }>
@@ -60,9 +62,9 @@ declare module "nextjs-routes" {
     | DynamicRoute<"/epochs/[number]", { "number": string }>
     | StaticRoute<"/epochs">
     | DynamicRoute<"/essential-dapps/[id]", { "id": string }>
+    | StaticRoute<"/feed">
     | DynamicRoute<"/feed/market/[id]", { "id": string }>
     | DynamicRoute<"/feed/update/[hash]", { "hash": string }>
-    | StaticRoute<"/feed">
     | StaticRoute<"/gas-tracker">
     | StaticRoute<"/hot-contracts">
     | StaticRoute<"/">
