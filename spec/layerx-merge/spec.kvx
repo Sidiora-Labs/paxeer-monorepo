@@ -176259,7 +176259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.497]
 title = "Restore the two daemon test targets that include the authority budget-state module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.495", "22.31.516"]
@@ -177436,7 +177436,7 @@ do_8 = "Attempt 2 (continue after 22.33.1558): the hold must carry the preparati
 
 [task.22.33.1550]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-agentd/src/approval (part 1 of 1): restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.443", "22.31.483", "22.31.495", "22.31.516"]
@@ -177825,7 +177825,7 @@ do_10 = "Attempt 4 (continue): attempt 3 qualified but its publication conflicte
 
 [task.22.33.1539]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests/approval_ordering (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519", "22.31.516"]
