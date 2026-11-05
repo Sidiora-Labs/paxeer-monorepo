@@ -8859,6 +8859,18 @@ value = "An EVM address, an asset id, a key id or a hash that crosses the JSON-R
 basis = "The 22.31.494 node fixture refused the lowercase address the wallet sends and the withdrawal registry never found an asset the producer serves with its 0x prefix; both producers serve valid forms."
 affects = ["22.31.494", "22.33.1547"]
 
+[decision.2625]
+title = "The protocol-3 DID identifier is the length-prefixed derivation in every producer, the intent compiler included"
+value = "Every payload that carries a DID identifier at protocol version 3 derives it as the kernel does (lxp_did_id_derive: two-byte big-endian length, the DID bytes, the DID id domain), which is layerx_wire::hash::did_id_for_protocol(did, 3). The compiler of record (decision 2540) admits KeyRotation at V3 and derives with that function in its rotation branch and its disclosure round trip; V1 and V2 keep hash::did_id so committed bytes stand. A proof against the kernel compiles the rotation as V3 for the identity that executes it."
+basis = "The kernel governance validator refuses any other identifier with LXP_ERR_AUTH_SCOPE (-204); the daemon, the disclosure crate and the compiler recovery branch already agree, only the rotation branch diverged. Affects 22.31.557, 22.31.496 and 22.33.63."
+affects = ["22.31.496", "22.31.497"]
+
+[decision.2626]
+title = "Consumer test tasks of an audit record wait for the producer repair tasks of the same record"
+value = "When an audit record is split into source repair tasks and separate test tasks, every test task requires every source task of that record whose production sites its cases assert. A test task waved beside its producers fails on the production state the producers are about to change and is never a defect of its own. The platform CLI record is corrected now: 22.33.1495 requires 22.33.1492 and 22.33.1493, 22.33.1496 requires 22.33.1492, 22.33.1493 and 22.33.1494, 22.33.1497 requires 22.33.1493 and 22.33.1494."
+basis = "Gotcha 3176: nine retired-endpoint and wallet cases across the three test tasks failed on the /rpc requirement that rpc.rs line 21, wallet.rs line 806 and toolset.rs line 225 still carry, all owned by the source tasks of the same record (decision 2521)."
+affects = ["22.33.1492", "22.33.1493", "22.33.1494"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37749,6 +37761,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.557]
+title = "Admit protocol 3 key rotation in the intent compiler with the length-prefixed DID identifier"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/repair_22_31_557.rs", "services/human/crates/layerx-intents/tests/repair_22_31_557.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test repair_22_31_557 --test compile --test differential"
+do_1 = "do_1 Gotcha 3177, decision 2625. In services/human/crates/layerx-intents/src/compile.rs admit IntentKind KeyRotation at protocol version 3 in compile() (the version admission near line 164) and in the KeyRotation branch (lines 219 to 240) derive the DID identifier with layerx_wire::hash::did_id_for_protocol(did, 3) when the intent is V3, while V1 and V2 keep layerx_wire::hash::did_id so every committed byte of those versions stands; the did() helper near line 559 takes the protocol version. The disclosure round trip in src/disclosure.rs (the KeyRotation case near lines 161 to 174) derives the identifier the same way, as its RecoveryRegistration case (lines 177 to 188) already does."
+symbols = []
 
 [capability.22.31.556]
 title = "Promote committed logs to the current committed evidence level instead of the retired checkpoint label in the event ingestor"
@@ -167485,7 +167506,7 @@ title = "Admit the compiler's key-rotation payload in the disclosure binder and 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.497", "22.31.550"]
+requires = ["22.31.497", "22.31.550", "22.31.557"]
 reqs = ["22998.1"]
 capabilities = ["22.31.496"]
 interfaces = []
@@ -167512,6 +167533,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (after 22.31.497): attempt 1 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-1 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_6 = "Attempt 3 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-1 tree stands; attempt 2 re-ran the gates after 22.31.497 landed and the --tests build failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; once 22.31.550 is on main rebase onto it, run the declared build and verify once and fix inside the paths only what still fails (the attempt-1 build failed on the targets gotcha 3033 names, so the task change set has never been exercised on a compiling base)."
+do_7 = "Attempt 4 (continue after 22.31.557, gotcha 3177, decision 2625): the attempt-3 tree stands except the proving rotation. The kernel refused the rotation with LXP_ERR_AUTH_SCOPE (-204) because the compiled payload carried the unprefixed digest of a DID (owner key bytes 71) that is not the executing actor, while the governance validator requires protocol version 3 and the length-prefixed identifier of the actor DID (did:layerx: plus the hex of the authority public key, modules/lxphost/execute.go line 23) at payload bytes 4 to 36. With 22.31.557 landed, compile the proving rotation in tests/repair_22_31_496.rs as Intent::v3 for the DID of the keeper fixture identity (the public key derived from the fixed key bytes 74 at modules/layerxauth/keeper/execute_test.go line 42) with a distinct pending key, re-record the constant repair2231496RotationHex in modules/layerxauth/keeper/repair_22_31_496_test.go, and assert the kernel result 0 and the rotated key observed through the keeper. do_2 stands satisfied: the owner ruling is decision 2625."
 
 [task.22.31.491]
 title = "Add a committed preexecution refusal to the receipt corpus and prove it as the terminal-0 case"
@@ -167614,6 +167636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Attempt 2 (requalify after 22.31.485): attempt 1 implemented the fund-gas repair in modules/lxphost/host.go and the ai-market programs crate with rpc/repair_478_test.go and passed the build; the dependent-crate check failed in services/platform/hosted/core/src/public_reads.rs, owned by 22.31.485, before the verify ran. Requalify the attempt-1 tree once 22.31.485 is on main; the fund-gas measurement the task record must carry is then recorded by the verify."
 do_6 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_7 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-2 tree stands; its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 3 re-ran the gates and failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
+do_8 = "Attempt 5 (continue after the first verify run since 22.31.550): the attempt tree stands. TestRepair478_FundWithinProductionAllowance fails with LXP_ERR_FEE_UNPAYABLE at rpc/repair_478_test.go line 208 (the execute helper, lines 196 to 210, FeeLimit 100000000) on the first fee-bearing Host.Execute, the asset registration 0x00010001 at line 219 reached from line 385: the host charges the fee from the fee balance of the payer agent main account (gotcha 1980) and the fixture never funds it. Fund the actor main account before the first fee-bearing execute the way the funded host fixtures under rpc/ do (or lower the setup fee limit to what the kernel admits for an unfunded account if the production path does), then keep the CPU fuel comparison and the within-allowance proof the task owns."
 
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
@@ -175458,6 +175481,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.557]
+title = "Admit protocol 3 key rotation in the intent compiler with the length-prefixed DID identifier"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.557"]
+interfaces = []
+do_1 = "do_1 Gotcha 3177, decision 2625. In services/human/crates/layerx-intents/src/compile.rs admit IntentKind KeyRotation at protocol version 3 in compile() (the version admission near line 164) and in the KeyRotation branch (lines 219 to 240) derive the DID identifier with layerx_wire::hash::did_id_for_protocol(did, 3) when the intent is V3, while V1 and V2 keep layerx_wire::hash::did_id so every committed byte of those versions stands; the did() helper near line 559 takes the protocol version. The disclosure round trip in src/disclosure.rs (the KeyRotation case near lines 161 to 174) derives the identifier the same way, as its RecoveryRegistration case (lines 177 to 188) already does."
+do_2 = "do_2 Prove it in tests/repair_22_31_557.rs: a V3 KeyRotation compiled for a DID carries at payload bytes 4 to 36 the digest of the two-byte big-endian length prefix plus the DID bytes under the DID id domain (equal to did_id_for_protocol(did, 3) and different from hash::did_id(did)); the V1 and V2 rotation bytes equal the bytes already committed in tests/compile.rs line 269 and tests/differential.rs line 136, which stay unchanged; the disclosure round trip of the V3 rotation reproduces the same bytes; a V3 rotation whose DID is the did:layerx: form of a 32-byte public key (hex of the key) compiles and its identifier equals the kernel derivation the governance validator compares at src/modules/governance/lxp_governance.c lines 185 to 192."
+do_3 = "do_3 Record in tests/repair_22_31_557.kvx the sites, decision 2625, the governance validator rule and the gate results by reference to the gate ledger; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/repair_22_31_557.rs", "services/human/crates/layerx-intents/tests/repair_22_31_557.kvx"]
+tests = []
+planned_paths = ["services/human/crates/layerx-intents/src", "services/human/crates/layerx-intents/tests"]
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test repair_22_31_557 --test compile --test differential"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.556]
 title = "Promote committed logs to the current committed evidence level instead of the retired checkpoint label in the event ingestor"
 status = "done"
@@ -175762,6 +175815,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.31.550, gotchas 3166 and 3167, decision 2620): the attempt-1 tree at fab6cba03cd0005b7ed1cc66253876a4d7a1cf3f stands in full (the SDK V2 carrier, signing and wire in native_effect.rs, the envelope transport, the catalogue version, the end-to-end case that reuses the daemon preview fixture by including tests/native_send_preview_evm.rs of layerx-agentd, the amended MCP test and the record). The dependent-crate check failed only because the rpc_surface_major_two target of layerx-agentd stopped compiling on main after 22.31.545, which 22.31.550 repairs. Once 22.31.550 is on main, rebase onto it, state in tests/repair_22_31_547.kvx that the end-to-end case reuses the daemon fixture through the include because the SDK crate has no harness that starts a daemon (do_2 named tests/native_capabilities.rs and tests/sdk.rs, which do not start one), run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_5 = "Attempt 3 (continue after the first verify run since 22.31.550): the attempt-2 tree stands; one case fails. native_sdk_v2_consent_crosses_daemon_rpc_and_legacy_is_malformed asserts at tests/repair_22_31_547.rs line 188 that the daemon accepts the V2 purpose, and the daemon answers 403 PolicyRefusal owner.refused. The refusal is one of the HumanOperationError::Refused producers of rpc_prepare_native_send (services/agent/crates/layerx-agentd/src/human_runtime.rs line 6961 onward): the body digest comparison, the native_send_human_prepare wire conversion, the durable preparation lookup for the purpose preparation_id, the observed head sequence check, the native_send_purpose_owner lookup of consent_public_key at the observed head, and the local grant staging; none names its reason on the wire. Find which one fires by running the SDK case against a locally instrumented copy of the daemon (the final tree changes nothing under layerx-agentd or layerx-agent-api, do_3), compare the SDK request field by field with the prepare body the daemon fixture test in layerx-agentd/tests/native_send_preview_evm.rs sends, and align the SDK carrier or the fixture setup (the preparation the purpose refers to, the consent key the fixture owner registers, the credential tenant). Rebase onto a base that includes 22.31.548 (the attempt-2 tree lacks it). 22.31.539 and 22.31.540 are not the blocker: the daemon identity floors refuse nothing (decision 2601)."
 
 [task.22.31.546]
 title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
@@ -177075,6 +177129,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 2 (continue): the final tree does not build. services/agent/tests/parity/src/lib.rs imports Key from layerx_agent_api::idempotency, a module the API crate does not have; layerx-agent-api exports Key and RequestId from its error module (error.rs line 185) and nothing outside services/agent/tests/parity may change. Import Key from layerx_agent_api::error, fix the four E0599 constructor errors in the parity integration tests against the constructors the API crate actually exposes, and run the build on the final revision before the verify."
 do_9 = "Attempt 3 (continue): the build passes; tests/repair_22_33_1572.rs line 271 compares a 0x-prefixed hex string with an unprefixed one and fails on the prefix alone. Compare the decoded bytes (or normalise both sides through the same hex codec) and keep the parity assertion strict on content."
 do_10 = "Attempt 4 (after 22.31.487): attempt 3 fixed the import and the constructors and built; the parity tests fail only because the Rust SDK serializes achieved_rung where the API serves achieved_verification_level (gotcha 3014, decision 2535). Rebase on main once 22.31.487 is in, keep the parity assertions on achieved_verification_level, and run build and verify at the same revision."
+do_11 = "Attempt 5 (continue after the first verify run since 22.31.487, gotcha 3178): the attempt tree stands except the stand-in receipt peer (tests/repair_22_33_1572.rs lines 285 to 313), which answers read.proof_bundle with the generic success body carrying request_id, value and verification_status. The SDK decoder decode_proof_bundle_response (services/agent/crates/layerx-sdk/src/agent_envelope.rs lines 1727 to 1745) requires exactly the fields value, achieved_verification_level and freshness, with freshness.relative_to a block whose height equals the value height and whose hash is non-zero, the value height at or below the chain head, and an achieved verification status equal to achieved_verification_level. Answer with the daemon producer document: VerifiedRead of ProofBundle serialised by encode_json (human_runtime.rs proof_bundle_operation_value near line 21911, served by agent_rpc_adapters.rs line 1856), or build that exact document in the stand-in; then parity_synthetic_owner_compares_node_receipts_and_reopened_state compares real node receipts against the reopened state as the task asks."
 
 [task.22.33.1571]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/limits (part 1 of 1): test-gap"
@@ -179457,7 +179512,7 @@ title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/test
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.212", "22.31.213"]
+requires = ["22.31.212", "22.31.213", "22.33.1493", "22.33.1494"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1497"]
 interfaces = []
@@ -179491,13 +179546,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_14 = "Attempt 2 (continue after 22.33.1493 and 22.33.1494, gotcha 3176, decisions 2624 and 2626): the attempt-1 tree stands. In binding_vectors_and_nonce_recovery (line 261) compare the bound address as decoded 20 bytes, never as text: the CLI renders the checksummed form and the fixture stores lowercase (decision 2624). The five wallet cases wallet_bind_success_gap (334), wallet_fee (382), wallet_writes (454), wallet_reads (728) and wallet_watch (739) fail on the /rpc requirement of rpc.rs line 21 (22.33.1493) and wallet.rs line 806 (22.33.1494); with both landed they run against the root admission and no case supplies or expects /rpc."
 
 [task.22.33.1496]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/tests (part 2 of 3): test-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.212", "22.31.213"]
+requires = ["22.31.212", "22.31.213", "22.33.1492", "22.33.1493", "22.33.1494"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1496"]
 interfaces = []
@@ -179532,6 +179588,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (continue after 22.33.1492, 22.33.1493 and 22.33.1494, gotcha 3176, decision 2626): the attempt-1 tree stands with three corrections of its own. First, the five E0308 errors come from including src/programs.rs by path into the test crate while the test also uses the library http module, so two distinct http::Client types exist: do not re-include the library modules; alias them at the test crate root (use layerx_platform_cli::http; and the other library modules programs.rs refers to) so crate::http inside the included binary module resolves to the library type, or drive the binary through its command line. Second, the three cases that call hosted_wallet() panic at line 57 on the hex prefix expectation: the gateway ABI vector bank.all_balances result in services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json is unprefixed, decode it with the unprefixed decoder and keep the 0x-prefixed fields of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (the pinnedKey firstHeight and lastHeight are decimal text 1000 and 1999). Third, test_retired_endpoint_rpc_identity, program_lifecycle_third_shape (POST /rpc 404) and the retired-endpoint cases assert the root admission of rpc.rs line 21 and the root posts of toolset.rs lines 225, 274 and 335 (22.33.1493) and programs.rs line 1386; with the producers landed no case supplies or expects /rpc."
 
 [task.22.33.1494]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 3 of 3): config-drift, restart-recovery, retired-reference, security"
@@ -179571,6 +179628,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_13 = "Attempt 2 (continue after the first verify run): the attempt-1 tree stands with four corrections. First, the build fails on rustix::fs::mkfifo (E0425, the dependency at its locked version 1.1.4 and feature set does not export it, test line 918): replace the FIFO with a std mechanism (a loopback TcpListener or a std::fs file handshake) and add no dependency. Second, wallet_finality_option_committed_receipt_for_every_wait (line 617) fails on the CLI own validator in src/rpc.rs lines 200 to 240 (estimate_gas_params, called at line 100): the estimate object wallet.rs builds must carry block tag pending, type 0x2, the hex quantities chainId (non-zero), nonce, maxPriorityFeePerGas, maxFeePerGas, gas and value, data, and only the optional to, from and accessList fields; wallet_submission_recovery_reopens_journal_without_resubmission (line 682, accepted transaction) fails downstream of the same preparation. Third, the attempt deleted tests/repair_22_33_1499.rs (843 lines): restore it unchanged, 22.33.1499 is done and its test stands. Fourth, the retired /rpc admission at wallet.rs line 806 is this task to retire (decision 2521, gotcha 3176); the wallet cases of 22.33.1497 depend on it."
 
 [task.22.33.1493]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 2 of 3): restart-recovery, retired-reference, runtime-risk"
@@ -179653,6 +179711,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (continue after the first verify run, gotcha 3179): the gates ran on a tree that is not the committed revision (the panic lines 823 and 1317 of the test and src/a2a.rs line 1600 sit ten lines above the committed assertions at 833, 1327 and 1610), so build and verify run again once at the final revision and the record cites it (gotcha 3142). Three cases fail. First, a2a_root_listener_authentication_and_retired_refusal: an uncredentialed POST to the root listener is not answered 401 with valid bearer authorization is required; serve_connection must refuse before it parses or routes the body, and the credentialed request then returns the receipt artifact. Second, lifecycle_signed_producer_receipts_distinguish_pending_success_and_revert: programs::lifecycle_calldata(ordinal, payload, 1000) writes a zero word where sdk/platform/conformance/fixtures/native-program-deploy-v4.json encodes the fee-limit word 0x3e8 (hex offset 583 of the calldata); the fee-limit argument is dropped or misplaced, align the encoder to the fixture. Third, a2a::submission_outcome_tests::a2a_response_loss_keeps_unknown_outcome: the case whose node answer is a refusal expects state rejected and receives a task document without a status; the refusal mapping (a2a.rs near line 694, refused to rejected) does not reach the task document for that answer shape."
 
 [task.22.33.1490]
 title = "Repair audit record 22.30.88 medium findings in services/platform/ramps/toolkit/tests (part 1 of 1): test-gap"
@@ -201535,7 +201594,7 @@ title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/test
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.212", "22.31.213"]
+requires = ["22.31.212", "22.31.213", "22.33.1492", "22.33.1493"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1495"]
 interfaces = []
@@ -201572,6 +201631,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/platform/cli/tests/repair_22_33_1495.rs and the verify command is cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test repair_22_33_1495; nothing else of the task changes."
+do_17 = "Attempt 2 (continue after 22.33.1492 and 22.33.1493, gotcha 3176, decision 2626): the attempt-1 tree stands. Import std::time::Duration in tests/mcp_daemon_bound.rs (two E0433 at the Duration uses). The two failing cases test_retired_endpoint_lx_refusal and test_retired_endpoint_chains assert the root admission that rpc.rs lines 21 and 37 (22.33.1493) and chains.rs (22.33.1492) introduce; with both landed they run against the production root admission and no case of this task may still expect or supply a /rpc suffix."
 
 [task.22.33.1485]
 title = "Repair audit record 22.30.87 medium findings in services/platform/perps-data/internal/auth (part 1 of 1): runtime-risk"
@@ -284957,6 +285017,7 @@ do_17 = "Attempt 4 (continue): attempt 3 passed six repair tests; TestRepairM_21
 do_18 = "Attempt 5 (continue): six cases pass, two fail. TestRepairM_213_StorageEnvironmentResponse: the ABI-v3 payload settles through the registered call handler, but the independent native submission of the same request through Submit with selector 0x00090009 is refused LXP_ERR_NON_CANONICAL; compare byte for byte the request the registered handler decodes with the payload handed to Submit (the version bytes, the lease digest and the escrow account must match the lease state in the reference context) and submit exactly what the handler path accepts. TestRepairM_213_StorageEnvironmentRecordedConsumer: DecodeProgramExecutionResult refuses the recorded bytes as an invalid programs execution result; record the consumer fixture with the production encoder (the call outputs packed as status, kind and terminal frame with the frame domain and the applied-legs root), never hand-assembled bytes. Keep the six passing cases."
 do_19 = "Attempt 6 (continue): the independent native submission (lp.Submit with selector 0x00090009 and the handler's own payload) is still refused LXP_ERR_NON_CANONICAL although the payload equals what the registered handler accepts. The refusal is raised by the pay keeper's budget path when the reference context lacks what an EVM-originated call carries: modules/layerxpay/keeper/budget_pull.go lines 22, 32 and 39 (missing transaction hash, EVM transient store not mounted, call ordinal) and budget_spend.go lines 58 and 68, with the error codes of modules/layerxauth/types/errors.go line 15 and modules/layerxledger/types/errors.go line 17. Build the reference context the way the registered handler path builds it (transaction hash set, EVM transient store mounted, call ordinal assigned) before Submit, and the case passes without touching the payload. If the production keeper demands state that Submit cannot provide outside an EVM call, record the exact producer line in the finding file and stop; the recorded-consumer case stays as attempt 5 fixed it."
 do_20 = "Attempt 7 (after 22.31.488): attempt 6 passed six of eight cases; the independent native submission is refused NON_CANONICAL because the receipt is produced framed and the runtime terminal reader accepts only canonical bytes (gotcha 3015, decision 2536). Once 22.31.488 is in, re-record the consumer fixture with the production encoder, keep the eight cases and run the verify."
+do_21 = "Attempt 8 (continue after the attempt-7 gate run): attempt 7 ran the gates only, so the re-record do_20 asks for never happened. Run the storage-environment execute test file with go test -v -run for TestRepairM_213_StorageEnvironmentResponse to find the check inside DecodeProgramExecutionResult (precompiles/layerxprograms/response.go lines 30 to 75: length multiple of 32, ABI round trip, kind 1 to 3 with kind 1 if and only if status 0, terminal frame domain, execution plus legs with legs a multiple of 115, appliedLegsRoot equal to the transfer set root, the storage-environment settlement wrapper with its bound root and canonical receipt digest and exactly one leg whose destination and charged amount match, the authority prefix, the guest response) that returns LXP_NON_CANONICAL invalid programs execution result; align the consumer check to the production framing 22.31.488 landed and re-record testdata/repair_m213_execute_result.hex with the production encoder; keep the eight cases and the passing fee_limit_reaches_submission subtest."
 
 [task.22.33.212]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 1 of 2): interface-mismatch, retired-reference, test-gap"
