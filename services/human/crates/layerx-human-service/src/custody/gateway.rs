@@ -28,6 +28,27 @@ use super::{
 
 /// Largest LXKP frame the gateway ever admits or relays.
 pub const GATEWAY_FRAME_LIMIT: usize = 2_097_152;
+
+/// Exact chain snapshot accepted by the gateway startup boundary.
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GatewayChainSnapshot {
+    pub chain_id: u32,
+}
+
+impl GatewayChainSnapshot {
+    /// # Errors
+    /// Refuses registry documents, unknown fields and every other chain.
+    pub fn decode(bytes: &[u8]) -> Result<Self, String> {
+        const NAME: &str = "LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE";
+        let snapshot: Self = serde_json::from_slice(bytes)
+            .map_err(|error| format!("{NAME} chain snapshot is invalid: {error}"))?;
+        if snapshot.chain_id != 125 {
+            return Err(format!("{NAME} chain_id must be 125"));
+        }
+        Ok(snapshot)
+    }
+}
 const MAGIC: &[u8; 4] = b"LXKP";
 const PROVIDER_REFERENCE_LIMIT: usize = 4096;
 const CERTIFICATE_LIMIT: usize = 65_536;

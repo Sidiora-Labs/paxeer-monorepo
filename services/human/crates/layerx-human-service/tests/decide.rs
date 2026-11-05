@@ -23,7 +23,7 @@ use layerx_agentd::approval::{
 use layerx_agentd::budget::BudgetLimiter;
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::policy::approval::{
-    hold, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
+    hold_at, ApprovalContext, ApprovalRegistry, ApprovalSequence, ApprovalState, ApproverId,
 };
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::TenantId;
@@ -38,6 +38,7 @@ use layerx_human_service::auth::{
 };
 use layerx_human_service::store::PrincipalScope;
 use layerx_human_service::trace::TraceId;
+use layerx_types::clock::Clock as _;
 use layerx_types::ids::Did;
 use layerx_types::rung::Rung;
 use serde_json::{json, Value};
@@ -316,6 +317,7 @@ fn context(id: u8) -> ApprovalContext {
 
 struct AgentdDecisions<'a> {
     service: ApprovalService<'a>,
+    clock: &'a dyn layerx_types::clock::Clock,
     queue: &'a ApprovalSubmissionQueue,
     tenant: TenantId,
     prepared: BTreeMap<[u8; 32], Prepared>,
@@ -324,11 +326,23 @@ struct AgentdDecisions<'a> {
 }
 
 impl AgentdDecisions<'_> {
+    fn decision_time(&self) -> Result<TimestampSeconds, ApprovalBoundaryError> {
+        let reading = self
+            .clock
+            .sample(std::time::Duration::from_secs(1))
+            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(ApprovalBoundaryError::Unavailable);
+        }
+        Ok(TimestampSeconds(reading.unix_seconds()))
+    }
+
     fn normalize(
         &mut self,
         approval_id: [u8; 32],
         idempotency_key: &str,
         current_sequence: u64,
+        current_time: TimestampSeconds,
         outcome: &layerx_agentd::approval::ApprovalDecision,
     ) -> Result<AgentDecision, ApprovalBoundaryError> {
         let repeated = !self.seen.insert(idempotency_key.to_owned());
@@ -358,7 +372,7 @@ impl AgentdDecisions<'_> {
             AgentOutcome::AlreadyDecided | AgentOutcome::Conflict => {
                 match self
                     .service
-                    .get(&self.tenant, approval_id, current_sequence)
+                    .get(&self.tenant, approval_id, current_sequence, current_time)
                     .map_err(|_| ApprovalBoundaryError::Unavailable)?
                     .state
                 {
@@ -384,7 +398,12 @@ impl ApprovalBoundary for AgentdDecisions<'_> {
     ) -> Result<AgentApprovalRecord, ApprovalBoundaryError> {
         let record = self
             .service
-            .get(&self.tenant, approval_id, at_sequence)
+            .get(
+                &self.tenant,
+                approval_id,
+                at_sequence,
+                self.decision_time()?,
+            )
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         let state = match record.state {
             ApprovalState::AwaitingApproval => AgentApprovalState::AwaitingApproval,
@@ -452,6 +471,7 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
         idempotency_key: &str,
         current_sequence: u64,
     ) -> Result<AgentDecision, ApprovalBoundaryError> {
+        let current_time = self.decision_time()?;
         let prepared = self
             .prepared
             .get(&approval_id)
@@ -471,12 +491,19 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                     approver: ApproverId::new("human:mara")
                         .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                     current_sequence,
+                    current_time,
                 },
                 &prepared,
                 self.queue,
             )
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        self.normalize(approval_id, idempotency_key, current_sequence, &decision)
+        self.normalize(
+            approval_id,
+            idempotency_key,
+            current_sequence,
+            current_time,
+            &decision,
+        )
     }
 
     fn reject(
@@ -486,9 +513,10 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
         idempotency_key: &str,
         current_sequence: u64,
     ) -> Result<AgentDecision, ApprovalBoundaryError> {
+        let current_time = self.decision_time()?;
         let record = self
             .service
-            .get(&self.tenant, approval_id, current_sequence)
+            .get(&self.tenant, approval_id, current_sequence, current_time)
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         if record.canonical_bytes_digest != held_digest {
             return Err(ApprovalBoundaryError::VerificationFailed);
@@ -503,9 +531,16 @@ impl AgentDecisionBoundary for AgentdDecisions<'_> {
                 approver: ApproverId::new("human:mara")
                     .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                 current_sequence,
+                current_time,
             })
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
-        self.normalize(approval_id, idempotency_key, current_sequence, &decision)
+        self.normalize(
+            approval_id,
+            idempotency_key,
+            current_sequence,
+            current_time,
+            &decision,
+        )
     }
 }
 
@@ -525,7 +560,6 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
 fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
     let directory = support::directory("approval-decisions");
     let agent_root = directory.join("agent");
-    fs::create_dir_all(&agent_root).unwrap_or_else(|error| panic!("agent root: {error}"));
     let registry = ApprovalRegistry::default();
     let limiter =
         BudgetLimiter::new(Vec::new()).unwrap_or_else(|error| panic!("limiter: {error:?}"));
@@ -535,12 +569,34 @@ fn digest_bound_decisions_converge_and_export_the_agent_outcome() {
     let queue = ApprovalSubmissionQueue::default();
     let first = prepared(1);
     let second = prepared(2);
-    hold(&registry, context(1), first.clone(), 10, 190)
-        .unwrap_or_else(|error| panic!("first hold: {error:?}"));
-    hold(&registry, context(2), second.clone(), 10, 190)
-        .unwrap_or_else(|error| panic!("second hold: {error:?}"));
+    let clock = support::StepClock::new(100_000);
+    let created_at = TimestampSeconds(
+        clock
+            .sample(std::time::Duration::from_secs(1))
+            .unwrap_or_else(|error| panic!("hold time: {error}"))
+            .unix_seconds(),
+    );
+    hold_at(
+        &registry,
+        context(1),
+        first.clone(),
+        ApprovalSequence(10),
+        ApprovalSequence(190),
+        created_at,
+    )
+    .unwrap_or_else(|error| panic!("first hold: {error:?}"));
+    hold_at(
+        &registry,
+        context(2),
+        second.clone(),
+        ApprovalSequence(10),
+        ApprovalSequence(190),
+        created_at,
+    )
+    .unwrap_or_else(|error| panic!("second hold: {error:?}"));
     let mut boundary = AgentdDecisions {
         service,
+        clock: &clock,
         queue: &queue,
         tenant: tenant(),
         prepared: BTreeMap::from([([1; 32], first.clone()), ([2; 32], second.clone())]),

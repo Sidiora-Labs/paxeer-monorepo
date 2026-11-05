@@ -15,6 +15,9 @@
 //! connect appended /rpc and violated NodeRecording's POST / assertion before decoding.
 //! Final gate revision and private evidence are emitted by hf-build/hf-done.
 
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -445,6 +448,7 @@ fn purchase(index: usize, account_result: Option<Value>) {
             policy_version: "policy-v1".into(),
         },
         current_sequence: 50,
+        clock: &test_clock::TestClock::new(50),
     };
     let mut payer = NodePayer {
         node: SequencerEndpoint::new(&node.endpoint, &[]).expect("real node transport"),

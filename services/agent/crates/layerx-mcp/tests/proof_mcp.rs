@@ -65,6 +65,7 @@ fn grant_terms(amount: u128, key: [u8; 32]) -> GrantTerms {
         payer_did: exact.payer_did,
         payer_account: exact.payer_account,
         recipient: exact.recipient,
+        receiver_did_key: [6; 32],
         asset: exact.asset,
         expires_at_ms: exact.expires_at_ms,
         amount: exact.amount,

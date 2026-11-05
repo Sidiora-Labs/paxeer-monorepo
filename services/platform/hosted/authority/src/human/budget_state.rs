@@ -286,7 +286,7 @@ fn produce_session(
     let state = value!({
         "budget_id":hex::encode(&record.id), "asset":hex::encode(&record.asset),
         "revocation_sequence":record.revocation, "observed_head_sequence":session.receipt_sequence,
-        "verification":4, "evidence_digest":hex::encode(&evidence),
+        "verification":layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(), "evidence_digest":hex::encode(&evidence),
         "receipt_digest":hex::encode(&digest(&budget_call)), "checkpoint_digest":hex::encode(&session.checkpoint_id),
         "age_sequences":0, "maximum_age_sequences":p.maximum_age_sequences, "remaining":remaining.to_string(),
         "closed":record.closed, "revoked":record.revoked, "canonical_core_bytes":hex::encode(&budget_call)

@@ -19,7 +19,7 @@ pub enum BudgetProofError {
 
 fn budget_verification_level(rank: u8) -> Result<VerificationLevel, BudgetProofError> {
     let level = VerificationLevel::from_wire_rank(rank).map_err(|_| BudgetProofError::Refused)?;
-    require(level == VerificationLevel::CHECKPOINT_FINALISED)?;
+    require(level == VerificationLevel::COMMITTED)?;
     Ok(level)
 }
 
@@ -453,6 +453,21 @@ mod tests {
         Arc,
     };
 
+    #[test]
+    fn repair_22_31_535_budget_verification_requires_committed() {
+        assert_eq!(
+            budget_verification_level(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(VerificationLevel::COMMITTED)
+        );
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                budget_verification_level(rank),
+                Err(BudgetProofError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
+
     const OWNER: &str =
         "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
     const HEIGHT: u64 = 8;
@@ -737,7 +752,9 @@ mod tests {
                 .expect("fixture JSON");
         let export = std::fs::read(fixture_path().with_file_name("export.json"))
             .expect("authority's committed export from task 8.98.18");
-        let document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).expect("current committed export label");
         let replay = Replay::new(answers);
         let hash = id(document["head"]["block_hash"].as_str().expect("hash")).expect("block hash");
         assert_eq!(
@@ -778,10 +795,15 @@ mod tests {
         assert_eq!(verified.committed_height(), HEIGHT);
         assert_eq!(verified.checkpoint_digest(), checkpoint.block_hash);
         assert_eq!(verified.source_account(), [2; 32]);
-        assert_eq!(
-            verified.verification(),
-            VerificationLevel::CHECKPOINT_FINALISED
-        );
+        assert_eq!(verified.verification(), VerificationLevel::COMMITTED);
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            let mut retired = document.clone();
+            retired["budget_state"]["verification"] = json!(rank);
+            assert!(
+                matches!(verify(&retired, &trust), Err(BudgetProofError::Refused)),
+                "rank {rank}"
+            );
+        }
         let wrong_owner = Did::new(
             b"did:layerx:0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
         )
