@@ -272,11 +272,11 @@ defmodule Indexer.Block.Catchup.Fetcher do
   end
 
   defp add_range_to_massive_blocks(range) do
-    clear_missing_ranges(range)
-
     range
     |> Enum.to_list()
     |> MassiveBlock.insert_block_numbers()
+
+    clear_missing_ranges(range)
   end
 
   defp clear_missing_ranges(initial_range, errors \\ []) do

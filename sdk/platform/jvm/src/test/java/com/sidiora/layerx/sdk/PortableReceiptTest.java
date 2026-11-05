@@ -367,7 +367,7 @@ public final class PortableReceiptTest {
 
     private static ConsensusTrust committedTrust() {
         return new ConsensusTrust("committed-fixture", 10,
-            Base64.getDecoder().decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI="));
+            Base64.getDecoder().decode("ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk="));
     }
 
     private static Committed.Timestamp cometTime(String value) {

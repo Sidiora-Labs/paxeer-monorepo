@@ -11,7 +11,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { ChevronDown } from "lucide-react";
-import type { DailyPnl } from "@/hooks/perps/useDailyPnl";
+import { DAILY_PNL_LIMIT, type DailyPnl } from "@/hooks/perps/useDailyPnl";
 import { weiOrZero, weiToNumber } from "@/ui/utils/format";
 import { cn } from "@/ui/utils/cn";
 
@@ -22,6 +22,8 @@ interface PortfolioAssetsChartProps {
   /** Current on-chain vault USD — used to anchor the rightmost data point. */
   totalVaultUsd: number;
   isLoading?: boolean;
+  historyCapped?: boolean;
+  skippedDays?: number;
   /** Optional fixed range; when omitted the component owns its own dropdown. */
   range?: AssetsTimeRange;
   onChangeRange?: (r: AssetsTimeRange) => void;
@@ -29,17 +31,15 @@ interface PortfolioAssetsChartProps {
 }
 
 /**
- * Assets balance over time.
- *
- * Reconstructs an approximate historical series by walking backwards from
- * the current vault value and subtracting per-day realised PnL. It's not a
- * perfect replay (we don't have historical deposits/withdrawals here) but
- * it gives the user a meaningful curve instead of an empty state.
+ * PnL-only estimate anchored to the current vault value. Historical cash
+ * flows are unavailable, so this curve cannot represent balance history.
  */
 export function PortfolioAssetsChart({
   dailyPnl,
   totalVaultUsd,
   isLoading,
+  historyCapped = false,
+  skippedDays = 0,
   range: externalRange,
   onChangeRange,
   className,
@@ -65,9 +65,23 @@ export function PortfolioAssetsChart({
       )}
     >
       <header className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-foreground">Assets</h3>
-        <RangePicker value={range} onChange={setRange} />
+        <h3 className="text-sm font-semibold text-foreground">Assets · PnL-only estimate</h3>
+        <RangePicker value={range} onChange={setRange} historyCapped={historyCapped} />
       </header>
+
+      <p className="mb-3 text-[11px] text-muted-foreground">
+        Estimate excludes deposits and withdrawals; this is not a balance history.
+      </p>
+      {historyCapped ? (
+        <p role="status" className="mb-3 text-[11px] text-amber-400">
+          History limited to the last {DAILY_PNL_LIMIT} active days.
+        </p>
+      ) : null}
+      {skippedDays > 0 ? (
+        <p role="status" className="mb-3 text-[11px] text-amber-400">
+          {skippedDays} {skippedDays === 1 ? "day" : "days"} skipped: incomplete values.
+        </p>
+      ) : null}
 
       {isLoading && empty ? (
         <div className="flex-1 min-h-[200px] rounded-[var(--radius-md)] bg-white/[0.02] animate-pulse" />
@@ -119,7 +133,7 @@ export function PortfolioAssetsChart({
                 labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                 formatter={(value: number) => [
                   `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`,
-                  "Assets",
+                  "PnL-only estimate",
                 ]}
               />
               <Area
@@ -150,9 +164,11 @@ const RANGE_OPTIONS: Array<{ key: AssetsTimeRange; label: string }> = [
 function RangePicker({
   value,
   onChange,
+  historyCapped,
 }: {
   value: AssetsTimeRange;
   onChange: (v: AssetsTimeRange) => void;
+    historyCapped: boolean;
 }) {
   return (
     <div className="relative">
@@ -163,7 +179,7 @@ function RangePicker({
       >
         {RANGE_OPTIONS.map((o) => (
           <option key={o.key} value={o.key}>
-            {o.label}
+            {o.key === "ALL" && historyCapped ? `Last ${DAILY_PNL_LIMIT} active days` : o.label}
           </option>
         ))}
       </select>

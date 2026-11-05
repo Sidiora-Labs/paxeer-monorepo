@@ -309,7 +309,14 @@ async function px_root_route_preserves_history_cursor_and_errors(): Promise<void
 
 function root_route_contracts_match_the_actual_producers(): void {
   assert.match(source("rpc/rpcstack.go"), /if path == "" \{\s*return r.URL.Path == "\/"/u);
-  assert.match(source("services/platform/hosted/gateway/src/main.rs"), /request.path == "\/" && request.method == "POST"/u);
+  assert.match(source("services/platform/hosted/gateway/src/main.rs"), /if let Some\(result\) = public_reads::route\(config, request\)/u);
+  assert.match(
+    source("services/platform/hosted/gateway/src/public_reads.rs"),
+    /if matches!\(request.path.as_str\(\), "\/" \| "\/openrpc.json"\) \{\s*return Some\(super::rpc::route\(config, request\)\);/u,
+  );
+  const gatewayRpc = source("services/platform/hosted/gateway/src/rpc.rs");
+  assert.match(gatewayRpc, /if request.path != "\/" \{\s*return response\(404, "not_found", None\);/u);
+  assert.match(gatewayRpc, /if request.method != "POST" \{\s*return response\(405, "method_not_allowed", None\);/u);
 }
 
 function exchange_account_bearing_dispatch_is_required(): void {

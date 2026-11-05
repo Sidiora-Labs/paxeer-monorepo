@@ -1,0 +1,99 @@
+[repair]
+task = "22.31.533"
+base_revision = "224d7971000a239cfe434af3c093ba0edb40bb25"
+acceptance = "22998.1"
+decisions = ["2538", "2588"]
+gotchas = ["3121", "3126", "2962"]
+landed_through = "22.31.530, revision 12909a1d24de566cdd513c6af39cf496a8b2edf4, merged into the current main base."
+receipt_digest = "SHA-256 over LXP/v1/receipt followed by a NUL byte and the canonical unsigned receipt encoding, including its zero signature-count byte; this is the receipt-signature digest returned by the workspace SDK's verifySequencerReceipt."
+replay = "receipt-replay.test.mjs:7,36,42: verify the committed V1-layerxledger-pay-exact vector with its pinned key and use hex(verified.receiptDigest) in the portable proof."
+settlement = "settlement-response.test.mjs:105,108: verify the generated signed receipt with the workspace SDK and put hex(verified.receiptDigest) in the portable proof."
+verification = "receipt-verification.test.mjs:100,103: verify the generated signed receipt with the workspace SDK and put hex(verified.receiptDigest) in the portable proof."
+tampering = "Original re-pin sites receipt-replay.test.mjs:149 and receipt-verification.test.mjs:152 (now 153) retain tampered signed bytes with keccak-256 digests that cannot verify as receipt-signature digests; both verification-failure assertions remain unchanged."
+assertions = "Attempt 2 preserves every test and assertion from the landed 22.31.530 candidate; no test or product code changes in this continuation."
+resolution = "Take the current main side of all three seed conflicts and retain the main tampered-receipt cases. All three suites are byte-for-byte identical to the current base."
+
+[alignment.principal]
+test = "receiptIdentityIsBoundToOnePrincipal"
+landed = "22.31.530 renamed receiptIdentityIsScopedToMerchant and aligned it with receiptReusePrincipal: the second principal and later cross-principal replays receive receipt_reuse (409), with exactly one release."
+
+[alignment.schemes]
+test = "meteredOfferRefusesExactEvidence"
+landed = "22.31.530 renamed meteredOfferWithPurposeHashVerifies and aligned it with sellerGrantFinalVerifier: exact-payment evidence is refused with verification-failure for both metered and subscription offers; purpose-hash mismatch remains refused."
+
+[alignment.committed]
+test = "settlementResponseCarriesPortableReceipt"
+landed = "22.31.530 uses recordedCommittedReceipt and its independent validator resolver through SellerMiddlewareConfig.commitments. The portable digest equals hex(signed.receiptDigest), and signature and validator counts match recorded evidence. Stored replay, missing-evidence refusal and downgrade refusal remain asserted."
+
+[alignment.replay]
+test = "replayedSettlementAnswersStoredTransaction"
+landed = "22.31.530 verifies a differing request before refusing receipt reuse, satisfying the retained settleCount 2 assertion with one release and one stored fulfillment."
+
+[qualification]
+build = "hf-build"
+build_command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build"
+verify = "hf-done"
+verify_command = "cg spec done 22.31.533 -f layerx-merge --root /work/paxeer-monorepo"
+verify_targets = ["receipt-replay.test.mjs", "settlement-response.test.mjs", "receipt-verification.test.mjs", "repair-22-31-434.test.mjs"]
+gate_results = "/out/run/gates.jsonl: authoritative build and verify rows record exact candidate revision, command, exit code and private evidence log location."
+verified_revision = "The revision in the passing verify row of /out/run/gates.jsonl, repeated verbatim in the final evidence line; no completion is claimed before hf-done passes."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+record_policy = "This record precedes qualification and references the private gate results so recording evidence does not change the candidate after build or verification."
+external_access = "Only the declared build and verification; no credential or live endpoint (gotcha 2962)."
+attempt = 2
+prior_evidence = "The gate.build.1, gate.verify.1 and finding sections below are historical evidence from attempt 1; their private logs belonged to that attempt."
+current_evidence = "Attempt 2 uses the fresh /out/run/gates.jsonl. Its build and verify rows provide revision, command, exit and log; build and verify must both exit zero at the same candidate revision. The final response copies the last hf-done evidence line verbatim."
+completion = "Qualification is established only by the passing hf-done row and cg spec done record, never by the historical attempt-1 rows or this pre-gate record."
+
+[gate.build.1]
+revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[gate.verify.1]
+revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+command = "cg spec done 22.31.533 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "22 tests executed: 18 passed, 4 failed, 0 skipped or cancelled; all nine repair-22-31-434 cases passed. Task remains in_progress and is not qualified."
+
+[finding.merchant_scope]
+revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+command = "cg spec done 22.31.533 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "receiptIdentityIsScopedToMerchant, receipt-replay.test.mjs:135: the second merchant receives refused instead of released."
+assumption = "This existing reuse assertion conflicts with receiptReusePrincipal, which passed and requires reuse across principals to be refused; preserve both assertions without a product change."
+
+[finding.metered_evidence]
+revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+command = "cg spec done 22.31.533 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "meteredOfferWithPurposeHashVerifies, receipt-verification.test.mjs:213: verifyPaymentReceipt rejects the generated exact-payment receipt with verification-failure."
+assumption = "This existing success assertion conflicts with sellerGrantFinalVerifier, which passed and requires exact-payment events to fail metered offers; preserve both assertions."
+
+[finding.committed_evidence]
+revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+command = "cg spec done 22.31.533 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "settlementResponseCarriesPortableReceipt, settlement-response.test.mjs:291: the committed settlement throws verification-failure before the portable-header assertions execute."
+assumption = "The existing generated commitment witness lacks the recorded inclusion and independently trusted validators exercised by the passing 434 cases; changing committed evidence exceeds the digest-only repair."
+
+[finding.replay_settlement_count]
+revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+command = "cg spec done 22.31.533 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "replayedSettlementAnswersStoredTransaction, settlement-response.test.mjs:357: settleCount remains 1 where the unchanged assertion expects 2."
+assumption = "This is the differing-request verification behavior assigned to dependent task 22.31.530; preserve the assertion and product code."
+
+[result.attempt-1]
+status = "implemented_not_qualified"
+qualified_revision = "none"
+tested_revision = "b0b47e18f15b080ecbef09f13842e8899198ba56"
+policy = "Unrelated and cross-task failures are recorded once and not chased; no unchanged gate rerun, assertion relaxation or product edit."
+record_append = "The exact gate evidence and findings were appended after qualification; this documentation update is not claimed as a built or verified candidate."

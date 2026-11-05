@@ -140,7 +140,7 @@ impl BankCommitEvidence {
     }
 
     /// Revalidates retained consensus and receipt coverage without a live node.
-    pub(super) fn verify_retained(
+    pub(crate) fn verify_retained(
         &self,
         receipt: &layerx_intents::canonical::ProtocolReceipt,
         keys: &[ReceiptKeyEntry],
@@ -162,6 +162,10 @@ impl BankCommitEvidence {
             .verify(checkpoint.header.data_hash.ok_or_else(bad)?, 0)
             .map_err(|_| bad())?;
         Ok(())
+    }
+
+    pub(crate) fn checkpoint_id(&self) -> Result<[u8; 32], JourneyError> {
+        Ok(retained_checkpoint(self)?.header.block_hash())
     }
 
     fn verify_batch(

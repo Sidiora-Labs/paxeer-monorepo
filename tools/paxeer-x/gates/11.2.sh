@@ -2,7 +2,7 @@
 # Focused behavior gate for task 11.2: the identity provider assertion tests.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.." || exit 1
-output=$(timeout 15m tools/runtime/run-with-clock.sh sh -c 'cd human && cargo test -p layerx-human-identity-provider --test assertion' 2>&1)
+output=$(timeout 15m tools/runtime/run-with-clock.sh sh -c 'cd services/human && cargo test -p layerx-human-identity-provider --test assertion' 2>&1)
 code=$?
 printf '%s\n' "$output"
 summary=$(grep -E '^test result: ' <<<"$output" | tail -n 1)

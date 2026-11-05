@@ -16,7 +16,7 @@ import { coins } from '@cosmjs/amino';
 import { QueryBalanceRequest, QueryBalanceResponse } from 'cosmjs-types/cosmos/bank/v1beta1/query';
 import { paxProtoRegistry, Encoder } from '@pax-js/cosmos/encoding';
 import { Endpoints } from '../config/endpoints';
-import { waitUntil } from './chainUtils';
+import { waitUntil, rpcResult, queryPaxChainHeight } from './chainUtils';
 import { PAX_HD_PATH, DOCKER_NODE, DOCKER_KEY_PASSWORD, PAXD_ENV } from './constants';
 
 const exec = util.promisify(require('node:child_process').exec);
@@ -150,6 +150,76 @@ export async function isPaxDocker(): Promise<boolean> {
     }
 }
 
+/** Genesis identity includes the complete canonical document, not just a reusable chain id. */
+export function canonicalGenesis(value: unknown): string {
+    if (Array.isArray(value)) return '[' + value.map(canonicalGenesis).join(',') + ']';
+    if (value !== null && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        return (
+            '{' +
+            Object.keys(record)
+                .sort()
+                .map((key) => JSON.stringify(key) + ':' + canonicalGenesis(record[key]))
+                .join(',') +
+            '}'
+        );
+    }
+    const encoded = JSON.stringify(value);
+    if (encoded === undefined) throw new Error('Invalid genesis value');
+    return encoded;
+}
+
+export function assertSameChainGenesis(configured: any, container: any): void {
+    if (
+        !configured ||
+        !container ||
+        typeof configured.chain_id !== 'string' ||
+        !configured.chain_id ||
+        !configured.genesis_time ||
+        !configured.app_state ||
+        canonicalGenesis(configured) !== canonicalGenesis(container)
+    ) {
+        throw new Error(
+            'Docker funding refused: configured endpoint and container have different genesis identities',
+        );
+    }
+}
+
+export async function assertDockerChainBinding(provider: ethers.JsonRpcProvider): Promise<void> {
+    const options = { deadline: Date.now() + 30_000 };
+    const height = await queryPaxChainHeight(undefined, options);
+    const selected = await provider.send('eth_getBlockByNumber', [
+        ethers.toQuantity(height),
+        false,
+    ]);
+    const configured = await rpcResult(
+        Endpoints.pax.evmRpc,
+        'eth_getBlockByNumber',
+        [ethers.toQuantity(height), false],
+        options,
+    );
+    if (!selected || selected.hash !== configured.hash)
+        throw new Error('Funding provider is on a different EVM chain');
+    const { stdout } = await exec(
+        `docker inspect --format '{{json .NetworkSettings.Ports}}' ${DOCKER_NODE}`,
+    );
+    const ports = JSON.parse(stdout)['26657/tcp'] as { HostIp: string; HostPort: string }[] | null;
+    if (!ports || ports.length === 0)
+        throw new Error('Docker funding requires a published Cosmos RPC port');
+    const binding = ports[0];
+    const host =
+        binding.HostIp === '0.0.0.0' || binding.HostIp === '::' ? '127.0.0.1' : binding.HostIp;
+    if (!/^[0-9]+$/.test(binding.HostPort)) throw new Error('Invalid Docker Cosmos RPC port');
+    const containerRpc = `http://${host.includes(':') ? '[' + host + ']' : host}:${
+        binding.HostPort
+    }`;
+    const [endpointGenesis, containerGenesis] = await Promise.all([
+        rpcResult(Endpoints.pax.cosmosRpc, 'genesis', {}, options),
+        rpcResult(containerRpc, 'genesis', {}, options),
+    ]);
+    assertSameChainGenesis(endpointGenesis.genesis, containerGenesis.genesis);
+}
+
 async function bankSendFromContainerAdmin(toPaxAddress: string, amountUhpx: string): Promise<void> {
     const { stdout } = await exec(
         `docker exec ${DOCKER_NODE} /bin/bash -c '${PAXD_ENV} && printf "${DOCKER_KEY_PASSWORD}\\n" | paxd keys show admin -a'`,
@@ -215,6 +285,7 @@ export async function fundAdminOnPax(
         );
     }
 
+    await assertDockerChainBinding(provider);
     const paxAddress = await paxAddressFromMnemonic(mnemonic);
     await bankSendFromContainerAdmin(paxAddress, amountUhpx);
     // Wait for the bank send to land so association has gas to spend.
@@ -223,8 +294,8 @@ export async function fundAdminOnPax(
         label: 'admin pax bank balance',
     });
     await associate(mnemonic, paxAddress);
-    await waitUntil(
-        async () => ((await provider.getBalance(adminEvmAddress)) > 0n ? true : null),
-        { timeoutMs: 30_000, label: 'admin evm balance after association' },
-    );
+    await waitUntil(async () => ((await provider.getBalance(adminEvmAddress)) > 0n ? true : null), {
+        timeoutMs: 30_000,
+        label: 'admin evm balance after association',
+    });
 }

@@ -32,10 +32,12 @@ func TestV610IsRegisteredBesideThePlansThatPrecedeIt(t *testing.T) {
 	names := parseUpgradesList(string(tags))
 	require.NotContains(t, names, V610Upgrade)
 	require.NotContains(t, names, ActivationUpgrade)
-	require.Equal(t, xwebUpgrade, LatestUpgrade)
+	require.Equal(t, "v7.0", LatestUpgrade)
+	require.Equal(t, LatestUpgrade, names[len(names)-1])
 	require.Equal(t, 1, semver.Compare(V610Upgrade, ActivationUpgrade))
 
 	a := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false).App
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	require.True(t, a.UpgradeKeeper.HasHandler(V610Upgrade))
 
 	// The plans that precede it keep their names, their handlers and their store
@@ -53,7 +55,7 @@ func TestV610IsRegisteredBesideThePlansThatPrecedeIt(t *testing.T) {
 	require.Empty(t, activation.Deleted)
 	require.Empty(t, activation.Renamed)
 
-	require.Equal(t, []string{"v6.9", "v6.10", "v6.12.0", "v7.0"}, knownUpgradePlans())
+	require.Equal(t, []string{"v6.9", "v6.10", "v6.12.0", "v7.0", "v7.0-anchor-store-delete"}, knownUpgradePlans())
 }
 
 func TestV610AttestorsAreTheSuppliedSetInAscendingOrder(t *testing.T) {
@@ -75,6 +77,7 @@ func TestV610WritesTheOperatingValuesInTheBlockTheUpgradeInfoNames(t *testing.T)
 	valPub := secp256k1.GenPrivKey().PubKey()
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), valPub, true)
 	a, ctx := testWrapper.App, testWrapper.Ctx
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 
 	const height = int64(42)
 	writeV610UpgradeInfo(t, a, height)

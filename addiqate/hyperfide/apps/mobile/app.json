@@ -1,0 +1,93 @@
+{
+  "expo": {
+    "name": "Hyperfide",
+    "slug": "hyperfide",
+    "version": "0.39.0",
+    "scheme": "hyperfide",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "app.hyperfide.mobile",
+      "supportsTablet": true,
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/ios-icon-dark.png"
+      },
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "Hyperfide connects to a Hyperfide server on your local network or tailnet.",
+        "NSCameraUsageDescription": "Hyperfide attaches photos you take to your prompts.",
+        "NSMicrophoneUsageDescription": "Hyperfide records voice input and transcribes it into your prompt.",
+        "NSPhotoLibraryUsageDescription": "Hyperfide attaches photos you pick to your prompts.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
+    },
+    "android": {
+      "package": "app.hyperfide.mobile",
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "./plugins/with-selection-accent",
+      "./plugins/with-push-consent",
+      "expo-router",
+      "expo-secure-store",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 88,
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/splash-logo-dark.png",
+            "backgroundColor": "#000000"
+          },
+          "android": {
+            "dark": {
+              "backgroundColor": "#151515"
+            }
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-notification-icon.png",
+          "color": "#000000",
+          "defaultChannel": "threads"
+        }
+      ],
+      "expo-quick-actions",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

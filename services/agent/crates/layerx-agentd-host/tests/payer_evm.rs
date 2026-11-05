@@ -4,6 +4,8 @@ mod attestor_cluster;
 mod payer;
 #[path = "payer.rs"]
 mod receipt_fixture;
+#[path = "../../layerx-mcp/tests/support/clock.rs"]
+mod test_clock;
 
 use attestor_cluster::{checked, Cluster, Result, SIGNERS};
 use layerx_agentd::prepare::evm::PrecompileCall;
@@ -94,6 +96,12 @@ impl SigningFixture {
             network_id: 125,
             timeout_seconds: 60,
         }))?;
+        let clock: Arc<dyn layerx_types::clock::Clock> = Arc::clone(&cluster.clock) as Arc<_>;
+        signer =
+            checked(signer.with_native_replay_journal(
+                cluster.pki.path("web-payer-native-replay.json"),
+                clock,
+            ))?;
         checked(signer.set_evm_assertion(&cluster.tokens.mint(owner)?))?;
         Ok(Self {
             _cluster: cluster,
@@ -442,6 +450,7 @@ fn assert_call(
 fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
     with_signer(|signer| {
         let mut rpc = RpcServer::start(signer.evm_address())?;
+        let mut boundary = payer(Arc::clone(&signer), &rpc.endpoint)?.into_web_payer();
         let mut payer = payer(Arc::clone(&signer), &rpc.endpoint)?;
         let config = checked(WebConfig::new(
             &rpc.endpoint,
@@ -474,7 +483,12 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
             "maxTimeoutSeconds": 30,
             "extra": {"layerx": {"currency": "USDC", "account": recipient_account([0x41; 32]).0}},
         }))?;
-        let terms = checked(web_call.exact_terms(&config, &offer, 100))?;
+        let terms = checked(web_call.exact_terms_with_payer(
+            &config,
+            &offer,
+            &mut boundary,
+            &test_clock::TestClock::new(1_800_000_000),
+        ))?;
         let mut wrong = terms.clone();
         wrong.payer_account[0] ^= 1;
         assert_eq!(
@@ -524,9 +538,9 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
         assert_eq!(
             *methods,
             [
-                "eth_call",
-                "eth_call",
-                "eth_call",
+                "eth_call", // accountId(bytes32,bytes32) resolves the payer through the boundary.
+                "eth_call", // accountOwner(bytes32) refuses the changed payer account.
+                "eth_call", // accountOwner(bytes32) validates the original payer account.
                 "eth_chainId",
                 "eth_getTransactionCount",
                 "eth_estimateGas",
@@ -662,7 +676,6 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         Ok(())
     })
 }
-
 
 #[path = "support/payer_audit.rs"]
 mod payer_audit;

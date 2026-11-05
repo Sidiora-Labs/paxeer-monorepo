@@ -3,6 +3,24 @@ use layerx_platform_gateway::http::OutboundRequest;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
+
+// consensus/types/vote_set.go: MaxVotesCount also bounds a valid validator set.
+const MAX_VALIDATORS: u64 = 10_000;
+const VALIDATORS_PER_PAGE: u64 = 100;
+const MAX_VALIDATOR_PAGES: u64 = MAX_VALIDATORS / VALIDATORS_PER_PAGE;
+const VALIDATORS_DEADLINE: Duration = Duration::from_secs(5);
+const MAX_VALIDATOR_READS: usize = 16;
+static VALIDATOR_READS: AtomicUsize = AtomicUsize::new(0);
+
+struct ValidatorRead;
+impl Drop for ValidatorRead {
+    fn drop(&mut self) {
+        VALIDATOR_READS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 
 fn unavailable(id: &Value, code: &str) -> Value {
     let mut answer = rpc::error(id, -32003, "Chain read unavailable");
@@ -25,23 +43,34 @@ fn height(params: Option<&Value>) -> Option<u64> {
     decimal(value).filter(|height| *height > 0)
 }
 
-fn consensus(config: &Config, method: &str, id: &Value, params: Value) -> Option<Value> {
+pub(super) fn consensus(config: &Config, method: &str, id: &Value, params: Value) -> Option<Value> {
     let mut endpoint = std::env::var("LAYERX_GATEWAY_CONSENSUS_RPC_URL")
         .ok()
         .and_then(|url| Endpoint::parse(&url).ok())?;
+    consensus_request(&config.client, &mut endpoint, method, id, params)
+}
+
+fn consensus_request(
+    client: &layerx_platform_gateway::http::Client,
+    endpoint: &mut Endpoint,
+    method: &str,
+    id: &Value,
+    params: Value,
+) -> Option<Value> {
     let path = if endpoint.base_path.is_empty() {
         "/".to_owned()
     } else {
-        std::mem::take(&mut endpoint.base_path)
+        endpoint.base_path.clone()
     };
     let body = serde_json::to_vec(&json!({
         "jsonrpc": "2.0", "id": id, "method": method, "params": params
     }))
     .ok()?;
-    let response = config
-        .client
+    let mut target = endpoint.clone();
+    target.base_path.clear();
+    let response = client
         .request_unauthenticated(
-            &endpoint,
+            &target,
             &OutboundRequest {
                 method: "POST",
                 path: &path,
@@ -109,32 +138,83 @@ fn px_getCommit(config: &Config, id: &Value, height: u64) -> Option<Value> {
 
 #[allow(non_snake_case)]
 fn px_getValidators(config: &Config, id: &Value, height: u64) -> Option<Value> {
+    let deadline = Instant::now().checked_add(VALIDATORS_DEADLINE)?;
+    let mut endpoint = std::env::var("LAYERX_GATEWAY_CONSENSUS_RPC_URL")
+        .ok()
+        .and_then(|url| Endpoint::parse(&url).ok())?;
+    VALIDATOR_READS
+        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+            (active < MAX_VALIDATOR_READS).then_some(active + 1)
+        })
+        .ok()?;
+    let permit = ValidatorRead;
+    let client = config.client.independent();
+    let id = id.clone();
+    let (send, receive) = std::sync::mpsc::sync_channel(1);
+    // A bounded worker also covers DNS, connect and TLS time in the caller's
+    // aggregate deadline. A timed-out worker retains its permit until I/O exits.
+    std::thread::Builder::new()
+        .name("gateway-validators".into())
+        .spawn(move || {
+            let _permit = permit;
+            let result = validator_pages(height, deadline, |page| {
+                consensus_request(
+                    &client,
+                    &mut endpoint,
+                    "validators",
+                    &id,
+                    json!({
+                        "height": height.to_string(), "page": page.to_string(),
+                        "per_page": VALIDATORS_PER_PAGE.to_string()
+                    }),
+                )
+            });
+            let _ = send.send(result);
+        })
+        .ok()?;
+    receive
+        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+        .ok()?
+}
+
+fn validator_pages(
+    height: u64,
+    deadline: Instant,
+    mut read: impl FnMut(u64) -> Option<Value>,
+) -> Option<Value> {
     let mut validators = Vec::new();
-    let mut page = 1_u64;
     let mut total = None;
-    loop {
-        let result = consensus(
-            config,
-            "validators",
-            id,
-            json!({
-                "height": height.to_string(), "page": page.to_string(), "per_page": "100"
-            }),
-        )?;
+    let mut addresses = BTreeSet::new();
+    for page in 1..=MAX_VALIDATOR_PAGES {
+        if Instant::now() >= deadline {
+            return None;
+        }
+        let result = read(page)?;
+        if Instant::now() >= deadline {
+            return None;
+        }
         if decimal(&result["block_height"]) != Some(height) {
             return None;
         }
         let count = decimal(&result["total"])?;
+        if count == 0 || count > MAX_VALIDATORS {
+            return None;
+        }
         if total.is_some_and(|total| total != count) {
             return None;
         }
         total = Some(count);
         let entries = result["validators"].as_array()?;
-        if decimal(&result["count"])? != entries.len() as u64 || entries.len() > 100 {
+        if decimal(&result["count"])? != entries.len() as u64
+            || entries.len() as u64 > VALIDATORS_PER_PAGE
+        {
             return None;
         }
         for entry in entries {
             let address = entry.get("address").filter(|value| value.is_string())?;
+            if !addresses.insert(address.as_str()?.to_owned()) {
+                return None;
+            }
             let public_key = entry.get("pub_key").filter(|value| value.is_object())?;
             let power = entry.get("voting_power")?;
             decimal(power)?;
@@ -149,8 +229,8 @@ fn px_getValidators(config: &Config, id: &Value, height: u64) -> Option<Value> {
         if entries.is_empty() || validators.len() as u64 > count {
             return None;
         }
-        page = page.checked_add(1)?;
     }
+    None
 }
 
 fn consensus_inner(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {

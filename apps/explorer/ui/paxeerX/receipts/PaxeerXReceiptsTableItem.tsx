@@ -43,13 +43,17 @@ const PaxeerXReceiptsTableItem = ({ item, isLoading }: Props) => {
         ) }
       </TableCell>
       <TableCell verticalAlign="middle">
-        <BlockEntity
-          isLoading={ isLoading }
-          number={ item.block_number }
-          truncation="none"
-          fontWeight={ 600 }
-          noIcon
-        />
+        { item.block_number === null ? (
+          <Text color="text.secondary">Pending</Text>
+        ) : (
+          <BlockEntity
+            isLoading={ isLoading }
+            number={ item.block_number }
+            truncation="none"
+            fontWeight={ 600 }
+            noIcon
+          />
+        ) }
       </TableCell>
     </TableRow>
   );

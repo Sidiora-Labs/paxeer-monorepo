@@ -3,7 +3,7 @@
   "info": {
     "title": "LayerX public JSON-RPC",
     "version": "0.1.0",
-    "description": "The merged Paxeer network is one execution domain in paxd, with EVM chain ID 125 (0x7d) and BFT block commitment as finality. Public node JSON-RPC is served at the root path of https://api-mainnet-beta.paxeer.network/ and https://api1.mainnet-beta.paxeer.network/ through https://api14.mainnet-beta.paxeer.network/. This OpenRPC document declares the hosted px_* methods and pax_sequencerReceipt; obtain hosted gateway coordinates and credentials from its operator. Hosted JSON-RPC uses JSON-RPC 2.0 POST / with Content-Type: application/json; authenticated route discovery uses GET /v1/routes at that gateway. Public node availability does not establish hosted px_* API deployment at public node URLs. The unified /rpc interface and its subtree are retired; there is no separate LayerX interface or execution router. Use native signed transactions and chain reads for network execution. The px_* methods provide registration, configured faucet access, account, balance, asset, history, consensus, receipt-key and capability reads, and authenticated route discovery, subject to each method's authentication and backend requirements. pax_sequencerReceipt relays the node receipt and commitment rung unchanged; submitted and receipted do not establish finality, which requires committed block evidence. Missing backend configuration or unavailable evidence produces an explicit refusal; balances, metadata, fees and finality are never fabricated."
+    "description": "The merged Paxeer network is one execution domain in paxd, with EVM chain ID 125 (0x7d) and BFT block commitment as finality. Public node JSON-RPC is served at the root path of https://api-mainnet-beta.paxeer.network/ and https://api1.mainnet-beta.paxeer.network/ through https://api14.mainnet-beta.paxeer.network/. This OpenRPC document declares the hosted px_* methods and pax_sequencerReceipt; node-only eth_*, net_* and web3_* methods are refused by the hosted dispatcher and use the node origin instead; obtain hosted gateway coordinates and credentials from its operator. Hosted JSON-RPC uses JSON-RPC 2.0 POST / with Content-Type: application/json; discovery is GET /openrpc.json; authenticated route discovery uses GET /v1/routes at that gateway. Public node availability does not establish hosted px_* API deployment at public node URLs. The unified /rpc interface and its subtree are retired; there is no separate LayerX interface or execution router. Use native signed transactions and chain reads for network execution. The px_* methods provide registration, configured faucet access, account, balance, asset, history, consensus, receipt-key and capability reads, and authenticated route discovery, subject to each method's authentication and backend requirements. pax_sequencerReceipt relays the node receipt and commitment rung unchanged; submitted and receipted do not establish finality, which requires committed block evidence. Missing backend configuration or unavailable evidence produces an explicit refusal; balances, metadata, fees and finality are never fabricated. A method targeting an unavailable surface is refused with -32003 surface_unavailable. This refusal applies while px_getCapabilities reports that surface false for exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016), launchpad (0x0000000000000000000000000000000000001017), ledger (0x000000000000000000000000000000000000101a), pay (0x000000000000000000000000000000000000101b), auth (0x000000000000000000000000000000000000101c) and programs (0x000000000000000000000000000000000000101d)."
   },
   "methods": [
     {
@@ -14,12 +14,22 @@
           "name": "signer_public_key",
           "required": true,
           "schema": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         },
         {
           "name": "registration_signature",
           "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{128}$"
+          }
+        },
+        {
+          "name": "email_or_verification_token",
+          "required": false,
+          "description": "An email address to begin signup, or the vfy_ token followed by 64 lowercase hexadecimal digits to verify signup. Omit for direct principal registration.",
           "schema": {
             "type": "string"
           }
@@ -31,7 +41,7 @@
           "type": "object"
         }
       },
-      "description": "Creates one self-service identity principal in the beta tenant. Both arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as beta.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. The result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
+      "description": "Creates one self-service identity principal in the registration tenant. The operator configures the trusted tenant with LAYERX_GATEWAY_TENANT when enabling registration; no positional argument or request header selects a tenant. Signatures and derived subjects are bound to that configured tenant, and identity responses must confirm it. The first two arguments are lowercase hexadecimal: a 32-byte Ed25519 signer public key and its 64-byte signature over SHA-256(len-prefixed \"layerx-register-binding-v1\", tenant, signer_public_key). The subject is derived as <tenant>.<first 16 bytes of SHA-256(len-prefixed \"layerx-register-subject-v1\", tenant, signer_public_key)>, so registration is idempotent and cannot name another key holder's principal. Without the optional third argument the result is the identity principal record: tenant, sub, allowed_signer_public_keys, account and audiences. An email address starts signup and returns a pending result; a verification token completes signup and returns the identity session. Malformed arguments are -32602; a signature that does not prove possession of the named key is -32002; the per-minute self-registration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.",
       "errors": [
         {
           "code": -32602,
@@ -1277,7 +1287,17 @@
     {
       "name": "px_listAssets",
       "paramStructure": "by-position",
-      "params": [],
+      "params": [
+        {
+          "name": "cursor",
+          "required": false,
+          "schema": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "The next_cursor from the preceding page; a positive signed 64-bit registration row ID."
+          }
+        }
+      ],
       "result": {
         "name": "result",
         "schema": {
@@ -1285,7 +1305,9 @@
           "required": [
             "height",
             "assets",
-            "joined_limit"
+            "joined_limit",
+            "next_cursor",
+            "order"
           ],
           "additionalProperties": false,
           "properties": {
@@ -1346,7 +1368,7 @@
                       "string",
                       "null"
                     ],
-                    "pattern": "^[0-9]+$"
+                    "pattern": "^(0|[1-9][0-9]*)$"
                   },
                   "paused": {
                     "type": "boolean"
@@ -1363,11 +1385,21 @@
             "joined_limit": {
               "type": "integer",
               "const": 16
+            },
+            "next_cursor": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[1-9][0-9]*$"
+            },
+            "order": {
+              "const": "registration"
             }
           }
         }
       },
-      "description": "Lists indexer assets sorted by asset_id, limited to 16. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. Successful ledger reads also include paused (boolean) and verification (authenticated_committed_snapshot). All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null and omits paused and verification. Supply is an integer in base units rendered as a decimal string. Takes no arguments.",
+      "description": "Lists one indexer keyset page in stable registration order, selecting at most 16 assets before metadata retrieval. next_cursor continues after this page; null marks the end. Each request fetches one indexer page and has a ten-second aggregate deadline checked before and after chain exchanges, in addition to transport deadlines. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. Successful ledger reads also include paused (boolean) and verification (authenticated_committed_snapshot). All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null and omits paused and verification. Supply is an integer in base units rendered as a decimal string. An optional decimal cursor continues a prior page; omitted or empty params starts at the beginning.",
       "errors": [
         {
           "code": -32602,
@@ -1616,8 +1648,12 @@
                   "asset",
                   "amount",
                   "tx_id",
+                  "tx_hash",
                   "ordinal",
                   "final",
+                  "final_basis",
+                  "stability",
+                  "settlement",
                   "decoded",
                   "asset_metadata",
                   "blockHeight",
@@ -1682,6 +1718,74 @@
                   "final": {
                     "type": "boolean",
                     "description": "True once the row is below its chain's finalized boundary."
+                  },
+                  "final_basis": {
+                    "type": "string",
+                    "enum": [
+                      "block_commit",
+                      "explorer_api"
+                    ],
+                    "description": "Provenance of the indexer stability classification; this does not imply verified settlement."
+                  },
+                  "stability": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "finalized_boundary"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "depth_stable",
+                          "reversible",
+                          "explorer_recorded"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "block_commit",
+                          "explorer_api"
+                        ]
+                      },
+                      "finalized_boundary": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^(0|[1-9][0-9]*)$"
+                      }
+                    }
+                  },
+                  "settlement": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "unverified"
+                        ]
+                      },
+                      "source": {
+                        "type": "null"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no_verified_checkpoint_evidence"
+                        ]
+                      }
+                    },
+                    "description": "The indexer has no verified checkpoint evidence for this row. Stability alone is not settlement."
                   },
                   "decoded": {
                     "description": "The indexer's decoded payload for the row."
@@ -1793,6 +1897,11 @@
                   "log_index": {
                     "type": "string",
                     "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "tx_hash": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{64}$",
+                    "description": "Transaction hash, exactly equal to tx_id."
                   }
                 }
               }
@@ -1802,7 +1911,7 @@
                 "string",
                 "null"
               ],
-              "description": "The opaque cursor of the next older page, or null when this page is the last."
+              "description": "The indexer's position cursor for the next page, or null when this page is the last."
             },
             "indexedHeight": {
               "type": [
@@ -1824,7 +1933,7 @@
           }
         }
       },
-      "description": "The indexed transfer history of one Paxeer EVM address, newest first, from the layerx-indexer read API: native, ERC-20, pointer, bank, tokenfactory and custody rows, each joined with asset_metadata. Cursors are the indexer's, passed through unchanged. An address the indexer has never seen answers an empty page.",
+      "description": "The indexed transfer history of one Paxeer EVM address, oldest first in the indexer's (blockHeight, txIndex, logIndex) position order, from the layerx-indexer read API: native, ERC-20, pointer, bank, tokenfactory and custody rows, each joined with asset_metadata. An explicit DID selects its bound EVM address. Cursors are the indexer's, passed through unchanged. An address the indexer has never seen answers an empty page. Every row includes tx_hash exactly equal to tx_id.",
       "errors": [
         {
           "code": -32602,
@@ -1909,11 +2018,48 @@
           "properties": {
             "account": {
               "type": "object",
-              "description": "The px_resolveAccount document of the account."
+              "required": [
+                "evm_address",
+                "pax_address",
+                "layerx_did",
+                "layerx_account",
+                "bound"
+              ],
+              "properties": {
+                "evm_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pax_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_did": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bound": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false,
+              "description": "The px_resolveAccount document retained for the selected EVM address."
             },
             "accounts": {
               "type": "array",
-              "maxItems": 16,
+              "maxItems": 1,
               "items": {
                 "type": "object",
                 "required": [
@@ -1925,16 +2071,17 @@
                   "side": {
                     "type": "string",
                     "enum": [
-                      "layerx",
                       "paxeer"
                     ]
                   },
                   "account": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{40}$"
                   }
                 }
               },
-              "description": "The indexer account keys merged: the EVM address and every LayerX account of the bound DID (main account and the public core's per-asset accounts), at most 16."
+              "description": "The single EVM indexer account selected after resolution, tagged with side paxeer.",
+              "minItems": 1
             },
             "items": {
               "type": "array",
@@ -1952,8 +2099,12 @@
                   "asset",
                   "amount",
                   "tx_id",
+                  "tx_hash",
                   "ordinal",
                   "final",
+                  "final_basis",
+                  "stability",
+                  "settlement",
                   "decoded",
                   "asset_metadata",
                   "side",
@@ -2019,6 +2170,74 @@
                   "final": {
                     "type": "boolean",
                     "description": "True once the row is below its chain's finalized boundary."
+                  },
+                  "final_basis": {
+                    "type": "string",
+                    "enum": [
+                      "block_commit",
+                      "explorer_api"
+                    ],
+                    "description": "Provenance of the indexer stability classification; this does not imply verified settlement."
+                  },
+                  "stability": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "finalized_boundary"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "depth_stable",
+                          "reversible",
+                          "explorer_recorded"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "block_commit",
+                          "explorer_api"
+                        ]
+                      },
+                      "finalized_boundary": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^(0|[1-9][0-9]*)$"
+                      }
+                    }
+                  },
+                  "settlement": {
+                    "type": "object",
+                    "required": [
+                      "level",
+                      "source",
+                      "reason"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "level": {
+                        "type": "string",
+                        "enum": [
+                          "unverified"
+                        ]
+                      },
+                      "source": {
+                        "type": "null"
+                      },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "no_verified_checkpoint_evidence"
+                        ]
+                      }
+                    },
+                    "description": "The indexer has no verified checkpoint evidence for this row. Stability alone is not settlement."
                   },
                   "decoded": {
                     "description": "The indexer's decoded payload for the row."
@@ -2111,10 +2330,9 @@
                   "side": {
                     "type": "string",
                     "enum": [
-                      "layerx",
                       "paxeer"
                     ],
-                    "description": "Which half of the unified account the row belongs to."
+                    "description": "The selected EVM indexer account, always paxeer."
                   },
                   "blockHeight": {
                     "type": "integer",
@@ -2138,6 +2356,11 @@
                   "log_index": {
                     "type": "string",
                     "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "tx_hash": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{64}$",
+                    "description": "Transaction hash, exactly equal to tx_id."
                   }
                 }
               }
@@ -2147,7 +2370,7 @@
                 "string",
                 "null"
               ],
-              "description": "The opaque cursor of the next older page, or null when this page is the last."
+              "description": "The indexer's position cursor for the next page, or null when this page is the last."
             },
             "indexedHeight": {
               "type": [
@@ -2169,7 +2392,7 @@
           }
         }
       },
-      "description": "One history for the whole unified account: the account is resolved as px_resolveAccount does and the indexer pages of its EVM address and of each of its LayerX accounts are merged newest first in the indexer's row order, each row tagged with side and carrying its chain and asset_metadata. Every side is read at the same cursor, so next_cursor is the indexer row cursor of the last row returned and pages chain without gaps or repeats.",
+      "description": "Resolves the account as px_resolveAccount does, then reads only its EVM address from the layerx-indexer read API, oldest first in (blockHeight, txIndex, logIndex) position order. The account field retains the resolution document; accounts contains exactly one entry with side paxeer and the selected EVM address, and every row has side paxeer and asset_metadata. LayerX account identifiers are resolution metadata, not additional history sources; no public core account listing is queried. An unbound DID is refused with -32602. The indexer's position cursor is passed through unchanged. Every row includes tx_hash exactly equal to tx_id.",
       "errors": [
         {
           "code": -32602,

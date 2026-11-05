@@ -893,7 +893,7 @@ async function verifyAgentReceiptPayment(
     payTo: `0x${request.recipient}`, maxTimeoutSeconds: 120,
     extra: { layerx: { commitment: "receipted", purposeHash: toHex(log.body.subarray(53, 85)) } },
   }, keys, commitments);
-  const verification = Object.freeze({ ...verified, receiptDigest: keccak256(signedReceipt) });
+  const verification = Object.freeze({ ...verified });
   if (verification.payment.amount !== protocolAmount(request.amount)
     || !constantTimeHex(verification.payment.assetId, request.asset)
     || !constantTimeHex(verification.payment.to, request.recipient)) {
@@ -910,11 +910,13 @@ export async function verifyCommittedAgentPayment(
   receiptKeys: readonly SequencerReceiptKey[],
   commitments?: PaymentCommitmentResolver,
 ): Promise<Extract<AgentSpendResult, { readonly kind: "verified" }>> {
-  if (!constantTimeHex(keccak256(receiptBytes(evidence.signedReceipt)), reservation.receiptDigest)
-    || reservation.amount !== request.amount || reservation.asset !== request.asset) {
+  if (reservation.amount !== request.amount || reservation.asset !== request.asset) {
     throw new AgentMiddlewareError("budget-conflict");
   }
   const verification = await verifyAgentReceiptPayment(evidence, request, receiptKeys, commitments);
+  if (!constantTimeHex(verification.receiptDigest, reservation.receiptDigest)) {
+    throw new AgentMiddlewareError("budget-conflict");
+  }
   return { kind: "verified", verification, reservation };
 }
 
@@ -1001,14 +1003,14 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
     if (reservation.state === "committed") {
       const evidence = await this.config.receipts.resolve(reservation.receiptDigest);
       const outcome: SellerSettlementOutcome = { ...evidence, kind: "settled" };
-      await this.#verifyDrawReceipt(outcome, request, data, grant);
-      if (toHex(keccak256(receiptBytes(evidence.signedReceipt))) !== reservation.receiptDigest) throw new AgentMiddlewareError("budget-conflict");
+      const verified = await this.#verifyDrawReceipt(outcome, request, data, grant);
+      if (toHex(verified.receiptDigest) !== reservation.receiptDigest) throw new AgentMiddlewareError("budget-conflict");
       return outcome;
     }
     const outcome = await this.config.draws.execute(request);
     if (outcome.kind !== "settled") return outcome;
-    await this.#verifyDrawReceipt(outcome, request, data, grant);
-    const receiptDigest = toHex(keccak256(receiptBytes(outcome.signedReceipt)));
+    const verified = await this.#verifyDrawReceipt(outcome, request, data, grant);
+    const receiptDigest = toHex(verified.receiptDigest);
     await this.config.receipts.retainVerified?.({
       idempotencyKey: request.idempotencyKey, activityId: `0x${toHex(keccak256(receiptBytes(outcome.rawTransaction)))}`, receiptDigest,
     });
@@ -1034,11 +1036,14 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
         && key.last_height === BigInt(proof.receiptKey.lastHeight));
       if (proof.format !== "layerx-receipt-proof-v2" || proof.rawTransaction !== request.rawTransaction
         || (proof.verificationLevel !== "receipted" && proof.verificationLevel !== "committed")
-        || proof.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}` || keys.length === 0
+        || keys.length === 0
         || (paymentCommitment(request.requirements.extra) === "committed" && proof.verificationLevel !== "committed")) {
         throw new AgentMiddlewareError("verification-failure");
       }
       const verified = await verifySequencerReceipt(signedReceipt, receiptBytes(proof.rawTransaction), keys);
+      if (proof.receiptDigest !== `0x${toHex(verified.receiptDigest)}`) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
       const { receipt } = verified;
       const summary = receipt.effects[0];
       if (receipt.resultCode !== 0 || receipt.moduleId <= 11 || summary === undefined

@@ -7,7 +7,6 @@ import {
   ProductionClient,
   SecretBytes,
   isSelectableProtocolVersion,
-  keccak256,
   type SequencerReceiptKey,
   type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
@@ -477,7 +476,7 @@ export async function assertReceiptBacked(
   requirements: PaymentRequirements,
 ): Promise<void> {
   const evidenceDigest = layerXEvidenceDigest(decision.settlement.extensions);
-  const receiptDigest = `0x${toHex(keccak256(decision.verification.canonicalBytes))}`;
+  const receiptDigest = `0x${toHex(decision.verification.receiptDigest)}`;
   if (
     decision.verification.level !== "sequencer-signed"
     || decision.verification.receipt.resultCode !== 0

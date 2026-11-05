@@ -1,0 +1,60 @@
+[repair]
+task = "22.31.520"
+gotcha = 3079
+decision = 2567
+acceptance = "22998.1"
+base_revision = "20015d1ee1ee4d19959a4a57bbe75c9fcdd7fe46"
+cause = "pnpm 12 refuses the wallet workspace install when dependency lifecycle scripts have no explicit allowBuilds decision."
+repair = "Keep esbuild and sharp allowed and explicitly decline @sentry/cli, bufferutil, keccak and utf-8-validate."
+
+[scripts.sentry_cli]
+package = "@sentry/cli"
+allowed = false
+reason = "Its install script downloads the Sentry CLI binary, which the gateway build and tests do not need."
+
+[scripts.bufferutil]
+package = "bufferutil"
+allowed = false
+reason = "Its install script builds an optional native WebSocket buffer accelerator; the dependency already supplies a pure-JavaScript implementation."
+
+[scripts.keccak]
+package = "keccak"
+allowed = false
+reason = "Its install script builds a native hashing accelerator; the dependency already supplies a pure-JavaScript implementation."
+
+[scripts.utf_8_validate]
+package = "utf-8-validate"
+allowed = false
+reason = "Its install script builds an optional native UTF-8 validation accelerator; the dependency already supplies a pure-JavaScript implementation."
+
+[ceremony]
+path = "services/wallet/ceremony/internal/testsupport/postgres.go:230"
+observed = "installWorkspace already invokes pnpm install --frozen-lockfile from the wallet workspace, so the allowBuilds declarations apply without changing the helper."
+gate_scope = "Install dependencies and type-check the gateway only; no credentials or live service endpoints are required (gotcha 2962)."
+
+[evidence]
+pnpm = "12.15.0"
+ledger = "/out/run/gates.jsonl"
+revision_source = "The final passing verify row names the verified candidate revision and must match the final passing build row."
+build_command = "cd services/wallet && pnpm install --frozen-lockfile"
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.31.520 -f layerx-merge --root /work/paxeer-monorepo"
+verify_runs = "cd services/wallet && pnpm install --frozen-lockfile && pnpm --dir gateway run typecheck"
+verify_log = "/out/logs/verify-1.log"
+results_source = "The runner ledger records each gate's exact revision, command, exit code and private log; qualification requires both gates to exit zero on the same revision."
+install_criterion = "Install completes without ERR_PNPM_IGNORED_BUILDS, an approval prompt or a lockfile change."
+typecheck_criterion = "The gateway's unchanged typecheck script exits zero after the frozen install."
+main_line_limit = "The bounded gates qualify this candidate; no subsequent run on main is claimed."
+
+[gotcha.scope]
+observed = "Root gotcha and spec ledgers are outside the authorized scope; evidence is referenced here and retained in the runner's private ledger."
+action = "Modify only the workspace declarations and this repair record; leave existing tests and the ceremony install helper intact."
+
+[gotcha.pnpm_version]
+observed = "Running pnpm --version at the repository root reports ERR_PNPM_OTHER_PM_EXPECTED because that package pins npm."
+action = "Run pnpm from services/wallet, where the environment resolves pnpm 12.15.0, as the declared gates already do."
+
+[gotcha.candidate_preparation]
+observed = "The initial hf-build preparation traversed ignored node_modules files with individual git queries for over 28 minutes before running any build command or writing a gate ledger row."
+action = "Stop that preparation process (exit 143) and move generated wallet node_modules into private temporary storage before candidate preparation; each actual gate still runs the full frozen install and verification remains unchanged."
+evidence = "The runner ledger and gate logs record actual command executions; the interrupted preparation ran no install and produced no gate result."

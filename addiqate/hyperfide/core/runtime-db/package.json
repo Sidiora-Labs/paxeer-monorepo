@@ -1,0 +1,53 @@
+{
+  "name": "@hyperfide/db",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./internal-environment-lifecycle": {
+      "source": "./src/internal-environment-lifecycle.ts",
+      "types": "./src/internal-environment-lifecycle.ts",
+      "default": "./src/internal-environment-lifecycle.ts"
+    },
+    "./testing": {
+      "source": "./src/testing.ts",
+      "types": "./src/testing.ts",
+      "default": "./src/testing.ts"
+    }
+  },
+  "types": "./src/index.ts",
+  "files": [
+    "drizzle",
+    "drizzle-postgres"
+  ],
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "typecheck": "tsrs --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "db:generate": "drizzle-kit generate --config drizzle-sqlite.config.ts && drizzle-kit generate --config drizzle-postgres.config.ts && node scripts/embed-postgres-migrations.mjs",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@hyperfide/config": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@hyperfide/text-utils": "workspace:*",
+    "better-sqlite3": "12.10.0",
+    "drizzle-orm": "^0.38.0",
+    "nanoid": "^5.0.9",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@hyperfide/tsconfig": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.30.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1",
+    "@types/pg": "^8.15.5"
+  }
+}

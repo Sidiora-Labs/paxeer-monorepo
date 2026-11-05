@@ -1,11 +1,15 @@
-use std::process::Command;
+#[path = "support/genesis_transport.rs"]
+mod node_transport;
 
 #[test]
 fn genesis_through_real_tls_boundary() {
-    let status = Command::new("python3")
-        .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/genesis.py"))
-        .arg(env!("CARGO_BIN_EXE_layerx-paxeer-boundary"))
-        .status()
-        .unwrap_or_else(|error| panic!("launch genesis qualification: {error}"));
-    assert!(status.success(), "genesis qualification failed: {status}");
+    node_transport::byte_identity();
+    node_transport::ordered_chunks();
+    node_transport::route_refusals();
+    node_transport::malformed_responses();
+    node_transport::invalid_chunk_metadata();
+    node_transport::size_bound();
+    node_transport::truncation_and_chunk_bounds();
+    node_transport::deadline();
+    node_transport::unreachable_and_endpoint_refusals();
 }

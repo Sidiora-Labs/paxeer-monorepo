@@ -9,13 +9,15 @@ require (
 	github.com/Sidiora-Technologies/KindleLaunch/protocol v0.0.0
 	github.com/Sidiora-Technologies/KindleLaunch/shared v0.0.0
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/ethereum/go-ethereum v1.17.3
+	github.com/ethereum/go-ethereum v1.17.4
 	github.com/go-chi/chi/v5 v5.4.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/nats-io/nats.go v1.47.0
 	github.com/pressly/goose/v3 v3.24.3
 	github.com/redis/go-redis/v9 v9.20.1
 )
+
+require github.com/fjl/jsonw v0.1.0 // indirect
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect

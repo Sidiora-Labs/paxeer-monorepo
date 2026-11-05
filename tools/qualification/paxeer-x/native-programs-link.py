@@ -13,11 +13,9 @@ TASK = "104.35.28"
 SCHEMA = "layerx.native-programs-link.v1"
 DECLARED = "tools/qualification/paxeer-x/native-programs-link.py"
 PRODUCTION = (
-    "layerxd",
+    "paxd",
     "layerx-genesis-build",
-    "layerx-verify",
     "layerx-module-registry",
-    "layerx-archive-codec",
 )
 
 
@@ -32,8 +30,26 @@ def source_inputs():
             "git",
             "ls-files",
             "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
             "--",
             "Makefile",
+            "chain.mk",
+            "daemon",
+            "modules",
+            "node",
+            "core",
+            "admin",
+            "api",
+            "consensus",
+            "interchain",
+            "storage",
+            "utils",
+            "wasm",
+            "wasm-runtime",
+            "sdk",
+            "programs/vendor",
             "src",
             "include",
             "modules/sequencer",
@@ -64,25 +80,7 @@ def source_inputs():
         capture_output=True,
     ).stdout.split(b"\0")
     paths = {os.fsdecode(path) for path in inventory if path}
-    return {
-        path: digest(ROOT / path)
-        for path in sorted(paths)
-        if Path(path).suffix
-        in {
-            ".c",
-            ".h",
-            ".rs",
-            ".go",
-            ".proto",
-            ".toml",
-            ".lock",
-            ".kvx",
-            ".json",
-            ".mk",
-            ".py",
-        }
-        or path == "Makefile"
-    }
+    return {path: digest(ROOT / path) for path in sorted(paths)}
 
 
 def save(path, value):
@@ -107,7 +105,8 @@ def checked(value):
 def inputs():
     source = source_inputs()
     inventory = subprocess.run(
-        ["git", "ls-files", "-z", "--", "cmd", "*.go", "go.mod", "go.sum"],
+        ["git", "ls-files", "-z", "--cached", "--others",
+         "--exclude-standard", "--", "cmd", "*.go", "go.mod", "go.sum"],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -157,14 +156,16 @@ def evidence_directory():
     return directory
 
 
-def build(arguments, evidence):
+def build(evidence):
     manifest = evidence / "native-programs-artifacts.json"
     manifest.unlink(missing_ok=True)
     source = inputs()
-    native_dir = Path(arguments.native_dir).resolve()
-    programs_dir = Path(arguments.programs_dir).resolve()
+    native_dir = ROOT / "build"
+    programs_dir = ROOT / "programs/target"
     native_make = evidence / "build-native.mk"
-    targets = " ".join("$(BUILD_DIR)/bin/" + name for name in PRODUCTION)
+    targets = "paxd-build " + " ".join(
+        "$(BUILD_DIR)/bin/" + name for name in PRODUCTION if name != "paxd"
+    )
     native_make.write_text(
         ".PHONY: paxeer-x-native-programs-link-build\n"
         "paxeer-x-native-programs-link-build: "
@@ -180,11 +181,11 @@ def build(arguments, evidence):
         str(native_make),
         "-j4",
         "-W",
-        str(programs_dir / "debug/liblayerx_programs_sandbox.a"),
+        str(programs_dir / "release/liblayerx_programs_sandbox.a"),
         "BUILD_DIR=" + str(native_dir),
         "PROGRAMS_TARGET_DIR=" + str(programs_dir),
         "PROGRAMS_RUNTIME_LIB="
-        + str(programs_dir / "debug/liblayerx_programs_sandbox.a"),
+        + str(programs_dir / "release/liblayerx_programs_sandbox.a"),
         "paxeer-x-native-programs-link-build",
     ]
     environment = dict(
@@ -215,30 +216,55 @@ def build(arguments, evidence):
         capture_output=True,
         text=True,
     ).stdout.strip()
-    production = {name: artifact(native_dir / "bin" / name) for name in PRODUCTION}
+    production = {
+        name: artifact(native_dir / name if name == "paxd" else native_dir / "bin" / name)
+        for name in PRODUCTION
+    }
+    publish_manifest(evidence, revision, source, production, runtime_artifacts())
+    print("ARTIFACTS " + str(manifest), flush=True)
+
+
+def runtime_artifacts():
+    return {
+        "kernel": artifact(ROOT / "build/liblayerx.a"),
+        "programs": artifact(ROOT / "programs/target/release/liblayerx_programs_sandbox.a"),
+    }
+
+
+def publish_manifest(evidence, revision, source, production, runtime):
     save(
-        manifest,
+        evidence / "native-programs-artifacts.json",
         {
             "schema": SCHEMA,
             "task": TASK,
             "revision": revision,
             "inputs": source,
             "production": production,
+            "runtime": runtime,
         },
     )
-    print("ARTIFACTS " + str(manifest), flush=True)
+
+
+def admit_manifest(manifest, revision, source):
+    if (manifest.get("schema") != SCHEMA or manifest.get("task") != TASK
+            or manifest.get("revision") != revision or manifest.get("inputs") != source
+            or not source):
+        raise RuntimeError("production artifacts do not bind current complete source")
+    if set(manifest.get("production", {})) != set(PRODUCTION):
+        raise RuntimeError("every Programs-linked production executable required")
+    if set(manifest.get("runtime", {})) != {"kernel", "programs"}:
+        raise RuntimeError("complete retained runtime archive closure required")
+    for value in [*manifest["production"].values(), *manifest["runtime"].values()]:
+        checked(value)
+    return manifest
 
 
 def qualify(evidence):
     manifest = json.loads((evidence / "native-programs-artifacts.json").read_text())
-    if (
-        manifest.get("schema") != SCHEMA
-        or manifest.get("task") != TASK
-        or manifest.get("inputs") != inputs()
-    ):
-        raise RuntimeError("production artifacts do not bind current complete source")
-    if set(manifest.get("production", {})) != set(PRODUCTION):
-        raise RuntimeError("every Programs-linked production executable required")
+    revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
+    admit_manifest(manifest, revision, inputs())
     dependencies = {}
     with (evidence / "verify-production-links.log").open("w") as output:
         for name in PRODUCTION:
@@ -246,11 +272,16 @@ def qualify(evidence):
             with path.open("rb") as binary:
                 if binary.read(4) != b"\x7fELF":
                     raise RuntimeError("actual native ELF executable required: " + name)
-            command = ["readelf", "--dynamic", str(path)]
+            command = ["readelf", "--wide", "--dynamic", "--symbols", str(path)]
             result = subprocess.run(
                 command, check=True, capture_output=True, text=True, timeout=30
             )
             output.write(result.stdout)
+            if name == "paxd":
+                defined = {parts[-1] for line in result.stdout.splitlines()
+                           if len(parts := line.split()) >= 8 and parts[-2] != "UND"}
+                if not {"lxp_kernel_create", "layerx_programs_sandbox_admit_host"} <= defined:
+                    raise RuntimeError("paxd retained kernel and Programs link symbols missing")
             dependencies[name] = [
                 line.strip()
                 for line in result.stdout.splitlines()
@@ -268,11 +299,9 @@ def qualify(evidence):
                 or "undefined symbol:" in result.stdout + result.stderr
             ):
                 raise RuntimeError("unresolved production native dependency: " + name)
-    if not any("libssl.so" in line for line in dependencies["layerxd"]):
-        raise RuntimeError("daemon Programs-to-Client TLS dependency missing")
     if inputs() != manifest["inputs"]:
         raise RuntimeError("source changed during focused native qualification")
-    for value in manifest["production"].values():
+    for value in [*manifest["production"].values(), *manifest["runtime"].values()]:
         checked(value)
     save(
         evidence / "native-programs-result.json",
@@ -290,18 +319,10 @@ def qualify(evidence):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
-    parser.add_argument("--cargo", default="/root/.cargo/bin/cargo")
-    parser.add_argument(
-        "--native-dir", default="/root/lx-target/arbiter-prestate/native"
-    )
-    parser.add_argument(
-        "--programs-dir", default="/root/lx-target/arbiter-prestate/rust"
-    )
-    parser.add_argument("--agent-dir", default="/root/lx-target/agent")
     arguments = parser.parse_args()
     evidence = evidence_directory()
     if arguments.build:
-        build(arguments, evidence)
+        build(evidence)
     else:
         qualify(evidence)
 

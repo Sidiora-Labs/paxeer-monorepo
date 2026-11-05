@@ -1,0 +1,38 @@
+[repair.22.31.509]
+mode = "BUILD"
+decision = "2553"
+base_revision = "0a76cd72f6c808eb67379b35bfa45c17d608d093"
+implementation = "Record the production wallet delegate deployment, a sponsor-paid type-4 executeSponsored transaction containing the user's EIP-7702 authorization and Ed25519 bindLayerX consent, and an independent type-2 transfer refusal."
+proof = "TestVectorV6SponsoredBindVerifies starts the recorder's real primary and standby locally in process, submits through production HTTP RPC, verifies genesis-pinned signed receipts, checks sponsor balance deductions, DID binding, authorization hash and delegation readback, and proves standby replay. It also authenticates both published copies and refuses altered evidence."
+qualification = "The runner's hf-done ledger records the exact verified candidate revision, command, exit and private evidence location; the final build must name that same candidate."
+chain_id = 125
+pinned_key = "0xbdaaa505f86df85b65058d79c18cc1f4fbdfc5872c466b5398d96aa18b7c7e7b"
+delegate_address = "0xf97f9109681b366983ddc67ad2063a82de58f03d"
+
+[provenance]
+contracts = "v6_contracts.json embeds the actual contracts/src/BatchCallAndSponsor.sol and benchmark ERC20Token compiled with solc 0.8.27, optimizer 200, Cancun, using the repository's OpenZeppelin 5.3.0. The private chain installs the real ERC20 runtime at the protocol token address; mint, transfer, delegate deployment, authorization and binding execute real code."
+recording = "committed-fixture record --paxd /tmp/r509-paxd --out daemon/committed-fixture/vectors --vector vector-v6-sponsored-bind"
+consumer = "22.33.208 consumes positive and refusal from sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json; no services/wallet files change."
+
+[gotcha.local]
+qualification = "The recording needs the newly compiled recorder and daemon; recording changes the candidate, so the declared build must run again on the resulting fixture before hf-done."
+codec = "Gotcha 3065: the production codec names its protobuf JSON methods MarshalAsJSON and UnmarshalAsJSON. The continuation corrects both test calls while preserving every assertion; hf-build and hf-done identify the same final candidate revision in the private gate ledger."
+
+[repair_cycle.1]
+revision = "666fbd2066bede79161bd1f131132f57749afb48"
+command = "make -s paxd-native-libs && go build -o /tmp/r509-paxd ./daemon/paxd && go build ./daemon/committed-fixture/"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The new recorder needed explicit conversions between the named Ed25519 public key and hex byte-slice types and had an unused SHA-256 import."
+repair = "Convert those named slice types explicitly and authenticate the pin id as SHA-256 of its public key; retain all assertions."
+
+[recording]
+recorder_build_revision = "6895ceb25ac817c6a9ede624c3ad0d2e5a980b0c"
+log = "/out/logs/v6-record-normalized.log"
+exit = 0
+pin_key_id = "0x96db70382f6bba2ebb2b81d7047ec66a1685f06382aae01dc97733901d183a82"
+positive_transaction = "0x35e9bb8aa2e1a34a143edb581f202131460fd0bc46a3a83baf7231bd1feac9b1"
+refusal_transaction = "0x569266a60aa3f525771956b6288b783c9230d9a027783aeffaa1701106b2802e"
+genesis_encoding = "The initial recording executable decoded the whole protobuf EVM genesis with encoding/json, which rejected integer strings. A private launcher represented four integer parameter scalars as equivalent JSON numbers before the real daemon started; all executions and signed receipts came from that daemon. The final source appends only token code through raw JSON and preserves existing parameters; the declared test exercises this with the production protobuf codec."
+launcher = "The recording launcher delegates every command to /tmp/r509-paxd and execs start so the recorder discovers the daemon-owned listeners; it supplies no RPC responses, transaction outcomes, delegation, binding, balances, signatures or receipts."
+qualification = "The final hf-build and hf-done ledger entries identify the qualified revision containing both published recordings and the genesis editor correction."

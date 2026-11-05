@@ -1,0 +1,5 @@
+{
+  "name": "hyperfide-ai-gateway",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-23"
+}

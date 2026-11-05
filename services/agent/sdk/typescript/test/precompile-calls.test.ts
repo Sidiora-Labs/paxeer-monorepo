@@ -138,6 +138,9 @@ async function precompile_inventory_calldata_and_events(): Promise<void> {
   assert.equal(declared, 19);
 
   const writes: readonly (readonly [string, string, PrecompileCall, string, string])[] = [
+    ["layerxexchange", exchangeOrderAbi(false).signature,
+      exchangePlaceOrderCall({ marketId: id("11"), side: 2, price: 18446744073709551618n, quantity: 5000n, timeInForce: 0 }),
+      LAYERX_EXCHANGE_PRECOMPILE, "11".repeat(32) + word(2) + word(18446744073709551618n) + word(5000) + word(0)],
     ["layerxexchange", exchangeOrderAbi(true).signature,
       exchangePlaceOrderCall({ marketId: id("11"), accountId: id("22"), side: 2, price: 18446744073709551618n, quantity: 5000n, timeInForce: 0 }),
       LAYERX_EXCHANGE_PRECOMPILE, "11".repeat(32) + "22".repeat(32) + word(2) + word(18446744073709551618n) + word(5000) + word(0)],

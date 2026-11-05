@@ -2,6 +2,7 @@ package evmrpc
 
 import (
 	"context"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/export"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type TxPoolAPI struct {
@@ -57,7 +59,7 @@ func (t *TxPoolAPI) Content(ctx context.Context) (result map[string]map[string]m
 	sdkCtx := t.ctxProvider(LatestCtxHeight)
 	for _, tx := range resUnconfirmedTxs.Txs {
 		ethTx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder())
-		if ethTx == nil { // not an evm tx
+		if ethTx == nil || !domainAllowsTransaction(ctx, keeperDomainIndex{evm: t.keeper}, ethTx) { // not an evm tx
 			continue
 		}
 		fromAddr, err := rpcutils.RecoverEVMSenderWithContext(sdkCtx, ethTx)
@@ -67,6 +69,7 @@ func (t *TxPoolAPI) Content(ctx context.Context) (result map[string]map[string]m
 		nonce := ethTx.Nonce()
 		chainConfig := types.DefaultChainConfig().EthereumConfig(t.keeper.ChainID(sdkCtx))
 		res := export.NewRPCPendingTransaction(ethTx, nil, chainConfig)
+		res.From = fromAddr
 		nonceStr := strconv.FormatUint(nonce, 10)
 		if content["pending"][fromAddr.String()] == nil {
 			content["pending"][fromAddr.String()] = map[string]*export.RPCTransaction{
@@ -94,10 +97,45 @@ func (t *TxPoolAPI) Status(ctx context.Context) (result map[string]hexutil.Uint,
 	var pending hexutil.Uint
 	for _, tx := range resUnconfirmedTxs.Txs {
 		ethTx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder())
-		if ethTx == nil {
+		if ethTx == nil || !domainAllowsTransaction(ctx, keeperDomainIndex{evm: t.keeper}, ethTx) {
 			continue
 		}
 		pending++
 	}
 	return map[string]hexutil.Uint{"pending": pending, "queued": 0}, nil
+}
+
+// domainTxPoolAPI retains the connection scope on WebSocket calls.
+type domainTxPoolAPI struct {
+	*TxPoolAPI
+	scope DomainScope
+}
+
+func (t *domainTxPoolAPI) Content(ctx context.Context) (map[string]map[string]map[string]*export.RPCTransaction, error) {
+	return t.TxPoolAPI.Content(WithDomainScope(ctx, t.scope))
+}
+
+func (t *domainTxPoolAPI) Status(ctx context.Context) (map[string]hexutil.Uint, error) {
+	return t.TxPoolAPI.Status(WithDomainScope(ctx, t.scope))
+}
+
+func installTxPoolWSScopes(server *HTTPServer) {
+	handler := server.wsHandler.Load().(*rpcHandler)
+	config := server.WsConfig
+	baseAPIs := append([]rpc.API(nil), server.wsAPIs...)
+	handler.Handler = handler.limiter.wrap(NewWSHandlerStack(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apis := baseAPIs
+		if scope, ok := DomainScopeFrom(r.Context()); ok {
+			apis = append([]rpc.API(nil), apis...)
+			for i, api := range apis {
+				switch service := api.Service.(type) {
+				case *TxPoolAPI:
+					apis[i].Service = &domainTxPoolAPI{TxPoolAPI: service, scope: scope}
+				case *PaxTransactionAPI:
+					apis[i].Service = &domainPaxTransactionAPI{PaxTransactionAPI: service, scope: scope}
+				}
+			}
+		}
+		server.newDomainWSHandler(handler.server, config, apis).ServeHTTP(w, r)
+	}), config.JwtSecret))
 }

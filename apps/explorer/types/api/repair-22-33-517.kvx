@@ -1,0 +1,28 @@
+[repair.22.33.517]
+finding = "archive-receipt-nullability"
+implementation = "Archive list and detail types share an origin-discriminated EVM/kernel union matching ArchiveView, including nullable timestamps, verification and provenance. Kernel rows retain null EVM references and the database-enforced batch_included/sequencer_verified values."
+tests = ["archiveReceiptNullabilityMatchesProducerFields", "archiveReceiptNullabilityPreservesEvmContract", "archiveReceiptNullabilityPreservesKernelContract", "archiveReceiptNullabilityReachesFrontendResources", "archiveReceiptNullabilityTransportsBothOriginsToConsumers"]
+proof_limit = "Source/type tests compare the production ArchiveView maps and migration constraints. The runtime test sends source-aligned committed fixtures through loopback HTTP, the real useFetch JSON decoder and real list/table/detail components; it does not execute Elixir ArchiveView. No producer-emitted JSON recording exists in this checkout."
+baseline = "Not run: the explicit implementation-first and hf-build/hf-done-only order overrides step 5's contradictory request to verify the unchanged tree first. No baseline failure is claimed."
+wiring_producer = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/archive_controller_test.exs (domain 14 backend): export committed ArchiveView list/detail JSON recordings for EVM, missing-block EVM and kernel origins for frontend transport replay."
+consumer_repair = "All scoped fixtures carry payload hashes, origins, verification and provenance. Concrete EVM fixtures preserve numeric block arithmetic; real list/table consumers render null block_number as Pending without a block link. The kernel fixture follows ArchiveControllerTest.insert_kernel_receipt(51) and ArchiveView field mapping; it is source-derived, not a recorded response."
+qualification = "The runner hf-build/hf-done ledger is the authority for exact candidate revision, command, exit and private evidence path; no qualification is claimed in advance."
+gotcha = "An ESLint invocation before Yarn linking completed failed to resolve eslint/lib/rules/utils/lazy-loading-rule-map; wait for dependency installation to finish before formatting."
+test_registration = "Decision 2528: all four existing assertion bodies are now inline named callbacks with literal string titles; no assertion was removed or weakened."
+
+[continuation.22.33.517]
+scope_resolution = "Attempt 3 explicitly authorizes all ten consumer files; they are ported in this candidate without widening the receipt union."
+manifest = "package.json exposes test:archive-receipts as the focused suite command; the declared hf-done gate remains authoritative."
+producer_limit = "ArchiveView is Elixir and the declared gate forbids a subprocess toolchain; no ArchiveView-emitted receipt JSON recordings were found. Source/type assertions do not satisfy the full runtime path proof; wiring_producer remains required."
+finding_status = "The type and scoped consumers are implemented; archiveReceiptNullabilityTransportsBothOriginsToConsumers proves the real decoder and consumer behavior for both origins and a missing EVM timestamp. The out-of-path producer recording request remains explicit; hf-done determines qualification."
+gotcha_continuation = "The resumed sandbox initially has no linked eslint executable; the first scoped lint invocation exited 1 with Command eslint not found. Install the declared frozen Yarn dependencies before retrying the required lint."
+null_guards = "Both scoped list consumers guard null block_number before BlockEntity; tests require Pending and no EVM block link. Detail null tests use the valid kernel branch. The existing malformed EVM block-only test crosses the JavaScript call boundary with Reflect.apply and retains every assertion without claiming the malformed payload satisfies the API union."
+prior_lint_command = "cd apps/explorer && yarn eslint types/api/paxeerXArchive.ts types/api/repair-22-33-517.spec.ts --fix"
+prior_lint_exit = 0
+prior_lint_log = "/out/logs/archive-receipts-eslint.log"
+current_lint_command = "cd apps/explorer && yarn eslint lib/api/services/general/paxeerX.spec.ts stubs/paxeerXLists.ts types/api/paxeerXArchive.ts types/api/repair-22-33-517.spec.ts ui/pages/PaxeerXReceipt.spec.tsx ui/pages/PaxeerXReceipts.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx --fix"
+current_lint_log = "/out/logs/archive-receipts-eslint.log"
+
+current_lint_exit = 1
+
+lint_preexisting = "Scoped ESLint formatting completed; aggregate exit 1 reports only three pre-existing snake_case named test functions and their callback registrations in ui/pages/PaxeerXReceipt.spec.tsx, ui/pages/PaxeerXReceipts.spec.tsx and ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx. The added repair spec has no ESLint diagnostics. No assertion or lint rule is weakened; the declared tsc/vitest gates remain authoritative."
