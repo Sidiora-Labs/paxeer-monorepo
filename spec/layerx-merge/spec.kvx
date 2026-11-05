@@ -280360,7 +280360,7 @@ do_9 = "Attempt 2 (continue): the verify now builds and runs the perps module te
 
 [task.22.33.1236]
 title = "Repair audit record 22.30.6 medium findings in tests/modules (part 1 of 2): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.127", "22.31.505"]
