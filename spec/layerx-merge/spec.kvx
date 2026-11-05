@@ -147492,7 +147492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.525]
 title = "Leave a paid order unchanged when a later payment attempt is refused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
