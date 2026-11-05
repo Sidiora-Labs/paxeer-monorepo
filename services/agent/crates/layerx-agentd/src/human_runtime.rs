@@ -9948,7 +9948,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         if state.asset != asset
             || currency != record.held_activity.asset.as_str()
             || state.observed_head_sequence != current_sequence
-            || committed_budget_rank(state.verification).is_err()
+            || crate::budget::budget_state_is_committed(state.verification).is_err()
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
