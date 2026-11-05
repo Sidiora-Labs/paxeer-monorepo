@@ -8883,6 +8883,12 @@ value = "When a test target on main fails to compile and a repair task exists fo
 basis = "Gotcha 3184: six attempts across three crates failed on the one site inside an hour; the repair takes one attempt."
 affects = ["22.31.558", "22.31.548"]
 
+[decision.2629]
+title = "A task launched before a hold landed re-qualifies behind the repair when it fails on the held site"
+value = "A task whose attempt was already running when decision 2628 added the repair requirement to its peers, and which then fails only on the red site, receives the same treatment after the fact: the repair becomes a requirement, the tree stands, and the gates re-run once at the committed revision after the repair lands. The attempt is not counted against the task."
+basis = "Gotcha 3185: 22.31.557 attempt 1 was in flight when batch 506 landed."
+affects = ["22.31.558", "22.31.557"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -148209,7 +148215,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.7]
 title = "Explorer network pages: stats, validators, epochs and gas tracker in the visual system"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.6"]
@@ -175536,7 +175542,7 @@ title = "Admit protocol 3 key rotation in the intent compiler with the length-pr
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.558"]
 reqs = ["22998.1"]
 capabilities = ["22.31.557"]
 interfaces = []
@@ -175560,6 +175566,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify after 22.31.558, gotcha 3185, decisions 2628 and 2629): the attempt-1 tree stands (protocol-3 key rotation, protocol-aware DID derivation, disclosure support and four regression cases; build exit 0); the dependent-crate check failed on the stale site in layerx-human-service tests/native_send_producer.rs line 659 that 22.31.558 ports, before the verify ran. Re-run the gates as they stand once 22.31.558 is on main."
 
 [task.22.31.556]
 title = "Promote committed logs to the current committed evidence level instead of the retired checkpoint label in the event ingestor"
@@ -179646,7 +179653,7 @@ do_15 = "Attempt 2 (continue after 22.33.1492, 22.33.1493 and 22.33.1494, gotcha
 
 [task.22.33.1494]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 3 of 3): config-drift, restart-recovery, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
@@ -179728,7 +179735,7 @@ do_15 = "Attempt 2 (continue after the first verify run, gotcha 3182): the attem
 
 [task.22.33.1492]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 1 of 3): restart-recovery, retired-reference, security, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
@@ -285034,7 +285041,7 @@ do_9 = "Attempt 3 (continue): tests/programs/test_lifecycle.c:1155 and tests/pro
 
 [task.22.33.213]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.251", "22.31.252", "22.31.463", "22.31.488"]

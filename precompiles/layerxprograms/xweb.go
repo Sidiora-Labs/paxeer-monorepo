@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"slices"
 	"sync"
 
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
@@ -70,6 +71,14 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 		found := false
 		if keeper != nil {
 			denom, found = keeper.ProgramFeeDenom(cached, xwebtypes.Hash32(leg.Asset))
+			feeAccount := xwebkeeper.ProgramFeeAccount(xwebtypes.Hash32(leg.Asset))
+			if found || bytes.Equal(lxphost.BankAddress(leg.To), feeAccount) {
+				denom, err = nativeProgramAssetDenom(cached, p, keeper, leg.Asset)
+				if err != nil {
+					return nil, err
+				}
+				found = true
+			}
 		}
 		if !found {
 			if _, err := p.host.ReadAsset(cached, leg.Asset); err != nil {
@@ -97,6 +106,19 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 }
 
 type xwebContextKey struct{}
+
+// nativeProgramAssetDenom resolves live host assets through the native bank
+// denomination bindings loaded from xweb genesis and current governance.
+func nativeProgramAssetDenom(ctx sdk.Context, p *PrecompileExecutor, keeper *xwebkeeper.Keeper, assetID [32]byte) (string, error) {
+	if _, err := p.host.ReadAsset(ctx, assetID); err != nil {
+		return "", fmt.Errorf("LXP_ASSET_MISMATCH: unknown native asset: %w", err)
+	}
+	denom, found := keeper.ProgramFeeDenom(ctx, xwebtypes.Hash32(assetID))
+	if !found || !slices.Contains(keeper.GetParams(ctx).ProgramFeeDenoms, denom) {
+		return "", fmt.Errorf("LXP_ASSET_MISMATCH: native asset has no allowed bank denomination")
+	}
+	return denom, nil
+}
 
 var webHandlers = sync.OnceValue(func() handlerTable {
 	table := make(handlerTable, len(handlers))

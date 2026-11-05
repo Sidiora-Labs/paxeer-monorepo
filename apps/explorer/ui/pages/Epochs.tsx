@@ -38,7 +38,7 @@ const EpochsPageContent = () => {
 
     return epochsQuery.data?.items ? (
       <>
-        <Box hideBelow="lg">
+        <Box hideBelow="lg" overflowX="auto">
           <EpochsTable
             items={ epochsQuery.data.items }
             top={ epochsQuery.pagination.isVisible ? ACTION_BAR_HEIGHT_DESKTOP : 0 }

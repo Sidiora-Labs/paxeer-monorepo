@@ -92,19 +92,18 @@ const ChartWidgetContainer = ({
       data-chart-card={ id }
       display="flex"
       flexDirection="column"
-      bg="bg.surface"
+      bg="surface"
       borderWidth="1px"
       borderStyle="solid"
-      borderColor="border.divider"
-      borderRadius="md"
+      borderColor="hairline"
+      borderRadius="card"
       boxShadow="card"
-      px={ 4 }
-      py={ 3 }
+      p={ 4 }
       minH="300px"
     >
       <Flex data-chart-card-header alignItems="flex-start" justifyContent="space-between" columnGap={ 3 }>
         <Flex alignItems="center" columnGap={ 1.5 } minW={ 0 }>
-          <Skeleton loading={ isLoading } textStyle="sm" fontWeight="500" color="text.primary">
+          <Skeleton loading={ isLoading } textStyle="label" color="text.muted">
             <chakra.span data-chart-title>
               { title } ({ STATS_INTERVALS[interval].shortTitle })
             </chakra.span>
@@ -134,7 +133,7 @@ const ChartWidgetContainer = ({
       </Flex>
 
       { currentValue !== undefined && (
-        <Skeleton loading={ isLoading } mt={ 1 } textStyle="heading.sm" fontWeight="500" color="text.primary" w="fit-content">
+        <Skeleton loading={ isLoading } mt={ 1 } textStyle="statValue" fontWeight="600" color="text.primary" w="fit-content">
           <chakra.span data-chart-value>{ currentValue }</chakra.span>
         </Skeleton>
       ) }

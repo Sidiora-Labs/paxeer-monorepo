@@ -60,8 +60,8 @@ const GasTrackerChart = () => {
 
   return (
     <Box>
-      <Flex justifyContent="space-between" alignItems="center" mb={ 6 }>
-        <chakra.h3 textStyle="h3">Gas price history</chakra.h3>
+      <Flex justifyContent="space-between" alignItems="center" mb={ 2 }>
+        <chakra.h3 textStyle="label" color="text.muted">Gas price history</chakra.h3>
         <Link href={ route({ pathname: '/stats', hash: 'gas' }) }>Charts & stats</Link>
       </Flex>
       { content }

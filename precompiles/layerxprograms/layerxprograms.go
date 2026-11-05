@@ -16,6 +16,7 @@ import (
 
 const PrecompileName = "layerxprograms"
 
+// HostKeepers supplies the native host and governed xweb fee denomination authority.
 type HostKeepers interface {
 	utils.Keepers
 	LayerXHost() *lxphost.Host
