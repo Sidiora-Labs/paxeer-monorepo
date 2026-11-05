@@ -186034,7 +186034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.63]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443", "22.31.496"]
@@ -193102,7 +193102,7 @@ do_5 = "Attempt 2 (continue): the proof suites demand a real local node (NotPres
 
 [task.22.99.51]
 title = "Repair the inventory sweep target layerx-agentd-host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11", "18.1578.1", "22.99.159", "22.99.160"]
