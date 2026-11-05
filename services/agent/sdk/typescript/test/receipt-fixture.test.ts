@@ -8,11 +8,7 @@ import {
 } from "../src/index.js";
 import { verifySequencerReceipt } from "../src/verifier.js";
 import { gasReceiptDenominations } from "../src/gas-station.js";
-import {
-  AiMarketError,
-  decodeProgramsReceipt,
-  PROGRAMS_PRECOMPILE,
-} from "../src/ai_market.js";
+import { PROGRAMS_PRECOMPILE } from "../src/ai_market.js";
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -263,26 +259,19 @@ async function paymentDenom(): Promise<void> {
       "fee denomination changed",
     );
     if (entry.receiptJson.to === PROGRAMS_PRECOMPILE) {
-      const keys = [
-        {
-          sequencerId: hexBytes(key.keyId.slice(2)),
-          publicKey: hexBytes(key.publicKey.slice(2)),
-          firstBatchNumber: BigInt(key.firstHeight),
-          lastBatchNumber: BigInt(key.lastHeight),
-        },
-      ];
       assert(
-        (await decodeProgramsReceipt(entry.receiptJson, signed, keys)) !== null,
+        gasReceiptDenominations(entry.receiptJson).paymentDenom === payment,
         "producer Programs receipt refused",
       );
       const missing = { ...entry.receiptJson };
       delete missing.paymentDenom;
       let rejected = false;
       try {
-        await decodeProgramsReceipt(missing, signed, keys);
+        gasReceiptDenominations(missing);
       } catch (error) {
         rejected =
-          error instanceof AiMarketError && error.code === "ReceiptMismatch";
+          error instanceof Error && error.message === "invalid_response" &&
+          "field" in error && error.field === "paymentDenom";
       }
       assert(rejected, "receipt without paymentDenom accepted");
     }

@@ -1,4 +1,5 @@
 #include "layerx/lxp_codec.h"
+#include "layerx/lxp_hash.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +64,7 @@ int lxp_codec_vector_load(const char *path, lxp_codec_vector_case *cases,
         }
         cases[used].expected = (lxp_result)strtol(fields[3], NULL, 10);
         (void)snprintf(cases[used].digest, sizeof(cases[used].digest), "%s", fields[4]);
-        if (cases[used].expected == LXP_OK && strlen(cases[used].digest) != 64U) {
+        if (cases[used].expected == LXP_OK && strlen(fields[4]) != 64U) {
             (void)fclose(file);
             return 1;
         }
@@ -127,6 +128,8 @@ int lxp_codec_vector_run(void)
             if (produced != cases[i].expected) return 1;
             if (produced == LXP_OK) {
                 uint8_t storage[8];
+                uint8_t digest[32];
+                uint8_t expected_digest[32];
                 lxp_arena arena;
                 lxp_codec_writer writer;
                 lxp_codec_reader reader;
@@ -139,6 +142,16 @@ int lxp_codec_vector_run(void)
                     lxp_codec_write_u64(&writer, value) != LXP_OK ||
                     writer.length != cases[i].length ||
                     memcmp(writer.bytes, cases[i].bytes, writer.length) != 0)
+                    return 1;
+                for (size_t j = 0U; j < sizeof(expected_digest); ++j) {
+                    int high = hex_value(cases[i].digest[j * 2U]);
+                    int low = hex_value(cases[i].digest[j * 2U + 1U]);
+                    if (high < 0 || low < 0) return 1;
+                    expected_digest[j] =
+                        (uint8_t)((unsigned)high * 16U + (unsigned)low);
+                }
+                if (lxp_hash_sha256(writer.bytes, writer.length, digest) != LXP_OK ||
+                    memcmp(digest, expected_digest, sizeof(digest)) != 0)
                     return 1;
             }
         }

@@ -7,12 +7,12 @@ usage: scripts/wallet/check-live.sh endpoint | attestors | gateway | cutover | h
 
 Checks a deployed wallet service against its live answers.
 
-endpoint  posts eth_chainId to the node root at CHECK_LIVE_NODE_RPC_URL and
-          px_ methods to the hosted gateway at CHECK_LIVE_HOSTED_RPC_URL. Both
-          URLs are required, used exactly as configured, and must name the
-          public root JSON-RPC endpoints, without the retired /rpc suffix.
-          Each result names its owner and URL. A hosted result does not prove
-          availability of px_ methods at the public node root.
+endpoint  posts eth_chainId and the served px_ reads to the node root at
+          CHECK_LIVE_NODE_RPC_URL, default https://api1.mainnet-beta.paxeer.network/.
+          api2 through api14.mainnet-beta.paxeer.network are alternate nodes.
+          The URL must name the root, without the retired /rpc suffix.
+          Each result names its owner and URL. CHECK_LIVE_HOSTED_RPC_URL is
+          retained for hosted operations; endpoint mode does not call it.
 
 Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   eth_chainId        the chain id is 0x7d
@@ -89,8 +89,8 @@ ramp      checks CHECK_LIVE_RAMP_BASE/readyz as local-journal readiness and
 
 Environment:
   CHECK_LIVE_RAMP_BASE      base URL of the reference ramp
-  CHECK_LIVE_NODE_RPC_URL    node root JSON-RPC URL (eth_ methods)
-  CHECK_LIVE_HOSTED_RPC_URL  hosted gateway root JSON-RPC URL (px_ methods)
+  CHECK_LIVE_NODE_RPC_URL    node root JSON-RPC URL (eth_ and served px_ reads)
+  CHECK_LIVE_HOSTED_RPC_URL  hosted service URL, unused by endpoint mode
   CHECK_LIVE_ATTESTOR_BASES  comma-separated base URLs of the attestor APIs
   CHECK_LIVE_CLIENT_CERT     client certificate presented to https bases
   CHECK_LIVE_CLIENT_KEY      key of the client certificate
@@ -767,15 +767,22 @@ if [ "$mode" = gateway ]; then
 	gateway
 fi
 
-node_rpc_url="${CHECK_LIVE_NODE_RPC_URL:-}"
-hosted_rpc_url="${CHECK_LIVE_HOSTED_RPC_URL:-}"
-for name in CHECK_LIVE_NODE_RPC_URL CHECK_LIVE_HOSTED_RPC_URL; do
-	if [ -z "${!name:-}" ]; then
-		echo "check-live: $name is required" >&2
-		usage >&2
-		exit 2
-	fi
-done
+node_rpc_url="${CHECK_LIVE_NODE_RPC_URL-https://api1.mainnet-beta.paxeer.network/}"
+python3 -c '
+import sys
+from urllib.parse import urlsplit
+try:
+    url = urlsplit(sys.argv[1])
+    valid = (url.scheme == "https" or (url.scheme == "http" and url.hostname in ("localhost", "127.0.0.1")))
+    valid = (valid and url.hostname and url.port != 0 and not url.username and not url.password
+             and url.path in ("", "/") and not url.query and not url.fragment
+             and "?" not in sys.argv[1] and "#" not in sys.argv[1]
+             and not any(c.isspace() for c in sys.argv[1]))
+except ValueError:
+    valid = False
+if not valid:
+    raise SystemExit("check-live: CHECK_LIVE_NODE_RPC_URL must name an HTTPS (or loopback HTTP) node root without a route suffix")
+' "$node_rpc_url" || exit 2
 
 failures=0
 account_address="0x000000000000000000000000000000000000dEaD"
@@ -888,9 +895,9 @@ run() {
 }
 
 run node "$node_rpc_url" eth_chainId '[]'
-run hosted "$hosted_rpc_url" px_resolveAccount "[\"$account_address\"]"
-run hosted "$hosted_rpc_url" px_getNetwork '[]'
-run hosted "$hosted_rpc_url" px_getAccount "[\"$account_address\"]"
+run node "$node_rpc_url" px_resolveAccount "[\"$account_address\"]"
+run node "$node_rpc_url" px_getNetwork '[]'
+run node "$node_rpc_url" px_getAccount "[\"$account_address\"]"
 
 if [ "$failures" -ne 0 ]; then
 	echo "check-live: $failures check(s) failed"

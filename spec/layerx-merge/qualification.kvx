@@ -29907,3 +29907,755 @@ symbol = "repair_22_33_1571.rs"
 observed = "Attempt 2: 2 of 4 cases passed; both node-recovery cases requested transmission bytes of an Unknown submission and were refused NotQueued."
 assumption = "Recovery contract of the outbox (gotcha 3036); the test drives a path the daemon does not take."
 severity = "high"
+
+[finding.22.95.1.6]
+task = "22.95.1"
+file = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+symbol = "human_node.rs"
+observed = "Attempt 11: the daemon test build failed on two targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.478.2]
+task = "22.33.478"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs"
+symbol = "repair_22_33_478_test.exs"
+observed = "Attempt 2: 7 of 8 cases passed; the transaction tag lookup crashed on the recorded contract-creation transaction."
+assumption = "A consumer-path defect in the explorer controller (gotcha 3037)."
+severity = "medium"
+
+[finding.22.33.517.2]
+task = "22.33.517"
+file = "apps/explorer/types/api/repair-22-33-517.spec.ts"
+symbol = "repair-22-33-517.spec.ts"
+observed = "Attempt 2: the type-check failed in ten consumer files outside the four paths; the verify never ran."
+assumption = "An interface change that did not carry its consumers (gotcha 3038)."
+severity = "medium"
+
+[finding.22.33.1538.2]
+task = "22.33.1538"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1538.rs"
+symbol = "repair_22_33_1538.rs"
+observed = "Attempt 2: 14 of 22 cases passed; the fixtures served one exchange per lookup and the client sent two; one case resolved a receipt with a changed payment denomination."
+assumption = "Fixtures behind the lookup contract (gotcha 3039); the denomination case may be a resolver defect."
+severity = "high"
+
+[finding.22.33.761.3]
+task = "22.33.761"
+file = "tools/qualification/audit_repairs/test_repair_22_33_761.py"
+symbol = "test_repair_22_33_761.py"
+observed = "Attempt 3: the test could not import the runtime module the change calls; it was not in the change."
+assumption = "A declared path never written (gotcha 3040)."
+severity = "low"
+
+[finding.22.9.10.22]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 36: 50 of 52 cases passed; two plan-leg cases outside the paths encoded the retired nested call shape."
+assumption = "A verify target outside the paths encoding a retired shape; the task owns the decoder it exercises."
+severity = "low"
+
+[finding.22.31.497.1]
+task = "22.31.497"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 1: build passed, dependents passed, 4 of 6 cases passed; the loopback node fixture refused px_getValidators, the actor reported Unavailable, the fixture Drop panicked and the binary aborted before the report; the second target never ran."
+assumption = "The fixture lags the production node calls the authority module now makes; the module itself is the reference."
+severity = "high"
+
+[finding.22.31.488.2]
+task = "22.31.488"
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+symbol = "sandbox.rs"
+observed = "Attempt 2: the attempt-1 changes stood and the requalify built the daemon tests; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.487.2]
+task = "22.31.487"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+symbol = "agent_envelope.rs"
+observed = "Attempt 2: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.496.1]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 1: the lifecycle keeper, the daemon test and the crypto call change built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.494.1]
+task = "22.31.494"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs"
+symbol = "repair_22_31_494.rs"
+observed = "Attempt 1: the Rust SDK change built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.14.3]
+task = "22.33.14"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs"
+symbol = "repair_22_33_14.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.223.5]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 6: the AI-market routing changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1535.3]
+task = "22.33.1535"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"
+symbol = "repair_22_33_1535.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1533.2]
+task = "22.33.1533"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+symbol = "repair_22_33_1533.rs"
+observed = "Attempt 2: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1571.3]
+task = "22.33.1571"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs"
+symbol = "repair_22_33_1571.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.9.98.4.6]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 4: the fixture changes and the conflict resolution are complete; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.495.1]
+task = "22.31.495"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+symbol = "repair_22_31_495.rs"
+observed = "Attempt 1: the service change compiled; the daemon test build failed on three initialisers of DecisionRequest in an included test module that the task's own field addition broke."
+assumption = "The task changed an interface its own included test module consumes; the module was outside the paths."
+severity = "high"
+
+[finding.22.33.889.1]
+task = "22.33.889"
+file = "tools/release/tests/test_repair_22_33_889.py"
+symbol = "test_repair_22_33_889.py"
+observed = "Attempt 1: 8 of 9 cases passed; the merged-scenario check failed on wiring that belongs to 22.33.893."
+assumption = "Producer task not yet on main; consumer test correct."
+severity = "low"
+
+[finding.22.33.1513.2]
+task = "22.33.1513"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs"
+symbol = "repair_22_33_1513.rs"
+observed = "Attempt 2: the result was refused because two changed files lay outside the paths; the daemon test build is broken on main."
+assumption = "Scope declaration and a pre-existing consumer break, not a defect of the change."
+severity = "low"
+
+[finding.22.33.1537.3]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 3: the daemon test build failed on an undefined support helper the outbox recovery test calls, besides the two targets broken on main."
+assumption = "A helper named but never written; the paths already cover it."
+severity = "high"
+
+[finding.22.33.750.2]
+task = "22.33.750"
+file = "rpc/repair_m750_test.go"
+symbol = "repair_m750_test.go"
+observed = "Attempt 2: one case failed; the CBOR trailer of the recorded bytecode names a metadata hash that matches neither encoding of the recorded metadata string."
+assumption = "Two recordings from two compiler runs; the assertion is correct."
+severity = "high"
+
+[finding.22.33.7.3]
+task = "22.33.7"
+file = "tests/repair_22_33_7.kvx"
+symbol = "repair_22_33_7.kvx"
+observed = "Attempt 3: the C proofs passed; the aggregate python suite failed on cases of other tasks (gotcha 3043)."
+assumption = "Gate scope, not a defect of the change."
+severity = "low"
+
+[finding.22.33.1336.4]
+task = "22.33.1336"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "repair_22_33_1336.rs"
+observed = "Attempt 6: 150 of 156 cases passed before the binary aborted in a destructor; the report was lost."
+assumption = "A destructor that asserts, a read that never completes, and six cases behind them."
+severity = "high"
+
+[finding.22.33.1439.1]
+task = "22.33.1439"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs"
+symbol = "repair_22_33_1439.rs"
+observed = "Attempt 1: 27 of 35 cases passed; four refused on a single RPC URL, four on a source-observation row that was never written."
+assumption = "Fixture gaps against the production preconditions; no gateway defect shown."
+severity = "high"
+
+[finding.22.31.492.1]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 1: 12 of 13 cases passed; one pre-existing buyer fixture still carries the old receipt digest."
+assumption = "A consumer fixture of the redefined digest (decision 2538), outside the original paths."
+severity = "high"
+
+[finding.22.33.1034.2]
+task = "22.33.1034"
+file = "tests/codec/lxp_test_binding_authority_receive.c"
+symbol = "lxp_test_binding_authority_receive.c"
+observed = "Attempt 2: one case failed; a hand-encoded refusal receipt did not verify."
+assumption = "Fixture encoding, with a possible producer drift to record if it persists."
+severity = "high"
+
+[finding.22.33.1236.2]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 2: two targets failed at fixture initialisation; the runtime binding was refused."
+assumption = "Fixture binding against the current kernel contract."
+severity = "high"
+
+[finding.22.33.196.4]
+task = "22.33.196"
+file = "apps/perps/tests/repair-22-33-196.test.ts"
+symbol = "repair-22-33-196.test.ts"
+observed = "Attempt 4: refused on a stale scope record; 7 cases failed on the chart price results."
+assumption = "Scope record lag plus seven failing assertions inside the paths."
+severity = "high"
+
+[finding.22.33.270.3]
+task = "22.33.270"
+file = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+symbol = "repair-22-33-270.spec.ts"
+observed = "Attempt 3: an install root entered the change set; the placeholder pseudo-class and the radio validator cases failed."
+assumption = "Change-set hygiene and two fixture cases."
+severity = "low"
+
+[finding.22.33.360.3]
+task = "22.33.360"
+file = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
+symbol = "test_repair_22_33_360.py"
+observed = "Attempt 3: 6 of 6 passed; two changed files lay outside the paths then declared."
+assumption = "Scope declaration only."
+severity = "low"
+
+[finding.22.33.516.1]
+task = "22.33.516"
+file = "apps/explorer/repair-22-33-516.spec.ts"
+symbol = "repair-22-33-516.spec.ts"
+observed = "Attempt 1: the accessor change lay outside the paths; the proof did not run."
+assumption = "Scope of the repair wider than declared."
+severity = "high"
+
+[finding.22.33.194.5]
+task = "22.33.194"
+file = "apps/perps/tests/repair-22-33-194.test.ts"
+symbol = "repair-22-33-194.test.ts"
+observed = "Attempt 7: 8 of 8 cases passed; the final revision was not verified."
+assumption = "Unverified final revision only."
+severity = "low"
+
+[finding.22.33.593.3]
+task = "22.33.593"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+symbol = "repair_22_33_593.rs"
+observed = "Attempt 3: 3 of 3 tests passed; the graph check failed on a mis-declared record path."
+assumption = "Path declaration only."
+severity = "low"
+
+[finding.22.31.447.6]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 5: no gate ran; the qualification environment stopped on a deleted manifest."
+assumption = "Environmental; fixed in the qualification environment."
+severity = "low"
+
+[finding.17.5.2.9]
+task = "17.5.2"
+file = "spec/layerx-merge/programme/tests/test_wave_1_gate.py::test_wave_1_gate_passes"
+symbol = "test_wave_1_gate.py::test_wave_1_gate_passes"
+observed = "Attempt 11: the build stopped on a crate since deleted from main."
+assumption = "Pre-existing break removed on main."
+severity = "low"
+
+[finding.17.5.3.5]
+task = "17.5.3"
+file = "spec/layerx-merge/programme/tests/test_wave_2_gate.py::test_wave_2_gate_passes"
+symbol = "test_wave_2_gate.py::test_wave_2_gate_passes"
+observed = "Attempt 9: the build stopped on a crate since deleted from main."
+assumption = "Pre-existing break removed on main."
+severity = "low"
+
+[finding.17.5.4.4]
+task = "17.5.4"
+file = "spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes"
+symbol = "test_wave_3_gate.py::test_wave_3_gate_passes"
+observed = "Attempt 9: the build stopped on a crate since deleted from main."
+assumption = "Pre-existing break removed on main."
+severity = "low"
+
+[finding.22.33.1545.3]
+task = "22.33.1545"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+symbol = "repair_22_33_1545.rs"
+observed = "Attempt 3: the changes built; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.217.5]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 5: the changes are complete; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1536.2]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 2: the changes are complete; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1538.3]
+task = "22.33.1538"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1538.rs"
+symbol = "repair_22_33_1538.rs"
+observed = "Attempt 3: the prior repairs stood and the two-step receipt transcripts were updated; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.31.478.2]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 2: the requalify built the rpc and lxphost packages; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.99.77.14]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 12: the 16384-byte response capacity is implemented and the guest builds; the daemon test build or the dependent-crate check failed on the two targets broken on main."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.1440.1]
+task = "22.33.1440"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1440.rs"
+symbol = "repair_22_33_1440.rs"
+observed = "Attempt 1: the build passed; 8 of 14 cases passed; one case panicked on a schema pattern the support checker does not accept and five cases failed on the mutex that panic poisoned."
+assumption = "A pattern form outside the support checker's vocabulary and a shared mutex, both inside the paths."
+severity = "high"
+
+[finding.22.33.891.1]
+task = "22.33.891"
+file = "tests/test_authority_multisig.c"
+symbol = "test_authority_multisig.c"
+observed = "Attempt 1: the build passed; the aggregate python gate ran 120 cases with 6 failures, all stale repository cases outside the paths; the changed C test binaries were never run."
+assumption = "Gate shape (gotcha 3045), and findings left outstanding inside the paths."
+severity = "high"
+
+[finding.22.33.892.1]
+task = "22.33.892"
+file = "tests/test_genesis_reconcile.c"
+symbol = "test_genesis_reconcile.c"
+observed = "Attempt 1: the build passed; the aggregate python gate failed on a missing pytest module before any case ran; the changed C test binaries were never run."
+assumption = "Gate shape (gotcha 3045), and findings left outstanding inside the paths."
+severity = "high"
+
+[finding.22.31.486.2]
+task = "22.31.486"
+file = "daemon/committed-fixture"
+symbol = "committed-fixture"
+observed = "Attempt 2: the build passed; one case failed: the V3 conformance copy differs from the re-recorded source fixture in the vmError region."
+assumption = "A derived copy not regenerated after its source was re-recorded; both files are in the paths."
+severity = "high"
+
+[finding.22.33.405.1]
+task = "22.33.405"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_405_test.exs"
+symbol = "repair_22_33_405_test.exs"
+observed = "Attempt 1: the build passed; 2 of 3 cases passed; the README case could not read /app/README.md because the builder does not mount it."
+assumption = "The consumer of the README (the test inside the builder container) never saw the file; a mount, not a test change, closes it."
+severity = "high"
+
+[finding.22.33.889.2]
+task = "22.33.889"
+file = "tools/release/tests/test_repair_22_33_889.py"
+symbol = "test_repair_22_33_889.py"
+observed = "Attempt 2: 8 of 9 cases passed; the merged-scenario case asserted three names that no task registered, while the producer task registered five others and left the driver unwired."
+assumption = "Consumer test written against guessed names (gotcha 3046); the producer's registry is the reference."
+severity = "high"
+
+[finding.22.33.360.4]
+task = "22.33.360"
+file = "tools/qualification/audit_repairs/test_repair_22_33_360.py"
+symbol = "test_repair_22_33_360.py"
+observed = "Attempt 4: 3 of 6 cases failed; the swagger and the crate manifest changes of attempt 3 were absent from the requalified tree."
+assumption = "Launch-time path scope dropped two files from the earlier change (gotchas 3020, 3031), not a defect of the repair."
+severity = "low"
+
+[finding.22.31.498.1]
+task = "22.31.498"
+file = "tests/ci/test_agent_codec_corpus.py"
+symbol = "test_agent_codec_corpus.py"
+observed = "Attempt 1: the build passed; 1 of 2 cases passed; the failing case ran the codec generator that 22.31.499 repairs."
+assumption = "A sibling repair of the same gotcha 3043 round landed after this attempt started."
+severity = "low"
+
+[finding.22.31.462.1]
+task = "22.31.462"
+file = "services/agent/crates/layerx-agentd/src"
+symbol = "src"
+observed = "Attempt 2: the build passed; 3 of 4 cases passed; the live boundary refused the daemon committed snapshot as CorruptResponse on a rank check outside the paths then declared."
+assumption = "The consumer-side literal range is the remaining half of the one wire contract; the file belongs to the repair."
+severity = "high"
+
+[finding.22.33.1236.3]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 3: the build passed; the withdraw test's fixture could not open the withdrawals system account (LXP_ERR_UNAUTHORIZED_DEBIT) and the repair budget ran out."
+assumption = "Fixture account order against the production registry rule; the passing sibling test is the reference."
+severity = "high"
+
+[finding.22.31.495.2]
+task = "22.31.495"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+symbol = "repair_22_31_495.rs"
+observed = "Attempt 1: the second build failed only on three DecisionRequest initialisers in tests/approval_ordering/mod.rs missing the new current_time field; the verify never ran."
+assumption = "The clock change is complete; the remaining errors are in a path-included test module now inside the paths, and the mutual requirement with 22.31.497 is broken by narrowing the build."
+severity = "low"
+
+[finding.22.31.497.2]
+task = "22.31.497"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 2: the build and the dependent-crate check passed; 4 of 5 actor cases passed; the restart read of the awaiting hold through ApprovalService::get was refused with ClockRequired; the projection-facts target did not execute."
+assumption = "Gotcha 3048: the untimed service read is repaired by 22.31.495; nothing in this task's paths can satisfy it."
+severity = "low"
+
+[finding.22.33.260.2]
+task = "22.33.260"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+symbol = "repair_22_33_260.rs"
+observed = "Attempt 2: the build passed; the dependent-crate check failed on the daemon test target that includes the authority budget-state module; the verify did not run."
+assumption = "Gotcha 3033; cleared by 22.31.497 (itself behind 22.31.495)."
+severity = "low"
+
+[finding.22.33.1336.5]
+task = "22.33.1336"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "repair_22_33_1336.rs"
+observed = "Attempt 7: 150 of 156 cases passed; two readiness cases need producer input, two unit tests are broken on main, one tap fixture changed nothing, and the root websocket upgrade returned 404 instead of 401."
+assumption = "Two failures are this task's; the other four are producer-input or main-side defects recorded as findings and repaired by 22.31.504."
+severity = "high"
+
+[finding.22.31.498.2]
+task = "22.31.498"
+file = "tests/ci/test_agent_codec_corpus.py"
+symbol = "test_agent_codec_corpus.py"
+observed = "Attempt 2: 1 of 2 cases passed; the clean-checkout case found the generated corpus already present in the archived tree."
+assumption = "Gotcha 3049: a generated artefact committed by the generator fix; the task owns the CI contract."
+severity = "low"
+
+[finding.22.99.148.4]
+task = "22.99.148"
+file = "services/agent/sdk/typescript"
+symbol = "typescript"
+observed = "Attempt 3: the three repaired cases passed; the package run failed on a test-script assertion, two web-search constructions without receipt keys and an unresolved viem import from the wallet package."
+assumption = "Producer changes inside the same package (22.9.10) and a sibling package dependency; the sweep task owns the package tests and its build installs what the imports need."
+severity = "high"
+
+[finding.22.33.593.4]
+task = "22.33.593"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+symbol = "repair_22_33_593.rs"
+observed = "Attempt 4: 3 of 3 cases passed; the change still contained the misplaced record file at the library crate path."
+assumption = "Change-set hygiene only; the repair itself is complete."
+severity = "low"
+
+[finding.22.33.210.1]
+task = "22.33.210"
+file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+symbol = "repair-22-33-210.test.ts"
+observed = "Attempt 1: 5 of 6 cases passed; the recorded refusal vectors were accepted by the fixture because it verified them with the chain's pins instead of the recording's."
+assumption = "Fixture pin selection inside the paths; the fixture file itself is being re-recorded by 22.31.486."
+severity = "low"
+
+[finding.22.31.492.2]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 2: the build passed; 12 of 13 cases passed; the committed prepare refused the hand-built commitment because the resolver lacked the validator interface and the evidence the production buyer verifies."
+assumption = "Test fixture shape behind a producer change in the buyer; the recorded committed vector is the reference."
+severity = "high"
+
+[finding.22.33.891.2]
+task = "22.33.891"
+file = "tests/test_authority_multisig.c"
+symbol = "test_authority_multisig.c"
+observed = "Attempt 2: five of seven C binaries and the pytest passed; two bridge withdraw cases failed at the GENESIS-authority open of the withdrawals account."
+assumption = "Producer refusal introduced by 22.33.1138, not a defect of the attempt."
+severity = "high"
+
+[finding.22.33.892.2]
+task = "22.33.892"
+file = "tests/test_genesis_reconcile.c"
+symbol = "test_genesis_reconcile.c"
+observed = "Attempt 2: three builds and one verify; two C cases failed and the repaired tree was never verified."
+assumption = "The refusal of 22.33.1138 explains the reserve fixture failures; anything left after 505 belongs to the task."
+severity = "high"
+
+[finding.22.33.1236.4]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 4: the asset, budget and escrow-capture binaries passed after the fixture rewrite; test_escrow_invariants failed at line 368 on the native escrow open submission without printing the outcome; the oracle binary never ran."
+assumption = "The account registry refusal is the producer defect 22.31.505 repairs (decision 2548); the escrow failure at line 368 may share that cause and is re-read after 505."
+severity = "high"
+
+[finding.22.31.486.3]
+task = "22.31.486"
+file = "daemon/committed-fixture"
+symbol = "committed-fixture"
+observed = "Attempt 3: the wallet suite failed 3 cases of repair-22-33-205.test.ts with 'no contract answers 0x5e615a6b' at the web-data module address from the test double; the CLI and explorer gates were not reached."
+assumption = "A producer change outside the task broke a consumer test the task's verify runs (gotcha 3055)."
+severity = "high"
+
+[finding.22.33.208.3]
+task = "22.33.208"
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+symbol = "repair-22-33-208.test.ts"
+observed = "Attempt 3: the type-check passed; 2 of 5 cases passed; the send case timed out on the database connection and the two sponsored cases found no node-recorded set-code execution evidence."
+assumption = "The sponsored evidence is a producer recording the task cannot make inside its paths (decision 2553); the database timeout is a test setup matter until shown otherwise."
+severity = "high"
+
+[finding.22.33.18.2]
+task = "22.33.18"
+file = "services/agent/sdk/python/tests/market_receipt_producer.c"
+symbol = "market_receipt_producer.c"
+observed = "Attempt 2: build passed; 79 cases passed; the replayed exact exchange failed on the payment payload comparison, receiptDigest differing from the recording."
+assumption = "Producer digest defect in the Python SDK outside the task's paths (gotcha 3059)."
+severity = "high"
+
+[finding.22.33.1336.6]
+task = "22.33.1336"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "repair_22_33_1336.rs"
+observed = "Attempt 8: 151 passed, 2 failed: the carried history unit test hit the public read rate limit (-32001 public_read_rate_limit) and the root upgrade case found no handler at /."
+assumption = "Shared process-global state in one test binary and a missing root route; the route belongs to the single network interface at the node root (decision 2521)."
+severity = "high"
+
+[finding.22.31.498.3]
+task = "22.31.498"
+file = "tests/ci/test_agent_codec_corpus.py"
+symbol = "test_agent_codec_corpus.py"
+observed = "Attempt 3: build 1, verify 1; every case passed except the undeclared-activity refusal whose expected text still listed the retired budget pull (196619)."
+assumption = "Stale literal in the task's own test; the generator behaves as specified."
+severity = "low"
+
+[finding.22.31.492.3]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 3: the resolver interface and digest fixes passed; the committed-rung case was refused requirements-mismatch at the payee account check because the committed offer named an account that is not the asset account the V4 recording pays."
+assumption = "Asset-account payees are not confirmable from an offer today (gotcha 3056); the named-payee recording keeps the case on the real verifier."
+severity = "high"
+
+[finding.22.31.495.3]
+task = "22.31.495"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+symbol = "repair_22_31_495.rs"
+observed = "Attempt 2: build passed; the dependent-crate check failed with E0061 in layerx-mcp and E0063 twice in the layerx-human-service repair test; the verify never ran."
+assumption = "Producer interface change with two consumers outside the paths; every interface change proves its consumer path."
+severity = "high"
+
+[finding.22.31.492.4]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 4: stopped as instructed; the V1 recording has no batch transaction, transaction proof or result proof for the committed rung, and no recording named a payee an offer could name."
+assumption = "The V1 direction of decision 2552 was infeasible (gotcha 3060) and the named-payee check refuses every production asset payee (gotcha 3061); the V7 recording of 22.31.511 supplies the parties."
+severity = "high"
+
+[finding.22.31.508.1]
+task = "22.31.508"
+file = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+symbol = "repair-22-33-205.test.ts"
+observed = "Attempt 1: the build passed; 34 of 37 cases passed; the three failing cases expected grant-discovery states the surface retired."
+assumption = "Producer contract change (22.33.1501) left its consumer cases behind; decision 2556."
+severity = "low"
+
+[finding.22.31.510.1]
+task = "22.31.510"
+file = "tests/ci/test_repair_22_31_510.py"
+symbol = "test_repair_22_31_510.py"
+observed = "Attempt 1: the build passed; the seven new cases passed; twelve cases of the 147 test expected the octet-stream agent route the transport no longer uses."
+assumption = "Producer transport change (22.33.16) left its consumer test behind; decision 2557."
+severity = "low"
+
+[finding.22.31.509.1]
+task = "22.31.509"
+file = "daemon/committed-fixture/vector_v6_test.go"
+symbol = "vector_v6_test.go"
+observed = "Attempt 1: build 3 of 3 passed at the final revision; the verify failed to compile on two codec method names that do not exist on codec.Codec; the test never ran."
+assumption = "Method naming of the forked codec; not a defect of the recording."
+severity = "low"
+
+[finding.22.33.891.3]
+task = "22.33.891"
+file = "tests/test_authority_multisig.c"
+symbol = "test_authority_multisig.c"
+observed = "Attempt 3: 25 of 26 cases passed after 22.31.505; the allowance-policy case expected LXP_ERR_VERSION_UNSUPPORTED and received LXP_ERR_NON_CANONICAL on a zero-guarantor manifest."
+assumption = "Fixture change in attempt 3 moved the manifest into the non-canonical shape; the kernel contract is unchanged."
+severity = "low"
+
+[finding.22.33.1236.5]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 5: re-qualification of the attempt-4 tree after 22.31.505; two assertions in tests/modules/test_asset_withdraw.c failed on the retired premise that genesis authority cannot open the system custody accounts."
+assumption = "The attempt-4 fixture adopted the retired 22.33.1138 premise; no agent acted on the batch-448 instruction (gotcha 3068)."
+severity = "high"
+
+[finding.22.33.1510.2]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 2: the build failed with seven unresolved names in an authority source module path-included by the test support; the verify never ran."
+assumption = "Fixture construction against the wrong producer; the service and daemon contract of 22.31.462 is on main."
+severity = "high"
+
+[finding.22.33.44.5]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 5: cargo build --tests failed in tests/approvals.rs with E0061 and E0063 against the daemon approval service; the task's own test never ran."
+assumption = "Producer break on main (gotcha 3072); cleared by 22.31.515."
+severity = "low"
+
+[finding.22.31.510.2]
+task = "22.31.510"
+file = "tests/ci/test_repair_22_31_510.py"
+symbol = "test_repair_22_31_510.py"
+observed = "Attempt 2: 29 of 29 own cases passed; 14 of 18 cases in the three SDK suites failed on payment-binding-mismatch and invalid-rpc-hex before the task's change."
+assumption = "Pre-existing suite failures from 22.31.147 (gotcha 3071); not the task's defect."
+severity = "low"
+
+[finding.22.33.1236.6]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 6: 2 repair cycles; all cases passed except the committed-iterator escrow open, refused with arena exhaustion."
+assumption = "Fixture arena lifetime, not a module defect."
+severity = "low"
+
+[finding.22.33.1510.3]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 3: 2 repair cycles; the build passed; 0 of 3 then 1 of 3 cases passed, the rest refused because the daemon recovery of the budget state failed with Unavailable."
+assumption = "Fixture transcript versus the daemon recovery contract; the daemon is the reference."
+severity = "high"
+
+[finding.22.34.5.1]
+task = "22.34.5"
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+symbol = "repair_22_34_5.rs"
+observed = "Attempt 1: the build failed with E0432, E0433, E0425, E0422 and E0609 in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs against the authority's human module; no verify ran."
+assumption = "Red daemon test build on main since 22.31.208 (gotcha 3075); not the task's defect."
+severity = "low"
+
+[finding.22.33.208.4]
+task = "22.33.208"
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+symbol = "repair-22-33-208.test.ts"
+observed = "Attempt 4: the build passed; 2 of 5 cases passed; the send case timed out on the single connection the route itself held and the two sponsored cases found no sponsored recording because the V6 vector was never loaded."
+assumption = "A real route defect (gotcha 3076) and an unconsumed producer artefact; both named."
+severity = "high"
+
+[finding.22.33.1550.4]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 4: cargo build --tests failed with E0063 and four E0061 in tests/repair_22_33_1550.rs against the daemon approval service of 22.31.495; no verify ran."
+assumption = "Consumer test behind the 495 signature change (gotcha 3072) plus the red daemon test build on main (gotcha 3075)."
+severity = "low"
+
+[finding.22.31.497.3]
+task = "22.31.497"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 3: cargo build -p layerx-agentd --tests exited 101 on four E0063 and one E0061 in tests/approval_semantics.rs; no verify ran."
+assumption = "A main-side break in a test the task does not touch (gotcha 3077) plus an approach superseded by decision 2564."
+severity = "low"
+
+[finding.22.31.503.1]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 1: the build passed; the verify ran 14 cases and 13 passed; noTestsUnderPages received the two 449 paths and expected none."
+assumption = "An incomplete sweep by the attempt; the guard did its job."
+severity = "low"
+
+[finding.22.31.512.1]
+task = "22.31.512"
+file = "apps/explorer/repair-22-31-512.spec.ts"
+symbol = "repair-22-31-512.spec.ts"
+observed = "Attempt 1: yarn tsc --noEmit exited 2 on TS2307 for @juggle/resize-observer in the 270 spec; no verify ran."
+assumption = "A main-side defect of 22.33.270 inside the task's planned scope (gotcha 3078) plus a scope overlap with 503."
+severity = "low"
+
+[finding.22.31.513.1]
+task = "22.31.513"
+file = "services/wallet/ceremony/internal/move/move_test.go"
+symbol = "move_test.go"
+observed = "Attempt 1: after two repair cycles the verify failed in ten ceremony cases, each at the fixture's install with ERR_PNPM_IGNORED_BUILDS; the attestor packages passed."
+assumption = "A package-manager policy of the whole wallet workspace, outside the task's planned scope (gotcha 3079)."
+severity = "low"
+
+[finding.22.31.514.1]
+task = "22.31.514"
+file = "services/agent/sdk/python/tests/test_web_search_sequencer.py"
+symbol = "test_web_search_sequencer.py"
+observed = "Attempt 1: 21 of 22 cases passed; the lifecycle case received a JSON POST where it expected octet-stream and the SDK then raised unknown-outcome."
+assumption = "A consumer test left behind by its producer's later change (gotcha 3080): the 22.33.16 record names this test as a consumer to migrate and nothing did."
+severity = "low"
+
+[finding.22.31.515.1]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 1: the approvals test panicked at line 260 with approval expiry: Store; decide and the MCP tests passed."
+assumption = "A test fixture that predates the store root rule (gotcha 3081); not a defect of the expiry store."
+severity = "low"
+
+[finding.22.33.1539.4]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 5: cargo build --tests exited 101 with three E0425 in tests/approval_ordering/mod.rs; no verify ran."
+assumption = "A missing import in the attempt's own edit plus the main-side daemon test break (gotcha 3077)."
+severity = "low"

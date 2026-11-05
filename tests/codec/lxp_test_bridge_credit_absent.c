@@ -4,6 +4,11 @@
 
 #include "lxp_kernel_case.h"
 
+#include <stdlib.h>
+
+/* Makefile (kernel domain): pass $(abspath $(LIBRARY)) before the case names. */
+static const char *bridge_library_path;
+
 typedef struct lxp_bridge_credit lxp_bridge_credit;
 typedef struct lxp_bridge_profile lxp_bridge_profile;
 typedef struct lxp_bridge_light_trust lxp_bridge_light_trust;
@@ -37,13 +42,33 @@ static int bridge_credit_symbols_absent(void)
     int read_ok;
     int close_status;
     size_t i;
+    size_t path_length;
+    size_t offset;
+    char *command;
 
     LXP_CASE_CHECK(lxp_bridge_credit_parse == NULL);
     LXP_CASE_CHECK(lxp_bridge_credit_verify_asset == NULL);
     LXP_CASE_CHECK(lxp_bridge_light_trust_encode == NULL);
     LXP_CASE_CHECK(lxp_bridge_module_iface == NULL);
 
-    symbols = popen("nm -g --defined-only build/liblayerx.a", "r");
+    LXP_CASE_CHECK(bridge_library_path != NULL && bridge_library_path[0] != '\0');
+    path_length = strlen(bridge_library_path);
+    LXP_CASE_CHECK(path_length <= (SIZE_MAX - 64U) / 4U);
+    command = malloc(64U + path_length * 4U);
+    LXP_CASE_CHECK(command != NULL);
+    offset = (size_t)sprintf(command, "nm -g --defined-only -- '");
+    for (i = 0U; i < path_length; ++i) {
+        if (bridge_library_path[i] == '\'') {
+            (void)memcpy(command + offset, "'\\''", 4U);
+            offset += 4U;
+        } else {
+            command[offset++] = bridge_library_path[i];
+        }
+    }
+    command[offset++] = '\'';
+    command[offset] = '\0';
+    symbols = popen(command, "r");
+    free(command);
     LXP_CASE_CHECK(symbols != NULL);
     while (fgets(line, (int)sizeof(line), symbols) != NULL) {
         size_t length = strlen(line);
@@ -147,6 +172,11 @@ int main(int argc, char **argv)
         { "deposit_nullifier_kept", deposit_nullifier_kept }
     };
 
+    if (argc < 3) {
+        fprintf(stderr, "usage: %s <linked-library-path> <case>...\n", argv[0]);
+        return 2;
+    }
+    bridge_library_path = argv[1];
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]),
-                                argc, argv);
+                                argc - 1, argv + 1);
 }

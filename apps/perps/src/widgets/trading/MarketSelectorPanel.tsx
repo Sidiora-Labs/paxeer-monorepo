@@ -1,6 +1,7 @@
 import React, { useState, useMemo, forwardRef } from "react";
 import { cn } from "@/ui/utils/cn";
 import { coinLogoUrl } from "@/core/perps/config";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -18,7 +19,29 @@ interface MarketWatchlistProps {
 
 type FilterTab = "all" | "rwa" | "new";
 
-const RWA_MARKET_IDS = [5, 6, 7, 8, 9, 10];
+type WatchlistMetadata = Pick<MarketCatalogEntry, "category" | "listedAt"> & {
+  isNew?: boolean;
+  assetCategory?: string;
+};
+
+export function watchlistMetadata(market: WatchlistMetadata, now = Date.now()) {
+  const listedAt = market.listedAt === null ? NaN : Date.parse(market.listedAt);
+  const isNew = market.isNew ?? (Number.isFinite(listedAt)
+    && listedAt <= now && now - listedAt <= 14 * 24 * 60 * 60 * 1000);
+  const category = market.assetCategory ?? market.category;
+  return { isNew, isRwa: ["rwa", "stocks", "indices", "commodities"].includes(category) };
+}
+
+export function filterWatchlist<T extends WatchlistMetadata & { symbol: string; name: string }>(
+  markets: readonly T[], tab: FilterTab, search: string, now = Date.now(),
+): T[] {
+  const query = search.toLowerCase();
+  return markets.filter((market) => {
+    const metadata = watchlistMetadata(market, now);
+    return (tab === "all" || (tab === "rwa" ? metadata.isRwa : metadata.isNew))
+      && (!query || market.symbol.toLowerCase().includes(query) || market.name.toLowerCase().includes(query));
+  });
+}
 
 function formatPrice(price: number): string {
   if (price >= 10000) return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,16 +62,10 @@ export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<FilterTab>("all");
 
-  const filtered = useMemo(() => {
-    let list = [...tradeable];
-    if (tab === "rwa") list = list.filter((m) => RWA_MARKET_IDS.includes(m.marketId));
-    else if (tab === "new") list = list.filter((m) => m.category === "new");
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((m) => m.symbol.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
-    }
-    return list;
-  }, [tradeable, tab, search]);
+  const filtered = useMemo(
+    () => filterWatchlist(tradeable, tab, search),
+    [tradeable, tab, search],
+  );
 
   const handleSelect = (symbol: string) => {
     onSelect(symbol);
@@ -318,8 +335,8 @@ export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(
                   >
                     {m.symbol}
                   </span>
-                  {m.category === "new" && (
-                    <span
+                  {watchlistMetadata(m).isNew && (
+                    <span aria-label="New listing"
                       style={{
                         padding: "1px 4px",
                         borderRadius: 3,

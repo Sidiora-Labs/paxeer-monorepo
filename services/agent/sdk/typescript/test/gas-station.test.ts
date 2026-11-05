@@ -983,7 +983,7 @@ async function paymaster_nonce_stream(): Promise<void> {
           { [batch.account]: { code: implementation } },
         ],
       },
-    ]);
+    ], "sponsored nonce discovery reads account code, paymaster code and nonce at pending");
     await rpc({
       method: "anvil_setCode",
       params: [batch.account, `0xef0100${paymaster.slice(2)}`],

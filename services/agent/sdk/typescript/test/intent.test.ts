@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import * as http from "node:http";
+import { test } from "node:test";
 
 import {
   HumanIntentClient,
@@ -40,7 +41,7 @@ const REFUSAL_TRACE = "trc_01j2gxq3cnb1c2d3e4f5g6h7j8";
 
 const planRequest: PlanIntentRequest = {
   source: { kind: "paxeer-wallet", account: null },
-  destination: { kind: "agent", account: "agent:did:layerx:bob:main" },
+  destination: { kind: "agent", account: "agent:did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba:main" },
   assetId: "99".repeat(32),
   money: { amount: protocolAmount("500000"), currency: "LXP" },
   constraints: {
@@ -80,6 +81,11 @@ const submitRequest: SubmitPlanRequest = {
 };
 
 assert.deepEqual(encodePlanIntentRequest(planRequest), fixture.plan_request);
+assert.deepEqual(fixture.plan_request.source, { kind: "paxeer-wallet" });
+assert.deepEqual(fixture.plan_request.destination, {
+  kind: "agent",
+  account: planRequest.destination.account,
+});
 assert.deepEqual(encodeSubmitPlanRequest(submitRequest), {
   plan_digest: "4b".repeat(32),
   signed_digest: "7c".repeat(32),
@@ -99,15 +105,110 @@ assert.throws(() => encodeSubmitPlanRequest({ ...submitRequest, bindings: [{ ...
 
 const decodedPlan = decodeIntentPlan(fixture.plan_result);
 assert.equal(decodedPlan.planDigest, "4b".repeat(32));
-assert.equal(decodedPlan.journeyKind, "deposit");
+assert.equal(decodedPlan.journeyKind, "transfer");
 assert.equal(decodedPlan.totalFee.amount, 9n);
 assert.equal(decodedPlan.legs.length, 2);
 assert.equal(decodedPlan.legs[0]!.domain, "paxeer");
 assert.equal(decodedPlan.legs[0]!.source.account, null);
-assert.equal(decodedPlan.legs[1]!.destination.account, "agent:did:layerx:bob:main");
+assert.equal(decodedPlan.legs[1]!.destination.account, planRequest.destination.account);
 assert.equal(decodedPlan.legs[1]!.money.amount, 500000n);
 assert.equal(decodedPlan.legs[1]!.fee.amount, 8n);
-assert.equal(decodedPlan.signingRequirements[1]!.authority, "agent-authority");
+assert.equal(decodedPlan.signingRequirements[1]!.authority, "evm-sender");
+
+function intent_plan_decodes_producer_evm_fields(): void {
+  const rows = fixture.plan_result.legs as Record<string, unknown>[];
+  assert.equal(decodedPlan.sponsored, false);
+  for (const [index, leg] of decodedPlan.legs.entries()) {
+    const row = rows[index]!;
+    assert.deepEqual(Object.keys(row).sort(), [
+      "index", "mechanism", "domain", "source", "destination", "money", "fee",
+      "to", "value", "calldata", "nonce", "chain_id", "gas_limit",
+      "max_fee_per_gas", "max_priority_fee_per_gas",
+    ].sort());
+    assert.deepEqual(leg.call, { to: row.to, data: row.calldata, value: 0n });
+    assert.equal(leg.nonce, BigInt(index));
+    assert.equal(leg.chainId, 125n);
+    assert.equal(leg.gasLimit, 100000n);
+    assert.equal(leg.maxFeePerGas, 30n);
+    assert.equal(leg.maxPriorityFeePerGas, 2n);
+    assert(Object.isFrozen(leg));
+    assert(Object.isFrozen(leg.call));
+  }
+}
+
+function intent_plan_derives_sponsorship_from_leg_nonces(): void {
+  const rows = fixture.plan_result.legs as Record<string, unknown>[];
+  for (const nonce of [null, undefined]) {
+    const legs = rows.map((row) => {
+      const { nonce: previous, ...leg } = row;
+      assert.equal(typeof previous, "number");
+      return nonce === undefined ? leg : { ...leg, nonce };
+    });
+    const plan = decodeIntentPlan({ ...fixture.plan_result, legs });
+    assert.equal(plan.sponsored, true);
+    assert.deepEqual(plan.legs.map((leg) => leg.nonce), [null, null]);
+    assert.deepEqual(plan.legs.map((leg) => leg.call), decodedPlan.legs.map((leg) => leg.call));
+  }
+  const legs = rows.map((row) => ({
+    index: row.index, mechanism: row.mechanism, domain: row.domain,
+    source: row.source, destination: row.destination, money: row.money, fee: row.fee,
+  }));
+  const plan = decodeIntentPlan({ ...fixture.plan_result, legs });
+  assert.equal(plan.sponsored, true);
+  for (const leg of plan.legs) {
+    assert.equal(leg.call, null);
+    assert.equal(leg.chainId, null);
+    assert.equal(leg.gasLimit, null);
+    assert.equal(leg.maxFeePerGas, null);
+    assert.equal(leg.maxPriorityFeePerGas, null);
+  }
+}
+
+function intent_plan_refuses_nonproducer_fields_and_invalid_transactions(): void {
+  const rows = fixture.plan_result.legs as Record<string, unknown>[];
+  for (const altered of [
+    { ...rows[0], payment: {} },
+    { ...rows[0], chainId: 125 },
+    { ...rows[0], data: rows[0]!.calldata },
+    { ...rows[0], call: decodedPlan.legs[0]!.call },
+    { ...rows[0], to: "0x1234" },
+    { ...rows[0], calldata: "0x1" },
+    { ...rows[0], value: "-1" },
+    { ...rows[0], value: (1n << 256n).toString() },
+    { ...rows[0], nonce: -1 },
+    { ...rows[0], nonce: Number.MAX_SAFE_INTEGER + 1 },
+    { ...rows[0], chain_id: 1.5 },
+    { ...rows[0], gas_limit: -1 },
+    { ...rows[0], max_fee_per_gas: "01" },
+    { ...rows[0], max_priority_fee_per_gas: (1n << 256n).toString() },
+  ]) {
+    assert.throws(() => decodeIntentPlan({ ...fixture.plan_result, legs: [altered, rows[1]] }));
+  }
+  const { value, ...partialCall } = rows[0]!;
+  assert.equal(value, "0");
+  assert.throws(() => decodeIntentPlan({ ...fixture.plan_result, legs: [partialCall, rows[1]] }));
+  assert.throws(() => decodeIntentPlan({ ...fixture.plan_result, sponsored: false }));
+  for (const nonce of [null, undefined, 0, 2]) {
+    assert.throws(() => decodeIntentPlan({
+      ...fixture.plan_result, legs: [rows[0], { ...rows[1], nonce }],
+    }), (error: unknown) => error instanceof HumanIntentError
+      && error.field === "legs[1].nonce" && error.copyKey === "error.intent.invalid-nonce");
+  }
+}
+
+function intent_plan_decodes_optional_transaction_hash(): void {
+  assert.equal(decodedPlan.txHash, null);
+  const txHash = `0x${"12".repeat(32)}`;
+  assert.equal(decodeIntentPlan({ ...fixture.plan_result, tx_hash: txHash }).txHash, txHash);
+  for (const tx_hash of [null, "0x12", "12".repeat(32), 12]) {
+    assert.throws(() => decodeIntentPlan({ ...fixture.plan_result, tx_hash }));
+  }
+}
+
+test(intent_plan_decodes_producer_evm_fields);
+test(intent_plan_derives_sponsorship_from_leg_nonces);
+test(intent_plan_refuses_nonproducer_fields_and_invalid_transactions);
+test(intent_plan_decodes_optional_transaction_hash);
 
 const unordered = { ...fixture.plan_result, legs: [...(fixture.plan_result.legs as unknown[])].reverse() };
 assert.throws(() => decodeIntentPlan(unordered));

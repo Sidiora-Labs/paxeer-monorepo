@@ -176,12 +176,39 @@ static int fee_per_activity_golden_table(void)
         {0x0007000bU, {0U, 4U}},
         {0x00080001U, {0U, 0U}}
     };
+    static const uint32_t live[] = {
+        0x00010001U, 0x00010002U, 0x00010003U, 0x00010004U, 0x00010005U,
+        0x0001000aU, 0x0001000bU, 0x00020001U, 0x00020002U, 0x00020003U,
+        0x00020004U, 0x00020005U, 0x00020006U, 0x00020007U, 0x00030001U,
+        0x00030002U, 0x00030003U, 0x00030004U, 0x00030005U, 0x00030006U,
+        0x00030007U, 0x00030008U, 0x00030009U, 0x0003000aU, 0x00040001U,
+        0x00040002U, 0x00040003U, 0x00040004U, 0x00040005U, 0x00040006U,
+        0x00040007U, 0x00040008U, 0x00050001U, 0x00050002U, 0x00050003U,
+        0x00050004U, 0x00050005U, 0x00050006U, 0x00050007U, 0x00050008U,
+        0x00050009U, 0x0005000aU, 0x0005000bU, 0x0005000cU, 0x0005000dU,
+        0x00060001U, 0x00060002U, 0x00060003U, 0x00060004U, 0x00060005U,
+        0x00060006U, 0x00060007U, 0x00060008U, 0x00060009U, 0x0006000aU,
+        0x0006000bU, 0x00070001U, 0x00070002U, 0x00070003U, 0x00070005U,
+        0x00070006U, 0x00070008U, 0x0007000aU, 0x0007000bU,
+    };
+    static const struct {
+        uint32_t activity_type;
+        lxp_result refusal;
+    } retired[] = {
+        {0x00010006U, LXP_ERR_UNKNOWN_ACTIVITY},
+        {0x00010007U, LXP_ERR_UNKNOWN_ACTIVITY},
+        {0x00010008U, LXP_ERR_UNKNOWN_ACTIVITY},
+        {0x00010009U, LXP_ERR_UNKNOWN_ACTIVITY},
+        {0x0003000bU, LXP_ERR_UNKNOWN_ACTIVITY},
+        {0x00080001U, LXP_ERR_MODULE_DISABLED}
+    };
+    const size_t live_count = sizeof(live) / sizeof(live[0]);
     const size_t golden_count = sizeof(golden) / sizeof(golden[0]);
     fee_genesis_fixture *fixture = calloc(1U, sizeof(*fixture));
     const lxp_genesis_module_entry *modules;
     size_t module_count = 0U;
     size_t covered = 0U;
-    bool seen[sizeof(golden) / sizeof(golden[0])] = {false};
+    bool seen[sizeof(live) / sizeof(live[0])] = {false};
 
     LXP_CASE_CHECK(fixture != NULL);
     LXP_CASE_CHECK(fee_genesis_open(fixture) == 0);
@@ -212,15 +239,26 @@ static int fee_per_activity_golden_table(void)
         LXP_CASE_CHECK(iface->activity_type_count != 0U);
         for (size_t j = 0U; j < iface->activity_type_count; ++j) {
             size_t k;
+            for (k = 0U; k < live_count; ++k)
+                if (live[k] == iface->activity_types[j]) break;
+            LXP_CASE_CHECK(k < live_count);
+            LXP_CASE_CHECK(!seen[k]);
+            seen[k] = true;
             for (k = 0U; k < golden_count; ++k)
                 if (golden[k].activity_type == iface->activity_types[j]) break;
             LXP_CASE_CHECK(k < golden_count);
-            LXP_CASE_CHECK(!seen[k]);
-            seen[k] = true;
             ++covered;
         }
     }
-    LXP_CASE_CHECK(covered == golden_count);
+    LXP_CASE_CHECK(covered == live_count);
+    for (size_t i = 0U; i < live_count; ++i) LXP_CASE_CHECK(seen[i]);
+    for (size_t i = 0U; i < sizeof(retired) / sizeof(retired[0]); ++i) {
+        const lxp_module_registration *registration = NULL;
+        LXP_CASE_CHECK(lxp_kernel_module_for_activity(&fixture->kernel,
+            retired[i].activity_type, fixture->kernel.epoch,
+            &registration) == retired[i].refusal);
+        LXP_CASE_CHECK(registration == NULL);
+    }
     LXP_CASE_CHECK(fee_genesis_close(fixture) == 0);
     return 0;
 }

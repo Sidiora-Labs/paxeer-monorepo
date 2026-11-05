@@ -1,6 +1,9 @@
 {
-  "provenance": "Out-of-band test-network checkpoint captured from daemon/committed-fixture vector-v4 execution commit; fixed independently of the portable document being verified. This is a fixture-network pin, not a Paxeer production-network pin.",
+  "provenance": "Out-of-band test-network checkpoint captured from the producer's execution_commit, independently of the portable document being verified. This is a fixture-network pin, not a Paxeer production-network pin.",
+  "source": "daemon/committed-fixture/vectors/vector-v4-committed.json",
+  "source_sha256": "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b",
+  "capture_command": "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py",
   "chain_id": "committed-fixture",
   "height": 10,
-  "block_hash": "066b3b86eb6f62437b659c1d075f28eb22246d233fe86b3d5cacbdb5e18216e9"
+  "block_hash": "a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108"
 }

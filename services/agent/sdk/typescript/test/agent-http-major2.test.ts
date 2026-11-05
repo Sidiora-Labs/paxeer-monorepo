@@ -8,16 +8,21 @@ import {
   AGENT_ENVELOPE_VERSION,
   AgentEnvelopeTransport,
   AgentSessionCredential,
+  LayerXKeyCredential,
   checkProofBundleResponse,
   encodeProofBundleRequest,
   type ProofBundleRequest,
   type ProofBundleVerificationLevel,
 } from "../src/agent-http.js";
-import { Rung } from "../src/generated/client.js";
+import { layerx_sdk_ts_package, Rung } from "../src/generated/client.js";
 import { idempotencyKey, PlatformSdkError, SecretBytes } from "../src/production.js";
 
 function session(): AgentSessionCredential {
-  return new AgentSessionCredential("major-two", "11".repeat(32), new SecretBytes(Buffer.alloc(32, 0x22)), 1n);
+  return new AgentSessionCredential("major-two", "11".repeat(32), new SecretBytes(new Uint8Array(32).fill(0x22)), 1n);
+}
+
+function gatewayCredential(): LayerXKeyCredential {
+  return new LayerXKeyCredential("major-two", new SecretBytes(new TextEncoder().encode(`lxp_live_${"55".repeat(32)}`)));
 }
 
 async function listen(server: http.Server): Promise<string> {
@@ -30,6 +35,7 @@ async function listen(server: http.Server): Promise<string> {
 
 async function close(server: http.Server): Promise<void> {
   const closed = once(server, "close");
+  server.closeAllConnections();
   server.close();
   await closed;
 }
@@ -52,6 +58,7 @@ async function agent_envelope_requests_carry_contract_major_2(): Promise<void> {
     assert.equal(request.method, "POST");
     assert.equal(request.url, AGENT_ENVELOPE_PATH);
     assert.equal(request.headers["content-type"], "application/json");
+    assert.equal(request.headers.authorization, `LayerX-Key major-two:lxp_live_${"55".repeat(32)}`);
     assert.equal(body.version, 1);
     assert.equal(Object.hasOwn(body, "contract_major"), false);
     assert.deepEqual(body.credential, credential.encode());
@@ -65,8 +72,10 @@ async function agent_envelope_requests_carry_contract_major_2(): Promise<void> {
     }));
   });
   const endpoint = await listen(server);
-  const transport = new AgentEnvelopeTransport({ endpoint, session: credential });
   try {
+    const transport = new AgentEnvelopeTransport({ endpoint, session: credential, gatewayCredential: gatewayCredential() });
+    // Contract major 2 retains the producer's version 1 HTTP envelope.
+    assert.equal(layerx_sdk_ts_package().contractMajor, 2);
     assert.equal(AGENT_ENVELOPE_VERSION, 1);
     for (const operation of ["session.list", "session.close", "agent.register", "session.open"] as const) {
       const response = await transport.call<{}, { value: { operation: string } }>({
@@ -116,6 +125,7 @@ async function proof_bundle_levels_are_rungs(): Promise<void> {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     requests += 1;
     assert.equal(request.url, AGENT_ENVELOPE_PATH);
+    assert.equal(request.headers.authorization, `LayerX-Key major-two:lxp_live_${"55".repeat(32)}`);
     assert.equal(Object.hasOwn(body, "contract_major"), false);
     assert.equal(body.operation, "read.proof_bundle");
     assert.equal(body.request.target, target);
@@ -134,9 +144,9 @@ async function proof_bundle_levels_are_rungs(): Promise<void> {
     }));
   });
   const endpoint = await listen(server);
-  const transport = new AgentEnvelopeTransport({ endpoint, session: session() });
   const request = { target, requested_verification_level: Rung.Receipted } satisfies ProofBundleRequest;
   try {
+    const transport = new AgentEnvelopeTransport({ endpoint, session: session(), gatewayCredential: gatewayCredential() });
     for (const level of levels.slice(0, 2)) {
       const typedRequest: ProofBundleRequest = { target, requested_verification_level: level };
       const reply = await transport.readProofBundle(typedRequest);

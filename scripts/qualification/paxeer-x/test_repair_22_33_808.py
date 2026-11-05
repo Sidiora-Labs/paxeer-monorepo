@@ -55,6 +55,9 @@ def committed_recording():
     assert result['receipt']['rung'] == 'committed'
     assert result['receipt']['receipt'] == converted['signedReceipt']
     assert result['raw_transaction'] == converted['rawTransaction']
+    transaction, _ = decode_signed(bytes.fromhex(result['raw_transaction'][2:]))
+    assert transaction.chain_id == 125
+    assert result['raw_transaction'].startswith('0x02')
     return {'rawTransaction': result['raw_transaction'], 'receiptJson': result['receipt'],
             'signedReceipt': converted['signedReceipt'], 'pinnedKey': converted['pinnedKey'],
             'network_id': int.from_bytes(bytes.fromhex(original['positive']['header'][2:])[9:13], 'big')}
@@ -354,7 +357,7 @@ def test_finding_53_committed_authenticated_source_producer_to_native_receipt_co
     record = bundle['records'][0]
     assert record['receipts']['paxd'] == case['receiptJson']
     verified = producer.consume_source(record, producer.decode_receipt_keys(pins(case)), SOURCE, case['network_id'])
-    assert verified.receipt.operation == 0
+    assert verified.receipt.operation == 2
     assert verified.canonical_bytes.hex() == case['signedReceipt'][2:]
     report, artifacts = native_consumption(producer, tmp_path, record)
     authenticated = custody.authenticate_source(bundle, pins(case), report, artifacts, SOURCE, case.get('network_id', 125))
