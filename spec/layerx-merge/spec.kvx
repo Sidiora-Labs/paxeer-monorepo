@@ -8661,6 +8661,18 @@ value = "A declared build or verify of the form cargo build -p layerx-agentd --t
 basis = "Gotcha 3132; the same dependency rule as decision 2589 applied to the one red target that remains."
 affects = ["22.31.516", "22.31.497", "22.33.1539", "22.31.534"]
 
+[decision.2592]
+title = "The web payer reads the receiver sequence under the receiver DID key that the offer account names, never under the pay-to account id"
+value = "GrantTerms carries receiver_did_key, the 32 bytes after did:layerx: in the offer account (OfferFacts.receiver_did), set at both production construction sites and refused as OfferMismatch(account) when malformed; GrantTerms::next_sequence_call encodes nextSequence(receiver_did_key, asset) and the trait default draw and the approval path use it unchanged. Every test double that answers the sequence view asserts the first word equals the receiver DID key of its recording, and a recording whose request stream ends never panics in its destructor."
+basis = "Gotcha 3133: the ledger and the real producer key the sequence by DID; a double that matches the selector alone proves nothing about the key."
+affects = ["22.31.531", "22.31.223", "22.31.527"]
+
+[decision.2593]
+title = "The hosted authority emits the committed verification wire rank for its committed-evidence responses and every daemon consumer requires it"
+value = "The budget-state, capability-scope and key-policy documents of services/platform/hosted/authority carry VerificationLevel::COMMITTED.wire_rank(); every consumer in the agent daemon (the remote budget-state, key-policy and scope reads, the stored key-policy check and the budget-proof verifier) decodes the label through VerificationLevel::from_wire_rank and requires COMMITTED; the retired labels 4 and 5 are refused on every path, and recorded fixtures that still hold them move to the committed label in the task that owns them. The producer-to-consumer path is proven in both crates by the new task."
+basis = "Gotcha 3134: 22.31.462 moved one consumer to the committed rank and left the producer and four sibling consumers on a retired label the shared type refuses."
+affects = ["22.31.462", "22.31.516", "22.33.1542"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37551,6 +37563,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.535]
+title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/platform/hosted/authority/tests/repair_22_31_535.kvx", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+do_1 = "do_1 Gotcha 3134, decision 2593. In services/platform/hosted/authority/src/human/budget_state.rs line 289 and src/human.rs lines 1134 and 1219 replace the literal verification label 4 with layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (the crate already depends on layerx-types); the evidence digests, the document shapes and every other field stay as they are."
+symbols = []
 
 [capability.22.35.8]
 title = "Explorer visual system integration: both colour modes end to end and the production build"
@@ -175054,6 +175075,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.535]
+title = "Emit the committed verification wire rank from the hosted authority and require it in every daemon consumer of its responses"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.535"]
+interfaces = []
+do_1 = "do_1 Gotcha 3134, decision 2593. In services/platform/hosted/authority/src/human/budget_state.rs line 289 and src/human.rs lines 1134 and 1219 replace the literal verification label 4 with layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (the crate already depends on layerx-types); the evidence digests, the document shapes and every other field stay as they are."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/human_runtime.rs make the key-rotation policy consumer (lines 2109 to 2110) and the two observed-scope checks (lines 18430 to 18431 and 19830 to 19831), and in src/managed_agent.rs the stored key-policy check at line 784, decode the label through VerificationLevel::from_wire_rank and require VerificationLevel::COMMITTED exactly as the budget-state consumer at human_runtime.rs line 2065 already does; in src/budget/budget_proof.rs budget_verification_level (line 22) require COMMITTED instead of the retired CHECKPOINT_FINALISED (from_wire_rank never returns a retired label, so that path refused every document), and move the in-crate budget-proof fixture at line 783 and any in-crate unit test that fed label 4 or 5 to the committed label."
+do_3 = "do_3 Prove the path from producer to consumer. services/platform/hosted/authority/tests/repair_22_31_535.rs, registered as a [[test]] entry in the crate manifest and including src/main.rs the way tests/repair_22_33_1473.rs does, asserts that the budget-state read and export documents, the capability-scope document and the key-policy document the producers build carry verification equal to COMMITTED.wire_rank() and decode through from_wire_rank to COMMITTED. services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs serves those three documents from a loopback HTTP stand-in to the production RemoteHumanAuthority and asserts budget_state, key_rotation_policy and the scope read accept them, and that the same documents with label 4 and with label 5 are refused on every path; where the budget-proof verifier can be driven without a live chain it also accepts an export document with the committed label and refuses one with label 4, otherwise the in-crate unit tests of budget_proof.rs cover the label and the record says so."
+do_4 = "do_4 Record in services/platform/hosted/authority/tests/repair_22_31_535.kvx the three producer sites, the five consumer sites, the cases and the gate results. The gates need no credential, environment variable or live endpoint (gotcha 2962). tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs of the daemon are not in this task: 22.31.516 moves their recorded fixtures and assertions to the committed label when it continues after this task."
+symbols = []
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/platform/hosted/authority/tests/repair_22_31_535.kvx", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_535.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_535.rs"]
+planned_paths = ["services/platform/hosted/authority", "services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-agentd/tests"]
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_535"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_535 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_535"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.534]
 title = "Judge budget-state verification through the shared label decoder and surface a daemon refusal distinctly"
 status = "pending"
@@ -175130,7 +175182,7 @@ do_1 = "do_1 Gotcha 3119, decision 2583. In services/agent/crates/layerx-mcp/src
 do_2 = "do_2 Add services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs over the real WebRoute, approval_state and a payer that reports a standing grant (extend tests/support/web_hold.rs RecordedNodePayer with a standing-grant mode, or follow tests/web.rs RecordedPayer, whose standing grant comes from the committed gateway/metered.json recording and whose view goes through tests/support/node_recording.rs) with: (1) an above-threshold metered search under the standing grant is held, the ticket disclosure carries the amount and the hold id, and prepare_transaction, grant and submit are never called; (2) the hold survives a server restart from the same store and is reported pending; (3) approval settles the spend through the standing grant with no new grant signed; (4) rejection refuses without payment; (5) a grant changed between hold and approval (per-draw maximum below the amount) is refused as changed. Cases 1 to 3 must fail on the pre-repair code with the metered_receiver_approval refusal."
 do_3 = "do_3 Record in services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx the refusal removed, the stored-spend shape for receiver-executed draws, the five cases and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
 symbols = []
-touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/tests/support/web_hold.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_531.kvx", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs", "services/agent/crates/layerx-mcp/tests/proof_mcp.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs", "services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs"]
 tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_531.rs"]
 planned_paths = ["services/agent/crates/layerx-mcp/src/tools/web", "services/agent/crates/layerx-mcp/tests"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
@@ -175147,6 +175199,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3127): the attempt-1 product changes stand (the draw held on its disclosure, the HeldAuthorisation plumbing, the five cases). In the unit tests of src/tools/web.rs make StandingPayer::view answer every view the production path issues: the account view with selector 0x3f050cbc (owner and asset words, issued by payer_account) is answered from the recorded exchange the way the replay fixture at line 2246 answers it, the grant view 0x423fe4b2 keeps its id assertion and answers the grant record, and the sequence view of next_sequence_call answers an encoded sequence word; count every view and set the expected (views, issues, draws, submissions) tuples to the counts the direct below-threshold path really produces, with a comment naming each view. Change no product code and no other assertion; run the declared build and verify once and record."
+do_5 = "Attempt 3 (continue, gotcha 3133, decision 2592): attempt 2 stands in full (the standing-grant hold, the stored draw spend, the restart case, the five cases and the recording). Add receiver_did_key: [u8; 32] to GrantTerms in services/agent/crates/layerx-mcp/src/tools/web.rs and set it at both construction sites: web.rs line 1366 from facts.receiver_did (the 32 hex bytes after did:layerx:, refusing OfferMismatch(account) when malformed) and src/tools/web/approval_state.rs line 384 from the stored terms or facts the same way; make GrantTerms::next_sequence_call (line 753) encode nextSequence(receiver_did_key, asset) so the trait default draw and approval_call read the sequence the ledger keeps. Update the four test constructions of the production type: tests/web_payments_layerxpay.rs line 311 (and its assertion at line 363, which now expects the DID key), tests/proof_mcp.rs line 64, and in layerx-agentd-host tests/payer_evm.rs line 555 and tests/support/payer_audit.rs line 330. In tests/support/web_hold.rs the recording and the unit double at web.rs near line 2351 assert the first word of a nextSequence request equals the receiver DID key of gateway/metered.json (2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8), and the recording destructor tolerates a wake connection that is refused and reports a join error without panicking, so one unrecorded view fails its case instead of aborting the process. Record the field, the key source and the six cases in tests/repair_22_31_531.kvx and run the declared build and verify once."
 
 [task.22.31.529]
 title = "Give the web suite's recorded payer the approval resources the hold path requires"
@@ -175373,7 +175426,7 @@ title = "Replace the path-included authority human module in the daemon tests wi
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.519"]
+requires = ["22.31.519", "22.31.535"]
 reqs = ["22998.1"]
 capabilities = ["22.31.516"]
 interfaces = []
@@ -175399,6 +175452,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue after 22.31.519): attempt 1 did the task's work (the shared authority library exports, the dev-dependency and the stand-in removal; its first build failed on two module declarations in hosted/authority/src/human/budget_state.rs that the attempt then fixed) and its second build failed only in services/agent/crates/layerx-agentd/tests/approval_semantics.rs, which still uses the signatures 22.31.495 retired (gotcha 3077) and which 22.31.519 repairs. Rebase on main once 519 is there, rerun the declared build and verify with no further edit unless the run names a site inside this task's paths, and record the result."
+do_6 = "Attempt 3 (continue after 22.31.535, gotcha 3134, decision 2593): attempt 2 stands in full (the authority library exports, the dev-dependency and the stand-in removal). Rebase on main once 22.31.535 is there, keeping both the committed label it writes in src/human/budget_state.rs and src/human.rs and the library exports of attempt 2. In tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs move the recorded budget-state fixture literal and every assertion on the verification label to layerx_types::verify::VerificationLevel::COMMITTED.wire_rank() (on main: human_approval_budget_actor.rs lines 778, 1067 and the fixture at 1870 plus the fixture equality near line 530 of attempt 2; human_projection_facts.rs lines 249, 968, 1181 and the fixture at 2379); the projection metadata strings stay as recorded. Change nothing else, run the declared build and verify once and record the result."
 
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
