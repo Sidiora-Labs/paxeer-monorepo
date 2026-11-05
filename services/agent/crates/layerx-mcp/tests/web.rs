@@ -70,7 +70,7 @@ const SEARCH_RECEIPT_DIGEST: &str =
     "bf3bed8ebfcf831428adfef58df46aa663eae776ad520e8c53fd5cbed2dba939";
 const SEARCH_PAYER: &str = "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505";
 const FETCH_RECEIPT_DIGEST: &str =
-    "f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301";
+    "b27f1014cf967addb57bd2fce7ccb96e41ec8113e2da96c93314ccaa4699c398";
 const TAMPERED_PAYER: &str = "4aa4897f08c81fcd9b003dfb8f4a369a9ed828f91ab228e04b14e02f03727aaf";
 const ROUTED_FETCH_URL: &str = "https://paxeer.app/index.html";
 const OTHER_PURPOSE: &str = "0d8e6c4a2b9f7e5d3c1a0f6e4b8d9c2a5f1e7b3d0a6c5e4b2d9f8a1c3e7b6d5f";
