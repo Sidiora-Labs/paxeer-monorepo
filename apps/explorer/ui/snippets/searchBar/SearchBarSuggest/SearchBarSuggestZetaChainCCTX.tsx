@@ -25,7 +25,7 @@ const SearchBarSuggestZetaChainCCTX = ({ data, isMobile, searchTerm, onClick }: 
   // search term can be either cctx hash or observed hash (hash from another chain)
   const hash = (
     <chakra.span as={ searchTerm === data.index ? 'mark' : 'span' } overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 }>
-      <HashStringShortenDynamic hash={ data.index } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.index } noTooltip/>
     </chakra.span>
   );
 
