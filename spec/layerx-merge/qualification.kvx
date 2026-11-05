@@ -30803,3 +30803,51 @@ symbol = "nextjs"
 observed = "Attempt 2: build exit 1 in the type check of lib/metadata/getPageOgType.ts (missing '/chains' and '/chains/[id]'); verify did not run."
 assumption = "A build deadlock between two repairs (gotcha 3097)."
 severity = "low"
+
+[finding.22.31.491.1]
+task = "22.31.491"
+file = "rpc/repair_22_31_491_test.go"
+symbol = "repair_22_31_491_test.go"
+observed = "Attempt 1: build exit 0; verify exit 1 with TestRepair_22_31_491_Terminal0 failing on the checker invocation and conformance-copies/V2 failing on the stale per-vector copy; the remaining targets did not run."
+assumption = "A wrong-interface clause in the task text and a copy outside the task's paths (gotcha 3098)."
+severity = "low"
+
+[finding.22.31.524.1]
+task = "22.31.524"
+file = "services/platform/middleware/seller/test/committed-fixture.mjs"
+symbol = "committed-fixture.mjs"
+observed = "Attempt 1: build exit 0; verify exit 1 with six 434 cases throwing invalid-payment-payload and the 457 case failing 7000000000n against 7000000001n; the attempt's four cases and the other targets passed."
+assumption = "Consumer tests left on retired field names and a stale equality pin (gotchas 3099, 3100)."
+severity = "low"
+
+[finding.22.31.526.1]
+task = "22.31.526"
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+symbol = "payment.rs"
+observed = "Attempt 1: build exit 0; verify exit 1 with 20 passed and 17 failed in tests/payment.rs (four offers where eight were expected, no metered offer in SID); the MCP targets did not run."
+assumption = "Stale consumer tests of a retired scheme outside the attempt's change (gotcha 3101)."
+severity = "low"
+
+[finding.22.31.521.2]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 2: build exit 0; verify exit 1 with both decide_nonces cases panicking at line 524 on Disclosure(MalformedPayload) from the preparation; repair_22_31_159 did not run."
+assumption = "A test fixture outdated by the call-bound disclosure (gotcha 3102)."
+severity = "low"
+
+[finding.22.33.94.4]
+task = "22.33.94"
+file = "tools/qualification/audit_repairs/test_repair_22_33_94.py"
+symbol = "test_repair_22_33_94.py"
+observed = "Attempt 4: build exit 0; verify exit 1 with the three binding cases failing KeyError sequence, the importer case failing KeyError card_receipted_credit in regenerate, and the producer finding case failing on a moved source line."
+assumption = "A test written against the journey shape before the re-recording (gotcha 3103)."
+severity = "low"
+
+[finding.22.33.1478.8]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 10: build exit 0; verify exit 1 with 22 of 25 passing; sellerExportsPersistCommittedPaymentsAcrossConsumers failed receipt-not-backed, merchantConsumerRecoversPaidOrdersAndRefusesUnknownSku and rpcProducerEvidenceCrossesThePublicNextExports failed verification-failure."
+assumption = "Decision-2538 consumers outside the task (gotcha 3104)."
+severity = "low"

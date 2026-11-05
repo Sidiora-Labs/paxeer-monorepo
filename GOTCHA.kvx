@@ -15310,3 +15310,38 @@ fix = "22.31.523 attempt 1 corrected its fixture in its final revision and is re
 title = "The explorer page type map and the page tests blocked each other's production build"
 symptom = "22.31.503 moves the four audit test files out of apps/explorer/pages but its production build fails in the type check of lib/metadata/getPageOgType.ts because the page type map lacks '/chains' and '/chains/[id]' (gotcha 3086); 22.31.522 adds those two entries but its production build regenerates nextjs/nextjs-routes.d.ts from pages/ and the four test files still under pages become routes the map does not list (22.31.522 attempt 1, gotcha 3044). Each task's build gate needed the other task's change."
 fix = "22.31.503 absorbs the two map entries and continues now; 22.31.522 continues after 503 with its spec and record. When two repairs share one build gate, one of them carries the other's smaller change."
+
+[gotcha.3098]
+title = "The native terminal-outcome checker has no corpus interface and the V2 per-vector copy is a second fixture"
+symptom = "22.31.491 attempt 1 called tools/qualification/paxeer-x/native-terminal-outcome.py with corpus and case arguments; the checker reads the LAYERX_ARBITER_PRESTATE_INPUTS inventory manifest of native captures, writes retained-native-records.tsv and runs the layerx-proof native_terminal_outcome test, so the call fails before any assertion. The second failure is conformance-copies/V2: sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json must carry the same V2 cases as the receipt fixture (rpc/sequencer_receipt_vectors_test.go line 1277) and was outside the task's paths."
+fix = "A task that adds a case to a vector group names the per-vector copy of that group in its paths and regenerates it with the generator's update flag; the committed pre-execution refusal is proved by the Go test on the receipt properties, and the checker-side proof stays with 22.33.877, which redefines the checker's capture contract."
+
+[gotcha.3099]
+title = "The ledger draw rename of 22.33.1475 left two consumer tests on the old field names"
+symptom = "22.33.1475 renamed the LedgerDraw fields from, assetId and receiverSequence to recipient, purposeHash and sequence in services/platform/middleware/seller/src; services/platform/middleware/seller/test/repair-22-31-434.test.mjs grantDraw (around line 141) and services/platform/middleware/agent/test/repair-22-31-435.test.mjs line 35 still pass the old names, so encodeUint(undefined) throws invalid-payment-payload at ledger.js line 69 in six 434 cases whenever the suite runs."
+fix = "A field rename ports every test that builds the type (decision 2560); 22.31.524 attempt 2 ports both tests and adds the 435 test to its verify."
+
+[gotcha.3100]
+title = "The 22.31.457 seller test pinned a fully signed committed vector"
+symptom = "services/platform/middleware/seller/test/repair-22-31-457.test.mjs line 26 asserts signedPower equals totalPower; the vector 22.31.486 re-recorded has validators of power 7000000000 and 1 with the power-1 vote absent (gotcha 3082), so signedPower is 7000000000 against totalPower 7000000001 and the case fails although the two-thirds threshold holds."
+fix = "Committed-rung consumer tests assert the threshold and the recorded powers, never equality of signed and total power; 22.31.524 attempt 2 corrects the assertion."
+
+[gotcha.3101]
+title = "The metered retirement left seventeen metered-success cases in the web-search payment suite"
+symptom = "22.31.169 retired the metered scheme in services/interop/crates/x-websearch/src/payment.rs (offers are exact per asset; metered records stay readable) and recorded the reconciliation of services/interop/crates/x-websearch/tests/payment.rs as a wiring request that was never turned into a task. 22.31.526 attempt 1 runs that binary: 17 cases fail (four offers where eight are expected, no metered offer in SID, every metered draw, grant, nonce and recovery case) while the attempt's own four exact cases pass."
+fix = "A retirement ports or removes the consumer tests of the retired path in the same change or in a required task; 22.31.528 reconciles the suite and 22.31.526 continues after it."
+
+[gotcha.3102]
+title = "A ledger transfer preparation needs a well-formed asset-send payload since the call-bound disclosure"
+symptom = "services/human/crates/layerx-human-service/tests/decide_nonces.rs line 277 prepares PrecompileCall::ledger_transfer(vec![0x33; 32]); since 9.35.1 the preparation binds the call disclosure through the call codec, which decodes the ledger payload as an asset-send envelope (tag 0x5301, ten fields) and refuses 32 bytes of 0x33 with Disclosure(MalformedPayload), so both decide_nonces cases fail before any decision-time call."
+fix = "Test preparations build the payload from a compiled send intent as tests/journey_faults.rs does; 22.31.521 attempt 3 replaces the fixture."
+
+[gotcha.3103]
+title = "The fiat journey checks were written against the journey shape before the re-recording"
+symptom = "22.31.489 re-recorded the three credited fiat journeys into sdk/platform/conformance/fixtures/fiat-receipts-v1.json and each sequencer block now declares fixture, case, rung, transaction_hash, receipt_digest, idempotency_key, payment_reference, payment_calldata, counterparty and expires_at with no sequence key; the 22.33.94 test asserted a sequence key, its importer looked cases up in the shared sequencer-receipt-v1.json, and its producer finding pinned line contents of rpc/sequencer_receipt_vectors_test.go that 22.31.489 changed. The task text also named the recorder at a path that only the attempt had created while the committed refresher lives at services/interop/crates/layerx-fiat/record_sequenced_journeys.py."
+fix = "A test that waits on a re-recording is re-read against the recorded shape before it reruns; 22.33.94 attempt 5 ports the test and the importer and makes the importer the single recorder."
+
+[gotcha.3104]
+title = "The seller export proofs fail in three decision-2538 consumers outside the seller task"
+symptom = "22.33.1478 attempt 10 passes 22 of 25 cases; sellerExportsPersistCommittedPaymentsAcrossConsumers fails receipt-not-backed because Express and Next assertReceiptBacked compare keccak of the canonical bytes (sdk/integrations/express/src/index.ts line 461, next line 480), and the merchant and RPC export proofs fail verification-failure because the conformance recorder emits keccak of the signed receipt (services/platform/middleware/conformance/src/receipts.ts line 197) and ConformancePaymentRpcSession.call answers five receipt fields the strict seller RPC consumer refuses."
+fix = "The Express and Next checks are 22.31.493, the conformance recorder and the full receipt answer are 22.31.492; 22.33.1478 continues after both."
