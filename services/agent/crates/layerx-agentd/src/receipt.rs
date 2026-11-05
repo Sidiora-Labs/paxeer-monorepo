@@ -46,6 +46,32 @@ pub struct TransactionReceiptEvidence {
     pub canonical_receipt: Vec<u8>,
 }
 
+/// A v2 ingress capability derived only from the node verifier's pinned-key result.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthenticatedTransactionReceipt {
+    evidence: TransactionReceiptEvidence,
+}
+
+impl AuthenticatedTransactionReceipt {
+    pub fn from_authenticated(
+        receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+    ) -> Result<Self, ReceiptStoreError> {
+        if (receipt.rung() == Rung::Committed || receipt.covering_block().is_some())
+            && receipt.committed_header().is_none()
+        {
+            return Err(ReceiptStoreError::UnauthenticatedIngress);
+        }
+        Ok(Self {
+            evidence: TransactionReceiptEvidence::from_authenticated(receipt)?,
+        })
+    }
+
+    #[must_use]
+    pub fn evidence(&self) -> &TransactionReceiptEvidence {
+        &self.evidence
+    }
+}
+
 /// Every served receipt of one tenant split by whether legacy recovery evidence was
 /// persisted for it. A receipt without evidence is an older store record that
 /// recovery must hold rather than skip.
@@ -98,12 +124,14 @@ pub enum ReceiptStoreError {
     Missing,
     EvidenceVersion,
     BelowReceipted,
+    UnauthenticatedIngress,
 }
 
 impl ReceiptStoreError {
     #[must_use]
     pub const fn reason(&self) -> &'static str {
         match self {
+            Self::UnauthenticatedIngress => "receipt.unauthenticated_ingress",
             Self::EvidenceVersion => "receipt.evidence_version",
             Self::BelowReceipted => "receipt.not_receipted",
             Self::Verification(_) => "receipt.verification",
@@ -240,7 +268,15 @@ pub fn store_verified_if_absent<V: ReceiptIngress>(
     verified.store_if_absent(durable, tenant, key, receipt_bytes)
 }
 
-pub trait ReceiptIngress {
+mod ingress_seal {
+    pub trait Sealed {}
+}
+impl ingress_seal::Sealed for AuthorizedBatch {}
+impl ingress_seal::Sealed for TransactionReceiptEvidence {}
+impl ingress_seal::Sealed for AuthenticatedTransactionReceipt {}
+impl ingress_seal::Sealed for layerx_client::rpc::receipt::AuthenticatedReceipt {}
+
+pub trait ReceiptIngress: ingress_seal::Sealed {
     type Stored;
 
     fn store_if_absent(
@@ -593,7 +629,7 @@ pub(crate) fn persist_authenticated_receipt(
     if idempotency_key != receipt.activity_id() || receipt_bytes != receipt.canonical_bytes() {
         return Err(ReceiptStoreError::Corrupt);
     }
-    let mut evidence = TransactionReceiptEvidence::from_authenticated(receipt)?;
+    let mut evidence = AuthenticatedTransactionReceipt::from_authenticated(receipt)?.evidence;
     let mut metadata = ReceiptMetadata {
         activity_id: receipt.activity_id(),
         idempotency_key,
@@ -859,43 +895,77 @@ impl ReceiptIngress for TransactionReceiptEvidence {
 
     fn store_if_absent(
         &self,
+        _durable: &mut Store,
+        _tenant: TenantId,
+        _transaction_hash: [u8; 32],
+        _receipt_bytes: &[u8],
+    ) -> Result<Self, ReceiptStoreError> {
+        Err(if self.metadata.rung < Rung::Receipted {
+            ReceiptStoreError::BelowReceipted
+        } else {
+            ReceiptStoreError::UnauthenticatedIngress
+        })
+    }
+}
+
+impl ReceiptIngress for AuthenticatedTransactionReceipt {
+    type Stored = TransactionReceiptEvidence;
+
+    fn store_if_absent(
+        &self,
         durable: &mut Store,
         tenant: TenantId,
         transaction_hash: [u8; 32],
         receipt_bytes: &[u8],
-    ) -> Result<Self, ReceiptStoreError> {
-        if self.metadata.rung < Rung::Receipted {
-            return Err(ReceiptStoreError::BelowReceipted);
-        }
-        if self.metadata.transaction_hash != transaction_hash
-            || self.canonical_receipt != receipt_bytes
-            || receipt_bytes.is_empty()
-        {
-            return Err(ReceiptStoreError::Corrupt);
-        }
-        let key = evidence_key(tenant.clone(), transaction_hash)?;
-        if let Some(existing) = serve_evidence(durable, tenant.clone(), transaction_hash)? {
-            let mut comparable = existing.clone();
-            comparable.metadata.rung = self.metadata.rung;
-            if comparable != *self {
-                return Err(ReceiptStoreError::Store(StoreError::Corrupt(
-                    "conflicting receipt metadata",
-                )));
-            }
-            if self.metadata.rung > existing.metadata.rung {
-                durable.put_local(key, encode_transaction_evidence(self)?)?;
-                return Ok(self.clone());
-            }
-            return Ok(existing);
-        }
-        durable.record_verified_receipt(
-            &[transaction_key(tenant, transaction_hash)?],
+    ) -> Result<Self::Stored, ReceiptStoreError> {
+        persist_transaction_evidence(
+            &self.evidence,
+            durable,
+            tenant,
+            transaction_hash,
             receipt_bytes,
-            key,
-            encode_transaction_evidence(self)?,
-        )?;
-        Ok(self.clone())
+        )
     }
+}
+
+fn persist_transaction_evidence(
+    evidence: &TransactionReceiptEvidence,
+    durable: &mut Store,
+    tenant: TenantId,
+    transaction_hash: [u8; 32],
+    receipt_bytes: &[u8],
+) -> Result<TransactionReceiptEvidence, ReceiptStoreError> {
+    if evidence.metadata.rung < Rung::Receipted {
+        return Err(ReceiptStoreError::BelowReceipted);
+    }
+    if evidence.metadata.transaction_hash != transaction_hash
+        || evidence.canonical_receipt != receipt_bytes
+        || receipt_bytes.is_empty()
+    {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    let key = evidence_key(tenant.clone(), transaction_hash)?;
+    if let Some(existing) = serve_evidence(durable, tenant.clone(), transaction_hash)? {
+        let mut comparable = existing.clone();
+        comparable.metadata.rung = evidence.metadata.rung;
+        if comparable != *evidence {
+            return Err(ReceiptStoreError::Store(StoreError::Corrupt(
+                "conflicting receipt metadata",
+            )));
+        }
+        if evidence.metadata.rung > existing.metadata.rung {
+            durable.put_local(key, encode_transaction_evidence(evidence)?)?;
+            return Ok(evidence.clone());
+        }
+        return Ok(existing);
+    }
+    durable.record_verified_receipt(
+        &[transaction_key(tenant, transaction_hash)?],
+        receipt_bytes,
+        key,
+        encode_transaction_evidence(evidence)?,
+    )?;
+    Ok(evidence.clone())
 }
 
 fn encode_transaction_evidence(
@@ -1128,7 +1198,7 @@ pub fn persist_committed_protocol_receipt(
         native_commit_key(tenant.clone(), protocol.activity_id())?,
         bytes,
     )?;
-    record.store_if_absent(durable, tenant, protocol.activity_id(), canonical)
+    persist_transaction_evidence(&record, durable, tenant, protocol.activity_id(), canonical)
 }
 
 pub fn persist_committed_native_receipt(
