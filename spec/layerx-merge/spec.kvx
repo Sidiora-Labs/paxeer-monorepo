@@ -151363,7 +151363,7 @@ do_16 = "Attempt 2 (continue): the collateral account-race case waits for the in
 
 [task.22.33.619]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/next/example/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457", "22.31.479", "22.31.493"]
@@ -175171,7 +175171,7 @@ do_4 = "Attempt 3 (continue, gotcha 3131, decision 2590): attempt 2 stands in fu
 
 [task.22.31.531]
 title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
