@@ -284306,7 +284306,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.18]
 title = "Repair audit record 22.30.100 medium findings in services/agent/sdk/python/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147", "22.31.510"]
