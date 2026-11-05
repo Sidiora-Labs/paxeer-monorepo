@@ -285041,7 +285041,7 @@ do_9 = "Attempt 3 (continue): tests/programs/test_lifecycle.c:1155 and tests/pro
 
 [task.22.33.213]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.251", "22.31.252", "22.31.463", "22.31.488"]
