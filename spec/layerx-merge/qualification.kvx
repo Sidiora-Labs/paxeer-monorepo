@@ -31331,3 +31331,139 @@ symbol = "repair-22-35-6.spec.tsx"
 observed = "Attempt 2 at ef0a0fe2e475ec12e86703510e5e749b9ed2cd87: builds exit 2 then 0, verify exit 1 with eight of nine proofs passed; addressPageRendersEntityTabSetAndOverview failed at line 123 with router.push called zero times after the click on the History trigger; the proof was amended and built (exit 0 at 57be677d3751afc09f2b5cb4f7ca73d55d44c294) with no verify run left."
 assumption = "The trigger was still disabled by the isTabsLoading flag of the Address page when the proof clicked it (the stub counters show 10 and the loaded mock shows 3 while the address query may still serve placeholder data); the amended proof waits for the enabled state and the product code is unchanged."
 severity = "low"
+
+[finding.22.31.547.1]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 1 at fab6cba03cd0005b7ed1cc66253876a4d7a1cf3f: build exit 0; the dependent-crate check (cargo check --all-targets on layerx-agentd and layerx-agentd-host) exit 101 with one error, E0308 in the rpc_surface_major_two target at src/agent_rpc_wire.rs line 3357 (two distinct NativeSendPrepareRequestV2 types); no verify run."
+assumption = "The failing target is broken on main by 22.31.545 and is independent of this change set; the SDK port and its end-to-end case are complete and compile."
+severity = "medium"
+
+[finding.22.31.487.3]
+task = "22.31.487"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+symbol = "agent_envelope.rs"
+observed = "Attempt 3 at 2af985b21113f6d3075bbaaf6388bc08fba6aca8 re-qualified the attempt-2 tree: build exit 101 with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.31.494.2]
+task = "22.31.494"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs"
+symbol = "repair_22_31_494.rs"
+observed = "Attempt 2 at 6f6b67e1b8320cd50d8d07d584bd5fd7070f4848 re-qualified the attempt-1 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1535.4]
+task = "22.33.1535"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1535.rs"
+symbol = "repair_22_33_1535.rs"
+observed = "Attempt 4 at e57c5234592fef46dec5573eb22923459c6ea323 re-qualified the attempt-3 tree: the --tests build of layerx-agentd failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.14.4]
+task = "22.33.14"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs"
+symbol = "repair_22_33_14.rs"
+observed = "Attempt 4 at 5491d22573285cf1a354820211f1641893230a92 re-qualified the attempt-3 tree: the --tests build of layerx-agentd failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1538.4]
+task = "22.33.1538"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1538.rs"
+symbol = "repair_22_33_1538.rs"
+observed = "Attempt 4 at 8e0bd021a5e9a6efb1dacbe041aa32a180774930 re-qualified the attempt-3 tree: the --tests build of layerx-agentd failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1545.4]
+task = "22.33.1545"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+symbol = "repair_22_33_1545.rs"
+observed = "Attempt 4 at d0a5e184b14e6d4a7058a3c95390d94c0f942f6f re-qualified the attempt-3 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1547.3]
+task = "22.33.1547"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+symbol = "repair_22_33_1547.rs"
+observed = "Attempt 3 at 2bf16360bd45354cb8021cb1242ba1b4dd23224f re-qualified the attempt-2 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1571.4]
+task = "22.33.1571"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs"
+symbol = "repair_22_33_1571.rs"
+observed = "Attempt 4 at d42521d891498004f7c6c64f2b31c69fb8b9207c re-qualified the attempt-3 tree: the --tests build of layerx-agentd failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.31.212.6]
+task = "22.31.212"
+file = "tools/platform/cli/tests/repair_22_31_212.rs"
+symbol = "repair_22_31_212.rs"
+observed = "Attempt 7 at d15629af8ae71c93df6d4a50eb884780e2a8b02e: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.31.478.3]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 3 at e6ce65c253a79f157c48dda357a5af7db3a0ca84 re-qualified the attempt-2 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.31.496.2]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 2 at e6c0dbd304f9d0dc531d3148f183617fb564c2df re-qualified the attempt-1 tree: build exit 101 with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1536.3]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 3 at e12f0463ed6ad950b06d156274967bfe20d991c5: build exit 101 with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1544.3]
+task = "22.33.1544"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+symbol = "repair_22_33_1544.rs"
+observed = "Attempt 3 at e409eda4cf5331fee834da0277a4ee17f200f196 re-qualified the attempt-2 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.218.5]
+task = "22.33.218"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+symbol = "repair_22_33_218.rs"
+observed = "Attempt 5 at c9f6f4818352d65e8192cfeda9ee992d76b1c68d re-qualified the attempt-4 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.222.4]
+task = "22.33.222"
+file = "programs/crates/layerx-programs-registry/tests/repair_22_33_222.rs"
+symbol = "repair_22_33_222.rs"
+observed = "Attempt 4 at d6cb31ae2cfdf25d58cffc67f262fae6dbbde441 re-qualified the attempt-3 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.224.4]
+task = "22.33.224"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_224.rs"
+symbol = "repair_22_33_224.rs"
+observed = "Attempt 4 at ac5a8b3250136d0d603ee5f83dbadb84451e259b re-qualified the attempt-3 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
