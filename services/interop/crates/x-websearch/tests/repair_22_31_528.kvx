@@ -1,0 +1,105 @@
+[meta]
+task = "22.31.528"
+base_revision = "603f707f71e5cfe7896841be5d1e735eb7db966f"
+decision = "2573"
+gotcha = "3101"
+policy = "All 35 tests remain executable; no production or recording changes. Every metered-payload refusal asserts zero requests, receive keys, receipts, deliveries, handler releases and settlement broadcasts."
+verified_revision = "The revision field of the matching build and verify rows in /out/run/gates.jsonl; immutable candidate identity is assigned by hf-build and hf-done after this record is written."
+
+[case.a_draw_charged_above_the_configured_fee_limit_is_refused]
+ported_to = "metered_draw_payloads_at_and_above_the_fee_limit_are_refused_without_state"
+assertion = "Both fee boundary payloads are rejected as invalid_payment_payload before settlement; real signed receipt construction remains."
+
+[case.a_draw_receipt_without_a_matching_payment_drawn_log_is_refused]
+ported_to = "a_metered_payload_with_a_mismatched_draw_receipt_is_refused_without_state"
+assertion = "Every historical log, signature-window and receipt mutation remains constructed; the metered payload is refused against an exact offer before receipt lookup."
+
+[case.a_grant_the_ledger_does_not_hold_is_refused_before_any_transaction]
+ported_to = "a_grant_the_ledger_does_not_hold_is_refused_before_any_transaction"
+assertion = "Absent, empty, reverted, unbound and malformed grant payloads are refused before any ledger grant lookup or transaction."
+
+[case.a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction]
+ported_to = "a_metered_payload_is_refused_before_a_receiver_signed_ledger_transaction"
+assertion = "Retains real legacy transaction hash, RLP, chain ID, low-S and recovered signer assertions; production rejects its metered payload without broadcast or sequence allocation."
+
+[case.a_payer_did_header_is_ignored_and_a_malformed_address_is_refused]
+ported_to = "a_payer_did_header_is_ignored_and_a_malformed_address_is_refused"
+assertion = "DID headers remain ignored and every malformed address remains rejected; a valid address still yields four exact offers without payer or purpose terms."
+
+[case.a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once]
+ported_to = "a_pending_exact_payment_recovers_from_the_sequencer_receipt_and_releases_once"
+assertion = "Pending exact payments recover from receipted and committed gateway answers; signed receipt and canonical digest, receipt ownership, no unproved block evidence and one release survive restart and byte-identical replay."
+
+[case.a_pending_draw_recovers_the_same_activity_and_releases_once]
+ported_to = "a_pending_exact_payment_recovers_the_same_transaction_after_restart_and_releases_once"
+assertion = "Two submitted exact receipt lookups release nothing; restart recovers the same transaction and verifies its signed receipt before one release and stable replay."
+
+[case.a_reverted_draw_releases_nothing]
+ported_to = "a_reverted_metered_draw_payload_is_refused_without_state"
+assertion = "A metered payload with a real signed reverted receipt available is refused before receipt lookup and writes no state."
+
+[case.draw_nonces_are_sequential_for_one_receiver]
+ported_to = "metered_payloads_do_not_allocate_receiver_nonces"
+assertion = "Real historical transactions retain sequential nonce and receiver sequence, distinct hash and recovered signer checks; submitted metered payloads allocate no nonce and write no state."
+
+[case.draws_the_gateway_does_not_settle_release_nothing]
+ported_to = "unsettled_metered_draw_payloads_release_nothing"
+assertion = "Every recorded unsettled draw variant, cross-asset payload and changed target is refused as invalid_payment_payload before settlement."
+
+[case.grants_that_do_not_bind_this_draw_are_refused]
+ported_to = "metered_grants_that_do_not_bind_the_request_are_refused_without_state"
+assertion = "All unbound grant variants, bogus grant, wrong asset and different payer payloads are refused against exact offers without state."
+
+[case.malformed_and_unmatched_payments_are_challenged]
+ported_to = "malformed_and_unmatched_payments_are_challenged"
+assertion = "Four offers with or without payer; malformed header and altered exact amount or recipient remain rejected without state."
+
+[case.metered_draw_refuses_a_changed_receiver_binding]
+ported_to = "metered_draw_refuses_a_changed_receiver_binding"
+assertion = "Changed receiver binding remains installed after startup; the metered payload is rejected before binding or sequence can authorize a draw."
+
+[case.metered_draw_refuses_unavailable_or_malformed_receiver_sequence]
+ported_to = "metered_draw_refuses_unavailable_or_malformed_receiver_sequence"
+assertion = "All five unavailable or malformed sequence answers remain installed; metered payload refusal precedes sequence and nonce allocation."
+
+[case.pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own]
+ported_to = "pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own"
+assertion = "Exactly four exact offers retain PAX main-account and every other asset-specific payee assertions."
+
+[case.the_client_exchange_matches_the_recording]
+ported_to = "the_client_exchange_matches_the_recording"
+assertion = "Compares all exact challenge, settlement and content rows unchanged; historical metered offers and payload deserialize, buyer authenticates the signed historical settlement, legacy offer and metered payload replay are refused."
+
+[case.the_configured_payer_address_is_offered_and_drawn_from]
+ported_to = "the_configured_payer_address_keeps_exact_offers_and_refuses_metered_payloads"
+assertion = "Configured payer validation, case handling and mismatch refusal remain; four exact offers omit payer terms and both foreign and configured metered payloads are rejected before grant reads."
+
+[coverage]
+receipt_validation = "Existing exact_receipts_that_do_not_pay_this_request_are_refused, a_receipt_outside_every_configured_key_window_is_refused, exact_payment_accepts_only_native_signed_topic_order and exact_payment_native_topics_retain_receipt_validation remain unchanged."
+historical_validation = "legacy_gateway_recording_is_reproduced_by_the_real_signers, legacy_payer_grant_codec_replays_historical_ledger_responses and recorded_settlements_are_captured_by_the_buyer remain unchanged."
+retired_offer_refusal = "supported_exact_offers_settle_in_each_asset_and_retired_metered_offers_are_refused still invokes support/payment_repair.rs unchanged."
+removed_tests = "none"
+
+[gate.build]
+runner = "hf-build"
+command = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --tests"
+result = "Authoritative exit and candidate revision: last build row of /out/run/gates.jsonl."
+private_log = "/out/logs/build-1.log (or repair build log named by the ledger)"
+
+[gate.verify]
+runner = "hf-done"
+command = "cg spec done 22.31.528 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --test payment"
+result = "Authoritative exit and candidate revision: last verify row of /out/run/gates.jsonl; completion requires exit zero at the build revision."
+private_log = "/out/logs/verify-1.log (or repair verification log named by the ledger)"
+
+[observations]
+record_paths = "Earlier repair records named in task history are absent from this checkout; the committed support/payment_repair.rs provides the refusal and recovery coverage."
+evidence_identity = "Gate result fields reference the private ledger so adding a result cannot change the candidate after its build; final output copies the exact last gate evidence."
+
+[gate.build_initial]
+revision = "abad2d5d1fe54806e65b6d4744e146b8c77a1575"
+command = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Replace the remaining removed broadcast_draw call with the real legacy signer and retain its RLP, transaction hash and recovered signer assertions; the HTTP path asserts refusal without state."
