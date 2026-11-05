@@ -1,0 +1,88 @@
+[repair.22.31.529]
+requirement = "22998.1"
+gotcha = "3112"
+decision = "2578"
+fixture = "RecordedPayer owns WebApprovalResources from the existing tests/support/web_hold.rs::resources fixture and a fresh Directory retained until the resources are dropped. approval_resources returns clones sharing the same durable store, expiry and limiter across retries."
+store = "Store::open under the private temporary directory; ApprovalExpiry::from_shared_store uses that same store."
+budget = "One tenant limit, LimitId([12; 16]), scope Tenant([1; 32]), ceiling 1000000, consumed 0; limits contains the same id and covers the held amount 3114."
+cases = ["an_unapproved_spend_is_held_and_never_paid", "a_rejected_spend_is_refused_without_payment", "a_held_web_spend_through_tools_call_is_never_paid_until_approved", "a_held_spend_in_a_session_opened_from_its_binding_is_reported_as_held"]
+assertions = "Every existing test and assertion is unchanged. Hold tickets, decisions, budget reservations and refusal texts remain owned by the production approval_state path."
+qualification_limit = "Resources address the unavailable payer; qualification must establish whether the four original metered hold cases can pass the current production boundary. No case is claimed restored before verification."
+observed_interface = "Attempt 1: approval_state::approval_call refused an existing metered standing grant with Configuration(metered_receiver_approval). The suite RecordedPayer returns such a grant, while its four hold cases require an approval ticket. Changing production policy or weakening those assertions was outside this task."
+
+[continuation]
+prerequisite = "22.31.531 is merged at 222ba77194e30746dfb36c024d2dc64cc6224902, including the standing-grant disclosure hold and receiver DID sequence lookup."
+implementation = "Attempt 1 stands in full: RecordedPayer retains the shared web_hold directory and resources and implements approval_resources; every suite assertion is unchanged."
+verified_revision = "The revision field of the final verify row in /out/run/gates.jsonl identifies the qualified candidate; build and verify must name that same revision."
+gate_results = "The build and verify rows in /out/run/gates.jsonl, with private logs /out/logs/build-1.log and /out/logs/verify-1.log, are the authoritative gate results for this continuation. The four cases above are restored only if that verify row exits zero."
+
+[qualification]
+build_gate = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_gate = "hf-done"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web --test web_payments_layerxpay"
+results = "The gate-written /out/run/gates.jsonl records exact candidate revision, command, exit and private log for each gate. Build logs are /out/logs/build-<run>.log and verify logs are /out/logs/verify-<run>.log. These rows supply the results for this record; the final response copies the last applicable row."
+result_policy = "This record is finalized before qualification so build and verify refer to the same candidate revision. No unrun gate or failed case is claimed as passing; recorded unrelated failures are not chased."
+
+[continuation_build]
+revision = "2a037f89252f3acf95468a678175d751956af304"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[continuation_blocker]
+revision = "2a037f89252f3acf95468a678175d751956af304"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agentd-host"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-done exited 7 before cg spec done or the verify command ran: E0063 at services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs:590, GrantTerms initializer missing receiver_did_key."
+assumption = "This dependent test is outside scope and was unchanged by this task; record the prerequisite failure without repairing or rerunning it. Task remains implemented, not qualified; this evidence-only addition has not been built."
+
+[continuation_after_22_31_536]
+prerequisite = "The checkout includes 22.31.536 at 093512094367afb8d884b50bbfe819312805ede9; the host repair test GrantTerms construction now supplies receiver_did_key."
+implementation = "Attempt 2 stands in full: the shared web_hold fixture, RecordedPayer resources and directory lifetime, and every existing assertion are retained unchanged. The continuation_blocker above is historical evidence from attempt 2."
+gate_results = "For this continuation, the build and verify rows in /out/run/gates.jsonl record the exact candidate revision, command, exit and private log; both gates must identify the same candidate. The final verify row supplies the verified revision and establishes whether all four hold cases and both complete binaries pass."
+evidence_policy = "This record is finalized before the declared gates; their authoritative result rows and private logs supply the qualification evidence without editing the candidate after its build."
+
+[continuation_3_build]
+revision = "ab26915ed72fc97c29656864aa4eb372f8bf92e3"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[continuation_3_verification]
+revision = "ab26915ed72fc97c29656864aa4eb372f8bf92e3"
+command = "cg spec done 22.31.529 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Dependent checks passed; the declared cargo test command exited 101 with web reporting 18 passed, four failed and zero ignored; web_payments_layerxpay did not execute after the web failure."
+assumption = "The task remains implemented, not qualified; the failures below are recorded without weakening assertions, editing production or rerunning an unchanged gate. This evidence-only addition is not claimed built or verified."
+
+[continuation_3_conflict]
+grant_cases = "an_unapproved_spend_is_held_and_never_paid and a_rejected_spend_is_refused_without_payment fail payer.grants.is_empty(): the existing RecordedPayer::standing_grant calls sign_grant during the production approval_call lookup before holding."
+actor_cases = "a_held_web_spend_through_tools_call_is_never_paid_until_approved and a_held_spend_in_a_session_opened_from_its_binding_is_reported_as_held fail the disclosure actor assertion: observed abababababababababababababababababababab, expected did:layerx:500fc26f328049726834222bd9dcca7d34a5236bc1e667c34fb2bdb3047cea13."
+production_boundary = "src/tools/web/approval_state.rs StoredSpend::prepared assigns Disclosure.actor from hex(sender), and authorise_held replaces context.agent with that same address; these production paths are outside scope."
+scope_boundary = "The continuation requires retaining the existing fixture and every assertion unchanged; approval resources alone cannot resolve the production actor contradiction. The two task files retain the fixture and record the bounded gate result without claiming completion."
+
+
+[continuation_after_22_31_537]
+base_revision = "27298c7ce4283ccb20d62337fc5cd7658a80db42"
+prerequisite = "The supplied base includes 22.31.537, retaining the sender address hex as the held EVM disclosure actor; no rebase is needed."
+implementation = "The existing RecordedPayer approval_resources implementation, shared web_hold fixture and directory lifetime are retained in full."
+grant_assertions = "Decision 2596: the three held, pending and rejected observations assert exactly one recorded standing-grant terms lookup; all zero-signature assertions remain unchanged."
+actor_assertions = "Decision 2599 supersedes 2597: assert_held_until_approved compares the disclosure actor with hex(&[0xab; 20]) for both session hold cases, matching the configured payer address and production registry."
+cases = ["an_unapproved_spend_is_held_and_never_paid", "a_rejected_spend_is_refused_without_payment", "a_held_web_spend_through_tools_call_is_never_paid_until_approved", "a_held_spend_in_a_session_opened_from_its_binding_is_reported_as_held"]
+verification = "The declared gates run the complete web and web_payments_layerxpay binaries without credentials or live endpoints. No test is deleted, skipped or ignored."
+verified_revision = "The final verify row revision in /out/run/gates.jsonl names the verified candidate and must equal the passing build row revision."
+gate_results = "hf-build and hf-done write the exact revision, command, exit and private log to /out/run/gates.jsonl; the first logs for this continuation are /out/logs/build-1.log and /out/logs/verify-1.log. Only a zero-exit hf-done row establishes restoration of the four cases and qualification of both binaries."
+evidence_policy = "This continuation record is finalized before qualification; gate-written evidence supplies the results without modifying the candidate between build and verification. Earlier continuation records describe historical attempts."
+
+
+[continuation_4_first_verification]
+revision = "bdaba3ecf5e49b51abf6d24d2c949b681a6038b4"
+command = "cg spec done 22.31.529 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; web reported 19 passed and three approved retries failed with ApprovalChanged because registry-only approve did not persist the durable granted decision."
+repair = "The three approval cases now use ApprovalService with the payer's retained preparation, shared expiry and limiter, asserting Granted and the exact queued preparation. Session constructors expose the same resources to the test approver. Existing refusal, payment, zero-signature and disclosure assertions remain intact."
+next_evidence = "The final build and verify rows in /out/run/gates.jsonl supply the repaired candidate revision, command, exit and private logs; expected next logs are /out/logs/build-2.log and /out/logs/verify-2.log."
