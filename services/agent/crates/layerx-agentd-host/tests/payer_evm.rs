@@ -4,6 +4,8 @@ mod attestor_cluster;
 mod payer;
 #[path = "payer.rs"]
 mod receipt_fixture;
+#[path = "../../layerx-mcp/tests/support/clock.rs"]
+mod test_clock;
 
 use attestor_cluster::{checked, Cluster, Result, SIGNERS};
 use layerx_agentd::prepare::evm::PrecompileCall;
@@ -474,7 +476,12 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
             "maxTimeoutSeconds": 30,
             "extra": {"layerx": {"currency": "USDC", "account": recipient_account([0x41; 32]).0}},
         }))?;
-        let terms = checked(web_call.exact_terms(&config, &offer, 100))?;
+        let terms = checked(web_call.exact_terms(
+            &config,
+            &offer,
+            100,
+            &test_clock::TestClock::new(1_800_000_000),
+        ))?;
         let mut wrong = terms.clone();
         wrong.payer_account[0] ^= 1;
         assert_eq!(
@@ -662,7 +669,6 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         Ok(())
     })
 }
-
 
 #[path = "support/payer_audit.rs"]
 mod payer_audit;

@@ -1,0 +1,35 @@
+[repair.22.31.491]
+acceptance = "22998.1"
+base_revision = "603f707f71e5cfe7896841be5d1e735eb7db966f"
+decision = "2537"
+gotcha = "3024"
+case_id = "V2-pax-transfer-insufficient-funds"
+corpus = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+generator = "rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors"
+implementation = "Run a PAX transfer with value above the funded sender balance through the EVM's production transfer check; retain its kernel error, empty output and no logs through the same BuildReceipt, ReceiptKey.SignReceipt and pax_sequencerReceipt path as V1-pax-transfer. Preserve all existing case identities and bytes."
+properties = "Failed status, empty return data, no logs, authenticated non-empty kernel vmError and no ledger result code. Sequencer result code 1 denotes failure; receipted is not a claim of block finality. Terminal0 commits the retained sequence through DeliverSequenceBatch and reads the committed rung through pax_sequencerReceipt, preserving receipt bytes, balances and zero gas and fees; the case is the corpus's only preexecution refusal and removing it leaves none."
+proofs = ["TestRepair_22_31_491_PreexecutionRefusal", "TestRepair_22_31_491_Terminal0", "TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture", "TestSequencerReceiptPreexecutionRefusal", "TestReceiptCorpusPreexecutionRefusal", "test_preexecution_refusal_retains_authenticated_kernel_outcome", "send_explorer_proof_preexecution_refusal_fixture_identity"]
+qualification = "Only hf-build and hf-done ledger entries at /out/run/gates.jsonl establish the exact candidate revision, command, exit code and private evidence location. No unexecuted or historical gate is claimed."
+
+[gotcha.native_terminal_interface]
+observed = "Gotcha 3098: tools/qualification/paxeer-x/native-terminal-outcome.py has no corpus validation interface: it reads LAYERX_ARBITER_PRESTATE_INPUTS for native captures and runs Rust. Terminal0 proves the authenticated refusal and committed rung in Go; the checker-side proof belongs to 22.33.877."
+
+[gotcha.derived_corpus_scope]
+observed = "Gotcha 3098: the V2 conformance copy must include both V2 cases and was regenerated with the generator's update flag. Gotcha 3110 and decision 2576 bring the V5 portable fixture into scope for attempt 3. Existing equality and digest assertions remain enforced."
+
+[qualification.attempt_2]
+revision = "a82ea043f638d1695abe4c66bbcd832039ec8acd"
+command = "cg spec done 22.31.491 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and RPC verification passed; daemon TestRepairM_486_DerivedCopies failed at vector_v4_test.go:396 because the V5 portable fixture still pins the previous corpus SHA-256."
+assumption = "sdk/platform/conformance/fixtures/vector-v5-portable.json requires a provenance refresh but is outside SCOPE; retain the assertion, do not rerun the recorded failure, and leave the task unqualified."
+
+[provenance.attempt_3]
+decision = "2576"
+gotcha = "3110"
+command = "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py"
+exit = 1
+observed = "The refresher stops in _receipted_copies with ValueError: missing or duplicate producer cases for V2 because it still requires one V2 case; that script is outside scope."
+implementation = "Recompute both V5 provenance digests with SHA-256 over their recorded source files, using the refresher's source selection and digest calculation. The diff changes only provenance.receiptedSha256 from 4ad88ad86071aca5cf0b9bd9bbac4cf713ce106c6542527200e4d64f50902327 to 2b16fbfed024f168c0f05295e11a34d61345c4d112ec51ebc502ab593bdc1541; committedSha256 remains 5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b. Every bundle byte remains unchanged."
+qualification = "The attempt 3 hf-build and hf-done entries in /out/run/gates.jsonl record the final candidate revision, command, exit code and private log path."

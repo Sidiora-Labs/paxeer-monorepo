@@ -1,3 +1,7 @@
+use layerx_types::clock::Clock as _;
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use layerx_agent_api::subscription::Cursor;
 use layerx_mcp::catalogue::{input_schema, validate};
 use serde_json::{json, Value};
@@ -188,6 +192,7 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
         context.clone(),
         prepared.clone(),
         50,
+        &test_clock::TestClock::new(50),
     )
     .expect("register exact approval") else {
         panic!("approval required");
@@ -208,6 +213,12 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
                 idempotency_key: &DecisionKey::new("major-two-approve").expect("decision key"),
                 approver: ApproverId::new("human:alice").expect("approver"),
                 current_sequence: 60,
+                current_time: layerx_agent_api::TimestampSeconds(
+                    test_clock::TestClock::new(60)
+                        .sample(std::time::Duration::from_secs(1))
+                        .expect("clock")
+                        .unix_seconds(),
+                ),
             },
             &prepared,
             &queue,
@@ -237,7 +248,7 @@ fn approval_get_tool_reports_tx_hash_and_rung() {
         transitions: Vec::new(),
     };
     let submissions = BTreeMap::from([(release_ref, tracked)]);
-    let arguments = json!({"approval_id": approval_id, "current_sequence": "60"});
+    let arguments = json!({"approval_id": approval_id, "current_sequence": "60", "current_time":test_clock::TestClock::new(60).now().to_string()});
     assert_eq!(validate("approval.get", &arguments), Ok(()));
     let facts = approval_get_tool(&service, &context.tenant, &submissions, &arguments)
         .expect("approval.get tool response");

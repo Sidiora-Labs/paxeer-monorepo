@@ -40,6 +40,11 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 	if vector.Name != "vector-v4-committed" || vector.Provenance == "" {
 		t.Fatal("missing vector identity or recording provenance")
 	}
+	assertV4CommittedVerifies(t, &vector)
+}
+
+func assertV4CommittedVerifies(t *testing.T, vector *v4Vector) {
+	t.Helper()
 	check := func(t *testing.T, entry v4Case) (*verify.VerifiedReceipt, *codec.BatchHeader, error) {
 		t.Helper()
 		if len(entry.HeaderSignature) != 64 {
