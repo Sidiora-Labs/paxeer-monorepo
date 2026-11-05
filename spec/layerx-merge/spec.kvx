@@ -175447,7 +175447,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.544]
 title = "Port the approval replay-bounds test to the timed approval entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.495"]
