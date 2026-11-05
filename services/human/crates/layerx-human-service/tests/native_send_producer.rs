@@ -656,7 +656,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         id(request.idempotency_key.as_str())
     );
     assert_eq!(
-        first.purpose.owner_public_key,
+        first.purpose.consent_public_key,
         context.session.owner_public_key
     );
     assert_eq!(local_state(&fixture), before);
