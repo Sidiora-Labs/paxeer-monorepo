@@ -30,19 +30,12 @@ fn get_asset(
     assets: &PxEndpoint,
     asset_id: [u8; 32],
 ) -> Result<(), WithdrawalConfigurationError> {
-    let id = format!(
-        "0x{}",
-        asset_id
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
     let table =
         payments::list_assets(assets).map_err(|_| WithdrawalConfigurationError::Unavailable)?;
     let asset = table
         .assets
         .iter()
-        .find(|entry| entry.asset_id == id)
+        .find(|entry| decode_asset_id(&entry.asset_id) == Some(asset_id))
         .ok_or(WithdrawalConfigurationError::AssetUnavailable)?;
     if !matches!(asset.kind.as_str(), "layerx" | "ledger") {
         return Err(WithdrawalConfigurationError::Unsupported);
@@ -63,6 +56,18 @@ fn get_asset(
         }
     })?;
     eligible_configuration(&answer, asset_id)
+}
+
+fn decode_asset_id(text: &str) -> Option<[u8; 32]> {
+    let digits = text.strip_prefix("0x").unwrap_or(text);
+    if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    let mut id = [0; 32];
+    for (byte, pair) in id.iter_mut().zip(digits.as_bytes().chunks_exact(2)) {
+        *byte = u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()?;
+    }
+    Some(id)
 }
 
 fn eligible_configuration(

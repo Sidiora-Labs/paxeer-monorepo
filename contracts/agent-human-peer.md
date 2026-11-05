@@ -134,3 +134,83 @@ method names. Version suffixes are wire distinctions and must be preserved.
 Unassigned values are not extension slots for an independent client. Use the
 matching versioned peer codec on both sides; selector allocation belongs to the
 owner contract.
+
+## Receipt lookup wire layout
+
+`ReceiptLookupAnswer` begins with one u8 presence tag:
+
+| Tag | Remaining bytes |
+| --- | --- |
+| 0 | Absent; no fields |
+| 2 | Submitted; 32-byte transaction hash, then u64 nonce |
+| 1 | Found; the complete `ReceiptLookupFrame` below |
+
+Integers use the canonical wire encoder's big-endian encoding. Variable byte
+arrays have a u32 byte length followed by exactly that many bytes. Fixed digests
+and keys have exactly 32 bytes without a length prefix. A Found frame has this
+exact order (a standalone `ReceiptLookupFrame::encode` omits the presence tag):
+
+| Order | Field | Wire type |
+| --- | --- | --- |
+| 1 | `canonical_bytes` | Nonempty length-prefixed receipt bytes |
+| 2 | `authorised_batch` | Five fixed digests in order: `batch_id`, `asset`, `previous_state_root`, `resulting_state_root`, `sequencer_public_key` |
+| 3 | `verification_level` | One u8 Human verification code |
+| 4 | `tx_hash` | Fixed digest |
+| 5 | `receipt_hash` | Fixed digest |
+| 6 | `block_height` | u64 |
+| 7 | `rung` | One u8: 0 Submitted, 1 Receipted, 2 Committed |
+| 8 | `signed_receipt` | Nonempty length-prefixed signed receipt bytes |
+| 9 | `receipt_key_id` | Fixed digest |
+| 10 | `public_key` | Fixed signing public key |
+| 11 | `first_height` | u64 inclusive lower key bound |
+| 12 | `last_height` | u64 inclusive upper key bound |
+| 13 | `inclusion_height` | u64 |
+
+Human verification codes are 1 SEQUENCER_SIGNED, 2 BATCH_INCLUDED,
+3 STATE_PROVEN, 4 CHECKPOINT_FINALISED and 5 SETTLEMENT_ANCHORED. Codes 4 and 5
+are retained historical migration metadata. They confer no extra chain authority;
+the actual achieved rung is carried separately, and requests above Committed
+are refused. UNVERIFIED, unknown tags/codes, empty receipt material, truncation,
+trailing bytes and oversized frames are rejected by the codec. A decodable
+frame still requires the consumer's cryptographic and binding checks.
+
+## Producer, transport and consumer
+
+The authenticated Human peer supplies the persisted submission selector and the
+expected transaction hash. The owner reloads exact signed EVM bytes from Outbox,
+checks the hash and obtains the canonical node receipt and current key intervals.
+It verifies the receipt signature and coordinates, stores the receipt with its
+indexes, and uses verified finality evidence to build the frame. A Unix peer is
+identified by the configured UID/principal/tenant mapping; receipt fields do not
+authenticate a peer or manufacture protocol authority.
+
+The API dispatcher consumes the frame and verifies all of these bindings:
+
+- `canonical_bytes` equals `signed_receipt`, and its SHA-256 equals `receipt_hash`.
+- `tx_hash` equals the receipt's activity ID and the caller's expected transaction.
+- `block_height` is nonzero, equals `inclusion_height`, and matches the receipt's
+  batch/height coordinate.
+- The receipt's batch, asset and state roots equal `authorised_batch`.
+- `public_key` equals its authorised sequencer public key, the signature verifies,
+  and `receipt_key_id` and the inclusive height interval admit the receipt.
+- A found receipt's actual `rung` is at least Receipted. A stronger requested rung
+  is reported below the request until verified evidence establishes it.
+
+The [API contract](agent-api.md) specifies the complete `program.receipt` JSON
+projection. The integration proof carries node-produced canonical receipt bytes
+through durable storage, this codec, a loopback TLS HTTP peer, the production
+API dispatcher and the real SDK, checking every projected field. It also checks
+Absent and Submitted, and refuses altered hashes, keys, roots, heights and bytes.
+
+## Restart behavior
+
+On restart the owner reopens its Store and restores the outbox by transaction
+hash. Receipt bytes, indexes and finality records remain durable; cache readiness
+and process-local connection generations do not. The proof stops and reopens
+these components and checks that the receipt answer is byte-for-byte unchanged.
+Unknown submissions retain exact bytes and require authenticated resolution.
+
+Health and authority credentials are separate: loopback `/healthz` uses
+`LAYERX_AGENT_PROGRAM_BEARER_TOKEN`; outbound registry calls use
+`LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`. Equality is a startup refusal. See
+[agent-config.md](agent-config.md) for the actual environment and readiness API.
