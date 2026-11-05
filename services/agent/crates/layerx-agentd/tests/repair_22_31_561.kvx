@@ -1,0 +1,22 @@
+[repair]
+task = "22.31.561"
+requirement = "22998.1"
+gotcha = "3208"
+decisions = ["2204", "2639", "2642"]
+
+[sites]
+codec = "src/export.rs::encode_storage_witnesses and decode_storage_witnesses; canonical JSON rows in the existing NativeProofRequest witness representation, preserving slot order, rejecting duplicate slots, extra fields and noncanonical bytes"
+producer = "src/human_runtime.rs::retain_state_export, beside receipt_proof_operation: extends the tenant's retained committed receipt with CommittedReads::storage witnesses at its authenticated checkpoint, encodes account_proof and calls export::retain_bundle"
+read = "src/read/committed.rs::CommittedReads::storage uses the same SequencerEndpoint::storage_witness and layerx_client::storage_witness::verify_storage_witness path as src/read/proof_bundle.rs; receipt_proof_operation remains receipt-only because it has no committed header or storage input"
+transport = "export::retain_bundle -> Store journal -> Store::open -> export::produce -> serialize_export -> deserialize_export"
+consumer = "src/export.rs::verify -> verify_account -> verify_storage_witness under header.app_hash; account bytes match the state fact and each operation's store key binds its declared slot"
+slots = "The existing state:<activity>:<account> fact grammar contains no slot field; retain_state_export takes explicit distinct slots and retains exactly the acquired witnesses, whose ICS23 keys authenticate those slots"
+tests = "tests/export.rs ports the account fixture to loopback eth_getProof; tests/repair_22_31_561.rs drives the real producer, transport, restart and offline consumer, including tampered operations, app hash, account, slot and value plus strict codec bounds"
+
+[evidence]
+policy = "Gate results and verified revision are referenced, never amended after qualification (gotcha 3142)"
+ledger = "/out/run/gates.jsonl"
+verified_revision = "/out/run/gates.jsonl: final passing verify row, revision field (must equal preceding passing build row)"
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.561 -f layerx-merge --root /work/paxeer-monorepo; cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_561 --test export"
+results = "/out/run/gates.jsonl: exit and log fields of build and verify rows; runner retains private logs"
