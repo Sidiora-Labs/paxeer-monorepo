@@ -4386,7 +4386,7 @@ impl crate::approvals::AgentDecisionBoundary for AgentRuntime {
 fn map_approval_error(error: AgentBoundaryError) -> crate::approvals::ApprovalBoundaryError {
     match error {
         AgentBoundaryError::Unavailable => crate::approvals::ApprovalBoundaryError::Unavailable,
-        AgentBoundaryError::Refused => crate::approvals::ApprovalBoundaryError::NotFound,
+        AgentBoundaryError::Refused => crate::approvals::ApprovalBoundaryError::Refused,
         AgentBoundaryError::CorruptResponse => crate::approvals::ApprovalBoundaryError::Corrupt,
     }
 }

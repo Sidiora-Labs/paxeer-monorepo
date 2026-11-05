@@ -11,536 +11,24 @@
 //! No runtime defect is repaired: this extracts the existing path without changing
 //! its error codes or status semantics.
 
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+#[path = "proof_native_reads.rs"]
+mod daemon;
 
-use layerx_agentd::boot::readiness_gate;
-use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::read::{
-    CommittedProgramBalanceFreshness, NativeReadError, NativeReadRoute, ProgramBalanceRead,
-    ProgramBalanceReadRoute,
+pub(crate) use daemon::{
+    parse_request, response, serve_read_routes, DeadlineStream, HttpPool, Parsed, HEADER_LIMIT,
+    REQUEST_DEADLINE, SUPERVISION_INTERVAL,
 };
-use layerx_programs::{hex, ProgramId, ProgramLifecycle};
-
-pub(crate) const HEADER_LIMIT: usize = 16 * 1024;
-const BODY_LIMIT: usize = 0;
-const PROGRAM_WORKERS: usize = 8;
-const PROGRAM_QUEUE: usize = 16;
-pub(crate) const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
-const IO_CEILING: Duration = Duration::from_secs(10);
-pub(crate) const SUPERVISION_INTERVAL: Duration = Duration::from_millis(25);
-
-pub(crate) struct DeadlineStream {
-    pub(crate) socket: TcpStream,
-    pub(crate) expires: Instant,
-}
-
-impl DeadlineStream {
-    fn new(socket: TcpStream) -> Self {
-        Self {
-            socket,
-            expires: Instant::now() + REQUEST_DEADLINE,
-        }
-    }
-
-    pub(crate) fn remaining(&self) -> std::io::Result<Duration> {
-        let remaining = self.expires.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "request deadline elapsed",
-            ))
-        } else {
-            Ok(remaining.min(IO_CEILING))
-        }
-    }
-}
-
-impl Read for DeadlineStream {
-    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-        self.socket.set_read_timeout(Some(self.remaining()?))?;
-        self.socket.read(bytes)
-    }
-}
-
-impl Write for DeadlineStream {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.socket.set_write_timeout(Some(self.remaining()?))?;
-        self.socket.write(bytes)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.socket.set_write_timeout(Some(self.remaining()?))?;
-        self.socket.flush()
-    }
-}
-
-struct HttpAdmissions {
-    stopping: bool,
-    busy: Vec<bool>,
-    pending: Vec<Option<DeadlineStream>>,
-    active: Vec<Option<TcpStream>>,
-    queue: std::collections::VecDeque<DeadlineStream>,
-}
-
-pub(crate) struct HttpPool {
-    admissions: Arc<(Mutex<HttpAdmissions>, std::sync::Condvar)>,
-    threads: Vec<thread::JoinHandle<()>>,
-}
-
-impl HttpPool {
-    pub(crate) fn start<F>(listener: TcpListener, handle: F) -> Result<Self, String>
-    where
-        F: Fn(DeadlineStream) + Send + Sync + 'static,
-    {
-        listener
-            .set_nonblocking(true)
-            .map_err(|error| error.to_string())?;
-        let handle = Arc::new(handle);
-        let mut pool = Self {
-            admissions: Arc::new((
-                Mutex::new(HttpAdmissions {
-                    stopping: false,
-                    busy: vec![false; PROGRAM_WORKERS],
-                    pending: (0..PROGRAM_WORKERS).map(|_| None).collect(),
-                    active: (0..PROGRAM_WORKERS).map(|_| None).collect(),
-                    queue: std::collections::VecDeque::with_capacity(PROGRAM_QUEUE),
-                }),
-                std::sync::Condvar::new(),
-            )),
-            threads: Vec::with_capacity(PROGRAM_WORKERS + 1),
-        };
-        for index in 0..PROGRAM_WORKERS {
-            let admissions = Arc::clone(&pool.admissions);
-            let handle = Arc::clone(&handle);
-            let worker = thread::Builder::new()
-                .name(format!("layerx-http-{index}"))
-                .spawn(move || loop {
-                    let stream = {
-                        let Ok(mut state) = admissions.0.lock() else {
-                            return;
-                        };
-                        while state.pending[index].is_none() && !state.stopping {
-                            state = match admissions.1.wait(state) {
-                                Ok(state) => state,
-                                Err(_) => return,
-                            };
-                        }
-                        if state.stopping {
-                            return;
-                        }
-                        let Some(stream) = state.pending[index].take() else {
-                            return;
-                        };
-                        match stream.socket.try_clone() {
-                            Ok(socket) => state.active[index] = Some(socket),
-                            Err(_) => {
-                                state.pending[index] = state.queue.pop_front();
-                                state.busy[index] = state.pending[index].is_some();
-                                continue;
-                            }
-                        }
-                        stream
-                    };
-                    if stream.remaining().is_ok() {
-                        handle(stream);
-                    }
-                    let Ok(mut state) = admissions.0.lock() else {
-                        return;
-                    };
-                    state.active[index] = None;
-                    state.pending[index] = state.queue.pop_front();
-                    state.busy[index] = state.pending[index].is_some();
-                })
-                .map_err(|error| format!("HTTP worker failed: {error}"))?;
-            pool.threads.push(worker);
-        }
-        let admissions = Arc::clone(&pool.admissions);
-        pool.threads.push(
-            thread::Builder::new()
-                .name("layerx-http-accept".to_owned())
-                .spawn(move || loop {
-                    {
-                        let Ok(mut state) = admissions.0.lock() else {
-                            return;
-                        };
-                        if state.stopping {
-                            return;
-                        }
-                        state.queue.retain(|stream| stream.remaining().is_ok());
-                    }
-                    match listener.accept() {
-                        Ok((socket, _)) => {
-                            let stream = DeadlineStream::new(socket);
-                            let Ok(mut state) = admissions.0.lock() else {
-                                return;
-                            };
-                            if state.stopping {
-                                return;
-                            }
-                            if let Some(index) = state.busy.iter().position(|busy| !busy) {
-                                state.busy[index] = true;
-                                state.pending[index] = Some(stream);
-                                admissions.1.notify_all();
-                            } else if state.queue.len() < PROGRAM_QUEUE {
-                                state.queue.push_back(stream);
-                            }
-                        }
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(SUPERVISION_INTERVAL)
-                        }
-                        Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
-                        Err(_) => return,
-                    }
-                })
-                .map_err(|error| format!("HTTP accept thread failed: {error}"))?,
-        );
-        Ok(pool)
-    }
-
-    pub(crate) fn check(&self) -> Result<(), String> {
-        if self.threads.iter().any(thread::JoinHandle::is_finished) {
-            Err("HTTP listener or worker terminated".to_owned())
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl Drop for HttpPool {
-    fn drop(&mut self) {
-        if let Ok(mut state) = self.admissions.0.lock() {
-            state.stopping = true;
-            state.queue.clear();
-            for stream in &mut state.pending {
-                *stream = None;
-            }
-            for socket in state.active.iter().flatten() {
-                let _ = socket.shutdown(std::net::Shutdown::Both);
-            }
-            self.admissions.1.notify_all();
-        }
-    }
-}
-
-fn native_read_response(result: Result<serde_json::Value, NativeReadError>) -> (u16, String) {
-    let (status, body) = match result {
-        Ok(value) => return (200, value.to_string()),
-        Err(NativeReadError::InvalidRequest | NativeReadError::CursorMismatch) => {
-            (400, "{\"error\":\"invalid_read\"}")
-        }
-        Err(NativeReadError::ResultTooLarge) => (413, "{\"error\":\"read_too_large\"}"),
-        Err(_) => (503, "{\"error\":\"verified_read_unavailable\"}"),
-    };
-    (status, body.to_owned())
-}
-
-fn lifecycle(value: ProgramLifecycle) -> &'static str {
-    match value {
-        ProgramLifecycle::Active => "active",
-        ProgramLifecycle::Deprecated => "deprecated",
-        ProgramLifecycle::Tombstoned => "tombstoned",
-    }
-}
-
-fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> String {
-    let accounts: Vec<_> = read
-        .accounts
-        .iter()
-        .map(|account| {
-            serde_json::json!({
-                "account": hex::encode(&account.account),
-                "asset": hex::encode(&account.asset),
-                "amount": account.amount.to_string(),
-                "frozen": account.frozen.map_or(serde_json::Value::Null, serde_json::Value::Bool),
-            })
-        })
-        .collect();
-    serde_json::json!({
-        "program": hex::encode(&read.program),
-        "lifecycle": lifecycle(read.lifecycle),
-        "accounts": accounts,
-        "freshness": {
-            "height": read.freshness.height,
-            "block_hash": hex::encode(&read.freshness.block_hash),
-            "timestamp": read.freshness.timestamp,
-        },
-    })
-    .to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use layerx_agentd::read::ProgramValueBalance;
-
-    #[test]
-    fn balance_json_renders_committed_freshness() {
-        let mut read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
-            program: [0x11; 32],
-            lifecycle: ProgramLifecycle::Active,
-            accounts: vec![ProgramValueBalance {
-                account: [0x22; 32],
-                asset: [0x33; 32],
-                amount: u128::MAX,
-                frozen: Some(true),
-            }],
-            freshness: CommittedProgramBalanceFreshness {
-                height: 12_345,
-                block_hash: [0x44; 32],
-                timestamp: 1_700_000_000,
-            },
-        };
-
-        let rendered: serde_json::Value =
-            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
-
-        assert_eq!(
-            rendered,
-            serde_json::json!({
-                "program": "11".repeat(32),
-                "lifecycle": "active",
-                "accounts": [{
-                    "account": "22".repeat(32),
-                    "asset": "33".repeat(32),
-                    "amount": "340282366920938463463374607431768211455",
-                    "frozen": true,
-                }],
-                "freshness": {
-                    "height": 12_345,
-                    "block_hash": "44".repeat(32),
-                    "timestamp": 1_700_000_000,
-                },
-            })
-        );
-
-        read.accounts[0].frozen = None;
-        let rendered: serde_json::Value =
-            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
-        assert!(rendered["accounts"][0]["frozen"].is_null());
-
-        read.accounts[0].frozen = Some(false);
-        let rendered: serde_json::Value =
-            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
-        assert_eq!(rendered["accounts"][0]["frozen"], false);
-    }
-}
-
-pub(crate) fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), String> {
-    let reason = if status < 300 { "OK" } else { "Refused" };
-    let header = format!(
-        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
-    );
-    stream
-        .write_all(header.as_bytes())
-        .and_then(|()| stream.write_all(body.as_bytes()))
-        .map_err(|error| format!("agent response failed: {error}"))
-}
-
-fn refresh_native_receipt_keys(native: &mut Option<NativeReadRoute>) -> Result<(), String> {
-    if let Some(native) = native.as_mut() {
-        native
-            .signed_authority()
-            .map_err(|error| format!("program receipt keys unavailable: {error:?}"))?;
-    }
-    Ok(())
-}
-
-pub(crate) enum Parsed {
-    Admitted(String),
-    Refused(u16, &'static str),
-    Closed,
-}
-
-fn declared_body(request: &str) -> Result<usize, ()> {
-    let mut length = None;
-    for header in request.split("\r\n").skip(1) {
-        let (name, value) = header.split_once(':').ok_or(())?;
-        if name.eq_ignore_ascii_case("transfer-encoding") {
-            return Err(());
-        }
-        if name.eq_ignore_ascii_case("content-length") {
-            let value = value.trim();
-            if length.is_some()
-                || value.is_empty()
-                || !value.bytes().all(|byte| byte.is_ascii_digit())
-            {
-                return Err(());
-            }
-            length = Some(value.parse().map_err(|_| ())?);
-        }
-    }
-    Ok(length.unwrap_or(BODY_LIMIT))
-}
-
-/// Reads one request head under a single absolute deadline. Every read is also capped by the
-/// per-I/O ceiling, so neither a silent peer nor a peer trickling partial bytes can hold a
-/// connection worker beyond `REQUEST_DEADLINE`.
-pub(crate) fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
-    let deadline = stream.expires;
-    let mut bytes = [0_u8; HEADER_LIMIT];
-    let mut length = 0_usize;
-    while length < bytes.len() && !bytes[..length].windows(4).any(|value| value == b"\r\n\r\n") {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Parsed::Refused(408, "{\"error\":\"request_timeout\"}");
-        }
-        match stream.read(&mut bytes[length..]) {
-            Ok(0) => return Parsed::Closed,
-            Ok(count) => length += count,
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::WouldBlock
-                        | std::io::ErrorKind::TimedOut
-                        | std::io::ErrorKind::Interrupted
-                ) => {}
-            Err(_) => return Parsed::Closed,
-        }
-    }
-    let Some(end) = bytes[..length]
-        .windows(4)
-        .position(|value| value == b"\r\n\r\n")
-    else {
-        return Parsed::Refused(431, "{\"error\":\"headers_too_large\"}");
-    };
-    let Ok(request) = std::str::from_utf8(&bytes[..end]) else {
-        return Parsed::Refused(400, "{\"error\":\"invalid_request\"}");
-    };
-    let line = request.lines().next().unwrap_or_default();
-    let mut parts = line.split_ascii_whitespace();
-    let method = parts.next().unwrap_or_default();
-    let path = parts.next().unwrap_or_default();
-    if parts.next() != Some("HTTP/1.1") || parts.next().is_some() || method != "GET" {
-        return Parsed::Refused(400, "{\"error\":\"invalid_request\"}");
-    }
-    match declared_body(request) {
-        Ok(BODY_LIMIT) => {}
-        Ok(_) => return Parsed::Refused(413, "{\"error\":\"body_too_large\"}"),
-        Err(()) => return Parsed::Refused(400, "{\"error\":\"invalid_request\"}"),
-    }
-    if length != end + 4 {
-        return Parsed::Refused(413, "{\"error\":\"body_too_large\"}");
-    }
-    let mut credentials = request.lines().filter_map(|header| {
-        let (name, value) = header.split_once(':')?;
-        name.eq_ignore_ascii_case("authorization")
-            .then_some(value.trim())
-    });
-    let authorized = credentials
-        .next()
-        .and_then(|value| value.strip_prefix("Bearer "))
-        == Some(bearer)
-        && credentials.next().is_none();
-    if !authorized {
-        return Parsed::Refused(401, "{\"error\":\"unauthorized\"}");
-    }
-    Parsed::Admitted(path.to_owned())
-}
-
-fn route_request(
-    path: &str,
-    node_config: &NodeRpcConfig,
-    node_ca_der: &[u8],
-    endpoint: &layerx_client::sequencer::SequencerEndpoint,
-    route: &mut ProgramBalanceReadRoute,
-    native: &mut Option<NativeReadRoute>,
-) -> (u16, String) {
-    let reply = |status: u16, body: &str| (status, body.to_owned());
-    if path == "/healthz" {
-        let (transport_ready, ready) = match NodeRpc::connect_with_ca(node_config, node_ca_der) {
-            Ok(node) => (true, readiness_gate(&node).is_ok()),
-            Err(_) => (false, false),
-        };
-        return (
-            if ready { 200 } else { 503 },
-            serde_json::json!({
-                "ready": ready,
-                "transport_ready": transport_ready,
-                "verified_reads_ready": ready,
-                "tenant_writes": "unknown",
-            })
-            .to_string(),
-        );
-    }
-    if path.starts_with("/v1/reads/") {
-        let Some(reader) = native.as_mut() else {
-            return reply(404, "{\"error\":\"not_found\"}");
-        };
-        return native_read_response(reader.read(path));
-    }
-    let Some(program_text) = path
-        .strip_prefix("/v1/programs/")
-        .and_then(|value| value.strip_suffix("/balances"))
-    else {
-        return reply(404, "{\"error\":\"not_found\"}");
-    };
-    let program = hex::decode_digest(program_text)
-        .ok()
-        .and_then(|bytes| ProgramId::new(bytes).ok());
-    let Some(program) = program else {
-        return reply(400, "{\"error\":\"invalid_program\"}");
-    };
-    if refresh_native_receipt_keys(native).is_err() {
-        return reply(503, "{\"error\":\"program_state_unavailable\"}");
-    }
-    let read = (|| {
-        let node = NodeRpc::connect_with_ca(node_config, node_ca_der).map_err(|_| ())?;
-        readiness_gate(&node).map_err(|_| ())?;
-        let height = endpoint.block_number().map_err(|_| ())?;
-        route.read(program, height).map_err(|_| ())
-    })();
-    match read {
-        Ok(read) => (200, balance_json(&read)),
-        _ => reply(503, "{\"error\":\"program_state_unavailable\"}"),
-    }
-}
-
-pub(crate) fn serve_read_routes(
-    listener: TcpListener,
-    bearer: String,
-    route: ProgramBalanceReadRoute,
-    native: Option<NativeReadRoute>,
-    node_config: NodeRpcConfig,
-    node_ca_der: Vec<u8>,
-    endpoint: layerx_client::sequencer::SequencerEndpoint,
-) -> Result<HttpPool, String> {
-    let shared_reads = Arc::new(Mutex::new((route, native)));
-    HttpPool::start(listener, move |mut stream| {
-        let answer = match parse_request(&mut stream, &bearer) {
-            Parsed::Closed => return,
-            Parsed::Refused(status, body) => (status, body.to_owned()),
-            Parsed::Admitted(path) => loop {
-                if stream.remaining().is_err() {
-                    return;
-                }
-                match shared_reads.try_lock() {
-                    Ok(mut reads) => {
-                        let (route, native) = &mut *reads;
-                        break route_request(
-                            &path,
-                            &node_config,
-                            &node_ca_der,
-                            &endpoint,
-                            route,
-                            native,
-                        );
-                    }
-                    Err(std::sync::TryLockError::WouldBlock) => thread::sleep(SUPERVISION_INTERVAL),
-                    Err(std::sync::TryLockError::Poisoned(_)) => return,
-                }
-            },
-        };
-        let _ = response(&mut stream, answer.0, &answer.1);
-    })
-}
 
 #[cfg(test)]
 mod proof {
+    use super::daemon::native_read_response;
+    use layerx_agentd::node_rpc::NodeRpcConfig;
+    use layerx_agentd::read::{NativeReadError, ProgramBalanceReadRoute};
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::Arc;
+    use std::time::Duration;
+
     use super::*;
     use layerx_agentd::read::{LayerxdProgramBalanceReader, ProgramAuthority};
     use layerx_programs::{
@@ -579,6 +67,7 @@ mod proof {
     #[serde(deny_unknown_fields)]
     struct ErrorBody {
         error: Code,
+        detail: Option<String>,
     }
 
     #[derive(Debug, PartialEq)]
@@ -634,13 +123,15 @@ mod proof {
         if status != envelope.error.status() {
             return Err("status and code disagree".into());
         }
+        if (envelope.error == Code::VerifiedReadUnavailable)
+            != envelope
+                .detail
+                .as_deref()
+                .is_some_and(|detail| !detail.is_empty())
+        {
+            return Err("native refusal detail and code disagree".into());
+        }
         Ok(Observed::Refused(envelope.error))
-    }
-
-    fn live_endpoint() -> layerx_client::sequencer::SequencerEndpoint {
-        let url =
-            std::env::var("LOCAL_NODE_RPC").expect("LOCAL_NODE_RPC must name the real local node");
-        layerx_client::sequencer::SequencerEndpoint::new(&url, &[]).expect("real node endpoint")
     }
 
     fn authority_config() -> (Vec<u8>, ProtocolDeploymentVerifier) {
@@ -701,11 +192,17 @@ mod proof {
     struct Service {
         address: SocketAddr,
         _pool: HttpPool,
+        node: Option<(daemon::disposable_node::LocalNode, String)>,
     }
 
     impl Service {
         fn start(native_chain: Option<u64>, node_chain: u64) -> Self {
-            let url = std::env::var("LOCAL_NODE_RPC").expect("real local node required");
+            let (node, url, _key) = daemon::disposable_node::LocalNode::start();
+            let endpoint = || {
+                layerx_client::sequencer::SequencerEndpoint::new(&url, &[])
+                    .expect("disposable loopback node endpoint")
+            };
+            assert_eq!(endpoint().chain_id().expect("producer chain id"), 125);
             let (ca, verifier) = authority_config();
             let reader = LayerxdProgramBalanceReader::connect(
                 &url,
@@ -720,7 +217,7 @@ mod proof {
                 Registry::new(),
             )
             .expect("real program reader configuration");
-            let native = native_chain.map(|chain| NativeReadRoute::new(live_endpoint(), chain));
+            let native = native_chain.map(|chain| node.native_read_route(&url, chain));
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let address = listener.local_addr().unwrap();
             let pool = serve_read_routes(
@@ -729,18 +226,31 @@ mod proof {
                 ProgramBalanceReadRoute::new(reader),
                 native,
                 NodeRpcConfig {
-                    url,
+                    url: url.clone(),
                     chain_id: node_chain,
                     deadline: Duration::from_secs(2),
                 },
                 ca,
-                live_endpoint(),
+                endpoint(),
             )
             .unwrap();
             Self {
                 address,
                 _pool: pool,
+                node: Some((node, url)),
             }
+        }
+
+        fn endpoint(&self) -> layerx_client::sequencer::SequencerEndpoint {
+            layerx_client::sequencer::SequencerEndpoint::new(
+                &self
+                    .node
+                    .as_ref()
+                    .expect("service owns its disposable node")
+                    .1,
+                &[],
+            )
+            .expect("disposable loopback node endpoint")
         }
 
         fn get(&self, path: &str, bearer: &str) -> Vec<u8> {
@@ -845,6 +355,7 @@ mod proof {
         let service = Service {
             address,
             _pool: pool,
+            node: None,
         };
         service.twice("/v1/reads/history/account?limit=1", Code::ReadTooLarge);
         assert_eq!(
@@ -857,9 +368,14 @@ mod proof {
     #[test]
     fn happy_path_and_malformed_producer_result() {
         let service = Service::start(Some(125), 125);
-        let height = live_endpoint().block_number().expect("real node head");
+        let height = service.endpoint().block_number().expect("real node head");
         let path = format!("/v1/reads/checkpoint/{height}");
-        let expected = NativeReadRoute::new(live_endpoint(), 125)
+        let (node, url) = service
+            .node
+            .as_ref()
+            .expect("service owns its disposable node");
+        let expected = node
+            .native_read_route(url, 125)
             .read(&path)
             .expect("real checkpoint producer");
         for _ in 0..2 {

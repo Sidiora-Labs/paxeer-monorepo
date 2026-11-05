@@ -31883,3 +31883,195 @@ symbol = "compile.rs"
 observed = "Attempt 2 at e58ccca43dc2d3a544d477520c9303ad34615375: build exit 0, dependent-crate check exit 0, verify exit 101: compile 5 passed, differential 5 passed, repair_22_31_557 3 passed 1 failed: v3_public_key_did_rotation_matches_the_governance_actor_derivation, assertion left 75 right 74 at tests/repair_22_31_557.rs line 148."
 assumption = "A literal length slip in the test; the derivation assertions have not yet run."
 severity = "medium"
+
+[finding.22.31.547.4]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 4 at f1bd157c820b29cb172be9dfa1dfeb2a8b254276: build exit 0, dependent-crate check exit 0, verify exit 101: SDK library 10 passed, repair_22_31_547 0 passed 2 failed; case 1 at tests/repair_22_31_547.rs line 307 daemon V2 acceptance PolicyRefusal owner.refused request 73 Terminal, left 403 right 200; case 2 PoisonError at native_send_preview_evm.rs line 910."
+assumption = "The refusal is the daemon identifier mismatch, not the test; nothing in this tree changes until 22.31.560 lands."
+severity = "high"
+
+[finding.22.33.1569.6]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 6 at a07dbda49b0a91c3c01ae953431d55e4aae1e99c: build 1 exit 101 (E0434, E0618, a local buffer shadowing the decoder), build 2 exit 0; verify exit 101: 1 passed, pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at funded_scenario.rs line 8 with PAY2 SDK grant issue: MissingFinalityTrust from the grant issue near line 592."
+assumption = "The SDK holds one immutable coverage per client; the scenario, not the SDK, changes under this task."
+severity = "medium"
+
+[finding.22.31.478.6]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 6 at d62abccec88df218e9ec116435ad53c9d9f0ad37: build exit 0, dependent-crate check exit 0, verify exit 1: TestRepair478_FundWithinProductionAllowance failed at rpc/repair_478_test.go line 231 (from line 285, CREATE) Should be zero, but was LXP_ERR_NON_CANONICAL."
+assumption = "The create calldata or the account path refuses under the base guest; the Fund measurement has not yet run."
+severity = "medium"
+
+[finding.22.33.1536.6]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 6 at 87ca4a638954a1d57194962aa823685cfb85e406: build exit 0, dependent-crate check exit 0, verify exit 101: 15 passed, 5 failed: export::offline_export_requires_complete_authenticated_inclusion and export::state_export_uses_ics23_store_and_app_witness_and_rejects_tampering (export.rs line 22, Contract), handshake_gate::empty_receipt_keys_do_not_open_the_write_gate (line 279) and handshake_gate::reconnect_rechecks_receipt_keys_and_invalidates_stale_readiness (line 312) left Ok([]) right Err(Sequencer(Malformed)), finality_rungs::committed_requires_more_than_two_thirds_voting_power (line 25, InvalidCommit)."
+assumption = "All five are fixture facts inside the task paths; no production change is indicated."
+severity = "medium"
+
+[finding.18.1578.1.4]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "proof_native_reads.rs"
+observed = "Attempt 4 at cf3e5382025d77dde7f24148c09e9ac16264b496: build exit 0, dependent-crate check exit 0, verify exit 101: 1 passed, native_reads_producer_http_consumer_reopens_and_refuses_malformed_results panicked at crates/layerx-mcp/tests/proof_native_reads.rs line 63 with native reads proof: Unavailable(verified native evidence is unavailable) after 536 seconds."
+assumption = "The daemon route refused one read; the proof lacks the diagnostic to name it."
+severity = "medium"
+
+[finding.22.31.534.4]
+task = "22.31.534"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"
+symbol = "repair_22_31_534.rs"
+observed = "Attempt 5 at 5a6ccc80176ad70e47257571153162c4268990ea: build exit 101: rustc-LLVM ERROR IO failure on output stream No space left on device while compiling layerx-human-service test targets, collect2 ld terminated with signal 7 Bus error; verify did not run."
+assumption = "An environment failure; the tree is unchanged."
+severity = "low"
+
+[finding.22.99.77.17]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 15 at 522cad9280b7eb5a6e367fe70d25236b3eca3682 (requalify of the attempt-12 tree): build exit 0, dependent-crate check exit 0, verify exit 101: twelve native cases left -3 right 0 (host_boundary.rs line 480 in nine cases, rewards_native.rs line 1678 in two, f03_evaluator_host.rs line 2739), and fuel_budget.rs line 1674 BudgetExceeded Cpu limit 1000000 attempted 1000626 (OPEN_EPOCH 896), 1000008 (OPEN_EPOCH 1024), 1000049 (ADMIT_TASK 1030), 1000002 (ADMIT_TASK 1033)."
+assumption = "The capacity raise changed the encoded payload length; the fuel overrun is the state scaling attempt 12 did not remove."
+severity = "high"
+
+[finding.22.31.539.4]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 4 at 92bd05d6f21f73e7ebddc711a28bebf5b4e3f611: build exit 0, dependent-crate check exit 0, verify exit 101 in --test bootstrap_bind_layerx only: session_open_prepares_grant_session_for_the_session_address panicked at bootstrap_bind_layerx.rs line 58 bootstrap peer: Os code 2 NotFound; agent_register_prepares_bind_layerx PoisonError at line 816."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.22.33.217.7]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 7 at f7ed86da3825bcda7c22ba9aeb89f16fe077d70a: build exit 0, dependent-crate check exit 0, verify exit 101: 21 passed, view_binding::header_reports_exact_state_identity_and_explicit_absence panicked at tests/view_binding.rs line 332 left ContentUnavailable right NotYetProduced."
+assumption = "The production helper, not the test, is wrong; src/queries.rs is in the task paths."
+severity = "high"
+
+[finding.22.33.261.6]
+task = "22.33.261"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+symbol = "repair_22_33_261.rs"
+observed = "Attempt 6 at 956915b4a2056e60fa529237c25d268368d1fda7: build exit 0, dependent-crate check exit 0, verify exit 101: 5 passed, reward_native_reopen panicked at tests/repair_22_33_261.rs line 1490 commit process failed after the commit child panicked at line 63 real path refused: ApplicationError(1)."
+assumption = "A fixture encodes a structure under a version the production decoder refuses; attempt 5 changed the refusal from 526 to 1 without naming the call."
+severity = "high"
+
+[finding.22.33.1569.7]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 7 at 6c80e9450cf1ccdf6c982ff3e66c928066fbea23: build exit 0, dependent-crate check exit 0, verify exit 101: 1 passed, pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at tests/support/funded_scenario.rs line 677 left 2 right 6 after the line PAY2 SDK grant draw verified with activity-specific coverage and pinned node authority."
+assumption = "The fixture peer, inside the task paths, serves one fixed receipt shape; no production change is indicated."
+severity = "medium"
+
+[finding.22.31.496.4]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 4 at e4f479f37e2805e67a96117ae48575edeb4205be: build exit 0, dependent-crate check exit 0, verify exit 1: cargo test repair_22_31_496 2 passed, then go test ./modules/layerxauth/keeper/ failed with No space left on device during the link; TestRepair_22_31_496 never ran."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.18.1578.1.5]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "proof_native_reads.rs"
+observed = "Attempt 5 at 1ef2b0ee61: build exit 0; the dependent-crate check failed at candidate 6c8a7b27 with E0433 unlinked crate openssl at tests/proof_native_reads.rs line 666 (the host crate include); at the final revision verify and the dependent-crate check did not run; the earlier consumer proof answered 503 verified_read_unavailable after rung receipted."
+assumption = "The final tree compiles; the open question is which Unavailable site the served route hits."
+severity = "medium"
+
+[finding.22.31.217.6]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 6 at 817473b0e7: build exit 0, dependent-crate check exit 0, verify exit 101: repair_22_31_217 6 passed 10 failed; six Disclosure(MalformedPayload) at tests lines 337 and 485, three Snapshot at 1055, 1160 and 1221, one Refused at 852, one panic at 409 (no receipt for the program_settlement construct)."
+assumption = "The ten failures are fixture and assertion facts; the budget module repairs are not contradicted by the evidence."
+severity = "high"
+
+[finding.22.31.478.7]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 7 at 1a321dade7: build exit 0, dependent-crate check exit 0, verify exit 1: TestRepair478_FundWithinProductionAllowance before and after fail at repair_478_test.go line 244 (via 301) with LXP_ERR_VERSION_UNSUPPORTED at the rewards account registration; deploy of both ABI-5 guests succeeds."
+assumption = "The guest validation reads kernel records the test never wrote; the guests and the Fund path are not contradicted."
+severity = "high"
+
+[finding.22.31.559.1]
+task = "22.31.559"
+file = "services/agent/crates/layerx-agentd/src/receipt.rs"
+symbol = "receipt.rs"
+observed = "Attempt 1 at 73ce447d2f: build exit 0, dependent-crate check exit 0, verify exit 101: repair_22_31_559 fails only at line 332 (ceiling snapshot consumed left 0, right 1000000000000000000)."
+assumption = "The over-asserting ceiling check is the only defect; the recovery consumer is correct."
+severity = "medium"
+
+[finding.22.33.1536.7]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 7 at 85a8c333e1: build exit 0, dependent-crate check exit 0, verify exit 101: quorum powers u64::MAX by four answers InvalidCommit under the header path; the export fixture answers Contract because export.rs verify_account parses an RLP trie proof."
+assumption = "Both failures are consumer facts; the export consumer is repaired by 22.31.561 before this attempt runs."
+severity = "high"
+
+[finding.22.33.1569.8]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 8 at 6796af4861: build exit 0, verify exit 101: the peer logs module=1 operation=7 amount=0 for the grant issue, then PAY2 peer_receipt fails with RpcError::Verification and the grant issue execution reports Transport; the task record calls the SDK verifier EVM-only."
+assumption = "The peer encodes ledger account ids and the grant asset into header words the verifier binds to the EVM fields; the SDK is unchanged."
+severity = "high"
+
+[finding.22.35.8.1]
+task = "22.35.8"
+file = "apps/explorer/ui/repair-22-35-8.spec.ts"
+symbol = "repair-22-35-8.spec.ts"
+observed = "Attempt 1 at 38bc60fa64: tsc exit 0; vitest fails with TypeError reading APP_PROFILE at configs/app/app.ts line 19 from the module cycle; the fix in lib/cookies.ts lies outside the touches."
+assumption = "Environmental to the touches list; the tree is unchanged."
+severity = "medium"
+
+[finding.22.31.496.5]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 5 at e6a9b49289afbf2c4022462bd160c89eaed7a69c: build exit 0, dependent-crate check exit 0, verify exit 1: cargo test repair_22_31_496 2 passed, then go test ./modules/layerxauth/keeper/ failed with No space left on device during the link; TestRepair_22_31_496 never ran."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.22.31.539.5]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 5 at 14c53fe2aa8e167438612b900fc33547d873c9ec: build exit 0, dependent-crate check exit 0, verify exit 101: library 5 passed, bootstrap_bind_layerx 0 passed 2 failed; agent_register_prepares_bind_layerx at line 704 PolicyRefusal owner.refused request 1 Terminal, left 403 right 200; session_open_prepares_grant_session_for_the_session_address PoisonError at line 880."
+assumption = "The refusal is the daemon identifier mismatch, not the test; nothing in this tree changes until 22.31.560 lands."
+severity = "high"
+
+[finding.22.99.77.18]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 16 at fcb4a24bb5303f41d67e3b6acd8ec6406bc6b5a4: build exit 0, verify exit 101: 12 native cases fail at prepare_activity -3 with result_code 0 after decode and validate pass; the fuel suite lists four operations 2 to 188 fuel over the cap."
+assumption = "The kernel status masks the executor error; the runtime side names it, and the fuel residuals are decode cost the joint readers remove."
+severity = "high"
+
+[finding.22.33.1569.9]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 9 at fd869e3b313b2cbc09b4b5552d375157458330b7: build exit 0, verify exit 101: the batched Send verifies; the grant issue receipt served as module 1 operation 7 is refused by the peer self-check (verify_node_receipt Verification, verify_logs ReceiptShape)."
+assumption = "The peer encoded a kernel module id the node never serves; the SDK is unchanged and the earlier ruling is corrected."
+severity = "high"
+
+[finding.22.31.496.6]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 6 at fe3f87873399cd2906c563e88b4e6f5170000bf7: build exit 0, dependent-crate check exit 0, verify exit 1: the Rust proof passes 2 cases; the Go keeper test binary link failed on No space left on device."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
