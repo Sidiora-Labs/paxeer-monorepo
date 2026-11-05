@@ -61,7 +61,7 @@ describe('TxsWithAPISorting', () => {
       expect(renderedHashes(container)).toEqual(items.map((item) => `/tx/${ item.hash }`));
     });
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('A total of 3 transactions found');
   });
 
@@ -72,7 +72,7 @@ describe('TxsWithAPISorting', () => {
       expect(renderedHashes(container)).toEqual(items.map((item) => `/tx/${ item.hash }`));
     });
 
-    expect(container.querySelector('[data-scan-table-card]')).toBeNull();
+    expect(container.querySelector('[data-list-page]')).toBeNull();
     expect(container.querySelector('[data-csv-export-label]')).toBeNull();
   });
 });

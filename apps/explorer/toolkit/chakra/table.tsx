@@ -1,11 +1,10 @@
-import { Table as ChakraTable, Icon } from '@chakra-ui/react';
+import { Table as ChakraTable, Icon, chakra } from '@chakra-ui/react';
 import { throttle } from 'es-toolkit';
 import * as React from 'react';
 
 import ArrowIcon from 'icons/arrows/east.svg';
 
 import { recipe as tableRecipe } from '../theme/recipes/table.recipe';
-import { Link } from './link';
 import { withRecipe } from './recipe-props';
 
 const RecipeRoot = withRecipe(ChakraTable.Root, tableRecipe);
@@ -51,9 +50,20 @@ export const TableColumnHeaderSortable = <F extends string>(props: TableColumnHe
     onSortToggle(sortField);
   }, [ onSortToggle, sortField ]);
 
+  const activeDirection = sortValue.includes('asc') ? 'ascending' : 'descending';
+
   return (
-    <TableColumnHeader { ...rest }>
-      <Link onClick={ disabled ? undefined : handleSortToggle } position="relative">
+    <TableColumnHeader aria-sort={ sortValue.includes(sortField) ? activeDirection : 'none' } { ...rest }>
+      <chakra.button
+        type="button"
+        onClick={ handleSortToggle }
+        disabled={ disabled }
+        position="relative"
+        cursor="pointer"
+        textAlign="inherit"
+        textTransform="inherit"
+        _focusVisible={{ outline: '2px solid', outlineColor: 'focusRing', outlineOffset: '2px' }}
+      >
         { sortValue.includes(sortField) && (
           <Icon
             w={ 4 }
@@ -68,7 +78,7 @@ export const TableColumnHeaderSortable = <F extends string>(props: TableColumnHe
           </Icon>
         ) }
         { children }
-      </Link>
+      </chakra.button>
       { contentAfter }
     </TableColumnHeader>
   );
