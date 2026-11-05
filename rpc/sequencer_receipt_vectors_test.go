@@ -58,6 +58,11 @@ const (
 	seqVecUCPCommand      = "go test -count=1 ./rpc/ -run '^TestRepairM_466_UCPCheckoutReceiptVector$' -update"
 	seqVecUCPDomain       = "LayerX/interop/ucp/idempotency/v1\x00"
 	seqVecUCPIdempotency  = "123e4567-e89b-12d3-a456-426614174000"
+	seqVecFiatFixture     = "../sdk/platform/conformance/fixtures/fiat-receipts-v1.json"
+	seqVecFiatJourneys    = "../services/interop/specs/conformance/fiat/sequenced-journeys.json"
+	seqVecFiatSource      = "../daemon/committed-fixture/vectors/vector-v4-committed.json"
+	seqVecFiatSourceHash  = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+	seqVecFiatCommand     = "go test -count=1 ./rpc/ -run '^TestRepairM_489_FiatJourneysDerived$' -update"
 	seqVecGenerator       = "rpc/sequencer_receipt_vectors_test.go"
 	seqVecCommand         = "go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update"
 	seqVecChainID         = 125
@@ -127,6 +132,8 @@ type seqVecCase struct {
 type seqVecProvenance struct {
 	Generator string `json:"generator"`
 	Command   string `json:"command"`
+	Source    string `json:"source,omitempty"`
+	SHA256    string `json:"sha256,omitempty"`
 }
 
 type seqVecFile struct {
@@ -1060,6 +1067,218 @@ func TestRepairM_466_UCPCheckoutGatewayKey(t *testing.T) {
 
 func TestRepairM_466_UCPCheckoutPinnedReceipt(t *testing.T) {
 	seqVecAssertUCPCheckout(t, seqVecReadUCPCheckout(t))
+}
+
+type seqVecFiatJourney struct {
+	Name              string          `json:"name"`
+	Token             string          `json:"token"`
+	ProviderFacts     json.RawMessage `json:"provider_facts"`
+	ProviderPublicKey hexutil.Bytes   `json:"provider_public_key"`
+	ProviderSignature hexutil.Bytes   `json:"provider_signature"`
+	Sequencer         struct {
+		Fixture        string        `json:"fixture"`
+		Case           string        `json:"case"`
+		Rung           string        `json:"rung"`
+		Transaction    common.Hash   `json:"transaction_hash"`
+		Digest         *common.Hash  `json:"receipt_digest"`
+		IdempotencyKey common.Hash   `json:"idempotency_key"`
+		Reference      common.Hash   `json:"payment_reference"`
+		Calldata       hexutil.Bytes `json:"payment_calldata"`
+		Counterparty   common.Hash   `json:"counterparty"`
+		ExpiresAt      uint64        `json:"expires_at"`
+	} `json:"sequencer"`
+	Expect struct {
+		State       string       `json:"state"`
+		Refusal     string       `json:"refusal"`
+		Digest      *common.Hash `json:"receipt_digest"`
+		Translation string       `json:"translation"`
+	} `json:"expect"`
+}
+
+func seqVecFiatPayment(t *testing.T, journey seqVecFiatJourney) seqVecPayExact {
+	t.Helper()
+	var canonical map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(journey.ProviderFacts, &canonical))
+	payload, err := json.Marshal(canonical)
+	require.NoError(t, err)
+	require.Len(t, journey.ProviderPublicKey, ed25519.PublicKeySize)
+	require.Len(t, journey.ProviderSignature, ed25519.SignatureSize)
+	require.True(t, ed25519.Verify(ed25519.PublicKey(journey.ProviderPublicKey),
+		append([]byte("LayerX/fiat/sequenced-provider/v1\x00"), payload...), journey.ProviderSignature))
+	var facts struct {
+		Provider    string      `json:"provider"`
+		Settlement  string      `json:"settlement"`
+		Rail        string      `json:"rail"`
+		Class       string      `json:"class"`
+		Amount      string      `json:"amount"`
+		Asset       common.Hash `json:"asset"`
+		Destination common.Hash `json:"destination"`
+		TokenDigest common.Hash `json:"token_reference_sha256"`
+	}
+	require.NoError(t, json.Unmarshal(journey.ProviderFacts, &facts))
+	require.NotEmpty(t, facts.Provider)
+	require.NotEmpty(t, facts.Settlement)
+	require.Equal(t, "settled", facts.Class)
+	require.Equal(t, common.Hash(sha256.Sum256([]byte(journey.Token))), facts.TokenDigest)
+	rail, ok := map[string]byte{"card": 1, "bank": 2, "rtp": 3}[facts.Rail]
+	require.True(t, ok, facts.Rail)
+	material := append([]byte("LayerX/interop/fiat/idempotency/v1\x00"), []byte(facts.Provider)...)
+	material = append(material, 0)
+	material = append(material, []byte(facts.Settlement)...)
+	material = append(material, rail, 3)
+	amount, ok := new(big.Int).SetString(facts.Amount, 10)
+	require.True(t, ok)
+	require.Positive(t, amount.Sign())
+	require.LessOrEqual(t, amount.BitLen(), 128)
+	pay := seqVecLedgerPay(t)
+	pay.to, pay.asset, pay.amount = facts.Destination, facts.Asset, amount
+	pay.reference = sha256.Sum256(material)
+	require.Equal(t, pay.from, journey.Sequencer.Counterparty)
+	require.Equal(t, pay.expiresAt, journey.Sequencer.ExpiresAt)
+	return pay
+}
+
+func TestRepairM_489_FiatJourneysDerived(t *testing.T) {
+	source, err := os.ReadFile(seqVecFiatSource)
+	require.NoError(t, err)
+	require.Equal(t, seqVecFiatSourceHash, fmt.Sprintf("%x", sha256.Sum256(source)))
+	var committed struct {
+		Settlement struct {
+			RawTransaction hexutil.Bytes   `json:"raw_transaction"`
+			Receipt        json.RawMessage `json:"receipt"`
+		} `json:"settlement"`
+	}
+	require.NoError(t, json.Unmarshal(source, &committed))
+	var committedReceipt evmrpc.SequencerReceiptResult
+	require.NoError(t, json.Unmarshal(committed.Settlement.Receipt, &committedReceipt))
+	require.Equal(t, evmrpc.RungCommitted, committedReceipt.Rung)
+	require.NoError(t, committedReceipt.Verify())
+	committedTx := new(ethtypes.Transaction)
+	require.NoError(t, committedTx.UnmarshalBinary(committed.Settlement.RawTransaction))
+	require.Equal(t, uint8(ethtypes.DynamicFeeTxType), committedTx.Type())
+	require.Equal(t, big.NewInt(seqVecChainID), committedTx.ChainId())
+	require.Equal(t, committedTx.Hash(), committedReceipt.TxHash)
+	decoded, err := codec.DecodeReceipt(committedReceipt.Receipt)
+	require.NoError(t, err)
+	require.Equal(t, uint16(2), decoded.ProtocolVersion)
+
+	stored, err := os.ReadFile(seqVecFiatJourneys)
+	require.NoError(t, err)
+	var journeys []seqVecFiatJourney
+	require.NoError(t, json.Unmarshal(stored, &journeys))
+	require.Len(t, journeys, 5)
+	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
+	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}
+	key := loadSeqVecKey(t, t.TempDir(), verify.SequencerAuthorization{
+		SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecFirstHeight, LastBatchNumber: seqVecLastHeight,
+	})
+	chain := newSeqReceiptChain9005(t)
+	installSeqVecReceiptKey(t, chain, pin)
+	sourceRPC := seqnode.NewReceiptSource(len(journeys))
+	port := startSeqReceiptServer9005(t, app.Setup(t, false, false, false), chain.ctxProvider,
+		evmrpc.SequencerReceiptOption{Source: sourceRPC, Keeper: &chain.keeper})
+	b := newSeqVecBuilder(t)
+	file := seqVecFile{
+		Name: "fiat-receipts-v1", ChainID: seqVecChainID, ModuleID: seqVecModuleID, FeeDenom: evmkeeper.BaseDenom,
+		Provenance: seqVecProvenance{Generator: seqVecGenerator, Command: seqVecFiatCommand,
+			Source: strings.TrimPrefix(seqVecFiatSource, "../"), SHA256: seqVecFiatSourceHash},
+	}
+	prev := [32]byte{}
+	coverage := map[string]int{}
+	seen := map[common.Hash]bool{}
+	for i, journey := range journeys {
+		t.Run(journey.Name, func(t *testing.T) {
+			pay := seqVecFiatPayment(t, journey)
+			require.False(t, seen[pay.reference], "provider settlement keys must be distinct")
+			seen[pay.reference] = true
+			require.Equal(t, pay.reference, journey.Sequencer.IdempotencyKey)
+			require.Equal(t, pay.reference, journey.Sequencer.Reference)
+			calldata := make([]byte, 196)
+			copy(calldata[:4], []byte{0x78, 0xea, 0x11, 0xdb})
+			copy(calldata[4:36], pay.from[:])
+			copy(calldata[36:68], pay.to[:])
+			copy(calldata[68:100], pay.asset[:])
+			pay.amount.FillBytes(calldata[116:132])
+			binary.BigEndian.PutUint64(calldata[156:164], pay.expiresAt)
+			copy(calldata[164:196], pay.reference[:])
+			require.Equal(t, calldata, []byte(journey.Sequencer.Calldata))
+			require.Equal(t, calldata, seqVecPayExactCall(t, pay))
+			tx := seqVecLedgerPaymentFor(t, uint64(i), pay)
+			vector := "V1"
+			if journey.Expect.Refusal != "" {
+				require.Equal(t, "ReceiptMismatch", journey.Expect.Refusal)
+				tx = seqVecLedgerRevert(t, uint64(i))
+				tx.data = calldata
+				vector = "V2"
+			}
+			signedTx := b.signTx(tx)
+			signed := b.receipt(key, seqVecKeyID, signedTx, tx,
+				seqVecSlot{seq: uint64(i + 1), prev: prev, height: seqVecFirstHeight + int64(i), index: 1}, true)
+			sourceRPC.Record(signed.activity, *signed.send)
+			answer, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, signed.activity)
+			require.Nil(t, rpcErr)
+			c := seqVecCaseOf(journey.Name, vector, "Fiat adapter payment for "+journey.Name,
+				signed, signed.raw, answer, prev, pin)
+			c.Expected = seqVecExpected{Rung: "receipted", Verifier: "accepts"}
+			if vector == "V2" {
+				c.LXPCode = seqVecInsufficient
+			}
+			file.Cases = append(file.Cases, c)
+			check, err := seqVecClientCheck(c.RawTransaction, c.ReceiptJSON, c.PrevSeqHash, c.PinnedKey)
+			require.NoError(t, err, check)
+			require.Empty(t, check)
+			verified, err := verify.ReceiptSignature(c.SignedReceipt, public)
+			require.NoError(t, err)
+			require.Equal(t, uint16(2), verified.Receipt.ProtocolVersion)
+			require.Equal(t, uint8(ethtypes.DynamicFeeTxType), verified.Receipt.Operation)
+			require.Equal(t, c.ReceiptDigest, common.Hash(verified.Digest))
+			require.Equal(t, [32]byte(signedTx.Hash()), verified.Receipt.ActivityID)
+			require.Equal(t, calldata, signedTx.Data())
+			require.Equal(t, big.NewInt(seqVecChainID), signedTx.ChainId())
+			require.Equal(t, "sdk/platform/conformance/fixtures/fiat-receipts-v1.json", journey.Sequencer.Fixture)
+			require.Equal(t, c.ID, journey.Sequencer.Case)
+			require.Equal(t, signedTx.Hash(), journey.Sequencer.Transaction)
+			var result evmrpc.SequencerReceiptResult
+			require.NoError(t, json.Unmarshal(answer, &result))
+			if journey.Sequencer.Rung == "submitted" {
+				require.Equal(t, "credit-pending", journey.Expect.State)
+				require.Equal(t, "pending", journey.Expect.Translation)
+				require.Nil(t, journey.Sequencer.Digest)
+				require.Nil(t, journey.Expect.Digest)
+				coverage["submitted"]++
+			} else {
+				require.Equal(t, "receipted", journey.Sequencer.Rung)
+				require.NotNil(t, journey.Sequencer.Digest)
+				require.Equal(t, c.ReceiptDigest, *journey.Sequencer.Digest)
+				if vector == "V2" {
+					require.EqualValues(t, 0, result.Status)
+					require.EqualValues(t, 1, verified.Receipt.ResultCode)
+					require.Empty(t, result.Logs)
+					require.Equal(t, pcommon.LXPRevert(seqVecInsufficient, ""), []byte(result.ReturnData))
+					require.Equal(t, "pending", journey.Expect.Translation)
+					coverage["reverted"]++
+				} else {
+					require.Equal(t, "credited", journey.Expect.State)
+					require.Equal(t, "receipt-verified", journey.Expect.Translation)
+					require.NotNil(t, journey.Expect.Digest)
+					require.Equal(t, c.ReceiptDigest, *journey.Expect.Digest)
+					require.EqualValues(t, 1, result.Status)
+					require.Zero(t, verified.Receipt.ResultCode)
+					require.Len(t, result.Logs, 1)
+					require.Equal(t, []common.Hash{crypto.Keccak256Hash([]byte("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")),
+						pay.reference, pay.from, pay.to}, result.Logs[0].Topics)
+					require.Equal(t, seqVecLedger, result.Logs[0].Address)
+					data, err := seqVecArgs(t, "bytes32", "uint128").Pack([32]byte(pay.asset), pay.amount)
+					require.NoError(t, err)
+					require.Equal(t, data, []byte(result.Logs[0].Data))
+					coverage["credited"]++
+				}
+			}
+			prev = signed.seqHash
+		})
+	}
+	require.Equal(t, map[string]int{"credited": 3, "submitted": 1, "reverted": 1}, coverage)
+	seqVecWriteFixture(t, seqVecFiatFixture, seqVecFiatCommand, file)
 }
 
 func repairM1297FeeTokenVector(t *testing.T) seqVecFile {
