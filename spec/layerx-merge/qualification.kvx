@@ -31195,3 +31195,11 @@ symbol = "repair-22-35-3.spec.tsx"
 observed = "Attempt 1: build exit 0 and verify exit 0 at 01d282f156, then held at publication with a three-way merge conflict in apps/explorer/ui/snippets/searchBar/SearchBarInput.tsx against the integration that carries 22.35.2 (6affbc654e)."
 assumption = "The attempt is complete and correct against its base; only the merge with the sibling task is outstanding."
 severity = "low"
+
+[finding.22.35.6.1]
+task = "22.35.6"
+file = "apps/explorer/ui/shared/Page/repair-22-35-6.spec.tsx"
+symbol = "repair-22-35-6.spec.tsx"
+observed = "Attempt 1: three builds exit 0 at 7ae8e143859d; verify exit 1 with eight of nine proofs passed; addressPageRendersEntityTabSetAndOverview expected Transfers and received Transfers(10) because the tab renders its counter inside the tab; the expectation was amended in the tree but no verify run remained."
+assumption = "The product code is correct and the only defect was the proof reading the counter as part of the label; one more gate run at the final revision qualifies the attempt."
+severity = "low"
