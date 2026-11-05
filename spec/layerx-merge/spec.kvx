@@ -8781,6 +8781,12 @@ value = "When a test-only task finds its target failing before the assertion it 
 basis = "Gotcha 3155: the owner preview path refuses the native preview fixture with a reasonless variant and more than twenty candidate guards; guessing the guard from the evidence is not a ruling."
 affects = ["22.31.543", "22.31.535", "22.31.538", "22.31.495", "9.25.7", "22.31.541"]
 
+[decision.2612]
+title = "A daemon test fixture creates its store root as a 0700 directory, as the Human service fixtures already do"
+value = "Every test under services/agent/crates/layerx-agentd/tests that opens a Store creates its root under the temporary directory and sets its permissions to mode 0700 before Store::open (std::fs::set_permissions with Permissions::from_mode(0o700), or DirBuilder with mode 0o700), as tests/bootstrap_bind_layerx.rs and tests/human_approval_budget_actor.rs do; a fixture that creates the root with default permissions is corrected inside the attempt that meets the refusal, and a new daemon test takes its root helper from an existing fixture. Gotcha 3096 (the Human service rule) extends to the agent daemon."
+basis = "Gotcha 3156: the replay-bounds test fixture predates the store privacy check and failed before any assertion of the ported calls."
+affects = ["22.31.544", "22.31.216", "22.31.523"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175297,6 +175303,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3156, decision 2612): the attempt-1 tree at a619f7302b24 stands (the six calls ported to reserve_and_hold_at, hold_at and hold_reserved_timed, the imports, the record). In services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs make Root::new set the permissions of the created directory to mode 0700 immediately after std::fs::create_dir, as tests/bootstrap_bind_layerx.rs does at lines 72 to 75 (std::fs::set_permissions with std::fs::Permissions::from_mode(0o700), importing std::os::unix::fs::PermissionsExt); change nothing else in the fixture. Note the correction in tests/repair_22_31_544.kvx. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.543]
 title = "Assert the reason-bearing human refusal frame in the retired-rung and native preview daemon tests"

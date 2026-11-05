@@ -31251,3 +31251,11 @@ symbol = "human_peer_retired.rs"
 observed = "Attempt 2: build exit 0 at 5ce5764e25af; anvil 1.9.0 present; human_peer_retired passed 1 case; native_send_preview_evm failed at line 900 with bootstrap peer: Refused from the first owner preview call, before the amended assertion at line 1026."
 assumption = "A refusal upstream of the task's assertion whose guard the evidence cannot name (gotcha 3155)."
 severity = "low"
+
+[finding.22.31.544.1]
+task = "22.31.544"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"
+symbol = "repair_22_31_216.rs"
+observed = "Attempt 1: build exit 0 and dependent-crate check exit 0 at a619f7302b24; verify failed 4 of 4 cases at repair_22_31_216.rs line 40 with store root is not a canonical owned private directory before any ported call ran."
+assumption = "A fixture permissions defect predating the store privacy check (gotcha 3156), not a defect of the port."
+severity = "low"
