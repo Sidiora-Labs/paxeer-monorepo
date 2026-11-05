@@ -31107,3 +31107,35 @@ symbol = "web.rs"
 observed = "Attempt 2: build exit 0; the dependent-crate check stopped on services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs line 590, a GrantTerms construction without receiver_did_key that landed with 22.31.532 attempt 3 beside the field 22.31.531 attempt 3 added; verify never ran."
 assumption = "The red target is outside the task's paths and is one missing field; the attempt's own work is not in question."
 severity = "low"
+
+[finding.22.31.529.3]
+task = "22.31.529"
+file = "services/agent/crates/layerx-mcp/tests/web.rs"
+symbol = "web.rs"
+observed = "Attempt 3: build exit 0 at ab26915ed7; verify exit 101: web 18 passed, 4 failed: lines 1357 and 1415 payer.grants.is_empty() (the terms of the standing-grant lookup are recorded before the hold is placed, decision 2583 path), and line 2272 twice, ticket.disclosure.actor was the sender address hex abab..ab instead of the payer DID (the stored spend of 22.33.1551 names hex(&self.sender) as the actor); web_payments_layerxpay did not run."
+assumption = "The actor defect is production and outside the task paths, so it is a new task; the three assertions contradict the intended hold path and change to the count the suite already expects after approval."
+severity = "low"
+
+[finding.22.31.516.3]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 3: build exit 0 at 9fa8d29462; the dependent-crate check stopped on services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs line 590, a GrantTerms construction without receiver_did_key, because the attempt was claimed four minutes before 22.31.536 published; verify never ran."
+assumption = "The red target is repaired on main; the attempt's own work is not in question."
+severity = "low"
+
+[finding.22.35.1.2]
+task = "22.35.1"
+file = "apps/explorer/toolkit/theme/repair-22-35-1.spec.ts"
+symbol = "repair-22-35-1.spec.ts"
+observed = "Attempt 2: build exit 0 at 45fa2ccb74; verify 92 of 93 passed; stat.recipe.spec.ts line 22 expected scan valueText to match textStyle heading.sm, which the batch 474 instruction removed in favour of statValue in the compound variant."
+assumption = "The failing assertion pins the look the brief replaces; nothing in the recipe change is in question."
+severity = "low"
+
+[finding.22.31.537.1]
+task = "22.31.537"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_537.rs"
+symbol = "repair_22_31_537.rs"
+observed = "Attempt 1: build exit 0 at 877ef56715; verify: repair_22_31_537 2 passed, repair_22_31_531 6 passed, repair_22_33_1551 5 passed and 1 failed: restart_hold_approval_and_exact_retry_through_served_route line 109, validate_registry returned CorruptRecord because validate_held_call (policy/approval.rs line 1427) requires the disclosure actor to be the sender address hex."
+assumption = "The registry owns the convention and two repair tests assert it; the task instruction was wrong, not the attempt."
+severity = "low"

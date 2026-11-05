@@ -475,9 +475,20 @@ impl WebPayer for RecordedNodePayer {
             .ok_or(WebPayerError::Refused)?;
         Ok(Some(word(&grant["grantId"])))
     }
-    fn grant(&mut self, _: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
-        self.traffic.lock().expect("traffic").grants += 1;
-        panic!("standing-grant approval must never sign or issue a new grant")
+    fn grant(&mut self, terms: &GrantTerms) -> Result<PrecompileCall, WebPayerError> {
+        use ed25519_dalek::{Signer as _, SigningKey};
+
+        let mut traffic = self.traffic.lock().expect("traffic");
+        traffic.grants += 1;
+        if traffic.standing_grant {
+            panic!("standing-grant approval must never sign or issue a new grant");
+        }
+        drop(traffic);
+        let signer = SigningKey::from_bytes(&[0x53; 32]);
+        let mut grant = terms.unsigned_grant(signer.verifying_key().to_bytes());
+        grant.id = grant.signing_digest().map_err(|_| WebPayerError::Refused)?;
+        grant.signature = signer.sign(&grant.id).to_bytes();
+        terms.prepare_grant(&grant)
     }
     fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
         self.node
@@ -535,7 +546,11 @@ impl WebPayer for RecordedNodePayer {
             call.nonce, 7,
             "retry must retain the originally observed nonce"
         );
-        assert_eq!(prepared.disclosure.actor.as_str(), hex(&[0xab; 20]));
+        assert_eq!(
+            prepared.disclosure.actor.as_str(),
+            hex(&[0xab; 20]),
+            "held disclosure actor must retain the sender address"
+        );
         self.traffic
             .lock()
             .expect("traffic")
