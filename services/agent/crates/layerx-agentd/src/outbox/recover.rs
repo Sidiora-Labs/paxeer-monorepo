@@ -21,15 +21,25 @@ pub struct UnknownCeilingReservation {
     pub expiry_sequence: u64,
 }
 
-pub struct RecoveryInputs<'a> {
+pub struct RecoveryInputs<'a, E = crate::protocol_evidence::RawReceiptEvidence> {
     pub verifier: EvidenceAuthority,
     pub unknown_budget_ids: &'a [[u8; 32]],
-    pub budget_receipts: &'a [PersistedReceipt],
+    pub budget_receipts: &'a [PersistedReceipt<E>],
     pub protocol_budget: ProtocolBudgetState,
     pub ceiling_maximum: u128,
     pub ceiling_receipts: &'a [CeilingReceipt],
     pub unknown_ceiling_reservations: &'a [UnknownCeilingReservation],
     pub current_sequence: u64,
+}
+
+impl<E: Clone + Into<budget::BudgetReceiptEvidence>> RecoveryInputs<'_, E> {
+    pub(crate) fn recover(
+        &self,
+        store: &mut Store,
+        tenant: &TenantId,
+    ) -> Result<RecoveredOutbox, RecoveryError> {
+        recover_with_evidence(store, tenant, self)
+    }
 }
 
 pub struct RecoveredOutbox {
@@ -96,7 +106,15 @@ pub fn recover(
     tenant: &TenantId,
     inputs: &RecoveryInputs<'_>,
 ) -> Result<RecoveredOutbox, RecoveryError> {
-    let budget_accounting = budget::rebuild(
+    recover_with_evidence(store, tenant, inputs)
+}
+
+pub(crate) fn recover_with_evidence<E: Clone + Into<budget::BudgetReceiptEvidence>>(
+    store: &mut Store,
+    tenant: &TenantId,
+    inputs: &RecoveryInputs<'_, E>,
+) -> Result<RecoveredOutbox, RecoveryError> {
+    let budget_accounting = budget::rebuild_with_evidence(
         store,
         tenant,
         inputs.unknown_budget_ids,
@@ -112,7 +130,7 @@ pub fn recover(
     )
     .map_err(RecoveryError::Ceiling)?;
     if budget_accounting.reconciled {
-        let spend_receipts: Vec<SpendReceiptEvidence> = inputs
+        let spend_receipts: Vec<SpendReceiptEvidence<E>> = inputs
             .budget_receipts
             .iter()
             .map(|receipt| SpendReceiptEvidence {
@@ -125,7 +143,7 @@ pub fn recover(
             window_start_sequence: 0,
             last_receipt: None,
         };
-        let reconciliation = budget::reconcile(
+        let reconciliation = budget::reconcile_with_evidence(
             &mut local,
             &inputs.protocol_budget,
             &spend_receipts,
