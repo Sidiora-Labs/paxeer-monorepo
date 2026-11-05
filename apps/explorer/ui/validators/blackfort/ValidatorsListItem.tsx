@@ -17,9 +17,9 @@ interface Props {
 const ValidatorsListItem = ({ data, isLoading }: Props) => {
 
   return (
-    <ListItemMobileGrid.Container gridTemplateColumns="130px auto">
+    <ListItemMobileGrid.Container gridTemplateColumns="130px auto" borderColor="hairline">
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Address</ListItemMobileGrid.Label>
+      <ListItemMobileGrid.Label isLoading={ isLoading }>Validator</ListItemMobileGrid.Label>
       <ListItemMobileGrid.Value>
         <AddressEntity
           isLoading={ isLoading }
@@ -37,28 +37,40 @@ const ValidatorsListItem = ({ data, isLoading }: Props) => {
         </>
       ) }
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Commission</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value>
-        <Skeleton loading={ isLoading }>
-          { `${ data.commission / 100 }%` }
-        </Skeleton>
-      </ListItemMobileGrid.Value>
+      { data.commission != null && (
+        <>
+          <ListItemMobileGrid.Label isLoading={ isLoading }>Commission</ListItemMobileGrid.Label>
+          <ListItemMobileGrid.Value>
+            <Skeleton loading={ isLoading }>
+              { `${ data.commission / 100 }%` }
+            </Skeleton>
+          </ListItemMobileGrid.Value>
+        </>
+      ) }
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Self bonded</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value>
-        <NativeCoinValue
-          amount={ data.self_bonded_amount }
-          loading={ isLoading }
-        />
-      </ListItemMobileGrid.Value>
+      { data.self_bonded_amount != null && (
+        <>
+          <ListItemMobileGrid.Label isLoading={ isLoading }>Stake</ListItemMobileGrid.Label>
+          <ListItemMobileGrid.Value>
+            <NativeCoinValue
+              amount={ data.self_bonded_amount }
+              loading={ isLoading }
+            />
+          </ListItemMobileGrid.Value>
+        </>
+      ) }
 
-      <ListItemMobileGrid.Label isLoading={ isLoading }>Delegated amount</ListItemMobileGrid.Label>
-      <ListItemMobileGrid.Value>
-        <NativeCoinValue
-          amount={ data.delegated_amount }
-          loading={ isLoading }
-        />
-      </ListItemMobileGrid.Value>
+      { data.delegated_amount != null && (
+        <>
+          <ListItemMobileGrid.Label isLoading={ isLoading }>Delegated amount</ListItemMobileGrid.Label>
+          <ListItemMobileGrid.Value>
+            <NativeCoinValue
+              amount={ data.delegated_amount }
+              loading={ isLoading }
+            />
+          </ListItemMobileGrid.Value>
+        </>
+      ) }
 
     </ListItemMobileGrid.Container>
   );

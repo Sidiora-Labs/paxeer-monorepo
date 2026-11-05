@@ -4,7 +4,7 @@ import React from 'react';
 import config from 'configs/app';
 import useApiQuery from 'lib/api/useApiQuery';
 import { VALIDATORS_BLACKFORT_COUNTERS } from 'stubs/validators';
-import StatsWidget from 'ui/shared/stats/StatsWidget';
+import { ScanStatCard } from 'ui/shared/scan';
 
 const ValidatorsCounters = () => {
   const countersQuery = useApiQuery('general:validators_blackfort_counters', {
@@ -20,10 +20,10 @@ const ValidatorsCounters = () => {
 
   return (
     <Box columnGap={ 3 } rowGap={ 3 } mb={ 6 } display="grid" gridTemplateColumns={{ base: '1fr', lg: 'repeat(2, 1fr)' }}>
-      <StatsWidget
+      <ScanStatCard
         label="Total validators"
         value={ Number(countersQuery.data.validators_count).toLocaleString() }
-        diff={ Number(countersQuery.data.new_validators_count_24h).toLocaleString() }
+        secondary={ `${ Number(countersQuery.data.new_validators_count_24h).toLocaleString() } new in 24h` }
         isLoading={ countersQuery.isPlaceholderData }
       />
     </Box>
