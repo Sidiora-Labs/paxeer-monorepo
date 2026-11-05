@@ -252,6 +252,7 @@ fn recorded_submissions(vector: &str) -> Result<Vec<RecordedSubmit>, Box<dyn Err
         "vector-v1-receipted-positive.json" => recorded_vectors::positive(),
         "vector-v2-receipted-revert.json" => recorded_vectors::revert(),
         "vector-v3-receipt-refusals.json" => recorded_vectors::refusals(),
+        "vector-v4-committed.json" => recorded_vectors::committed(),
         _ => return Err(format!("unknown committed vector {vector}").into()),
     };
     Ok(entries)
@@ -624,5 +625,25 @@ fn gateway_envelope_and_all_receipt_fields_are_required() -> TestResult {
         control.receipt = format!("{}{}", &original[..start], &original[end..]);
         assert_output(&submit_recorded(&control)?,3,&format!("{{\"state\":\"submitted\",\"transaction_hash\":\"{}\",\"receipt_error\":{{\"transport_error\":\"Malformed\"}}}}\n",control.hash))?;
     }
+    Ok(())
+}
+
+#[test]
+fn submit_verifies_the_recorded_v4_chain_125_transaction() -> TestResult {
+    let entries = recorded_submissions("vector-v4-committed.json")?;
+    assert_eq!(entries.len(), 1);
+    let entry = &entries[0];
+    let raw = unhex(&entry.raw)?;
+    assert_eq!(raw[0], 2, "committed transaction must be EIP-1559");
+    let payload_start = if raw[1] > 0xf7 {
+        2 + usize::from(raw[1] - 0xf7)
+    } else {
+        2
+    };
+    assert_eq!(
+        raw[payload_start], 125,
+        "committed transaction must use chain 125"
+    );
+    assert_output(&submit_recorded(entry)?, 0, &format!("{{\"state\":\"receipted\",\"transaction_hash\":\"{}\",\"code\":\"LXP_OK\",\"result_code\":0,\"class\":\"terminal\"}}\n", entry.hash))?;
     Ok(())
 }

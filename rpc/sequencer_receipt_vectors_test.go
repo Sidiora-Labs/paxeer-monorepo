@@ -1182,6 +1182,15 @@ func repairM1297FeeTokenVectorProof(t *testing.T) {
 }
 
 func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
+	for name, digest := range map[string]string{
+		"vector-v1-receipted-positive.json": "d74c1e130b5f9e3687655a4f8a1c048e0ee77a479931a87d790510f4419a22e2",
+		"vector-v2-receipted-revert.json":   "64fa4664780380bd6da0e36cd2444fa41e751e9fb0919514a4cb2a6f73feea0a",
+		"vector-v3-receipt-refusals.json":   "480ed0e242f16cd5064ba8a7a613ef24e96e9119d9327da3ffd67563ca12df5e",
+	} {
+		recorded, err := os.ReadFile(filepath.Join("../daemon/committed-fixture/vectors", name))
+		require.NoError(t, err)
+		require.Equal(t, digest, fmt.Sprintf("%x", sha256.Sum256(recorded)), "receipted vectors must retain their original recording")
+	}
 	var source struct {
 		Cases []json.RawMessage `json:"cases"`
 	}
