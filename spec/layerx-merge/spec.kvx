@@ -175582,7 +175582,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.550]
 title = "Move the native send prepare digest beside its wire type so the rpc_surface_major_two harness compiles again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.545"]
