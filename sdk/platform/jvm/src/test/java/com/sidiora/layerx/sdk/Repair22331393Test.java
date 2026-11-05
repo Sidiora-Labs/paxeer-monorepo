@@ -105,7 +105,7 @@ public final class Repair22331393Test {
         assertDoesNotThrow(recovered::requireSuccess);
         assertRefusal(() -> PortableReceipt.verify(saved, keys(pin)));
         assertRefusal(() -> PortableReceipt.verify(saved, keys(pin), new ConsensusTrust("wrong-chain", 10,
-            Base64.getDecoder().decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI="))));
+            Base64.getDecoder().decode("ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk="))));
         ObjectNode changed = JSON.readTree(saved).deepCopy();
         ((ObjectNode) changed.required("receiptJson")).put("blockHash", "0x" + "01".repeat(32));
         assertRefusal(() -> PortableReceipt.verify(JSON.writeValueAsBytes(changed), keys(pin), trust()));
@@ -194,7 +194,7 @@ public final class Repair22331393Test {
 
     private static ConsensusTrust trust() {
         return new ConsensusTrust("committed-fixture", 10,
-            Base64.getDecoder().decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI="));
+            Base64.getDecoder().decode("ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk="));
     }
 
     private static byte[] bytes(JsonNode node, String field) {

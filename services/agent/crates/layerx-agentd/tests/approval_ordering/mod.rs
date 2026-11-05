@@ -168,6 +168,7 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
                         idempotency_key: &key("grant-14"),
                         approver: approver("human:grant"),
                         current_sequence: 11,
+                        current_time: TimestampSeconds(11),
                     },
                     &held,
                     &queue,
@@ -195,6 +196,7 @@ fn rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant() {
                     idempotency_key: &key("reject-14"),
                     approver: approver("human:reject"),
                     current_sequence: 11,
+                    current_time: TimestampSeconds(11),
                 })
                 .unwrap_or_else(|error| panic!("reject: {error:?}"))
         });
@@ -250,6 +252,7 @@ fn stale_prepared_grant_cannot_overwrite_durable_rejection() {
             idempotency_key: &key("reject-15"),
             approver: approver("human:reject"),
             current_sequence: 11,
+            current_time: TimestampSeconds(11),
         })
         .unwrap_or_else(|error| panic!("reject: {error:?}"));
     assert_eq!(rejection.outcome, ApprovalOutcome::Rejected);

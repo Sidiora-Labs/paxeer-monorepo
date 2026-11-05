@@ -307,11 +307,21 @@ def test_lifecycle_transaction_binding_and_retained_http_bytes(tmp_path):
     ]
     received = []
     def dispatch(method, path, headers, body):
-        assert method == "POST" and headers["Content-Type"] == "application/octet-stream"
+        assert method == "POST" and path == "/"
+        assert headers["Content-Type"] == "application/json"
+        request = json.loads(body)
+        assert set(request) == {"jsonrpc", "id", "method", "params"}
+        assert request["jsonrpc"] == "2.0"
+        assert isinstance(request["id"], int)
+        assert request["method"] == "eth_sendRawTransaction"
+        assert request["params"] == ["0x" + canonical.hex()]
+        transaction = raw(request["params"][0])
         key = headers["Idempotency-Key"]
-        assert key == keccak256(body).hex()
-        received.append(body)
-        return 202, {"Content-Type":"application/json"}, {"state":"unknown", "activity_id":key, "retry":"after", "retry_after_seconds":2}
+        assert key == keccak256(transaction).hex() == identity
+        received.append(transaction)
+        return 200, {"Content-Type":"application/json"}, {
+            "jsonrpc": "2.0", "id": request["id"], "result": "0x" + key,
+        }
     with http_server(dispatch) as endpoint:
         transport = AgentHttpTransport(endpoint)
         for ordinal, value, name, kinds, values in cases:
@@ -327,10 +337,16 @@ def test_lifecycle_transaction_binding_and_retained_http_bytes(tmp_path):
             assert restored == bound
             operation = {1:"program.deploy", 2:"program.upgrade", 7:"program.wind-down"}[ordinal]
             result = transport.call("agent", operation, {"signed_activity":canonical.hex()}, identity)
-            assert result["state"] == "unknown" and received[-1] == canonical
+            assert result == {
+                "state": "submitted", "activity_id": identity,
+                "idempotency_key": identity, "retained_signed_activity": canonical.hex(),
+            }
+            assert received[-1] == canonical == retained.read_bytes()
+            assert raw(result["retained_signed_activity"]) == restored.canonical_bytes
             wrong, _ = sign_transaction(encode_call(name, kinds, values), chain=126)
             with pytest.raises(ValueError):
                 NativeProgramLifecycleRequest(ordinal, value.encode(), wrong)
+    assert len(received) == len(cases)
 
 
 def required_payment(commitment="receipted"):
@@ -369,7 +385,7 @@ def test_buyer_send_contract_and_restart_recovery(tmp_path):
             raise AssertionError(request)
         return 200, {"Content-Type":"application/json"}, {"jsonrpc":"2.0", "id":request["id"], "result":result}
     with http_server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint+"/rpc")
+        rpc = PaymentRpc(endpoint+"/rpc", hosted_gateway_endpoint=endpoint+"/rpc")
         keys = rpc.receipt_keys()
         authority = ConfiguredReceiptAuthority(transaction)
         path = tmp_path / "buyer.sqlite"
@@ -434,7 +450,7 @@ def test_empty_receipt_keys_and_rotated_node_responses():
         assert request["method"] == "px_getReceiptKeys" and request["params"] == []
         return 200, {"Content-Type":"application/json"}, {"jsonrpc":"2.0","id":request["id"],"result":responses.pop(0)}
     with http_server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint+"/rpc")
+        rpc = PaymentRpc(endpoint+"/rpc", hosted_gateway_endpoint=endpoint+"/rpc")
         assert rpc.receipt_keys() == ()
         with pytest.raises(SequencerReceiptVerificationError) as raised:
             verify_payment_receipt(raw(PAYMENT["signedReceipt"]), raw(PAYMENT["rawTransaction"]), (), **payment_terms())
@@ -668,7 +684,7 @@ def test_draw_send_contract_and_restart_recovery(tmp_path):
         return 200, {"Content-Type": "application/json"}, {"jsonrpc": "2.0", "id": request["id"],
             "error": {"code": 3, "message": "execution reverted", "data": "0x" + reason.hex()}}
     with http_server(dispatch) as endpoint:
-        rpc = PaymentRpc(endpoint + "/rpc")
+        rpc = PaymentRpc(endpoint + "/rpc", hosted_gateway_endpoint=endpoint + "/rpc")
         # The real RPC send contract preserves the producer's typed refusal.
         with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
             rpc.send("0x" + canonical.hex())
@@ -747,7 +763,7 @@ def test_web_search_payer_header_and_ledger_accounts(currency, registered_did):
     with http_server(rpc_dispatch) as rpc_endpoint,http_server(dispatch) as endpoint:
         assets = {offer["extra"]["layerx"]["currency"]:WebSearchAssetTerms(offer["asset"],int(offer["amount"])) for offer in required["accepts"]}
         client = WebSearchClient(endpoint,"eip155:125",assets["PAX"].asset_id,assets,Wallet(),(),now=lambda:1,
-                                 payer_rpc=PaymentRpc(rpc_endpoint+"/rpc"),payer_address=address)
+                                 payer_rpc=PaymentRpc(rpc_endpoint+"/rpc", hosted_gateway_endpoint=rpc_endpoint+"/rpc"),payer_address=address)
         with pytest.raises(WebSearchError) as raised:
             client.search("paxeer")
         assert raised.value.code == "payment-refused:payer_mismatch" and raised.value.status == 400

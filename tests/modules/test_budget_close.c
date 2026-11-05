@@ -487,6 +487,9 @@ static int unchanged(const uint8_t before[32])
     return memcmp(before, after, 32U) == 0;
 }
 
+static int audit_seal_sequence(void);
+static int audit_reopen(bool native);
+
 static int lifecycle_replica(int report, replica_result *out)
 {
     static const uint8_t budget_id[32] = { 0x0DU, 0xEFU, 0x01U };
@@ -676,7 +679,18 @@ static int lifecycle_replica(int report, replica_result *out)
           lxp_u128_cmp(record.per_period_limit, record.spent_this_period) == 0 &&
           expect_event(&effects, 9U, expected, 56U) == 0);
 
+    /* The canonical root includes the committed sequence. Seal the legacy
+     * dispatch journal before capturing the root that reopening must retain. */
+    CHECK(audit_seal_sequence() == 0);
     CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(audit_reopen(false) == 0);
+    CHECK(read_record(budget_id, &decoded) == 0);
+    LCASE("revocation-durable-reopen", unchanged(before) && decoded.revoked &&
+          !decoded.closed && decoded.revocation_sequence == 2U &&
+          env.budget_account->balance.hi == 0U &&
+          env.budget_account->balance.lo == 0U &&
+          env.owner->balance.hi == 0U && env.owner->balance.lo == 870U &&
+          env.recipient->balance.lo == 130U);
     CHECK(submit(&call, &effects, &result) == 0);
     LCASE("revoke-duplicate", result == LXP_ERR_SEQUENCE_REUSED &&
           unchanged(before) && env.owner->balance.lo == 870U);
@@ -684,7 +698,8 @@ static int lifecycle_replica(int report, replica_result *out)
     put_u64(revoke + 34U, 3U);
     CHECK(submit(&call, &effects, &result) == 0);
     LCASE("revoke-after-revoke", result == LXP_ERR_BUDGET_REVOKED &&
-          unchanged(before));
+          effects.count == 0U && unchanged(before) &&
+          env.owner->balance.lo == 870U && env.budget_account->balance.lo == 0U);
     call.activity_type = LX_BUDGET_SPEND;
     call.payload = spend;
     call.payload_length = sizeof(spend);

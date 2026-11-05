@@ -1,0 +1,660 @@
+[finding.layout_0_3_graph_refresh]
+revision = "e20e19071"
+command = "hyperfide spec done 0.3 -f hyperfide-source-control --no-sync"
+exit_code = 143
+log = "build/layout/0.3/qualification.log"
+observed = "The inventory verify command passed 22 checks; the subsequent repository graph refresh did not complete within the qualification window and was terminated."
+assumption = "Task 0.3 is implemented, not done. Preserve its focused receipt; task 0.4 requires completion of the outstanding graph/evidence qualification."
+
+[progress.layout_relocation]
+revision = "working-tree category-layout-v1"
+command = "focused relocation checks; pinned root install; independent control-plane install/build; pnpm build"
+exit_code = 0
+log = "build/layout/workspace/structure-receipt.json; build/layout/workspace/dependencies/; focused local logs catalogued in repository-layout.md section 8"
+observed = "8,339 mapped paths relocated; focused native/source/tooling guards and pinned installs/control build passed; integrated workspace build passed (65/65 tasks)."
+assumption = "Tasks 0.4-0.8 are in_progress ahead of open prerequisites; 0.3 graph qualification remains pending and SCM-025 remains UNRUN."
+
+[finding.fleet_0_14_credential_store]
+revision = "control-source sha256:9f857674a0c107524360cc87c6e7e3b14114f2283d4c8e2e5c248ea5783a5dae"
+command = "withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py"
+exit_code = 1
+log = "build/fleet/0.14/journey-final.log"
+observed = "HTTPS startup failed with COMPONENT_LOAD_FAILED: Trusted credential-store configuration required; no actor assertions or model turns ran."
+status = "resolved"
+resolution = "Owned credential-store bootstrap now passes signed service readiness and authenticated real model reasoning. The original startup refusal is resolved."
+
+[progress.fleet_components]
+revision = "control-source sha256:9f857674a0c107524360cc87c6e7e3b14114f2283d4c8e2e5c248ea5783a5dae"
+command = "Native and control builds; contract, install, toolchain, Unix isolation, credential service and native gateway component gates"
+exit_code = 0
+log = "build/fleet/integration/checkpoint.json"
+observed = "Both builds passed; five focused gates passed 188 assertions in total, and the native gateway launch-environment probe passed."
+assumption = "Component receipts retain their exact build pins; the actor gate finding above and provider execution require their separate evidence."
+
+[progress.fleet_launch_build]
+revision = "control-source sha256:6c48314f8afac032cd3e911c62790d3f3cee7491a8bbe041550651b6c41a91e8"
+command = "make hyperfide hyperfide-native CFLAGS=\"-O2 -Werror\"; npm --prefix core/control-plane run build; python3 tests/hyperfide/cases/source_control/fleet_connector_snapshot.py"
+exit_code = 0
+log = "build/fleet/integration/final-checkpoint.json"
+
+[progress.fleet_recovery_and_provider_observations]
+revision = "control-source sha256:d06555b4eff9ffef3c1f1e41271c5d0591b4729a6c77db095a9fac5dd3d738a4"
+command = "npm --prefix core/control-plane run build; production SQL PREPARE checks; withpg.py -- python3 tests/hyperfide/cases/source_control/fleet_provider_observation.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-completion-liveness-build.log"
+observed = "Build passed with migration catalog 66. PostgreSQL accepted 149 production queries. Five signed HTTPS/PostgreSQL checks passed for CREATE versus LIST observations, retained capacity, unknown native identity, manager isolation and known ownership evidence."
+assumption = "The observation gate uses explicitly declared prerequisite records. Worker execution, interrupted-install recovery and result custody have separate execution gates."
+
+[progress.fleet_bootstrap_capability]
+revision = "control-source sha256:9a88f99953f85f06d1998eec79a208a2df81ce36efe592e5ef46e6ae9a258a2e"
+command = "npm --prefix core/control-plane run build; fleet_bootstrap_capability_preflight.py; blaxel_optional_runtime.py; fleet_control_bootstrap_transport.mjs"
+exit_code = 0
+log = "build/fleet/integration/fleet-bootstrap-capability-build.log; build/fleet/integration/blaxel-empty-optional-after.log"
+observed = "Build passed with migration catalog 67. Seven signed API/PostgreSQL checks passed for bootstrap capability admission, unchanged capacity on refusal and retained TEST resource observations. Twenty-one pinned SDK cases passed for optional empty-map semantics and strict configured-setting mismatches. Seven actual startup-entry checks passed for bounded chunked configuration transport."
+assumption = "These gates cover admission, provider serialization/verification and deployment configuration transport; cloud execution and native bootstrap retain their own receipts."
+
+[progress.fleet_archive_registration]
+revision = "control-source sha256:4aecaf032c116decc46f9c826594a9b781082a6980452ffa5bf452d5729e40c2; native sha256:695cbd2b781da4d81575b27d9b6016d2d1410189b7244bbe4d14b8c87154c6d8"
+command = "withpg.py -- python3 tests/hyperfide/cases/source_control/archive_registration.py"
+exit_code = 0
+log = "build/fleet/integration/private/archive-registration-component-receipt.json"
+observed = "Actual Unix worker execution, signed completion and native STOP passed through production APIs. Archive registration retried a pre-execution failure and reconciled a lost response without duplicate producer execution. Independent artifact reads verified the archive digest and changed file bytes. Exact signed worker and STOP output references were retained in both archive custody and assurance semantics, and active custody prevented collection."
+assumption = "The fixture uses isolated PostgreSQL and a pinned SDK HTTP transport backed by actual Unix processes. Prior registration and installation records are declared inputs. It does not establish live provider execution or model-selected work."
+
+[progress.fleet_manager_profiles_and_install_recovery]
+revision = "control-source sha256:481d6bdd1fbcd0dac8f4411d2ffd1c46df68821f88d0a76c62cd4636d4f4e19c"
+command = "Control build; fleet_manager_replacement.py; fleet_agent_resource_phases.py; fleet_preparation_intent_batch.py; fleet_install_interrupted.py; 0_10.py"
+exit_code = 0
+log = "build/fleet/manager-replacement/receipt.json; build/fleet/integration/private/qualification-profile-selector-component-receipt.json; build/fleet/integration/fleet-install-interrupted-final68.log"
+observed = "Catalog 68 build passed. Signed API/PostgreSQL tests exercised handoff-scoped acknowledgement, committed replay, denied credential misuse and former-owner re-enrollment. Phase admission preserved separate AGENT and TEST capacity. Independent qualification profiles passed strict selection and wrong-pool refusal tests. The native install gate performed actual SIGKILL, signed FAILED and quiescence, a new linked recovery execution and final READY collection while preserving original source and stage history. Contract parser/index checks passed 21 cases."
+assumption = "These isolated execution and authority gates retain declared initial metadata and exact runtime pins. Model-selected cloud execution and the full recovery campaign retain separate live evidence."
+
+[progress.fleet_manager_selected_test]
+revision = "control-source sha256:c3f6874ac758c887ab1c5e52b50904c34a89eb4447f7f4fd50899505e4935daf"
+command = "Control build; withpg.py -- python3 tests/hyperfide/cases/source_control/fleet_manager_selected_test_job.py; fleet_result_root_scan.mjs"
+exit_code = 0
+log = "build/fleet/integration/manager-selected-test-job-receipt.json; build/fleet/integration/manager-selected-test-job-gate.log; build/fleet/integration/root-scan-boundary-receipt.json"
+observed = "Catalog 69 build passed. Thirteen signed API/PostgreSQL checks covered two jobs selected from one static TEST policy, immutable bindings, replay, competing selections, manifest content validation, stale scope refusal and retained capacity for uncertain outcomes. Artifact manifests used actual signed object and manifest APIs with a SigV4 byte store. Eleven ROOT scan checks covered captured Unix source and external profile bytes, private-value refusal, custody binding, protected policy pins and byte limits."
+assumption = "The admission gate declares accepted task and custody prerequisites. The scan gate exercises production byte scanning with controlled scope. Live TEST preparation and verification retain their separate execution receipts."
+
+[progress.fleet_observed_budget_and_recovery]
+revision = "control-source sha256:4e40cfb2d546b0b16561db05c1987a7def150b016c270eb1004883d035fcb1f9"
+command = "Control build; fleet_manager_replacement.py; fleet_provider_observation.py; provider_bootstrap_budget.py; blaxel_rejected_create_absence.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-runtime-recovery-budget-build-v4.log; build/fleet/manager-replacement/receipt.json; build/fleet/integration/private/provider-bootstrap-budget-component-receipt.json; build/fleet/integration/blaxel-rejected-create-absence-v4.log"
+observed = "Catalog 69 build passed. Eleven manager checks exercised additive roster adoption after pending-operation reconciliation and single-package ownership. Eight provider checks covered exact positive GET projections without erasing original uncertainty. The budget gate exercised READY-boot selection, measured limits, conservative disk memory reservation, one probe across response loss, and submission fencing. Eleven absence checks covered trusted pre-POST completion, original-scope GET absence, exact linked capacity release, and refusal while an original CREATE POST remained in flight."
+assumption = "These gates use isolated PostgreSQL, signed APIs and the pinned SDK with controlled provider HTTP and OS inputs. The budget gate used source 8e3fafa0f846f4859f2de448886637805a392af0316401c8520695fae3c3f246; its budget modules are unchanged in this checkpoint."
+
+[progress.fleet_observer_recovery]
+revision = "control-source sha256:67739fd6a1ea3e6af4e1c2319bc34f747605fe99d493f7881af288e73e87d2e7; recovery-helper sha256:9ac24dc866c639a8c2658df7a7ae15092a939f90040981c93eea7575ebf3f731"
+command = "Control and native builds; transport_http_status.py; fleet_daemon_recovery.py; daemon_observer_recovery.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-daemon-recovery-control-build-v3.log; build/fleet/integration/private/transport-http-status-component-receipt.json; build/fleet/integration/daemon-recovery-native-helper-loss-gate.log; build/fleet/integration/daemon-observer-recovery-v3.log"
+observed = "Catalog 69 build passed. Sixteen signed TLS/PostgreSQL cases verified transient and terminal HTTP error status through both dispatch error paths. Five native checks exercised a protected-state refusal, actual pending heartbeat acknowledgement, helper SIGKILL while TLS was unavailable, detached receipt publication after reconnection, and replay with the same daemon PID. Six coordinator checks used signed APIs, PostgreSQL, the pinned SDK and actual Unix helper execution to exercise original-file guards, active-work refusal, concurrent calls, a lost submit response and replay without a second process. The original bootstrap receipt and runner identity remained unchanged."
+assumption = "The coordinator gate declares original READY metadata and exercises uncertain delivery; its native helper fails without a completion receipt. The separate native gate declares a baseline bootstrap receipt tied to a real prior daemon. It executes the retained native binary against isolated TLS/PostgreSQL. The transport gate used source c95244c1461b24341c759c81a2326d00171ea96e31c98884e3267d51ca4cafb3; HTTP code is unchanged in this checkpoint."
+
+[progress.fleet_transport_server_errors]
+revision = "control-source sha256:971bc5b13c3f538fdf8ae97594d562379c0ef1d77f1102b8c947cc8868aed435"
+command = "Control build; transport_http_status.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-transient-handler-build.log; build/fleet/integration/private/transport-http-handler-failed-component-receipt.json"
+observed = "All 18 signed TLS/PostgreSQL cases passed. Unhandled server exceptions return HTTP 500 through both authentication-adjacent and component dispatch paths, preserving native pending-request retry behavior. Typed transient and terminal errors retain their tested status codes."
+assumption = "Both genuine exception cases returned HTTP 400 on the prior checkpoint. The isolated test uses actual TLS, Ed25519, PostgreSQL and ComponentRegistry dispatch."
+
+[progress.fleet_foreign_inventory]
+revision = "control-source sha256:46322897181dea02993a9bd1e2072fe81722e1d584861abf99ccfe83f339124a"
+command = "Control build; foreign_inventory_capacity.py; fleet_provider_observation.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-foreign-inventory-build.log; build/fleet/integration/foreign-inventory-capacity.log; build/fleet/integration/fleet-provider-lifecycle-metadata.log"
+observed = "The signed API/PostgreSQL gate made 137 actual pinned-SDK HTTP reads and no provider mutations. Positive foreign ownership excluded resources from the wrong pool while retaining deduplicated shared-account charges. Unknown ownership, failed reads, expired observations and a changed policy preserved physical presence and capacity holds. Legacy foreign orphan rows remained unchanged; account limit 2 was not raised. Nine lifecycle projection checks preserved CREATE, GET and LIST provenance despite newer metadata observations."
+assumption = "The inventory gate uses controlled provider metadata and declared initial database records. Missing resource vectors and insufficient account capacity remain unqualified; this gate does not establish a live provider quota."
+
+[progress.fleet_selected_assignment]
+revision = "control-source sha256:0670acbfc48ec3a66005fc9e84b71e01173a83be5fb091927ac09f4f9daa9c42"
+command = "Control build; fleet_selected_assignment.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-assignment-accounting-build.log; build/fleet/integration/fleet-selected-assignment.log"
+observed = "Seven signed TLS/PostgreSQL checks passed. Explicit task and slot selection created the immutable execution packet, scheduler claim and worker registration through production APIs. Stale generations, mismatched install pins, insufficient installed scope and missing provided interfaces rolled back atomically. Accepted required and provided interface roles were preserved without promoting unrelated installed interfaces. Exact replay produced no duplicate effects."
+assumption = "The fixture supplies controlled prior accepted decisions, installation and registry inputs. Packet creation, claim and registration execute against actual PostgreSQL. Native worker execution and model-selected provider work have separate live evidence."
+
+[progress.fleet_separate_provider_accounting]
+revision = "control-source sha256:0670acbfc48ec3a66005fc9e84b71e01173a83be5fb091927ac09f4f9daa9c42"
+command = "Control build; foreign_inventory_capacity.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-separated-accounting.log; build/fleet/integration/fleet-separated-accounting-final.log"
+observed = "The legacy inventory checks passed unchanged. The separate-domain gate admitted a signed CREATE preparation under managed account and pool budgets while accounting for foreign presence against a distinct provider quota. Missing, insufficient and expired quota evidence refused admission. Unknown foreign CPU and disk remained visible without being invented as account-wide limits; a third managed sandbox was refused. Existing declarations, reservations and numeric budgets were preserved."
+assumption = "The isolated fixture supplies explicit quota declarations and controlled provider metadata. CREATE preparation recorded intent without making an external provider mutation. The final separate-domain run corrected the fixture's environment topology; production source and numeric caps were unchanged."
+
+[progress.fleet_bounded_history_and_model_roles]
+revision = "control-source sha256:d79ff54d931e9701c961051e9bade20ea8aa0b20408d5d584edf853762be529f"
+dist_digest = "sha256:2c84fdb7b3588edaa1ce5153931bc68785c50aff244c827c30e55858419e4fea"
+compatible_source = "sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd"
+compatible_dist = "sha256:7b92e60e786d3c3d04ccee3e482cc7dc9c3c21b800f25dba1042d9fa5908489f"
+migration_catalog_count = 69
+command = "fleet_provider_observation.py; fleet_model_role_contract.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-provider-history.log; build/fleet/integration/fleet-model-role-contract.log"
+observed = "Ten named signed HTTPS/PostgreSQL projection/history checks passed. Large retained results remained bounded and exactly retrievable through scoped pages and entry chunks, while uncertain CREATE evidence and physical holds remained visible. Two authenticated reasoning requests captured the Primary replacement action and its exclusion from manager choices; the controlled gateway returned HTTP 503 and no model decision was inserted."
+compatibility = "The history gate used the prior assignment checkpoint with the exact frozen history and orchestration modules overlaid. The role contract gate used the recorded revision. Those modules and the tested HTTP modules are byte-identical in the final checkpoint; original receipt pins are retained."
+
+[progress.fleet_sanitized_http_diagnostics]
+revision = "control-source sha256:d79ff54d931e9701c961051e9bade20ea8aa0b20408d5d584edf853762be529f"
+dist_digest = "sha256:2c84fdb7b3588edaa1ce5153931bc68785c50aff244c827c30e55858419e4fea"
+compatible_source = "sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd"
+compatible_dist = "sha256:7b92e60e786d3c3d04ccee3e482cc7dc9c3c21b800f25dba1042d9fa5908489f"
+command = "transport_http_status.py"
+exit_code = 0
+log = "build/fleet/integration/http-diagnostics-after.log; build/fleet/integration/http-diagnostic-types.log"
+observed = "All 18 signed TLS/PostgreSQL HTTP cases passed. The diagnostic receipt records 23 bounded events, 22 correlated requests and a maximum event size of 204 bytes. Invalid UUIDs and canary content were excluded; poisoned codes were sanitized and the timer event was emitted once. Typed transient and terminal status mapping remained intact."
+scope = "HTTP authentication/component fault boundaries and sanitized diagnostic forwarding; original receipt build pins remain unchanged."
+
+deployment_log = "build/fleet/integration/private/history-keeper-rollout-readiness.json"
+deployment_observed = "The deployed final checkpoint reached signed readiness. Its actual loader forwarded the matching strict HTTP 400 readiness diagnostic with fixed safe fields and correlated validated request identity."
+
+[progress.fleet_bounded_observer_keeper]
+revision = "control-source sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd"
+dist_digest = "sha256:7b92e60e786d3c3d04ccee3e482cc7dc9c3c21b800f25dba1042d9fa5908489f"
+migration_catalog_count = 69
+command = "bootstrap_observer_keeper.py"
+exit_code = 0
+log = "build/fleet/integration/bootstrap-observer-keeper-rerun.log"
+observed = "Eight checks passed through signed PostgreSQL coordination, the pinned SDK filesystem/process boundary and an actual Node/proc probe. Expired lifetime and invalid Node pins refused before effects; concurrent reconciliation and a lost execution reply retained one submitted keeper. Missing processes stayed UNKNOWN without resubmission; wrong start identity produced no proof, terminal keeper failure stayed terminal, and original READY metadata and receipt bytes were unchanged."
+scope = "Declared initial bootstrap and READY records; actual keeper process and journal behavior. A keeper without a signed heartbeat remains WAKING."
+live_idle_log = "build/fleet/integration/private/quota500-f97-live-keeper-idle-proof.json"
+live_idle_observed = "Seven database-only samples over 91,627 ms retained the same original daemon and one ACTIVE keeper while the signed heartbeat advanced. The observation used primary database SELECTs only, with no install jobs or guest probes."
+
+[progress.fleet_install_recovery_acceptance_lineage]
+revision = "control-source sha256:d79ff54d931e9701c961051e9bade20ea8aa0b20408d5d584edf853762be529f"
+dist_digest = "sha256:2c84fdb7b3588edaa1ce5153931bc68785c50aff244c827c30e55858419e4fea"
+native_digest = "sha256:695cbd2b781da4d81575b27d9b6016d2d1410189b7244bbe4d14b8c87154c6d8"
+migration_catalog_count = 69
+command = "fleet_install_interrupted.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-recovery-lineage-retry1.log; build/fleet/integration/fleet-install-recovery-capture-tail.log"
+observed = "Actual recipe SIGKILL produced a signed FAILED result and confirmed quiescence. Production recovery admission issued a distinct execution under the retained logical operation and advanced the environment head. The successor reached READY while preserving source lock bytes and original stage evidence. The repaired acceptance oracle validated that retained chain and refused six altered closures: head, predecessor, signed result, logical root, source pins and quiescence digest. The shared final-case capture tail also validated the actual execution IDs and retained stage ledger, refusing three altered captures. Fault-driver authentication remains separately enforced by the full case oracle."
+scope = "Isolated PostgreSQL, controlled SDK HTTP transport and actual pinned native execution. Initial graph, authority and identity records are declared fixture inputs; no new failure, recovery, readiness or archive outcome is seeded. No live-provider or model qualification is claimed."
+limitation = "The first attempt stopped before oracle evaluation on a transient heartbeat transaction retry exhaustion; the unchanged bounded retry passed."
+
+[progress.fleet_worker_feedback_and_install_selectors]
+revision = "control-source sha256:2e79787a415bec54c6b9f185f39d1c9319125364a642b904349ed1b2fec3968e"
+dist_digest = "sha256:0fef04adaf6762680d8609a719944245e48596232880ab638535b5efb40920b3"
+final_source = "sha256:46c7e0c1c593a7d672432f859f580c189bcade5ce2e702a77b6d268679320a11"
+final_dist = "sha256:c49088f83499ac9ed774d5704624455a1802b5bde104df4f701b3a7762d6905a"
+migration_catalog_count = 69
+command = "fleet_worker_feedback.py; fleet_model_role_contract.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-worker-feedback.log; build/fleet/integration/fleet-model-role-selector-contract.log"
+observed = "Three grouped signed PostgreSQL/TLS checks passed for current UNKNOWN launch/request digests and authenticated current-plan signals; stale-plan, attempt, run, boot and principal records were excluded. Cross-manager scope, bounded cursor pages, packet-bound checkpoint references and inaccessible-attempt refusals passed. Two captured role-authenticated gateway requests exposed the selector-only install schema; controlled HTTPS 503 responses inserted no model decision."
+scope = "Declared historical plan, event and checkpoint inputs; production observation and advisory-read APIs. Original tested source/dist pins are preserved independently of the final full build."
+
+[progress.fleet_bounded_source_cache]
+revision = "selected source files pinned by build/fleet/cache-owner-receipt.json"
+final_source = "sha256:46c7e0c1c593a7d672432f859f580c189bcade5ce2e702a77b6d268679320a11"
+final_dist = "sha256:c49088f83499ac9ed774d5704624455a1802b5bde104df4f701b3a7762d6905a"
+command = "node tests/hyperfide/cases/source_control/fleet_source_cache.mjs build/fleet/cache-owner-check"
+exit_code = 0
+log = "build/fleet/cache-owner-receipt.json"
+observed = "Fourteen actual cache assertions passed with independent source review. The prior source materializer failed the first cache-admission assertion. Final selected-source strict checks reported no diagnostics."
+scope = "Isolated selected-source transpilation over the existing compiled runtime; shared dist was unchanged and no network-transfer measurement was claimed."
+
+[progress.fleet_measured_transfer_closure]
+revision = "isolated control-source sha256:244af8827bd3373af18479a1445b1c6c58ad84cc3c381ed659f45ba19fd12efd plus cache/transfer closure recorded in build/fleet/transfer-gate-receipt.json"
+final_source = "sha256:46c7e0c1c593a7d672432f859f580c189bcade5ce2e702a77b6d268679320a11"
+final_dist = "sha256:c49088f83499ac9ed774d5704624455a1802b5bde104df4f701b3a7762d6905a"
+native_digest = "sha256:c9aa8ff6f450b8f70e2d39f7882d5a5ab2742db82705ad60f1dffb54c1efadd2"
+migration_catalog_count = 69
+command = "fleet_transfer.mjs; fleet_install_interrupted.py; native transfer gate"
+exit_code = 0
+log = "build/fleet/transfer-gate-receipt.json; build/fleet/transfer-native-gate.log; build/fleet/transfer-contract-gate.log; build/fleet/transfer-interrupted-gate.log"
+observed = "Seventy-four native assertions and 15 transfer-contract assertions passed. Actual recipe SIGKILL produced signed FAILED/quiescence evidence; normal recovery issued a distinct execution and completed native readiness. Operation-bound measured transfer matched the signed native/install chain and refused five altered transfer closures. The same run checked retained stage evidence and predecessor/recovery lineage."
+compatibility = "Checksum verification found all eight transfer modules byte-identical between the isolated tested closure and the final full build. The original receipt retains its overlay inputs and native binary pin; other component gates retain their own tested snapshots."
+scope = "Controlled SDK with actual native execution and signed installation recovery. Transfer counters distinguish measured application-layer responses from inline/cache/local writes; dependency-network transfer remains unmeasured."
+
+[progress.fleet_expired_preinstall_cleanup]
+revision = "control-source sha256:a520c04fb6ccbe7b1866adde242cdb5e71e4a925579762cb88b2ba48621b849a"
+dist_digest = "sha256:0c0006ad0945e1f439f71b0292450cd669895403b852cf4cb8d59acf6e70f812"
+migration_catalog_count = 69
+command = "fleet_expired_preinstall_cleanup.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-expired-preinstall-cleanup-owned-full-vector.log"
+observed = "The signed manager DESTROY gate passed five exact negative refusals and four grouped cleanup checks. SDK 503 and present-resource responses retained all counters. Actual provider 404 released four physical dimensions and the exact logical PREPARATION/CPU/MEMORY/DISK vector once, retired the actual worker slot and advanced session versions. Immutable delivery/audit lineage and replay remained stable."
+scope = "Actual PostgreSQL, signed manager API and controlled SDK HTTP boundary with declared prior READY and mechanical preparation metadata."
+live_log = "build/fleet/integration/private/expired-preinstall-live-cleanup-receipt.json"
+live_observed = "A genuine manager escalation led to guarded operator disposition on the deployed control checkpoint a520c04fb6ccbe7b1866adde242cdb5e71e4a925579762cb88b2ba48621b849a / 0c0006ad0945e1f439f71b0292450cd669895403b852cf4cb8d59acf6e70f812. DESTROY reached TERMINAL and the exact expired boot released four physical and four logical reservations. Four unrelated uncertain holds remained RELEASE_PENDING; the immutable cleanup journal was retained."
+compatible_full_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
+compatible_full_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
+full_build_compatibility = "Checksum comparison confirms all eight transfer modules and seven control modules are byte-identical to their respective gated snapshots. Original receipt build pins and isolated scopes remain authoritative."
+
+[progress.fleet_inventory_refresh_progress]
+revision = "ba88de4a410f8072901cb8ea3d0ab12ef5b53111"
+source_digest = "sha256:c01f3832778f8d5ff4e52ead97f50540b08fffff349aff1e39eaa3463c61c350"
+dist_digest = "sha256:164bee6ba726e61f8f4c2c5956475cda527568fbfdcf4e978f6ecc7041c3adf0"
+migration_catalog_count = 69
+command = "foreign_inventory_capacity.py --refresh-progress-only; default inventory regression"
+exit_code = 0
+log = "build/fleet/integration/inventory-maintenance-component-receipt.json; build/fleet/integration/inventory-refresh-progress-v1.log"
+observed = "The baseline repeatedly classified only two of 24 retained candidates. Four bounded calls on the corrected path covered all 24; a fresh repeat attempted no reads and skipped all 24. Completed partial continuation preserved the same scope without claiming complete provider inventory. TTL expiry, UNKNOWN presence and separate managed budgets retained their regression behavior."
+scope = "Actual signed PostgreSQL and pinned-SDK HTTP component boundary; urgent catalog-69 refresh path."
+
+[progress.fleet_automatic_inventory_maintenance]
+revision = "control-source sha256:e0db75b9c03141998d3ac1918fcfb0ba189223139772cc1bb810facb86cfaa97"
+dist_digest = "sha256:c7bdcaee16f04dcd4ba786f3ac7f4d4bce6f2b2efa60bbf51907aacf7975fc24"
+migration_catalog_count = 70
+command = "foreign_inventory_capacity.py --inventory-background-only"
+exit_code = 0
+log = "build/fleet/integration/inventory-maintenance-component-receipt.json; build/fleet/integration/inventory-maintenance-background-v1.log"
+observed = "The normal signed provisioner worker refreshed retained attribution without provisioning intents or provider mutations. Fresh exact-scope evidence avoided repeated reads; a configuration change refused reuse of old attribution. Typed journals retained request/evidence digests, while UNKNOWN and stale shared presence stayed charged and previous observations remained unchanged."
+scope = "Actual PostgreSQL and pinned-SDK HTTP component execution on an immutable catalog-70 snapshot. Automatic maintenance has not been qualified as a live deployment."
+deployment_requirement = "Coordinate catalog-70 runtime artifacts with migration 0730 and a safe write window: catalog-69 runtimes reject the additional migration, and the six ordinary CREATE INDEX statements block table DML while building."
+
+[progress.fleet_bootstrap_ready_contention]
+revision = "0a1b601fc"
+source_digest = "sha256:daf9abb7b1fb94b3113c457f8b7c647fc7f5ad2c361a06c3d88f0c4ff6de33b4"
+dist_digest = "sha256:e0ce210976fe3defa15acc64598ce5b5ef716fc1dbb030b94a8ec4a32e135c70"
+migration_catalog_count = 69
+baseline_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
+baseline_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
+command = "provider_bootstrap_ready_contention.py"
+exit_code = 0
+log = "build/fleet/integration/private/provider-bootstrap-ready-contention-component-receipt.json; build/fleet/integration/bootstrap-ready-contention-before.log; build/fleet/integration/bootstrap-ready-contention-after.log"
+observed = "On Node.js 24.22.0, the prior full bootstrap coordinator exhausted three attempts with TX_RETRY_EXHAUSTED when a genuine signed heartbeat committed after its transaction snapshot. The corrected catalog-69 snapshot admitted READY after one controlled interleave, with one native delivery and no duplicate submission. Exact consumed grant, principal, fresh heartbeat and registered-slot receipt checks remained active."
+scope = "Actual PostgreSQL production bootstrap continuation and signed TLS enrollment/register/heartbeat requests. The fixture supplies historical native slot-receipt metadata; this component receipt does not measure physical native enrollment."
+
+[progress.fleet_preparation_executor_composition]
+revision = "17ee5c6af"
+source_digest = "sha256:3182382655feaef38abd5c9e0119730fa06885addce622865844f631469e2a3d"
+dist_digest = "sha256:e0582365a2b0f759d452c7d21ebd99316e702c252c35b5d0e649fd47e3cf8062"
+migration_catalog_count = 69
+command = "provider_preparation_composition.py"
+exit_code = 0
+log = "build/fleet/integration/private/provider-preparation-composition-component-receipt.json; build/fleet/integration/provider-preparation-composition-after.log; build/fleet/integration/provider-preparation-host-template.log"
+observed = "Actual provisioner startup refused a missing runner pump, missing runner configuration and relative runner configuration with exact typed errors; legacy startup remained available. Five installed-host assertions passed for accounts, deployment trees/units/policies/grants, secret-preserving reruns, symlink refusal and identity-conflict refusal. The baseline accepted missing-pump startup instead of refusing it."
+full_host_driver_command = "tasks/29_9.py"
+full_host_driver_exit_code = 0
+full_host_driver_revision = "946e1b7f3"
+full_host_driver_log = "build/fleet/29_9-driver-repair/receipt.json; build/fleet/29_9-driver-repair/repaired-complete-runtime.log"
+full_host_driver_runtime_source = "sha256:6991afe507d0ad143726894c8d7119ed1ecb75cffffbdf55980088b54fbc5a09"
+full_host_driver_runtime_dist = "sha256:03e19c6a8573811450322d94f06446e2e5c8a97ce3f313eea0b139f97d9b530a"
+full_host_driver_observed = "The repaired complete driver passed all 42 registered assertions on Node 24.22.0, including real user/group creation in an isolated host root, required worker inputs, bootstrap opt-in runner configuration and legacy preflight behavior. Scratch cleanup completed; production source and shared runtime were unchanged."
+historical_full_host_driver_exit_code = 1
+historical_full_host_driver_findings = "The original composition receipt retained full-driver failure despite five passing host component assertions. The complete-runtime baseline reproduced eight failures among 42 assertions, caused by missing scratch worker inputs and a scanner treating optional bootstrap/activation inputs as unconditional. The repaired driver resolves those fixture defects while preserving all assertion IDs."
+historical_full_host_driver_log = "build/fleet/29_9-driver-repair/baseline-complete-runtime.log"
+scope = "Actual provisioner process, ComponentRegistry pre-import checks and installed-host component assertions. Provider, native and installation execution were not exercised by this composition gate."
+live_log = "build/fleet/integration/private/v5-renewal-runner-pump-rollout-readiness.json"
+live_observed = "Signed local and public identity requests returned HTTP 200. The deployed local composition includes 13 components and 12.4-executor under catalog 69; its original runner-job lifetime was unchanged."
+live_local_source = "sha256:c01f3832778f8d5ff4e52ead97f50540b08fffff349aff1e39eaa3463c61c350"
+live_local_dist = "sha256:164bee6ba726e61f8f4c2c5956475cda527568fbfdcf4e978f6ecc7041c3adf0"
+live_public_source = "sha256:7b1f36c6a79e00322ec1abc7ff3a6d4ccf251b6d6191cbf222040190d9bc197f"
+live_public_dist = "sha256:6cb5e5868190dc408bd6bd4768ec7ac742cb6030615fc4f8000cb81d049ed69f"
+live_scope = "Existing component wiring and service readiness; this receipt does not establish an INSTALL execution."
+
+[progress.fleet_not_started_install_recovery]
+revision = "7f7f41335"
+source_digest = "sha256:b50befdb0ced21b5e77c39ef412ef939be7183e05d3a74d4c019e3fdcad03f74"
+dist_digest = "sha256:99a7096fbcbfe51feb8800e7264cd607df41a408dd197b410f6b28ed9ca9d4c5"
+migration_catalog_count = 71
+command = "NOT_STARTED core, target, repeated and mixed-lineage component gates"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-install-not-started-core-component-receipt.json; build/fleet/integration/private/fleet-install-not-started-target-component-receipt.json; build/fleet/integration/private/fleet-install-not-started-repeated-component-receipt.json; build/fleet/integration/private/fleet-install-not-started-mixed-component-receipt.json"
+observed = "Actual signed recovery admission and PostgreSQL proof guards passed. UNKNOWN, possible provider execution, live expiry and wrong-plan cases refused atomically; proof-first fenced late controlled claims and claim-first preserved held capacity. Fresh PREPARATION allocation and target-binding replay preserved original delivery. Repeated/mixed recovery chains retained the global logical root and correct allocation epoch, while the acceptance oracle rejected altered proof/claim/release closures."
+scope = "Actual production PostgreSQL and signed API component paths with declared historical bootstrap, identity and FAILED metadata and controlled SQL claim contenders. These receipts do not include new native execution or live provider recovery."
+
+[progress.fleet_bound_not_started_cleanup]
+revision = "9c1090e96"
+source_digest = "sha256:e8832cc0aed19e4f681ed124f21203ed357fde3781ca522fd36985b82ff6493c"
+dist_digest = "sha256:0710fd6823dbea5098c32b60d9df8a529ba5d3b6c29a06626df37b157b29f934"
+migration_catalog_count = 71
+command = "fleet_expired_preinstall_cleanup.py bound NOT_STARTED component variant"
+exit_code = 0
+log = "build/fleet/integration/fleet-bound-not-started-cleanup-component-receipt.json; build/fleet/integration/fleet-bound-not-started-cleanup-v1.log"
+observed = "Eight grouped receipt checks passed. Six unsafe shapes refused without cleanup audit or state/counter changes. Signed manager DESTROY created the actual NOT_STARTED proof and permanent job fence, released four exact logical reservations and advanced the stopped mechanical session version. SDK UNKNOWN/present held four physical reservations until confirmed absence. Original install/head/delivery/job history, scoped reads, minimal proof privileges and accounting replay remained intact."
+scope = "Actual signed manager API, PostgreSQL and pinned-SDK HTTP component boundary with controlled prior READY/mechanical preparation metadata. This receipt establishes neither new native install execution nor a completed live cleanup cycle."
+
+[progress.fleet_expired_destroy_observation_and_queue]
+revision = "worker source 101677ca"
+source_digest = "sha256:0dd6eb3303ff7a5c952437c6470a39e61b51bce222695ee895958c56dc1bc9d7"
+dist_digest = "sha256:8d7251f02902335329cb4e81d2a8fa3dd1251679c690ef1516321b9f6fd71e8b"
+migration_catalog_count = 71
+command = "fleet_expired_preinstall_cleanup.py --expired-destroy-observation"
+exit_code = 0
+log = "build/fleet/integration/fleet-expired-destroy-observation-v2-receipt.json; build/fleet/integration/fleet-expired-destroy-observation-v2-final-repaired.log"
+observed = "The adverse baseline recorded 116 claims and 115 failures without reconciling a later valid request. The corrected original-order gate passed with six claims, three reconciliations, three refusals and zero DELETE execution. Actual PostgreSQL ACL denial/minimal grant, execute/reconcile row-lock race, SDK GET 503/present/404, possible SUBMITTING/UNKNOWN delivery and wrong boot/configuration cases preserved the required authority and holds. Exact 404 alone released physical counters; replay created no additional intent or expiry proof."
+fixture_corrections = "Two fixture corrections are retained in the receipt: test possible submission through actual public reconciliation while the SDK request is SUBMITTING, and compare configuration-rotation counters against their post-configuration baseline. These corrections did not change production source."
+scope = "Actual signed API, PostgreSQL role/worker/race behavior and controlled pinned-SDK HTTP responses. This gate proves observation-only continuation and queue progress; it does not establish a model-selected DELETE or a complete fleet journey."
+
+[progress.fleet_persistent_interface_store]
+revision = "e38b9a835"
+command = "python3 tests/hyperfide/cases/source_control/0_10.py"
+exit_code = 0
+log = "build/fleet/task-0_10-fixed-gate.log; build/fleet/task-0_10-portable-gate.log"
+observed = "The fixed parser/index gate passed 22 checks; the portable store gate passed 23. Persisted reads retain private-root and inode checks, bounded descriptors, symlink refusal and deterministic malformed-record diagnostics while supporting hosts without the Linux descriptor filesystem."
+scope = "Controlled parser, index and filesystem inputs with per-input hashes in the receipts; no installation or fleet execution claim."
+
+[progress.fleet_installer_process_lock_liveness]
+revision = "7d7e95649"
+command = "fleet_installer_lock_liveness.py"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-installer-lock-liveness-component-receipt.json; build/fleet/integration/fleet-installer-lock-after.log"
+observed = "The public --job-context installer refused live, missing-start and malformed-start owners with FLEET_INSTALL_BUSY. An actual unreaped zombie owner allowed progress to the independent downstream FLEET_CACHE_PATH refusal. Dirty sentinel bytes were preserved and no ready receipt was created."
+scope = "Node 24.22.0, private copied immutable runtime with a source installer overlay; public installer entrypoint and actual process identity, without completed installation or native qualification."
+
+[progress.fleet_definitive_reasoning_refusal_isolation]
+revision = "1b5de7f81"
+command = "fleet_manager_replacement.py definitive-refusal variant"
+exit_code = 0
+log = "build/fleet/manager-replacement/receipt.json; build/fleet/manager-replacement/refusal-baseline/supervisor.log; build/fleet/manager-replacement/refusal-fixed/supervisor.log"
+observed = "The baseline starved a delegated manager after a definitive Primary refusal. Actual signed TLS/PostgreSQL supervision on the corrected overlay isolated that refusal, cleared its completed pending RPC and persisted the healthy manager reasoning request without inventing a decision."
+scope = "Isolated runtime artifacts pinned by the receipt; authenticated role behavior and actual supervisor loop, with no model-inference claim."
+
+[progress.fleet_delegation_sandbox_occupancy]
+revision = "20e1634c0"
+source_digest = "sha256:2633dfab3c2b47e6b45cf438cf85fd5b30d8229f52652b03a4ae0b88a0534b7e"
+dist_digest = "sha256:fc917d43708aa8fa8e326aa4e32dae1b8b426ceee22d192069084eabf233ce44"
+command = "fleet_sandbox_budget.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-sandbox-budget-receipt.json; build/fleet/integration/fleet-sandbox-budget.log"
+observed = "Four signed PostgreSQL/TLS assertions passed: one current owned sandbox counts once; DESTROYED history restores the logical slot; four physical RELEASE_PENDING allocations remain unchanged; bounded samples declare the separate capacity gate without granting authority."
+scope = "Actual delegation logical-occupancy projection and held physical capacity; no provider mutation or worker execution."
+
+[progress.fleet_expired_destroy_supersession]
+revision = "5d1b91702"
+source_digest = "sha256:6991afe507d0ad143726894c8d7119ed1ecb75cffffbdf55980088b54fbc5a09"
+dist_digest = "sha256:03e19c6a8573811450322d94f06446e2e5c8a97ce3f313eea0b139f97d9b530a"
+migration_catalog_count = 71
+command = "fleet_expired_destroy_replacement.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-expired-destroy-replacement-v3-receipt.json; build/fleet/integration/fleet-expired-destroy-replacement-v3-final.log"
+observed = "Four grouped checks passed for signed two-intent replacement: clean expired RECORDED and verified GET-only UNKNOWN predecessors retire atomically; old operation/deadline and physical charges remain unchanged; replay retains one replacement and immutable retirement audit. Actual SDK DELETE 503 with a present resource and UNKNOWN result refuses supersession."
+scope = "Isolated PostgreSQL and pinned-SDK HTTP with controlled original prerequisites. One owned HTTP DELETE request and zero cloud mutations were recorded; simultaneous distinct replacement decisions and live/native qualification were not exercised."
+
+[progress.fleet_ready_privileged_replay]
+revision = "d443f85b2"
+command = "fleet_install_replay.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-replay-after-receipt.json"
+runtime_base_source = "sha256:2633dfab3c2b47e6b45cf438cf85fd5b30d8229f52652b03a4ae0b88a0534b7e"
+runtime_base_dist = "sha256:fc917d43708aa8fa8e326aa4e32dae1b8b426ceee22d192069084eabf233ce44"
+native_digest = "sha256:c9aa8ff6f450b8f70e2d39f7882d5a5ab2742db82705ad60f1dffb54c1efadd2"
+observed = "Actual interrupted native execution recovered to READY, then two public CLI reuse calls validated signed TLS status and retained the existing receipt. Seven negative cases covered changed operation, receipt or dirty-state identity, status-only substitution, receipt tamper/symlink and ordinary bootstrap-owner strictness. No new install head, job or decision was created."
+scope = "Isolated immutable runtime with three frozen preparation source overlays stripped using Node 24. Actual native execution and worker-UID dirty filesystem; no live-provider or separately authenticated replay-driver qualification."
+current_revision = "9a80f8dac"
+current_replay_log = "build/fleet/integration/fleet-install-replay-closure-safe-receipt.json"
+current_replay_observed = "The callback-safe closure rerun passed actual interrupted native recovery and the same two public READY CLI reuse calls plus seven negative cases. Runtime file closure is explicit; an optional transfer callback is runtime data rather than a file path. Original failed logs and the earlier receipt remain retained."
+current_replay_scope = "The same isolated base2633/fc91 runtime with three separately hashed preparation overlays and native c9aa executable. This rerun does not establish a live provider or a separately authenticated replay driver."
+
+[progress.fleet_definitive_delivery_refusal_isolation]
+revision = "168bae2ae"
+source_digest = "sha256:d3a4ed2440f3d9c2fe4b01478272bfb9e2a4a7f00149423c3b86e450292c58df"
+dist_digest = "sha256:d5d5efe90721a8af007ae960fb5943365dc33fc0b02f60f68940732e76b7e580"
+migration_catalog_count = 71
+command = "fleet_supervisor_delivery_starvation.py"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-supervisor-delivery-starvation-component-receipt.json"
+observed = "The baseline stopped after a definitive stale-item refusal. The compiled supervisor gate reached later current queued work and recorded the refusal; transparent TLS reply loss retained the exact pending operation, prevented later work and reconciled using the same operation ID."
+scope = "Actual signed PostgreSQL/TLS APIs and supervisor with controlled queued history. The fixed compiled checkpoint changes only the supervisor. STOP routing and the 12.4-capture component dependency were independently source/registry checked; this gate does not establish native STOP execution."
+
+[progress.fleet_pre_provider_refusal_cleanup]
+revision = "frozen migration 0732 contract and cleanup component"
+source_digest = "sha256:72b765b26735514d59eecfaedc01d89f450ef477c9878525075d70aa497647a5"
+dist_digest = "sha256:bb84c08ded51991b3ac3150afda2c186e1c626e0d429366db764f346de72fef2"
+migration_catalog_count = 72
+migration_digest = "sha256:d8974da78c98f3840c66eed25424f8a361b0518dea19cd1682eeb27c0cd36526"
+command = "pre-provider refusal cleanup component variant"
+exit_code = 0
+log = "build/fleet/integration/fleet-pre-provider-refusal-cleanup-v1-receipt.json"
+observed = "The first component run passed four grouped checks: an actual signed producer proof authorized exact covered CLAIMED/UNKNOWN cleanup while legacy uncovered claims refused; four logical reservations released once with session-version progression; original UNKNOWN/null-result/install/head/delivery/proof history remained; SDK 503/present held physical charges until 404 released them once with stable replay."
+scope = "Actual signed producer/manager APIs, PostgreSQL and controlled pinned-SDK HTTP with prior READY/claim/registration metadata. This remains cleanup-path evidence; the later core receipt is recorded separately below. No native/model/live execution is qualified by this cleanup receipt."
+historical_core_gate_status = "Core recovery evidence was pending at the first cleanup receipt; the later v5 component gate passed at its separate snapshot."
+
+[progress.fleet_pre_provider_refusal_core]
+revision = "41686994d"
+source_digest = "sha256:15babe06cd08b7fd0eeae7f1754ed725783fa8c36a976f45997214df9adcc910"
+dist_digest = "sha256:851b460e38e6f9d2a37016b34cd39e97599261e5ee684af2f9d9621a05f90951"
+migration_catalog_count = 72
+command = "fleet_install_pre_provider_refusal.py"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-pre-provider-refusal-v5-receipt.json"
+observed = "Nine grouped checks passed. Actual executor timeout refusal produced the immutable proof and permanent request marker; signed replay preserved the original UNKNOWN claim and null result. The seven-pin recovery consumer released exactly four logical reservations while holding physical capacity, retained the coordinator root and issued fresh native/allocation identities. Actual signed native-claim versus proof and PostgreSQL provider-admission contenders produced mutually exclusive authority. Legacy uncovered claims, wrong request/proof/boot, late dispatch and proof mutation refused."
+fixture_corrections = "The receipt retains earlier fixture failures and corrections for immutable plan/principal insertion, per-boot RUNNER identity, controlled current configuration, production branded job policy/dimensions, dependency loading and contender barrier cleanup."
+scope = "Actual executor, signed producer/consumer APIs and PostgreSQL authority races with controlled prior registration metadata. No physical native execution or cloud qualification; mixed FAILED descendant lineage was not exercised by this receipt."
+
+[progress.fleet_physical_install_heads]
+revision = "frozen migration 0733 component"
+source_digest = "sha256:9676bc24a51c3e48bdb6bd3d98994bfe84176dc9dfe67e5ee1ab165f9fb5773c"
+dist_digest = "sha256:8d349cc225c5c3c185ef969186f0bca5ac141fe0ea1128d75bd0f310891771af"
+migration_catalog_count = 73
+migration_digest = "sha256:555714656a838d3d02fe08070718a6c01ee2a58b9a1a695fc73a602f9700f1f0"
+command = "parallel-head admission/recovery and MigrationCoordinator backfill component drivers"
+exit_code = 0
+log = "build/fleet/integration/fleet-install-parallel-heads-v6-receipt.json; build/fleet/integration/fleet-install-heads-backfill-v6-receipt.json"
+observed = "Seven grouped signed admission/recovery checks passed for independent heads on two physical boots sharing an environment generation, same-boot duplicate/branch refusals, boot-local recovery, stable decision replay and unchanged old UNKNOWN debt. Observations declared EXACT_OPERATION_AND_PHYSICAL_BOOT uncertainty, and the shared oracle refused swapped boot/head metadata. Actual migration backfill preserved original install rows and a repeated apply performed no migrations."
+scope = "Actual PostgreSQL and signed APIs with controlled registered plan, enrollment and job inputs; no model, native or provider qualification. The 0733 migration and head source bytes match the later v7 snapshot."
+
+[progress.fleet_registration_typed_diagnostics]
+revision = "registration authority source sha256:4ed620493a14f8da6f6582b90ae156e377259bd37012a3e3b1cffa817b69c0e9"
+command = "registration translation component driver"
+exit_code = 0
+log = "build/fleet/integration/private/gen12-registration-translation-component-receipt.json"
+observed = "Six signed isolated PostgreSQL/TLS cases passed. Four malformed-manifest cases that returned HANDLER_FAILED on the baseline retained exact contract codes and path-prefixed messages after inline error translation. Registration authority rows remained unchanged."
+scope = "Isolated owner-fixed runtime and supplied invalid manifests; the authority source hash matches current and immutable v7 source. This receipt retains its original overlay scope."
+
+[progress.fleet_bootstrap_delegation_accounting_anchor]
+revision = "frozen protected template-v2 and manager selector contracts"
+source_digest = "sha256:14d45834dea8c5db0acfa389ef90b8253072fd83cb4a212d2601b9201bbfc79d"
+dist_digest = "sha256:3f7fcec8e55e5a1c60234cef552dae15ed8fb70dd214a1ea003d591ce6d2d339"
+migration_catalog_count = 73
+command = "fleet preparation anchor and signed PROVISION component drivers"
+exit_code = 0
+log = "build/fleet/integration/private/fleet-preparation-anchor-component-receipt.json; build/fleet/integration/private/fleet-provision-anchor-component-receipt.json"
+observed = "Seventeen REUSE/owner/accounting assertions and nine signed PROVISION checks passed. Current owner/package/task acceptance, explicit and sole-task selection, stale/cross-wave/unaccepted refusals and exact replay were exercised. Explicit anchors refused legacy templates before effects, while legacy omission retained its behavior. No coding attempt, packet or allocation was created by accounting resolution."
+scope = "Node 24.22.0, PostgreSQL 18 and actual signed APIs with controlled accepted profile, recipe, owner and decision prerequisites. No model inference, native execution or provider operation was performed by these gates."
+
+[progress.native_source_signed_transport]
+command = "python3 tests/hyperfide/cases/source_control/signed_transport.py"
+exit_code = 0
+log = "build/source-control/signed-transport/receipt.json"
+receipt_sha256 = "14a660a9188a8994c172af14062bc6e8da95ff185db3083794674effbf9cd7dd"
+observed = "Nine groups pass through production TLS, the built SDK, native CLI, PostgreSQL and SigV4 storage. Signature scope, replay, revocation and wire limits are enforced. Malformed responses retain original operation identity and UNKNOWN in both clients."
+
+[progress.native_source_envelope]
+command = "python3 tests/hyperfide/cases/source_control/native_source_envelope.py"
+exit_code = 0
+log = "build/source-control/envelope-parser/receipt.json"
+receipt_sha256 = "5a0a2e8ce8b2f40eac16c544b23bf71f522dfc34ab648013e167c66bdd331bf3"
+observed = "The production C parser accepts 100000 manifest entries in 13088989 bytes, preserves envelope fields and rejects duplicate keys, malformed Unicode, excessive depth and byte-limit violations."
+
+[progress.native_source_handoff]
+command = "python3 tests/hyperfide/cases/source_control/native_source_handoff.py"
+exit_code = 0
+log = "build/source-control/native-handoff/receipt.json"
+receipt_sha256 = "b1718702b49adb45deef0122a6581d5a20c6bb7b9021e3c8fc9aea4dc64665c1"
+observed = "Eight native C filesystem checks pass for private worker configuration, retained root enrollment keys, bootstrap preservation, symlink refusal, assignment identity, replay and cleanup after partial installation."
+
+[progress.native_source_builds]
+source_digest = "sha256:efe5caa9a993e265fe6fd2c5dc3847e0eb56151a1a467acdf11caa7a4b428141"
+dist_digest = "sha256:4e38307e50b7ce5fa7e96392629740c7852d8e499754a1339810586bce8b0e12"
+observed = "Control service and both native binaries build. Source SDK and authority client typechecks pass. Native units pass 480 assertions; CLI help verifies 173 commands."
+logs = ["build/source-control-signed-service-final-build.log", "build/source-control-native-final-build.log", "build/source-control-native-final-unit.log", "build/source-control-native-help.log", "build/source-control-sdk-final-typecheck.log"]
+
+[progress.native_source_fleet_enrollment]
+command = "python3 tests/hyperfide/cases/source_control/4_2.py"
+exit_code = 0
+log = "build/source-control/4.2/receipt.json"
+receipt_sha256 = "bca5f0dafc95144a1c60b7db802e09bce2c5bd68247081c2d65460c79942454b"
+observed = "Seventeen groups pass, including signed worker enrollment and replay, controller dispatch guards, selected-source dependent execution, retained checkpoint custody, stale-worker fencing and native release reconciliation without duplicate effects. The object backend recorded 106 SigV4 requests."
+scope = "Actual signed identity and source APIs, PostgreSQL, staged local installation, isolated worker processes and independent checker execution. Prior provisioning, profiles and runtime readiness are declared historical inputs; the release-reconciliation case declares signed history and an UNKNOWN provider operation."
+
+[progress.native_source_remaining_implementation]
+source_digest = "sha256:abf3794e6d33c8272f764606f2674cd33ff0dbb76ea61268721355e9c9cddcd7"
+dist_digest = "sha256:3100cedf9a2274e31c93e0542d13445c83b71bc3cffab1ce4d6e2f562bdde38b"
+command = "control build; signed integration; owned S3, PostgreSQL and Linux FUSE qualification"
+exit_code = 0
+observed = "Implemented retention and garbage collection, real FUSE virtualization, native graph indexing, public host and signed SDK modules, product UI/CLI, resumable binary transfers, Git import/projection, final-delta consolidation, epoch adoption, physical metadata recovery and protected native fleet bootstrap. Signed qualifier, product CLI, provider and transport paths pass together. The unconfigured-service routing bypass has a failing baseline and a passing three-group regression."
+logs = ["build/source-control-remaining-service-build-6.log", "build/fleet-native-qualification-final.log", "build/source-control/6.1/routing-red.log"]
+scope = "Focused and integrated component execution; full registered capacity and live provider campaigns retain their independent outcomes."
+
+[evidence.native_source_remaining_0]
+path = "build/source-control/evidence/a21f4868ee648d71c8d0e406baea6578f8214c046fd9eca1b5c75abab95f9e86.json"
+sha256 = "a21f4868ee648d71c8d0e406baea6578f8214c046fd9eca1b5c75abab95f9e86"
+status = "PASS"
+source_path = "build/source-control/2.3/receipt.json"
+prior_receipt_sha256 = "f42418aab9d3b13de19cc54477f1c5f80cc9c6b40ca4e3ba67f87ead94c071f7"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_1]
+path = "build/source-control/evidence/3a999186ddf8af1401f129cce6077cc9210a4b46bc69aa15095a86d08ac4b3bd.json"
+sha256 = "3a999186ddf8af1401f129cce6077cc9210a4b46bc69aa15095a86d08ac4b3bd"
+status = "UNRUN"
+source_path = "build/source-control/3.2/receipt.json"
+prior_receipt_sha256 = "5f9fa2be36ab5b01bdadef2802585922aacf8deb1dde7c10fd9ba144b81251c4"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_2]
+path = "build/source-control/evidence/3040a2e26269c4d5aea76f4447be068798fe4b3fbd184084e7627662e7e06234.json"
+sha256 = "3040a2e26269c4d5aea76f4447be068798fe4b3fbd184084e7627662e7e06234"
+status = "PASS"
+source_path = "build/source-control/3.3/receipt.json"
+prior_receipt_sha256 = "6c647f3f14ffe90d29ec8172b65092dd234065b1bbb7d2cf795617b5676b6159"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_3]
+path = "build/source-control/evidence/f7b046efee86e76f4d084c1a7e6026857702c6e66c83ad3157ba0a85d4883f40.json"
+sha256 = "f7b046efee86e76f4d084c1a7e6026857702c6e66c83ad3157ba0a85d4883f40"
+status = "PASS"
+source_path = "build/source-control/4.2/receipt.json"
+prior_receipt_sha256 = "2ce34c10399d658f6c89359668b59be497530c851e4b4bd12eae524130a2f1d1"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_4]
+path = "build/source-control/evidence/1b77b115522ad0645fd7bfaff8447463f7eee5388ee5c5cdc50bcc30dcc8368b.json"
+sha256 = "1b77b115522ad0645fd7bfaff8447463f7eee5388ee5c5cdc50bcc30dcc8368b"
+status = "PASS"
+source_path = "build/source-control/5.1/receipt.json"
+prior_receipt_sha256 = "deaff997d10282e8f80e05ab40eca0203d3604e3b28ab5c395aa8be515977ad1"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_5]
+path = "build/source-control/evidence/22bea893045d01755f036f8ae28600abb0336d1757c9209c0c9b0fa30cf8bcb5.json"
+sha256 = "22bea893045d01755f036f8ae28600abb0336d1757c9209c0c9b0fa30cf8bcb5"
+status = "PASS"
+source_path = "build/source-control/5.2/receipt.json"
+prior_receipt_sha256 = "2e9732ea43bd6ad16786e0855c95803139abcac3c9974e40374f32576f79c3e8"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_6]
+path = "build/source-control/evidence/3a4c600e2d18ecce11b831d673f9cbba6702f9d65f5c1d84665caa2aff73d8d0.json"
+sha256 = "3a4c600e2d18ecce11b831d673f9cbba6702f9d65f5c1d84665caa2aff73d8d0"
+status = "PASS"
+source_path = "build/source-control/5.3/receipt.json"
+prior_receipt_sha256 = "3a4c600e2d18ecce11b831d673f9cbba6702f9d65f5c1d84665caa2aff73d8d0"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_7]
+path = "build/source-control/evidence/498b20d2046d7185d522175f313ab406fec68def3bb6c01fc3e41fd0d583a189.json"
+sha256 = "498b20d2046d7185d522175f313ab406fec68def3bb6c01fc3e41fd0d583a189"
+status = "PASS"
+source_path = "build/source-control/6.1/receipt.json"
+prior_receipt_sha256 = "498b20d2046d7185d522175f313ab406fec68def3bb6c01fc3e41fd0d583a189"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_8]
+path = "build/source-control/evidence/282c650440bfb4e0a283cb569d04f866be2e1b68716da09b5e9a8d9720924850.json"
+sha256 = "282c650440bfb4e0a283cb569d04f866be2e1b68716da09b5e9a8d9720924850"
+status = "PASS"
+source_path = "build/source-control/6.2/receipt.json"
+prior_receipt_sha256 = "7f403b7c1644b0442b8c70bc0815f240e68a776d55345cbebaa2cab575c33fb0"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_9]
+path = "build/source-control/evidence/626f4e0a8423db73e38187e547d26b528ef4e28b937961e95777ebd749c9d047.json"
+sha256 = "626f4e0a8423db73e38187e547d26b528ef4e28b937961e95777ebd749c9d047"
+status = "PASS"
+source_path = "build/source-control/native-bootstrap/receipt.json"
+prior_receipt_sha256 = "626f4e0a8423db73e38187e547d26b528ef4e28b937961e95777ebd749c9d047"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_10]
+path = "build/source-control/evidence/f37bbde3ccfd6be00d79788836bf3fb5787d02a11a50e2ed7727d47e9d28fb3c.json"
+sha256 = "f37bbde3ccfd6be00d79788836bf3fb5787d02a11a50e2ed7727d47e9d28fb3c"
+status = "PASS"
+source_path = "build/source-control/native-provider/receipt.json"
+prior_receipt_sha256 = "3ddcb5e7d544f5db5d58acf0d5c8bf0c0ce4204391f9d08ceabe8a9c1d744f75"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_11]
+path = "build/source-control/evidence/b51f3fae1d63ca81eb0b2af62716ff0b50119aecbec388b87164ff965d52f8b5.json"
+sha256 = "b51f3fae1d63ca81eb0b2af62716ff0b50119aecbec388b87164ff965d52f8b5"
+status = "PASS"
+source_path = "build/source-control/native-qualification/receipt.json"
+prior_receipt_sha256 = "b51f3fae1d63ca81eb0b2af62716ff0b50119aecbec388b87164ff965d52f8b5"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_12]
+path = "build/source-control/evidence/6a0bdd5cd0aaa995bfcdb040a5838deba71b0ccc3c227a56032bb991f6068f3d.json"
+sha256 = "6a0bdd5cd0aaa995bfcdb040a5838deba71b0ccc3c227a56032bb991f6068f3d"
+status = "PASS"
+source_path = "build/source-control/product/receipt.json"
+prior_receipt_sha256 = "6a0bdd5cd0aaa995bfcdb040a5838deba71b0ccc3c227a56032bb991f6068f3d"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_13]
+path = "build/source-control/evidence/70170e035223191019a090273ab4c344863dd84606e24e49a00753286323dcbb.json"
+sha256 = "70170e035223191019a090273ab4c344863dd84606e24e49a00753286323dcbb"
+status = "PASS"
+source_path = "build/source-control/routing/receipt.json"
+prior_receipt_sha256 = "70170e035223191019a090273ab4c344863dd84606e24e49a00753286323dcbb"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[evidence.native_source_remaining_14]
+path = "build/source-control/evidence/0a122b7fb102308c5a78352f3f7e1bd2f01101adb1b90c85a2c1faeef3346235.json"
+sha256 = "0a122b7fb102308c5a78352f3f7e1bd2f01101adb1b90c85a2c1faeef3346235"
+status = "PASS"
+source_path = "build/source-control/transfers/receipt.json"
+prior_receipt_sha256 = "0a122b7fb102308c5a78352f3f7e1bd2f01101adb1b90c85a2c1faeef3346235"
+scope = "Immutable copy of the component receipt; original execution and source pins remain in the receipt. This is not full-case release closure."
+
+[decision.required_remote_destination]
+source = "User clarified that GitLab is not used"
+required = "GitHub"
+optional = "GitLab"
+obsolete_ask = "1"
+resolution = "The GitLab credential request is no longer a prerequisite; no credential was supplied or invented."
+
+[progress.native_source_standalone_recovery_fence]
+command = "python3 tests/hyperfide/cases/source_control/server_authority.py"
+exit_code = 0
+log = "build/source-control-server-authority-green.log"
+receipt = "build/source-control/evidence/336b53dcb539bf4c74afcd201d00140d03f535c34702fb98bb64f914c0dfcf1c.json"
+receipt_sha256 = "336b53dcb539bf4c74afcd201d00140d03f535c34702fb98bb64f914c0dfcf1c"
+source_digest = "sha256:70ca4228c226094da4a3a57e45dce8cbd219df80c2e854b364e9956e4052d4d0"
+dist_digest = "sha256:1f6840a5ef1788a596d7ecf296f636d899199e71e07ba4bf704cb60dd62dc930"
+observed = "Six actual standalone-server checks pass, including independently advanced journal versus restored PostgreSQL, live journal loss, missing startup authority, and a concurrent locked epoch change with typed refusal and no new upload."
+scope = "Owned PostgreSQL, signed source tokens and independent file authority journal; exact launcher and compiled service. The prior compiled launcher fails the same recovery cases."
+
+[progress.native_assurance_registration]
+command = "python3 tests/hyperfide/cases/source_control/assurance_registration.py"
+exit_code = 0
+receipt = "build/source-control/evidence/482c1dc34c0221ba08a9af326183574dfa5948722e3f2c6088efa4f1966601a5.json"
+receipt_sha256 = "482c1dc34c0221ba08a9af326183574dfa5948722e3f2c6088efa4f1966601a5"
+source_digest = "sha256:5eb298a498ae0a7486868cff196b662e9ab8e6d263d379f91f34b11078ed9034"
+dist_digest = "sha256:67e85a9058deb904f6a8a63742abd042e9333ed494863faddd31e68a5da77e14"
+observed = "Three groups pass for signed native policy/checker registration from accepted proof, no source-token shadow identity, real checker execution, denied invalid scope and generation, credential renewal preserving historical proof, and explicit revocation."
+scope = "Owned PostgreSQL and real native identity/source APIs. Runtime native fleet execution is qualified separately."
+
+[progress.native_provider_registration]
+receipt = "build/source-control/evidence/0f05eebeb79caecdfd7e77dac1a3fab26558fd1382ffed0f93f0959631d66131.json"
+receipt_sha256 = "0f05eebeb79caecdfd7e77dac1a3fab26558fd1382ffed0f93f0959631d66131"
+exit_code = 0
+source_digest = "sha256:57c0239338db3ffea4990aaeb6f723bad46b44ff539632bae9e234c21e21397e"
+dist_digest = "sha256:89a03b8d7888d284733eb5baa4f45f7d7b9b15742ece6a3910e005fdd8d1b379"
+observed = "Actual signed native profile registration and replay pass; wrong native revision or security domain is refused without insertion."
+scope = "Owned PostgreSQL and actual signed APIs; live provider/model execution has separate evidence."
+
+[progress.primary_initial_source_discovery]
+receipt = "build/source-control/evidence/8419839249997ac4d8168e85a65fcda492d3416055d9d90d21c9de684886b2aa.json"
+receipt_sha256 = "8419839249997ac4d8168e85a65fcda492d3416055d9d90d21c9de684886b2aa"
+exit_code = 0
+source_digest = "sha256:57c0239338db3ffea4990aaeb6f723bad46b44ff539632bae9e234c21e21397e"
+dist_digest = "sha256:89a03b8d7888d284733eb5baa4f45f7d7b9b15742ece6a3910e005fdd8d1b379"
+observed = "Twenty-one signed native fleet checks pass, including issued Primary revision discovery, bounded bind templates, separate read-only grants and preserved mutation authority."
+scope = "Owned PostgreSQL and actual signed APIs; live provider/model execution has separate evidence."

@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "variant": "task:16.1",
+  "task": "16.1",
+  "scope": "task-component",
+  "cases": [
+    "V-013",
+    "V-034"
+  ],
+  "assertion_ids": [
+    "assurance.16.1.auth.absent.submission.submit",
+    "assurance.16.1.auth.forged.submission.submit",
+    "assurance.16.1.auth.absent.submission.revoke",
+    "assurance.16.1.auth.forged.submission.revoke",
+    "assurance.16.1.auth.absent.submission.inspect",
+    "assurance.16.1.auth.forged.submission.inspect",
+    "assurance.16.1.schema.applied",
+    "assurance.16.1.history.no-authority",
+    "assurance.16.1.history.immutable-update",
+    "assurance.16.1.history.immutable-delete",
+    "assurance.16.1.history.preserved",
+    "assurance.16.1.semantic.fresh",
+    "assurance.16.1.semantic.cached",
+    "assurance.16.1.semantic.upgrade-refused",
+    "assurance.16.1.git.different-result-owned",
+    "assurance.16.1.git.outside-scope",
+    "assurance.16.1.git.rename-outside-scope",
+    "assurance.16.1.git.unrelated-history",
+    "assurance.16.1.git.postsubmit-head-amendment",
+    "assurance.16.1.git.prefix-escape",
+    "assurance.16.1.git.single-star-depth",
+    "assurance.16.1.git.double-star-depth",
+    "assurance.16.1.git.spaces-preserved",
+    "assurance.16.1.git.malformed-utf8-path",
+    "assurance.16.1.git.unchanged-source",
+    "assurance.16.1.submit.fabricated-evidence-refused",
+    "assurance.16.1.submit.empty-evidence-refused",
+    "assurance.16.1.submit.mismatched-revision-refused",
+    "assurance.16.1.submit.criteria-mismatch-refused",
+    "assurance.16.1.submit.stale-generation-refused",
+    "assurance.16.1.submit.refusals-leave-compute",
+    "assurance.16.1.submit.admitted",
+    "assurance.16.1.submit.compute-released",
+    "assurance.16.1.submit.immutable-binding",
+    "assurance.16.1.submit.lost-response-replay",
+    "assurance.16.1.submit.exact-replay",
+    "assurance.16.1.submit.conflicting-replay",
+    "assurance.16.1.submit.released-compute-cannot-resubmit",
+    "assurance.16.1.independence.coding-worker-claim-refused",
+    "assurance.16.1.independence.coding-sandbox-assign-refused",
+    "assurance.16.1.independence.worker-disposition-denied",
+    "assurance.16.1.independence.outcome-pending",
+    "assurance.16.1.race.concurrent-identical",
+    "assurance.16.1.race.expiry-sweeper",
+    "assurance.16.1.race.expiry-after-admission",
+    "assurance.16.1.race.coding-cleanup-preserves-custody",
+    "assurance.16.1.connected.services-separate",
+    "assurance.16.1.connected.native-supervisor-heartbeat",
+    "assurance.16.1.connected.claim-from-packet",
+    "assurance.16.1.connected.durable-dispatch-committed",
+    "assurance.16.1.connected.dispatch-restart-before-send",
+    "assurance.16.1.connected.dispatch-send",
+    "assurance.16.1.connected.agent-double-spawned",
+    "assurance.16.1.connected.network-cut-after-commit",
+    "assurance.16.1.connected.dispatch-restart-send-ack",
+    "assurance.16.1.connected.replay-after-reconnect",
+    "assurance.16.1.connected.compute-to-custody",
+    "assurance.16.1.connected.immutable-artifacts",
+    "assurance.16.1.connected.coding-cleanup-preserves-custody",
+    "assurance.16.1.connected.independent-qualification-pending",
+    "assurance.16.1.primary.unbranded-denied",
+    "assurance.16.1.https.signed-missing",
+    "assurance.16.1.https.cross-scope",
+    "assurance.16.1.https.wrong-role",
+    "assurance.16.1.https.no-authority"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/16_1.py"
+  ],
+  "timeout_seconds": 900,
+  "required_env": [
+    "PGHOST",
+    "PGPORT",
+    "PGUSER",
+    "DATABASE_URL"
+  ],
+  "fixtures": [
+    "core/control-plane/dist/assurance/submission.js",
+    "core/control-plane/dist/assurance/executor.js",
+    "core/control-plane/dist/assurance/coverage.js",
+    "core/control-plane/dist/assurance/validity.js",
+    "core/control-plane/dist/storage/transactions.js",
+    "core/control-plane/dist/transport/protocol.js",
+    "core/control-plane/dist/storage/dispositions.js",
+    "core/control-plane/dist/scheduler/leases.js",
+    "core/control-plane/dist/scheduler/claim.js",
+    "core/control-plane/dist/hierarchy/packets.js",
+    "core/control-plane/dist/spec/obligations.js",
+    "core/control-plane/dist/artifacts/objects.js",
+    "core/control-plane/dist/identity/enrollment.js",
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/dispatch.js",
+    "core/control-plane/dist/provisioner.js",
+    "core/control-plane/dist/events/outbox.js",
+    "core/control-plane/dist/events/inbox.js",
+    "core/control-plane/dist/scheduler/dispatch.js"
+  ],
+  "resources": [
+    {
+      "id": "hf-task-16.1-database",
+      "kind": "postgresql-database",
+      "scope": "task16.1-disposable"
+    },
+    {
+      "id": "hf-task-16.1-signed-database",
+      "kind": "postgresql-database",
+      "scope": "task16.1-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.1-signed-service",
+      "kind": "https-service",
+      "scope": "task16.1-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.1-git",
+      "kind": "local-directory",
+      "scope": "task16.1-actual-git-disposable"
+    },
+    {
+      "id": "hf-task-16.1-signed-role",
+      "kind": "postgresql-role",
+      "scope": "task16.1-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.1-signed-files",
+      "kind": "local-directory",
+      "scope": "task16.1-signed-disposable"
+    },
+    {
+      "id": "hf-task-16.1-submission-database",
+      "kind": "postgresql-database",
+      "scope": "task16.1-submission-disposable"
+    },
+    {
+      "id": "hf-task-16.1-submission-service",
+      "kind": "https-service",
+      "scope": "task16.1-submission-disposable"
+    },
+    {
+      "id": "hf-task-16.1-submission-role",
+      "kind": "postgresql-role",
+      "scope": "task16.1-submission-disposable"
+    },
+    {
+      "id": "hf-task-16.1-submission-files",
+      "kind": "local-directory",
+      "scope": "task16.1-submission-disposable"
+    },
+    {
+      "id": "hf-task-16.1-connected-database",
+      "kind": "postgresql-database",
+      "scope": "task16.1-connected-stack-disposable"
+    },
+    {
+      "id": "hf-task-16.1-connected-service",
+      "kind": "https-service",
+      "scope": "task16.1-connected-stack-disposable"
+    },
+    {
+      "id": "hf-task-16.1-connected-role",
+      "kind": "postgresql-role",
+      "scope": "task16.1-connected-stack-disposable"
+    },
+    {
+      "id": "hf-task-16.1-connected-files",
+      "kind": "local-directory",
+      "scope": "task16.1-connected-stack-disposable"
+    }
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/16_1.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "required_artifacts": [
+    "assurance/observations-16.1.json",
+    "assurance/database-absence-16.1.json",
+    "assurance/signed-absence-16.1.json",
+    "assurance/git-absence-16.1.json",
+    "assurance/submission-absence-16.1.json",
+    "assurance/connected-absence-16.1.json",
+    "assurance/connected-observations-16.1.json"
+  ],
+  "source_files": [
+    "core/control-plane/src/assurance/submission.ts",
+    "core/control-plane/src/assurance/executor.ts",
+    "core/control-plane/src/assurance/coverage.ts",
+    "core/control-plane/src/assurance/validity.ts",
+    "core/control-plane/components/16.1.json",
+    "core/control-plane/components/16.2.json",
+    "core/control-plane/components/16.3.json",
+    "core/control-plane/components/16.4.json",
+    "core/control-plane/migrations/0001-authority.sql",
+    "core/control-plane/migrations/0016-qualification.sql",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json",
+    "tests/hyperfide/cases/tasks/16_1.py",
+    "tests/hyperfide/cases/tasks/16_2.py",
+    "tests/hyperfide/cases/tasks/16_3.py",
+    "tests/hyperfide/cases/tasks/16_4.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/support/identity_fixture.py",
+    "core/control-plane/src/assurance/preparation.ts",
+    "tests/hyperfide/cases/tasks/11_1.py",
+    "tests/hyperfide/cases/tasks/5_1.py",
+    "tests/hyperfide/cases/tasks/3_2.py",
+    "tests/hyperfide/cases/tasks/3_1.py",
+    "tests/hyperfide/cases/tasks/15_2.py",
+    "tests/hyperfide/integration/connected-stack.py",
+    "tests/hyperfide/integration/submission_stack.py",
+    "tests/hyperfide/integration/tls_relay.py",
+    "tests/hyperfide/integration/agent_double.py",
+    "core/native/src/hyperfide/supervisor_daemon.c",
+    "core/native/src/hyperfide/supervisor.c",
+    "core/native/src/hyperfide/transport.c",
+    "core/native/src/hyperfide/component_main.c",
+    "core/native/src/hyperfide/components/12.1.kvx",
+    "Makefile",
+    "tools/repository/hyperfide-native-components.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop",
+    "https.fixture.start",
+    "https.fixture.stop",
+    "postgresql.role.create",
+    "postgresql.role.drop",
+    "filesystem.fixture.create",
+    "filesystem.fixture.remove",
+    "process.fixture.start",
+    "process.fixture.stop",
+    "network.fixture.interrupt"
+  ]
+}
