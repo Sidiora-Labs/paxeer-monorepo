@@ -31883,3 +31883,51 @@ symbol = "compile.rs"
 observed = "Attempt 2 at e58ccca43dc2d3a544d477520c9303ad34615375: build exit 0, dependent-crate check exit 0, verify exit 101: compile 5 passed, differential 5 passed, repair_22_31_557 3 passed 1 failed: v3_public_key_did_rotation_matches_the_governance_actor_derivation, assertion left 75 right 74 at tests/repair_22_31_557.rs line 148."
 assumption = "A literal length slip in the test; the derivation assertions have not yet run."
 severity = "medium"
+
+[finding.22.31.547.4]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 4 at f1bd157c820b29cb172be9dfa1dfeb2a8b254276: build exit 0, dependent-crate check exit 0, verify exit 101: SDK library 10 passed, repair_22_31_547 0 passed 2 failed; case 1 at tests/repair_22_31_547.rs line 307 daemon V2 acceptance PolicyRefusal owner.refused request 73 Terminal, left 403 right 200; case 2 PoisonError at native_send_preview_evm.rs line 910."
+assumption = "The refusal is the daemon identifier mismatch, not the test; nothing in this tree changes until 22.31.560 lands."
+severity = "high"
+
+[finding.22.33.1569.6]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 6 at a07dbda49b0a91c3c01ae953431d55e4aae1e99c: build 1 exit 101 (E0434, E0618, a local buffer shadowing the decoder), build 2 exit 0; verify exit 101: 1 passed, pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at funded_scenario.rs line 8 with PAY2 SDK grant issue: MissingFinalityTrust from the grant issue near line 592."
+assumption = "The SDK holds one immutable coverage per client; the scenario, not the SDK, changes under this task."
+severity = "medium"
+
+[finding.22.31.478.6]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 6 at d62abccec88df218e9ec116435ad53c9d9f0ad37: build exit 0, dependent-crate check exit 0, verify exit 1: TestRepair478_FundWithinProductionAllowance failed at rpc/repair_478_test.go line 231 (from line 285, CREATE) Should be zero, but was LXP_ERR_NON_CANONICAL."
+assumption = "The create calldata or the account path refuses under the base guest; the Fund measurement has not yet run."
+severity = "medium"
+
+[finding.22.33.1536.6]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 6 at 87ca4a638954a1d57194962aa823685cfb85e406: build exit 0, dependent-crate check exit 0, verify exit 101: 15 passed, 5 failed: export::offline_export_requires_complete_authenticated_inclusion and export::state_export_uses_ics23_store_and_app_witness_and_rejects_tampering (export.rs line 22, Contract), handshake_gate::empty_receipt_keys_do_not_open_the_write_gate (line 279) and handshake_gate::reconnect_rechecks_receipt_keys_and_invalidates_stale_readiness (line 312) left Ok([]) right Err(Sequencer(Malformed)), finality_rungs::committed_requires_more_than_two_thirds_voting_power (line 25, InvalidCommit)."
+assumption = "All five are fixture facts inside the task paths; no production change is indicated."
+severity = "medium"
+
+[finding.18.1578.1.4]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "proof_native_reads.rs"
+observed = "Attempt 4 at cf3e5382025d77dde7f24148c09e9ac16264b496: build exit 0, dependent-crate check exit 0, verify exit 101: 1 passed, native_reads_producer_http_consumer_reopens_and_refuses_malformed_results panicked at crates/layerx-mcp/tests/proof_native_reads.rs line 63 with native reads proof: Unavailable(verified native evidence is unavailable) after 536 seconds."
+assumption = "The daemon route refused one read; the proof lacks the diagnostic to name it."
+severity = "medium"
+
+[finding.22.31.534.4]
+task = "22.31.534"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"
+symbol = "repair_22_31_534.rs"
+observed = "Attempt 5 at 5a6ccc80176ad70e47257571153162c4268990ea: build exit 101: rustc-LLVM ERROR IO failure on output stream No space left on device while compiling layerx-human-service test targets, collect2 ld terminated with signal 7 Bus error; verify did not run."
+assumption = "An environment failure; the tree is unchanged."
+severity = "low"
