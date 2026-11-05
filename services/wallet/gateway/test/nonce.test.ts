@@ -25,6 +25,7 @@ let hashLookupDown = false;
 let hashLookupHangs = false;
 let countReadFails = false;
 const knownHashes = new Set<string>();
+const readerWrites: string[] = [];
 
 type StoreModule = typeof import('../src/nonce/store.js');
 type PoolModule = typeof import('../src/rpc/pool.js');
@@ -38,13 +39,24 @@ function startRpc(): Promise<void> {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        id: number;
+        method: string;
+        params: unknown[];
+      };
       let result: unknown;
+      if (body.method === 'eth_sendRawTransaction') readerWrites.push(String(body.params[0]));
       if (body.method === 'eth_sendRawTransaction' && sendHangs) return;
       if (body.method === 'eth_getTransactionByHash' && hashLookupHangs) return;
       if (body.method === 'eth_getTransactionCount' && countReadFails) {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message: 'latest count unavailable' } }));
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            error: { code: -32000, message: 'latest count unavailable' },
+          })
+        );
         return;
       }
       if (body.method === 'eth_getTransactionByHash' && hashLookupDown) {
@@ -54,22 +66,32 @@ function startRpc(): Promise<void> {
       }
       if (body.method === 'eth_sendRawTransaction' && sendError) {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message: sendError } }));
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            error: { code: -32000, message: sendError },
+          })
+        );
         return;
       }
       if (body.method === 'eth_getTransactionCount') result = `0x${pendingCount.toString(16)}`;
       else if (body.method === 'eth_sendRawTransaction') {
         result = keccak256(body.params[0] as `0x${string}`);
         knownHashes.add(result as string);
-      }
-      else if (body.method === 'eth_blockNumber') result = '0x64';
+      } else if (body.method === 'eth_blockNumber') result = '0x64';
       else if (body.method === 'eth_getTransactionByHash') {
         const hash = String(body.params[0]).toLowerCase();
         result = knownHashes.has(hash) ? { hash } : null;
-      }
-      else {
+      } else {
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            error: { code: -32601, message: 'method not found' },
+          })
+        );
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });
@@ -80,12 +102,19 @@ function startRpc(): Promise<void> {
     rpcServer.listen(0, '127.0.0.1', () => {
       rpcUrl = `http://127.0.0.1:${(rpcServer.address() as AddressInfo).port}`;
       r();
-    }),
+    })
   );
 }
 
 function makeRpc(timeoutMs = 5_000): InstanceType<PoolModule['RpcPool']> {
-  return new poolMod.RpcPool({ urls: [rpcUrl], sequencerUrl: rpcUrl, chainId: 125, lagThresholdBlocks: 20, timeoutMs, healthIntervalMs: 60_000 });
+  return new poolMod.RpcPool({
+    urls: [rpcUrl],
+    sequencerUrl: rpcUrl,
+    chainId: 125,
+    lagThresholdBlocks: 20,
+    timeoutMs,
+    healthIntervalMs: 60_000,
+  });
 }
 
 function makeStore(): InstanceType<StoreModule['NonceStore']> {
@@ -101,7 +130,10 @@ function makeStore(): InstanceType<StoreModule['NonceStore']> {
 let allocations = 0;
 
 /** Reserve a nonce and record the hash of a signed transaction the members know, as every reservation is held. */
-function allocate(store: InstanceType<StoreModule['NonceStore']>, address: string): Promise<number> {
+function allocate(
+  store: InstanceType<StoreModule['NonceStore']>,
+  address: string
+): Promise<number> {
   return store.withLock(address, async (lease) => {
     const nonce = await lease.next();
     const hash = keccak256(toHex(`allocation ${++allocations}`));
@@ -116,7 +148,7 @@ async function age(address: string): Promise<void> {
   await pool.query(
     `update nonce_outstanding set created_at = now() - make_interval(secs => $2::double precision / 1000 + 1)
       where address = $1`,
-    [address, (await import('../src/chain.js')).BROADCAST_GRACE_MS],
+    [address, (await import('../src/chain.js')).BROADCAST_GRACE_MS]
   );
 }
 
@@ -125,11 +157,13 @@ function lockedSend(
   store: InstanceType<StoreModule['NonceStore']>,
   address: string,
   raw: `0x${string}`,
-  rpc = makeRpc(),
+  rpc = makeRpc()
 ): Promise<{ nonce: number; error: unknown }> {
   return store.withLock(address, async (lease) => {
     const nonce = await lease.next();
-    const sent = await storeMod.broadcastReserved(lease, nonce, raw, (r) => rpc.sendRawTransactionVia(r));
+    const sent = await storeMod.broadcastReserved(lease, nonce, raw, (r) =>
+      rpc.sendRawTransactionVia(r)
+    );
     return { nonce, error: sent.error };
   });
 }
@@ -139,7 +173,10 @@ interface WorkerResult {
   nonces: number[];
 }
 
-function spawnWorker(address: string, count: number): { ready: Promise<void>; go: () => void; done: Promise<WorkerResult> } {
+function spawnWorker(
+  address: string,
+  count: number
+): { ready: Promise<void>; go: () => void; done: Promise<WorkerResult> } {
   const child = fork(join(here, 'support', 'nonce-worker.ts'), [], {
     cwd: gatewayDir,
     execArgv: ['--import', 'tsx'],
@@ -200,7 +237,7 @@ const refusalTests = {
 
 test(
   refusalTests['answers nonce_unresolved with member indices and count and no URL'],
-  refusalTests['answers nonce_unresolved with member indices and count and no URL'],
+  refusalTests['answers nonce_unresolved with member indices and count and no URL']
 );
 
 describe('NonceStore', () => {
@@ -221,7 +258,7 @@ describe('NonceStore', () => {
     expect(all).toEqual(Array.from({ length: perWorker * 2 }, (_, i) => 7 + i));
     const { rows } = await pool.query<{ next_nonce: string; needs_reconcile: boolean }>(
       'select next_nonce::text, needs_reconcile from nonce_allocations where address = $1',
-      [ADDRESS.toLowerCase()],
+      [ADDRESS.toLowerCase()]
     );
     expect(rows[0]).toEqual({ next_nonce: String(7 + perWorker * 2), needs_reconcile: false });
   }, 120_000);
@@ -232,11 +269,16 @@ describe('NonceStore', () => {
     const rpc = makeRpc();
     pendingCount = 40;
     sendError = null;
-    const send = () => lockMod.withDistributedWalletLock(address, async (lease) => {
-      const nonce = await lease.next();
-      await lease.track(nonce, await rpc.sendRawTransaction('0x02'), null);
-      return nonce;
-    }, store);
+    const send = () =>
+      lockMod.withDistributedWalletLock(
+        address,
+        async (lease) => {
+          const nonce = await lease.next();
+          await lease.track(nonce, await rpc.sendRawTransaction('0x02'), null);
+          return nonce;
+        },
+        store
+      );
     expect(await send()).toBe(40);
     expect(await send()).toBe(41);
   });
@@ -265,7 +307,9 @@ describe('NonceStore', () => {
     pendingCount = 12;
     expect(await allocate(makeStore(), address)).toBe(31);
     const { rows } = await pool.query<{ next_nonce: string }>(
-      'select next_nonce::text from nonce_allocations where address = $1', [address]);
+      'select next_nonce::text from nonce_allocations where address = $1',
+      [address]
+    );
     expect(rows[0]?.next_nonce).toBe('32');
   });
 
@@ -274,13 +318,25 @@ describe('NonceStore', () => {
     const store = makeStore();
     const { legNonce } = await import('../src/agent/actions/orchestrator.js');
     pendingCount = 50;
-    expect(await lockMod.withDistributedWalletLock(address, async (lease) => {
-      const nonce = await legNonce(lease);
-      await lease.track(nonce, keccak256('0x02a6'), null);
-      return nonce;
-    }, store)).toBe(50);
+    expect(
+      await lockMod.withDistributedWalletLock(
+        address,
+        async (lease) => {
+          const nonce = await legNonce(lease);
+          await lease.track(nonce, keccak256('0x02a6'), null);
+          return nonce;
+        },
+        store
+      )
+    ).toBe(50);
     expect(await allocate(store, address)).toBe(51);
-    expect(await lockMod.withDistributedWalletLock(address, (lease) => legNonce(lease, { nonce: 50 }), store)).toBe(50);
+    expect(
+      await lockMod.withDistributedWalletLock(
+        address,
+        (lease) => legNonce(lease, { nonce: 50 }),
+        store
+      )
+    ).toBe(50);
     expect(await allocate(store, address)).toBe(52);
   });
 
@@ -289,7 +345,9 @@ describe('NonceStore', () => {
     const store = makeStore();
     pendingCount = 5;
     expect(await allocate(store, address)).toBe(5);
-    const refused = await store.withLock(address, (lease) => lease.checkClientNonce(3)).catch((err: unknown) => err);
+    const refused = await store
+      .withLock(address, (lease) => lease.checkClientNonce(3))
+      .catch((err: unknown) => err);
     expect(refused).toBeInstanceOf(storeMod.NonceBelowLatestError);
     expect(refused).toMatchObject({ nonce: 3, latest: 5 });
     await store.withLock(address, async (lease) => {
@@ -309,11 +367,13 @@ describe('NonceStore', () => {
     const store = makeStore();
     pendingCount = 20;
     expect(await store.withLock(address, (lease) => lease.peek())).toBe(20);
-    expect(await store.withLock(address, async (lease) => {
-      const nonce = await lease.next();
-      await lease.release(nonce);
-      return nonce;
-    })).toBe(20);
+    expect(
+      await store.withLock(address, async (lease) => {
+        const nonce = await lease.next();
+        await lease.release(nonce);
+        return nonce;
+      })
+    ).toBe(20);
     expect(await allocate(store, address)).toBe(20);
     expect(await store.withLock(address, (lease) => lease.peek())).toBe(21);
   });
@@ -357,7 +417,9 @@ describe('NonceStore', () => {
     knownHashes.add(keccak256('0x02b3'));
     expect(await allocate(store, address)).toBe(44);
     const { rows } = await pool.query<{ nonce: string; tx_hash: string | null }>(
-      'select nonce::text, tx_hash from nonce_outstanding where address = $1 order by nonce', [address]);
+      'select nonce::text, tx_hash from nonce_outstanding where address = $1 order by nonce',
+      [address]
+    );
     expect(rows).toEqual([
       { nonce: '42', tx_hash: expect.stringMatching(/^0x[0-9a-f]{64}$/) },
       { nonce: '43', tx_hash: keccak256('0x02b3') },
@@ -373,7 +435,9 @@ describe('NonceStore', () => {
     expect(await allocate(store, address)).toBe(51);
     pendingCount = 52;
     expect(await store.withLock(address, (lease) => lease.peek())).toBe(52);
-    const { rows } = await pool.query('select 1 from nonce_outstanding where address = $1', [address]);
+    const { rows } = await pool.query('select 1 from nonce_outstanding where address = $1', [
+      address,
+    ]);
     expect(rows).toHaveLength(0);
   });
 
@@ -382,9 +446,13 @@ describe('NonceStore', () => {
     const store = makeStore();
     pendingCount = 60;
     expect(await allocate(store, address)).toBe(60);
-    const below = await store.withLock(address, (lease) => lease.reserveClientNonce(59)).catch((err: unknown) => err);
+    const below = await store
+      .withLock(address, (lease) => lease.reserveClientNonce(59))
+      .catch((err: unknown) => err);
     expect(below).toBeInstanceOf(storeMod.NonceBelowLatestError);
-    const taken = await store.withLock(address, (lease) => lease.reserveClientNonce(60)).catch((err: unknown) => err);
+    const taken = await store
+      .withLock(address, (lease) => lease.reserveClientNonce(60))
+      .catch((err: unknown) => err);
     expect(taken).toBeInstanceOf(storeMod.NonceOutstandingError);
     expect(taken).toMatchObject({ nonce: 60 });
     await store.withLock(address, async (lease) => {
@@ -394,8 +462,14 @@ describe('NonceStore', () => {
     expect(await store.withLock(address, (lease) => lease.peek())).toBe(62);
     expect(await allocate(store, address)).toBe(62);
     const { custodyRefusal } = await import('../src/routes/agentExec.js');
-    expect(custodyRefusal(below)).toEqual({ status: 409, body: { error: 'nonce_below_latest', nonce: 59, latest: 60 } });
-    expect(custodyRefusal(taken)).toEqual({ status: 409, body: { error: 'nonce_outstanding', nonce: 60 } });
+    expect(custodyRefusal(below)).toEqual({
+      status: 409,
+      body: { error: 'nonce_below_latest', nonce: 59, latest: 60 },
+    });
+    expect(custodyRefusal(taken)).toEqual({
+      status: 409,
+      body: { error: 'nonce_outstanding', nonce: 60 },
+    });
   });
 
   it('reconciles a timed-out owner leg broadcast on the next allocation', async () => {
@@ -406,13 +480,20 @@ describe('NonceStore', () => {
     sendHangs = true;
     const leg = await store.withLock(address, async (lease) => {
       const nonce = await lease.next();
-      return { nonce, ...(await storeMod.broadcastReserved(lease, nonce, '0x02c1', (r) => slow.sendRawTransactionVia(r))) };
+      return {
+        nonce,
+        ...(await storeMod.broadcastReserved(lease, nonce, '0x02c1', (r) =>
+          slow.sendRawTransactionVia(r)
+        )),
+      };
     });
     sendHangs = false;
     expect(leg.nonce).toBe(70);
     expect(leg.hash).toBeNull();
     const { rows } = await pool.query<{ tx_hash: string }>(
-      'select tx_hash from nonce_outstanding where address = $1 and nonce = 70', [address]);
+      'select tx_hash from nonce_outstanding where address = $1 and nonce = 70',
+      [address]
+    );
     expect(rows[0]?.tx_hash).toBe(keccak256('0x02c1'));
     await age(address);
     expect(await allocate(store, address)).toBe(70);
@@ -437,17 +518,34 @@ describe('NonceStore', () => {
       const chunks: Buffer[] = [];
       req.on('data', (c: Buffer) => chunks.push(c));
       req.on('end', () => {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string };
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+          id: number;
+          method: string;
+        };
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify(body.method === 'eth_getTransactionByHash'
-          ? { jsonrpc: '2.0', id: body.id, result: null }
-          : { jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
+        res.end(
+          JSON.stringify(
+            body.method === 'eth_getTransactionByHash'
+              ? { jsonrpc: '2.0', id: body.id, result: null }
+              : {
+                  jsonrpc: '2.0',
+                  id: body.id,
+                  error: { code: -32601, message: 'method not found' },
+                }
+          )
+        );
       });
     });
     await new Promise<void>((r) => memberB.listen(0, '127.0.0.1', () => r()));
     const urlB = `http://127.0.0.1:${(memberB.address() as AddressInfo).port}`;
     try {
-      const both = new poolMod.RpcPool({ urls: [rpcUrl, urlB], chainId: 125, lagThresholdBlocks: 20, timeoutMs: 5_000, healthIntervalMs: 60_000 });
+      const both = new poolMod.RpcPool({
+        urls: [rpcUrl, urlB],
+        chainId: 125,
+        lagThresholdBlocks: 20,
+        timeoutMs: 5_000,
+        healthIntervalMs: 60_000,
+      });
       const latest = makeRpc();
       const store = new storeMod.NonceStore({
         pool,
@@ -460,7 +558,9 @@ describe('NonceStore', () => {
       const accepted = await lockedSend(store, address, '0x02c4', both);
       expect(accepted).toEqual({ nonce: 100, error: null });
       const { rows } = await pool.query<{ member: string }>(
-        'select member from nonce_outstanding where address = $1 and nonce = 100', [address]);
+        'select member from nonce_outstanding where address = $1 and nonce = 100',
+        [address]
+      );
       expect(rows[0]?.member).toBe(rpcUrl);
       await store.withLock(address, async (lease) => {
         await lease.reserveClientNonce(103);
@@ -475,7 +575,9 @@ describe('NonceStore', () => {
       expect(partitioned).toMatchObject({ nonce: 100, unreachable: [0], memberCount: 2 });
       expect(JSON.stringify(partitioned)).not.toContain('127.0.0.1');
       const { rows: held } = await pool.query<{ nonce: string }>(
-        'select nonce::text from nonce_outstanding where address = $1 order by nonce_outstanding.nonce', [address]);
+        'select nonce::text from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
+        [address]
+      );
       expect(held.map((r) => r.nonce)).toEqual(['100', '101', '103']);
       pendingCount = 102;
       expect(await allocate(store, address)).toBe(102);
@@ -511,7 +613,7 @@ describe('NonceStore', () => {
       store.withLock(address, async (lease) => {
         await lease.next();
         throw new Error('signing refused');
-      }),
+      })
     ).rejects.toThrow('signing refused');
     expect(await allocate(store, address)).toBe(5);
   });
@@ -540,10 +642,14 @@ describe('NonceStore', () => {
     pendingCount = 14;
     expect(await allocate(store, address)).toBe(14);
     await expect(
-      lockMod.withDistributedWalletLock(address, async (lease) => {
-        await lease.next();
-        throw new Error('signing refused');
-      }, store),
+      lockMod.withDistributedWalletLock(
+        address,
+        async (lease) => {
+          await lease.next();
+          throw new Error('signing refused');
+        },
+        store
+      )
     ).rejects.toThrow('signing refused');
     expect(await allocate(store, address)).toBe(15);
   });
@@ -553,15 +659,18 @@ describe('NonceStore', () => {
     const store = makeStore();
     pendingCount = 110;
     sendError = null;
-    const signOnly = (raw: `0x${string}`) => store.withLock(address, async (lease) => {
-      const nonce = await lease.next();
-      await lease.track(nonce, keccak256(raw), null);
-      return nonce;
-    });
+    const signOnly = (raw: `0x${string}`) =>
+      store.withLock(address, async (lease) => {
+        const nonce = await lease.next();
+        await lease.track(nonce, keccak256(raw), null);
+        return nonce;
+      });
     expect(await signOnly('0x02d0')).toBe(110);
     expect(await lockedSend(store, address, '0x02d1')).toEqual({ nonce: 111, error: null });
     const { rows } = await pool.query<{ tx_hash: string }>(
-      'select tx_hash from nonce_outstanding where address = $1 and nonce = 110', [address]);
+      'select tx_hash from nonce_outstanding where address = $1 and nonce = 110',
+      [address]
+    );
     expect(rows[0]?.tx_hash).toBe(keccak256('0x02d0'));
     knownHashes.add(keccak256('0x02d0'));
     await age(address);
@@ -569,7 +678,9 @@ describe('NonceStore', () => {
     knownHashes.delete(keccak256('0x02d0'));
     await age(address);
     expect(await allocate(store, address)).toBe(110);
-    await expect(store.withLock(address, (lease) => lease.next())).rejects.toThrow(/neither tracked/);
+    await expect(store.withLock(address, (lease) => lease.next())).rejects.toThrow(
+      /neither tracked/
+    );
     expect(await store.withLock(address, (lease) => lease.peek())).toBe(113);
   });
 
@@ -580,17 +691,41 @@ describe('NonceStore', () => {
       const chunks: Buffer[] = [];
       req.on('data', (c: Buffer) => chunks.push(c));
       req.on('end', () => {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+          id: number;
+          method: string;
+          params: unknown[];
+        };
         res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify(body.method === 'eth_getTransactionByHash'
-          ? { jsonrpc: '2.0', id: body.id, result: knownOnB.has(String(body.params[0]).toLowerCase()) ? { hash: body.params[0] } : null }
-          : { jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
+        res.end(
+          JSON.stringify(
+            body.method === 'eth_getTransactionByHash'
+              ? {
+                  jsonrpc: '2.0',
+                  id: body.id,
+                  result: knownOnB.has(String(body.params[0]).toLowerCase())
+                    ? { hash: body.params[0] }
+                    : null,
+                }
+              : {
+                  jsonrpc: '2.0',
+                  id: body.id,
+                  error: { code: -32601, message: 'method not found' },
+                }
+          )
+        );
       });
     });
     await new Promise<void>((r) => memberB.listen(0, '127.0.0.1', () => r()));
     const urlB = `http://127.0.0.1:${(memberB.address() as AddressInfo).port}`;
     try {
-      const both = new poolMod.RpcPool({ urls: [rpcUrl, urlB], chainId: 125, lagThresholdBlocks: 20, timeoutMs: 5_000, healthIntervalMs: 60_000 });
+      const both = new poolMod.RpcPool({
+        urls: [rpcUrl, urlB],
+        chainId: 125,
+        lagThresholdBlocks: 20,
+        timeoutMs: 5_000,
+        healthIntervalMs: 60_000,
+      });
       const latest = makeRpc();
       const store = new storeMod.NonceStore({
         pool,
@@ -626,20 +761,45 @@ describe('NonceStore', () => {
       sendError = null;
     }
     const { rows } = await pool.query<{ nonce: string; tx_hash: string }>(
-      'select nonce::text, tx_hash from nonce_outstanding where address = $1', [address]);
+      'select nonce::text, tx_hash from nonce_outstanding where address = $1',
+      [address]
+    );
     expect(rows).toEqual([{ nonce: '130', tx_hash: keccak256('0x02d9') }]);
     const { custodyRefusal } = await import('../src/routes/agentExec.js');
-    expect(custodyRefusal(new poolMod.NonceConflictError(-32000, 'replacement transaction underpriced', null))).toEqual({
-      status: 409, body: { error: 'nonce_conflict', detail: 'replacement transaction underpriced', retry: 'prepare', member: null, members: 0 } });
+    expect(
+      custodyRefusal(
+        new poolMod.NonceConflictError(-32000, 'replacement transaction underpriced', null)
+      )
+    ).toEqual({
+      status: 409,
+      body: {
+        error: 'nonce_conflict',
+        detail: 'replacement transaction underpriced',
+        retry: 'prepare',
+        member: null,
+        members: 0,
+      },
+    });
     await age(address);
     expect(await allocate(store, address)).toBe(130);
   });
 
   it('takes nonce too low as success when our hash is known, as a conflict when latest has not passed our nonce and as nonce consumed when every member has', async () => {
-    const signer = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d');
+    const signer = privateKeyToAccount(
+      '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+    );
     const address = signer.address.toLowerCase();
-    const sign = (nonce: number) => signer.signTransaction({ chainId: 125, type: 'eip1559', nonce, to: ADDRESS, value: 1n, gas: 21_000n,
-      maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+    const sign = (nonce: number) =>
+      signer.signTransaction({
+        chainId: 125,
+        type: 'eip1559',
+        nonce,
+        to: ADDRESS,
+        value: 1n,
+        gas: 21_000n,
+        maxFeePerGas: 2_000_000_000n,
+        maxPriorityFeePerGas: 1_000_000_000n,
+      });
     const store = makeStore();
     const { custodyRefusal } = await import('../src/routes/agentExec.js');
     pendingCount = 140;
@@ -653,23 +813,37 @@ describe('NonceStore', () => {
       expect(conflict.error).toBeInstanceOf(poolMod.NonceConflictError);
       expect(conflict.error).toMatchObject({ member: null, members: 1 });
       const refused = custodyRefusal(conflict.error);
-      expect(refused).toMatchObject({ status: 409, body: { error: 'nonce_conflict', retry: 'prepare', member: null, members: 1 } });
+      expect(refused).toMatchObject({
+        status: 409,
+        body: { error: 'nonce_conflict', retry: 'prepare', member: null, members: 1 },
+      });
       expect(JSON.stringify(refused)).not.toContain('127.0.0.1');
       knownHashes.add(keccak256(raw141));
       expect(await lockedSend(store, address, raw141)).toEqual({ nonce: 141, error: null });
       pendingCount = 143;
-      const consumed = await makeRpc().sendRawTransactionVia(raw142).catch((err: unknown) => err);
+      const consumed = await makeRpc()
+        .sendRawTransactionVia(raw142)
+        .catch((err: unknown) => err);
       expect(consumed).toBeInstanceOf(poolMod.NonceConflictError);
       expect(consumed).not.toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
       expect(consumed).toMatchObject({ consumed: true, nonce: 142, member: null, members: 1 });
-      expect(custodyRefusal(consumed)).toEqual({ status: 409, body: {
-        error: 'nonce_consumed', retry: 'prepare', nonce: 142, member: null, members: 1,
-      } });
+      expect(custodyRefusal(consumed)).toEqual({
+        status: 409,
+        body: {
+          error: 'nonce_consumed',
+          retry: 'prepare',
+          nonce: 142,
+          member: null,
+          members: 1,
+        },
+      });
     } finally {
       sendError = null;
     }
     const { rows } = await pool.query<{ nonce: string; tx_hash: string }>(
-      'select nonce::text, tx_hash from nonce_outstanding where address = $1 order by nonce_outstanding.nonce', [address]);
+      'select nonce::text, tx_hash from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
+      [address]
+    );
     expect(rows).toEqual([
       { nonce: '140', tx_hash: keccak256(raw140) },
       { nonce: '141', tx_hash: keccak256(raw141) },
@@ -677,26 +851,60 @@ describe('NonceStore', () => {
   });
 
   it('answers outcome unknown when a nonce too low classification read fails', async function answersOutcomeUnknownWhenANonceTooLowClassificationReadFails() {
-    const signer = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d');
+    const signer = privateKeyToAccount(
+      '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d'
+    );
     const nonce = 146;
-    const signed = await signer.signTransaction({ chainId: 125, type: 'eip1559', nonce, to: ADDRESS, value: 1n, gas: 21_000n,
-      maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+    const signed = await signer.signTransaction({
+      chainId: 125,
+      type: 'eip1559',
+      nonce,
+      to: ADDRESS,
+      value: 1n,
+      gas: 21_000n,
+      maxFeePerGas: 2_000_000_000n,
+      maxPriorityFeePerGas: 1_000_000_000n,
+    });
     const hash = keccak256(signed);
     sendError = 'nonce too low: next nonce 150, tx nonce 146';
     try {
       for (const failure of ['hash lookup', 'latest count']) {
         hashLookupHangs = failure === 'hash lookup';
         countReadFails = failure === 'latest count';
-        const rpc = new poolMod.RpcPool({ urls: [rpcUrl], sequencerUrl: rpcUrl, chainId: 125,
-          lagThresholdBlocks: 20, timeoutMs: 500, healthIntervalMs: 60_000 });
+        const rpc = new poolMod.RpcPool({
+          urls: [rpcUrl],
+          sequencerUrl: rpcUrl,
+          chainId: 125,
+          lagThresholdBlocks: 20,
+          timeoutMs: 500,
+          healthIntervalMs: 60_000,
+        });
         const error = await rpc.sendRawTransactionVia(signed).catch((err: unknown) => err);
         expect(error, failure).toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
         expect(error, failure).not.toBeInstanceOf(poolMod.RpcUnavailableError);
         expect(error, failure).not.toBeInstanceOf(poolMod.NonceConflictError);
-        expect(error, failure).toMatchObject({ hash, nonce, code: -32000, message: sendError, member: null, members: 1 });
-        expect(poolMod.outcomeUnknownBody(error as InstanceType<PoolModule['BroadcastOutcomeUnknownError']>), failure).toEqual({
-          error: 'outcome_unknown', tx_hash: hash, nonce, retry: 'poll_receipt', poll: 'eth_getTransactionReceipt',
-          must_not_resubmit: true, member: null, members: 1,
+        expect(error, failure).toMatchObject({
+          hash,
+          nonce,
+          code: -32000,
+          message: sendError,
+          member: null,
+          members: 1,
+        });
+        expect(
+          poolMod.outcomeUnknownBody(
+            error as InstanceType<PoolModule['BroadcastOutcomeUnknownError']>
+          ),
+          failure
+        ).toEqual({
+          error: 'outcome_unknown',
+          tx_hash: hash,
+          nonce,
+          retry: 'poll_receipt',
+          poll: 'eth_getTransactionReceipt',
+          must_not_resubmit: true,
+          member: null,
+          members: 1,
         });
       }
     } finally {
@@ -709,7 +917,13 @@ describe('NonceStore', () => {
   it('drops a member that failed every request for longer than the grace period out of the not-known quorum and never drops the last answer', async () => {
     const address = '0x00000000000000000000000000000000000000d8';
     const dead = 'http://127.0.0.1:1';
-    const withDead = new poolMod.RpcPool({ urls: [rpcUrl, dead], chainId: 125, lagThresholdBlocks: 20, timeoutMs: 2_000, healthIntervalMs: 60_000 });
+    const withDead = new poolMod.RpcPool({
+      urls: [rpcUrl, dead],
+      chainId: 125,
+      lagThresholdBlocks: 20,
+      timeoutMs: 2_000,
+      healthIntervalMs: 60_000,
+    });
     const latest = makeRpc();
     const store = new storeMod.NonceStore({
       pool,
@@ -727,13 +941,29 @@ describe('NonceStore', () => {
     expect(blocked).toBeInstanceOf(storeMod.NonceUnresolvedError);
     expect(blocked).toMatchObject({ nonce: 170, unreachable: [1], memberCount: 2 });
     const realNow = Date.now.bind(Date);
-    const later = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + BROADCAST_GRACE_MS + 1_000);
+    const later = vi
+      .spyOn(Date, 'now')
+      .mockImplementation(() => realNow() + BROADCAST_GRACE_MS + 1_000);
     try {
       expect(await allocate(store, address)).toBe(170);
-      const alone = new poolMod.RpcPool({ urls: [dead], chainId: 125, lagThresholdBlocks: 20, timeoutMs: 2_000, healthIntervalMs: 60_000 });
-      expect(await alone.lookupTransaction(keccak256('0x02d8'), null)).toEqual({ known: false, unreachable: [0], members: 1 });
+      const alone = new poolMod.RpcPool({
+        urls: [dead],
+        chainId: 125,
+        lagThresholdBlocks: 20,
+        timeoutMs: 2_000,
+        healthIntervalMs: 60_000,
+      });
+      expect(await alone.lookupTransaction(keccak256('0x02d8'), null)).toEqual({
+        known: false,
+        unreachable: [0],
+        members: 1,
+      });
       later.mockImplementation(() => realNow() + 3 * BROADCAST_GRACE_MS);
-      expect(await alone.lookupTransaction(keccak256('0x02d8'), null)).toEqual({ known: false, unreachable: [0], members: 1 });
+      expect(await alone.lookupTransaction(keccak256('0x02d8'), null)).toEqual({
+        known: false,
+        unreachable: [0],
+        members: 1,
+      });
     } finally {
       later.mockRestore();
     }
@@ -743,12 +973,21 @@ describe('NonceStore', () => {
     const { runMigrations } = await import('../src/db/migrate.js');
     const migrations = join(gatewayDir, 'migrations');
     const seed = readFileSync(join(migrations, '015_nonce_outstanding_seed.sql'), 'utf8');
-    const shipped = 'delete from nonce_outstanding where tx_hash is null;\nalter table nonce_allocations drop column if exists outstanding_seeded;\n';
-    const schema = async () => (await pool.query(
-      `select table_name, column_name, data_type, is_nullable, column_default from information_schema.columns
-        where table_name in ('nonce_allocations', 'nonce_outstanding') order by table_name, column_name`)).rows;
-    const applied = async () => (await pool.query<{ filename: string }>(
-      "select filename from _migrations where filename like '01_\\_nonce%' order by filename")).rows.map((r) => r.filename);
+    const shipped =
+      'delete from nonce_outstanding where tx_hash is null;\nalter table nonce_allocations drop column if exists outstanding_seeded;\n';
+    const schema = async () =>
+      (
+        await pool.query(
+          `select table_name, column_name, data_type, is_nullable, column_default from information_schema.columns
+        where table_name in ('nonce_allocations', 'nonce_outstanding') order by table_name, column_name`
+        )
+      ).rows;
+    const applied = async () =>
+      (
+        await pool.query<{ filename: string }>(
+          "select filename from _migrations where filename like '01_\\_nonce%' order by filename"
+        )
+      ).rows.map((r) => r.filename);
     const address = '0x00000000000000000000000000000000000000d9';
     const { BROADCAST_GRACE_MS } = await import('../src/chain.js');
 
@@ -757,63 +996,147 @@ describe('NonceStore', () => {
     await pool.query(
       `insert into nonce_outstanding (address, nonce, tx_hash, created_at) values
          ($1, 180, null, now() - make_interval(secs => $2::double precision / 1000 + 5)), ($1, 181, null, now())`,
-      [address, BROADCAST_GRACE_MS]);
+      [address, BROADCAST_GRACE_MS]
+    );
     const { rows: before } = await pool.query<{ nonce: string; created_at: Date }>(
-      'select nonce::text, created_at from nonce_outstanding where address = $1 order by nonce_outstanding.nonce', [address]);
+      'select nonce::text, created_at from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
+      [address]
+    );
     await runMigrations();
     const fromSeed = await schema();
     expect(fromSeed.some((c) => c.column_name === 'outstanding_seeded')).toBe(false);
     const { rows: after } = await pool.query<{ nonce: string; created_at: Date }>(
-      'select nonce::text, created_at from nonce_outstanding where address = $1 order by nonce_outstanding.nonce', [address]);
+      'select nonce::text, created_at from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
+      [address]
+    );
     expect(after).toEqual(before);
     pendingCount = 180;
     const store = makeStore();
     expect(await allocate(store, address)).toBe(180);
     expect(await allocate(store, address)).toBe(182);
 
-    await pool.query("delete from _migrations where filename in ('015_nonce_outstanding_seed.sql', '016_nonce_outstanding_hash.sql')");
-    await pool.query("insert into _migrations (filename) values ('015_nonce_outstanding_hash.sql')");
+    await pool.query(
+      "delete from _migrations where filename in ('015_nonce_outstanding_seed.sql', '016_nonce_outstanding_hash.sql')"
+    );
+    await pool.query(
+      "insert into _migrations (filename) values ('015_nonce_outstanding_hash.sql')"
+    );
     await pool.query(shipped);
     await runMigrations();
     expect(await schema()).toEqual(fromSeed);
-    expect(await applied()).toEqual(['014_nonce_outstanding.sql', '015_nonce_outstanding_hash.sql', '015_nonce_outstanding_seed.sql', '016_nonce_outstanding_hash.sql']);
+    expect(await applied()).toEqual([
+      '014_nonce_outstanding.sql',
+      '015_nonce_outstanding_hash.sql',
+      '015_nonce_outstanding_seed.sql',
+      '016_nonce_outstanding_hash.sql',
+    ]);
   });
 
-  it('retries a timed-out send on another member with the same bytes and takes already known as our hash', async () => {
+  it('retains a timed-out write for durable reconciliation without writing to read members', async () => {
     const address = '0x00000000000000000000000000000000000000d7';
-    const sentToB: string[] = [];
-    const memberB = createServer((req, res) => {
-      const chunks: Buffer[] = [];
-      req.on('data', (c: Buffer) => chunks.push(c));
-      req.on('end', () => {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
-        if (body.method === 'eth_sendRawTransaction') sentToB.push(String(body.params[0]));
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(JSON.stringify(body.method === 'eth_sendRawTransaction'
-          ? { jsonrpc: '2.0', id: body.id, error: { code: -32000, message: 'already known' } }
-          : { jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
-      });
+    const raw = await privateKeyToAccount(`0x${'17'.repeat(32)}`).signTransaction({
+      type: 'eip1559',
+      chainId: 125,
+      nonce: 160,
+      to: '0x000000000000000000000000000000000000c0de',
+      value: 1n,
+      gas: 21000n,
+      maxFeePerGas: 2n,
+      maxPriorityFeePerGas: 1n,
     });
-    await new Promise<void>((r) => memberB.listen(0, '127.0.0.1', () => r()));
+    const hash = keccak256(raw);
+    const writes: string[] = [];
+    const otherReaderWrites: string[] = [];
+    const readerStart = readerWrites.length;
+    const writeNode = createServer(async (req, res) => {
+      let text = '';
+      for await (const chunk of req) text += chunk;
+      const body = JSON.parse(text);
+      if (body.method === 'eth_sendRawTransaction') {
+        writes.push(body.params[0]);
+        knownHashes.add(keccak256(body.params[0]));
+        return; // Accepted by the node, but its response is lost.
+      }
+      res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: null }));
+    });
+    const memberB = createServer(async (req, res) => {
+      let text = '';
+      for await (const chunk of req) text += chunk;
+      const body = JSON.parse(text);
+      if (body.method === 'eth_sendRawTransaction') otherReaderWrites.push(body.params[0]);
+      const result =
+        body.method === 'eth_blockNumber'
+          ? '0x64'
+          : body.method === 'eth_getTransactionCount'
+            ? '0xa0'
+            : body.method === 'eth_getTransactionByHash' && knownHashes.has(body.params[0])
+              ? { hash: body.params[0] }
+              : null;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result }));
+    });
+    await new Promise<void>((resolve) => writeNode.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) => memberB.listen(0, '127.0.0.1', resolve));
+    const writeUrl = `http://127.0.0.1:${(writeNode.address() as AddressInfo).port}`;
     const urlB = `http://127.0.0.1:${(memberB.address() as AddressInfo).port}`;
-    const store = makeStore();
+    const rpc = new poolMod.RpcPool({
+      urls: [rpcUrl, urlB],
+      sequencerUrl: writeUrl,
+      chainId: 125,
+      lagThresholdBlocks: 20,
+      timeoutMs: 150,
+      healthIntervalMs: 60_000,
+    });
     pendingCount = 160;
-    sendHangs = true;
     try {
-      const both = new poolMod.RpcPool({ urls: [rpcUrl, urlB], chainId: 125, lagThresholdBlocks: 20, timeoutMs: 150, healthIntervalMs: 60_000 });
+      const store = makeStore();
       const sent = await store.withLock(address, async (lease) => {
         const nonce = await lease.next();
-        return { nonce, ...(await storeMod.broadcastReserved(lease, nonce, '0x02f9', (r) => both.sendRawTransactionVia(r))) };
+        return {
+          nonce,
+          ...(await storeMod.broadcastReserved(lease, nonce, raw, (bytes) =>
+            rpc.sendRawTransactionVia(bytes)
+          )),
+        };
       });
-      expect(sent).toEqual({ nonce: 160, hash: keccak256('0x02f9'), error: null });
-      expect(sentToB).toEqual(['0x02f9']);
+      expect(sent.nonce).toBe(160);
+      expect(sent.hash).toBeNull();
+      expect(sent.error).toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
+      expect(writes).toEqual([raw]);
+      expect(readerWrites.slice(readerStart)).toEqual([]);
+      expect(otherReaderWrites).toEqual([]);
+      const before = await pool.query(
+        'select nonce::text, tx_hash from nonce_outstanding where address = $1',
+        [address]
+      );
+      expect(before.rows).toEqual([{ nonce: '160', tx_hash: hash }]);
+      await age(address);
+      await pool.end();
+      pool = new pg.Pool({ connectionString: pgServer.url, max: 20 });
+      const recovered = makeStore();
+      await recovered.withLock(address, async (lease) => {
+        expect(await lease.peek()).toBe(161);
+        await expect(lease.reserveClientNonce(160)).rejects.toBeInstanceOf(
+          storeMod.NonceOutstandingError
+        );
+      });
+      expect(
+        (
+          await pool.query(
+            'select nonce::text, tx_hash from nonce_outstanding where address = $1',
+            [address]
+          )
+        ).rows
+      ).toEqual(before.rows);
+      expect(writes).toEqual([raw]);
+      expect(readerWrites.slice(readerStart)).toEqual([]);
+      expect(otherReaderWrites).toEqual([]);
     } finally {
-      sendHangs = false;
-      await new Promise<void>((r) => memberB.close(() => r()));
+      rpc.stop();
+      writeNode.closeAllConnections();
+      await new Promise<void>((resolve) => writeNode.close(() => resolve()));
+      await new Promise<void>((resolve) => memberB.close(() => resolve()));
     }
-    const { rows } = await pool.query<{ nonce: string; tx_hash: string }>(
-      'select nonce::text, tx_hash from nonce_outstanding where address = $1', [address]);
-    expect(rows).toEqual([{ nonce: '160', tx_hash: keccak256('0x02f9') }]);
   });
 
   it('broadcasts a setup transaction under the lock, freeing a rejected nonce and holding a conflicting one', async () => {
@@ -822,8 +1145,15 @@ describe('NonceStore', () => {
     const rpc = makeRpc();
     const { sendSetupTransaction, ProvisionError } = await import('../src/provision/state.js');
     const persisted: Array<string | null> = [];
-    const send = (raw: `0x${string}`) => sendSetupTransaction({ nonces: store, rpc }, address, async () => raw,
-      async (signed) => { persisted.push(signed); });
+    const send = (raw: `0x${string}`) =>
+      sendSetupTransaction(
+        { nonces: store, rpc },
+        address,
+        async () => raw,
+        async (signed) => {
+          persisted.push(signed);
+        }
+      );
     pendingCount = 150;
     sendError = 'insufficient funds for gas * price + value';
     const rejected = await send('0x02f0').catch((err: unknown) => err);
@@ -838,8 +1168,14 @@ describe('NonceStore', () => {
     sendError = null;
     const sent = await send('0x02f2');
     expect(sent).toEqual({ kind: 'sent', raw: '0x02f2', hash: keccak256('0x02f2'), error: null });
-    const { rows } = await pool.query<{ nonce: string; tx_hash: string | null; member: string | null }>(
-      'select nonce::text, tx_hash, member from nonce_outstanding where address = $1 order by nonce_outstanding.nonce', [address]);
+    const { rows } = await pool.query<{
+      nonce: string;
+      tx_hash: string | null;
+      member: string | null;
+    }>(
+      'select nonce::text, tx_hash, member from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
+      [address]
+    );
     expect(rows).toEqual([
       { nonce: '150', tx_hash: keccak256('0x02f1'), member: null },
       { nonce: '151', tx_hash: keccak256('0x02f2'), member: rpcUrl },
@@ -847,8 +1183,14 @@ describe('NonceStore', () => {
     sendHangs = true;
     const slow = makeRpc(150);
     try {
-      const kept = await sendSetupTransaction({ nonces: store, rpc: slow }, address, async () => '0x02f3',
-        async (signed) => { persisted.push(signed); });
+      const kept = await sendSetupTransaction(
+        { nonces: store, rpc: slow },
+        address,
+        async () => '0x02f3',
+        async (signed) => {
+          persisted.push(signed);
+        }
+      );
       expect(kept.kind).toBe('kept');
       expect(kept.error).not.toBeNull();
     } finally {
