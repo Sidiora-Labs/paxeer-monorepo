@@ -175365,7 +175365,7 @@ do_5 = "Attempt 3 (continue, gotcha 3133, decision 2592): attempt 2 stands in fu
 
 [task.22.31.529]
 title = "Give the web suite's recorded payer the approval resources the hold path requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.527", "22.31.531", "22.31.536", "22.31.537"]
