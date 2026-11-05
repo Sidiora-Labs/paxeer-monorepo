@@ -1,0 +1,185 @@
+[repair.22.33.338]
+mode = "BUILD"
+base_revision = "4de64521366a4ade389cffe6160ce07fdebf1cdf"
+acceptance = "22998.1"
+verify = "pnpm --dir apps/web exec tsc --noEmit && pnpm --dir apps/web exec node --test e2e/repair-22-33-338.test.ts"
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no qualification is claimed before those gates run."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and prohibit running verify_cmd by hand; these take precedence over do_9's contradictory baseline request. No pre-change test failure is claimed."
+
+[finding.receipt-env-proof-retired-target]
+test = "repair-22-33-338.test.ts:receipt_env_proof_retired_target"
+repair = "Current receipt targets require the resolved native transaction hash and lead to /tx/<hash>; the environment proof reads and authenticates a native receipt over root JSON-RPC, validates the public origin on each read, and refuses obsolete settings and malformed identifiers."
+
+[finding.receipt-consumer-proof-retired-target]
+test = "repair-22-33-338.test.ts:receipt_consumer_proof_retired_target"
+repair = "The production ExplorerExternalLink renders the exact native transaction destination from freshly authenticated receipt bytes, hash, block and logs; receipt digests are deliberately different from the transaction hash. Only an explicit historical-receipt identity with frozen:true reaches the archive."
+
+[finding.kit-separate-layerx-finality]
+test = "repair-22-33-338.test.ts:kit_separate_layerx_finality; proof_kit.test.ts:kit_producers_reach_home_consumers_twice"
+repair = "Both proofs require Finalised in a committed Paxeer block; the focused proof verifies the recorded receipt signature, native transaction inclusion and linked Comet commits, and refuses missing signatures and corrupt transaction inclusion before rendering the real kit copy consumer."
+state = "The scoped catalogue and generated runtime describe committed Paxeer block finality. The production verifiedReceiptWord adapter authenticates the receipt and verifies committed inclusion before selecting finality copy; missing signatures and corrupt inclusion reject rather than render finality."
+
+[finding.support-fixture-route-shape]
+test = "repair-22-33-338.test.ts:support_fixture_route_shape; support.spec.ts:message delivery states"
+repair = "SupportChatSession and the generated client/codec cross real loopback HTTP at /human/v1/support/conversations, replies, feedback, status and read, preserving service envelopes and typed refusals. Socket interruption and typed failure retain the failed message and next draft, and retry reuses its request identity. Browser cases use a public session and the real conversation producer, require exact request observation and validate reply/feedback envelopes."
+limitation = "The loopback peer replays committed Human API golden contracts through the generated encoder, not a running Rust service. A public browser session cannot manufacture an operator reply; the browser feedback case requires the Human fixture wiring below."
+
+[finding.sponsored-retired-transport]
+test = "repair-22-33-338.test.ts:sponsored_retired_transport_reopens_recovery; wallet-sponsored-receipt.test.ts:resumed_submission_reports_receipt"
+repair = "The shared sponsored fixture gives hosted wallet operations and node RPC distinct loopback origins, rejects foreign methods and paths at both servers, requires hosted bearer authentication and prevents bearer leakage to public RPC. It disconnects the provider, closes SQLite, reopens the same file and constructs a fresh provider before repeated read-only recovery; pending context is byte-identical and neither signing nor submission repeats. Completion authenticates the unchanged signed/committed native receipt and clears recovery context. Existing send, revert, cancellation, receipt-unavailable and stale-context assertions remain."
+limitation = "Native receipt authenticity and restart-safe consumer recovery are proven; the signed native recordings are independent node transactions, not a capture of funded sponsored execution. The hosted signer uses real viem digest/signature code; the station status peer is an in-memory contract fixture."
+
+[fixtures]
+native = "sdk/platform/conformance/fixtures/vector-v4-committed.json and sequencer-receipt-v1.json; daemon/committed-fixture/vectors/vector-v4-committed.json (existing node recordings, unchanged cryptographic bytes)."
+support = "services/human/schema/human-api/golden/support.*.json (existing generated contracts, unchanged create/reply/feedback/error envelopes; list projection uses the production generated encoder)."
+recovery = "A real temporary SQLite file is closed and reopened through node:sqlite; the production wallet submission module and PaxeerProvider are recreated against the same persisted entries."
+
+[wiring]
+home_errors = "apps/web/src/journeys/home/home.tsx — Web home/states domain: route actual /human/v1/home errors through the shared error surface so its support and report controls expose the trace; retain the browser assertions until that consumer is wired."
+kit = "apps/web/src/journeys/home/model.ts — Web home domain: feed native signed receipt and committed evidence through the verifiedReceiptWord adapter when replacing the legacy balance verification projection."
+receipt_pages = "apps/web/src/explorer/components.tsx and apps/web/src/app/explorer/receipts — Web explorer domain: resolve a current receipt's native transaction before constructing its external target; keep frozen archive presentation explicitly historical."
+support_operator = "services/human/crates/layerx-human-service/src/support.rs and apps/web/e2e/production-fixture.ts — Human service and Web fixture domains: call SupportService::record_support_reply for the conversation created by the authenticated public browser session before its next list read, and export a credential-free producer transcript."
+sponsored_capture = "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts — Wallet gateway domain: publish matching sponsored submit/status, native raw transaction and authenticated committed receipt transcripts, including a producer restart, for a complete funded sponsorship execution proof."
+
+[gotchas]
+ordered_gates = "The task's baseline-test step conflicts with implementation-before-testing and the gate-only run order; follow the ordered gates and do not invent a baseline result."
+copy_scope = "Attempt 6 explicitly includes apps/web/copy and apps/web/src/kit/model.ts; catalogue and verified receipt presentation are repaired here instead of carrying the earlier copy wiring request forward."
+producer_boundary = "Public support replies belong to the person; only SupportService::record_support_reply can create a support-authored message. A bare invented list cannot prove this interface."
+
+[qualification.build]
+revision = "b02353b622e9b8e3534ced603c626f8ce297eb89"
+command = "pnpm --dir apps/web exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The declared build reports TS2379 at sdk/wallet/src/receipt.ts:690: { signal: AbortSignal | undefined } is incompatible with JsonRpcRequestOptions under exactOptionalPropertyTypes; no scoped-file diagnostics were reported."
+assumption = "This unchanged SDK file is outside the task scope; repairing it, widening its type, bypassing its source check or rerunning the unchanged failed gate is prohibited. Verification requires a passing build and has not run."
+
+[wiring.build_blocker]
+request = "sdk/wallet/src/receipt.ts:690 — Wallet SDK domain: omit the signal property when undefined before calling readSequencerReceipt; retain exactOptionalPropertyTypes and the existing option type."
+
+[gotcha.sdk_typecheck]
+observed = "The web tsconfig follows @paxeer/wallet into SDK sources, so an unchanged SDK exactOptionalPropertyTypes violation prevents the allowed web build from passing."
+action = "Record the out-of-scope diagnostic and evidence; do not widen a type, disable the check or edit the SDK from a web e2e task."
+
+[continuation.attempt_2]
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+implementation = "Retain the inherited scoped repair and the landed native receipt targets; integrate authenticated receipt proof reads and explicit frozen historical targets while resolving every merge marker."
+prior_blocker = "Task 22.31.456 has landed the SDK optional-signal repair; qualify this candidate through hf-build and hf-done without repeating the historical failed gate by hand."
+copy_dependency = "The current copy catalogue still says Finalised on LayerX; the committed Paxeer wording assertion remains unchanged and the out-of-scope copy-domain wiring request above remains outstanding."
+
+[gotcha.seed_merge]
+observed = "The continued repair overlaps landed native receipt-link changes and contains conflict markers in five scoped files."
+action = "Preserve the landed native transaction route and all origin and identifier refusals; integrate the inherited authenticated receipt reads and frozen historical identity beside them before qualification."
+
+[qualification.attempt_2_build]
+revision = "9f6cfb0741391f4965b52dae3ea185c267d56a5a"
+command = "pnpm --dir apps/web exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "TS2307 in the pre-existing e2e/repair-22-33-897.test.ts:8:24: cannot find ../src/app/exchange/node_modules/happy-dom/lib/index.js or its corresponding type declarations; no diagnostics name this task's repair files."
+assumption = "The exchange dependency installation belongs to another task; preserve its import and assertions, record this unrelated failure once, and leave verification unrun because hf-done requires a passing build."
+
+[wiring.attempt_2_build_blocker]
+request = "apps/web/src/app/exchange/package.json and its dependency installation — Web exchange domain: make the declared happy-dom package available to the existing repair-22-33-897 proof without weakening its DOM assertions."
+
+[gotcha.unrelated_exchange_dependency]
+observed = "The web type-check includes the existing repair-22-33-897 test, whose happy-dom import requires the exchange app's nested dependency tree."
+action = "Keep this task's scoped implementation and record the exact unrelated build evidence; do not chase or rerun the unchanged failure, change another repair's tests, or claim verification."
+
+[qualification.continuation_build]
+revision = "13e0d6f008da08ea463e144920043c2facef39c2"
+command = "pnpm --dir apps/web exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The pre-existing e2e/repair-22-33-897.test.ts:8:24 still reports TS2307 for ../src/app/exchange/node_modules/happy-dom/lib/index.js; no diagnostic names this task's files."
+assumption = "The unrelated exchange dependency failure is recorded without repair or another gate run; hf-done requires a passing build, so verification did not run and this task remains unqualified."
+
+[continuation.attempt_5]
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+implementation = "Reviewed and retained all fifteen carried-over repair paths, including real receipt authentication, support contract transport, and persisted provider recovery; no historical gate result is claimed for this candidate."
+dependency = "Task 22.31.469 now declares happy-dom in apps/web/package.json; qualify through hf-build and hf-done on the current candidate."
+scope = "The finality catalogue still carries retired wording outside the allowed paths; preserve the committed Paxeer wording assertion and the existing copy-domain wiring request."
+
+[qualification.attempt_5_build]
+revision = "39713f020e8366941cca00a05ef1f3be2a08dca1"
+command = "pnpm --dir apps/web exec tsc --noEmit"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "The declared build passes; the previous happy-dom dependency blocker is cleared."
+
+[qualification.attempt_5_verify]
+revision = "39713f020e8366941cca00a05ef1f3be2a08dca1"
+command = "cg spec done 22.33.338 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All five tests execute: support passes; both receipt-link tests fail SDK receipt authentication, sponsored recovery returns unconfirmed, and the kit consumer renders Finalised on LayerX."
+assumption = "Preserve every assertion and recorded signature; the missing matching-chain producer recording and existing copy catalogue require out-of-scope wiring, so unchanged failures are recorded without another gate or completion claim."
+
+[wiring.attempt_5_receipt_recording]
+request = "daemon/committed-fixture/vectors/vector-v4-committed.json and sdk/platform/conformance/fixtures/vector-v4-committed.json — Chain conformance domain: publish a matching chain-125 committed transaction, receipt, governed key and inclusion transcript accepted by sdk/wallet/src/receipt.ts; the current legacy transaction encodes another chain ID and must not be re-signed or have its authenticated fields rewritten here."
+
+[gotcha.committed_recording_chain]
+observed = "The committed conformance recording passes the generic signature/inclusion verifier but authenticateSequencerReceipt rejects its transaction layout because the wallet requires chain 125; PaxeerProvider also authenticates receipt data during pending sponsored status reads."
+action = "Keep the real provider and authentication checks intact, request a matching producer recording from the owning domain, and retain the exact failed qualification evidence."
+
+[continuation.attempt_6]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+prior_failures = "The supplied attempt-5 ruling reports sponsored_retired_transport_reopens_recovery, receipt_consumer_proof_retired_target and kit_separate_layerx_finality failing; no new baseline gate is run outside the required hf-build/hf-done sequence."
+implementation = "Keep all inherited repairs, serve eth_getTransactionReceipt on the public root node with exact hash and no hosted bearer token, and require the confirmed receipt before and after reopening persisted recovery. Hosted wallet paths require authentication and refuse root JSON-RPC. Change the scoped finality catalogue and its generated runtime, and drive the production verification-to-copy adapter with valid and invalid committed evidence. Native link assertions retain the committed producer's /tx/<hash> route and explicit frozen archive identity."
+evidence = "The private runner ledger records this candidate's exact hf-build and hf-done revision, command, exit and log; historical qualification sections above are prior-attempt evidence only."
+
+[gotcha.node_receipt_ownership]
+observed = "The inherited split-origin fixture rejected eth_getTransactionReceipt at the node even though the production provider polls it there; hosted-only receipt handling produced an unconfirmed send."
+action = "Serve and observe the receipt poll at the root node origin, retain hosted authentication boundaries, and assert the full confirmed receipt through reopened storage without another submission."
+
+[qualification.attempt_6_verify]
+revision = "acef2d318dce689442906ab7a6f3bed178878d71"
+command = "cg spec done 22.33.338 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The same candidate passes hf-build; kit and support pass verification, while both receipt proofs fail transaction-or-receipt-layout authentication and sponsored recovery reports unconfirmed because its provider authenticates that same incompatible recording."
+assumption = "The pre-existing committed recording encodes chain 6 while sdk/wallet/src/receipt.ts requires chain 125; preserve signed bytes, the production authentication check and all assertions, retain the existing owning-domain recording request, and do not rerun or chase the recorded unrelated failure."
+
+[continuation.attempt_7]
+base_revision = "19a27bf2d7e3308503bf7adf19e866efefdd5d0f"
+implementation = "The native receipt peer now takes settlement.raw_transaction and settlement.receipt from the same daemon recording and checks the conformance signing pin against that receipt before use. The sponsored root node serves that pair when receiptStatus is 0x1, retains exact hash and method ownership checks, and preserves the four eth_getTransactionReceipt polls and fresh-provider SQLite recovery assertions."
+support_merge = "Resolved all five support.spec.ts conflicts by retaining the current in-memory support producer and operator reply API, integrating the public authenticated session, exact route observation, service-envelope decoding, retained draft retry and feedback assertions beside it."
+prior_wiring = "The support_operator fixture request above is satisfied by the landed apps/web/src/support/service.fixture.ts producer; it is used without out-of-scope edits. Earlier attempt sections are historical evidence, not claims about this candidate."
+stop = "If the daemon's own pair is refused by production authentication, record the rejecting field here and stop as directed; never rewrite the recording or weaken the production authentication or test assertions."
+
+[qualification.attempt_7_verify]
+revision = "384320ec687c31546e09bf6f6cd69ccb267bfe77"
+command = "cg spec done 22.33.338 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this revision; all five tests executed, finality passed and four failed: both native receipt proofs report transaction-or-receipt-layout mismatch, sponsored recovery remains unconfirmed, and support initialization reports failed instead of ready."
+assumption = "Stop under do_16: even the daemon's own raw transaction and receipt are refused; the recorded legacy signature v=0x15c808 encodes chainId 713714, violating sdk/wallet/src/receipt.ts transaction.chainId === 125; preserve cryptographic bytes and all assertions."
+
+[wiring.attempt_7_producer_drift]
+request = "daemon/committed-fixture/vectors/vector-v4-committed.json and sdk/platform/conformance/fixtures/vector-v4-committed.json — Chain conformance domain: supply a chain-125 committed transaction/receipt/key recording accepted by Wallet SDK authentication; the current daemon pair encodes EIP-155 chainId 713714."
+
+[gotcha.attempt_7_recording_identity]
+observed = "The daemon settlement raw transaction and conformance positive raw transaction are byte-identical on this base, so selecting settlement.raw_transaction correctly preserves producer identity but cannot resolve the native chainId mismatch."
+action = "Recorded the rejecting field and stopped under the supplied continuation ruling without producer edits, assertion changes or unchanged gate reruns; the support initialization failure is also retained in the exact verify log without further investigation."
+
+[continuation.attempt_9]
+base_revision = "4de64521366a4ade389cffe6160ce07fdebf1cdf"
+implementation = "Retain the three passing receipt and sponsored cases unchanged. Decode null vote signatures to empty bytes only in the recorded vote decoder, preserving flags and addresses; assert that the absent vote survives decoding."
+support = "The production session verifies accountBalance before supportList and requires a principal-scoped pending journal. Serve the committed account.balance response, supply an in-memory journal through SupportChatSessionOptions.storage, and inject typed or socket failures only on support operations. Assert the account and conversation GET sequence and expose handler errors before load assertions and in HTTP 500 bodies."
+qualification = "Run only hf-build then hf-done; their private ledger supplies the exact candidate revision, command, exit and log. Existing qualification sections describe earlier attempts only."
+
+[gotcha.attempt_9_support_principal]
+observed = "The continued loopback fixture admits support paths only, but production SupportChatSession.initialize first calls /human/v1/account/balance and then reads its pending journal."
+action = "Replay the committed account response and provide real in-memory storage through the production option, keep account requests outside support failure injection, and assert handler errors before the consumer load state."
+
+[qualification.attempt_9_initial_verify]
+revision = "16d08374346dd6760b9f68334f6718a79b816cd9"
+command = "cg spec done 22.33.338 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and four focused cases passed; the finality case reached verified committed evidence but expected signedPower to equal totalPower, while this recording has exactly 7000000000 signed and 7000000001 total power."
+assumption = "The chain-125 recording deliberately includes a one-power absent validator; retain it and assert both exact producer values, with an additional absent-vote-only commit refusal, rather than assuming every validator signed."
+
+[gotcha.attempt_9_recorded_power]
+observed = "Decoding the absent vote reveals the old fixture's unanimous-power expectation disagrees with the re-recorded committed quorum by one unit of voting power."
+action = "Assert the exact recorded signed and total powers independently, preserve the absent vote, and require verification to refuse an absent-vote-only commit as well as the existing missing-signature and corrupt-inclusion cases."

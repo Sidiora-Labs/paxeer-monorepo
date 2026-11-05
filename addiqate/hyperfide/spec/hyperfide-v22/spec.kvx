@@ -1,0 +1,1023 @@
+# hyperfide-v22 — the master agent orchestration system: the ported platform runtime under platform/, governed by Hyperfide.
+# Requirements, decisions, design, then the task list. Every task runs in its own Railway sandbox; this host runs only the
+# orchestrator and one feature manager per wave.
+
+[meta]
+feature     = "hyperfide-v22"
+name        = "Hyperfide 2.2: platform runtime under Hyperfide authority"
+version     = "2.2.0-dev"
+status      = "in_progress"
+review_date = "2026-10-23"
+intro       = "A multi-surface agent platform (server, web app, desktop, host daemon, provider bridges, plugin SDK and plugins) was ported verbatim under platform/ at ce200df4. This feature renames it to Hyperfide identity, wires the hyperfide binary, spec, Asks, qualification and fleet into it as plugins, moves authority state to PostgreSQL, and closes with slices, memory and a release. The ported runtime serves; Hyperfide's spec, Asks, qualification and graph govern."
+
+[decisions]
+d_1 = "RULED by the owner on 2026-10-23: Hyperfide stays the repository. The ported runtime lives under platform/ in this repository and carries Hyperfide identity throughout; nothing is renamed at the repository level."
+d_2 = "RULED by the owner on 2026-10-23: the ported code is attributed by its MIT licence in licenses/bb/LICENSE and nowhere else; no other mention of its former name, scope, domain or identifiers remains in the repository once wave 0 closes; no upstream compatibility is kept and no rebases happen."
+d_3 = "RULED by the owner on 2026-10-23: every task of every wave runs in a Railway sandbox (Blaxel as the fallback), launched as soon as its requires are merged, so waves overlap; this host runs only the orchestrator and one feature manager per wave. No local worker agents."
+d_4 = "Flagged (proceeding on the recommendation): hyperfide-v21 is frozen at 38067d0d with its failure ledger; its fleet rules D20 to D27 and the deploy/hyperfide/sandbox toolkit are inputs to waves 0 and 5."
+d_5 = "Flagged (proceeding on the recommendation): plugin-private SQLite is the store through wave 5; the PostgreSQL authority arrives at wave 6 behind the same plugin storage interface."
+d_6 = "Flagged (proceeding on the recommendation): third-party telemetry and the hosted connect gates are removed, not disabled; git worktrees stay the environment through wave 6 and slices arrive at wave 7."
+d_7 = "Flagged (proceeding on the recommendation): the platform runs on the repository's existing Node 24 pin (its engines field allows it); there is no second Node pin and no .nvmrc for 22."
+d_8 = "Flagged (proceeding on the recommendation): the ported command-line tool becomes the hyperfide-platform binary of platform/apps/cli and is folded under the C front door as `hyperfide platform <args>`; the C binary stays the single entry point."
+d_10 = "Launch policy: a task launches when every task it requires is merged into the integration branch with status implemented or done; qualification (`hyperfide spec done` in a sandbox) follows the merge and never holds dependants, as hyperfide-v21 ruled. Tasks that edit existing platform code (0.3, 0.5, 0.6) run beside the scope rename 0.2 and the final sweep 0.7 reconciles; every task that writes new platform TypeScript requires 0.2 so it is born in the @hyperfide scope."
+d_9 = "Flagged (proceeding on the recommendation): the exact former identifiers exist in the repository only inside the encoded pattern list of tests/hyperfide/cases/v22/identity_gate.py, so that the repository text itself stays clean; the rename map under platform/tools/rename is deleted by task 0.7 once applied."
+
+[req.1]
+title = "The ported runtime builds, tests and ships under Hyperfide identity"
+story = "As the owner, I need the ported platform to be ours in name and in build: one pnpm workspace under platform/ that installs, typechecks, builds and tests green on Node 24 with Hyperfide names everywhere, attributed only by its licence folder."
+ac_1 = "platform/ SHALL install with a frozen lockfile, typecheck, build and pass its unit tests on Node 24 with every package in the @hyperfide scope, the CLI named hyperfide-platform, environment variables prefixed HYPERFIDE_, the data directory ~/.hyperfide and plugin ids prefixed hyperfide-."
+ac_2 = "An identity gate SHALL scan every tracked file outside licenses/bb and fail on any former product name, package scope, domain, environment prefix, data directory or plugin id; it SHALL pass at the wave 0 close and stay in every later verify_cmd that touches platform/."
+ac_3 = "The marketing site, the hosted connect gates and their tunnel packages, the hosted account plugin and all third-party telemetry SHALL be absent from the tree, with no dependent left importing them."
+ac_4 = "The sandbox image steps, the Makefile targets and a CI workflow SHALL build the platform the same way a sandbox does, from the repository's own toolkit, with timings recorded in docs/hyperfide/operations.md."
+
+[req.2]
+title = "The hyperfide binary and graph are first-class inside the platform"
+story = "As an operator running agents through the platform, I need every worker to see the graph the way a local engineer does: the binary verified per host, survey and context before edits, index status visible, and the editor backed by the binary's language server."
+ac_1 = "`hyperfide platform <args>` SHALL run the platform CLI from the C front door with the same exit code and streams, and `hyperfide platform --help` SHALL list its commands."
+ac_2 = "The host daemon SHALL locate and verify the hyperfide binary (path, version, digest) and the app SHALL show binary and index status for the host."
+ac_3 = "A thread started in a repository with .codegraph SHALL receive the codify MCP server with CG_TASK set and a skill that teaches survey, then context, before editing, for the Claude Code and Codex providers."
+ac_4 = "The editor plugin SHALL use `hyperfide lsp` through the host daemon for definitions, references and hover."
+ac_5 = "The graph index SHALL cover platform/ with a full `hyperfide init` under 45 minutes in a sandbox, with the ignore rules and worker count that achieve it recorded."
+
+[req.3]
+title = "The spec is the task authority inside the platform"
+story = "As a feature manager, I need the kvx spec to drive the platform: a board of waves and tasks, a worker thread per task with its packet, status transitions written back by the binary, and the editor extension reduced to a language client."
+ac_1 = "A spec plugin SHALL expose features, tasks, waves, statuses, requires and touches from spec.kvx over RPC with realtime updates when the file changes."
+ac_2 = "The task board SHALL show tasks by wave and status with detail (criteria, touches, verify_cmd, requires) and actions start and implemented that go through `hyperfide spec`."
+ac_3 = "Run task SHALL create a thread in a managed environment with the task packet, CG_TASK and the chosen provider, and a finished thread SHALL update the task status."
+ac_4 = "`hyperfide platform spec next|start|implemented|status` SHALL work from the front door."
+ac_5 = "editors/vscode SHALL keep only the language client and commands that open the platform app, and tests/integration/14_vscode.sh SHALL pass."
+
+[req.4]
+title = "Asks reach humans and gate threads"
+story = "As the owner, I need every missing secret, variable or permission to stop the thread until I answer, every decision or question to proceed on the recommendation and be flagged, and to see all of it in one inbox with notifications."
+ac_1 = "An asks plugin SHALL mirror `hyperfide ask` (kinds secret, variable, permission, decision, question; status; deadlines; recommendation) over RPC with realtime updates and write answers back through the binary."
+ac_2 = "A blocking Ask raised from a thread SHALL pause that thread; the answer SHALL resume it with the answer injected; decision and question Asks SHALL proceed and annotate the thread as flagged."
+ac_3 = "The inbox SHALL list open Asks across tasks with kind, deadline and recommended option; secret answers SHALL be stored as secret references through the secrets plugin, never as values in the spec or logs."
+ac_4 = "A new blocking Ask SHALL raise a push notification, and an agent's in-thread question SHALL be a question Ask."
+
+[req.5]
+title = "Qualification is proven inside the platform"
+story = "As a feature manager, I need verify lanes, receipts, an independent checker and wave closure to run through the platform so that done means proven and publication follows the wave cadence."
+ac_1 = "A qualify plugin SHALL run a task's verify_cmd in an environment with the pinned toolchain, one lane per graph lock, streaming logs and recording exit code and duration."
+ac_2 = "Each lane SHALL produce a receipt and evidence bundle readable from the task detail, and closure_check SHALL run against them."
+ac_3 = "A checker thread with a provider different from the worker's SHALL review an implemented task against its criteria and diff, and its findings SHALL become fix tasks in the current wave."
+ac_4 = "Wave closure SHALL require every task done, checker pass and lanes green; publication SHALL squash per task and publish per wave, and SHALL push only after an operator permission Ask is answered."
+
+[req.6]
+title = "The fleet is a platform capability"
+story = "As the owner, I need one task per sandbox across Railway and Blaxel, launched by dependency, budgeted against gateway limits, collected and integrated automatically, and visible on a dashboard."
+ac_1 = "A Railway machine provider SHALL create from a checkpoint, exec, read and write files, checkpoint and destroy, with credentials from the secrets plugin under HYPERFIDE_RAILWAY_API_TOKEN and HYPERFIDE_RAILWAY_ENV_ID."
+ac_2 = "A Blaxel machine provider SHALL meet the same contract with a bootstrap for its Alpine image."
+ac_3 = "An image builder SHALL turn a repository commit into a checkpoint through the recorded base steps and record the checkpoint and commit."
+ac_4 = "The dispatcher SHALL launch every task whose requires are merged, one per machine, under a concurrency cap, per-key gateway budget and 429 backoff, retrying once on another machine."
+ac_5 = "Results SHALL land as local branches, merge into the integration branch with conflict detection, lockfile regeneration and spec reconciliation, and a duplicate task header SHALL fail the merge."
+ac_6 = "The dashboard SHALL show machines, jobs, budget state and per-task timelines with log tails."
+
+[req.7]
+title = "Authority state lives in PostgreSQL behind the control plane"
+story = "As an operator of several hosts, I need the platform's storage on PostgreSQL, identities and receipts from the Hyperfide control plane, and hosts enrolled through machine providers."
+ac_1 = "The platform server SHALL run on PostgreSQL or SQLite by configuration with the same migrations tested on both."
+ac_2 = "The platform SHALL authenticate operators and record receipts through services/hyperfide under HYPERFIDE_AUTHORITY_URL, with the operator allow-list honoured."
+ac_3 = "Spec, asks, qualify and dispatch plugin state SHALL move to the authority schema with migration scripts, with an embedded PostgreSQL fallback for a single host."
+ac_4 = "Several host daemons SHALL register with one server and machine providers SHALL enroll sandboxes as hosts that the dispatcher schedules across."
+
+[req.8]
+title = "Slices, memory and a release close the feature"
+story = "As the owner, I need the source-tracking direction started, durable memory shared between workers, documentation that matches, a release, and my own two gates: the changelog and the full-system test."
+ac_1 = "An environment provider backed by hyperfide snapshots and slices SHALL be selectable per repository, with Git used only for publishing."
+ac_2 = "The memory plugin SHALL read and write `hyperfide remember` and `hyperfide recall` scoped per task, and recalled decisions SHALL enter worker packets."
+ac_3 = "docs/hyperfide/platform.md, operations.md and platform/docs SHALL describe the merged system truthfully, checked by the docs ledger."
+ac_4 = "Release 2.2.0 SHALL ship the binary, the service, the platform server, app and host daemon artifacts and the VSIX with smoke tests."
+ac_5 = "The owner SHALL regenerate CHANGELOG.md and CODEMAP.md and run the full system from board to qualified task through a Railway sandbox before the feature closes."
+
+[design]
+overview = "Four layers. Surfaces (ported app, desktop, mobile, CLI under the C front door) and execution (ported server, host daemons, provider bridges, environments and machines) come from platform/. Authority (spec, asks, qualify, dispatch) and proof (graph, receipts, closure) come from Hyperfide as platform plugins that call the hyperfide binary and, from wave 6, the services/hyperfide control plane on PostgreSQL. Wave 0 renames and strips; wave 1 wires the binary; waves 2 to 4 add the authority plugins; wave 5 makes the fleet a capability; wave 6 moves state to the authority; wave 7 starts slices and memory and releases. Dependencies, not wave numbers, decide launch order."
+identity = "Hyperfide names only: scope @hyperfide/*, CLI hyperfide-platform under `hyperfide platform`, environment prefix HYPERFIDE_, data directory ~/.hyperfide, plugin ids hyperfide-*, product name Hyperfide, domain hyperfide.dev where a domain is unavoidable. The former identifiers are listed once, encoded, in tests/hyperfide/cases/v22/identity_gate.py; every verify_cmd that touches platform/ runs the gate on the files it changed."
+fleet = "Each task runs as a Codex job on a Railway sandbox from the checkpoint built by deploy/hyperfide/sandbox from the integration branch: prepare rebuilds cg and the service, reinstalls platform dependencies when the lockfile moved, the worker implements only its task, runs its verify_cmd until it passes, sets status implemented and commits once; the result returns as a bundle and lands as sandbox/<id>; the wave's feature manager reviews, merges into the integration branch and marks done after qualification in a sandbox."
+verify = "Every task owns a case under tests/hyperfide/cases/v22/ (bash or python) that runs the real checks named in its do lines; platform packages are checked with turbo typecheck and test filtered by directory; integration scripts live under tests/integration with numbers from 99 upwards."
+
+[documentation]
+mode = "manual"
+status = "pending"
+audiences = ["user", "developer", "operator"]
+targets = ["README.md", "docs/**", "platform/docs/**", "platform/README.md", "editors/vscode/README.md", "deploy/hyperfide/sandbox/README.md", "spec/hyperfide-v22/**"]
+
+[tasks]
+heading = "Implementation Plan: hyperfide-v22"
+
+# ── Wave 0: port and identity ─────────────────────────────────────────────────
+
+[task.0.1]
+title = "Rename map and codemod"
+status = "done"
+wave = 0
+requires = []
+touches = ["platform/tools/rename/map.json", "platform/tools/rename/apply.mjs", "platform/tools/rename/README.md", "tests/hyperfide/cases/v22/0_1.sh", "tests/hyperfide/cases/v22/fixtures/rename/**"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_1.sh"
+do_1 = "Write platform/tools/rename/map.json: an ordered list of rules {from, to, kind, paths, exclude} covering the former package scope to @hyperfide/, the former CLI name to hyperfide-platform, the former environment prefix to HYPERFIDE_, the former data directory to .hyperfide, former plugin ids and package directory names to hyperfide-* equivalents, the former product name and domains in strings and docs, and the telemetry environment flag. Kinds: identifier (word-boundary), path (directory rename), text (docs and strings). Derive the complete list from the tree itself (grep every occurrence class and record the counts in README.md) so nothing is left to a later guess."
+do_2 = "Write platform/tools/rename/apply.mjs (Node 24, no dependencies): --dry-run prints a JSON report of replacements per rule and per file and planned directory renames; --apply performs text replacements and git mv for path rules, skipping node_modules, dist, .turbo and licenses/; running it twice is a no-op. Path rules run after identifier rules; the lockfile is never edited by hand (the applying task reinstalls)."
+do_3 = "tests/hyperfide/cases/v22/0_1.sh builds a fixture tree under tests/hyperfide/cases/v22/fixtures/rename with every rule kind, applies the codemod, asserts the expected tree and contents, asserts idempotence, and runs --dry-run against platform/ asserting the report covers all rule kinds with non-zero counts."
+reqs = ["1.1"]
+owner = "identity"
+
+[task.0.2]
+title = "Apply the package scope rename across the workspace"
+status = "done"
+wave = 0
+requires = ["0.1", "0.4"]
+touches = ["platform/**", "tests/hyperfide/cases/v22/0_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_2.sh"
+do_1 = "Apply the identifier rules of the rename map for the package scope and package names to every manifest, tsconfig path, import, turbo filter, vitest config, script and document under platform/ (directory renames stay for 0.7). Update root package.json scripts and filters accordingly."
+do_2 = "Reinstall with pnpm (no frozen lockfile) so platform/pnpm-lock.yaml follows the new names, then install again with --frozen-lockfile to prove it is settled. Fix every typecheck error the rename surfaces without changing behaviour."
+do_3 = "0_2.sh asserts: no file under platform/ outside node_modules contains the former scope; `pnpm -C platform install --frozen-lockfile` succeeds; `pnpm -C platform typecheck` succeeds; `pnpm -C platform exec turbo run test --filter=./packages/plugin-sdk --filter=./packages/config --filter=./apps/server` passes."
+do_4 = "Baseline repair 2026-10-25: identity_gate.py flagged the base64 raster bytes embedded in platform/assets/hyperfide-logo-*.svg and the CHANGELOG line naming the sole permitted attribution directory; both are unrelated to the former identity and are now listed in identity_allowlist.txt with an exception regex (gate: 9742 tracked files, 0 hits)."
+do_5 = "Baseline repair 2026-10-25 (4534fbfab): the environment-personal-workspace, environment-git-worktree and account-pool test files returned numbers from progress and dispose hooks typed void; fixed so the plugin typechecks pass with the current SDK types."
+reqs = ["1.1"]
+owner = "identity"
+
+[task.0.3]
+title = "Environment, data directory and CLI identity"
+status = "done"
+wave = 0
+requires = []
+touches = ["platform/packages/config/**", "platform/apps/cli/**", "platform/apps/server/src/**", "platform/apps/host-daemon/src/**", "platform/packages/scripts/**", "platform/packages/host-daemon-contract/**", "platform/packages/server-contract/**", "platform/apps/app/src/**", "platform/apps/desktop/src/**", "platform/apps/mobile/**", "platform/package.json", "platform/.env.example", "tests/hyperfide/cases/v22/0_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_3.sh"
+do_1 = "Rename every environment variable of the former prefix to HYPERFIDE_ (config package, scripts, server, host daemon, app, desktop, mobile, dotenv examples) and the data directory to ~/.hyperfide with a one-time migration that moves an existing former directory when present and logs it."
+do_2 = "Rename the CLI binary to hyperfide-platform (bin field, launcher scripts, help text, shell completions) and the root scripts that invoke it; the title helper stays."
+do_3 = "0_3.sh asserts: no former environment prefix or former data directory string remains under the touched packages; the config and host daemon unit tests pass (`pnpm -C platform exec turbo run test --filter=./packages/config --filter=./apps/host-daemon --filter=./apps/cli`); `node platform/apps/cli/bin/hyperfide-platform --help` exits 0 after `pnpm -C platform exec turbo run build --filter=./apps/cli`."
+reqs = ["1.1"]
+owner = "identity"
+
+[task.0.4]
+title = "Remove the marketing site, hosted connect gates and hosted account"
+status = "done"
+wave = 0
+requires = []
+touches = ["platform/apps/web/**", "platform/apps/connect/**", "platform/apps/connect-next/**", "platform/packages/connect-client/**", "platform/packages/connect-db/**", "platform/packages/tunnel-client/**", "platform/packages/tunnel-contract/**", "platform/packages/frp-client/**", "platform/plugins/connect/**", "platform/plugins/connect-next/**", "platform/plugins/*-account/**", "platform/plugins/*-official.json", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/apps/cli/src/**", "platform/packages/bundled-plugins/**", "platform/package.json", "platform/pnpm-lock.yaml", "platform/turbo.json", "platform/docs/**", "tests/hyperfide/cases/v22/0_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_4.sh"
+do_1 = "Delete the marketing site app, both hosted connect apps, the connect, tunnel and frp packages, the connect plugins, the hosted account plugin and the official marketplace manifest. Remove every import, bundled-plugin entry, registry entry, route, UI entry point and script that referenced them; where the server exposed a connect status, return a static disabled value with no network call."
+do_2 = "Reinstall with pnpm (no frozen lockfile) so the lockfile drops the removed importers, then prove it settled with a frozen install. Remove dependencies that only those packages used."
+do_3 = "0_4.sh asserts the directories are absent, no tracked file under platform/ imports the removed package names or references their former domain, `pnpm -C platform install --frozen-lockfile` succeeds and `pnpm -C platform typecheck` succeeds."
+reqs = ["1.3"]
+owner = "port"
+
+[task.0.5]
+title = "Remove third-party telemetry"
+status = "done"
+wave = 0
+requires = []
+touches = ["platform/packages/*-app/**", "platform/packages/scripts/**", "platform/apps/server/src/**", "platform/apps/app/src/**", "platform/packages/config/**", "tests/hyperfide/cases/v22/0_5.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_5.sh"
+do_1 = "Remove the analytics clients (the segment and posthog integrations), their event calls, write keys, consent prompts, launcher flags and documentation; keep local logging. Leave dependency pruning from the manifests to 0.7 unless a package is used nowhere else, in which case remove it and reinstall."
+do_2 = "Every place that reported an event becomes either nothing or a local logger call at debug level; no environment flag for telemetry remains."
+do_3 = "0_5.sh asserts no tracked file under platform/ outside node_modules references segment, posthog, analytics write keys or a telemetry flag, and the launcher, scripts and server unit tests pass (`pnpm -C platform exec turbo run test --filter=./packages/scripts --filter=./apps/server`)."
+do_4 = "Baseline repair 2026-10-25 (b4b85e02d): hyperfide-dispatch and hyperfide-qualify build with the plugin-build CLI; the bundled-plugin test recognises both and turbo.json declares qualify's dependency on @hyperfide/plugin-build#build. The provider-literal ratchet baseline was raised through HYPERFIDE_RATCHET_ALLOW_INCREASE=1 for the five files that 7.19 and 7.21 touched, each allowlisted with a reason; task 7.23 removes them."
+reqs = ["1.3"]
+owner = "port"
+
+[task.0.6]
+title = "Documentation, skills and brand assets sweep"
+status = "done"
+wave = 0
+requires = []
+touches = ["platform/README.md", "platform/AGENTS.md", "platform/CONTRIBUTING.md", "platform/SECURITY.md", "platform/docs/**", "platform/.*/skills/**", "platform/assets/**", "platform/apps/app/public/**", "platform/apps/app/index.html", "platform/apps/desktop/electron-builder*", "platform/apps/desktop/package.json", "platform/apps/mobile/app.json", "platform/apps/mobile/app.config.*", "platform/plugins/*/README.md", "platform/plugins/*/PLUGIN_OVERVIEW.md", "tests/hyperfide/cases/v22/0_6.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_6.sh"
+do_1 = "Rewrite the platform README, AGENTS, CONTRIBUTING and SECURITY files and platform/docs for Hyperfide: product name, repository, support channel (GitHub issues of Sidiora-Labs/hyperfide), commands (hyperfide platform ...), removed features gone from the text. Plugin READMEs and overviews follow the same rules."
+do_2 = "Replace brand assets (logos, icons, splash, favicons, app names, desktop appId and product name, mobile app name and bundle identifiers) with Hyperfide equivalents generated from the repository's existing VS Code extension icon where no asset exists; record the asset provenance in platform/assets/README.md."
+do_3 = "0_6.sh runs the identity rules of the rename map in --dry-run over the touched files and asserts zero remaining matches, and asserts the desktop and mobile manifests parse and carry Hyperfide names."
+reqs = ["1.1"]
+owner = "docs"
+
+[task.0.7]
+title = "Final identity sweep, directory renames and a green platform"
+status = "done"
+wave = 0
+requires = ["0.2", "0.3", "0.4", "0.5", "0.6"]
+touches = ["platform/**", "tests/hyperfide/cases/v22/identity_gate.py", "tests/hyperfide/cases/v22/0_7.sh", "tests/hyperfide/cases/v22/identity_allowlist.txt"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_7.sh"
+do_1 = "Apply the path rules of the rename map (package and plugin directories, the skills directory, the env setup script) and whatever identifier rules the earlier tasks left, prune dependencies no package uses, reinstall, and delete platform/tools/rename once the tree is clean."
+do_2 = "Write tests/hyperfide/cases/v22/identity_gate.py: scans tracked files (git ls-files) outside licenses/bb for the encoded former identifiers (word-boundary patterns decoded at runtime from a base64 list inside the script), honours identity_allowlist.txt for the few justified exceptions (each with a reason), prints every hit with path and line, exits non-zero on any hit; --changed limits the scan to files changed against a given commit for later tasks."
+do_3 = "0_7.sh asserts: identity_gate.py passes on the whole repository; `pnpm -C platform install --frozen-lockfile`, `pnpm -C platform typecheck`, `pnpm -C platform build` and `pnpm -C platform test` succeed on Node 24 (tests that need a display, a device or the network are skipped by their own config and listed in platform/docs/testing.md with the reason)."
+reqs = ["1.1", "1.2"]
+owner = "identity"
+
+[task.0.8]
+title = "Sandbox image steps, dispatcher daemon and Makefile targets"
+status = "done"
+wave = 0
+requires = []
+touches = ["deploy/hyperfide/sandbox/fleet.json", "deploy/hyperfide/sandbox/gen-jobs.py", "deploy/hyperfide/sandbox/dispatch.mjs", "deploy/hyperfide/sandbox/README.md", "tests/integration/96_sandbox_toolkit.sh", "Makefile", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/0_8.sh"]
+verify_cmd = "CG=$PWD/cg bash tests/integration/96_sandbox_toolkit.sh && bash tests/hyperfide/cases/v22/0_8.sh"
+do_1 = "fleet.json base steps gain a platform step (pnpm 9.15 through corepack, frozen install, best-effort build with the log kept) between service and index, the probe reports pnpm, and prepare reinstalls platform dependencies when platform/pnpm-lock.yaml moved since the checkpoint commit. gen-jobs.py gains `--codex <feature> <task...>` (job id <feature-short>-<task>) and an optional HF_PACKET_PREAMBLE file appended to every packet; --v21 remains as an alias."
+do_2 = "dispatch.mjs gains --watch: rescan state/jobs every tick so jobs generated while others run start when a worker is free, stop on state/STOP, and write state/dispatch-loop.json (queued, running, settled, backoff) every tick. Makefile gains platform-install, platform-build and platform-test targets that call pnpm under platform/."
+do_3 = "96_sandbox_toolkit.sh keeps passing with the stub SDK and gains a --codex and a --watch case; 0_8.sh asserts the Makefile targets exist and that gen-jobs --codex hyperfide-v22 0.8 writes a job and a packet containing the preamble under a temporary HF_FLEET_CONFIG. operations.md documents the image steps and the measured base-build time."
+reqs = ["1.4"]
+owner = "runner"
+
+[task.0.9]
+title = "Platform CI workflow"
+status = "done"
+wave = 0
+requires = ["0.7"]
+touches = [".github/workflows/platform.yml", "scripts/platform-ci.sh", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/0_9.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/0_9.sh"
+do_1 = "scripts/platform-ci.sh runs the same steps as the sandbox image and 0_7.sh: pnpm through corepack, frozen install with a cache key on the lockfile, typecheck, build, unit tests, identity gate; --quick skips build and runs the typecheck and the identity gate only."
+do_2 = ".github/workflows/platform.yml runs scripts/platform-ci.sh on push and pull request for paths under platform/ and tests/hyperfide/cases/v22/ on Node 24 with the pnpm store cached; it never pushes, never publishes."
+do_3 = "0_9.sh runs scripts/platform-ci.sh --quick to completion and checks the workflow file for the Node 24 pin, the path filter and the absence of any publish or deploy step."
+reqs = ["1.4"]
+owner = "ci"
+
+# ── Wave 1: the binary and graph inside the platform ──────────────────────────
+
+[task.1.1]
+title = "hyperfide platform front door"
+status = "done"
+wave = 1
+requires = []
+touches = ["src/platform_cmd.c", "src/platform_cmd.h", "src/main.c", "src/help.c", "Makefile", "docs/hyperfide/cli.md", "README.md", "tests/integration/99_platform_frontdoor.sh"]
+verify_cmd = "make cg && bash tests/integration/99_platform_frontdoor.sh"
+do_1 = "Add `hyperfide platform <args>`: locate the platform CLI (HYPERFIDE_PLATFORM_BIN, then platform/apps/cli/bin/hyperfide-platform relative to the repository root, then PATH), exec it with the arguments, the inherited streams and environment plus HYPERFIDE_REPO_ROOT; exit with its code; print a precise error and exit 69 when no CLI is found."
+do_2 = "`hyperfide platform --help` prints the CLI's help; `hyperfide --help` lists the platform group. The man and docs pages describe it."
+do_3 = "99_platform_frontdoor.sh builds cg, runs the front door against a stub CLI script (arguments, exit code, stdout and stderr pass-through, environment variable present) and against a missing CLI (exit 69, message)."
+reqs = ["2.1"]
+owner = "core"
+
+[task.1.2]
+title = "Host daemon locates and verifies the binary"
+status = "done"
+wave = 1
+requires = ["0.2", "0.3"]
+touches = ["platform/apps/host-daemon/src/**", "platform/packages/host-daemon-contract/src/**", "platform/apps/server/src/**", "platform/packages/server-contract/src/**", "platform/apps/app/src/**", "tests/hyperfide/cases/v22/1_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/1_2.sh"
+do_1 = "The host daemon resolves the hyperfide binary (HYPERFIDE_BIN, repository ./cg, PATH), runs --version, computes its sha256 and reports {path, version, digest, ok} through a new host contract message; the server stores it per host and exposes it on the hosts route."
+do_2 = "The app's host view shows binary status (version, digest prefix, missing or stale) and the index status of the repository when .codegraph exists (via `hyperfide index-status --json` run by the daemon)."
+do_3 = "1_2.sh runs the host daemon and contract unit tests (`pnpm -C platform exec turbo run test --filter=./apps/host-daemon --filter=./packages/host-daemon-contract --filter=./apps/server`) including a fake binary that reports a version and a missing binary, and runs identity_gate.py --changed on the task's files."
+reqs = ["2.2"]
+owner = "graph"
+
+[task.1.3]
+title = "Graph plugin: index panel and binary calls"
+status = "done"
+wave = 1
+requires = ["0.2", "1.2"]
+touches = ["platform/plugins/hyperfide-graph/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/1_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/1_3.sh"
+do_1 = "Create platform/plugins/hyperfide-graph (server, app, cli parts under the plugin SDK): the server part runs the binary (survey, context, index-status, why) through the host daemon with JSON output and exposes RPCs with input validation and timeouts; the app part adds an Index panel (status, last pass, symbol and file counts, stale anchors) and a survey viewer; the cli part adds `graph status`."
+do_2 = "Bundle the plugin so it loads by default, with settings for the binary path override and a per-repository enable flag."
+do_3 = "1_3.sh runs the plugin's vitest suite with the fake plugin host (RPC shapes, timeout, missing binary error) plus typecheck, and identity_gate.py --changed."
+reqs = ["2.2"]
+owner = "graph"
+
+[task.1.4]
+title = "Worker skill and codify MCP injection"
+status = "done"
+wave = 1
+requires = ["1.3"]
+touches = ["platform/plugins/hyperfide-graph/**", "platform/plugins/provider-claude-code/**", "platform/plugins/provider-codex/**", "platform/packages/provider-bridge-protocol/src/**", "platform/packages/plugin-sdk/src/**", "tests/hyperfide/cases/v22/1_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/1_4.sh"
+do_1 = "When a thread starts in a repository with .codegraph, the graph plugin adds the codify MCP server (`hyperfide mcp`, env CG_TASK from the thread's task when known) to the provider's MCP configuration for the Claude Code and Codex providers through a provider-bridge MCP hook (added to the protocol if absent) and injects the skill text: survey the area, then context for the files, before editing; cite file and line."
+do_2 = "The injection is visible in the thread's info as an attached capability and can be turned off per repository."
+do_3 = "1_4.sh runs the provider bridge and graph plugin tests asserting the MCP entry and skill appear for a repository with .codegraph and not for one without, plus identity_gate.py --changed."
+reqs = ["2.3"]
+owner = "graph"
+
+[task.1.5]
+title = "Editor language server from the binary"
+status = "done"
+wave = 1
+requires = ["1.3"]
+touches = ["platform/plugins/monaco-editor/**", "platform/plugins/hyperfide-graph/**", "platform/apps/host-daemon/src/**", "platform/packages/host-daemon-contract/src/**", "tests/hyperfide/cases/v22/1_5.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/1_5.sh"
+do_1 = "The host daemon can start `hyperfide lsp` per repository and relay its stdio over a WebSocket channel; the monaco editor plugin connects a language client to it for definitions, references and hover, falling back silently when the binary is missing."
+do_2 = "One language server per repository, stopped after idle timeout; status shown in the Index panel."
+do_3 = "1_5.sh runs the host daemon relay test with a stub language server (initialize round trip, definition request, idle stop) and the editor plugin tests, plus identity_gate.py --changed."
+reqs = ["2.4"]
+owner = "editor"
+
+[task.1.6]
+title = "Widen the graph index to platform/"
+status = "done"
+wave = 1
+requires = ["0.7"]
+touches = [".cgignore", "codify.kvx", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v22/1_6.sh", "src/**"]
+verify_cmd = "bash tests/hyperfide/cases/v22/1_6.sh"
+do_1 = "Remove platform/ from .cgignore; add ignore rules for generated output (dist, .turbo, storybook-static, coverage, android and ios build directories, vendored bundles) and tune [index] workers for an 8 CPU sandbox."
+do_2 = "Measure `hyperfide init` on the full tree in the sandbox and record wall time, file and symbol counts in operations.md; keep it under 45 minutes."
+do_3 = "1_6.sh runs `hyperfide init --nested` in a copy of the tree under a temporary directory, asserts it finishes under 45 minutes and that `hyperfide index-status --json` counts symbols under platform/apps/server."
+reqs = ["2.5"]
+owner = "graph"
+
+# ── Wave 2: the spec plugin ───────────────────────────────────────────────────
+
+[task.2.1]
+title = "Spec read model and RPC"
+status = "done"
+wave = 2
+requires = ["1.3"]
+touches = ["platform/plugins/hyperfide-spec/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/2_1.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/2_1.sh"
+do_1 = "Create platform/plugins/hyperfide-spec: the server part reads features and tasks through `hyperfide spec status --json` and `hyperfide spec trace --json` per repository, watches spec/**/*.kvx and republishes over realtime; RPCs: features, tasks(feature), task(feature,id), waves(feature); plugin storage caches the last read."
+do_2 = "The read model carries status, wave, requires, touches, verify_cmd, do lines, reqs, owner and the acceptance criteria text of the reqs a task cites."
+do_3 = "2_1.sh runs the plugin tests against a fixture repository with a three-wave spec (shape, watch republish on edit, error on a missing feature), plus typecheck and identity_gate.py --changed."
+reqs = ["3.1"]
+owner = "spec"
+
+[task.2.2]
+title = "Task board"
+status = "done"
+wave = 2
+requires = ["2.1"]
+touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/2_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/2_2.sh"
+do_1 = "App view Board: columns by status, grouped by wave, filters by owner and requires-satisfied; task detail with criteria, touches, verify_cmd, requires graph (which tasks block it, which it blocks) and the latest receipt link when one exists."
+do_2 = "Actions start and implemented call `hyperfide spec start` and `hyperfide spec implemented` through the server part; failures surface with the binary's message; done is never settable from the board."
+do_3 = "2_2.sh runs the app component tests for the board and detail (rendering from the fixture model, action calls, disabled done) plus identity_gate.py --changed."
+reqs = ["3.2"]
+owner = "spec"
+
+[task.2.3]
+title = "Run task: worker thread with packet"
+status = "done"
+wave = 2
+requires = ["2.1", "1.4"]
+touches = ["platform/plugins/hyperfide-spec/**", "platform/apps/server/src/**", "tests/hyperfide/cases/v22/2_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/2_3.sh"
+do_1 = "Run task creates a standard thread in a managed environment (worktree provider by default) for the repository with the provider of the operator's choice, CG_TASK set, and the task packet as the first message: title, requires, touches, verify_cmd, do lines, the standing rules of deploy/hyperfide/sandbox/gen-jobs.py (ported to a shared packet module), and the repository preamble from .hyperfide/packet-preamble.md when present."
+do_2 = "When the thread finishes, the plugin reads the task status from the spec in the environment; implemented is reflected on the board; a thread that stopped without the status change is marked needs-review."
+do_3 = "2_3.sh runs the server tests with the scripted echo provider: run task produces the packet text, the environment and CG_TASK; a thread that edits status to implemented updates the model; identity_gate.py --changed."
+reqs = ["3.3"]
+owner = "spec"
+
+[task.2.4]
+title = "Spec commands in the platform CLI"
+status = "done"
+wave = 2
+requires = ["2.1"]
+touches = ["platform/plugins/hyperfide-spec/**", "platform/apps/cli/src/**", "tests/hyperfide/cases/v22/2_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/2_4.sh"
+do_1 = "The plugin's cli part registers spec next, start, implemented and status with the same output as the binary plus the board link; through 1.1 they are reachable as `hyperfide platform spec ...`."
+do_2 = "Exit codes and JSON output (--json) match the binary's; errors name the feature and task."
+do_3 = "2_4.sh runs the cli tests against the fixture repository and, when ./cg exists, an end-to-end `hyperfide platform spec status` round trip; identity_gate.py --changed."
+reqs = ["3.4"]
+owner = "spec"
+
+[task.2.5]
+title = "VS Code extension reduced to a language client"
+status = "done"
+wave = 2
+requires = ["2.2"]
+touches = ["editors/vscode/**", "tests/integration/14_vscode.sh", "docs/hyperfide/editors.md", "tests/hyperfide/cases/v22/2_5.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/2_5.sh"
+do_1 = "Remove the task board, fleet, leaders and ask views from the extension; keep the language client, the index status bar item and commands that open the platform app at the current task or file (HYPERFIDE_PLATFORM_URL setting)."
+do_2 = "Update the extension README and package manifest; keep the VSIX build; 14_vscode.sh drops the removed sections and keeps the LSP and command sections."
+do_3 = "2_5.sh runs tests/integration/14_vscode.sh and the extension unit tests, and asserts the removed views are absent from the manifest contributes."
+reqs = ["3.5"]
+owner = "editor"
+
+[task.2.6]
+title = "Spec end to end"
+status = "done"
+wave = 2
+requires = ["2.3", "2.4"]
+touches = ["tests/hyperfide/cases/v22/2_6.py", "tests/hyperfide/support/platform_fixture.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v22/2_6.py"
+do_1 = "tests/hyperfide/support/platform_fixture.py starts the built platform server with the host daemon and the echo provider against a temporary fixture repository that has .codegraph and a spec, and tears it down."
+do_2 = "2_6.py drives one task from pending to implemented through the RPCs (run task, provider writes the status) and asserts spec.kvx and the journal reflect it."
+do_3 = "The case prints SKIP 77 with a reason when the platform build is absent, never PASS."
+reqs = ["3.3"]
+owner = "qualification"
+
+# ── Wave 3: the asks plugin ───────────────────────────────────────────────────
+
+[task.3.1]
+title = "Ask store bridge"
+status = "done"
+wave = 3
+requires = ["1.3"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/3_1.sh", "platform/apps/server/src/services/plugins/builtin-registry.ts"]
+verify_cmd = "bash tests/hyperfide/cases/v22/3_1.sh"
+do_1 = "Create platform/plugins/hyperfide-asks: the server part mirrors `hyperfide ask list --json` (id, task, kind, question, options, recommendation, status, deadline, raised_at) per repository with a watch on the ask store and realtime updates; RPCs list, get, answer (calls `hyperfide ask answer`), and the journal of answers."
+do_2 = "Kinds and their policy are data: secret, variable and permission block; decision and question proceed on the recommendation and are flagged; the policy is readable over RPC so other plugins never hard-code it."
+do_3 = "3_1.sh runs the plugin tests against a fixture ask store (shape, watch, answer round trip, policy table) plus typecheck and identity_gate.py --changed."
+do_4 = "Baseline repair 2026-10-25 (22a5873e3): the inbox test that answers every ask kind through the real binary exceeded the 15 s default on loaded workers; it now has a 60 s budget."
+reqs = ["4.1"]
+owner = "ask"
+
+[task.3.2]
+title = "Blocking policy in the thread lifecycle"
+status = "done"
+wave = 3
+requires = ["3.1", "2.3"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-spec/**", "platform/apps/server/src/**", "platform/packages/plugin-sdk/src/**", "tests/hyperfide/cases/v22/3_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/3_2.sh"
+do_1 = "When an Ask of a blocking kind appears for a thread's task, the plugin pauses the thread (lifecycle hook or interrupt through the SDK; add the hook if the SDK lacks it) and records the pause reason; when the answer lands the thread resumes with a message carrying the answer (secret answers as the reference name, never the value)."
+do_2 = "A decision or question Ask proceeds: the thread continues and gets an annotation flagged with the recommendation taken; the board shows the flag on the task."
+do_3 = "3_2.sh runs the server tests with the echo provider raising each kind: blocking kinds pause and resume, flagged kinds annotate, the secret value never appears in the thread transcript; identity_gate.py --changed."
+reqs = ["4.2"]
+owner = "ask"
+
+[task.3.3]
+title = "Inbox and secret references"
+status = "done"
+wave = 3
+requires = ["3.1"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/secrets/**", "tests/hyperfide/cases/v22/3_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/3_3.sh"
+do_1 = "App view Inbox: open Asks across repositories and tasks with kind badge, deadline countdown, recommended option highlighted, filters by kind and task; answer dialog per kind (option pick with note, free text, grant or refuse with the operator's identity recorded)."
+do_2 = "Secret answers are stored through the secrets plugin and the Ask is answered with the reference name; variables may be marked sensitive to take the same path."
+do_3 = "3_3.sh runs the app and server tests (list, filters, each answer path, secret stored by reference, value absent from the answer record) plus identity_gate.py --changed."
+reqs = ["4.3"]
+owner = "ask"
+
+[task.3.4]
+title = "Notifications and in-thread questions"
+status = "done"
+wave = 3
+requires = ["3.3"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/push-notifications/**", "platform/plugins/ask-user-question/**", "tests/hyperfide/cases/v22/3_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/3_4.sh"
+do_1 = "A new blocking Ask sends a push notification through the push-notifications plugin with the task, kind and deadline; a digest setting batches flagged Asks."
+do_2 = "The ask-user-question plugin's agent questions become question Asks in the store (raised through `hyperfide ask raise`) so one inbox holds everything; answering from either side settles both."
+do_3 = "3_4.sh runs the notification and question tests with the fake plugin host (one notification per blocking Ask, digest for flagged, question round trip) plus identity_gate.py --changed."
+reqs = ["4.4"]
+owner = "ask"
+
+[task.3.5]
+title = "Asks end to end"
+status = "done"
+wave = 3
+requires = ["3.2", "3.3", "3.4"]
+touches = ["tests/hyperfide/cases/v22/3_5.py", "tests/hyperfide/support/platform_fixture.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v22/3_5.py"
+do_1 = "3_5.py drives a thread that raises a variable Ask: the thread pauses, the inbox lists it, the answer resumes the thread and the store shows it answered; then a decision Ask proceeds flagged."
+do_2 = "The case asserts the notification record and the journal entries."
+do_3 = "SKIP 77 with a reason when the platform build is absent."
+reqs = ["4.2"]
+owner = "qualification"
+
+# ── Wave 4: the qualify plugin ────────────────────────────────────────────────
+
+[task.4.1]
+title = "Verify lanes"
+status = "done"
+wave = 4
+requires = ["2.1"]
+touches = ["platform/plugins/hyperfide-qualify/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/4_1.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/4_1.sh"
+do_1 = "Create platform/plugins/hyperfide-qualify: a lane runs a task's verify_cmd in a managed environment with the pinned toolchain and the repository's PostgreSQL helper, streams the log to the app, records exit code, duration and the commit; `hyperfide spec done` runs on one lane per repository (graph lock) with CG_BUSY_TIMEOUT_MS set, other lanes queue."
+do_2 = "Lane states queued, running, passed, failed, cancelled; cancellation stops the process group; a lane records the environment and the toolchain versions."
+do_3 = "4_1.sh runs the plugin tests with a fixture repository (passing and failing verify_cmd, queueing on the lock, cancellation, log streaming) plus identity_gate.py --changed."
+reqs = ["5.1"]
+owner = "qualification"
+
+[task.4.2]
+title = "Receipts, evidence and closure check"
+status = "done"
+wave = 4
+requires = ["4.1"]
+touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/closure_check.py", "tests/hyperfide/cases/v22/4_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/4_2.sh"
+do_1 = "A passed lane writes a receipt (task, commit, verify_cmd, exit, duration, toolchain, evidence paths, digest) under artifacts/hyperfide/tasks/<id>/ and an evidence bundle; the task detail shows receipts and lets the operator open the log and the bundle list."
+do_2 = "tests/hyperfide/closure_check.py gains a --json mode and the plugin runs it per receipt, showing drifted pinned sources as a warning on the task."
+do_3 = "4_2.sh runs the receipt tests (shape, digest, closure check pass and drift) plus identity_gate.py --changed and `python3 tests/hyperfide/closure_check.py --selftest`."
+reqs = ["5.2"]
+owner = "qualification"
+
+[task.4.3]
+title = "Checker thread"
+status = "done"
+wave = 4
+requires = ["4.1", "2.3"]
+touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/4_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/4_3.sh"
+do_1 = "When a task becomes implemented, the plugin starts a checker thread with a provider different from the worker's when configured: it receives the criteria, the diff against the base and the lane log, must run the verify_cmd itself, and ends with a structured verdict (pass, or findings with file, line, severity, claim)."
+do_2 = "Findings become fix tasks appended to the current wave of the spec through `hyperfide spec add` with requires on the reviewed task; a pass is recorded on the task."
+do_3 = "4_3.sh runs the checker tests with the echo provider producing a pass and a findings verdict (fix task appended with the right fields) plus identity_gate.py --changed."
+reqs = ["5.3"]
+owner = "qualification"
+
+[task.4.4]
+title = "Wave closure and publication"
+status = "done"
+wave = 4
+requires = ["4.2", "4.3", "3.2"]
+touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-spec/**", "platform/plugins/github/**", "tests/hyperfide/cases/v22/4_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/4_4.sh"
+do_1 = "Wave closure view: every task done, checker pass, lanes green, open Asks none; the human jobs (judge output, provide variables, final system test) appear as human tasks that need an operator mark."
+do_2 = "Publication: squash per task onto a publication branch, publish per wave; the push itself runs only after a permission Ask is answered by an operator; the GitHub plugin opens the pull request with the wave summary when configured."
+do_3 = "4_4.sh runs the closure and publication tests against a fixture repository with a local bare remote (closure gates, squash shape, push blocked until the permission Ask, push after) plus identity_gate.py --changed."
+reqs = ["5.4"]
+owner = "qualification"
+
+[task.4.5]
+title = "Qualification end to end"
+status = "done"
+wave = 4
+requires = ["4.4"]
+touches = ["tests/hyperfide/cases/v22/4_5.py", "tests/hyperfide/support/platform_fixture.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v22/4_5.py"
+do_1 = "4_5.py takes one task through implemented, lane, checker pass, receipt and wave closure in the fixture platform, then publication to a local bare remote after answering the permission Ask."
+do_2 = "The case asserts the receipt, the closure check output and the pushed squash commit."
+do_3 = "SKIP 77 with a reason when the platform build is absent."
+reqs = ["5.4"]
+owner = "qualification"
+
+# ── Wave 5: the fleet ─────────────────────────────────────────────────────────
+
+[task.5.1]
+title = "Railway machine provider"
+status = "done"
+wave = 5
+requires = ["0.2", "0.3"]
+touches = ["platform/plugins/machine-railway/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/5_1.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/5_1.sh"
+do_1 = "Create platform/plugins/machine-railway on the SDK machine provider contract using the railway npm SDK: create from checkpoint with resources and idle timeout, exec with timeout and output cap, files read and write, checkpoint, destroy, list; credentials HYPERFIDE_RAILWAY_API_TOKEN and HYPERFIDE_RAILWAY_ENV_ID from the secrets plugin, never from process environment at runtime."
+do_2 = "Every output is redacted of the credentials; errors carry the Railway error class; the provider reports capabilities (checkpoint true)."
+do_3 = "5_1.sh runs the provider tests against a fake SDK (every operation, redaction, error mapping) plus typecheck and identity_gate.py --changed. A live smoke test runs only when HYPERFIDE_RAILWAY_LIVE=1 and prints SKIP otherwise."
+reqs = ["6.1"]
+owner = "fleet"
+
+[task.5.2]
+title = "Blaxel machine provider"
+status = "done"
+wave = 5
+requires = ["0.2", "0.3"]
+touches = ["platform/plugins/machine-blaxel/**", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/5_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/5_2.sh"
+do_1 = "Create platform/plugins/machine-blaxel on the same contract with the Blaxel SDK: create (region setting), exec, files, destroy; checkpoint reported unsupported; a bootstrap script prepares the Alpine image (git, build tools from the image's package manager when allowed, Node 24 present) and is idempotent."
+do_2 = "Credentials HYPERFIDE_BLAXEL_API_KEY and HYPERFIDE_BLAXEL_WORKSPACE from the secrets plugin; redaction and error mapping as in 5.1."
+do_3 = "5_2.sh runs the provider tests against a fake SDK plus typecheck and identity_gate.py --changed; live smoke only under HYPERFIDE_BLAXEL_LIVE=1."
+reqs = ["6.2"]
+owner = "fleet"
+
+[task.5.3]
+title = "Image builder"
+status = "done"
+wave = 5
+requires = ["5.1"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/5_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/5_3.sh"
+do_1 = "Create platform/plugins/hyperfide-dispatch with its first capability, the image builder: given a repository commit it makes a git bundle, creates a machine from the recorded parent checkpoint, uploads the bundle, runs the base steps of deploy/hyperfide/sandbox/fleet.json (clone, cg, service, platform, index, tools), checkpoints as hf-base-<commit10>, destroys the builder and records {checkpoint, commit, steps, timings} in plugin storage and in fleet.json."
+do_2 = "The builder is a long-running job with progress in the app and cancellation; a failed step keeps the log and the partial record."
+do_3 = "5_3.sh runs the builder tests against the fake machine provider (every step recorded, failure path, record shape) plus identity_gate.py --changed."
+reqs = ["6.3"]
+owner = "fleet"
+
+[task.5.4]
+title = "Dispatcher"
+status = "done"
+wave = 5
+requires = ["2.3", "5.1", "4.1"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/concurrency-limit/**", "tests/hyperfide/cases/v22/5_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/5_4.sh"
+do_1 = "The dispatcher reads the spec read model, computes the ready set (requires merged on the integration branch), claims tasks, and for each creates a machine from the current checkpoint, prepares it (bundle of the integration tip, prepare step), and runs the task packet with the Codex runner (approval never, codify MCP, one gateway key per machine from a key pool) or the Claude Code runner, recording a ledger per job."
+do_2 = "Budget: concurrency cap, per-key concurrency, 429 detection with exponential backoff, one retry on a different machine, machine destroy on finish; the concurrency-limit plugin's limits apply; ledgers survive a server restart and orphaned machines are reconciled at start."
+do_3 = "5_4.sh runs the dispatcher tests with the fake machine provider and the echo runner (ready set from requires, claims, cap, key pool, 429 backoff, retry on another machine, restart reconciliation) plus identity_gate.py --changed."
+reqs = ["6.4"]
+owner = "fleet"
+
+[task.5.5]
+title = "Collect and integrate"
+status = "done"
+wave = 5
+requires = ["5.4"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/5_5.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/5_5.sh"
+do_1 = "A finished job's bundle is fetched into the repository as sandbox/<id>; the merge queue checks merge-tree against the integration branch, regenerates platform/pnpm-lock.yaml in a machine when it conflicts, runs `hyperfide spec reconcile`, fails on a duplicate task header in any spec, and merges with a plain message tagged [spec:<feature>/<task>]."
+do_2 = "An ASK.md in the result or an unanswered blocking Ask holds the merge; a held or failed merge is visible with the reason; the feature manager role can resolve conflicts in a thread spawned on the conflict."
+do_3 = "5_5.sh runs the integration tests against fixture bundles (clean merge, lockfile conflict regenerated, duplicate header refused, ASK hold) plus identity_gate.py --changed."
+reqs = ["6.5"]
+owner = "fleet"
+
+[task.5.6]
+title = "Fleet dashboard"
+status = "done"
+wave = 5
+requires = ["5.4"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/5_6.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/5_6.sh"
+do_1 = "App view Fleet: machines (provider, state, job, age), jobs (task, state, attempt, worker, started, duration), budget (cap, in flight, keys, backoff until), per-task timeline (created, prepared, running, packed, collected, merged) and a log tail per job."
+do_2 = "Actions: cancel job, destroy machine, pause and resume dispatch, raise the cap within the configured maximum."
+do_3 = "5_6.sh runs the dashboard component tests from fixture ledgers plus identity_gate.py --changed."
+reqs = ["6.6"]
+owner = "fleet"
+
+[task.5.7]
+title = "Fleet end to end with a fake machine provider"
+status = "done"
+wave = 5
+requires = ["5.5", "5.6", "5.3"]
+touches = ["tests/hyperfide/cases/v22/5_7.py", "tests/hyperfide/support/platform_fixture.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v22/5_7.py"
+do_1 = "5_7.py runs a three-task spec (A, B requires A, C requires A) through image builder, dispatcher, echo runner, collect and integrate in the fixture platform with the fake machine provider: A first, then B and C in parallel, all merged with tags."
+do_2 = "The case asserts the ledgers, the merge commits, the spec statuses and the dashboard RPC output."
+do_3 = "SKIP 77 with a reason when the platform build is absent."
+do_4 = "Baseline repair 2026-10-25 (563fc6dfe): since 7.19 the dispatcher starts paused with cap 0 until an operator writes fleet.control; the fixture now resumes it the way the fleet view does, otherwise no job is ever claimed."
+reqs = ["6.4"]
+owner = "qualification"
+
+# ── Wave 6: the PostgreSQL authority ──────────────────────────────────────────
+
+[task.6.1]
+title = "PostgreSQL storage for the platform server"
+status = "done"
+wave = 6
+requires = ["0.7"]
+touches = ["platform/packages/db/**", "platform/apps/server/src/**", "platform/packages/config/**", "platform/docs/**", "tests/hyperfide/cases/v22/6_1.sh", "platform/apps/server/test/**", "platform/packages/scripts/**", "platform/packages/plugin-sdk/src/**", "platform/tests/integration/**"]
+verify_cmd = "bash tests/hyperfide/cases/v22/6_1.sh"
+do_1 = "The db package gains a PostgreSQL dialect beside SQLite (Drizzle), selected by HYPERFIDE_DATABASE_URL; migrations are generated for both and kept in step; schema name platform."
+do_2 = "The server starts on either; plugin storage uses the same dialect; studio and reset scripts handle both."
+do_3 = "6_1.sh runs the db and server tests on SQLite and, through python3 tests/hyperfide/support/withpg.py, on a throwaway PostgreSQL cluster, plus identity_gate.py --changed."
+reqs = ["7.1"]
+owner = "authority"
+
+[task.6.2]
+title = "Authority client: operators, receipts, transactions"
+status = "done"
+wave = 6
+requires = ["6.1", "1.2"]
+touches = ["platform/packages/hyperfide-authority/**", "platform/apps/server/src/**", "services/hyperfide/src/**", "deploy/hyperfide/env/control.env.example", "tests/hyperfide/cases/v22/6_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/6_2.sh"
+do_1 = "Create platform/packages/hyperfide-authority: a typed client for services/hyperfide (identity and operator allow-list, receipts, transactions, evidence store) under HYPERFIDE_AUTHORITY_URL with the service's transport and deadline configuration; the platform server authenticates operators through it when configured and records receipts for lanes and publications."
+do_2 = "The service gains the routes the client needs where absent, under the existing route contract tests; health of the authority shows in the status row."
+do_3 = "6_2.sh runs the client tests against the service started from its dist on a throwaway PostgreSQL cluster (allow-list accept and refuse, receipt write and read, deadline) and `npm --prefix services/hyperfide run check`, plus identity_gate.py --changed."
+reqs = ["7.2"]
+owner = "authority"
+
+[task.6.3]
+title = "Plugin state on the authority"
+status = "done"
+wave = 6
+requires = ["6.2", "5.5", "4.4", "3.5"]
+touches = ["platform/plugins/hyperfide-spec/**", "platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-qualify/**", "platform/plugins/hyperfide-dispatch/**", "platform/packages/hyperfide-authority/**", "services/hyperfide/src/**", "services/hyperfide/migrations/**", "tests/hyperfide/cases/v22/6_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/6_3.sh"
+do_1 = "Spec caches, asks mirror, lanes, receipts and dispatcher ledgers move behind a storage interface with two implementations: the plugin-private store and the authority schema; migration scripts copy existing state; the authority implementation is selected when HYPERFIDE_AUTHORITY_URL is set."
+do_2 = "Single host keeps local_first: an embedded PostgreSQL started through the repository's helper serves as the authority when no URL is configured and the operator opts in."
+do_3 = "6_3.sh runs each plugin's storage tests against both implementations and the migration round trip, plus identity_gate.py --changed."
+reqs = ["7.3"]
+owner = "authority"
+
+[task.6.4]
+title = "Multiple hosts and machine enrollment"
+status = "done"
+wave = 6
+requires = ["6.2", "5.4"]
+touches = ["platform/apps/server/src/**", "platform/apps/host-daemon/src/**", "platform/packages/plugin-sdk/src/**", "platform/plugins/machine-railway/**", "platform/plugins/hyperfide-dispatch/**", "tests/hyperfide/cases/v22/6_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/6_4.sh"
+do_1 = "Several host daemons register with one server with operator-issued enrollment tokens recorded on the authority; the machine bootstrap enrolls a sandbox as a host so its threads run there; the dispatcher schedules across hosts by capacity."
+do_2 = "Host loss is detected and its jobs are retried elsewhere once; the app shows hosts with capacity and jobs."
+do_3 = "6_4.sh runs the multi-host tests with two daemons in-process and the fake machine provider (enrollment, scheduling, loss and retry) plus identity_gate.py --changed."
+do_4 = "Baseline repair recorded on 2026-10-25 by the feature manager: the machine-railway verify call (railwayVerify, the plugin page Verify button) failed against the live Railway API with a schema error because the identity query asked for the project under Environment, which the public schema exposes only as projectId; railwayIdentity now reads the environment name and projectId and resolves the project name with a second query by id, status.test.ts covers both requests, and the live call on the host reports the project and environment names."
+reqs = ["7.4"]
+owner = "authority"
+
+[task.6.5]
+title = "Authority end to end"
+status = "done"
+wave = 6
+requires = ["6.3", "6.4"]
+touches = ["tests/hyperfide/cases/v22/6_5.py", "tests/hyperfide/support/platform_fixture.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v22/6_5.py"
+do_1 = "6_5.py runs the fixture platform on a throwaway PostgreSQL cluster with the authority configured and two hosts: a task dispatched to the second host, qualified, receipted on the authority, and visible from the first."
+do_2 = "The case asserts the authority records and the operator allow-list refusal for an unknown operator."
+do_3 = "SKIP 77 with a reason when the platform build or PostgreSQL is absent."
+reqs = ["7.2", "7.4"]
+owner = "qualification"
+
+# ── Wave 7: slices, memory, release ───────────────────────────────────────────
+
+[task.7.1]
+title = "Slices environment provider"
+status = "done"
+wave = 7
+requires = ["2.3", "1.6"]
+touches = ["platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/**", "docs/hyperfide/source-tracking.md", "tests/hyperfide/cases/v22/7_1.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_1.sh"
+do_1 = "Create platform/plugins/environment-slices on the environment provider contract: an environment is a hyperfide slice of a snapshot (`hyperfide snapshot`, `hyperfide slice`), threads edit inside it, and finishing a thread records a snapshot; Git is used only when publishing through 4.4."
+do_2 = "Selectable per repository beside the worktree provider; the task detail shows the slice id and the snapshot chain."
+do_3 = "7_1.sh runs the provider tests against a fixture repository with the binary (create, edit, snapshot, discard, publish to a worktree) plus identity_gate.py --changed."
+reqs = ["8.1"]
+owner = "source"
+
+[task.7.2]
+title = "Memory bridge"
+status = "done"
+wave = 7
+requires = ["2.3", "1.3"]
+touches = ["platform/plugins/memory/**", "platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/7_2.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_2.sh"
+do_1 = "The memory plugin reads and writes durable decisions through `hyperfide remember` and `hyperfide recall` scoped per repository and task, beside its own store; recalled decisions relevant to a task enter the packet of 2.3 under a Recalled decisions heading."
+do_2 = "A decision recorded by a worker thread is visible on the task detail and recalled by later tasks that require it."
+do_3 = "7_2.sh runs the memory plugin tests against the binary's store in a fixture repository (remember, recall, packet injection) plus identity_gate.py --changed."
+reqs = ["8.2"]
+owner = "memory"
+
+[task.7.3]
+title = "Documentation of the merged system"
+status = "done"
+wave = 7
+requires = ["6.5", "5.7", "4.5", "7.1", "7.2"]
+touches = ["docs/hyperfide/platform.md", "docs/hyperfide/operations.md", "docs/ARCHITECTURE.md", "README.md", "platform/docs/**", "platform/README.md", "deploy/hyperfide/sandbox/README.md", "tests/hyperfide/cases/v22/7_3.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_3.sh"
+do_1 = "docs/hyperfide/platform.md describes the four layers, every hyperfide-* plugin, the front door, the fleet, the authority and the slices provider with the commands that prove each; ARCHITECTURE.md and the README gain the platform sections; platform/docs stops describing removed features."
+do_2 = "operations.md carries the image build, index and fleet timings measured in this feature."
+do_3 = "7_3.sh runs `./cg docs check` on the touched documents and identity_gate.py on the whole repository."
+do_4 = "Baseline repair 2026-10-25: platform/README.md, platform/docs/repository-overview.md and platform/docs/filing-issues.md linked a CONTRIBUTING.md that no longer exists; the dead links are removed and 7_3.sh passes again (286 checks, 0 errors)."
+reqs = ["8.3"]
+owner = "docs"
+
+[task.7.4]
+title = "Release 2.2.0"
+status = "done"
+wave = 7
+requires = ["7.3", "0.9"]
+touches = ["Makefile", "scripts/release.sh", "src/version.h", "services/hyperfide/package.json", "platform/package.json", "platform/apps/*/package.json", "editors/vscode/package.json", "tests/integration/78_v16_release.sh", "tests/hyperfide/cases/v22/7_4.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_4.sh"
+do_1 = "Version 2.2.0 across the binary, the service, the platform packages and the extension; release.sh ships the platform server, app and host daemon as built archives beside the existing artifacts with checksums and a smoke script that boots the server and daemon from the archive."
+do_2 = "The release notes are generated from the spec's done tasks per wave (CHANGELOG.md itself is the owner's, task 7.5)."
+do_3 = "7_4.sh runs the release script in dry-run into a temporary directory, verifies archive contents and checksums, boots the smoke, and runs tests/integration/78_v16_release.sh."
+reqs = ["8.4"]
+owner = "release"
+
+[task.7.5]
+title = "Changelog and codemap regenerated by the owner"
+status = "blocked"
+wave = 7
+requires = ["7.4"]
+touches = ["CHANGELOG.md", "CODEMAP.md", "tests/hyperfide/cases/v22/7_5.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_5.sh"
+do_1 = "The owner regenerates CHANGELOG.md (2.2.0 section from the release notes of 7.4) and CODEMAP.md (`hyperfide codemap`) at the docs closure; no agent edits either file."
+do_2 = "The feature manager raises a human Ask with the two commands and waits."
+do_3 = "7_5.sh asserts CHANGELOG.md has a 2.2.0 section and CODEMAP.md is newer than the last commit touching platform/ or src/."
+reqs = ["8.5"]
+owner = "human"
+
+blocked_ask = "16"
+[task.7.6]
+title = "Full-system test by the owner"
+status = "pending"
+wave = 7
+requires = ["7.5"]
+touches = ["spec/hyperfide-v22/evidence/human-gate.json", "tests/hyperfide/cases/v22/7_6.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_6.sh"
+do_1 = "The owner runs the released platform (server, app, host daemon) against this repository, takes one task from the board to qualified through a Railway sandbox, answers one Ask from the inbox, and records the run (date, commit, task, sandbox id, verdict) in spec/hyperfide-v22/evidence/human-gate.json."
+do_2 = "Any defect found becomes a fix task in wave 7 before the feature closes."
+do_3 = "7_6.sh validates human-gate.json (fields present, commit reachable, verdict pass) and that it is newer than the release commit."
+reqs = ["8.5"]
+owner = "human"
+
+[task.7.7]
+title = "Fix: qualify plugin server entry imports a host-only module"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-qualify/**", "platform/plugins/environment-git-worktree/**", "platform/packages/environment-provider-host/**", "tests/hyperfide/cases/v22/7_7.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_7.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): the bundled hyperfide-qualify server entry (platform/packages/bundled-plugins/dist/hyperfide-qualify/server.js) fails to load with `Cannot find package '@hyperfide/plugin-sdk'`. Cause: platform/plugins/hyperfide-qualify/adapter.ts imports createWorktree and removeWorktree from ../environment-git-worktree/host/worktree.js, a host-only module that drags `@hyperfide/plugin-sdk/host` and packages/environment-provider-host/src/git.ts into the server bundle, and the server runtime (apps/server/src/services/plugins/plugin-runtime.ts, pluginRuntimeExternalUrls) redirects only the bare `@hyperfide/plugin-sdk` specifier. Fix: the qualify server entry imports no host-only module; lane worktree creation and removal go through the environment-git-worktree provider contract on the host side (or a server-safe equivalent), so the prepared server bundle imports only `@hyperfide/plugin-sdk`, Node APIs and bundled dependencies."
+do_2 = "A unit test in the plugin suite asserts that the prepared server bundle (prepare.mjs output) contains no `@hyperfide/plugin-sdk/` subpath import, so the regression cannot return silently."
+do_3 = "7_7.sh boots platform/apps/server/dist/index.js (building first if dist is missing) with NODE_ENV=production, HYPERFIDE_SKIP_ONBOARDING=true, HYPERFIDE_SERVER_BIND_HOST=127.0.0.1, a free port and a temporary HYPERFIDE_DATA_DIR as the scripts/release.sh smoke does, waits for /health, and asserts with `hyperfide-platform plugin list --json` (HYPERFIDE_SERVER_URL set) that hyperfide-qualify is running without an error, and that the server log under the data dir carries no `plugin hyperfide-qualify failed to load` line."
+reqs = ["5.1"]
+owner = "qualification"
+
+[task.7.8]
+title = "Fix: environment-slices host entry rejected by the private-import guard"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/packages/plugin-build/src/build-plugin-host.ts", "platform/packages/plugin-build/src/build-plugin-host.test.ts", "platform/plugins/environment-slices/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "tests/hyperfide/cases/v22/7_8.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_8.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): hyperfide-environment-slices fails to load with `host entries cannot import private HYPERFIDE workspace package '@hyperfide/hyperfide-environment-slices'`. Cause: the reject-private-hyperfide-host-imports guard in platform/packages/plugin-build/src/build-plugin-host.ts rejects every loaded file whose owning package.json name starts with @hyperfide/ (isPrivateWorkspacePackage), and the plugin's own package is named @hyperfide/hyperfide-environment-slices while every other plugin with a host entry is named hyperfide-plugin-*. Fix (recommended): the guard exempts the plugin being built (files under its own root and its own package name) and keeps rejecting every other private @hyperfide/* package; build-plugin-host.test.ts covers a scoped plugin whose host entry imports only its own files and the SDK. Alternative: rename the package to hyperfide-plugin-environment-slices and update platform/packages/bundled-plugins/package.json and the registry entry accordingly."
+do_2 = "7_8.sh boots the built server exactly as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-environment-slices is running without an error, and that the server log under the data dir carries no `plugin hyperfide-environment-slices failed to load` line."
+reqs = ["8.1"]
+owner = "source"
+
+[task.7.9]
+title = "Fix: dispatch plugin wired into the server as a bundled builtin"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/bundled-plugins/package.json", "platform/apps/server/src/services/plugins/builtin-registry.ts", "platform/turbo.json", "platform/pnpm-lock.yaml", "tests/hyperfide/cases/v22/7_9.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_9.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2): the running 2.2.0 server registers no dispatch plugin. platform/plugins/hyperfide-dispatch has no `hyperfide` manifest block and no prepare:bundled script, is absent from platform/packages/bundled-plugins/package.json and from BUILTIN_PLUGINS and OFFICIAL_PLUGINS in apps/server/src/services/plugins/builtin-registry.ts, and its server.ts exports a createFleetPlugin(backend) factory that nothing in the server calls. Fix: the plugin gets a manifest (a server entry that builds the FleetBackend from the registered machine providers and the spec read model and registers the fleet and image-builder RPC; app entry ./app.tsx), a prepare:bundled script through the plugin-build CLI, a dependency in bundled-plugins/package.json and a BUILTIN_PLUGINS entry (pluginId hyperfide-dispatch, defaultEnabled true), so `pnpm -C platform build` ships it and the server loads it; platform/pnpm-lock.yaml follows and a frozen install proves it settled."
+do_2 = "7_9.sh boots the built server as 7_7.sh does and asserts with `hyperfide-platform plugin list --json` that hyperfide-dispatch is running without an error and that `hyperfide-platform plugin rpc list hyperfide-dispatch` lists the fleet RPC methods; `bash tests/hyperfide/cases/v22/5_4.sh` still passes."
+reqs = ["6.4"]
+owner = "fleet"
+
+[task.7.10]
+title = "UI parity: Hyperfide plugin pages match the native app's structure and feel"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-asks/**", "platform/plugins/hyperfide-graph/**", "platform/plugins/hyperfide-spec/src/board/**", "platform/plugins/hyperfide-guide/**", "tests/hyperfide/cases/v22/7_10.sh", "platform/plugins/hyperfide-spec/package.json", "platform/plugins/hyperfide-spec/tsconfig.json", "platform/plugins/hyperfide-spec/vitest.config.ts", "platform/pnpm-lock.yaml"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_10.sh"
+do_1 = "Owner finding at the 7.6 launch on 2026-10-24: the Hyperfide-added app surfaces (asks inbox, graph index and survey panels, spec board, guide) read as bolted on: raw h1/dl/pre/select elements, ad-hoc spacing, no empty, loading or error states, no theme tokens, no compact layout. Each surface is rebuilt on the patterns native plugin apps use (tasks, automations, memory, secrets, provider-usage): the same page-header and list/detail composition, the same SDK-exported and shared-ui controls instead of bare elements, the same empty/loading/error states, spacing and type scale, theme tokens in light and dark, lucide icon vocabulary and compact behaviour. Plugin server and host code, RPC contracts and behaviour (filters, answering an Ask, secret handling, deadlines, index and survey calls) are unchanged; hyperfide-dispatch is excluded (7.9 owns it)."
+do_2 = "Before and after screenshots of every surface beside its native reference are kept as evidence; the changed plugins' app tests pass or are updated deliberately; 7_10.sh runs the vitest suites of hyperfide-asks, hyperfide-graph, hyperfide-spec and hyperfide-guide and builds @hyperfide/bundled-plugins, exiting non-zero on any failure."
+reqs = ["2.2", "3.2", "4.3"]
+owner = "app"
+
+[task.7.11]
+title = "Fix: spec plugin load blocks on tracing every feature and times out"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-spec/**", "tests/hyperfide/cases/v22/7_11.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_11.sh"
+do_1 = "Defect found at the 7.6 launch on 2026-10-24 (task 7.6, do_2) after the rebuild with 7.7-7.9: the running 2.2.0 server reports `plugin hyperfide-spec failed to load: load timed out after 30000ms`. Cause: platform/plugins/hyperfide-spec/src/read-model-server.ts awaits SpecReader.start() for every repository before the plugin's default export resolves, and SpecReader.read() (src/reader.ts) runs `hyperfide spec status` and `hyperfide spec trace` sequentially for every feature directory under spec/ (18 features in this repository, 36 CLI runs; one `spec trace -f codify-v03 --json` ran over two minutes under load), so the load exceeds the server's loadTimeoutMs and the board, and the dispatch backend that reads features from this plugin, are gone. Fix: plugin load returns as soon as RPC is registered and the spec/ watcher is armed; the first read runs in the background and serves the cached snapshot (storage key hyperfide-spec:<repository>) or an empty snapshot flagged stale/refreshing until it lands, then publishes hyperfide-spec:changed; per-feature status/trace calls run with a bounded concurrency (4) instead of strictly sequentially; a feature whose trace fails or exceeds a per-feature budget is recorded as stale with its error instead of failing the whole read. No change to the RPC contract shape beyond the existing stale/error fields. The reader passes `--no-sync` to `spec trace` (graph sync belongs to the host daemon, not the board; measured on the owner's host: `spec trace -f codify-v04 --json` 50-86 s with sync, 17 s with --no-sync)."
+do_2 = "7_11.sh boots the built server as 7_7.sh does with a project whose source is this repository and HYPERFIDE_BIN pointing at a wrapper script that delays every `spec trace` call by 3 seconds before delegating to the real binary; it asserts with `hyperfide-platform plugin list --json` that hyperfide-spec reaches running within 30 seconds with no error, that `plugin rpc call hyperfide-spec features` answers within 5 seconds (stale or empty allowed), and that within 240 seconds it returns all 18 features with hyperfide-v22 among them; the plugin's vitest suite covers the background first read, the bounded concurrency and the per-feature failure isolation."
+reqs = ["3.1"]
+owner = "spec"
+
+[task.7.12]
+title = "Fix: spec trace costs tens of seconds per feature"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["src/spec.c", "src/graph.c", "src/vcs.c", "src/memory.c", "tests/hyperfide/cases/v22/7_12.sh", "src/cg.h"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_12.sh"
+do_1 = "Defect found at the 7.6 relaunch on 2026-10-24 (task 7.6, do_2) while diagnosing 7.11: on the owner's host (16 cores, 7589 commits, .codegraph 2.7 GB, artifacts/hyperfide/tasks 91762 files) `hyperfide spec trace -f codify-v04 --json` (285-line feature) takes 50-86 s with the default graph sync and 17 s with --no-sync; `-f hyperfide-v22` 86 s; `-f codify-v03` over 10 minutes; `spec status` takes under 200 ms. The whole run is in-process CPU (strace shows no child processes). spec_trace_cmd (src/spec.c) opens the graph per call and trace_task resolves every task's symbols, touches (vcs_changed_paths over tagged commits) and memories (memory_query) one task at a time. Fix: profile trace on this repository, remove the per-task repeated work (one history scan per feature, one memory query per feature, symbol lookups by prepared statement or batch), make the default sync incremental or skip it when the graph is fresh, and bring `spec trace -f hyperfide-v22 --json --no-sync` under 2 s and with sync under 5 s on a warm graph without changing the JSON shape."
+do_2 = "7_12.sh runs `hyperfide spec trace -f hyperfide-v22 --json --no-sync` and `--json` (default sync) on the repository with a warm graph, asserts both exit 0 with the same task set as before, and asserts the wall time is under 2 s and 5 s respectively (printing the timings); tests/hyperfide/cases for spec trace still pass."
+reqs = ["3.1"]
+owner = "source"
+
+[task.7.13]
+title = "Fix: the asks watcher re-lists and republishes on every graph write"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-asks/src/bridge.ts", "platform/plugins/hyperfide-asks/src/bridge.test.ts", "tests/hyperfide/cases/v22/7_13.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_13.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: the app sat on skeleton loaders for minutes behind a working HTTPS proxy. Cause: AskBridge.watch fs-watches .codegraph/graph.db and its WAL with a 40 ms debounce and no content check. The graph is the control plane and is written about ten times a second by the language server and indexers, so the server re-ran `hyperfide ask list --all --json` and broadcast the full list (39 KB) to every websocket client about 7.6 times a second (measured: 76 asks.changed signals, 3.0 MB in 10 s), sat at 50-70% CPU while idle, and pushed the boot endpoints system/config and provider-clis/status to 5-7 s."
+do_2 = "bridge.ts keeps one watcher per repository shared by every subscriber: a listing runs at most once per minIntervalMs (1 s) after a debounceMs (250 ms) quiet time, writes arriving during a listing coalesce into one trailing listing, and asks.changed plus the subscribers' callbacks fire only when the serialized list differs from the one last published (answer() passes through the same gate). bridge.test.ts proves that a 20-write storm costs at most 3 listings and no publish, that a real change publishes exactly once, and that two subscribers share one watcher. 7_13.sh runs the plugin typecheck and suite and the bundled-plugins build, printing timings and exit codes only."
+reqs = ["4.1"]
+owner = "app"
+
+[task.7.14]
+title = "Fix: the spec read model broadcasts its whole snapshot on every spec edit"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/plugins/hyperfide-spec/src/read-model-server.ts", "platform/plugins/hyperfide-spec/src/reader.ts", "platform/plugins/hyperfide-spec/src/shared/**", "platform/plugins/hyperfide-spec/src/*.test.ts", "tests/hyperfide/cases/v22/7_14.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_14.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24 while fixing 7.13: registerSpecReadModel publishes the complete SpecSnapshot (features, status and trace of every feature; 1.38 MB serialized for this repository) on the realtime channel hyperfide-spec:changed after every .kvx write under spec/, to every websocket client, although no client code subscribes to that channel; clients refresh through api.rpc.experimental_invalidateAll, which the same callback already calls. Every fleet landing therefore pushes 1.4 MB to each open tab for nothing and stalls a slow link for seconds."
+do_2 = "The change notice carries only what a subscriber needs to decide to refetch: repository, readAt, stale and error, and the ids of the features whose status or trace differ from the previous snapshot (the reader keeps the previous snapshot to diff); the full snapshot stays available over the spec RPCs and experimental_invalidateAll keeps firing. A unit test asserts the notice shape and that its serialized size stays under 4 KB for a snapshot with 60 tasks carrying trace evidence. 7_14.sh runs the hyperfide-spec typecheck and suite and the bundled-plugins build, printing timings and exit codes only."
+reqs = ["3.1"]
+owner = "app"
+
+[task.7.15]
+title = "Fix: the per-file semantic route purge scans every edge and FTS row on each indexed file"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["src/sem_routes.c", "src/semantic.c", "src/graph.c", "tests/hyperfide/cases/v22/7_15.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_15.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: the owner's IDE language server (`hyperfide lsp`, 2.2.0) ran one index pass for over an hour at 100% CPU holding .codegraph/index.lock; perf put half the samples under sem_routes_purge_file. On the owner's graph (32,089 files, 364,461 symbols, 597,041 semantic_edges, 629 semantic_route_facts) `EXPLAIN QUERY PLAN` shows every purge statement as a full SCAN: the semantic_edges delete scans all edges because idx_sem_edge_source/target lead with branch_id, which the statement never filters; the semantic_route_facts subqueries scan because registration_file_id and handler_file_id are unindexed; the symbol_fts delete scans the virtual table because FTS5 cannot use `rowid IN (subquery)`. The purge runs once per indexed file, so a pass costs files x (edges + fts rows) even though almost no file registers a route."
+do_2 = "sem_routes_purge_file first asks whether the file has any route facts (registration_file_id or handler_file_id, both indexed) and returns before touching other tables when it has none; the edge and composition deletes are rewritten to use existing or new indexes (branch-qualified or direct indexes on source_id/target_id, route_symbol_id, mount_route_id, child_route_id, registration_file_id), and the FTS rows are deleted by iterating the matched symbol ids and deleting each by rowid; ensure_route_schema adds the indexes to existing graphs. 7_15.sh builds the binary, creates a fixture graph (cg init on tests/fixtures/specrepo, then inserts 2,000 files, 200,000 semantic_edges and 50 route facts), asserts with `sqlite3 ... explain query plan` that no purge statement contains `SCAN semantic_edges`, `SCAN semantic_route_facts` or `SCAN symbol_fts`, and times a full `cg index` of that fixture under a limit of 10 s; it prints timings and exit codes only. tests/integration suites covering routes keep passing."
+reqs = ["2.1"]
+owner = "source"
+
+[task.7.16]
+title = "Fix: the qualification plugin's frontend bundle is emitted in a layout the server never loads"
+status = "done"
+wave = 7
+requires = ["7.7"]
+touches = ["platform/plugins/hyperfide-qualify/prepare.mjs", "platform/plugins/hyperfide-qualify/package.json", "platform/plugins/hyperfide-qualify/bundle.test.ts", "platform/packages/bundled-plugins/**", "tests/hyperfide/cases/v22/7_16.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_16.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: the owner's browser received 404 (`bundle file missing`) for the Qualification plugin's app.js and app.css on every page load, five client retries each, and the Qualification panel never rendered. The server's app-bundle loader (platform/apps/server/src/services/plugins/app-bundle.ts, loadPluginAppBundle) reads `<pluginRoot>/dist/app.js`, `<pluginRoot>/dist/app.css` and `<pluginRoot>/dist/app.meta.json` and ignores the manifest's `hyperfide.app` path. hyperfide-qualify's own prepare.mjs (introduced with 7.7) bundles app.ts and server.ts into `.bundled-runtime/app.js` and `.bundled-runtime/server.js` at the package root with `hyperfide.app = ./app.js`, and writes no app.meta.json, so the plugin has no loadable frontend in the current layout; the hash the browser asked for came from a stale nested dist/app.js that the next bundled-plugins build removed."
+do_2 = "Make the prepared hyperfide-qualify artifact use the layout every other bundled plugin uses and the loader reads: dist/server.js, dist/app.js (plus dist/app.css when styles exist), dist/app.meta.json and dist/server.meta.json with artifactFormatVersion 1, sdkMajor and sdkVersion of the running plugin SDK, and pluginId and pluginVersion matching package.json; the prepared manifest's hyperfide.server and hyperfide.app point at ./dist/server.js and ./dist/app.js. Prefer the shared prepare-bundled CLI (platform/packages/plugin-build) that hyperfide-spec uses; if a custom prepare.mjs stays it must emit the same files and keep 7.7's guarantee that the server bundle contains no `@hyperfide/plugin-sdk/` subpath import. bundle.test.ts asserts the prepared layout and the meta fields."
+do_3 = "7_16.sh runs the plugin's prepare:bundled, asserts dist/app.js and dist/app.meta.json exist with pluginId hyperfide-qualify, builds @hyperfide/bundled-plugins..., then boots platform/apps/server/dist/index.js the way 7_7.sh does and asserts that /api/v1/plugins lists hyperfide-qualify with a non-null app.bundle and that GET on its advertised jsUrl returns 200 with a JavaScript body; it prints each step's seconds and exit code and ends with `ok: 7.16`."
+reqs = ["5.1"]
+owner = "qualification"
+
+[task.7.17]
+title = "Fix: the system version endpoint blocks boot on a public npm lookup for a package that is not ours"
+status = "done"
+wave = 7
+requires = ["7.4"]
+touches = ["platform/apps/server/src/services/system/app-version.ts", "platform/apps/server/src/services/system/app-version.test.ts", "platform/apps/server/src/services/system/app-update.ts", "platform/apps/server/src/routes/system.ts", "platform/apps/server/src/types.ts", "platform/apps/server/src/start-server.ts", "platform/packages/config/src/server.ts", "platform/packages/server-contract/src/api/system.ts", "platform/apps/app/src/components/settings/UpdatesSettingsSection.tsx", "platform/apps/app/src/components/settings/UpdatesSettingsSection.stories.tsx", "tests/hyperfide/cases/v22/7_17.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_17.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: GET /api/v1/system/version awaits getSystemVersion, which fetches https://registry.npmjs.org/hyperfide-app/latest with a 5 s timeout (platform/apps/server/src/services/system/app-version.ts). From the owner's host the registry answers 404 after about 5 s, failures are never cached (only a non-null result is), so every boot of the UI blocks on this call; the owner's browser aborted it twice (HTTP 499 at the proxy). The response also advertises source `npm` and upgradeCommand `npx hyperfide-app@latest`, a package that is not ours (Hyperfide ships under its own identity, req.1)."
+do_2 = "The endpoint never awaits the network: it answers at once with the current version and the last cached lookup, or latestVersion null and updateAvailable false, and refreshes in the background. Negative results (non-2xx, timeout, parse failure) are cached for a short TTL (10 min) so a failing registry costs one request per TTL, not one per boot. The remote check runs only when an update channel is configured through the server config; by default there is no network call, latestVersion is null, upgradeCommand is null and source reflects the install kind. The Updates settings section renders the no-channel state without an npm upgrade hint. The decision Ask `7.6: where should the platform check for updates?` was raised at filing with the recommendation off-until-channel; proceed on it and flag it in the commit."
+do_3 = "app-version.test.ts covers: default config makes no fetch and returns latestVersion null; with a channel configured and a fetch that never resolves the service answers within 100 ms from cache or null; a 404 or throwing fetch is cached for the negative TTL and a second call inside the TTL makes no fetch. 7_17.sh runs the server typecheck and the app-version unit tests, then boots platform/apps/server/dist/index.js the way 7_7.sh does with no update channel configured and asserts GET /api/v1/system/version returns 200 in under 1 s with latestVersion null; it prints each step's seconds and exit code and ends with `ok: 7.17`."
+do_4 = "Permission granted on 2026-10-24 by the feature manager: the touches now include the server runtime and config wiring and the system response contract (types.ts, start-server.ts, packages/config server.ts, server-contract api/system.ts) that a nullable upgradeCommand and a configurable update channel need. The owner answered Ask #19 off-until-channel and noted the package will later be published under the npm scope @sidioralabs/hyperfide, so the configurable channel accepts a scoped npm package name. A rerun travels with the branch of the previous attempt (refs/remotes/in1/task/v22-7.17): merge it and continue rather than starting over."
+do_5 = "Baseline repair recorded on 2026-10-24 by the feature manager: the pre-existing npm-era suite platform/apps/server/test/system/app-version.test.ts asserted registry dist-tag lookups the rewritten service no longer performs and failed 15 assertions on the lane; it was removed because src/services/system/app-version.test.ts covers the explicit update channel, the no-request default, the bounded answer, failure caching and the transport timeout."
+reqs = ["8.5"]
+owner = "app"
+
+[task.7.18]
+title = "Fix: the index pass's resolve phase holds the graph write lock in one transaction for the whole pass"
+status = "done"
+wave = 7
+requires = ["7.15"]
+touches = ["src/scan.c", "src/semantic.c", "src/sem_routes.c", "src/progress.c", "src/index_chunks.h", "src/resolve.c", "src/sem_channels.c", "src/sem_dispatch.c", "src/sem_imports.c", "src/sem_incremental.c", "src/sem_resolve.c", "src/sem_types.c", "tests/hyperfide/cases/v22/7_18.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_18.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24: while the owner's IDE language server (`hyperfide lsp` 2.2.0) ran its index pass over the 2.7 GB graph, `hyperfide ask raise` failed four times in a row with `could not record the Ask: database is locked` (default CG_BUSY_TIMEOUT_MS 30000) and a probe `BEGIN IMMEDIATE` with a 20 s timeout failed as well: the write lock was held continuously for more than two minutes. The write phase in src/scan.c chunks its commits exactly as its design note says (the lock is the scarce resource; waiting writers land in the gaps), but the resolve phase (progress_begin_write at src/scan.c:1983, then anchor_edges, resolve_imports, resolve_refs and sem_incremental_run, COMMIT at src/scan.c:2010) is one transaction for the whole tree, so every other writer (asks, spec status, leases) fails instead of landing in a gap."
+do_2 = "Bound the hold: the resolve and semantic phases commit in chunks the way the write phase does (per bounded unit of work, or after at most about two seconds of lock time), releasing and re-acquiring the write lock between chunks; chunks already committed stay valid when a later one is abandoned, and the pass bookkeeping (index_health_finish and the pkey meta) is written only when the last chunk commits, so a stalled run stays recoverable exactly as today. A full pass over a fixture produces the same rows, edges and route facts as before."
+do_3 = "7_18.sh indexes a synthetic fixture large enough that the resolve plus semantic phase takes more than 20 s in the sandbox while a prober loop runs `BEGIN IMMEDIATE; ROLLBACK;` against the graph with a 5 s busy timeout once a second; it asserts that no probe fails during the pass and that the longest observed lock wait is under 5 s, and that the resulting graph matches an unchunked reference pass on the counts of files, symbols, semantic_edges and semantic_route_facts; it prints each step's seconds and exit code and ends with `ok: 7.18`."
+do_4 = "Decision recorded on 2026-10-24 by the feature manager (the worker's decision Ask, proceed-on-recommendation): the resolve and semantic write passes materialize driving cursors into disk-backed work lists and commit at cooperative checkpoints, which touches the resolver and every semantic loop file; those files are now in touches. The alternative, keyset pagination in every pass, was not taken."
+reqs = ["2.1"]
+owner = "source"
+
+[task.7.19]
+title = "Fix: the Fleet and Image builder pages are empty and unstyled because the platform never starts its dispatcher and the image builder ignores the registered provider"
+status = "done"
+wave = 7
+requires = ["7.9"]
+touches = ["platform/plugins/hyperfide-dispatch/**", "platform/packages/plugin-sdk/src/machine-provider.ts", "platform/packages/plugin-sdk/src/backend-contract.ts", "platform/packages/plugin-sdk/src/host-contract.ts", "platform/apps/server/src/services/plugins/plugin-api.ts", "platform/apps/server/src/services/hosts/**", "platform/plugins/machine-railway/src/provider.ts", "platform/plugins/machine-railway/src/machine-ops.ts", "platform/plugins/machine-blaxel/src/provider.ts", "platform/packages/plugin-sdk/src/internal/host-policy.ts", "platform/packages/plugin-sdk/src/__tests__/public-types.test.ts", "platform/plugins/hyperfide-guide/skills/hyperfide-plugin-authoring/references/backend-api-index.md", "tests/hyperfide/cases/v22/7_19.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_19.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24. /plugins/hyperfide-dispatch/fleet renders `No machines`, `No jobs`, `No task events` and `Cap: 0 / 0`: 14 fleetLedger calls answered 200 with an empty ledger. Cause: the plugin's default export (platform/plugins/hyperfide-dispatch/server.ts) registers the fleet RPC over createServerBackend, which reads job ledgers and `fleet.control` from the plugin data directory, but nothing in the platform constructs or ticks Dispatcher (src/dispatcher/dispatcher.ts): `new Dispatcher(` appears only in tests. The read model also leaves `started` and `finished` null and `timelines` empty, so req.6 ac_6 is unmet. /plugins/hyperfide-dispatch/image-builder polls imageBuilds every second (66 calls in one owner session), accepts only a 40-hex commit, and imageBuildStart throws unless the hidden kv keys dispatch.repository and dispatch.fleetPath are set, then always throws `Registered machine providers do not support image checkpoints` because registerServerImageBuilder (src/server-backend.ts) hardcodes a stub machines object with checkpoint false instead of using the registered provider, although the Railway provider checkpoints (platform/plugins/machine-railway/src/provider.ts). Both views are raw HTML (bare main, button, table, pre) while sibling plugins build on the shared UI kit through tsconfig paths `@/*` to packages/shared-ui/src/* (see platform/plugins/hyperfide-asks/views/inbox-view.tsx and platform/plugins/hyperfide-spec/src/board/views/board-panel.tsx: ResourceCollectionPage, ResourceToolbar, ResourceListPanel, DelayedLoading, Input, Label, Icon); the dispatch tsconfig has no such paths."
+do_2 = "The plugin starts one Dispatcher per server in its default export: data directory under experimental_dataDir/plugins/<pluginId>, spec source bound through the hyperfide-spec RPC read model, machine providers from api.sdk.hosts.experimental_listProviders(), limits from the concurrency-limit snapshot, gateway keys from plugin settings; it ticks on an interval (15 s default) and after backoff, and stops on dispose. Safety default: `fleet.control` starts paused with cap 0, so nothing is claimed until an operator resumes and raises the cap from the Fleet page; with no machine provider configured the ledger reports that state in words. The ledger records started and finished timestamps per job and per-task timeline events (claimed, started, finished or failed, merged) with log tails taken from the dispatcher's own writes. A new RPC fleetImportLedgers accepts JobLedger records with optional started, finished, worker and log fields plus timeline events and upserts them into the plugin storage, so jobs run by other tooling become visible; imported jobs carry their source."
+do_3 = "The image builder uses the registered machine providers' create and checkpoint operations instead of the stub; dispatch.repository and dispatch.fleetPath become declared plugin settings (settings.define) shown with a not-configured state inline on the page; the commit field accepts a branch, tag or short sha and resolves it through the repository; polling is 5 s or realtime."
+do_4 = "Both views are rebuilt on the shared UI kit with the same tsconfig paths as hyperfide-asks: a collection page with toolbar, filters and search over machines and jobs, a detail pane with the log tail, status chips, per-task timelines, and the budget controls as a settings-style section; loading, empty and error states use DelayedLoading and alerts like the sibling plugins. No credential or key value is ever rendered; keys remain a count."
+do_5 = "Tests: server-backend.test.ts covers the dispatcher starting paused with cap 0 and no providers (ledger reports paused, idle, no providers), fleetImportLedgers upserting records that fleetLedger then returns with timelines, and the image builder calling the registered provider; view tests render the populated and empty ledgers. 7_19.sh runs the plugin typecheck and tests and the bundled-plugins build, boots the built server the way 7_7.sh does, asserts fleetLedger returns budget.paused true, imports a fixture ledger through fleetImportLedgers and asserts fleetLedger lists it with a timeline; it prints each step's seconds and exit code and ends with `ok: 7.19`."
+do_6 = "Permission granted on 2026-10-24 by the feature manager: the registered machine-provider contract may be widened, additively and capability-gated, with checkpoint creation, checkpoint-based allocation and command execution, across the plugin SDK contract files, the server plugin API and hosts services, and the Railway and Blaxel provider bridges now listed in touches. A rerun travels with the branch of the previous attempt (refs/remotes/in1/task/v22-7.19): merge it and continue rather than starting over."
+do_7 = "Recorded on 2026-10-24 by the feature manager: the rerun also had to register the new host capability in the SDK host policy and its public-types test, two consequential two-line edits now listed in touches."
+do_8 = "Baseline repair recorded on 2026-10-24 by the feature manager: the host contract exports ExperimentalSandboxOperations and ExperimentalSandboxMachine were missing from the plugin-authoring backend API index, which the server docs suite checks against the bundled declaration files; both are now listed and the index file is in touches."
+do_9 = "Baseline repair recorded on 2026-10-24 by the feature manager: the two sandbox host exports are indexed on one comma-joined line per section so references/backend-api-index.md stays at the 500-line cap that test/skills/shipped-skills-quality.test.ts enforces; the 7.21 qualification caught the 502-line overrun introduced by do_8."
+reqs = ["6.3", "6.4", "6.6"]
+owner = "platform"
+
+[task.7.20]
+title = "Fix: the Railway machines settings page shows two masked fields and nothing else, with no connection state, verification or fleet status"
+status = "done"
+wave = 7
+requires = ["5.1"]
+touches = ["platform/plugins/machine-railway/**", "tests/hyperfide/cases/v22/7_20.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_20.sh"
+do_1 = "Defect found at the 7.6 owner test on 2026-10-24. /settings/plugins/hyperfide-machine-railway renders only the generic secret inputs for HYPERFIDE_RAILWAY_API_TOKEN and HYPERFIDE_RAILWAY_ENV_ID with the placeholder `[set]`. The owner's four PUTs persisted (GET /api/v1/plugins/hyperfide-machine-railway/settings reports set true for both), yet the page confirms nothing beyond the placeholder, never verifies that the credentials work, shows no project or environment identity, no machines, no fleet bootstrap state and no last error; the owner reported it as neither showing nor accepting information. The plugin has no app entry and registers no settingsSection slot (platform/packages/plugin-sdk/src/app-contract.ts PluginSettingsSectionRegistration)."
+do_2 = "The plugin gains an app entry registering a settingsSection rendered on its settings page above the generic fields: connection state from a new RPC railwayStatus (configured yes or no, verified-at timestamp kept in plugin kv, project name, environment name, region, count of sandboxes and of machines created by this provider with lifecycle phase, last redacted error), a `Verify connection` action that resolves the stored settings and calls the Railway API, and the enrollment bootstrap state from src/fleet-bootstrap.ts. The RPC never returns a secret value or fragment and every error passes the existing redaction. Each setting descriptor gets a description telling the owner where to obtain the value. The section follows the settings idiom used by the app (SettingsWithControl, the shared UI kit via tsconfig paths like hyperfide-asks) and reads correctly on mobile."
+do_3 = "Tests with the fake client cover railwayStatus unconfigured, configured-and-verified, and a failing verification whose message is redacted. 7_20.sh runs the plugin typecheck and tests and the bundled-plugins build, boots the built server the way 7_7.sh does with no credentials and asserts `hyperfide-platform plugin rpc call hyperfide-machine-railway railwayStatus` answers configured false in under 1 s; it prints each step's seconds and exit code and ends with `ok: 7.20`."
+reqs = ["6.1", "8.5"]
+owner = "machines"
+
+[task.7.21]
+title = "Import prior Claude Code and Codex sessions from the host into threads the app lists, shows and resumes"
+status = "done"
+wave = 7
+requires = ["7.9"]
+touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/apps/server/src/routes/threads/**", "platform/packages/server-contract/src/api/**", "platform/apps/cli/src/commands/thread/**", "platform/plugins/provider-claude-code/src/**", "platform/plugins/provider-codex/src/**", "platform/apps/app/src/components/settings/**", "platform/packages/server-contract/src/public-api.ts", "platform/apps/app/src/views/SettingsView.tsx", "platform/plugins/hyperfide-guide/skills/hyperfide-cli/references/command-index.md", "tests/hyperfide/cases/v22/7_21.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_21.sh"
+do_1 = "Gap found at the 7.6 owner test on 2026-10-24: the platform database holds 0 threads while the host holds 9 Claude Code sessions (with 826 subagent transcripts beneath them) under ~/.claude/projects and 1,035 Codex rollouts under ~/.codex/sessions, so the owner sees an empty app and cannot continue any prior work in it. There is no importer: scripts/provider-recordings/convert-claude-transcript.mjs, referenced by platform/plugins/provider-claude-code/src/__fixtures__/transcripts/README.md, is absent from the repository; the translators exist (createClaudeDeltaTranslator in provider-claude-code/src/delta-translation.ts, createCodexEventTranslator in provider-codex/src/translator.ts) but consume live SDK and app-server streams only. Claude Code session files are JSON lines with types user, assistant, system, attachment, ai-title, last-prompt and others, each carrying sessionId and cwd; Codex rollouts are JSON lines with timestamp, ordinal, type (response_item, event_msg, turn_context, token_usage_record, ...) and payload."
+do_2 = "A session import service discovers sources on the host daemon's machine (default roots ~/.claude/projects and ~/.codex/sessions, overridable), maps each session to a project by its cwd (falling back to the personal project), creates one thread per session with the title from ai-title or the first user prompt, created and updated times from the transcript, the provider id of provider-claude-code or provider-codex, and the provider thread id set to the Claude session id or Codex thread id so that a later message resumes the provider session through the bridges' existing thread/resume path. Records are translated through the provider's existing translator so imported threads render exactly like live ones (tool calls, results, reasoning, subagent sidechains as child threads linked by parentThreadId). Import is idempotent per (provider, session id): a rerun imports only new sessions and appends only new records to sessions already imported, so a session still being written can be re-imported later. Files stream line by line, insert in batches and yield between sessions so a thousand rollouts never block the server. Transcript contents are never logged. Surfaces: `hyperfide-platform thread import [--source claude-code|codex] [--root P] [--dry-run] --json`, REST POST /api/v1/threads/import and GET /api/v1/threads/import/sources in the server contract, and a Settings section `Import sessions` listing the discovered sources with counts, an Import button, progress and the result, styled like UpdatesSettingsSection with a story."
+do_3 = "Tests use the existing __fixtures__/transcripts streams plus small redacted synthetic fixtures (one Claude session file with a subagent sidechain, one Codex rollout, together under 200 KB) and assert the thread, title, project mapping, event sequence, child thread and idempotency. 7_21.sh runs the server, cli and both provider typechecks and tests, boots the built server the way 7_7.sh does with HOME pointing at a temporary directory holding the fixtures, runs `thread import --json` twice and asserts the first run lists the expected titles and provider ids and the second imports 0; it prints each step's seconds and exit code and ends with `ok: 7.21`."
+do_4 = "Permission answered on 2026-10-24 by the feature manager (the worker ASK, option 1): the two unrelated server-suite failures were repaired on the lane as baseline repairs tagged to 7.17 (stale npm-era version test removed) and 7.19 (ExperimentalSandboxOperations and ExperimentalSandboxMachine added to the backend API index), so this task did not edit them; its three integration files (server-contract public-api.ts, SettingsView.tsx, the CLI command index) are now in touches. The worker commit landed with status implemented and qualifies in a sandbox at the repaired tip."
+do_5 = "Baseline repair recorded on 2026-10-25 by the feature manager: the live import of 1,638 host sessions left one Claude Code session and its seven subagents unimported because a single torn transcript line (two records written over each other by the provider) made records() throw Invalid JSON and abort the whole session; records() now yields an empty record for an unparsable interior line, the unterminated-last-line deferral is unchanged, and service.test.ts covers the torn-record case."
+reqs = ["8.5"]
+owner = "app"
+
+[task.7.22]
+title = "Desktop shell signs in to a hyperfide-platform server behind HTTP basic authentication"
+status = "done"
+wave = 7
+requires = []
+touches = ["platform/apps/desktop/src/**", "platform/apps/desktop/test/**", "platform/apps/desktop/README.md", "platform/packages/desktop-contract/src/**", "tests/hyperfide/cases/v22/7_22.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_22.sh"
+do_1 = "Gap found on 2026-10-24 at the owner's first desktop install: the published server sits behind an nginx HTTP basic-authentication gate, the shell probes /health and /api/v1/system/config with a bare fetch, so a 401 is reported as an incompatible or unreachable server and the window never gets past the startup error; Electron's app login event is not handled anywhere in platform/apps/desktop, so the renderer cannot answer the browser challenge either."
+do_2 = "The shell answers HTTP basic challenges: when the app login event fires for a server origin, saved credentials for that origin are answered once; with none saved, or after a failed attempt, a small modal credentials window (the server-url-dialog pattern: BrowserWindow, preload, typed IPC) collects username and password with a remember option; remembered credentials are stored per origin encrypted with Electron safeStorage under the user data directory, never in plain text and never logged or shown in error text; every shell-side fetch to that origin (server probe, system config, update feed) carries the Authorization header; the probe reports the kind auth-required on a 401 so the server-url and existing-server dialogs ask for credentials before the server is saved; cancel returns to the server chooser."
+do_3 = "Tests: vitest units for the probe (401 without credentials gives auth-required, with credentials the header is sent and the probe succeeds), for the login decision (saved credentials answered once, a repeated challenge for the same origin prompts, cancel aborts the load) and for the credential store round trip with a fake safeStorage; the verify script typechecks, tests and builds the desktop package and asserts that the login handler, the auth-required kind and the safeStorage use exist and that no log call carries a password."
+reqs = ["1.1"]
+owner = "app"
+
+
+
+[task.7.23]
+title = "Import source kinds and fleet runner kinds leave core's provider-id surface"
+status = "done"
+wave = 7
+requires = ["7.19", "7.21"]
+touches = ["platform/apps/server/src/services/threads/thread-import/**", "platform/packages/server-contract/src/api/threads.ts", "platform/apps/app/src/components/settings/ImportSessionsSettingsSection.tsx", "platform/apps/app/src/components/settings/settings-search.ts", "platform/plugins/hyperfide-dispatch/src/**", "platform/plugins/provider-codex/**", "platform/plugins/provider-claude-code/**", "platform/apps/app/src/components/settings/SettingsSidebar.tsx", "platform/packages/plugin-sdk/src/**", "platform/scripts/provider-literal-baseline.json", "tests/hyperfide/cases/v22/7_23.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_23.sh"
+do_1 = "Gap: 7.19 and 7.21 added provider-id literals to five core files (session import source kinds, fleet runner enum); guardrail G1 (platform/scripts/check-provider-literal-ratchet.mjs) was raised with its override and the files allowlisted, which the guard permits only with a follow-up task that removes them."
+do_2 = "Design: import sources become a registry the provider plugins fill (kind, label, keywords, discover, parse); the wire enum becomes a string validated against the registered kinds; the settings section reads labels and keywords from the server; the dispatch runner enum reads the runner kinds the registered fleet images carry. The scanner is not weakened and no literal is renamed to dodge it."
+do_3 = "7_23.sh runs the ratchet (must pass without override), asserts the five allowlist entries are gone and the total is back at or below 14, and runs the scripts suite and the thread-import tests."
+do_4 = "Implemented in sandbox v22-7.23 (cefba73b8): provider-owned ThreadImportSourceDefinition in the plugin SDK, adapters in provider-codex and provider-claude-code, the server catalogues them in thread-import/provider-translators.mjs; the fleet runner catalog lives with the provider dispatch commands and the image build records runnerKinds. Ratchet back at 14, five allowlist entries gone. Touches corrected: the provider plugins live under platform/plugins/provider-*; the settings sidebar supplies the search metadata."
+reqs = ["1.1"]
+owner = "platform"
+
+[task.7.24]
+title = "Queued notices and desktop tab owners survive concurrent writes on PostgreSQL"
+status = "done"
+wave = 7
+requires = ["7.23"]
+touches = ["platform/apps/server/src/services/threads/queued-messages.ts", "platform/apps/server/src/services/threads/parent-system-messages.ts", "platform/apps/server/src/services/threads/thread-context-clear.ts", "platform/apps/server/src/services/threads/thread-send.ts", "platform/apps/server/src/services/desktop-browsers.ts", "platform/apps/server/test/desktop-browsers.test.ts", "platform/apps/server/test/public/public-thread-context-clear-dispatch.test.ts", "tests/hyperfide/cases/v22/7_24.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_24.sh"
+do_1 = "Gap: the 6.1 server suites on PostgreSQL under sandbox load lost (a) a parent system notice queued while a context clear was in flight (public-thread-context-clear-dispatch.test.ts:215 saw [] where the retained notice was expected) and (b) the desktop tab owner after two windows restored the same orphan concurrently (desktop-browsers.test.ts:1113 saw environmentId null instead of the winning desktopTarget). Both passed on SQLite in the same run."
+do_2 = "Design: reproduce on PostgreSQL under load first (run the two files repeatedly with another vitest suite running). Where the product violates the contract (a notice queued during a clear must survive the clear; exactly one restore wins and its owner is stored), fix the ordering in the server (transaction or claim before delete, compare-and-set on the owner) rather than the test. Only where the state is correct once writes settle may the test wait for it, and then with vi.waitFor and an explicit budget, never by dropping the assertion."
+do_3 = "7_24.sh runs both files once on SQLite and five consecutive times on PostgreSQL through tests/hyperfide/support/withpg.py; every run must pass."
+do_4 = "Implemented: queue dispatch acquires the context-send guard before claiming rows, so concurrent drains cannot hide notices retained during clear. Desktop writes compare revisions atomically and orphan adoption retries conflicts before closing a duplicate. Tests exercise four concurrent drains and both restore completion orders. The first two unchanged PostgreSQL runs under a companion suite passed (0 failures); the companion thread-send-dispatch suite exposed a separate timing assertion. Verification passed 30 cases on SQLite and five consecutive PostgreSQL runs; server typecheck, Prettier and the 65-task workspace build passed. Full server suite: 3640 passed, 2 failed in shipped-skills-quality because unchanged backend-api-index.md has 503 lines (500 limit), 2 skipped. cg review timed out after 300 seconds; guard ran and anchors reported zero stale. No prerequisite adapter was needed."
+reqs = ["1.1"]
+owner = "platform"
+
+[task.7.25]
+title = "Sidebar bootstrap refetches coalesce under realtime churn instead of cancelling each other"
+status = "done"
+wave = 7
+requires = ["7.23"]
+touches = ["platform/apps/app/src/hooks/cache-owners/realtime-cache-registry.ts", "platform/apps/app/src/hooks/realtime-cache-effects.ts", "platform/apps/app/src/hooks/realtime-cache-effects.test.ts", "platform/apps/app/src/hooks/queries/sidebar-navigation-query.ts", "platform/apps/app/src/hooks/queries/sidebar-navigation-query.test.tsx", "tests/hyperfide/cases/v22/7_25.sh"]
+verify_cmd = "bash tests/hyperfide/cases/v22/7_25.sh"
+do_1 = "Gap: on the live deployment (1649 threads, sidebar-bootstrap 2.1 MB JSON / 95 KB brotli, 0.25 s to generate) the nginx access log recorded 978 GET /api/v1/sidebar-bootstrap in one 8-minute window of normal use, 717 of them status 499 (client aborted). Cause: executeRealtimeDirtyHandlers in realtime-cache-registry.ts invalidates every key a dirty handler returns with queryClient.invalidateQueries({ queryKey }), whose default cancelRefetch cancels the in-flight fetch; the thread dirty handlers return sidebarNavigationQueryKey() and threadSearchQueryKeyPrefix() on every debounced flush (50 ms / 200 ms max wait on a fine pointer), so during a stream of thread changes the sidebar fetch is aborted and restarted every flush, the server regenerates and compresses 2 MB for nothing, and the sidebar stays stale until the churn stops."
+do_2 = "Design: keys returned by the thread dirty handlers that back large list payloads (sidebar navigation, thread search) must be invalidated without cancelling an active fetch and followed by exactly one trailing refetch once the in-flight request settles; reuse invalidateQueryKeysWithoutCancelingActiveFetches / scheduleTrailingActiveRefetch (or invalidateQueryKeyWithThrottledActiveRefetch with a minimum interval no shorter than the observed fetch duration) rather than adding a new mechanism. Keep the existing immediate paths (history-rewritten, status-changed) and the coarse-pointer debounce values unchanged; do not change the server contract or the payload shape."
+do_3 = "7_25.sh runs the @hyperfide/app typecheck, realtime-cache-effects.test.ts, realtime-cache-effects.coarse-pointer.test.ts and sidebar-navigation-query.test.tsx; realtime-cache-effects.test.ts gains a regression test in which a sidebar-bootstrap fetch is in flight while twenty debounced thread changes arrive over two seconds, asserting the in-flight fetch is never aborted (its AbortSignal stays un-aborted), at most two fetches run in total, and the sidebar data is fresh after the last change."
+reqs = ["1.1"]
+owner = "platform"
+do_4 = "Implemented debounced sidebar/search invalidation with the existing non-cancelling trailing-refetch helper; immediate paths and debounce cadence stay unchanged. Regression proves twenty changes preserve AbortSignals, coalesce to two fetches and refresh the final data. 7_25.sh passes app typecheck and all 94 tests."

@@ -352,6 +352,10 @@ func (s *Server) loadShare(keyID string) (store.ShareRecord, storedShare, *Error
 }
 
 func (s *Server) saveShare(keyID string, c dealer.Curve, pub *pt.ECPoint, epoch uint64, participants []string, payload storedShare) *Error {
+	return s.saveShareUsing(keyID, c, pub, epoch, participants, payload, s.opts.Store.Put)
+}
+
+func (s *Server) saveShareUsing(keyID string, c dealer.Curve, pub *pt.ECPoint, epoch uint64, participants []string, payload storedShare, put func(store.ShareRecord, []byte) error) *Error {
 	pubBytes, err := publicKeyBytes(c, pub)
 	if err != nil {
 		return newError(CodeKeyInvalidShare, "%v", err)
@@ -366,7 +370,7 @@ func (s *Server) saveShare(keyID string, c dealer.Curve, pub *pt.ECPoint, epoch 
 		}
 	}()
 	rec := store.ShareRecord{KeyID: keyID, Curve: curveName(c), PublicKey: pubBytes, Epoch: epoch, Participants: participants}
-	if err := s.opts.Store.Put(rec, plain); err != nil {
+	if err := put(rec, plain); err != nil {
 		return newError(CodeStoreFailed, "%v", err)
 	}
 	return nil
@@ -1103,7 +1107,9 @@ func (s *Server) doAddShare(r *http.Request, body []byte) (KeyResponse, *Error) 
 	dealer.Wipe(out.Share)
 	payload.Bundle = &enc
 	participants := out.ParticipantIDs()
-	if e := s.saveShare(req.KeyID, c, pub, epoch, participants, payload); e != nil {
+	if e := s.saveShareUsing(req.KeyID, c, pub, epoch, participants, payload, func(rec store.ShareRecord, plain []byte) error {
+		return s.opts.Store.ReplaceShare(rec, plain, quorum, req.NewParticipantID)
+	}); e != nil {
 		return KeyResponse{}, e
 	}
 	seq, e := s.audit("keys.addshare", req.KeyID, payload.Owner, "allowed", "share added for "+req.NewParticipantID, req.SessionID)

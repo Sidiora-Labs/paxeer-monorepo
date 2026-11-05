@@ -1,0 +1,32 @@
+{
+  "name": "hyperfide-plugin-composer-customization",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.0"
+  },
+  "hyperfide": {
+    "name": "Composer customization",
+    "description": "Reference implementation for every composer customization region.",
+    "branding": {
+      "icon": "Sparkles"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx"
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "typecheck": "tsrs --noEmit"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
+  }
+}

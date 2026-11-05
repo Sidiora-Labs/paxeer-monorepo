@@ -420,12 +420,23 @@ impl Gateway {
         Ok((status, answer[header_end + 4..].to_vec()))
     }
 
+    fn assert_retired_rpc_path(&self) {
+        let call =
+            json!({"jsonrpc":"2.0", "id":"retired", "method":"px_getReceiptKeys", "params":[]});
+        let (status, body) = self
+            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .expect("retired path refusal");
+        assert_eq!(status, 404);
+        let body: Value = serde_json::from_slice(&body).expect("retired refusal JSON");
+        assert_eq!(body["error"]["code"], "not_found");
+    }
+
     fn rpc(&self, method: &str, params: Value) -> Value {
         thread::sleep(Duration::from_secs(1));
         let call =
             json!({"jsonrpc": "2.0", "id": "router-surface", "method": method, "params": params});
         let (status, body) = self
-            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .exchange("POST", "/", call.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
         let answer: Value =
@@ -741,6 +752,7 @@ fn router_answers_every_listed_method() {
         layerx_indexer::api::route(&store, &request.method, &request.path)
     });
     let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
+    gateway.assert_retired_rpc_path();
     let document: Value =
         serde_json::from_str(include_str!("../openrpc.json")).expect("OpenRPC JSON");
     let entries = document["methods"].as_array().expect("OpenRPC methods");
@@ -905,6 +917,7 @@ fn chain_only_router_serves_receipts_balances_and_assets() {
         layerx_indexer::api::route(&store, &request.method, &request.path)
     });
     let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
+    gateway.assert_retired_rpc_path();
 
     let balances = gateway.rpc("px_getBalances", json!([ACCOUNT]));
     assert!(balances.get("error").is_none(), "{balances}");

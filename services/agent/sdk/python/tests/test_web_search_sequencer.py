@@ -4,11 +4,15 @@ import base64
 import json
 from dataclasses import dataclass, replace
 from hashlib import sha256
-from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from layerx_sdk.revert import RevertReasonError
+from layerx_sdk.x402 import PaymentBindingError
+from receipt_transport import recorded_payment_rpc
+from test_sequencer_receipt import _key, _payment_terms, _payment_vector
 
 from layerx_sdk.verifier import (
     ReceiptKey,
@@ -26,27 +30,19 @@ from layerx_sdk.web_search import (
     _PreparedPayment,
 )
 
-ROOT = Path(__file__).resolve().parents[5]
-VECTOR = json.loads(
-    (ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text()
-)["cases"][0]
+VECTOR = _payment_vector()
 SIGNED_RECEIPT = bytes.fromhex(VECTOR["signedReceipt"][2:])
 RAW_TRANSACTION = bytes.fromhex(VECTOR["rawTransaction"][2:])
-PIN = VECTOR["pinnedKey"]
-RECEIPT_KEY = ReceiptKey(
-    bytes.fromhex(PIN["keyId"][2:]),
-    bytes.fromhex(PIN["publicKey"][2:]),
-    PIN["firstHeight"],
-    PIN["lastHeight"],
-)
-ASSET = "0e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73"
-PAYER = VECTOR["receiptJson"]["from"][2:].zfill(64)
+RECEIPT_KEY = _key(VECTOR)
+TERMS = _payment_terms(VECTOR)
+ASSET = TERMS["asset"]
+PAYER = TERMS["payer"]
 OFFER = WebSearchOffer(
     scheme="exact",
     network="eip155:125",
-    amount="1000000000000000000",
+    amount=TERMS["amount"],
     asset=ASSET,
-    pay_to=VECTOR["receiptJson"]["to"][2:].zfill(64),
+    pay_to=TERMS["pay_to"],
     max_timeout_seconds=30,
     currency="PAX",
     account="agent:did:layerx:seller:main",
@@ -64,7 +60,6 @@ SETTLEMENT = {
             "receipt": base64.b64encode(SIGNED_RECEIPT).decode("ascii"),
             "receiptDigest": RECEIPT_DIGEST,
             "verificationLevel": "receipted",
-            "rawTransaction": VECTOR["rawTransaction"],
         }
     },
 }
@@ -87,7 +82,7 @@ class _ReceiptPayer:
         raise WebSearchError("metered-payer-unavailable")
 
 
-def _client(receipt_keys: tuple[ReceiptKey, ...]) -> WebSearchClient:
+def _client(receipt_keys: tuple[ReceiptKey, ...], *, payer_rpc=None) -> WebSearchClient:
     return WebSearchClient(
         endpoint="http://127.0.0.1",
         network=OFFER.network,
@@ -95,6 +90,8 @@ def _client(receipt_keys: tuple[ReceiptKey, ...]) -> WebSearchClient:
         assets={"PAX": WebSearchAssetTerms(ASSET, int(OFFER.amount))},
         payer=_ReceiptPayer(WebSearchExactPayment(SIGNED_RECEIPT, RAW_TRANSACTION)),
         receipt_keys=receipt_keys,
+        payer_rpc=payer_rpc,
+        payer_address=VECTOR["receiptJson"]["from"] if payer_rpc is not None else None,
     )
 
 
@@ -107,10 +104,10 @@ def test_web_search_receipt_verifies_through_receipt_keys():
     payment = client._prepare(OFFER, {}, "/search?q=paxeer")
     payload = json.loads(base64.b64decode(payment.header))["payload"]
     assert payload == {
-        "receipt": base64.b64encode(SIGNED_RECEIPT).decode("ascii"),
+        "txHash": VECTOR["receiptJson"]["txHash"],
         "receiptDigest": RECEIPT_DIGEST,
-        "verificationLevel": "sequencer-signed",
-        "rawTransaction": VECTOR["rawTransaction"],
+        "verificationLevel": "receipted",
+        "idempotencyKey": VECTOR["receiptJson"]["logs"][1]["topics"][1][2:],
     }
     assert payment.receipt == SIGNED_RECEIPT
     assert payment.raw_transaction == RAW_TRANSACTION
@@ -126,35 +123,46 @@ def test_web_search_receipt_verifies_through_receipt_keys():
     assert settlement.scheme == "exact"
 
     for raw, code in (
-        (None, "settlement-receipt-mismatch"),
-        ("0x", "settlement-receipt-mismatch"),
-        ("0x0", "settlement-receipt-mismatch"),
-        ("0xGG", "settlement-receipt-mismatch"),
+        (None, "settlement-transaction-unavailable"),
+        ("0x", "settlement-transaction-unavailable"),
+        ("0x0", "settlement-transaction-unavailable"),
+        ("0xGG", "settlement-transaction-unavailable"),
         ("0x" + (RAW_TRANSACTION + b"\0").hex(), "receipt-unverified"),
     ):
-        changed = {
-            **SETTLEMENT,
-            "extensions": {
-                "layerx": {**SETTLEMENT["extensions"]["layerx"], "rawTransaction": raw}
-            },
-        }
-        with pytest.raises(WebSearchError) as raised:
-            client._settle(
-                _header(changed), OFFER, replace(payment, raw_transaction=None)
-            )
-        assert raised.value.code == code
+        with recorded_payment_rpc(VECTOR, raw_transaction=raw) as (rpc, exchanges):
+            lookup_client = _client((RECEIPT_KEY,), payer_rpc=rpc)
+            with pytest.raises(WebSearchError) as raised:
+                lookup_client._settle(
+                    _header(SETTLEMENT), OFFER, replace(payment, raw_transaction=None)
+                )
+            assert raised.value.code == code
+            assert exchanges == [
+                ("eth_getRawTransactionByHash", [VECTOR["receiptJson"]["txHash"]])
+            ]
 
-    changed = {
-        **SETTLEMENT,
-        "extensions": {
-            "layerx": {
-                **SETTLEMENT["extensions"]["layerx"],
-                "rawTransaction": "0x" + (RAW_TRANSACTION + b"\0").hex(),
-            }
-        },
-    }
+    with recorded_payment_rpc(
+        VECTOR, raw_transaction=VECTOR["rawTransaction"]
+    ) as (rpc, exchanges):
+        fetched = _client((RECEIPT_KEY,), payer_rpc=rpc)._settle(
+            _header(SETTLEMENT), OFFER, replace(payment, raw_transaction=None)
+        )
+        assert fetched == settlement
+        assert exchanges == [
+            ("eth_getRawTransactionByHash", [VECTOR["receiptJson"]["txHash"]])
+        ]
     with pytest.raises(WebSearchError) as raised:
-        client._settle(_header(changed), OFFER, payment)
+        client._settle(_header(SETTLEMENT), OFFER, replace(payment, raw_transaction=None))
+    assert raised.value.code == "settlement-transaction-unavailable"
+    with pytest.raises(WebSearchError) as raised:
+        client._settle(
+            _header(SETTLEMENT), OFFER,
+            replace(payment, raw_transaction=RAW_TRANSACTION + b"\0"),
+        )
+    assert raised.value.code == "receipt-unverified"
+    with pytest.raises(WebSearchError) as raised:
+        client._settle(
+            _header({**SETTLEMENT, "transaction": "0x" + "2a" * 32}), OFFER, payment
+        )
     assert raised.value.code == "settlement-receipt-mismatch"
 
 
@@ -175,7 +183,9 @@ def test_web_search_refuses_a_receipt_under_an_unknown_key():
 
 def test_web_search_metered_settlement_accepts_the_sequencer_receipt():
     offer = replace(OFFER, scheme="metered", purpose_hash="2a" * 32)
-    payment = _PreparedPayment(header="", receipt=None)
+    payment = _PreparedPayment(
+        header="", receipt=SIGNED_RECEIPT, raw_transaction=RAW_TRANSACTION
+    )
     response = {
         **SETTLEMENT,
         "extensions": {
@@ -190,8 +200,8 @@ def test_web_search_metered_settlement_accepts_the_sequencer_receipt():
     assert verified.receipt.operation == 2
 
     client = _client((RECEIPT_KEY,))
-    settlement = client._settle(_header(response), offer, payment)
-    assert settlement.scheme == "metered"
+    settlement = client._settle(_header(response), OFFER, payment)
+    assert settlement.scheme == "exact"
     assert settlement.currency == offer.currency
     assert settlement.network == offer.network
     assert settlement.asset == offer.asset
@@ -200,18 +210,40 @@ def test_web_search_metered_settlement_accepts_the_sequencer_receipt():
     assert settlement.receipt_digest == RECEIPT_DIGEST
     assert settlement.transaction == VECTOR["receiptJson"]["txHash"]
 
-    for field, value, code in (
-        ("payer", "2b" * 32, "settlement-payer-mismatch"),
-        ("purpose_hash", "2b" * 32, "settlement-purpose-mismatch"),
-        ("amount", str(int(offer.amount) + 1), "receipt-offer-mismatch"),
-        ("asset", "2b" * 32, "receipt-offer-mismatch"),
-        ("pay_to", "2b" * 32, "receipt-offer-mismatch"),
+    for field, value in (
+        ("payer", "2b" * 32),
+        ("purpose_hash", "2b" * 32),
+        ("amount", str(int(offer.amount) + 1)),
+        ("asset", "2b" * 32),
+        ("pay_to", "2b" * 32),
     ):
         changed_offer = replace(offer, **{field: value})
         changed_response = {**response, "amount": changed_offer.amount}
+        # The retired scheme refuses every variant before receipt authority.
         with pytest.raises(WebSearchError) as raised:
             client._settle(_header(changed_response), changed_offer, payment)
-        assert raised.value.code == code
+        assert raised.value.code == "receipt-unverified"
+        assert isinstance(raised.value.__cause__, RevertReasonError)
+        assert raised.value.__cause__.code == "LXP_NO_PAYER_GRANT"
+        assert raised.value.__cause__.retryable is False
+        if field != "purpose_hash":
+            with pytest.raises(WebSearchError) as raised:
+                client._settle(
+                    _header(changed_response), replace(changed_offer, scheme="exact"), payment
+                )
+            assert raised.value.code == "receipt-unverified"
+            assert isinstance(raised.value.__cause__, PaymentBindingError)
+            assert raised.value.__cause__.field == "payment"
+
+    with pytest.raises(WebSearchError) as raised:
+        client._settle(_header(response), offer, payment)
+    assert raised.value.code == "receipt-unverified"
+    assert isinstance(raised.value.__cause__, RevertReasonError)
+    assert raised.value.__cause__.code == "LXP_NO_PAYER_GRANT"
+    assert raised.value.__cause__.retryable is False
+    with pytest.raises(WebSearchError) as raised:
+        client._settle(_header({**response, "payer": "2b" * 32}), OFFER, payment)
+    assert raised.value.code == "settlement-payer-mismatch"
 
 
 @pytest.mark.parametrize("scheme", ("exact", "metered"))
@@ -244,10 +276,12 @@ def test_web_search_refuses_other_receipt_operations(scheme, module_id, operatio
     verified = verify_sequencer_receipt(signed, RAW_TRANSACTION, (receipt_key,))
     assert verified.receipt.module_id == module_id
     assert verified.receipt.operation == operation
-    assert verified.receipt.amount == int(OFFER.amount)
-    assert verified.receipt.asset.hex() == OFFER.asset
-    assert verified.receipt.from_account.hex() == OFFER.payer
-    assert verified.receipt.to_account.hex() == OFFER.pay_to
+    original = verify_sequencer_receipt(SIGNED_RECEIPT, RAW_TRANSACTION, (RECEIPT_KEY,))
+    assert verified.receipt.amount == original.receipt.amount
+    assert verified.receipt.asset == original.receipt.asset
+    assert verified.receipt.from_account == original.receipt.from_account
+    assert verified.receipt.to_account == original.receipt.to_account
+    assert _payment_terms(VECTOR) == TERMS
 
     offer = replace(OFFER, scheme=scheme, purpose_hash="2a" * 32)
     response = {
@@ -264,8 +298,15 @@ def test_web_search_refuses_other_receipt_operations(scheme, module_id, operatio
     payment = _PreparedPayment(
         header="",
         receipt=signed if scheme == "exact" else None,
-        raw_transaction=RAW_TRANSACTION if scheme == "exact" else None,
+        raw_transaction=RAW_TRANSACTION,
     )
     with pytest.raises(WebSearchError) as raised:
         _client((receipt_key,))._settle(_header(response), offer, payment)
-    assert raised.value.code == "settlement-operation-mismatch"
+    assert raised.value.code == "receipt-unverified"
+    if scheme == "exact":
+        assert isinstance(raised.value.__cause__, PaymentBindingError)
+        assert raised.value.__cause__.field == "payment"
+    else:
+        assert isinstance(raised.value.__cause__, RevertReasonError)
+        assert raised.value.__cause__.code == "LXP_NO_PAYER_GRANT"
+        assert raised.value.__cause__.retryable is False

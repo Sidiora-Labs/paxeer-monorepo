@@ -1,6 +1,6 @@
 module github.com/Sidiora-Technologies/KindleLaunch/core/notifications
 
-go 1.27.0
+go 1.25.0
 
 require (
 	github.com/Sidiora-Technologies/KindleLaunch/core/discovery v0.0.0

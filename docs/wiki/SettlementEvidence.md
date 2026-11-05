@@ -82,6 +82,11 @@ checks its chain evidence separately from its signed inclusion envelope.
 The recorded fixture's validator set is test material; production consumers
 need their own chain trust anchor.
 
+The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
+Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
+`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
+`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
+
 ## Native state witness version 2
 
 Native state witnesses prove a key/value leaf under a supplied composite
