@@ -12,11 +12,11 @@ import TxsTabs from 'ui/txs/TxsTabs';
 
 const TAB_LIST_PROPS = {
   marginBottom: 0,
-  pt: 6,
-  pb: 6,
-  marginTop: -5,
+  pt: 0,
+  pb: 4,
+  marginTop: 0,
 };
-const TABS_HEIGHT = 88;
+const TABS_HEIGHT = 64;
 
 const Transactions = () => {
   const isMobile = useIsMobile();
