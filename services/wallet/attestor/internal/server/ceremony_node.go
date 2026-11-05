@@ -9,8 +9,11 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/jwt"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
 )
@@ -24,6 +27,9 @@ type CeremonyNodeConfig struct {
 	ChainID                                                  uint64
 	PolicyJSON                                               []byte
 	BeforeRefreshCommit                                      func()
+	ApproveRefresh                                           func(string, uint64)
+	JWKSURL, TokenIssuer, TokenAudience, RPCURL              string
+	KernelPolicyJSON                                         []byte
 	peers                                                    []transport.Peer
 }
 
@@ -83,21 +89,65 @@ func (c CeremonyNodeConfig) Open(peer, api net.Listener) (_ *CeremonyNode, err e
 		return nil, err
 	}
 	pins := make(map[string]string, len(c.peers))
+	probe := make(map[string]string, len(c.peers))
 	ids := make([]string, 0, len(c.peers))
 	for _, p := range c.peers {
 		pins[p.ID] = p.SPKISHA256
 		ids = append(ids, p.ID)
+		if p.ID != c.NodeID {
+			probe[p.ID] = p.Address
+		}
 	}
 	inventory, err := NewInventory(c.InventoryFile, c.InventoryPublicKeyFile, c.Issuer, c.Tenant, st, pins)
 	if err != nil {
 		return nil, err
 	}
-	n.Server, err = New(Options{NodeID: c.NodeID, Region: "ceremony", ChainID: c.ChainID, Ceremony: true, Participants: ids, Store: st, Audit: n.audit, Transport: n.transport, Policy: policy.New(doc), Ledger: policy.NewMemoryLedger(time.Now), Clients: clients, Inventory: inventory})
+	engine := policy.New(doc)
+	var kernel *lx.Evaluator
+	if c.RPCURL != "" {
+		kernelDoc, e := lx.Parse(c.KernelPolicyJSON)
+		if e != nil {
+			return nil, e
+		}
+		chain, e := lx.NewChain(c.RPCURL, &http.Client{Timeout: lx.DefaultRPCWait})
+		if e != nil {
+			return nil, e
+		}
+		kernel, err = lx.New(engine, kernelDoc, chain)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var tokens *jwt.TokenVerifier
+	if c.JWKSURL != "" {
+		tokens, err = jwt.NewTokenVerifier(jwt.Config{JWKSURL: c.JWKSURL, Issuer: c.TokenIssuer, Audience: c.TokenAudience, HTTPClient: &http.Client{Timeout: 10 * time.Second}, Replay: st})
+		if err != nil {
+			return nil, err
+		}
+	}
+	var authority *agent.Authority
+	if c.JWKSURL != "" {
+		authority, err = agent.NewAuthority(agent.AuthorityConfig{PublicKeyFile: c.InventoryPublicKeyFile, Issuer: c.Issuer, Tenant: c.Tenant, Store: st, ChainID: c.ChainID})
+		if err != nil {
+			return nil, err
+		}
+	}
+	n.Server, err = New(Options{NodeID: c.NodeID, Region: "ceremony", ChainID: c.ChainID, Ceremony: true, Participants: ids, Store: st, Audit: n.audit, Transport: n.transport, Policy: engine, Kernel: kernel, Tokens: tokens, Authority: authority, Ledger: policy.NewMemoryLedger(time.Now), Clients: clients, Inventory: inventory, PeerProbe: TCPPeerProbe(probe)})
 	if err != nil {
 		return nil, err
 	}
-	if c.BeforeRefreshCommit != nil {
-		n.Server.beforeRefreshCommit = func(string) { c.BeforeRefreshCommit() }
+	if c.BeforeRefreshCommit != nil || c.ApproveRefresh != nil {
+		n.Server.beforeRefreshCommit = func(keyID string) {
+			if c.ApproveRefresh != nil {
+				staged, e := st.GetStaged(keyID)
+				if e == nil {
+					c.ApproveRefresh(keyID, staged.Epoch)
+				}
+			}
+			if c.BeforeRefreshCommit != nil {
+				c.BeforeRefreshCommit()
+			}
+		}
 	}
 	tlsConfig, err := APITLSConfig(c.CertFile, c.KeyFile, clients)
 	if err != nil {
