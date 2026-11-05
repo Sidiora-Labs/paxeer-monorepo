@@ -362147,7 +362147,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.90.1]
 title = "Write the two tooling acceptance tests the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 47
 requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7", "22.31.515", "22.31.521"]
