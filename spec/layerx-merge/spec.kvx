@@ -166464,7 +166464,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.513]
 title = "Bring the Wallet Go tests workflow to green through both jobs: provision the Attestor job, regenerate the drifted copies and repair the ceremony paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.520"]
