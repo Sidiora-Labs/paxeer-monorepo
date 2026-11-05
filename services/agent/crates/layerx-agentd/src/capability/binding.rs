@@ -40,6 +40,7 @@ pub enum BindingError {
     Cancelled,
     Refused(Dimension),
     PurposeCommitmentMissing,
+    NativeSend(layerx_agent_api::identity::ContractError),
     ModuleScopeUnproven,
     Chain(TimedError),
     Conflict,
@@ -74,9 +75,11 @@ impl BindingError {
             }
             Self::Chain(error) => error.owner_error(),
             Self::Corrupt | Self::SizeOverflow | Self::Store(_) => HumanOperationError::Unavailable,
-            Self::Restricted | Self::Unbound | Self::Cancelled | Self::Conflict => {
-                HumanOperationError::Refused
-            }
+            Self::NativeSend(_)
+            | Self::Restricted
+            | Self::Unbound
+            | Self::Cancelled
+            | Self::Conflict => HumanOperationError::Refused,
         }
     }
 }
@@ -2623,6 +2626,28 @@ pub fn inspect_native_effect_capability(
     {
         return Err(BindingError::Conflict);
     }
+    inspect_native_bound_effect_capability(
+        store,
+        binding,
+        prepared,
+        now_ms,
+        fee_policy,
+        current_head,
+        profile,
+    )
+}
+
+fn inspect_native_bound_effect_capability(
+    store: &Store,
+    binding: NativePreparationBindingV1,
+    prepared: &crate::prepare::Prepared,
+    now_ms: u64,
+    fee_policy: &layerx_client::rpc::payments::CommittedSnapshot<
+        layerx_client::rpc::payments::NativeFeePolicy,
+    >,
+    current_head: u64,
+    profile: super::NativeAdmissionProfile,
+) -> Result<NativeCapabilityConstraintsV1, BindingError> {
     let fee = native_effect_fee(prepared, fee_policy, current_head)?;
     if let super::NativeAdmissionProfile::Registration { fee_asset } = profile {
         let commitment = super::native_registration_commitment(
@@ -3462,15 +3487,15 @@ fn inspect_native_route_fields(
 }
 
 #[derive(Debug)]
-pub struct VerifiedNativeSendPurposeV1 {
+pub struct VerifiedNativeSendPurposeV2 {
     verified: VerifiedNativePurposeV1,
 }
 
-impl VerifiedNativeSendPurposeV1 {
+impl VerifiedNativeSendPurposeV2 {
     pub const fn binding(&self) -> &NativePreparationBindingV1 {
         &self.verified.binding
     }
-    pub const fn owner_public_key(&self) -> [u8; 32] {
+    pub const fn consent_public_key(&self) -> [u8; 32] {
         self.verified.owner_public_key
     }
     pub const fn owner_revocation_sequence(&self) -> u64 {
@@ -3488,7 +3513,7 @@ impl VerifiedNativeSendPurposeV1 {
 }
 
 pub fn native_send_purpose_digest(
-    purpose: &layerx_agent_api::identity::NativeSendPurposeV1,
+    purpose: &layerx_agent_api::identity::NativeSendPurposeV2,
 ) -> Result<[u8; 32], BindingError> {
     let bytes = purpose
         .canonical_bytes()
@@ -3496,22 +3521,31 @@ pub fn native_send_purpose_digest(
     Ok(Sha256::digest(bytes).into())
 }
 
-fn verify_native_send_canonical(prepared: &crate::prepare::Prepared) -> Result<(), BindingError> {
-    // Retired callers cannot admit an activity envelope as an economic transaction.
-    let (call, signature) =
-        layerx_crypto::evm_transaction::decode_signed(&prepared.canonical_bytes)
-            .map_err(|_| BindingError::Restricted)?;
-    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-        .map_err(|_| BindingError::Corrupt)?;
-    if call.chain_id != 125
-        || call.to != crate::prepare::PrecompileTarget::Ledger.address()
-        || call.signing_hash() != prepared.signing_preimage
+fn verify_native_send_canonical(
+    prepared: &crate::prepare::Prepared,
+    transaction: &crate::sign::SigningPreparation,
+) -> Result<(), BindingError> {
+    crate::prepare::verify_disclosure_binding(prepared).map_err(|_| BindingError::Corrupt)?;
+    crate::sign::external(transaction).map_err(|_| BindingError::Corrupt)?;
+    let call = &transaction.transaction.call;
+    let expected = crate::prepare::PrecompileCall::ledger_transfer(
+        prepared.envelope.payload().as_bytes().to_vec(),
+    );
+    if call.chain_id != layerx_agent_api::identity::NativeSendPurposeV2::CHAIN_ID
+        || call.to != expected.target.address()
+        || call.data != expected.encode().map_err(|_| BindingError::Corrupt)?
+        || transaction.actor_address != transaction.transaction.from
+        || transaction.transaction.observed_head_height != prepared.observed_head_sequence
     {
         return Err(BindingError::Conflict);
     }
-    layerx_crypto::disclosure::call::validate_call(&call, &prepared.disclosure, sender)
-        .map_err(|_| BindingError::Corrupt)?;
-    native_send_plan(&prepared.disclosure)?;
+    layerx_crypto::disclosure::call::validate_call(
+        call,
+        &transaction.transaction.disclosure,
+        transaction.actor_address,
+    )
+    .map_err(|_| BindingError::Corrupt)?;
+    native_send_plan(&transaction.transaction.disclosure)?;
     Ok(())
 }
 
@@ -3866,20 +3900,58 @@ fn native_send_evm_key(tenant: TenantId, reference: &[u8; 32]) -> Result<TenantK
     )?)
 }
 
+pub fn stage_native_send_local_grant(
+    store: &Store,
+    sessions: &crate::session::SessionRegistry,
+    owner: &crate::human_runtime::VerifiedNativeSendOwnerV2,
+    grant: SignedNativeLocalGrantV1,
+    core_sequence: u64,
+    core_time_ms: u64,
+) -> Result<StagedNativeLocalGrantV1, BindingError> {
+    stage_native_local_grant(
+        store,
+        sessions,
+        owner.resolved(),
+        grant,
+        core_sequence,
+        core_time_ms,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn verify_native_owner_send_purpose(
+pub fn verify_native_owner_send_purpose(
     store: &Store,
     sessions: &crate::session::SessionRegistry,
     session: &crate::session::NativeSessionAuthorizationV1,
-    owner: &crate::human_runtime::VerifiedNativeOwnerV1,
+    owner: &crate::human_runtime::VerifiedNativeSendOwnerV2,
     prepared: &crate::prepare::Prepared,
+    transaction: &crate::sign::SigningPreparation,
     preparation_id: &[u8; 32],
-    signed: &layerx_agent_api::identity::SignedNativeSendPurposeV1,
+    signed: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
     core_sequence: u64,
     core_time_ms: u64,
-) -> Result<VerifiedNativeSendPurposeV1, BindingError> {
-    verify_native_send_canonical(prepared)?;
+) -> Result<VerifiedNativeSendPurposeV2, BindingError> {
+    verify_native_send_canonical(prepared, transaction)?;
     let purpose = &signed.purpose;
+    let owner_did = layerx_agent_api::identity::AgentDid::new(
+        std::str::from_utf8(owner.agent().as_bytes())
+            .map_err(|_| BindingError::Corrupt)?
+            .to_owned(),
+    )
+    .map_err(|_| BindingError::Corrupt)?;
+    purpose
+        .check_current_owner(&owner_did, &owner.public_key(), &owner.evm_sender())
+        .map_err(BindingError::NativeSend)?;
+    let canonical_digest: [u8; 32] =
+        Sha256::digest(transaction.transaction.call.encode_unsigned()).into();
+    purpose
+        .check_prepared_transaction(
+            layerx_agent_api::identity::NativeSendPurposeV2::TRANSACTION_TYPE,
+            transaction.transaction.call.chain_id,
+            &transaction.actor_address,
+            &canonical_digest,
+        )
+        .map_err(BindingError::NativeSend)?;
     let digest = native_send_purpose_digest(purpose)?;
     let capability_id = purpose
         .capability_id
@@ -3892,8 +3964,6 @@ pub(crate) fn verify_native_owner_send_purpose(
         || owner.agent() != session.agent()
         || owner.session_id() != session.session_id()
         || owner.generation() != session.generation()
-        || owner.public_key() != signed.owner_public_key
-        || purpose.owner_public_key != signed.owner_public_key
         || owner.head_sequence() != core_sequence
         || owner.revocation_sequence() == 0
         || owner.revocation_sequence() > core_sequence
@@ -3909,7 +3979,6 @@ pub(crate) fn verify_native_owner_send_purpose(
     {
         return Err(BindingError::Unbound);
     }
-    let canonical_digest: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
     let activity =
         layerx_agent_api::identity::NativeActivity::from(prepared.envelope.activity_type());
     if purpose.tenant.as_str() != session.tenant().as_str()
@@ -3924,8 +3993,6 @@ pub(crate) fn verify_native_owner_send_purpose(
         || purpose.preparation_id != *preparation_id
         || purpose.canonical_digest != canonical_digest
         || purpose.preparation_id != canonical_digest
-        || purpose.protocol_version != prepared.envelope.protocol_version()
-        || purpose.network_id != prepared.envelope.network_id()
         || purpose.activity != activity
         || purpose.economic_action != capability_id
         || purpose.economic_action != session.session_id().0
@@ -3944,7 +4011,7 @@ pub(crate) fn verify_native_owner_send_purpose(
     {
         return Err(BindingError::Conflict);
     }
-    layerx_crypto::ed25519::verify_digest(&signed.owner_public_key, &signed.signature, &digest)
+    layerx_crypto::ed25519::verify_digest(&purpose.consent_public_key, &signed.signature, &digest)
         .map_err(|_| BindingError::Unbound)?;
     let binding = NativePreparationBindingV1 {
         authority: record.request.authority.clone(),
@@ -3969,18 +4036,13 @@ pub(crate) fn verify_native_owner_send_purpose(
     let mut object = b"native-send-purpose-v1:".to_vec();
     object.extend_from_slice(preparation_id);
     let replay_key = TenantKey::new(binding.tenant.clone(), ObjectKind::Capability, object)?;
-    let mut replay_bytes = b"LXNS\x01".to_vec();
-    replay_bytes.extend_from_slice(
-        &purpose
-            .canonical_bytes()
-            .map_err(|_| BindingError::Corrupt)?,
-    );
-    replay_bytes.extend_from_slice(&signed.owner_public_key);
-    replay_bytes.extend_from_slice(&signed.signature);
-    let verified = VerifiedNativeSendPurposeV1 {
+    let replay_bytes = signed
+        .canonical_bytes()
+        .map_err(|_| BindingError::Corrupt)?;
+    let verified = VerifiedNativeSendPurposeV2 {
         verified: VerifiedNativePurposeV1 {
             binding,
-            owner_public_key: signed.owner_public_key,
+            owner_public_key: purpose.consent_public_key,
             owner_revocation_sequence: owner.revocation_sequence(),
             observed_head_sequence: core_sequence,
             observed_at_ms: core_time_ms,
@@ -3994,15 +4056,16 @@ pub(crate) fn verify_native_owner_send_purpose(
 
 pub fn inspect_native_send_capability(
     store: &Store,
-    purpose: &VerifiedNativeSendPurposeV1,
+    purpose: &VerifiedNativeSendPurposeV2,
     prepared: &crate::prepare::Prepared,
+    transaction: &crate::sign::SigningPreparation,
     now_ms: u64,
     fee_policy: &layerx_client::rpc::payments::CommittedSnapshot<
         layerx_client::rpc::payments::NativeFeePolicy,
     >,
     current_head: u64,
 ) -> Result<NativeCapabilityConstraintsV1, BindingError> {
-    verify_native_send_canonical(prepared)?;
+    verify_native_send_canonical(prepared, transaction)?;
     if purpose.observed_head_sequence() != current_head || purpose.observed_at_ms() != now_ms {
         return Err(BindingError::Unbound);
     }
@@ -4023,7 +4086,18 @@ pub fn inspect_native_send_capability(
             return Err(BindingError::Unbound);
         }
     }
-    inspect_native_effect_capability(
+    let digest: [u8; 32] = Sha256::digest(transaction.transaction.call.encode_unsigned()).into();
+    if digest != binding.canonical_digest
+        || binding.preparation_id != digest
+        || prepared.envelope.actor_did() != &binding.agent
+        || layerx_agent_api::identity::NativeActivity::from(prepared.envelope.activity_type())
+            != binding.activity
+        || purpose_commitment(&prepared.disclosure)
+            .is_some_and(|value| value != binding.purpose_commitment)
+    {
+        return Err(BindingError::Conflict);
+    }
+    inspect_native_bound_effect_capability(
         store,
         binding.clone(),
         prepared,
@@ -4038,7 +4112,7 @@ pub fn restore_native_signed_send_purpose(
     store: &Store,
     tenant: &TenantId,
     preparation_id: &[u8; 32],
-) -> Result<Option<layerx_agent_api::identity::SignedNativeSendPurposeV1>, BindingError> {
+) -> Result<Option<layerx_agent_api::identity::SignedNativeSendPurposeV2>, BindingError> {
     let mut object = b"native-send-purpose-v1:".to_vec();
     object.extend_from_slice(preparation_id);
     let key = TenantKey::new(tenant.clone(), ObjectKind::Capability, object)?;
@@ -4048,33 +4122,20 @@ pub fn restore_native_signed_send_purpose(
     if value.class() != crate::store::StorageClass::LocalOnly {
         return Err(BindingError::Corrupt);
     }
-    let bytes = value
-        .bytes()
-        .strip_prefix(b"LXNS\x01")
-        .ok_or(BindingError::Corrupt)?;
-    let end = bytes.len().checked_sub(96).ok_or(BindingError::Corrupt)?;
-    let purpose =
-        layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(&bytes[..end])
+    let signed =
+        layerx_agent_api::identity::SignedNativeSendPurposeV2::from_canonical_bytes(value.bytes())
             .map_err(|_| BindingError::Corrupt)?;
-    let owner_public_key = bytes[end..end + 32]
-        .try_into()
-        .map_err(|_| BindingError::Corrupt)?;
-    let signature = bytes[end + 32..]
-        .try_into()
-        .map_err(|_| BindingError::Corrupt)?;
-    if purpose.tenant.as_str() != tenant.as_str()
-        || purpose.preparation_id != *preparation_id
-        || purpose.owner_public_key != owner_public_key
+    if signed.purpose.tenant.as_str() != tenant.as_str()
+        || signed.purpose.preparation_id != *preparation_id
     {
         return Err(BindingError::Corrupt);
     }
-    let signed = layerx_agent_api::identity::SignedNativeSendPurposeV1 {
-        purpose,
-        owner_public_key,
-        signature,
-    };
     let digest = native_send_purpose_digest(&signed.purpose)?;
-    layerx_crypto::ed25519::verify_digest(&signed.owner_public_key, &signed.signature, &digest)
-        .map_err(|_| BindingError::Corrupt)?;
+    layerx_crypto::ed25519::verify_digest(
+        &signed.purpose.consent_public_key,
+        &signed.signature,
+        &digest,
+    )
+    .map_err(|_| BindingError::Corrupt)?;
     Ok(Some(signed))
 }

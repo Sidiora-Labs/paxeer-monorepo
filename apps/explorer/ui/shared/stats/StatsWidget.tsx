@@ -55,14 +55,20 @@ const StatsWidget = ({
   href,
   isFallback,
 }: Props) => {
+  let diffColor = 'text.muted';
+  if (diff != null && Number(diff) !== 0) {
+    diffColor = Number(diff) > 0 ? 'positive' : 'negative';
+  }
   return (
     <Container href={ !isLoading ? href : undefined } className={ href ? className : undefined }>
       <Flex
         className={ href ? undefined : className }
         alignItems="center"
-        bgColor={ isLoading ? { _light: 'blackAlpha.50', _dark: 'whiteAlpha.50' } : { _light: 'theme.stats.bg._light', _dark: 'theme.stats.bg._dark' } }
-        p={ 3 }
-        borderRadius="base"
+        bgColor="bg.surface"
+        borderWidth="1px"
+        borderColor="border.divider"
+        p={ 4 }
+        borderRadius="8px"
         justifyContent="space-between"
         columnGap={ 2 }
         w="100%"
@@ -88,8 +94,8 @@ const StatsWidget = ({
         >
           <Skeleton
             loading={ isLoading }
-            color="text.secondary"
-            textStyle="xs"
+            color="text.muted"
+            textStyle="label"
             w="fit-content"
           >
             <h2>{ label }</h2>
@@ -98,21 +104,22 @@ const StatsWidget = ({
             loading={ isLoading }
             display="flex"
             alignItems="baseline"
-            fontWeight={ 500 }
-            textStyle="heading.md"
-            opacity={ isFallback && !isLoading ? 'control.disabled' : 1 }
+            data-value
+            mt={ 2 }
+            textStyle="statValue"
+            color={ isFallback || value == null ? 'text.muted' : 'text.primary' }
           >
             { valuePrefix && <chakra.span whiteSpace="pre">{ valuePrefix }</chakra.span> }
             { typeof value === 'string' ? (
               <TruncatedText text={ value } loading={ isLoading }/>
             ) : (
-              value
+              value ?? '—'
             ) }
             { valuePostfix && <chakra.span whiteSpace="pre">{ valuePostfix }</chakra.span> }
-            { diff && Number(diff) > 0 && (
+            { diff != null && Number.isFinite(Number(diff)) && (
               <>
-                <Text ml={ 2 } mr={ 1 } color="green.500">
-                  +{ diffFormatted || Number(diff).toLocaleString() }
+                <Text ml={ 2 } mr={ 1 } textStyle="number" color={ diffColor }>
+                  { Number(diff) > 0 ? '+' : '' }{ diffFormatted || Number(diff).toLocaleString() }
                 </Text>
                 <Text color="text.secondary" textStyle="sm">({ diffPeriod })</Text>
               </>

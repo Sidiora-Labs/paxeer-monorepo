@@ -15,7 +15,16 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { decodeFunctionData, recoverAddress, serializeSignature, type Hex } from 'viem';
+import {
+  decodeFunctionData,
+  recoverAddress,
+  recoverTransactionAddress,
+  parseTransaction,
+  keccak256,
+  toHex,
+  serializeSignature,
+  type Hex,
+} from 'viem';
 import Fastify from 'fastify';
 import type { WalletInventoryKey } from '../src/agent/authority.js';
 import type { SponsoredBindRequest } from '../src/provision/bind.js';
@@ -26,15 +35,159 @@ import { ADDR, BIND_SELECTOR, TestChain, type Receipt } from './support/chain.js
 import { KERNEL_POLICY } from './e2e/attestors.js';
 import { reservePorts } from './support/ports.js';
 import type { SequencerReceiptResult } from '../src/rpc/pool.js';
+import { encodeSequencerReceipt } from '../../../agent/sdk/typescript/src/sequencer-receipt-codec.js';
+import { verifySequencerReceipt } from '../../../agent/sdk/typescript/src/verifier.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const attestorDir = resolve(here, '../../attestor');
 const CHAIN_ID = 125;
 const PAYMASTER = '0x4444444444444444444444444444444444444444' as const;
 const sponsoredHashes = new Set<Hex>();
+const rawTransactions = new Map<Hex, Hex>();
+const sequencerKey = generateKeyPairSync('ed25519');
+const sequencerPublicKey = sequencerKey.publicKey
+  .export({ type: 'spki', format: 'der' })
+  .subarray(-32);
+const sequencerKeyId = toHex(createHash('sha256').update(sequencerPublicKey).digest());
+const receiptPins = [
+  {
+    keyId: Buffer.from(sequencerKeyId.slice(2), 'hex'),
+    publicKey: sequencerPublicKey,
+    first_height: 1n,
+    last_height: (1n << 64n) - 1n,
+  },
+];
+const zeroAddress = '0x0000000000000000000000000000000000000000';
 let approveInventory: (keys: WalletInventoryKey[]) => void;
 const stationRpcRequests: Array<{ method: string; params: unknown[] }> = [];
 const LONG = 900_000;
+
+async function canonicalStationReceipt(raw: Hex, from: Hex, sequence: number, applied: Receipt) {
+  const vectors = JSON.parse(
+    readFileSync(
+      new URL(
+        '../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  );
+  const vector = vectors.cases.find((entry: { id: string }) => entry.id === 'V1-pax-transfer');
+  const bytes = (hex: string) => Buffer.from(hex.replace(/^0x/, ''), 'hex');
+  const original = await verifySequencerReceipt(
+    bytes(vector.signedReceipt),
+    bytes(vector.rawTransaction),
+    [
+      {
+        keyId: bytes(vector.pinnedKey.keyId),
+        publicKey: bytes(vector.pinnedKey.publicKey),
+        first_height: BigInt(vector.pinnedKey.firstHeight),
+        last_height: BigInt(vector.pinnedKey.lastHeight),
+      },
+    ]
+  );
+  const transaction = parseTransaction(raw);
+  const hash = keccak256(raw);
+  const addressWord = (hex: string) => Buffer.concat([Buffer.alloc(12), bytes(hex)]);
+  const globalSequence = BigInt(sequence);
+  const seq = Buffer.alloc(8);
+  seq.writeBigUInt64BE(globalSequence);
+  const denom = Buffer.from('PAX');
+  const summary = Buffer.alloc(109 + denom.length);
+  Buffer.from(
+    sponsoredHashes.has(keccak256(raw)) ? sponsorAddress.slice(2) : zeroAddress.slice(2),
+    'hex'
+  ).copy(summary, 48);
+  summary.writeBigUInt64BE(BigInt(applied.gasUsed), 0);
+  summary.writeBigUInt64BE(BigInt(applied.gasUsed), 8);
+  summary.writeBigUInt64BE(chain.baseFee + chain.tip, 16);
+  createHash('sha256')
+    .update(applied.status === '0x1' ? '' : 'execution reverted')
+    .digest()
+    .copy(summary, 68);
+  summary[108] = denom.length;
+  denom.copy(summary, 109);
+  const unsigned = {
+    ...original.receipt,
+    activityId: bytes(hash),
+    globalSequence,
+    previousStateRoot: Buffer.alloc(32),
+    resultingStateRoot: createHash('sha256')
+      .update('PAXEER/v1/sequence\0')
+      .update(Buffer.alloc(32))
+      .update(seq)
+      .update(bytes(hash))
+      .digest(),
+    activityRoot: createHash('sha256').update(Buffer.alloc(0)).digest(),
+    effects: [
+      {
+        moduleId: 12,
+        ordinal: 0,
+        eventType: 0,
+        kind: 1 as const,
+        monetary: false,
+        transferSetRoot: Buffer.alloc(32),
+        body: summary,
+      },
+    ],
+    feeCharged: BigInt(applied.gasUsed) * (chain.baseFee + chain.tip),
+    batchId: Buffer.concat([
+      Buffer.alloc(24),
+      Buffer.from(BigInt(applied.blockNumber).toString(16).padStart(16, '0'), 'hex'),
+    ]),
+    resultCode: applied.status === '0x1' ? 0 : 1,
+    operation: raw.startsWith('0x04') ? 4 : 2,
+    asset: createHash('sha256').update(denom).digest(),
+    amount: transaction.value ?? 0n,
+    from: addressWord(from),
+    fromSequence: BigInt(transaction.nonce!),
+    to: addressWord(transaction.to!),
+    contextHash: bytes(sequencerKeyId),
+    timestamp: BigInt(Date.now()),
+    sequencerSignature: Buffer.alloc(64),
+  };
+  const digest = createHash('sha256')
+    .update('LXP/v1/receipt\0')
+    .update(encodeSequencerReceipt(unsigned, false))
+    .digest();
+  const receipt = toHex(
+    encodeSequencerReceipt({
+      ...unsigned,
+      sequencerSignature: sign(null, digest, sequencerKey.privateKey),
+    })
+  );
+  const view = {
+    rung: 'receipted' as const,
+    txHash: hash,
+    nonce: toHex(transaction.nonce!),
+    seq: toHex(globalSequence),
+    height: applied.blockNumber,
+    index: '0x0' as Hex,
+    timestamp: toHex(unsigned.timestamp),
+    status: applied.status,
+    returnData: '0x' as Hex,
+    logs: [],
+    gasUsed: toHex(BigInt(applied.gasUsed)),
+    cumulativeGasUsed: toHex(BigInt(applied.gasUsed)),
+    effectiveGasPrice: toHex(chain.baseFee + chain.tip),
+    paymentDenom: 'PAX',
+    feeDenom: 'PAX',
+    feeAmount: toHex(unsigned.feeCharged),
+    sponsor: (sponsoredHashes.has(keccak256(raw)) ? sponsorAddress : zeroAddress) as Hex,
+    from,
+    to: transaction.to!,
+    contractAddress: zeroAddress,
+    vmError: applied.status === '0x1' ? '' : 'execution reverted',
+    keyId: sequencerKeyId,
+    signingKey: toHex(sequencerPublicKey),
+    receipt,
+  };
+  const verified = await verifySequencerReceipt(bytes(receipt), bytes(raw), receiptPins);
+  expect(toHex(verified.receipt.activityId)).toBe(hash);
+  expect(verified.receipt.fromSequence).toBe(BigInt(transaction.nonce!));
+  expect(toHex(verified.receiptKey.publicKey)).toBe(view.signingKey);
+  return view;
+}
 
 let idp: IdentityProvider;
 let pg: EphemeralPostgres;
@@ -186,32 +339,14 @@ beforeAll(async () => {
         const tx = chain.sent.find((sent) => sent.hash === hash);
         let result: SequencerReceiptResult | null = null;
         if (receipt && tx) {
-          result = {
-            txHash: hash,
-            nonce: `0x${(chain.nonces.get(tx.from)! - 1).toString(16)}`,
-            rung: 'receipted',
-            seq: receipt.blockNumber,
-            height: receipt.blockNumber,
-            index: '0x0',
-            timestamp: '0x0',
-            status: receipt.status,
-            returnData: '0x',
-            logs: [],
-            gasUsed: receipt.gasUsed,
-            cumulativeGasUsed: receipt.gasUsed,
-            effectiveGasPrice: `0x${(chain.baseFee + chain.tip).toString(16)}`,
-            feeDenom: 'pax',
-            feeAmount: `0x${(BigInt(receipt.gasUsed) * (chain.baseFee + chain.tip)).toString(16)}`,
-            sponsor: sponsoredHashes.has(hash)
-              ? (sponsorAddress as Hex)
-              : `0x${'00'.repeat(20)}`,
-            from: tx.from as Hex,
-            to: tx.to as Hex,
-            contractAddress: `0x${'00'.repeat(20)}`,
-            vmError: receipt.status === '0x1' ? '' : 'execution reverted',
-            keyId: '0x',
-            receipt: '0x',
-          };
+          const raw = rawTransactions.get(hash);
+          if (!raw) throw new Error('executed station transaction has no retained raw bytes');
+          result = await canonicalStationReceipt(
+            raw,
+            await recoverTransactionAddress({ serializedTransaction: raw }),
+            Number(BigInt(receipt.blockNumber)),
+            receipt
+          );
           if (committedReceipts.has(hash)) {
             result = {
               ...result,
@@ -226,6 +361,8 @@ beforeAll(async () => {
         return;
       }
       try {
+        if (body.method === 'eth_sendRawTransaction')
+          rawTransactions.set(keccak256(body.params[0]!), body.params[0]!);
         const response = await fetch(chain.url, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -633,6 +770,18 @@ async function exerciseStationProvisioning(
               request.batch.calls[0]!.data
             )
           ).toBe(true);
+          expect(
+            (await bindModule.readUnifiedAccount(base.rpc, request.batch.account)).didPublicKey
+          ).toBe(
+            bindModule.publicKeyFromDid(
+              (
+                await base.pool.query(
+                  'select p.did from account_provisioning p join wallets w on w.id=p.wallet_id where lower(w.address)=lower($1)',
+                  [request.batch.account]
+                )
+              ).rows[0].did
+            )
+          );
           if (scenario === 'expired') {
             heldReceipt = chain.receipts.get(submittedHash);
             expect(heldReceipt).toBeDefined();
@@ -836,6 +985,7 @@ async function exerciseStationProvisioning(
         expect(submitRequests).toHaveLength(3);
       }
       expect(chain.sent).toHaveLength(sentBefore + 1);
+      await assertRecoveredStationBinding(deps, userId);
       return;
     }
     const response = await api.inject({
@@ -890,6 +1040,7 @@ async function exerciseStationProvisioning(
     });
     const again = await stateModule.provisionAccount(deps, { kind: 'standard', userId, token });
     expect(again.state).toBe('active');
+    await assertRecoveredStationBinding(deps, userId);
     expect(submitRequests).toHaveLength(2);
     expect(chain.sent).toHaveLength(1);
   } finally {
@@ -898,6 +1049,33 @@ async function exerciseStationProvisioning(
       server.close((error) => (error ? reject(error) : resolve()))
     );
   }
+}
+
+async function assertRecoveredStationBinding(
+  deps: import('../src/provision/state.js').ProvisionDeps,
+  userId: string
+): Promise<void> {
+  const row = (
+    await deps.pool.query(
+      'select p.*,w.address from account_provisioning p join wallets w on w.id=p.wallet_id where p.user_id=$1',
+      [userId]
+    )
+  ).rows[0]!;
+  const binding = await bindModule.readUnifiedAccount(deps.rpc, row.address);
+  expect(binding.didPublicKey).toBe(row.ed_public_key);
+  expect(binding.mainAccountId).toBe(bindModule.mainAccountId(row.did));
+  const receipt = await deps.rpc.sequencerReceipt(row.bind_tx_hash);
+  expect(receipt?.rung).not.toBe('submitted');
+  if (!receipt || receipt.rung === 'submitted')
+    throw new Error('station bind must have executed evidence');
+  const raw = rawTransactions.get(row.bind_tx_hash)!;
+  const verified = await verifySequencerReceipt(
+    Buffer.from(receipt.receipt.slice(2), 'hex'),
+    Buffer.from(raw.slice(2), 'hex'),
+    receiptPins
+  );
+  expect(toHex(verified.receipt.activityId)).toBe(row.bind_tx_hash);
+  expect(verified.receipt.resultCode).toBe(0);
 }
 
 async function provisionBindIsStationSponsored(): Promise<void> {

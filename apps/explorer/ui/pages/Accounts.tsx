@@ -1,4 +1,4 @@
-import { Box, chakra } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
@@ -9,16 +9,16 @@ import { generateListStub } from 'stubs/utils';
 import { Button } from 'toolkit/chakra/button';
 import { ZERO } from 'toolkit/utils/consts';
 import { saveAsCsv } from 'toolkit/utils/file';
-import AddressesListItem from 'ui/addresses/AddressesListItem';
-import AddressesTable from 'ui/addresses/AddressesTable';
+import AccountsList from 'ui/accounts/AccountsList';
 import { getAddressBalance } from 'ui/addresses/AddressesTableItem';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import IconSvg from 'ui/shared/IconSvg';
+import ListPage from 'ui/shared/Page/ListPage';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
 import useQueryWithPages from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanShowRows, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount, ScanShowRows } from 'ui/shared/scan';
 
 // The list endpoint answers a fixed page, so the row selector chooses how much of that page the card
 // shows and never promises a page size the API cannot serve.
@@ -129,35 +129,13 @@ const Accounts = () => {
   );
 
   const content = data?.items ? (
-    <>
-      <Box hideBelow="lg">
-        <AddressesTable
-          items={ items }
-          totalSupply={ totalSupply }
-          pageStartIndex={ pageStartIndex }
-          isLoading={ isPlaceholderData }
-        />
-      </Box>
-      <Box hideFrom="lg">
-        { items.map((item, index) => {
-          return (
-            <AddressesListItem
-              key={ item.hash + (isPlaceholderData ? index : '') }
-              item={ item }
-              index={ pageStartIndex + index }
-              totalSupply={ totalSupply }
-              isLoading={ isPlaceholderData }
-            />
-          );
-        }) }
-      </Box>
-    </>
+    <AccountsList items={ items } totalSupply={ totalSupply } pageStartIndex={ pageStartIndex } isLoading={ isPlaceholderData }/>
   ) : null;
 
   return (
     <>
       <PageTitle title="Top accounts" withTextAd/>
-      <ScanTableCard
+      <ListPage
         title={ title }
         note={ note }
         actions={ actions }
@@ -171,7 +149,7 @@ const Accounts = () => {
         >
           { content }
         </DataListDisplay>
-      </ScanTableCard>
+      </ListPage>
     </>
   );
 };

@@ -433,7 +433,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         prepare: HumanPrepare,
         context: McpNativeWebContextV1,
         canonical: &[u8],
-    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV1, HumanOperationError> {
+    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV2, HumanOperationError> {
         let head = self
             .lock_operations()?
             .node
@@ -1612,7 +1612,7 @@ impl CoreLeaseAttestation {
 }
 
 /// TLS-authenticated independent authority replica. The endpoint is distinct
-/// from the node LNI socket and every response is decoded into closed protocol
+/// from the node JSON-RPC endpoint and every response is decoded into closed protocol
 /// types before it can influence preparation or receipt verification.
 pub struct RemoteHumanAuthority {
     agent: ureq::Agent,
@@ -1949,6 +1949,14 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         let did =
             std::str::from_utf8(agent.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let value = self.get(&format!("/v1/agent/capability-scope?tenant={}&principal={}&did={}&authority={}&action_key={}&capability_id={}", query(peer.transport_tenant()), subject::principal_query(peer), query(did), hex(&authority_id), hex(&action_key), hex(&capability_id)))?;
+        let verification = u8::try_from(u64_field(&value, "verification")?)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if VerificationLevel::from_wire_rank(verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
+        {
+            return Err(HumanOperationError::Refused);
+        }
         let set16 = |name| -> Result<std::collections::BTreeSet<u16>, HumanOperationError> {
             value
                 .get(name)
@@ -2026,8 +2034,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
 
             not_before_ms,
             not_after_ms,
-            verification: u8::try_from(u64_field(&value, "verification")?)
-                .map_err(|_| HumanOperationError::Refused)?,
+            verification,
             evidence_digest: hex_field(&value, "evidence_digest")?,
         })
     }
@@ -2062,7 +2069,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         };
         if state.revocation_sequence == 0
             || state.observed_head_sequence < state.revocation_sequence
-            || state.verification != VerificationLevel::COMMITTED.wire_rank()
+            || VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?
+                != VerificationLevel::COMMITTED
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -2106,8 +2115,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
             || state.maximum_delay_seconds < state.required_delay_seconds
             || state.effective_sequence == 0
             || state.observed_head_sequence < state.effective_sequence
-            || state.verification < 4
-            || state.verification > 5
+            || VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?
+                != VerificationLevel::COMMITTED
             || state.evidence_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
             || state.maximum_age_sequences == 0
@@ -2228,7 +2238,7 @@ fn retained_activity_owner(
 
 /// Concrete production path. Prepared bytes remain key-free; externally
 /// supplied signatures are attached, reverified, durably queued, and only then
-/// submitted through the sole frozen LNI client.
+/// submitted through the node sequencer client.
 pub struct ProductionHumanOperations<A> {
     authority: A,
     node: layerx_client::sequencer::SequencerEndpoint,
@@ -2643,7 +2653,7 @@ impl<A: HumanAuthorityBoundary> SharedAgentOwner<A> {
         prepare: HumanPrepare,
         context: McpNativeWebContextV1,
         canonical: &[u8],
-    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV1, HumanOperationError> {
+    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV2, HumanOperationError> {
         self.lock()?.mcp_native_web_purpose(
             credential,
             owner_public_key,
@@ -5086,6 +5096,39 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         })
     }
 
+    pub fn native_send_purpose_owner(
+        &mut self,
+        context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
+        public_key: [u8; 32],
+        core_sequence: u64,
+    ) -> Result<VerifiedNativeSendOwnerV2, HumanOperationError> {
+        let resolved = self.native_purpose_owner(context, public_key, core_sequence)?;
+        let operations = self.lock_operations()?;
+        let evm_sender = operations
+            .chain
+            .bound_address(&resolved.public_key())
+            .map_err(human_receipt_node_error)?
+            .filter(|address| *address != [0; 20])
+            .ok_or(HumanOperationError::Refused)?;
+        if operations
+            .chain
+            .head()
+            .map_err(human_receipt_node_error)?
+            .number
+            != core_sequence
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        context
+            .permit()
+            .boundary(&self.session_control)
+            .map_err(|_| HumanOperationError::Refused)?;
+        Ok(VerifiedNativeSendOwnerV2 {
+            resolved,
+            evm_sender,
+        })
+    }
+
     pub(crate) fn rpc_read_proof_bundle(
         &mut self,
         context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
@@ -6199,7 +6242,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     ) -> Result<crate::human::HumanNativeSendOwnerPreviewV1, HumanOperationError> {
         use crate::capability::{binding, derive_native_effects, timed, Effect, VerifiedInputs};
         use layerx_agent_api::identity::{
-            AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV1, SessionId as ApiSessionId,
+            AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV2, SessionId as ApiSessionId,
             TenantId as ApiTenantId,
         };
         let human = request.prepare;
@@ -6291,26 +6334,31 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         if context.peer() != peer {
             return Err(HumanOperationError::Refused);
         }
-        let owner = self.native_purpose_owner(
+        let owner = self.native_send_purpose_owner(
             &context,
             request.owner_public_key,
             snapshot.observed_head_sequence,
         )?;
         let canonical_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
-        let purpose = NativeSendPurposeV1 {
+        let purpose = NativeSendPurposeV2 {
             tenant: ApiTenantId::new(owner.tenant().as_str())
                 .map_err(|_| HumanOperationError::Refused)?,
             agent_did: AgentDid::new(human.actor.clone())
                 .map_err(|_| HumanOperationError::Refused)?,
             session_id: ApiSessionId::new(hex(&owner.session_id().0))
                 .map_err(|_| HumanOperationError::Refused)?,
-            owner_did: AgentDid::new(human.actor.clone())
-                .map_err(|_| HumanOperationError::Refused)?,
-            owner_public_key: owner.public_key(),
+            owner_did: AgentDid::new(
+                std::str::from_utf8(owner.agent().as_bytes())
+                    .map_err(|_| HumanOperationError::Refused)?
+                    .to_owned(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?,
+            consent_public_key: owner.public_key(),
+            evm_sender: prepared.from,
             generation: owner.generation(),
             expires_at_ms: request.purpose_expires_at_ms,
-            protocol_version: authorization.envelope.protocol_version(),
-            network_id: authorization.envelope.network_id(),
+            transaction_type: NativeSendPurposeV2::TRANSACTION_TYPE,
+            chain_id: NativeSendPurposeV2::CHAIN_ID,
             activity: NativeActivity::from(activity),
             economic_action: request.economic_action,
             idempotency_key: authorization.envelope.idempotency_key().bytes(),
@@ -6326,7 +6374,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         .map_err(|_| HumanOperationError::Refused)?;
         crate::prepare::verify_disclosure_binding(&authorization)
             .map_err(|_| HumanOperationError::Refused)?;
-        if binding::purpose_commitment(&disclosure).is_some()
+        if prepared.from != owner.evm_sender()
+            || binding::purpose_commitment(&disclosure).is_some()
             || purpose.economic_action != human.capability_id.ok_or(HumanOperationError::Refused)?
             || purpose.economic_action != owner.session_id().0
             || snapshot.protocol_timestamp >= purpose.expires_at_ms
@@ -6345,7 +6394,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 let refused = || {
                     crate::session_control::SessionControlError::Human(HumanOperationError::Refused)
                 };
-                let staged = binding::stage_native_local_grant(
+                let staged = binding::stage_native_send_local_grant(
                     store,
                     sessions,
                     &owner,
@@ -6912,7 +6961,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     pub(crate) fn rpc_prepare_native_send(
         &mut self,
         context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
-        request: MutationEnvelope<layerx_agent_api::identity::NativeSendPrepareRequestV1>,
+        request: MutationEnvelope<crate::agent_rpc_wire::NativeSendPrepareRequestV2>,
     ) -> Result<HumanResponse, HumanOperationError> {
         use crate::approval::native_effect::NativeEffectApprovalCarrier;
         use crate::approval::native_program::StagedNativeRateUse;
@@ -6959,7 +7008,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .clock,
         );
-        let (prepared, snapshot) = {
+        let (prepared, transaction, snapshot) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
@@ -6976,12 +7025,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     Some((context, &control)),
                 )?;
             }
-            let prepared = operations
+            let cached = operations
                 .prepared
                 .get(&cache_key)
-                .ok_or(HumanOperationError::Refused)?
-                .prepared
-                .clone();
+                .ok_or(HumanOperationError::Refused)?;
+            let prepared = cached.prepared.clone();
+            let transaction = cached
+                .transaction
+                .clone()
+                .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -6991,11 +7043,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, snapshot)
+            (prepared, transaction, snapshot)
         };
-        let owner = self.native_purpose_owner(
+        let owner = self.native_send_purpose_owner(
             context,
-            request.operation.purpose.owner_public_key,
+            request.operation.purpose.purpose.consent_public_key,
             snapshot.observed_head_sequence,
         )?;
         if let Some(consent) = &request.operation.local_grant {
@@ -7068,6 +7120,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         session,
                         &owner,
                         &prepared,
+                        &transaction,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -7078,6 +7131,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         store,
                         &purpose,
                         &prepared,
+                        &transaction,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -7156,6 +7210,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         session,
                         &owner,
                         &prepared,
+                        &transaction,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -7166,6 +7221,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         store,
                         &purpose,
                         &prepared,
+                        &transaction,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -8299,9 +8355,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             }
             fee
         };
-        let owner = self.native_purpose_owner(
+        let owner = self.native_send_purpose_owner(
             context,
-            signed_purpose.owner_public_key,
+            signed_purpose.purpose.consent_public_key,
             snapshot.observed_head_sequence,
         )?;
         let _signing_owner = self.native_purpose_owner(
@@ -8336,6 +8392,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         session,
                         &owner,
                         &cached.prepared,
+                        cached.transaction.as_ref().ok_or_else(refuse)?,
                         &preparation_id,
                         &signed_purpose,
                         snapshot.observed_head_sequence,
@@ -8346,6 +8403,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         store,
                         &purpose,
                         &cached.prepared,
+                        cached.transaction.as_ref().ok_or_else(refuse)?,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -9890,7 +9948,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         if state.asset != asset
             || currency != record.held_activity.asset.as_str()
             || state.observed_head_sequence != current_sequence
-            || !(4..=5).contains(&state.verification)
+            || committed_budget_rank(state.verification).is_err()
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -11428,6 +11486,15 @@ impl OwnerInput<'_> {
         &self.bytes[self.at..]
     }
 }
+fn committed_budget_rank(rank: u8) -> Result<(), HumanOperationError> {
+    let level =
+        VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused)?;
+    if level != VerificationLevel::COMMITTED {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(())
+}
+
 fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     match value {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
@@ -17147,6 +17214,41 @@ fn native_response(
     .map_err(|_| HumanOperationError::Unavailable)
 }
 
+pub struct VerifiedNativeSendOwnerV2 {
+    resolved: VerifiedNativeOwnerV1,
+    evm_sender: [u8; 20],
+}
+
+impl VerifiedNativeSendOwnerV2 {
+    pub(crate) fn resolved(&self) -> &VerifiedNativeOwnerV1 {
+        &self.resolved
+    }
+    pub(crate) fn evm_sender(&self) -> [u8; 20] {
+        self.evm_sender
+    }
+    pub(crate) fn tenant(&self) -> &TenantId {
+        self.resolved.tenant()
+    }
+    pub(crate) fn agent(&self) -> &Did {
+        self.resolved.agent()
+    }
+    pub(crate) fn session_id(&self) -> crate::session::SessionId {
+        self.resolved.session_id()
+    }
+    pub(crate) fn generation(&self) -> u64 {
+        self.resolved.generation()
+    }
+    pub(crate) fn public_key(&self) -> [u8; 32] {
+        self.resolved.public_key()
+    }
+    pub(crate) fn head_sequence(&self) -> u64 {
+        self.resolved.head_sequence()
+    }
+    pub(crate) fn revocation_sequence(&self) -> u64 {
+        self.resolved.revocation_sequence()
+    }
+}
+
 pub(crate) struct VerifiedNativeOwnerV1 {
     tenant: TenantId,
     agent: Did,
@@ -18427,8 +18529,9 @@ fn verified_grant_scope<A: HumanAuthorityBoundary>(
     let action_key = capability_grant_action_key(shared_store, tenant, grant_id)?;
     let observed = authority.capability_scope(peer, actor, authority_id, action_key, *grant_id)?;
     if observed.observed_sequence == 0
-        || observed.verification < 4
-        || observed.verification > 5
+        || VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed.evidence_digest == [0; 32]
         || observed.evidence_digest
             != agent_evidence_digest(
@@ -19827,8 +19930,9 @@ fn validate_capability<A: HumanAuthorityBoundary>(
         request.capability_id,
     )?;
     if observed.observed_sequence == 0
-        || observed.verification < 4
-        || observed.verification > 5
+        || VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed.evidence_digest == [0; 32]
         || request.expiry_sequence <= observed.observed_sequence
     {
@@ -22148,6 +22252,25 @@ mod tests {
     use serde_json::json;
     use std::io::{Read as _, Write as _};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn repair_22_31_538_approval_budget_accepts_committed_rank() {
+        assert_eq!(
+            committed_budget_rank(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn repair_22_31_538_approval_budget_refuses_other_ranks() {
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                committed_budget_rank(rank),
+                Err(HumanOperationError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
 
     #[test]
     fn budget_snapshot_round_trips_the_floor_of_every_current_rung() {
