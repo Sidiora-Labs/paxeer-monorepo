@@ -1,0 +1,77 @@
+name: Platform CI
+
+on:
+  push:
+    paths:
+      - 'apps/**'
+      - 'core/**'
+      - 'sdk/**'
+      - 'contracts/**'
+      - 'lib/**'
+      - 'plugins/**'
+      - 'tools/**'
+      - 'examples/**'
+      - 'tests/**'
+      - '.nvmrc'
+      - '.npmrc'
+      - '.oxlintrc.json'
+      - '.oxfmtrc.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - 'vitest*.ts'
+      - 'patches/**'
+      - 'assets/**'
+      - 'tests/hyperfide/cases/v22/**'
+      - 'tools/repository/platform-ci.sh'
+      - '.github/workflows/platform.yml'
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'core/**'
+      - 'sdk/**'
+      - 'contracts/**'
+      - 'lib/**'
+      - 'plugins/**'
+      - 'tools/**'
+      - 'examples/**'
+      - 'tests/**'
+      - '.nvmrc'
+      - '.npmrc'
+      - '.oxlintrc.json'
+      - '.oxfmtrc.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - 'vitest*.ts'
+      - 'patches/**'
+      - 'assets/**'
+      - 'tests/hyperfide/cases/v22/**'
+      - 'tools/repository/platform-ci.sh'
+      - '.github/workflows/platform.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  platform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-node24-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Check platform
+        run: bash tools/repository/platform-ci.sh

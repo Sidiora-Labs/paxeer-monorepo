@@ -1,13 +1,26 @@
 package sequencer_test
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
+	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 func TestNodeCompletionRetiredSurfacesAbsent(t *testing.T) {
@@ -303,5 +316,98 @@ func TestNodeCompletionRetiredSurfacesAbsent(t *testing.T) {
 				t.Errorf("task %s required planned path %s is not a regular file", planned.task, planned.path)
 			}
 		})
+	}
+}
+
+func TestVectorV4CommittedVerifies(t *testing.T) {
+	data, err := os.ReadFile("../../daemon/committed-fixture/vectors/vector-v4-committed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vector struct {
+		Authorization verify.SequencerAuthorization `json:"authorization"`
+		Positive      struct {
+			Receipt         hexutil.Bytes     `json:"receipt"`
+			Header          hexutil.Bytes     `json:"header"`
+			HeaderSignature hexutil.Bytes     `json:"header_signature"`
+			Proof           codec.MerkleProof `json:"proof"`
+		} `json:"positive"`
+		Settlement struct {
+			RawTransaction   hexutil.Bytes                  `json:"raw_transaction"`
+			Receipt          *evmrpc.SequencerReceiptResult `json:"receipt"`
+			Batch            seqtypes.MsgSequenceBatch      `json:"sequence_batch"`
+			BatchProof       tmtypes.TxProof                `json:"sequence_batch_proof"`
+			TransactionProof tmtypes.TxProof                `json:"transaction_proof"`
+			ExecutionHeader  *tmtypes.Header                `json:"execution_header"`
+			ExecutionCommit  *tmtypes.Commit                `json:"execution_commit"`
+			Validators       []*tmtypes.Validator           `json:"validators"`
+		} `json:"settlement"`
+	}
+	if err := json.Unmarshal(data, &vector); err != nil {
+		t.Fatal(err)
+	}
+	s := vector.Settlement
+	if s.Receipt == nil || s.ExecutionHeader == nil || s.ExecutionCommit == nil || len(s.Validators) == 0 {
+		t.Fatal("incomplete committed recording")
+	}
+	var tx ethtypes.Transaction
+	if err := tx.UnmarshalBinary(s.RawTransaction); err != nil {
+		t.Fatal(err)
+	}
+	if tx.Type() != ethtypes.DynamicFeeTxType || tx.ChainId().Cmp(big.NewInt(125)) != 0 || tx.Hash() != s.Receipt.TxHash {
+		t.Fatal("committed recording must bind a type-2 chain-125 transaction")
+	}
+	keyID := sha256.Sum256(vector.Authorization.PublicKey[:])
+	pins := seqkeeper.ReceiptKeys{{KeyId: keyID[:], PublicKey: vector.Authorization.PublicKey[:], FirstHeight: vector.Authorization.FirstBatchNumber, LastHeight: vector.Authorization.LastBatchNumber}}
+	if err := s.Receipt.Verify(pins); err != nil {
+		t.Fatal(err)
+	}
+	if s.Receipt.Rung != evmrpc.RungCommitted || s.Receipt.BlockNumber == nil || s.Receipt.BlockHash == nil || int64(*s.Receipt.BlockNumber) != s.ExecutionHeader.Height || !bytes.Equal(s.Receipt.BlockHash.Bytes(), s.ExecutionHeader.Hash()) {
+		t.Fatal("committed RPC coordinates differ from execution header")
+	}
+	if !bytes.Equal(vector.Positive.Receipt, s.Receipt.Receipt) {
+		t.Fatal("inclusion envelope differs from RPC receipt")
+	}
+	header, err := codec.DecodeBatchHeader(vector.Positive.Header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if header.NetworkID != 125 {
+		t.Fatalf("inclusion network = %d, want 125", header.NetworkID)
+	}
+	if _, err := verify.ReceiptAtRoot(vector.Positive.Receipt, &vector.Positive.Proof, header.ReceiptMerkleRoot, vector.Authorization.PublicKey); err != nil {
+		t.Fatal(err)
+	}
+	if len(vector.Positive.HeaderSignature) != 64 {
+		t.Fatal("invalid header signature length")
+	}
+	if err := verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(vector.Positive.HeaderSignature), codec.BatchHeaderDigest(vector.Positive.Header)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BatchProof.Validate(s.ExecutionHeader.DataHash); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.TransactionProof.Validate(s.ExecutionHeader.DataHash); err != nil {
+		t.Fatal(err)
+	}
+	batch, err := seqtypes.DecodeSequenceBatchTx(s.BatchProof.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.VerifySignature("committed-fixture", vector.Authorization.PublicKey); err != nil {
+		t.Fatal(err)
+	}
+	if batch.Height != uint64(s.ExecutionHeader.Height) || batch.FromSeq > uint64(s.Receipt.Seq) || batch.ToSeq < uint64(s.Receipt.Seq) {
+		t.Fatal("committed sequence batch does not cover receipt")
+	}
+	set := tmtypes.NewValidatorSet(s.Validators)
+	if !bytes.Equal(set.Hash(), s.ExecutionHeader.ValidatorsHash) {
+		t.Fatal("validator set differs from execution header")
+	}
+	if err := set.VerifyCommit("committed-fixture", s.ExecutionCommit.BlockID, s.ExecutionHeader.Height, s.ExecutionCommit); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(s.ExecutionCommit.BlockID.Hash, s.ExecutionHeader.Hash()) {
+		t.Fatal("commit does not authenticate execution header")
 	}
 }

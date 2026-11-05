@@ -30547,3 +30547,75 @@ symbol = "repair_22_33_1510.rs"
 observed = "Attempt 2: the build failed with seven unresolved names in an authority source module path-included by the test support; the verify never ran."
 assumption = "Fixture construction against the wrong producer; the service and daemon contract of 22.31.462 is on main."
 severity = "high"
+
+[finding.22.33.44.5]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 5: cargo build --tests failed in tests/approvals.rs with E0061 and E0063 against the daemon approval service; the task's own test never ran."
+assumption = "Producer break on main (gotcha 3072); cleared by 22.31.515."
+severity = "low"
+
+[finding.22.31.510.2]
+task = "22.31.510"
+file = "tests/ci/test_repair_22_31_510.py"
+symbol = "test_repair_22_31_510.py"
+observed = "Attempt 2: 29 of 29 own cases passed; 14 of 18 cases in the three SDK suites failed on payment-binding-mismatch and invalid-rpc-hex before the task's change."
+assumption = "Pre-existing suite failures from 22.31.147 (gotcha 3071); not the task's defect."
+severity = "low"
+
+[finding.22.33.1236.6]
+task = "22.33.1236"
+file = "tests/modules/paxeer_x_metered_end_boundary.py"
+symbol = "paxeer_x_metered_end_boundary.py"
+observed = "Attempt 6: 2 repair cycles; all cases passed except the committed-iterator escrow open, refused with arena exhaustion."
+assumption = "Fixture arena lifetime, not a module defect."
+severity = "low"
+
+[finding.22.33.1510.3]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 3: 2 repair cycles; the build passed; 0 of 3 then 1 of 3 cases passed, the rest refused because the daemon recovery of the budget state failed with Unavailable."
+assumption = "Fixture transcript versus the daemon recovery contract; the daemon is the reference."
+severity = "high"
+
+[finding.22.34.5.1]
+task = "22.34.5"
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+symbol = "repair_22_34_5.rs"
+observed = "Attempt 1: the build failed with E0432, E0433, E0425, E0422 and E0609 in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs against the authority's human module; no verify ran."
+assumption = "Red daemon test build on main since 22.31.208 (gotcha 3075); not the task's defect."
+severity = "low"
+
+[finding.22.33.208.4]
+task = "22.33.208"
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+symbol = "repair-22-33-208.test.ts"
+observed = "Attempt 4: the build passed; 2 of 5 cases passed; the send case timed out on the single connection the route itself held and the two sponsored cases found no sponsored recording because the V6 vector was never loaded."
+assumption = "A real route defect (gotcha 3076) and an unconsumed producer artefact; both named."
+severity = "high"
+
+[finding.22.33.1550.4]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 4: cargo build --tests failed with E0063 and four E0061 in tests/repair_22_33_1550.rs against the daemon approval service of 22.31.495; no verify ran."
+assumption = "Consumer test behind the 495 signature change (gotcha 3072) plus the red daemon test build on main (gotcha 3075)."
+severity = "low"
+
+[finding.22.31.497.3]
+task = "22.31.497"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 3: cargo build -p layerx-agentd --tests exited 101 on four E0063 and one E0061 in tests/approval_semantics.rs; no verify ran."
+assumption = "A main-side break in a test the task does not touch (gotcha 3077) plus an approach superseded by decision 2564."
+severity = "low"
+
+[finding.22.31.503.1]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 1: the build passed; the verify ran 14 cases and 13 passed; noTestsUnderPages received the two 449 paths and expected none."
+assumption = "An incomplete sweep by the attempt; the guard did its job."
+severity = "low"

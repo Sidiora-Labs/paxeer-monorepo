@@ -11,7 +11,8 @@ import { afterAll, afterEach, beforeEach } from 'vitest';
 import vector from './fixtures/vector-v4-committed.json';
 
 export const settlement = vector.settlement;
-export const hash = settlement.receipt.txHash;
+export const hash = '0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2';
+if (settlement.receipt.txHash !== hash) throw new Error('Committed signature recording changed');
 export const missingHash = `0x${ '34'.repeat(32) }`;
 export const answer: PaxeerXTxSignature = {
   rung: 'receipted',

@@ -284,7 +284,12 @@ func runVectors(repo string) error {
 		return fmt.Errorf("vector-v4-committed: unexpected name or refusal count")
 	}
 	c := committed.Positive
-	trust := layerx.CommittedTrust{ChainID: c.BlockHeader.ChainID, Height: c.BlockHeader.Height, BlockHash: c.BlockHeader.Hash()}
+	trustedHash, err := hex.DecodeString("a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108")
+	if err != nil {
+		return err
+	}
+	trust := layerx.CommittedTrust{ChainID: "committed-fixture", Height: 10}
+	copy(trust.BlockHash[:], trustedHash)
 	receipt, err := verifyVectorReceipt(c.receiptVectorCase)
 	if err == nil {
 		err = matchVectorReceipt(c.receiptVectorCase, receipt, "receipted")

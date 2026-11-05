@@ -11,11 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
 	tmhttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
@@ -104,6 +102,9 @@ func recordV4(n *node) (any, error) {
 		return nil, err
 	}
 	id := (*big.Int)(&chainID)
+	if id.Cmp(big.NewInt(125)) != 0 {
+		return nil, fmt.Errorf("committed fixture requires EVM chain id 125, got %s", id)
+	}
 	send := func(key *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte) (*evmrpc.SequencerReceiptResult, []byte, error) {
 		from := crypto.PubkeyToAddress(key.PublicKey)
 		var nonce hexutil.Uint64
@@ -114,7 +115,11 @@ func recordV4(n *node) (any, error) {
 		if err := v4PendingCall(ctx, n, &gasPrice, "eth_gasPrice"); err != nil {
 			return nil, nil, err
 		}
-		tx, err := ethtypes.SignTx(ethtypes.NewTransaction(uint64(nonce), to, value, 2_000_000, (*big.Int)(&gasPrice), data), ethtypes.LatestSignerForChainID(id), key)
+		tx, err := ethtypes.SignNewTx(key, ethtypes.LatestSignerForChainID(id), &ethtypes.DynamicFeeTx{
+			ChainID: id, Nonce: uint64(nonce), GasTipCap: new(big.Int),
+			GasFeeCap: new(big.Int).Set((*big.Int)(&gasPrice)), Gas: 2_000_000,
+			To: &to, Value: value, Data: data,
+		})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -270,15 +275,7 @@ func v4WaitCommitted(ctx context.Context, n *node, hash common.Hash) (*evmrpc.Se
 }
 
 func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerReceiptResult, raw []byte) (*v4Settlement, error) {
-	var cfg struct {
-		RPC struct {
-			Listen string `toml:"laddr"`
-		} `toml:"rpc"`
-	}
-	if _, err := toml.DecodeFile(filepath.Join(n.home, "config", "config.toml"), &cfg); err != nil {
-		return nil, err
-	}
-	client, err := tmhttp.New(strings.Replace(cfg.RPC.Listen, "tcp://", "http://", 1))
+	client, err := tmhttp.New("http://" + n.consensusAddress)
 	if err != nil {
 		return nil, err
 	}
