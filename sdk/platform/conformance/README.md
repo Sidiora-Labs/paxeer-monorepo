@@ -10,6 +10,7 @@ the Go SDK's sequencer, committed and portable receipt verifiers.
 | [`vector-v3-receipt-refusals.json`](fixtures/vector-v3-receipt-refusals.json) | All six V3 refusals: key, height range, transaction hash, sequence hash, logs and canonical encoding. | [`sequencer-receipt-v1.json`](fixtures/sequencer-receipt-v1.json), V3; daemon export: [`daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json`](../../../daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json). |
 | [`vector-v4-committed.json`](fixtures/vector-v4-committed.json) | Recorded payExact receipt, execution header, transaction/result/batch inclusion proofs, execution commit, successor header and commit, validators and insufficient-power successor commit. | [`daemon/committed-fixture/vectors/vector-v4-committed.json`](../../../daemon/committed-fixture/vectors/vector-v4-committed.json), `settlement`. |
 | [`vector-v5-portable.json`](fixtures/vector-v5-portable.json) | One receipted and one committed `layerx-receipt-proof-v2` bundle, stored as compact wire documents for exact re-export comparison. | V1 `V1-pax-transfer` and V4 `settlement`; committed recording: [`daemon/committed-fixture/vectors/vector-v4-committed.json`](../../../daemon/committed-fixture/vectors/vector-v4-committed.json). |
+| [`vector-v6-sponsored-bind.json`](fixtures/vector-v6-sponsored-bind.json) | Sponsor-paid type-4 `executeSponsored` with a user-signed delegation and executed `bindLayerX`; independent type-2 transfer refusal. Includes raw transactions, signed receipts, genesis pins, measured fees and delegation code readback. | [`daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json`](../../../daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json), recorded on the private chain with EVM chain id 125. |
 
 V1–V3 copy the sequencer fixture cases without changing receipt bytes, pinned
 keys, predecessor hashes or expectations. The daemon's V1 is a separate contract
@@ -50,3 +51,20 @@ verify committed evidence and insufficient power, and compare each published
 portable document with both its re-export and a fresh export of its source.
 The committed V5 case also checks that its evidence matches V4 and calls
 `VerifyCommittedReceipt` directly with the execution header and its own commit.
+
+V6 retains the recorder's RPC encodings. `positive` and `refusal` each carry
+`rawTransaction`, `receiptJson`, `signedReceipt`, `receiptDigest`,
+`sponsorPaidFee`, before/after native balances and `delegationDesignator`.
+The transfer refusal is a valid successful receipt, but has type 2, no
+authorization list, no sponsored call and no `Sponsored` log. Existing
+delegation code alone does not prove sponsored execution. `pinnedKey` comes
+from the recording genesis, independently of the receipt's `signingKey`.
+`delegateDeployment` and `delegateCode` identify the real wallet delegate;
+`bindCalldata`, `didPublicKey` and `boundDid` retain the executed DID binding.
+
+The V6 gate runs the real recorder chain locally in process without external
+RPC endpoints, credentials, environment variables or a subprocess toolchain:
+
+```bash
+go test -count=1 ./daemon/committed-fixture/ -run '^TestVectorV6SponsoredBindVerifies$' && cmp daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json
+```
