@@ -6,6 +6,7 @@ qualification; the scoped repair record names that gate-policy conflict.
 """
 
 import ast
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -163,7 +164,17 @@ def test_jvm_readme_portable_shapes_match_unmodified_producer_evidence():
         assert int(bundle["receiptKey"]["firstHeight"], 16) <= height
         assert height <= int(bundle["receiptKey"]["lastHeight"], 16)
     assert bundles[0]["rawTransaction"].startswith("0x02")
-    converted = json.loads((FIXTURES / "vector-v4-committed.json").read_text())["positive"]
+    v4 = json.loads((FIXTURES / "vector-v4-committed.json").read_text())
+    source_bytes = (ROOT / v4["provenance"]["source"]).read_bytes()
+    assert hashlib.sha256(source_bytes).hexdigest() == v4["provenance"]["sha256"]
+    original = json.loads(source_bytes)["settlement"]
+    converted = v4["positive"]
+    assert converted["rawTransaction"] == original["raw_transaction"]
+    # The first type-2 RLP field is the single-byte EVM chain ID 125.
+    raw = bytes.fromhex(converted["rawTransaction"][2:])
+    assert raw[0] == 2
+    payload_start = 2 + (raw[1] - 0xf7) if raw[1] > 0xf7 else 2
+    assert raw[payload_start] == 125
     for field in (
         "rawTransaction", "signedReceipt", "receiptDigest", "receiptJson",
         "blockHeader", "receiptInclusion", "commit", "validatorSet",

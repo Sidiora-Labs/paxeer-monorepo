@@ -1,0 +1,122 @@
+{
+  "approval": {
+    "allowed_actions": [
+      "branding.identity.describe",
+      "branding.compatibility.inventory"
+    ],
+    "approved": true
+  },
+  "campaign_id": "hyperfide-task-26.1-branding-identity-v1-requal-12aa390190b3-requal-6a91b0130b1d-requal-ff4632c9bc89",
+  "case_ids": [
+    "V-026",
+    "V-028"
+  ],
+  "expected_assertion_ids": [
+    "branding.native.product",
+    "branding.native.development-version",
+    "branding.native.canonical-command",
+    "branding.native.legacy-command",
+    "branding.native.protocol-distinct",
+    "branding.inventory.history",
+    "branding.inventory.namespace",
+    "branding.inventory.compatibility-window",
+    "branding.inventory.config-aliases",
+    "branding.inventory.resource-aliases",
+    "branding.native.reject-unknown-action",
+    "branding.native.reject-unknown-input",
+    "branding.native.reject-array-input",
+    "branding.editor.display",
+    "branding.editor.preserve-package",
+    "branding.editor.preserve-command-identities",
+    "branding.editor.display-command-titles",
+    "branding.installer.display"
+  ],
+  "inputs": [
+    {
+      "path": "tests/hyperfide/qualify.py",
+      "sha256": "2048625d3cc598648955d23877d97d1694f5454b9b1a31a707bf81b267b03ceb",
+      "size": 39363
+    },
+    {
+      "path": "tests/hyperfide/check-evidence.py",
+      "sha256": "bde4b484ad883112e856fc952e682bc780ae15c9a525f27d68a0646ebe4bf2c0",
+      "size": 31174
+    },
+    {
+      "path": "tests/hyperfide/manifest.schema.json",
+      "sha256": "3407092d7e6e452bb288e996f840bd5bab22d6c0f494a49bf944cd73c18078b8",
+      "size": 3216
+    },
+    {
+      "path": "src/hyperfide/branding.c",
+      "sha256": "009362e26bdbb31aae49df542614ef18e71ed66d239a37e3b435467e1d9af1d8",
+      "size": 1759
+    },
+    {
+      "path": "src/hyperfide/components/26.1.kvx",
+      "sha256": "67006961bb6d6a6c68ea75e2fc7ab4c9acff53f1916ba47156d5868a69d7a509",
+      "size": 202
+    },
+    {
+      "path": "src/cg.h",
+      "sha256": "86504c40ae367c60310152a3778ac0893ced6d12b82f203e22a69c07bc952cef",
+      "size": 95933
+    },
+    {
+      "path": "scripts/install.sh",
+      "sha256": "4cb14bf566c2f10e287a899a65f662aea7fcdb642f570c65c651ec073f7eb13e",
+      "size": 14276
+    },
+    {
+      "path": "scripts/release.sh",
+      "sha256": "04e1b81b152adceb1bca5f538c89c3516a8f822ec23e79f7dd633346b6775ef9",
+      "size": 15001
+    },
+    {
+      "path": "editors/vscode/package.json",
+      "sha256": "a2832e85d70b5db1f0841aef28a2cab13d412b317b1a1aeac74a88e62776803a",
+      "size": 27635
+    },
+    {
+      "path": "src/hyperfide/component_main.c",
+      "sha256": "cb3b9f726346ac2724ca0d61f44845180074f2347f33a7c22d53b723e476223b",
+      "size": 7574
+    },
+    {
+      "path": "src/hyperfide/components.h",
+      "sha256": "0c89648b865492dca5a15f7b17c5cd6609ce37efffcab780cad870e77dd3eac3",
+      "size": 538
+    },
+    {
+      "path": "scripts/hyperfide-native-components.py",
+      "sha256": "e9d35c48c7fa582299809f03e485451ba86eb4585f9262150e38b49979ae1ef3",
+      "size": 14830
+    },
+    {
+      "path": "build/hyperfide-native",
+      "sha256": "3bd3ad956a10ffcf7d6dcf6f581fff8ef03d93227b65f344bb9966d2f5dd226f",
+      "size": 595600
+    },
+    {
+      "path": "build/hyperfide-native-registry.inc",
+      "sha256": "aac57e6939943c8a384c9a2edffae82d00abd3b63c7f6ec0adc71eea77cf6f26",
+      "size": 3901
+    },
+    {
+      "path": "tests/hyperfide/cases/tasks/26_1.py",
+      "sha256": "50e9b1f20c5d770c4b96c50b78c01c463cc03693c49348eb868a2f2747055cea",
+      "size": 3638
+    }
+  ],
+  "policy": {
+    "cloud_provisioning": false,
+    "component_only": true,
+    "execution": "remote-only",
+    "frontier_calls": false
+  },
+  "registered_variant": "task:26.1",
+  "resources": [],
+  "schema_version": 1,
+  "scope": "task-component",
+  "seed": 1
+}

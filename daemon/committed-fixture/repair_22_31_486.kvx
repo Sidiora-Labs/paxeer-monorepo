@@ -1,0 +1,138 @@
+[repair.22.31.486]
+acceptance = "22998.1"
+base_revision = "44823b0a8346dd793d93d2e438a7b4688d933eda"
+retired_evm_chain_id = 713714
+retired_transaction_type = 0
+evm_chain_id = 125
+transaction_type = 2
+transaction_hash = "0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2"
+execution_block_hash = "0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108"
+recording_sha256 = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+validators_hash = "65ac241d8d9974e24c80ae5ef8b49bd34f4cdd522b0a881ea960a28e47bb6c29"
+execution_height = 10
+successor_height = 11
+implementation = "Sign V4 funding, binding and ledger transactions as DynamicFeeTx under the node-reported chain 125; collect Comet evidence at the actual bound RPC address; refresh V4, portable V5, explorer, wallet, CLI and SDK consumers with explicit source and checkpoint pins."
+unblocks = ["22.33.338", "22.33.1478"]
+proofs = ["TestVectorV4CommittedVerifies", "TestRepairM_486_CommittedVectorChainID", "TestRepairM_486_DerivedCopies", "TestPortableReceiptRecordedCheckpointProvenance", "TestSequencerReceiptCommittedRecording", "submit_verifies_the_recorded_v4_chain_125_transaction"]
+consumers = ["apps/explorer/ui/tx/details/fixtures/vector-v4-committed.json", "apps/explorer/ui/tx/details/repair-22-33-520.spec.ts", "apps/explorer/ui/tx/details/signatureTestFixture.tsx", "apps/wallet/src/account/test/receiptEndpoint.ts", "apps/wallet/src/surfaces/repair-22-33-205.test.ts", "apps/wallet/src/surfaces/test/recordedReceipts.ts", "cmd/layerxctl/tests/support/receipt_cases.rs", "cmd/layerxctl/tests/support/recorded_vectors.rs", "docs/site/docs/agents/sdk-verification.md", "docs/site/docs/programs/workspace.md", "docs/wiki/SdkTerminalVerification.md", "docs/wiki/SettlementEvidence.md", "node/sequencer/completion_gate_test.go", "rpc/sequencer_receipt_vectors_test.go", "scripts/qualification/paxeer-x/test_repair_22_33_808.py", "sdk/platform/conformance/README.md", "sdk/platform/conformance/fixtures/refresh_receipt_vectors.py", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "sdk/platform/conformance/fixtures/vector-v4-committed.json", "sdk/platform/conformance/fixtures/vector-v5-portable.json", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs", "sdk/platform/dotnet/tests/Repair138/Program.cs", "sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/go/cmd/conformance/main.go", "sdk/platform/go/committed_inclusion_test.go", "sdk/platform/go/conformance_vectors_test.go", "sdk/platform/go/repair_141_test.go", "sdk/platform/go/portable_receipt_test.go", "sdk/platform/go/sequencer_receipt_test.go", "sdk/platform/go/repair_m1384_test.go", "sdk/platform/go/testdata/repair_m1384/checkpoint.json", "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair2231343Test.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331390Test.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331392Test.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331393Test.java", "sdk/platform/jvm/test_repair_22_33_1394.py", "services/human/crates/layerx-human-test-support/tests/fixtures/committed/README.md", "services/human/crates/layerx-human-test-support/tests/fixtures/committed/vector-v4-committed.json", "services/human/crates/layerx-human-test-support/tests/fixtures/committed/vector-v4-conformance.json"]
+qualification = "The hf-build and hf-done ledger at /out/run/gates.jsonl records the exact candidate revision, command, exit code and private evidence path; only a passing hf-done on the built candidate establishes completion, and this record does not claim an unexecuted gate."
+
+[recording.primary]
+command = "go run ./daemon/committed-fixture record --paxd /tmp/r486-paxd --out /tmp/r486-vectors --vector vector-v4-committed"
+exit = 0
+log = "/out/logs/r486-record-bound-port.log"
+preserved = "Only vector-v4-committed.json was copied from the temporary recording; committed daemon V1 to V3 bytes remain unchanged and the RPC gate pins their original file digests."
+
+[recording.human]
+command = "python3 services/human/crates/layerx-human-test-support/tests/support/record_committed_evidence.py --record /tmp/r486-paxd"
+exit = 0
+log = "/out/logs/r486-human-record-bound-port.log"
+recording_sha256 = "76cfee5540d369ad93286723b81117ec90ca85f12b7b074afffb78456a4cc3c6"
+transaction_hash = "0x7f4c369316ef4c71351986dfb437984b62841d128da736dccc12835ebc0b5c8e"
+provenance = "The human-service launcher made its own real chain-125 type-2 recording, then derive_committed_evidence.py refreshed vector-v4-conformance.json from those bytes."
+
+[finding.all_vector_recorder]
+revision = "44823b0a8346dd793d93d2e438a7b4688d933eda plus task recorder edits"
+command = "go run ./daemon/committed-fixture record --paxd /tmp/r486-paxd --out /tmp/r486-vectors"
+exit = 1
+log = "/out/logs/r486-record.log"
+observed = "The full recording stopped before V4 because V1 Programs deployment reverted with EVM_VERSION_UNSUPPORTED; V4 was subsequently recorded using the existing named-vector option without changing V1 Programs."
+
+[finding.comet_bound_port]
+command = "go run ./daemon/committed-fixture record --paxd /tmp/r486-paxd --out /tmp/r486-vectors --vector vector-v4-committed"
+exit = 1
+log = "/out/logs/r486-record-v4.log"
+observed = "record vector-v4-committed: Post http://127.0.0.4:0: dial tcp 127.0.0.4:0: connect: connection refused"
+resolution = "V4 now uses n.consensusAddress, which startup resolves from the real process listener; the configuration retains port zero for isolated ephemeral binding."
+
+[finding.go_checkpoint_scope]
+path = "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+retired_block_hash = "066b3b86eb6f62437b659c1d075f28eb22246d233fe86b3d5cacbdb5e18216e9"
+required_block_hash = "a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108"
+observed = "portableRecordedTrust in sdk/platform/go/portable_receipt_test.go reads the retired block hash from this checkpoint, and both files are outside the task scope; all in-scope checkpoint consumers have been refreshed without changing or bypassing that independent test pin."
+assumption = "Refreshing this independent fixture checkpoint requires explicit scope expansion; its unchanged pin is expected to refuse the newly recorded portable committed bundle."
+
+[finding.unexecuted_dotnet]
+paths = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs", "sdk/platform/dotnet/tests/Repair138/Program.cs"]
+observed = "Updated both committed block checkpoint pins from the new recording; .NET tests are unexecuted because the declared qualification environment does not run them."
+
+[finding.additional_execution_limits]
+paths = ["sdk/platform/jvm/src/test", "sdk/platform/jvm/src/conformance", "sdk/platform/generators/tests/pipeline_reseal.rs", "services/human/crates/layerx-human-test-support/tests/fixtures/committed"]
+observed = "The declared gates check JVM source and fixture contracts through Python but do not execute Java, the generator reseal test, or the human-service Rust fixture consumers; their refreshed pins and provenance are not separate execution claims."
+
+[gotcha.portable_provenance]
+observed = "The existing refresh script updated only the V4 source digest and retained V5 metadata without digests."
+resolution = "The refresher now records both V5 source file digests while preserving compact portable bundle bytes."
+
+[finding.build_type_guard]
+revision = "b9bc60a620d0c88ae0a7d3a45b36e3ee13e0e837"
+command = "make -s paxd-native-libs && go build -o /tmp/r486-paxd ./daemon/paxd && go build ./daemon/committed-fixture/ && pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+resolution = "The reader returns the public receipt union; requireAuthenticatedReceipt now checks its authenticated identity at runtime and narrows its metadata type before the unchanged assertions."
+
+[finding.bounded_verification]
+revision = "8afe0ed9fbfd4dfd425007228b5f65dd06431b63"
+command = "cg spec done 22.31.486 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Daemon V4, TestRepairM_486_, sequencer V4 and RPC gates passed; SDK Go failed on the out-of-scope retired portable checkpoint, the existing agent envelope subprocess probe without an absolute case file, and the missing native terminal-v5 historical corpus, so later chained gates did not run."
+
+[finding.bounded_verification_limits]
+observed = "No assertions were weakened and no tests were skipped or deleted; the independent checkpoint and unrelated SDK probe/corpus consumers remain unchanged because they are outside the authorized task scope, and their recorded failures are not re-investigated."
+qualification = "hf-build passed at the same revision as the failed hf-done; this final finding annotation was appended after the bounded result and does not constitute a task repair or a new qualification claim."
+gotcha = "The public wallet receipt reader retains the unbranded union return type even after authentication; consumers inspecting authentication metadata must call the SDK runtime requireAuthenticatedReceipt guard."
+
+[continuation.checkpoint_refresh]
+base_revision = "fd358174e8bd4046a155f55e6696094db7beba24"
+command = "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py"
+source = "daemon/committed-fixture/vectors/vector-v4-committed.json#settlement.execution_commit"
+checkpoint = "sdk/platform/go/testdata/repair_m1384/checkpoint.json"
+source_sha256 = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+block_hash = "a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108"
+resolution = "The continued task explicitly includes the external checkpoint and its three Go test consumers; the refresher captures the producer execution commit once into the fixed checkpoint, preserving independent verification and every existing refusal assertion. The prior go_checkpoint_scope finding describes the superseded scope restriction."
+conflict_resolution = "Kept the current conformance provenance metadata, removed the merge markers, and regenerated its source digest and evidence from the inherited chain-125 type-2 recording."
+closure_findings = "The package-wide agent envelope subprocess probe and native terminal-v5 historical corpus probe are unrelated environment-dependent closure findings (gotcha 3023); the declared focused gate does not invoke them."
+qualification = "Only the final hf-build and hf-done ledger entries at /out/run/gates.jsonl establish this continuation's outcome; earlier bounded_verification entries are historical attempt-1 evidence."
+
+[finding.continuation_v3_conformance]
+revision = "502c2d39608bf69f9fdc7c01d1d8e48d8c9a13bd"
+command = "cg spec done 22.31.486 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build, committed-fixture and node checks passed; RPC TestSequencerReceiptVectors/conformance-copies/V3 and TestVectorFilesV1ToV3MatchSequencerReceiptFixture/V3 fail because all six V3 conformance cases differ from their sequencer source, with both files unchanged by this task and the mismatch already present at base fd358174e8bd4046a155f55e6696094db7beba24."
+assumption = "Record this pre-existing failure without repairing or rerunning it; the chained Go SDK checkpoint tests and later Python, wallet, CLI and explorer gates did not execute, so this continuation remains implemented-not-qualified and this post-gate annotation is not a qualified revision."
+
+[continuation.receipted_copies]
+command = "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py"
+source = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+source_sha256 = "4ad88ad86071aca5cf0b9bd9bbac4cf713ce106c6542527200e4d64f50902327"
+copy = "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json"
+copy_sha256 = "a6f1fc557005cca977e93c764eeb569461d7619697e4366f3c9c679ebc7ac3bc"
+resolution = "The fixture refresher now copies each V1, V2 and V3 group from the retained RPC producer output with raw case bytes preserved. V1 and V2 copies are unchanged; all six V3 cases are regenerated, including signed receipt bytes and refusal expectations. Daemon V1 to V3 recordings remain untouched."
+supersedes = "finding.continuation_v3_conformance: the continued scope explicitly authorizes refreshing the conformance copy; its previous instruction to record without repair no longer applies."
+qualification = "Final hf-build and hf-done ledger entries at /out/run/gates.jsonl carry the verified revision, command, exit code and private evidence path. No historical attempt result establishes this continuation as qualified."
+
+[gotcha.wallet_formatter]
+observed = "pnpm --dir apps/wallet exec prettier could not find a locally installed formatter despite the checked-in Prettier configuration."
+resolution = "Formatted only the three touched wallet TypeScript files using transient pnpm dlx prettier@3.6.2 with apps/wallet/.prettierrc, without modifying a manifest or lockfile."
+
+[finding.continuation_wallet_grant_support]
+revision = "1f93c61e9efb09a5c0602a6cb2d38eaefa5c8390"
+command = "cg spec done 22.31.486 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build, all declared Go checks and 40 Python checks passed; wallet ran 37 tests with 34 passing, including the committed case, but three unchanged grant-discovery tests failed because their shared GrantChain support has no contract answer for WebData paymentAvailability selector 0x5e615a6b at 0x1019."
+assumption = "The unrelated support lives outside this task's allowed paths and is recorded without repair or rerun as instructed; CLI and explorer gates were not reached, the task remains unqualified, and this post-gate evidence annotation is not a qualified revision."
+
+[continuation.wallet_grant_support]
+base_revision = "c4b50b958ea14cce581096283c75b3feccddcdd2"
+prerequisite = "22.31.508 at 979e4ec082c9ada9104e1b9554acbe35838a1392"
+resolution = "Preserved the current grant-payment imports and all prerequisite assertions while resolving the seed import conflict; the committed case uses readSequencerReceipt and requireAuthenticatedReceipt on the chain-125 type-2 recording. Removed the unused chain-independent verifier imports."
+refresh_command = "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py"
+refresh = "Regenerated V1, V2 and V3 copies, V4, V5 and the checkpoint through the producer conversion script; inherited recording and derived bytes are unchanged."
+qualification = "Only this continuation's final hf-build and hf-done entries in /out/run/gates.jsonl establish its verified revision, command, exit and private evidence location; historical failures above do not describe this candidate's result."
+
+[gotcha.seed_import_conflict]
+observed = "Applying the earlier recording refresh beside the grant-payment prerequisite left conflict markers in the wallet surface test imports."
+resolution = "Retained XWEB_PRECOMPILE for the prerequisite tests and retained keccak256 and parseTransaction for the authenticated chain-125 committed case; removed the markers before qualification."

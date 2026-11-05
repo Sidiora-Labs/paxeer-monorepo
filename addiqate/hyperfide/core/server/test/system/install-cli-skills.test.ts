@@ -1,0 +1,223 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  systemCliSkillsStatusResponseSchema,
+  systemInstallCliSkillsResponseSchema,
+} from "@hyperfide/server-contract";
+import { readJson } from "../helpers/json.js";
+import { registerHostRpcResponder } from "../helpers/host-rpc.js";
+import { seedHost, seedHostSession } from "../helpers/seed.js";
+import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
+import { resolveServerOwnedSkillCatalogEntries } from "../../src/services/skills/injected-skills.js";
+
+async function writeBuiltinCliSkill(harness: TestAppHarness): Promise<void> {
+  const skillDirectory = join(
+    harness.deps.config.builtinSkillsRootPath,
+    "hyperfide-cli",
+  );
+  await mkdir(skillDirectory, { recursive: true });
+  await writeFile(
+    join(skillDirectory, "SKILL.md"),
+    "---\nname: hyperfide-cli\ndescription: Control hyperfide from the CLI.\n---\n",
+  );
+}
+
+function expectedCliSkillTreeHash(harness: TestAppHarness): string {
+  const entry = resolveServerOwnedSkillCatalogEntries({
+    builtinSkillsRootPath: harness.deps.config.builtinSkillsRootPath,
+    dataDir: harness.deps.config.dataDir,
+    logger: harness.deps.logger,
+    skillTreeRegistry: harness.deps.skillTreeRegistry,
+  }).find(({ runtimeSource }) => runtimeSource.name === "hyperfide-cli");
+  if (entry?.runtimeSource.kind !== "tree") {
+    throw new Error("The built-in hyperfide-cli skill did not resolve to a tree");
+  }
+  return entry.runtimeSource.treeHash;
+}
+
+function installRequest(hostIds: string[]): Request {
+  return new Request("http://localhost/api/v1/system/cli-skills/install", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hostIds }),
+  });
+}
+
+describe("install cli skills", () => {
+  it("installs the built-in hyperfide-cli tree on every requested machine", async () => {
+    await withTestHarness(async (harness) => {
+      await writeBuiltinCliSkill(harness);
+      const laptop = await seedHostSession(harness.deps, { id: "host-laptop" });
+      const studio = await seedHostSession(harness.deps, { id: "host-studio" });
+      const responders = await Promise.all(
+        [laptop, studio].map(
+          async ({ host, session }) =>
+            await registerHostRpcResponder(harness, {
+              hostId: host.id,
+              sessionId: session.id,
+              handle: (request) => {
+                expect(request.command).toMatchObject({
+                  type: "host.install_global_skills",
+                  skills: [{ name: "hyperfide-cli", entryPath: "SKILL.md" }],
+                });
+                return {
+                  ok: true,
+                  result: {
+                    installations: [
+                      {
+                        name: "hyperfide-cli",
+                        path: `/home/${host.id}/.agents/skills`,
+                      },
+                    ],
+                  },
+                };
+              },
+            }),
+        ),
+      );
+
+      const response = await harness.app.request(
+        installRequest([laptop.host.id, studio.host.id]),
+      );
+      expect(response.status).toBe(200);
+      const body = systemInstallCliSkillsResponseSchema.parse(
+        await readJson(response),
+      );
+      expect(body.results.map((entry) => [entry.hostId, entry.ok])).toEqual([
+        ["host-laptop", true],
+        ["host-studio", true],
+      ]);
+      for (const responder of responders) {
+        expect(responder.requests).toHaveLength(1);
+      }
+    });
+  });
+
+  it("reports a failing machine without dropping the one that worked", async () => {
+    await withTestHarness(async (harness) => {
+      await writeBuiltinCliSkill(harness);
+      const laptop = await seedHostSession(harness.deps, { id: "host-laptop" });
+      const studio = await seedHostSession(harness.deps, { id: "host-studio" });
+      await registerHostRpcResponder(harness, {
+        hostId: laptop.host.id,
+        sessionId: laptop.session.id,
+        handle: () => ({
+          ok: true,
+          result: {
+            installations: [{ name: "hyperfide-cli", path: "/home/u/.agents/skills" }],
+          },
+        }),
+      });
+      await registerHostRpcResponder(harness, {
+        hostId: studio.host.id,
+        sessionId: studio.session.id,
+        handle: () => ({
+          ok: false,
+          errorCode: "install_failed",
+          errorMessage: "disk is full",
+        }),
+      });
+
+      const response = await harness.app.request(
+        installRequest([laptop.host.id, studio.host.id]),
+      );
+      expect(response.status).toBe(200);
+      const body = systemInstallCliSkillsResponseSchema.parse(
+        await readJson(response),
+      );
+      const [installed, failed] = body.results;
+      expect(installed).toMatchObject({ hostId: "host-laptop", ok: true });
+      expect(failed).toMatchObject({ hostId: "host-studio", ok: false });
+    });
+  });
+
+  it("rejects an unknown machine", async () => {
+    await withTestHarness(async (harness) => {
+      await writeBuiltinCliSkill(harness);
+
+      const response = await harness.app.request(installRequest(["host-gone"]));
+      expect(response.status).toBe(404);
+    });
+  });
+
+  it("rejects an empty machine list", async () => {
+    await withTestHarness(async (harness) => {
+      await writeBuiltinCliSkill(harness);
+
+      const response = await harness.app.request(installRequest([]));
+      expect(response.status).toBe(400);
+    });
+  });
+
+  it("maps each machine's reported hashes to a product status", async () => {
+    await withTestHarness(async (harness) => {
+      await writeBuiltinCliSkill(harness);
+      const current = await seedHostSession(harness.deps, {
+        id: "host-current",
+      });
+      const stale = await seedHostSession(harness.deps, { id: "host-stale" });
+      const empty = await seedHostSession(harness.deps, { id: "host-empty" });
+      const expectedHash = expectedCliSkillTreeHash(harness);
+      const hashByHostId: Record<string, string | null> = {
+        "host-current": expectedHash,
+        "host-stale": "b".repeat(64),
+        "host-empty": null,
+      };
+      for (const { host, session } of [current, stale, empty]) {
+        await registerHostRpcResponder(harness, {
+          hostId: host.id,
+          sessionId: session.id,
+          handle: (request) => {
+            expect(request.command).toMatchObject({
+              type: "host.global_skills_status",
+              names: ["hyperfide-cli"],
+            });
+            return {
+              ok: true,
+              result: {
+                entries: [
+                  {
+                    name: "hyperfide-cli",
+                    path: `/home/${host.id}/.agents/skills/hyperfide-cli`,
+                    treeHash: hashByHostId[host.id] ?? null,
+                  },
+                ],
+              },
+            };
+          },
+        });
+      }
+
+      const response = await harness.app.request("/api/v1/system/cli-skills");
+      expect(response.status).toBe(200);
+      const body = systemCliSkillsStatusResponseSchema.parse(
+        await readJson(response),
+      );
+      expect(
+        Object.fromEntries(
+          body.machines.map((machine) => [machine.hostId, machine.status]),
+        ),
+      ).toEqual({
+        "host-current": "installed",
+        "host-stale": "outdated",
+        "host-empty": "missing",
+      });
+    });
+  });
+
+  it("reports a machine with no daemon session as unknown", async () => {
+    await withTestHarness(async (harness) => {
+      await writeBuiltinCliSkill(harness);
+      await seedHost(harness.deps, { id: "host-offline" });
+
+      const response = await harness.app.request("/api/v1/system/cli-skills");
+      const body = systemCliSkillsStatusResponseSchema.parse(
+        await readJson(response),
+      );
+      expect(body.machines).toEqual([
+        { hostId: "host-offline", hostName: "Test Host", status: "unknown" },
+      ]);
+    });
+  });
+});

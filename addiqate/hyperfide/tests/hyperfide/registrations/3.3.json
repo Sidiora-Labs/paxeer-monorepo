@@ -1,0 +1,85 @@
+{
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/3_3.py"
+  ],
+  "assertion_ids": [
+    "views.corpus.manifest-selected",
+    "views.primary.signed",
+    "views.aggregate-totals",
+    "views.mandatory-intent-inline",
+    "views.current-findings-source-links",
+    "views.evidence-freshness",
+    "views.finding-blocker-totals",
+    "views.finding-only-blocker",
+    "views.dependency-exceptions",
+    "views.dependency-current-revision-only",
+    "views.page-bounded",
+    "views.budget-preserves-mandatory",
+    "views.budget-blockers-outrank-tasks",
+    "views.untrusted-finding-text-labelled",
+    "views.malformed-cursor-refused",
+    "views.malformed-input-isolated",
+    "views.manager-scoped",
+    "views.manager-unscoped-denied",
+    "views.unowned-package-denied",
+    "views.stale-package-generation",
+    "views.unsupported-role-denied",
+    "views.cursor-requires-pins",
+    "views.cursor-continuation",
+    "views.cursor-stale-refused",
+    "views.request-scope-spoof-refused",
+    "views.invalid-budget-refused",
+    "views.cleanup.observed"
+  ],
+  "cases": [
+    "V-010",
+    "V-016"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/3_3.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/hierarchy/views.js",
+    "core/control-plane/dist/spec/import.js",
+    "spec/hyperfide/spec.kvx"
+  ],
+  "required_artifacts": [],
+  "required_env": [
+    "DATABASE_URL"
+  ],
+  "resources": [],
+  "schema_version": 1,
+  "scope": "task-component",
+  "source_files": [
+    "core/control-plane/src/hierarchy/views.ts",
+    "core/control-plane/components/3.3.json",
+    "tests/hyperfide/cases/tasks/3_3.py",
+    "tests/hyperfide/cases/tasks/3_1.py",
+    "tests/hyperfide/support/identity_fixture.py",
+    "tests/hyperfide/registrations/3.3.json",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "core/control-plane/package.json",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/tsconfig.json"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "task": "3.3",
+  "timeout_seconds": 300,
+  "variant": "task:3.3"
+}

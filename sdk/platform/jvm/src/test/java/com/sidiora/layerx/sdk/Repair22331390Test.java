@@ -443,7 +443,7 @@ public final class Repair22331390Test {
     private static LocalVerifier.ReceiptKeys keys(JsonNode vector) { return new LocalVerifier.ReceiptKeys(List.of(key(vector))); }
     private static ConsensusTrust trust() {
         return new ConsensusTrust("committed-fixture", 10,
-            Base64.getDecoder().decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI="));
+            Base64.getDecoder().decode("ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk="));
     }
     private static JsonNode program() throws IOException { return vector("sequencer-receipt-v1.json", "V1-layerxprograms-call"); }
     private static JsonNode vector(String name, String id) throws IOException {

@@ -2,8 +2,8 @@
 
 `vector-v4-committed.json` is fresh output from the repository's
 `daemon/committed-fixture` recorder at source revision
-`9d1a06c7f3635f5556023760af7a75ee9755efdd`. It starts the production `paxd` nodes
-with an isolated `committed-fixture` chain (EVM chain id 713714), executes a
+`44823b0a8346dd793d93d2e438a7b4688d933eda` with the recorder changes from task `22.31.486`. It starts the production `paxd` nodes
+with an isolated `committed-fixture` chain (EVM chain id 125, EIP-1559 type 2), executes a
 ledger payment, and captures the receipt, native sequence-batch transaction,
 inclusion proofs, linked execution/successor headers, commits and validators.
 The receipt inclusion envelope is assembled and signed by the recorder under
@@ -19,7 +19,7 @@ reopening and verifying the recovered evidence. Altered and foreign evidence
 remain refusal cases.
 
 The recording SHA-256 is
-`01bc45914c965c0448447ef51c53a463fa19d6d3ce4b44b7172d762efe734b5a`;
+`76cfee5540d369ad93286723b81117ec90ca85f12b7b074afffb78456a4cc3c6`;
 execution height 10 is linked to successor commitment height 11.
 
 Regenerate during implementation from the repository root:

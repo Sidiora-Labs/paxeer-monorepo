@@ -140,6 +140,11 @@ Stored vectors in `daemon/committed-fixture/vectors/` remain verification author
 | `vector-v3-receipt-refusals.json` | Refuse the six named mutations of key, height, transaction, sequence, logs and canonical encoding. |
 | `vector-v4-committed.json` | Receipt inclusion, both inclusion-envelope refusals and recorded `payExact` proofs; refuse a consensus commit with at most two thirds voting power. |
 
+The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
+Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
+`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
+`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
+
 Reference tests are `TestVectorV1ReceiptedPositiveVerifies`, `TestVectorV2ReceiptedRevertVerifies`, `TestVectorV3EveryRefusalIsRefused` and `TestVectorV4CommittedVerifies` in `daemon/committed-fixture/vector_v*_test.go`.
 
 An execution signature authenticates the signed result. Proving commitment additionally checks transaction, batch and result inclusion and consensus commits against trusted chain authority. These are proof components of the network's committed history, not a second settlement network. A receipt is final once its block is committed. The SDK-adapted vector schemas are documented in `sdk/platform/conformance/README.md`.

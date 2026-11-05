@@ -1,0 +1,68 @@
+import type { StartupAction } from "./local-view.js";
+
+const ELECTRON_LOAD_ERROR_CODE = /\bERR_[A-Z_]+ \(-?\d+\)/u;
+
+interface RemoteServerStartupError {
+  actions: StartupAction[];
+  details: string;
+  logs: string;
+  title: string;
+}
+
+export interface LoadRemoteServerPageArgs {
+  isCurrent(): boolean;
+  wasAuthCancelled?(): boolean;
+  loadStartupError(args: RemoteServerStartupError): Promise<void>;
+  loadUrl(args: { url: string }): Promise<void>;
+  logWarning(message: string): void;
+  serverUrl: string;
+}
+
+function describeServerUrl(serverUrl: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(serverUrl);
+  } catch {
+    return "the saved hyperfide-platform server";
+  }
+  return `the hyperfide-platform server at ${parsed.origin}`;
+}
+
+function formatLoadFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return ELECTRON_LOAD_ERROR_CODE.exec(message)?.[0] ?? "the page load failed";
+}
+
+export async function loadRemoteServerPage(
+  args: LoadRemoteServerPageArgs,
+): Promise<boolean> {
+  try {
+    await args.loadUrl({ url: args.serverUrl });
+    return true;
+  } catch (error) {
+    if (!args.isCurrent()) {
+      return false;
+    }
+    if (args.wasAuthCancelled?.()) {
+      await args.loadStartupError({ actions: [{ id: "choose-server", label: "Choose server…" }],
+        title: "This server asks for a username and password", details: "Choose a server to continue.", logs: "" });
+      return false;
+    }
+    const label = describeServerUrl(args.serverUrl);
+    args.logWarning(
+      `[desktop] could not load ${label}: ${formatLoadFailure(error)}`,
+    );
+    await args.loadStartupError({
+      actions: [
+        { id: "retry", label: "Try again" },
+        { id: "choose-server", label: "Choose server…" },
+      ],
+      details:
+        `${label.charAt(0).toUpperCase()}${label.slice(1)} did not answer. ` +
+        "Check that the machine is awake and reachable.",
+      logs: "",
+      title: "Could not reach this hyperfide-platform server",
+    });
+    return false;
+  }
+}
