@@ -1,0 +1,116 @@
+[meta]
+task = "22.31.513"
+base_revision = "ab0f7ff66ca0e0c9ac78ed13f5cd52e079534ba5"
+status = "implementation; qualification evidence is the bounded runner ledger"
+acceptance = "22998.1"
+verified_revision_source = "/out/run/gates.jsonl: successful hf-done revision; runner publishes that exact built and verified candidate"
+private_evidence = "/out/logs; /out/run/gates.jsonl"
+
+[failure.ceremony_readiness]
+observed = "Attempt 2 original identity generation refused every key operation with participant_unavailable."
+cause = "CeremonyNodeConfig.Open omitted Options.PeerProbe; Server.New substituted an empty peer map and the unchanged health reporter required at least two reachable peers, so the otherwise healthy fresh nodes answered 503."
+fix = "Configure the production TCPPeerProbe with all other ceremony peer listeners, as cmd/attestor does; return lastError beside ready in AttestorDaemonClient.health and emit every node health result to stderr before refusing identity generation."
+contract = "Store.List, Audit.Verify, the minimum reachable-peer bound, signed inventory validation and TLS identity pin checks remain enforced. The declared rehearsal and command tests traverse this real health check before generating and binding their original identities."
+
+[failure.workflow_dependencies]
+observed = "Attestor lacked Node, pnpm and the native Rust test executables consumed by its server tests."
+cause = "Its Go-only job did not provision transitive gateway and custody consumers."
+fix = "Use Node 22, pnpm 9.15.9 and frozen gateway install; build the two exact Rust integration-test targets with the locked manifest, resolve compiler-emitted executable paths, and export both required environment variables."
+
+[failure.abi]
+observed = "The xweb consumer ABI no longer matched its producer after e3e6328a69."
+cause = "The embedded copy was stale."
+fix = "Copy precompiles/xweb/abi.json byte-for-byte into the attestor ABI directory; retain the existing producer-copy equality test."
+
+[failure.golden]
+observed = "Ceremony import encoding differed from the obsolete schema golden."
+cause = "The actual attestor producer requires ceremony ID, epoch, public key, participants and threshold; operator verification also carries its ceremony/import binding."
+fix = "Regenerate the ceremony vectors from the attestor server's real golden output, align required client JSON fields, and compare the two producer copies in a test."
+
+[failure.move]
+observed = "The old move expectations covered nine migration files and omitted later table retirement."
+cause = "The current ledger has 22 files; CopySource already discovers source tables, while delta must distinguish retained tables from explicitly applied retirement migrations."
+fix = "Partition delta exclusively from source schema discovery; assert every source table's digest, including funded_tiers, layerx_accounts and whitelist_entries, and all 22 target migration files."
+contract = "Initial copy omits no source table. Subsequent 006_archive_funded and 019_drop_retired_layerx_custody intentionally retire three tables present at source revision 005; unexplained drops remain errors."
+
+[failure.delivery_journal]
+observed = "The command fixture ended in ErrJournal before delivery."
+cause = "It supplied none of the mandatory protected ceremony journal inputs checked by LoadOptions and validate."
+fix = "Supply an absolute owner-only journal directory, a private 32-byte journal key, ceremony ID and receipt path; complete an actual isolated rehearsal before delivery."
+
+[failure.original_identity]
+observed = "Rehearsal ended in ErrIdentityRecovery in loadOriginalIdentity."
+cause = "Historical fixtures had no original DID, active provisioning row, signed binding or held identity, and simulated replacement identities; external agent identities are ineligible for held-key migration."
+fix = "Generate original keys through gateway and production attestors, publish genuine signed inventories/authority, obtain genuine owner-authorized binding signatures, bind them through the existing local gateway chain fixture, and insert the actual provisioning results. Clone encrypted production stores for isolation and retain DID/public key through refresh and delivery."
+negative_case = "A changed source address after rehearsal invalidates its authenticated receipt before any custody call; the command asserts refusal, zero migration counters, unchanged stores and no migrated row. Envelope mismatch remains asserted before import in the rehearsal test."
+
+[failure.gateway_envelope]
+observed = "Historical workflow 41921062931 reported gateway envelope exit 243 without its stderr in the inventory."
+cause = "Historical stderr is unavailable: gh run view --log-failed requires authentication absent from this sandbox. The old shell launcher also entered the wallet workspace root, unlike the gateway package that owns tsx/viem. This is a diagnosed launch-path discrepancy, not proof of the historical exit cause."
+fix = "Install frozen dependencies in gateway and execute pnpm/tsx directly with gateway as cwd, retaining complete stderr on failure; bounded qualification captures any recurrence."
+limitation = "Do not identify exit 243 from its numeric value alone; historical stderr and the first merged workflow remain external evidence."
+
+[failure.owner_signing]
+observed = "The owner-token loadtest reported three signing timeouts at concurrency four in 15 seconds."
+cause = "The token is minted once before the workload. doSign held an exclusive key lock across distributed signing; different arrival orders let peers hold different sessions while waiting on each other. This was signing serialization, not owner-token issuance."
+fix = "Hold a shared key lock during independent signing sessions, preserve exclusive locks for share mutations, and serialize duplicate requests by key/session. Keep concurrency, duration, refusal assertions and quorum checks unchanged."
+measured_latency = "The unchanged gate records the real Summary latency_ms and per-curve successes/refusals in private /out/logs/wallet-owner-signing-*.json; no latency is invented before execution."
+
+[proof]
+bounded_build = "hf-build; exact revision, command, exit and private log are in /out/run/gates.jsonl"
+bounded_verify = "hf-done; cg spec done 22.31.513 -f layerx-merge --root $TASK_ROOT; exact candidate evidence is in /out/run/gates.jsonl"
+merged_workflow_run_id = "pending first green Wallet Go tests run on the merged commit; unavailable before runner publication and merge"
+merged_workflow_status = "not claimed; the bounded verify exercises the declared per-package targets, not the full GitHub jobs"
+
+[qualification.readiness_first_pass]
+revision = "1a9eb696ecb13af3226b3bd170b312b0d5d7f46a"
+command = "cg spec done 22.31.513 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Policy, loadtest, ceremony attestor, move and rehearsal passed; TestPlanArchiveDeliverThroughTheCommand alone failed starting the identity producer because @noble/hashes was temporarily absent."
+cause = "Each Go test process serialized npm ci only during installation, then released the lock while its scripts still ran; another package's npm ci removed the live SDK dependencies. npm also climbed to the root workspace instead of using the SDK's own lockfile."
+fix = "Retain the fixture dependency lock until the test process exits, covering every gateway consumer; add --workspaces=false to the SDK's frozen npm ci in the fixture and both workflow jobs. No assertion, timeout or health check changes."
+
+[measurement.readiness_first_pass]
+revision = "1a9eb696ecb13af3226b3bd170b312b0d5d7f46a"
+concurrency = 4
+duration_seconds = 15
+result = "48/48 owner-token signing successes; zero refusals; p50 795.142 ms, p90 2115.483 ms, p99/max 2411.333 ms"
+private_logs = "/out/logs/wallet-owner-signing-*.json"
+
+[qualification.first_pass]
+revision = "e7492f9d493deb1f131620d6f885d3b04d3196e4"
+command = "cg spec done 22.31.513 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The ABI-copy assertion exposed launchpad whitespace drift after xweb was regenerated; byte comparison also found addr whitespace and layerxledger interface drift; the loadtest package passed, and the shell short circuit did not run ceremony packages."
+repair = "Regenerate the launchpad, addr and layerxledger embedded copies byte-for-byte from its unchanged repository producer, preserving the exact byte assertion."
+
+[measurement.owner_signing]
+revision = "e7492f9d493deb1f131620d6f885d3b04d3196e4"
+concurrency = 4
+duration_seconds = 15
+first = "42/42 successes; zero refusals; p50 1476.534 ms, p90 2443.236 ms, p99/max 2954.684 ms"
+second = "44/44 successes; zero refusals; p50 983.711 ms, p90 2234.015 ms, p99/max 2575.438 ms"
+private_logs = "/out/logs/wallet-owner-signing-3612051028.json; /out/logs/wallet-owner-signing-3207623643.json"
+
+[qualification.continuation_first_pass]
+revision = "e2526455202adb5cc6409b80f7ee759e251dee0b"
+command = "cg spec done 22.31.513 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "After merging 22.31.520, policy, loadtest, ceremony attestor and move passed; rehearsal and command fixtures failed with ERR_MODULE_NOT_FOUND for @noble/hashes in the agent SDK sequencer-log.ts."
+cause = "The gateway TestChain imports the real agent SDK sequencer log codec outside the wallet pnpm workspace; installing the wallet workspace does not install the SDK's dependencies."
+fix = "Install the agent SDK with its existing package-lock.json using npm ci in both workflow jobs and the serialized ceremony fixture dependency setup; retain the real SDK codec and every assertion."
+
+[qualification.continuation_bounded_result]
+revision = "5836dbaad5e4512946fa23c4a19d918b6fe512d6"
+command = "cg spec done 22.31.513 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "The repaired candidate built successfully and passed policy, loadtest, ceremony attestor and move; two rehearsal tests and three command tests failed during original identity generation with AttestorQuorumError participant_unavailable at gateway/src/attestor/client.ts:787."
+cause = "The gateway key-operation readiness check rejects a ceremony fixture participant after client.health(); the underlying readiness discrepancy remains undiagnosed at the bounded stop."
+fix = "Unresolved; no check or assertion was weakened and no further repair or gate was attempted after the wrapper exhausted its two repeat allowances on build-2 and verify-2."
+status = "implemented_not_qualified; first merged green workflow proof remains pending"
+build_log = "/out/logs/build-2.log"
+evidence_note = "This result entry was appended after the bounded stop; the revision above identifies the exact built and tested candidate, before this evidence-only entry."

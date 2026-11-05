@@ -126,15 +126,12 @@ func MoveDelta(ctx context.Context, o Options) (DeltaReport, error) {
 	if err != nil {
 		return report, err
 	}
-	for _, t := range src.Tables {
-		if !present[t.Name] {
-			report.Dropped = append(report.Dropped, DroppedTable{Table: t.Name, SourceRows: counts[t.Name]})
-		}
-	}
-	var kept []rehearsal.Table
-	for _, t := range src.Tables {
-		if present[t.Name] {
-			kept = append(kept, t)
+	kept := make([]rehearsal.Table, 0, len(src.Tables))
+	for _, table := range src.Tables {
+		if present[table.Name] {
+			kept = append(kept, table)
+		} else {
+			report.Dropped = append(report.Dropped, DroppedTable{Table: table.Name, SourceRows: counts[table.Name]})
 		}
 	}
 	if err := rehearsal.CheckCounterparts(ctx, tgt, kept); err != nil {
