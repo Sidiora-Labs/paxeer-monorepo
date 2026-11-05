@@ -1,3 +1,4 @@
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -12,8 +13,8 @@ use layerx_agentd::budget::{
 };
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::policy::approval::{
-    hold, hold_reserved, reserve_and_hold, ApprovalContext, ApprovalError, ApprovalRegistry,
-    ApprovalReservationError, ApprovalState,
+    hold_at, hold_reserved_timed, reserve_and_hold_at, ApprovalContext, ApprovalError,
+    ApprovalRegistry, ApprovalReservationError, ApprovalSequence, ApprovalState,
 };
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
@@ -22,6 +23,7 @@ use layerx_types::payload::ModuleRegistry;
 use sha2::{Digest as _, Sha256};
 
 const ACTOR: &str = "0404040404040404040404040404040404040404";
+const DECISION_TIME: TimestampSeconds = TimestampSeconds(100);
 
 struct Root(PathBuf);
 
@@ -31,6 +33,8 @@ impl Root {
             std::env::temp_dir().join(format!("repair-22-31-216-{label}-{}", std::process::id())),
         );
         std::fs::create_dir(&root.0).unwrap_or_else(|error| panic!("create store root: {error}"));
+        std::fs::set_permissions(&root.0, std::fs::Permissions::from_mode(0o700))
+            .unwrap_or_else(|error| panic!("set store root permissions: {error}"));
         root
     }
 
@@ -157,13 +161,14 @@ fn approval_replay_bounds_64_items_survive_reopen() {
         let store = root.open();
         let registry = ApprovalRegistry::with_store(Arc::clone(&store));
         let budgets = limiter();
-        let ticket = reserve_and_hold(
+        let ticket = reserve_and_hold_at(
             &registry,
             &budgets,
             context(1),
             original.clone(),
             &request(1, 64),
-            100,
+            ApprovalSequence(100),
+            DECISION_TIME,
         )
         .unwrap_or_else(|error| panic!("publish: {error:?}"));
         assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
@@ -205,13 +210,14 @@ fn approval_replay_bounds_65_items_refuse_without_reservation_leaks() {
             let store = root.open();
             let registry = ApprovalRegistry::with_store(Arc::clone(&store));
             let budgets = limiter();
-            let retained = reserve_and_hold(
+            let retained = reserve_and_hold_at(
                 &registry,
                 &budgets,
                 context(1),
                 prepared(1, 1),
                 &request(1, 1),
-                100,
+                ApprovalSequence(100),
+                DECISION_TIME,
             )
             .unwrap_or_else(|error| panic!("retained hold: {error:?}"));
             let before = store
@@ -222,13 +228,14 @@ fn approval_replay_bounds_65_items_refuse_without_reservation_leaks() {
                 .bytes()
                 .to_vec();
             assert_eq!(
-                reserve_and_hold(
+                reserve_and_hold_at(
                     &registry,
                     &budgets,
                     context(2),
                     prepared(counterparties, amounts),
                     &request(2, limits),
-                    100
+                    ApprovalSequence(100),
+                    DECISION_TIME
                 ),
                 Err(ApprovalReservationError::Approval(
                     ApprovalError::TooManyItems
@@ -282,7 +289,15 @@ fn approval_replay_bounds_borrowed_admission_rejects_65_items() {
     let reservation =
         reserve(&budgets, &request(1, 65)).unwrap_or_else(|error| panic!("reserve: {error:?}"));
     assert_eq!(
-        hold_reserved(&registry, context(1), prepared(1, 1), 10, 100, &reservation),
+        hold_reserved_timed(
+            &registry,
+            context(1),
+            prepared(1, 1),
+            ApprovalSequence(10),
+            ApprovalSequence(100),
+            &reservation,
+            DECISION_TIME
+        ),
         Err(ApprovalError::TooManyItems)
     );
     assert_eq!(registry.hold_ids(), Ok(Vec::new()));
@@ -293,12 +308,13 @@ fn approval_replay_bounds_borrowed_admission_rejects_65_items() {
         .is_none());
     for (counterparties, amounts) in [(65, 1), (1, 65)] {
         assert_eq!(
-            hold(
+            hold_at(
                 &ApprovalRegistry::default(),
                 context(2),
                 prepared(counterparties, amounts),
-                10,
-                100
+                ApprovalSequence(10),
+                ApprovalSequence(100),
+                DECISION_TIME
             ),
             Err(ApprovalError::TooManyItems)
         );
@@ -325,8 +341,20 @@ fn skip_bytes(bytes: &[u8], position: &mut usize) {
 }
 
 fn count_offsets(bytes: &[u8]) -> [usize; 3] {
-    assert_eq!(&bytes[..8], b"LXAPHLD4");
-    let mut position = 8;
+    assert_eq!(&bytes[..8], b"LXAPHLD5");
+    let legacy_length = u32::from_be_bytes(
+        bytes[8..12]
+            .try_into()
+            .unwrap_or_else(|_| panic!("legacy length")),
+    ) as usize;
+    assert_eq!(bytes.len(), 12 + legacy_length + 16);
+    assert_eq!(&bytes[12..20], b"LXAPHLD4");
+    assert_eq!(
+        &bytes[12 + legacy_length..20 + legacy_length],
+        &DECISION_TIME.get().to_be_bytes()
+    );
+    assert_eq!(&bytes[20 + legacy_length..], &500_u64.to_be_bytes());
+    let mut position = 20;
     skip_bytes(bytes, &mut position);
     skip_bytes(bytes, &mut position);
     position += 32 + 32;
@@ -359,13 +387,14 @@ fn approval_replay_bounds_decoder_still_refuses_oversized_records() {
         {
             let store = root.open();
             let registry = ApprovalRegistry::with_store(Arc::clone(&store));
-            reserve_and_hold(
+            reserve_and_hold_at(
                 &registry,
                 &limiter(),
                 context(1),
                 prepared(64, 64),
                 &request(1, 64),
-                100,
+                ApprovalSequence(100),
+                DECISION_TIME,
             )
             .unwrap_or_else(|error| panic!("publish: {error:?}"));
             let mut guard = store.lock().unwrap_or_else(|_| panic!("store lock"));
