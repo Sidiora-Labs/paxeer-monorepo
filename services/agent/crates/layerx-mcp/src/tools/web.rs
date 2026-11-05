@@ -5,7 +5,7 @@
 use std::fmt::Write as _;
 use std::io::{Read as _, Write as _};
 use std::net::{TcpStream, ToSocketAddrs as _};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
@@ -25,6 +25,7 @@ use layerx_interop_gateway::evidence::canonical_receipt_digest;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+use layerx_types::clock::Clock;
 use layerx_types::payload::ModuleId;
 use layerx_x402::buyer::BuiltPayment;
 use layerx_x402::model::{
@@ -37,6 +38,10 @@ use sha3::Keccak256;
 
 use crate::approval::{ApprovalError, ApprovalPolicy};
 use crate::catalogue::{self, ArgumentError};
+
+#[cfg(test)]
+#[path = "../../tests/support/clock.rs"]
+mod test_clock;
 
 mod approval_state;
 pub use approval_state::WebApprovalResources;
@@ -234,6 +239,7 @@ impl WebCall {
         config: &WebConfig,
         offer: &PaymentRequirements,
         current_height: u64,
+        clock: &dyn Clock,
     ) -> Result<ExactTerms, WebToolError> {
         let node_config = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
             .map_err(|_| WebToolError::Configuration("node_rpc"))?;
@@ -242,7 +248,7 @@ impl WebCall {
         }
         let node = layerx_agentd::node_rpc::NodeRpc::connect(&node_config)
             .map_err(|_| WebToolError::Payer(WebPayerError::Unavailable))?;
-        self.exact_terms_with_view(config, offer, |call| {
+        self.exact_terms_with_view(config, offer, clock, |call| {
             let data = call.encode().map_err(|_| WebPayerError::Refused)?;
             node.call_at(current_height, &call.target.address(), &data)
                 .map_err(|_| WebPayerError::Unavailable)
@@ -255,14 +261,16 @@ impl WebCall {
         config: &WebConfig,
         offer: &PaymentRequirements,
         payer: &mut dyn WebPayer,
+        clock: &dyn Clock,
     ) -> Result<ExactTerms, WebToolError> {
-        self.exact_terms_with_view(config, offer, |call| payer.view(call))
+        self.exact_terms_with_view(config, offer, clock, |call| payer.view(call))
     }
 
     fn exact_terms_with_view(
         &self,
         config: &WebConfig,
         offer: &PaymentRequirements,
+        clock: &dyn Clock,
         view: impl FnMut(&PrecompileCall) -> Result<Vec<u8>, WebPayerError>,
     ) -> Result<ExactTerms, WebToolError> {
         let asset = parse_hex32(&offer.asset).map_err(|_| WebToolError::OfferMismatch("asset"))?;
@@ -275,7 +283,7 @@ impl WebCall {
             offer,
             &facts,
             self.idempotency_key,
-            None,
+            clock,
         )?;
         self.exact_terms_for_disclosure(config, offer, disclosure, &facts)
     }
@@ -487,6 +495,7 @@ pub struct WebApproval<'a> {
     /// The audit context; its request id is replaced by the call's key.
     pub context: ApprovalContext,
     pub current_sequence: u64,
+    pub clock: &'a dyn Clock,
 }
 
 impl WebApproval<'_> {
@@ -832,13 +841,6 @@ fn getPayerGrant(payer: &mut dyn WebPayer, id: [u8; 32]) -> Result<Grant, WebPay
         }
     };
     decode().ok_or(WebPayerError::Refused)
-}
-
-fn unix_seconds() -> Result<u64, WebToolError> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.as_secs())
-        .map_err(|_| WebToolError::Configuration("clock"))
 }
 
 fn expiry_milliseconds(expiry: u64) -> Result<u64, WebToolError> {
@@ -1449,7 +1451,15 @@ impl WebPlane<'_, '_> {
         if context.agent.as_bytes() != self.config.payer_did.as_bytes() {
             return Err(WebToolError::Configuration("approval_agent"));
         }
-        spend_disclosure(self.config, self.call, self.target, offer, facts, key, None)
+        spend_disclosure(
+            self.config,
+            self.call,
+            self.target,
+            offer,
+            facts,
+            key,
+            boundary.clock,
+        )
     }
 }
 
@@ -1462,14 +1472,13 @@ fn spend_disclosure(
     offer: &PaymentRequirements,
     facts: &OfferFacts,
     key: [u8; 32],
-    approved_expiry: Option<u64>,
+    clock: &dyn Clock,
 ) -> Result<Disclosure, WebToolError> {
-    let expiry = match approved_expiry {
-        Some(expiry) => expiry,
-        None => unix_seconds()?
-            .checked_add(u64::from(offer.max_timeout_seconds).min(APPROVAL_WINDOW))
-            .ok_or(WebToolError::Configuration("approval_window"))?,
-    };
+    let expiry = crate::approval::decision_time(clock)
+        .map_err(WebToolError::Approval)?
+        .get()
+        .checked_add(u64::from(offer.max_timeout_seconds).min(APPROVAL_WINDOW))
+        .ok_or(WebToolError::Configuration("approval_window"))?;
     expiry_milliseconds(expiry)?;
     let invalid = |_| WebToolError::Configuration("approval_disclosure");
     let canonical = serde_json::to_vec(&json!({
@@ -2516,6 +2525,7 @@ mod tests {
                 request_id: key,
             },
             current_sequence: 10,
+            clock: &test_clock::TestClock::new(10),
         };
         let endpoint = "http://127.0.0.1:1";
         let config = WebConfig::new(
@@ -2715,6 +2725,7 @@ mod tests {
                 request_id: key,
             },
             current_sequence: 10,
+            clock: &test_clock::TestClock::new(10),
         };
         let config = |endpoint: &str| {
             WebConfig::new(

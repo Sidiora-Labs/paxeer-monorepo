@@ -1,3 +1,6 @@
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -5,7 +8,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use layerx_agentd::prepare::evm::PrecompileTarget;
 use layerx_crypto::evm_transaction::{
@@ -194,7 +197,7 @@ fn web_fetch_pays_with_pay_exact() {
         )
         .expect("exact call");
         let terms = call
-            .exact_terms_with_payer(&config, exact, &mut replay)
+            .exact_terms_with_payer(&config, exact, &mut replay, &test_clock::TestClock::new(50))
             .expect("recorded ledger offer");
         assert!(account_identifiers(&terms.recipient_account)
             .expect("recipient ids")
@@ -213,7 +216,12 @@ fn web_fetch_pays_with_pay_exact() {
     }
     let mut quote = quote();
     let terms = call
-        .exact_terms_with_payer(&config, &quote, &mut replay)
+        .exact_terms_with_payer(
+            &config,
+            &quote,
+            &mut replay,
+            &test_clock::TestClock::new(50),
+        )
         .expect("bind exact web price");
     let prepared = terms.prepare_pay_exact();
     let data = prepared.encode().expect("payExact ABI encoding");
@@ -279,14 +287,24 @@ fn web_fetch_pays_with_pay_exact() {
     );
     quote.pay_to = format!("0x{}", "aa".repeat(32));
     assert!(
-        call.exact_terms_with_payer(&config, &quote, &mut replay)
-            .is_err(),
+        call.exact_terms_with_payer(
+            &config,
+            &quote,
+            &mut replay,
+            &test_clock::TestClock::new(50)
+        )
+        .is_err(),
         "recipient substitution must fail"
     );
     quote.pay_to = format!("0x{}", "cd".repeat(20));
     assert!(
-        call.exact_terms_with_payer(&config, &quote, &mut replay)
-            .is_err(),
+        call.exact_terms_with_payer(
+            &config,
+            &quote,
+            &mut replay,
+            &test_clock::TestClock::new(50)
+        )
+        .is_err(),
         "20-byte addresses cannot name ledger accounts"
     );
 
@@ -377,20 +395,15 @@ fn web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds() {
     .expect("web.fetch invocation");
     let mut replay = RecordedLedger::start();
     let config = config(&replay.endpoint);
+    let clock = test_clock::TestClock::new(1_800_000_000);
     for timeout in [30_u64, 900] {
         let mut quote = quote();
         quote.max_timeout_seconds = timeout.try_into().expect("timeout");
-        let before = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("unix clock")
-            .as_secs();
+        let before = clock.now();
         let terms = call
-            .exact_terms_with_payer(&config, &quote, &mut replay)
+            .exact_terms_with_payer(&config, &quote, &mut replay, &clock)
             .expect("bind exact web price");
-        let after = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("unix clock")
-            .as_secs();
+        let after = clock.now();
         let window = timeout.min(layerx_mcp::tools::web::APPROVAL_WINDOW);
         assert!((before + window..=after + window).contains(&terms.disclosure.expiry.0));
         let data = terms

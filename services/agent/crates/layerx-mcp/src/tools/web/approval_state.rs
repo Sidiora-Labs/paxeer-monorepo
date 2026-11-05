@@ -202,8 +202,15 @@ impl WebPlane<'_, '_> {
         let spend = match stored {
             Some(spend) => spend,
             None => {
-                let metadata =
-                    spend_disclosure(self.config, self.call, self.target, offer, facts, key, None)?;
+                let metadata = spend_disclosure(
+                    self.config,
+                    self.call,
+                    self.target,
+                    offer,
+                    facts,
+                    key,
+                    boundary.clock,
+                )?;
                 let (call, grant_id) = self.approval_call(offer, facts, metadata.clone())?;
                 let transaction = self
                     .payer
@@ -261,7 +268,12 @@ impl WebPlane<'_, '_> {
         }
         let prepared = spend.prepared()?;
         self.validate_approval_call(offer, facts, &spend, &prepared)?;
-        if spend.expiry <= unix_seconds()? || spend.expires_at_height <= boundary.current_height() {
+        if spend.expiry
+            <= crate::approval::decision_time(boundary.clock)
+                .map_err(WebToolError::Approval)?
+                .get()
+            || spend.expires_at_height <= boundary.current_height()
+        {
             return Err(WebToolError::ApprovalRefused(ApprovalState::Expired));
         }
         let has_ticket = ticket.is_some();
@@ -299,13 +311,14 @@ impl WebPlane<'_, '_> {
             let mut context = boundary.context.clone();
             context.request_id = key;
             context.agent = Did::new(hex(&spend.sender).as_bytes()).map_err(|_| changed())?;
-            let held = layerx_agentd::policy::approval::hold_reserved(
+            let held = layerx_agentd::policy::approval::hold_reserved_at(
                 boundary.registry,
                 context,
                 prepared,
                 boundary.current_height(),
                 spend.expires_at_height,
                 &reservation,
+                boundary.clock,
             );
             let held = match held {
                 Ok(held) => held,
