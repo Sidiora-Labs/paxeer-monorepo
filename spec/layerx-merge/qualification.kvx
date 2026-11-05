@@ -30947,3 +30947,19 @@ symbol = "decide_nonces.rs"
 observed = "Attempt 5: build exit 0; verify exit 101: decide_nonces 2 passed; repair_22_31_159 0 passed, 3 failed, each at line 265 with assertion failed: !delivery.payload().contains(Amount:) for the bank denoms, native ids and LXP cases."
 assumption = "The Amount and Asset lines come from Content::bind_approval (src/notify/content.rs line 27) on the full-detail path the 159 fixture exercises, and no production change is needed."
 severity = "low"
+
+[finding.22.31.527.3]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 3: build exit 0; dependent-crate check passed; the first verify failed three cases and the repair fixed the two hold cases; the second verify: 2 passed, 1 failed, zero_generation_refuses_unavailable_without_a_hold panicked at tests/repair_22_31_527.rs line 130 with authenticated daemon invocation: Authority(InvocationUnknown)."
+assumption = "A refusal raised before any effect is deterministic and must not be recorded as an unknown outcome the daemon would reconcile."
+severity = "high"
+
+[finding.22.33.877.2]
+task = "22.33.877"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+symbol = "test_repair_22_33_877.py"
+observed = "Attempt 2 (requalification of attempt 1 on a base carrying 22.31.491): verify exit 1; 57 passed, 2 failed: test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles and test_f016_rejects_missing_role_and_changed_saved_capture, both RuntimeError preexecution refusal must preserve empty execution evidence at native-terminal-outcome.py line 118."
+assumption = "The committed insufficient-funds case satisfies the terminal-0 contract and the peer synthesises the block identity for it as it does for the other case."
+severity = "low"
