@@ -8799,6 +8799,12 @@ value = "When a shared crate retires a contract version (here NativeSendPurposeV
 basis = "Gotcha 3158: 22.31.214 retired V1 and left four wiring requests that never became tasks, so the whole native send consent path has refused correct requests since 2026-11-01; 22.31.543 attempt 3 pinned the daemon guard."
 affects = ["22.31.214", "22.31.543", "22.31.219"]
 
+[decision.2615]
+title = "A verification level that crosses a service boundary as a string label is produced and decoded only through the shared label helpers of layerx-types, and a daemon identity guard compares the decoded level with COMMITTED instead of naming a retired constant"
+value = "VerificationLevel in services/agent/crates/layerx-types/src/verify.rs gains wire_label (the stable string of a level) and from_wire_label (decoding a string into a level, accepting only the current labels and refusing checkpoint_finalised, settlement_anchored and unknown strings, the mirror of from_wire_rank refusing ranks 4 and 5). The hosted authority writes every verification_level string through wire_label and emits COMMITTED for the subject identity and context documents; the agent daemon decodes every such string through from_wire_label and each identity guard requires the decoded level to equal VerificationLevel::COMMITTED, never comparing with a deprecated constant, because the Ord impl sorts the retired constants below every current level and such a comparison refuses nothing (decision 2600 extended from ranks to labels). Test fixtures that serve an identity document write the label through the same helper so the two crates cannot drift."
+basis = "Gotcha 3159: decisions 2593 and 2600 covered the rank-carrying documents and left the label-carrying identity and context documents on the retired label, with daemon guards that are void by construction."
+affects = ["22.31.535", "22.31.538", "22.33.1542"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37689,6 +37695,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.549]
+title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-types/src/verify.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/support/repair_22_33_1529.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib -- wire_label && cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_549 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_549 --test bootstrap_bind_layerx"
+do_1 = "do_1 Gotcha 3159, decision 2615. In services/agent/crates/layerx-types/src/verify.rs add two helpers beside from_wire_rank: wire_label returns the stable string label of a level as a static string slice (unverified, sequencer_signed, batch_included, state_proven, committed, and the archive names checkpoint_finalised and settlement_anchored for the two retired ranks so archive decoders can still name them), and from_wire_label decodes a string label into a level, accepting only the five current labels and refusing checkpoint_finalised, settlement_anchored and any unknown string with a new InvalidVerificationLabel error carrying the offending string; unit tests in the same module cover the round trip of the five current labels and the two retired refusals."
+symbols = []
 
 [capability.22.31.548]
 title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
@@ -175318,6 +175333,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.549]
+title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.535", "22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.549"]
+interfaces = []
+do_1 = "do_1 Gotcha 3159, decision 2615. In services/agent/crates/layerx-types/src/verify.rs add two helpers beside from_wire_rank: wire_label returns the stable string label of a level as a static string slice (unverified, sequencer_signed, batch_included, state_proven, committed, and the archive names checkpoint_finalised and settlement_anchored for the two retired ranks so archive decoders can still name them), and from_wire_label decodes a string label into a level, accepting only the five current labels and refusing checkpoint_finalised, settlement_anchored and any unknown string with a new InvalidVerificationLabel error carrying the offending string; unit tests in the same module cover the round trip of the five current labels and the two retired refusals."
+do_2 = "do_2 In services/platform/hosted/authority the subject identity document (src/human.rs line 1030 and src/human/dynamic.rs line 625) and the subject context document (src/human/dynamic.rs line 388) write verification_level as VerificationLevel::COMMITTED.wire_label(); no literal verification label string remains under the authority src. Add tests/repair_22_31_549.rs with its [[test]] entry in the authority Cargo.toml, built on tests/support/committed_human_fixture.rs or tests/support/human_unit.rs, that serves the identity and context documents through the real handlers and asserts both carry the committed label and that from_wire_label decodes each to VerificationLevel::COMMITTED."
+do_3 = "do_3 In services/agent/crates/layerx-agentd the parser verification_level at src/human_runtime.rs lines 17543 to 17552 decodes through VerificationLevel::from_wire_label, so committed yields COMMITTED and checkpoint_finalised, settlement_anchored and unknown labels yield IdentityError::Unverified; src/human_runtime/subject.rs line 54 compares the served label with VerificationLevel::COMMITTED.wire_label(); the five identity guards at src/human_runtime.rs lines 5074, 11749, 11799, 12963 and 14257 replace the ordering comparison with the deprecated CHECKPOINT_FINALISED by identity.verification_level != VerificationLevel::COMMITTED, so an identity below committed is refused as today the guards intend. The deprecated constants are no longer named in the identity path."
+do_4 = "do_4 Move every daemon test fixture that serves a stand-in identity or context document to the committed label, each writing VerificationLevel::COMMITTED.wire_label() rather than a literal: tests/bootstrap_bind_layerx.rs lines 395 and 399, tests/native_send_preview_evm.rs lines 441 and 445, tests/human_approval_budget_actor.rs line 374, tests/human_projection_facts.rs lines 761 and 771 and tests/support/repair_22_33_1529.rs line 232. Write tests/repair_22_31_549.rs proving the consumer side over the real transport with the bootstrap_bind_layerx.rs harness: a stand-in authority serving the identity document with the committed label lets the bound owner operation succeed; the same document labelled checkpoint_finalised, settlement_anchored or sequencer_signed makes the operation refuse with HumanOperationError::Refused; and the parser unit cases hold. The producer side is proven in the authority crate by do_2; both sides go through the shared helpers so the crates cannot drift."
+do_5 = "do_5 Record in services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx the helpers added, the three producer sites, the parser, the six guard sites and every fixture moved. The gates need no environment variable, credential or live endpoint; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run (gotcha 3142)."
+symbols = []
+touches = ["services/agent/crates/layerx-types/src/verify.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/support/repair_22_33_1529.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx"]
+tests = ["services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
+planned_paths = ["services/agent/crates/layerx-types", "services/platform/hosted/authority", "services/agent/crates/layerx-agentd"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib && cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --lib --test repair_22_31_549 && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_549 --test bootstrap_bind_layerx --test human_approval_budget_actor --test human_projection_facts --test native_send_preview_evm"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib -- wire_label && cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_549 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_549 --test bootstrap_bind_layerx"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
