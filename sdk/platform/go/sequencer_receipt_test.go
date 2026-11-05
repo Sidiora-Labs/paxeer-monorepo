@@ -33,6 +33,24 @@ type sequencerReceiptCase struct {
 	} `json:"expected"`
 }
 
+func TestSequencerReceiptCommittedRecording(t *testing.T) {
+	receipt, raw, keys, evidence, _ := repair141LoadRecorded(t)
+	verified, err := VerifySequencerReceipt(receipt, raw, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) == 0 || raw[0] != 2 {
+		t.Fatal("committed recording must retain its EIP-1559 transaction")
+	}
+	hash := receiptKeccak256(raw)
+	if hex.EncodeToString(hash[:]) != "0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2" || hex.EncodeToString(verified.ReceiptDigest[:]) != "d75a0928abe94518bec1bf241e4dc4ac875bf61968df9864f357bb755a4997cd" {
+		t.Fatal("committed recording transaction or authenticated receipt digest changed")
+	}
+	if verified.Rung != "receipted" || verified.Level != "receipted" || verified.Status != 1 || verified.TransportBlock == nil || verified.TransportBlock.Height != uint64(evidence.BlockHeader.Height) || verified.TransportBlock.BlockHash != portableRecordedTrust(t).BlockHash {
+		t.Fatal("sequencer authentication must retain the recorded coordinates without promoting finality")
+	}
+}
+
 func sequencerReceiptCases(t *testing.T) []sequencerReceiptCase {
 	t.Helper()
 	data, err := os.ReadFile("../conformance/fixtures/sequencer-receipt-v1.json")

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -61,6 +62,9 @@ func repair141LoadRecorded(t *testing.T) (json.RawMessage, []byte, ReceiptKeys, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	if digest := sha256.Sum256(data); hex.EncodeToString(digest[:]) != committedRecordingSHA256 {
+		t.Fatal("committed producer recording changed")
+	}
 	var vector repair141Recorded
 	if err := json.Unmarshal(data, &vector); err != nil {
 		t.Fatal(err)
@@ -85,7 +89,7 @@ func repair141LoadRecorded(t *testing.T) (json.RawMessage, []byte, ReceiptKeys, 
 	header := s.ExecutionHeader.decode(t)
 	evidence := PortableCommittedEvidence{BlockHeader: header, Commit: s.ExecutionCommit.decode(t), ValidatorSet: validators,
 		ReceiptInclusion: ReceiptInclusion{Transaction: s.TransactionProof.Data, TransactionProof: s.TransactionProof.Proof.decode(t), Result: ExecTxResult{Code: s.Result.Code, Data: s.Result.Data, GasWanted: s.Result.GasWanted, GasUsed: s.Result.GasUsed}, ResultProof: s.ResultProof.decode(t), BatchTransaction: s.BatchProof.Data, BatchProof: s.BatchProof.Proof.decode(t), NextHeader: s.Header.decode(t), NextCommit: s.Commit.decode(t), NextValidators: validators}}
-	trust := CommittedTrust{ChainID: header.ChainID, Height: header.Height, BlockHash: header.Hash()}
+	trust := committedRecordingTrust(t)
 	return s.Receipt, sequencerFixtureBytes(t, s.RawTransaction), keys, evidence, trust
 }
 

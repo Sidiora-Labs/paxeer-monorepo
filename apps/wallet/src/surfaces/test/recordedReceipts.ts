@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { webcrypto } from 'node:crypto';
 import { ethers } from 'ethers';
-import { parseTransaction, type Hex } from 'viem';
+import { keccak256, parseTransaction, type Hex } from 'viem';
 import type { SequencerReceiptAnswer } from '@paxeer/wallet';
 import { SurfaceChain, type SentCall } from './chain';
 
@@ -61,7 +61,13 @@ export function recordedReceipt(id: string): RecordedReceipt {
         'utf8'
       )
     ) as { positive: RecordedReceipt };
-    if (source.settlement.receipt.txHash !== conformance.positive.receiptJson.txHash)
+    if (
+      source.settlement.receipt.txHash !== conformance.positive.receiptJson.txHash ||
+      source.settlement.raw_transaction !== conformance.positive.rawTransaction ||
+      keccak256(source.settlement.raw_transaction) !== source.settlement.receipt.txHash ||
+      parseTransaction(source.settlement.raw_transaction).chainId !== 125 ||
+      parseTransaction(source.settlement.raw_transaction).type !== 'eip1559'
+    )
       throw new Error('Committed recording does not match the conformance receipt');
     return {
       id,
