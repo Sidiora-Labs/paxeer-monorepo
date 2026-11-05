@@ -148012,7 +148012,7 @@ do_3 = "Attempt 2 (continue after 22.31.530, gotcha 3126, decision 2588): 22.31.
 
 [task.22.31.530]
 title = "Verify a differing request before the seller refuses it as receipt reuse"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185214,7 +185214,7 @@ do_8 = "Publication of attempt 1: the gates passed; the result waited only becau
 
 [task.22.33.44]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.3", "22.31.443", "22.31.495", "22.31.515"]
