@@ -148041,7 +148041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.1]
 title = "Explorer visual system: dark and light token foundations and core recipes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
