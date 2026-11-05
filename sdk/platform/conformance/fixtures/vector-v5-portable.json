@@ -4,7 +4,7 @@
     "receiptedSource": "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-pax-transfer",
     "committedSource": "daemon/committed-fixture/vectors/vector-v4-committed.json#settlement",
     "conversion": "Portable v2 field layout; committed evidence is converted from the recorded execution and successor headers with their corresponding commits.",
-    "receiptedSha256": "4ad88ad86071aca5cf0b9bd9bbac4cf713ce106c6542527200e4d64f50902327",
+    "receiptedSha256": "2b16fbfed024f168c0f05295e11a34d61345c4d112ec51ebc502ab593bdc1541",
     "committedSha256": "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
   },
   "bundles": [

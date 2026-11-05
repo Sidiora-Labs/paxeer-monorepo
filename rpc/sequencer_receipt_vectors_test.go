@@ -40,6 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -711,6 +712,32 @@ func seqVecTransfer(nonce uint64, paxUnits int64) seqVecTx {
 	}
 }
 
+func seqVecInsufficientTransfer(t *testing.T, b *seqVecBuilder) seqVecTx {
+	t.Helper()
+	tx := seqVecTransfer(6, 101)
+	require.Positive(t, b.balance.Sign())
+	require.Positive(t, tx.value.Cmp(b.balance))
+	a := app.Setup(t, false, false, false)
+	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
+	ctx = ctx.WithBlockHeight(seqVecFirstHeight + 3).WithBlockTime(time.UnixMilli(seqVecTimeBase + (seqVecFirstHeight+3)*seqVecBlockMs))
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
+	db := state.NewDBImpl(ctx, &a.EvmKeeper, false)
+	t.Cleanup(db.Cleanup)
+	db.AddBalance(b.sender, uint256.MustFromBig(b.balance), tracing.BalanceChangeUnspecified)
+	block, err := a.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
+	require.NoError(t, err)
+	evm := vm.NewEVM(*block, db, evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(ctx)), vm.Config{}, nil)
+	output, remaining, err := evm.Call(b.sender, tx.to, tx.data, tx.gasLimit, uint256.MustFromBig(tx.value))
+	require.ErrorIs(t, err, vm.ErrInsufficientBalance)
+	require.Empty(t, output)
+	require.Empty(t, db.GetAllLogs())
+	require.Equal(t, b.balance, db.GetBalance(b.sender).ToBig())
+	require.True(t, db.GetBalance(tx.to).IsZero())
+	tx.status = uint32(ethtypes.ReceiptStatusFailed)
+	tx.gasUsed, tx.returnData, tx.vmError = tx.gasLimit-remaining, output, err.Error()
+	return tx
+}
+
 // seqVecServe serves signed through pax_sequencerReceipt and returns the JSON answer.
 func seqVecServe(t *testing.T, port int, source *seqVecSource, signed seqVecSigned) json.RawMessage {
 	t.Helper()
@@ -932,6 +959,14 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	mutated.SignedReceipt = nonCanonical
 	refuse("V3-non-canonical-bytes", "signature presence flag 2, which no canonical receipt encodes",
 		mutated, seqVecRefusal{refusedAt: "R2", err: codec.ErrNonCanonical, verifier: "Decode"})
+
+	// Keep the existing recordings and refusal-chain identities intact.
+	tx := seqVecInsufficientTransfer(t, b)
+	signedTx := b.signTx(tx)
+	signed := b.receipt(primary, seqVecKeyID, signedTx, tx, next, false)
+	refusal := seqVecCaseOf("V2-pax-transfer-insufficient-funds", "V2", "PAX transfer refused before execution because its value exceeds the funded sender balance", signed, signed.raw, seqVecServe(t, port, source, signed), next.prev, pin)
+	refusal.Expected = seqVecExpected{Rung: string(evmrpc.RungReceipted), Verifier: "accepts"}
+	cases = append(cases[:6], append([]seqVecCase{refusal}, cases[6:]...)...)
 
 	seqVecAssertCases(t, cases, expected)
 
@@ -1416,13 +1451,13 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 	stored, err := os.ReadFile(seqVecFixture)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(stored, &source))
-	require.Len(t, source.Cases, 12)
+	require.Len(t, source.Cases, 13)
 	for _, group := range []struct {
 		name, vector string
 		count        int
 	}{
 		{"vector-v1-receipted-positive", "V1", 5},
-		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v2-receipted-revert", "V2", 2},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
 		t.Run(group.vector, func(t *testing.T) {
@@ -1469,7 +1504,7 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 // case refusing at exactly its named check.
 func seqVecAssertCases(t *testing.T, cases []seqVecCase, refusals map[string]seqVecRefusal) {
 	t.Helper()
-	require.Len(t, cases, 12)
+	require.Len(t, cases, 13)
 	counts := map[string]int{}
 	seen := map[string]bool{}
 	for _, c := range cases {
@@ -1477,8 +1512,9 @@ func seqVecAssertCases(t *testing.T, cases []seqVecCase, refusals map[string]seq
 		seen[c.ID] = true
 		counts[c.Vector]++
 	}
-	require.Equal(t, map[string]int{"V1": 5, "V2": 1, "V3": 6}, counts)
+	require.Equal(t, map[string]int{"V1": 5, "V2": 2, "V3": 6}, counts)
 	require.True(t, seen["V1-layerxprograms-call"])
+	require.True(t, seen["V2-pax-transfer-insufficient-funds"])
 	for _, c := range cases {
 		check, err := seqVecClientCheck(c.RawTransaction, c.ReceiptJSON, c.PrevSeqHash, c.PinnedKey)
 		if c.Vector == "V3" {
@@ -1585,6 +1621,19 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 	case "V2":
 		require.Equal(t, uint64(0), uint64(result.Status), c.ID)
 		require.Equal(t, int32(1), decoded.ResultCode)
+		if c.ID == "V2-pax-transfer-insufficient-funds" {
+			require.Equal(t, vm.ErrInsufficientBalance.Error(), result.VMError)
+			require.Empty(t, result.ReturnData)
+			require.Empty(t, result.Logs)
+			require.Empty(t, c.LXPCode)
+			require.Empty(t, tx.Data())
+			require.Equal(t, seqVecRecipient, *tx.To())
+			require.Positive(t, tx.Value().Cmp(seqVecStartBalance))
+			require.Zero(t, uint64(result.GasUsed))
+			require.Len(t, decoded.Effects, 1)
+			return
+		}
+		require.Equal(t, "V2-layerxledger-revert", c.ID)
 		require.Equal(t, "execution reverted", result.VMError)
 		require.Empty(t, result.Logs)
 		reason, err := abi.UnpackRevert(result.ReturnData)
