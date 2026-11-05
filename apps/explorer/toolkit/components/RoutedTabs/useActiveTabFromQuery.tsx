@@ -17,10 +17,7 @@ export default function useActiveTabFromQuery(tabs: Array<TabItem>, defaultTabId
   }
 
   return tabs.find((tab) => {
-    if (Array.isArray(tab.id)) {
-      return tab.id.includes(tabFromQuery);
-    }
-
-    return tab.id === tabFromQuery || ('subTabs' in tab && tab.subTabs?.some((id) => id === tabFromQuery));
+    const ids = Array.isArray(tab.id) ? tab.id : [ tab.id ];
+    return ids.includes(tabFromQuery) || ('subTabs' in tab && tab.subTabs?.includes(tabFromQuery));
   });
 }
