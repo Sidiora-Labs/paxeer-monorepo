@@ -8649,6 +8649,12 @@ value = "When a declared build of the form cargo build -p <crate> --tests fails 
 basis = "Gotcha 3129; a foreign red test target is a dependency, not a repair scope."
 affects = ["22.31.534", "22.31.519"]
 
+[decision.2590]
+title = "The production web payer boundary answers precompile views through the node pending read"
+value = "WebPayerBoundary implements WebPayer::view: the owner check runs first, the call is encoded with PrecompileCall::encode, and the bytes are read through the node pending call to the target precompile address and returned unchanged; an encoding failure refuses and a node failure maps through node_error as the other boundary methods do. No production path keeps the trait default for view; the MCP exact-terms resolution over the production payer is proven by the host payer EVM suite."
+basis = "Gotcha 3131; the production path lacked the producer half of the account resolution the MCP tool consumes."
+affects = ["22.31.532"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175102,6 +175108,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3128): attempt 1 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring and the four cases). In tests/payer_evm.rs (1) web_pay_exact_submits_a_signed_layerxpay_call resolves the terms through WebCall::exact_terms_with_payer over a WebPayerBoundary (a second payer built by the payer helper on the same node double, converted with into_web_payer) with the test clock, since no production path calls the environment-bound exact_terms; update the expected request-method list to the views the boundary issues, naming each view in a comment; (2) in SigningFixture::start install a fixed native clock on the signer with AttestorSigner::with_native_replay_journal over a journal path under the attestor harness root directory and Arc::clone of the harness clock field as the Clock (the clock that mints the owner assertion), so grant signing never reads the ambient runtime clock; keep every other assertion. Change no product code; run the declared build and verify once and record in repair-22-31-532.kvx that the two suite cases were aligned."
+do_4 = "Attempt 3 (continue, gotcha 3131, decision 2590): attempt 2 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring, the four repair cases and the two test alignments of gotcha 3128). In services/agent/crates/layerx-agentd-host/src/payer.rs implement view on WebPayerBoundary (line 394): run the owner check, encode the call with PrecompileCall::encode (an encoding error refuses), read the bytes through the node pending call to the target precompile address exactly as validate reads accountOwner (lines 170 to 178, mapping node failures through node_error and WebPayerError::from) and return them unchanged. In tests/repair_22_31_532.rs add case (5): a boundary view of accountId(bytes32,bytes32) over the local node double returns the node answer bytes unchanged, and the same view refuses when the owner check refuses. Record the method and the case in tests/repair_22_31_532.kvx, run the declared build and verify once and record."
 
 [task.22.31.531]
 title = "Hold an above-threshold metered draw under an existing grant on its disclosure"

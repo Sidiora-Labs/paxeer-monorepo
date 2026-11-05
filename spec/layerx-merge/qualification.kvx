@@ -31059,3 +31059,11 @@ symbol = "repair-22-31-530.test.mjs"
 observed = "Attempt 2: build exit 0; verify exit 1: all 27 seller cases pass; sdk/integrations/next/test/receipt-keys.test.mjs integrationSettlesSignedSequencerReceipt answered 500 where 200 was expected at line 273."
 assumption = "The consumer keccak digest check in sdk/integrations/next/src/index.ts line 480 predates decision 2538 and 22.31.493 ports it after 22.31.530."
 severity = "low"
+
+[finding.22.31.532.2]
+task = "22.31.532"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "WebPayerBoundary"
+observed = "Attempt 2: build exit 0; verify exit 1: payer 3 of 3 and payer_evm 5 of 6 pass, grant signing passes with the fixed native clock; web_pay_exact_submits_a_signed_layerxpay_call failed with Payer(Unavailable) because the production boundary inherits the trait default view; repair_22_31_532 never ran."
+assumption = "The local node double already answers accountId(bytes32,bytes32) on the pending block, so the case passes once the boundary forwards the view."
+severity = "high"
