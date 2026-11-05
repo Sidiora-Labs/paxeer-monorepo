@@ -15210,3 +15210,203 @@ fix = "22.31.517 moves every limiter consume and pool query out of the open tran
 title = "The daemon's own approval_semantics test still builds the pre-495 decision request, so every test build of layerx-agentd is red"
 symptom = "22.31.495 (9c3cd0e74d) added current_time to the approval DecisionRequest and a fourth argument to the approval service get, and 22.31.515 repairs the Human service and MCP consumers (gotcha 3072); services/agent/crates/layerx-agentd/tests/approval_semantics.rs lines 171, 191, 245 and 269 still build DecisionRequest without current_time and line 298 still calls get with three arguments, so cargo build -p layerx-agentd --tests fails with four E0063 and one E0061 on main (22.31.497 attempt 3, exit 101), and every task whose build or verify compiles the daemon test targets (22.31.497, 22.31.516, 22.33.1550) fails before its own work is judged."
 fix = "22.31.519 passes the explicit decision time at the five sites; 22.31.516 requires it and 22.31.497 continues after 516."
+
+[gotcha.3078]
+title = "The explorer type-check is red on main because the 22.33.270 test imports an undeclared package"
+symptom = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts line 4 imports ResizeObserver from @juggle/resize-observer and apps/explorer/package.json never declared it (22.33.270, 58d8e44429), so yarn tsc --noEmit -p tsconfig.json fails with TS2307 and every task whose build type-checks the explorer (22.31.512 attempt 1, exit 2) fails before its own work is judged."
+fix = "22.31.512 attempt 2 replaces the import with a local stand-in class; a test never imports a package its application does not declare."
+
+[gotcha.3079]
+title = "pnpm 12 refuses the wallet workspace install because four dependency build scripts are undeclared"
+symptom = "services/wallet/pnpm-workspace.yaml allows only the esbuild and sharp build scripts; under pnpm 12, the qualification environment's version, pnpm install --frozen-lockfile over the workspace ends with ERR_PNPM_IGNORED_BUILDS for @sentry/cli, bufferutil, keccak and utf-8-validate, so the ceremony move and rehearsal tests, whose fixture runs that install (services/wallet/ceremony/internal/testsupport/postgres.go line 230), fail in ten cases (22.31.513 attempt 1). The public workflow pins pnpm 9.15.9, which runs every script unasked, so the workflow never saw it."
+fix = "22.31.520 declares the four scripts (decision 2567); 22.31.513 continues after it."
+
+[gotcha.3080]
+title = "The 22.31.147 lifecycle test still asserts the program route that 22.33.16 retired"
+symptom = "tests/agent/sdk/python/test_repair_22_31_147.py test_lifecycle_transaction_binding_and_retained_http_bytes expects each lifecycle request as a POST with Content-Type application/octet-stream answered 202 unknown. Since 22.33.16 (6683a9d260) services/agent/sdk/python/layerx_sdk/agent_http.py sends program mutations to the node root as the eth_sendRawTransaction JSON-RPC call with Content-Type application/json and the Idempotency-Key header (lines 215 to 240) and reads receipts with pax_sequencerReceipt; the 22.33.16 record names this test as a consumer to migrate, yet nothing migrated it, so the case fails on main (22.31.514 attempt 1)."
+fix = "22.31.514 attempt 2 rewrites the case to the node-root contract; a producer change lands with its named consumers (decision 2560)."
+
+[gotcha.3081]
+title = "Pre-creating a daemon store root with create_dir_all makes the store refuse to open"
+symptom = "services/agent/crates/layerx-agentd/src/store/protected.rs validate accepts only a canonical directory owned by the process with mode 0700. A test that creates the root with fs::create_dir_all (mode 0755) and then opens ApprovalExpiry or Store on it gets the Store error (services/human/crates/layerx-human-service/tests/approvals.rs line 260, 22.31.515 attempt 1); tests/support/production_fixture.rs line 384 sets 0o700 for exactly that reason."
+fix = "22.31.515 attempt 2 lets the store create the root or sets 0o700 first; a fixture never pre-creates a store root with default permissions."
+
+[gotcha.3082]
+title = "The re-recorded committed vector carries an absent vote with a null signature, and two recording consumers crash on it"
+symptom = "22.31.486 (74ef78b42b) re-recorded sdk/platform/conformance/fixtures/vector-v4-committed.json under chain 125; positive.receiptInclusion.NextCommit.Signatures now holds a vote with BlockIDFlag 1 (absent) whose Signature is null, as CometBFT records it. apps/web/e2e/repair-22-33-338-commit.ts line 7 and services/platform/middleware/seller/test/committed-fixture.mjs line 9 decode every vote signature with Buffer.from(value, base64) and throw ERR_INVALID_ARG_TYPE (22.33.338 attempt 8, kit_separate_layerx_finality; 22.33.1478 attempt 8, the two committed cases). The production verifier skips flag 1 and flag 3 votes before it reads a signature (services/agent/sdk/typescript/src/verifier.ts line 674)."
+fix = "Decision 2568: a recording consumer decodes a null vote signature as empty bytes and keeps the flag; 338 and 1478 continue with that fix."
+
+[gotcha.3083]
+title = "22.31.515 leaves two Human service test files on the signatures 22.31.495 retired"
+symptom = "services/human/crates/layerx-human-service/tests/decide_nonces.rs (get at lines 375, 406, 599 and 627; DecisionRequest at lines 455 and 483) and tests/repair_22_31_159.rs (get at lines 103 and 278) still call the daemon approval service with three arguments and build DecisionRequest without current_time; 22.31.515 covers approvals.rs, decide.rs and the layerx-mcp tests only, so cargo build --tests for the Human service crate stays red on main after both land (22.33.1510 attempt 4, exit 101, eight errors)."
+fix = "22.31.521 passes the decision time in both files; 22.33.1510 continues after 515 and 521. A signature change is traced through every test crate that calls it, not only the ones named by the first failure (decision 2560)."
+
+[gotcha.3084]
+title = "A receipted-rung node recording is verified without the predecessor check, so the sequence-hash refusal vector records"
+symptom = "services/wallet/gateway/test/support/chain.ts recordSequencerReceipt (22.33.210 attempt 2, line 232) runs verifySequencerReceipt, which refuses an unpinned key, a height outside the key range, an activity id that is not the raw transaction hash and non-canonical bytes, but the chain of sequence hashes (R6) is checked only in the committed batch path (services/agent/sdk/typescript/src/verifier.ts line 787). The V3-seq-hash-mismatch case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, whose receipt chains from a root other than its declared prevSeqHash, therefore records instead of throwing, and the refusal loop fails with promise resolved instead of rejecting (the vitest message argument does not name the id)."
+fix = "The fixture compares the verified receipt's previousStateRoot with the recording's prevSeqHash before recording; each refusal id is asserted in its own case so the output names it."
+
+[gotcha.3085]
+title = "The 338 support fixture swallows the handler failure that makes the session load fail"
+symptom = "apps/web/e2e/repair-22-33-338-support.ts catches every assertion its request handler raises into an errors array and answers 500, and the test asserts that array empty only after asserting the session load ready (repair-22-33-338.test.ts line 143), so the output reads 'failed' !== 'ready' and the refused header, path or body assertion never prints (22.33.338 attempts 7 and 8)."
+fix = "The test asserts the errors array empty before the load state and puts the handler's message in the 500 body, so the next run names the cause."
+
+[gotcha.3086]
+title = "The explorer production build is red because the page type map lacks the chain routes"
+symptom = "apps/explorer/lib/metadata/getPageOgType.ts line 5 types OG_TYPE_DICT as Record<Route['pathname'], OGPageType>, and 20.6.1 and 20.6.2 (8a48e23649, e6ae5134d5) added pages/chains/index.tsx and pages/chains/[id].tsx without an entry for either route. The committed route type apps/explorer/nextjs/nextjs-routes.d.ts predates those pages, so yarn tsc --noEmit passes, but NODE_ENV=production yarn next build regenerates the route type from pages/ and then fails the type check with '/chains' and '/chains/[id]' missing (22.31.503 attempt 2, exit 1). lib/metadata/templates/title.ts line 10 worked around the same gap with an intersection type instead of fixing the map."
+fix = "22.31.522 adds the two entries and commits the regenerated route type; 22.31.503 continues after it. A new page lands with its metadata map entries and the regenerated route type (decision 2560)."
+
+[gotcha.3087]
+title = "22.31.159 removed the money from the approval-waiting notification and left the full-detail payload without the amount"
+symptom = "0e88a62cab (22.31.159) changed services/human/crates/layerx-human-service/src/approvals/mod.rs line 405 to send the approval-waiting notification with money None and persists the exact base units and asset id as an ApprovalNotification binding instead (src/approvals/notification.rs, for_delivery at line 57). The full-detail payload built by src/notify/content.rs line 44 therefore carries no amount, and tests/approvals.rs line 343 (the full-payload amount assertion) fails on main (22.31.515 attempt 2). The 159 record itself lists two open follow-ups: a wiring request to the notify module to expose the binding's amount and asset in full-detail payloads, and the approvals.rs assertion to consume the binding; neither was done."
+fix = "22.31.523 does the notify wiring (decision 2569); 22.31.515 attempt 3 reads the amount through the binding. A producer that moves data out of a payload lands with the consumer that re-exposes it (decision 2560)."
+
+[gotcha.3088]
+title = "The shared committed fixture under the seller tests still crashes on the absent vote"
+symptom = "services/platform/middleware/seller/test/committed-fixture.mjs line 9 decodes every vote signature with Buffer.from(value, 'base64') and the re-recorded sdk/platform/conformance/fixtures/vector-v4-committed.json (22.31.486) holds a BlockIDFlag 1 vote with Signature null (gotcha 3082). The fixture was in no task's paths: 22.33.338 repaired its own apps/web copies and 22.33.1478 attempt 9 copied the decoders into its own support file instead. Six suites import the shared fixture directly or through conformance/pay6/committed-fixture.mjs (seller 434 and 457, agent 457, pay6 committed-rung, conformance 1479, merchant evm-terms, buyer portable-receipts) and every one crashes before its first assertion; 22.31.492 attempt 5 failed only there."
+fix = "22.31.524 applies decision 2568 to the shared fixture and runs its importers; 22.31.492 continues after it. A recording consumer shared by several packages gets its own task when the recording changes."
+
+[gotcha.3089]
+title = "The web-search recording pairs a legacy transaction with a type-2 receipt"
+symptom = "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json (11.98.1) records a replay-protected legacy transaction (first byte 0xf9) for the PAX exact payment and client-exchange.json records the receipt the recorder answered for it with operation 2. 22.31.514 made the Python binding require receipt operation 0 for a legacy transaction and 2 for a type-2 transaction, so verify_payment_receipt now refuses the pair with 'payment binding payment mismatch' and the web-search client reports receipt-unverified; 22.31.510 attempt 2 passed the same case before 514 and attempt 3 fails all three parameters of tests/ci/test_repair_22_31_510.py after it."
+fix = "22.31.526 re-records the exact fixtures with a type-2 chain-125 transaction and its receipt under the recorder; 22.31.510 continues after it. A recording's transaction and receipt come from one signing, never from two fixtures."
+
+[gotcha.3090]
+title = "The seller inlines the full committed evidence into the settlement response header"
+symptom = "services/platform/middleware/seller/src/index.ts line 389 spreads encodePaymentCommitmentEvidence(commitmentEvidence) into extensions.layerx of the released settlement, so the PAYMENT-RESPONSE header carries the block header, the next commit, the validator set and the inclusion proof as 0x hex. For the two-validator recording that exceeds Node's 16 KiB header limit and a default fetch fails with UND_ERR_HEADERS_OVERFLOW (22.33.1478 attempt 9, recordedNodePaymentCrossesExampleAndRecovers, both iterations); a production validator set is larger. No consumer reads the evidence from the header: the buyer middleware resolves it from the network through its commitments resolver (buyer src/index.ts line 427) and the seller keeps it in the fulfillment record."
+fix = "Decision 2570: the header carries the committed rung by reference; 22.33.1478 attempt 10 makes the change (seller src is in its paths). Consensus evidence travels by reference in HTTP headers, never inline."
+
+[gotcha.3091]
+title = "A refused payment attempt on a paid order throws order-conflict in the merchant"
+symptom = "services/platform/middleware/merchant/src/index.ts checkout (line 240) calls orders.markRefused for every refused seller decision; services/platform/examples/support/merchant-app.mjs transition (line 175) then finds the order already paid-verified and throws MerchantError order-conflict. A buyer who replays a tampered payment header against an order it already paid gets an internal conflict instead of a refusal, and the merchant exports proof (seller test proof_middleware_seller_ts_exports.test.mjs line 296) fails on it (22.33.1478 attempt 9)."
+fix = "Decision 2571 and 22.31.525: a paid-verified order is never transitioned by a later attempt; the merchant answers refused with the order unchanged. Terminal order states are checked before any transition is asked of the store."
+
+[gotcha.3092]
+title = "An attempt moved the seller's receipt digest back to keccak to match a recording"
+symptom = "22.33.1478 attempt 9 changed services/platform/middleware/seller/src/index.ts to verify receiptDigest against keccak256(verified.canonicalBytes) at both settle sites, undoing 22.31.511 (decision 2538: receiptDigest is the receipt-signature digest the verifier returns) so the committed recording's receiptDigest field would pass; the same attempt's settlement-response.test.mjs line 313 asserts the authority is consulted a second time on a stored fulfillment whose request digest differs, while production refuses receipt_reuse from the record alone (index.ts line 290)."
+fix = "Both are refused in the attempt 10 ruling: production keeps the verifier's digest and the record-only refusal; the fixture derives the proof digest from the verifier and the test asserts one settle and one release. Production never moves to meet a fixture."
+
+[gotcha.3093]
+title = "A ruling that confines edits to listed sites must say the setup those sites need is allowed"
+symptom = "22.31.521 do_1 ends 'Change nothing else in either file' after listing the eight call sites that need the decision time; attempt 1 changed nothing and stopped, reading the sentence as forbidding the clock fixture the sites need, although both files are wholly in the task's paths."
+fix = "22.31.521 do_3 names the setup; a ruling that lists sites also names the fixture or helper they may add."
+
+[gotcha.3094]
+title = "The MCP crate still calls the retired sequence-only approval entries, so every MCP hold is refused"
+symptom = "22.31.495 retired the sequence-only daemon entries hold, hold_reserved, reserve_and_hold, decide and expire in services/agent/crates/layerx-agentd/src/policy/approval.rs; each now returns ApprovalError::ClockRequired and the timed entries hold_at, hold_reserved_at, reserve_and_hold_at, decide_at and expire_at take the decision time. services/agent/crates/layerx-mcp/src/approval.rs (require, approve, reject, expire, lines 41-124) and tools/web/approval_state.rs line 302 still call the retired ones with current_sequence only; WebApproval carries no clock, WebAuthority::new takes none, and the daemon's HumanRuntime::mcp_clock accessor has no caller. In production every web spend above the approval threshold is refused as 'the approval boundary refused the web spend' and the five restart cases of repair_22_33_1551 fail (22.31.515 attempt 3). The MCP consumer was never ported when the producer changed."
+fix = "Decision 2572 and 22.31.527 port the MCP crate to the timed entries with the daemon clock; 22.31.515 continues after it. A producer that retires an entry lists its production callers in other crates, not only their tests."
+
+[gotcha.3095]
+title = "Installing from the wallet gateway directory refuses the ignored build scripts"
+symptom = "pnpm --dir services/wallet/gateway install --frozen-lockfile fails with ERR_PNPM_IGNORED_BUILDS (ignored build scripts of @sentry/cli, bufferutil, keccak and utf-8-validate) before the type check runs (22.31.517 attempt 1); services/wallet is the pnpm workspace root (pnpm-workspace.yaml and the lockfile live there) and 22.31.447 built with pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts followed by the gateway type check."
+fix = "22.31.517 builds the 447 way and attempt 1 is requalified. Wallet gateway builds install at the services/wallet root with --ignore-scripts."
+
+[gotcha.3096]
+title = "A Human service test must create its store root as a 0700 directory"
+symptom = "The Human service agent store refuses a store root that is not a canonical owned private directory with Io PermissionDenied; a test fixture that creates the stream directory with default permissions fails before its first assertion (22.31.523 attempt 1, three cases). The existing fixtures create the root with DirBuilder mode 0o700 (tests/component_frame.rs line 38, tests/custody.rs line 62) or set_permissions 0o700 (tests/balance_rungs.rs line 431)."
+fix = "22.31.523 attempt 1 corrected its fixture in its final revision and is requalified; a new Human service test takes its store root from an existing fixture."
+
+[gotcha.3097]
+title = "The explorer page type map and the page tests blocked each other's production build"
+symptom = "22.31.503 moves the four audit test files out of apps/explorer/pages but its production build fails in the type check of lib/metadata/getPageOgType.ts because the page type map lacks '/chains' and '/chains/[id]' (gotcha 3086); 22.31.522 adds those two entries but its production build regenerates nextjs/nextjs-routes.d.ts from pages/ and the four test files still under pages become routes the map does not list (22.31.522 attempt 1, gotcha 3044). Each task's build gate needed the other task's change."
+fix = "22.31.503 absorbs the two map entries and continues now; 22.31.522 continues after 503 with its spec and record. When two repairs share one build gate, one of them carries the other's smaller change."
+
+[gotcha.3098]
+title = "The native terminal-outcome checker has no corpus interface and the V2 per-vector copy is a second fixture"
+symptom = "22.31.491 attempt 1 called tools/qualification/paxeer-x/native-terminal-outcome.py with corpus and case arguments; the checker reads the LAYERX_ARBITER_PRESTATE_INPUTS inventory manifest of native captures, writes retained-native-records.tsv and runs the layerx-proof native_terminal_outcome test, so the call fails before any assertion. The second failure is conformance-copies/V2: sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json must carry the same V2 cases as the receipt fixture (rpc/sequencer_receipt_vectors_test.go line 1277) and was outside the task's paths."
+fix = "A task that adds a case to a vector group names the per-vector copy of that group in its paths and regenerates it with the generator's update flag; the committed pre-execution refusal is proved by the Go test on the receipt properties, and the checker-side proof stays with 22.33.877, which redefines the checker's capture contract."
+
+[gotcha.3099]
+title = "The ledger draw rename of 22.33.1475 left two consumer tests on the old field names"
+symptom = "22.33.1475 renamed the LedgerDraw fields from, assetId and receiverSequence to recipient, purposeHash and sequence in services/platform/middleware/seller/src; services/platform/middleware/seller/test/repair-22-31-434.test.mjs grantDraw (around line 141) and services/platform/middleware/agent/test/repair-22-31-435.test.mjs line 35 still pass the old names, so encodeUint(undefined) throws invalid-payment-payload at ledger.js line 69 in six 434 cases whenever the suite runs."
+fix = "A field rename ports every test that builds the type (decision 2560); 22.31.524 attempt 2 ports both tests and adds the 435 test to its verify."
+
+[gotcha.3100]
+title = "The 22.31.457 seller test pinned a fully signed committed vector"
+symptom = "services/platform/middleware/seller/test/repair-22-31-457.test.mjs line 26 asserts signedPower equals totalPower; the vector 22.31.486 re-recorded has validators of power 7000000000 and 1 with the power-1 vote absent (gotcha 3082), so signedPower is 7000000000 against totalPower 7000000001 and the case fails although the two-thirds threshold holds."
+fix = "Committed-rung consumer tests assert the threshold and the recorded powers, never equality of signed and total power; 22.31.524 attempt 2 corrects the assertion."
+
+[gotcha.3101]
+title = "The metered retirement left seventeen metered-success cases in the web-search payment suite"
+symptom = "22.31.169 retired the metered scheme in services/interop/crates/x-websearch/src/payment.rs (offers are exact per asset; metered records stay readable) and recorded the reconciliation of services/interop/crates/x-websearch/tests/payment.rs as a wiring request that was never turned into a task. 22.31.526 attempt 1 runs that binary: 17 cases fail (four offers where eight are expected, no metered offer in SID, every metered draw, grant, nonce and recovery case) while the attempt's own four exact cases pass."
+fix = "A retirement ports or removes the consumer tests of the retired path in the same change or in a required task; 22.31.528 reconciles the suite and 22.31.526 continues after it."
+
+[gotcha.3102]
+title = "A ledger transfer preparation needs a well-formed asset-send payload since the call-bound disclosure"
+symptom = "services/human/crates/layerx-human-service/tests/decide_nonces.rs line 277 prepares PrecompileCall::ledger_transfer(vec![0x33; 32]); since 9.35.1 the preparation binds the call disclosure through the call codec, which decodes the ledger payload as an asset-send envelope (tag 0x5301, ten fields) and refuses 32 bytes of 0x33 with Disclosure(MalformedPayload), so both decide_nonces cases fail before any decision-time call."
+fix = "Test preparations build the payload from a compiled send intent as tests/journey_faults.rs does; 22.31.521 attempt 3 replaces the fixture."
+
+[gotcha.3103]
+title = "The fiat journey checks were written against the journey shape before the re-recording"
+symptom = "22.31.489 re-recorded the three credited fiat journeys into sdk/platform/conformance/fixtures/fiat-receipts-v1.json and each sequencer block now declares fixture, case, rung, transaction_hash, receipt_digest, idempotency_key, payment_reference, payment_calldata, counterparty and expires_at with no sequence key; the 22.33.94 test asserted a sequence key, its importer looked cases up in the shared sequencer-receipt-v1.json, and its producer finding pinned line contents of rpc/sequencer_receipt_vectors_test.go that 22.31.489 changed. The task text also named the recorder at a path that only the attempt had created while the committed refresher lives at services/interop/crates/layerx-fiat/record_sequenced_journeys.py."
+fix = "A test that waits on a re-recording is re-read against the recorded shape before it reruns; 22.33.94 attempt 5 ports the test and the importer and makes the importer the single recorder."
+
+[gotcha.3104]
+title = "The seller export proofs fail in three decision-2538 consumers outside the seller task"
+symptom = "22.33.1478 attempt 10 passes 22 of 25 cases; sellerExportsPersistCommittedPaymentsAcrossConsumers fails receipt-not-backed because Express and Next assertReceiptBacked compare keccak of the canonical bytes (sdk/integrations/express/src/index.ts line 461, next line 480), and the merchant and RPC export proofs fail verification-failure because the conformance recorder emits keccak of the signed receipt (services/platform/middleware/conformance/src/receipts.ts line 197) and ConformancePaymentRpcSession.call answers five receipt fields the strict seller RPC consumer refuses."
+fix = "The Express and Next checks are 22.31.493, the conformance recorder and the full receipt answer are 22.31.492; 22.33.1478 continues after both."
+
+[gotcha.3105]
+title = "The approval list widening of 22.31.495 left three MCP test callers on four arguments"
+symptom = "9c3cd0e74d (22.31.495) gave ApprovalService::list in services/agent/crates/layerx-agentd/src/approval/mod.rs a fifth current_time argument of type TimestampSeconds. services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs lines 530 and 607 and tests/support/session_transport.rs line 735 still pass four, so every build of the layerx-mcp test targets fails on main before any task change, and the done task 22.33.1552 no longer compiles its own verify. 22.31.515 named the get callers and the DecisionRequest initialisers but not the list callers; 22.31.527 attempt 1 ported line 735 and then failed its build on the two 1552 callers outside its declared files."
+fix = "22.31.527 attempt 2 ports the three list callers with the case's deterministic clock time and keeps every assertion; 22.31.515 keeps the Human service sites and drops any MCP test edit 527 already made (its do_7)."
+
+[gotcha.3106]
+title = "The MCP web authority is constructed in production only by the daemon payer attach site"
+symptom = "22.31.527 planned services/agent/crates/layerx-mcp alone, but layerx_mcp::binding::WebAuthority::new is called in production only from attach_mcp_payers in services/agent/crates/layerx-agentd/src/main.rs line 1052; the layerx-mcp binary (src/bin/layerx-mcp.rs) opens the binding document and attaches no web authority, and layerx-mcp lists layerx-client only as a dev dependency, so the RuntimeClock::from_environment leg of decision 2572 has no caller. Attempt 1 gave WebAuthority::new the clock parameter and recorded that the daemon site and the dependency were outside its paths; the shared owner already exposes the runtime clock as SharedAgentOwner::mcp_clock (human_runtime.rs line 2569)."
+fix = "Decision 2574: the daemon passes owner.mcp_clock() at the attach site, the environment-clock leg of 2572 is withdrawn, and 527 gains the daemon file, the daemon binary build and thirty more minutes."
+
+[gotcha.3107]
+title = "The approve path now verifies the budget after the hold and the nonce test boundary refuses it"
+symptom = "67f0df3c9e (the 22.30.107 medium repair of services/human/crates/layerx-human-service/src/approvals) made Decisions::approve call the boundary's verified_budget_after before authorising (src/approvals/decide.rs line 182) and refuse an unverified budget. The AgentdDecisions boundary in tests/decide_nonces.rs (around line 480) answers Err(VerificationFailed) after a successful get, written when the nonce flow never reached it, so 22.31.521 attempt 3 fails both nonce cases with Agent(VerificationFailed) before the nonce check and the stale case never records StaleNonce; tests/decide.rs line 413 answers the same call with a verified budget."
+fix = "22.31.521 attempt 4 answers verified_budget_after as tests/decide.rs does and keeps every nonce assertion."
+
+[gotcha.3108]
+title = "The seller and agent repair fixtures still derive receiptDigest by keccak and build the envelope transport without the gateway credential"
+symptom = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs lines 53 and 236 and services/platform/middleware/agent/test/repair-22-31-435.test.mjs lines 113 and 546 set receiptDigest to keccak256 of the signed or canonical receipt bytes, which decision 2538 retired; the seller verifier (dist/index.js verifyReceiptDigest, fed by the seller middleware and the agent grant middleware) refuses six cases with verification-failure. The agent test's own envelopeClient (435 line 274) constructs AgentEnvelopeTransport with endpoint and session only, which c95437fb00 made an invalid argument (repair-22-33-20.test.ts line 111 asserts the refusal); services/platform/middleware/agent/test/repair-support.mjs line 150 constructs it correctly with surface gateway and a LayerXKeyCredential from fixed bytes. 22.31.524 attempt 2 passes 17 of 25 with these eight left as pre-existing."
+fix = "22.31.524 attempt 3 takes receiptDigest from the verifier result as repair-22-31-457.test.mjs line 77 does and builds the client as repair-support.mjs does; no assertion changes."
+
+[gotcha.3109]
+title = "The regenerated chain routes break every explorer map keyed by the route pathname"
+symptom = "apps/explorer keeps four maps typed Record<Route['pathname'], ...>: lib/metadata/getPageOgType.ts, lib/metadata/templates/description.ts, lib/metadata/templates/title.ts and lib/mixpanel/getPageType.ts. 22.31.503's text named only getPageOgType.ts for the '/chains' and '/chains/[id]' entries; attempt 3 added them to getPageOgType.ts and description.ts, title.ts already intersects the two routes, and the production build then failed in lib/mixpanel/getPageType.ts (PAGE_TYPE_DICT, line 3) outside the task's paths."
+fix = "Decision 2575; 22.31.503 attempt 4 adds the two entries to the mixpanel map and the task's paths gain apps/explorer/lib/mixpanel."
+
+[gotcha.3110]
+title = "A receipt corpus addition changes the portable V5 provenance digest that the committed-fixture gate pins"
+symptom = "22.31.491 adds a case to sdk/platform/conformance/fixtures/sequencer-receipt-v1.json; sdk/platform/conformance/fixtures/vector-v5-portable.json carries provenance.receiptedSha256, the SHA-256 of that whole corpus file, and daemon/committed-fixture/vector_v4_test.go TestRepairM_486_DerivedCopies (line 396) compares it with the corpus bytes. The task's verify runs that package, but its paths named the receipt fixture and the V2 copy only, so attempt 2 passed every RPC and SDK target and failed on the stale V5 digest outside its paths. sdk/platform/conformance/fixtures/refresh_receipt_vectors.py main() recomputes both V5 provenance digests from the recorded sources (lines 209-210) without re-recording and keeps the bundle bytes."
+fix = "Decision 2576; 22.31.491 attempt 3 refreshes the V5 provenance with the refresher and the portable fixture joins the task's paths."
+
+[gotcha.3111]
+title = "A hoisted function declaration does not inherit the parse-result narrowing of the route handler that declares it"
+symptom = "22.31.517 attempt 1 moved the EVM sign route's approval lookup into async function ready(client) declared inside the handler after the signSchema.safeParse guard; services/wallet/gateway/src/routes/evmApprovals.ts line 479 reads parsed.data.approval_id inside it. TypeScript hoists a function declaration above the guard, so the parsed.success narrowing does not apply inside it and tsc --noEmit reports TS18048, parsed.data is possibly undefined. The review and approve routes read parsed.data inside arrow callbacks created after the guard, which keep the narrowing. Attempt 2 requalified on the corrected install command and the type check was the only failure."
+fix = "Decision 2577; 22.31.517 attempt 3 binds the approval id once after the guard and the helper reads that binding."
+
+[gotcha.3112]
+title = "The web hold path requires payer approval resources that the web suite's recorded payer never provides"
+symptom = "22.33.1551 (b1ecc6e2e4, 2026-11-04) made services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs authorise_held (line 180) take WebApprovalResources (store, limiter, limits, expiry) from WebPayer::approval_resources, whose default at src/tools/web.rs line 542 is None, mapped to WebPayerError::Unavailable. Only the task's own tests/repair_22_33_1551.rs implements it (line 446, resources() at line 551); the RecordedPayer of tests/web.rs does not, so the four hold cases of the web suite (an_unapproved_spend_is_held_and_never_paid at line 1332, a_rejected_spend_is_refused_without_payment at line 1368, and the two session cases through assert_held_until_approved at line 2220) fail with the web payer is unavailable. The suite was already red on 2026-11-02 and 2026-11-03 with four other cases, and no task runs it as a gate except 22.31.510 and 22.31.526, which cannot pass until it is green."
+fix = "Task 22.31.529 gives the recorded payer the approval resources; 22.31.526 requires it."
+
+[gotcha.3113]
+title = "The web suite pins the recorded USDC fetch receipt digest as a constant"
+symptom = "services/agent/crates/layerx-mcp/tests/web.rs line 64 holds FETCH_RECEIPT_DIGEST f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301, the receiptDigest of the previous USDC exact recording in services/interop/crates/x-websearch/tests/fixtures (the suite reads the fixtures through a relative path at line 75), and compares it at lines 1099 and 2143. 22.31.526 attempt 2 re-recorded the four exact payments as type-2 chain-125 transactions, so the USDC digest became b27f1014cf967addb57bd2fce7ccb96e41ec8113e2da96c93314ccaa4699c398 and the three cases that pin it failed in the task's own verify. SEARCH_RECEIPT_DIGEST (line 61) is the metered search recording, which the re-recording left unchanged."
+fix = "Decision 2578; 22.31.526 attempt 3 re-pins the constant from the re-recorded fixture."
+
+[gotcha.3114]
+title = "The gateway attestor client hides the probe refusal behind participant_unavailable"
+symptom = "services/wallet/gateway/src/attestor/client.ts line 787 throws participant_unavailable when a node is not ready, while the probe (lines 835 to 851) records the actual refusal, a 503 readiness report, a health identity outside the approved inventory, or an inventory the loader in src/agent/authority.ts line 64 rejects, only in node.lastError, which AttestorDaemonClient.health in src/provision/bind.ts line 197 does not return; the 22.31.513 identity producer therefore failed two rehearsal and three cmd/ceremony tests with no cause on record."
+fix = "Return lastError beside ready from AttestorDaemonClient.health and print the per-node health report before refusing in services/wallet/ceremony/testdata/original-identities.mts; 22.31.513 attempt 3 does so first and then repairs the cause along the real path."
+
+[gotcha.3115]
+title = "The agent repair fixture keyed to the verifier digest cannot pass before the agent middleware is ported"
+symptom = "services/platform/middleware/agent/src/index.ts lines 896 and 1037 and src/daemon.ts line 241 still derive receiptDigest by keccak256 of the signed receipt; after 22.31.524 attempt 3 keyed services/platform/middleware/agent/test/repair-22-31-435.test.mjs to the verifier digest (decision 2538), the two draw cases refuse at the agent grant verifier and the two daemon submission cases refuse at the seller verifier or return verified where the pending submission should be unknown (line 495); the production port belongs to 22.31.492, which requires 22.31.524."
+fix = "22.31.524 verifies without that file (decision 2579); 22.31.492 adds it to its verify, ports the three sites and settles the line 495 resume behaviour against the rung contract."
+
+[gotcha.3116]
+title = "The asset-domain approval test forbids any Amount line that a full-detail notification now carries from the binding"
+symptom = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs line 265 asserts a text-channel delivery payload never contains Amount:, written when the only amount line was the Money render; 22.31.523 (8dfb4b3f08, 2026-11-05 01:48Z, decision 2569) made Content::bind_approval in src/notify/content.rs line 27 push Amount: with the exact base-unit amount and Asset: with the stable asset id from the persisted ApprovalNotification binding, which is the distinct-field form the 22.30.107 finding proposed; the three asset-domain cases fail at that line after 22.31.521 attempt 5 repaired the store root, while the 523 cases assert exactly those lines (tests/repair_22_31_523.rs lines 219 and 222)."
+fix = "The 159 test asserts the binding form: an Amount line is exactly the base-unit amount followed by an Asset line with the identifier, and the rendered money form (amount, space, asset) never appears; 22.31.521 attempt 6 makes that change and nothing else."
+
+[gotcha.3117]
+title = "The MCP server records a decision-time clock refusal as an unknown invocation outcome"
+symptom = "services/agent/crates/layerx-mcp/src/boundary.rs line 63 makes BoundaryRefusal::Unavailable report unknown() true, so when decision_time in src/approval.rs line 169 refuses a zero-generation clock sample the server classifies the outcome as InvocationOutcome::Unknown (src/server.rs lines 1157 to 1166), settles no outcome bytes and returns ServerError::InvocationUnknown; the 22.31.527 zero-generation case then fails at tests/repair_22_31_527.rs line 130 with Authority(InvocationUnknown) instead of reaching the release boundary with the Unavailable refusal, although no hold, payment or network effect had started."
+fix = "Decision 2581: a refusal raised before any effect settles the invocation as refused; 22.31.527 attempt 4 carries that provenance so unknown() is false for it or samples the decision time before the durable invocation begins."

@@ -257,50 +257,61 @@ function restoreEnvironment(context: TestContext, key: string, value: string | u
   else process.env[key] = value;
 }
 
-function explorer_links_and_labels_reach_real_consumers(context: TestContext): void {
-  restoreEnvironment(context, "PAXEER_X_EXPLORER_BASE_URL", producer.origin);
-  const targets: readonly ExplorerLinkTarget[] = [
-    { kind: "receipt", receiptId: "ab".repeat(32).toUpperCase(), transactionHash: `0x${"b".repeat(64)}` },
-    { kind: "transaction", transactionHash: `0x${"cd".repeat(32)}` },
-    { kind: "address", address: `0x${"ef".repeat(20)}` },
-  ];
-  for (const target of targets) {
-    const path = links.explorerLinkPath(target);
-    const href = client.explorerLink(target);
-    const first = renderToStaticMarkup(createElement(ExplorerExternalLink, { href, children: path }));
-    const second = renderToStaticMarkup(createElement(ExplorerExternalLink, {
-      href: client.explorerLink(target), children: links.explorerLinkPath(target),
-    }));
-    assert.equal(first, second);
-    assert.ok(first.includes(`href="${producer.origin}${path}"`));
-    assert.ok(first.includes('data-explorer-link="external"'));
-    assert.equal(classifyPerformanceRoute(path), undefined);
-  }
-  assert.equal(links.EXPLORER_ANCHOR_PATH, "/paxeer-x/anchors");
-  assert.equal(classifyPerformanceRoute(links.EXPLORER_ANCHOR_PATH), undefined);
-  for (const kind of ["anchor", "batch", "checkpoint"]) {
-    // @ts-expect-error Deliberately exercise a retired target at the runtime boundary.
-    assert.throws(() => links.explorerLinkPath({ kind }), TypeError);
-  }
-  for (const identifier of ["../anchors", "", `${"ab".repeat(32)}?tab=anchors`]) {
-    assert.throws(() => components.explorerReceiptPath(identifier), TypeError);
-    assert.throws(() => links.explorerLinkPath({ kind: "receipt", receiptId: identifier, transactionHash: `0x${"b".repeat(64)}` }), TypeError);
-  }
-  assert.equal(components.explorerReceiptPath("AB".repeat(32)), `/explorer/receipts/${"ab".repeat(32)}`);
-  const levels: readonly [ExplorerVerificationLevel, string][] = [
-    ["unverified", "verification.unverified"],
-    ["receipt-verified", "verification.receipt_verified"],
-    ["checkpoint-finalised", "verification.checkpoint_finalised"],
-  ];
-  for (const [level, key] of levels) {
-    const label = components.verificationLabel(level);
-    const html = renderToStaticMarkup(createElement(ExplorerVerificationBadge, {
-      label, unverified: level === "unverified",
-    }));
-    assert.equal(label, copyEntry(key).message);
-    assert.ok(html.includes(label));
-    assert.ok(html.includes(`data-verification="${level === "unverified" ? "unverified" : "verified"}"`));
-  }
+async function explorer_links_and_labels_reach_real_consumers(context: TestContext): Promise<void> {
+  const { withNativeReceipt } = await import("./repair-22-33-338-receipts.ts");
+  await withNativeReceipt(async read => {
+    const receipt = await read();
+    restoreEnvironment(context, "PAXEER_X_EXPLORER_BASE_URL", producer.origin);
+    const targets: readonly ExplorerLinkTarget[] = [
+      { kind: "receipt", receiptId: "ab".repeat(32).toUpperCase(), transactionHash: receipt.txHash },
+      { kind: "transaction", transactionHash: `0x${"cd".repeat(32)}` },
+      { kind: "address", address: `0x${"ef".repeat(20)}` },
+    ];
+    for (const target of targets) {
+      const path = links.explorerLinkPath(target);
+      const href = client.explorerLink(target);
+      if (target.kind === "receipt") {
+        assert.equal(path, `/tx/${receipt.txHash}`);
+        assert.equal(href, `${producer.origin}/tx/${receipt.txHash}`);
+        assert.equal(receipt.rung, "committed");
+        assert.ok(receipt.receipt);
+        assert.ok(receipt.blockHash);
+      }
+      const first = renderToStaticMarkup(createElement(ExplorerExternalLink, { href, children: path }));
+      const second = renderToStaticMarkup(createElement(ExplorerExternalLink, {
+        href: client.explorerLink(target), children: links.explorerLinkPath(target),
+      }));
+      assert.equal(first, second);
+      assert.ok(first.includes(`href="${producer.origin}${path}"`));
+      assert.ok(first.includes('data-explorer-link="external"'));
+      assert.equal(classifyPerformanceRoute(path), undefined);
+    }
+    assert.equal(links.EXPLORER_ANCHOR_PATH, "/paxeer-x/anchors");
+    assert.equal(classifyPerformanceRoute(links.EXPLORER_ANCHOR_PATH), undefined);
+    for (const kind of ["anchor", "batch", "checkpoint"]) {
+      // @ts-expect-error Deliberately exercise a retired target at the runtime boundary.
+      assert.throws(() => links.explorerLinkPath({ kind }), TypeError);
+    }
+    for (const identifier of ["../anchors", "", `${"ab".repeat(32)}?tab=anchors`]) {
+      assert.throws(() => components.explorerReceiptPath(identifier), TypeError);
+      assert.throws(() => links.explorerLinkPath({ kind: "receipt", receiptId: identifier, transactionHash: `0x${"de".repeat(32)}` }), TypeError);
+    }
+    assert.equal(components.explorerReceiptPath("AB".repeat(32)), `/explorer/receipts/${"ab".repeat(32)}`);
+    const levels: readonly [ExplorerVerificationLevel, string][] = [
+      ["unverified", "verification.unverified"],
+      ["receipt-verified", "verification.receipt_verified"],
+      ["checkpoint-finalised", "verification.checkpoint_finalised"],
+    ];
+    for (const [level, key] of levels) {
+      const label = components.verificationLabel(level);
+      const html = renderToStaticMarkup(createElement(ExplorerVerificationBadge, {
+        label, unverified: level === "unverified",
+      }));
+      assert.equal(label, copyEntry(key).message);
+      assert.ok(html.includes(label));
+      assert.ok(html.includes(`data-verification="${level === "unverified" ? "unverified" : "verified"}"`));
+    }
+  });
 }
 
 async function explorer_pages_refuse_invalid_input(context: TestContext): Promise<void> {

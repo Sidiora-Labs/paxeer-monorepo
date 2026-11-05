@@ -94,7 +94,7 @@ beforeAll(async() => {
   vi.stubEnv('NEXT_PUBLIC_STATS_API_HOST', serviceOrigin);
   vi.resetModules();
   await import('configs/app');
-  const { 'default': handler } = await import('./proxy');
+  const { 'default': handler } = await import('../../../pages/api/proxy');
   proxyOrigin = await listen(createServer((req, res) => {
     void apiResolver(req, res, {}, { 'default': handler }, {
       dev: false,

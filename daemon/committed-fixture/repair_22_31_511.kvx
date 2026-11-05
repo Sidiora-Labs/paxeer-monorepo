@@ -1,0 +1,36 @@
+[repair.22.31.511]
+mode = "BUILD"
+decision = "2555"
+gotchas = ["2962", "3060", "3061"]
+base_revision = "f1d852f7ed429bc2dbdc025fc685e6a0f006bdd8"
+implementation = "V7 replays the V4 production payment recorder and retains named payer/payee provenance alongside all inclusion, Comet and refusal evidence."
+qualification = "The final hf-build and hf-done ledger entries record the exact same verified candidate revision, command, exit code and private evidence location; this record is part of that candidate."
+
+[recording]
+recorder = "daemon/committed-fixture/vector_v7.go recordV7 delegates to vector_v4.go recordV4Payment: funded EVM keys, Ed25519 DID binds, register, both openAccount calls, mint and payExact through the production LayerXLedger precompile, followed by v4RecordSettlement and v4Package."
+command = "./committed-fixture record --paxd /tmp/r511-paxd --out daemon/committed-fixture/vectors --vector vector-v7-named-payee"
+producer = "daemon/committed-fixture/vectors/vector-v7-named-payee.json"
+conversion = "sdk/platform/conformance/fixtures/vector-v7-named-payee.json retains the exact producer bytes, including the parties object and RPC/Comet encodings."
+proof = "TestVectorV7NamedPayeeVerifies runs all V4 committed checks and refusals, then binds parties to payExact calldata and the authenticated PaymentExact log, independently hashes the asset account name and derives the main account identifier. Qualification reads committed recordings without credentials, external endpoints, environment variables or subprocesses."
+
+[parties]
+payer_did = "Production evmtypes.LayerXDid of the bound payer key; its asset account is the payExact source and PaymentExact from topic."
+payee_did = "Production evmtypes.LayerXDid of the bound payee key; names both payee accounts."
+payee_main_account = "Object with name agent:<payee did>:main and its native identifier; the offer extra.layerx.account names this main account."
+payee_asset_account = "Object with name agent:<payee did>:asset:<asset lowercase hex> and its native identifier; the payExact destination and PaymentExact to topic equal this identifier."
+asset = "Hexadecimal 32-byte registered asset identifier, equal to calldata and PaymentExact asset."
+amount = "Decimal integer string 3 in protocol base units, equal to calldata and PaymentExact amount."
+reference = "Hexadecimal 32-byte payment reference, equal to calldata and PaymentExact reference topic."
+consumer = "22.31.492 buyer human-evidence rung consumes parties to construct a matching offer and recognize the DID's native asset sub-account as payTo under decision 2555; the committed settlement supplies genuine inclusion evidence instead of the synthetic V1 receipt."
+
+[gotcha.local]
+recording_revision = "Recording requires the daemon and recorder from the first declared hf-build. Publishing the resulting recordings changes the candidate, so a bounded rebuild must precede hf-done to qualify the same revision."
+
+[recorded_run]
+recorder_build_revision = "d8a640b6614f897662143132fec85e9269b428e8"
+command = "./committed-fixture record --paxd /tmp/r511-paxd --out daemon/committed-fixture/vectors --vector vector-v7-named-payee"
+exit = 0
+log = "/out/logs/v7-record.log"
+sha256 = "4861776a725e59881a95630ce7abc0c7ef10f0596a01d3c6a065523c1ff28936"
+payment_transaction = "0xb66d7a659e9b682317d2bd2944a1a3bf8a75f57d9205e2f62d971d952b90be2d"
+qualification = "This producer run emits the saved payment, inclusion envelope, Comet evidence and refusals; the subsequent hf-build and hf-done ledger rows identify the verified revision containing both recordings."

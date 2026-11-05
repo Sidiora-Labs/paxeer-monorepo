@@ -2,7 +2,7 @@ import { createHash, X509Certificate } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { Agent, request } from 'node:https';
 import type { TLSSocket } from 'node:tls';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { Hex } from 'viem';
 import { loadWalletInventory, requireInventoryKey } from '../agent/authority.js';
 import {
@@ -60,15 +60,19 @@ export class ApprovalRecovery {
   async initialize(): Promise<void> {
     await this.pool.query(APPROVAL_RECOVERY_SQL);
   }
-  async read(domain: RecoveryEntry['domain'], id: string): Promise<RecoveryEntry | null> {
-    const found = await this.pool.query<RecoveryEntry>(
+  async read(
+    domain: RecoveryEntry['domain'],
+    id: string,
+    connection?: PoolClient
+  ): Promise<RecoveryEntry | null> {
+    const found = await (connection ?? this.pool).query<RecoveryEntry>(
       'select * from wallet_approval_recovery where domain=$1 and approval_id=$2',
       [domain, id]
     );
     return found.rows[0] ?? null;
   }
-  async save(entry: RecoveryEntry): Promise<void> {
-    const saved = await this.pool.query(
+  async save(entry: RecoveryEntry, connection?: PoolClient): Promise<void> {
+    const saved = await (connection ?? this.pool).query(
       `insert into wallet_approval_recovery(domain,approval_id,binding,phase,evidence)
        values($1,$2,$3,$4,$5::jsonb) on conflict(domain,approval_id) do update
        set phase=excluded.phase,evidence=excluded.evidence,updated_at=now()
@@ -77,14 +81,18 @@ export class ApprovalRecovery {
     );
     if (saved.rowCount !== 1) throw new Error('approval recovery binding changed');
   }
-  async locked<T>(domain: RecoveryEntry['domain'], id: string, work: () => Promise<T>): Promise<T> {
+  async locked<T>(
+    domain: RecoveryEntry['domain'],
+    id: string,
+    work: (client: PoolClient) => Promise<T>
+  ): Promise<T> {
     const client = await this.pool.connect();
     const lock = `wallet-approval:${domain}:${id}`;
     let held = false;
     try {
       await client.query('select pg_advisory_lock(hashtextextended($1,0))', [lock]);
       held = true;
-      return await work();
+      return await work(client);
     } finally {
       try {
         if (held) await client.query('select pg_advisory_unlock(hashtextextended($1,0))', [lock]);
@@ -279,15 +287,19 @@ export async function retainedSignature(
   id: string,
   binding: string,
   sign: () => Promise<SignResult>,
-  verify: (result: SignResult) => Promise<Hex | undefined>
+  verify: (result: SignResult) => Promise<Hex | undefined>,
+  connection?: PoolClient
 ): Promise<RecoveryEntry> {
-  const prior = await store.read(domain, id);
+  const prior = await store.read(domain, id, connection);
   if (prior && prior.binding !== binding) throw new Error('approval recovery binding changed');
   if (prior?.phase === 'refused')
     throw new ApprovalRefused(prior.evidence.status!, prior.evidence.body!);
   if (prior?.phase === 'signed' || prior?.phase === 'settled' || prior?.phase === 'rejected')
     return prior;
-  await store.save({ domain, approval_id: id, binding, phase: 'attempting', evidence: {} });
+  await store.save(
+    { domain, approval_id: id, binding, phase: 'attempting', evidence: {} },
+    connection
+  );
   try {
     const result = await sign();
     const raw = await verify(result);
@@ -298,17 +310,20 @@ export async function retainedSignature(
       phase: 'signed',
       evidence: { result, ...(raw ? { raw } : {}) },
     };
-    await store.save(entry);
+    await store.save(entry, connection);
     return entry;
   } catch (error) {
     if (error instanceof ApprovalRefused && prior === null) {
-      await store.save({
-        domain,
-        approval_id: id,
-        binding,
-        phase: 'refused',
-        evidence: { status: error.status, body: error.body },
-      });
+      await store.save(
+        {
+          domain,
+          approval_id: id,
+          binding,
+          phase: 'refused',
+          evidence: { status: error.status, body: error.body },
+        },
+        connection
+      );
       throw error;
     }
     // A refusal following a lost reply cannot prove that the earlier attempt never signed.

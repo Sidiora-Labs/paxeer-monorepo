@@ -30619,3 +30619,347 @@ symbol = "nextjs"
 observed = "Attempt 1: the build passed; the verify ran 14 cases and 13 passed; noTestsUnderPages received the two 449 paths and expected none."
 assumption = "An incomplete sweep by the attempt; the guard did its job."
 severity = "low"
+
+[finding.22.31.512.1]
+task = "22.31.512"
+file = "apps/explorer/repair-22-31-512.spec.ts"
+symbol = "repair-22-31-512.spec.ts"
+observed = "Attempt 1: yarn tsc --noEmit exited 2 on TS2307 for @juggle/resize-observer in the 270 spec; no verify ran."
+assumption = "A main-side defect of 22.33.270 inside the task's planned scope (gotcha 3078) plus a scope overlap with 503."
+severity = "low"
+
+[finding.22.31.513.1]
+task = "22.31.513"
+file = "services/wallet/ceremony/internal/move/move_test.go"
+symbol = "move_test.go"
+observed = "Attempt 1: after two repair cycles the verify failed in ten ceremony cases, each at the fixture's install with ERR_PNPM_IGNORED_BUILDS; the attestor packages passed."
+assumption = "A package-manager policy of the whole wallet workspace, outside the task's planned scope (gotcha 3079)."
+severity = "low"
+
+[finding.22.31.514.1]
+task = "22.31.514"
+file = "services/agent/sdk/python/tests/test_web_search_sequencer.py"
+symbol = "test_web_search_sequencer.py"
+observed = "Attempt 1: 21 of 22 cases passed; the lifecycle case received a JSON POST where it expected octet-stream and the SDK then raised unknown-outcome."
+assumption = "A consumer test left behind by its producer's later change (gotcha 3080): the 22.33.16 record names this test as a consumer to migrate and nothing did."
+severity = "low"
+
+[finding.22.31.515.1]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 1: the approvals test panicked at line 260 with approval expiry: Store; decide and the MCP tests passed."
+assumption = "A test fixture that predates the store root rule (gotcha 3081); not a defect of the expiry store."
+severity = "low"
+
+[finding.22.33.1539.4]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 5: cargo build --tests exited 101 with three E0425 in tests/approval_ordering/mod.rs; no verify ran."
+assumption = "A missing import in the attempt's own edit plus the main-side daemon test break (gotcha 3077)."
+severity = "low"
+
+[finding.22.31.519.1]
+task = "22.31.519"
+file = "services/agent/crates/layerx-agentd/tests/approval_semantics.rs"
+symbol = "approval_semantics.rs"
+observed = "Attempt 1: the build passed; the dependent-crate check exited 101 on three layerx-mcp test sites; the verify did not run."
+assumption = "Main-side breaks in another task's scope (22.31.515, gotcha 3072); not a defect of the attempt."
+severity = "low"
+
+[finding.22.33.1510.4]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 4: cargo build --tests exited 101 with eight signature errors in two test files outside the task's paths; the verify did not run."
+assumption = "A main-side break in the crate's other test files (gotcha 3083)."
+severity = "low"
+
+[finding.22.33.210.2]
+task = "22.33.210"
+file = "services/wallet/gateway/test/repair-22-33-210.test.ts"
+symbol = "repair-22-33-210.test.ts"
+observed = "Attempt 2: 5 of 6 cases passed; the refusal loop reported promise resolved undefined instead of rejecting at line 123 without naming the id."
+assumption = "A fixture that omits the predecessor check the recorded refusal expects (gotcha 3084); the production verifier is not at fault."
+severity = "low"
+
+[finding.22.33.338.7]
+task = "22.33.338"
+file = "apps/web/e2e/repair-22-33-338.test.ts"
+symbol = "repair-22-33-338.test.ts"
+observed = "Attempt 8: 3 of 5 cases passed; kit_separate_layerx_finality failed with ERR_INVALID_ARG_TYPE from Buffer.from(null) in the commit decoder; support_fixture_route_shape asserted 'failed' !== 'ready' with no cause printed."
+assumption = "A recording shape change by 22.31.486 (gotcha 3082) and a fixture that hides its own failure (gotcha 3085)."
+severity = "low"
+
+[finding.22.33.1478.6]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 8: the first verify run failed 7 cases; after the attempt's repair cycle 2 remained, both ERR_INVALID_ARG_TYPE from Buffer.from(null) in the commit decoder."
+assumption = "A recording shape change by 22.31.486 (gotcha 3082); the task's committed path itself now passes its other cases."
+severity = "low"
+
+[finding.22.31.516.1]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 1: the second build exited 101 with five decision-time signature errors in tests/approval_semantics.rs; the verify did not run."
+assumption = "A main-side daemon test break in another task's scope (gotcha 3077); the attempt was launched before that requirement landed."
+severity = "low"
+
+[finding.22.31.517.1]
+task = "22.31.517"
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+symbol = "repair-22-31-517.test.ts"
+observed = "Attempt 1: the build exited 1 at the install step with ERR_PNPM_IGNORED_BUILDS before the type-check; no verify ran."
+assumption = "A package-manager policy of the whole wallet workspace (gotcha 3079), repaired by 22.31.520; not a defect of the attempt."
+severity = "low"
+
+[finding.22.31.503.2]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 2: the production build exited 1 at the type check with the two chain routes missing from the page type map; the verify did not run."
+assumption = "A main-side defect outside the task's paths (gotcha 3086)."
+severity = "low"
+
+[finding.22.31.515.2]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 2: 1 of the approvals cases failed at line 343 (payload amount assertion); decide and the MCP tests passed; build and dependent check exit 0."
+assumption = "A consumer assertion left behind by the 159 producer change (gotcha 3087); the attempt's store-root and decision-time work stands."
+severity = "low"
+
+[finding.22.31.492.5]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 5: 12 of 13 cases passed; the thirteenth threw ERR_INVALID_ARG_TYPE from Buffer.from in the shared committed fixture; build exit 0."
+assumption = "A main-side break in a shared test fixture (gotcha 3088)."
+severity = "low"
+
+[finding.22.31.510.3]
+task = "22.31.510"
+file = "tests/ci/test_repair_22_31_510.py"
+symbol = "test_repair_22_31_510.py"
+observed = "Attempt 3: 3 of 40 cases failed, all in tests/ci/test_repair_22_31_510.py with receipt-unverified caused by PaymentBindingError payment mismatch; the SDK suites and the MCP tests did not run."
+assumption = "A recording defect exposed by the producer repair 22.31.514 (gotcha 3089)."
+severity = "low"
+
+[finding.22.31.521.1]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 1: no change inside scope; the attempt stopped asking whether the clock setup was allowed."
+assumption = "An instruction wording defect (gotcha 3093)."
+severity = "low"
+
+[finding.22.33.1478.7]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 9: 20 of 25 cases passed; two header overflows, one commitment verification failure, one merchant order-conflict, one replay count."
+assumption = "Two production defects (gotchas 3090, 3091), one regression in the attempt (gotcha 3092) and one test expectation."
+severity = "high"
+
+[finding.22.31.515.3]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 3: build exit 0, dependent-crate check exit 0, Human suites passed; 5 of 6 repair_22_33_1551 cases failed with the approval boundary refusing the web spend."
+assumption = "A production defect outside the task's paths (gotcha 3094)."
+severity = "low"
+
+[finding.22.31.523.1]
+task = "22.31.523"
+file = "services/human/crates/layerx-human-service/src/notify/content.rs"
+symbol = "content.rs"
+observed = "Attempt 1: build 3 exit 0; the verify at the earlier revision failed all three cases with Io PermissionDenied store root is not a canonical owned private directory; the corrected fixture was never run."
+assumption = "A fixture defect corrected inside the attempt (gotcha 3096)."
+severity = "low"
+
+[finding.22.31.517.2]
+task = "22.31.517"
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+symbol = "repair-22-31-517.test.ts"
+observed = "Attempt 1: build exit 1 at pnpm install (ignored build scripts refused); typecheck and the task test did not run."
+assumption = "A build command defect (gotcha 3095)."
+severity = "low"
+
+[finding.22.31.522.1]
+task = "22.31.522"
+file = "apps/explorer/lib/metadata/getPageOgType.ts"
+symbol = "getPageOgType.ts"
+observed = "Attempt 1: build exit 1 in the type check of lib/metadata/getPageOgType.ts (four test-file routes missing from the map); verify did not run."
+assumption = "A main-side break shared with 22.31.503 (gotcha 3097)."
+severity = "low"
+
+[finding.22.31.503.3]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 2: build exit 1 in the type check of lib/metadata/getPageOgType.ts (missing '/chains' and '/chains/[id]'); verify did not run."
+assumption = "A build deadlock between two repairs (gotcha 3097)."
+severity = "low"
+
+[finding.22.31.491.1]
+task = "22.31.491"
+file = "rpc/repair_22_31_491_test.go"
+symbol = "repair_22_31_491_test.go"
+observed = "Attempt 1: build exit 0; verify exit 1 with TestRepair_22_31_491_Terminal0 failing on the checker invocation and conformance-copies/V2 failing on the stale per-vector copy; the remaining targets did not run."
+assumption = "A wrong-interface clause in the task text and a copy outside the task's paths (gotcha 3098)."
+severity = "low"
+
+[finding.22.31.524.1]
+task = "22.31.524"
+file = "services/platform/middleware/seller/test/committed-fixture.mjs"
+symbol = "committed-fixture.mjs"
+observed = "Attempt 1: build exit 0; verify exit 1 with six 434 cases throwing invalid-payment-payload and the 457 case failing 7000000000n against 7000000001n; the attempt's four cases and the other targets passed."
+assumption = "Consumer tests left on retired field names and a stale equality pin (gotchas 3099, 3100)."
+severity = "low"
+
+[finding.22.31.526.1]
+task = "22.31.526"
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+symbol = "payment.rs"
+observed = "Attempt 1: build exit 0; verify exit 1 with 20 passed and 17 failed in tests/payment.rs (four offers where eight were expected, no metered offer in SID); the MCP targets did not run."
+assumption = "Stale consumer tests of a retired scheme outside the attempt's change (gotcha 3101)."
+severity = "low"
+
+[finding.22.31.521.2]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 2: build exit 0; verify exit 1 with both decide_nonces cases panicking at line 524 on Disclosure(MalformedPayload) from the preparation; repair_22_31_159 did not run."
+assumption = "A test fixture outdated by the call-bound disclosure (gotcha 3102)."
+severity = "low"
+
+[finding.22.33.94.4]
+task = "22.33.94"
+file = "tools/qualification/audit_repairs/test_repair_22_33_94.py"
+symbol = "test_repair_22_33_94.py"
+observed = "Attempt 4: build exit 0; verify exit 1 with the three binding cases failing KeyError sequence, the importer case failing KeyError card_receipted_credit in regenerate, and the producer finding case failing on a moved source line."
+assumption = "A test written against the journey shape before the re-recording (gotcha 3103)."
+severity = "low"
+
+[finding.22.33.1478.8]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 10: build exit 0; verify exit 1 with 22 of 25 passing; sellerExportsPersistCommittedPaymentsAcrossConsumers failed receipt-not-backed, merchantConsumerRecoversPaidOrdersAndRefusesUnknownSku and rpcProducerEvidenceCrossesThePublicNextExports failed verification-failure."
+assumption = "Decision-2538 consumers outside the task (gotcha 3104)."
+severity = "low"
+
+[finding.22.31.527.1]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 1: build exit 101 twice; the second build failed on the four-argument list call at tests/support/session_transport.rs line 739, the attempt's third build on repair_22_33_1552.rs lines 530 and 607; verify did not run; the record names the daemon attach site and the dev-only layerx-client dependency as blockers."
+assumption = "A producer-to-consumer break left by 22.31.495 and a planned-path omission in the task (gotchas 3105, 3106)."
+severity = "high"
+
+[finding.22.31.521.3]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 3: build exit 0; verify exit 1 with approval_releases_a_hold_prepared_at_the_pending_nonce panicking on Agent(VerificationFailed) at decide_nonces.rs line 659 and approval_of_a_stale_nonce_hold_is_refused observing boundary.stale None at line 707; repair_22_31_159 did not run."
+assumption = "A production step added by 67f0df3c9e that the nonce test boundary never answered (gotcha 3107)."
+severity = "high"
+
+[finding.22.31.524.2]
+task = "22.31.524"
+file = "services/platform/middleware/seller/test/committed-fixture.mjs"
+symbol = "committed-fixture.mjs"
+observed = "Attempt 2: build exit 0; verify exit 1 with 17 of 25 passing; six receipt cases throw verification-failure at the seller verifier and two daemon submission cases throw invalid-argument at the AgentEnvelopeTransport constructor."
+assumption = "Fixture digests left on the retired keccak definition and a transport constructor change the agent test never followed (gotcha 3108)."
+severity = "high"
+
+[finding.22.31.503.4]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 3: build exit 1 with the Next.js type check of lib/mixpanel/getPageType.ts line 3 reporting the missing '/chains' and '/chains/[id]' keys; verify did not run."
+assumption = "A fourth route map outside the task's declared paths (gotcha 3109)."
+severity = "medium"
+
+[finding.22.31.491.2]
+task = "22.31.491"
+file = "rpc/repair_22_31_491_test.go"
+symbol = "repair_22_31_491_test.go"
+observed = "Attempt 2: build exit 0; verify exit 1 with TestRepairM_486_DerivedCopies reporting portable provenance differs from source recordings; the rpc, sdk/platform/go, pytest and wallet targets passed."
+assumption = "A derived copy outside the task's paths that the task's own gate pins (gotcha 3110)."
+severity = "low"
+
+[finding.22.31.517.3]
+task = "22.31.517"
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+symbol = "repair-22-31-517.test.ts"
+observed = "Attempt 2 (requalify): build exit 2; the install passed and tsc -p tsconfig.json --noEmit reported one error, src/routes/evmApprovals.ts(479,58) TS18048; verify did not run."
+assumption = "A narrowing loss from moving route logic into a hoisted function declaration (gotcha 3111)."
+severity = "low"
+
+[finding.22.31.526.2]
+task = "22.31.526"
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+symbol = "payment.rs"
+observed = "Attempt 2 (continue): build exit 0; the x-websearch payment gate passed 37 cases; the layerx-mcp web suite failed 7 of 22 (three FETCH_RECEIPT_DIGEST comparisons at lines 1099 and 2143, four hold cases with the web payer is unavailable at lines 1332, 1368 and 2220); the second web test target did not run."
+assumption = "The recording producer and its MCP consumer are proven together (decision 2578); the hold-resource failure predates the task (gotcha 3112) and is repaired by 22.31.529."
+severity = "high"
+
+[finding.22.31.521.4]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 4: verify exit 101 in both cycles; both decide_nonces cases pass; the repair_22_31_159 cases failed first with PermissionDenied (store root is not a canonical owned private directory) under fs::create_dir_all and then with NotFound under a non-recursive DirBuilder with mode 0o700."
+assumption = "Recursive creation with mode 0o700 satisfies layerx-agentd/src/store/protected.rs line 93 for every created level."
+severity = "low"
+
+[finding.22.31.527.2]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 2: build exit 0, verify exit 0; the dependent-crate check failed: layerx-agentd-host test payer_evm E0061 at tests/payer_evm.rs line 477 (argument 4 of type &dyn Clock missing); layerx-human-service test decide E0061 at decide.rs lines 361, 387 and 491 (TimestampSeconds missing) and E0063 missing current_time at lines 466 and 498."
+assumption = "The producer task carries every consumer the dependent-crate check builds; 22.31.515 requires 22.31.527 and takes the remaining sites."
+severity = "high"
+
+[finding.22.31.524.3]
+task = "22.31.524"
+file = "services/platform/middleware/seller/test/committed-fixture.mjs"
+symbol = "committed-fixture.mjs"
+observed = "Attempt 3: verify exit 1; 25 cases, 21 pass; the two daemon submission cases fail (verification-failure at the seller verifyPaymentReceipt; resume kind verified where unknown is expected at line 495) and agentDrawRecipientBindsAuthenticatedGrant and agentDrawUnknownReservationSurvivesReopen fail with verification-failure at the agent grant verifier (src/index.ts line 1037)."
+assumption = "The 435 fixture keyed to the verifier digest is correct under decision 2538 and passes once 22.31.492 ports index.ts lines 896 and 1037 and daemon.ts line 241."
+severity = "low"
+
+[finding.22.31.513.2]
+task = "22.31.513"
+file = "services/wallet/ceremony/internal/move/move_test.go"
+symbol = "move_test.go"
+observed = "Attempt 2: build exit 0; verify exit 1 in both cycles: two rehearsal tests and three cmd/ceremony tests fail at identity generation with AttestorQuorumError participant_unavailable (the node endpoint is not ready for a key operation) from client.ts line 787 after client.health(); the earlier repair installed the agent SDK dependencies the producer imports."
+assumption = "The ceremony fixture attestors serve the same real protocol the Go client uses, so the gateway probe refusal is a contract mismatch on the probe or inventory side."
+severity = "high"
+
+[finding.22.31.521.5]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 5: build exit 0; verify exit 101: decide_nonces 2 passed; repair_22_31_159 0 passed, 3 failed, each at line 265 with assertion failed: !delivery.payload().contains(Amount:) for the bank denoms, native ids and LXP cases."
+assumption = "The Amount and Asset lines come from Content::bind_approval (src/notify/content.rs line 27) on the full-detail path the 159 fixture exercises, and no production change is needed."
+severity = "low"
+
+[finding.22.31.527.3]
+task = "22.31.527"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"
+symbol = "repair_22_31_527.rs"
+observed = "Attempt 3: build exit 0; dependent-crate check passed; the first verify failed three cases and the repair fixed the two hold cases; the second verify: 2 passed, 1 failed, zero_generation_refuses_unavailable_without_a_hold panicked at tests/repair_22_31_527.rs line 130 with authenticated daemon invocation: Authority(InvocationUnknown)."
+assumption = "A refusal raised before any effect is deterministic and must not be recorded as an unknown outcome the daemon would reconcile."
+severity = "high"
+
+[finding.22.33.877.2]
+task = "22.33.877"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+symbol = "test_repair_22_33_877.py"
+observed = "Attempt 2 (requalification of attempt 1 on a base carrying 22.31.491): verify exit 1; 57 passed, 2 failed: test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles and test_f016_rejects_missing_role_and_changed_saved_capture, both RuntimeError preexecution refusal must preserve empty execution evidence at native-terminal-outcome.py line 118."
+assumption = "The committed insufficient-funds case satisfies the terminal-0 contract and the peer synthesises the block identity for it as it does for the other case."
+severity = "low"
