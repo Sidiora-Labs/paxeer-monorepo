@@ -7,7 +7,7 @@ import { Counter, Registry } from 'prom-client';
 
 import { test, expect } from 'vitest';
 
-import { createInvalidApiSchemaHandler } from './invalid-api-schema';
+import { createInvalidApiSchemaHandler } from '../../../../pages/api/monitoring/invalid-api-schema';
 
 type SchemaDiagnostic = { resource?: string; url?: string; errorCategory: 'invalid_response_schema' | 'invalid_report' };
 
