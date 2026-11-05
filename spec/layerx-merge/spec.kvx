@@ -175658,7 +175658,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.561]
 title = "Carry ICS23 storage witnesses as the export state evidence and give produce a real state producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
