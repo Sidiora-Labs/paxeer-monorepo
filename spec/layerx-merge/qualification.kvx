@@ -32075,3 +32075,75 @@ symbol = "repair_22_31_496.rs"
 observed = "Attempt 6 at fe3f87873399cd2906c563e88b4e6f5170000bf7: build exit 0, dependent-crate check exit 0, verify exit 1: the Rust proof passes 2 cases; the Go keeper test binary link failed on No space left on device."
 assumption = "Environmental; the tree is unchanged."
 severity = "medium"
+
+[finding.22.31.560.1]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 1 at e681c42b63: build exit 0, dependent-crate check exit 0, verify exit 101: native_send_first_prepare_and_reopened_prepare_match_owner_preview fails with 503 owner.unavailable on the first Prepare after a successful restore."
+assumption = "Two tenants in one request; the originating error is masked at both Unavailable sites."
+severity = "high"
+
+[finding.22.33.1569.10]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 10 at 9e8ae871b3: build exit 0, verify exit 101: the receipt words verify; cumulative_evidence(prior_draw) fails with Evidence because the Batched receipt carries no canonical activity."
+assumption = "The SDK wait path drops the canonical activity; 563 adds the wait that keeps it."
+severity = "high"
+
+[finding.22.31.478.8]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 8 at bb38e1c9e1: build exit 0, verify exit 1: registration and CREATE pass (CPU fuel 188494); Fund answers LXP_ERR_GAS_EXHAUSTED terminal 3 at CPU fuel 999978 under allowance 10000000 (repair_478_test.go line 403)."
+assumption = "Fund is over the protocol CPU cap by decode cost, not by the allowance."
+severity = "high"
+
+[finding.22.33.223.7]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 8 at 89792c3112: build exit 0, verify exit 101: close_settlement_coverage_through_compiled_guest (guest FUND refused BudgetExceeded Cpu limit 1000000 attempted 1000057) and every_routed_operation_fits_the_protocol_cpu_fuel_cap fail."
+assumption = "Both failures are the Fund decode cost 478 repairs."
+severity = "medium"
+
+[finding.22.99.77.19]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 17 at 027701dc9b: build exit 0, verify exit 101: the executor proof names BudgetExceeded Cpu limit 1000000 attempted 11014910 for all eleven native cases; the fuel suite lists seven operations 2 to 101 units over the cap."
+assumption = "The step-commitment metering is the cause of every -3; the residuals are decode cost."
+severity = "high"
+
+[finding.22.99.52.3]
+task = "22.99.52"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 2 at cc4c6478ac: build exit 0; the last verify (at e7199c1cc7) failed 2 cases at tests/repair_22_31_223.rs line 1039 with store root already has a writer; the final tree was not verified."
+assumption = "The last change addressed the only failure; the result is unknown until the gate runs."
+severity = "medium"
+
+[finding.22.31.217.7]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 7 at d701f4a03b: build exit 0, dependent-crate check exit 0, verify exit 101: repair_22_31_217 12 passed 6 failed; Disclosure(MalformedPayload) at lines 548 and 722, Snapshot at lines 1408, 1507 and 1568, one dependent case."
+assumption = "The producers refuse only the named conditions; the fixture meets them."
+severity = "high"
+
+[finding.22.33.1510.6]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 6 at 3d5e5aed3d: build exit 0, verify exit 101: digest_bound_decisions_converge_and_export_the_agent_outcome and real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle fail at tests/support/approval_owner.rs line 1158 with approval budget actor: Corrupt."
+assumption = "The daemon writes the verification label where the consumer reads a rung rank; 562 is the producer repair."
+severity = "medium"
+
+[finding.22.33.260.3]
+task = "22.33.260"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+symbol = "repair_22_33_260.rs"
+observed = "Attempt 3 at 85cbc30284: build exit 0, dependent-crate check exit 0, verify exit 101: all 8 repair_22_33_260 cases fail with Error: ApplicationError(1) and no routed refusal is printed."
+assumption = "A schema-version refusal inside the fixture builders; the site is not yet named."
+severity = "high"
