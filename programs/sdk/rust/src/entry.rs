@@ -11,8 +11,12 @@ use crate::abi::MAX_CALL_INPUT_BYTES;
 use crate::error::{Field, ProgramError, Reason};
 use crate::CallResult;
 
-/// Declared capacity of the call-input reservation every SDK program owns.
+/// Inclusive byte capacity of the call-input reservation every SDK program owns.
+/// Program metadata's `entry.call_input_capacity` must declare this same bound.
 pub const CALL_INPUT_CAPACITY: usize = MAX_CALL_INPUT_BYTES;
+
+// Both reservation and call-entry lengths cross the signed i32 guest ABI.
+const _: () = assert!(CALL_INPUT_CAPACITY <= i32::MAX as usize);
 
 const RESERVATION_REFUSED: i32 = -1;
 
