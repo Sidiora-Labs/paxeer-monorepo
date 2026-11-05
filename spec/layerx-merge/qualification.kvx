@@ -31867,3 +31867,11 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 5 at f2ed3a742b2afb3c1d3637d735c55f47f64c4667: build exit 0, verify 1 passed, 1 failed: pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at funded_scenario.rs line 8, PAY2 batched Send: Pending for the activity, after 60.32 seconds; a repair build at an intermediate revision failed on an unresolved layerx_programs_registry import that the committed tree no longer carries; the record cites revision 68c351cefa32f7e71156217d890466bba547bbd8."
 assumption = "The wallet lacks the finality trust the Batched commitment requires; the peer panic path is masked as Pending."
 severity = "high"
+
+[finding.22.33.1537.6]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 6 at 6729ff11e3e0673fface985db243740c7f0169b0: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the task record states that ReceiptEvidenceRecord, PersistedReceipt, recover_tenant_budget and EvidenceAuthority::verify_receipt require RawReceiptEvidence and that no conversion from the current record exists."
+assumption = "The recovery consumer of current evidence is a production gap owned by 22.31.559; the remaining case of this task is its consumer."
+severity = "high"

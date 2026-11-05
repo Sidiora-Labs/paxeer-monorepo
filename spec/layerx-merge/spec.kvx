@@ -8901,6 +8901,12 @@ value = "A qualification scenario whose SDK wallet waits for Commitment::Batched
 basis = "Gotcha 3188: 22.33.1569 waited 60 seconds for a receipt its wallet could never accept and the redaction hid the reason for two attempts."
 affects = ["22.33.1569", "22.31.494"]
 
+[decision.2632]
+title = "Restart recovery consumes current transaction receipt evidence verified under the governed node receipt key"
+value = "The budget recovery path of the daemon (evidence inventory, recover_tenant_budget, budget rebuild and reconcile through outbox recovery) accepts a receipt whose stored evidence is the current TransactionReceiptEvidence record: the canonical receipt is verified with its node signature under the governed receipt key whose height window covers the receipt, the protocol section supplies activity id, global sequence, amount, result code, module and operation, and the receipt counts toward consumed accounting exactly as a version 1 receipt does. A receipt with neither evidence kind is still held as EvidenceMissing; a legacy-key record is still refused with EvidenceVersion. No batch header or inclusion proof is manufactured for a current receipt."
+basis = "Gotcha 3190: the version 2 producer landed without a recovery consumer, so every tenant with only current receipts is held after a restart."
+affects = ["22.31.559", "22.33.1537", "22.31.364"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37791,6 +37797,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.559]
+title = "Recover tenant budgets from current transaction receipt evidence after a restart"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/budget", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_559"
+do_1 = "do_1 Gotcha 3190, decision 2632. In services/agent/crates/layerx-agentd/src/receipt.rs add a current-evidence record (idempotency key, activity id, global sequence, the TransactionReceiptEvidence) and a third inventory list for it; make evidence_inventory (near line 509) place a receipt whose public evidence key holds an EVIDENCE_VERSION record there after decoding it with decode_transaction_evidence and checking the canonical receipt equals the served bytes. Version 1 records stay under with_evidence; a record under the legacy archive key keeps the EvidenceVersion refusal."
+symbols = []
 
 [capability.22.31.558]
 title = "Port the Human service native send producer test to the V2 consent public key field"
@@ -175521,6 +175536,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.559]
+title = "Recover tenant budgets from current transaction receipt evidence after a restart"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.558"]
+reqs = ["22998.1"]
+capabilities = ["22.31.559"]
+interfaces = []
+do_1 = "do_1 Gotcha 3190, decision 2632. In services/agent/crates/layerx-agentd/src/receipt.rs add a current-evidence record (idempotency key, activity id, global sequence, the TransactionReceiptEvidence) and a third inventory list for it; make evidence_inventory (near line 509) place a receipt whose public evidence key holds an EVIDENCE_VERSION record there after decoding it with decode_transaction_evidence and checking the canonical receipt equals the served bytes. Version 1 records stay under with_evidence; a record under the legacy archive key keeps the EvidenceVersion refusal."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/protocol_evidence.rs give EvidenceAuthority a verification of a current record: verify the canonical receipt signature with verify_sequencer_signature under the governed node receipt key whose window covers the receipt block height (the ReceiptKeyEntry source that human_node.rs receipt_key_at_head and boot.rs readiness already use), decode the protocol section, and return a verified value carrying receipt_ref, activity_id, global_sequence, result_code, amount, module_id and operation; refuse a signature under another key, a protocol version mismatch and a receipt outside every key window. Build no batch header and no inclusion proof."
+do_3 = "do_3 In services/agent/crates/layerx-agentd/src/budget (hold.rs PersistedReceipt, mod.rs rebuild near line 766 and the accounting rebuild it calls, reconcile.rs SpendReceiptEvidence) accept either evidence kind, through an enum or the existing generic evidence parameter, and consume the current kind through the do_2 verification so receipt_consumed and the reconciliation include current receipts; services/agent/crates/layerx-agentd/src/outbox/recover.rs passes both kinds into rebuild and reconcile."
+do_4 = "do_4 In services/agent/crates/layerx-agentd/src/human_runtime.rs make recover_tenant_budget (near line 2319) map the current list into budget_receipts inside the budget window and count only receipts with neither kind as evidence_missing; make attribute_receipts (near line 14607) and the two inventory call sites (near lines 14087 and 14443) carry the current list; make managed_agent.rs (near line 604) walk all three lists."
+do_5 = "do_5 Test services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs with a loopback node fixture the test starts (Ed25519 governed receipt key served by px_getReceiptKeys, the receipt served signed under it, chain id 0x7d): store one receipt for tenant a through lookup_authenticated and store_verified_if_absent, close and reopen the store, assert evidence_inventory lists it under the current list and nothing under without_evidence, and assert recover_tenant_budget admits writes with receipt_consumed equal to the receipt amount; store a receipt for tenant b without evidence and assert EvidenceMissing with count 1; flip one signature byte of the stored record and assert the verification refuses it and recovery holds the tenant. Record the sites and the gate results by reference in tests/repair_22_31_559.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["evidence_inventory", "TransactionReceiptEvidence", "recover_tenant_budget", "PersistedReceipt", "EvidenceAuthority"]
+touches = ["services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/budget", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_559.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_559.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_559"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.558]
 title = "Port the Human service native send producer test to the V2 consent public key field"
 status = "done"
@@ -178359,7 +178406,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.559"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1537"]
 interfaces = []
@@ -178399,6 +178446,7 @@ do_16 = "Attempt 3 (requalify after 22.31.483): the previous attempt built and w
 do_17 = "Attempt 4 (after 22.31.497): tests/outbox_recover.rs lines 140 and 322 to 324 call support::current_node, which tests/support never defines (E0433); tests/support/current_node.rs and tests/support/mod.rs are in the paths: write the helper there, constructing the node the same way the passing recovery tests do, and declare it in mod.rs. The daemon test build also needs 22.31.497 on main (gotcha 3033). Then run build and verify once at the final revision."
 do_18 = "Attempt 5 (continue, gotcha 3171, decision 2622): the attempt-2 tree stands (receipt.rs evidence_inventory refusing legacy evidence versions and inventorying current receipts, the repaired test targets and tests/repair_22_33_1537.rs). Write services/agent/crates/layerx-agentd/tests/support/current_node.rs with the current_node constructor the outbox_recover target calls at lines 140 and 322 to 324, constructing the node the same way the passing recovery and protocol evidence tests do, declare it in tests/support/mod.rs, rebase onto main (22.31.497 and 22.31.550 landed), build --tests, repair inside the paths only what the build or the verify reports, record the results in the task record and run the verify once."
 do_19 = "Attempt 6 (continue, gotcha 3181): the attempt-5 tree stands (support/current_node.rs, the repaired targets, 31 of 32 cases pass). The last case fails on the production side: in services/agent/crates/layerx-agentd/src/receipt.rs serve_kernel_evidence decodes only evidence version 1 and answers None for the current EVIDENCE_VERSION 2 record the startup fixture writes through store_verified_if_absent, so evidence_inventory lists the current receipt under without_evidence. Make evidence_inventory (near line 510) treat a current-version record as evidence: decode it with the transaction evidence decoder and push the ReceiptEvidenceRecord that serve_evidence (lines 405 to 420) builds from the served receipt and the decoded evidence; keep refusing a version 1 or legacy-key record with ReceiptStoreError::EvidenceVersion as the attempt-2 ruling asks, and keep the legacy refusal case. Then startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence finds one evidenced receipt for tenant a and none for tenant b."
+do_20 = "Attempt 7 (continue after 22.31.559, gotcha 3190, decision 2632): the attempt-6 tree stands (the legacy-archive refusal after reopen, the restart regression case, support/current_node.rs, 31 passing cases) and the attempt-6 record is right that the conversion the attempt-5 ruling named does not exist; that ruling is withdrawn. Once 22.31.559 is on main, make startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence read the current-evidence list 22.31.559 adds (one current receipt for tenant a, none for tenant b, without_evidence holding the tenant b receipt) and drive assert_evidenced_tenant_admits_writes through recover_tenant_budget as 22.31.559 leaves it; keep the no-fake rule, build no header or proof for a current receipt, and remove the recovery wiring request from the task record once the consumer exists. Commit before the gates run; the dependent-crate check of attempt 6 failed on the stale site of gotcha 3180 that 22.31.558 has since ported."
 
 [task.22.33.1536]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 3): test-gap"
