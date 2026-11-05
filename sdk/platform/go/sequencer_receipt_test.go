@@ -63,15 +63,16 @@ func sequencerReceiptCases(t *testing.T) []sequencerReceiptCase {
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if len(fixture.Cases) != 12 {
-		t.Fatalf("expected 12 conformance cases, got %d", len(fixture.Cases))
+	if len(fixture.Cases) != 13 {
+		t.Fatalf("expected 13 conformance cases, got %d", len(fixture.Cases))
 	}
 	expected := map[string]bool{
 		"V1-pax-transfer": false, "V1-erc20-approve": false,
 		"V1-layerxledger-pay-exact": false, "V1-layerxbridge-bridge-out": false,
-		"V1-layerxprograms-call": false,
-		"V2-layerxledger-revert": false,
-		"V3-key-not-pinned":      false, "V3-height-outside-key-range": false,
+		"V1-layerxprograms-call":             false,
+		"V2-layerxledger-revert":             false,
+		"V2-pax-transfer-insufficient-funds": false,
+		"V3-key-not-pinned":                  false, "V3-height-outside-key-range": false,
 		"V3-activity-id-not-raw-hash": false, "V3-seq-hash-mismatch": false,
 		"V3-tampered-log": false, "V3-non-canonical-bytes": false,
 	}
@@ -237,7 +238,7 @@ func TestSequencerReceiptRefusesForeignSigningKey(t *testing.T) {
 func TestSequencerReceiptV2RevertDecodesReason(t *testing.T) {
 	count := 0
 	for _, c := range sequencerReceiptCases(t) {
-		if c.Vector != "V2" {
+		if c.ID != "V2-layerxledger-revert" {
 			continue
 		}
 		count++
@@ -439,4 +440,36 @@ func TestSequencerReceiptV3RefusalsNameTheirCheck(t *testing.T) {
 		keys.PreviousSequenceHash[0] ^= 1
 		assertRefusal(t, c.ReceiptJSON, raw, keys, ReceiptCheckSequenceHash)
 	})
+}
+
+func TestSequencerReceiptPreexecutionRefusal(t *testing.T) {
+	var found bool
+	for _, c := range sequencerReceiptCases(t) {
+		if c.ID != "V2-pax-transfer-insufficient-funds" {
+			continue
+		}
+		found = true
+		verified, err := VerifySequencerReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), sequencerFixtureKeys(t, c))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if verified.Rung != "receipted" || verified.Status != 0 || verified.Receipt.ResultCode != 1 || len(verified.ReturnData) != 0 || len(verified.Logs) != 0 || c.LXPCode != "" || verified.Revert == nil || verified.Revert.Code != "" || verified.Revert.Reason != "" {
+			t.Fatalf("preexecution refusal lost authenticated outcome: %+v", verified)
+		}
+		if !bytes.Equal(verified.CanonicalBytes, sequencerFixtureBytes(t, c.SignedReceipt)) || !bytes.Equal(verified.ReceiptDigest[:], sequencerFixtureBytes(t, c.ReceiptDigest)) {
+			t.Fatal("preexecution refusal bytes or digest differ from source")
+		}
+		var fields struct {
+			VMError string `json:"vmError"`
+		}
+		if err := json.Unmarshal(c.ReceiptJSON, &fields); err != nil {
+			t.Fatal(err)
+		}
+		if fields.VMError != "insufficient balance for transfer" {
+			t.Fatalf("lost kernel error: %q", fields.VMError)
+		}
+	}
+	if !found {
+		t.Fatal("missing preexecution refusal")
+	}
 }

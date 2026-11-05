@@ -6,12 +6,24 @@ the Go SDK's sequencer, committed and portable receipt verifiers.
 | Fixture | Cases | Source |
 | --- | --- | --- |
 | [`vector-v1-receipted-positive.json`](fixtures/vector-v1-receipted-positive.json) | Four successful receipted transactions, preserving every V1 source case. | [`sequencer-receipt-v1.json`](fixtures/sequencer-receipt-v1.json), V1; daemon recording: [`daemon/committed-fixture/vectors/vector-v1-receipted-positive.json`](../../../daemon/committed-fixture/vectors/vector-v1-receipted-positive.json). |
-| [`vector-v2-receipted-revert.json`](fixtures/vector-v2-receipted-revert.json) | The receipted LayerXLedger revert and authenticated `LXP_INSUFFICIENT_BALANCE` reason. | [`sequencer-receipt-v1.json`](fixtures/sequencer-receipt-v1.json), V2; daemon export: [`daemon/committed-fixture/vectors/vector-v2-receipted-revert.json`](../../../daemon/committed-fixture/vectors/vector-v2-receipted-revert.json). |
+| [`vector-v2-receipted-revert.json`](fixtures/vector-v2-receipted-revert.json) | The receipted LayerXLedger revert with authenticated `LXP_INSUFFICIENT_BALANCE` reason, and `V2-pax-transfer-insufficient-funds`, a funded PAX sender refused before execution. | [`sequencer-receipt-v1.json`](fixtures/sequencer-receipt-v1.json), V2; daemon export: [`daemon/committed-fixture/vectors/vector-v2-receipted-revert.json`](../../../daemon/committed-fixture/vectors/vector-v2-receipted-revert.json). |
 | [`vector-v3-receipt-refusals.json`](fixtures/vector-v3-receipt-refusals.json) | All six V3 refusals: key, height range, transaction hash, sequence hash, logs and canonical encoding. | [`sequencer-receipt-v1.json`](fixtures/sequencer-receipt-v1.json), V3; daemon export: [`daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json`](../../../daemon/committed-fixture/vectors/vector-v3-receipt-refusals.json). |
 | [`vector-v4-committed.json`](fixtures/vector-v4-committed.json) | Recorded payExact receipt, execution header, transaction/result/batch inclusion proofs, execution commit, successor header and commit, validators and insufficient-power successor commit. | [`daemon/committed-fixture/vectors/vector-v4-committed.json`](../../../daemon/committed-fixture/vectors/vector-v4-committed.json), `settlement`. |
 | [`vector-v5-portable.json`](fixtures/vector-v5-portable.json) | One receipted and one committed `layerx-receipt-proof-v2` bundle, stored as compact wire documents for exact re-export comparison. | V1 `V1-pax-transfer` and V4 `settlement`; committed recording: [`daemon/committed-fixture/vectors/vector-v4-committed.json`](../../../daemon/committed-fixture/vectors/vector-v4-committed.json). |
 | [`vector-v6-sponsored-bind.json`](fixtures/vector-v6-sponsored-bind.json) | Sponsor-paid type-4 `executeSponsored` with a user-signed delegation and executed `bindLayerX`; independent type-2 transfer refusal. Includes raw transactions, signed receipts, genesis pins, measured fees and delegation code readback. | [`daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json`](../../../daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json), recorded on the private chain with EVM chain id 125. |
 | [`vector-v7-named-payee.json`](fixtures/vector-v7-named-payee.json) | Committed payExact into the named payee asset sub-account, payer/payee DIDs, main and asset account names and native identifiers, asset, amount and reference; V4 inclusion, Comet evidence and refusals. | [`daemon/committed-fixture/vectors/vector-v7-named-payee.json`](../../../daemon/committed-fixture/vectors/vector-v7-named-payee.json), recorded through the V4 production ledger path on local EVM chain id 125. |
+
+Decision 2537 adds `V2-pax-transfer-insufficient-funds` to the retained corpus.
+The transfer value exceeds its funded sender's balance. Its authenticated status
+is failed, return data and logs are empty, and `vmError` retains the kernel's
+`insufficient balance for transfer` text. It carries no ledger result code;
+the sequencer layout's result code 1 denotes failure. The receipt remains at the
+receipted rung. `TestRepair_22_31_491_PreexecutionRefusal` checks these facts.
+`TestRepair_22_31_491_Terminal0` commits the retained sequence through the keeper
+and checks the committed RPC receipt preserves the refusal, unchanged balances
+and zero gas and fees. It proves this is the corpus's only preexecution refusal
+and that removing the case leaves none. The native terminal-outcome checker
+proof belongs to task 22.33.877 (gotcha 3098).
 
 V1–V3 copy the sequencer fixture cases without changing receipt bytes, pinned
 keys, predecessor hashes or expectations. The daemon's V1 is a separate contract
