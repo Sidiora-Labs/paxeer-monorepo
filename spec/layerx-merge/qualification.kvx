@@ -31283,3 +31283,11 @@ symbol = "schema.rs"
 observed = "Attempt 1: build exit 0 at 531f68e2497476db73369cfd93489aa6d471ff68; the dependent-crate check exited 101 because the layerx-agentd test target human_approval_budget_actor does not compile on main (eight errors in the by-path included hosted authority budget-state module: unresolved crate::committed, loopback_http, Human and Policy in super, Config.human); verify did not run."
 assumption = "The break is owned by 22.31.516 (finding 22.31.516.6 and the earlier findings on the same target); the schema change of this task cannot affect that target."
 severity = "low"
+
+[finding.22.31.516.9]
+task = "22.31.516"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 9 at cfd12b83e73f22dc1110089d084fc77bcae7e8fe: build exit 0, human_approval_budget_actor passed; human_projection_facts failed at tests/human_projection_facts.rs line 1087 with the panic approval budget actor: Refused while constructing the serving owner, the daemon having logged that recovery of the human-v1 tenant failed with reason Unavailable; verify exit 101."
+assumption = "validate_replayed in src/policy/approval.rs refuses a replayed hold without time presentation as LegacyTimeUnits since 22.33.1507, so the bare LXAPHLD4 record decision 2613 asked for cannot be served; decision 2617 keeps the timed hold in the main case and moves the pre-clock record to a case that asserts the refusal."
+severity = "medium"
