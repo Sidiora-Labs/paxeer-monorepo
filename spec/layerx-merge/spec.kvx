@@ -175702,7 +175702,7 @@ do_6 = "Amendment (gotcha 3160, decision 2616): this task follows 22.31.539 and 
 
 [task.22.31.548]
 title = "Port the Human service native send journey, custody provider and KMS attestor to NativeSendPurposeV2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.545"]
@@ -179385,7 +179385,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.1499]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
@@ -193599,7 +193599,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.1]
 title = "Serve px_getReceiptKeys as the keys object in the handshake and human node fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11", "22.99.159", "22.99.158", "22.99.160", "22.31.485", "22.31.497", "22.31.550"]
