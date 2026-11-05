@@ -147616,7 +147616,7 @@ do_3 = "Attempt 2 (continue after 22.31.503): attempt 1 added the two entries, r
 
 [task.22.31.520]
 title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
