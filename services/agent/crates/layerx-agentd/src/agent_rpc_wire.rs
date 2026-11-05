@@ -848,6 +848,15 @@ pub(crate) struct NativeSendPrepareRequestV2 {
 }
 
 impl NativeSendPrepareRequestV2 {
+    pub fn prepare_digest(&self) -> Result<[u8; 32], serde_json::Error> {
+        use sha2::{Digest, Sha256};
+        Ok(Sha256::new()
+            .chain_update(b"LXP/agent/native-send-prepare/v1\0")
+            .chain_update(serde_json::to_vec(&self.canonical())?)
+            .finalize()
+            .into())
+    }
+
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.activity != NativeActivity::new(1, 5)? {
             return Err(ContractError::Mismatch("native_send_prepare.activity"));
@@ -3353,10 +3362,7 @@ mod native_send_contract_tests {
             .chain_update(&canonical)
             .finalize()
             .into();
-        assert_eq!(
-            crate::agent_rpc_dispatch::native_send_prepare_digest(&request).expect("Send digest"),
-            digest
-        );
+        assert_eq!(request.prepare_digest().expect("Send digest"), digest);
         let old: [u8; 32] = Sha256::new()
             .chain_update(b"LXP/agent/native-effect-prepare/v1\0")
             .chain_update(&canonical)
