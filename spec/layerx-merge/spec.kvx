@@ -176503,7 +176503,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.534]
 title = "Judge budget-state verification through the shared label decoder and surface a daemon refusal distinctly"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.519", "22.31.516", "22.31.550", "22.31.558"]
