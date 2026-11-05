@@ -31091,3 +31091,11 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 2: build exit 0 and the dependent-crate check passed; verify exit 101: human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings panicked at tests/human_approval_budget_actor.rs line 736 with approval budget actor: Refused because RemoteHumanAuthority::budget_state (src/human_runtime.rs line 2065) requires the committed wire rank 6 while the authority producer now compiled into the test (src/human/budget_state.rs line 289) emits the retired label 4; human_projection_facts never ran."
 assumption = "The producer label is the defect (decision 2593); the attempt changed no behaviour and its stand-in removal is what exposed the mismatch."
 severity = "low"
+
+[finding.22.35.1.1]
+task = "22.35.1"
+file = "apps/explorer/toolkit/theme/recipes/stat.recipe.ts"
+symbol = "recipe"
+observed = "Attempt 1: build exit 0; verify exit 1: 92 of 93 cases across ten spec files passed; recipesResolveToTheVisualSystem failed at repair-22-35-1.spec.ts line 214 because the scan stat valueText resolved to fontWeight 500 (fontSize 24px, lineHeight 28px and the mono family were as expected); both repair cycles had been spent on earlier failures."
+assumption = "The slot carries two text styles and the resolution keeps the weight of the wrong one; the brief wants the stat value at weight 600 and the spec is right."
+severity = "low"
