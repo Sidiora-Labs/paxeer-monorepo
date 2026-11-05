@@ -1,6 +1,10 @@
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
 
+#[allow(dead_code)]
+#[path = "../tests/proof_native_reads.rs"]
+mod node_routes;
+
 use std::error::Error;
 use std::io::Write as _;
 use std::net::{Ipv4Addr, SocketAddrV4};
@@ -64,10 +68,6 @@ fn node_integration(config: &NodeRpcConfig) -> Command {
             layerx_wire::limits::PROTOCOL_VERSION.to_string(),
         )
         .env("LAYERX_AGENT_HUMAN_NETWORK_ID", config.chain_id.to_string())
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS", "3")
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS", "100")
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS", "1000")
-        .env("LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT", "10")
         .env("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES", "16777216")
         .env("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS", "4")
         .env("LAYERX_AGENT_HUMAN_MAX_STREAMS", "16")
@@ -201,14 +201,10 @@ fn startup_reports_node_json_rpc_unavailable_for_a_closed_endpoint() -> Result<(
 
 #[test]
 fn startup_refuses_a_chain_id_mismatch() -> Result<(), Box<dyn Error>> {
-    let chain_id: u64 = std::env::var("LAYERX_TEST_PAXEER_CHAIN_ID")
-        .map_err(|_| "LAYERX_TEST_PAXEER_CHAIN_ID is required for the in-tree local node")?
-        .parse()?;
-    let port: u16 = std::env::var("LAYERX_TEST_PAXEER_RPC_PORT")
-        .map_err(|_| "LAYERX_TEST_PAXEER_RPC_PORT is required for the in-tree local node")?
-        .parse()?;
+    let (_producer, url, _key) = node_routes::disposable_node::LocalNode::start();
+    let chain_id = 125;
     let mut config = NodeRpcConfig {
-        url: format!("http://127.0.0.1:{port}"),
+        url,
         chain_id,
         deadline: Duration::from_secs(5),
     };
