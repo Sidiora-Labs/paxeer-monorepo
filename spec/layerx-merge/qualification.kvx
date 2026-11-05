@@ -31563,3 +31563,19 @@ symbol = "repair_22_33_1537.rs"
 observed = "Attempt 4 at 436d9b36f1c7d3ab0597a2d5010c9ea8e56c8009 re-ran the gates on the attempt-2 tree without an agent: build exit 101 with E0433 failed to resolve: could not find current_node in support four times in the outbox_recover target; no verify run."
 assumption = "The helper was asked for in the attempt-4 instruction but no agent ran to write it; the change set otherwise compiles."
 severity = "medium"
+
+[finding.22.31.534.2]
+task = "22.31.534"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"
+symbol = "repair_22_31_534.rs"
+observed = "Attempt 2 at 9931074b230ca55390272be4aca3e2ff77f17297: build exit 101 with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.223.6]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 7 at 84e71d3c08edcc62d86f55093ca20edde161e62b: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
