@@ -11,6 +11,7 @@ the Go SDK's sequencer, committed and portable receipt verifiers.
 | [`vector-v4-committed.json`](fixtures/vector-v4-committed.json) | Recorded payExact receipt, execution header, transaction/result/batch inclusion proofs, execution commit, successor header and commit, validators and insufficient-power successor commit. | [`daemon/committed-fixture/vectors/vector-v4-committed.json`](../../../daemon/committed-fixture/vectors/vector-v4-committed.json), `settlement`. |
 | [`vector-v5-portable.json`](fixtures/vector-v5-portable.json) | One receipted and one committed `layerx-receipt-proof-v2` bundle, stored as compact wire documents for exact re-export comparison. | V1 `V1-pax-transfer` and V4 `settlement`; committed recording: [`daemon/committed-fixture/vectors/vector-v4-committed.json`](../../../daemon/committed-fixture/vectors/vector-v4-committed.json). |
 | [`vector-v6-sponsored-bind.json`](fixtures/vector-v6-sponsored-bind.json) | Sponsor-paid type-4 `executeSponsored` with a user-signed delegation and executed `bindLayerX`; independent type-2 transfer refusal. Includes raw transactions, signed receipts, genesis pins, measured fees and delegation code readback. | [`daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json`](../../../daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json), recorded on the private chain with EVM chain id 125. |
+| [`vector-v7-named-payee.json`](fixtures/vector-v7-named-payee.json) | Committed payExact into the named payee asset sub-account, payer/payee DIDs, main and asset account names and native identifiers, asset, amount and reference; V4 inclusion, Comet evidence and refusals. | [`daemon/committed-fixture/vectors/vector-v7-named-payee.json`](../../../daemon/committed-fixture/vectors/vector-v7-named-payee.json), recorded through the V4 production ledger path on local EVM chain id 125. |
 
 V1–V3 copy the sequencer fixture cases without changing receipt bytes, pinned
 keys, predecessor hashes or expectations. The daemon's V1 is a separate contract
@@ -80,4 +81,30 @@ RPC endpoints, credentials, environment variables or a subprocess toolchain:
 
 ```bash
 go test -count=1 ./daemon/committed-fixture/ -run '^TestVectorV6SponsoredBindVerifies$' && cmp daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json
+```
+
+V7 retains the recorder's encodings byte for byte. Its `parties` object carries
+`payer_did`, `payee_did`, `payee_main_account` and `payee_asset_account` (each
+account has `name` and `identifier`), `asset`, decimal-string `amount` and
+`reference`. DIDs use `did:layerx:<hex>`; the asset account name ends with the
+64 lowercase asset hex digits without `0x`. Both account identifiers use the
+native `LX:ACCOUNT:v1` domain and four-byte big-endian name length. The payment
+settles into the asset account. The main account name identifies the payee in
+an offer's `extra.layerx.account`. Task 22.31.492 consumes these fields for the
+buyer human-evidence rung under decision 2555.
+
+Generate V7 with the declared build's local node and recorder:
+
+```bash
+./committed-fixture record --paxd /tmp/r511-paxd --out daemon/committed-fixture/vectors --vector vector-v7-named-payee
+cp daemon/committed-fixture/vectors/vector-v7-named-payee.json sdk/platform/conformance/fixtures/vector-v7-named-payee.json
+```
+
+The V7 gate verifies the committed artifacts without credentials or a live
+endpoint. It runs every V4 committed evidence and refusal check, then verifies
+that calldata and authenticated `PaymentExact` logs bind the named payee asset
+account, payer asset account, asset, amount and reference:
+
+```bash
+go test -count=1 ./daemon/committed-fixture/ -run '^TestVectorV7NamedPayeeVerifies$' && cmp daemon/committed-fixture/vectors/vector-v7-named-payee.json sdk/platform/conformance/fixtures/vector-v7-named-payee.json
 ```
