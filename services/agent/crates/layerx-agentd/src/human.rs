@@ -246,7 +246,7 @@ pub struct HumanNativeSendOwnerPreviewRequestV1 {
 pub struct HumanNativeSendOwnerPreviewV1 {
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: Vec<u8>,
-    pub purpose: layerx_agent_api::identity::NativeSendPurposeV1,
+    pub purpose: layerx_agent_api::identity::NativeSendPurposeV2,
     pub observed_head_sequence: u64,
     pub protocol_timestamp: u64,
     pub owner_public_key: [u8; 32],
