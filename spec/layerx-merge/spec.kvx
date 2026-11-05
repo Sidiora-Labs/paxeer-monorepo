@@ -8745,6 +8745,12 @@ value = "The entity tab row of the explorer (apps/explorer/ui/shared/RoutedTabs/
 basis = "Gotcha 3148: a proof compared whole tab texts with bare names and failed on a tab that carried a counter, which cost the one verify run of a complete attempt."
 affects = ["22.35.6"]
 
+[decision.2606]
+title = "The retired-callers catalogue allows the lines of an enforcement tool that name the retired symbol it refuses, by an allowed-reference entry with a citation, and a scan never forces that tool to obscure the literal"
+value = "tools/paxeer-x/retired_callers.json already allows the three lines of services/human/tools/boundary-check/src/lib.rs that test for the retired lni transport imports. The agent boundary checker services/agent/tools/boundary-check/src/main.rs is the same kind of tool: its lni_reference function and its layerx_client::lni literal exist to refuse the retired module in agent sources, so 16.90.1 adds an allowed-reference entry for those lines (the function header, the contains test and the call site) citing this task, and renames nothing in the checker. A later component retirement follows the same rule: the catalogue entry carries the enforcement lines, and the retired-name scan stays strict for every other file. Decisions 2194, 2198, 2294 and 2378 stand."
+basis = "Gotcha 3149: the scan of 16.90.1 flagged the agent boundary checker for naming the module it is built to refuse; building the literal from fragments would hide the reference from the scan without removing it."
+affects = ["16.90.1", "22.31.515", "22.31.521"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -362032,14 +362038,14 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2", "9.24.7", "22.31.515", "22.31.521"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add test_deleted_trees_absent_and_catalogue_valid to RetiredCatalogueDeletedTest in tools/paxeer-x/tests/test_retired_catalogue_deleted.py: with the catalogue listing the deleted daemon trees, the scanner run with --self-test and then with --deleted for those components exits 0 both times (acceptance 16.44.1), beside test_catalogue_valid_and_self_test_passes. Add test_bridge_credit_suites_absent to tests/ci/test_requested_suites_absent.py: the three bridge credit suite paths are absent from the tree and make -n build test exits 0 (16.966.4), in the form of test_arbiter_native_authority_absent."
 do_2 = "No production file changes; pytest refuses an unknown node id, so the verify command fails when either test is missing."
 symbols = ["test_deleted_trees_absent_and_catalogue_valid", "test_bridge_credit_suites_absent"]
-touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests", "services/agent/crates/layerx-agentd/src"]
+touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py", "services/agent/README.md", "services/agent/crates/layerx-agentd/host-tests", "services/agent/crates/layerx-agentd/src", "tools/paxeer-x/retired_callers.json", "services/agent/crates/layerx-agentd/host-tests/node_integration.rs", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"]
 tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid", "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent"]
 planned_paths = []
 build_cmd = "python3 -m py_compile tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_requested_suites_absent.py"
@@ -362063,6 +362069,7 @@ do_7 = "Attempt 5: the retired-catalogue checker subprocess was killed at the 60
 do_8 = "Attempt 6 (continue): the retired-catalogue test flags services/agent/README.md lines 9 and 25, which still describe the deleted lni tree. Rewrite those README lines to name the component that replaced it (the agent service and its network interface), do not loosen the test; the README is in scope now."
 do_9 = "Attempt 7 (continue): the two acceptance tests are in place and the retired-catalogue check fails on one remaining reference outside the task's files: the integration test function at line 178 of services/agent/crates/layerx-agentd/host-tests/node_integration.rs carries the retired LNI name in its identifier. Rename that test (and any variable or message it reads under the retired name) to the network-era wording of what it checks, the node JSON-RPC startup check against the human service variable, with the host-tests directory now in touches; do not add an allowance to the catalogue check and do not weaken it. Re-run the verify command and finish on one commit."
 do_10 = "Attempt 9 (continue): the attempt-6 ruling stands (rename the LNI identifiers); the remaining references in services/agent/crates/layerx-agentd/src (human_runtime.rs line 1535, protocol_evidence.rs and the boundary checker) are now in this task's paths for the renames only; change nothing else in that crate."
+do_11 = "Attempt 10 (continue, gotcha 3149, decision 2606): the attempt-9 tree stands (both acceptance tests, the README and host-test renames, the three doc renames in human_runtime.rs and protocol_evidence.rs). Rebase it onto the current main, which carries 22.31.515 and 22.31.521 so the MCP and Human service test targets compile again. In tools/paxeer-x/retired_callers.json add an allowed_references entry for services/agent/tools/boundary-check/src/main.rs with the three lines of the lni_reference function header, its layerx_client::lni contains test and the call site at line 166, and a one-line citation naming this task and decision 2606, in the shape of the existing entry for services/human/tools/boundary-check/src/lib.rs; rename nothing in the agent boundary checker and change nothing else in the daemon crate. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"

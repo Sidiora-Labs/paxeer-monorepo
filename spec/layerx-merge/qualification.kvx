@@ -31203,3 +31203,11 @@ symbol = "repair-22-35-6.spec.tsx"
 observed = "Attempt 1: three builds exit 0 at 7ae8e143859d; verify exit 1 with eight of nine proofs passed; addressPageRendersEntityTabSetAndOverview expected Transfers and received Transfers(10) because the tab renders its counter inside the tab; the expectation was amended in the tree but no verify run remained."
 assumption = "The product code is correct and the only defect was the proof reading the counter as part of the label; one more gate run at the final revision qualifies the attempt."
 severity = "low"
+
+[finding.16.90.1.5]
+task = "16.90.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+symbol = "test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+observed = "Attempt 9: build exit 0 at 25e688840ff6; the dependent-crate check exited 101 on layerx-mcp tests/repair_22_33_1551.rs line 668 and layerx-human-service tests/decide.rs lines 361, 387, 466, 491 and 498 (missing current_time and the fourth TimestampSeconds argument), so verify did not run; attempt 8 had failed the retired-callers scan on services/agent/tools/boundary-check/src/main.rs lines 99, 100 and 166 besides the three doc lines attempt 9 renamed."
+assumption = "22.31.515 (ba398e5457) and 22.31.521 repaired those consumers on main after the attempt; with the catalogue allowance for the agent boundary checker the retired-name scan has no remaining hit in cmd or services/agent."
+severity = "medium"
