@@ -30859,3 +30859,27 @@ symbol = "repair_22_31_527.rs"
 observed = "Attempt 1: build exit 101 twice; the second build failed on the four-argument list call at tests/support/session_transport.rs line 739, the attempt's third build on repair_22_33_1552.rs lines 530 and 607; verify did not run; the record names the daemon attach site and the dev-only layerx-client dependency as blockers."
 assumption = "A producer-to-consumer break left by 22.31.495 and a planned-path omission in the task (gotchas 3105, 3106)."
 severity = "high"
+
+[finding.22.31.521.3]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 3: build exit 0; verify exit 1 with approval_releases_a_hold_prepared_at_the_pending_nonce panicking on Agent(VerificationFailed) at decide_nonces.rs line 659 and approval_of_a_stale_nonce_hold_is_refused observing boundary.stale None at line 707; repair_22_31_159 did not run."
+assumption = "A production step added by 67f0df3c9e that the nonce test boundary never answered (gotcha 3107)."
+severity = "high"
+
+[finding.22.31.524.2]
+task = "22.31.524"
+file = "services/platform/middleware/seller/test/committed-fixture.mjs"
+symbol = "committed-fixture.mjs"
+observed = "Attempt 2: build exit 0; verify exit 1 with 17 of 25 passing; six receipt cases throw verification-failure at the seller verifier and two daemon submission cases throw invalid-argument at the AgentEnvelopeTransport constructor."
+assumption = "Fixture digests left on the retired keccak definition and a transport constructor change the agent test never followed (gotcha 3108)."
+severity = "high"
+
+[finding.22.31.503.4]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 3: build exit 1 with the Next.js type check of lib/mixpanel/getPageType.ts line 3 reporting the missing '/chains' and '/chains/[id]' keys; verify did not run."
+assumption = "A fourth route map outside the task's declared paths (gotcha 3109)."
+severity = "medium"
