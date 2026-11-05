@@ -1,19 +1,11 @@
 //! Payment operations over JSON-RPC.
 
 use crate::px::{PxAssetEntry, PxAssetTable};
-use crate::rpc::Version;
 use crate::sequencer::SequencerError;
 
 pub type CallRequest = crate::sequencer::CallRequest;
 pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
 pub type PxEndpoint = crate::px::PxEndpoint;
-
-#[derive(Clone, Copy, Debug)]
-pub struct SnapshotContext {
-    pub interface_version: Version,
-    pub correlation_id: u64,
-    pub minimum_sequence: u64,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommittedSnapshot<T> {
