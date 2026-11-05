@@ -30939,3 +30939,11 @@ symbol = "move_test.go"
 observed = "Attempt 2: build exit 0; verify exit 1 in both cycles: two rehearsal tests and three cmd/ceremony tests fail at identity generation with AttestorQuorumError participant_unavailable (the node endpoint is not ready for a key operation) from client.ts line 787 after client.health(); the earlier repair installed the agent SDK dependencies the producer imports."
 assumption = "The ceremony fixture attestors serve the same real protocol the Go client uses, so the gateway probe refusal is a contract mismatch on the probe or inventory side."
 severity = "high"
+
+[finding.22.31.521.5]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 5: build exit 0; verify exit 101: decide_nonces 2 passed; repair_22_31_159 0 passed, 3 failed, each at line 265 with assertion failed: !delivery.payload().contains(Amount:) for the bank denoms, native ids and LXP cases."
+assumption = "The Amount and Asset lines come from Content::bind_approval (src/notify/content.rs line 27) on the full-detail path the 159 fixture exercises, and no production change is needed."
+severity = "low"

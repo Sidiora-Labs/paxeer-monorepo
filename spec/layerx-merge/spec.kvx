@@ -8589,6 +8589,12 @@ value = "When a consumer test in a repair task verify can only pass once product
 basis = "A verify must be satisfiable from the task paths (gotcha 3115); 22.31.492 requires 22.31.524, so the port already follows the fixture."
 affects = ["22.31.524", "22.31.492"]
 
+[decision.2580]
+title = "Full-detail approval text payloads carry the exact amount and the asset identifier as separate lines"
+value = "A full-detail approval delivery on a text channel carries Amount: followed by the exact base-unit amount and Asset: followed by the stable asset identifier, read from the persisted approval binding (22.31.523, decision 2569); it never renders an asset identifier as display money. The 22.31.159 assertion that a text payload contains no Amount line is superseded, and the asset-domain cases assert the binding form instead."
+basis = "The 22.30.107 finding allowed either authenticated display metadata or a distinct field with the exact amount and asset binding; 22.31.523 implemented the second and its tests pin it (gotcha 3116)."
+affects = ["22.31.521", "22.31.523", "22.31.159"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -147770,7 +147776,7 @@ do_4 = "Attempt 2 (continue, decision 2556): the double now answers getParams an
 
 [task.22.31.503]
 title = "Move the explorer page repair tests out of the Next.js pages directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174743,6 +174749,7 @@ do_3 = "Attempt 2 (fresh, gotcha 3093): attempt 1 changed nothing, reading 'Chan
 do_4 = "Attempt 3 (continue): attempt 2 carried the decision time into the eight sites correctly; both decide_nonces cases fail before them because pending_nonce (line 277) prepares PrecompileCall::ledger_transfer(vec![0x33; 32]) and since 9.35.1 the preparation binds the call disclosure through the call codec, which decodes the ledger payload as an asset-send envelope (tag 0x5301, ten fields) and refuses it with Disclosure(MalformedPayload) (gotcha 3102). Build the payload as tests/journey_faults.rs does: compile a send intent and pass its envelope payload bytes to ledger_transfer; keep every assertion (nonce 7, head height 88) and the eight decision-time sites. The fixture is in the task's file. Run the declared build and verify once."
 do_5 = "Attempt 4 (continue): attempt 3's send-intent payload, the hold_at clock reading and the eight decision-time sites stand; both nonce cases now fail inside Decisions::approve before the nonce check because 67f0df3c9e made approve call the boundary's verified_budget_after (src/approvals/decide.rs line 182) and the AgentdDecisions boundary in tests/decide_nonces.rs (around line 480) answers Err(VerificationFailed) after its get (gotcha 3107). Answer it as tests/decide.rs line 413 does: read the hold through the service get with the decision time, then return VerifiedBudgetAfter with the remaining budget the fixture established, Rung::Committed, the fixture's evidence digest and observed_at_sequence equal to the at_sequence argument, so budget.verification() is Verified and observed_at_sequence never exceeds the pending nonce; apply the same to the boundary in tests/repair_22_31_159.rs if it refuses. Keep every assertion: nonce 7 releases the held preparation, nonce 8 is refused with StaleNonce expected 7 pending 8 recorded on the boundary, head height 88. Run the declared build and verify once and record the stub change beside the eight sites."
 do_6 = "Attempt 5 (continue): attempt 4 stands; both nonce cases pass and the three repair_22_31_159 cases fail only on the store root creation. Create the 159 stream root with fs::DirBuilder::new().recursive(true).mode(0o700).create(&stream_root) as gotcha 3096 prescribes: support::directory returns a path whose parent does not exist yet, so the non-recursive builder ends in NotFound and create_dir_all leaves a mode the protected store refuses. Change nothing else; run the declared build and verify once and record."
+do_7 = "Attempt 6 (continue, decision 2580): attempt 5 stands; the store root is created recursively with mode 0o700 and both nonce cases pass. The three asset-domain cases fail only at tests/repair_22_31_159.rs line 265, an assertion written before 22.31.523 added the binding lines. Replace that text-channel assertion with the binding form: when the payload carries an Amount line it is exactly Amount: followed by the base-unit amount under test and is followed by Asset: with the asset under test, as tests/repair_22_31_523.rs lines 219 and 222 assert, and the payload never contains the rendered money form (the amount, a space and the asset). Keep the JSON-channel assertion and every other assertion unchanged, note the superseding decision in tests/repair_22_31_521.kvx, run the declared build and verify once and record."
 
 [task.22.31.519]
 title = "Pass the explicit decision time in the daemon approval_semantics test so the daemon test targets build again"

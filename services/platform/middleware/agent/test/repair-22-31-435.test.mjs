@@ -3,7 +3,7 @@ import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { AgentEnvelopeTransport, AgentSessionCredential, SecretBytes, ProductionClient, JsonRpcClient, PreparedGrantDraws, decodeRawEip1559, eip1559SigningHash, keccak256, verifySequencerReceipt, PlatformSdkError } from "@sidiora/layerx-sdk";
+import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, SecretBytes, ProductionClient, JsonRpcClient, PreparedGrantDraws, decodeRawEip1559, eip1559SigningHash, keccak256, verifySequencerReceipt, PlatformSdkError } from "@sidiora/layerx-sdk";
 import { decodePaymentDrawnLog, encodeLedgerDraw, LAYERX_LEDGER_ADDRESS, ReceiptPayloadAuthority } from "@sidiora/layerx-seller-middleware";
 import { AgentGrantMiddleware, AgentMiddleware, AgentMiddlewareError, decodeDaemonSubmission, decodeDaemonSubmitResult, resolveDaemonReceipt, verifyAgentPayment } from "../dist/index.js";
 
@@ -32,7 +32,7 @@ const bytes = (value) => Buffer.from(value.slice(2), "hex");
 const sha256 = (...values) => createHash("sha256").update(Buffer.concat(values)).digest();
 const word = (value) => Buffer.alloc(32, value);
 const draw = {
-  from: word(0x66), assetId: word(0x99), amount: 40n, grantId: word(0x33), receiverSequence: 1n,
+  recipient: word(0x66), purposeHash: word(0x99), amount: 40n, grantId: word(0x33), sequence: 1n,
   idempotencyKey: word(0x44), contextHash: word(0x55),
 };
 const payee = word(0x66);
@@ -44,7 +44,7 @@ const pin = { keyId, publicKey: new Uint8Array(pair.publicKey.export({ type: "sp
   first_height: 1n, last_height: 1000n };
 const requirements = { scheme: "metered", network: "eip155:125", amount: "40", asset: hex(grantAsset),
   payTo: hex(payee), maxTimeoutSeconds: 120,
-  extra: { layerx: { commitment: "receipted", purposeHash: draw.assetId.toString("hex") } } };
+  extra: { layerx: { commitment: "receipted", purposeHash: draw.purposeHash.toString("hex") } } };
 const drawnTopic = keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"));
 
 function uint(value, width) {
@@ -87,7 +87,7 @@ function effect(ordinal, kind, body) {
   return Buffer.concat([uint(12n, 2), uint(BigInt(ordinal), 2), uint(0n, 2), Buffer.of(kind, 0), bounded(Buffer.alloc(32)), bounded(body)]);
 }
 
-function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
+async function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, address = LAYERX_LEDGER_ADDRESS,
   topic = drawnTopic, amount = draw.amount, resultCode = 0n, recipient = payee, source = payer,
   idempotencyKey = draw.idempotencyKey, contextHash = draw.contextHash, assetId = grantAsset } = {}) {
   const txHash = keccak256(bytes(rawTransaction));
@@ -109,8 +109,9 @@ function signedProof(rawTransaction, { grantId = draw.grantId, count = 1, addres
   ]);
   const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, digest, pair.privateKey))]);
+  const verified = await verifySequencerReceipt(signedReceipt, bytes(rawTransaction), [pin]);
   return { kind: "settled", format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction,
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
+    signedReceipt: hex(signedReceipt), receiptDigest: hex(verified.receiptDigest),
     receiptKey: { keyId: hex(pin.keyId), publicKey: hex(pin.publicKey),
       firstHeight: `0x${pin.first_height.toString(16)}`, lastHeight: `0x${pin.last_height.toString(16)}` } };
 }
@@ -271,7 +272,9 @@ function daemonFixture() {
 
 function envelopeClient(endpoint) {
   const session = new AgentSessionCredential("repair-agent", "11".repeat(32), new SecretBytes(new Uint8Array(32).fill(1)), "0");
-  const transport = new AgentEnvelopeTransport({ endpoint, session });
+  const gatewayCredential = new LayerXKeyCredential("repair-proof",
+    new SecretBytes(new TextEncoder().encode(`lxp_live_${"33".repeat(32)}`)));
+  const transport = new AgentEnvelopeTransport({ endpoint, session, surface: "gateway", gatewayCredential });
   // ProductionClient consumes values; AgentEnvelopeTransport authenticates and decodes the envelope.
   return new ProductionClient({ async call(request) { return (await transport.call(request)).value; } });
 }
@@ -527,8 +530,8 @@ class RegisteredDrawExecution {
     }, [pin]);
     try { this.prepared.register(input.principal, input.requestDigest, bytes(input.rawTransaction), {
       grantId: draw.grantId.toString("hex"), recipient: payee.toString("hex"), amount: draw.amount,
-      idempotencyKey: input.idempotencyKey, sequence: draw.receiverSequence,
-      purposeHash: draw.assetId.toString("hex"), contextHash: draw.contextHash.toString("hex"), chainId: 125n,
+      idempotencyKey: input.idempotencyKey, sequence: draw.sequence,
+      purposeHash: draw.purposeHash.toString("hex"), contextHash: draw.contextHash.toString("hex"), chainId: 125n,
     }); } catch (error) { this.prepared.close(); throw error; }
   }
   async execute(input) {
@@ -538,19 +541,21 @@ class RegisteredDrawExecution {
       requirements: { scheme: input.requirements.scheme, amount: input.requirements.amount,
         asset: input.requirements.asset.slice(2), payTo: input.requirements.payTo.slice(2),
         extra: { layerx: { payer: payer.toString("hex"), grantId: draw.grantId.toString("hex"),
-          receiverSequence: "1", purposeHash: draw.assetId.toString("hex"), contextHash: draw.contextHash.toString("hex"),
+          receiverSequence: "1", purposeHash: draw.purposeHash.toString("hex"), contextHash: draw.contextHash.toString("hex"),
           ...(input.requirements.scheme === "subscription" ? { windowSeconds: "60" } : {}) } } } });
     if (result.kind === "pending") return result;
     const { kind, ...proof } = this.proof;
+    const verified = await verifySequencerReceipt(result.canonicalReceipt, bytes(input.rawTransaction), [pin]);
     const evidence = { ...proof, signedReceipt: hex(result.canonicalReceipt),
-      receiptDigest: hex(keccak256(result.canonicalReceipt)) };
+      receiptDigest: hex(verified.receiptDigest) };
     return this.authority.settle({ ...input,
       payload: { x402Version: 2, accepted: input.requirements, payload: evidence } });
   }
   close() { this.prepared.close(); }
 }
 
-async function drawFixture(t, { proof = signedProof(transaction()), state = {}, loseAdmission = false } = {}) {
+async function drawFixture(t, { proof, state = {}, loseAdmission = false } = {}) {
+  if (proof === undefined) proof = await signedProof(transaction());
   const input = drawRequest(proof.rawTransaction);
   const hash = hex(keccak256(bytes(input.rawTransaction)));
   const calls = [];
@@ -607,11 +612,11 @@ async function agentDrawRecipientBindsAuthenticatedGrant(t) {
   // The old check rejected this valid draw and accepted the reversed fixture below.
   for (const changes of [
     { source: payee }, { source: word(0xaa) }, { recipient: payer },
-    { assetId: word(0xaa) }, { assetId: draw.assetId }, { amount: 41n },
+    { assetId: word(0xaa) }, { assetId: draw.purposeHash }, { amount: 41n },
     { grantId: word(0xaa) }, { idempotencyKey: word(0xaa) }, { contextHash: word(0xaa) },
     { count: 0 }, { count: 2 },
   ]) {
-    const invalid = await drawFixture(t, { proof: signedProof(transaction(), changes) });
+    const invalid = await drawFixture(t, { proof: await signedProof(transaction(), changes) });
     const candidate = invalid.open();
     await assert.rejects(candidate.middleware.execute(invalid.input),
       (error) => error instanceof AgentMiddlewareError && error.code === "verification-failure");
@@ -621,7 +626,7 @@ async function agentDrawRecipientBindsAuthenticatedGrant(t) {
     candidate.close();
   }
 
-  const failedReceipt = await drawFixture(t, { proof: signedProof(transaction(), { resultCode: 1n }) });
+  const failedReceipt = await drawFixture(t, { proof: await signedProof(transaction(), { resultCode: 1n }) });
   const failed = failedReceipt.open();
   await assert.rejects(failed.middleware.execute(failedReceipt.input), /draw-transaction-failed/u);
   assert.equal(failed.budgets.transitions.length, 0);
@@ -635,8 +640,8 @@ async function agentDrawRecipientBindsAuthenticatedGrant(t) {
   assert.equal(payerMismatch.budgets.transitions.length, 0);
   payerMismatch.close();
 
-  const reversed = transaction({ data: encodeLedgerDraw({ ...draw, from: payer }) });
-  const reversedProof = signedProof(reversed, { source: payer, recipient: payee });
+  const reversed = transaction({ data: encodeLedgerDraw({ ...draw, recipient: payer }) });
+  const reversedProof = await signedProof(reversed, { source: payer, recipient: payee });
   const refused = await drawFixture(t, { proof: reversedProof });
   // The real registration binder refuses this reversed recipient before it reaches execution.
   assert.throws(() => refused.open(), /draw-transaction-mismatch/u);

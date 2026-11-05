@@ -1,0 +1,94 @@
+[task.22.33.208]
+mode = "BUILD"
+status = "in_progress"
+base_revision = "124f642568ebfdb55ed2a6180eea61c06c4516b5"
+prerequisite_revision = "8270ce4fa7074f075328b080cc3f33217ade6052"
+continued_attempt = "5d6fd88c6134159f11ae2bf85dbefc5c38d24f79"
+scope = "services/wallet/gateway/test"
+acceptance = "22998.1"
+evidence = "The runner's hf-build/hf-done ledger identifies the exact candidate, command, exit and private log; no gate pass is claimed by this record."
+baseline = "Not run: the explicit order forbids any build or test before implementation and forbids running verify_cmd by hand; consequently no pre-change failure is claimed."
+
+[finding.station-port-reservation]
+implementation = "Both provisioning harnesses reserve all ten listeners together and release each distinct API/peer pair immediately before spawning its daemon."
+test = "stationPortReservationRetainsAllTenListeners"
+qualification = "Pending the declared gates."
+
+[finding.provisioning-empty-receipt]
+implementation = "Empty receipt construction and the station handler's direct applyBind call are removed; receipt evidence must match the complete submitted transaction and authenticate with the production codecs. Existing recovery and two-authorization-challenge scenarios remain registered."
+test = "provisioningRequiresNodeExecutedSponsoredBind"
+recovery_test = "provisioningReceiptTransportRecoversWithoutResubmission"
+qualification = "Pending the declared gates. V6 positive execution is authenticated, including the bind signature, LayerXBound and Sponsored events, delegation designator and measured balances; the transport recovery case now reopens RpcPool and its loopback node with that same sponsored envelope and proves no second broadcast. V6 refusal authenticates as a plain transfer but is rejected as sponsored binding evidence."
+
+[finding.sponsor-json-receipt-assertion]
+implementation = "The station retains the signed EIP-7702 envelope, forwards only its matching recorded node receipt, and uses production canonical verification. Exact response, fee, status and nonce assertions remain; duplicate submission must retain the hash and consume no additional sponsor nonce."
+test = "sponsoredSubmitReceiptRequiresCanonicalSponsoredExecution"
+qualification = "Pending the declared gates. The real walletSponsorRoutes and GasStationClient replay the recorded V6 calldata and authorization through loopback station and RpcPool transports; successful, disconnected-status, disconnected-submit and unavailable-sequencer cases retain their status, fee, nonce and duplicate-submit assertions. The authenticated plain-transfer recording cannot satisfy sponsorship."
+
+[finding.hash-only-wallet-receipt]
+implementation = "The node vector's public conformance key is encrypted with the production wallet codec and loaded by the real wallet/send route; JWT verification, SQL nonce allocation and production signing reproduce the recorded raw transaction exactly. The unchanged canonical node receipt is authenticated after passing through RpcPool and the gateway response, and signed-field and pinned-key mutations are rejected. All four receipt-rung scenarios and both server-assigned and caller-supplied nonces remain covered using an in-process PostgreSQL engine."
+test = "walletSendReceiptAuthenticatesCanonicalNodeEvidence"
+qualification = "Pending the declared gates. The production pool is closed before selecting the in-process engine, DATABASE_POOL_MAX is set to 1 before migrations open it, and prerequisite 22.31.517 supplies the production signing-session fix. All four rungs and both nonce choices still run the real wallet/send route."
+
+[wiring.node-execution-evidence]
+request = "daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json — node/runtime owning domain 5: supply canonical sponsored bind and plain-transfer refusal recordings, measured fee-payer balances and governed receipt pins."
+resolution = "Answered by 22.31.509: the mirrored sdk/platform/conformance/fixtures/vector-v6-sponsored-bind.json is loaded beside V1 and indexed by the entire raw transaction; no producer files are modified."
+
+[wiring.wallet-transcript-inputs]
+request = "services/wallet/attestor — wallet owning domain 12: supply deterministic inventory-authorized attestor inputs for the full external-daemon provisioning scenarios; retain their recovery and two-challenge assertions."
+resolution = "The declared portable gate uses the committed V6 sponsored envelope directly, including its original account, relayer and delegation signatures; the sponsored-submit test shares that real gateway-route proof. External-daemon scenarios are retained and are outside the declared gate."
+
+[note.database-install]
+observed = "Attempt 1 failed typecheck because the existing services/wallet/gateway/src/db/package.json dependencies had not been installed."
+resolution = "Superseded by prerequisite 22.31.447: the gateway manifest and wallet lockfile now declare the in-process database packages. No nested manifest or test-time installation is added here."
+
+[wiring.portable-wallet-route-store]
+request = "services/wallet/gateway/src/routes/sign.ts, src/db/pool.ts and src/db/signatureAccounting.ts — wallet owning domain 12: remove pool acquisition while the send route already owns its transaction client."
+resolution = "Answered by 22.31.517, merged in prerequisite revision 8270ce4fa7074f075328b080cc3f33217ade6052: production signing sessions reuse the checked-out client across short transactions; this task sets DATABASE_POOL_MAX to 1 before opening the pool."
+
+[qualification.first-pass]
+revision = "a3a748e7de07870df3254acccf07cff744ff07b5"
+command = "cg spec done 22.33.208 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed; all five declared tests executed, two passed and three failed: wallet/send SQL connection timeout and two absent sponsored EIP-7702 node execution vectors."
+assumption = "Production transaction semantics and positive sponsored-execution assertions remain intact; missing out-of-scope interfaces are wiring requests, not substitutes for qualification."
+
+[note.test-registration]
+observed = "Vitest 4 interprets test(functionName) without a second handler argument as a todo, so attempt 1's named proofs did not execute assertions."
+resolution = "Register each declared proof function as both its test title and handler, retaining every assertion and making every declared repair test executable."
+
+[note.receipt-runtime]
+observed = "The production SDK package exports build artifacts that are not present in the task environment."
+resolution = "The test helper loads the committed production verifier and wallet codec sources through the Node LTS in-process TypeScript loader and source aliases, with no SDK build, subprocess or substituted implementation."
+
+[note.scope]
+observed = "The repository workflow asks for GOTCHA/spec updates and publication outside this task's authorized paths."
+resolution = "This task-local record retains the findings and wiring requests; spec files and GOTCHA are not edited, and the runner owns publication."
+
+[note.database-interface]
+observed = "The installed PGlite socket QueryQueueManager.processQueue services only lastHandlerId while db.isInTransaction(). signRoutes.runWalletOperation holds a transaction while awaiting limiter.consume, then holds another while awaiting NonceStore.withLock and signature accounting on other clients. Their independent commits cannot be represented by nested savepoints or copied tables without changing the real route semantics."
+resolution = "Historical finding answered by prerequisite 22.31.517; the task consumes the repaired production signing-session path and retains every route and receipt assertion."
+
+[note.daemon-corpus]
+observed = "The committed vector-v1 collection contains the same five ordinary EIP-1559 cases plus one ordinary node recording; the V2, V3, V4 and tests/daemon/fixtures/programs-commit-reopen.json recordings also have zero sponsor."
+resolution = "Historical corpus assessment was incomplete: 22.31.509 already supplied V6. The lookup now loads V1 and the V6 deployment, sponsored positive and ordinary-transfer refusal cases by complete raw transaction, preserving the int64 key-height bound without JSON rounding and checking the producer receipt digest."
+
+[note.continued-baseline]
+revision = "290aa0bbbabb81db19323631892626e345671f8e"
+command = "cg spec done 22.33.208 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "Previous attempt 4 private gate ledger supplied by the runner; no new baseline command was run."
+observed = "The supplied attempt-4 evidence records walletSendReceiptAuthenticatesCanonicalNodeEvidence, sponsoredSubmitReceiptRequiresCanonicalSponsoredExecution and provisioningRequiresNodeExecutedSponsoredBind failing; the two transport and reservation cases passed."
+
+[note.v6-key-height]
+observed = "V6 pins encode last_height as the int64 maximum, which ordinary JSON number parsing rounds."
+resolution = "Preserve the numeric token as a decimal string before parsing and convert it to bigint for the production codec and verifier; never enlarge the governed height range."
+
+[qualification.continued-first-pass]
+revision = "f70fa63235f74c551c3400891c286e5fa0cd560f"
+command = "cg spec done 22.33.208 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed and all five tests executed; the real wallet/send path and port reservations passed, while three sponsored proofs stopped on a new assertion treating viem's omitted zero value as explicit 0n."
+repair = "Read the canonical RLP value field and require the exact empty byte string encoding of zero; retain the zero-native-value criterion and every signed receipt, fee, binding, nonce and refusal check."
