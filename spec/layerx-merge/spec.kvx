@@ -187139,7 +187139,7 @@ do_17 = "Attempt 6 (continue): fragmented_handshake_and_frame_release_all_permit
 
 [task.22.33.14]
 title = "Repair audit record 22.30.100 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147", "22.31.443", "22.31.483", "22.31.497", "22.31.550", "22.31.556", "22.31.558"]
