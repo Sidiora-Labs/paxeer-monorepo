@@ -1,4 +1,4 @@
-import { chakra, Flex } from '@chakra-ui/react';
+import { Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TokenInfo, TokenInstance } from 'types/api/token';
@@ -6,9 +6,7 @@ import type { TokenInfo, TokenInstance } from 'types/api/token';
 import { useMultichainContext } from 'lib/contexts/multichain';
 import { getTokenTypeName } from 'lib/token/tokenTypes';
 import { Link } from 'toolkit/chakra/link';
-import { Skeleton } from 'toolkit/chakra/skeleton';
 import * as regexp from 'toolkit/utils/regexp';
-import AddressQrCode from 'ui/address/details/AddressQrCode';
 import AccountActionsMenu from 'ui/shared/AccountActionsMenu/AccountActionsMenu';
 import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
 import TokenEntityDefault, * as TokenEntity from 'ui/shared/entities/token/TokenEntity';
@@ -67,14 +65,6 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
     }
   })();
 
-  const contentAfter = (
-    <Skeleton loading={ isLoading }>
-      <chakra.span textStyle="lg" color="text.secondary" data-token-instance-name>
-        { title }
-      </chakra.span>
-    </Skeleton>
-  );
-
   const chipRow = (
     <Flex
       data-token-chip-row
@@ -105,7 +95,6 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
       <Flex alignItems="center" columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" data-token-actions>
         { appLink }
         { !isLoading && token && <AddressAddToWallet token={ token } tokenId={ instance?.id } variant="button"/> }
-        <AddressQrCode hash={ hash || '' } isLoading={ isLoading }/>
         <AccountActionsMenu isLoading={ isLoading } showUpdateMetadataItem/>
       </Flex>
     </Flex>
@@ -113,7 +102,9 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
 
   return (
     <PageTitle
-      title="Token instance"
+      kind="TOKEN"
+      title={ title }
+      identifier={ hash }
       beforeTitle={ token ? (
         <TokenEntity.Icon
           token={ token }
@@ -122,8 +113,7 @@ const TokenInstancePageTitle = ({ isLoading, token, instance, hash }: Props) => 
           chain={ multichainContext?.chain }
         />
       ) : null }
-      contentAfter={ contentAfter }
-      secondRow={ chipRow }
+      tags={ chipRow }
       isLoading={ isLoading }
     />
   );
