@@ -1,4 +1,4 @@
-import { Box, Flex } from '@chakra-ui/react';
+import { Box } from '@chakra-ui/react';
 import { clamp } from 'es-toolkit';
 import React from 'react';
 
@@ -8,8 +8,9 @@ import config from 'configs/app';
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
 import { publicClient } from 'lib/web3/client';
 import { TX } from 'stubs/tx';
-import { Link } from 'toolkit/chakra/link';
+import { TableBody } from 'toolkit/chakra/table';
 
+import HomeTable from '../HomeTable';
 import LatestTxsItem from '../LatestTxsItem';
 import LatestTxsItemMobile from '../LatestTxsItemMobile';
 import LatestTxsDegradedNewItems from './LatestTxsDegradedNewItems';
@@ -59,18 +60,23 @@ const LatestTxsDegraded = ({ maxNum }: Props) => {
       </Box>
       <AddressHighlightProvider>
         <Box mb={ 3 } display={{ base: 'none', lg: 'block' }} textStyle="sm">
-          { items.map(((tx, index) => (
-            <LatestTxsItem
-              key={ tx.hash + (isLoading ? index : '') }
-              tx={ tx }
-              isLoading={ isLoading }
-            />
-          ))) }
+          <HomeTable
+            label="Latest transactions"
+            columns={ [ { label: 'Transaction', width: '36%' }, { label: 'From / To' }, { label: 'Value / Fee', numeric: true, width: '28%' } ] }
+          >
+            <TableBody>
+              { items.map(((tx, index) => (
+                <LatestTxsItem
+                  key={ tx.hash + (isLoading ? index : '') }
+                  tx={ tx }
+                  isLoading={ isLoading }
+                />
+              ))) }
+            </TableBody>
+          </HomeTable>
         </Box>
       </AddressHighlightProvider>
-      <Flex justifyContent="center">
-        <Link textStyle="sm" loading={ isLoading } href={ txsUrl }>View all transactions</Link>
-      </Flex>
+
     </>
   );
 };
