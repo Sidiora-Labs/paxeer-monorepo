@@ -1,0 +1,35 @@
+[repair.22.31.544]
+acceptance = "22998.1"
+gotchas = [3154, 3142, 3156]
+decision = 2610
+continuation_decision = 2612
+target = "services/agent/crates/layerx-agentd/tests/repair_22_31_216.rs"
+decision_time = "DECISION_TIME = TimestampSeconds(100), shared by all six timed call sites; prepared and disclosure expiry remain TimestampSeconds(500)."
+sequence_window = "Current sequence remains 10 and expiry sequence remains 100, wrapped in ApprovalSequence where required."
+store_root = "Root::new sets std::fs::Permissions::from_mode(0o700) immediately after std::fs::create_dir, using std::os::unix::fs::PermissionsExt, as tests/bootstrap_bind_layerx.rs does; no other fixture behavior changes (gotcha 3156, decision 2612)."
+
+[sites]
+survive_reopen = "approval_replay_bounds_64_items_survive_reopen: reserve_and_hold becomes reserve_and_hold_at."
+retained_hold = "approval_replay_bounds_65_items_refuse_without_reservation_leaks: retained reserve_and_hold becomes reserve_and_hold_at."
+oversized_hold = "approval_replay_bounds_65_items_refuse_without_reservation_leaks: refused reserve_and_hold becomes reserve_and_hold_at."
+borrowed_hold = "approval_replay_bounds_borrowed_admission_rejects_65_items: hold_reserved becomes hold_reserved_timed."
+oversized_disclosure = "approval_replay_bounds_borrowed_admission_rejects_65_items: hold becomes hold_at."
+decoder_record = "approval_replay_bounds_decoder_still_refuses_oversized_records: reserve_and_hold becomes reserve_and_hold_at."
+
+[expectations]
+reopen = "All 64 counterparties, amounts and reservations survive durable reopen and registry validation; held exposure and consumed amounts retain their existing assertions."
+refusal = "All 65-item cases retain ApprovalError::TooManyItems, including ApprovalReservationError::Approval wrapping for reserve_and_hold_at; the retained hold, no-leak and empty-registry assertions are unchanged."
+decoder = "count_offsets asserts the live LXAPHLD5 envelope, its length and both timestamps, then locates the same three counts in the embedded LXAPHLD4 record. Each count still asserts 64 before corruption to 65; replay still must return CorruptRecord with no holds or reservations."
+production = "No source under src changes; no test is removed, skipped, ignored or weakened."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The final successful verify row names the exact verified revision; it must match the successful build row and the unchanged candidate."
+build_gate = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+verify_gate = "hf-done"
+verify_command = "cg spec done 22.31.544 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_216"
+evidence = "Read revision, command, exit and private log path from the build and verify ledger rows; this record makes no claim of a gate passing before execution."
+changes_after_gates = "No source or record edits after the final build and verify; gate evidence is recorded by reference to the ledger (gotcha 3142)."
+publication = "The runner owns commits and publication."

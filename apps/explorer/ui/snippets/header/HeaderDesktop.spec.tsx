@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
+import { RouterContext } from 'next/dist/shared/lib/router-context.shared-runtime';
 import React from 'react';
 
-import { render } from 'ui/shared/layout/testWrapper';
+import { nextRouterModule, render as renderWithProviders } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from 'vitest/lib';
 
@@ -16,20 +17,25 @@ vi.hoisted(() => {
 
 import HeaderDesktop from './HeaderDesktop';
 
+const render = (element: React.ReactElement) => renderWithProviders(
+  <RouterContext.Provider value={ nextRouterModule().useRouter() }>{ element }</RouterContext.Provider>,
+);
+
 const renderPageSearchBar = () => <div>page search</div>;
 
 describe('HeaderDesktop', () => {
-  it('leaves the content column without a search row when the utility bar carries the search box', () => {
+  it('renders the single shell header with a compact search field', () => {
     const { container } = render(<HeaderDesktop/>);
 
     expect(container.querySelector('[data-label="content-search"]')).toBeNull();
-    expect(container.querySelector('header')).toBeNull();
+    expect(container.querySelector('header')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search or ask…')).toBeTruthy();
   });
 
-  it('keeps the search row when the page brings its own search box', () => {
+  it('keeps a page supplied search box inside the shell header', () => {
     const { container } = render(<HeaderDesktop renderSearchBar={ renderPageSearchBar }/>);
 
-    const row = container.querySelector('[data-label="content-search"]');
+    const row = container.querySelector('[data-label="desktop-header"]');
 
     expect(row).toBeTruthy();
     expect(row?.tagName).toBe('HEADER');

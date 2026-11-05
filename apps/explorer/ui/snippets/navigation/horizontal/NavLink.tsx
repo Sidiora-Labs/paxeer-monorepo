@@ -5,7 +5,7 @@ import type { NavItem } from 'types/client/navigation';
 
 import { route } from 'nextjs-routes';
 
-import { isInternalItem } from 'lib/hooks/useNavItems';
+import { getNavItemDescription, isInternalItem } from 'lib/hooks/useNavItems';
 import { Link } from 'toolkit/chakra/link';
 
 import LightningLabel from '../LightningLabel';
@@ -16,9 +16,10 @@ interface Props {
   className?: string;
   item: NavItem;
   noIcon?: boolean;
+  onClick?: () => void;
 }
 
-const NavLink = ({ className, item, noIcon }: Props) => {
+const NavLink = ({ className, item, noIcon, onClick }: Props) => {
   const isInternalLink = isInternalItem(item);
 
   const isActive = 'isActive' in item && item.isActive;
@@ -37,7 +38,10 @@ const NavLink = ({ className, item, noIcon }: Props) => {
         alignItems="center"
         variant="navigation"
         { ...(isActive ? { 'data-selected': true } : {}) }
-        w="224px"
+        onClick={ onClick }
+        w="100%"
+        minW={ 0 }
+        _hover={{ bg: 'accent.soft' }}
         px={ 2 }
         py="9px"
         textStyle="sm"
@@ -45,7 +49,10 @@ const NavLink = ({ className, item, noIcon }: Props) => {
         borderRadius="base"
       >
         { !noIcon && <NavLinkIcon item={ item } mr={ 3 }/> }
-        <chakra.span>{ item.text }</chakra.span>
+        <chakra.span>
+          <chakra.span display="block" fontSize="14px">{ item.text }</chakra.span>
+          { !noIcon && <chakra.span display="block" fontSize="12px" color="text.muted">{ getNavItemDescription(item) }</chakra.span> }
+        </chakra.span>
         { isHighlighted && (
           <LightningLabel
             iconColor={ isActive ? 'link.navigation.bg.selected' : 'link.navigation.bg.group' }

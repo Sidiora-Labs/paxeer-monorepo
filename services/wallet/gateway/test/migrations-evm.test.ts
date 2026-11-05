@@ -1,33 +1,39 @@
 import { randomUUID } from 'node:crypto';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { Pool } from 'pg';
+import { PGlite, pgcrypto, PGLiteSocketServer } from '../src/db/testDatabase.js';
 import { expect, test } from 'vitest';
-import { startPostgres } from './support/postgres.js';
 
 const wallet_evm_approvals = 'wallet_evm_approvals';
 
-async function evmApprovalsTableAppliesAfter016(): Promise<void> {
-  const postgres = await startPostgres();
-  const { getPool, closePool } = await import('../src/db/pool.js');
-  const pool = getPool();
-  try {
-    const migrations = readdirSync(new URL('../migrations/', import.meta.url))
-      .filter((filename) => filename.endsWith('.sql'))
-      .sort();
-    const applied = await pool.query<{ filename: string }>(
-      'select filename from _migrations order by filename',
-    );
-    expect(applied.rows.map((row) => row.filename)).toEqual(migrations);
-    expect(migrations.slice(-2)).toEqual([
-      '016_nonce_outstanding_hash.sql',
-      '017_wallet_evm_approvals.sql',
-    ]);
+const migrationsDirectory = new URL('../migrations/', import.meta.url);
+const migrationFiles = readdirSync(migrationsDirectory)
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
 
+async function qualifyEvmMigrations(files: string[]): Promise<void> {
+  const db = await PGlite.create({ extensions: { pgcrypto } });
+  const socket = new PGLiteSocketServer({ db, host: '127.0.0.1', port: 0 });
+  await socket.start();
+  const pool = new Pool({
+    connectionString: `postgres://postgres:postgres@${socket.getServerConn()}/postgres`,
+  });
+  try {
+    await pool.query('create table _migrations (filename text primary key)');
+    for (const filename of files) {
+      await pool.query(readFileSync(new URL(filename, migrationsDirectory), 'utf8'));
+      await pool.query('insert into _migrations values ($1)', [filename]);
+    }
+    const applied = await pool.query<{ filename: string }>(
+      'select filename from _migrations order by filename'
+    );
+    expect(applied.rows.map((row) => row.filename)).toEqual(files);
     const columns = async (table: string) =>
       pool.query(
         `select column_name, data_type, is_nullable, column_default
        from information_schema.columns
        where table_schema = 'public' and table_name = $1 order by ordinal_position`,
-        [table],
+        [table]
       );
     const evmColumns = await columns(wallet_evm_approvals);
     const lxColumns = await columns('wallet_lx_approvals');
@@ -50,23 +56,16 @@ async function evmApprovalsTableAppliesAfter016(): Promise<void> {
     expect(evmColumns.rows).toEqual(lxColumns.rows);
     const indexes = await pool.query<{ indexdef: string }>(
       'select indexdef from pg_indexes where schemaname = $1 and tablename = $2',
-      ['public', wallet_evm_approvals],
+      ['public', wallet_evm_approvals]
     );
-    expect(
-      indexes.rows.some((row) => /\(principal, state\)/.test(row.indexdef)),
-    ).toBe(true);
+    expect(indexes.rows.some((row) => /\(principal, state\)/.test(row.indexdef))).toBe(true);
 
     const principal = randomUUID();
     const walletId = randomUUID();
     await pool.query(
       `insert into wallets (id, user_id, address, attestor_key_id)
        values ($1, $2, $3, $4)`,
-      [
-        walletId,
-        principal,
-        '0x0000000000000000000000000000000000000001',
-        randomUUID(),
-      ],
+      [walletId, principal, '0x0000000000000000000000000000000000000001', randomUUID()]
     );
     const insert = `insert into wallet_evm_approvals
       (id, wallet_id, principal, session_id, state, artifact, review_evidence,
@@ -78,63 +77,75 @@ async function evmApprovalsTableAppliesAfter016(): Promise<void> {
        case when $5 in ('signing_unknown', 'signed') then now() else null end,
        case when $5 = 'signed' then now() else null end)`;
     const rejectedId = randomUUID();
+    // Exercise rejection on the same PostgreSQL engine without retiring the
+    // socket bridge's only connection after an expected query error.
     await expect(
-      pool.query(insert, [
-        rejectedId,
-        walletId,
-        principal,
-        randomUUID(),
-        'signed',
-        null,
-      ]),
+      db.query(insert, [rejectedId, walletId, principal, randomUUID(), 'signed', null])
     ).rejects.toMatchObject({
       code: '23514',
       constraint: 'wallet_evm_approvals_signed_evidence',
     });
-    const rejected = await pool.query(
-      'select id from wallet_evm_approvals where id = $1',
-      [rejectedId],
-    );
+    const rejected = await pool.query('select id from wallet_evm_approvals where id = $1', [
+      rejectedId,
+    ]);
     expect(rejected.rowCount).toBe(0);
 
     for (const state of ['reviewed', 'approved', 'signing_unknown', 'signed']) {
       const id = randomUUID();
       const evidence = state === 'signed' ? { sessionId: randomUUID() } : null;
-      await pool.query(insert, [
-        id,
-        walletId,
-        principal,
-        randomUUID(),
-        state,
-        evidence,
-      ]);
+      await pool.query(insert, [id, walletId, principal, randomUUID(), state, evidence]);
       const saved = await pool.query(
         'select state, evidence from wallet_evm_approvals where id = $1',
-        [id],
+        [id]
       );
       expect(saved.rows).toEqual([{ state, evidence }]);
     }
     await expect(
-      pool.query(insert, [
-        randomUUID(),
-        walletId,
-        principal,
-        randomUUID(),
-        'invalid',
-        null,
-      ]),
+      db.query(insert, [randomUUID(), walletId, principal, randomUUID(), 'invalid', null])
     ).rejects.toMatchObject({ code: '23514' });
   } finally {
-    try {
-      await closePool();
-    } finally {
-      await postgres.stop();
-    }
+    await pool.end();
+    await socket.stop();
+    await db.close();
   }
 }
 
-test(
-  evmApprovalsTableAppliesAfter016,
-  evmApprovalsTableAppliesAfter016,
-  120_000,
-);
+export async function evmApprovalsTableAppliesAfter016(): Promise<void> {
+  const prefix = migrationFiles.filter((name) => name <= '017_wallet_evm_approvals.sql');
+  expect(prefix.slice(-2)).toEqual([
+    '016_nonce_outstanding_hash.sql',
+    '017_wallet_evm_approvals.sql',
+  ]);
+  expect(prefix).toEqual([
+    '001_init.sql',
+    '002_funded_accounts.sql',
+    '003_dedupe_whitelist.sql',
+    '004_agent_native.sql',
+    '005_agent_actions.sql',
+    '006_agent_request_nonces.sql',
+    '006_archive_funded.sql',
+    '006_attestor_signing.sql',
+    '007_unified_account.sql',
+    '008_custody_authority.sql',
+    '009_custody_signing_reservations.sql',
+    '010_custody_authorizations.sql',
+    '011_wallet_custody_submissions.sql',
+    '012_wallet_lx_approvals.sql',
+    '013_wallet_custody_authorizations.sql',
+    '014_nonce_outstanding.sql',
+    '015_nonce_outstanding_seed.sql',
+    '016_nonce_outstanding_hash.sql',
+    '017_wallet_evm_approvals.sql',
+  ]);
+  await qualifyEvmMigrations(prefix);
+}
+
+export async function currentEvmApprovalsMigrationChain(): Promise<void> {
+  expect(
+    migrationFiles.filter((name) => name > '017_wallet_evm_approvals.sql').length
+  ).toBeGreaterThan(0);
+  await qualifyEvmMigrations(migrationFiles);
+}
+
+test(evmApprovalsTableAppliesAfter016.name, evmApprovalsTableAppliesAfter016, 30_000);
+test(currentEvmApprovalsMigrationChain.name, currentEvmApprovalsMigrationChain, 30_000);

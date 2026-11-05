@@ -12,7 +12,7 @@ const SearchBarSuggestUserOp = ({ data, isMobile }: ItemsProps<SearchResultUserO
   const icon = <UserOpEntity.Icon/>;
   const hash = (
     <chakra.mark overflow="hidden" whiteSpace="nowrap" fontWeight={ 700 }>
-      <HashStringShortenDynamic hash={ data.user_operation_hash } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.user_operation_hash } noTooltip/>
     </chakra.mark>
   );
 

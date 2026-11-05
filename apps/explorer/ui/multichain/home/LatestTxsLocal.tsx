@@ -12,6 +12,8 @@ import { useMultichainContext } from 'lib/contexts/multichain';
 import { SocketProvider } from 'lib/socket/context';
 import { TX } from 'stubs/tx';
 import { Link } from 'toolkit/chakra/link';
+import { TableBody } from 'toolkit/chakra/table';
+import HomeTable from 'ui/home/HomeTable';
 import LatestTxsItem from 'ui/home/LatestTxsItem';
 import LatestTxsItemMobile from 'ui/home/LatestTxsItemMobile';
 import DataListDisplay from 'ui/shared/DataListDisplay';
@@ -40,13 +42,20 @@ const LatestTxsLocal = () => {
           )) }
         </Box>
         <Box display={{ base: 'none', lg: 'block' }}>
-          { query.data?.map((tx, index) => (
-            <LatestTxsItem
-              key={ tx.hash + (query.isPlaceholderData ? index : '') }
-              tx={ tx }
-              isLoading={ query.isPlaceholderData }
-            />
-          )) }
+          <HomeTable
+            label="Latest transactions"
+            columns={ [ { label: 'Transaction', width: '36%' }, { label: 'From / To' }, { label: 'Value / Fee', numeric: true, width: '28%' } ] }
+          >
+            <TableBody>
+              { query.data?.map((tx, index) => (
+                <LatestTxsItem
+                  key={ tx.hash + (query.isPlaceholderData ? index : '') }
+                  tx={ tx }
+                  isLoading={ query.isPlaceholderData }
+                />
+              )) }
+            </TableBody>
+          </HomeTable>
         </Box>
       </DataListDisplay>
       <Separator orientation="horizontal" hideFrom="lg"/>

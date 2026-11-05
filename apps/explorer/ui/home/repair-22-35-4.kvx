@@ -1,0 +1,45 @@
+[repair]
+task = "22.35.4"
+decision = "2587"
+acceptance = "22998.1"
+implementation = "API-backed token ticker, display hero and prompt search, five stat tiles, honest network chart, and dense latest tables with mobile and RPC fallbacks in both colour modes."
+data = "Prices use exchange_rate; price_change_percentage_24h is read only if returned (the current token API omits it); missing values remain muted dashes. Counters use stats fields, not block height; chart samples with absent values are excluded."
+test = "apps/explorer/ui/home/repair-22-35-4.spec.tsx"
+
+[gate.build]
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+result = "The final build entry in the private runner ledger /out/run/gates.jsonl supplies the exact candidate revision, exit code and log path."
+
+[gate.verify]
+command = "cg spec done 22.35.4 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/home/repair-22-35-4.spec.tsx"
+result = "The final verify entry in the private runner ledger /out/run/gates.jsonl supplies the verified revision, exit code and log path; qualification requires exit zero and the same revision as build. This reference is written before gates to preserve the qualified candidate (gotcha 3142)."
+gates = "Only hf-build and hf-done; no aggregate or browser gate (gotcha 2962)."
+
+[gotcha.paths]
+observed = "A repository-relative edit run from the explorer app directory failed before writing any file."
+resolution = "Run repository-relative edits from the repository root and app dependency commands from the app directory."
+
+[gotcha.formatter]
+observed = "The repository formatter applies layout fixes but its Vitest lint rules misidentify required named callbacks as tests without assertions and non-string titles."
+resolution = "Keep the named functions and their real assertions, as required by the task graph contract; use only the declared build and verify as qualification gates."
+
+[repair.build_1]
+revision = "281f1bf436095d31dbf4c8a573ad966879fb37a5"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The dependency symlink target lacked the node_modules directory name, breaking transitive package resolution and causing cascading type errors."
+repair = "Keep the installed dependencies in a directory named node_modules and point the application symlink there; preserve all source types and checks."
+
+[repair.build_2]
+revision = "89f14f2fdd9d203b07826c7b964580f2901e896b"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-2.log"
+observed = "The showcase still imports the hero background constant removed by the restyle."
+repair = "Restore BACKGROUND_DEFAULT as the semantic canvas background and use it in the real hero, retaining the showcase contract without literal colours."
+
+[repair.existing_specs]
+observed = "Existing hero and statistics specs asserted the replaced layout; hidden responsive block rows mounted twice."
+repair = "Update all affected expectations to the requested prompt and five API counters, retain socket batching and memoization bounds, observe table row mutations, and mount one responsive block view."

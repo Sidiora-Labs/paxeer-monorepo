@@ -1612,7 +1612,7 @@ impl CoreLeaseAttestation {
 }
 
 /// TLS-authenticated independent authority replica. The endpoint is distinct
-/// from the node LNI socket and every response is decoded into closed protocol
+/// from the node JSON-RPC endpoint and every response is decoded into closed protocol
 /// types before it can influence preparation or receipt verification.
 pub struct RemoteHumanAuthority {
     agent: ureq::Agent,
@@ -1949,6 +1949,14 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         let did =
             std::str::from_utf8(agent.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let value = self.get(&format!("/v1/agent/capability-scope?tenant={}&principal={}&did={}&authority={}&action_key={}&capability_id={}", query(peer.transport_tenant()), subject::principal_query(peer), query(did), hex(&authority_id), hex(&action_key), hex(&capability_id)))?;
+        let verification = u8::try_from(u64_field(&value, "verification")?)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if VerificationLevel::from_wire_rank(verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
+        {
+            return Err(HumanOperationError::Refused);
+        }
         let set16 = |name| -> Result<std::collections::BTreeSet<u16>, HumanOperationError> {
             value
                 .get(name)
@@ -2026,8 +2034,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
 
             not_before_ms,
             not_after_ms,
-            verification: u8::try_from(u64_field(&value, "verification")?)
-                .map_err(|_| HumanOperationError::Refused)?,
+            verification,
             evidence_digest: hex_field(&value, "evidence_digest")?,
         })
     }
@@ -2062,7 +2069,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         };
         if state.revocation_sequence == 0
             || state.observed_head_sequence < state.revocation_sequence
-            || state.verification != VerificationLevel::COMMITTED.wire_rank()
+            || VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?
+                != VerificationLevel::COMMITTED
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -2106,8 +2115,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
             || state.maximum_delay_seconds < state.required_delay_seconds
             || state.effective_sequence == 0
             || state.observed_head_sequence < state.effective_sequence
-            || state.verification < 4
-            || state.verification > 5
+            || VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?
+                != VerificationLevel::COMMITTED
             || state.evidence_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
             || state.maximum_age_sequences == 0
@@ -2228,7 +2238,7 @@ fn retained_activity_owner(
 
 /// Concrete production path. Prepared bytes remain key-free; externally
 /// supplied signatures are attached, reverified, durably queued, and only then
-/// submitted through the sole frozen LNI client.
+/// submitted through the node sequencer client.
 pub struct ProductionHumanOperations<A> {
     authority: A,
     node: layerx_client::sequencer::SequencerEndpoint,
@@ -9890,7 +9900,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         if state.asset != asset
             || currency != record.held_activity.asset.as_str()
             || state.observed_head_sequence != current_sequence
-            || !(4..=5).contains(&state.verification)
+            || committed_budget_rank(state.verification).is_err()
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -11428,6 +11438,15 @@ impl OwnerInput<'_> {
         &self.bytes[self.at..]
     }
 }
+fn committed_budget_rank(rank: u8) -> Result<(), HumanOperationError> {
+    let level =
+        VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused)?;
+    if level != VerificationLevel::COMMITTED {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(())
+}
+
 fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     match value {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
@@ -18427,8 +18446,9 @@ fn verified_grant_scope<A: HumanAuthorityBoundary>(
     let action_key = capability_grant_action_key(shared_store, tenant, grant_id)?;
     let observed = authority.capability_scope(peer, actor, authority_id, action_key, *grant_id)?;
     if observed.observed_sequence == 0
-        || observed.verification < 4
-        || observed.verification > 5
+        || VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed.evidence_digest == [0; 32]
         || observed.evidence_digest
             != agent_evidence_digest(
@@ -19827,8 +19847,9 @@ fn validate_capability<A: HumanAuthorityBoundary>(
         request.capability_id,
     )?;
     if observed.observed_sequence == 0
-        || observed.verification < 4
-        || observed.verification > 5
+        || VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed.evidence_digest == [0; 32]
         || request.expiry_sequence <= observed.observed_sequence
     {
@@ -22148,6 +22169,25 @@ mod tests {
     use serde_json::json;
     use std::io::{Read as _, Write as _};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn repair_22_31_538_approval_budget_accepts_committed_rank() {
+        assert_eq!(
+            committed_budget_rank(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn repair_22_31_538_approval_budget_refuses_other_ranks() {
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                committed_budget_rank(rank),
+                Err(HumanOperationError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
 
     #[test]
     fn budget_snapshot_round_trips_the_floor_of_every_current_rung() {

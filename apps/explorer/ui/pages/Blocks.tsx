@@ -20,9 +20,9 @@ const flashblocksFeature = config.features.flashblocks;
 
 const TAB_LIST_PROPS = {
   marginBottom: 0,
-  pt: 6,
-  pb: 6,
-  marginTop: -5,
+  pt: 0,
+  pb: 4,
+  marginTop: 0,
 };
 
 const BlocksPageContent = () => {

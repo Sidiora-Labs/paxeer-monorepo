@@ -10,7 +10,8 @@ const Container = ({ children, className }: Props) => {
   return (
     <Box
       className={ className }
-      minWidth={{ base: '100vw', lg: 'fit-content' }}
+      width="100%"
+      minWidth={ 0 }
       m="0 auto"
       bgColor="bg.primary"
     >
