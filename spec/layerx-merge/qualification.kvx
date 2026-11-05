@@ -31467,3 +31467,91 @@ symbol = "repair_22_33_224.rs"
 observed = "Attempt 4 at ac5a8b3250136d0d603ee5f83dbadb84451e259b re-qualified the attempt-3 tree: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
 assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
 severity = "low"
+
+[finding.22.31.539.2]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 2 at 638c7c18d798e3adc4fe1d837082170c3fbb77bd: build exit 0, dependent-crate check exit 0, verify exit 101 twice: the library target failed 46 then 45 of 325 cases, all outside the change set (gotcha 3168), so cargo stopped and the eight integration targets never ran."
+assumption = "The change set is complete and compiles; the red library cases are pre-existing and owned elsewhere."
+severity = "medium"
+
+[finding.22.31.548.1]
+task = "22.31.548"
+file = "services/human/crates/layerx-human-service/tests/native_send_purpose.rs"
+symbol = "native_send_purpose.rs"
+observed = "Attempt 1 at 67f76f62bf53cd45eab627bcfc9923e423ed3f44: build exit 0 (two builds), dependent-crate check exit 0, verify exit 101: the native_journey_approval target ran first and its single case panicked at tests/native_journey_approval.rs line 619 with protected genuine native Journey authority fixture required: NotPresent, so the native_send_purpose target and the KMS attestor tests never ran."
+assumption = "The port compiles end to end; the gate shape, not the port, failed."
+severity = "medium"
+
+[finding.22.33.1513.3]
+task = "22.33.1513"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1513.rs"
+symbol = "repair_22_33_1513.rs"
+observed = "Attempt 3 at a5bf9c16b2942434aaa730d6c25e8008b490365c re-qualified the attempt-2 tree without its session_control.rs change: build exit 101 with E0599 no method named observability_stats found for struct SessionControl at tests/repair_22_33_1513.rs line 880 and the E0308 of gotcha 3166 in the rpc_surface_major_two target; no verify run."
+assumption = "The missing method was written in attempt 2 and dropped on scope; the second error is the pre-existing break 22.31.550 repairs."
+severity = "medium"
+
+[finding.22.33.1533.3]
+task = "22.33.1533"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+symbol = "repair_22_33_1533.rs"
+observed = "Attempt 3 at 7c3b1dafc3a86638f4fb10826953203ad7b3323d: build exit 101 with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.31.488.3]
+task = "22.31.488"
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+symbol = "sandbox.rs"
+observed = "Attempt 3 at 6dfb944de22b379261a88016bc28b339f1cfa6f2: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.249.3]
+task = "22.33.249"
+file = "tools/qualification/audit_repairs/test_repair_22_33_249.py"
+symbol = "test_repair_22_33_249.py"
+observed = "Attempt 3 at 88b780c773e5121c08360b9019b47d308794aea6: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.217.4]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 4 at 80fed9de8903a926c2d26e378887df1e0e6a6737: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.233.4]
+task = "22.33.233"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+symbol = "repair_22_33_233.rs"
+observed = "Attempt 4 at 2bbfcc6227ef0f776aba2a03422bb8444e1f5513: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.33.261.3]
+task = "22.33.261"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+symbol = "repair_22_33_261.rs"
+observed = "Attempt 3 at d2c5bd6dc27b55f55d266dedafc818adf1c40ea7: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.95.1.7]
+task = "22.95.1"
+file = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+symbol = "human_node.rs"
+observed = "Attempt 12 at 71db5969e009f498331f09f7fb96e31f6dd3a4e5: build exit 101 with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
+assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
+severity = "low"
+
+[finding.22.99.77.15]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 13 at 9c1312407561cb6394fa36dc91ee53f56dd806e4: make exit 1 with wasm-opt is required at Makefile line 2983; no cargo build, no verify run."
+assumption = "Environmental prerequisite, now provided; not a defect of this task."
+severity = "low"
