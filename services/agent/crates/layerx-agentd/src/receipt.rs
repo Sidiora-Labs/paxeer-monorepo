@@ -19,14 +19,16 @@ const LEGACY_EVIDENCE_PREFIX: &[u8] = b"receipt-legacy-evidence:";
 pub const NODE_ED25519_SIGNATURE_TAG: u8 = 255;
 const IDEMPOTENCY_INDEX_PREFIX: &[u8] = b"receipt:idempotency:";
 
-/// Retained kernel evidence for recovery of legacy receipt indexes.
+/// Persisted evidence and index identities used by restart recovery.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReceiptEvidenceRecord {
+pub struct ReceiptEvidenceRecord<E = RawReceiptEvidence> {
     pub idempotency_key: [u8; 32],
     pub activity_id: [u8; 32],
     pub global_sequence: u64,
-    pub evidence: RawReceiptEvidence,
+    pub evidence: E,
 }
+
+pub type CurrentReceiptEvidenceRecord = ReceiptEvidenceRecord<TransactionReceiptEvidence>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransactionReceiptMetadata {
@@ -72,12 +74,13 @@ impl AuthenticatedTransactionReceipt {
     }
 }
 
-/// Every served receipt of one tenant split by whether legacy recovery evidence was
-/// persisted for it. A receipt without evidence is an older store record that
+/// Every served receipt of one tenant split by its persisted evidence kind.
+/// A receipt without evidence is an older store record that
 /// recovery must hold rather than skip.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ReceiptEvidenceInventory {
     pub with_evidence: Vec<ReceiptEvidenceRecord>,
+    pub with_current_evidence: Vec<CurrentReceiptEvidenceRecord>,
     pub without_evidence: Vec<ReceiptMetadata>,
 }
 
@@ -517,6 +520,57 @@ pub fn evidence_inventory(
         };
         let idempotency_key: [u8; 32] =
             suffix.try_into().map_err(|_| ReceiptStoreError::Corrupt)?;
+        if durable
+            .get(&legacy_evidence_key(tenant.clone(), idempotency_key)?)
+            .is_some()
+        {
+            return Err(ReceiptStoreError::EvidenceVersion);
+        }
+        let served = serve(
+            durable,
+            tenant.clone(),
+            ReceiptLookupKey::Idempotency(idempotency_key),
+        )?;
+        if let Some(value) =
+            durable.get(&evidence_key(tenant.clone(), served.metadata.activity_id)?)
+        {
+            if value.bytes().get(..4) != Some(EVIDENCE_MAGIC.as_slice()) {
+                return Err(ReceiptStoreError::Corrupt);
+            }
+            match value.bytes().get(4) {
+                Some(&1 | &EVIDENCE_VERSION) => {}
+                Some(_) => return Err(ReceiptStoreError::EvidenceVersion),
+                None => return Err(ReceiptStoreError::Corrupt),
+            }
+            if value.bytes().get(4) == Some(&EVIDENCE_VERSION) {
+                let evidence = decode_transaction_evidence(value.bytes())?;
+                if evidence.canonical_receipt != served.canonical_bytes
+                    || evidence.metadata.transaction_hash != served.metadata.activity_id
+                {
+                    return Err(ReceiptStoreError::Corrupt);
+                }
+                let decoded = layerx_wire::receipt::decode(&evidence.canonical_receipt)
+                    .map_err(|_| ReceiptStoreError::Corrupt)?;
+                let protocol = decoded.protocol().ok_or(ReceiptStoreError::Corrupt)?;
+                if protocol.activity_id() != served.metadata.activity_id
+                    || protocol.global_sequence() != served.metadata.global_sequence
+                    || served.metadata.idempotency_key != idempotency_key
+                    || served.metadata.result
+                        != classify(ResultCode::from_raw(protocol.result_code()))
+                {
+                    return Err(ReceiptStoreError::Corrupt);
+                }
+                inventory
+                    .with_current_evidence
+                    .push(CurrentReceiptEvidenceRecord {
+                        idempotency_key,
+                        activity_id: served.metadata.activity_id,
+                        global_sequence: served.metadata.global_sequence,
+                        evidence,
+                    });
+                continue;
+            }
+        }
         if let Some(record) = serve_kernel_evidence(durable, tenant.clone(), idempotency_key)? {
             inventory.with_evidence.push(record);
         } else {
@@ -530,6 +584,9 @@ pub fn evidence_inventory(
     }
     inventory
         .with_evidence
+        .sort_by(|left, right| left.idempotency_key.cmp(&right.idempotency_key));
+    inventory
+        .with_current_evidence
         .sort_by(|left, right| left.idempotency_key.cmp(&right.idempotency_key));
     inventory
         .without_evidence
