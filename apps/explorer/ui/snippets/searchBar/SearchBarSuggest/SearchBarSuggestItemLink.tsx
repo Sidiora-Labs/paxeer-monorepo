@@ -9,25 +9,25 @@ const SearchBarSuggestItemLink = React.forwardRef<HTMLAnchorElement, Props>(({ c
   return (
     <Link
       ref={ ref }
-      py={ 3 }
+      py={ 2 }
+      minH="44px"
+      justifyContent="center"
+      color="text.primary"
       px={{ base: 0, lg: 1 }}
       display="flex"
       flexDir="column"
       alignItems="stretch"
       variant="plain"
-      rowGap={ 2 }
-      borderColor="border.divider"
+      rowGap={ 1 }
+      borderColor="hairline"
       borderBottomWidth="1px"
       _last={{
         borderBottomWidth: '0',
       }}
       _hover={{
-        bgColor: { _light: 'blue.50', _dark: 'gray.800' },
+        bgColor: 'accent.soft',
       }}
       textStyle="sm"
-      _first={{
-        mt: 2,
-      }}
       { ...rest }
     >
       { children }

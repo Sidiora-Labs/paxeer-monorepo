@@ -19,6 +19,7 @@ import SearchBarBackdrop from './SearchBarBackdrop';
 import SearchBarInput from './SearchBarInput';
 import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
+import useSearchShortcut from './useSearchShortcut';
 import useSearchWithClusters from './useSearchWithClusters';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
@@ -89,6 +90,13 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
   const handleFocus = React.useCallback(() => {
     onOpen();
   }, [ onOpen ]);
+
+  const focusSearch = React.useCallback(() => {
+    inputRef.current?.querySelector('input')?.focus();
+    onOpen();
+  }, [ onOpen ]);
+
+  useSearchShortcut(inputRef, focusSearch);
 
   const handleDismiss = React.useCallback(() => {
     searchGuard.discard();
@@ -183,7 +191,7 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
         lazyMount
         closeOnInteractOutside={ false }
       >
-        <PopoverTrigger asChild w="100%">
+        <PopoverTrigger asChild>
           <SearchBarInput
             ref={ inputRef }
             onChange={ handleTermChange }
@@ -199,7 +207,13 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
           />
         </PopoverTrigger>
         <PopoverContent
+          bg="raised"
+          color="text.primary"
+          borderColor="hairline"
+          borderRadius="8px"
+          boxShadow="none"
           maxW={{ base: 'calc(100vw - 8px)', lg: 'unset' }}
+          minW={{ base: 'unset', lg: '640px' }}
           w={ `${ menuWidth.current }px` }
           ref={ menuRef }
           overflow="hidden"
@@ -207,7 +221,7 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
         >
           <PopoverBody
             px={ 4 }
-            color="chakra-body-text"
+            color="text.primary"
             maxH="50vh"
             display="flex"
             flexDirection="column"
@@ -228,7 +242,7 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
             ) }
           </PopoverBody>
           { showAllResultsLink && (
-            <PopoverFooter pt={ 2 } borderTopWidth={ 1 } borderColor="border.divider">
+            <PopoverFooter pt={ 2 } borderTopWidth={ 1 } borderColor="hairline">
               <Link
                 textStyle="sm"
                 onClick={ handleViewAllResultsClick }

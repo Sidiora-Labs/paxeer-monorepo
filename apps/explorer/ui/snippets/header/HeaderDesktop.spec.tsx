@@ -29,7 +29,7 @@ describe('HeaderDesktop', () => {
 
     expect(container.querySelector('[data-label="content-search"]')).toBeNull();
     expect(container.querySelector('header')).toBeTruthy();
-    expect(screen.getByPlaceholderText('Search or ask')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search or ask…')).toBeTruthy();
   });
 
   it('keeps a page supplied search box inside the shell header', () => {
