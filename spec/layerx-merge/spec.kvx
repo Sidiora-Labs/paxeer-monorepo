@@ -175523,7 +175523,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.558]
 title = "Port the Human service native send producer test to the V2 consent public key field"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
