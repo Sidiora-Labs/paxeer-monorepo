@@ -1,18 +1,6 @@
-// Proves: lxphost.Host.Execute/ReadProgramStateHead -> vm.EVM.Call/StaticCall at layerxprograms.Address -> ai_market SDK encoders/decoders and ai-evaluator programs_wire.
-//
-// Repairs services/platform/hosted/ai-evaluator/src/main.rs Chain::require_active:
-// getStateHead is a storage manifest head, whereas getProgram supplies lifecycle.
-// Records an out-of-scope defect in modules/lxphost/host.go Host.Execute and
-// modules/lxphost/simulate.go Host.Simulate: ProgramOutcome.Response contains the
-// entire terminal execution frame, where the ABI consumer expects guest bytes.
-// Assert the exact current producer frame against independent cached execution;
-// SDK consumers must refuse it at the unchanged 64-byte guest response capacity.
-// Also repairs decode_terminal accepting noncanonical sign extension, offsets,
-// kinds, padding and trailing data; Python lacked a terminal-result decoder.
-// The proof compiles the evaluator's dependency-free programs_wire module verbatim,
-// the same module used by Chain and receipt_outcome, and calls the SDKs' own code.
-// No successful return or log is constructed by the proof. Malformed cases mutate
-// only returns from real EVM calls. Host.Close/NewHost reopens the same SDK store.
+// Proves real host execution through EVM call/static-call, canonical terminal
+// decoding, independently known guest bytes, receipt-bound transfers and reopen.
+// External SDK and evaluator consumers have separate owning-domain wiring records.
 package layerxprograms_test
 
 import (
@@ -81,6 +69,46 @@ func proofProgramsReopen(t *testing.T, h *harness) {
 	require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 }
 
+func proofProgramsAuthenticatedTransfer(t *testing.T, h *harness, program [32]byte, receipt lxphost.Receipt) {
+	t.Helper()
+	logs := h.stateDB.GetAllLogs()
+	var found bool
+	for _, log := range logs {
+		if len(log.Topics) == 0 || log.Topics[0] != lp.ProgramsABI.Events["ProgramCallOutcome"].ID {
+			continue
+		}
+		require.Equal(t, lp.Address, log.Address)
+		require.Equal(t, []common.Hash{lp.ProgramsABI.Events["ProgramCallOutcome"].ID, common.Hash(program)}, log.Topics)
+		values, err := lp.ProgramsABI.Events["ProgramCallOutcome"].Inputs.NonIndexed().Unpack(log.Data)
+		require.NoError(t, err)
+		require.Equal(t, repair251TransferRoot(t, receipt), values[9])
+		found = true
+	}
+	// This is a trusted in-process EVM execution backed by the cached host
+	// receipt; decoding untrusted RPC logs still requires commit verification.
+	require.True(t, found, "the executed call must emit its receipt-bound transfer root")
+}
+
+func proofProgramsExecutionConsumer(t *testing.T) {
+	h, args, payload, guest := repair251Responder(t)
+	proofProgramsReopen(t, h)
+	quoteCallFee(t, h, args[7].([7]uint64))
+	receipt, reference := repair251Receipt(t, h, args, payload)
+	simulated := simulateCall(t, h, args)
+	repair251AssertResponse(t, simulated, receipt, guest)
+	input, err := lp.ProgramsABI.Pack("call", args...)
+	require.NoError(t, err)
+	output, _, err := h.evm.Call(h.caller, lp.Address, input, 20000000, uint256.NewInt(0))
+	require.NoError(t, err)
+	repair251AssertResponse(t, output, receipt, guest)
+	proofProgramsAuthenticatedTransfer(t, h, args[0].([32]byte), receipt)
+	require.Equal(t, simulated, output)
+	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
+	proofProgramsReopen(t, h)
+	repair251AssertResponse(t, output, receipt, guest)
+	quoteCallFee(t, h, args[7].([7]uint64))
+}
+
 func call(t *testing.T, h *harness, input, payload []byte, limit *big.Int) ([]byte, []byte) {
 	t.Helper()
 	reference, _ := h.stateDB.Ctx().CacheContext()
@@ -92,7 +120,7 @@ func call(t *testing.T, h *harness, input, payload []byte, limit *big.Int) ([]by
 	require.Zero(t, receipt.ResultCode)
 	require.NotNil(t, receipt.ProgramOutcome)
 	expectedResponse := receipt.ProgramOutcome.Response
-	// Current host behavior: the terminal frame is exposed instead of guest response bytes.
+	// The terminal frame preserves execution and transfer evidence around guest bytes.
 	require.True(t, bytes.HasPrefix(expectedResponse, []byte("LXP/programs/terminal-applied-legs/v1\x00")))
 	require.Greater(t, len(expectedResponse), 64)
 	output, _, err := h.evm.Call(h.caller, lp.Address, input, 20000000, uint256.NewInt(0))
@@ -100,6 +128,10 @@ func call(t *testing.T, h *harness, input, payload []byte, limit *big.Int) ([]by
 	values, err := method.Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{int32(0), uint8(1), expectedResponse}, values)
+	decoded, err := lp.DecodeProgramExecutionResult(output, 64, repair251TransferRoot(t, receipt))
+	require.NoError(t, err)
+	require.Empty(t, decoded.GuestResponse, "the ABI-1 fixture has no guest response")
+	require.Equal(t, expectedResponse, decoded.TerminalFrame)
 	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
 	return output, expectedResponse
 }
@@ -111,8 +143,16 @@ func simulateCall(t *testing.T, h *harness, args []interface{}) []byte {
 	require.NoError(t, err)
 	decodedArgs, err := lp.ProgramsABI.Methods["simulateCall"].Inputs.Unpack(input[4:])
 	require.NoError(t, err)
-	t.Logf("simulateCall decoded arguments: %#v; expected: %#v", decodedArgs, args)
-	require.Equal(t, args, decodedArgs)
+	require.Len(t, decodedArgs, len(args))
+	for i, expected := range args {
+		if expectedBytes, ok := expected.([]byte); ok {
+			actualBytes, ok := decodedArgs[i].([]byte)
+			require.True(t, ok, "argument %d must decode as bytes", i)
+			require.True(t, bytes.Equal(expectedBytes, actualBytes), "argument %d bytes: expected %x, got %x", i, expectedBytes, actualBytes)
+		} else {
+			require.Equal(t, expected, decodedArgs[i], "argument %d", i)
+		}
+	}
 	output, _, err := h.evm.StaticCall(h.caller, lp.Address, input, 20000000)
 	reason, _ := abi.UnpackRevert(output)
 	require.NoError(t, err, "simulateCall output=%x reason=%s", output, reason)
@@ -140,6 +180,8 @@ func quoteCallFee(t *testing.T, h *harness, budget [7]uint64) {
 	record, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 	require.NoError(t, err)
 	asset := [32]byte(record[65:97])
+	schedule := repair251View(t, h, "getCurrentFeeSchedule")
+	require.Equal(t, asset, schedule[2])
 	expected := new(big.Int)
 	for i, limit := range budget {
 		price := binary.BigEndian.Uint64(record[9+i*8 : 17+i*8])
@@ -246,6 +288,7 @@ func retireStorage(t *testing.T) {
 }
 
 func TestProofLayerxprograms0x101d(t *testing.T) {
+	t.Run("production terminal consumer", proofProgramsExecutionConsumer)
 	root, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	dir := t.TempDir()

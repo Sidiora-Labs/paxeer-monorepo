@@ -940,14 +940,14 @@ fn validate_history_readiness(value: &Value) -> Option<()> {
 }
 
 /// Decodes the gateway's receipt-key result, including numeric height ranges.
+/// An empty keys array decodes to an empty list for the readiness gate to refuse.
 ///
 /// # Errors
-/// Refuses unknown fields, empty lists, duplicate ids, invalid keys or ranges.
+/// Refuses unknown fields, duplicate ids, invalid keys or ranges.
 pub fn decode_receipt_keys(value: &Value) -> Result<Vec<ReceiptKeyEntry>, SequencerError> {
     let fields = Fields::exact(value, &["keys"]).ok_or(SequencerError::Malformed)?;
     let entries = fields.0["keys"]
         .as_array()
-        .filter(|entries| !entries.is_empty())
         .ok_or(SequencerError::Malformed)?
         .iter()
         .map(decode_receipt_key)
@@ -1487,4 +1487,14 @@ fn quantity_bytes(value: &Value) -> Option<Vec<u8>> {
 fn quantity_u256(value: &Value) -> Option<[u8; 32]> {
     let digits = quantity_digits(value, 64)?;
     bytes(&format!("0x{digits:0>64}"))?.try_into().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn receipt_keys_accept_empty_list() {
+        assert_eq!(decode_receipt_keys(&json!({"keys": []})), Ok(vec![]));
+    }
 }

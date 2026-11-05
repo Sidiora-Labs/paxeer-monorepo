@@ -75,8 +75,10 @@ impl<'Wallet> Wallet<'Wallet> {
         options: &PaymentOptions,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
         let prepared = self.prepare_payload(ModuleId::Asset, 5, canonical_send_payload, options)?;
-        let hash = self.execute(prepared, options).await?;
-        self.wait_for(hash, options.commitment, options.wait_timeout)
+        let (hash, raw) = self.execute_signed(prepared, options).await?;
+        let mut receipt = self.wait_for(hash, options.commitment, options.wait_timeout)?;
+        receipt.bind_canonical_activity(raw);
+        Ok(receipt)
     }
     /// # Errors
     /// Refuses scope mismatches, stale account state, signer refusal or missing receipt evidence.
@@ -221,8 +223,10 @@ impl<'Wallet> Wallet<'Wallet> {
             .encode(options.actor.as_bytes())
             .map_err(|_| RpcError::InvalidRequest)?;
         let prepared = self.prepare_payload(module, ordinal, &payload, options)?;
-        let hash = self.execute(prepared, options).await?;
-        self.wait_for(hash, options.commitment, options.wait_timeout)
+        let (hash, raw) = self.execute_signed(prepared, options).await?;
+        let mut receipt = self.wait_for(hash, options.commitment, options.wait_timeout)?;
+        receipt.bind_canonical_activity(raw);
+        Ok(receipt)
     }
 
     /// # Errors
@@ -311,6 +315,17 @@ impl<'Wallet> Wallet<'Wallet> {
         prepared: PreparedPayment,
         _options: &PaymentOptions,
     ) -> Result<[u8; 32], RpcError> {
+        self.execute_signed(prepared, _options)
+            .await
+            .map(|(hash, _)| hash)
+    }
+
+    /// Submits once and retains the exact signed transaction for receipt binding.
+    async fn execute_signed(
+        &self,
+        prepared: PreparedPayment,
+        _options: &PaymentOptions,
+    ) -> Result<([u8; 32], Vec<u8>), RpcError> {
         let signature = sign_disclosed_call(
             self.signer,
             &prepared.call,
@@ -329,7 +344,7 @@ impl<'Wallet> Wallet<'Wallet> {
         if hash != transaction_hash(&raw) {
             return Err(RpcError::InvalidResponse);
         }
-        Ok(hash)
+        Ok((hash, raw))
     }
 
     /// Issues a grant whose purpose is the textual `label`. The grant is signed over the
