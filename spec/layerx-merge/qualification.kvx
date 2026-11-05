@@ -31579,3 +31579,155 @@ symbol = "repair_22_33_223.rs"
 observed = "Attempt 7 at 84e71d3c08edcc62d86f55093ca20edde161e62b: build exit 0; the dependent-crate check failed with the single E0308 at src/agent_rpc_wire.rs line 3357 in the rpc_surface_major_two target; no verify run."
 assumption = "Pre-existing break on main repaired by 22.31.550, not a defect of this task."
 severity = "low"
+
+[finding.22.31.494.3]
+task = "22.31.494"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs"
+symbol = "repair_22_31_494.rs"
+observed = "Attempt 3 at 7d484ba4615206c4519610d526e8d94f34178d20: build exit 0, verify exit 1; 4 of 5 cases fail with Transport after the fixture panic at tests/repair_22_31_494.rs line 342: left 0xc2d52a307be8ddd342219d9bf151f8b31adaaec2 pending, right 0xC2D52A307be8dDD342219D9bf151F8b31ADaaeC2 pending."
+assumption = "Fixture spelling mismatch, not a production defect; the first real verify run of this tree."
+severity = "medium"
+
+[finding.22.33.1547.4]
+task = "22.33.1547"
+file = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+symbol = "repair_22_33_1547.rs"
+observed = "Attempt 4 at be2ffe5ac1262956c8752ff06b3be2884b58f2c1: build exit 0, verify exit 1; 3 of 29 cases fail: receipted_and_committed_receipts_decode_every_field (timestamp 1750000400000 decoded against 1750000000000 expected), producer_receipts_refuse_missing_payment_denom_invalid_asset_and_truncated_bytes (VerificationFailure SequencerSignature on a refusal vector), withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc (AssetUnavailable)."
+assumption = "Two fixtures stale after the vector re-record and one production consumer defect in the asset id form; the first real verify run of this tree."
+severity = "high"
+
+[finding.22.33.218.6]
+task = "22.33.218"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+symbol = "repair_22_33_218.rs"
+observed = "Attempt 6 at 2049e37a6ac6a06aeb6c1b05faf21fc083f13002: build exit 0, verify exit 1; 1 of 4 cases fails: assertion failed first.artifact.canonical_bytes().unwrap().len() - 64 > guest_limit at tests/repair_22_33_218.rs line 353."
+assumption = "A test premise error about what the artifact encodes, not a production defect; the first real verify run of this tree."
+severity = "medium"
+
+[finding.22.33.14.5]
+task = "22.33.14"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs"
+symbol = "repair_22_33_14.rs"
+observed = "Attempt 5 at e5f2e32b796319fce9277a0095f0e8fa59aeecdf: build exit 0, verify exit 1; 12 of 14 pass; logs_are_ingested_in_block_position_order fails with ReceiptEvidenceMismatch (line 106) and receipted_logs_recover_committed_without_duplicate_delivery with CorruptEvent (line 259)."
+assumption = "Production defect in the owning ingestion module, repaired by 22.31.556."
+severity = "high"
+
+[finding.22.33.1533.4]
+task = "22.33.1533"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+symbol = "repair_22_33_1533.rs"
+observed = "Attempt 4 at 8a41e3e4d9b2a07c9ca4439cd70ad1a88b6ce9a5: build exit 0, verify exit 1; 13 of 15 pass; Sequencer(Malformed) at src/protocol_evidence_time_tests.rs line 34 and at tests/repair_22_31_220.rs line 594 left Err(NotReady request 220 status Absent requested Committed) against right Err(Decode ProgramReceipt)."
+assumption = "One stale captured fixture and one main test target left red by 22.31.227; the first real verify run of this tree."
+severity = "high"
+
+[finding.22.33.1536.4]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 4 at e2f31766516150457e6f42494a3a4751b3eb5874: build exit 0, verify exit 1; 15 passed, 32 failed: 29 InvalidDefaults at tests/approval.rs line 80, 2 export fixture Contract at tests/export.rs line 22, 1 InvalidCommit at tests/finality_rungs.rs line 25."
+assumption = "Fixtures written before 22.31.368, 22.31.486 and the prepare checks landed; the first real verify run of this tree."
+severity = "high"
+
+[finding.22.33.217.5]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 5 at 690219ddd6d391a1c13b2f2185444abbebde80a0: build exit 0, verify exit 1; 17 passed, 5 failed, each with left NotYetProduced right NotEnabled at tests/view_binding.rs lines 308 and 723."
+assumption = "Expectations written before 22.31.253 landed; the first real verify run of this tree."
+severity = "medium"
+
+[finding.22.33.233.5]
+task = "22.33.233"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+symbol = "repair_22_33_233.rs"
+observed = "Attempt 5 at 5444ded3adeba37bfad7e5654a855e9fed4a029d: build exit 0, verify exit 0 (2 passed); done check: touched programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx has no matching change."
+assumption = "Missing task record, not a defect."
+severity = "low"
+
+[finding.22.33.261.4]
+task = "22.33.261"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+symbol = "repair_22_33_261.rs"
+observed = "Attempt 4 at 13f7164b457b7b057ac64553e4352014c5a56e9c: build exit 0, verify exit 1; 1 passed, 5 failed with real path refused: ApplicationError(526) at tests/repair_22_33_261.rs line 61."
+assumption = "Admission fixture written before 22.31.266 landed; the first real verify run of this tree."
+severity = "medium"
+
+[finding.22.31.496.3]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 3 at 4d7a267dffe376c036bc4c17847882926c9e4628: build exit 0, verify exit 1; the keeper proof fails with kernel result -204 LXP_AUTH_SCOPE for the V1 rotation of owner key bytes 71 executed by the fixture identity of key bytes 74."
+assumption = "Producer-consumer identifier disagreement (compiler rotation branch versus kernel), repaired by 22.31.557; the proof then uses the executing identity."
+severity = "high"
+
+[finding.22.33.1495.1]
+task = "22.33.1495"
+file = "tools/platform/cli/tests/repair_22_33_1495.rs"
+symbol = "repair_22_33_1495.rs"
+observed = "Attempt 1 at 68866d78ea36b68f21a8537fd0b7fe59885278d7: build exit 101 (two E0433 Duration undeclared in tests/mcp_daemon_bound.rs); verify 2 failed of 11: test_retired_endpoint_lx_refusal and test_retired_endpoint_chains on RPC URL must end in /rpc."
+assumption = "One test import defect and two cases waved ahead of their producers."
+severity = "medium"
+
+[finding.22.33.1496.1]
+task = "22.33.1496"
+file = "tools/platform/cli/tests/repair_22_33_1496.rs"
+symbol = "repair_22_33_1496.rs"
+observed = "Attempt 1 at 30c0a780ff63ebea4b9064b152fa38661fd01d86: build exit 101 (five E0308 at tests/repair_22_33_1496.rs lines 302, 370, 375, 379 and 399: expected http::Client, found layerx_platform_cli::http::Client); verify 9 failed of 51: three hosted_wallet cases panic hex prefix at line 57, test_retired_endpoint_rpc_identity RPC URL must end in /rpc, program_lifecycle_third_shape POST /rpc returned HTTP 404 route absent, and the retired-endpoint cases."
+assumption = "Two test-side defects (duplicate type through a by-path include, unprefixed vector) and cases waved ahead of their producers."
+severity = "medium"
+
+[finding.22.33.1497.1]
+task = "22.33.1497"
+file = "tools/platform/cli/tests/repair_22_33_1497.rs"
+symbol = "repair_22_33_1497.rs"
+observed = "Attempt 1 at eeb180b96c1dfc34c5b0f33570e8cbb50a39b7b1: build exit 0, verify 6 failed: the address comparison 0x9858EfFD232B4033E47d90003D41EC34EcaEda94 against its lowercase fixture spelling at line 261 and five RPC URL must end in /rpc cases."
+assumption = "One id-form comparison and five cases waved ahead of their producers."
+severity = "medium"
+
+[finding.22.33.1494.1]
+task = "22.33.1494"
+file = "tools/platform/cli/tests/repair_22_33_1494.rs"
+symbol = "repair_22_33_1494.rs"
+observed = "Attempt 1 at 150258fc2a428a673e34123a73e08eb571412e72: build exit 101 (E0425 rustix::fs::mkfifo at tests/repair_22_33_1494.rs line 918); verify 2 failed of 6: wallet_finality_option_committed_receipt_for_every_wait (line 617, estimate validator error) and wallet_submission_recovery_reopens_journal_without_resubmission (line 682); the tree also removed tests/repair_22_33_1499.rs."
+assumption = "A missing platform symbol in the test, a non-conforming estimate object in the production path and a deleted sibling test; the first real verify run of this tree."
+severity = "high"
+
+[finding.22.33.213.7]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 7 at a645492a6f3c789a0cc9371a17f77498e5add7d0 (gates only, after 22.31.488): build exit 0, verify exit 1; TestRepairM_213_StorageEnvironmentResponse fails with LXP_NON_CANONICAL: invalid programs execution result from DecodeProgramExecutionResult; the log carries no failing-check trace."
+assumption = "The consumer fixture predates the 22.31.488 framing; a gate-only run cannot re-record it."
+severity = "high"
+
+[finding.22.33.1572.4]
+task = "22.33.1572"
+file = "services/agent/tests/parity/tests/repair_22_33_1572.rs"
+symbol = "repair_22_33_1572.rs"
+observed = "Attempt 4 at 8112a205e91f9fe109b53aae0b2c19152afad04c: build exit 0, verify exit 1; parity_synthetic_owner_compares_node_receipts_and_reopened_state panics at tests/repair_22_33_1572.rs line 328: read.proof_bundle envelope failed: Decode ReadProofBundle."
+assumption = "Stand-in answer shape predates the 22.31.487 decoder; the first real verify run since that repair."
+severity = "medium"
+
+[finding.22.31.478.4]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 4 at 333b6824a0300fceffe16106a63abf3f6673e81d: build exit 0, verify exit 1; TestRepair478_FundWithinProductionAllowance fails LXP_ERR_FEE_UNPAYABLE at rpc/repair_478_test.go line 208 from line 219 via line 385; the ai-market crate tests pass."
+assumption = "An unfunded fee account in the fixture, not a production defect; the first real verify run of this tree."
+severity = "medium"
+
+[finding.22.31.547.2]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 2 at f936abfd576a5e090c92126fba6d2612c5bcc45e: build exit 0, verify exit 1; the daemon V2 acceptance answered 403 with class PolicyRefusal, reason owner.refused, request_id 73, retriability Terminal instead of 200; the version 1 body was refused envelope.malformed as asserted and the MCP target passed (10 cases)."
+assumption = "The daemon prepare path refuses the SDK carrier for a reason the wire does not name; the first real verify run of this tree."
+severity = "high"
+
+[finding.22.33.1492.1]
+task = "22.33.1492"
+file = "tools/platform/cli/tests/repair_22_33_1492.rs"
+symbol = "repair_22_33_1492.rs"
+observed = "Attempt 1 at ed24e41ad8db3acdec80966818619914c517d618: build exit 0, verify exit 1; 3 failed of 63: a2a_root_listener_authentication_and_retired_refusal (uncredentialed root POST not refused), lifecycle_signed_producer_receipts_distinguish_pending_success_and_revert (calldata differs from the fixture at hex offset 583: zeros against 3e8), a2a_response_loss_keeps_unknown_outcome (left Null, right rejected at a2a.rs line 1600); the gate line numbers do not match the committed tree."
+assumption = "Three production defects in the root listener, the lifecycle calldata encoder and the refusal outcome mapping, plus a tree amended after its gates."
+severity = "high"

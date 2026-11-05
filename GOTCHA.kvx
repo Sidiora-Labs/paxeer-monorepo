@@ -15685,3 +15685,38 @@ fix = "22.33.1537 attempt 5 continues with an agent and writes tests/support/cur
 title = "An attempt whose gates started before 22.31.550 reached main (merge d9054f4423, 15:43Z on 2026-11-05) still built the layerx-agentd test targets against the gotcha-3166 break and failed with the single E0308 in the rpc_surface_major_two target, although the repair was on main by the time its result was read; 22.31.534 attempt 2 (its own --tests build) and 22.33.223 attempt 7 (the dependent-crate check of the ai-market program crate, which builds the daemon test targets) are the last two."
 symptom = "The automatic re-qualification after a required task lands fires only for tasks whose requirements list that task; neither 534 nor 223 required 550, so they stay failed until a ruling adds it."
 fix = "Both re-qualify as they stand with 22.31.550 added to their requirements (decision 2623); no further attempt can start on a base without the repair."
+
+[gotcha.3173]
+title = "Nine re-qualified attempts whose builds first passed after 22.31.550 landed reached their verify for the first time and failed on their own tests: a fixture spelling (22.31.494), literals copied from a vector since re-recorded (22.33.1547), expectations written before a required repair changed production (22.33.217, 22.33.1536, 22.33.261), a test premise about an encoding (22.33.218), a missing task record (22.33.233) and a main test target left red by a later task (tests/repair_22_31_220.rs after 22.31.227, included by path into the 22.33.1533 binary)."
+symptom = "A tree blocked for days behind the gotcha 3033 and 3166 build breaks never ran its verify, while the repairs it requires changed the production it tests."
+fix = "Such a failure gets a continue ruling naming the production fact per failing case, never another gate-only re-run; a main test target included by path into a task binary is realigned by that task and the file is added to its paths."
+
+[gotcha.3174]
+title = "px_listAssets serves asset_id with the 0x prefix (the gateway one_source_reads transcript, exact asserted result) and services/agent/crates/layerx-client/src/px.rs line 311 keeps the text as served, while src/rpc/withdrawal.rs get_asset formats the looked-up id as bare hex and src/rpc/payments.rs get_asset compares the strings, so every withdrawal registry lookup answers AssetUnavailable."
+symptom = "Found by the first verify run of 22.33.1547 attempt 4 (withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc)."
+fix = "22.33.1547 repairs the consumer to compare decoded bytes (decision 2624)."
+
+[gotcha.3175]
+title = "services/agent/crates/layerx-agentd/src/events/ingest.rs commit_block promotes pending and retained logs to the retired legacy CHECKPOINT_FINALISED label (lines 1018, 1039 and 1052); the current verification level has no rank for it, so a promoted receipted log fails validation with ReceiptEvidenceMismatch and its persisted pending record reopens as CorruptEvent."
+symptom = "Observed by the 22.33.14 attempt 5 producer ingestion cases (12 of 14 pass; the restart case passes)."
+fix = "22.31.556 migrates the promotion and the metadata and pending codecs to the current committed level; 22.33.14 re-qualifies behind it."
+
+[gotcha.3176]
+title = "The platform CLI test tasks 22.33.1495, 22.33.1496 and 22.33.1497 ran in the same wave as the source tasks 22.33.1492, 22.33.1493 and 22.33.1494 of the same audit record and failed on the production sites those source tasks own: tools/platform/cli/src/rpc.rs lines 21 and 37 and wallet.rs line 806 still require the retired /rpc suffix (RPC URL must end in /rpc) and toolset.rs lines 225, 274 and 335 still post to /rpc, contrary to decision 2521."
+symptom = "The three test tasks require only 22.31.212 and 22.31.213; their retired-endpoint cases (test_retired_endpoint_rpc_identity, test_retired_endpoint_lx_refusal, test_retired_endpoint_chains, program_lifecycle_third_shape and the five wallet cases of 22.33.1497) assert the root admission the source tasks introduce."
+fix = "Decision 2626: the consumer test tasks of an audit record wait for the producer repair tasks of the same record; 22.33.1495 now requires 22.33.1492 and 22.33.1493, 22.33.1496 requires all three, 22.33.1497 requires 22.33.1493 and 22.33.1494, and each continues with its own test defects fixed."
+
+[gotcha.3177]
+title = "The intent compiler services/human/crates/layerx-intents/src/compile.rs refuses IntentKind KeyRotation at protocol version 3 (the version admission near line 164 lists only SessionGrant, RecoveryRegistration, NativeBudgetCreate and NativeAssetAccountOpen) and its KeyRotation branch (lines 219 to 240) writes the unprefixed layerx_wire::hash::did_id digest, while the kernel lxp_did_id_derive (src/state/lxp_identity.c lines 46 to 56) hashes a two-byte big-endian length prefix plus the DID bytes under the DID id domain and the governance validator (src/modules/governance/lxp_governance.c lines 185 to 192) requires protocol version 3 and the derived actor identifier equal to payload bytes 4 to 36, else LXP_ERR_AUTH_SCOPE (-204)."
+symptom = "22.31.496 attempt 3 compiled the proving rotation with Intent::v1 for an owner key that is not the executing fixture identity and the kernel answered -204; the daemon, the disclosure crate and the compiler V3 RecoveryRegistration branch already derive with did_id_for_protocol(did, 3)."
+fix = "Decision 2625 and task 22.31.557: the compiler admits V3 KeyRotation and derives the identifier with did_id_for_protocol(did, 3) for V3 while V1 and V2 bytes stand; 22.31.496 waits for it and compiles the proving rotation as V3 for the fixture identity DID."
+
+[gotcha.3178]
+title = "A stand-in node peer that answers read.proof_bundle with the generic success body (request_id, value, verification_status) is refused by the SDK decoder decode_proof_bundle_response (services/agent/crates/layerx-sdk/src/agent_envelope.rs lines 1727 to 1745, since 22.31.487), which requires exactly the fields value, achieved_verification_level and freshness, a freshness.relative_to block whose height equals the value height with a non-zero hash, and an achieved verification status."
+symptom = "22.33.1572 attempt 4 panicked at tests/repair_22_33_1572.rs line 328 with Decode ReadProofBundle after 22.31.487 landed; the daemon producer serialises VerifiedRead of ProofBundle through encode_json (human_runtime.rs proof_bundle_operation_value near line 21911, used by the adapter at agent_rpc_adapters.rs line 1856)."
+fix = "A stand-in answer for a verified read reproduces the daemon producer document, never the generic success body; 22.33.1572 continues with the peer answering the VerifiedRead of ProofBundle JSON."
+
+[gotcha.3179]
+title = "22.33.1492 attempt 1 committed revision ed24e41ad8db3acdec80966818619914c517d618 whose test assertions sit ten lines below the lines its own gate log names (tests/repair_22_33_1492.rs lines 823 and 1317, src/a2a.rs line 1600 versus the committed assertions at 833, 1327 and 1610): the tree was amended after the gates ran, so the recorded failures describe a tree that no longer exists (gotcha 3142)."
+symptom = "The three failures are real at either tree: the root listener does not answer 401 to an uncredentialed POST, programs::lifecycle_calldata writes zero where the conformance fixture encodes the fee-limit word 0x3e8 (hex offset 583), and the response-loss case expecting state rejected receives a task document without a status."
+fix = "The continue ruling repeats the gate-after-amend rule: build and verify run once at the final revision and the record cites that revision; the three production facts are named per case."

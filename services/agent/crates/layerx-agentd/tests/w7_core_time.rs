@@ -14,18 +14,21 @@ use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
 use layerx_agentd::prepare::{
-    expire, prepare_activity, retention_sweep, CorePreparationBoundary, CorePreparationState,
-    CoreStateError, LifecycleError, LifecycleState, PreparationDefaults, PreparationLifecycle,
-    PrepareRequest, Prepared,
+    expire, prepare_bound, retention_sweep, verify_call_binding, DisclosureDigest,
+    EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, EvmPrepared, LifecycleError,
+    LifecycleState, PrecompileCall, PreparationAuditEntry, PreparationLifecycle, Prepared,
 };
-use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRegistry, Token};
+use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRef, SessionRegistry, Token};
 use layerx_agentd::session_control::{OperationPermit, SessionControl, SessionControlError};
+use layerx_agentd::sign::{verify_before_submit, SigningPreparation};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{AuthorizationError, Operation, Surface};
-use layerx_types::activity::{Authority, TimestampBound};
+use layerx_crypto::disclosure::call::bind_call;
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 
@@ -33,14 +36,6 @@ const OBSERVED_HEAD_SEQUENCE: u64 = 88;
 const NOT_AFTER_MS: u64 = 1_010;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
-
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
-}
 
 struct BoundaryIdentity(CoreIdentity);
 
@@ -105,36 +100,187 @@ fn send_payload() -> Vec<u8> {
     send_authorization::sign(encoder.finish())
 }
 
-fn prepared() -> Prepared {
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: 5,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: OBSERVED_HEAD_SEQUENCE,
-        module_registry: registry(),
-    });
-    text(
-        prepare_activity(
-            &mut core,
-            PreparationDefaults {
-                timestamp_span: 30,
-                fee_limit: Amount::from_u128(12),
+const SIGNING_SEED: [u8; 32] = [0xa5; 32];
+
+fn evm_prepared() -> EvmPrepared {
+    let key = text(k256::ecdsa::SigningKey::from_slice(&SIGNING_SEED), "key");
+    let from = text(
+        layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        ),
+        "address",
+    );
+    let prepared = text(
+        prepare_bound(
+            EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 5,
+                base_fee_per_gas: 3,
+                head_height: OBSERVED_HEAD_SEQUENCE,
+            },
+            EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
                 maximum_payload_bytes: 1_024,
             },
-            PrepareRequest {
-                actor: text(Did::new(b"did:layerx:w7-core-time"), "DID"),
-                authority: text(Authority::owner(b"external-authority"), "authority"),
-                activity_type: activity_type(),
-                expected_account_sequence: Some(5),
-                timestamp_bound: Some(text(TimestampBound::new(995, NOT_AFTER_MS), "timestamp")),
-                fee_limit: Some(Amount::from_u128(7)),
-                idempotency_key: IdempotencyKey::new([4; 32]),
-                payload: send_payload(),
+            EvmPrepareRequest {
+                from,
+                call: PrecompileCall::ledger_transfer(send_payload()),
+                expected_nonce: Some(5),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
                 declared_payload_limit: 1_024,
             },
+            100_000,
         ),
-        "prepare",
-    )
+        "EIP-1559 prepare",
+    );
+    text(verify_call_binding(&prepared), "call binding");
+    assert_eq!(
+        text(bind_call(&prepared.call, from), "disclosure"),
+        prepared.disclosure
+    );
+    assert_eq!(prepared.disclosure.expiry.payload_expires_at, NOT_AFTER_MS);
+    assert_eq!(prepared.call.nonce, 5);
+    assert_eq!(prepared.observed_head_height, OBSERVED_HEAD_SEQUENCE);
+    prepared
+}
+
+fn prepared() -> Prepared {
+    let transaction = evm_prepared();
+    let disclosure = transaction.disclosure;
+    let payload = text(
+        Payload::new(&registry(), disclosure.activity_type, &send_payload()),
+        "payload",
+    );
+    let payload_hash = text(
+        layerx_wire::hash::payload_hash_for(&payload),
+        "payload hash",
+    );
+    // SessionControl's retained metadata adapter still takes a canonical envelope.
+    // Bind that metadata independently and check its expiry against the real EVM call.
+    // Only the verified EIP-1559 bytes from signed_bytes() are retained for submission.
+    let mut builder = EnvelopeBuilder::new();
+    text(
+        builder.protocol_version(layerx_wire::limits::PROTOCOL_VERSION),
+        "protocol",
+    );
+    text(
+        builder.network_id(u32::try_from(transaction.call.chain_id).unwrap()),
+        "chain",
+    );
+    text(builder.activity_type(disclosure.activity_type), "activity");
+    text(
+        builder.actor_did(text(Did::new(&disclosure.actor), "actor")),
+        "actor field",
+    );
+    text(
+        builder.authority(text(Authority::owner(&disclosure.authority), "authority")),
+        "authority field",
+    );
+    text(builder.account_sequence(transaction.call.nonce), "nonce");
+    text(
+        builder.timestamp_bound(text(
+            TimestampBound::new(
+                disclosure.expiry.not_before,
+                disclosure
+                    .expiry
+                    .not_after
+                    .min(disclosure.expiry.payload_expires_at),
+            ),
+            "expiry",
+        )),
+        "expiry field",
+    );
+    text(
+        builder.idempotency_key(IdempotencyKey::new(disclosure.idempotency_key)),
+        "idempotency",
+    );
+    text(
+        builder.fee_limit(Amount::from_u128(disclosure.fee_limit)),
+        "fee",
+    );
+    text(builder.payload_hash(payload_hash), "hash");
+    text(builder.payload(payload), "payload field");
+    let envelope = text(builder.build(), "retained metadata");
+    assert_eq!(envelope.timestamp_bound().not_after(), NOT_AFTER_MS);
+    let canonical_bytes = text(
+        layerx_wire::activity::encode_unsigned_envelope(&envelope),
+        "canonical retained metadata",
+    );
+    let retained_disclosure = text(
+        layerx_crypto::disclosure::bind(&canonical_bytes, &registry()),
+        "retained metadata disclosure",
+    );
+    assert_eq!(
+        retained_disclosure.expiry.not_before,
+        disclosure.expiry.not_before
+    );
+    assert_eq!(
+        retained_disclosure.expiry.not_after,
+        disclosure
+            .expiry
+            .not_after
+            .min(disclosure.expiry.payload_expires_at)
+    );
+    assert_eq!(
+        retained_disclosure.expiry.payload_expires_at,
+        disclosure.expiry.payload_expires_at
+    );
+    assert_eq!(retained_disclosure.activity_type, disclosure.activity_type);
+    assert_eq!(retained_disclosure.actor, disclosure.actor);
+    assert_eq!(retained_disclosure.authority, disclosure.authority);
+    assert_eq!(
+        retained_disclosure.idempotency_key,
+        disclosure.idempotency_key
+    );
+    let digest = DisclosureDigest(text(retained_disclosure.audit_digest(), "retained digest"));
+    let idempotency_key = envelope.idempotency_key().bytes();
+    let signing_preimage = text(
+        layerx_wire::sign::preimage_unsigned(&envelope),
+        "metadata preimage",
+    );
+    Prepared {
+        envelope,
+        canonical_bytes,
+        signing_preimage: *signing_preimage.as_bytes(),
+        observed_head_sequence: transaction.observed_head_height,
+        disclosure: retained_disclosure,
+        disclosure_digest: digest,
+        audit: PreparationAuditEntry {
+            idempotency_key,
+            observed_head_sequence: transaction.observed_head_height,
+            disclosure_digest: digest,
+        },
+    }
+}
+
+fn signed_bytes() -> Vec<u8> {
+    let transaction = evm_prepared();
+    let actor_address = transaction.from;
+    let prepared = SigningPreparation {
+        transaction,
+        actor_address,
+    };
+    let signed = text(
+        prepared.transaction.call.sign(&SIGNING_SEED),
+        "sign ledger call",
+    );
+    let verified = text(
+        verify_before_submit(&signed, &prepared, &actor_address, &registry()),
+        "verify submission",
+    );
+    assert_eq!(verified.exact_bytes(), signed);
+    let (call, signature) = text(decode_signed(&signed), "decode signed call");
+    assert_eq!(
+        text(recover_sender(&call, &signature), "sender"),
+        actor_address
+    );
+    signed
+}
+
+fn signed_hash() -> [u8; 32] {
+    transaction_hash(&signed_bytes())
 }
 
 fn limiter() -> BudgetLimiter {
@@ -280,7 +426,7 @@ fn expiry_predicate_admits_equality_and_refuses_one_millisecond_past_not_after()
         "signing",
     );
     text(
-        lifecycle.retain_signed_bytes([1; 32], vec![7; 64], [0x44; 32]),
+        lifecycle.retain_signed_bytes([1; 32], signed_bytes(), signed_hash()),
         "signed",
     );
     assert_eq!(lifecycle.admit_submission([1; 32], NOT_AFTER_MS), Ok(()));
@@ -364,7 +510,7 @@ fn expired_preparation_is_refused_before_any_signing_mutation() {
         Ok(())
     ));
     text(
-        sign.retain_signed_bytes(&harness.control, [4; 32], vec![7; 64], [0x44; 32]),
+        sign.retain_signed_bytes(&harness.control, [4; 32], signed_bytes(), signed_hash()),
         "retain",
     );
     assert_eq!(harness.lifecycle.state([4; 32]), Ok(LifecycleState::Signed));
@@ -381,8 +527,8 @@ fn external_submission_checks_time_before_mutation_and_keeps_sequences_as_sequen
         submit.submit_with_external_signature(
             &harness.control,
             [5; 32],
-            vec![7; 64],
-            [0x44; 32],
+            signed_bytes(),
+            signed_hash(),
             OBSERVED_HEAD_SEQUENCE,
             NOT_AFTER_MS + 1,
         ),
@@ -400,8 +546,8 @@ fn external_submission_checks_time_before_mutation_and_keeps_sequences_as_sequen
         submit.submit_with_external_signature(
             &harness.control,
             [5; 32],
-            vec![7; 64],
-            [0x44; 32],
+            signed_bytes(),
+            signed_hash(),
             OBSERVED_HEAD_SEQUENCE,
             NOT_AFTER_MS,
         ),
@@ -470,7 +616,7 @@ fn expiry_sweep_decides_on_milliseconds_and_records_only_sequences() {
         "signing",
     );
     text(
-        lifecycle.retain_signed_bytes([6; 32], vec![7; 64], [0x44; 32]),
+        lifecycle.retain_signed_bytes([6; 32], signed_bytes(), signed_hash()),
         "signed",
     );
 
@@ -504,4 +650,147 @@ fn expiry_sweep_decides_on_milliseconds_and_records_only_sequences() {
     );
     assert_eq!(due.discarded_terminal_signed_bytes, 1);
     assert_eq!(lifecycle.has_signed_bytes([6; 32]), Ok(false));
+}
+
+#[test]
+fn retained_evm_call_reopens_with_exact_expiry_bytes_and_reservations() {
+    const GENERATION: u64 = 1;
+    const CURRENT_SEQUENCE: u64 = 5_000;
+    let root = test_directory("retained-evm-call");
+    let owner = SessionRef::new(tenant(), SessionId([7; 32]));
+    let id = [7; 32];
+    let mut store = text(Store::open(&root), "call store");
+    let lifecycle = PreparationLifecycle::default();
+    let limiter = limiter();
+    let hold = text(
+        reserve(
+            &limiter,
+            &ReservationRequest {
+                id,
+                amount: 100,
+                expiry_sequence: CURRENT_SEQUENCE + 1_000,
+                current_sequence: OBSERVED_HEAD_SEQUENCE,
+                applicable_limits: vec![LimitId([1; 16])],
+            },
+        ),
+        "call reservation",
+    );
+    let prepared = evm_prepared();
+    text(
+        lifecycle.register_call(
+            &mut store,
+            &owner,
+            GENERATION,
+            id,
+            &prepared,
+            hold.durable.into_iter().map(|hold| (hold, None)).collect(),
+        ),
+        "register call",
+    );
+    text(
+        lifecycle.transition_call(
+            &mut store,
+            &owner,
+            GENERATION,
+            id,
+            LifecycleState::Signing,
+            OBSERVED_HEAD_SEQUENCE,
+        ),
+        "signing call",
+    );
+    let raw = signed_bytes();
+    assert_eq!(
+        text(
+            lifecycle.retain_signed_call(&mut store, &owner, GENERATION, id, raw.clone(),),
+            "retain call"
+        ),
+        transaction_hash(&raw)
+    );
+    drop(lifecycle);
+    drop(store);
+    let mut store = text(Store::open(&root), "reopen call store");
+    let lifecycle = PreparationLifecycle::default();
+    assert_eq!(
+        text(
+            lifecycle.restore_calls(&store, &owner.tenant),
+            "restore calls"
+        ),
+        1
+    );
+    assert_eq!(
+        text(
+            lifecycle.prepared_call(&store, &owner, GENERATION, id),
+            "restore preparation"
+        ),
+        prepared
+    );
+    assert_eq!(
+        text(
+            lifecycle.recovered_signed_call(&store, &owner, GENERATION, id),
+            "restore bytes"
+        ),
+        raw
+    );
+    assert_eq!(
+        lifecycle.prepared_call(&store, &owner, GENERATION + 1, id),
+        Err(LifecycleError::AuthorizationMismatch)
+    );
+    let key = text(
+        layerx_agentd::prepare::DurablePreparation::store_key(&owner.tenant, id),
+        "call key",
+    );
+    let before = store.get(&key).unwrap().bytes().to_vec();
+    assert_eq!(
+        lifecycle.admit_call_submission(&mut store, &owner, GENERATION, id, NOT_AFTER_MS + 1),
+        Err(LifecycleError::PreparationExpired)
+    );
+    assert_eq!(store.get(&key).unwrap().bytes(), before);
+    assert_eq!(lifecycle.state(id), Ok(LifecycleState::Signed));
+    assert_eq!(lifecycle.has_signed_bytes(id), Ok(true));
+    let equality = text(
+        lifecycle.expire_calls(
+            &mut store,
+            &owner.tenant,
+            &limiter,
+            NOT_AFTER_MS,
+            CURRENT_SEQUENCE,
+        ),
+        "call equality sweep",
+    );
+    assert!(equality.expired_preparations.is_empty());
+    assert!(equality.released_reservations.is_empty());
+    assert_eq!(limiter.held_reservations(), Ok(1));
+    assert_eq!(
+        text(
+            lifecycle.admit_call_submission(&mut store, &owner, GENERATION, id, NOT_AFTER_MS),
+            "call equality submission"
+        ),
+        raw
+    );
+    text(
+        lifecycle.transition_call(
+            &mut store,
+            &owner,
+            GENERATION,
+            id,
+            LifecycleState::Failed,
+            CURRENT_SEQUENCE,
+        ),
+        "call failure",
+    );
+    let early = text(
+        lifecycle.sweep_call_retention(&mut store, &owner.tenant, CURRENT_SEQUENCE + 4, 5),
+        "call early retention",
+    );
+    assert_eq!(early.discarded_terminal_signed_bytes, 0);
+    assert_eq!(lifecycle.has_signed_bytes(id), Ok(true));
+    let due = text(
+        lifecycle.sweep_call_retention(&mut store, &owner.tenant, CURRENT_SEQUENCE + 5, 5),
+        "call due retention",
+    );
+    assert_eq!(due.discarded_terminal_signed_bytes, 1);
+    assert_eq!(due.evicted_terminal_preparations, 1);
+    assert_eq!(lifecycle.state(id), Err(LifecycleError::NotFound));
+    drop(store);
+    text(fs::remove_dir_all(root), "remove call store");
 }

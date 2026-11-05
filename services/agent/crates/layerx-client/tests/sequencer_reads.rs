@@ -295,3 +295,100 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         );
     }
 }
+
+#[test]
+fn history_preserves_the_served_envelope_and_keeps_a_separately_sampled_head() {
+    let transcripts: Value =
+        serde_json::from_str(include_str!("fixtures/repair_22_33_1546_gateway.json")).must();
+    assert_eq!(
+        transcripts["provenance"]["source"],
+        "services/platform/hosted/gateway/tests/one_source_reads.rs"
+    );
+    let result = transcripts["history"].clone();
+    let account = result["account"]
+        .as_str()
+        .unwrap_or_else(|| panic!("account"));
+    let mut exchanges = vec![
+        ("px_getHistory", result.clone()),
+        ("eth_blockNumber", json!("0x13")),
+    ];
+    for field in [
+        "account",
+        "chainHeight",
+        "freshness",
+        "next_cursor",
+        "indexedHeight",
+    ] {
+        let mut malformed = result.clone();
+        assert!(malformed
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("object"))
+            .remove(field)
+            .is_some());
+        exchanges.push(("px_getHistory", malformed));
+    }
+    for (field, value) in [
+        ("account", json!("")),
+        ("account", json!({"evm_address": account})),
+        ("chainHeight", json!("12")),
+        ("chainHeight", Value::Null),
+        ("next_cursor", json!(42)),
+        ("next_cursor", json!("0x000000000000000a0000000000000000")),
+        ("indexedHeight", json!(-1)),
+        ("freshness", Value::Null),
+    ] {
+        let mut malformed = result.clone();
+        malformed[field] = value;
+        exchanges.push(("px_getHistory", malformed));
+    }
+    for (field, value) in [
+        ("version", json!(2)),
+        ("database", json!("unavailable")),
+        ("sources", json!({})),
+        ("status", json!("ready")),
+    ] {
+        let mut malformed = result.clone();
+        malformed["freshness"][field] = value;
+        exchanges.push(("px_getHistory", malformed));
+    }
+    let malformed_count = exchanges.len() - 2;
+    let (url, server) = serve(exchanges);
+    let endpoint = SequencerEndpoint::new(&url, &[]).must();
+    let page = endpoint.history(account, None, 50).must();
+    assert_eq!(
+        page,
+        HistoryPage {
+            account: account.to_owned(),
+            freshness: result["freshness"].clone(),
+            items: result["items"]
+                .as_array()
+                .unwrap_or_else(|| panic!("items"))
+                .clone(),
+            next_cursor: None,
+            indexed_height: Some(12),
+            chain_height: Some(12),
+        }
+    );
+    let sampled_head = endpoint.block_number().must();
+    assert_eq!(sampled_head, 19);
+    assert_eq!(page.chain_height, Some(12));
+    assert_eq!(page.indexed_height, Some(12));
+    assert_eq!(page.items.len(), 4);
+    assert_eq!(page.items[1]["asset_metadata"]["denom"], "ulxp");
+    assert_eq!(page.items[3]["asset_metadata"], Value::Null);
+    for index in 0..malformed_count {
+        assert_eq!(
+            endpoint.history(account, None, 50),
+            Err(SequencerError::Malformed),
+            "malformed envelope {index}"
+        );
+    }
+    let seen = server.join().must();
+    assert_eq!(seen.len(), malformed_count + 2);
+    assert_eq!(seen[1], json!([]));
+    for (index, params) in seen.iter().enumerate() {
+        if index != 1 {
+            assert_eq!(params, &json!([account, null, 50]));
+        }
+    }
+}

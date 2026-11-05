@@ -99,18 +99,22 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
     ));
     assert_eq!(terminal.activity_id(), protocol.activity_id());
     assert_eq!(terminal.result_code(), 0);
-    prove_terminal_recovery(&read("activity"), &read("credit"), &terminal);
+    prove_terminal_recovery();
     assert_eq!(terminal.global_sequence(), 1);
     assert_eq!(
         terminal.level(),
         layerx_types::verify::VerificationLevel::BATCH_INCLUDED
     );
-    assert!(VerifiedReceiptEvidence::verify_authorized(
-        &raw,
-        &authority,
-        header.protocol_version(),
-        header.network_id()
+    // Exercise the public ingress without maintained-transition evidence; the
+    // terminal receipt alone cannot authenticate the complete batch transition.
+    assert!(checked(
+        crate::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
+            header.protocol_version(),
+            header.network_id(),
+            public,
+        )
     )
+    .verify_receipt(&raw)
     .is_err());
     let wrong = replace_terminal_root(authority, header.resulting_state_root());
     assert!(VerifiedReceiptEvidence::verify_authorized_maintained(
@@ -148,179 +152,266 @@ fn actual_daemon_terminal_requires_the_complete_maintained_transition() {
     .is_err());
 }
 
-fn actual_submission(
-    bytes: &[u8],
-    public: &[u8; 32],
-) -> (crate::sign::VerifiedSubmission, [u8; 32]) {
-    use crate::prepare::{PreparationAuditEntry, Prepared};
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::payload::{
-        ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload,
+/// The node recorder uses this public test key and emits both the type-2 call
+/// and its sequencer receipt. Reproduce the transaction through preparation and
+/// signing, then require byte equality with that committed producer transcript.
+pub(super) fn native_fixture() -> (
+    crate::sign::SigningPreparation,
+    layerx_types::payload::ModuleRegistry,
+    Vec<u8>,
+    serde_json::Value,
+    Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+) {
+    use crate::prepare::{
+        evm::{AbiArgument, PrecompileCall, PrecompileTarget},
+        prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
     };
-    let kind = checked(ActivityType::new(ModuleId::Bridge, 1));
-    let registration = checked(ModuleRegistration::new(ModuleId::Bridge, &[kind]));
-    let registry = checked(ModuleRegistry::new(&[registration]));
-    let activity = checked(layerx_wire::activity::decode_signed(bytes, &registry));
-    let mut builder = EnvelopeBuilder::new();
-    checked(builder.protocol_version(activity.protocol_version()));
-    checked(builder.network_id(activity.network_id()));
-    checked(builder.activity_type(kind));
-    checked(builder.actor_did(checked(layerx_types::ids::Did::new(activity.actor_did()))));
-    checked(builder.authority(checked(Authority::owner(activity.authority()))));
-    checked(builder.account_sequence(activity.account_sequence()));
-    let bound = activity.timestamp_bound();
-    checked(builder.timestamp_bound(checked(TimestampBound::new(
-        bound.not_before,
-        bound.not_after,
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+    let document: serde_json::Value = checked(serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))));
-    checked(
-        builder.idempotency_key(layerx_types::ids::IdempotencyKey::new(
-            activity.idempotency_key(),
-        )),
-    );
-    checked(builder.fee_limit(layerx_types::amount::Amount::from_u128(
-        activity.fee_limit(),
-    )));
-    checked(builder.payload_hash(activity.payload_hash()));
-    checked(builder.payload(checked(Payload::new(&registry, kind, activity.payload()))));
-    let envelope = checked(builder.build());
-    let canonical_bytes = checked(layerx_wire::activity::encode_unsigned_envelope(&envelope));
+    let case = document["cases"]
+        .as_array()
+        .expect("recorded cases")
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .expect("native call recording");
+    let raw = decode_hex(case["rawTransaction"].as_str().expect("raw transaction"));
+    let (call, signature) = checked(decode_signed(&raw));
+    let actor_address = checked(recover_sender(&call, &signature));
     assert_eq!(
-        canonical_bytes,
-        checked(layerx_wire::activity::encode_unsigned(&activity))
+        &call.data[..4],
+        &layerx_crypto::disclosure::call::ledger_selector(
+            "payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"
+        )
     );
-    let disclosed = checked(crate::prepare::disclose(&canonical_bytes, &registry));
-    let prepared = Prepared {
-        signing_preimage: *checked(layerx_wire::sign::preimage_unsigned(&envelope)).as_bytes(),
-        envelope,
-        canonical_bytes,
-        observed_head_sequence: 0,
-        disclosure: disclosed.disclosure,
-        disclosure_digest: disclosed.digest,
-        audit: PreparationAuditEntry {
-            idempotency_key: activity.idempotency_key(),
-            observed_head_sequence: 0,
-            disclosure_digest: disclosed.digest,
+    let transaction = checked(prepare_bound(
+        EvmPreparationState {
+            chain_id: 125,
+            pending_nonce: 2,
+            base_fee_per_gas: 1_000_000_000,
+            head_height: 1001,
         },
-    };
-    let signature: &[u8; 64] = checked(activity.signature().expect("fixture signature").try_into());
-    let message = checked(layerx_crypto::SignatureMessage::new(
-        layerx_wire::hash::Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &prepared.canonical_bytes,
+        EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1_000_000_000,
+            max_fee_per_gas: 3_000_000_000,
+            maximum_payload_bytes: 2048,
+        },
+        EvmPrepareRequest {
+            from: actor_address,
+            call: PrecompileCall {
+                target: PrecompileTarget::Ledger,
+                selector: checked(call.data[..4].try_into()),
+                arguments: call.data[4..]
+                    .chunks_exact(32)
+                    .map(|word| AbiArgument::Word(checked(word.try_into())))
+                    .collect(),
+            },
+            expected_nonce: Some(2),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            declared_payload_limit: 2048,
+        },
+        call.gas_limit,
     ));
-    checked(layerx_crypto::ed25519::verify(public, signature, message));
-    let native_id = checked(layerx_wire::hash::activity_id(&activity));
+    assert_eq!(transaction.call, call);
+    let prepared = crate::sign::SigningPreparation {
+        transaction,
+        actor_address,
+    };
+    let seed: [u8; 32] = checked(
+        decode_hex("8f2a55949038a9610f50fb23b5883af3b4ecb3c3bb792cbcefbd1542c692be63").try_into(),
+    );
+    let signed = checked(prepared.transaction.call.sign(&seed));
+    assert_eq!(
+        signed, raw,
+        "producer must reproduce the node recorder's exact bytes"
+    );
+    let kind = checked(ActivityType::new(ModuleId::Asset, 5));
+    let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
+        ModuleId::Asset,
+        &[kind],
+    ))]));
+    let pin = &case["pinnedKey"];
+    let keys = vec![layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: checked(decode_hex(pin["keyId"].as_str().expect("key id")).try_into()),
+        public_key: checked(decode_hex(pin["publicKey"].as_str().expect("public key")).try_into()),
+        first_height: pin["firstHeight"].as_u64().expect("first height"),
+        last_height: pin["lastHeight"].as_u64().expect("last height"),
+    }];
     (
-        crate::human_runtime::activity_submission_index_tests::transaction_submission(
-            prepared, &registry,
-        ),
-        native_id,
+        prepared,
+        registry,
+        signed,
+        case["receiptJson"].clone(),
+        keys,
     )
 }
 
-fn prove_terminal_recovery(activity: &[u8], credit: &[u8], terminal: &VerifiedReceiptEvidence) {
-    use crate::outbox::{Outbox, SubmissionState};
-    use crate::store::{Store, TenantId};
-    let (verified, native_activity_id) =
-        actual_submission(activity, &checked(credit[139..171].try_into()));
-    assert_eq!(native_activity_id, terminal.activity_id());
-    let transaction_hash = layerx_crypto::evm_transaction::transaction_hash(verified.exact_bytes());
-    assert_eq!(verified.activity_id(), transaction_hash);
-    assert_ne!(transaction_hash, native_activity_id);
-    let signed_transaction = verified.exact_bytes().to_vec();
-    let idempotency_key = verified.idempotency_key();
-    let authority = checked(
-        crate::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
-            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-            42,
-            ed25519_dalek::SigningKey::from_bytes(&[0x3a; 32])
-                .verifying_key()
-                .to_bytes(),
-        ),
-    );
-    let transaction_terminal = checked(authority.verify_receipt(
-        &crate::human_runtime::activity_submission_index_tests::settlement_receipt(
-            transaction_hash,
-            0,
-            1,
-            1,
-            1,
-        ),
+pub(super) fn decode_hex(value: &str) -> Vec<u8> {
+    checked(hex::decode(value.strip_prefix("0x").unwrap_or(value)))
+}
+
+#[test]
+fn native_type2_bytes_and_matching_node_receipt_survive_restart() {
+    prove_terminal_recovery();
+}
+
+fn prove_terminal_recovery() {
+    use crate::outbox::{resolve_unknown, Outbox, ResolutionObservation, SubmissionState};
+    use crate::store::{ObjectKind, Store, TenantId, TenantKey};
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_crypto::evm_transaction::transaction_hash;
+    use sha2::{Digest, Sha256};
+    use std::io::{BufRead, BufReader, Read, Write};
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let (prepared, registry, signed, receipt_view, keys) = native_fixture();
+    let verified = checked(crate::sign::verify_before_submit(
+        &signed,
+        &prepared,
+        &prepared.actor_address,
+        &registry,
     ));
-    assert_eq!(transaction_terminal.activity_id(), transaction_hash);
-    let root = std::env::temp_dir().join(format!("native-terminal-{}", std::process::id()));
+    let hash = transaction_hash(&signed);
+    assert_eq!(verified.activity_id(), hash);
+    assert_eq!(format!("0x{}", hex::encode(hash)), receipt_view["txHash"]);
+    let canonical_receipt = decode_hex(receipt_view["receipt"].as_str().expect("node receipt"));
+    let receipt_digest: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let listener = checked(std::net::TcpListener::bind("127.0.0.1:0"));
+    let mut endpoint = checked(SequencerEndpoint::new(
+        &format!("http://{}", checked(listener.local_addr())),
+        &[],
+    ));
+    let expected_signed = signed.clone();
+    let server = std::thread::spawn(move || {
+        for expected_method in [
+            "eth_sendRawTransaction",
+            "pax_sequencerReceipt",
+            "eth_getTransactionReceipt",
+        ] {
+            let (mut stream, _) = checked(listener.accept());
+            checked(stream.set_read_timeout(Some(std::time::Duration::from_secs(5))));
+            let mut reader = BufReader::new(&mut stream);
+            let mut line = String::new();
+            checked(reader.read_line(&mut line));
+            assert!(line.starts_with("POST / HTTP/1.1"));
+            let mut length = None;
+            loop {
+                line.clear();
+                checked(reader.read_line(&mut line));
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.eq_ignore_ascii_case("content-length") {
+                        length = Some(checked(value.trim().parse::<usize>()));
+                    }
+                }
+            }
+            let mut body = vec![0; length.expect("request length")];
+            checked(reader.read_exact(&mut body));
+            let request: serde_json::Value = checked(serde_json::from_slice(&body));
+            assert_eq!(request["method"], expected_method);
+            let result = if expected_method == "eth_sendRawTransaction" {
+                assert_eq!(
+                    request["params"][0],
+                    format!("0x{}", hex::encode(&expected_signed))
+                );
+                serde_json::json!(format!("0x{}", hex::encode(hash)))
+            } else {
+                assert_eq!(request["params"][0], format!("0x{}", hex::encode(hash)));
+                if expected_method == "pax_sequencerReceipt" {
+                    receipt_view.clone()
+                } else {
+                    serde_json::Value::Null
+                }
+            };
+            let body = checked(serde_json::to_vec(
+                &serde_json::json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
+            ));
+            checked(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()));
+            checked(stream.write_all(&body));
+        }
+    });
+    let root = std::env::temp_dir().join(format!(
+        "native-terminal-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
     let tenant = checked(TenantId::new("native-terminal"));
     let mut store = checked(Store::open(&root));
     let mut outbox = Outbox::default();
-    let id = checked(outbox.enqueue_with_origin(
-        &mut store,
-        tenant.clone(),
-        verified.idempotency_key(),
-        verified,
-        None,
-        None,
-    ));
-    assert_eq!(id, transaction_hash);
+    checked(prepared.retain(&mut store, tenant.clone(), hash));
+    let id = checked(outbox.enqueue_verified(&mut store, tenant.clone(), verified));
+    assert_eq!(id, hash);
+    assert_eq!(checked(outbox.bytes_for_transmission(id)), signed);
+    assert_eq!(
+        checked(endpoint.send_raw_transaction(checked(outbox.bytes_for_transmission(id)))),
+        hash
+    );
     checked(outbox.transition(
         &mut store,
-        transaction_hash,
+        id,
         SubmissionState::Submitted,
-        "submitted exact native bytes",
+        "sent exact native transaction",
         None,
     ));
     checked(outbox.transition(
         &mut store,
         id,
         SubmissionState::Unknown,
-        "receipt resolution after restart",
+        "restart before receipt resolution",
         None,
     ));
     drop(outbox);
     drop(store);
     let mut store = checked(Store::open(&root));
-    let mut restored = Outbox::default();
-    assert!(matches!(
-        restored.restore(&store, tenant.clone(), idempotency_key),
-        Err(crate::outbox::OutboxError::NotFound)
+    let restored_preparation = checked(crate::sign::SigningPreparation::restore(
+        &store,
+        tenant.clone(),
+        hash,
     ));
-    checked(restored.restore(&store, tenant.clone(), transaction_hash));
-    assert_eq!(
-        restored.status(id).map(|status| status.state),
-        Some(SubmissionState::Unknown)
-    );
-    assert!(matches!(
-        restored.record_execution(&mut store, transaction_hash, terminal.clone(), 1, 0),
-        Err(crate::outbox::OutboxError::ReceiptMismatch)
-    ));
-    checked(restored.record_execution(
+    assert_eq!(restored_preparation, prepared);
+    let mut outbox = Outbox::default();
+    checked(outbox.restore(&store, tenant.clone(), hash));
+    assert_eq!(checked(outbox.exact_signed_bytes(hash)), signed);
+    let result = checked(resolve_unknown(
+        &mut outbox,
         &mut store,
-        transaction_hash,
-        transaction_terminal.clone(),
-        1,
-        0,
+        hash,
+        100,
+        &keys,
+        &mut endpoint,
     ));
-    drop(restored);
+    assert_eq!(result.observation, ResolutionObservation::ExecutedReceipt);
+    assert_eq!(result.state, SubmissionState::Executed);
+    checked(server.join());
+    drop(outbox);
     drop(store);
     let store = checked(Store::open(&root));
-    let mut restored = Outbox::default();
-    checked(restored.restore(&store, tenant, id));
-    let status = restored
-        .status(id)
-        .unwrap_or_else(|| panic!("restored terminal status"));
+    let mut recovered = Outbox::default();
+    checked(recovered.restore(&store, tenant.clone(), hash));
+    let status = recovered.status(hash).expect("recovered native execution");
     assert_eq!(status.state, SubmissionState::Executed);
+    let evidence = status.evidence.expect("authenticated node receipt");
+    assert_eq!(evidence.receipt_ref(), receipt_digest);
+    assert_eq!(evidence.block_height(), 1001);
+    assert_eq!(evidence.transaction_index(), 1);
+    let receipt_key = checked(TenantKey::new(
+        tenant,
+        ObjectKind::Receipt,
+        receipt_digest.to_vec(),
+    ));
     assert_eq!(
-        status
-            .evidence
-            .map(crate::outbox::ReceiptEvidence::receipt_ref),
-        Some(transaction_terminal.receipt_ref())
+        store.get(&receipt_key).expect("durable receipt").bytes(),
+        canonical_receipt
     );
-    assert_eq!(
-        checked(restored.exact_signed_bytes(transaction_hash)),
-        signed_transaction
-    );
-    assert!(restored.bytes_for_transmission(id).is_err());
+    assert_eq!(checked(recovered.exact_signed_bytes(hash)), signed);
+    assert!(recovered.bytes_for_transmission(hash).is_err());
+    drop(store);
+    checked(std::fs::remove_dir_all(root));
 }
 
 fn replace_terminal_root(authority: AuthorizedBatch, root: [u8; 32]) -> AuthorizedBatch {
