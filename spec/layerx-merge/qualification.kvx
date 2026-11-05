@@ -30587,3 +30587,35 @@ symbol = "repair_22_34_5.rs"
 observed = "Attempt 1: the build failed with E0432, E0433, E0425, E0422 and E0609 in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs against the authority's human module; no verify ran."
 assumption = "Red daemon test build on main since 22.31.208 (gotcha 3075); not the task's defect."
 severity = "low"
+
+[finding.22.33.208.4]
+task = "22.33.208"
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+symbol = "repair-22-33-208.test.ts"
+observed = "Attempt 4: the build passed; 2 of 5 cases passed; the send case timed out on the single connection the route itself held and the two sponsored cases found no sponsored recording because the V6 vector was never loaded."
+assumption = "A real route defect (gotcha 3076) and an unconsumed producer artefact; both named."
+severity = "high"
+
+[finding.22.33.1550.4]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 4: cargo build --tests failed with E0063 and four E0061 in tests/repair_22_33_1550.rs against the daemon approval service of 22.31.495; no verify ran."
+assumption = "Consumer test behind the 495 signature change (gotcha 3072) plus the red daemon test build on main (gotcha 3075)."
+severity = "low"
+
+[finding.22.31.497.3]
+task = "22.31.497"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 3: cargo build -p layerx-agentd --tests exited 101 on four E0063 and one E0061 in tests/approval_semantics.rs; no verify ran."
+assumption = "A main-side break in a test the task does not touch (gotcha 3077) plus an approach superseded by decision 2564."
+severity = "low"
+
+[finding.22.31.503.1]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 1: the build passed; the verify ran 14 cases and 13 passed; noTestsUnderPages received the two 449 paths and expected none."
+assumption = "An incomplete sweep by the attempt; the guard did its job."
+severity = "low"
