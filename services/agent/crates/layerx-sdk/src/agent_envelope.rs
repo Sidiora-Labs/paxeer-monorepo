@@ -14,7 +14,7 @@ use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retri
 use layerx_agent_api::idempotency::{IdempotentMutation, Key};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
-use layerx_agent_api::read::{ReadRequest, VerifiedRead};
+use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
 use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 
 use layerx_types::result::ResultCode;
@@ -1730,18 +1730,26 @@ pub fn decode_proof_bundle_response(
 ) -> Option<VerifiedRead<ProofBundle>> {
     let operation = Operation::ReadProofBundle;
     let read = response.value.as_object()?;
-    if !exact_fields(read, &["value", "achieved_rung", "freshness"]) {
+    if !exact_fields(read, &["value", "achieved_verification_level", "freshness"]) {
         return None;
     }
-    let achieved = Rung::from_name(read.get("achieved_rung")?.as_str()?)?;
+    let achieved = Rung::from_name(read.get("achieved_verification_level")?.as_str()?)?;
     if !matches!(response.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
+    {
+        return None;
+    }
+    let freshness = Freshness::decode_json(&read.get("freshness")?.to_string()).ok()?;
+    let RelativeTo::Block { height, hash } = freshness.relative_to;
+    if freshness.value_height > freshness.chain_head
+        || height != freshness.value_height
+        || hash == [0; 32]
     {
         return None;
     }
     let result = VerifiedRead::new(
         crate::rpc_export::decode_bundle(read.get("value")?, operation).ok()?,
         achieved,
-        crate::rpc_projection::decode_freshness(read.get("freshness")?, operation).ok()?,
+        freshness,
     );
     let target = ProofBundleTarget::decode(request.selector.as_bytes()).ok()?;
     let typed_request = ReadRequest {

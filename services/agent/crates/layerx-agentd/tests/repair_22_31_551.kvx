@@ -1,0 +1,45 @@
+[repair.22.31.551]
+acceptance = "22998.1"
+base_revision = "91fb5b27a85fa2ef8951324a5d04ff1b0a71fb3b"
+gotchas = [3142, 3168, 3169]
+decisions = [2602, 2621]
+implementation = "Test fixtures use hold_reserved_at with the cfg(test) approval::TestClock implementing layerx_types::clock::Clock; sample returns generation [1; 16], explicit fixed Unix milliseconds and monotonic zero. Production code, the deprecated hold_reserved entry and all assertion outcomes are preserved."
+
+[ported_hold_sites]
+receipt_settlement = "src/approval/mod.rs receipt_settlement_tests::held: hold_reserved_at with TestClock(10_000), before activity expiry 40 seconds."
+lock_order = "src/approval/mod.rs lock_order_tests::hold: hold_reserved_at with TestClock(10_000), before activity expiry 40 seconds."
+reject_persist = "src/approval/mod.rs reject_persist_tests::hold: hold_reserved_at with TestClock(10_000), before activity expiry 40 seconds."
+defective_persist = "src/approval/mod.rs defective_persist_tests::hold: hold_reserved_at with TestClock(10_000), before activity expiry 40 seconds."
+reject_no_store = "src/approval/mod.rs reject_no_store_tests::hold: hold_reserved_at with TestClock(10_000), before activity expiry 40 seconds."
+expiry = "src/approval/expiry.rs tests::snapshot: hold_reserved_at with TestClock(1_000), before activity expiry 40 seconds; get_scoped_at observes sequence 1 and Unix second 1."
+released_replay = "src/policy/approval.rs released_replay_tests::persisted: hold_reserved_at with TestClock(1_000_000), before activity expiry 1_010 seconds."
+
+[fixture_sites]
+private_roots = "src/approval/expiry.rs tests::fixture and offline_expiry_publishes_the_staged_release_after_the_durable_write explicitly create unique store roots with DirBuilder::recursive(true).mode(0o700)."
+timed_reads = "src/approval/mod.rs receipt_settlement_tests: both terminal and pending snapshot reads use get_scoped_at at sequence 12 and Unix second 12."
+timed_claims = "src/approval/mod.rs lock_order_tests, reject_persist_tests, defective_persist_tests and reject_no_store_tests: the four claimability assertions use claim_scoped_at at sequence 12 and Unix second 12. Assertion criteria are unchanged."
+durable_snapshot = "src/approval/mod.rs receipt_settlement_tests::durable_consumed opens the persisted snapshot read-only while the fixture retains its exclusive writer; it still reads the on-disk daemon limits through Store."
+unavailable_approval_roots = "src/approval/mod.rs reject_persist_tests, defective_persist_tests and reject_no_store_tests: each failed-write case renames its root away and back, keeping the same protected directory inode and stored bytes for the asserted fresh retry."
+unavailable_expiry_roots = "src/approval/expiry.rs offline_expiry_with_a_failed_durable_write_keeps_the_hold and observed_expiry_with_a_failed_durable_write_keeps_the_hold rename the root away and restore it; root absence, failed durable write, held exposure, unchanged bytes, eventual release and idempotent retry assertions stay intact."
+
+[gotcha.timed_reads]
+symptom = "Porting hold_reserved alone leaves pending get_scoped and claim_scoped calls returning ClockRequired."
+cause = "validate_for_read requires explicit current time for an AwaitingApproval record."
+resolution = "Use the existing timed read and claim entries with the fixtures' fixed observation time; keep production refusal behavior."
+
+[gotcha.protected_retry]
+symptom = "Deleting and recreating the fixture root prevents the same Store handle from succeeding on retry, even with mode 0o700."
+cause = "ProtectedRoot binds the open directory inode and rejects substitution; a second writable Store on the same root is also refused."
+resolution = "Temporarily rename and restore the original private root for failed-write retries, and use Store::open_read_only for durable snapshot inspection while the writer remains alive."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The exact verified revision is the final verify row in the private ledger; it must match the successful build row and final candidate."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.551 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- approval::defective_persist_tests approval::lock_order_tests approval::receipt_settlement_tests approval::reject_no_store_tests approval::reject_persist_tests approval::expiry::tests policy::approval::released_replay_tests"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+results = "Results are recorded by reference: the private ledger rows of kind build and verify contain the executed revision, command, exit and log path, including any repair reruns. This record asserts no passing result before execution and is written before qualification."
+post_gate_edits = "No source or repair-record changes after the final build and verify."
+publication = "The runner owns publication; preserve inherited .cgignore and spec bookkeeping without manual edits, commits or pushes."
