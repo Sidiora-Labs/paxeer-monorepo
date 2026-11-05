@@ -31043,3 +31043,27 @@ symbol = "repair_22_31_532.rs"
 observed = "Attempt 1: build exit 0 after one repair; verify exit 1: payer 3 of 3; payer_evm 4 of 6, web_pay_exact_submits_a_signed_layerxpay_call failed Configuration(node_rpc) and web_grant_submits_a_signed_ledger_issue_grant_call failed Boundary(Refused); the repair_22_31_532 target never ran."
 assumption = "Both cases read configuration from the ambient environment that the qualification environment does not provide (gotcha 3128); pre-existing since 22.31.224 and 10.1.10, not a defect of the attempt."
 severity = "low"
+
+[finding.22.31.534.1]
+task = "22.31.534"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"
+symbol = "repair_22_31_534.rs"
+observed = "Attempt 1: build exit 101: the approval_semantics test target failed to compile with five errors (DecisionRequest without current_time at lines 171, 191, 245 and 269; get without the TimestampSeconds argument at line 298); verify never ran."
+assumption = "The five errors were introduced by 22.31.495 and repaired by 22.31.519 attempt 3; attempt 1 touched none of that suite and its own targets compiled."
+severity = "low"
+
+[finding.22.31.530.2]
+task = "22.31.530"
+file = "services/platform/middleware/seller/test/repair-22-31-530.test.mjs"
+symbol = "repair-22-31-530.test.mjs"
+observed = "Attempt 2: build exit 0; verify exit 1: all 27 seller cases pass; sdk/integrations/next/test/receipt-keys.test.mjs integrationSettlesSignedSequencerReceipt answered 500 where 200 was expected at line 273."
+assumption = "The consumer keccak digest check in sdk/integrations/next/src/index.ts line 480 predates decision 2538 and 22.31.493 ports it after 22.31.530."
+severity = "low"
+
+[finding.22.31.532.2]
+task = "22.31.532"
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+symbol = "WebPayerBoundary"
+observed = "Attempt 2: build exit 0; verify exit 1: payer 3 of 3 and payer_evm 5 of 6 pass, grant signing passes with the fixed native clock; web_pay_exact_submits_a_signed_layerxpay_call failed with Payer(Unavailable) because the production boundary inherits the trait default view; repair_22_31_532 never ran."
+assumption = "The local node double already answers accountId(bytes32,bytes32) on the pending block, so the case passes once the boundary forwards the view."
+severity = "high"

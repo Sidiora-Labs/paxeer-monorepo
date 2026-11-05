@@ -8643,6 +8643,18 @@ value = "receipt-replay.test.mjs, settlement-response.test.mjs and receipt-verif
 basis = "Gotcha 3126; the two tasks were mutually dependent through the settlement-response suite."
 affects = ["22.31.530", "22.31.533", "22.31.434"]
 
+[decision.2589]
+title = "A task whose declared build compiles every test target of a crate is held behind the task that repairs a red target of that crate"
+value = "When a declared build of the form cargo build -p <crate> --tests fails in a test target the task does not touch, and that target is owned by another in-flight task, the attempt is continued unchanged with the owning task added to its requires; the task never repairs the foreign suite, never narrows its build to its own targets, and the owning task remains the single source of that repair. Gotcha 3129 records the first case (22.31.534 behind 22.31.519)."
+basis = "Gotcha 3129; a foreign red test target is a dependency, not a repair scope."
+affects = ["22.31.534", "22.31.519"]
+
+[decision.2590]
+title = "The production web payer boundary answers precompile views through the node pending read"
+value = "WebPayerBoundary implements WebPayer::view: the owner check runs first, the call is encoded with PrecompileCall::encode, and the bytes are read through the node pending call to the target precompile address and returned unchanged; an encoding failure refuses and a node failure maps through node_error as the other boundary methods do. No production path keeps the trait default for view; the MCP exact-terms resolution over the production payer is proven by the host payer EVM suite."
+basis = "Gotcha 3131; the production path lacked the producer half of the account resolution the MCP tool consumes."
+affects = ["22.31.532"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37647,7 +37659,7 @@ title = "Verify a differing request before the seller refuses it as receipt reus
 reqs = ["22998.1"]
 touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/repair-22-31-530.test.mjs", "services/platform/middleware/seller/test/repair-22-31-530.kvx"]
 tests = ["services/platform/middleware/seller/test/repair-22-31-530.test.mjs"]
-verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/repair-22-31-530.test.mjs services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs && npm --prefix services/platform/middleware/buyer run build && npm --prefix sdk/integrations/next run build && node --test sdk/integrations/next/test/receipt-keys.test.mjs"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/repair-22-31-530.test.mjs services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs && npm --prefix services/platform/middleware/buyer run build"
 do_1 = "do_1 Gotcha 3118, decisions 2376 and 2582. In services/platform/middleware/seller/src/index.ts the lookup by the transaction hint and the legacy receipt-digest hint (lines 276 to 288) keeps serving the identical-request replay from the stored record. When the stored record carries a different request digest, do not return receiptReuseDecision at lines 289 to 291; run this.#authority.settle for the presented payload first (the same call the stored === undefined branch makes, so a tampered or unverifiable payload throws verification-failure and the route answers 402 with no release and no store change), and only after a settled outcome return receiptReuseDecision. Nothing is fulfilled or released on that path, the post-verification reuse refusals at lines 334 to 336 and 349 to 351 stay, and the legacy-record replay of 22.33.1400 stays."
 symbols = []
 
@@ -148009,7 +148021,7 @@ touches = ["services/platform/middleware/seller/src/index.ts", "services/platfor
 tests = ["services/platform/middleware/seller/test/repair-22-31-530.test.mjs"]
 planned_paths = ["services/platform/middleware/seller/src", "services/platform/middleware/seller/test"]
 build_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build"
-verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/repair-22-31-530.test.mjs services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs && npm --prefix services/platform/middleware/buyer run build && npm --prefix sdk/integrations/next run build && node --test sdk/integrations/next/test/receipt-keys.test.mjs"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/middleware/seller/test/repair-22-31-530.test.mjs services/platform/middleware/seller/test/receipt-replay.test.mjs services/platform/middleware/seller/test/receipt-verification.test.mjs services/platform/middleware/seller/test/repair-22-31-434.test.mjs services/platform/middleware/seller/test/settlement-response.test.mjs && npm --prefix services/platform/middleware/buyer run build"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-platform"
@@ -148023,6 +148035,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.31.533, gotcha 3121): attempt 1 stands in full (the verification before the reuse refusal in src/index.ts, the four cases and the record). Rebase on main once 22.31.533 has landed, change nothing, run the declared build and verify once and record."
 do_5 = "Attempt 2 (continue, gotcha 3126, decision 2588; this replaces the earlier attempt-2 instruction to change nothing): attempt 1 stands in full. In addition, in the same candidate: (1) build the portable proof in test/receipt-replay.test.mjs (lines 41 and 149), test/settlement-response.test.mjs (line 108) and test/receipt-verification.test.mjs (lines 103 and 152) with the receiptDigest that verifySequencerReceipt returns (decision 2538, as repair-22-31-434.test.mjs line 55 and repair-22-31-530.test.mjs do); the tampered cases keep a digest that cannot verify and their refusal assertions. (2) receiptIdentityIsScopedToMerchant: the second principal presenting the same receipt is refused as receipt_reuse (409) and releases nothing, as receiptReusePrincipal of repair-22-31-434.test.mjs proves; the later cross-principal replays stay refused; rename the case receiptIdentityIsBoundToOnePrincipal. (3) meteredOfferWithPurposeHashVerifies: an exact-payment proof cannot satisfy a metered or subscription offer (sellerGrantFinalVerifier); assert verification-failure for both schemes, keep the purpose-hash mismatch refusal and rename the case meteredOfferRefusesExactEvidence. (4) settlementResponseCarriesPortableReceipt: build the committed evidence with recordedCommittedReceipt from test/committed-fixture.mjs and its resolver as commitmentInclusionUnverified does, give the seller the resolver through the configuration option src/index.ts and src/commitment.ts expose for committed verification, assert committedPortable.receiptDigest equals hex(signed.receiptDigest) in place of the keccak-256 equality at line 308, and take the signature and validator counts from the recorded evidence. (5) replayedSettlementAnswersStoredTransaction keeps settleCount 2: it is the verification before the reuse refusal this task adds. Change no product code beyond attempt 1. Run the declared build and verify once (the verify now includes receipt-verification.test.mjs) and record the alignments in repair-22-31-530.kvx."
+do_6 = "Attempt 3 (continue, gotcha 3130, decision 2579): attempt 2 stands in full (the differing-request verification, the five digest re-pins and the four suite alignments). The Next consumer port belongs to 22.31.493 and the verify no longer builds or runs sdk/integrations/next; rebase, change nothing, run the declared build and verify once and record."
 
 [task.22.31.525]
 title = "Leave a paid order unchanged when a later payment attempt is refused"
@@ -148088,7 +148101,7 @@ do_5 = "Attempt 4 (continue, decision 2579): attempt 3 stands in full; 21 of 25 
 
 [task.22.31.522]
 title = "Add the chain routes to the explorer page type map and commit the regenerated route type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.503", "22.31.512"]
@@ -148307,6 +148320,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue after 22.31.530, gotcha 3118): attempt 1 stands in full; both route checks compare the verifier receiptDigest (decision 2538) and the four new cases pass. The only failing case, sdk/integrations/next/test/receipt-keys.test.mjs line 296, fails because the seller refuses the changed-key payload as receipt_reuse before verifying it, the regression 22.31.530 repairs under decision 2582. Rebase on main once 22.31.530 has landed, change nothing in the route checks or the cases, run the declared build and verify once and record."
+do_5 = "Attempt 2 note (gotcha 3130): with 22.31.530 attempt 2 the seller answers the pre-port Next integration 500 at sdk/integrations/next/test/receipt-keys.test.mjs line 273; do_1 remains the port that turns that case green, and this task verify is the only one that runs the Next and Express receipt-keys suites."
 
 [task.22.31.492]
 title = "Make the buyer, agent and conformance middleware use the receipt-signature digest the seller verifies"
@@ -175039,7 +175053,7 @@ title = "Judge budget-state verification through the shared label decoder and su
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.519"]
 reqs = ["22998.1"]
 capabilities = ["22.31.534"]
 interfaces = []
@@ -175063,6 +175077,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.519, gotcha 3129, decision 2589): attempt 1 stands in full (the shared predicate, the two call sites, the Refused variant and its mapping, the two tests). Rebase on main, where tests/approval_semantics.rs builds again since d739b429df; change nothing of the product, run the declared build and verify once and record."
 
 [task.22.31.532]
 title = "Give the production web payer the approval resources and the held-transaction path"
@@ -175093,6 +175108,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3128): attempt 1 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring and the four cases). In tests/payer_evm.rs (1) web_pay_exact_submits_a_signed_layerxpay_call resolves the terms through WebCall::exact_terms_with_payer over a WebPayerBoundary (a second payer built by the payer helper on the same node double, converted with into_web_payer) with the test clock, since no production path calls the environment-bound exact_terms; update the expected request-method list to the views the boundary issues, naming each view in a comment; (2) in SigningFixture::start install a fixed native clock on the signer with AttestorSigner::with_native_replay_journal over a journal path under the attestor harness root directory and Arc::clone of the harness clock field as the Clock (the clock that mints the owner assertion), so grant signing never reads the ambient runtime clock; keep every other assertion. Change no product code; run the declared build and verify once and record in repair-22-31-532.kvx that the two suite cases were aligned."
+do_4 = "Attempt 3 (continue, gotcha 3131, decision 2590): attempt 2 stands in full (the optional approval resources, prepare_bound preparation, the held submission path, the main.rs wiring, the four repair cases and the two test alignments of gotcha 3128). In services/agent/crates/layerx-agentd-host/src/payer.rs implement view on WebPayerBoundary (line 394): run the owner check, encode the call with PrecompileCall::encode (an encoding error refuses), read the bytes through the node pending call to the target precompile address exactly as validate reads accountOwner (lines 170 to 178, mapping node failures through node_error and WebPayerError::from) and return them unchanged. In tests/repair_22_31_532.rs add case (5): a boundary view of accountId(bytes32,bytes32) over the local node double returns the node answer bytes unchanged, and the same view refuses when the owner check refuses. Record the method and the case in tests/repair_22_31_532.kvx, run the declared build and verify once and record."
 
 [task.22.31.531]
 title = "Hold an above-threshold metered draw under an existing grant on its disclosure"
@@ -175316,7 +175332,7 @@ do_7 = "Attempt 6 (continue, decision 2580): attempt 5 stands; the store root is
 
 [task.22.31.519]
 title = "Pass the explicit decision time in the daemon approval_semantics test so the daemon test targets build again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.515"]
