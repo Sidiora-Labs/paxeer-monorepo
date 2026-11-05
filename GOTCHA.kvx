@@ -15290,3 +15290,23 @@ fix = "Both are refused in the attempt 10 ruling: production keeps the verifier'
 title = "A ruling that confines edits to listed sites must say the setup those sites need is allowed"
 symptom = "22.31.521 do_1 ends 'Change nothing else in either file' after listing the eight call sites that need the decision time; attempt 1 changed nothing and stopped, reading the sentence as forbidding the clock fixture the sites need, although both files are wholly in the task's paths."
 fix = "22.31.521 do_3 names the setup; a ruling that lists sites also names the fixture or helper they may add."
+
+[gotcha.3094]
+title = "The MCP crate still calls the retired sequence-only approval entries, so every MCP hold is refused"
+symptom = "22.31.495 retired the sequence-only daemon entries hold, hold_reserved, reserve_and_hold, decide and expire in services/agent/crates/layerx-agentd/src/policy/approval.rs; each now returns ApprovalError::ClockRequired and the timed entries hold_at, hold_reserved_at, reserve_and_hold_at, decide_at and expire_at take the decision time. services/agent/crates/layerx-mcp/src/approval.rs (require, approve, reject, expire, lines 41-124) and tools/web/approval_state.rs line 302 still call the retired ones with current_sequence only; WebApproval carries no clock, WebAuthority::new takes none, and the daemon's HumanRuntime::mcp_clock accessor has no caller. In production every web spend above the approval threshold is refused as 'the approval boundary refused the web spend' and the five restart cases of repair_22_33_1551 fail (22.31.515 attempt 3). The MCP consumer was never ported when the producer changed."
+fix = "Decision 2572 and 22.31.527 port the MCP crate to the timed entries with the daemon clock; 22.31.515 continues after it. A producer that retires an entry lists its production callers in other crates, not only their tests."
+
+[gotcha.3095]
+title = "Installing from the wallet gateway directory refuses the ignored build scripts"
+symptom = "pnpm --dir services/wallet/gateway install --frozen-lockfile fails with ERR_PNPM_IGNORED_BUILDS (ignored build scripts of @sentry/cli, bufferutil, keccak and utf-8-validate) before the type check runs (22.31.517 attempt 1); services/wallet is the pnpm workspace root (pnpm-workspace.yaml and the lockfile live there) and 22.31.447 built with pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts followed by the gateway type check."
+fix = "22.31.517 builds the 447 way and attempt 1 is requalified. Wallet gateway builds install at the services/wallet root with --ignore-scripts."
+
+[gotcha.3096]
+title = "A Human service test must create its store root as a 0700 directory"
+symptom = "The Human service agent store refuses a store root that is not a canonical owned private directory with Io PermissionDenied; a test fixture that creates the stream directory with default permissions fails before its first assertion (22.31.523 attempt 1, three cases). The existing fixtures create the root with DirBuilder mode 0o700 (tests/component_frame.rs line 38, tests/custody.rs line 62) or set_permissions 0o700 (tests/balance_rungs.rs line 431)."
+fix = "22.31.523 attempt 1 corrected its fixture in its final revision and is requalified; a new Human service test takes its store root from an existing fixture."
+
+[gotcha.3097]
+title = "The explorer page type map and the page tests blocked each other's production build"
+symptom = "22.31.503 moves the four audit test files out of apps/explorer/pages but its production build fails in the type check of lib/metadata/getPageOgType.ts because the page type map lacks '/chains' and '/chains/[id]' (gotcha 3086); 22.31.522 adds those two entries but its production build regenerates nextjs/nextjs-routes.d.ts from pages/ and the four test files still under pages become routes the map does not list (22.31.522 attempt 1, gotcha 3044). Each task's build gate needed the other task's change."
+fix = "22.31.503 absorbs the two map entries and continues now; 22.31.522 continues after 503 with its spec and record. When two repairs share one build gate, one of them carries the other's smaller change."

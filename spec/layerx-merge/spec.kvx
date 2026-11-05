@@ -8541,6 +8541,12 @@ value = "In the merchant middleware a checkout whose order is already paid-verif
 basis = "Gotcha 3091."
 affects = ["22.31.525", "22.33.1478"]
 
+[decision.2572]
+title = "The MCP approval policy and web approval boundary take their time from the daemon runtime clock"
+value = "The MCP crate calls only the timed daemon approval entries (hold_at, hold_reserved_at, reserve_and_hold_at, decide_at, expire_at). Its web authority carries the daemon runtime clock (Arc<dyn layerx_types::clock::Clock>: HumanRuntime::mcp_clock where the server runs inside the daemon, RuntimeClock::from_environment where the server is built from its binding file), the web approval boundary carries a reference to it beside current_sequence, and the decision time is TimestampSeconds(reading.unix_seconds()) from a one-second sample whose generation is non-zero, exactly as hold_reserved_at samples; a zero generation is Unavailable. No MCP path reads SystemTime::now or a constant for a decision time."
+basis = "Gotcha 3094; decisions 2547 and 2560 made the decision time explicit at the daemon and in its consumers."
+affects = ["22.31.527", "22.31.515", "22.33.1551"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37431,6 +37437,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.527]
+title = "Port the MCP approval policy and web approval boundary to the timed daemon entries with the runtime clock"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_527 --test repair_22_33_1551"
+do_1 = "do_1 Gotcha 3094, decision 2572. In services/agent/crates/layerx-mcp/src/approval.rs give require, approve, reject, expire and the private decide a clock: &dyn layerx_types::clock::Clock parameter, sample it as hold_reserved_at does (one-second tolerance, zero generation is ApprovalError::Daemon(Unavailable)), and call hold_at, decide_at and expire_at with ApprovalSequence(current_sequence) and TimestampSeconds(reading.unix_seconds()). In tools/web/approval_state.rs line 302 call hold_reserved_at with the boundary clock. Give WebApproval in tools/web.rs a pub clock: &'a dyn Clock field beside current_sequence, give WebAuthority::new and WebRoute in binding.rs an Arc<dyn Clock>, and build WebApproval in server.rs with it. The clock is the daemon runtime clock: HumanRuntime::mcp_clock where the server runs inside the daemon, RuntimeClock::from_environment (layerx-client, as the daemon's main.rs line 684 builds it) where the server is built from its binding file. No SystemTime::now and no constant anywhere on the path. After the change no file under services/agent/crates/layerx-mcp names hold(, hold_reserved(, reserve_and_hold(, decide( or expire( from the daemon policy module without the _at suffix."
+symbols = []
 
 [capability.22.31.526]
 title = "Re-record the exact web-search payment fixtures from one type-2 chain-125 signing"
@@ -147539,7 +147554,7 @@ title = "Add the chain routes to the explorer page type map and commit the regen
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.503"]
 reqs = ["22998.1"]
 capabilities = ["22.31.522"]
 interfaces = []
@@ -147562,6 +147577,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue after 22.31.503): attempt 1 added the two entries, regenerated the route type and wrote the spec and record; the production build failed because the regenerated route type carries the four audit test files under pages as routes (gotcha 3097). 22.31.503 moves them out and now carries the two map entries itself. Rebase on main once 503 is there, keep repair-22-31-522.spec.ts and the record, drop the attempt's own map and route-type edits where 503 already committed them, regenerate nextjs/nextjs-routes.d.ts with the declared build and commit it if it differs, run the declared build and verify once and record."
 
 [task.22.31.520]
 title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
@@ -147609,7 +147625,7 @@ symbols = []
 touches = ["services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/test/repair-22-31-517.test.ts", "services/wallet/gateway/test/repair-22-31-517.kvx"]
 tests = ["services/wallet/gateway/test/repair-22-31-517.test.ts"]
 planned_paths = ["services/wallet/gateway/src/routes", "services/wallet/gateway/src", "services/wallet/gateway/test", "services/wallet/gateway/test/support"]
-build_cmd = "pnpm --dir services/wallet/gateway install --frozen-lockfile && pnpm --dir services/wallet/gateway run typecheck"
+build_cmd = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir services/wallet/gateway run typecheck"
 verify_cmd = "pnpm --dir services/wallet/gateway run typecheck && pnpm --dir services/wallet/gateway exec vitest run test/repair-22-31-517.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -147623,6 +147639,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue after 22.31.520): attempt 1 restructured the send route's pool use and wrote the ten regression cases, but its build stopped at pnpm --dir services/wallet/gateway install --frozen-lockfile with ERR_PNPM_IGNORED_BUILDS, the pnpm 12 refusal of the wallet workspace's undeclared dependency build scripts (gotcha 3079), so the type-check and the verify never ran. 22.31.520 declares those scripts in services/wallet/pnpm-workspace.yaml (decision 2567). Rebase on main once it is there, run the declared build and verify, repair only what that run reports inside the task's paths, and record the result in the task record."
+do_6 = "Attempt 2 (requalify): attempt 1 implemented the route changes and ten regression cases; the build failed in pnpm install from the gateway directory with ERR_PNPM_IGNORED_BUILDS (gotcha 3095) before the type check. The build command now installs at the services/wallet root with --ignore-scripts as 22.31.447 did. Run the declared build and verify once on the attempt's revision and record; change nothing unless the verify names a defect in the ten cases."
 
 [task.22.31.512]
 title = "Restore the explorer frontend production build by keeping node-fetch out of the client and edge compiles"
@@ -147692,7 +147709,7 @@ title = "Move the explorer page repair tests out of the Next.js pages directory"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.522"]
+requires = []
 reqs = ["22998.1"]
 capabilities = ["22.31.503"]
 interfaces = []
@@ -147700,9 +147717,9 @@ do_1 = "do_1 Gotcha 3044 and decision 2544. Move apps/explorer/pages/api/repair-
 do_2 = "do_2 Add apps/explorer/nextjs/pages-tests/no-tests-under-pages.spec.ts: it walks apps/explorer/pages and fails on any file whose name contains .spec. or .test. or ends in .kvx, naming the offending paths (decision 2544). Write apps/explorer/nextjs/pages-tests/repair-22-31-503.kvx naming gotcha 3044, the three moved records and the guard."
 do_3 = "do_3 The build gate is the production build the records broke: next build in production mode must complete on the final revision (the UnhandledSchemeError on node:buffer, node:events, node:fs, node:http and node:https must be gone). The verify runs the three moved specs and the guard."
 symbols = []
-touches = ["apps/explorer/nextjs", "apps/explorer/pages"]
+touches = ["apps/explorer/nextjs", "apps/explorer/pages", "apps/explorer/lib/metadata/getPageOgType.ts"]
 tests = ["apps/explorer/nextjs"]
-planned_paths = ["apps/explorer/nextjs", "apps/explorer/pages"]
+planned_paths = ["apps/explorer/nextjs", "apps/explorer/pages", "apps/explorer/lib/metadata"]
 build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
 verify_cmd = "cd apps/explorer && yarn vitest run nextjs/pages-tests"
 gate_kind = "planned"
@@ -147718,6 +147735,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2: attempt 1 moved the 448, 450 and 451 page tests and their records under nextjs/pages-tests and added the no-tests-under-pages guard, but left pages/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts and its .kvx record in place, so the guard itself failed with those two paths. Move that pair to nextjs/pages-tests/api/tokens/[hash]/instances/[id]/ (adjust its relative imports), confirm the guard lists nothing, run the declared build and verify and record the four moved pairs in the task record."
 do_5 = "Attempt 3 (continue after 22.31.522): attempt 2 moved the fourth test and record pair, fixed the imports and the guard now lists nothing; the production build failed in the type check of lib/metadata/getPageOgType.ts because the regenerated route type carries '/chains' and '/chains/[id]' and the page type map has no entry for them (gotcha 3086), a main-side gap of 20.6.1 and 20.6.2 that 22.31.522 closes. Rebase on main once 522 is there, drop the attempt's own change to nextjs/nextjs-routes.d.ts if 522 already committed the regenerated file, run the declared build and verify once, and record the four moved pairs in the task record."
+do_6 = "Attempt 3 (continue, in place of the earlier attempt-3 ruling): attempt 2 moved the four test and record pairs under nextjs/pages-tests and the guard lists nothing; the production build fails only because lib/metadata/getPageOgType.ts lacks the two chain routes (gotchas 3086 and 3097). This task now carries that change: add '/chains': 'Root page' and '/chains/[id]': 'Regular page' to OG_TYPE_DICT in the position the file orders its routes, let the declared build regenerate nextjs/nextjs-routes.d.ts and commit it, keep every moved pair and the guard, run the declared build and verify once and record the four moved pairs and the two map entries. 22.31.522 then continues with its spec and record."
 
 [task.22.31.493]
 title = "Make the Express and Next route checks accept the receipt-signature digest the seller releases"
@@ -174469,6 +174487,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.527]
+title = "Port the MCP approval policy and web approval boundary to the timed daemon entries with the runtime clock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.527"]
+interfaces = []
+do_1 = "do_1 Gotcha 3094, decision 2572. In services/agent/crates/layerx-mcp/src/approval.rs give require, approve, reject, expire and the private decide a clock: &dyn layerx_types::clock::Clock parameter, sample it as hold_reserved_at does (one-second tolerance, zero generation is ApprovalError::Daemon(Unavailable)), and call hold_at, decide_at and expire_at with ApprovalSequence(current_sequence) and TimestampSeconds(reading.unix_seconds()). In tools/web/approval_state.rs line 302 call hold_reserved_at with the boundary clock. Give WebApproval in tools/web.rs a pub clock: &'a dyn Clock field beside current_sequence, give WebAuthority::new and WebRoute in binding.rs an Arc<dyn Clock>, and build WebApproval in server.rs with it. The clock is the daemon runtime clock: HumanRuntime::mcp_clock where the server runs inside the daemon, RuntimeClock::from_environment (layerx-client, as the daemon's main.rs line 684 builds it) where the server is built from its binding file. No SystemTime::now and no constant anywhere on the path. After the change no file under services/agent/crates/layerx-mcp names hold(, hold_reserved(, reserve_and_hold(, decide( or expire( from the daemon policy module without the _at suffix."
+do_2 = "do_2 Every layerx-mcp test target compiles against the new signatures: tests that construct WebApproval or WebAuthority pass a DeterministicClock from layerx_types::test_support at the case's established time; where a test builds the daemon DecisionRequest it passes current_time from that clock, and where it calls the approval service get it passes the fourth argument (22.31.495). Change no assertion to make a case pass; a case whose expectation is wrong is named in the task record."
+do_3 = "do_3 Prove the real path in services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs with the real server, binding and route (as repair_22_33_1551 serves a hold): a web spend above the approval threshold is held (not refused), the hold carries the decision time the clock reports, approve through the served route decides it and the spend completes; a clock sample with zero generation refuses Unavailable and leaves no hold; after dropping and rebuilding the registry from the same store the held approval is recovered and decidable with the same clock advanced. Run the declared verify once; the restart cases of repair_22_33_1551 must pass on the final revision. Record in services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx the signatures changed, the clock sources, the files touched and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/agent/crates/layerx-mcp/src/approval.rs", "services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs", "services/agent/crates/layerx-mcp/src/tools/web.rs", "services/agent/crates/layerx-mcp/src/binding.rs", "services/agent/crates/layerx-mcp/src/server.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_527.kvx"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_527.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp/src", "services/agent/crates/layerx-mcp/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_527 --test repair_22_33_1551"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.526]
 title = "Re-record the exact web-search payment fixtures from one type-2 chain-125 signing"
 status = "pending"
@@ -174528,6 +174576,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify): the final revision of attempt 1 carries the binding-backed amount and asset payloads, the three regression cases and the store root fixture created with mode 0o700 (gotcha 3096); the verify was refused only because the repair budget was spent on the fixture. Run the declared build and verify once on that revision and record; no change."
 
 [task.22.31.521]
 title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
@@ -174626,7 +174675,7 @@ title = "Carry the explicit decision time into the Human service and MCP consume
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.527"]
 reqs = ["22998.1"]
 capabilities = ["22.31.515"]
 interfaces = []
@@ -174653,6 +174702,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue): the build passes and the decide and MCP tests compile and pass; the one failure is approvals.rs real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle, where ApprovalExpiry::open on the agent root returns Store because the test pre-creates that root with create_dir_all (mode 0755) while the daemon's protected store root demands a canonical owned directory of mode 0700 (src/store/protected.rs validate; gotcha 3081). Let the store create the root itself, or set its permissions to 0o700 after creating it as tests/support/production_fixture.rs line 384 does, for every store root the test opens (the agent root and any stream or sub-store root); check decide.rs for the same pattern; then run the declared verify and record the fix."
 do_6 = "Attempt 3 (continue): the build, the dependent-crate check and the decide and MCP tests pass; the one failure is tests/approvals.rs line 343, which asserts that every full-detail delivery payload contains the amount 25, while 22.31.159 (0e88a62cab) now sends the approval-waiting notification with no money and persists the amount and asset as an ApprovalNotification binding (gotcha 3087). Do what the 159 record asks of this test: for each delivery read ApprovalNotification::for_delivery(&scope, delivery) and assert its amount is 25 and its asset is the item's asset; keep the deep-link and agent-id assertions and every other case unchanged. The payload itself will carry the amount again when 22.31.523 lands (decision 2569); do not wait for it and do not assert the payload text. Run the declared verify once and record."
+do_7 = "Attempt 4 (continue after 22.31.527): attempt 3 carried the decision time into the Human suites and the MCP test files and both Human suites pass; the five restart cases of repair_22_33_1551 fail because production services/agent/crates/layerx-mcp/src/tools/web/approval_state.rs still calls the retired hold_reserved, which is ClockRequired (gotcha 3094) and is outside this task's paths. 22.31.527 ports the MCP crate. Rebase on main once 527 is there, keep the Human service files and the notification binding assertion, drop any MCP test edit 527 already made, run the declared build and verify once and record."
 
 [task.22.31.504]
 title = "Repair the two gateway unit tests broken on main: the route-count assertion and the dropped description sentences"

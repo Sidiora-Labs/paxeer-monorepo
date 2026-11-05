@@ -30763,3 +30763,43 @@ symbol = "repair-22-33-1478.test.mjs"
 observed = "Attempt 9: 20 of 25 cases passed; two header overflows, one commitment verification failure, one merchant order-conflict, one replay count."
 assumption = "Two production defects (gotchas 3090, 3091), one regression in the attempt (gotcha 3092) and one test expectation."
 severity = "high"
+
+[finding.22.31.515.3]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 3: build exit 0, dependent-crate check exit 0, Human suites passed; 5 of 6 repair_22_33_1551 cases failed with the approval boundary refusing the web spend."
+assumption = "A production defect outside the task's paths (gotcha 3094)."
+severity = "low"
+
+[finding.22.31.523.1]
+task = "22.31.523"
+file = "services/human/crates/layerx-human-service/src/notify/content.rs"
+symbol = "content.rs"
+observed = "Attempt 1: build 3 exit 0; the verify at the earlier revision failed all three cases with Io PermissionDenied store root is not a canonical owned private directory; the corrected fixture was never run."
+assumption = "A fixture defect corrected inside the attempt (gotcha 3096)."
+severity = "low"
+
+[finding.22.31.517.2]
+task = "22.31.517"
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+symbol = "repair-22-31-517.test.ts"
+observed = "Attempt 1: build exit 1 at pnpm install (ignored build scripts refused); typecheck and the task test did not run."
+assumption = "A build command defect (gotcha 3095)."
+severity = "low"
+
+[finding.22.31.522.1]
+task = "22.31.522"
+file = "apps/explorer/lib/metadata/getPageOgType.ts"
+symbol = "getPageOgType.ts"
+observed = "Attempt 1: build exit 1 in the type check of lib/metadata/getPageOgType.ts (four test-file routes missing from the map); verify did not run."
+assumption = "A main-side break shared with 22.31.503 (gotcha 3097)."
+severity = "low"
+
+[finding.22.31.503.3]
+task = "22.31.503"
+file = "apps/explorer/nextjs"
+symbol = "nextjs"
+observed = "Attempt 2: build exit 1 in the type check of lib/metadata/getPageOgType.ts (missing '/chains' and '/chains/[id]'); verify did not run."
+assumption = "A build deadlock between two repairs (gotcha 3097)."
+severity = "low"
