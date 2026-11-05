@@ -1,9 +1,12 @@
+#[path = "budget_state/native.rs"]
 mod native;
+#[path = "budget_state/record.rs"]
 mod record;
 
 use self::record::{number, Record};
-use super::super::PROTOCOL_VERSION;
-use super::{digest, hex, json, refusal, unavailable, Config, PrincipalPolicy, Response};
+use crate::{digest, hex, human_policy::PrincipalPolicy, json, refusal, Response};
+use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
+
 use layerx_client::rpc::account::{balance, ReadContext, Requested, Rung};
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_crypto::evm_transaction::transaction_hash as keccak256;
@@ -11,21 +14,30 @@ use serde_json::{json as value, Value};
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub trait Configuration {
+    fn chain_rpc_url(&self) -> &str;
+    fn protocol_network_id(&self) -> u32;
+}
+
+fn unavailable(code: &str) -> Response {
+    refusal(503, code, Some(5))
+}
+
 const MAX_EXPORT_BYTES: usize = 1_048_576;
 const MAX_EXPORT_MATERIAL_BYTES: usize = (MAX_EXPORT_BYTES - 16_384) / 2;
 const PAY: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
 ];
 
-pub(super) struct Session {
+pub struct Session {
     sequencer: SequencerEndpoint,
     rpc_url: String,
-    pub(super) finality: crate::committed::CommittedHeader,
-    pub(super) receipt_sequence: u64,
+    pub finality: crate::committed::CommittedHeader,
+    pub receipt_sequence: u64,
     sequence_proof: Value,
-    pub(super) committed_height: u64,
-    pub(super) checkpoint_id: [u8; 32],
-    pub(super) timestamp: u64,
+    pub committed_height: u64,
+    pub checkpoint_id: [u8; 32],
+    pub timestamp: u64,
     state_root: [u8; 32],
 }
 
@@ -37,7 +49,7 @@ fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
     bytes
 }
 
-pub(super) fn identity_key(did: &str) -> Result<[u8; 32], ()> {
+pub fn identity_key(did: &str) -> Result<[u8; 32], ()> {
     let mut preimage = b"LXP/v1/did-id\0".to_vec();
     preimage.extend_from_slice(&u16::try_from(did.len()).map_err(|_| ())?.to_be_bytes());
     preimage.extend_from_slice(did.as_bytes());
@@ -51,14 +63,14 @@ impl Session {
             .map_err(|_| ())
     }
 
-    pub(super) fn open(config: &Config) -> Result<Self, ()> {
-        let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-        let finality = crate::committed::CommittedHeader::open(config)?;
+    pub fn open(config: &impl Configuration) -> Result<Self, ()> {
+        let sequencer = SequencerEndpoint::new(config.chain_rpc_url(), &[]).map_err(|_| ())?;
+        let finality = crate::committed::CommittedHeader::open(config.chain_rpc_url())?;
         let block = sequencer
             .block_by_number(finality.height)
             .map_err(|_| ())?
             .ok_or(())?;
-        let sequence = native::read(&config.chain_rpc_url, &finality, &[2])?;
+        let sequence = native::read(config.chain_rpc_url(), &finality, &[2])?;
         let receipt_sequence =
             u64::from_be_bytes(sequence.value.as_slice().try_into().map_err(|_| ())?);
         if receipt_sequence == 0 || block.number != finality.height {
@@ -66,7 +78,7 @@ impl Session {
         }
         Ok(Self {
             sequencer,
-            rpc_url: config.chain_rpc_url.clone(),
+            rpc_url: config.chain_rpc_url().to_owned(),
             committed_height: finality.height,
             checkpoint_id: finality.block_hash,
             timestamp: block.timestamp.checked_mul(1000).ok_or(())?,
@@ -85,7 +97,7 @@ impl Session {
         Ok((account, proof.document))
     }
 
-    pub(super) fn identity(&self, did: &str, owner: [u8; 32]) -> Result<(Value, Value), ()> {
+    pub fn identity(&self, did: &str, owner: [u8; 32]) -> Result<(Value, Value), ()> {
         let (account, proof) = self.account(owner)?;
         let name = std::str::from_utf8(&account.name).map_err(|_| ())?;
         if account.frozen
@@ -140,7 +152,7 @@ impl Session {
         )
     }
 
-    pub(super) fn unchanged(&self) -> Result<(), ()> {
+    pub fn unchanged(&self) -> Result<(), ()> {
         let block = self
             .sequencer
             .block_by_number(self.committed_height)
@@ -159,7 +171,7 @@ impl Session {
         Ok(())
     }
 
-    pub(super) fn fresh(&self, maximum_age_seconds: u64) -> Result<(), ()> {
+    pub fn fresh(&self, maximum_age_seconds: u64) -> Result<(), ()> {
         self.fresh_at(maximum_age_seconds, now_ms()?)
     }
 
@@ -217,7 +229,7 @@ fn now_ms() -> Result<u128, ()> {
 }
 
 fn produce(
-    config: &Config,
+    config: &impl Configuration,
     p: &PrincipalPolicy,
     id: [u8; 32],
     export: bool,
@@ -227,7 +239,7 @@ fn produce(
 }
 
 fn produce_at(
-    config: &Config,
+    config: &impl Configuration,
     p: &PrincipalPolicy,
     id: [u8; 32],
     export: bool,
@@ -239,7 +251,7 @@ fn produce_at(
 }
 
 fn produce_session(
-    config: &Config,
+    config: &impl Configuration,
     p: &PrincipalPolicy,
     id: [u8; 32],
     export: bool,
@@ -300,7 +312,7 @@ fn produce_session(
         };
         value!({
             "schema":"layerx.human.budget-proof.v2", "tenant":p.tenant, "principal":p.principal,
-            "protocol_version":PROTOCOL_VERSION,"network_id":config.protocol_network_id,"maximum_age_seconds":p.maximum_age_seconds,
+            "protocol_version":PROTOCOL_VERSION,"network_id":config.protocol_network_id(),"maximum_age_seconds":p.maximum_age_seconds,
             "head":{"committed_height":session.committed_height,"block_hash":hex::encode(&session.checkpoint_id)},
             "budget_state":state,
             "accounts":{"owner":hex::encode(&record.owner),"budget":hex::encode(&record.account),"source":hex::encode(&record.source.unwrap_or(record.owner))},
@@ -318,7 +330,11 @@ fn produce_session(
     Ok(response)
 }
 
-pub(super) fn read(config: &Config, p: &PrincipalPolicy, id: &str) -> Result<Response, Response> {
+pub fn read(
+    config: &impl Configuration,
+    p: &PrincipalPolicy,
+    id: &str,
+) -> Result<Response, Response> {
     if !p.budgets.iter().any(|bound| bound == id) {
         return Err(refusal(404, "budget_not_bound", None));
     }
@@ -326,8 +342,8 @@ pub(super) fn read(config: &Config, p: &PrincipalPolicy, id: &str) -> Result<Res
     produce(config, p, id, false, None).map_err(|()| unavailable("budget_state_proof_unavailable"))
 }
 
-pub(super) fn read_dynamic(
-    config: &Config,
+pub fn read_dynamic(
+    config: &impl Configuration,
     p: &PrincipalPolicy,
     id: &str,
     owner_did: &str,
@@ -346,13 +362,17 @@ pub(super) fn read_dynamic(
     .map_err(|()| unavailable("budget_state_proof_unavailable"))
 }
 
-pub(super) fn export(config: &Config, p: &PrincipalPolicy, id: &str) -> Result<Response, Response> {
+pub fn export(
+    config: &impl Configuration,
+    p: &PrincipalPolicy,
+    id: &str,
+) -> Result<Response, Response> {
     let now = now_ms().map_err(|()| unavailable("budget_proof_export_unavailable"))?;
     export_at(config, p, id, now)
 }
 
-fn export_at(
-    config: &Config,
+pub fn export_at(
+    config: &impl Configuration,
     p: &PrincipalPolicy,
     id: &str,
     now_ms: u128,
@@ -365,22 +385,8 @@ fn export_at(
         .map_err(|()| unavailable("budget_proof_export_unavailable"))
 }
 
-#[cfg(test)]
-impl Config {
-    pub(crate) fn fixture_budget_export(
-        &self,
-        policy: &Value,
-        id: &str,
-        now_ms: u128,
-    ) -> Result<Response, Response> {
-        let policy: PrincipalPolicy = serde_json::from_value(policy.clone())
-            .map_err(|_| refusal(400, "invalid_fixture_policy", None))?;
-        export_at(self, &policy, id, now_ms)
-    }
-}
-
-pub(super) fn export_dynamic(
-    config: &Config,
+pub fn export_dynamic(
+    config: &impl Configuration,
     p: &PrincipalPolicy,
     id: &str,
     owner_did: &str,
@@ -397,29 +403,4 @@ pub(super) fn export_dynamic(
         session,
     )
     .map_err(|()| unavailable("budget_proof_export_unavailable"))
-}
-
-#[cfg(test)]
-impl Config {
-    pub(crate) fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
-        let principal: PrincipalPolicy =
-            serde_json::from_value(policy.clone()).expect("fixture principal");
-        self.human = Some(super::Human {
-            token: zeroize::Zeroizing::new(b"repair-human-token-208".to_vec()),
-            tenant: principal.tenant.clone(),
-            principal: principal.principal.clone(),
-            policy_path: root.join("policy.json"),
-            policy_digest: Some(digest(
-                &std::fs::read(root.join("policy.json")).expect("fixture policy bytes"),
-            )),
-            policy: Some(super::Policy {
-                principals: vec![principal],
-            }),
-            registry_path: root.join("registry.json"),
-            state_root: root.join("state"),
-            horizon: 1,
-            records: std::sync::Mutex::new(()),
-            binding: None,
-        });
-    }
 }
