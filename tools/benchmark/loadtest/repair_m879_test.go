@@ -156,11 +156,9 @@ func (p *m879Transcript) done() {
 func m879WasmSteps(t *testing.T, options operations.WasmDeployment) []m879CommandStep {
 	t.Helper()
 	steps := []m879CommandStep{}
-	names := []string{"jupiter", "mars", "saturn", "venus"}
+	names := []string{"first", "second"}
 	ids, addresses := map[string]string{}, map[string]string{}
 	for i, name := range names {
-		root := filepath.Join(options.Root, name)
-		steps = append(steps, m879CommandStep{args: []string{"cargo", "build", "--manifest-path", filepath.Join(root, "Cargo.toml")}}, m879CommandStep{args: []string{"docker", "run", "--rm", "-v", root + ":/code", "--mount", "type=volume,source=" + name + "_cache,target=/code/target", "--mount", "type=volume,source=registry_cache,target=/usr/local/cargo/registry", "cosmwasm/rust-optimizer:0.12.5"}})
 		ids[name] = fmt.Sprint(i + 1)
 		addresses[name] = sdk.AccAddress(bytes.Repeat([]byte{byte(i + 1)}, 20)).String()
 	}
@@ -178,23 +176,17 @@ func m879WasmSteps(t *testing.T, options operations.WasmDeployment) []m879Comman
 	}
 	success := m879Response(t, 0, "message", "action", "ok", false)
 	for _, name := range names {
-		tx(m879Response(t, 0, "store_code", "code_id", ids[name], true), "wasm", "store", filepath.Join(options.Root, name, "artifacts", name+".wasm"))
+		tx(m879Response(t, 0, "store_code", "code_id", ids[name], true), "wasm", "store", filepath.Join(options.Root, "contracts", "wasm", "cw20_base.wasm"))
 	}
 	validator := sdk.ValAddress(bytes.Repeat([]byte{9}, 20)).String()
 	steps = append(steps, m879CommandStep{args: []string{options.Paxd, "keys", "show", "node_admin", "--bech=val", "--output=json"}, raw: m879JSON(t, map[string]string{"address": validator})})
 	tx(success, "staking", "delegate", validator, "1000000000uhpx")
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
-		msg := "{}"
-		if name == "jupiter" {
-			msg = string(m879JSON(t, map[string]string{"mars_address": addresses["mars"]}))
-		}
+	for _, name := range names {
+		msg := `{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}`
 		tx(m879Response(t, 0, "instantiate", "_contract_address", addresses[name], false), "wasm", "instantiate", ids[name], msg, "--no-admin", "--label=dex")
 	}
-	for _, name := range []string{"mars", "saturn", "venus", "jupiter"} {
+	for _, name := range names {
 		args := []string{"dex", "register-contract", addresses[name], ids[name], "false", "true"}
-		if name == "saturn" || name == "jupiter" {
-			args = append(args, addresses["mars"])
-		}
 		tx(success, args...)
 	}
 	for _, name := range names {
@@ -234,7 +226,7 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 	}
 	peer.done()
 	want := ""
-	for i := 1; i <= 4; i++ {
+	for i := 1; i <= 2; i++ {
 		want += sdk.AccAddress(bytes.Repeat([]byte{byte(i)}, 20)).String() + "\n"
 	}
 	if output.String() != want {
@@ -263,7 +255,7 @@ func TestRepairM_879_WasmDeployment(t *testing.T) {
 			})
 		}
 	}
-	for _, index := range []int{8, 14} {
+	for _, index := range []int{0, 1, 4, 5} {
 		prefix := append([]m879CommandStep(nil), steps[:index+1]...)
 		prefix[index].raw = m879Response(t, 0, "store_code", "code_id", "-1", true)
 		peer := &m879Transcript{t: t, steps: prefix}
@@ -865,8 +857,7 @@ func TestRepairM_879_EVMAcceptedThroughput(t *testing.T) {
 	close(queue)
 	count := new(int64)
 	owner := &LoadTestClient{EvmTxClients: []*EvmTxClient{client}}
-	var wg sync.WaitGroup
-	owner.SendTxs(queue, 0, make(chan struct{}), map[string]*int64{EVM: count}, semaphore.NewWeighted(1), &wg)
+	owner.SendTxs(context.Background(), queue, 0, map[string]*int64{EVM: count}, semaphore.NewWeighted(1))
 	if atomic.LoadInt64(count) != 0 {
 		t.Fatal("refused or stale transactions inflated accepted throughput")
 	}
@@ -874,7 +865,7 @@ func TestRepairM_879_EVMAcceptedThroughput(t *testing.T) {
 	queue = make(chan SignedTx, 1)
 	queue <- SignedTx{EvmTx: next, MsgType: EVM}
 	close(queue)
-	owner.SendTxs(queue, 0, make(chan struct{}), map[string]*int64{EVM: count}, semaphore.NewWeighted(1), &wg)
+	owner.SendTxs(context.Background(), queue, 0, map[string]*int64{EVM: count}, semaphore.NewWeighted(1))
 	if atomic.LoadInt64(count) != 1 {
 		t.Fatal("accepted transaction missing from throughput")
 	}
@@ -893,12 +884,12 @@ func TestRepairM_879_EVMProducerResumesAfterReconciliation(t *testing.T) {
 	}
 	owner := &LoadTestClient{EvmTxClients: []*EvmTxClient{client}, LoadTestConfig: Config{MessageTypes: []string{EVM}}}
 	queue := make(chan SignedTx, 1)
-	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	joined := make(chan struct{})
-	var wg sync.WaitGroup
 	go func() {
 		defer close(joined)
-		owner.BuildTxs(queue, 0, &wg, done, rate.NewLimiter(rate.Inf, 1), map[string]*int64{EVM: new(int64)})
+		owner.BuildTxs(ctx, queue, 0, rate.NewLimiter(rate.Inf, 1), map[string]*int64{EVM: new(int64)})
 	}()
 	select {
 	case <-queue:
@@ -917,7 +908,7 @@ func TestRepairM_879_EVMProducerResumesAfterReconciliation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("producer did not resume after acceptance was observed")
 	}
-	close(done)
+	cancel()
 	select {
 	case <-joined:
 	case <-time.After(time.Second):

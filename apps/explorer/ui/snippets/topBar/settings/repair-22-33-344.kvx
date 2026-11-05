@@ -1,0 +1,12 @@
+[repair.22.33.344]
+finding = "theme-settings-stale"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+proof = "repair-22-33-344.spec.ts: themeSettingsStaleTracksTopBarAndReload"
+behavior = "Settings follows the real color-mode provider while closed; the theme label, current swatch, document variables and persisted state follow top-bar changes and provider restarts."
+qualification = "The private hf-build/hf-done ledger and final evidence line name the exact candidate revision, command, exit and log."
+baseline = "No pre-change verification was run: the explicit gate order requires full implementation before formatting, build and hf-done."
+wiring_request = "apps/explorer/ui/snippets/topBar/ColorModeToggle.tsx — owner domain 14 (fm-web-explorer-bridge): replace its independent applyColorTheme/setColorMode path with settings/useColorTheme.setTheme and activeThemeId; this file is outside task scope."
+
+[gotcha.package_manager]
+observed = "The runner's dependency setup already failed: the root npm lockfile omits ganache and the explorer pnpm invocation rejects the package's yarn pin."
+evidence = "/out/logs/node-deps.log"

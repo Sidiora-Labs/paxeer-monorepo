@@ -244,3 +244,267 @@ fn proof_human_network_gateway_refuses_unbound_wallet_and_wrong_identity() {
         Err(GatewayError::MalformedAnswer)
     );
 }
+
+#[path = "support/hosted_gateway.rs"]
+mod hosted_gateway;
+
+#[test]
+fn hosted_gateway_http_reaches_wallet_with_exact_bank_and_supply() {
+    use hosted_gateway::{Exchange, Response, Transcript};
+    let selector = hosted_gateway::selector();
+    let params = json!([selector.canonical_text()]);
+    let transcript = Transcript::serve(vec![
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::Result(hosted_gateway::balances()),
+        },
+        Exchange {
+            method: "px_getAccount",
+            params,
+            response: Response::Result(hosted_gateway::account()),
+        },
+        Exchange {
+            method: "px_listAssets",
+            params: json!([]),
+            response: Response::Result(hosted_gateway::joined_page()),
+        },
+    ]);
+    let decoded = transcript
+        .endpoint
+        .get_balances(selector)
+        .expect("recorded bank response over HTTP");
+    let account = transcript
+        .endpoint
+        .get_account(selector)
+        .expect("hosted account response over HTTP");
+    let assets = transcript
+        .endpoint
+        .list_assets()
+        .expect("hosted sixteen-row supply response over HTTP");
+    transcript.finish();
+
+    let expected = decoded.clone();
+    let observed = WalletObservation::accept(decoded).expect("production Human wallet consumer");
+    assert_eq!(observed.joined(), &expected);
+    assert_eq!(account.account, observed.joined().account);
+    assert_eq!(Some(observed.wallet()), selector.evm_address());
+    assert_eq!(observed.joined().height, 16);
+    assert_eq!(observed.joined().evidence, Evidence::GatewayReported);
+    assert_eq!(account.evidence, Evidence::GatewayReported);
+    assert_eq!(assets.evidence, Evidence::GatewayReported);
+    assert_eq!(assets.height, observed.joined().height);
+    assert_eq!(assets.assets.len(), 16);
+    assert_eq!(assets.joined_limit, 16);
+    assert_eq!(
+        assets.assets[0].supply.unwrap().to_string(),
+        hosted_gateway::MAXIMUM
+    );
+    assert_eq!(assets.assets[0].supply.unwrap().to_be_bytes(), [0xff; 32]);
+    assert_eq!(assets.assets[1].supply, None);
+    assert_eq!(assets.assets[1].name, None);
+    for (denom, word) in hosted_gateway::coins() {
+        let amount = observed
+            .balance(&denom)
+            .expect("every recorded denom reaches consumer");
+        assert_eq!(amount.to_be_bytes(), word);
+        assert_eq!(
+            amount.to_string(),
+            hosted_gateway::codec::uint256_decimal(&word)
+        );
+    }
+    let large_denom = hosted_gateway::coins()[1].0.clone();
+    let large = observed.balance(&large_denom).unwrap();
+    assert_eq!(large.to_string(), hosted_gateway::TWO_TO_200);
+    let paxeer = account.paxeer.unwrap();
+    assert_eq!(paxeer.balance, large);
+    assert_eq!(paxeer.height, observed.joined().height);
+    assert_eq!(paxeer.nonce, 42);
+    assert_eq!(
+        observed.balance_for_operation(&large_denom, "native-send"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "native-send"
+        })
+    );
+    assert_eq!(observed.balance(&large_denom), Some(large));
+    assert_eq!(observed.balance("missing"), None);
+}
+
+#[test]
+fn hosted_gateway_http_keeps_malformed_values_separate_from_large_values() {
+    use hosted_gateway::{Exchange, Response, Transcript};
+    let selector = hosted_gateway::selector();
+    let params = json!([selector.canonical_text()]);
+    let mut invalid = Vec::new();
+    for field in ["amount", "denom"] {
+        let mut result = hosted_gateway::balances();
+        result["balances"][1].as_object_mut().unwrap().remove(field);
+        invalid.push(result);
+    }
+    for amount in [
+        json!(hosted_gateway::OVERFLOW),
+        json!(format!("0x1{}", "0".repeat(64))),
+        Value::Null,
+        json!(true),
+        json!("-1"),
+        json!("1e2"),
+    ] {
+        let mut result = hosted_gateway::balances();
+        result["balances"][1]["amount"] = amount;
+        invalid.push(result);
+    }
+    let count = invalid.len();
+    let transcript = Transcript::serve(
+        invalid
+            .into_iter()
+            .map(|result| Exchange {
+                method: "px_getBalances",
+                params: params.clone(),
+                response: Response::Result(result),
+            })
+            .collect(),
+    );
+    for _ in 0..count {
+        assert_eq!(
+            transcript
+                .endpoint
+                .get_balances(selector)
+                .and_then(WalletObservation::accept),
+            Err(GatewayError::MalformedAnswer)
+        );
+    }
+    transcript.finish();
+
+    let transcript = Transcript::serve(
+        [json!(hosted_gateway::OVERFLOW), json!(false), json!("-1")]
+            .into_iter()
+            .map(|supply| {
+                let mut result = hosted_gateway::assets();
+                result["assets"][0]["supply"] = supply;
+                Exchange {
+                    method: "px_listAssets",
+                    params: json!([]),
+                    response: Response::Result(result),
+                }
+            })
+            .collect(),
+    );
+    for _ in 0..3 {
+        assert_eq!(
+            transcript.endpoint.list_assets(),
+            Err(GatewayError::MalformedAnswer)
+        );
+    }
+    transcript.finish();
+}
+
+#[test]
+fn hosted_gateway_http_refuses_bad_framing_refusals_and_wrong_binding() {
+    use hosted_gateway::{Exchange, Response, Transcript};
+    let selector = hosted_gateway::selector();
+    let params = json!([selector.canonical_text()]);
+    let transcript = Transcript::serve(vec![
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::Refusal(-32001, "Paxeer endpoint not configured"),
+        },
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::WrongId(hosted_gateway::balances()),
+        },
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::Raw(hosted_gateway::http(503, b"unavailable")),
+        },
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::Raw(b"not an HTTP response".to_vec()),
+        },
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::Raw(hosted_gateway::http(
+                200,
+                b"{\"jsonrpc\":\"2.0\",\"result\":",
+            )),
+        },
+        Exchange {
+            method: "px_getBalances",
+            params: params.clone(),
+            response: Response::Result({
+                let mut result = hosted_gateway::balances();
+                result["account"]["evm_address"] = json!(format!("0x{}", "28".repeat(20)));
+                result
+            }),
+        },
+        Exchange {
+            method: "px_getBalances",
+            params,
+            response: Response::Result(hosted_gateway::balances()),
+        },
+    ]);
+    assert_eq!(
+        transcript
+            .endpoint
+            .get_balances(selector)
+            .and_then(WalletObservation::accept),
+        Err(GatewayError::Refused {
+            code: -32001,
+            message: "Paxeer endpoint not configured".to_owned()
+        })
+    );
+    assert_eq!(
+        transcript
+            .endpoint
+            .get_balances(selector)
+            .and_then(WalletObservation::accept),
+        Err(GatewayError::Unbound)
+    );
+    assert_eq!(
+        transcript
+            .endpoint
+            .get_balances(selector)
+            .and_then(WalletObservation::accept),
+        Err(GatewayError::Transport(
+            "gateway answered HTTP 503".to_owned()
+        ))
+    );
+    assert_eq!(
+        transcript
+            .endpoint
+            .get_balances(selector)
+            .and_then(WalletObservation::accept),
+        Err(GatewayError::Transport("answer has no headers".to_owned()))
+    );
+    assert_eq!(
+        transcript
+            .endpoint
+            .get_balances(selector)
+            .and_then(WalletObservation::accept),
+        Err(GatewayError::MalformedAnswer)
+    );
+    assert_eq!(
+        transcript
+            .endpoint
+            .get_balances(selector)
+            .and_then(WalletObservation::accept),
+        Err(GatewayError::Unbound)
+    );
+    let recovered = transcript
+        .endpoint
+        .get_balances(selector)
+        .and_then(WalletObservation::accept)
+        .expect("refusals do not poison the next real observation");
+    assert_eq!(
+        recovered
+            .balance(&hosted_gateway::coins()[1].0)
+            .unwrap()
+            .to_string(),
+        hosted_gateway::TWO_TO_200
+    );
+    transcript.finish();
+}

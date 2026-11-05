@@ -29,8 +29,9 @@ import (
 
 type domainWSHarness struct {
 	*domainScopeHarness
-	hashes   []common.Hash
-	notifier *evmrpc.BlockHeaderNotifier
+	hashes       []common.Hash
+	transactions []*ethtypes.Transaction
+	notifier     *evmrpc.BlockHeaderNotifier
 }
 
 func newDomainWSHarness(t *testing.T) *domainWSHarness {
@@ -73,6 +74,7 @@ func newDomainWSHarness(t *testing.T) *domainWSHarness {
 		require.NoError(t, builder.SetMsgs(msg))
 		txs = append(txs, builder.GetTx())
 		h.hashes = append(h.hashes, tx.Hash())
+		h.transactions = append(h.transactions, tx)
 		executionCtx := h.ctx.WithTxIndex(positions[i]).WithIsEVM(true).WithEVMNonce(0).WithEVMSenderAddress(from).WithEVMTxHash(tx.Hash())
 		require.NoError(t, ante.Preprocess(executionCtx, msg, chainID, false))
 		executionCtx, err = ante.NewEVMFeeCheckDecorator(k, &h.app.UpgradeKeeper).AnteHandle(executionCtx, builder.GetTx(), false,
@@ -104,6 +106,13 @@ func newDomainWSHarness(t *testing.T) *domainWSHarness {
 	require.NoError(t, k.ReceiptStore().SetEarliestVersion(1))
 	k.SetBlockBloom(h.ctx, blooms)
 	k.SetEvmOnlyBlockBloom(h.ctx, blooms)
+	// Ordinary state reads enforce committed store availability as well as the
+	// receipt watermark. Publish the producer state in real versions 1 and 2.
+	h.ctx.MultiStore().(sdk.CacheMultiStore).Write()
+	for height := int64(1); height <= MockHeight2; height++ {
+		require.Equal(t, height, h.app.CommitMultiStore().Commit(true).Version)
+	}
+	h.ctx = h.ctx.WithMultiStore(h.app.CommitMultiStore().CacheMultiStore())
 	provider := func(height int64) sdk.Context {
 		if height == evmrpc.LatestCtxHeight {
 			return h.ctx
@@ -111,7 +120,8 @@ func newDomainWSHarness(t *testing.T) *domainWSHarness {
 		return h.ctx.WithBlockHeight(height)
 	}
 	config := evmrpcconfig.DefaultConfig
-	config.HTTPAddress, config.WSPort = TestAddr, 0
+	config.HTTPAddress, config.HTTPPort, config.WSPort = TestAddr, 0, 0
+	config.FilterTimeout = time.Minute
 	config.IPRateLimitRPS = 0
 	service, err := evmrpc.NewEVMWebSocketServer(config, &MockClient{}, k, h.app.BeginBlockKeepers, h.app.BaseApp,
 		h.app.TracerAnteHandler, provider, func(int64) client.TxConfig { return TxConfig }, "", nil, h.notifier)
@@ -119,6 +129,12 @@ func newDomainWSHarness(t *testing.T) *domainWSHarness {
 	t.Cleanup(service.Stop)
 	require.NoError(t, service.Start())
 	h.ws = service.(*evmrpc.HTTPServer)
+	httpService, err := evmrpc.NewEVMHTTPServer(config, &MockClient{}, k, h.app.BeginBlockKeepers, h.app.BaseApp,
+		h.app.TracerAnteHandler, provider, func(int64) client.TxConfig { return TxConfig }, "", nil)
+	require.NoError(t, err)
+	t.Cleanup(httpService.Stop)
+	require.NoError(t, httpService.Start())
+	h.http = httpService.(*evmrpc.HTTPServer)
 	return h
 }
 
@@ -304,5 +320,161 @@ func TestChainPathNewHeadsIsUnchanged(t *testing.T) {
 		case <-ctx.Done():
 			t.Fatalf("view %d did not receive the shared head: %v", i, ctx.Err())
 		}
+	}
+}
+
+func TestChainPathOrdinaryWSReadsMatchHTTPAfterReconnect(t *testing.T) {
+	h := newDomainWSHarness(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	criteria := map[string]any{"fromBlock": "0x2", "toBlock": "0x2"}
+	root := domainHTTPClient(t, h.http, "/")
+	for _, view := range []struct {
+		path    string
+		indices []int
+	}{
+		{"/", []int{0, 1, 2, 3}}, {"/chain/1", []int{1, 2}}, {"/chain/2", []int{3}},
+	} {
+		t.Run(view.path, func(t *testing.T) {
+			httpClient := domainHTTPClient(t, h.http, view.path)
+			visible := func(i int) bool {
+				for _, index := range view.indices {
+					if index == i {
+						return true
+					}
+				}
+				return false
+			}
+			for connection := 0; connection < 2; connection++ {
+				ws := domainWSClient(t, h.ws, view.path)
+				equalRead := func(method string, args ...any) json.RawMessage {
+					t.Helper()
+					var httpResult, wsResult json.RawMessage
+					require.NoError(t, httpClient.CallContext(ctx, &httpResult, method, args...), method)
+					require.NoError(t, ws.CallContext(ctx, &wsResult, method, args...), method)
+					require.JSONEq(t, string(httpResult), string(wsResult), "%s connection %d", method, connection)
+					return wsResult
+				}
+				for _, selector := range []struct{ suffix, block string }{{"Number", "0x2"}, {"Hash", MultiTxBlockHash}} {
+					for _, full := range []bool{false, true} {
+						raw := equalRead("eth_getBlockBy"+selector.suffix, selector.block, full)
+						var block struct{ Transactions []json.RawMessage }
+						require.NoError(t, json.Unmarshal(raw, &block))
+						require.Len(t, block.Transactions, len(view.indices))
+						for i, entry := range block.Transactions {
+							index := view.indices[i]
+							if full {
+								var tx struct {
+									Hash             common.Hash
+									TransactionIndex hexutil.Uint64
+								}
+								require.NoError(t, json.Unmarshal(entry, &tx))
+								require.Equal(t, h.hashes[index], tx.Hash)
+								require.Equal(t, hexutil.Uint64(index), tx.TransactionIndex)
+							} else {
+								var hash common.Hash
+								require.NoError(t, json.Unmarshal(entry, &hash))
+								require.Equal(t, h.hashes[index], hash)
+							}
+						}
+					}
+					raw := equalRead("eth_getBlockTransactionCountBy"+selector.suffix, selector.block)
+					require.JSONEq(t, `"`+hexutil.EncodeUint64(uint64(len(view.indices)))+`"`, string(raw))
+					raw = equalRead("eth_getBlockReceipts", selector.block)
+					var receipts []struct {
+						TransactionHash  common.Hash
+						TransactionIndex hexutil.Uint64
+					}
+					require.NoError(t, json.Unmarshal(raw, &receipts))
+					require.Len(t, receipts, len(view.indices))
+					for i, receipt := range receipts {
+						require.Equal(t, h.hashes[view.indices[i]], receipt.TransactionHash)
+						require.Equal(t, hexutil.Uint64(view.indices[i]), receipt.TransactionIndex)
+					}
+					for i := 0; i <= len(h.hashes); i++ {
+						raw = equalRead("eth_getTransactionByBlock"+selector.suffix+"AndIndex", selector.block, hexutil.Uint(i))
+						envelope := equalRead("eth_getRawTransactionByBlock"+selector.suffix+"AndIndex", selector.block, hexutil.Uint(i))
+						if visible(i) {
+							var tx struct {
+								Hash             common.Hash
+								TransactionIndex hexutil.Uint64
+							}
+							require.NoError(t, json.Unmarshal(raw, &tx))
+							require.Equal(t, h.hashes[i], tx.Hash)
+							require.Equal(t, hexutil.Uint64(i), tx.TransactionIndex)
+							bytes, err := h.transactions[i].MarshalBinary()
+							require.NoError(t, err)
+							require.JSONEq(t, `"`+hexutil.Encode(bytes)+`"`, string(envelope))
+						} else {
+							require.JSONEq(t, "null", string(raw))
+							require.JSONEq(t, `"0x"`, string(envelope))
+						}
+					}
+				}
+				assertLogs := func(raw json.RawMessage) {
+					t.Helper()
+					var logs []ethtypes.Log
+					require.NoError(t, json.Unmarshal(raw, &logs))
+					require.Len(t, logs, len(view.indices))
+					for i, log := range logs {
+						index := view.indices[i]
+						require.Equal(t, h.hashes[index], log.TxHash)
+						require.Equal(t, uint(index), log.TxIndex)
+						require.Equal(t, uint(index), log.Index)
+						require.Equal(t, common.HexToHash(MultiTxBlockHash), log.BlockHash)
+					}
+				}
+				assertLogs(equalRead("eth_getLogs", criteria))
+				assertLogs(equalRead("eth_getLogs", map[string]any{"blockHash": MultiTxBlockHash}))
+				for _, method := range []string{"eth_getFilterLogs", "eth_getFilterChanges"} {
+					var httpID, wsID rpc.ID
+					require.NoError(t, httpClient.CallContext(ctx, &httpID, "eth_newFilter", criteria))
+					require.NoError(t, ws.CallContext(ctx, &wsID, "eth_newFilter", criteria))
+					var httpLogs, wsLogs json.RawMessage
+					require.NoError(t, httpClient.CallContext(ctx, &httpLogs, method, httpID))
+					require.NoError(t, ws.CallContext(ctx, &wsLogs, method, wsID))
+					assertLogs(wsLogs)
+					require.JSONEq(t, string(httpLogs), string(wsLogs))
+					if method == "eth_getFilterChanges" {
+						require.NoError(t, ws.CallContext(ctx, &wsLogs, method, wsID))
+						require.JSONEq(t, "[]", string(wsLogs))
+					}
+				}
+				for i, hash := range h.hashes {
+					for _, method := range []string{"eth_getTransactionByHash", "eth_getTransactionReceipt"} {
+						raw := equalRead(method, hash)
+						if !visible(i) {
+							require.JSONEq(t, "null", string(raw))
+						} else {
+							var fields map[string]json.RawMessage
+							require.NoError(t, json.Unmarshal(raw, &fields))
+							require.JSONEq(t, `"`+hexutil.EncodeUint64(uint64(i))+`"`, string(fields["transactionIndex"]))
+						}
+					}
+					raw := equalRead("eth_getRawTransactionByHash", hash)
+					if visible(i) {
+						encoded, err := h.transactions[i].MarshalBinary()
+						require.NoError(t, err)
+						require.JSONEq(t, `"`+hexutil.Encode(encoded)+`"`, string(raw))
+					} else {
+						require.JSONEq(t, `"0x"`, string(raw))
+					}
+				}
+				for _, call := range []struct {
+					method string
+					args   []any
+				}{
+					{"eth_blockNumber", nil}, {"eth_getBalance", []any{common.HexToAddress("0x123456"), "latest"}},
+					{"eth_getCode", []any{common.HexToAddress("0x123456"), "latest"}},
+					{"eth_getStorageAt", []any{common.HexToAddress("0x123456"), "0x0", "latest"}},
+					{"eth_getTransactionCount", []any{common.HexToAddress("0x123456"), "latest"}},
+				} {
+					var rootResult json.RawMessage
+					require.NoError(t, root.CallContext(ctx, &rootResult, call.method, call.args...))
+					require.JSONEq(t, string(rootResult), string(equalRead(call.method, call.args...)))
+				}
+				ws.Close()
+			}
+		})
 	}
 }

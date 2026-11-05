@@ -73,7 +73,14 @@ async function recordedRpc(path = "/") {
 async function rpc_root_preserves_node_and_gateway_routes(): Promise<void> {
   const node = source("rpc/rpcstack.go"), gateway = source("services/platform/hosted/gateway/src/main.rs");
   assert.match(node, /if path == "" \{\s*return r.URL.Path == "\/"/u);
-  assert.match(gateway, /request.path == "\/" && request.method == "POST"/u);
+  assert.match(gateway, /if let Some\(result\) = public_reads::route\(config, request\)/u);
+  assert.match(
+    source("services/platform/hosted/gateway/src/public_reads.rs"),
+    /if matches!\(request.path.as_str\(\), "\/" \| "\/openrpc.json"\) \{\s*return Some\(super::rpc::route\(config, request\)\);/u,
+  );
+  const gatewayRpc = source("services/platform/hosted/gateway/src/rpc.rs");
+  assert.match(gatewayRpc, /if request.path != "\/" \{\s*return response\(404, "not_found", None\);/u);
+  assert.match(gatewayRpc, /if request.method != "POST" \{\s*return response\(405, "method_not_allowed", None\);/u);
   const recorded = recordedRules.find(r => r.method === "eth_getTransactionCount"); assert(recorded);
   for (const path of ["/", "/tenant/alpha", "/tenant/alpha/"]) {
     const replay = await recordedRpc(path);
@@ -315,6 +322,7 @@ async function web_payer_header_is_validated_evm_address(): Promise<void> {
   const server = createServer((request) => { observed.push(request.headers["layerx-payer-address"]); assert.equal(request.headers["layerx-payer-did"], undefined); request.socket.destroy(); });
   const endpoint = await listen(server);
   const options = { endpoint, network: "eip155:125", nativeAsset: config.assets.PAX.asset_id,
+    receiptKeys: webKeys,
     assets: { SID: { assetId: config.assets.SID.asset_id, maxAmount: 10000n } },
     payer: { address: recordedAddress as string, preferences: [{ currency: "SID" as const, scheme: "metered" as const }] } };
   try {

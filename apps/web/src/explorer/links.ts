@@ -3,6 +3,7 @@ import { validExplorerIdentifier } from "./model.ts";
 /// The explorer surfaces the control plane links into, each carrying its own identifier.
 export const EXPLORER_LINK_KINDS = [
   "receipt",
+  "historical-receipt",
   "transaction",
   "address",
 ] as const;
@@ -10,9 +11,10 @@ export const EXPLORER_LINK_KINDS = [
 export type ExplorerLinkKind = (typeof EXPLORER_LINK_KINDS)[number];
 
 export type ExplorerLinkTarget =
-  | Readonly<{ kind: "receipt"; receiptId: string; transactionHash: string; }>
-  | Readonly<{ kind: "transaction"; transactionHash: string; }>
-  | Readonly<{ kind: "address"; address: string; }>;
+  | Readonly<{ kind: "receipt"; receiptId: string; transactionHash: string }>
+  | Readonly<{ kind: "historical-receipt"; receiptId: string; frozen: true }>
+  | Readonly<{ kind: "transaction"; transactionHash: string }>
+  | Readonly<{ kind: "address"; address: string }>;
 
 // Kept as the identifier of the retired surface for admission checks, never a link target.
 export const EXPLORER_ANCHOR_PATH = "/paxeer-x/anchors";
@@ -30,6 +32,11 @@ export function explorerLinkPath(target: ExplorerLinkTarget): string {
         throw new TypeError("Current receipt requires its resolved native transaction hash");
       }
       return `/tx/${target.transactionHash.toLowerCase()}`;
+    case "historical-receipt":
+      if (target.frozen !== true || !validExplorerIdentifier(target.receiptId)) {
+        throw new TypeError("Invalid frozen historical receipt identity");
+      }
+      return `/paxeer-x/receipts/${target.receiptId.toLowerCase()}`;
     case "transaction":
       if (!TRANSACTION_HASH_GRAMMAR.test(target.transactionHash)) {
         throw new TypeError("Invalid transaction hash");
@@ -101,5 +108,5 @@ export function historicalReceiptLinkPath(identity: Readonly<{ receiptId: string
   if (identity.frozen !== true || !validExplorerIdentifier(identity.receiptId)) {
     throw new TypeError("Historical receipt requires a frozen archive identity");
   }
-  return `/paxeer-x/receipts/${identity.receiptId.toLowerCase()}`;
+  return `/api/v2/paxeer-x/archive/receipts/0x${identity.receiptId.toLowerCase()}`;
 }

@@ -9,6 +9,8 @@
  */
 // @vitest-environment jsdom
 
+import { ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification } from './repair-22-33-266.proofs';
+
 import { ImportTransfer, importTransferReceipt } from '@/components/bridge/import-transfer';
 import { bridgeChainByKey, buildBridgeChains, type BridgeChain } from '@/lib/bridge/chains';
 import { readConfig } from '@/lib/bridge/config';
@@ -267,3 +269,5 @@ test(enrichmentCrossesTheLedgerButRefusesUnrelatedOrRevertedReceipts.name, enric
 test(receiptDecodersRefuseRemovedAndMalformedLogs.name, receiptDecodersRefuseRemovedAndMalformedLogs);
 test(malformedProducerRowsAreRefusedAtTheRealConsumerDecoder.name, malformedProducerRowsAreRefusedAtTheRealConsumerDecoder);
 test(importFormExecutesWithRealProvidersAndRefusesMalformedInput.name, importFormExecutesWithRealProvidersAndRefusesMalformedInput);
+
+test(ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification.name, ledgerWithdrawalReopensIntoAuthoritativeReleaseVerification);

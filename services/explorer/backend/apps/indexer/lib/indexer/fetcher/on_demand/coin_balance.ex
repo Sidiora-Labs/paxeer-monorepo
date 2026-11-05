@@ -123,13 +123,25 @@ defmodule Indexer.Fetcher.OnDemand.CoinBalance do
         |> get_balances_responses(params_map)
         |> do_import_daily_balances()
 
+        entries
+        |> Enum.reject(fn {_, block_number, address_hash} -> Map.has_key?(params_map, {block_number, address_hash}) end)
+        |> retry_unfetched()
+
       error ->
         Logger.error(
           "Error while fetching balances: #{inspect(error)}, balances params: #{inspect(all_balances_params)}"
         )
-    end
 
-    :ok
+        retry_unfetched(entries)
+    end
+  end
+
+  defp retry_unfetched([]), do: :ok
+
+  defp retry_unfetched(entries) do
+    # Bound retry pressure even when the node fails immediately.
+    Process.sleep(1_000)
+    {:retry, entries}
   end
 
   defp get_balances_responses(balances_keys, params_map) do

@@ -11,11 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
 	tmhttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
@@ -79,6 +77,10 @@ func init() {
 }
 
 func recordV4(n *node) (any, error) {
+	return recordV4Payment(n, nil)
+}
+
+func recordV4Payment(n *node, parties *v7Parties) (any, error) {
 	ctx, cancel := context.WithTimeout(n.ctx, 3*time.Minute)
 	defer cancel()
 	wallet, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, n.home, nil)
@@ -104,6 +106,9 @@ func recordV4(n *node) (any, error) {
 		return nil, err
 	}
 	id := (*big.Int)(&chainID)
+	if id.Cmp(big.NewInt(125)) != 0 {
+		return nil, fmt.Errorf("committed fixture requires EVM chain id 125, got %s", id)
+	}
 	send := func(key *ecdsa.PrivateKey, to common.Address, value *big.Int, data []byte) (*evmrpc.SequencerReceiptResult, []byte, error) {
 		from := crypto.PubkeyToAddress(key.PublicKey)
 		var nonce hexutil.Uint64
@@ -114,7 +119,11 @@ func recordV4(n *node) (any, error) {
 		if err := v4PendingCall(ctx, n, &gasPrice, "eth_gasPrice"); err != nil {
 			return nil, nil, err
 		}
-		tx, err := ethtypes.SignTx(ethtypes.NewTransaction(uint64(nonce), to, value, 2_000_000, (*big.Int)(&gasPrice), data), ethtypes.LatestSignerForChainID(id), key)
+		tx, err := ethtypes.SignNewTx(key, ethtypes.LatestSignerForChainID(id), &ethtypes.DynamicFeeTx{
+			ChainID: id, Nonce: uint64(nonce), GasTipCap: new(big.Int),
+			GasFeeCap: new(big.Int).Set((*big.Int)(&gasPrice)), Gas: 2_000_000,
+			To: &to, Value: value, Data: data,
+		})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -204,6 +213,25 @@ func recordV4(n *node) (any, error) {
 		return nil, err
 	}
 	reference := sha256.Sum256([]byte("committed fixture V4 payExact"))
+	if parties != nil {
+		mainName, mainID, err := lxphost.MainAccountID(dids[1])
+		if err != nil {
+			return nil, err
+		}
+		assetName, assetID, err := lxphost.AssetAccountID(dids[1], asset)
+		if err != nil {
+			return nil, err
+		}
+		if assetID != to {
+			return nil, errors.New("payExact destination differs from the named payee asset account")
+		}
+		*parties = v7Parties{
+			PayerDID: evmtypes.LayerXDid(dids[0]), PayeeDID: evmtypes.LayerXDid(dids[1]),
+			PayeeMainAccount:  v7Account{Name: mainName, Identifier: common.Hash(mainID)},
+			PayeeAssetAccount: v7Account{Name: assetName, Identifier: common.Hash(assetID)},
+			Asset:             common.Hash(asset), Amount: "3", Reference: common.Hash(reference),
+		}
+	}
 	receipt, raw, err := call(payer, "payExact", from, to, asset, big.NewInt(3), uint64(time.Now().Add(time.Hour).UnixMilli()), reference)
 	if err != nil {
 		return nil, err
@@ -270,15 +298,7 @@ func v4WaitCommitted(ctx context.Context, n *node, hash common.Hash) (*evmrpc.Se
 }
 
 func v4RecordSettlement(ctx context.Context, n *node, receipt *evmrpc.SequencerReceiptResult, raw []byte) (*v4Settlement, error) {
-	var cfg struct {
-		RPC struct {
-			Listen string `toml:"laddr"`
-		} `toml:"rpc"`
-	}
-	if _, err := toml.DecodeFile(filepath.Join(n.home, "config", "config.toml"), &cfg); err != nil {
-		return nil, err
-	}
-	client, err := tmhttp.New(strings.Replace(cfg.RPC.Listen, "tcp://", "http://", 1))
+	client, err := tmhttp.New("http://" + n.consensusAddress)
 	if err != nil {
 		return nil, err
 	}

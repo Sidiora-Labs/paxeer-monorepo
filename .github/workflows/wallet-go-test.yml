@@ -8,7 +8,9 @@ on:
       - 'services/wallet/schema/attestor-api/**'
       - 'services/wallet/deploy/attestor-policy.json'
       - 'services/wallet/deploy/attestor-kernel-policy.json'
-      - 'services/agent/crates/layerx-wire/tests/support/wallet_vectors/**'
+      - 'services/agent/crates/layerx-crypto/**'
+      - 'services/agent/crates/layerx-types/**'
+      - 'Makefile'
       - 'layerxproof/**'
       - 'go.mod'
       - 'go.sum'
@@ -24,7 +26,9 @@ on:
       - 'services/wallet/schema/attestor-api/**'
       - 'services/wallet/deploy/attestor-policy.json'
       - 'services/wallet/deploy/attestor-kernel-policy.json'
-      - 'services/agent/crates/layerx-wire/tests/support/wallet_vectors/**'
+      - 'services/agent/crates/layerx-crypto/**'
+      - 'services/agent/crates/layerx-types/**'
+      - 'Makefile'
       - 'layerxproof/**'
       - 'go.mod'
       - 'go.sum'
@@ -68,5 +72,10 @@ jobs:
         with:
           go-version-file: services/wallet/ceremony/go.mod
           cache-dependency-path: services/wallet/ceremony/go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+      - name: Install pnpm
+        run: npm install --global pnpm@9.15.9
       - name: Test ceremony
         run: go test ./...

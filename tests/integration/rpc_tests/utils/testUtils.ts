@@ -1,8 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { createHash, randomUUID } from 'node:crypto';
+import { Worker } from 'node:worker_threads';
 import { ethers } from 'ethers';
 import { expect } from 'chai';
-import { RuntimeStatePath } from '../config/endpoints';
+import { RuntimeStatePath, Endpoints } from '../config/endpoints';
 import { EvmAccount } from './evmUtils';
 import { JsonRpcEnvelope } from './chainUtils';
 import { uint256Word } from './format';
@@ -73,27 +76,226 @@ export interface RuntimeState {
     };
 }
 
-const stateAbsPath = (): string => path.resolve(process.cwd(), RuntimeStatePath);
-
-export function writeRuntimeState(state: RuntimeState): void {
-    const abs = stateAbsPath();
-    fs.mkdirSync(path.dirname(abs), { recursive: true });
-    fs.writeFileSync(abs, JSON.stringify(state, null, 2), 'utf-8');
+interface ChainSnapshot {
+    endpoint: string;
+    chainId: string;
+    genesis: string;
+    anchor: { number: string; hash: string };
+    codes: { address: string; code: string }[];
+}
+interface SnapshotRequest {
+    endpoints: string[];
+    contracts: string[][];
+    anchors?: { number: string; hash: string }[];
+}
+interface RuntimeBinding {
+    chains: { endpoint: string; chainId: string; genesis: string;
+        anchor: { number: string; hash: string }; codes: { address: string; hash: string }[] }[];
+}
+interface StoredRuntime {
+    schemaVersion: 1;
+    state: RuntimeState;
+    binding: RuntimeBinding;
 }
 
-let cached: RuntimeState | undefined;
+function bootstrapRequired(): Error {
+    return new Error('RPC fixture state is invalid or stale; bootstrap required: run yarn rpc:bootstrap');
+}
 
-export function readRuntimeState(): RuntimeState {
-    if (cached) return cached;
-    const abs = stateAbsPath();
-    if (!fs.existsSync(abs)) {
-        throw new Error(
-            `readRuntimeState: ${abs} not found. ` +
-                'Run `yarn rpc:bootstrap` (or `yarn test:rpc`) before running spec files individually.',
-        );
+/** The default secret store is outside the checkout and all uploaded report trees. */
+function stateAbsPath(): string {
+    const suite = createHash('sha256').update(process.cwd()).digest('hex').slice(0, 24);
+    const abs = RuntimeStatePath === 'runtime/runtime.json'
+        ? path.join(os.homedir(), '.pax-rpc-tests', suite, 'runtime.json')
+        : path.resolve(process.cwd(), RuntimeStatePath);
+    if (abs.split(path.sep).some(part => /^(reports?|artifacts?|test-results)$/i.test(part))) {
+        throw new Error('RPC fixture secrets must be stored outside report and artifact directories');
     }
-    cached = JSON.parse(fs.readFileSync(abs, 'utf-8')) as RuntimeState;
-    return cached;
+    const dir = path.dirname(abs);
+    if ([process.cwd(), os.homedir(), os.tmpdir(), path.parse(dir).root].includes(dir)) {
+        throw new Error('RPC fixture state requires a dedicated private directory');
+    }
+    return abs;
+}
+
+/** Validate every field consumed by the specs before exposing keys or contract addresses. */
+function validateRuntimeState(state: any): asserts state is RuntimeState {
+    const address = (value: any) => typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value);
+    const height = (value: any) => Number.isSafeInteger(value) && value >= 0;
+    const account = (value: any) => value && address(value.address) && typeof value.privateKey === 'string' &&
+        /^0x[0-9a-fA-F]{64}$/.test(value.privateKey) &&
+        new ethers.Wallet(value.privateKey).address.toLowerCase() === value.address.toLowerCase();
+    if (!state || typeof state !== 'object' || typeof state.bootstrappedAt !== 'string' ||
+        !Number.isFinite(Date.parse(state.bootstrappedAt)) || !state.chainIds ||
+        !Number.isSafeInteger(state.chainIds.pax) || state.chainIds.pax < 1 ||
+        !Number.isSafeInteger(state.chainIds.eth) || state.chainIds.eth < 1 || !state.blocks ||
+        !['paxBeforeDeploy', 'paxErc20Deploy', 'paxAfterDeploy', 'ethAtBootstrap', 'ethErc20Deploy']
+            .every(field => height(state.blocks[field])) ||
+        state.blocks.paxAfterDeploy < state.blocks.paxErc20Deploy ||
+        state.blocks.paxErc20Deploy < state.blocks.paxBeforeDeploy || !state.contracts ||
+        !['erc20', 'erc20Geth', 'simpleAccount7702', 'gasBurner'].every(field => address(state.contracts[field])) ||
+        !state.funded || !address(state.funded.admin) || typeof state.funded.adminMnemonic !== 'string' ||
+        !ethers.Mnemonic.isValidMnemonic(state.funded.adminMnemonic) || !account(state.funded.gethAdmin) ||
+        !Array.isArray(state.funded.pool) || state.funded.pool.length === 0 || !state.funded.pool.every(account) ||
+        (state.wasm !== undefined && (!state.wasm || !/^pax1[0-9a-z]+$/.test(state.wasm.cw20) ||
+            !address(state.wasm.cw20Pointer) || !account(state.wasm.actor)))) {
+        throw bootstrapRequired();
+    }
+}
+
+/** The worker's sole snapshot producer, kept as JavaScript to avoid loader closure helpers. */
+const RUNTIME_SNAPSHOT_SOURCE = String.raw`async function runtimeChainSnapshot(request) {
+    return Promise.all(request.endpoints.map(async (endpoint, index) => {
+        let id = 0;
+        const rpc = async (method, params) => {
+            const response = await fetch(endpoint, {
+                method: 'POST', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: ++id, method, params }),
+                signal: AbortSignal.timeout(10_000),
+            });
+            if (!response.ok) throw new Error('chain snapshot transport failed');
+            const body = await response.json();
+            if (body.jsonrpc !== '2.0' || body.id !== id || body.error || body.result === undefined) {
+                throw new Error('chain snapshot RPC failed');
+            }
+            return body.result;
+        };
+        const chainId = await rpc('eth_chainId', []);
+        // Height one exists on both the Cosmos-backed EVM and the geth reference.
+        const genesis = await rpc('eth_getBlockByNumber', ['0x1', false]);
+        const anchor = await rpc('eth_getBlockByNumber', [request.anchors?.[index].number ?? 'latest', false]);
+        if (!/^0x[0-9a-fA-F]{64}$/.test(genesis?.hash) ||
+            !/^0x[0-9a-fA-F]{64}$/.test(anchor?.hash) ||
+            !/^0x[0-9a-f]+$/.test(anchor?.number) || !/^0x[0-9a-f]+$/.test(chainId)) {
+            throw new Error('chain snapshot identity is unavailable');
+        }
+        const codes = [];
+        // Keep request ids serial and verify each deployed object's current code.
+        for (const address of request.contracts[index]) {
+            const code = await rpc('eth_getCode', [address, 'latest']);
+            if (typeof code !== 'string' || !/^0x(?:[0-9a-fA-F]{2})+$/.test(code)) {
+                throw new Error('chain snapshot contract code is unavailable');
+            }
+            codes.push({ address, code });
+        }
+        return { endpoint, chainId, genesis: genesis.hash, anchor: { number: anchor.number, hash: anchor.hash }, codes };
+    }));
+}`;
+
+/** Preserve the synchronous API while the worker owns all asynchronous network I/O. */
+function queryRuntimeSnapshot(request: SnapshotRequest): ChainSnapshot[] {
+    const shared = new SharedArrayBuffer(256 * 1024);
+    const control = new Int32Array(shared, 0, 2);
+    const worker = new Worker(`
+        const { workerData } = require('node:worker_threads');
+        const control = new Int32Array(workerData.shared, 0, 2);
+        const finish = (value) => {
+            let bytes = new TextEncoder().encode(JSON.stringify(value));
+            if (bytes.length > workerData.shared.byteLength - 8) {
+                bytes = new TextEncoder().encode(JSON.stringify({ error: true }));
+            }
+            new Uint8Array(workerData.shared, 8, bytes.length).set(bytes);
+            Atomics.store(control, 1, bytes.length);
+            Atomics.store(control, 0, 1);
+            Atomics.notify(control, 0);
+        };
+        (${RUNTIME_SNAPSHOT_SOURCE})(workerData.request).then(
+            chains => finish({ chains }), () => finish({ error: true }),
+        );
+    `, { eval: true, workerData: { shared, request } });
+    // A startup failure must not become an unhandled worker error or leak request details.
+    worker.on('error', () => undefined);
+    try {
+        if (Atomics.wait(control, 0, 0, 15_000) === 'timed-out') throw bootstrapRequired();
+        const size = Atomics.load(control, 1);
+        if (size < 1 || size > shared.byteLength - 8) throw bootstrapRequired();
+        const result = JSON.parse(new TextDecoder().decode(new Uint8Array(shared, 8, size)));
+        if (result.error || !Array.isArray(result.chains)) throw bootstrapRequired();
+        return result.chains;
+    } finally {
+        void worker.terminate();
+    }
+}
+
+function captureRuntimeBinding(state: RuntimeState, previous?: RuntimeBinding): RuntimeBinding {
+    const endpoints = [Endpoints.pax.evmRpc, Endpoints.eth.geth];
+    if (previous && (previous.chains?.length !== 2 ||
+        previous.chains.some((chain, index) => chain.endpoint !== endpoints[index]))) throw bootstrapRequired();
+    const contracts = [
+        [state.contracts.erc20, state.contracts.simpleAccount7702, state.contracts.gasBurner,
+            ...(state.wasm ? [state.wasm.cw20Pointer] : [])],
+        [state.contracts.erc20Geth],
+    ];
+    const snapshots = queryRuntimeSnapshot({ endpoints, contracts, anchors: previous?.chains.map(chain => chain.anchor) });
+    const chains = snapshots.map((chain, index) => {
+        if (chain.chainId !== ethers.toQuantity(index === 0 ? state.chainIds.pax : state.chainIds.eth)) throw bootstrapRequired();
+        return { ...chain, codes: chain.codes.map(entry => ({ address: entry.address, hash: ethers.keccak256(entry.code) })) };
+    });
+    const binding = { chains };
+    if (previous && JSON.stringify(previous) !== JSON.stringify(binding)) throw bootstrapRequired();
+    return binding;
+}
+
+/** Reject symlinks and repair modes on legacy files before reading or replacing them. */
+function secureRuntimeDirectory(abs: string): void {
+    const dir = path.dirname(abs);
+    // Check every existing ancestor before mkdir or chmod can follow a symlink.
+    let ancestor = dir;
+    for (;;) {
+        if (fs.existsSync(ancestor) && fs.lstatSync(ancestor).isSymbolicLink()) throw bootstrapRequired();
+        const parent = path.dirname(ancestor);
+        if (parent === ancestor) break;
+        ancestor = parent;
+    }
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.chmodSync(dir, 0o700);
+    if (fs.existsSync(abs)) {
+        const stat = fs.lstatSync(abs);
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) throw bootstrapRequired();
+        fs.chmodSync(abs, 0o600);
+    }
+}
+
+export function writeRuntimeState(state: RuntimeState): void {
+    validateRuntimeState(state);
+    const abs = stateAbsPath();
+    secureRuntimeDirectory(abs);
+    const binding = captureRuntimeBinding(state);
+    const tmp = path.join(path.dirname(abs), `.runtime-${randomUUID()}.tmp`);
+    let fd: number | undefined;
+    try {
+        fd = fs.openSync(tmp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+        fs.fchmodSync(fd, 0o600);
+        fs.writeFileSync(fd, JSON.stringify({ schemaVersion: 1, state, binding }), 'utf-8');
+        fs.fsyncSync(fd);
+        fs.closeSync(fd);
+        fd = undefined;
+        fs.renameSync(tmp, abs);
+        const directory = fs.openSync(path.dirname(abs), fs.constants.O_RDONLY | fs.constants.O_DIRECTORY);
+        try { fs.fsyncSync(directory); } finally { fs.closeSync(directory); }
+    } finally {
+        if (fd !== undefined) fs.closeSync(fd);
+        if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+    }
+}
+
+/** No process cache: every read revalidates schema, endpoint, chain instance and deployed code. */
+export function readRuntimeState(): RuntimeState {
+    try {
+        const abs = stateAbsPath();
+        secureRuntimeDirectory(abs);
+        const fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+        let stored: StoredRuntime;
+        try { stored = JSON.parse(fs.readFileSync(fd, 'utf-8')); } finally { fs.closeSync(fd); }
+        if (stored.schemaVersion !== 1) throw bootstrapRequired();
+        validateRuntimeState(stored.state);
+        if (!stored.binding) throw bootstrapRequired();
+        captureRuntimeBinding(stored.state, stored.binding);
+        return stored.state;
+    } catch {
+        // Never include parsed state, RPC errors, mnemonics or keys in reporter output.
+        throw bootstrapRequired();
+    }
 }
 
 /**

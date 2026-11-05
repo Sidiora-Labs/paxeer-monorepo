@@ -24,6 +24,7 @@ const receipt: PaxeerXArchiveReceipt = {
   verification_status: 'checkpoint_finalised',
   payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
   transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99',
+  provenance: { evm: { ...PAXEER_X_RECEIPTS_ITEM.provenance.evm, transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99' } },
   timestamp: '2023-05-22T18:00:36.000000Z',
 };
 

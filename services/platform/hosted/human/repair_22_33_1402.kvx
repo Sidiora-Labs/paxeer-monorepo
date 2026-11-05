@@ -1,0 +1,37 @@
+[repair.22.33.1402]
+audit = "22.30.78"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline_revision = "876fbe3211af9ef09a8e5589f822c0e986d0a140"
+continued_revision = "232c08fcf7e96702ba486a8f9b33ae40c9994485"
+continuation = "Attempt 5 preserves the four applied attempt-4 source files without changes and restores this task record within the widened scope, as required by step 12 and gotcha 3020. The runner owns publication; no manual commit or push is performed."
+baseline = "The inherited Go record reports that attempt 3 failed test_TestRepairM_1402_OwnerTestCurrentSuccess because the production paxeer/evm.py import was missing and test_TestRepairM_1402_WebExplorerRelay because it required a successful program read. Prerequisite 22.31.467 restores the codec; step 11 records the current program-read refusal. No additional pre-change verification was run or claimed in this implementation-first continuation."
+qualification = "The final hf-done row in /out/run/gates.jsonl names the verified revision, exact command, exit code and private evidence log. Closure requires exit zero and an hf-build row for that same candidate revision. This record is part of that candidate; the final revision is recorded externally to avoid changing the candidate after its build."
+build_cmd = "python3 -m py_compile services/platform/hosted/human/test_repair_22_33_1402.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1402.py"
+gate_mapping = "Step 10 and gotcha 2984 replace the originally generated Go gate with the two declared Python proving tests. repair_m1402_test.go retains the audit-path record; it is not an additional executable gate."
+
+[finding.owner-test-current-success]
+test = "test_TestRepairM_1402_OwnerTestCurrentSuccess"
+repair = "test_owner_native.py uses the merged owner configuration and production owner_native.produce, merged_owner codec/HTTPS client, provision.owner_registration and provision.funding_evidence instead of the retired daemon socket and custody-credit bootstrap."
+proof = "Eleven selected owner tests execute in process against the committed TLS loopback peer. They assert exact source debit and owner credit, authenticated funding transactions, original identity and recovery policy, then stop and reopen the peer and rerun the producer and consumer with unchanged evidence, balances and raw transactions."
+refusals = "Missing funding evidence, wrong requested identity, changed original owner DID, malformed configuration, truncated or tampered receipts, forged guardian signatures, unsigned guardian sets and substituted guardian sets remain asserted; a correctly rotated guardian set succeeds with its own recovery policy."
+
+[finding.web-explorer-relay]
+test = "test_TestRepairM_1402_WebExplorerRelay"
+repair = "web-deployment.yaml replaces the retired explorer-index configuration and relay with PAXEER_X_EXPLORER_BASE_URL from the required layerx-human-web-explorer/base-url ConfigMap, the internal CA Secret mounted for Node TLS verification, and paired HTTPS network policies for the current explorer backend. Retired program bearer and naming Secrets are no longer consumed."
+proof = "The test parses the actual deployment and policies, checks exact current origin and CA wiring, checks removal of retired relay/authentication inputs, and preserves the production web client's documented program-read refusal. No successful deployed-program read is claimed."
+observed = "apps/web/src/explorer/client.ts programRecord validates the identifier and explorer origin, then throws ExplorerInterfaceUnavailableError with program-read (interface.8.err-core-program-read-refused). Step 11 explicitly accepts this documented refusal; completing the external read remains a domain 10/14 wiring request."
+
+[wiring]
+web_consumer = "Domain 10: apps/web/src/explorer/client.ts and apps/web/src/explorer/model.ts must consume the native deployed-program read once domain 14 publishes it, retaining explicit unavailable refusals."
+explorer_producer = "Domain 14: services/explorer/backend and services/explorer/deploy must publish the native deployed-program read and provision layerx-human-web-explorer/base-url with the current HTTPS origin, a Service on port 443 and backend pod label app=paxeer-x-explorer-backend in layerx-testnet to match the paired policies."
+
+[qualification.attempt_4]
+revision = "232c08fcf7e96702ba486a8f9b33ae40c9994485"
+command = "cg spec done 22.33.1402 -f layerx-merge --root /work/paxeer-monorepo"
+observed = "The runner-provided previous gate output reports two tests passed and spec done succeeded; publication was refused because this record was outside the paths captured when that attempt started. The prior private log path was not supplied, so this is continuation history rather than final qualification evidence."
+
+[gotcha.record_scope]
+observed = "The seed contains the four attempt-4 implementation files but not repair_22_33_1402.kvx; the prior record was dropped from the recorded tree under the old scope (gotcha 3020)."
+resolution = "Create this record under the now-explicit allowed path, preserve the four implementation files, and run only hf-build followed by hf-done on the final candidate."

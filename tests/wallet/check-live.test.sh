@@ -327,33 +327,50 @@ const server = http.createServer((request, response) => {
     response.end(JSON.stringify(report));
     return;
   }
-  const [, profile, rest] = request.url.match(/^\/([a-z_]+)(\/.*)$/) || [];
-  if (request.method !== "POST" || rest !== "/rpc" || !(profile in profiles)) {
-    response.writeHead(404, { "content-type": "application/json" });
-    response.end('{"ok":false}');
-    return;
+  response.writeHead(404, { "content-type": "application/json" });
+  response.end('{"ok":false}');
+});
+
+const ports = { services: null, endpoints: {} };
+const publishPorts = () => {
+  if (ports.services !== null && Object.keys(ports.endpoints).length === Object.keys(profiles).length) {
+    fs.writeFileSync(portFile, JSON.stringify(ports));
   }
-  let body = "";
-  request.on("data", (chunk) => (body += chunk));
-  request.on("end", () => {
-    let call;
-    try {
-      call = JSON.parse(body);
-    } catch {
-      response.writeHead(400, { "content-type": "application/json" });
-      response.end('{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}');
+};
+server.listen(0, "127.0.0.1", () => {
+  ports.services = server.address().port;
+  publishPorts();
+});
+for (const profile of Object.keys(profiles)) {
+  const endpoint = http.createServer((request, response) => {
+    if (request.method !== "POST" || request.url !== "/") {
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end('{"ok":false}');
       return;
     }
-    const answer = profiles[profile][call.method] || base[call.method] || {
-      error: { code: -32601, message: "Method not found" },
-    };
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ jsonrpc: "2.0", id: call.id, ...answer }));
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      let call;
+      try {
+        call = JSON.parse(body);
+      } catch {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end('{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}');
+        return;
+      }
+      const answer = profiles[profile][call.method] || base[call.method] || {
+        error: { code: -32601, message: "Method not found" },
+      };
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: call.id, ...answer }));
+    });
   });
-});
-server.listen(0, "127.0.0.1", () => {
-  fs.writeFileSync(portFile, String(server.address().port));
-});
+  endpoint.listen(0, "127.0.0.1", () => {
+    ports.endpoints[profile] = endpoint.address().port;
+    publishPorts();
+  });
+}
 JS
 
 node "$work/responder.mjs" "$work/port" &
@@ -366,7 +383,13 @@ if [ ! -s "$work/port" ]; then
 	echo "check-live.test: responder did not start" >&2
 	exit 2
 fi
-port="$(cat "$work/port")"
+port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["services"])' "$work/port")"
+
+endpoint_base() {
+	local profile="$1" endpoint_port
+	endpoint_port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["endpoints"][sys.argv[2]])' "$work/port" "$profile")"
+	printf 'http://127.0.0.1:%s/' "$endpoint_port"
+}
 
 failures=0
 
@@ -377,7 +400,7 @@ run_checker() {
 expect() {
 	local name="$1" profile="$2" want_status="$3" output status=0
 	shift 3
-	output="$(run_checker "http://127.0.0.1:$port/$profile" endpoint)" || status=$?
+	output="$(run_checker "$(endpoint_base "$profile")" endpoint)" || status=$?
 	local ok=1 line
 	[ "$status" -eq "$want_status" ] || ok=0
 	for line in "$@"; do

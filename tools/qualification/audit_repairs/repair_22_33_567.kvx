@@ -1,0 +1,52 @@
+[meta]
+task = "22.33.567"
+audit = "22.30.159"
+base_revision = "2a5922c56e84195a7fd33e76b9db7eb2cf9f9181"
+acceptance = "22998.1"
+qualification = "The hf-build/hf-done ledger and final evidence JSON name the exact verified candidate revision, command, exit code and private log; this record makes no advance gate-success claim."
+
+[finding.legacy-health]
+tests = ["test_legacy_health_is_versioned_and_keeps_original_decoder_assertions", "test_legacy_health_local_router_and_client_declared_refusal"]
+rust_tests = ["health", "legacy_upstream_health_v1_2025_02_19", "supported_health_http_and_legacy_refusal"]
+repair = "Version the untouched historical v1 body explicitly; preserve its original healthy/latest_block_number assertions in a separate real model decoder case; require the production HealthApi refusal instead of expecting unsupported HTTP success; document the health method set beside the recordings."
+closure_boundary = "Python proves source contracts and fixture fidelity; native Rust transport and Phoenix router execution are not certified by this gate."
+
+[finding.nft-cursor-precision]
+tests = ["test_nft_recording_preserves_full_integer_and_all_other_body_bytes", "test_nft_producer_and_recorder_preserve_raw_response_contract", "test_nft_rust_regression_forwards_cursor_through_production_http_client", "test_rust_peer_uses_real_transport_and_joins_request_assertions"]
+rust_tests = ["nft_full_width_cursor_survives_real_client_http"]
+repair = "Reconstruct only the corrupted cursor integer from the final recorded ID using the production Chain.paging_params rule; preserve every other body byte and the original status; assert the exact uint256 boundary on the next HTTP request through production ApiClient, TokensApi and PageCursor."
+closure_boundary = "The Python gate proves exact bytes, integer type, unchanged payload hashes, producer/recorder/client source facts and the declared native regression assertions; fresh producer capture is delegated explicitly."
+
+[proof]
+python = "Seven in-process pytest cases load real committed JSON, parse the Cargo manifest and this record with tomllib, check the actual Elixir producer/router, TypeScript raw recorder, Rust cursor/HTTP/consumer sources, and preserve historical-body SHA-256 identities; no subprocess toolchain or substitute implementation is used."
+native_execution = "not run by the Python-only gate"
+review_only = "Rust tests implement actual reqwest transport against committed transcript peers and assert joined peer requests and typed consumers; source checks do not execute Rust, Phoenix, Decimal or node-fetch."
+fresh_producer_capture = false
+reconstruction = "The old exponent cannot recover lost digits; the final recorded item's string ID is the independent exact source and Chain.unique_tokens_next_page derives its boundary from List.last(list). The metadata labels this reconstruction rather than inventing capture provenance."
+continuation = "The second HTTP response replays the original transcript only to prove outgoing cursor transport; no captured next page, full traversal, or restart recovery is claimed. These read-only findings contain no durable state."
+
+[baseline]
+verification = "not run: no test_repair_22_33_567.py or earlier hf gate ledger existed at entry; the ordered task instructions prohibit testing before complete implementation and prohibit running verify_cmd by hand. No baseline test failure is claimed."
+observed = "Read-only inspection found that production health_v1 already returns UnsupportedCapability, so the old health integration expectation contradicted it; the NFT body stored 1.157856654438218e+77 instead of its full final item ID."
+
+[wiring.recorder]
+request = "Domain 14 owns services/explorer/services/libs/blockscout-client/ts-src/record-stubs.ts: retain its already-landed response.text()/response.status raw recording implementation on regeneration; this task asserts those facts without editing that out-of-scope file."
+
+[wiring.capture]
+request = "Domain 14 owns services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/token_controller.ex and services/explorer/services/libs/blockscout-client/ts-src/record-stubs.ts: run the real instances producer on a controlled backend and recapture its raw body, status and source revision to replace the explicitly reconstructed historical NFT recording."
+
+[wiring.router]
+request = "Domain 14 owns services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/health_controller_test.exs: execute the Phoenix router to assert GET /api/health and the actual unsupported /api/v1/health response, including the v1 RPC forward; do not infer an HTTP 404 from the client's pre-transport UnsupportedCapability."
+
+[constraints]
+scope = "Only the four authorized paths are edited; runner .cgignore/spec status changes are preserved. No commit, push, baseline gate, native build or direct verification invocation is performed."
+gotcha = "The proposal's recorder change is already present; a full-width cursor must be extracted from original response text before serde_json::Value can round numbers. A raw numeric fixture parsed and reserialized through Value would reintroduce the same precision loss."
+instructions = "The unchanged-tree baseline request conflicts with the explicit implementation-first gate order; follow that order and record the absence of baseline evidence instead of fabricating it."
+
+[qualification.repair_1]
+revision = "d7b1a5c3e430a5b7adb920684439d1a9de2edf21"
+command = "cg spec done 22.33.567 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests passed; the cursor source check expected a single-line method chain that rustfmt split across lines."
+repair = "Match the complete let cursor = first.next_page_cursor().unwrap().expect(nonterminal cursor) chain across formatting whitespace, retaining all outgoing boundary and consumer assertions."

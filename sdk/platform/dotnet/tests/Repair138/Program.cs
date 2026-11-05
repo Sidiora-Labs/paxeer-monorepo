@@ -318,6 +318,7 @@ internal static class Program
         var validators = bundle.GetProperty("validatorSet").Deserialize<CometValidator[]>()!;
         var independentCommit = independent.RootElement.GetProperty("settlement").GetProperty("execution_commit");
         var hash = Convert.FromHexString(independentCommit.GetProperty("block_id").GetProperty("hash").GetString()!);
+        Check(hash.SequenceEqual(Convert.FromHexString("a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108")), "committed recording checkpoint changed");
         var trust = new PortableReceiptTrust("committed-fixture", 10, hash);
         hash[0] ^= 1; // The context owns its pin even if the caller reuses the input buffer.
         Check(PortableReceipt.verify(encoded, keys, trust).VerificationLevel == "committed", "trusted committed evidence refused");

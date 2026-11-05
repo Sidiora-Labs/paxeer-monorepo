@@ -1,5 +1,6 @@
 //! Principal-scoped durable support conversations.
 
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,10 @@ use crate::store::{PrincipalScope, RowKey, StoreError, Table};
 use crate::trace::TraceId;
 
 const ROW_PREFIX: &str = "support_conversation_";
+pub(crate) const INDEX_KEY: &str = "support_recent_index_v1";
+const MAX_INDEX_BYTES: usize = 131_072;
+/// Lifetime admission bound per principal, including expired retry identities.
+pub const MAX_ADMITTED_CONVERSATIONS: usize = 256;
 const ID_DOMAIN: &[u8] = b"LayerX support conversation v1\0";
 const MESSAGE_DOMAIN: &[u8] = b"LayerX support message v1\0";
 const MAX_BODY_CHARS: usize = 2_000;
@@ -271,6 +276,10 @@ pub enum SupportError {
     Conflict,
     /// Conversation reached its message bound.
     ConversationFull,
+    /// Principal reached the lifetime conversation admission bound.
+    ConversationLimit,
+    /// Body retention elapsed; its durable retry identity remains reserved.
+    ConversationExpired,
     /// Person tried to reply after resolution.
     ConversationResolved,
     /// Stored state is malformed.
@@ -289,6 +298,8 @@ impl SupportError {
             Self::MessageUnknown => "support-message-unknown",
             Self::Conflict => "support-idempotency-conflict",
             Self::ConversationFull => "support-conversation-full",
+            Self::ConversationLimit => "support-conversation-limit",
+            Self::ConversationExpired => "support-conversation-expired",
             Self::ConversationResolved => "support-conversation-resolved",
             Self::Corrupt => "support-state-corrupt",
         }
@@ -327,29 +338,36 @@ impl From<StoreError> for SupportError {
 pub struct SupportService;
 
 impl SupportService {
-    /// Lists the newest conversations for the authenticated principal.
+    /// Lists at most 100 newest retained conversations using durable metadata.
+    /// Expired bodies are skipped without releasing their retry identities.
     ///
     /// # Errors
     ///
     /// Refuses corrupt durable rows.
     pub fn list(scope: &PrincipalScope<'_>) -> Result<Vec<Conversation>, SupportError> {
-        let mut conversations = scope
-            .keys(Table::Support)
-            .into_iter()
-            .filter(|key| key.as_str().starts_with(ROW_PREFIX))
-            .map(|key| load_required(scope, &key))
-            .collect::<Result<Vec<_>, _>>()?;
-        conversations.sort_by(|left, right| {
-            right
-                .updated_at
-                .cmp(&left.updated_at)
-                .then_with(|| right.conversation_id.cmp(&left.conversation_id))
-        });
-        conversations.truncate(MAX_CONVERSATIONS);
+        let index = load_index(scope)?;
+        let mut conversations = Vec::with_capacity(MAX_CONVERSATIONS);
+        for entry in &index.entries {
+            let key = key_for_conversation(&entry.conversation_id)?;
+            if let Some(conversation) = load(scope, &key)? {
+                if conversation.conversation_id != entry.conversation_id
+                    || conversation.updated_at != entry.updated_at
+                {
+                    return Err(SupportError::Corrupt);
+                }
+                conversations.push(conversation);
+                if conversations.len() == MAX_CONVERSATIONS {
+                    break;
+                }
+            }
+        }
         Ok(conversations)
     }
 
     /// Creates one conversation, converging retries under the same key.
+    /// At most 256 identities are admitted per principal for its lifetime.
+    /// Bodies follow store retention; compact retry tombstones never expire.
+    /// Once admission is full, existing conversations and retries remain usable.
     ///
     /// # Errors
     ///
@@ -372,6 +390,21 @@ impl SupportService {
             };
         }
         let conversation_id = format!("sup_{identity}");
+        let index = load_index(scope)?;
+        if let Some(entry) = index
+            .entries
+            .iter()
+            .find(|entry| entry.conversation_id == conversation_id)
+        {
+            return if entry.creation_digest == request_digest {
+                Err(SupportError::ConversationExpired)
+            } else {
+                Err(SupportError::Conflict)
+            };
+        }
+        if index.entries.len() >= MAX_ADMITTED_CONVERSATIONS {
+            return Err(SupportError::ConversationLimit);
+        }
         let message_id = message_id(&conversation_id, idempotency_key);
         let conversation = Conversation {
             conversation_id,
@@ -563,9 +596,6 @@ fn append(
     let body = normalized_body(body)?;
     let key = key_for_conversation(conversation_id)?;
     let mut conversation = load_required(scope, &key)?;
-    if author == Author::You && conversation.state == ConversationState::Resolved {
-        return Err(SupportError::ConversationResolved);
-    }
     let identifier = message_id(conversation_id, idempotency_key);
     if let Some(existing) = conversation
         .messages
@@ -577,6 +607,9 @@ fn append(
         } else {
             Err(SupportError::Conflict)
         };
+    }
+    if author == Author::You && conversation.state == ConversationState::Resolved {
+        return Err(SupportError::ConversationResolved);
     }
     if conversation.messages.len() >= MAX_MESSAGES {
         return Err(SupportError::ConversationFull);
@@ -695,7 +728,19 @@ fn load(scope: &PrincipalScope<'_>, key: &RowKey) -> Result<Option<Conversation>
 }
 
 fn load_required(scope: &PrincipalScope<'_>, key: &RowKey) -> Result<Conversation, SupportError> {
-    load(scope, key)?.ok_or(SupportError::ConversationUnknown)
+    if let Some(conversation) = load(scope, key)? {
+        return Ok(conversation);
+    }
+    let index = load_index(scope)?;
+    if index
+        .entries
+        .iter()
+        .any(|entry| key_for_conversation(&entry.conversation_id).as_ref().ok() == Some(key))
+    {
+        Err(SupportError::ConversationExpired)
+    } else {
+        Err(SupportError::ConversationUnknown)
+    }
 }
 
 fn persist(
@@ -703,14 +748,151 @@ fn persist(
     now: u64,
     conversation: &Conversation,
 ) -> Result<(), SupportError> {
-    let bytes = serde_json::to_vec(conversation).map_err(|_| SupportError::Corrupt)?;
-    scope.put(
-        Table::Support,
-        key_for_conversation(&conversation.conversation_id)?,
+    let mut index = load_index(scope)?;
+    let creation_digest = conversation_create_digest(conversation);
+    if let Some(entry) = index
+        .entries
+        .iter_mut()
+        .find(|entry| entry.conversation_id == conversation.conversation_id)
+    {
+        if entry.creation_digest != creation_digest {
+            return Err(SupportError::Conflict);
+        }
+        entry.updated_at = conversation.updated_at;
+    } else {
+        if index.entries.len() >= MAX_ADMITTED_CONVERSATIONS {
+            return Err(SupportError::ConversationLimit);
+        }
+        index.entries.push(IndexEntry {
+            conversation_id: conversation.conversation_id.clone(),
+            creation_digest,
+            updated_at: conversation.updated_at,
+        });
+    }
+    index.sort();
+    scope.put_batch(
         now,
-        bytes,
+        vec![
+            (
+                Table::Support,
+                key_for_conversation(&conversation.conversation_id)?,
+                serde_json::to_vec(conversation).map_err(|_| SupportError::Corrupt)?,
+            ),
+            (
+                Table::Support,
+                RowKey::new(INDEX_KEY)?,
+                encode_index(&index)?,
+            ),
+        ],
     )?;
     Ok(())
+}
+
+#[derive(Default, Deserialize, Serialize)]
+struct ConversationIndex {
+    entries: Vec<IndexEntry>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct IndexEntry {
+    conversation_id: String,
+    creation_digest: String,
+    updated_at: u64,
+}
+
+impl ConversationIndex {
+    fn sort(&mut self) {
+        self.entries.sort_by(|left, right| {
+            right
+                .updated_at
+                .cmp(&left.updated_at)
+                .then_with(|| right.conversation_id.cmp(&left.conversation_id))
+        });
+    }
+}
+
+fn encode_index(index: &ConversationIndex) -> Result<Vec<u8>, SupportError> {
+    let bytes = serde_json::to_vec(index).map_err(|_| SupportError::Corrupt)?;
+    if bytes.len() > MAX_INDEX_BYTES {
+        return Err(SupportError::Corrupt);
+    }
+    Ok(bytes)
+}
+
+fn load_index(scope: &PrincipalScope<'_>) -> Result<ConversationIndex, SupportError> {
+    let Some(row) = scope.get(Table::Support, &RowKey::new(INDEX_KEY)?) else {
+        return Ok(ConversationIndex::default());
+    };
+    if row.bytes().len() > MAX_INDEX_BYTES {
+        return Err(SupportError::Corrupt);
+    }
+    let index: ConversationIndex =
+        serde_json::from_slice(row.bytes()).map_err(|_| SupportError::Corrupt)?;
+    if index.entries.len() > MAX_ADMITTED_CONVERSATIONS {
+        return Err(SupportError::Corrupt);
+    }
+    let mut identities = BTreeSet::new();
+    for entry in &index.entries {
+        key_for_conversation(&entry.conversation_id).map_err(|_| SupportError::Corrupt)?;
+        if !identities.insert(&entry.conversation_id)
+            || entry.creation_digest.len() != 64
+            || !entry
+                .creation_digest
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(SupportError::Corrupt);
+        }
+    }
+    if index.entries.windows(2).any(|pair| {
+        (pair[0].updated_at, &pair[0].conversation_id)
+            < (pair[1].updated_at, &pair[1].conversation_id)
+    }) {
+        return Err(SupportError::Corrupt);
+    }
+    Ok(index)
+}
+
+// Upgrade pre-index stores once, before exposing the scope. Ordinary opens and
+// list requests read only persisted metadata; expired identities are never pruned.
+pub(crate) fn initialize_index(scope: &mut PrincipalScope<'_>) -> Result<(), StoreError> {
+    let index_key = RowKey::new(INDEX_KEY)?;
+    if scope.get(Table::Support, &index_key).is_some() {
+        return Ok(());
+    }
+    let keys: Vec<_> = scope
+        .keys(Table::Support)
+        .into_iter()
+        .filter(|key| key.as_str().starts_with(ROW_PREFIX))
+        .collect();
+    if keys.is_empty() {
+        return Ok(());
+    }
+    if keys.len() > MAX_ADMITTED_CONVERSATIONS {
+        return Err(StoreError::Corrupt(
+            "legacy support history exceeds admission bound; explicit migration required",
+        ));
+    }
+    let mut index = ConversationIndex::default();
+    for key in keys {
+        let conversation = load_required(scope, &key)
+            .map_err(|_| StoreError::Corrupt("legacy support conversation"))?;
+        if key_for_conversation(&conversation.conversation_id)
+            .as_ref()
+            .ok()
+            != Some(&key)
+        {
+            return Err(StoreError::Corrupt("legacy support conversation identity"));
+        }
+        index.entries.push(IndexEntry {
+            conversation_id: conversation.conversation_id.clone(),
+            creation_digest: conversation_create_digest(&conversation),
+            updated_at: conversation.updated_at,
+        });
+    }
+    index.sort();
+    let bytes = encode_index(&index).map_err(|_| StoreError::Corrupt("legacy support index"))?;
+    scope.put(Table::Support, index_key, 0, bytes)
 }
 
 fn hex_digest(bytes: impl AsRef<[u8]>) -> String {

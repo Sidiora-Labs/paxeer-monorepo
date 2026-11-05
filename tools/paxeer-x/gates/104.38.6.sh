@@ -54,7 +54,7 @@ try:
         sys.exit(0)
 
     run('Programs refusal fixture derivation',
-        ['python3', 'sdk/platform/conformance/fixtures/generate_program_receipt_refusals.py', '--check'])
+        ['python3', 'tools/paxeer-x/gates/receipt_refusals.py', '--check'])
     credit('fixture derivation', 1)
 
     check_program_contracts(os.getcwd())

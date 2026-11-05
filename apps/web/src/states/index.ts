@@ -2,6 +2,7 @@ export {
   StateMatrix,
   REQUIRED_SCREEN_STATES,
   CURRENT_ROUTES,
+  STATE_ROUTE_MANIFEST,
   CURRENT_SHELLS,
   humanStateMatrix,
   human_state_matrix_registry,
@@ -40,6 +41,11 @@ export {
   BrowserSupportReportOutbox,
   browserSupportReportOutbox,
   redactErrorReport,
+  clearPrivateSupportReports,
+  requireSupportReportPrincipal,
+  SupportReportPrincipalError,
+  SUPPORT_REPORT_PRINCIPAL_HEADER,
+  type SupportReportAttempt,
   type ErrorReporter,
   type ErrorReportDraft,
   type ErrorReportReceipt,
@@ -61,3 +67,5 @@ export {
   redactSupportReportRoute,
   type SupportReportRoute,
 } from "./report-routes";
+export { SupportReportSessionBoundary, useSupportReportOutbox } from "./report-session";
+export { MatrixStateSurface, type MatrixStateSurfaceProps } from "./matrix-surface";

@@ -543,7 +543,7 @@ pub fn verify_node_receipt(
     let canonical = node_bytes(value, "receipt", 1_048_576)?;
     let receipt = layerx_proof::receipt::verify_sequencer_signature(
         &canonical,
-        std::slice::from_ref(&policy.sequencer),
+        layerx_proof::receipt::ReceiptKeys::HeightRanges(std::slice::from_ref(&policy.sequencer)),
     )
     .map_err(|_| RpcError::Verification)?;
     let protocol = receipt.protocol().ok_or(RpcError::Verification)?;

@@ -1,3 +1,5 @@
+#[path = "support/repair_22_33_596/mod.rs"]
+mod repair_support;
 mod solidity_multiple_types;
 
 use actix_web::{
@@ -46,7 +48,12 @@ async fn test_setup(
     dir: &str,
     input: &mut TestInput,
 ) -> (ServiceResponse, Option<String>, Option<serde_json::Value>) {
-    let service = global_service().await;
+    let (service, _nightly_directory) = if input.compiler_version == repair_support::NIGHTLY {
+        let (service, directory) = repair_support::nightly_service().await;
+        (service, Some(directory))
+    } else {
+        (global_service().await.clone(), None)
+    };
     let app = test::init_service(
         App::new().configure(|config| route_solidity_verifier(config, service.clone())),
     )
@@ -556,7 +563,6 @@ mod regression_tests {
     // https://github.com/blockscout/blockscout/issues/5430
     // https://github.com/blockscout/blockscout/issues/5434
     #[tokio::test]
-    #[ignore] // remove when list with nightly builds would be ready for linux
     async fn issue_5430_5434() {
         let contract_dir = "issue_5430_5434";
         let test_input = TestInput::new("C", "v0.8.14-nightly.2022.4.13+commit.25923c1f");

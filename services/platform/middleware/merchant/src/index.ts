@@ -237,6 +237,9 @@ export class MerchantMiddleware {
       return { kind: "pending", order: opened };
     }
     if (decision.kind === "refused") {
+      if (opened.state !== "awaiting-payment") {
+        return { kind: "refused", order: opened };
+      }
       const refused = await this.#orders.markRefused(opened.orderId, requestDigest);
       requireMatchingOrder(refused, checkoutKey, requestDigest, quote);
       if (refused.state !== "refused") {
@@ -245,12 +248,14 @@ export class MerchantMiddleware {
       return { kind: "refused", order: refused };
     }
     const receiptDigest = layerXReceiptDigest(decision.settlement.extensions);
-    const paid = await this.#orders.markPaid(
-      opened.orderId,
-      requestDigest,
-      receiptDigest,
-      decision.settlement.transaction,
-    );
+    const paid = opened.state === "awaiting-payment"
+      ? await this.#orders.markPaid(
+        opened.orderId,
+        requestDigest,
+        receiptDigest,
+        decision.settlement.transaction,
+      )
+      : opened;
     requireMatchingOrder(paid, checkoutKey, requestDigest, quote);
     if (
       paid.state !== "paid-verified"
@@ -320,6 +325,13 @@ export class MerchantSettlementWebhooks {
         throw new MerchantError("order-conflict");
       }
       const evidence = await this.#receipts.resolve(event.receipt_ref);
+      if (!/^0x(?:[0-9a-f]{2})+$/u.test(evidence.rawTransaction)) {
+        throw new MerchantError("invalid-webhook");
+      }
+      const rawTransaction = Uint8Array.from(evidence.rawTransaction.slice(2).match(/../gu)!, (pair) => Number.parseInt(pair, 16));
+      if (event.transaction !== `0x${toHex(keccak256(rawTransaction))}`) {
+        throw new MerchantError("invalid-webhook");
+      }
       const requirements = current.quote.paymentRequired.accepts[0]!;
       const verified = await verifyPaymentReceipt(
         evidence,
@@ -330,9 +342,8 @@ export class MerchantSettlementWebhooks {
       if (verificationRank(event.verification) > verificationRank(paymentCommitment(requirements.extra))) {
         throw new MerchantError("invalid-webhook");
       }
-      const signedReceipt = Uint8Array.from(evidence.signedReceipt.slice(2).match(/../gu)!, (pair) => Number.parseInt(pair, 16));
-      const receiptDigest = toHex(keccak256(signedReceipt));
-      if (!constantTimeHex(receiptDigest, event.receipt_digest) || event.transaction !== verified.txHash) {
+      if (event.transaction !== verified.txHash
+        || !constantTimeHex(toHex(verified.receiptDigest), event.receipt_digest)) {
         throw new MerchantError("invalid-webhook");
       }
       const paid = await this.#orders.markPaid(

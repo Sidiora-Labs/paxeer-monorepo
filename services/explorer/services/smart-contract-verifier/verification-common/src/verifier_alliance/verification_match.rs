@@ -171,6 +171,27 @@ impl<'a> MatchBuilder<'a> {
         Ok(self)
     }
 
+    fn checked_reference_range(
+        &self,
+        start: usize,
+        length: usize,
+        reason: &str,
+        id: &str,
+    ) -> Result<std::ops::Range<usize>, anyhow::Error> {
+        let end = start.checked_add(length).ok_or_else(|| {
+            anyhow!("(reason={reason}; id={id}; start={start}; length={length}) range end overflow")
+        })?;
+        if end > self.deployed_code.len() || end > self.compiled_code.len() {
+            return Err(anyhow!(
+                "(reason={reason}; id={id}; start={start}; length={length}) out of range \
+                 (deployed_code_len={}; compiled_code_len={})",
+                self.deployed_code.len(),
+                self.compiled_code.len(),
+            ));
+        }
+        Ok(start..end)
+    }
+
     fn apply_library_transformations(
         mut self,
         link_references: Option<&LinkReferences>,
@@ -186,8 +207,12 @@ impl<'a> MatchBuilder<'a> {
                 let mut on_chain_value = None;
                 for offset in offsets {
                     let start = offset.start as usize;
-                    let end = start + offset.length as usize;
-                    let range = start..end;
+                    let range = self.checked_reference_range(
+                        start,
+                        offset.length as usize,
+                        "link_reference",
+                        &id,
+                    )?;
 
                     let offset_value = &self.deployed_code[range.clone()];
                     match on_chain_value {
@@ -226,8 +251,12 @@ impl<'a> MatchBuilder<'a> {
             let mut on_chain_value = None;
             for offset in offsets {
                 let start = offset.start as usize;
-                let end = start + offset.length as usize;
-                let range = start..end;
+                let range = self.checked_reference_range(
+                    start,
+                    offset.length as usize,
+                    "immutable_reference",
+                    id,
+                )?;
 
                 let offset_value = &self.deployed_code[range.clone()];
                 match on_chain_value {

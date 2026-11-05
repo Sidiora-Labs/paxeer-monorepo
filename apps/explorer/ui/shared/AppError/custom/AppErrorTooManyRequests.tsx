@@ -3,6 +3,7 @@ import React from 'react';
 
 import config from 'configs/app';
 import buildUrl from 'lib/api/buildUrl';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import * as cookies from 'lib/cookies';
 import { Button } from 'toolkit/chakra/button';
 import { toaster } from 'toolkit/chakra/toaster';
@@ -32,6 +33,9 @@ const AppErrorTooManyRequests = ({ bypassOptions, reset }: Props) => {
   const [ timeLeft, setTimeLeft ] = React.useState(reset ? Math.ceil(Number(reset) / SECOND) : undefined);
 
   const recaptcha = useReCaptcha();
+  const multichainContext = useMultichainContext();
+  const chainConfig = multichainContext?.chain.app_config || config;
+  const canBypass = Boolean(chainConfig.services.reCaptchaV2.siteKey) && !config.app.isPrivateMode && bypassOptions !== 'no_bypass';
 
   const handleSubmit = React.useCallback(async() => {
     try {
@@ -99,18 +103,14 @@ const AppErrorTooManyRequests = ({ bypassOptions, reset }: Props) => {
     };
   }, [ reset ]);
 
-  if (!config.services.reCaptchaV2.siteKey) {
-    throw new Error('reCAPTCHA V2 site key is not set');
-  }
-
   const text = (() => {
-    if (timeLeft === undefined && bypassOptions === 'no_bypass') {
+    if (timeLeft === undefined && !canBypass) {
       return 'Rate limit exceeded.';
     }
 
     const timeLeftText = timeLeft !== undefined ? `wait ${ formatTimeLeft(timeLeft) } ` : '';
-    const bypassText = bypassOptions !== 'no_bypass' ? `verify you${ apos }re human ` : '';
-    const orText = timeLeft !== undefined && bypassOptions !== 'no_bypass' ? 'OR ' : '';
+    const bypassText = canBypass ? `verify you${ apos }re human ` : '';
+    const orText = timeLeft !== undefined && canBypass ? 'OR ' : '';
 
     return `Rate limit exceeded. Please ${ timeLeftText }${ orText }${ bypassText }before making another request.`;
   })();
@@ -122,8 +122,12 @@ const AppErrorTooManyRequests = ({ bypassOptions, reset }: Props) => {
       <Text color="text.secondary" mt={ 3 }>
         { text }
       </Text>
-      <ReCaptcha { ...recaptcha }/>
-      { bypassOptions !== 'no_bypass' && <Button onClick={ handleSubmit } disabled={ recaptcha.isInitError } mt={ 8 }>I'm not a robot</Button> }
+      { canBypass && (
+        <>
+          <ReCaptcha { ...recaptcha }/>
+          <Button onClick={ handleSubmit } disabled={ recaptcha.isInitError } mt={ 8 }>I'm not a robot</Button>
+        </>
+      ) }
     </>
   );
 };

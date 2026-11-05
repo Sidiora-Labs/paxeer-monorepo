@@ -16,8 +16,12 @@ import getResourceParams from './getResourceParams';
 import { PAXEER_X_CHAIN_RESOURCES } from './resources';
 import useApiFetch from './useApiFetch';
 
-beforeAll(() => fetchMock.disableMocks());
-afterAll(() => fetchMock.enableMocks());
+beforeAll(() => {
+  fetchMock.disableMocks();
+});
+afterAll(() => {
+  fetchMock.enableMocks();
+});
 
 const tenant: ClusterChainConfig = {
   id: '125',
@@ -39,7 +43,7 @@ function recoverFeedCursor(saved: string) {
   return parse(object({ cursor: string(), id: string() }), JSON.parse(saved));
 }
 
-function chainApiUsesDedicatedIndexerForEveryExistingConsumer() {
+test('chainApiUsesDedicatedIndexerForEveryExistingConsumer', function chainApiUsesDedicatedIndexerForEveryExistingConsumer() {
   for (const [ name, definition ] of Object.entries(PAXEER_X_CHAIN_RESOURCES)) {
     const resourceName = `general:${ name as keyof typeof PAXEER_X_CHAIN_RESOURCES }` as const;
     const { api, apiName, resource } = getResourceParams(resourceName, tenant);
@@ -50,9 +54,9 @@ function chainApiUsesDedicatedIndexerForEveryExistingConsumer() {
     expect(buildUrl(resourceName, { id: '7' }, undefined, true, tenant))
       .toBe(`https://gateway.example/tenant/demo/indexer${ definition.path.replace(':id', '7') }`);
   }
-}
+});
 
-function chainApiSupportsItsExplicitNamespace() {
+test('chainApiSupportsItsExplicitNamespace', function chainApiSupportsItsExplicitNamespace() {
   for (const name of Object.keys(PAXEER_X_CHAIN_RESOURCES) as Array<keyof typeof PAXEER_X_CHAIN_RESOURCES>) {
     const existing = getResourceParams(`general:${ name }`, tenant);
     const explicit = getResourceParams(`paxeerXIndexer:${ name }`, tenant);
@@ -60,9 +64,9 @@ function chainApiSupportsItsExplicitNamespace() {
     expect(buildUrl(`paxeerXIndexer:${ name }`, { id: '7' }, undefined, true, tenant))
       .toBe(buildUrl(`general:${ name }`, { id: '7' }, undefined, true, tenant));
   }
-}
+});
 
-function chainApiRefusesMissingIndexerWithoutUsingBlockscout() {
+test('chainApiRefusesMissingIndexerWithoutUsingBlockscout', function chainApiRefusesMissingIndexerWithoutUsingBlockscout() {
   const { paxeerXIndexer, ...apis } = tenant.app_config.apis;
   expect(paxeerXIndexer).toBeDefined();
   const unconfigured = { ...tenant, app_config: { ...tenant.app_config, apis } };
@@ -71,9 +75,9 @@ function chainApiRefusesMissingIndexerWithoutUsingBlockscout() {
       .toThrow('API config for paxeerXIndexer not found');
   }
   expect(getResourceParams('general:block', unconfigured).api).toBe(apis.general);
-}
+});
 
-function chainApiPreservesTenantIdentityAcrossAllReads() {
+test('chainApiPreservesTenantIdentityAcrossAllReads', function chainApiPreservesTenantIdentityAcrossAllReads() {
   const otherTenant: ClusterChainConfig = {
     ...tenant,
     id: '126',
@@ -94,9 +98,9 @@ function chainApiPreservesTenantIdentityAcrossAllReads() {
     expect(second.origin).toBe('https://other-gateway.example');
     expect(second.pathname).toMatch(/^\/tenant\/other\/indexer\/v1\/chains/);
   }
-}
+});
 
-function chainApiReconstructsFeedRequestsFromPersistedCursorUrls() {
+test('chainApiReconstructsFeedRequestsFromPersistedCursorUrls', function chainApiReconstructsFeedRequestsFromPersistedCursorUrls() {
   for (const name of [ 'paxeer_x_chain_transfers', 'paxeer_x_chain_events' ] as const) {
     const resourceName = `general:${ name }` as const;
     const initial = new URL(buildUrl(resourceName, { id: '7' }, { cursor: '42', limit: 2, kind: 'transfer' }, true, tenant));
@@ -109,15 +113,15 @@ function chainApiReconstructsFeedRequestsFromPersistedCursorUrls() {
     expect(resumed.toString()).toBe(initial.toString());
     expect(resumed.pathname).toBe(`/tenant/demo/indexer/v1/chains/7/${ name.endsWith('events') ? 'events' : 'transfers' }`);
   }
-}
+});
 
-function chainApiRoutesUnknownChainIdsToTheSameUpstream() {
+test('chainApiRoutesUnknownChainIdsToTheSameUpstream', function chainApiRoutesUnknownChainIdsToTheSameUpstream() {
   for (const name of [ 'paxeer_x_chain', 'paxeer_x_chain_summary', 'paxeer_x_chain_transfers', 'paxeer_x_chain_events' ] as const) {
     const url = new URL(buildUrl(`general:${ name }`, { id: '4294967295' }, undefined, true, tenant));
     expect(url.origin).toBe('https://gateway.example');
     expect(url.pathname).toBe(`/tenant/demo/indexer${ PAXEER_X_CHAIN_RESOURCES[name].path.replace(':id', '4294967295') }`);
   }
-}
+});
 
 const chainDocument = {
   id: 1,
@@ -182,7 +186,7 @@ function openChainReader() {
   return { read: state.read, close: () => client.clear() };
 }
 
-async function chainApiReadsDirectoryDetailAndSummaryThroughRealTransport() {
+test('chainApiReadsDirectoryDetailAndSummaryThroughRealTransport', async function chainApiReadsDirectoryDetailAndSummaryThroughRealTransport() {
   const transport = await openChainTransport({
     '/tenant/demo/indexer/v1/chains': { status: 200, body: { chains: [ chainDocument ] } },
     '/tenant/demo/indexer/v1/chains/1': { status: 200, body: chainDocument },
@@ -228,9 +232,9 @@ async function chainApiReadsDirectoryDetailAndSummaryThroughRealTransport() {
     reader.close();
     await transport.close();
   }
-}
+});
 
-async function chainApiPropagatesUnknownChainErrorsThroughRealTransport() {
+test('chainApiPropagatesUnknownChainErrorsThroughRealTransport', async function chainApiPropagatesUnknownChainErrorsThroughRealTransport() {
   const names = [ 'paxeer_x_chain', 'paxeer_x_chain_summary', 'paxeer_x_chain_transfers', 'paxeer_x_chain_events' ] as const;
   const transport = await openChainTransport(Object.fromEntries(names.map(name => [
     `/tenant/demo/indexer${ PAXEER_X_CHAIN_RESOURCES[name].path.replace(':id', '999') }`,
@@ -247,9 +251,9 @@ async function chainApiPropagatesUnknownChainErrorsThroughRealTransport() {
     reader.close();
     await transport.close();
   }
-}
+});
 
-async function chainApiResumesFeedCursorAfterReopeningTheConsumer() {
+test('chainApiResumesFeedCursorAfterReopeningTheConsumer', async function chainApiResumesFeedCursorAfterReopeningTheConsumer() {
   for (const name of [ 'paxeer_x_chain_transfers', 'paxeer_x_chain_events' ] as const) {
     const path = `/tenant/demo/indexer${ PAXEER_X_CHAIN_RESOURCES[name].path.replace(':id', '1') }`;
     const firstPage = { version: 1, items: [ { id: '42', chain: 'pax:1' } ], next_cursor: '42' };
@@ -280,14 +284,4 @@ async function chainApiResumesFeedCursorAfterReopeningTheConsumer() {
       await transport.close();
     }
   }
-}
-
-test(chainApiUsesDedicatedIndexerForEveryExistingConsumer);
-test(chainApiSupportsItsExplicitNamespace);
-test(chainApiRefusesMissingIndexerWithoutUsingBlockscout);
-test(chainApiPreservesTenantIdentityAcrossAllReads);
-test(chainApiReconstructsFeedRequestsFromPersistedCursorUrls);
-test(chainApiRoutesUnknownChainIdsToTheSameUpstream);
-test(chainApiReadsDirectoryDetailAndSummaryThroughRealTransport);
-test(chainApiPropagatesUnknownChainErrorsThroughRealTransport);
-test(chainApiResumesFeedCursorAfterReopeningTheConsumer);
+});

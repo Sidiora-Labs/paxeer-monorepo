@@ -4,12 +4,9 @@ import { bothProviders, rawPax, rawGeth, expectJsonRpcError } from '../utils/cha
 import { readRuntimeState, RuntimeState, expectSameError } from '../utils/testUtils';
 import { HEX_QUANTITY } from '../utils/format';
 
-const COSMOS_TO_EVM_CHAIN_ID: Readonly<Record<string, number>> = Object.freeze({
-    'pacific-1': 1329,
-    'atlantic-2': 1328,
-    'arctic-1': 713715,
-});
-const DEFAULT_EVM_CHAIN_ID = 713714;
+const MERGED_EVM_CHAIN_ID = 125n;
+const EXPECTED_EVM_CHAIN_ID = BigInt(process.env.RPC_EXPECTED_EVM_CHAIN_ID ?? '125');
+const NETWORK_MODE = process.env.RPC_NETWORK_MODE ?? 'mainnet-beta';
 
 describe('eth_chainId', function () {
     this.timeout(60 * 1000);
@@ -19,6 +16,11 @@ describe('eth_chainId', function () {
 
     before(() => {
         runtime = readRuntimeState();
+        expect(EXPECTED_EVM_CHAIN_ID > 0n, 'expected chain id must be positive').to.equal(true);
+        if (NETWORK_MODE === 'mainnet-beta') {
+            expect(EXPECTED_EVM_CHAIN_ID, 'mainnet-beta requires chain 125').to.equal(MERGED_EVM_CHAIN_ID);
+        }
+        expect(BigInt(runtime.chainIds.pax), 'bootstrap must match the expected network').to.equal(EXPECTED_EVM_CHAIN_ID);
     });
 
     it('returns a canonical 0x-prefixed quantity on Pax', async () => {
@@ -27,13 +29,12 @@ describe('eth_chainId', function () {
         expect(Number(BigInt(hex))).to.equal(runtime.chainIds.pax);
     });
 
-    it('agrees with the Pax chain id mapping table', async () => {
+    it('matches the explicitly configured network identity', async () => {
         const hex = await pax.send('eth_chainId', []);
-        const id = Number(BigInt(hex));
-        const expected = Object.values(COSMOS_TO_EVM_CHAIN_ID).includes(id)
-            ? id
-            : DEFAULT_EVM_CHAIN_ID;
-        expect(id).to.equal(expected);
+        expect(hex).to.equal(ethers.toQuantity(EXPECTED_EVM_CHAIN_ID));
+        if (NETWORK_MODE === 'mainnet-beta') {
+            expect(hex, 'merged mainnet-beta chain id').to.equal('0x7d');
+        }
     });
 
     it('ethers Provider.getNetwork() agrees with raw eth_chainId on Pax', async () => {

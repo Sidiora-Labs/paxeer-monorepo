@@ -2175,16 +2175,19 @@ fn required_idempotency<'a>(request: &'a ScopedRequest<'_>) -> Result<&'a str, A
 
 fn support_failure(error: &crate::support::SupportError) -> ApiFailure {
     use crate::support::SupportError::{
-        Conflict, ConversationFull, ConversationResolved, ConversationUnknown, Corrupt,
-        InvalidBody, InvalidIdempotencyKey, MessageUnknown, Store,
+        Conflict, ConversationExpired, ConversationFull, ConversationLimit, ConversationResolved,
+        ConversationUnknown, Corrupt, InvalidBody, InvalidIdempotencyKey, MessageUnknown, Store,
     };
     match error {
-        ConversationUnknown | MessageUnknown => ApiFailure::not_found(),
+        ConversationUnknown | ConversationExpired | MessageUnknown => ApiFailure::not_found(),
         Store(_) => ApiFailure::unavailable(),
         InvalidBody => ApiFailure::invalid_request(Some("body")),
-        InvalidIdempotencyKey | Conflict | ConversationFull | ConversationResolved | Corrupt => {
-            ApiFailure::invalid_request(None)
-        }
+        InvalidIdempotencyKey
+        | Conflict
+        | ConversationFull
+        | ConversationLimit
+        | ConversationResolved
+        | Corrupt => ApiFailure::invalid_request(None),
     }
 }
 
@@ -4083,13 +4086,7 @@ impl ProductionComponents {
             }
         }
 
-        if intent.source() == &crate::journeys::Endpoint::PaxeerWallet
-            || intent.destination() == &crate::journeys::Endpoint::PaxeerWallet
-        {
-            return Err(submit_failure(
-                crate::journeys::SubmitRefusal::UnsupportedPlan,
-            ));
-        }
+        supported_intent_endpoints(intent).map_err(submit_failure)?;
         let observed = crate::journeys::ObservedState::new(
             layerx_types::intent::TimestampSeconds::from_u64(observed_at),
             account.clone(),
@@ -8278,6 +8275,17 @@ fn intent_money_json(amount: u128, currency: &str) -> serde_json::Value {
     json!({"amount": amount.to_string(), "currency": currency})
 }
 
+fn supported_intent_endpoints(
+    intent: &crate::journeys::UnifiedIntent,
+) -> Result<(), crate::journeys::SubmitRefusal> {
+    if intent.source() == &crate::journeys::Endpoint::PaxeerWallet
+        || intent.destination() == &crate::journeys::Endpoint::PaxeerWallet
+    {
+        return Err(crate::journeys::SubmitRefusal::UnsupportedPlan);
+    }
+    Ok(())
+}
+
 fn intent_plan_json(
     plan: &crate::journeys::UnifiedPlan,
     currency: &str,
@@ -8982,6 +8990,222 @@ impl ProductionComponents {
             )
             .map_err(|_| ApiFailure::unavailable())?;
         Ok(complete || refused)
+    }
+}
+
+#[cfg(test)]
+mod intent_bank_golden_tests {
+    use super::*;
+    use crate::journeys::{
+        BalanceEntry, Endpoint, FeeSchedule, LegMechanism, Mechanism, ObservedState,
+    };
+    use layerx_crypto::evm_transaction::decode_unsigned;
+    use serde_json::Value;
+
+    macro_rules! golden {
+        ($name:literal) => {
+            serde_json::from_str::<Value>(include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../schema/human-api/golden/",
+                $name
+            )))
+            .expect("golden JSON")
+        };
+    }
+
+    #[test]
+    fn intent_bank_golden_request_produces_exact_eip1559_response() {
+        let request = golden!("intent.plan.request.json");
+        let expected = golden!("intent.plan.response.json");
+        let context = golden!("producer/intent.plan.context.json");
+        let body: Value = serde_json::from_slice(
+            &serde_json::to_vec(&request["body"]).expect("request transport"),
+        )
+        .expect("request consumer");
+        let asset = intent_asset(&body).expect("asset");
+        let intent = ProductionComponents::intent_from_request(&body, asset).expect("intent");
+        supported_intent_endpoints(&intent).expect("supported bank endpoints");
+        let owner = AccountId::parse(context["owner_account"].as_str().expect("owner"))
+            .expect("owner account");
+        let transaction: crate::custody::EvmTransaction =
+            serde_json::from_value(context["transaction"].clone()).expect("transaction");
+        let observed = ObservedState::new(
+            TimestampSeconds::from_u64(
+                crate::time::seconds_from_rfc3339(
+                    context["observed_at"].as_str().expect("observation time"),
+                )
+                .expect("observation timestamp"),
+            ),
+            owner.clone(),
+            None,
+            vec![BalanceEntry::new(
+                Endpoint::human(owner).expect("home endpoint"),
+                asset,
+                ProtocolAmount::from_u128(
+                    context["balance"]["amount"]
+                        .as_str()
+                        .expect("balance")
+                        .parse()
+                        .expect("amount"),
+                ),
+            )],
+            Vec::new(),
+            Vec::new(),
+            FeeSchedule::new(vec![(
+                LegMechanism::Protocol(Mechanism::Send),
+                u128::from(transaction.gas_limit) * u128::from(transaction.max_fee_per_gas),
+            )])
+            .expect("fee schedule"),
+        )
+        .expect("observed bank balance");
+        let plan = crate::journeys::plan(&intent, &observed).expect("production plan");
+        assert_eq!(plan.legs().len(), 1);
+        let sender =
+            decode_hex_20(context["sender"].as_str().expect("sender")).expect("sender address");
+        let recipient = decode_hex_20(context["recipient"].as_str().expect("recipient"))
+            .expect("recipient address");
+        assert_eq!(transaction.chain_id, 125);
+        assert_eq!(transaction.to, precompile(0x1001));
+        assert_eq!(transaction.value, [0; 32]);
+        assert_eq!(
+            transaction.calldata,
+            bank_send_calldata(
+                sender,
+                recipient,
+                context["denom"].as_str().expect("denom"),
+                plan.legs()[0].amount().value()
+            )
+        );
+        assert_eq!(
+            context["nonce_observation"]["params"],
+            json!([context["sender"], "pending"])
+        );
+        assert_eq!(
+            transaction.nonce,
+            u64::from_str_radix(
+                context["nonce_observation"]["result"]
+                    .as_str()
+                    .expect("pending nonce")
+                    .strip_prefix("0x")
+                    .expect("hex nonce"),
+                16
+            )
+            .expect("nonce")
+        );
+        let call = evm_call(&transaction);
+        let decoded = decode_unsigned(&call.encode_unsigned()).expect("EIP-1559 consumer");
+        assert_eq!(decoded, call);
+        bind_call(&decoded, sender).expect("bank signing disclosure");
+        let actual = intent_plan_json(&plan, "LXP", &[transaction]);
+        let transported: Value =
+            serde_json::from_slice(&serde_json::to_vec(&actual).expect("response transport"))
+                .expect("response consumer");
+        assert_eq!(transported, expected["body"]["result"]);
+        assert_eq!(
+            actual["signing_requirements"]
+                .as_array()
+                .expect("signatures")
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn intent_bank_golden_retired_wallet_is_unsupported_in_both_directions() {
+        let request = golden!("negative/intent.plan.paxeer-wallet.request.json");
+        let expected = golden!("negative/intent.plan.paxeer-wallet.response.json");
+        let mut body = request["body"].clone();
+        for reverse in [false, true] {
+            if reverse {
+                let source = body["source"].clone();
+                body["source"] = body["destination"].clone();
+                body["destination"] = source;
+            }
+            let intent = ProductionComponents::intent_from_request(
+                &body,
+                intent_asset(&body).expect("historical asset"),
+            )
+            .expect("historical request decoding");
+            let refusal = supported_intent_endpoints(&intent).expect_err("retired endpoint");
+            assert_eq!(refusal, crate::journeys::SubmitRefusal::UnsupportedPlan);
+            let error = submit_failure(refusal);
+            assert_eq!(json!(error.status), expected["status"]);
+            assert_eq!(
+                json!({"code": error.code, "copy_key": error.copy_key,
+                "retry": error.retry}),
+                expected["body"]["error"]
+            );
+            assert_eq!(error.field, None);
+            assert_eq!(error.retry_after_ms, None);
+        }
+    }
+
+    #[test]
+    fn intent_bank_golden_journey_uses_the_route_projection() {
+        let record = golden!("producer/journey.get.record.json");
+        let expected = golden!("journey.get.response.json");
+        let stored: Value =
+            serde_json::from_slice(&serde_json::to_vec(&record).expect("stored projection input"))
+                .expect("stored record consumer");
+        let actual = super::super::production_reads::intent_journey_json(&stored)
+            .expect("production journey route projection");
+        assert_eq!(actual, expected["body"]["result"]);
+        for (verified, refused, class, verification) in [
+            (false, false, "submission-record", "unverified"),
+            (true, false, "layerx-receipt", "receipt-verified"),
+            (false, true, "layerx-receipt", "receipt-verified"),
+        ] {
+            let mut input = stored.clone();
+            input["legs"][0]["verified"] = json!(verified);
+            input["legs"][0]["refused"] = json!(refused);
+            let projected = super::super::production_reads::intent_journey_json(&input)
+                .expect("current evidence projection");
+            assert_eq!(projected["evidence"][0]["class"], class);
+            assert_eq!(projected["evidence"][0]["verification"], verification);
+            let wire = serde_json::to_string(&projected).expect("journey transport");
+            for retired in ["paxeer-finality", "paxeer-finalised", "settlement-anchored"] {
+                assert!(!wire.contains(retired));
+            }
+            assert!(projected.get("raw_transaction").is_none());
+        }
+        for invalid in [
+            Value::Null,
+            json!("0x12"),
+            json!(format!("0x{}", "gg".repeat(32))),
+        ] {
+            let mut input = stored.clone();
+            input["legs"][0]["receipt_hash"] = invalid;
+            assert_eq!(
+                super::super::production_reads::intent_journey_json(&input),
+                Err(ApiFailure::upstream_degraded())
+            );
+        }
+    }
+
+    #[test]
+    fn intent_bank_golden_historical_payloads_still_decode_separately() {
+        let plan = golden!("historical/intent.plan.response.json");
+        let journey = golden!("historical/journey.get.response.json");
+        for payload in [&plan, &journey] {
+            let decoded: Value =
+                serde_json::from_slice(&serde_json::to_vec(payload).expect("historical wire"))
+                    .expect("historical JSON decoding");
+            assert_eq!(&decoded, payload);
+            assert_eq!(
+                decoded["body"]["result"]["kind"]
+                    .as_str()
+                    .or_else(|| decoded["body"]["result"]["journey_kind"].as_str()),
+                Some("deposit")
+            );
+        }
+        assert_eq!(
+            plan["body"]["result"]["legs"][0]["mechanism"],
+            "paxeer-custody-deposit"
+        );
+        assert_eq!(
+            journey["body"]["result"]["stages"][1]["evidence"][0]["verification"],
+            "paxeer-finalised"
+        );
     }
 }
 

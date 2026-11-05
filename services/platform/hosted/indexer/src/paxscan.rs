@@ -111,6 +111,23 @@ fn get<'a, T: postgres::types::FromSql<'a>>(row: &'a Row, index: usize) -> Resul
     row.try_get(index).map_err(|error| source(&error))
 }
 
+/// Resolve database domain hints through the trusted node before conversion. A
+/// missing or conflicting hint never assigns a transaction to root history.
+pub fn resolve_transaction_domains(
+    rows: &mut BlockscoutRange,
+    node: &crate::paxeer::PaxeerIngester,
+) -> Result<(), IndexError> {
+    let domains = rows
+        .transactions
+        .iter()
+        .map(|row| node.transaction_domain(row))
+        .collect::<Result<Vec<_>, _>>()?;
+    for (row, domain) in rows.transactions.iter_mut().zip(domains) {
+        row.set_verified_domain(domain);
+    }
+    Ok(())
+}
+
 /// A read-only session on the paxscan database.
 pub struct PaxscanDatabase {
     client: Client,
@@ -152,6 +169,18 @@ impl PaxscanDatabase {
             .batch_execute("SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY")
             .map_err(|error| source(&error))?;
         Ok(Self { client })
+    }
+
+    /// Reads and authenticates transaction domains even on older schemas without chain_id.
+    pub fn range_verified(
+        &mut self,
+        from: u64,
+        to: u64,
+        node: &crate::paxeer::PaxeerIngester,
+    ) -> Result<BlockscoutRange, IndexError> {
+        let mut rows = self.range(from, to)?;
+        resolve_transaction_domains(&mut rows, node)?;
+        Ok(rows)
     }
 
     /// Reads every Blockscout row of heights `from..=to` from one snapshot.

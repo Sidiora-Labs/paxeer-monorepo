@@ -215,17 +215,19 @@ export async function createSwapEvm(chainId = 125) {
           r: h(tx.r!),
           s: h(tx.s!),
         });
-        const logs = (result.execResult.logs ?? []).map(([addr, topics, data], index) => ({
-          address: bytesToHex(addr),
-          topics: topics.map(bytesToHex),
-          data: bytesToHex(data),
-          blockHash,
-          blockNumber: h(height),
-          transactionHash: hash,
-          transactionIndex: '0x0',
-          logIndex: h(index),
-          removed: false,
-        }));
+        const logs = (result.execResult.logs ?? []).map(
+          ([addr, topics, data]: [Uint8Array, Uint8Array[], Uint8Array], index) => ({
+            address: bytesToHex(addr),
+            topics: topics.map(bytesToHex),
+            data: bytesToHex(data),
+            blockHash,
+            blockNumber: h(height),
+            transactionHash: hash,
+            transactionIndex: '0x0',
+            logIndex: h(index),
+            removed: false,
+          })
+        );
         receipts.set(hash, {
           transactionHash: hash,
           blockHash,

@@ -20,10 +20,12 @@
   "scripts": {
     "getV2": "ts-node ts-src/get-api-v2.ts",
     "merge": "ts-node ts-src/merge-overrides.ts",
-    "generate": "docker run --rm -v \"${PWD}:/local\" openapitools/openapi-generator-cli generate -c /local/openapi-generator-config.json -i /local/swaggers/blockscout-api-final.yaml --skip-validate-spec -g rust -o /local/crate --engine handlebars -t /local/rust-template-handlebars --type-mappings=integer=i64",
+    "generate": "python3 scripts/generate.py openapitools/openapi-generator-cli:v7.6.0",
     "format": "cargo fmt --all -- --config imports_granularity=Crate",
-    "generate-from-remote": "yarn getV2 && yarn merge && yarn generate && yarn format",
-    "record-stubs": "ts-node ts-src/record-stubs.ts"
+    "generate-from-remote": "bash scripts/generate-from-remote.sh",
+    "record-stubs": "ts-node ts-src/record-stubs.ts",
+    "test:local": "cargo run --locked --manifest-path crate/Cargo.toml --example local_backend_contract --",
+    "test:doc-13": "python3 -m pytest -q ../../../../../tools/qualification/audit_repairs/test_repair_22_33_360.py"
   },
   "devDependencies": {
     "@types/node": "^20.14.2",

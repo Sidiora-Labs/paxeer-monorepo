@@ -10,6 +10,7 @@ import pytest
 
 from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.production import PlatformSdkError, SdkErrorCode
+from layerx_sdk.revert import RevertReasonError
 from layerx_sdk.verifier import SequencerReceiptVerificationError
 from layerx_sdk.x402_draw import PreparedGrantDraws
 from layerx_sdk.x402_http import (
@@ -23,7 +24,8 @@ from layerx_sdk.x402_http import (
     grant_payment_header,
 )
 from test_sequencer_receipt import _bytes, _key, _payment_vector
-from test_x402_draw_sequencer import _ReceiptRpc, _grant_inputs, _payment_terms
+from test_x402_draw_sequencer import _grant_inputs, _payment_terms
+from receipt_transport import recorded_payment_rpc
 
 
 def _required(vector):
@@ -174,6 +176,13 @@ def test_seller_verifies_a_sequencer_receipt_through_receipt_keys(tmp_path):
 
 def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
     vector = _payment_vector()
+    with recorded_payment_rpc(
+        vector, raw_transaction=vector["rawTransaction"]
+    ) as (rpc, exchanges):
+        _verify_buyer_receipt(tmp_path, vector, rpc, exchanges)
+
+
+def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
     signed = _bytes(vector["signedReceipt"])
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
@@ -182,15 +191,17 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
     required = _required(vector)
     activity = vector["receiptJson"]["txHash"]
     authority = ConfiguredReceiptAuthority(raw)
-    rpc = _ReceiptRpc(vector)
     buyer = BuyerMiddleware(rpc, [key], authority, [("exact", "layerx:125")])
     payment_header = buyer.prepare(
-        encode_header(required), raw.hex(), activity, "0x" + terms["payer"]
+        encode_header(required), "0x" + raw.hex(), activity, "0x" + terms["payer"]
     )
     assert decode_header(payment_header)["payload"] == decode_header(
         _payment_header(required, signed)
     )["payload"]
-    assert rpc.submissions == [(raw.hex(), "receipted")]
+    assert exchanges == [
+        ("eth_sendRawTransaction", ["0x" + raw.hex()]),
+        ("pax_sequencerReceipt", [activity]),
+    ]
     seller = SellerMiddleware(
         required, [key], authority, FulfillmentStore(tmp_path / "buyer.sqlite")
     )
@@ -213,11 +224,9 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
             decode_header(grant_header), sort_keys=True, separators=(",", ":")
         ).encode()
     ).hexdigest()
-    with sqlite3.connect(draw_path) as db:
-        db.execute(
-            "INSERT INTO grant_draws (idempotency_key, principal, request_digest, canonical, receive, activity_id) VALUES (?, ?, ?, ?, ?, ?)",
-            (body["idempotencyKey"], "buyer", grant_digest, raw, receive, activity),
-        )
+    with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT") as raised:
+        draw.register("buyer", grant_digest, raw, receive, body["idempotencyKey"])
+    assert raised.value.retryable is False
     grant_seller = SellerMiddleware(
         grant_required,
         [key],
@@ -225,21 +234,38 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
         FulfillmentStore(tmp_path / "grant-buyer.sqlite"),
         draw=draw,
     )
-    grant_status, grant_headers, grant_resource = grant_seller.handle(
-        "buyer", grant_header, lambda: b"grant resource"
+    grant_releases = []
+
+    def release_grant():
+        grant_releases.append(True)
+        return b"grant resource"
+
+    with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT") as raised:
+        grant_seller.handle("buyer", grant_header, release_grant)
+    assert raised.value.retryable is False
+    assert grant_releases == []
+    with sqlite3.connect(draw_path) as db:
+        assert db.execute("SELECT * FROM grant_draws").fetchall() == []
+    with sqlite3.connect(tmp_path / "grant-buyer.sqlite") as db:
+        assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []
+    recovered_draw = PreparedGrantDraws(
+        draw_path, terms["pay_to"], 125, rpc, authority, [key]
     )
-    assert (grant_status, grant_resource) == (200, b"grant resource")
-    grant_verified = buyer.capture_grant_settlement(
-        grant_headers["PAYMENT-RESPONSE"], grant_header, activity
-    )
-    assert grant_verified == verified
+    with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
+        recovered_draw("buyer", grant_digest, body, offer)
+    grant_settlement = decode_header(headers["PAYMENT-RESPONSE"])
+    grant_settlement["extensions"]["layerx"]["purposeHash"] = offer["extra"]["layerx"]["purposeHash"]
+    grant_response = encode_header(grant_settlement)
+    with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT") as raised:
+        buyer.capture_grant_settlement(grant_response, grant_header, activity)
+    assert raised.value.retryable is False
     with pytest.raises(ValueError, match="^transaction-hash-mismatch$"):
         buyer.capture_grant_settlement(
-            grant_headers["PAYMENT-RESPONSE"], grant_header, "0x" + "2a" * 32
+            grant_response, grant_header, "0x" + "2a" * 32
         )
     with pytest.raises(ValueError, match="^invalid-rpc-hex$"):
         buyer.capture_grant_settlement(
-            grant_headers["PAYMENT-RESPONSE"], grant_header, activity.removeprefix("0x")
+            grant_response, grant_header, activity.removeprefix("0x")
         )
 
     for keys, check in (
@@ -249,16 +275,24 @@ def test_buyer_verifies_sequencer_receipts_through_receipt_keys(tmp_path):
         refused = BuyerMiddleware(rpc, keys, authority, [("exact", "layerx:125")])
         for verify in (
             lambda: refused.prepare(
-                encode_header(required), raw.hex(), activity, "0x" + terms["payer"]
+                encode_header(required), "0x" + raw.hex(), activity, "0x" + terms["payer"]
             ),
             lambda: refused.capture_settlement(
                 headers["PAYMENT-RESPONSE"], payment_header
-            ),
-            lambda: refused.capture_grant_settlement(
-                grant_headers["PAYMENT-RESPONSE"], grant_header, activity
             ),
         ):
             with pytest.raises(SequencerReceiptVerificationError) as raised:
                 verify()
             assert raised.value.check == check
             assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
+        with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT") as raised:
+            refused.capture_grant_settlement(grant_response, grant_header, activity)
+        assert raised.value.retryable is False
+    assert exchanges == [
+        ("eth_sendRawTransaction", ["0x" + raw.hex()]),
+        ("pax_sequencerReceipt", [activity]),
+        ("eth_sendRawTransaction", ["0x" + raw.hex()]),
+        ("pax_sequencerReceipt", [activity]),
+        ("eth_sendRawTransaction", ["0x" + raw.hex()]),
+        ("pax_sequencerReceipt", [activity]),
+    ]

@@ -3,7 +3,6 @@ package evmrpc_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -37,6 +36,7 @@ func TestServedMethodsIncludesPromotedMethods(t *testing.T) {
 	require.Contains(t, managerMethods, "eth_unsubscribe")
 
 	server := evmrpc.NewHTTPServer(rpc.DefaultHTTPTimeouts)
+	t.Cleanup(server.Stop)
 	apis := []rpc.API{api, {Namespace: "echo", Service: evmrpc.NewEchoAPI()}}
 	require.NoError(t, server.EnableRPC(apis, evmrpc.HTTPConfig{Modules: []string{"pax"}}))
 	require.NoError(t, server.EnableWS(apis, evmrpc.WsConfig{Modules: []string{"echo"}}))
@@ -45,6 +45,7 @@ func TestServedMethodsIncludesPromotedMethods(t *testing.T) {
 	require.Equal(t, []string{"echo_echo"}, server.WSMethods())
 
 	gated := evmrpc.NewHTTPServer(rpc.DefaultHTTPTimeouts)
+	t.Cleanup(gated.Stop)
 	gatedAPIs := []rpc.API{api, {Namespace: "eth", Service: &evmrpc.SubscriptionAPI{}}}
 	require.NoError(t, gated.EnableRPC(gatedAPIs, evmrpc.HTTPConfig{
 		PaxLegacyAllowlist: evmrpc.BuildPaxLegacyEnabledSet([]string{"pax_getBlockByNumber"}),
@@ -56,8 +57,12 @@ func TestServedMethodsIncludesPromotedMethods(t *testing.T) {
 
 func TestServedMethodsMatchServerDispatch(t *testing.T) {
 	testApp := app.Setup(t, false, false, false)
+	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
 	config := evmrpcconfig.DefaultConfig
-	config.HTTPPort = TestPort
+	config.HTTPAddress = TestAddr
+	config.HTTPPort = 0
+	config.IPRateLimitRPS = 0
+	config.DenyList = []string{"web3_clientVersion"}
 	config.WSPort = TestWSPort
 	config.FilterTimeout = 500 * time.Millisecond
 	config.MaxLogNoBlock = 10
@@ -73,14 +78,21 @@ func TestServedMethodsMatchServerDispatch(t *testing.T) {
 	require.NoError(t, err)
 	httpServer, ok := server.(*evmrpc.HTTPServer)
 	require.True(t, ok)
+	t.Cleanup(server.Stop)
+	require.NoError(t, server.Start())
 	methods := httpServer.HTTPMethods()
 	require.NotEmpty(t, methods)
 	require.Contains(t, methods, "pax_getBlockByNumber")
 	require.Contains(t, methods, "pax_getBlockByNumberExcludeTraceFail")
 
-	rpcClient, err := rpc.DialHTTP(fmt.Sprintf("http://%s:%d", TestAddr, TestPort))
+	rpcClient, err := rpc.DialHTTP("http://" + httpServer.ListenAddr())
 	require.NoError(t, err)
 	t.Cleanup(rpcClient.Close)
+	var refused interface{}
+	refusal := rpcClient.Call(&refused, "web3_clientVersion")
+	var refusalError rpc.Error
+	require.ErrorAs(t, refusal, &refusalError)
+	require.Equal(t, -32601, refusalError.ErrorCode())
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), config.WriteTimeout)
@@ -90,7 +102,11 @@ func TestServedMethodsMatchServerDispatch(t *testing.T) {
 			if err != nil {
 				var rpcError rpc.Error
 				require.True(t, errors.As(err, &rpcError), "expected JSON-RPC response: %v", err)
-				require.NotEqual(t, -32601, rpcError.ErrorCode(), "advertised method is not dispatched")
+				if method == "web3_clientVersion" {
+					require.Equal(t, -32601, rpcError.ErrorCode())
+				} else {
+					require.NotEqual(t, -32601, rpcError.ErrorCode(), "advertised method is not dispatched")
+				}
 			}
 		})
 	}

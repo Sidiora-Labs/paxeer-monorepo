@@ -19,28 +19,55 @@ inclusion. Tenant domains are database namespaces within the network. See the
 [gateway](../gateway/README.md) for public node coordinates and the
 [reference applications](../../examples/README.md) for receipt consumers.
 
-Sources: [`src/main.rs`](src/main.rs) (service, routes, environment),
-[`src/human.rs`](src/human.rs) (human agent routes and principal policy),
-[`src/human/dynamic.rs`](src/human/dynamic.rs) (subject-scoped requests),
-[`src/human/budget_state.rs`](src/human/budget_state.rs) (budget state and
-proof export), [`src/protected.rs`](src/protected.rs) (protected file reads).
+| Source | Responsibility |
+| --- | --- |
+| [`src/main.rs`](src/main.rs) | TLS listener, routes, startup environment and dependency readiness |
+| [`src/chain_receipt.rs`](src/chain_receipt.rs) | `pax_sequencerReceipt` HTTP transport, protected receipt-key list, signature and height-range checks |
+| [`src/trust.rs`](src/trust.rs) | Pinned key history and independent signed batch-header verification |
+| [`src/committed.rs`](src/committed.rs) | Committed receipt landing, Comet/EVM header binding and native-store ICS23 membership |
+| [`../registry/src/committed_head_route.rs`](../registry/src/committed_head_route.rs) | Authenticated committed-head relay mounted by the authority |
+| [`src/human.rs`](src/human.rs) | Human agent routes, principal policy and retained evidence |
+| [`src/human/dynamic.rs`](src/human/dynamic.rs) | Subject-scoped requests and optional identity binding |
+| [`src/human/budget_state.rs`](src/human/budget_state.rs) | Budget state and proof export |
+| [`src/protected.rs`](src/protected.rs) | Protected file reads |
 
 ## Build and test
 
 The crate is a member of the [`platform`](../../Cargo.toml) Cargo workspace.
 
 ```sh
-cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority
-cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test human_tls
+cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --tests
+cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_33_1473
 ```
 
-Integration tests live in [`tests/`](tests): `human_tls.rs` starts the real
-binary and drives the real `RemoteHumanAuthority` client against it with a
-private CA; `chain_receipts.rs` covers the node receipt transport, `budget_proof_exports.rs`
-covers budget exports, and `maintenance_identity.rs` covers identity evidence.
-`repair_22_31_207.rs` drives native execution and reopened committed state.
-Recorded inputs live in [`tests/fixtures`](tests/fixtures); test scope and trust
-assumptions are defined by each test, not by a blanket production-readiness claim.
+The focused documentation regression
+[`repair_22_33_1473.rs`](tests/repair_22_33_1473.rs) runs production receipt
+lookup, protected key loading and TLS routing in-process with committed signed
+receipts and loopback peers. It requires no environment variable, credential,
+live endpoint, external binary, subprocess toolchain, native artifact or device.
+
+Other integration targets live in [`tests/`](tests):
+[`chain_receipts.rs`](tests/chain_receipts.rs) covers node receipt transport;
+[`human_tls.rs`](tests/human_tls.rs) drives the real `RemoteHumanAuthority`
+client against the binary with a private CA;
+[`budget_proof_exports.rs`](tests/budget_proof_exports.rs) covers budget exports;
+[`maintenance_identity.rs`](tests/maintenance_identity.rs) covers identity
+evidence. [`repair_22_31_207.rs`](tests/repair_22_31_207.rs) drives native
+execution and reopened committed state, while
+[`repair_22_31_208.rs`](tests/repair_22_31_208.rs) covers mixed receipt sequences
+and block heights, retained-state reopening, native proof refusals and budget
+export across TLS. Recorded inputs live in [`tests/fixtures`](tests/fixtures).
+Only the focused target above is the gate for this documentation repair.
+
+Human integration evidence is mandatory before enabling human routes in a
+deployment. Retain the tested revision, exact command, exit code and private
+log location for the real `RemoteHumanAuthority` TLS client/server contract,
+native identity/capability/key-policy verification, retained-state restart and
+budget proof export. Include malformed-proof, wrong-key, out-of-range,
+unauthenticated and changed-block refusals. The targets above identify the
+relevant paths; a historical anchor fixture in `human_tls.rs` does not prove
+the current committed-state boundary. `/readyz` and the documentation gate do
+not supply this human integration evidence.
 
 ## Service routes and configuration
 
@@ -54,24 +81,26 @@ bearer-protected routes are:
 | `/v1/authorized-batches/wait-by-activity/{activity_id}` | Same, polling receipt and replica evidence within a bounded deadline |
 | `/internal/v1/activities/{activity_id}/authority` | Internal authority lookup |
 | `/v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}` | Relayed to the replica unchanged |
+| `/v1/protocol/account-state/head[?height={height}]` | Independent committed-head relay; optional positive canonical decimal height |
 
 Incoming requests are limited to 16 KiB. The service takes no arguments and
-reads its configuration from the environment; `--help` prints the same list:
+reads its configuration from the environment; `--help` lists the base service
+settings below. Human settings are listed separately in this README.
 
 | Variable | Meaning |
 | --- | --- |
-| `LAYERX_AUTHORITY_LISTEN` | Listen address (defaults to all interfaces) |
+| `LAYERX_AUTHORITY_LISTEN` | Optional socket address; defaults to `0.0.0.0:9445` |
 | `LAYERX_AUTHORITY_TLS_CERT_DER`, `LAYERX_AUTHORITY_TLS_KEY_DER` | Server certificate and PKCS#8 private key, DER |
 | `LAYERX_AUTHORITY_CLIENT_CA_DER` | Optional; a presented client certificate must chain to it |
 | `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated files, one service bearer token each |
-| `LAYERX_AUTHORITY_REPLICA_URL`, `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`, `LAYERX_AUTHORITY_REPLICA_ID` | Loopback receipt-authority replica, its bearer token and its 64-hex identity |
-| `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional distinct bearer allowed only on the receipt-authority relay route |
-| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipt and committed-state evidence; use the root JSON-RPC path |
+| `LAYERX_AUTHORITY_REPLICA_URL`, `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`, `LAYERX_AUTHORITY_REPLICA_ID` | Required loopback HTTP receipt-authority replica at its root URL, bearer-token file and nonzero 64-hex identity |
+| `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional protected file containing 32..4096 printable bytes without whitespace; bearer must differ from all general and replica tokens and may read only the receipt-authority relay route |
+| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipts and committed-state evidence, normally `http://127.0.0.1:PORT/evm`; native proofs use `/comet` on the same origin |
 | `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Required protected JSON array of pinned receipt keys and height ranges |
 | `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Nonzero 32-bit protocol network ID checked in signed evidence |
-| `LAYERX_AUTHORITY_NETWORK_ID`, `LAYERX_AUTHORITY_WIRE_VERSION` | Values echoed in every answer; the wire version must equal the built protocol version |
-| `LAYERX_AUTHORITY_SEQUENCER_ID`, `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | Compatibility identity/key pins still required by startup parsing |
-| `LAYERX_AUTHORITY_FIRST_BATCH`, `LAYERX_AUTHORITY_LAST_BATCH` | Compatibility inclusive range still required by startup parsing |
+| `LAYERX_AUTHORITY_NETWORK_ID`, `LAYERX_AUTHORITY_WIRE_VERSION` | Required deployment identifier of 1..64 ASCII letters, digits, `-`, `_` or `.`; optional wire version defaults to the built protocol version (`3`) and must parse to that version |
+| `LAYERX_AUTHORITY_SEQUENCER_ID`, `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | Compatibility pins still required by startup parsing: each must be nonzero, 64 hexadecimal characters without `0x` |
+| `LAYERX_AUTHORITY_FIRST_BATCH`, `LAYERX_AUTHORITY_LAST_BATCH` | Required compatibility inclusive u64 range; first must be positive and last must be at least first |
 
 The receipt-key file is a nonempty array with `keyId`, `publicKey`,
 `firstHeight` and `lastHeight` per entry (snake-case aliases are accepted).
@@ -79,7 +108,14 @@ Keys and IDs encode 32 bytes as standard padded base64 (44 characters);
 heights are u64 JSON integers. IDs must be unique and nonzero, keys nonzero,
 and ranges ordered. Active trust verification also requires the key ID to
 match SHA-256 of its public key. This file supplies verification keys; the
-compatibility environment pins do not replace it. Protect it as described below.
+compatibility environment pins do not replace it. The list is loaded at startup;
+editing it requires a restart to change the active pins. The protected file is
+limited to 256 KiB and rejects unknown fields. Protect it as described below.
+
+Receipt HTTP requests preserve the configured path, including `/evm`; the
+combined committed-state reader supports the root or `/evm` endpoint and derives
+the sibling `/comet` path. Use `http://` with an explicit nonzero port and host
+`127.0.0.1`, `localhost` or `[::1]`. This is a local node trust boundary.
 
 The route's `activity_id` is the transaction's 32-byte hexadecimal identifier
 without `0x`; the upstream JSON-RPC call adds the prefix. Null or submitted-only
@@ -100,6 +136,18 @@ this is not an independently bootstrapped light client. LNI receipt sourcing is 
 `/readyz` returns 200 only when both chain and replica probes are ready, otherwise
 503 with retry guidance. It does not assert that all optional human-state proofs
 or downstream services are available.
+
+For audit finding `authority-readme-lni` (record `22.30.85`), task `22.33.1473`
+maps the repair to `readme_matches_service_sources_and_configuration`,
+`documented_receipt_transport_and_tls_refusals`, and
+`documented_protected_key_list_and_restart_rules` in the focused target.
+The private `hf-build`/`hf-done` ledger is the qualification record and names
+the verified revision, command, exit code and log location. No baseline verify
+was run: the implementation-first order and prohibition on a manual verify
+take precedence over the conflicting unchanged-tree step; no pre-change test
+failure is claimed. Wiring request: `spec/layerx-merge/spec.kvx` —
+platform/domain8 task-record owner: retain this finding/test mapping and the
+runner's qualification evidence; the task's scope excludes manual spec edits.
 
 ## Human agent contract
 

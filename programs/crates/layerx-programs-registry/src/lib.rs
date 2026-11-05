@@ -3,6 +3,7 @@
 mod account_state;
 mod archive;
 mod authority;
+mod chain_accounts;
 pub mod chain_evidence;
 pub mod chain_proof;
 pub mod deployment_envelope;
@@ -26,13 +27,16 @@ pub use account_state::{
     AccountStateJournal, AssetPresence, AuthorityKeyPresence, CanonicalAccountLeaf,
     JournalAccountStateAuthority, OpenReference, ProgramValueAccountBinding, ProvenAccountLeaf,
     ProvenProgramBinding, StateProof, ValueAccount, VerifiedAccountSnapshot,
-    MAX_PROGRAM_VALUE_ACCOUNTS,
+    VerifiedChainAccountSnapshot, MAX_PROGRAM_VALUE_ACCOUNTS,
 };
 pub use archive::{ArchiveError, SourceArchive, SourceFile};
 pub use authority::{
     DeploymentJournal, DeploymentJournalEntry, DeploymentProvenance, DeploymentRecord,
     DeploymentTransactionId, JournalReadAuthority, MigrationExecutionEvidence, ObservedHead,
     ReplayDeployment,
+};
+pub use chain_accounts::{
+    ChainAccountStateAuthority, ChainProgramAccountProof, VerifiedChainProgramAccounts,
 };
 pub use chain_proof::{
     results::verify_tx_result,
@@ -558,10 +562,11 @@ impl Registry {
         if receipt_digest == [0; 32] || new_code_hash != version.code_hash || number == 0 {
             return Err(RegistryError::DeploymentMismatch);
         }
-        let entry = self
+        let mut candidate = self
             .entries
-            .entry(program)
-            .or_insert_with(|| RegistryEntry {
+            .get(&program)
+            .cloned()
+            .unwrap_or_else(|| RegistryEntry {
                 program,
                 upgrade_policy: policy,
                 lifecycle: ProgramLifecycle::Active,
@@ -570,6 +575,7 @@ impl Registry {
                 value_accounts: Vec::new(),
                 exit_routes: Vec::new(),
             });
+        let entry = &mut candidate;
         if entry.upgrade_policy != policy
             || usize::try_from(number).ok() != Some(entry.versions.len() + 1)
             || old_code_hash != entry.versions.last().map(|prior| prior.code_hash)
@@ -591,6 +597,7 @@ impl Registry {
             deployment_provenance: provenance,
             source: SourceStatus::Unpublished,
         });
+        self.entries.insert(program, candidate);
         Ok(())
     }
 
@@ -1128,6 +1135,36 @@ impl Registry {
             receipt_digest: snapshot.receipt_digest,
             state_root: snapshot.state_root,
             freshness: snapshot.freshness,
+        })
+    }
+
+    /// Reads the complete chain primary range and standalone host accounts.
+    pub fn read_value_accounts_chain(
+        &self,
+        program: ProgramId,
+        snapshot: &VerifiedChainProgramAccounts,
+        authority: &ChainAccountStateAuthority<'_>,
+    ) -> Result<VerifiedProgramBalanceRead, AccountStateError> {
+        let entry = self
+            .entries
+            .get(&program)
+            .ok_or(AccountStateError::UnknownProgram)?;
+        if !entry
+            .versions
+            .last()
+            .is_some_and(|v| snapshot.admits_abi(v.abi_version))
+        {
+            return Err(AccountStateError::LegacyProtocol);
+        }
+        let value_accounts = snapshot.resolve_program(program, &entry.value_accounts, authority)?;
+        Ok(VerifiedProgramBalanceRead {
+            program,
+            lifecycle: entry.lifecycle,
+            bindings: snapshot.bindings().to_vec(),
+            value_accounts,
+            receipt_digest: snapshot.chain_head().header_hash(),
+            state_root: snapshot.chain_head().app_hash(),
+            freshness: snapshot.freshness(),
         })
     }
 

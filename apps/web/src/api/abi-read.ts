@@ -19,6 +19,27 @@ export interface AbiReadRecord {
 }
 
 const WORD = 32;
+export const ABI_DECODE_WORK_LIMIT = 16_384;
+const ABI_DECODE_DEPTH_LIMIT = 64;
+
+interface DecodeWork { remaining: number }
+interface DecodedValue { value: AbiReadValue; end: number }
+
+function spend(work: DecodeWork, count: number): void {
+  if (!Number.isSafeInteger(count) || count < 0 || count > work.remaining) {
+    throw new PrecompileAbiError("data_length", "ABI decoding work bound");
+  }
+  work.remaining -= count;
+}
+
+function extent(data: Uint8Array, start: number, count: number, size: number): number {
+  if (!Number.isSafeInteger(start) || start < 0 || start > data.length ||
+      !Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(size) || size < 0 ||
+      (size > 0 && count > Math.floor((data.length - start) / size))) {
+    throw new PrecompileAbiError("data_length", "ABI head extent");
+  }
+  return start + count * size;
+}
 const HEX = /^0x(?:[0-9a-fA-F]{2})*$/u;
 
 function bytesOf(value: string): Uint8Array {
@@ -126,19 +147,43 @@ function scalar(data: Uint8Array, position: number, type: AbiReadScalar): AbiRea
   }
 }
 
-function sequence(data: Uint8Array, base: number, types: readonly AbiReadType[]): AbiReadValue[] {
+function sequence(
+  data: Uint8Array, base: number, types: readonly AbiReadType[], work: DecodeWork, depth: number,
+): { values: AbiReadValue[]; end: number } {
+  if (depth > ABI_DECODE_DEPTH_LIMIT) {
+    throw new PrecompileAbiError("data_length", "ABI decoding depth bound");
+  }
+  spend(work, types.length);
+  let end = base;
+  for (const type of types) end = extent(data, end, 1, headSize(type));
   const values: AbiReadValue[] = [];
   let head = base;
   for (const type of types) {
     if (dynamic(type)) {
-      values.push(tail(data, base + offset(data, head), type));
+      const relative = offset(data, head);
+      if (relative % WORD !== 0 || relative !== end - base) {
+        throw new PrecompileAbiError("non_canonical_word", "ABI offset");
+      }
+      const decoded = tail(data, end, type, work, depth + 1);
+      values.push(decoded.value);
+      end = decoded.end;
       head += WORD;
     } else {
-      values.push(inline(data, head, type));
+      values.push(inline(data, head, type, work, depth + 1));
       head += headSize(type);
     }
   }
-  return values;
+  return { values, end };
+}
+
+function repeated(
+  data: Uint8Array, base: number, length: number, type: AbiReadType, work: DecodeWork, depth: number,
+): { values: AbiReadValue[]; end: number } {
+  extent(data, base, length, headSize(type));
+  if (length > work.remaining) {
+    throw new PrecompileAbiError("data_length", "ABI decoding work bound");
+  }
+  return sequence(data, base, Array.from({ length }, () => type), work, depth);
 }
 
 function record(fields: readonly AbiReadField[], values: readonly AbiReadValue[]): AbiReadRecord {
@@ -152,49 +197,47 @@ function record(fields: readonly AbiReadField[], values: readonly AbiReadValue[]
   return out;
 }
 
-function inline(data: Uint8Array, position: number, type: AbiReadType): AbiReadValue {
-  if (typeof type === "string") {
-    return scalar(data, position, type);
-  }
+function inline(data: Uint8Array, position: number, type: AbiReadType, work: DecodeWork, depth: number): AbiReadValue {
+  if (typeof type === "string") return scalar(data, position, type);
   if ("tuple" in type) {
-    return record(type.tuple, sequence(data, position, type.tuple.map((field) => field.type)));
+    return record(type.tuple, sequence(data, position, type.tuple.map((field) => field.type), work, depth).values);
   }
-  if ("fixed" in type) {
-    return sequence(data, position, Array.from({ length: type.length }, () => type.fixed));
-  }
+  if ("fixed" in type) return repeated(data, position, type.length, type.fixed, work, depth).values;
   throw new PrecompileAbiError("invalid_value", "array");
 }
 
-function tail(data: Uint8Array, position: number, type: AbiReadType): AbiReadValue {
+function tail(data: Uint8Array, position: number, type: AbiReadType, work: DecodeWork, depth: number): DecodedValue {
   if (typeof type === "string") {
     const length = offset(data, position);
     const start = position + WORD;
-    if (start + length > data.length) {
-      throw new PrecompileAbiError("data_length", String(data.length));
+    const end = extent(data, start, Math.ceil(length / WORD), WORD);
+    if (data.subarray(start + length, end).some((byte) => byte !== 0)) {
+      throw new PrecompileAbiError("non_canonical_word", "ABI padding");
     }
     const bytes = data.subarray(start, start + length);
-    if (type === "bytes") {
-      return hexOf(bytes);
-    }
+    if (type === "bytes") return { value: hexOf(bytes), end };
     try {
-      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      return { value: new TextDecoder("utf-8", { fatal: true }).decode(bytes), end };
     } catch {
       throw new PrecompileAbiError("invalid_string");
     }
   }
   if ("tuple" in type) {
-    return record(type.tuple, sequence(data, position, type.tuple.map((field) => field.type)));
+    const decoded = sequence(data, position, type.tuple.map((field) => field.type), work, depth);
+    return { value: record(type.tuple, decoded.values), end: decoded.end };
   }
-  if ("array" in type) {
-    const length = offset(data, position);
-    return sequence(data, position + WORD, Array.from({ length }, () => type.array));
-  }
-  return sequence(data, position, Array.from({ length: type.length }, () => type.fixed));
+  const decoded = "array" in type
+    ? repeated(data, position + WORD, offset(data, position), type.array, work, depth)
+    : repeated(data, position, type.length, type.fixed, work, depth);
+  return { value: decoded.values, end: decoded.end };
 }
 
-/** Decodes the return data of a precompile view call into a record of named outputs. */
+/** Decodes canonical precompile return data with a shared allocation and traversal budget. */
 export function decodeAbiResult(returnData: string, outputs: readonly AbiReadField[]): AbiReadRecord {
-  return record(outputs, sequence(bytesOf(returnData), 0, outputs.map((field) => field.type)));
+  const data = bytesOf(returnData);
+  const decoded = sequence(data, 0, outputs.map((field) => field.type), { remaining: ABI_DECODE_WORK_LIMIT }, 0);
+  if (decoded.end !== data.length) throw new PrecompileAbiError("data_length", "ABI trailing data");
+  return record(outputs, decoded.values);
 }
 
 export function readUint(value: AbiReadValue | undefined, label: string): bigint {

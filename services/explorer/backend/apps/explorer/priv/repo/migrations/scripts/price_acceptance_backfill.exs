@@ -22,6 +22,18 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
     pending
   end
 
+  def held_jobs do
+    case Repo.query!("""
+         SELECT count(*) OVER (), j.block_number, j.error
+         FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
+         WHERE j.completed = false AND b.consensus = true AND j.error IS NOT NULL
+         ORDER BY j.block_number, j.block_hash LIMIT 1
+         """).rows do
+      [] -> nil
+      [[count, number, error]] -> {count, number, error}
+    end
+  end
+
   @impl GenServer
   def init(options), do: {:ok, options}
 
@@ -63,7 +75,7 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
          SELECT j.block_hash, j.block_number, j.transactions, j.results
          FROM #{@table} j JOIN blocks b ON b.hash = j.block_hash
          WHERE j.completed = false AND b.consensus = true
-         ORDER BY j.block_number, j.block_hash LIMIT 1
+         ORDER BY (j.error IS NOT NULL), j.block_number, j.block_hash LIMIT 1
          """).rows do
       [] -> nil
       [job] -> job
@@ -79,12 +91,18 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
 
     case result do
       {:error, reason} ->
-        Repo.query!("UPDATE #{@table} SET error = $2 WHERE block_hash = $1", [hash, inspect(reason)])
-        result
+        hold_job(hash, reason)
 
       _ ->
         result
     end
+  rescue
+    error -> hold_job(hash, {:replay_failed, Exception.message(error)})
+  end
+
+  defp hold_job(hash, reason) do
+    Repo.query!("UPDATE #{@table} SET error = $2 WHERE block_hash = $1", [hash, inspect(reason)])
+    {:error, reason}
   end
 
   defp retained(hash, nil, nil, number, options) do

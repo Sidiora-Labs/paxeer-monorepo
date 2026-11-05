@@ -1,40 +1,38 @@
 [workspace]
 name = "layerx-platform"
-root = "platform"
+root = "services/platform"
+roots = ["sdk/platform", "tools/platform"]
 
 [dir.sdk-generators]
-path = "platform/sdk/generators"
+path = "sdk/platform/generators"
 
 [dir.middleware]
-path = "platform/middleware"
-
-[dir.integrations]
-path = "platform/integrations"
+path = "services/platform/middleware"
 
 [dir.cli]
-path = "platform/cli"
+path = "tools/platform/cli"
 
 [dir.emulator]
-path = "platform/emulator"
+path = "tools/platform/emulator"
 
 [dir.gateway]
-path = "platform/hosted/gateway"
+path = "services/platform/hosted/gateway"
 
 [dir.docs]
-path = "platform/docs"
+path = "services/platform/docs"
 
 [dir.examples]
-path = "platform/examples"
+path = "services/platform/examples"
 
 [dir.release]
-path = "platform/release"
+path = "tools/platform/release"
 
 [dir.tools]
-path = "platform/tools"
+path = "services/platform/tools"
 
 [ecosystem.rust]
-manifest = "platform/Cargo.toml"
-lockfile = "platform/Cargo.lock"
-audit = "platform/deny.toml"
-lint = "platform/clippy.toml"
-policy = "platform/tools/dependency-policy.sh"
+manifest = "services/platform/Cargo.toml"
+lockfile = "services/platform/Cargo.lock"
+audit = "services/platform/deny.toml"
+lint = "services/platform/clippy.toml"
+policy = "services/platform/tools/dependency-policy.sh"

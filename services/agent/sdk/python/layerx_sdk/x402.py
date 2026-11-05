@@ -3,25 +3,29 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Literal, NoReturn
+from typing import TYPE_CHECKING, Literal, NoReturn
 
 from . import verifier
 from .account_derivation import keccak256
 from .evm_transaction import EvmTransactionError, decode_signed_transaction, encode_call
 from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
-from .revert import decode_revert_reason
+from .revert import LXP_RETRYABLE, RevertReasonError, decode_revert_reason
 from .verifier import (
-    MerkleProof,
     ReceiptKey,
     ReceiptVerificationError,
     SequencerReceiptVerification,
 )
 
+if TYPE_CHECKING:
+    from .committed import CommitTrust
+
+
 PaymentCommitment = Literal["submitted", "receipted", "committed"]
 PAYMENT_RECEIPT_PROTOCOL_VERSIONS = (2, 3)
 PAYMENT_RUNGS = ("submitted", "receipted", "committed")
 LAYERX_LEDGER_ADDRESS = bytes.fromhex("000000000000000000000000000000000000101a")
+LEDGER_DRAW_TYPES = ("bytes32", "bytes32", "uint128", "bytes32", "uint64", "bytes32", "bytes32")
 
 
 class PaymentCommitmentError(PlatformSdkError):
@@ -33,24 +37,38 @@ class PaymentCommitmentError(PlatformSdkError):
 
 
 @dataclass(frozen=True)
-class _SequencerAuthorization:
-    sequencer_id: bytes
-    public_key: bytes
-    first_batch_number: int
-    last_batch_number: int
+class PaymentEvidence:
+    canonical_receipt: bytes
+    raw_transaction: bytes
+    finality: tuple[CommitTrust, dict] | None = None
+    grant_binding: dict | None = None
 
 
 @dataclass(frozen=True)
-class PaymentCommitmentEvidence:
-    network_id: int
-    canonical_header: bytes
-    header_signature: bytes
-    authorization: _SequencerAuthorization
-    proof: MerkleProof
+class LedgerDrawTerms:
+    grant_id: str
+    purpose_hash: str
+    idempotency_key: str
+    context_hash: str
 
 
-def _failure() -> NoReturn:
-    raise PlatformSdkError(SdkErrorCode.VERIFICATION_FAILURE, "never")
+class PaymentBindingError(PlatformSdkError):
+    __slots__ = ("field",)
+
+    def __init__(self, field: str) -> None:
+        super().__init__(SdkErrorCode.VERIFICATION_FAILURE, "never")
+        self.field = field
+        self.args = (f"Local verification failed: payment binding {field} mismatch.",)
+
+
+def _failure(field: str = "payment") -> NoReturn:
+    raise PaymentBindingError(field)
+
+
+def refuse_payer_grant() -> NoReturn:
+    raise RevertReasonError(
+        "LXP_NO_PAYER_GRANT", "no payer grant", None, LXP_RETRYABLE["LXP_NO_PAYER_GRANT"]
+    )
 
 
 def receipt_protocol_version(canonical_receipt: bytes) -> int:
@@ -147,10 +165,13 @@ def verify_payment_receipt(
     payer: str | None = None,
     return_data: bytes | None = None,
     commitment: PaymentCommitment = "receipted",
+    finality=None,
+    scheme: str = "exact",
+    grant_binding: Mapping | LedgerDrawTerms | None = None,
 ) -> SequencerReceiptVerification:
+    if grant_binding is not None or scheme in ("metered", "subscription"):
+        refuse_payer_grant()
     payment_commitment({"layerx": {"commitment": commitment}})
-    if commitment == "committed":
-        _failure()
     if (
         not isinstance(amount, str)
         or not 0 < len(amount) <= 39
@@ -179,7 +200,8 @@ def verify_payment_receipt(
         transaction, _ = decode_signed_transaction(raw_transaction)
     except EvmTransactionError as error:
         raise PlatformSdkError(SdkErrorCode.VERIFICATION_FAILURE, "never") from error
-    if receipt.module_id <= 11 or not receipt.effects:
+    transaction_operation = 2 if raw_transaction[0] == 2 else 0
+    if receipt.module_id != 12 or receipt.operation != transaction_operation or not receipt.effects:
         _failure()
     summary = receipt.effects[0]
     body = summary.body
@@ -193,28 +215,25 @@ def verify_payment_receipt(
         or not 1 <= body[108] <= 64
         or len(body) != 109 + body[108]
         or int.from_bytes(body[104:108], "big") != len(receipt.effects) - 1
-        or (payer is not None and receipt.from_account.hex() != payer)
     ):
         _failure()
-    if transaction.to != LAYERX_LEDGER_ADDRESS or transaction.value != 0:
+    if transaction.chain_id != 125 or transaction.to != LAYERX_LEDGER_ADDRESS or transaction.value != 0:
         _failure()
     calldata = transaction.data
-    selector = encode_call(
-        "payExact",
-        ("bytes32", "bytes32", "bytes32", "uint128", "uint64", "bytes32"),
-        (bytes(32), bytes(32), bytes(32), 0, 0, bytes(32)),
-    )[:4]
-    if (
-        len(calldata) != 4 + 6 * 32
-        or calldata[:4] != selector
-        or calldata[36:68].hex() != pay_to
-        or calldata[68:100].hex() != asset
-        or int.from_bytes(calldata[100:132], "big") != int(amount)
-        or int.from_bytes(calldata[132:164], "big") >= 1 << 64
-    ):
+    if scheme == "exact":
+        selector = encode_call("payExact", ("bytes32", "bytes32", "bytes32", "uint128", "uint64", "bytes32"),
+                               (bytes(32), bytes(32), bytes(32), 0, 0, bytes(32)))[:4]
+        if (len(calldata) != 196 or calldata[:4] != selector
+                or calldata[36:68].hex() != pay_to or calldata[68:100].hex() != asset
+                or int.from_bytes(calldata[100:132], "big") != int(amount)
+                or int.from_bytes(calldata[132:164], "big") >= 1 << 64
+                or payer is not None and calldata[4:36].hex() != payer):
+            _failure()
+        topic = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        data_digest = sha256(bytes.fromhex(asset) + int(amount).to_bytes(32, "big")).digest()
+        indexed = (calldata[164:196], calldata[4:36], bytes.fromhex(pay_to))
+    else:
         _failure()
-    topic = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
-    data_digest = sha256(bytes.fromhex(asset) + int(amount).to_bytes(32, "big")).digest()
     payments = 0
     for index, effect in enumerate(receipt.effects[1:], 1):
         body = effect.body
@@ -231,15 +250,37 @@ def verify_payment_receipt(
             _failure()
         if body[:20] != LAYERX_LEDGER_ADDRESS or body[21:53] != topic:
             continue
-        if (
-            body[20] != 4
-            or body[-32:] != data_digest
-            or body[53:85] != calldata[164:196]
-            or body[85:117] != calldata[4:36]
-            or body[117:149].hex() != pay_to
+        if body[20] != 4:
+            _failure("event.topic_count")
+        for field, actual, required in (
+            ("idempotency_key", body[53:85], indexed[0]),
+            ("payer", body[85:117], indexed[1]),
+            ("pay_to", body[117:149], indexed[2]),
+            ("data_digest", body[-32:], data_digest),
         ):
-            _failure()
+            if actual != required:
+                _failure("event." + field)
         payments += 1
     if payments != 1:
         _failure()
+    if commitment == "committed":
+        from .committed import verify_committed_transaction
+        if finality is None:
+            _failure()
+        if not isinstance(finality, tuple) or len(finality) != 2:
+            _failure()
+        trust, evidence = finality
+        from .committed import CommitTrust
+        if not isinstance(trust, CommitTrust):
+            _failure()
+        trust.verify(raw_transaction, verified.height, evidence)
     return verified
+
+
+def ledger_payment_payer(verified: SequencerReceiptVerification, raw_transaction: bytes, scheme: str = "exact") -> str:
+    from .payment_transaction import decode_payment_transaction
+    if scheme in ("metered", "subscription"):
+        refuse_payer_grant()
+    if scheme != "exact":
+        _failure()
+    return decode_payment_transaction(raw_transaction).data[4:36].hex()

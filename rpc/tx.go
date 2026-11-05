@@ -212,6 +212,9 @@ func (t *TransactionAPI) GetVMError(ctx context.Context, hash common.Hash) (resu
 	if receipt == nil {
 		return "", fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
 	}
+	if scope, ok := DomainScopeFrom(ctx); ok && !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+		return "", receiptpkg.ErrNotFound
+	}
 	return receipt.VmError, nil
 }
 
@@ -432,6 +435,9 @@ func (t *TransactionAPI) GetTransactionErrorByHash(ctx context.Context, hash com
 	}
 	if receipt == nil {
 		return "", fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok && !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+		return "", nil
 	}
 	return receipt.VmError, nil
 }
@@ -771,4 +777,21 @@ func cloneReceiptForMutation(receipt *types.Receipt) *types.Receipt {
 	}
 	cloned := *receipt
 	return &cloned
+}
+
+type domainPaxTransactionAPI struct {
+	*PaxTransactionAPI
+	scope DomainScope
+}
+
+func (t *domainPaxTransactionAPI) GetVMError(ctx context.Context, hash common.Hash) (string, error) {
+	return t.PaxTransactionAPI.GetVMError(WithDomainScope(ctx, t.scope), hash)
+}
+
+func (t *domainPaxTransactionAPI) GetTransactionErrorByHash(ctx context.Context, hash common.Hash) (string, error) {
+	return t.PaxTransactionAPI.GetTransactionErrorByHash(WithDomainScope(ctx, t.scope), hash)
+}
+
+func (t *domainPaxTransactionAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (map[string]any, error) {
+	return t.PaxTransactionAPI.GetTransactionReceipt(WithDomainScope(ctx, t.scope), hash)
 }

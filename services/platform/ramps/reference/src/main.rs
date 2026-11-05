@@ -1086,6 +1086,17 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
         return Err(error(400, "work_invalid"));
     }
+    if matches!(work.action, WorkAction::SubmitCustomerPayment) {
+        if !work
+            .raw_transaction
+            .as_ref()
+            .is_some_and(|raw| !raw.is_empty() && raw.len() <= 131_072)
+        {
+            return Err(error(400, "work_invalid"));
+        }
+    } else if work.raw_transaction.is_some() {
+        return Err(error(400, "work_invalid"));
+    }
     let mut journal = state
         .journal
         .lock()
@@ -1111,6 +1122,13 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
             engine.submit_layerx(work.order_digest, sequence, now())
         }
         WorkAction::ResolveLayerx => engine.resolve_layerx(work.order_digest, now()),
+        WorkAction::SubmitCustomerPayment => engine.submit_customer_payment(
+            work.order_digest,
+            work.raw_transaction
+                .as_deref()
+                .ok_or_else(|| error(400, "work_invalid"))?,
+            now(),
+        ),
     }
     .map_err(|error| map_error(&error))?;
     let snapshot = journal
@@ -1218,6 +1236,7 @@ struct Work {
     order_digest: [u8; 32],
     action: WorkAction,
     account_sequence: Option<u64>,
+    raw_transaction: Option<Vec<u8>>,
 }
 
 #[derive(Deserialize)]
@@ -1228,6 +1247,7 @@ enum WorkAction {
     ReconcileProvider,
     SubmitLayerx,
     ResolveLayerx,
+    SubmitCustomerPayment,
 }
 
 enum Rebalance {

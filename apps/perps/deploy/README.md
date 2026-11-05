@@ -1,14 +1,11 @@
 # Hyperpax-UI — Production Deployment
 
-This directory contains environment examples and a **partial nginx Compose
-configuration** for the frontend in `apps/perps`. The checked-in
-[`docker-compose.yml`](docker-compose.yml) defines only `nginx`: the entire
-`app` service is commented out. It cannot build, start, health-check or roll
-back a Next.js application.
+This directory supplies a Compose frontend service and nginx ingress for
+`apps/perps`. The [`docker-compose.yml`](docker-compose.yml) builds the
+standalone Next.js image from the application directory, passes server-only
+configuration to `app`, and connects `app` and `nginx` on one private bridge.
+The supported procedure below uses this Compose file throughout.
 
-The application [`Dockerfile`](../Dockerfile) separately builds a standalone
-Next.js image. The examples below run that image directly on loopback for an
-operator-managed ingress. They do not depend on an absent Compose app service.
 See the [data API guide](../data_api.md) for the application gateway protocol,
 [settings guide](../src/app/modals/SettingsModal.md) for UI preferences, and
 [component guide](../src/components/paxeer/README.md) for live widget integration.
@@ -26,15 +23,19 @@ ${EDITOR:-vi} .env.production
 ```
 
 Set at least `NEXT_PUBLIC_PERPS_GATEWAY_URL` and `MARKET_PROXY_ORIGIN` for your
-deployment, and review the remaining public values. Build the image with the
-public variables explicitly forwarded as build arguments, then run it with a
-runtime environment file as shown below. Arrange TLS and ingress separately
-before exposing the application to users.
+deployment, and review the remaining public values. Compose forwards public
+build arguments and server-only runtime values explicitly. Set
+`BUILD_COMMIT_SHA` to the full image revision in `.env.production` before
+building. Supply the nginx configuration and TLS assets described below
+before starting the stack. All Compose commands below run from `apps/perps`,
+use `--env-file .env.production` and explicitly select
+`-f deploy/docker-compose.yml`. Shell variables override the env file during
+Compose interpolation; clear stale exported values before deploying.
 
 ## Architecture
 
 ```text
-browser → operator-provided HTTPS ingress → frontend container :3000
+browser → nginx HTTPS ingress → app:3000 (private Compose bridge)
                                              ├─ /api/build-id
                                              └─ /api/candle/* → external candle feed
 browser → perps data gateway (REST / WebSocket / GraphQL)
@@ -49,20 +50,35 @@ uses the roots of `api1` through `api14.mainnet-beta.paxeer.network` and
 application configuration, not another chain or finality stage. Sub-chains are
 tenant domains in the database and do not require a frontend-specific node.
 
-The supplied nginx Compose service publishes ports 80 and 443, joins the
-`internal` bridge and maps `host.docker.internal` to `host-gateway`. That
-mapping alone neither selects an application upstream nor makes a
-loopback-only host listener reachable from the container. The example app
-container below is not attached to that bridge. Configure ingress networking
-and its upstream explicitly for your deployment model.
+The nginx service publishes ports 80 and 443. It reaches the frontend using
+`app:3000` on the shared `internal` bridge; the app publishes no host ports.
+The bridge allows outbound access to the data gateway and candle feed.
+nginx waits for the app's image health check on initial startup. After an app
+recreation, nginx must resolve its new address. In the operator-supplied TLS
+server's `location /`, use Docker DNS and a variable upstream, for example:
+
+```nginx
+resolver 127.0.0.11 valid=5s ipv6=off;
+set $perps_upstream app:3000;
+proxy_pass http://$perps_upstream;
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+Include these directives inside the appropriate nginx context; they are not a
+complete TLS server configuration. Preserve the request URI with the
+`proxy_pass` form above. Configure the HTTP server to redirect to HTTPS and
+supply certificates for your hostname. Allow up to five seconds for DNS
+refresh after replacement, then repeat the ingress health checks.
 
 ## Files
 
 | File | Current purpose |
 | --- | --- |
 | [`../Dockerfile`](../Dockerfile) | Digest-pinned Node and charting stages, pnpm install, standalone build, non-root runtime and image health check |
-| [`docker-compose.yml`](docker-compose.yml) | nginx only; app/build/runtime environment block is commented out |
-| [`.env.production.example`](.env.production.example) | Environment starting point; some deployment comments describe tooling absent from this tree |
+| [`docker-compose.yml`](docker-compose.yml) | app build/runtime configuration, shared bridge and health-ordered nginx startup |
+| [`.env.production.example`](.env.production.example) | Public build inputs, server runtime inputs and explicit image revision |
 | [`build-args.production.env`](build-args.production.env) | Public build-argument values; Docker does not automatically read an env file as build arguments |
 | [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 example with fixed `cwd: /root/Hyperpax-UI`; requires path/process review before use in this monorepo |
 
@@ -76,8 +92,8 @@ Compose file alone is not a production deployment procedure.
 
 ### 1. Provision the box
 
-Provision Docker/BuildKit, access to required images, storage, logging and an
-application service manager through your normal infrastructure process. This
+Provision Docker/BuildKit, access to required images, storage, logging and
+Docker daemon restart management through your infrastructure process. This
 tree does not install packages, create deployment users, configure host
 firewalls or provision certificates automatically.
 
@@ -132,28 +148,27 @@ Server-only values must reach the actual server process. The Dockerfile does
 not embed `MARKET_PROXY_HOST` or `MARKET_PROXY_ORIGIN`. Pass them at container
 creation. A plain `docker restart` or `docker compose --env-file ... restart`
 retains the existing container environment; it does not load edited values.
-For a future configured Compose app service, updating interpolated environment
-requires `up -d --force-recreate app`, with that service actually defined.
+Apply edited server values to the configured `app` service using
+`up -d --no-build --pull never --force-recreate --wait app` with the same image
+revision, as shown under routine operations. Compose refuses an empty
+`MARKET_PROXY_ORIGIN` before starting the service. This validation does not
+replace the route's bare-origin validation or the candle health check.
 
 ### 3. Build the frontend image
 
-From `apps/perps`, using Bash and your operator-controlled environment file:
+From `apps/perps`, set `BUILD_COMMIT_SHA` in `.env.production` to the
+revision being built (`git rev-parse HEAD`). Use a new revision for a new
+bundle; retain the previous image and matching environment file for rollback.
 
 ```bash
-set -a
-. ./.env.production
-set +a
-
-perps_release=$(git rev-parse --short HEAD)
-perps_build_args=()
-for perps_key in ${!NEXT_PUBLIC_@}; do
-  perps_build_args+=(--build-arg "$perps_key")
-done
-
-docker build "${perps_build_args[@]}" \
-  --build-arg "NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA=$perps_release" \
-  -t "perps-ui:$perps_release" .
+docker compose --env-file .env.production -f deploy/docker-compose.yml build app
 ```
+
+Compose's build context is `..` relative to the file in `deploy`, so it uses
+`apps/perps/Dockerfile`, the application source and its `.dockerignore`.
+The image tag, public build identity and runtime build identity all use
+`BUILD_COMMIT_SHA`. The env file configures interpolation; it is not copied
+into the image or injected wholesale at runtime.
 
 Only arguments declared by the Dockerfile affect the build. Consult its
 `ARG NEXT_PUBLIC_*` declarations when adding configuration; an environment
@@ -167,96 +182,129 @@ and runs `pnpm build`. Keep the image digest checks and charting asset check.
 The runtime uses UID 1001 and `tini`, defaults to port 3000 and starts
 `node server.js`.
 
-### 4. Start the image
+### 4. Start the stack
+
+With the nginx mounts and TLS assets provisioned:
 
 ```bash
-docker run -d --name perps-frontend \
-  --restart unless-stopped \
-  --env-file .env.production \
-  -e "VERCEL_GIT_COMMIT_SHA=$perps_release" \
-  -p 127.0.0.1:3000:3000 \
-  "perps-ui:$perps_release"
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --wait
 ```
 
-The environment file is supplied again for runtime server configuration;
-client-visible variables still come from the built bundle. Use a matching
-runtime identity and image tag. The image health check requests
-`/api/build-id` every 15 seconds with a 5-second timeout, 20-second start
-period and three retries. A healthy response proves the Next.js endpoint is
-available, not that the gateway, wallet or candle feed works.
+The app receives the explicit Compose `environment` values at container
+creation; client-visible variables still come from the built bundle.
+The image health check requests `/api/build-id` every 15 seconds with a
+5-second timeout, 20-second start period and three retries. A healthy response
+proves the Next.js endpoint is available; check the candle proxy separately.
+`--no-build --pull never` ensures startup uses the locally built image.
 
 ### 5. Verify before routing traffic
 
 ```bash
-docker inspect --format '{{json .State.Health}}' perps-frontend
-docker logs --tail 100 perps-frontend
-curl --fail-with-body http://127.0.0.1:3000/api/build-id
-curl --fail-with-body http://127.0.0.1:3000/api/candle/config
+docker compose --env-file .env.production -f deploy/docker-compose.yml ps
+docker compose --env-file .env.production -f deploy/docker-compose.yml logs --tail 100 app
+docker compose --env-file .env.production -f deploy/docker-compose.yml exec -T app wget -qO- http://127.0.0.1:3000/api/build-id
 ```
 
-`/api/build-id` returns `{ "buildId": "<configured revision>" }`. Check it
-against the intended image, then make the same requests through your ingress.
-The candle request must receive a valid upstream UDF config; build identity
-alone does not exercise the proxy Origin header.
+`/api/build-id` returns `{ "buildId": "<configured revision>" }`; compare it
+with the intended image revision. To verify the proxy origin in the running
+container and exercise the actual candle route, replace the example origin
+below with the exact intended `MARKET_PROXY_ORIGIN` from your runtime file:
+
+```bash
+docker compose --env-file .env.production -f deploy/docker-compose.yml exec -T app node -e '
+if (process.env.MARKET_PROXY_ORIGIN !== process.argv[1]) {
+  throw new Error("Running app has the wrong MARKET_PROXY_ORIGIN");
+}
+fetch("http://127.0.0.1:3000/api/candle/config").then(async response => {
+  if (!response.ok) throw new Error(`Candle proxy HTTP ${response.status}`);
+  const config = await response.json();
+  if (!Array.isArray(config.supported_resolutions) || !config.supported_resolutions.length) {
+    throw new Error("Invalid upstream UDF config");
+  }
+  console.log("Candle proxy origin and upstream config verified");
+}).catch(error => { console.error(error); process.exit(1); });
+' 'https://perps.example.com'
+```
+
+The route reads the same runtime variable and sends it as the upstream
+`Origin` header. This check must succeed after startup, environment updates
+and rollback; build identity alone does not exercise that header. Verify both
+endpoints through the actual HTTPS ingress as well (substitute your hostname):
+
+```bash
+curl --fail-with-body https://perps.example.com/api/build-id
+curl --fail-with-body https://perps.example.com/api/candle/config
+```
+
+Check the ingress UDF config and intended build identity before routing users.
 
 ## Routine operations
 
 ### Deploy a new version
 
-Build a new revision-tagged image with the required public inputs. Retain the
-previous image tag and its matching environment file outside version control.
-During a maintenance window, stop/remove the old container and run the new
-image with the current environment:
+Retain the previous image tag and its matching environment file outside
+version control. Update `.env.production` for the new revision and public
+inputs, build `app` as above, then recreate it:
 
 ```bash
-docker stop perps-frontend
-docker rm perps-frontend
-# Repeat the docker run command above with the new perps_release.
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --force-recreate --wait app
 ```
 
-This direct-container procedure has downtime. There is no checked-in automatic
-image retagging, rolling update, health-wait deploy script or rollback trigger.
-An operator-managed multi-instance ingress can provide a different lifecycle.
+Repeat all build-identity, proxy-origin and HTTPS checks above. This
+single-instance replacement has downtime; there is no automatic rolling
+update or rollback trigger. nginx's Docker DNS resolver follows the new app
+address without requiring an nginx restart.
 
 ### Roll back
 
-Replace the container using the retained image tag and its matching runtime
-environment, then check build identity and candle proxy again. Restoring only
+Restore the retained environment file to `.env.production`, including its
+`BUILD_COMMIT_SHA`, `MARKET_PROXY_ORIGIN`, `MARKET_PROXY_HOST` and public build
+inputs. Retain that revision-tagged image locally; do not rebuild it or prune
+it before the rollback window closes. Then run:
+
+```bash
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --force-recreate --wait app
+```
+
+Repeat all build-identity, proxy-origin and HTTPS checks above. Restoring only
 the runtime env cannot undo browser configuration embedded in a newer image.
 
 ### Tail logs
 
 ```bash
-docker logs -f --tail 100 perps-frontend
+docker compose --env-file .env.production -f deploy/docker-compose.yml logs -f --tail 100 app
 ```
 
-The direct-container example uses the Docker daemon's logging defaults; set
-rotation in your infrastructure. The supplied nginx Compose service explicitly
-uses `json-file` rotation at 50 MB × 5 files.
+Both Compose services use `json-file` rotation at 50 MB × 5 files.
 
 ### Apply server-only environment changes
 
-Edit the runtime file, stop/remove the container, and repeat `docker run` with
-the **same image** and the updated `--env-file`. Check the candle endpoint
-again. For a host-managed process, supply the updated environment through its
-service manager and restart that process; the fixed-path PM2 example requires
-adaptation before use. Public bundle changes always require a new build.
+Edit `MARKET_PROXY_ORIGIN` or `MARKET_PROXY_HOST` in `.env.production`, keep
+`BUILD_COMMIT_SHA` unchanged to use the **same image**, and recreate the app:
+
+```bash
+docker compose --env-file .env.production -f deploy/docker-compose.yml up -d --no-build --pull never --force-recreate --wait app
+```
+
+Repeat the running-container proxy-origin check with the new expected origin,
+the build-identity check and both HTTPS checks above. A plain `restart`
+retains the existing container environment. Public `NEXT_PUBLIC_*` bundle
+changes always require a rebuild and replacement with a new image revision.
 
 ## Troubleshooting
 
 ### Compose says there is no `app` service
 
-That matches the current file: its app definition is comments. Commands such
-as `docker compose ... build app`, `logs app`, or inspection of an assumed
-`hyperpax-app` container cannot operate the frontend in this checkout.
+Run from `apps/perps` and explicitly select `-f deploy/docker-compose.yml`.
+The checked-in file defines `app` and `nginx`; another Compose file may not.
 
 ### nginx fails to start or returns `502 Bad Gateway`
 
 Check that every mounted nginx file, certificate and DH parameter file exists
-and that the configured upstream matches a running, reachable frontend. An
-`app:3000` upstream cannot resolve to a Compose app service absent from the
-file. Container-to-host connectivity also requires a listener reachable from
-the bridge; the loopback example above is for host ingress.
+and that the TLS server proxies to `app:3000` using the Docker DNS resolver
+shown above. Both services must join `internal`. Check `app` health and logs
+using the same Compose file and environment file. After app recreation,
+allow the resolver refresh period before checking again.
 
 ### Candle proxy returns 503 or fails to load
 
@@ -277,9 +325,9 @@ this checkout; Docker's own `build --no-cache` option is available when needed.
 
 ### Build identity reports `development`
 
-Set the runtime `VERCEL_GIT_COMMIT_SHA` or `RAILWAY_GIT_COMMIT_SHA` for the image
-being launched. `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` is a separate public build
-argument and does not by itself set the server-only variable this endpoint
+Set `BUILD_COMMIT_SHA` in the Compose env file for the image being launched;
+Compose forwards it as runtime `VERCEL_GIT_COMMIT_SHA`.
+`NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` is a separate public build argument and does not by itself set the server-only variable this endpoint
 reads. An arbitrary configured identity is not independent image attestation.
 
 ## Deployment responsibilities

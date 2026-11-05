@@ -789,25 +789,20 @@ impl Registrar {
                 "current native interface differs from verified deployment",
             );
         }
-        Response {
-            status: 200,
-            body: json!({
-                "program_id": hex::encode(&program.bytes()),
-                "version": version.number,
-                "code_hash": hex::encode(&version.code_hash),
-                "abi_version": version.abi_version,
-                "interface": hex::encode(interface.canonical_encoding()),
-                "interface_digest": hex::encode(interface.digest().as_bytes()),
-                "deployment_receipt_digest": hex::encode(&version.deployment_receipt_digest),
-                "state_root": hex::encode(&head.state_root),
-                "observed_sequence": head.freshness.observed_sequence,
-                "observed_at": head.freshness.observed_at,
-                "valid_through": valid_through,
-                "source": source_json(version.source),
-                "verification": "deployment-interface-and-current-head-verified",
-            })
-            .to_string(),
-        }
+        interface_response(
+            hex::encode(&program.bytes()),
+            version.number,
+            hex::encode(&version.code_hash),
+            version.abi_version,
+            hex::encode(interface.canonical_encoding()),
+            hex::encode(interface.digest().as_bytes()),
+            hex::encode(&version.deployment_receipt_digest),
+            hex::encode(&head.state_root),
+            head.freshness.observed_sequence,
+            head.freshness.observed_at,
+            valid_through,
+            source_json(version.source),
+        )
     }
 
     fn verify(
@@ -907,7 +902,7 @@ impl Registrar {
     fn build_and_settle(
         &mut self,
         lease: &VerificationLease,
-        mut record: VerificationRecord,
+        record: VerificationRecord,
         deployment: &VerifiedDeploymentEvidence,
         source_uri: &str,
         source_digest: [u8; 32],
@@ -916,36 +911,63 @@ impl Registrar {
     ) -> Response {
         let mut artifact = None;
         let response = self.reproduce(deployment, source_uri, source_digest, &mut artifact);
+        match Self::settle_rebuild_outcome(lease, record, response, artifact, now) {
+            Ok(record) => self.persist_artifact(lease, record, now),
+            Err(response) => response,
+        }
+    }
+
+    /// Commits a rebuild outcome at the durable worker boundary. Terminal
+    /// refusals, including mismatches, carry only their original response;
+    /// only a successful matching artifact enters verified provenance.
+    ///
+    /// # Errors
+    /// Returns the terminal response or a journal refusal. A successful result
+    /// still requires artifact persistence and publication by the worker.
+    pub fn settle_rebuild_outcome(
+        lease: &VerificationLease,
+        mut record: VerificationRecord,
+        response: Response,
+        artifact: Option<VerifiedSource>,
+        now: u64,
+    ) -> Result<VerificationRecord, Response> {
         if response.status == 503 {
-            return settled(
+            return Err(settled(
                 lease,
                 &mut record,
                 VerificationState::Retryable,
                 now,
                 response,
-            );
+            ));
         }
-        if artifact.is_none() {
+        if response.status != 200 {
             let state = VerificationState::Completed {
                 response: response.clone(),
             };
-            return settled(lease, &mut record, state, now, response);
+            return Err(settled(lease, &mut record, state, now, response));
         }
         let Some(artifact) = artifact else {
-            return refusal(
+            return Err(refusal(
                 503,
                 "verification_pending",
                 "completed rebuild artifact is unavailable",
-            );
+            ));
         };
+        if artifact.artifact_digest != artifact.deployment_provenance.code_hash {
+            return Err(refusal(
+                503,
+                "idempotency_store_corrupt",
+                "successful rebuild differs from its deployment",
+            ));
+        }
         let state = VerificationState::Artifact {
             response,
             source: VerifiedSourceStore::encode_record(&artifact),
         };
-        if let Err(refused) = lease.settle(&mut record, state, now) {
-            return journal_refusal(&refused);
-        }
-        self.persist_artifact(lease, record, now)
+        lease
+            .settle(&mut record, state, now)
+            .map_err(|refused| journal_refusal(&refused))?;
+        Ok(record)
     }
 
     fn persist_artifact(
@@ -1231,7 +1253,7 @@ impl Registrar {
                 .reproduce_deployment(&mirrored.source, &mirrored.plan, deployment)
             {
                 Ok(build) => build,
-                Err(refused) => return rebuild_refusal(&refused),
+                Err(refused) => return Self::rebuild_refusal(&refused),
             };
         if self.node_state.request_deadline_expired() {
             return refusal(
@@ -1267,16 +1289,18 @@ impl Registrar {
             Ok(status) => status,
             Err(error) => return refusal(404, "not_found", &error.to_string()),
         };
-        *artifact = Some(VerifiedSource {
-            program,
-            version,
-            source_uri: build.source_uri.clone(),
-            source_digest: build.source_digest,
-            artifact_digest: build.artifact_digest,
-            plan: mirrored.plan.clone(),
-            deployment_provenance: deployment_provenance(deployment),
-        });
-        verification_response(deployment, &build, status)
+        if matches!(status, SourceStatus::Verified { .. }) {
+            *artifact = Some(VerifiedSource {
+                program,
+                version,
+                source_uri: build.source_uri.clone(),
+                source_digest: build.source_digest,
+                artifact_digest: build.artifact_digest,
+                plan: mirrored.plan,
+                deployment_provenance: deployment_provenance(deployment),
+            });
+        }
+        Self::verification_response(deployment, &build, status)
     }
 
     fn ingest_authenticated_deployment(&mut self, request: &Request, now: u64) -> Response {
@@ -1679,59 +1703,68 @@ pub fn refusal(status: u16, code: &str, detail: &str) -> Response {
     }
 }
 
-fn rebuild_refusal(refused: &BuildRefusal) -> Response {
-    match refused {
-        BuildRefusal::Registry(RegistryError::DeploymentMismatch) => refusal(
-            409,
-            "source_mismatch",
-            "the rebuilt artifact does not match the verified deployment",
-        ),
-        BuildRefusal::SandboxUnavailable { reason } => refusal(503, "builder_unavailable", reason),
-        BuildRefusal::BuilderFailed { reason } => refusal(422, "build_failed", reason),
-        BuildRefusal::NondeterministicBuild { .. } => {
-            refusal(422, "build_not_reproducible", &refused.to_string())
+impl Registrar {
+    /// Encodes the build pipeline's typed refusal for durable request settlement.
+    #[must_use]
+    pub fn rebuild_refusal(refused: &BuildRefusal) -> Response {
+        match refused {
+            BuildRefusal::Registry(RegistryError::DeploymentMismatch) => refusal(
+                409,
+                "source_mismatch",
+                "the rebuilt artifact does not match the verified deployment",
+            ),
+            BuildRefusal::SandboxUnavailable { reason } => {
+                refusal(503, "builder_unavailable", reason)
+            }
+            BuildRefusal::BuilderFailed { reason } => refusal(422, "build_failed", reason),
+            BuildRefusal::NondeterministicBuild { .. } => {
+                refusal(422, "build_not_reproducible", &refused.to_string())
+            }
+            _ => refusal(422, "source_unverifiable", &refused.to_string()),
         }
-        _ => refusal(422, "source_unverifiable", &refused.to_string()),
     }
-}
 
-fn verification_response(
-    deployment: &VerifiedDeploymentEvidence,
-    build: &ReproducibleBuild,
-    status: SourceStatus,
-) -> Response {
-    let verified = matches!(status, SourceStatus::Verified { .. });
-    let outcome = json!({
-        "program_id": hex::encode(&deployment.program().bytes()),
-        "version": deployment.version(),
-        "abi_version": deployment.abi_version(),
-        "code_hash": hex::encode(&deployment.code_hash()),
-        "deployment_receipt_digest": hex::encode(&deployment.receipt_digest()),
-        "deployment_provenance": deployment_provenance_json(deployment),
-        "source_uri": build.source_uri,
-        "source_digest": hex::encode(&build.source_digest),
-        "environment_digest": hex::encode(&build.environment_digest),
-        "reproduced_artifact_digest": hex::encode(&build.artifact_digest),
-        "source": source_json(status),
-        "pipeline": programs_source_verification(),
-    });
-    if verified {
-        return Response {
-            status: 200,
-            body: outcome.to_string(),
-        };
-    }
-    Response {
-        status: 409,
-        body: json!({
-            "error": {
-                "code": "source_mismatch",
-                "retry": "never",
-                "detail": "the rebuilt artifact does not hash to the registered code hash",
-            },
-            "verification": outcome,
-        })
-        .to_string(),
+    /// Encodes the source verdict without treating a reproducible mismatch as
+    /// verified provenance.
+    #[must_use]
+    pub fn verification_response(
+        deployment: &VerifiedDeploymentEvidence,
+        build: &ReproducibleBuild,
+        status: SourceStatus,
+    ) -> Response {
+        let verified = matches!(status, SourceStatus::Verified { .. });
+        let outcome = json!({
+            "program_id": hex::encode(&deployment.program().bytes()),
+            "version": deployment.version(),
+            "abi_version": deployment.abi_version(),
+            "code_hash": hex::encode(&deployment.code_hash()),
+            "deployment_receipt_digest": hex::encode(&deployment.receipt_digest()),
+            "deployment_provenance": deployment_provenance_json(deployment),
+            "source_uri": build.source_uri,
+            "source_digest": hex::encode(&build.source_digest),
+            "environment_digest": hex::encode(&build.environment_digest),
+            "reproduced_artifact_digest": hex::encode(&build.artifact_digest),
+            "source": source_json(status),
+            "pipeline": programs_source_verification(),
+        });
+        if verified {
+            return Response {
+                status: 200,
+                body: outcome.to_string(),
+            };
+        }
+        Response {
+            status: 409,
+            body: json!({
+                "error": {
+                    "code": "source_mismatch",
+                    "retry": "never",
+                    "detail": "the rebuilt artifact does not hash to the registered code hash",
+                },
+                "verification": outcome,
+            })
+            .to_string(),
+        }
     }
 }
 
@@ -2027,6 +2060,42 @@ fn deployment_response(evidence: &layerx_programs::VerifiedDeploymentEvidence) -
             "activity_id": hex::encode(&evidence.activity_id()),
             "receipt_digest": hex::encode(&evidence.receipt_digest()),
             "state": "deployed",
+        })
+        .to_string(),
+    }
+}
+
+// Keep the registry producer's field names and numeric freshness in one serializer.
+fn interface_response(
+    program_id: String,
+    version: u32,
+    code_hash: String,
+    abi_version: u16,
+    interface: String,
+    interface_digest: String,
+    deployment_receipt_digest: String,
+    state_root: String,
+    observed_sequence: u64,
+    observed_at: u64,
+    valid_through: u64,
+    source: Value,
+) -> Response {
+    Response {
+        status: 200,
+        body: json!({
+            "program_id": program_id,
+            "version": version,
+            "code_hash": code_hash,
+            "abi_version": abi_version,
+            "interface": interface,
+            "interface_digest": interface_digest,
+            "deployment_receipt_digest": deployment_receipt_digest,
+            "state_root": state_root,
+            "observed_sequence": observed_sequence,
+            "observed_at": observed_at,
+            "valid_through": valid_through,
+            "source": source,
+            "verification": "deployment-interface-and-current-head-verified",
         })
         .to_string(),
     }

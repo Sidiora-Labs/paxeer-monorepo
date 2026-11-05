@@ -70,7 +70,8 @@ The [publisher](publish.sh) takes these inputs:
 | `WASM_ROOT` | monorepo root; libraries under `wasm-runtime/internal/api` and `wasm/x/wasm/artifacts/{v152,v155}/api` |
 | `SRC_CFG` | `HPX_RUNTIME_CONFIG_DIR`, otherwise `/root/.paxeer/config` |
 | `HPX_ARTIFACTS_ROOT` | `/srv/hpx/artifacts` |
-| `HPX_PAXD_VERSION` | `v6.12.0`; must match `vMAJOR.MINOR.PATCH` syntax |
+| `HPX_PAXD_VERSION` | Defaults to `tools/release/version.json`; an override must equal that version |
+| `HPX_BUILD_PROVENANCE` | Required reviewed build record; defaults to `${SRC_BIN}.provenance.json` |
 | `HPX_RELEASE_ID` | UTC timestamp followed by the first 12 hex characters of the supplied binary's SHA-256 |
 | `HPX_SEED_PEERS` | Required: at least three distinct `40-hex-node-id@host:port` entries, comma-separated |
 | `HPX_CHAIN_ID` / `HPX_EVM_CHAIN_ID` | `hyperpax_125-1` / `125` |
@@ -79,34 +80,39 @@ The [publisher](publish.sh) takes these inputs:
 
 ### Release identity
 
-Before publishing, inspect the supplied executable with its native libraries
-available. For the default input paths:
+The publisher reads `tools/release/version.json` and checks the staged executable's
+`version --long --output json` identity before writing checksums or switching
+`current`. Its `version` must equal the manifest and any `HPX_PAXD_VERSION`
+override, and its `commit` must equal the checkout's full `git rev-parse HEAD`.
+The `server_name` must be `paxd`.
 
-```bash
-LD_LIBRARY_PATH="$PWD/wasm-runtime/internal/api:$PWD/wasm/x/wasm/artifacts/v152/api:$PWD/wasm/x/wasm/artifacts/v155/api" \
-  build/paxd version --long --output json
-git rev-parse HEAD
+Supply a reviewed build provenance JSON file through `HPX_BUILD_PROVENANCE`
+(default `${SRC_BIN}.provenance.json`). It must contain these three fields:
+
+```json
+{
+  "version": "v6.12.0",
+  "source_revision": "<full 40-character build revision>",
+  "paxd_sha256": "<64-character SHA-256 of the build artifact>"
+}
 ```
 
-Compare the executable's version and embedded `commit` with the intended release
-and its reviewed build revision. Set `HPX_PAXD_VERSION` to that verified version.
-The publisher does **not** read `tools/release/version.json` or enforce agreement
-between the executable's version, `HPX_PAXD_VERSION` and the checkout revision;
-that comparison is an operator prerequisite in the current implementation.
+The provenance version and source revision must match the manifest, executable
+and checkout, and its digest must match the exact staged executable. Generate
+this record at the reviewed build, retain it with that artifact, and publish
+from the matching checkout. Do not reconstruct provenance to relabel an
+unidentified executable. These checks establish agreement with a trusted build
+record; they do not replace review or authenticate an untrusted build machine.
+Missing or inconsistent identity data aborts publication. The release includes
+`binary-info.json`, `build-provenance.json` and `version.json` in its checksums.
+`chain-info.json` records the validated version, commit, source revision and
+artifact digest; `release_id` independently names the artifact directory.
 
-The publisher requires the executable to report a non-empty embedded `commit`.
-It records that value as `paxd_commit`, the checkout's `HEAD` as
-`source_revision`, and the supplied binary's hash as `paxd_sha256` in
-`chain-info.json`. `paxd_version` comes from `HPX_PAXD_VERSION`.
-`release_id` names the artifact directory independently of those version and
-revision fields. A checksum manifest alone does not authenticate build provenance.
-
-After checking identity and supplying seed peers from the private deployment
-configuration, assemble the release:
+After supplying seed peers from the private deployment configuration:
 
 ```bash
 sudo env \
-  HPX_PAXD_VERSION="${HPX_PAXD_VERSION:?set the verified executable version}" \
+  HPX_BUILD_PROVENANCE="${HPX_BUILD_PROVENANCE:?set the reviewed build record}" \
   HPX_SEED_PEERS="${HPX_SEED_PEERS:?set at least three distinct seed peers}" \
   tools/hpx/publish.sh
 ```
@@ -200,3 +206,33 @@ refer only to the explicit allowlist: three library versions for each supported
 architecture and `app.toml` / `config.toml` for `fullnode` / `validator`.
 Directory indexes and undeclared artifact paths return 404. Nginx serves the
 landing page at `/` and its declared logo and font assets.
+
+## Fleet collection and funding recovery
+
+Run `tools/hpx/fleet-keygen.sh` or `tools/hpx/stake-fleet.sh keygen` from the
+repository root. Both use the same durable state under `tools/hpx/.fleet`
+(`HPX_WORKDIR` overrides it). The first collection persists the intended host
+roster before contacting hosts. Later collections merge hosts, retain established
+identities, and mark unreachable or changed identities unresolved. An existing
+`operators.tsv` is imported without granting verification. Collection exits
+nonzero until every intended host verifies; `fund`, `stake` and `stake-cmds`
+check that state before proceeding. Preserve `state.json` with the roster.
+
+`stake-fleet.sh` loads the repository-root `.env`, or the explicit `HPX_ENV_FILE`,
+before deriving settings. Explicit shell values override file values, which
+override defaults. A missing explicit file is an error; an absent default file
+is allowed. Only the initial founder import needs `MNEMONIC_PHRASE`.
+`HPX_KEYRING_BACKEND` defaults to the protected `file` backend. Prepare/import
+keys in that keyring before a dry-run. The founder preview reads public identity
+and balances only; association uses `paxd tx evm associate-address --from` with
+that keyring and never exports a private key.
+
+The `fund` phase durably freezes a per-recipient allocation and chain/sender
+identity before broadcasting. Retries send only deficits against those original
+targets, even when the funding wallet's remaining balance has fallen. The journal
+persists exact signed transactions and their hashes before submission, then
+requires committed code zero and the expected recipient balance before recording
+a receipt. An interrupted payment is reconciled or rebroadcast with the same
+signed bytes before any new signing. Pending, rejected, failed or underfunded
+payments return nonzero. Keep the private work directory across restarts; never
+delete its journal to retry a payment or reuse it for a different chain.

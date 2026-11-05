@@ -1,9 +1,11 @@
+use super::{LookupMethodsRequestWrapper, LookupMethodsResponseWrapper};
 use blockscout_display_bytes::ToHex;
 use serde_json::Value;
 use smart_contract_verifier::{Error, Language, VerificationResult, VerifyingContract};
 use smart_contract_verifier_proto::blockscout::smart_contract_verifier::{
     v2, v2::verify_response::extra_data,
 };
+use std::collections::BTreeMap;
 use tonic::Status;
 use verification_common::{
     solidity_libraries,
@@ -15,11 +17,7 @@ use verification_common::{
 pub fn process_error(error: Error) -> Result<v2::VerifyResponse, Status> {
     match error {
         err @ Error::CompilerNotFound(_) => Err(Status::invalid_argument(err.to_string())),
-        err @ Error::Internal(_) => {
-            let formatted_error = format!("{err:#?}");
-            tracing::error!(err = formatted_error, "internal error");
-            Err(Status::internal(formatted_error))
-        }
+        err @ Error::Internal(_) => Err(super::errors::internal_error_status(err)),
         err @ Error::NotConsistentBlueprintOnChainCode { .. } => {
             Err(Status::invalid_argument(err.to_string()))
         }
@@ -39,7 +37,16 @@ pub fn process_error(error: Error) -> Result<v2::VerifyResponse, Status> {
 #[allow(clippy::result_large_err)]
 pub fn process_verification_result(
     value: VerificationResult,
+    post_actions: &[String],
 ) -> Result<v2::VerifyResponse, Status> {
+    for action in post_actions {
+        if action != "lookup-methods" {
+            return Err(Status::invalid_argument(format!(
+                "unsupported post-action: {action}"
+            )));
+        }
+    }
+
     if value.is_empty() {
         let response = v2::VerifyResponse {
             message: "No contract could be verified with provided data".to_string(),
@@ -51,10 +58,33 @@ pub fn process_verification_result(
         return Ok(response);
     }
 
+    let verifying_contract = select_best_match(&value).expect("nonempty verification result");
+
+    let lookup_methods = if post_actions.iter().any(|action| action == "lookup-methods") {
+        Some(lookup_verified_contract_methods(verifying_contract)?)
+    } else {
+        None
+    };
+    let extra_data = into_extra_data(verifying_contract);
+    let source = try_into_source(verifying_contract.clone())?;
+
+    let response = v2::VerifyResponse {
+        message: "OK".to_string(),
+        status: v2::verify_response::Status::Success.into(),
+        source: Some(source),
+        extra_data: Some(extra_data),
+        post_action_responses: Some(v2::verify_response::PostActionResponses { lookup_methods }),
+    };
+    Ok(response)
+}
+
+// Preserve the solo policy: full creation+runtime, full creation, full runtime,
+// then the first partial match. Equal full matches retain the last artifact.
+pub(super) fn select_best_match(value: &[VerifyingContract]) -> Option<&VerifyingContract> {
     let mut full_creation_and_runtime_match = None;
     let mut full_creation_only_match = None;
     let mut full_runtime_only_match = None;
-    for verifying_contract in &value {
+    for verifying_contract in value {
         match (
             &verifying_contract.creation_match,
             &verifying_contract.runtime_match,
@@ -74,30 +104,63 @@ pub fn process_verification_result(
         }
     }
 
-    let verifying_contract = match (
+    match (
         full_creation_and_runtime_match,
         full_creation_only_match,
         full_runtime_only_match,
     ) {
-        (Some(full_creation_and_runtime_match), _, _) => full_creation_and_runtime_match,
-        (None, Some(full_creation_only_match), _) => full_creation_only_match,
-        (None, None, Some(full_runtime_only_match)) => full_runtime_only_match,
-        _ => value.first().unwrap(),
-    };
+        (Some(full_creation_and_runtime_match), _, _) => Some(full_creation_and_runtime_match),
+        (None, Some(full_creation_only_match), _) => Some(full_creation_only_match),
+        (None, None, Some(full_runtime_only_match)) => Some(full_runtime_only_match),
+        _ => value.first(),
+    }
+}
 
-    let extra_data = into_extra_data(verifying_contract);
-    let source = try_into_source(verifying_contract.clone())?;
-
-    let response = v2::VerifyResponse {
-        message: "OK".to_string(),
-        status: v2::verify_response::Status::Success.into(),
-        source: Some(source),
-        extra_data: Some(extra_data),
-        post_action_responses: Some(v2::verify_response::PostActionResponses {
-            lookup_methods: None,
-        }),
-    };
-    Ok(response)
+#[allow(clippy::result_large_err)]
+fn lookup_verified_contract_methods(
+    contract: &VerifyingContract,
+) -> Result<v2::LookupMethodsResponse, Status> {
+    if contract.language != Language::Solidity {
+        return Err(Status::invalid_argument(
+            "lookup-methods requires a Solidity contract",
+        ));
+    }
+    let artifacts = &contract.compilation_artifacts;
+    let abi = artifacts
+        .abi
+        .as_ref()
+        .ok_or_else(|| Status::internal("verified contract ABI is missing"))?;
+    let source_map = contract
+        .runtime_code_artifacts
+        .source_map
+        .as_ref()
+        .and_then(Value::as_str)
+        .ok_or_else(|| Status::internal("verified contract runtime source map is missing"))?;
+    let sources = artifacts
+        .sources
+        .clone()
+        .ok_or_else(|| Status::internal("verified contract source IDs are missing"))?;
+    let sources: BTreeMap<String, verification_common::verifier_alliance::SourceId> =
+        serde_json::from_value(sources)
+            .map_err(|error| Status::internal(format!("invalid verified source IDs: {error}")))?;
+    let file_ids = sources
+        .into_iter()
+        .map(|(path, source)| {
+            u32::try_from(source.id)
+                .map(|id| (id, path))
+                .map_err(|error| Status::internal(format!("invalid verified source ID: {error}")))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+    let request = LookupMethodsRequestWrapper::from(v2::LookupMethodsRequest {
+        bytecode: contract.runtime_code.to_hex(),
+        abi: abi.to_string(),
+        source_map: source_map.to_string(),
+        file_ids,
+    });
+    let request: smart_contract_verifier::LookupMethodsRequest = request
+        .try_into()
+        .map_err(|error| Status::internal(format!("invalid verified lookup artifacts: {error}")))?;
+    Ok(LookupMethodsResponseWrapper::from(smart_contract_verifier::find_methods(request)).into())
 }
 
 fn into_extra_data(verifying_contract: &VerifyingContract) -> v2::verify_response::ExtraData {

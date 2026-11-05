@@ -31,7 +31,7 @@ describe('the Paxeer X resource definitions', () => {
 });
 
 describe('the Paxeer X payload map', () => {
-  function unifiedBalanceFixtureMatchesNativeControllerContract() {
+  it('unifiedBalanceFixtureMatchesNativeControllerContract', function unifiedBalanceFixtureMatchesNativeControllerContract() {
     const unifiedAccount: GeneralApiPaxeerXResourcePayload<'general:paxeer_x_unified_account'> = unifiedAccountMock.unifiedAccount;
     const capabilities: GeneralApiPaxeerXResourcePayload<'general:paxeer_x_capabilities'> = capabilitiesMock.addrOnly;
     const txStatus: GeneralApiPaxeerXListsResourcePayload<'general:paxeer_x_tx_status'> = PAXEER_X_TX_STATUS;
@@ -48,6 +48,7 @@ describe('the Paxeer X payload map', () => {
       verification_status: 'checkpoint_finalised',
       payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
       transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99',
+      provenance: { evm: { ...PAXEER_X_RECEIPTS_ITEM.provenance.evm, transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99' } },
       timestamp: '2023-05-22T18:00:36.000000Z',
     };
 
@@ -104,11 +105,9 @@ describe('the Paxeer X payload map', () => {
     expect(receipts.items[0].frozen).toBe(PAXEER_X_RECEIPTS_ITEM.frozen);
     expect(receipt.id).toBe(PAXEER_X_RECEIPTS_ITEM.id);
     expect(receipt.verification_status).toBe('checkpoint_finalised');
-  }
+  });
 
-  it(unifiedBalanceFixtureMatchesNativeControllerContract);
-
-  function signatureResourceInventoryIsCompleteInDefinitionOrder() {
+  it('signatureResourceInventoryIsCompleteInDefinitionOrder', function signatureResourceInventoryIsCompleteInDefinitionOrder() {
     const names: Array<GeneralApiPaxeerXResourceName | GeneralApiPaxeerXListsResourceName> = [
       'general:paxeer_x_unified_account',
       'general:paxeer_x_capabilities',
@@ -125,7 +124,6 @@ describe('the Paxeer X payload map', () => {
     ].map((name) => `general:${ name }`);
 
     expect(names).toEqual(defined);
-  }
+  });
 
-  it(signatureResourceInventoryIsCompleteInDefinitionOrder);
 });

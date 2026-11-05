@@ -29,9 +29,6 @@ const DEFAULT_TTL_SECONDS: u64 = 15;
 const MAX_TTL_SECONDS: u64 = 300;
 const MAX_RAW_TRANSACTION_BYTES: usize = 4 * 1024 * 1024;
 
-/// Chain JSON-RPC path under a router root configured without one.
-const CHAIN_RPC_PATH: &str = "/rpc";
-
 /// The probe view of one surface: a cheap view that the precompile
 /// serving the surface's address declares in its served ABI file.
 struct ProbeView {
@@ -243,6 +240,7 @@ impl Capabilities {
 pub(super) struct Cache {
     ttl: Duration,
     entry: Mutex<Option<(Instant, Capabilities)>>,
+    pub(super) ai_views: Option<layerx_platform_gateway::ai_views::AiViews>,
 }
 
 impl Cache {
@@ -250,6 +248,7 @@ impl Cache {
         Self {
             ttl,
             entry: Mutex::new(None),
+            ai_views: None,
         }
     }
 
@@ -283,16 +282,14 @@ pub(super) fn configured() -> Result<Cache, String> {
     if !(1..=MAX_TTL_SECONDS).contains(&seconds) {
         return Err("gateway capabilities TTL is outside its bound".to_owned());
     }
-    Ok(Cache::new(Duration::from_secs(seconds)))
+    let mut cache = Cache::new(Duration::from_secs(seconds));
+    cache.ai_views = layerx_platform_gateway::ai_views::configured()?;
+    Ok(cache)
 }
 
-/// The chain JSON-RPC endpoint for one configured Paxeer name: a bare router
-/// root answers chain JSON-RPC under `/rpc`, and an explicit path is kept.
-pub(super) fn chain_rpc(mut endpoint: Endpoint) -> Endpoint {
-    if endpoint.base_path.is_empty() {
-        CHAIN_RPC_PATH.clone_into(&mut endpoint.base_path);
-    }
-    endpoint
+/// Preserve a node origin as `/` and retain explicit domain paths.
+pub(super) fn chain_rpc(endpoint: Endpoint) -> Endpoint {
+    endpoint.chain_rpc()
 }
 
 /// Whether one probe `eth_call` answer shows the surface live: a result that
@@ -1257,19 +1254,20 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_chain_rpc_defaults_a_router_root_to_rpc_exactly_once() {
+    fn capabilities_chain_rpc_preserves_node_root_and_domain_paths() {
         for (configured, path) in [
-            ("https://router.example", "/rpc"),
-            ("https://router.example/", "/rpc"),
-            ("https://router.example/rpc", "/rpc"),
-            ("https://router.example/rpc/", "/rpc"),
-            ("https://router.example:8545/evm", "/evm"),
+            ("https://node.example", "/"),
+            ("https://node.example/", "/"),
+            ("https://node.example/rpc", "/rpc"),
+            ("https://node.example/rpc/", "/rpc"),
+            ("https://node.example:8545/evm", "/evm"),
+            ("https://node.example/chain/125", "/chain/125"),
         ] {
             let endpoint = Endpoint::parse(configured).unwrap_or_else(|e| panic!("{e}"));
             let port = endpoint.port;
             let once = chain_rpc(endpoint);
             assert_eq!(once.base_path, path, "{configured}");
-            assert_eq!(once.host, "router.example");
+            assert_eq!(once.host, "node.example");
             assert_eq!(once.port, port);
             assert_eq!(chain_rpc(once).base_path, path, "{configured} twice");
         }

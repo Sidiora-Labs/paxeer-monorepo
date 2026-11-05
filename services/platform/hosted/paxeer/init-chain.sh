@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Maintained owner: domain 8; ../node/bootstrap.sh owns bank and ledger genesis funding.
+# Custody roots and relay group mounts are not initialization inputs.
 # Compatibility entrypoint for the maintained native bootstrap. Supply its native
 # --data-dir, --native-inputs and signing-file arguments explicitly.
 set -euo pipefail
@@ -9,4 +11,11 @@ for name in "${!LAYERX_PAXEER_@}"; do
         exit 2
     fi
 done
-exec "$SCRIPT_DIR/../node/bootstrap.sh" "$@"
+for argument in "$@"; do
+    case "$argument" in
+        --custody-genesis|--custody-genesis=*|--deposit-root|--deposit-root=*|--sequencer-authorizations|--sequencer-authorizations=*)
+            echo "init-chain: relay genesis inputs are retired; use native bank and ledger funding via ../node/bootstrap.sh" >&2
+            exit 2 ;;
+    esac
+done
+exec paxeer-native-tool bootstrap --bootstrap-script "$SCRIPT_DIR/../node/bootstrap.sh" "$@"

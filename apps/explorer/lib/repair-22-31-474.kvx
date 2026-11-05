@@ -1,0 +1,59 @@
+[repair.22.31.474]
+requirement = "22998.1"
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+decision = "2528: Explorer frontend tasks qualify their spec files with the production build lint; test titles are strings and every test body asserts."
+qualification_revision_source = "/out/run/gates.jsonl: revision and exit of the final hf-done entry; hf-build and hf-done must run on the same candidate. A failed entry is not qualification."
+evidence = "/out/logs: private build, package lint and hf-done logs; /out/run/gates.jsonl records exact commands, revisions and exit codes."
+
+[defect.typecheck]
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts"
+observed = "TS2769: the approval query observer with an isIncomplete override omits the production hook's coverage, partialAllowances, scanIssues and retry properties."
+repair = "Type the Content query prop against React.ComponentProps<typeof Content>, deriving coverage and partial allowances from the real query observers and preserving refetch, incomplete scan, error and retry assertions."
+
+[defect.lint]
+files = ["apps/explorer/lib/api/repair-22-31-379.spec.ts", "apps/explorer/lib/api/services/general/paxeerX.spec.ts", "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts", "apps/explorer/lib/api/services/general/repair-22-33-289.spec.ts", "apps/explorer/lib/dependencyVersions.spec.ts", "apps/explorer/lib/metadata/templates/repair-22-33-295.spec.ts", "apps/explorer/lib/repair-22-31-448.spec.ts", "apps/explorer/lib/socket/repair-22-33-292.spec.ts"]
+observed = "Function references and function.name titles fail vitest/valid-title; assertions outside registered callbacks fail vitest/expect-expect during the production package lint."
+repair = "Use literal string titles and named inline test callbacks, preserving all existing assertions, transport paths, bounds and test names; inline the advisory minimum-resolution checks into their test bodies."
+
+[lint.package]
+command = "cd apps/explorer && yarn lint:eslint"
+log = "/out/logs/package-eslint.log"
+exit = 1
+additional_repaired_files = ["apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts", "apps/explorer/lib/dependencyVersions.spec.ts", "apps/explorer/lib/repair-22-31-448.spec.ts"]
+reason = "The Content suite also needs literal titles and inline assertions; the package pass reports 23 optional expect message arguments in the two dependency suites."
+
+[defect.expect_messages]
+files = ["apps/explorer/lib/dependencyVersions.spec.ts", "apps/explorer/lib/repair-22-31-448.spec.ts"]
+observed = "vitest/valid-expect rejects 23 optional diagnostic message arguments accepted by the Vitest runtime."
+repair = "Remove only the optional messages and unused diagnostic labels; preserve every actual value, matcher, expected value and assertion count."
+
+[qualification.package_lint]
+revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+command = "cd apps/explorer && yarn lint:eslint"
+exit = 1
+log = "/out/logs/package-eslint.log"
+observed = "Package lint reports 594 problems (589 errors and 5 warnings), including failures in 88 unchanged files outside the task scope; only the 23 scoped valid-expect findings are repaired."
+assumption = "The exact-path scope prevents repairing these inherited findings; the focused hf-done gate qualifies the nine scoped suites, and package-wide lint remains unqualified."
+
+[lint.inherited]
+files = ["apps/explorer/instrumentation.node.spec.ts", "apps/explorer/mocks/paxeerX/capabilities.spec.ts", "apps/explorer/mocks/paxeerX/repair-22-33-275.spec.ts", "apps/explorer/mocks/txs/repair-22-33-274.spec.ts", "apps/explorer/nextjs/csp/policies/repair-22-31-412.spec.ts", "apps/explorer/nextjs/csp/policies/repair-22-33-542.spec.ts", "apps/explorer/nextjs/getServerSideProps/repair-22-33-541.spec.ts", "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts", "apps/explorer/nextjs/utils/repair-22-33-543.spec.ts", "apps/explorer/toolkit/chakra/recipe-props.ts", "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts", "apps/explorer/toolkit/components/forms/inputs/file/repair-22-33-271.spec.ts", "apps/explorer/ui/address/AddressDetails.spec.tsx", "apps/explorer/ui/address/repair-22-33-291.spec.ts", "apps/explorer/ui/address/utils/repair-22-33-293.spec.ts", "apps/explorer/ui/advancedFilter/filters/repair-22-33-283.spec.ts", "apps/explorer/ui/blob/repair-22-33-524.spec.ts", "apps/explorer/ui/block/repair-22-33-367.spec.ts", "apps/explorer/ui/blocks/BlocksContent.spec.tsx", "apps/explorer/ui/blocks/repair-22-31-377.spec.ts", "apps/explorer/ui/contractVerification/fields/repair-22-33-369.spec.ts", "apps/explorer/ui/contractVerification/repair-22-33-368.spec.ts", "apps/explorer/ui/crossChain/transfers/repair-22-33-285.spec.ts", "apps/explorer/ui/home/LatestTxsItem.spec.tsx", "apps/explorer/ui/home/LatestTxsItemMobile.spec.tsx", "apps/explorer/ui/home/indicators/utils/repair-22-33-409.spec.ts", "apps/explorer/ui/home/repair-22-33-408.spec.ts", "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts", "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-297.spec.ts", "apps/explorer/ui/multichain/searchResults/repair-22-33-303.spec.ts", "apps/explorer/ui/pages/Home.pw.tsx", "apps/explorer/ui/pages/PaxeerXAccount.spec.tsx", "apps/explorer/ui/pages/PaxeerXAnchors.spec.tsx", "apps/explorer/ui/pages/PaxeerXReceipt.spec.tsx", "apps/explorer/ui/pages/PaxeerXReceipts.spec.tsx", "apps/explorer/ui/pages/Token.pw.tsx", "apps/explorer/ui/pages/TokenTransfers.pw.tsx", "apps/explorer/ui/pages/Tokens.pw.tsx", "apps/explorer/ui/pages/repair-22-31-382.spec.ts", "apps/explorer/ui/pages/repair-22-33-314.spec.ts", "apps/explorer/ui/pages/repair-22-33-315.spec.ts", "apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx", "apps/explorer/ui/paxeerX/account/ActivityListItem.spec.tsx", "apps/explorer/ui/paxeerX/account/AssetList.spec.tsx", "apps/explorer/ui/paxeerX/account/AssetListItem.spec.tsx", "apps/explorer/ui/paxeerX/account/IdentityList.spec.tsx", "apps/explorer/ui/paxeerX/account/utils.spec.ts", "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx", "apps/explorer/ui/paxeerX/anchors/repair-22-33-503.spec.ts", "apps/explorer/ui/paxeerX/chains/detail.spec.ts", "apps/explorer/ui/paxeerX/chains/model.spec.ts", "apps/explorer/ui/paxeerX/chains/repair-22-33-504.spec.ts", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts", "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx", "apps/explorer/ui/shared/TokenTransfer/repair-22-33-321.spec.ts", "apps/explorer/ui/shared/Utilization/repair-22-33-322.spec.ts", "apps/explorer/ui/shared/monaco/utils/repair-22-33-327.monaco.d.ts", "apps/explorer/ui/shared/monaco/utils/repair-22-33-327.spec.ts", "apps/explorer/ui/shared/nft/repair-22-33-328.spec.ts", "apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts", "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts", "apps/explorer/ui/shared/repair-22-33-320.spec.ts", "apps/explorer/ui/shared/statusLadder/StatusLadderBadge.spec.tsx", "apps/explorer/ui/shared/statusLadder/TxStatusLadderBadge.spec.tsx", "apps/explorer/ui/shared/statusLadder/repair-22-33-331.spec.ts", "apps/explorer/ui/shared/statusLadder/rungs.spec.ts", "apps/explorer/ui/shared/web3/providers/repair-22-33-332.spec.ts", "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts", "apps/explorer/ui/snippets/auth/repair-22-33-346.spec.ts", "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts", "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts", "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts", "apps/explorer/ui/token/TokenHolders/repair-22-33-529.spec.ts", "apps/explorer/ui/token/TokenTransfer/repair-22-33-530.spec.ts", "apps/explorer/ui/token/repair-22-33-531.spec.ts", "apps/explorer/ui/tokenInstance/repair-22-33-465.spec.ts", "apps/explorer/ui/tx/TxDetailsDegraded.spec.tsx", "apps/explorer/ui/tx/TxRawTrace.spec.tsx", "apps/explorer/ui/tx/details/TxDetailsSequencerSignature.spec.tsx", "apps/explorer/ui/tx/details/TxInfo.spec.tsx", "apps/explorer/ui/tx/details/repair-22-33-520.spec.ts", "apps/explorer/ui/tx/details/signatureTestFixture.tsx", "apps/explorer/ui/tx/repair-22-31-405.spec.ts", "apps/explorer/ui/txs/repair-22-33-532.spec.ts", "apps/explorer/ui/txs/socket/repair-22-31-408.spec.ts", "apps/explorer/ui/txs/socket/repair-22-33-528.spec.ts", "apps/explorer/ui/withdrawals/beaconChain/repair-22-33-468.spec.ts", "apps/explorer/ui/zetaChain/repair-22-33-370.spec.ts"]
+
+[repair.lifecycle]
+files = ["apps/explorer/lib/api/repair-22-31-379.spec.ts", "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"]
+observed = "The concise beforeAll hooks return the callable fetch-mock object; Vitest invokes it as suite cleanup with no request, causing normalizeRequest to read toString from undefined."
+repair = "Use block-bodied beforeAll and afterAll hooks that return void while retaining the real fetch transport and restoring the existing fetch mock after each suite."
+
+[qualification.fixture_conflict]
+revision = "9652e308baf89eb4265cd16ffa56a224daacbd2b"
+command = "cg spec done 22.31.474 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "signatureReplayUsesTheBackendsCryptographicallyValidFixture requires committedHeight 1000, but the unchanged committed-ok backend fixture reports eth_receipt.blockNumber 0xa (10)."
+assumption = "Keep the assertion and producer fixture intact: altering the expected height would relax a check, and the producer fixture is outside scope; this inherited conflict blocks qualification."
+resolution = "Attempt 2 explicitly authorizes deriving the expected height from committed.eth_receipt.blockNumber and checking the signed receipt's committed-height bytes against it; the producer fixture and signature verification remain unchanged."
+
+[repair.fixture_height]
+file = "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"
+observed = "The literal height 1000 predates the committed-ok fixture's blockNumber 0xa, carried since bd50fa0d6a (22.30.156)."
+repair = "Parse the fixture blockNumber with Number.parseInt, compare committedHeight with that value, and assert the signed tail's complete 32-byte big-endian batch ID encodes it; retain valid-signature and tampered-signature checks unchanged."
+inherited = "The package lint drift in 88 files remains inherited and outside scope as recorded above; the package lint gate already ran in attempt 1 and is not repeated."

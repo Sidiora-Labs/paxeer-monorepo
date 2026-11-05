@@ -6,17 +6,14 @@ cd "$root"
 
 publication_files=$(mktemp)
 publication_files_nul=$(mktemp)
+secret_files_nul=$(mktemp)
 gitlinks=$(mktemp)
 declared_submodules=$(mktemp)
 undeclared_gitlinks=$(mktemp)
-trap 'rm -f "$publication_files" "$publication_files_nul" "$gitlinks" "$declared_submodules" "$undeclared_gitlinks"' EXIT HUP INT TERM
+trap 'rm -f "$publication_files" "$publication_files_nul" "$secret_files_nul" "$gitlinks" "$declared_submodules" "$undeclared_gitlinks"' EXIT HUP INT TERM
 
 git ls-files --cached --others --exclude-standard > "$publication_files"
-while IFS= read -r publication_file; do
-    if [ -f "$publication_file" ] || [ -L "$publication_file" ]; then
-        printf '%s\0' "$publication_file" >> "$publication_files_nul"
-    fi
-done < "$publication_files"
+git ls-files --cached --others --exclude-standard -z > "$publication_files_nul"
 
 tracked_worktrees=$(git ls-files --cached | awk '/^\.worktrees\// { print }')
 if [ -n "$tracked_worktrees" ]; then
@@ -134,25 +131,18 @@ fi
 audit_rg() {
     audit_exclude=$1
     shift
-    audit_results=$(mktemp)
-    tr '\0' '\n' < "$publication_files_nul" \
-        | grep -Ev -- "$audit_exclude" \
-        | tr '\n' '\0' \
-        | xargs -0 -r -n 200 rg --hidden -n "$@" -- > "$audit_results" || true
-    if [ -s "$audit_results" ]; then
-        cat "$audit_results"
-        rm -f "$audit_results"
-        return 0
-    fi
-    rm -f "$audit_results"
-    return 1
+    python3 "$root/scripts/ci/checked_rg.py" --gitlinks "$gitlinks" --exclude "$audit_exclude" -- \
+        --hidden --no-heading --with-filename -n "$@" < "$publication_files_nul"
 }
 
 private_refs='(/root/(Layerx-protocol|project-Quorum|private-neo-v1|matrix|layerX)(/|$)|147\.93\.139\.18)'
-if audit_rg '^scripts/ci/public-repo-audit\.sh$' "$private_refs"; then
-    echo "private workspace or infrastructure reference found" >&2
-    exit 1
-fi
+audit_status=0
+audit_rg '^scripts/ci/public-repo-audit\.sh$' "$private_refs" || audit_status=$?
+case $audit_status in
+    0) echo "private workspace or infrastructure reference found" >&2; exit 1 ;;
+    1) ;; # Every selected input was searched without a match.
+    *) echo "publication refused: private-reference search incomplete" >&2; exit 1 ;;
+esac
 
 secret_scan_allowlist='^scripts/ci/public-repo-audit\.sh$'
 secret_scan_allowlist="$secret_scan_allowlist"'|^rpc/tests/mock_data/transactions/0x99d895ea71e5ce3a8b949ba7979a27c08080210a4ba9b46b0bb06f8126b6957d\.json$'
@@ -161,14 +151,13 @@ secret_scan_allowlist="$secret_scan_allowlist"'|^sdk/integrations/ios/Sources/La
 secret_scan_allowlist="$secret_scan_allowlist"'|^sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EmbeddedSecretDetector\.java$'
 secret_scan_allowlist="$secret_scan_allowlist"'|^programs/vendor/'
 secret_scan_allowlist="$secret_scan_allowlist"'|^core/deps/db-backend/remotedb/test\.key$'
-if ! sh scripts/ci/secret-scan.sh --self-test; then
+if ! bash scripts/ci/secret-scan.sh --self-test; then
     echo "secret scan self-test failed" >&2
     exit 1
 fi
-if ! tr '\0' '\n' < "$publication_files_nul" \
-    | grep -Ev -- "$secret_scan_allowlist" \
-    | tr '\n' '\0' \
-    | sh scripts/ci/secret-scan.sh; then
+python3 "$root/scripts/ci/checked_rg.py" --select-only --gitlinks "$gitlinks" \
+    --exclude "$secret_scan_allowlist" < "$publication_files_nul" > "$secret_files_nul"
+if ! bash scripts/ci/secret-scan.sh < "$secret_files_nul"; then
     echo "secret-shaped material found in publication set" >&2
     exit 1
 fi

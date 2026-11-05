@@ -3,11 +3,13 @@ package paxeer
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -46,9 +48,28 @@ func repair1319Profile(t *testing.T) DeploymentProfile {
 	return p
 }
 
-// Exercise the actual CLI handler through an OS pipe into the YAML consumer.
-// Neither the profile reader nor the maintained manifest producer is replaced.
+// Native facts remain owned by the node manifest (decision 2532).
 func repair1319Documents(t *testing.T) []map[string]any {
+	t.Helper()
+	decoder := yaml.NewDecoder(bytes.NewReader(repair1319Read(t, repair1319Profile(t).Node.Manifest)))
+	var documents []map[string]any
+	for {
+		var document map[string]any
+		if err := decoder.Decode(&document); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		documents = append(documents, document)
+	}
+	if len(documents) == 0 {
+		t.Fatal("maintained node manifest produced no Kubernetes resources")
+	}
+	return documents
+}
+
+// Exercise the actual boundary CLI handler through an OS pipe into YAML.
+func repair1319BoundaryDocuments(t *testing.T) []map[string]any {
 	t.Helper()
 	reader, writer, err := os.Pipe()
 	if err != nil {
@@ -137,8 +158,38 @@ func repair1319Container(t *testing.T, pod map[string]any, name string) map[stri
 	return nil
 }
 
+func repair1319Provisioning(t *testing.T, pod map[string]any) (map[string]any, map[string]string) {
+	t.Helper()
+	// The inline Python dictionary is also a YAML flow mapping. Decode only
+	// the paths assignment, rather than matching filenames anywhere in a script.
+	assignment := regexp.MustCompile(`(?m)^\s*paths = (\{[^}]+\})`)
+	var provisioner map[string]any
+	var paths map[string]string
+	for _, row := range repair1319Items(t, pod["initContainers"]) {
+		container := repair1319Object(t, row)
+		for _, value := range repair1319Items(t, container["args"]) {
+			script, ok := value.(string)
+			if !ok {
+				t.Fatal("non-string native provisioning argument")
+			}
+			for _, match := range assignment.FindAllStringSubmatch(script, -1) {
+				if provisioner != nil {
+					t.Fatal("multiple native provisioning paths maps")
+				}
+				if err := yaml.Unmarshal([]byte(match[1]), &paths); err != nil {
+					t.Fatalf("invalid native provisioning paths: %v", err)
+				}
+				provisioner = container
+			}
+		}
+	}
+	if provisioner == nil || len(paths) == 0 {
+		t.Fatal("native provisioning paths map missing")
+	}
+	return provisioner, paths
+}
+
 func TestRepairM_1319_RelayWorkspaceRetirement(t *testing.T) {
-	repair1319Absent(t, "Cargo.toml")
 	documents := repair1319Documents(t)
 	count := 0
 	for _, document := range documents {
@@ -156,14 +207,28 @@ func TestRepairM_1319_RelayWorkspaceRetirement(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("wanted one maintained chain, got %d StatefulSets", count)
 	}
-	node := repair1319Container(t, repair1319Pod(t, documents), "paxd")
-	if node["image"] != "ghcr.io/sidiora-labs/layerx-kernel:0.1.0" {
-		t.Fatalf("wrong native image: %v", node["image"])
+	pod := repair1319Pod(t, documents)
+	if containers := repair1319Items(t, pod["containers"]); len(containers) != 1 {
+		t.Fatalf("wanted one native kernel container, got %d", len(containers))
+	}
+	node := repair1319Container(t, pod, "paxd")
+	var configuration struct {
+		Image string `json:"image"`
+	}
+	if err := json.Unmarshal(repair1319Read(t, "../node/tests/fixtures/repair_22_31_355/native_configuration.json"), &configuration); err != nil {
+		t.Fatal(err)
+	}
+	if configuration.Image == "" || node["image"] != configuration.Image {
+		t.Fatalf("node fixture image %q differs from maintained image %v", configuration.Image, node["image"])
+	}
+	provisioner, _ := repair1319Provisioning(t, pod)
+	if provisioner["image"] != node["image"] {
+		t.Fatal("native provisioning and node use different images")
 	}
 }
 
 func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
-	repair1319Absent(t, "custody-genesis.py")
+	repair467Restored(t, "custody-genesis.py")
 	p := repair1319Profile(t)
 	if p.Node.Bootstrap != "../node/bootstrap.sh" {
 		t.Fatalf("wrong genesis owner: %s", p.Node.Bootstrap)
@@ -173,8 +238,8 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 		t.Fatal("bootstrap no longer uses maintained native initializer")
 	}
 	wrapper := repair1319Read(t, "init-chain.sh")
-	if !bytes.Contains(wrapper, []byte(`exec "$SCRIPT_DIR/../node/bootstrap.sh" "$@"`)) {
-		t.Fatal("compatibility entrypoint must hand off to native bootstrap")
+	if !bytes.Contains(wrapper, []byte(`exec paxeer-native-tool bootstrap --bootstrap-script "$SCRIPT_DIR/../node/bootstrap.sh" "$@"`)) {
+		t.Fatal("compatibility entrypoint must guard immutable inputs before handing off to native bootstrap")
 	}
 	for _, retired := range []string{"layerxcustody", "deposit_root_authority", "sequencer_authorizations", "custody-genesis.py"} {
 		if bytes.Contains(wrapper, []byte(retired)) {
@@ -182,30 +247,16 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 		}
 	}
 	pod := repair1319Pod(t, repair1319Documents(t))
-	found := false
-	for _, row := range repair1319Items(t, pod["initContainers"]) {
-		init := repair1319Object(t, row)
-		if init["name"] != "native-material" {
-			continue
+	_, paths := repair1319Provisioning(t, pod)
+	for _, input := range []string{"genesis.json", "config.toml", "app.toml", "priv_validator_key.json", "receipt.key"} {
+		if paths[input] == "" {
+			t.Fatalf("native provisioning paths omit %s", input)
 		}
-		raw, err := json.Marshal(init)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, input := range []string{"genesis.json", "config.toml", "app.toml", "priv_validator_key.json", "receipt.key"} {
-			if !bytes.Contains(raw, []byte(input)) {
-				t.Fatalf("native provisioning omits %s", input)
-			}
-		}
-		found = true
-	}
-	if !found {
-		t.Fatal("native genesis provisioning missing")
 	}
 }
 
 func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
-	repair1319Absent(t, "deploy-contracts.sh")
+	repair467Restored(t, "deploy-contracts.sh")
 	for _, phase := range []string{"deploy", "permissions", "activate", "bond", "finalize", "bootstrap", "authority-schedule", "authority-execute", "status", "check-profile"} {
 		var output bytes.Buffer
 		err := RunDeployment([]string{phase, "this-profile-does-not-exist"}, &output)
@@ -217,13 +268,13 @@ func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
 	if err := RunDeployment([]string{"manifest", "deployment-profile.json"}, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(manifest.Bytes(), repair1319Read(t, "../node/deployment.yaml")) {
-		t.Fatal("renderer diverged from maintained node deployment")
+	if !bytes.Equal(manifest.Bytes(), repair1319Read(t, "deployment.yaml")) {
+		t.Fatal("renderer diverged from restored boundary deployment")
 	}
 }
 
 func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
-	repair1319Absent(t, "deploy-contracts.sh", "evm.py")
+	repair467Restored(t, "deploy-contracts.sh", "evm.py")
 	secret := strings.Repeat("ac", 32)
 	for _, args := range [][]string{
 		{"manifest", "deployment-profile.json", "--private-key", secret},
@@ -237,21 +288,35 @@ func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
 			t.Fatalf("signing request accepted or key exposed: %v", err)
 		}
 	}
-	node := repair1319Container(t, repair1319Pod(t, repair1319Documents(t)), "paxd")
-	raw, err := json.Marshal(node["args"])
-	if err != nil {
-		t.Fatal(err)
+	pod := repair1319Pod(t, repair1319Documents(t))
+	node := repair1319Container(t, pod, "paxd")
+	argv := append([]any{}, repair1319Items(t, node["command"])...)
+	if args, exists := node["args"]; exists {
+		argv = append(argv, repair1319Items(t, args)...)
 	}
-	if bytes.Contains(raw, []byte("--private-key")) {
-		t.Fatal("native node command exposes raw signing material")
+	rawKey := regexp.MustCompile(`(?i)(?:0x)?[0-9a-f]{64}|[A-Za-z0-9+/]{43}=|[A-Za-z0-9+/]{86}==|-----BEGIN [A-Z ]*PRIVATE KEY-----`)
+	for _, value := range argv {
+		argument, ok := value.(string)
+		if !ok {
+			t.Fatal("non-string native node argument")
+		}
+		for _, flag := range []string{"--private-key", "--private_key", "--priv-key", "--secret", "--seed", "--mnemonic", "--receipt-key", "--sequencer.receipt-key"} {
+			if strings.Contains(strings.ToLower(argument), flag) {
+				t.Fatal("native node command exposes a signing-key argument")
+			}
+		}
+		if rawKey.MatchString(argument) {
+			t.Fatal("native node command exposes raw signing material")
+		}
 	}
-	if !bytes.Contains(raw, []byte("--receipt-key-file")) {
-		t.Fatal("native node lost its protected signing-file interface")
+	_, paths := repair1319Provisioning(t, pod)
+	if paths["receipt.key"] != "config/receipt.key" {
+		t.Fatalf("receipt key is not provisioned in the native config: %q", paths["receipt.key"])
 	}
 }
 
 func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
-	// The old runner is removed, rather than retained with a replacement journal.
+	// The native handoff remains read-only beside the restored compatibility runner.
 	// Reopen the real handoff beside recorded chain effects: no phase or legacy
 	// record may be inferred or published on either side of this restart.
 	root := t.TempDir()
@@ -262,8 +327,8 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	original := repair1319Read(t, "../node/deployment.yaml")
-	if err := os.WriteFile(filepath.Join(node, "deployment.yaml"), original, 0600); err != nil {
+	original := repair1319Read(t, "deployment.yaml")
+	if err := os.WriteFile(filepath.Join(directory, "deployment.yaml"), original, 0600); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "deployment-profile.json")
@@ -341,13 +406,13 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2 {
+	if len(entries) != 3 {
 		t.Fatalf("unexpected restart publications: %v", entries)
 	}
 }
 
 func TestRepairM_1319_SettlementInputRetirement(t *testing.T) {
-	repair1319Absent(t, "deployment-input.beta.json")
+	repair467Restored(t, "deployment-input.beta.json")
 	p := repair1319Profile(t)
 	var encoded bytes.Buffer
 	if err := WriteProfile(&encoded, p); err != nil {
@@ -384,20 +449,46 @@ func TestRepairM_1319_SettlementInputRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_NativeDeployment(t *testing.T) {
-	repair1319Absent(t, "deployment.yaml")
+	repair467Restored(t, "deployment.yaml")
 	documents := repair1319Documents(t)
 	service := repair1319Resource(t, documents, "Service", "layerx-native-chain")
 	spec := repair1319Object(t, service["spec"])
 	selector := repair1319Object(t, spec["selector"])
-	if selector["app"] != "layerx-node" {
+	statefulSet := repair1319Resource(t, documents, "StatefulSet", "layerx-node")
+	nodeSpec := repair1319Object(t, statefulSet["spec"])
+	template := repair1319Object(t, nodeSpec["template"])
+	metadata := repair1319Object(t, template["metadata"])
+	labels := repair1319Object(t, metadata["labels"])
+	if len(selector) == 0 {
+		t.Fatal("native service has no node selector")
+	}
+	for name, value := range selector {
+		if labels[name] != value {
+			t.Fatalf("native service selector %s does not match node labels", name)
+		}
+	}
+	if selector["app"] != repair1319Object(t, statefulSet["metadata"])["name"] {
 		t.Fatalf("RPC routes to wrong node: %v", selector)
 	}
+	pod := repair1319Pod(t, documents)
+	native := repair1319Container(t, pod, "paxd")
+	containerPorts := make(map[string]int)
+	for _, raw := range repair1319Items(t, native["ports"]) {
+		port := repair1319Object(t, raw)
+		name, named := port["name"].(string)
+		number, numbered := port["containerPort"].(int)
+		if !named || name == "" || !numbered || number <= 0 || number > 65535 || containerPorts[name] != 0 {
+			t.Fatalf("invalid or duplicate native container port: %v", port)
+		}
+		containerPorts[name] = number
+	}
 	ports := repair1319Items(t, spec["ports"])
-	expected := map[string]struct {
-		port   int
-		target string
-	}{
-		"rpc": {8545, "chain-rpc"}, "consensus": {26657, "consensus-rpc"},
+	expected := make(map[string]int)
+	for _, name := range []string{"rpc", "consensus", "health"} {
+		if containerPorts[name] == 0 {
+			t.Fatalf("native container is missing %s port", name)
+		}
+		expected[name] = containerPorts[name]
 	}
 	for _, raw := range ports {
 		port := repair1319Object(t, raw)
@@ -406,7 +497,7 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 			t.Fatal("unnamed native port")
 		}
 		want, ok := expected[name]
-		if !ok || port["port"] != want.port || port["targetPort"] != want.target {
+		if !ok || port["port"] != want || port["targetPort"] != name {
 			t.Fatalf("unexpected native service port: %v", port)
 		}
 		delete(expected, name)
@@ -414,7 +505,6 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 	if len(expected) != 0 {
 		t.Fatalf("native service is missing ports: %v", expected)
 	}
-	pod := repair1319Pod(t, documents)
 	for _, row := range repair1319Items(t, pod["containers"]) {
 		container := repair1319Object(t, row)
 		if container["name"] == "boundary" {
@@ -430,12 +520,10 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 			t.Fatalf("retired deployment wiring remains: %s", retired)
 		}
 	}
-	native := repair1319Container(t, pod, "paxd")
-	readiness, err := json.Marshal(native["readinessProbe"])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(readiness, []byte("native_runtime.py")) || !bytes.Contains(readiness, []byte("health")) {
+	readiness := repair1319Object(t, native["readinessProbe"])
+	health := repair1319Object(t, readiness["httpGet"])
+	startup := repair1319Object(t, native["startupProbe"])
+	if health["path"] != "/readyz" || health["port"] != "health" || !reflect.DeepEqual(health, startup["httpGet"]) {
 		t.Fatal("native committed health check is missing")
 	}
 	var profile bytes.Buffer
@@ -449,6 +537,12 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 	if !reflect.DeepEqual(delivered, repair1319Profile(t)) {
 		t.Fatal("handoff changed native or tenant inputs")
 	}
+	for name, endpoint := range map[string]string{"rpc": delivered.Node.RPC, "consensus": delivered.Node.ConsensusRPC} {
+		u, err := url.Parse(endpoint)
+		if err != nil || u.Port() != fmt.Sprint(containerPorts[name]) {
+			t.Fatalf("profile %s endpoint disagrees with native container port: %s (%v)", name, endpoint, err)
+		}
+	}
 	for _, endpoint := range []string{delivered.Node.RPC, delivered.Node.ConsensusRPC, delivered.Tenant.GatewayRPC} {
 		u, err := url.Parse(endpoint)
 		if err != nil || u.Path != "/" {
@@ -458,11 +552,9 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 }
 
 func TestRepairM_1319_EVMToolRetirement(t *testing.T) {
-	repair1319Absent(t, "evm.py")
-	helper := repair1319Read(t, "settlement-domain.py")
-	if bytes.Contains(helper, []byte("from evm import")) || !bytes.Contains(helper, []byte("from layerx_sdk.account_derivation import keccak256 as keccak")) {
-		t.Fatal("historical public-data helper still depends on the retired signer")
-	}
+	repair467Restored(t, "evm.py")
+	repair1319Absent(t, "settlement-domain.py")
+	repair1319Absent(t, "prepare-beta.py")
 	for _, action := range []string{"address", "public-key", "calldata", "chain-id", "balance", "call", "send"} {
 		var output bytes.Buffer
 		if err := RunDeployment([]string{action, "deployment-profile.json"}, &output); err == nil || output.Len() != 0 {
@@ -485,6 +577,10 @@ func TestRepairM_1319_ProfileRefusals(t *testing.T) {
 		"relay suffix":     bytes.Replace(original, []byte(":8545/"), []byte(":8545/evm"), 1),
 		"invalid port":     bytes.Replace(original, []byte(":8545/"), []byte(":65536/"), 1),
 		"zero port":        bytes.Replace(original, []byte(":8545/"), []byte(":0/"), 1),
+		"DNS node":         bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("layerx-native-chain.layerx-testnet.svc.cluster.local:8545"), 1),
+		"localhost node":   bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("localhost:8545"), 1),
+		"remote node":      bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("192.0.2.1:8545"), 1),
+		"remote consensus": bytes.Replace(original, []byte("127.0.0.1:26657"), []byte("192.0.2.1:26657"), 1),
 		"cleartext tenant": bytes.Replace(original, []byte("https://"), []byte("http://"), 1),
 		"trailing JSON":    append(append([]byte{}, original...), []byte(`{}`)...),
 		"oversize":         append(append([]byte{}, original...), bytes.Repeat([]byte(" "), 16*1024)...),

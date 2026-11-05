@@ -1,0 +1,84 @@
+[task]
+id = "22.33.194"
+mode = "BUILD"
+acceptance = "22998.1"
+baseline = "Continuation baseline: hf-build passed and hf-done ran the unchanged attempt-5 implementation at 10d1a13027b2964497d0991ece7b706bfb0b437b; f014, f015 and f016 failed with window is not defined during Radix cleanup; the other five tests passed. Exact evidence is in apps/perps/src/repair-22-33-194.kvx."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."
+
+[finding.f023]
+test = "f023_liveMetricsSortBothDirectionsAndRenderTheSameRows"
+repair = "Live stats are lifted into the shared row model; every numeric sort orders the same metrics the row renders, in both directions."
+
+[finding.f014]
+test = "f014_foreignSymbolCannotSupplyTheSellBalanceOrPrecision"
+repair = "ERC20 sell holdings match the canonical address case-insensitively and use the registry precision. A same-symbol foreign token cannot supply balance."
+
+[finding.f015]
+test = "f015_stopLimitOffersOnlyTheLifetimeTheProducerEnforces"
+repair = "Stop-limit offers GTC only, resets an earlier IOC/FOK selection and dispatches the supported stop rail with GTC."
+
+[finding.f016]
+test = "f016_singleStableFundingMatchesDisplayValidationAndPercentages"
+repair = "Spendable balance, exact validation and percentage shortcuts use the actual selector's single-token balance; UI explains USDL settlement."
+
+[finding.f039]
+test = "f039_completeDesktopAndMobileConsumersRenderSuccessfully"
+repair = "Explicit React imports support the declared tsx runtime in the orderbook, balance panel and tape; complete desktop and mobile consumer trees render."
+wiring_request = "Domain 3 / fm-markets: apps/perps/tests/proof_widgets.test.ts must replace its expected React-is-not-defined crash assertion and subtree-only mobile proof with successful complete renders; this test file is outside this task's authorized scope."
+
+[finding.f024]
+test = "f024_midpointUsesBothBestSidesAndReportsMissingLiquidity"
+repair = "The orderbook displays the arithmetic midpoint of the best bid and ask, or unavailable when either side is absent."
+
+[finding.f027]
+test = "f027_walletChangesAbortPagesAndReopenRecoversRetryableHistory"
+repair = "Wallet-keyed closed history resets all state; every request is abortable and rejects superseded results; initial failure has retry; reopen fetches current history."
+
+[finding.f026]
+test = "f026_tradeHighlightMemoryIsBoundedAndExpiresDuringContinuousFrames"
+repair = "Seen keys and highlight deadlines are bounded to 200 entries; an independent cleanup timer expires highlights despite continuous frames."
+
+[gotcha.1]
+area = "test"
+symptom = "The earlier attempt did not run a baseline; its continuation ruling requires verifying the unchanged implementation first."
+do = "Run hf-build then hf-done before editing, and retain the exact baseline failure evidence."
+
+[gotcha.2]
+area = "tooling"
+symptom = "The task gate wrappers live in the runner bin directory, rather than the conventional system bin directory."
+do = "Resolve hf-build and hf-done from PATH."
+
+[gotcha.3]
+area = "test"
+symptom = "The legacy proof_widgets suite retains an expected render crash outside the authorized repair paths."
+do = "Record the owning-domain wiring request and prove successful complete renders in this task's declared test."
+
+[gotcha.4]
+area = "tooling"
+symptom = "pnpm dlx resolves formatter file arguments from the shell working directory despite the pnpm --dir option."
+do = "Set the command working directory explicitly when formatting application files."
+
+[gotcha.5]
+area = "test"
+symptom = "The memory React host lacks the browser APIs required by production Radix effect cleanup."
+do = "Install the gate-provided real jsdom environment after SSR module imports; keep it alive through normal stream teardown and route feeds to loopback."
+
+[gotcha.6]
+area = "test"
+symptom = "WagmiProvider clears connections seeded before render when reconnectOnMount is false, hiding the connected portfolio from balance assertions."
+do = "Publish the committed in-memory wallet-store fixture after real provider hydration, without replacing the provider or hooks."
+
+[gotcha.7]
+area = "test"
+symptom = "A memory host is incompatible with Radix form effects, and sharing the secondary provider slot with SSR warns about multiple renderers."
+do = "Use React DOM for mounted cases, register HTMLFormElement before importing the widgets, unmount each root, and serve the real order query and count/items response through loopback HTTP."
+
+[gotcha.8]
+area = "test"
+symptom = "A dynamic Wagmi import under tsx can allocate a separate provider context from the statically imported production hooks."
+do = "Import WagmiProvider statically, matching the production hooks; defer React DOM and widget imports until the DOM globals are registered."
+
+[gotcha.9]
+area = "test"
+symptom = "All eight cases passed at 739e6c30c54a6400bf40d39c3e8f63a257258d3b, but Node WebSocket handshake failures left three production watchdog intervals alive after server teardown; the stalled verify was terminated and exited 1 (/out/logs/verify-2.log)."
+do = "Register jsdom's real WebSocket with the rest of its browser APIs so failed handshakes emit close and production socket cleanup runs normally."

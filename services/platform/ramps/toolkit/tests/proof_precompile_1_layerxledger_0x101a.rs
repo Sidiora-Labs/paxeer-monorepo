@@ -27,6 +27,14 @@ use layerx_types::account::AccountId;
 use serde_json::Value;
 use sha3::{Digest as _, Keccak256};
 
+#[path = "support/repair_22_33_1490.rs"]
+mod repair_1490;
+
+#[test]
+fn maintained_customer_authority_refuses_retired_draw_before_broadcast() {
+    repair_1490::customer_authority();
+}
+
 fn abi_entry(kind: &str, name: &str) -> Value {
     let abi: Value = serde_json::from_str(include_str!(
         "../../../../../precompiles/layerxledger/abi.json"

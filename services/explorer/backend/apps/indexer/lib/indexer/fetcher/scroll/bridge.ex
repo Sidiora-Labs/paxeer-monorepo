@@ -5,6 +5,8 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
 
   require Logger
 
+  import Ecto.Query
+
   import EthereumJSONRPC,
     only: [
       quantity_to_integer: 1,
@@ -13,7 +15,12 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
 
   import Explorer.Helper, only: [decode_data: 2, hash_to_binary: 1]
 
+  alias Ecto.Multi
   alias EthereumJSONRPC.Logs
+  alias Explorer.Application.Constants
+  alias Explorer.Repo
+  alias Explorer.Chain.Scroll.Bridge, as: ScrollBridge
+  alias Explorer.Chain.Import.Runner.Scroll.BridgeOperations
   alias Explorer.Chain
   alias Explorer.Chain.RollupReorgMonitorQueue
   alias Indexer.Fetcher.Scroll.BridgeL1
@@ -79,6 +86,8 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
 
     eth_get_logs_range_size = Application.get_all_env(:indexer)[Indexer.Fetcher.Scroll][eth_get_logs_range_size_config]
 
+    start_block = replay_start(module, start_block)
+
     time_before = Timex.now()
 
     last_written_block =
@@ -96,7 +105,7 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
             |> get_logs_all(messenger_contract, json_rpc_named_arguments)
             |> prepare_operations(layer == :L1, json_rpc_named_arguments)
 
-          import_operations(operations)
+          import_operations(operations, module, chunk_start, chunk_end)
 
           IndexerHelper.log_blocks_chunk_handling(
             chunk_start,
@@ -114,6 +123,8 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
           # credo:disable-for-next-line Credo.Check.Refactor.Nesting
           if layer == :L1 do
             BridgeL1.reorg_handle(reorg_block)
+          else
+            rewind(module, reorg_block)
           end
 
           {:halt, if(reorg_block <= chunk_end, do: reorg_block - 1, else: chunk_end)}
@@ -159,16 +170,128 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
     Logs.elixir_to_params(result)
   end
 
-  # Imports the given Scroll messages into database.
-  # Used by Indexer.Fetcher.Scroll.BridgeL1 and Indexer.Fetcher.Scroll.BridgeL2 fetchers.
-  # Doesn't return anything.
-  @spec import_operations([Chain.Scroll.Bridge.to_import()]) :: no_return()
-  defp import_operations(operations) do
-    {:ok, _} =
-      Chain.import(%{
-        scroll_bridge_operations: %{params: operations},
+  # Keep relay provenance in the existing durable key/value store until the
+  # Scroll storage schema can carry destination block fields directly.
+  defp relay_prefix(module), do: "scroll_bridge:relay:#{layer(module)}:"
+  defp replay_key(module), do: "scroll_bridge:replay:#{layer(module)}"
+  defp layer(BridgeL1), do: "l1"
+  defp layer(_module), do: "l2"
+
+  defp relay_records(module) do
+    prefix = relay_prefix(module) <> "%"
+    Repo.all(from(c in Constants, where: like(c.key, ^prefix), order_by: c.key))
+  end
+
+  defp lock_replay(module) do
+    key = replay_key(module)
+
+    Repo.insert!(Constants.changeset(%{key: key, value: "null"}), on_conflict: :nothing)
+    Repo.one!(from(c in Constants, where: c.key == ^key, lock: "FOR UPDATE"))
+  end
+
+  @doc false
+  def replay_start(module, start_block) do
+    case Constants.get_constant_value(replay_key(module)) do
+      nil -> start_block
+      value -> min(Jason.decode!(value) || start_block, start_block)
+    end
+  end
+
+  @doc false
+  def recover_relays(module, json_rpc_named_arguments, start_block) do
+    result =
+      Enum.reduce_while(relay_records(module), {:ok, nil}, fn record, {:ok, rewind} ->
+        relay = Jason.decode!(record.value)
+
+        case IndexerHelper.get_transaction_by_hash(relay["transaction_hash"], json_rpc_named_arguments) do
+          {:ok, transaction} ->
+            canonical? =
+              not is_nil(transaction) and transaction["blockHash"] == relay["block_hash"] and
+                not is_nil(transaction["blockNumber"]) and
+                quantity_to_integer(transaction["blockNumber"]) == relay["block_number"]
+
+            next_rewind =
+              if canonical?, do: rewind, else: min(rewind || relay["block_number"], relay["block_number"])
+
+            {:cont, {:ok, next_rewind}}
+
+          {:error, _} = error ->
+            {:halt, error}
+        end
+      end)
+
+    with {:ok, rewind} <- result do
+      if not is_nil(rewind), do: module.reorg_handle(rewind)
+      {:ok, replay_start(module, start_block)}
+    end
+  end
+
+  @doc false
+  def rewind(module, reorg_block) do
+    {initiated_type, relayed_type, completion_field} =
+      if module == BridgeL1,
+        do: {:deposit, :withdrawal, :l1_transaction_hash},
+        else: {:withdrawal, :deposit, :l2_transaction_hash}
+
+    {:ok, deleted_count} =
+      Repo.transaction(fn ->
+        replay = lock_replay(module)
+        rewind = min(Jason.decode!(replay.value) || reorg_block, reorg_block)
+        Constants.set_constant_value(replay.key, Jason.encode!(rewind))
+
+        for record <- relay_records(module),
+            relay = Jason.decode!(record.value),
+            relay["block_number"] >= reorg_block do
+          message_hash = record.key |> String.replace_prefix(relay_prefix(module), "") |> hash_to_binary()
+          {:ok, message_hash} = Chain.Hash.Full.cast(message_hash)
+
+          Repo.update_all(
+            from(b in ScrollBridge, where: b.type == ^relayed_type and b.message_hash == ^message_hash),
+            set: [{completion_field, nil}]
+          )
+
+          Repo.delete!(record)
+        end
+
+        {deleted_count, _} =
+          Repo.delete_all(from(b in ScrollBridge, where: b.type == ^initiated_type and b.block_number >= ^reorg_block))
+
+        deleted_count
+      end)
+
+    deleted_count
+  end
+
+  defp import_operations(operations, module, chunk_start, chunk_end) do
+    {:ok, import} =
+      Chain.Import.all_single_multi([BridgeOperations], %{
+        scroll_bridge_operations: %{params: Enum.map(operations, &Map.delete(&1, :relay))},
         timeout: :infinity
       })
+
+    {:ok, _} =
+      Multi.new()
+      |> Multi.run(:replay, fn _repo, _ -> {:ok, lock_replay(module)} end)
+      |> Multi.append(import)
+      |> Multi.run(:relay_provenance, fn repo, %{replay: replay} ->
+        for %{relay: relay, message_hash: message_hash} <- operations do
+          key = relay_prefix(module) <> "0x" <> Base.encode16(message_hash, case: :lower)
+
+          repo.insert!(Constants.changeset(%{key: key, value: Jason.encode!(relay)}),
+            conflict_target: [:key],
+            on_conflict: {:replace, [:value, :updated_at]}
+          )
+        end
+
+        rewind = Jason.decode!(replay.value)
+
+        if not is_nil(rewind) and rewind >= chunk_start and rewind <= chunk_end do
+          Constants.set_constant_value(replay.key, "null")
+        end
+
+        {:ok, :ok}
+      end)
+      |> Repo.transaction(timeout: :infinity)
   end
 
   # Converts the list of Scroll messenger events to the list of operations
@@ -235,7 +358,17 @@ defmodule Indexer.Fetcher.Scroll.Bridge do
           :l2_transaction_hash
         end
 
+      relay =
+        if event.first_topic == @relayed_message_event do
+          %{
+            block_number: quantity_to_integer(event.block_number),
+            block_hash: event.block_hash,
+            transaction_hash: event.transaction_hash
+          }
+        end
+
       result
+      |> extend_result(:relay, relay)
       |> extend_result(:index, index)
       |> extend_result(transaction_hash_field, event.transaction_hash)
       |> extend_result(:amount, amount)

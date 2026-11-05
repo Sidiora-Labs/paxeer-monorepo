@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import { blockTableConfiguration, selectedRollupBlockConfiguration } from './blocksChainTest';
 import BlocksTable from './BlocksTable';
 
 const data = [ blockMock.base, blockMock.base2 ];
@@ -64,3 +65,6 @@ describe('BlocksTable', () => {
     expect(cells[3].textContent).toBe(String(blockMock.base.transactions_count));
   });
 });
+
+it(blockTableConfiguration, blockTableConfiguration);
+it(selectedRollupBlockConfiguration, selectedRollupBlockConfiguration);

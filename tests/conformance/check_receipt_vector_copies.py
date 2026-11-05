@@ -1,30 +1,38 @@
 #!/usr/bin/env python3
 
 import base64
+from copy import deepcopy
+from datetime import datetime, timezone
+from hashlib import sha256
 import json
-import sys
 from pathlib import Path
+import runpy
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+SOURCE = "daemon/committed-fixture/vectors/vector-v4-committed.json"
+SDK = "sdk/platform/conformance/fixtures/vector-v4-committed.json"
+CONVERTER = "sdk/platform/conformance/fixtures/refresh_receipt_vectors.py"
 EXPLORER = (
     "services/explorer/backend/apps/explorer/test/support/fixture/"
-    "paxeer_x/receipt_vectors.json"
+    "paxeer_x/committed_vectors.json"
 )
-RELAYER = (
-    "services/interop/crates/layerx-bridge-relayer/tests/fixtures/"
-    "sequencer_receipts.json"
+COMET = (
+    "services/explorer/backend/apps/explorer/test/support/fixture/"
+    "paxeer_x/comet_commit.json"
 )
-GAS_STATION = (
-    "services/interop/crates/layerx-gas-station/tests/fixtures/"
-    "sequencer_receipts.json"
+INTEROP = "services/interop/specs/conformance/committed/vector-v4-committed.json"
+X402 = "services/interop/specs/conformance/x402/sequenced-settlement.json"
+RETAINED = (
+    "vector-v1-receipted-positive.json",
+    "vector-v2-receipted-revert.json",
+    "vector-v3-receipt-refusals.json",
 )
-X402 = "services/interop/specs/conformance/x402/settlement-response.json"
 
 
-def load(path):
-    with (ROOT / path).open(encoding="utf-8") as stream:
+def load(path, root=ROOT):
+    with (root / path).open(encoding="utf-8") as stream:
         return json.load(stream)
 
 
@@ -53,129 +61,245 @@ def compare(actual, expected, location):
         )
 
 
-def source_case(by_hash, tx_hash, location, case_id=None):
-    require(tx_hash in by_hash, location, f"source lacks transaction hash {tx_hash}")
-    candidates = by_hash[tx_hash]
-    if case_id is None:
-        candidates = [
-            case for case in candidates if "refusedAt" not in case["expected"]
-        ]
-    else:
-        candidates = [case for case in candidates if case["id"] == case_id]
-    require(len(candidates) == 1, location, "source case is missing or ambiguous")
-    return candidates[0]
+def hex_base64(value):
+    return "0x" + base64.b64decode(value, validate=True).hex()
 
 
-def compare_cases(cases, by_hash, path):
-    require(bool(cases), path, "no copied cases")
-    seen = set()
-    for case in cases:
-        location = f"{path}:{case['id']}"
-        require(case["id"] not in seen, location, "duplicate copied case")
-        seen.add(case["id"])
-        expected = source_case(
-            by_hash, case["receiptJson"]["txHash"], location, case["id"]
-        )
-        compare(case, expected, location)
-    return len(cases)
+def timestamp(value):
+    seconds, fraction = value[:-1].split(".") if "." in value else (value[:-1], "")
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    date = datetime.fromisoformat(seconds).replace(tzinfo=timezone.utc)
+    return {"seconds": (date - epoch).days * 86400 + (date - epoch).seconds,
+            "nanos": int(fraction.ljust(9, "0") or "0")}
 
 
-def compare_envelopes(path, by_hash):
-    document = load(path)
+def block_id(value):
+    return {
+        "hash": "0x" + value["hash"].lower(),
+        "parts": {"total": value["parts"]["total"],
+                  "hash": "0x" + value["parts"]["hash"].lower()},
+    }
+
+
+def header(value):
+    result = {
+        "version": {key: int(number) for key, number in value["version"].items()},
+        "chain_id": value["chain_id"], "height": int(value["height"]),
+        "time": timestamp(value["time"]), "last_block_id": block_id(value["last_block_id"]),
+    }
+    for field in ("last_commit_hash", "data_hash", "validators_hash", "next_validators_hash",
+                  "consensus_hash", "app_hash", "last_results_hash", "evidence_hash", "proposer_address"):
+        result[field] = "0x" + value[field].lower()
+    return result
+
+
+def commit(value):
+    return {
+        "height": int(value["height"]), "round": value["round"],
+        "block_id": block_id(value["block_id"]),
+        "signatures": [{
+            "block_id_flag": signature["block_id_flag"],
+            "validator_address": "0x" + signature["validator_address"].lower(),
+            "timestamp": timestamp(signature["timestamp"]),
+            "signature": (hex_base64(signature["signature"])
+                          if signature["signature"] is not None else None),
+        } for signature in value["signatures"]],
+    }
+
+
+def proof(value, data, root_hash, encoding):
+    return {
+        "rootHash": "0x" + root_hash.lower(), "data": data,
+        "total": int(value["total"]), "index": int(value["index"]),
+        "aunts": [hex_base64(aunt) for aunt in value["aunts"]], "leafEncoding": encoding,
+    }
+
+
+def interop_cases(source, sdk):
+    settlement = source["settlement"]
+    power = sum(int(row["voting_power"]) for row in settlement["validators"])
+    case = {
+        "id": "committed-payExact", "rawTransaction": settlement["raw_transaction"],
+        "receiptJson": settlement["receipt"], "signedReceipt": settlement["receipt"]["receipt"],
+        "prevSeqHash": sdk["prevSeqHash"], "pinnedKey": sdk["pinnedKey"],
+        "header": header(settlement["header"]), "executionHeader": header(settlement["execution_header"]),
+        "validators": [{"pub_key": hex_base64(row["pub_key"]["value"]),
+                        "voting_power": int(row["voting_power"])} for row in settlement["validators"]],
+        "commit": commit(settlement["commit"]),
+        "expected": {"rung": "committed", "power": power, "commitPower": power},
+        "receiptHeader": source["positive"]["header"],
+        "receiptHeaderSignature": source["positive"]["header_signature"],
+        "receiptProof": source["positive"]["proof"],
+    }
+    for field, recorded in (("batchProof", "sequence_batch_proof"), ("transactionProof", "transaction_proof")):
+        wire = settlement[recorded]
+        case[field] = proof(wire["proof"], hex_base64(wire["data"]), wire["root_hash"], "sha256-tx")
+    case["execTxResultProof"] = proof(
+        settlement["exec_tx_result_proof"], settlement["exec_tx_result_bytes"],
+        settlement["header"]["last_results_hash"], "exec-tx-result",
+    )
+    under_power = deepcopy(case)
+    under_power.update(id="commit-under-two-thirds", commit=commit(settlement["commit_at_most_two_thirds"]),
+                       expected={"rung": "refused", "error": "InsufficientVotingPower",
+                                 "commitError": "InsufficientVotingPower"})
+    wrong_validators = deepcopy(case)
+    wrong_validators["id"] = "wrong-validators-hash"
+    wrong_validators["validators"][0]["voting_power"] += 1
+    wrong_validators["expected"] = {"rung": "refused", "error": "ValidatorsHashMismatch", "commitPower": power + 1}
+    flipped = deepcopy(case)
+    flipped["id"] = "flipped-proof-aunt"
+    aunt = bytearray.fromhex(flipped["batchProof"]["aunts"][0][2:])
+    aunt[0] ^= 1
+    flipped["batchProof"]["aunts"][0] = "0x" + aunt.hex()
+    flipped["expected"] = {"rung": "refused", "error": "RootMismatch", "commitPower": power}
+    return [case, under_power, wrong_validators, flipped]
+
+
+def explorer_cases(source, sdk, negative):
+    settlement = source["settlement"]
+    receipt = settlement["receipt"]
+    batch = settlement["sequence_batch"]
+    wire = settlement["sequence_batch_proof"]
+    validators = [{key: value for key, value in row.items() if key != "proposer_priority"}
+                  for row in settlement["validators"]]
+    count = str(len(validators))
+    case = {
+        "id": "committed-ok", "rawTransaction": settlement["raw_transaction"],
+        "receiptJson": receipt, "pinnedKey": sdk["pinnedKey"], "prevSeqHash": sdk["prevSeqHash"],
+        "eth_receipt": {"transactionHash": receipt["txHash"], "blockNumber": receipt["blockNumber"],
+                        "blockHash": receipt["blockHash"], "transactionIndex": receipt["index"],
+                        **{field: receipt[field] for field in ("status", "gasUsed", "logs")}},
+        "batch": {"from_seq": batch["FromSeq"], "to_seq": batch["ToSeq"], "height": str(batch["Height"]),
+                  "tx": hex_base64(wire["data"]), "proof": {
+                      "total": int(wire["proof"]["total"]), "index": int(wire["proof"]["index"]),
+                      "leafHash": hex_base64(wire["proof"]["leaf_hash"]),
+                      "aunts": [hex_base64(aunt) for aunt in wire["proof"]["aunts"]]}},
+        "chain_id": settlement["execution_header"]["chain_id"],
+        "commit": {"signed_header": {"header": settlement["execution_header"], "commit": settlement["execution_commit"]}},
+        "validators": {"block_height": settlement["execution_header"]["height"],
+                       "validators": validators, "count": count, "total": count},
+        "receiptInclusion": sdk["receiptInclusion"], "settlement": settlement,
+        "results_commit": {"signed_header": {"header": settlement["header"], "commit": settlement["commit"]}},
+        "results_validators": {"block_height": settlement["header"]["height"],
+                               "validators": settlement["validators"], "count": count, "total": count},
+    }
+    below = deepcopy(case)
+    below["id"] = "r7-height-below-receipt"
+    below["eth_receipt"]["blockNumber"] = hex(int(receipt["height"], 16) - 1)
+    mismatch = deepcopy(case)
+    mismatch.update(id="r8-commit-height-mismatch", chain_id=negative["chain_id"], **negative["four_of_four"])
+    unrelated = deepcopy(mismatch)
+    unrelated["id"] = "unrelated-valid-header"
+    unrelated["receiptJson"]["rung"] = "receipted"
+    del unrelated["receiptInclusion"]
+    del unrelated["settlement"]
+    return [case, below, mismatch], [unrelated]
+
+
+def compare_settlements(vectors, source, sdk, root):
+    receipt = source["settlement"]["receipt"]
+    log = receipt["logs"][0]
+    data = bytes.fromhex(log["data"][2:])
+    expected = {
+        "name": "committed_settlement", "valid": True,
+        "expected": {"verdict": "accept", "field": "/success"},
+        "document": {"success": True, "payer": log["topics"][1][2:],
+                     "transaction": receipt["txHash"], "network": "eip155:125",
+                     "amount": str(int.from_bytes(data[:32], "big")),
+                     "extensions": {"layerx": {"signedReceipt": receipt["receipt"],
+                         "receiptDigest": sdk["receiptDigest"], "verificationLevel": "committed",
+                         "blockNumber": receipt["blockNumber"], "blockHash": receipt["blockHash"]}}},
+    }
+    retained = load("daemon/committed-fixture/vectors/" + RETAINED[0], root)
+    payment = next(case for case in retained["cases"] if case["id"] == "V1-layerxledger-pay-exact")
+    receipted = {
+        "name": "receipted_settlement", "valid": True,
+        "expected": {"verdict": "accept", "field": "/success"},
+        "document": {"success": True, "payer": payment["receiptJson"]["from"],
+                     "transaction": payment["receiptJson"]["txHash"], "network": "eip155:125",
+                     "amount": "1000000", "extensions": {"layerx": {
+                         "signedReceipt": payment["signedReceipt"], "receiptDigest": payment["receiptDigest"]}}},
+    }
+    pending = deepcopy(receipted)
+    pending.update(name="submitted_settlement", expected={"verdict": "pending", "field": "/errorReason"})
+    pending["document"].update(success=False, errorReason="settlement_pending")
+    refused = deepcopy(receipted)
+    refused.update(name="committed_without_proof", valid=False,
+                   expected={"verdict": "refuse", "field": "/transaction"})
+    refused["document"]["transaction"] = ""
+    del refused["document"]["extensions"]["layerx"]["signedReceipt"]
+    compare(vectors, [receipted, pending, refused, expected], X402)
+    return 4
+
+
+def compare_retained(root):
     count = 0
-    for name, receipt in document.items():
-        if name in ("provenance", "key", "tls"):
-            continue
-        if name == "unknown" and receipt is None:
-            continue
-        location = f"{path}:{name}"
-        expected = source_case(by_hash, receipt["txHash"], location)
-        view = dict(expected["receiptJson"])
-        if name == "submitted":
-            view = {
-                "rung": "submitted",
-                "txHash": view["txHash"],
-                "nonce": view["nonce"],
-            }
-        elif name == "committed":
-            view["rung"] = "committed"
-            view["blockNumber"] = view["height"]
-            require("blockHash" in receipt, location, "missing committed block hash")
-            view["blockHash"] = receipt["blockHash"]
-        compare(receipt, view, location)
-        if "key" in document:
-            compare(document["key"], expected["pinnedKey"], f"{location}.key")
-        count += 1
-    require(count >= 4, path, "missing receipt envelopes")
-    for name in ("submitted", "receipted", "committed", "reverted"):
-        require(name in document, path, f"missing {name} envelope")
+    for name in RETAINED:
+        path = "sdk/platform/conformance/fixtures/" + name
+        copied = load(path, root)
+        recorded = load("daemon/committed-fixture/vectors/" + name, root)
+        if name == RETAINED[0]:
+            compare(copied["cases"], recorded["cases"], path)
+        elif name == RETAINED[1]:
+            require(len(copied["cases"]) == 1, path, "missing reverted receipt")
+            case = copied["cases"][0]
+            for field in ("rawTransaction", "receiptJson", "lxpCode"):
+                compare(case[field], recorded[field], path + ":" + field)
+            compare(case["signedReceipt"], recorded["receiptJson"]["receipt"], path + ":signedReceipt")
+        else:
+            ids = ["V3-key-not-pinned", "V3-height-outside-key-range", "V3-activity-id-not-raw-hash",
+                   "V3-seq-hash-mismatch", "V3-tampered-log", "V3-non-canonical-bytes"]
+            compare([case["id"] for case in copied["cases"]], ids, path + ":refusal coverage")
+            require(len(recorded["cases"]) == len(ids), path, "recorded refusal coverage differs")
+            for case, original, rung in zip(copied["cases"], recorded["cases"], ("R3", "R3", "R4", "R6", "R5", "R2")):
+                location = path + ":" + case["id"]
+                compare(case["receiptJson"], original["receiptJson"], location)
+                compare(case["signedReceipt"], original["receiptJson"]["receipt"], location + ".signedReceipt")
+                compare(case["rawTransaction"], recorded["rawTransaction"], location + ".rawTransaction")
+                compare(case["expected"]["refusedAt"], rung, location + ".expected.refusedAt")
+        count += len(copied["cases"])
     return count
 
 
-def compare_settlements(path, by_hash, chain_id):
-    vectors = load(path)
-    require(bool(vectors), path, "no settlement vectors")
-    count = 0
-    receipts = 0
-    for vector in vectors:
-        document = vector["document"]
-        location = f"{path}:{vector['name']}"
-        if not document["transaction"]:
-            continue
-        expected = source_case(by_hash, document["transaction"], location)
-        compare(document["network"], f"eip155:{chain_id}", f"{location}.network")
-        if "payer" in document:
-            compare(
-                document["payer"],
-                expected["receiptJson"]["from"],
-                f"{location}.payer",
-            )
-        extension = document.get("extensions", {}).get("layerx", {})
-        if document["success"] and vector["valid"]:
-            require("receipt" in extension, location, "missing settlement receipt")
-        if "receipt" in extension:
-            receipt = base64.b64decode(extension["receipt"], validate=True)
-            compare(
-                receipt,
-                bytes.fromhex(expected["signedReceipt"][2:]),
-                f"{location}.receipt",
-            )
-            compare(
-                extension["receiptDigest"],
-                expected["receiptDigest"][2:],
-                f"{location}.receiptDigest",
-            )
-            compare(
-                extension["verificationLevel"],
-                expected["receiptJson"]["rung"],
-                f"{location}.verificationLevel",
-            )
-            receipts += 1
-        count += 1
-    require(receipts > 0, path, "no copied settlement receipts")
-    return count
-
-
-def check_receipt_vector_copies():
-    source = load(SOURCE)
-    require(bool(source["cases"]), SOURCE, "no source cases")
-    by_hash = {}
-    for case in source["cases"]:
-        by_hash.setdefault(case["receiptJson"]["txHash"], []).append(case)
-
-    explorer = load(EXPLORER)["sequencer"]
-    count = compare_cases(explorer["cases"], by_hash, EXPLORER)
-    for field in ("chainId", "moduleId", "feeDenom"):
-        compare(explorer[field], source[field], f"{EXPLORER}:{field}")
-    count += compare_envelopes(RELAYER, by_hash)
-    count += compare_envelopes(GAS_STATION, by_hash)
-    count += compare_settlements(X402, by_hash, source["chainId"])
+def check_receipt_vector_copies(root=ROOT):
+    source = load(SOURCE, root)
+    converter = runpy.run_path(str(root / CONVERTER))
+    sdk = converter["_committed"](source)
+    copied_sdk = load(SDK, root)
+    compare(copied_sdk["positive"], sdk, SDK + ":positive")
+    compare(copied_sdk["refusals"], [{"id": "insufficient-power",
+            "nextCommit": converter["_commit"](source["settlement"]["commit_at_most_two_thirds"]),
+            "expectedCheck": "committed-next-commit"}], SDK + ":refusals")
+    digest = sha256((root / SOURCE).read_bytes()).hexdigest()
+    compare(copied_sdk["provenance"]["source"], SOURCE, SDK + ":source")
+    compare(copied_sdk["provenance"]["sha256"], digest, SDK + ":sha256")
+    interop = load(INTEROP, root)
+    compare(interop["provenance"]["source"], SOURCE, INTEROP + ":source")
+    compare(interop["provenance"]["sourceSha256"], digest, INTEROP + ":sourceSha256")
+    for field in ("positive", "settlement", "authorization"):
+        compare(interop[field], source[field], INTEROP + ":" + field)
+    expected_interop = interop_cases(source, sdk)
+    compare(interop["cases"], expected_interop, INTEROP + ":cases")
+    explorer = load(EXPLORER, root)
+    compare(explorer["source"]["positive"], SOURCE, EXPLORER + ":source")
+    compare(explorer["source"]["sha256"], digest, EXPLORER + ":sha256")
+    cases, refusals = explorer_cases(source, sdk, load(COMET, root))
+    compare(explorer["cases"], cases, EXPLORER + ":cases")
+    compare(explorer["refusals"], refusals, EXPLORER + ":refusals")
+    count = 2 + len(expected_interop) + len(cases) + len(refusals)
+    count += compare_settlements(load(X402, root), source, sdk, root)
+    count += compare_retained(root)
     print(f"Compared {count} receipt vector copies with {SOURCE}")
 
 
-if __name__ == "__main__":
+def main():
     try:
         check_receipt_vector_copies()
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f"receipt vector copy check failed: {error}", file=sys.stderr)
-        sys.exit(1)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

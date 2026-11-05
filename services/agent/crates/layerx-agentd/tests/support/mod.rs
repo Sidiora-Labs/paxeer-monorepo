@@ -16,10 +16,6 @@ use std::time::{Duration, Instant};
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::boot::{Gate, GateError};
 use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
-use layerx_agentd::prepare::{
-    prepare_activity, prepare_activity_for_protocol, CorePreparationBoundary, CorePreparationState,
-    CoreStateError, PreparationDefaults, PrepareRequest,
-};
 use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, RawStateEvidence};
 use layerx_agentd::sign::{verify_before_submit, SigningPreparation, VerifiedSubmission};
 use layerx_agentd::store::TenantId;
@@ -27,14 +23,9 @@ use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
-use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::{sign_disclosed, Signer};
 use layerx_programs::hex;
 use layerx_proof::merkle::build_proof;
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
@@ -45,7 +36,8 @@ use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-mod real_authority;
+pub(crate) mod node_transcripts;
+pub(crate) mod real_authority;
 pub(crate) mod send_authorization;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
@@ -66,14 +58,6 @@ fn ready<F: Future>(future: F) -> F::Output {
     }
 }
 
-struct RecordedCore(CorePreparationState);
-
-impl CorePreparationBoundary for RecordedCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
-}
-
 fn activity_type() -> ActivityType {
     ActivityType::new(ModuleId::Asset, 5).unwrap_or_else(|error| panic!("activity: {error:?}"))
 }
@@ -84,61 +68,6 @@ fn registry() -> ModuleRegistry {
             .unwrap_or_else(|error| panic!("registration: {error:?}"))],
     )
     .unwrap_or_else(|error| panic!("registry: {error:?}"))
-}
-
-fn send_payload(id: u8) -> Vec<u8> {
-    let mut encoder = Encoder::new(512);
-    encoder
-        .u16(0x5301)
-        .unwrap_or_else(|error| panic!("tag: {error:?}"));
-    encoder
-        .u16(10)
-        .unwrap_or_else(|error| panic!("fields: {error:?}"));
-    for fixed in [[0x11; 32], [0x22; 32], [0x33; 32]] {
-        encoder
-            .fixed(&fixed)
-            .unwrap_or_else(|error| panic!("fixed: {error:?}"));
-    }
-    encoder
-        .u128(25)
-        .unwrap_or_else(|error| panic!("amount: {error:?}"));
-    encoder
-        .u64(5)
-        .unwrap_or_else(|error| panic!("sequence: {error:?}"));
-    encoder
-        .fixed(&[id; 32])
-        .unwrap_or_else(|error| panic!("idempotency: {error:?}"));
-    encoder
-        .u64(1_010)
-        .unwrap_or_else(|error| panic!("expiry: {error:?}"));
-    encoder
-        .fixed(&[0x55; 32])
-        .unwrap_or_else(|error| panic!("context: {error:?}"));
-    encoder
-        .u8(0)
-        .unwrap_or_else(|error| panic!("conditions: {error:?}"));
-    encoder
-        .u8(1)
-        .unwrap_or_else(|error| panic!("authority: {error:?}"));
-    encoder
-        .fixed(&[0x11; 32])
-        .unwrap_or_else(|error| panic!("controller: {error:?}"));
-    encoder
-        .fixed(&[0x66; 32])
-        .unwrap_or_else(|error| panic!("payload key: {error:?}"));
-    encoder
-        .fixed(&[0x77; 64])
-        .unwrap_or_else(|error| panic!("payload signature: {error:?}"));
-    encoder
-        .fixed(&[0x55; 32])
-        .unwrap_or_else(|error| panic!("signed context: {error:?}"));
-    encoder
-        .u32(17)
-        .unwrap_or_else(|error| panic!("network: {error:?}"));
-    encoder
-        .u16(layerx_wire::limits::PROTOCOL_VERSION)
-        .unwrap_or_else(|error| panic!("version: {error:?}"));
-    send_authorization::sign(encoder.finish())
 }
 
 pub fn signed_transaction(id: u8) -> Vec<u8> {
@@ -156,46 +85,14 @@ pub fn signed_transaction(id: u8) -> Vec<u8> {
 }
 
 pub fn verified_submission(id: u8) -> VerifiedSubmission {
-    let signer = LocalSigner::new([0xa5; 32]);
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: 5,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: 88,
-        module_registry: registry(),
-    });
-    let prepared = prepare_activity(
-        &mut core,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
-            maximum_payload_bytes: 1_024,
-        },
-        PrepareRequest {
-            actor: Did::new(b"did:layerx:recovery")
-                .unwrap_or_else(|error| panic!("DID: {error:?}")),
-            authority: Authority::owner(&signer.public_key())
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            activity_type: activity_type(),
-            expected_account_sequence: Some(5),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([id; 32]),
-            payload: send_payload(id),
-            declared_payload_limit: 1_024,
-        },
-    )
-    .unwrap_or_else(|error| panic!("prepare: {error:?}"));
-    verified_evm_call(
-        layerx_agentd::prepare::PrecompileCall::ledger_transfer(
-            prepared.envelope.payload().as_bytes().to_vec(),
-        ),
-        prepared.envelope.account_sequence(),
+    let prepared = send_authorization::preparation(id);
+    let signed = must(prepared.transaction.call.sign(&[0xa5; 32]));
+    must(verify_before_submit(
+        &signed,
+        &prepared,
+        &prepared.actor_address,
         &registry(),
-    )
+    ))
 }
 
 fn evm_sender() -> [u8; 20] {
@@ -323,40 +220,6 @@ pub fn budget_create_submission(
     expiry_ms: u64,
 ) -> VerifiedSubmission {
     let registry = budget_registry();
-    let signer = LocalSigner::new([0xa5; 32]);
-    let mut core = RecordedCore(CorePreparationState {
-        network_id: 17,
-        account_sequence: BUDGET_CREATE_SEQUENCE,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: 88,
-        module_registry: registry.clone(),
-    });
-    let prepared = prepare_activity_for_protocol(
-        &mut core,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
-            maximum_payload_bytes: 1_024,
-        },
-        PrepareRequest {
-            actor: Did::new(BUDGET_CREATE_ACTOR.as_bytes())
-                .unwrap_or_else(|error| panic!("DID: {error:?}")),
-            authority: Authority::owner(&signer.public_key())
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            activity_type: budget_create_activity_type(),
-            expected_account_sequence: Some(BUDGET_CREATE_SEQUENCE),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new([id; 32]),
-            payload: budget_create_payload(budget_id, asset, per_period_limit, expiry_ms),
-            declared_payload_limit: 1_024,
-        },
-        BUDGET_CREATE_PROTOCOL,
-    )
-    .unwrap_or_else(|error| panic!("prepare: {error:?}"));
     let request = layerx_agentd::budget::BudgetRequest {
         tenant: tenant(),
         request_id: [id; 32],
@@ -365,7 +228,7 @@ pub fn budget_create_submission(
         ceiling: per_period_limit,
         expiry_ms,
         core_time_ms: 1_000,
-        canonical_activity: prepared.canonical_bytes.clone(),
+        canonical_activity: Vec::new(),
         verified_submission: None,
     };
     let identity = layerx_agentd::budget::BudgetCreateIdentity {
@@ -388,7 +251,7 @@ pub fn budget_create_submission(
     };
     verified_evm_call(
         must(request.create_protocol_budget(&identity)),
-        prepared.envelope.account_sequence(),
+        BUDGET_CREATE_SEQUENCE,
         &registry,
     )
 }
@@ -890,6 +753,7 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
 fn encoded_receipt(
     tx_hash: [u8; 32],
     sender: [u8; 20],
+    recipient: [u8; 20],
     nonce: u64,
     success: bool,
     signature: Option<[u8; 64]>,
@@ -904,7 +768,7 @@ fn encoded_receipt(
     let mut from = [0; 32];
     from[12..].copy_from_slice(&sender);
     let mut to = [0; 32];
-    to[12..].fill(0x22);
+    to[12..].copy_from_slice(&recipient);
     let vm_error = if success { "" } else { "execution reverted" };
     let mut summary = Encoder::new(256);
     must(summary.u64(21_000));
@@ -974,9 +838,16 @@ pub fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) 
     let tx_hash = transaction_hash(raw);
     let nonce = transaction.nonce;
     let signer = SigningKey::from_bytes(&[8; 32]);
-    let unsigned = encoded_receipt(tx_hash, sender, nonce, success, None);
+    let unsigned = encoded_receipt(tx_hash, sender, transaction.to, nonce, success, None);
     let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
-    let bytes = encoded_receipt(tx_hash, sender, nonce, success, Some(signature));
+    let bytes = encoded_receipt(
+        tx_hash,
+        sender,
+        transaction.to,
+        nonce,
+        success,
+        Some(signature),
+    );
     let key = ReceiptKeyEntry {
         key_id: KEY_ID,
         public_key: signer.verifying_key().to_bytes(),
@@ -990,8 +861,8 @@ pub fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) 
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
-        "from": rpc_hex(&sender), "to": rpc_hex(&[0x22; 20]), "contractAddress": rpc_hex(&[0; 20]),
+        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "from": rpc_hex(&sender), "to": rpc_hex(&transaction.to), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
         "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
         "signingKey": rpc_hex(&key.public_key)
@@ -1009,6 +880,11 @@ pub struct SequencerTraffic {
 }
 
 pub fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<SequencerTraffic>) {
+    let (url, server) = serve_with_url(exchanges);
+    (must(SequencerEndpoint::new(&url, &[])), server)
+}
+
+pub fn serve_with_url(exchanges: Vec<Exchange>) -> (String, JoinHandle<SequencerTraffic>) {
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     let url = format!("http://{}/", must(listener.local_addr()));
     must(listener.set_nonblocking(true));
@@ -1070,5 +946,5 @@ pub fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<Sequenc
         }
         traffic
     });
-    (must(SequencerEndpoint::new(&url, &[])), server)
+    (url, server)
 }

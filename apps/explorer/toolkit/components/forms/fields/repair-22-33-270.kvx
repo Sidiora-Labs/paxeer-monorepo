@@ -1,0 +1,52 @@
+[repair.22.33.270]
+audit = "22.30.131"
+base_revision = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+continuation_base_revision = "56b2fb537703927c74af44bb8d056235b67d2af1"
+evidence = "hf-done records the verified candidate revision, command, exit code and private log in /out/run/gates.jsonl."
+baseline = "Not executed: the ordered task instructions require complete implementation before qualification and prohibit running verify_cmd by hand."
+wiring_requests = []
+test_environment = "Uses the explorer vitest/lib render harness and configured vitest/setup.ts, real observer polyfills, CSSOM identifier escaping, and stylesheet matching that excludes browser-only pseudo-elements and vendor pseudo-classes; all four behavior tests retain their assertions."
+environment_repair = "The first continuation verification failed before test collection because jsdom has no CSS namespace; install the CSS.escape polyfill on both globalThis and window even when the namespace is absent. Evidence: revision bae2f6ce0e722071e0dd9e0ff7c8f9c8be27b3cc, cg spec done 22.33.270 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log."
+
+[finding.color-field-form-value]
+tests = ["colorFieldKeepsExistingEditsAndResetsAligned", "colorFieldUsesControllerDefaultAndResetsToEmpty"]
+repair = "The input and swatch consume the controller value; input edits, reset and validation flow through the real form provider."
+
+[finding.radio-field-rules]
+tests = ["radioFieldRequiredRuleRefusesSubmission", "radioFieldCustomValidatorRefusesSubmission"]
+repair = "Validation rules reach useController and are excluded from RadioGroup presentation props; real submissions prove refusal and acceptance."
+
+[qualification.unrelated-dependency]
+revision = "c78aec9111b952e3d72b3a022bd4507cf6b3949f"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "An existing out-of-scope test ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts cannot resolve ganache."
+assumption = "The explorer owning domain must declare and provide that test dependency; this repair does not change its files or checks."
+
+[continuation.attempt-4]
+repairs = "Removed the seeded nested install; dependencies are declared and locked for installation by hf-build. Excluded unsupported placeholder selectors before matching swatch styles. Radio selection and reset interactions await React commits before the next real submission, retaining every refusal assertion."
+previous_failures = "The prior attempt failed both color tests on browser-only placeholder selectors and the custom radio validator test when submitting after reset; no unchanged-tree verification is rerun in this continuation."
+evidence_record = "/out/run/gates.jsonl records the candidate revision, exact gate command, exit code and private log path; hf-done is the completion gate."
+
+[qualification.eslint]
+command = "cd apps/explorer && yarn eslint --fix toolkit/components/forms/fields/FormFieldColor.tsx toolkit/components/forms/fields/FormFieldRadio.tsx toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+exit = 0
+log = "/out/logs/eslint-22-33-270.log"
+
+[qualification.continuation-repair]
+revision = "0cb8ff299abc837214c4005dd8e07ebd1366bdbf"
+command = "cg spec done 22.33.270 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both radio tests passed; both color tests stopped on jsdom rejecting the vendor pseudo-class :-moz-ui-invalid before evaluating swatch colors."
+repair = "Exclude browser vendor pseudo-classes consistently from stylesheet matching, retain swatch assertions, and await color edit/reset commits before checking or submitting."
+
+[qualification.repair-eslint]
+command = "cd apps/explorer && yarn eslint --fix toolkit/components/forms/fields/FormFieldColor.tsx toolkit/components/forms/fields/FormFieldRadio.tsx toolkit/components/forms/fields/repair-22-33-270.spec.ts"
+exit = 0
+log = "/out/logs/eslint-22-33-270-repair.log"
+
+[gotcha.package-manager-directory]
+symptom = "Invoking yarn with --cwd from the repository root is rejected by Corepack because the root declares npm."
+resolution = "Run yarn from apps/explorer, which declares its Yarn version."

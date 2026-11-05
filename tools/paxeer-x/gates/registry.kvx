@@ -414,6 +414,9 @@ gate = "tools/paxeer-x/gates/108.0.7.sh"
 
 [task.108.1.10]
 gate = "tools/paxeer-x/gates/108.1.10.sh"
+status = "retired"
+replacement = "tools/paxeer-x/gov/test.sh"
+policy = "Selector executes only the custody retirement refusal; never grants release credit."
 
 [task.110.8.2]
 gate = "tools/paxeer-x/gates/110.8.2.sh"

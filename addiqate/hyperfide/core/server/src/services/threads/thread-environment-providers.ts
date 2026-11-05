@@ -1,0 +1,110 @@
+import { cancelProviderEnvironmentCreation } from "../environments/environment-engine.js";
+import { listEnvironmentProviders } from "../plugins/plugin-environment-provider-registry.js";
+import {
+  clearThreadProvisionSchedule,
+  getThreadProvisionContext,
+  listThreadProvisionSchedules,
+  setThreadProvisionSchedule,
+} from "./thread-startup-store.js";
+import { advanceThreadProvisioning } from "./thread-provisioning.js";
+import type { ThreadProvisioningDeps } from "./thread-provisioning-environment.js";
+import { removeCreatingMachine } from "../machines/provider-orchestration.js";
+
+const stoppedDatabases = new WeakSet<object>();
+const scheduling = new WeakMap<object, Set<Promise<void>>>();
+
+export async function stopEnvironmentProvisioningSchedules(
+  db: object,
+): Promise<void> {
+  stoppedDatabases.add(db);
+  const pending = scheduling.get(db);
+  while (pending?.size) await Promise.allSettled([...pending]);
+}
+
+export async function scheduleEnvironmentProvisioning(
+  deps: ThreadProvisioningDeps,
+  threadId: string,
+  at: number,
+): Promise<void> {
+  if (stoppedDatabases.has(deps.db)) return;
+  const pending = scheduling.get(deps.db) ?? new Set<Promise<void>>();
+  scheduling.set(deps.db, pending);
+  const task = scheduleEnvironmentProvisioningOnce(deps, threadId, at);
+  pending.add(task);
+  try {
+    await task;
+  } finally {
+    pending.delete(task);
+  }
+}
+
+async function scheduleEnvironmentProvisioningOnce(
+  deps: ThreadProvisioningDeps,
+  threadId: string,
+  at: number,
+): Promise<void> {
+  const context = await getThreadProvisionContext(deps.db, threadId);
+  if (
+    stoppedDatabases.has(deps.db) ||
+    context === null ||
+    context.request.environmentIntent.type !== "provider"
+  )
+    return;
+  const timer = setTimeout(
+    async () => {
+      clearThreadProvisionSchedule(threadId);
+      if (stoppedDatabases.has(deps.db)) return;
+      if (Date.now() < at)
+        return await scheduleEnvironmentProvisioning(deps, threadId, at);
+      void advanceThreadProvisioning(deps, { threadId }).catch((error) =>
+        deps.logger.warn({ threadId, error }, "Environment advancement failed"),
+      );
+    },
+    Math.min(Math.max(0, at - Date.now()), 2_147_483_647),
+  );
+  timer.unref?.();
+  setThreadProvisionSchedule(threadId, {
+    provisioningId: context.state.provisioningId,
+    environmentProviderId:
+      context.request.environmentIntent.environmentProviderId,
+    timer,
+  });
+}
+
+export async function recheckEnvironmentProviderCreations(
+  deps: ThreadProvisioningDeps,
+  pluginId: string,
+): Promise<void> {
+  const owned = new Set(
+    listEnvironmentProviders()
+      .filter((record) => record.pluginId === pluginId)
+      .map((record) => record.provider.id),
+  );
+  for (const entry of listThreadProvisionSchedules())
+    if (owned.has(entry.environmentProviderId))
+      await scheduleEnvironmentProvisioning(deps, entry.threadId, Date.now());
+}
+
+export async function recheckEnvironmentProvisioning(
+  deps: ThreadProvisioningDeps,
+  threadId: string,
+): Promise<void> {
+  await scheduleEnvironmentProvisioning(deps, threadId, Date.now());
+}
+
+export function scheduledEnvironmentProviderAskCount(): number {
+  return listThreadProvisionSchedules().length;
+}
+
+export function cancelAbandonedProviderCreations(
+  deps: ThreadProvisioningDeps,
+  threadId: string,
+): void {
+  clearThreadProvisionSchedule(threadId);
+  void cancelProviderEnvironmentCreation(deps, threadId).catch((error) =>
+    deps.logger.warn({ threadId, error }, "Environment cancellation failed"),
+  );
+  void removeCreatingMachine(deps, threadId).catch((error) =>
+    deps.logger.warn({ threadId, error }, "Machine cancellation failed"),
+  );
+}

@@ -1,0 +1,23 @@
+[repair."22.33.358"]
+source_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+status = "In-scope repairs implemented; qualification is established only by the bounded hf-build/hf-done ledger."
+acceptance = "22998.1: the unchanged candidate must pass python3 --version through hf-build and the declared pytest plus graph checks through hf-done; the private gate ledger names the verified candidate revision, command, exit and evidence log."
+baseline = "No baseline verification ran: the ordered instructions require full implementation before gates and prohibit running verify_cmd by hand. Initial source inspection found HealthV1 and null required entries; these would violate test_health_v1_dead_operation_is_retired and test_openapi_null_required_uses_real_property_lists_and_explicit_removal, but no baseline test failure is claimed."
+proof = "Pytest parses all production YAML overlays and upstream input, checks exact required lists against real properties, evaluates the replacement/removal data contract, and checks the production TypeScript merge/customizer/removal/validation/write call sequence. It checks the declared health route against both production routers, controller JSON emission and the Rust client's GET path, and validates the committed real health response against the overlaid schema in process."
+limits = "Source checks and an independent Python overlay evaluator do not execute lodash, TypeScript, Elixir or Rust. Review establishes the TypeScript control flow; full OpenAPI validation, generated-file freshness and consumer integration require the out-of-scope wiring below. No generated artifact or client regeneration is claimed."
+gotcha = "OpenAPI 3.0 required lists cannot be empty, so TotalERC20, TokenBalance and StatsResponse remove required explicitly; the retained address requirement must use the real address_hash property. Replacing arrays also prevents upstream trailing required names from surviving a shorter override."
+evidence = "The final response copies the last bounded gate's exact revision, command, exit and private log; gate evidence is external to this record to keep build and verification on the same candidate revision."
+
+[finding.health-v1-dead-operation]
+repair = "Retire /api/v1/health and its overlay-only v1 response/data declarations; preserve /api/health and its complete 200/500 schemas. The upstream /api/v2/health declaration and its separate serving-status schema are unchanged."
+tests = ["test_health_v1_dead_operation_is_retired", "test_health_producer_transport_and_recorded_response_match_overlay"]
+
+[finding.openapi-null-required]
+repair = "Use complete replacement arrays of actual property names, remove required when all fields are optional, replace arrays through lodash.mergeWith, and reject invalid required lists before writing the merged schema. Preserve the existing nullable and __REMOVE__ reference semantics."
+tests = ["test_openapi_null_required_uses_real_property_lists_and_explicit_removal", "test_merge_overrides_wires_array_replacement_removal_and_validation_before_write"]
+
+[wiring]
+merged_schema = "Domain 14: regenerate and fully validate services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml from the repaired overlays and merger before publishing generated artifacts."
+consumer = "Domain 14: regenerate services/explorer/services/libs/blockscout-client/crate/src from that validated OpenAPI to retire HealthV1 and its obsolete models while preserving hand-maintained client repairs."
+integration_test = "Domain 14: migrate services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs from health_v1() to the supported /api/health operation and its current response fields."
+generator = "Domain 14: remove --skip-validate-spec in services/explorer/services/libs/blockscout-client/scripts/generate.py and require full OpenAPI validation before Rust client generation."

@@ -1,0 +1,169 @@
+[repair.22.33.23]
+audit = "spec/layerx-merge/programme/audit/records/22.30.101.kvx"
+input_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+requirement = "22998.1"
+verification = "cd services/agent/sdk/typescript && npm run build && node dist/test/repair-22-33-23.test.js"
+evidence = "The runner records candidate revision, command, exit and private log in its hf-build/hf-done ledger; no gate is claimed here before it runs."
+baseline = "No baseline gate ran: the required repair entry point did not exist on input, and the ordered instructions prohibit testing before full implementation and require hf-build before hf-done; no before-change failures are claimed as executed."
+qualification = "Audit closure requires a passing hf-done; native execution is not established by byte comparisons, SDK payload round trips or source assertions."
+
+[finding.daemon-probe-test]
+tests = ["daemon_probe_uses_hosted_authentication_and_disclosure"]
+repair = "The actual case-file probe is callable without process environment, uses read_hosted and readiness_hosted on AgentEnvelopeTransport's hosted route, refuses retired TLS/endpoint inputs, and retains authentication, generation, readiness, refusal, redaction and malformed-read/mutation disclosure checks."
+peer = "Loopback HTTPS with committed test certificate and shared agent-api golden envelopes; only the correlated request ID changes during replay; readiness cases use the production readiness codec with in-memory peer observations."
+wiring = "tools/qualification/paxeer-x/agent_operation_envelope.py — domain 9 agent qualification owner: emit read_hosted/readiness_hosted cases and expected_readiness, remove daemon_endpoint/client_cert_file/client_key_file/server_ca_file from the owning case-file producer."
+
+[finding.trading-latest-test]
+tests = ["TradingWriter.send signs and sends for the bound pair", "an unbound account binds through the explicit bind path and then writes through TradingWriter.send", "trading_pending_queue_accepts_a_second_trade", "trading_pending_queue_refuses_stale_and_malformed_nonces"]
+repair = "The in-memory addr peer has separate committed and pending nonce state; production TradingWriter sends must discover pending, sign the exact queued nonce, admit two distinct trades without committing the first, and refuse stale and malformed nonce replies without a raw send."
+wiring = "services/agent/sdk/typescript/src/perps.ts — domain 9 TypeScript SDK owner: retain the input revision's canonical pending-nonce validation; the committed-nonce floor belongs to the node admission consumer and is represented separately by the in-memory queue peer."
+
+[finding.exchange-execution-test]
+tests = ["exchange_account_bearing_dispatch_is_required"]
+repair = "The existing Anvil wallet-request and transaction-byte assertions remain intact and are labelled as unit transport coverage; the focused regression reproduces the committed SDK calldata consumed by the native repair-459 test, checks the real account-bearing ABI selector and every argument word, and independently encodes the supported legacy overload."
+remaining = "No merged-node execution success, created order account or cancellation is claimed: no producer-issued account-bearing execution transcript is committed, and the allowed Node gate cannot invoke a native toolchain or node binary."
+wiring = "precompiles/layerxexchange/testdata and modules/layerxexchange/keeper — domain 3 exchange owner: supply a committed execution/receipt/state transcript including created order account and cancellation for the offline SDK harness; account-bearing dispatch is already implemented by 22.31.459."
+
+[finding.names-route-test]
+tests = ["resolveName", "root_route_contracts_match_the_actual_producers"]
+repair = "The existing real namehash/resolution consumer runs through JsonRpcClient at /; the loopback peer rejects /rpc and /rpc/ws before dispatch and retains all selector, method, shape, unowned-name, malformed-response and error assertions."
+wiring = "rpc/rpcstack.go and services/platform/hosted/gateway/src/main.rs — node RPC and hosted gateway owners: retain the root route and provide producer-recorded name-resolution exchanges; source route checks are not native handler execution."
+
+[finding.exchange-parity-test]
+tests = ["exchange_account_abi_matches_place_order", "exchange_account_bearing_dispatch_is_required"]
+repair = "Every exact ABI-membership assertion is retained; expectations select the approved accountId overload from the production ABI and check argument names/types, selector, total width, account word isolation and invalid width refusals; legacy-overload coverage preserves the complete ABI inventory check and proves five-input encoding remains valid while each overload refuses the other's argument count."
+producer = "precompiles/layerxexchange/layerxexchange.go already dispatches both ABI overloads; precompiles/layerxexchange/repair_459_test.go exercises their real admission and the committed SDK calldata. The Node gate proves SDK/ABI encoding parity without claiming to execute the native handler."
+
+[finding.lifecycle-abi-test]
+tests = ["lifecycle_abi_4_5_registration_codecs"]
+repair = "Real deploy/upgrade encoders, decoders and NativeProgramLifecycleRequest admit ABI 4/5; every supported monotonic transition is checked along with unsupported versions and 5-to-4 downgrade refusals; a retained ABI-2 signature cannot authorize changed ABI-4/5 payload bytes. All original signature, full-payload size, truncation, framing and mutation checks still execute."
+remaining = "SDK registration-codec admission is proven; native registry deploy/upgrade execution is not claimed by a codec round trip."
+wiring = "programs/crates/layerx-programs-registry and sdk/platform/conformance/fixtures — domain 13 native programs owner: publish native-consumer-issued ABI-4/5 signed registration and execution transcripts for the credential-free Node gate."
+
+[finding.gas-proof-route-test]
+tests = ["gas_nonce_root_route_uses_pending", "root_route_contracts_match_the_actual_producers"]
+repair = "The original station proof mounts/fetches / and explicitly refuses /rpc and /rpc/ws while preserving every existing assertion. The focused proof loads the real wallet JSON-RPC transport, calls production discoverSponsoredNonce, changes the in-memory pending nonce between reads and checks exact pending parameters, malformed nonce refusal and suffix rejection through both wallet and agent RPC consumers."
+peer = "Only sdk/wallet/src/rpc.ts is transpiled in process using the declared TypeScript dependency; no wallet build, viem install, external binary or subprocess is needed for the focused proof. The original full wallet station proof remains registered in its own test file."
+wiring = "rpc/rpcstack.go and services/platform/hosted/gateway/src/main.rs — node RPC and hosted gateway owners: retain root dispatch and provide native handler recordings for the nonce route; SDK loopback transport is not native handler execution."
+
+[finding.px-route-test]
+tests = ["px_root_route_preserves_history_cursor_and_errors", "root_route_contracts_match_the_actual_producers"]
+repair = "All px fixture endpoints and assertions use / and refuse invented suffixes before dispatch; the method inventory is named for the hosted gateway. Production PxClient consumes the committed gateway unified-history response with exact method/parameter/cursor, amount, metadata and error checks. Existing px method, shape, cursor, error and Python parity assertions remain intact in px.test.ts."
+peer = "apps/web/e2e/fixtures/px-get-unified-history.json; the focused gate replays this real gateway recording without invoking the separate Python parity toolchain."
+wiring = "services/platform/hosted/gateway/src/main.rs — hosted gateway owner: retain / JSON-RPC dispatch; the fixture replay proves the SDK transport/consumer path while the native route is checked against producer source."
+
+[gotcha.baseline_order]
+observed = "The requested unchanged-tree verification conflicts with the explicit ordered prohibition on pre-implementation gates; the entry point is also absent on input."
+action = "Follow the explicit gate order and state that no baseline ran, rather than invent before-change evidence."
+
+[gotcha.foreign_runtime]
+observed = "The existing full gas-station wallet proof imports viem and the wallet dependency tree, which are not installed by the scoped agent SDK build."
+action = "Keep that proof unchanged except its root routes; the focused root proof loads the actual dependency-free wallet RPC transport and production SDK nonce consumer instead."
+
+[gotcha.typescript_inference]
+observed = "hf-build at 5789d6379a099bc59fd13c1b83df89ba5735726d exited 2 (/out/logs/build-1.log): TypeScript TS7022 required explicit types for two fetch replies and a captured call count in asynchronous assertions."
+action = "Use the precise Response and number types; no assertion or production type changed."
+
+[qualification.verify_1]
+revision = "36d34dbd6e05d8a4abecd979184da87a74cd46a5"
+command = "cg spec done 22.33.23 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four pending-nonce assertions fail against TradingWriter's latest request; the unchanged five-input placeOrder inventory assertion aborts module loading before remaining focused tests register."
+assumption = "The production nonce and native exchange fixes require the out-of-scope owners already named; no audit finding is claimed closed by this failed gate."
+
+[gotcha.test_registration]
+observed = "Importing top-level precompile assertions into the focused entry point lets an inherited failure abort registration of unrelated tests."
+action = "Keep all inventory, calldata, selector, width, wallet and event assertions in a named async test; keep shared encoding helpers outside so the independent account ABI test still registers."
+
+[gotcha.gate_budget]
+observed = "The runner counts each build rerun and each verify rerun separately against two total repair units; build-2 has consumed one unit."
+action = "The remaining named-test repair receives hf-build, then hf-done is requested only through the allowed wrapper; a budget refusal cannot establish verification of the repaired candidate."
+
+[continuation.2]
+implementation = "Exchange expectations in precompile-calls, exchange-v2 and the shared consumer derive their selector from precompiles/layerxexchange/abi.json; both declared overloads retain exact inventory coverage. AddrChain refuses malformed raw encodings and decoded nonces below confirmed or different from pending before queue mutation, retaining its original equality assertions; every send and rejection is awaited."
+production = "The new base already includes TradingWriter.send's pending-tag discovery and canonical unsigned-quantity comparison; no production source or inherited out-of-scope bookkeeping was edited."
+wiring = "services/agent/sdk/typescript/src/exchange.ts — domain 9 TypeScript SDK owner: derive exchangePlaceOrderCall's encoder input types from the production ABI artifact; source generation and the writer are outside this task's test-only scope."
+external = "precompiles/layerxexchange/layerxexchange.go — domain 3 exchange owner: the input revision still validates five placeOrder arguments despite publishing the six-input overload; the account-bearing dispatch assertion remains intact until the real native consumer supports it."
+qualification = "Current-attempt gate evidence is recorded by hf-build/hf-done in their private ledger; prior-attempt evidence above is retained as historical evidence only."
+
+[gotcha.abi_overloads]
+observed = "The production exchange ABI now declares both legacy and account-bearing placeOrder overloads, so a complete inventory assertion must cover both without hard-coding the expected selector."
+action = "Select each overload by accountId membership in the ABI artifact, retain exact six-input name/type checks, and exercise the existing production encodeAbiCall encoder for the legacy inventory entry."
+
+[gotcha.native_dispatch]
+observed = "A published six-input ABI entry does not establish six-input native admission: the source handler still calls ValidateArgsLength(args, 5)."
+action = "Keep the native admission assertion, record its owning-domain wiring request, and do not replace the missing native execution proof with a test double or a successful byte comparison."
+
+[qualification.continuation_build_1]
+revision = "754091fdec873a578f52217340fe980b19735ac2"
+command = "cd services/agent/sdk/typescript && npm run build"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The added legacy inventory case imported private exchangeCall; the task-scoped repair uses its exported production encodeAbiCall encoder instead."
+
+[qualification.continuation_verify_1]
+revision = "784d7576f672a5e4b8ad33f299a5a3de874d8983"
+command = "cg spec done 22.33.23 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 13 registered tests passed, including pending-queue and exact ABI inventory checks, before the inherited top-level oversized lifecycle payload construction threw at the production encoder and prevented remaining tests from registering."
+
+[gotcha.lifecycle_test_lifetime]
+observed = "The current base encoder rejects registration payloads over 524288 bytes before a binder assertion can receive them; top-level asynchronous assertions also prevent unrelated tests from registering on import failure."
+action = "Run the original lifecycle checks inside a named async test, assert the encoder's size refusal, then mutate its valid boundary output for the retained independent signed-consumer size refusal; preserve the exact size bound and all existing assertions."
+
+[continuation.4]
+input_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+implementation = "The callable envelope probe throws its failed case/check details, and readiness mismatches identify the specific field; the regression intentionally compares a real hosted readiness reply against a differing expected verified_reads_ready and requires the thrown diagnosis without either credential."
+authentication = "The real hosted transport supplies LayerX-Key authentication, session coordinates, Accept and Content-Type headers; the loopback peer checks these plus user agent, byte length and mutation idempotency disclosure."
+fixture = "Schema-invalid response cases now send valid JSON with a missing envelope schema, retaining their exact decode-failure/never and unknown-outcome/unknown-outcome assertions; separate truncated-JSON requests retain transport-failure/safe for reads and unknown-outcome for mutations."
+qualification = "Current revision, command, exit and private evidence location are recorded by the hf-build/hf-done ledger; no successful audit closure is claimed before that gate passes."
+
+[gotcha.envelope_refusal_diagnostics]
+observed = "A generic qualification exception concealed which hosted case failed; truncated JSON is a transport-failure/safe read, whereas well-formed JSON with the wrong schema is decode-failure/never."
+action = "Keep both input classes and their distinct disclosure assertions, include failed case/check details in the thrown exception, and verify readiness field diagnostics over authenticated HTTPS."
+
+[qualification.continuation_4_verify_1]
+revision = "4815d6051d499e168cc5abfec46ccab58c0f799c"
+command = "cg spec done 22.33.23 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eighteen of twenty tests passed; all twelve hosted probe cases passed before the additional direct truncated-JSON mutation check received invalid-argument, and the unchanged native five-argument exchange admission check failed."
+assumption = "Drive truncated read and mutation cases through the same case-file probe, retaining exact disclosure assertions and checking the recorded raw replies; the domain 3 native-dispatch wiring request remains outside scope."
+
+[qualification.continuation_5_verify_1]
+revision = "9d03931be6b86a3750aa8787d22135ae62fbe69c"
+command = "cg spec done 22.33.23 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eighteen of twenty tests passed; the direct hosted readiness request lost its credentials, and the preserved literal six-argument source assertion rejects the prerequisite's count-variable implementation."
+assumption = "Use owned Uint8Array credentials as the existing case-file probe does; keep the exchange assertion exactly as instructed."
+
+[gotcha.buffer_secret_aliasing]
+observed = "SecretBytes copies with slice(), but Buffer.slice() aliases storage; clearing the scoped credential bytes clears the original Buffer-backed secret and the direct hosted request fails authentication."
+action = "Construct the direct test credentials from new Uint8Array(Buffer.from(...)), matching the working case-file probe, without changing any authentication or readiness assertion."
+
+[continuation.5]
+input_revision = "c818b417432ed4146609411aba9ce0edeeaf64d2"
+implementation = "The prerequisite 22.31.459 has landed; the direct hosted transport now owns Uint8Array secret storage and retains the malformed-readiness decode-failure assertion."
+conflict = "The required unchanged /ValidateArgsLength\\(args, 6\\)/ assertion cannot match the prerequisite's count = 6 branch followed by ValidateArgsLength(args, count); no exchange assertion is changed."
+wiring = "precompiles/layerxexchange/layerxexchange.go — domain 3 exchange owner: reconcile six-argument admission with the preserved literal ValidateArgsLength(args, 6) test requirement; source changes are outside this task's scope."
+qualification = "The final hf-build/hf-done private ledger records the exact candidate revision, command, exit and log; a failed gate is not audit closure."
+
+[continuation.6]
+input_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+observed = "The native handler correctly selects count = 6 and offset = 1 for PlaceOrderAccountSignature before ValidateArgsLength(args, count); the preserved literal source assertion is obsolete, not evidence of a remaining producer defect."
+interface = "precompiles/layerxexchange/testdata/repair_459_typescript.json contains SDK-produced input only; native admission, account state and truncated-calldata refusal are exercised in precompiles/layerxexchange/repair_459_test.go, which the allowed credential-free Node gate cannot execute without the prohibited Go subprocess or native artifact."
+wiring = "precompiles/layerxexchange/testdata — domain 3 exchange owner: provide producer-recorded execution, account-state and cancellation transcripts including refusal of five words under the six-argument selector, or an existing Node-callable real handler interface; the separately supported legacy five-argument selector must remain admitted."
+qualification = "No native behavioral replacement is claimed: a TypeScript reimplementation, an ABI-only check or a copied expected result would not execute the production handler; the inherited assertion remains pending the requested real interface."
+
+[continuation.7]
+input_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+implementation = "Per the attempt-7 ruling, exchange_account_bearing_dispatch_is_required replaces the obsolete handler source regex with production SDK encoding against the committed ABI: exact six-input schema, selector, word positions and recorded native-test input, plus five-input legacy encoding and reciprocal argument-count refusals."
+producer = "The native handler already switches on PlaceOrderAccountSignature, admits six arguments and forwards args[1] to RecordPlaceOrderIntentForAccount; prior native-dispatch wiring-gap statements are historical and superseded. Native execution remains covered by the owning domain's committed repair_459_test.go, not run by this Node gate."
+qualification = "The final hf-build/hf-done private ledger supplies the exact verified candidate revision, command, exit and log; no native toolchain, external binary or separate test command is invoked."
+
+[gotcha.overload_source_assertion]
+observed = "A literal ValidateArgsLength(args, 6) source regex rejected the correct overload-dependent count implementation and falsely reported a producer wiring gap."
+action = "Use the committed overload ABI and SDK-produced native-test input to assert SDK selectors and argument layouts; preserve supported legacy encoding and leave native execution to its owning gate."

@@ -1,0 +1,43 @@
+[repair]
+task = "22.33.246"
+base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_246.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "hf-build and hf-done record the exact same candidate revision, command, exit code and private log in /out/run/gates.jsonl; the passing verify row names the verified revision. The final response copies the last hf-done evidence line. No gate success is predicted in this record."
+implementation = "Bundle an exact copy of programs/sdk/abi-manifest.tsv at the AssemblyScript package root, explicitly publish it through package.json files, and resolve the default from the installed lint module using ../abi-manifest.tsv. Preserve explicit manifest/ABI options and all fail-closed validation. Add a real offline npm pack/install consumer regression registered as test:package, with a committed AssemblyScript source fixture compiled by the pinned existing compiler."
+source_proof = "Pytest parses the package and compiler JSON, compares bundled and canonical manifest bytes and all 28 row shapes, resolves the installed bin-relative URL against the publish set, and checks the production loader-to-import-policy-to-source/WASM-consumer paths and diagnostic exits. It checks the committed runtime regression's actual pack, installation, isolated bin invocation, compiler producer, valid WASM, exact success output and negative assertions. These are executable source assertions, not JavaScript runtime execution or an npm pack result."
+review_only = "npm run test:package is committed but not executed by this Python-only gate: it requires Node, npm and AssemblyScript, which the explicit gate contract excludes. The runtime regression packs and installs the actual package offline outside the repository, removes its staging producer, compiles actual guest source to WASM, and invokes the installed bin with default arguments. Its assertions cover successful source/WASM linting, forbidden source imports, wrong WASM signatures and missing/corrupt bundled manifests; their runtime outcome remains unqualified here. No npm package or native artifact is required by pytest. No restart-recovery or interface-mismatch finding applies to this stateless resource wiring repair."
+
+[baseline]
+verification_run = false
+reason = "The explicit task order requires complete implementation before formatting/build/testing and forbids running verify_cmd by hand before hf-done. This overrides the embedded unchanged-tree verify request; no baseline execution or failed test is claimed."
+observed_failing_tests = []
+source_observation = "At entry package.json omitted abi-manifest.tsv, the lint default was ../../abi-manifest.tsv outside its package, and the bundled manifest and repair test/record were absent. These are inspected source facts, not executed baseline failures."
+initial_state = "Only runner-prepared .cgignore and spec task-start changes existed. gate.json reported zero build and verify runs; /out/run/gates.jsonl was absent. Preserve these changes without editing them."
+
+[continuation]
+original_base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+previous_verified_revision = "e17049be2cce7644354bddf89643b1873275d02e"
+previous_result = "The supplied attempt evidence reports all five Python tests passed, but publication was held because build_on_verified was unmet; cg also reported runner-prepared .cgignore drift. This is prior-attempt evidence, not qualification of the current candidate."
+initial_state = "The runner applied attempt 1 to base 8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a, including its implementation, tests, record and installed dependency files. Current gate.json starts both counters at zero and gates.jsonl is absent. Preserve that implementation and runner-prepared .cgignore/spec changes, correct the record's current base, and qualify through hf-build then hf-done without intervening edits."
+build_side_effect = "The first hf-build passed at 7214c67889d42948d8b050594ebfc38962b2bfcc (python3 --version, exit 0, /out/logs/build-1.log), but its npm ci restored CRLF bytes in node_modules/binaryen/bin/package.json after candidate capture. Retain the installed dependency bytes and use one repair rebuild before verification so the build and verify revisions match; no assertion or gate is changed."
+
+[finding.014]
+audit = "22.30.129"
+file = "programs/sdk/assemblyscript/package.json"
+class = "wiring-gap"
+severity = "medium"
+repair = "The canonical manifest is a published package-local resource and the public lint bin defaults to that installed resource, independently of repository layout and consumer working directory."
+tests = ["test_014_package_ships_the_canonical_manifest", "test_014_default_manifest_resolves_within_the_installed_publish_set", "test_014_manifest_reaches_both_production_lint_consumers", "test_014_packed_consumer_regression_drives_the_real_installed_bin", "test_014_record_maps_proof_and_discloses_execution_limits"]
+runtime_regression = "installedLintUsesBundledManifestForSourceAndWasm"
+
+[wiring]
+requests = ["Domain 13 / programs ABI owner: future changes to programs/sdk/abi-manifest.tsv must update programs/sdk/assemblyscript/abi-manifest.tsv in the same release; the declared Python gate rejects any byte drift.", "Domain 9 / CI owner: .github/workflows/ programs SDK qualification must install the pinned AssemblyScript dev dependency and execute npm run test:package from programs/sdk/assemblyscript to qualify the packed-consumer runtime regression; no workflow is changed here."]
+
+[format]
+policy = "No formatter is configured for these JavaScript, TypeScript, Python or KVX paths. Apply .editorconfig UTF-8, LF, final newline and trailing whitespace rules after complete implementation, with two-space JSON indentation and exact canonical TSV bytes."
+
+[gotcha]
+observed = "The embedded baseline verification request conflicts with the explicit implementation-first gate order, and a Node/npm runtime exercise conflicts with the no-external-binary Python gate contract. Broad initial ledger/source output exceeded the tool display limit; relevant task sections and sources were subsequently read separately. The predecessor 22.31.375 stores its evidence notes in its AssemblyScript test rather than matching Python repair paths."
+handling = "Keep the declared gate unchanged and record runtime/baseline limits honestly. Record session observations here because GOTCHA.kvx and spec qualification files are outside the allowed scope; do not run additional gates, edit spec, commit or push."

@@ -341,6 +341,9 @@ static lxp_result build(const uint8_t *enable_key, uint8_t flag,
     if (public_key_for(signer_private_key, signer_public_key) != 0)
         return LXP_ERR_BAD_SIGNATURE;
     draft_manifest(&draft, enable_key, flag);
+    /* Merged node initialization has no guarantor registration. */
+    draft.guarantor_count = 0U;
+    memset(draft.guarantors, 0, sizeof(draft.guarantors));
     programs_parameters(signer_public_key, asset_id, &metering, &fees);
     return lxp_genesis_build_fresh_empty(
         &draft, asset_id, &metering, &fees, signer_private_key, arena,
@@ -401,6 +404,32 @@ static int check_kernel(const built_genesis *built,
                 expected = true;
         REQUIRE(lxp_authority_allowance_policy(&kernel, &enforced) == LXP_OK);
         REQUIRE(enforced == expected);
+    }
+    /* The real producer's signed genesis and snapshot enable the embedded
+     * kernel directly, with no settlement registration or finalised flag. */
+    {
+        bool enabled = false;
+        lxp_snapshot_manifest_record changed_snapshot = built->snapshot_manifest;
+        static lxp_genesis_manifest changed_manifest;
+        static uint8_t verification_bytes[8388608U];
+        lxp_arena verification;
+        REQUIRE(lxp_arena_init(&verification, verification_bytes, sizeof(verification_bytes)) == LXP_OK);
+        REQUIRE(built->manifest.guarantor_count == 0U);
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 42U,
+            &built->snapshot_manifest, &kernel, &verification, &enabled) == LXP_OK && enabled);
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 43U,
+            &built->snapshot_manifest, &kernel, &verification, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+        changed_snapshot.canonical_state_root[0] ^= 1U;
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 42U,
+            &changed_snapshot, &kernel, &verification, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+        changed_snapshot = built->snapshot_manifest;
+        changed_snapshot.receipt_state_root[0] ^= 1U;
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 42U,
+            &changed_snapshot, &kernel, &verification, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+        changed_manifest = built->manifest;
+        changed_manifest.signature[0] ^= 1U;
+        REQUIRE(lxp_genesis_initialized_verify(&changed_manifest, NULL, 42U,
+            &built->snapshot_manifest, &kernel, &verification, &enabled) != LXP_OK && !enabled);
     }
     REQUIRE(accounts.count == LXP_GENESIS_FRESH_SYSTEM_ACCOUNT_COUNT);
     REQUIRE(memcmp(kernel.current_state_root,
@@ -652,10 +681,8 @@ static int check_public_fixture(const char *directory, uint16_t fee_version)
     lxp_genesis_module_plan plan;
     lxp_snapshot_manifest_record snapshot_manifest, changed;
     lxp_byte_span snapshot;
-    lxp_genesis_bootstrap_registration registration = {0};
     lxp_fee_params fee_schedule;
     bool fee_authority = false;
-    bool enabled = false;
     REQUIRE(fixture_read(directory, "sequencer.public", public_key, sizeof(public_key), &length) == 0 && length == sizeof(public_key));
     REQUIRE(fixture_read(directory, "genesis.manifest", manifest_bytes, sizeof(manifest_bytes), &length) == 0);
     REQUIRE(lxp_genesis_parse(manifest_bytes, length, LXP_GENESIS_INPUT_MANIFEST, &manifest) == LXP_OK);
@@ -701,20 +728,17 @@ static int check_public_fixture(const char *directory, uint16_t fee_version)
     REQUIRE(memcmp(kernel.current_state_root, manifest.genesis_receipt_state_root, 32U) == 0);
     REQUIRE(memcmp(kernel.current_state_root, snapshot_manifest.receipt_state_root, 32U) == 0);
     REQUIRE(memcmp(root, kernel.current_state_root, 32U) != 0);
-    registration.network_id = manifest.network_id;
-    memcpy(registration.settlement_anchor, manifest.genesis_receipt_state_root, 32U);
-    memcpy(registration.state_root, manifest.genesis_receipt_state_root, 32U);
-    registration.finalised = true;
-    REQUIRE(lxp_genesis_bootstrap_verify(&manifest, &registration, 77U, true,
-        &snapshot_manifest, &kernel, &arena, &enabled) == LXP_OK && enabled);
+    /* Pinned pre-merge fixture compatibility checks its signed codec and
+     * snapshot transport only; it is not a startup authorization contract. */
+    REQUIRE(lxp_snapshot_verify_root(&kernel, &snapshot_manifest) == LXP_OK);
     changed = snapshot_manifest;
     changed.canonical_state_root[0] ^= 1U;
-    REQUIRE(lxp_genesis_bootstrap_verify(&manifest, &registration, 77U, true,
-        &changed, &kernel, &arena, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+    REQUIRE(lxp_snapshot_load(snapshot.bytes, snapshot.length, &changed,
+        &kernel) == LXP_ERR_SNAPSHOT_MISMATCH);
     changed = snapshot_manifest;
     changed.receipt_state_root[0] ^= 1U;
-    REQUIRE(lxp_genesis_bootstrap_verify(&manifest, &registration, 77U, true,
-        &changed, &kernel, &arena, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+    REQUIRE(lxp_snapshot_load(snapshot.bytes, snapshot.length, &changed,
+        &kernel) == LXP_ERR_SNAPSHOT_MISMATCH);
     REQUIRE(memcmp(kernel.current_state_root, snapshot_manifest.receipt_state_root, 32U) == 0);
     REQUIRE(lxp_state_root(&kernel, root) == LXP_OK && memcmp(root, snapshot_manifest.canonical_state_root, 32U) == 0);
     REQUIRE(lxp_state_store_destroy(&state) == LXP_OK);
@@ -728,6 +752,7 @@ static int check_allowance_policy(void)
     static built_genesis legacy, active, repeated;
     static lxp_kernel kernel;
     lxp_genesis_manifest changed;
+    lxp_genesis_guarantor historical_guarantor;
     lxp_genesis_module_plan plan;
     lxp_byte_span encoded;
     lxp_arena arena;
@@ -778,8 +803,17 @@ static int check_allowance_policy(void)
     kernel.module_kv[1] = kernel.module_kv[0];
     kernel.module_kv_count = 2U;
     REQUIRE(lxp_authority_allowance_policy(&kernel, &enforced) == LXP_ERR_VERSION_UNSUPPORTED);
+    draft_manifest(&changed, NULL, 0U);
+    historical_guarantor = changed.guarantors[0];
     changed = active.manifest;
+    REQUIRE(changed.guarantor_count == 0U);
     changed.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
+    /* A merged manifest first fails the historical guarantor requirement. */
+    REQUIRE(lxp_genesis_encode(&changed, true, &arena, &encoded) == LXP_ERR_NON_CANONICAL);
+    /* With a historical guarantor, the same downgrade reaches the native
+     * fee-authority version guard. Neither refusal authorizes old startup. */
+    changed.guarantor_count = 1U;
+    changed.guarantors[0] = historical_guarantor;
     REQUIRE(lxp_genesis_encode(&changed, true, &arena, &encoded) == LXP_ERR_VERSION_UNSUPPORTED);
     changed = active.manifest;
     changed.parameters[0].module_id = LXP_MODULE_ASSET;

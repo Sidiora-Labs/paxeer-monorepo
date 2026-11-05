@@ -1,0 +1,78 @@
+[meta]
+task = "22.31.514"
+acceptance = "22998.1"
+base_revision = "64c05e1c1dba3694498d1ff6bcef3b8217329ae1"
+continued_attempt = "Attempt 1 changes preserved; the lifecycle migration and stale recording assertions are reconciled in attempt 2."
+qualification = "Only hf-build followed by hf-done qualifies this tree. /out/run/gates.jsonl is the runner-owned repair evidence record: its verify row names the exact candidate revision, command, exit and private log; the final response copies that row. No passed qualification is claimed in this source record."
+baseline = "Attempt 2 began with seven seeded task paths plus runner-owned .cgignore and spec task-status changes, all reviewed before editing; /out/run/gates.jsonl did not exist. The prior failed gate is retained below. No baseline tests ran."
+
+[recording]
+source = "daemon/committed-fixture/vectors/vector-v4-committed.json#settlement"
+transaction = "settlement.raw_transaction; retained verbatim, including its 0x prefix"
+receipt = "settlement.receipt.receipt; the signed sequencer receipt, not positive.receipt (the inclusion envelope)"
+pin = "sdk/platform/conformance/fixtures/vector-v4-committed.json#positive.pinnedKey; paired by receiptJson.txHash exactly as sdk/wallet/test/support/receipt-recordings.ts does"
+identity = "0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2"
+key_id = "0x9fe7d4491a2dfba1b61b8b5283b486fa92b3e90b8a29d7e4ff7f0ed89e389d9b"
+pin_range = "10..10 inclusive"
+pairing = "Assert matching transaction hash, raw transaction, signed receipt, key ID and signing public key before use. No positive recording is re-signed, rewritten or substituted. Original conformance vectors remain for nonpayment receipt framing/signature tests."
+payment_terms = "Select the single PaymentExact log by its full topic hash; V4's first log is AccountDebited. Read payer/payee from PaymentExact indexed topics 2/3 and asset/amount from its ABI data, independently of EVM sender and ledger contract address."
+
+[recorded_contradiction]
+file = "layerx_sdk/x402.py#verify_payment_receipt"
+recorded_value = "The archived recorder transaction is replay-protected legacy EIP-155 with receipt operation 0; the current chain-125 V4 recording is type 2 with receipt operation 2. The old binding unconditionally required operation 2."
+repair = "After strict EVM decoding, require operation 2 for a type-2 transaction and operation 0 for a legacy transaction. Preserve exact module, summary/effect, calldata, chain 125, ledger address, zero value, event and RPC hex checks."
+
+[recording_refresh]
+commit = "74ef78b42 (22.31.486): re-recorded V4 on chain 125 as a type-2 transaction and refreshed its governed pin; this resolved attempt 1's missing production-chain recording."
+negative_source = "tests/fixtures/vector-v4-chain713714.json preserves the prior recorder settlement and matching conformance pin, transaction, receipt and digest verbatim from revision c4b50b958ea14cce581096283c75b3feccddcdd2. Only the refusal case reads it; positive transport cases use current V4."
+negative_assertions = "Keep chain 713714, legacy operation 0, ledger address, zero value, exact height 10 pin, signed digest, context hash, signing key and production payment refusal. The positive recording test still requires chain 125."
+
+[red_commits]
+payment_binding = "5fe9f32adbe9fc7deaa1fd90c81d71f423420cdc (22.31.147): chain 125, ledger/zero-value binding, prefixed RPC hex, ledger-event payer, web-search transaction-hash payload/lookup and retired payer-grant refusal"
+program_transport = "6683a9d260 (22.33.16): lifecycle mutations moved to node-root eth_sendRawTransaction JSON-RPC, leaving the 147 HTTP consumer on the obsolete octet-stream route (gotcha 3080)."
+transport_contract = "2f25fe8391842846bc5ec8f5c9446c88607c1604 (22.33.17): one-argument PaymentRpc.send, explicit hosted endpoint paths, durable transaction_hash and independent committed evidence"
+
+[cases.sequencer_receipt]
+test_payment_recording_binds_the_production_ledger_transaction = "Added: assert recorded chain 125, ledger address, zero value, calldata/payment-log terms, transaction hash and signed receipt digest without weakening production admission."
+test_committed_recording_keeps_its_governed_pin_and_wrong_chain_refusal = "Verify the archived chain-713714 recorder bytes at their exact governed key window and retain every wrong-chain refusal assertion; the separate positive test uses the current chain-125 recording."
+test_verify_rpc_payment_uses_receipt_keys = "Use V4 transaction/receipt/pin and its height; the existing rotated-key adversarial case updates keyId together with the re-signed receipt. Use the ledger payer, not the EVM sender, and preserve hash/amount/asset/payee/payer/return-data/signature/range/pending refusals. Expected rung follows the recorded committed result."
+unchanged = "test_package_root_exports_sequencer_receipt_api, test_verify_sequencer_receipt_without_cryptography_names_the_extra, test_verify_sequencer_receipt_pinned_key and test_rpc_transaction_hash_requires_prefix_and_32_bytes retain their original cases and assertions."
+
+[cases.web_search]
+test_web_search_receipt_verifies_through_receipt_keys = "Use V4 payment terms and bytes; assert current txHash/receiptDigest/receipted/idempotencyKey header exactly. Retain settlement field assertions. Drive valid, missing, empty, odd, invalid and altered raw transaction lookup responses through production PaymentRpc against a loopback HTTP peer; assert exact lookup parameters, unavailable-transport refusal and local-byte/hash mismatch."
+test_web_search_refuses_a_receipt_under_an_unknown_key = "Use the recorded V4 pin and retain preparation/settlement refusals under an unknown key ID and an empty table."
+test_web_search_metered_settlement_accepts_the_sequencer_receipt = "Retain cryptographic receipt verification, assert current type-2 operation 2 and every settlement field on the supported exact scheme. Assert nonretryable LXP_NO_PAYER_GRANT for the retired metered scheme and all five payer/purpose/amount/asset/payee variants. Also assert exact-payment payer/amount/asset/payee binding and settlement payer refusal. The historical test name is retained."
+test_web_search_refuses_other_receipt_operations = "Retain all eight scheme/module/operation cases and real adversarial signatures. Assert unchanged recorded EVM summary fields separately from ledger payment terms, and require the precise binding error for exact payments or typed grant refusal for metered payments. Supply retained transaction bytes so an unavailable RPC cannot mask these checks."
+
+[cases.x402_http]
+test_seller_verifies_a_sequencer_receipt_through_receipt_keys = "Use shared V4 evidence and event-derived terms. Preserve challenge, exact settlement, one release, durable fulfillment row, reopen replay and all wrong-key/unknown-key/altered-amount refusals."
+test_buyer_verifies_sequencer_receipts_through_receipt_keys = "Replace the obsolete two-argument RPC double with production PaymentRpc over loopback HTTP. Submit 0x-prefixed bytes, assert exact send/receipt requests and retain seller/capture/key/hash/hex assertions. Retired grants must refuse registration, seller fulfillment and capture; assert empty draw/fulfillment stores, no resource release and unchanged refusal after reopen. No successful grant evidence or fake journal row is invented."
+
+[cases.repair_147]
+test_lifecycle_transaction_binding_and_retained_http_bytes = "All six lifecycle operations POST JSON-RPC to the node root with application/json, eth_sendRawTransaction and the exact 0x-prefixed canonical bytes. Check the request ID, Idempotency-Key equals keccak(canonical bytes), and node-style 0x transaction-hash response. Assert submitted state, activity ID, idempotency key, retained signed activity and exactly one submission per case. Preserve signer, nonce, activity binding, persisted bytes and restored binding assertions."
+test_buyer_send_contract_and_restart_recovery = "Explicitly configure its existing loopback /rpc hosted endpoint, retaining all wire, one-submission, reopen and fulfillment assertions."
+test_empty_receipt_keys_and_rotated_node_responses = "Explicitly configure its existing loopback /rpc hosted endpoint; retain key rotation, empty-table and duplicate-key checks."
+test_draw_send_contract_and_restart_recovery = "Explicitly configure its existing loopback /rpc hosted endpoint; retain real RPC typed revert, nonregistration and reopen checks."
+test_web_search_payer_header_and_ledger_accounts = "Explicitly configure the existing loopback /rpc hosted endpoint in all eight parameterizations; retain payer-header, ledger-account and producer refusal assertions."
+
+[gotchas]
+scope = "GOTCHA.kvx and spec files are outside this task's permitted changes; observations are recorded here instead. No commits or pushes are performed by the worker."
+format = "No Python formatter is configured in the SDK or root EditorConfig; apply only trailing-whitespace/final-newline rules to touched files after complete implementation."
+review = "Manual review caught the new total-submission assertion splitting the existing per-case wrong-chain check; it now follows the loop, preserving every lifecycle rejection before qualification."
+recording = "The seeded attempt predates main's recorder refresh: current V4 carries chain 125 and operation 2; the archived recording carries chain 713714 and operation 0. Keep both sets of signed bytes and governed pins intact, with the historical recording used only for refusal."
+lookup_configuration = "WebSearchClient requires payer_rpc and payer_address together, including when the RPC is only used for raw-transaction lookup; the helper now supplies the recording's EVM sender alongside its loopback RPC, preserving the constructor check."
+
+[qualification.first]
+revision = "85486b3c58ce6f29d2c4c59c5bd881cf4de635c6"
+command = "cg spec done 22.31.514 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed; hf-done's first pytest invocation had 21 passed and one pre-existing failure in test_lifecycle_transaction_binding_and_retained_http_bytes: its peer expects application/octet-stream but production AgentHttpTransport sends JSON-RPC application/json; the && command never executed the three transport suites."
+resolution = "Historical attempt-1 failure. Attempt 2 explicitly authorizes the lifecycle consumer migration; main's 22.31.486 recording refresh resolves the formerly missing chain-125 input. This row is not evidence of attempt-2 qualification."
+
+[qualification.attempt2_first]
+revision = "c1818673fcae508a08771a3c99a4551a5f480525"
+command = "cg spec done 22.31.514 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "147 suite: 22 passed; SDK suites: 19 passed, one failed because the lookup helper omitted the required payer_address. Repair supplies receiptJson.from with payer_rpc; all assertions and production validation remain intact. Final qualification is the runner ledger's last verify row, copied in the final response."

@@ -28,10 +28,10 @@ export default function useChartDataQuery({ indicatorId }: Props) {
   const parentChainApiFetch = useFetchParentChainApi();
 
   const marketCapQuery = useQuery({
-    queryKey: [ 'parent_chain', 'stats', 'charts', 'market' ],
+    queryKey: [ ...parentChainApiFetch.queryKey, 'stats', 'charts', 'market' ],
     queryFn: () => parentChainApiFetch({ path: '/stats/charts/market' }) as Promise<ChartMarketResponse>,
     refetchOnMount: false,
-    enabled: indicatorId === 'market_cap' || indicatorId === 'coin_price',
+    enabled: Boolean(parentChainApiFetch.market) && (indicatorId === 'market_cap' || indicatorId === 'coin_price'),
   });
 
   switch (indicatorId) {
@@ -44,9 +44,10 @@ export default function useChartDataQuery({ indicatorId }: Props) {
     }
     case 'coin_price': {
       return {
-        data: getChartData(indicatorId, marketCapQuery.data?.chart_data.map((item) => ({ date: new Date(item.date), value: item.closing_price })) || []),
+        data: getChartData(indicatorId, marketCapQuery.data?.chart_data.map((item) => ({ date: new Date(item.date), value: item.closing_price })) || [])
+          .map((series) => ({ ...series, name: `${ parentChainApiFetch.market?.symbol } price` })),
         isError: marketCapQuery.isError,
-        isPending: marketCapQuery.isPending,
+        isPending: Boolean(parentChainApiFetch.market) && marketCapQuery.isPending,
       };
     }
     case 'market_cap': {
@@ -66,7 +67,7 @@ export default function useChartDataQuery({ indicatorId }: Props) {
           })(),
         })) || []),
         isError: marketCapQuery.isError,
-        isPending: marketCapQuery.isPending,
+        isPending: Boolean(parentChainApiFetch.market) && marketCapQuery.isPending,
       };
     }
 
