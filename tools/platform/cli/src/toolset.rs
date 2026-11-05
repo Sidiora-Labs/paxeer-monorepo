@@ -354,3 +354,37 @@ fn validate_hex32(value: &str, name: &str) -> Result<(), String> {
     validate_resource_id(value, name)?;
     fixed_hex::<32>(name, value).map(|_| ())
 }
+
+#[cfg(test)]
+#[test]
+fn submission_rejects_wrong_chain_before_transport() {
+    use layerx_crypto::evm_transaction::Eip1559Call;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("node listener");
+    listener.set_nonblocking(true).expect("bounded listener");
+    let runtime = Runtime::loopback(
+        &format!("http://{}", listener.local_addr().expect("node origin")),
+        125,
+    )
+    .expect("root node runtime");
+    let raw = Eip1559Call {
+        chain_id: 126,
+        nonce: 0,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 21000,
+        to: [2; 20],
+        data: vec![],
+    }
+    .sign(&[1; 32])
+    .expect("signed EIP-1559 transaction");
+    let result = submit_classified(
+        &runtime,
+        &json!({"raw_transaction": format!("0x{}", hex_encode(&raw))}),
+    );
+    assert!(
+        matches!(result, Err(SubmitFailure::Unsent(ref detail)) if detail.contains("chain id"))
+    );
+    assert!(
+        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+    );
+}
