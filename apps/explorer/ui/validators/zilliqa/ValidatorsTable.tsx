@@ -2,10 +2,10 @@ import React from 'react';
 
 import type { ValidatorsZilliqaItem } from 'types/api/validators';
 
-import config from 'configs/app';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 
 import ValidatorsTableItem from './ValidatorsTableItem';
+import { hasValidatorField } from '../columns';
 
 interface Props {
   data: Array<ValidatorsZilliqaItem>;
@@ -14,15 +14,18 @@ interface Props {
 }
 
 const ValidatorsTable = ({ data, isLoading, top }: Props) => {
+  const columns = {
+    index: hasValidatorField(data, 'index'),
+    stake: hasValidatorField(data, 'balance'),
+  };
+
   return (
-    <TableRoot>
-      <TableHeaderSticky top={ top }>
+    <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
+      <TableHeaderSticky top={ top } bg="canvas">
         <TableRow>
-          <TableColumnHeader width="50%">BLS public key</TableColumnHeader>
-          <TableColumnHeader width="15%">Index</TableColumnHeader>
-          <TableColumnHeader width="35%" isNumeric>
-            Staked { config.chain.currency.symbol }
-          </TableColumnHeader>
+          <TableColumnHeader width="50%">Validator</TableColumnHeader>
+          { columns.index && <TableColumnHeader width="15%" isNumeric>Index</TableColumnHeader> }
+          { columns.stake && <TableColumnHeader width="35%" isNumeric>Stake</TableColumnHeader> }
         </TableRow>
       </TableHeaderSticky>
       <TableBody>
@@ -30,6 +33,7 @@ const ValidatorsTable = ({ data, isLoading, top }: Props) => {
           <ValidatorsTableItem
             key={ item.bls_public_key + (isLoading ? index : '') }
             data={ item }
+            columns={ columns }
             isLoading={ isLoading }/>
         )) }
       </TableBody>

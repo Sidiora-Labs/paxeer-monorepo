@@ -3,7 +3,7 @@ import React from 'react';
 
 import type { CeloEpochDetails } from 'types/api/epochs';
 
-import { Heading } from 'toolkit/chakra/heading';
+import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 
 import EpochElectionRewardsListItem from './EpochElectionRewardsListItem';
@@ -20,11 +20,10 @@ const EpochElectionRewards = ({ data, isLoading }: Props) => {
   }
 
   return (
-    <Box mt={ 6 }>
-      <Heading level="3" mb={ 3 }>Election rewards</Heading>
+    <DetailedInfo.Section label="Election rewards">
       <Box hideBelow="lg">
         <TableRoot style={{ tableLayout: 'auto' }}>
-          <TableHeaderSticky>
+          <TableHeaderSticky bg="canvas">
             <TableRow>
               <TableColumnHeader width="24px"/>
               <TableColumnHeader width="180px">Reward type</TableColumnHeader>
@@ -72,7 +71,7 @@ const EpochElectionRewards = ({ data, isLoading }: Props) => {
           );
         }) }
       </Box>
-    </Box>
+    </DetailedInfo.Section>
   );
 };
 
