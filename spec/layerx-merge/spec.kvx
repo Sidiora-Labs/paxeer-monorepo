@@ -174514,7 +174514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.528]
 title = "Reconcile the web-search payment suite with the exact-only offers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
