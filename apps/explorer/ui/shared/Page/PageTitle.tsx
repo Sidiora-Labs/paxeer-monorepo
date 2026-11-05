@@ -102,6 +102,7 @@ const PageTitle = ({ title, contentAfter, withTextAd, className, isLoading = fal
               <Heading
                 ref={ headingRef }
                 level="1"
+                textStyle="h1"
                 whiteSpace="normal"
                 wordBreak="break-all"
                 style={{
