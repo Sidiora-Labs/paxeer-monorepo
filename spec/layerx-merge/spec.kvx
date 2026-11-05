@@ -175459,7 +175459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.546]
 title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.516"]
