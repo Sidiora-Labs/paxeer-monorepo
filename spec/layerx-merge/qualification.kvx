@@ -30731,3 +30731,35 @@ symbol = "approvals.rs"
 observed = "Attempt 2: 1 of the approvals cases failed at line 343 (payload amount assertion); decide and the MCP tests passed; build and dependent check exit 0."
 assumption = "A consumer assertion left behind by the 159 producer change (gotcha 3087); the attempt's store-root and decision-time work stands."
 severity = "low"
+
+[finding.22.31.492.5]
+task = "22.31.492"
+file = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+symbol = "repair_22_31_492.test.mjs"
+observed = "Attempt 5: 12 of 13 cases passed; the thirteenth threw ERR_INVALID_ARG_TYPE from Buffer.from in the shared committed fixture; build exit 0."
+assumption = "A main-side break in a shared test fixture (gotcha 3088)."
+severity = "low"
+
+[finding.22.31.510.3]
+task = "22.31.510"
+file = "tests/ci/test_repair_22_31_510.py"
+symbol = "test_repair_22_31_510.py"
+observed = "Attempt 3: 3 of 40 cases failed, all in tests/ci/test_repair_22_31_510.py with receipt-unverified caused by PaymentBindingError payment mismatch; the SDK suites and the MCP tests did not run."
+assumption = "A recording defect exposed by the producer repair 22.31.514 (gotcha 3089)."
+severity = "low"
+
+[finding.22.31.521.1]
+task = "22.31.521"
+file = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_nonces.rs"
+observed = "Attempt 1: no change inside scope; the attempt stopped asking whether the clock setup was allowed."
+assumption = "An instruction wording defect (gotcha 3093)."
+severity = "low"
+
+[finding.22.33.1478.7]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 9: 20 of 25 cases passed; two header overflows, one commitment verification failure, one merchant order-conflict, one replay count."
+assumption = "Two production defects (gotchas 3090, 3091), one regression in the attempt (gotcha 3092) and one test expectation."
+severity = "high"
