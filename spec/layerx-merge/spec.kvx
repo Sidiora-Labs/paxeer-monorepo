@@ -175606,7 +175606,7 @@ do_3 = "Attempt 2 (requalify with the corrected verify, gotcha 3186, decision 26
 
 [task.22.31.557]
 title = "Admit protocol 3 key rotation in the intent compiler with the length-prefixed DID identifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.558"]
