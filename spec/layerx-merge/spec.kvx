@@ -148035,7 +148035,7 @@ do_4 = "Attempt 2 (continue, gotcha 3148, decision 2605): the attempt-1 tree sta
 
 [task.22.35.5]
 title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1"]
