@@ -15210,3 +15210,23 @@ fix = "22.31.517 moves every limiter consume and pool query out of the open tran
 title = "The daemon's own approval_semantics test still builds the pre-495 decision request, so every test build of layerx-agentd is red"
 symptom = "22.31.495 (9c3cd0e74d) added current_time to the approval DecisionRequest and a fourth argument to the approval service get, and 22.31.515 repairs the Human service and MCP consumers (gotcha 3072); services/agent/crates/layerx-agentd/tests/approval_semantics.rs lines 171, 191, 245 and 269 still build DecisionRequest without current_time and line 298 still calls get with three arguments, so cargo build -p layerx-agentd --tests fails with four E0063 and one E0061 on main (22.31.497 attempt 3, exit 101), and every task whose build or verify compiles the daemon test targets (22.31.497, 22.31.516, 22.33.1550) fails before its own work is judged."
 fix = "22.31.519 passes the explicit decision time at the five sites; 22.31.516 requires it and 22.31.497 continues after 516."
+
+[gotcha.3078]
+title = "The explorer type-check is red on main because the 22.33.270 test imports an undeclared package"
+symptom = "apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts line 4 imports ResizeObserver from @juggle/resize-observer and apps/explorer/package.json never declared it (22.33.270, 58d8e44429), so yarn tsc --noEmit -p tsconfig.json fails with TS2307 and every task whose build type-checks the explorer (22.31.512 attempt 1, exit 2) fails before its own work is judged."
+fix = "22.31.512 attempt 2 replaces the import with a local stand-in class; a test never imports a package its application does not declare."
+
+[gotcha.3079]
+title = "pnpm 12 refuses the wallet workspace install because four dependency build scripts are undeclared"
+symptom = "services/wallet/pnpm-workspace.yaml allows only the esbuild and sharp build scripts; under pnpm 12, the qualification environment's version, pnpm install --frozen-lockfile over the workspace ends with ERR_PNPM_IGNORED_BUILDS for @sentry/cli, bufferutil, keccak and utf-8-validate, so the ceremony move and rehearsal tests, whose fixture runs that install (services/wallet/ceremony/internal/testsupport/postgres.go line 230), fail in ten cases (22.31.513 attempt 1). The public workflow pins pnpm 9.15.9, which runs every script unasked, so the workflow never saw it."
+fix = "22.31.520 declares the four scripts (decision 2567); 22.31.513 continues after it."
+
+[gotcha.3080]
+title = "The 22.31.147 lifecycle test still asserts the program route that 22.33.16 retired"
+symptom = "tests/agent/sdk/python/test_repair_22_31_147.py test_lifecycle_transaction_binding_and_retained_http_bytes expects each lifecycle request as a POST with Content-Type application/octet-stream answered 202 unknown. Since 22.33.16 (6683a9d260) services/agent/sdk/python/layerx_sdk/agent_http.py sends program mutations to the node root as the eth_sendRawTransaction JSON-RPC call with Content-Type application/json and the Idempotency-Key header (lines 215 to 240) and reads receipts with pax_sequencerReceipt; the 22.33.16 record names this test as a consumer to migrate, yet nothing migrated it, so the case fails on main (22.31.514 attempt 1)."
+fix = "22.31.514 attempt 2 rewrites the case to the node-root contract; a producer change lands with its named consumers (decision 2560)."
+
+[gotcha.3081]
+title = "Pre-creating a daemon store root with create_dir_all makes the store refuse to open"
+symptom = "services/agent/crates/layerx-agentd/src/store/protected.rs validate accepts only a canonical directory owned by the process with mode 0700. A test that creates the root with fs::create_dir_all (mode 0755) and then opens ApprovalExpiry or Store on it gets the Store error (services/human/crates/layerx-human-service/tests/approvals.rs line 260, 22.31.515 attempt 1); tests/support/production_fixture.rs line 384 sets 0o700 for exactly that reason."
+fix = "22.31.515 attempt 2 lets the store create the root or sets 0o700 first; a fixture never pre-creates a store root with default permissions."

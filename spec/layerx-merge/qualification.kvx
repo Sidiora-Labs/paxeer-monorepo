@@ -30619,3 +30619,43 @@ symbol = "nextjs"
 observed = "Attempt 1: the build passed; the verify ran 14 cases and 13 passed; noTestsUnderPages received the two 449 paths and expected none."
 assumption = "An incomplete sweep by the attempt; the guard did its job."
 severity = "low"
+
+[finding.22.31.512.1]
+task = "22.31.512"
+file = "apps/explorer/repair-22-31-512.spec.ts"
+symbol = "repair-22-31-512.spec.ts"
+observed = "Attempt 1: yarn tsc --noEmit exited 2 on TS2307 for @juggle/resize-observer in the 270 spec; no verify ran."
+assumption = "A main-side defect of 22.33.270 inside the task's planned scope (gotcha 3078) plus a scope overlap with 503."
+severity = "low"
+
+[finding.22.31.513.1]
+task = "22.31.513"
+file = "services/wallet/ceremony/internal/move/move_test.go"
+symbol = "move_test.go"
+observed = "Attempt 1: after two repair cycles the verify failed in ten ceremony cases, each at the fixture's install with ERR_PNPM_IGNORED_BUILDS; the attestor packages passed."
+assumption = "A package-manager policy of the whole wallet workspace, outside the task's planned scope (gotcha 3079)."
+severity = "low"
+
+[finding.22.31.514.1]
+task = "22.31.514"
+file = "services/agent/sdk/python/tests/test_web_search_sequencer.py"
+symbol = "test_web_search_sequencer.py"
+observed = "Attempt 1: 21 of 22 cases passed; the lifecycle case received a JSON POST where it expected octet-stream and the SDK then raised unknown-outcome."
+assumption = "A consumer test left behind by its producer's later change (gotcha 3080): the 22.33.16 record names this test as a consumer to migrate and nothing did."
+severity = "low"
+
+[finding.22.31.515.1]
+task = "22.31.515"
+file = "services/human/crates/layerx-human-service/tests/approvals.rs"
+symbol = "approvals.rs"
+observed = "Attempt 1: the approvals test panicked at line 260 with approval expiry: Store; decide and the MCP tests passed."
+assumption = "A test fixture that predates the store root rule (gotcha 3081); not a defect of the expiry store."
+severity = "low"
+
+[finding.22.33.1539.4]
+task = "22.33.1539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1539.rs"
+symbol = "repair_22_33_1539.rs"
+observed = "Attempt 5: cargo build --tests exited 101 with three E0425 in tests/approval_ordering/mod.rs; no verify ran."
+assumption = "A missing import in the attempt's own edit plus the main-side daemon test break (gotcha 3077)."
+severity = "low"

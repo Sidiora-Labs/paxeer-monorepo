@@ -8511,6 +8511,12 @@ value = "A security report is eligible for a reward only when it is sent to secu
 basis = "Owner ruling of 2026-11-05 on the bounty programme."
 affects = ["22.31.518", "18.1232.1"]
 
+[decision.2567]
+title = "The wallet workspace declares every dependency build script"
+value = "services/wallet/pnpm-workspace.yaml names each dependency whose install script pnpm would run: esbuild and sharp allowed as today; @sentry/cli, bufferutil, keccak and utf-8-validate declined, because the @sentry/cli binary download is not needed by the gateway build or tests and the three native accelerators have pure-JavaScript fallbacks. pnpm install --frozen-lockfile then completes under pnpm 9 and pnpm 12 alike, with no prompt and no ignored-build error."
+basis = "22.31.513 attempt 1 (gotcha 3079)."
+affects = ["22.31.520", "22.31.513"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37401,6 +37407,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.520]
+title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
+reqs = ["22998.1"]
+touches = ["services/wallet/pnpm-workspace.yaml", "services/wallet/repair_22_31_520.kvx"]
+tests = []
+verification_contract = "cd services/wallet && pnpm install --frozen-lockfile && pnpm --dir gateway run typecheck"
+do_1 = "do_1 Gotcha 3079, decision 2567. In services/wallet/pnpm-workspace.yaml extend allowBuilds so every dependency whose install script pnpm would run is named: keep esbuild and sharp as they are and add @sentry/cli, bufferutil, keccak and utf-8-validate set to false. Run pnpm install --frozen-lockfile from services/wallet under the environment's pnpm (12) and confirm it completes with no ERR_PNPM_IGNORED_BUILDS, no prompt and no lockfile change."
+symbols = []
 
 [capability.22.31.519]
 title = "Pass the explicit decision time in the daemon approval_semantics test so the daemon test targets build again"
@@ -147382,6 +147397,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.520]
+title = "Declare the wallet workspace dependency build scripts so pnpm install completes under pnpm 12"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.520"]
+interfaces = []
+do_1 = "do_1 Gotcha 3079, decision 2567. In services/wallet/pnpm-workspace.yaml extend allowBuilds so every dependency whose install script pnpm would run is named: keep esbuild and sharp as they are and add @sentry/cli, bufferutil, keccak and utf-8-validate set to false. Run pnpm install --frozen-lockfile from services/wallet under the environment's pnpm (12) and confirm it completes with no ERR_PNPM_IGNORED_BUILDS, no prompt and no lockfile change."
+do_2 = "do_2 Confirm the gateway still type-checks after the install (pnpm --dir gateway run typecheck) and that services/wallet/ceremony/internal/testsupport/postgres.go line 230 needs no change. Record in services/wallet/repair_22_31_520.kvx the four scripts, why each is declined, and the gate results. Gate: the install and the type-check; no credential, no live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/wallet/pnpm-workspace.yaml", "services/wallet/repair_22_31_520.kvx"]
+tests = []
+planned_paths = ["services/wallet"]
+build_cmd = "cd services/wallet && pnpm install --frozen-lockfile"
+verify_cmd = "cd services/wallet && pnpm install --frozen-lockfile && pnpm --dir gateway run typecheck"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.517]
 title = "Keep wallet gateway routes from awaiting pool queries while they hold a transaction client"
 status = "pending"
@@ -147418,7 +147462,7 @@ title = "Restore the explorer frontend production build by keeping node-fetch ou
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.503"]
 reqs = ["22998.1"]
 capabilities = ["22.31.512"]
 interfaces = []
@@ -147443,6 +147487,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 22.31.503): attempt 1 did the task's own work (node-fetch removed from nextjs/utils/fetchApi.ts, the task test and record) but failed its build in the type-check because apps/explorer/toolkit/components/forms/fields/repair-22-33-270.spec.ts line 4 imports @juggle/resize-observer, a package the explorer never declared (gotcha 3078), and it also moved the four page repair tests under nextjs/tests/pages, which 22.31.503 owns and moves under nextjs/pages-tests. Rebase on main once 503 is there and drop every page-test move; in the 270 spec replace the import with a minimal local ResizeObserver stand-in class (observe, unobserve, disconnect) installed on globalThis for the test, no new dependency; then run the declared build and verify (type-check, the task test, the production build) and record the extra site in the task record."
 
 [task.22.31.508]
 title = "Teach the wallet surface test double the web-data payment availability read so the grant-discovery cases pass on main"
@@ -166151,7 +166196,7 @@ title = "Bring the Wallet Go tests workflow to green through both jobs: provisio
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.520"]
 reqs = ["22998.1"]
 capabilities = ["22.31.513"]
 interfaces = []
@@ -166178,6 +166223,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempt 2 (continue after 22.31.520): attempt 1 brought the attestor policy, the load test and the ceremony attestor packages to green, and the ceremony move and rehearsal packages now fail only in the fixture's pnpm install --frozen-lockfile over services/wallet (internal/testsupport/postgres.go line 230), which pnpm 12 refuses with ERR_PNPM_IGNORED_BUILDS for @sentry/cli, bufferutil, keccak and utf-8-validate (gotcha 3079); 22.31.520 declares those build scripts in the wallet pnpm-workspace.yaml (decision 2567). Rebase on main once it is there, rerun the declared build and verify without further change unless a new failure appears, and record the result."
 
 [task.22.31.511]
 title = "Record committed vector V7, a pay-exact into the payee's asset sub-account with the payer and payee identities in its provenance"
@@ -174339,6 +174385,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue): the build passes and the decide and MCP tests compile and pass; the one failure is approvals.rs real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle, where ApprovalExpiry::open on the agent root returns Store because the test pre-creates that root with create_dir_all (mode 0755) while the daemon's protected store root demands a canonical owned directory of mode 0700 (src/store/protected.rs validate; gotcha 3081). Let the store create the root itself, or set its permissions to 0o700 after creating it as tests/support/production_fixture.rs line 384 does, for every store root the test opens (the agent root and any stream or sub-store root); check decide.rs for the same pattern; then run the declared verify and record the fix."
 
 [task.22.31.504]
 title = "Repair the two gateway unit tests broken on main: the route-count assertion and the dropped description sentences"
@@ -175941,7 +175988,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1539"]
 interfaces = []
@@ -175972,6 +176019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 3 (requalify): attempt 2 passed 2 of 5 cases, then repaired the store-root fixture (a canonical owned private directory) and the Store expiry fixture, and the budget was spent before a rerun. Re-run the gates on the attempt-2 tree and fix inside the paths only what still fails."
 do_9 = "Attempt 4 (requalify after 22.31.483): attempt 3 re-ran the gates on the attempt-2 tree and passed the build; the dependent-crate check failed in the gateway's tests/repair_22_31_345.rs (the two-argument handle_connection call; the deployment.yaml include is restored by 22.31.467), a file owned by 22.31.483. Requalify the attempt-3 tree once 22.31.483 is on main."
 do_10 = "Attempt 5 (after 22.31.495): attempt 4 passed three of five cases; finding_27_grant_rejection_concurrency_and_durable_winner and finding_27_api_changed_call_and_disclosure_never_queue fail with Registry(ClockRequired) from the approval service's grant and reject entry points, which 22.31.495 threads the current time through. Re-run the gates on the attempt-4 tree once 22.31.495 is on main, pass the explicit time the new entry points take, and fix inside the paths only what still fails."
+do_11 = "Attempt 6 (continue after 22.31.519): attempt 5 passed current_time at the three sites of tests/approval_ordering/mod.rs (lines 129, 157 and 213) but never imported the type, so the lib test build failed with E0425 cannot find TimestampSeconds; the module is included from both the lib tests and the integration tests, so import it by a path valid in both, layerx_agent_api::TimestampSeconds as the compiler suggests. The crate's test build also compiles tests/approval_semantics.rs, which 22.31.519 repairs (gotcha 3077); rebase on main once it is there, run the declared build and verify, and record."
 
 [task.22.33.1538]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 3 of 3): retired-reference, test-gap"
@@ -321580,6 +321628,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue): the three SDK suites now pass (21 cases); the one failure is tests/agent/sdk/python/test_repair_22_31_147.py test_lifecycle_transaction_binding_and_retained_http_bytes, which still asserts the pre-22.33.16 program route (one POST with Content-Type application/octet-stream per lifecycle request, answered 202 unknown) while the SDK since 22.33.16 (6683a9d260) sends program mutations to the node root as the eth_sendRawTransaction JSON-RPC call with Content-Type application/json and the Idempotency-Key header and reads receipts with pax_sequencerReceipt (agent_http.py lines 215 to 240; gotcha 3080). Rewrite that case to the current contract: the stand-in handler accepts a JSON-RPC POST at the root, checks the method, the raw transaction parameter (0x plus the canonical bytes) and the Idempotency-Key equal to the keccak of the canonical bytes, answers the transaction hash the way the node does so _send_result accepts it, and the case asserts state submitted, the activity id and the retained signed activity; keep every binding, signer, nonce and retained-bytes assertion. Then run the declared verify and record the rewrite in the task record."
 
 [task.22.31.501]
 title = "Settle the bridge-credit retirement check on the absence proofs"
