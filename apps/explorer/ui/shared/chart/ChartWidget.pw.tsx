@@ -59,17 +59,17 @@ test('base view +@dark-mode', async({ render, page }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('loading', async({ render }) => {
+test('loading +@dark-mode', async({ render }) => {
   const component = await render(<ChartWidget { ...props } isLoading minH="250px"/>);
   await expect(component).toHaveScreenshot();
 });
 
-test('error', async({ render }) => {
+test('error +@dark-mode', async({ render }) => {
   const component = await render(<ChartWidget { ...props } isError/>);
   await expect(component).toHaveScreenshot();
 });
 
-test('small values', async({ render, page }) => {
+test('small values +@dark-mode', async({ render, page }) => {
   const modifiedProps = {
     ...props,
     charts: [
@@ -99,7 +99,7 @@ test('small values', async({ render, page }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('small variations in big values', async({ render, page }) => {
+test('small variations in big values +@dark-mode', async({ render, page }) => {
   const modifiedProps = {
     ...props,
     charts: [
@@ -129,7 +129,7 @@ test('small variations in big values', async({ render, page }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('incomplete day', async({ render, page }) => {
+test('incomplete day +@dark-mode', async({ render, page }) => {
   const modifiedProps = {
     ...props,
     charts: [
@@ -155,7 +155,7 @@ test('incomplete day', async({ render, page }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('multiple charts', async({ render, page }) => {
+test('multiple charts +@dark-mode', async({ render, page }) => {
   const modifiedProps: ChartWidgetProps = {
     ...props,
     charts: [

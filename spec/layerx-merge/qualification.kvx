@@ -31731,3 +31731,155 @@ symbol = "repair_22_33_1492.rs"
 observed = "Attempt 1 at ed24e41ad8db3acdec80966818619914c517d618: build exit 0, verify exit 1; 3 failed of 63: a2a_root_listener_authentication_and_retired_refusal (uncredentialed root POST not refused), lifecycle_signed_producer_receipts_distinguish_pending_success_and_revert (calldata differs from the fixture at hex offset 583: zeros against 3e8), a2a_response_loss_keeps_unknown_outcome (left Null, right rejected at a2a.rs line 1600); the gate line numbers do not match the committed tree."
 assumption = "Three production defects in the root listener, the lifecycle calldata encoder and the refusal outcome mapping, plus a tree amended after its gates."
 severity = "high"
+
+[finding.18.1578.1.3]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "proof_native_reads.rs"
+observed = "Attempt 3 at 2a0bccefd5645b183742efa46f46d1e2f44d01e2: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.99.77.16]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 14 at cd82b17c73ec67d7aa9d2fc23950c3d4a03f0f11: build exit 0 (the host boundary target built); dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.33.1537.5]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 5 at 10ce47e73ff19e23ac69121cede1646125ce3812: build exit 0, verify 31 passed, 1 failed: startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence at tests/outbox_recover.rs line 334, with_evidence.len() left 0 right 1."
+assumption = "The inventory reader predates the current evidence version; a production defect inside the task paths."
+severity = "high"
+
+[finding.22.33.1493.1]
+task = "22.33.1493"
+file = "tools/platform/cli/tests/repair_22_33_1493.rs"
+symbol = "repair_22_33_1493.rs"
+observed = "Attempt 1 at fc2111593a61e455cc2a2f39a00471cd7392f95b: build exit 0 after one repair (E0308 in program_evm_lifecycle and the binary test), verify 57 passed, 1 failed: left signer_public_key, registration_signature, email_or_verification_token; right signer_public_key, registration_signature at src/register.rs line 237."
+assumption = "A test pin stale against the gateway document since 22.31.202; the first real verify run of this tree."
+severity = "medium"
+
+[finding.22.33.1569.4]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 4 at 50f9aac8786fe99ed465b6d3d64a54813b9835af (re-qualified from attempt 3 after 22.31.494): build exit 0, verify 1 passed, 1 failed: pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at required.rs line 7 from funded_scenario.rs line 535, PAY2 batched Send, error contents redacted."
+assumption = "The failing step is undiagnosable while the helper redacts the error; the first real verify run since the receipt repair."
+severity = "medium"
+
+[finding.22.31.534.3]
+task = "22.31.534"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_534.rs"
+symbol = "repair_22_31_534.rs"
+observed = "Attempt 4 at cd81623a288a625f1525a1d31063dbbb6ee55ee5 (re-qualified from attempt 2): build exit 101, one error, E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.33.1536.5]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 5 at 9b9a3eae2ed1b7f980e3a3fbacc2397656f14c2b: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.33.233.6]
+task = "22.33.233"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+symbol = "repair_22_33_233.rs"
+observed = "Attempt 6 at 829898aa668112ebd7389d16e07a4c3bff47db4e: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.33.261.5]
+task = "22.33.261"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_261.rs"
+symbol = "repair_22_33_261.rs"
+observed = "Attempt 5 at e05691da34204bc350afdba17d51aa8ac613ce0e: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.33.14.6]
+task = "22.33.14"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs"
+symbol = "repair_22_33_14.rs"
+observed = "Attempt 6 at e9e42fc07d1d9555dd923ea811538bb2b1c4ec8c (re-qualified from attempt 5): build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.33.217.6]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 6 at 03db7887a73067f0631add7e0eb3bfe818f64ec5: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the task record cites revision dbfce8b11ade61c628dd32731c344b56affabf86."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.31.557.1]
+task = "22.31.557"
+file = "services/human/crates/layerx-intents/src/compile.rs"
+symbol = "compile.rs"
+observed = "Attempt 1 at daf8912bcf457658e0801c8142af7268e260de2d: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.31.558.1]
+task = "22.31.558"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs"
+symbol = "native_send_producer.rs"
+observed = "Attempt 1 at 4e358d8cfb3e0fb452f2105e4323eba24aafd0a3: build exit 0, dependent-crate check exit 0, verify exit 1: genuine_human_owner_session_consent_preview_and_reopen panicked at native_send_producer.rs line 574 on the absent fixture environment variable; 0 passed, 1 failed."
+assumption = "The verify command named a case that needs a recorded fixture; the repair itself is complete."
+severity = "medium"
+
+[finding.22.31.539.3]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 3 at e3b6976083056639f1514dfea35e2dc38dc96125: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.31.478.5]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 5 at b81618c97e303792a69b9531123f4093af9bf4ef: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the record cites revision 8cc1e9b86f8c31729dd4c66cccbf3105e7bce74b."
+assumption = "A stale site outside the task paths, repaired by 22.31.558."
+severity = "medium"
+
+[finding.22.31.547.3]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 3 at be7c10d1706f06b54be030969c1daed3ccf2ea4d: build exit 0, dependent-crate check exit 0, verify: 10 passed in the library suite; repair_22_31_547 0 passed 2 failed: native_sdk_v2_consent_crosses_daemon_rpc_and_legacy_is_malformed at line 231 (left 403 right 200, reason owner.refused, class PolicyRefusal, terminal), native_send_preview_is_an_unsigned_ledger_transfer_call at native_send_preview_evm.rs line 891 (bootstrap peer PoisonError)."
+assumption = "The first real producer to consumer crossing of the V2 consent path; the refusal is one of the enumerated checks."
+severity = "high"
+
+[finding.22.33.1569.5]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 5 at f2ed3a742b2afb3c1d3637d735c55f47f64c4667: build exit 0, verify 1 passed, 1 failed: pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow panicked at funded_scenario.rs line 8, PAY2 batched Send: Pending for the activity, after 60.32 seconds; a repair build at an intermediate revision failed on an unresolved layerx_programs_registry import that the committed tree no longer carries; the record cites revision 68c351cefa32f7e71156217d890466bba547bbd8."
+assumption = "The wallet lacks the finality trust the Batched commitment requires; the peer panic path is masked as Pending."
+severity = "high"
+
+[finding.22.33.1537.6]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 6 at 6729ff11e3e0673fface985db243740c7f0169b0: build exit 0; dependent-crate check exit 101 on E0609 no field owner_public_key on type NativeSendPurposeV2 at services/human/crates/layerx-human-service/tests/native_send_producer.rs line 659; verify did not run; the task record states that ReceiptEvidenceRecord, PersistedReceipt, recover_tenant_budget and EvidenceAuthority::verify_receipt require RawReceiptEvidence and that no conversion from the current record exists."
+assumption = "The recovery consumer of current evidence is a production gap owned by 22.31.559; the remaining case of this task is its consumer."
+severity = "high"
+
+[finding.22.31.557.2]
+task = "22.31.557"
+file = "services/human/crates/layerx-intents/src/compile.rs"
+symbol = "compile.rs"
+observed = "Attempt 2 at e58ccca43dc2d3a544d477520c9303ad34615375: build exit 0, dependent-crate check exit 0, verify exit 101: compile 5 passed, differential 5 passed, repair_22_31_557 3 passed 1 failed: v3_public_key_did_rotation_matches_the_governance_actor_derivation, assertion left 75 right 74 at tests/repair_22_31_557.rs line 148."
+assumption = "A literal length slip in the test; the derivation assertions have not yet run."
+severity = "medium"

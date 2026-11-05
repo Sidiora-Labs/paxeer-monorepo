@@ -215,7 +215,7 @@ fn server(steps: Vec<Step>, vectors: Value) -> (String, std::thread::JoinHandle<
             reader
                 .read_line(&mut line)
                 .unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+            assert_eq!(line, "POST / HTTP/1.1\r\n");
             let mut length = None;
             loop {
                 line.clear();
@@ -421,7 +421,7 @@ fn chains_list_show_and_create_round_trip() -> Result<(), Box<dyn std::error::Er
         &json!({"evm_address":FROM, "evm_private_key":format!("{:064x}", 1)}),
     )?;
     drop(key_file);
-    let rpc = format!("{endpoint}/rpc");
+    let rpc = endpoint.clone();
     let mut expected = vectors["getChain"]["decoded"].clone();
     expected["rpcUrl"] = json!(format!("{endpoint}/chain/1"));
     let listed = success(cli(directory.path(), &["--rpc", &rpc, "chains", "list"]));
