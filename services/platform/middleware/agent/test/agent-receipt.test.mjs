@@ -14,7 +14,10 @@ async function verifyAgentPaymentMatchesLedgerLog() {
   assert.equal(verification.payment.amount, BigInt(request.amount));
   assert.equal(Buffer.from(verification.payment.assetId).toString("hex"), request.asset);
   assert.equal(Buffer.from(verification.payment.to).toString("hex"), request.recipient);
-  assert.deepEqual(verification.receiptDigest, keccak256(bytes(evidence.signedReceipt)));
+  const signed = await verifySequencerReceipt(bytes(evidence.signedReceipt), bytes(evidence.rawTransaction), receiptKeys);
+  assert.deepEqual(verification.receiptDigest, signed.receiptDigest);
+  assert.equal(`0x${Buffer.from(verification.receiptDigest).toString("hex")}`, evidence.receiptDigest);
+  assert.notDeepEqual(verification.receiptDigest, keccak256(bytes(evidence.signedReceipt)));
   assert.notEqual(verification.receipt.amount, BigInt(request.amount));
   assert.notEqual(Buffer.from(verification.receipt.asset).toString("hex"), request.asset);
   assert.notEqual(Buffer.from(verification.receipt.to).toString("hex"), request.recipient);
@@ -48,9 +51,8 @@ async function verifyCommittedAgentPaymentRefusesOtherDigest() {
   assert.notEqual(other.evidence.receiptDigest, evidence.receiptDigest);
   await assert.rejects(verifyCommittedAgentPayment(other.evidence, reservation, request, receiptKeys),
     (error) => error instanceof AgentMiddlewareError && error.code === "budget-conflict");
-  const kernelDigest = await verifySequencerReceipt(bytes(evidence.signedReceipt), bytes(evidence.rawTransaction), receiptKeys);
   await assert.rejects(verifyCommittedAgentPayment(evidence, {
-    ...reservation, receiptDigest: Buffer.from(kernelDigest.receiptDigest).toString("hex"),
+    ...reservation, receiptDigest: Buffer.from(keccak256(bytes(evidence.signedReceipt))).toString("hex"),
   }, request, receiptKeys),
   (error) => error instanceof AgentMiddlewareError && error.code === "budget-conflict");
 }
