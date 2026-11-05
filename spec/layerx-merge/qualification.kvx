@@ -32051,3 +32051,27 @@ symbol = "repair_22_31_539.rs"
 observed = "Attempt 5 at 14c53fe2aa8e167438612b900fc33547d873c9ec: build exit 0, dependent-crate check exit 0, verify exit 101: library 5 passed, bootstrap_bind_layerx 0 passed 2 failed; agent_register_prepares_bind_layerx at line 704 PolicyRefusal owner.refused request 1 Terminal, left 403 right 200; session_open_prepares_grant_session_for_the_session_address PoisonError at line 880."
 assumption = "The refusal is the daemon identifier mismatch, not the test; nothing in this tree changes until 22.31.560 lands."
 severity = "high"
+
+[finding.22.99.77.18]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 16 at fcb4a24bb5303f41d67e3b6acd8ec6406bc6b5a4: build exit 0, verify exit 101: 12 native cases fail at prepare_activity -3 with result_code 0 after decode and validate pass; the fuel suite lists four operations 2 to 188 fuel over the cap."
+assumption = "The kernel status masks the executor error; the runtime side names it, and the fuel residuals are decode cost the joint readers remove."
+severity = "high"
+
+[finding.22.33.1569.9]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 9 at fd869e3b313b2cbc09b4b5552d375157458330b7: build exit 0, verify exit 101: the batched Send verifies; the grant issue receipt served as module 1 operation 7 is refused by the peer self-check (verify_node_receipt Verification, verify_logs ReceiptShape)."
+assumption = "The peer encoded a kernel module id the node never serves; the SDK is unchanged and the earlier ruling is corrected."
+severity = "high"
+
+[finding.22.31.496.6]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 6 at fe3f87873399cd2906c563e88b4e6f5170000bf7: build exit 0, dependent-crate check exit 0, verify exit 1: the Rust proof passes 2 cases; the Go keeper test binary link failed on No space left on device."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
