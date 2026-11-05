@@ -77,6 +77,10 @@ func init() {
 }
 
 func recordV4(n *node) (any, error) {
+	return recordV4Payment(n, nil)
+}
+
+func recordV4Payment(n *node, parties *v7Parties) (any, error) {
 	ctx, cancel := context.WithTimeout(n.ctx, 3*time.Minute)
 	defer cancel()
 	wallet, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, n.home, nil)
@@ -209,6 +213,25 @@ func recordV4(n *node) (any, error) {
 		return nil, err
 	}
 	reference := sha256.Sum256([]byte("committed fixture V4 payExact"))
+	if parties != nil {
+		mainName, mainID, err := lxphost.MainAccountID(dids[1])
+		if err != nil {
+			return nil, err
+		}
+		assetName, assetID, err := lxphost.AssetAccountID(dids[1], asset)
+		if err != nil {
+			return nil, err
+		}
+		if assetID != to {
+			return nil, errors.New("payExact destination differs from the named payee asset account")
+		}
+		*parties = v7Parties{
+			PayerDID: evmtypes.LayerXDid(dids[0]), PayeeDID: evmtypes.LayerXDid(dids[1]),
+			PayeeMainAccount:  v7Account{Name: mainName, Identifier: common.Hash(mainID)},
+			PayeeAssetAccount: v7Account{Name: assetName, Identifier: common.Hash(assetID)},
+			Asset:             common.Hash(asset), Amount: "3", Reference: common.Hash(reference),
+		}
+	}
 	receipt, raw, err := call(payer, "payExact", from, to, asset, big.NewInt(3), uint64(time.Now().Add(time.Hour).UnixMilli()), reference)
 	if err != nil {
 		return nil, err
