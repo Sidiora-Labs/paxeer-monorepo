@@ -1,0 +1,84 @@
+{
+  "name": "hyperfide-language-client",
+  "displayName": "Hyperfide",
+  "description": "Hyperfide language navigation, index status and links to the platform app.",
+  "version": "2.2.0",
+  "publisher": "SidioraLabs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sidiora-labs/codify"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other",
+    "Linters"
+  ],
+  "keywords": [
+    "hyperfide",
+    "language server",
+    "kvx"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "kvx",
+        "aliases": [
+          "kvx",
+          "Ion KVX"
+        ],
+        "extensions": [
+          ".kvx"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kvx",
+        "scopeName": "source.kvx",
+        "path": "./syntaxes/kvx.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "hyperfide.openTaskInPlatform",
+        "title": "Hyperfide: Open Current Task in Platform"
+      },
+      {
+        "command": "hyperfide.openFileInPlatform",
+        "title": "Hyperfide: Open Current File in Platform"
+      }
+    ],
+    "configuration": {
+      "title": "Hyperfide",
+      "properties": {
+        "hyperfide.binaryPath": {
+          "type": "string",
+          "default": "hyperfide",
+          "description": "Hyperfide executable for the language server."
+        },
+        "hyperfide.languageServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the language server."
+        },
+        "HYPERFIDE_PLATFORM_URL": {
+          "type": "string",
+          "default": "",
+          "description": "Platform app URL used by the open task and file commands."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

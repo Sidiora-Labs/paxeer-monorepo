@@ -1,0 +1,43 @@
+{
+  "name": "hyperfide-plugin-hyperfide--github-pr-status",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub pull request status and actions for each environment's branch",
+  "engines": {
+    "hyperfide": ">=0.0"
+  },
+  "hyperfide": {
+    "name": "GitHub PR Status",
+    "description": "GitHub pull request status and actions for each environment's branch",
+    "branding": {
+      "icon": "GitPullRequest"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts"
+  },
+  "exports": {
+    "./contract": "./contract.ts"
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "hyperfide-environment-provider-host": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/node": "^22.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}
