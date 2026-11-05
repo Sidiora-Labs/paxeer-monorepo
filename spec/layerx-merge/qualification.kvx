@@ -31979,3 +31979,75 @@ symbol = "repair_22_31_496.rs"
 observed = "Attempt 4 at e4f479f37e2805e67a96117ae48575edeb4205be: build exit 0, dependent-crate check exit 0, verify exit 1: cargo test repair_22_31_496 2 passed, then go test ./modules/layerxauth/keeper/ failed with No space left on device during the link; TestRepair_22_31_496 never ran."
 assumption = "Environmental; the tree is unchanged."
 severity = "medium"
+
+[finding.18.1578.1.5]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "proof_native_reads.rs"
+observed = "Attempt 5 at 1ef2b0ee61: build exit 0; the dependent-crate check failed at candidate 6c8a7b27 with E0433 unlinked crate openssl at tests/proof_native_reads.rs line 666 (the host crate include); at the final revision verify and the dependent-crate check did not run; the earlier consumer proof answered 503 verified_read_unavailable after rung receipted."
+assumption = "The final tree compiles; the open question is which Unavailable site the served route hits."
+severity = "medium"
+
+[finding.22.31.217.6]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 6 at 817473b0e7: build exit 0, dependent-crate check exit 0, verify exit 101: repair_22_31_217 6 passed 10 failed; six Disclosure(MalformedPayload) at tests lines 337 and 485, three Snapshot at 1055, 1160 and 1221, one Refused at 852, one panic at 409 (no receipt for the program_settlement construct)."
+assumption = "The ten failures are fixture and assertion facts; the budget module repairs are not contradicted by the evidence."
+severity = "high"
+
+[finding.22.31.478.7]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 7 at 1a321dade7: build exit 0, dependent-crate check exit 0, verify exit 1: TestRepair478_FundWithinProductionAllowance before and after fail at repair_478_test.go line 244 (via 301) with LXP_ERR_VERSION_UNSUPPORTED at the rewards account registration; deploy of both ABI-5 guests succeeds."
+assumption = "The guest validation reads kernel records the test never wrote; the guests and the Fund path are not contradicted."
+severity = "high"
+
+[finding.22.31.559.1]
+task = "22.31.559"
+file = "services/agent/crates/layerx-agentd/src/receipt.rs"
+symbol = "receipt.rs"
+observed = "Attempt 1 at 73ce447d2f: build exit 0, dependent-crate check exit 0, verify exit 101: repair_22_31_559 fails only at line 332 (ceiling snapshot consumed left 0, right 1000000000000000000)."
+assumption = "The over-asserting ceiling check is the only defect; the recovery consumer is correct."
+severity = "medium"
+
+[finding.22.33.1536.7]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 7 at 85a8c333e1: build exit 0, dependent-crate check exit 0, verify exit 101: quorum powers u64::MAX by four answers InvalidCommit under the header path; the export fixture answers Contract because export.rs verify_account parses an RLP trie proof."
+assumption = "Both failures are consumer facts; the export consumer is repaired by 22.31.561 before this attempt runs."
+severity = "high"
+
+[finding.22.33.1569.8]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 8 at 6796af4861: build exit 0, verify exit 101: the peer logs module=1 operation=7 amount=0 for the grant issue, then PAY2 peer_receipt fails with RpcError::Verification and the grant issue execution reports Transport; the task record calls the SDK verifier EVM-only."
+assumption = "The peer encodes ledger account ids and the grant asset into header words the verifier binds to the EVM fields; the SDK is unchanged."
+severity = "high"
+
+[finding.22.35.8.1]
+task = "22.35.8"
+file = "apps/explorer/ui/repair-22-35-8.spec.ts"
+symbol = "repair-22-35-8.spec.ts"
+observed = "Attempt 1 at 38bc60fa64: tsc exit 0; vitest fails with TypeError reading APP_PROFILE at configs/app/app.ts line 19 from the module cycle; the fix in lib/cookies.ts lies outside the touches."
+assumption = "Environmental to the touches list; the tree is unchanged."
+severity = "medium"
+
+[finding.22.31.496.5]
+task = "22.31.496"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_496.rs"
+symbol = "repair_22_31_496.rs"
+observed = "Attempt 5 at e6a9b49289afbf2c4022462bd160c89eaed7a69c: build exit 0, dependent-crate check exit 0, verify exit 1: cargo test repair_22_31_496 2 passed, then go test ./modules/layerxauth/keeper/ failed with No space left on device during the link; TestRepair_22_31_496 never ran."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.22.31.539.5]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 5 at 14c53fe2aa8e167438612b900fc33547d873c9ec: build exit 0, dependent-crate check exit 0, verify exit 101: library 5 passed, bootstrap_bind_layerx 0 passed 2 failed; agent_register_prepares_bind_layerx at line 704 PolicyRefusal owner.refused request 1 Terminal, left 403 right 200; session_open_prepares_grant_session_for_the_session_address PoisonError at line 880."
+assumption = "The refusal is the daemon identifier mismatch, not the test; nothing in this tree changes until 22.31.560 lands."
+severity = "high"
