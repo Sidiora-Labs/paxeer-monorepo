@@ -147446,7 +147446,7 @@ title = "Keep wallet gateway routes from awaiting pool queries while they hold a
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.520"]
 reqs = ["22998.1"]
 capabilities = ["22.31.517"]
 interfaces = []
@@ -147471,6 +147471,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue after 22.31.520): attempt 1 restructured the send route's pool use and wrote the ten regression cases, but its build stopped at pnpm --dir services/wallet/gateway install --frozen-lockfile with ERR_PNPM_IGNORED_BUILDS, the pnpm 12 refusal of the wallet workspace's undeclared dependency build scripts (gotcha 3079), so the type-check and the verify never ran. 22.31.520 declares those scripts in services/wallet/pnpm-workspace.yaml (decision 2567). Rebase on main once it is there, run the declared build and verify, repair only what that run reports inside the task's paths, and record the result in the task record."
 
 [task.22.31.512]
 title = "Restore the explorer frontend production build by keeping node-fetch out of the client and edge compiles"

@@ -30707,3 +30707,11 @@ symbol = "human_approval_budget_actor.rs"
 observed = "Attempt 1: the second build exited 101 with five decision-time signature errors in tests/approval_semantics.rs; the verify did not run."
 assumption = "A main-side daemon test break in another task's scope (gotcha 3077); the attempt was launched before that requirement landed."
 severity = "low"
+
+[finding.22.31.517.1]
+task = "22.31.517"
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+symbol = "repair-22-31-517.test.ts"
+observed = "Attempt 1: the build exited 1 at the install step with ERR_PNPM_IGNORED_BUILDS before the type-check; no verify ran."
+assumption = "A package-manager policy of the whole wallet workspace (gotcha 3079), repaired by 22.31.520; not a defect of the attempt."
+severity = "low"
