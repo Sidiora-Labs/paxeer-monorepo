@@ -148209,7 +148209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.7]
 title = "Explorer network pages: stats, validators, epochs and gas tracker in the visual system"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.6"]
@@ -179646,7 +179646,7 @@ do_15 = "Attempt 2 (continue after 22.33.1492, 22.33.1493 and 22.33.1494, gotcha
 
 [task.22.33.1494]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 3 of 3): config-drift, restart-recovery, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
@@ -179728,7 +179728,7 @@ do_15 = "Attempt 2 (continue after the first verify run, gotcha 3182): the attem
 
 [task.22.33.1492]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/src (part 1 of 3): restart-recovery, retired-reference, security, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.212", "22.31.213"]
