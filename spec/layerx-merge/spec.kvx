@@ -183499,7 +183499,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.261]
 title = "Repair audit record 22.30.130 medium findings in programs/crates/layerx-programs-ai-market/tests (part 2 of 2): restart-recovery, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.266", "22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558"]
@@ -184647,7 +184647,7 @@ do_15 = "Attempt 7 (continue after the first verify run, gotcha 3173): the attem
 
 [task.22.33.217]
 title = "Repair audit record 22.30.122 medium findings in programs/crates/layerx-programs-ai-market/src (part 1 of 1): config-drift, interface-mismatch, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.253", "22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558"]
