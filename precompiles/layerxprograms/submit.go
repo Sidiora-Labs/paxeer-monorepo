@@ -20,7 +20,7 @@ import (
 type PrecompileExecutor struct {
 	host      *lxphost.Host
 	evmKeeper *evmkeeper.Keeper
-	xweb      *xwebkeeper.Keeper
+	xweb      *xwebkeeper.Keeper // Native program fee denomination bindings and governance.
 	handlers  handlerTable
 }
 
