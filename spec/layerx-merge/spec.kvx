@@ -148175,7 +148175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.6]
 title = "Explorer entity pages: entity header, tabs and labelled sections for transactions, blocks, addresses and tokens"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1"]
