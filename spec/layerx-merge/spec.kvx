@@ -166227,7 +166227,7 @@ do_7 = "Attempt 2 (continue after 22.31.520): attempt 1 brought the attestor pol
 
 [task.22.31.511]
 title = "Record committed vector V7, a pay-exact into the payee's asset sub-account with the payer and payee identities in its provenance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.509"]
