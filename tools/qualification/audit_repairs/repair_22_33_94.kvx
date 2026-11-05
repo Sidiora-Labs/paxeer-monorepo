@@ -1,0 +1,69 @@
+[repair.22.33.94]
+audit = "22.30.110"
+base_revision = "603f707f71e5cfe7896841be5d1e735eb7db966f"
+status = "binding repair implemented; qualification is recorded by the bounded gate ledger"
+scope = "The five task paths only. Preserve runner-prepared .cgignore/spec changes; publication belongs to the runner."
+baseline = "Continued the three implementation files restored from attempt 4. Its supplied gate report records five failures (three journey sequence lookups, the shared-fixture importer lookup and a stale producer source line) and five passes. Current gate.json showed zero build/verify runs and two repair cycles remaining; no gates.jsonl existed. No additional baseline run was made because the explicit implementation-first order and exclusive hf-done gate supersede the conflicting unchanged-tree clause."
+implementation = "Preserve the strict EIP-1559/provider-reference importer, validate a positive sequence in the signed producer receipt, and authenticate the original receipt under its pinned Ed25519 public key. Regeneration resolves each journey's own declared fixture and case, validates every credit before returning a copy, and retains transaction hash, digest, provider reference/idempotency key, calldata, counterparty and expiry without introducing a journey sequence field. The redundant metadata refresher is removed; each journey points to the single validated recorder. No transaction, receipt, provider fact or signature is rewritten."
+continuation = "22.31.489 supplied the missing original captures in sdk/platform/conformance/fixtures/fiat-receipts-v1.json. The attempt-2/3 missing-capture conclusion and attempt-4 sequence/source-line assumptions are superseded by this committed producer shape (gotcha 3103)."
+
+[finding.fiat_fixture_transaction_binding]
+status = "repaired"
+file = "services/interop/specs/conformance/fiat/sequenced-journeys.json"
+tests = ["test_fiat_fixture_transaction_binding", "test_provider_reference_matches_production_encoder_and_all_three_rails", "test_importer_refuses_original_unbound_producer_capture_without_mutation", "test_importer_resolves_each_declared_fixture_and_preserves_originals", "test_importer_and_production_verifier_reject_changed_receipt_signature", "test_submitted_and_reverted_recordings_preserve_their_original_evidence", "test_production_callback_transport_and_credit_checks_remain_required", "test_production_intent_sets_provider_reference_before_submission", "test_producer_finding_identifies_call_builder_and_transport_refusal"]
+observed = "The audit's generic payExact recording did not carry the provider-derived references. The three current adapter-derived captures carry the exact card, bank and rtp references in original signed calldata and PaymentExact logs; each journey declares its own capture fixture and case."
+expected = "Each credit binds declared transaction_hash to receiptJson.txHash, receipt_digest to receiptDigest and expect.receipt_digest, and payment_reference/idempotency_key to calldata bytes 164..196. payment_calldata equals the original calldata. The production Python SDK verifies the payer-signed transaction, raw transaction hash, receipt signature, pinned key/height and positive chain-assigned receiptJson.seq, with previous-sequence-hash correspondence."
+
+[producer_finding.fiat_fixture_transaction_binding]
+test = "test_producer_finding_identifies_call_builder_and_transport_refusal"
+producer_repair = "22.31.489"
+adapter_defect_observed = false
+capture_available = true
+field = "payExact reference, calldata bytes 164..196"
+locations = [
+  ["services/interop/crates/layerx-fiat/src/lib.rs", "let idempotency_key = Self::idempotency_key(facts);"],
+  ["services/interop/crates/layerx-fiat/src/lib.rs", "idempotency_key,"],
+  ["services/interop/crates/layerx-fiat/src/lib.rs", "data[164..196].copy_from_slice(&self.idempotency_key);"],
+  ["services/interop/crates/layerx-interop-service/src/server.rs", "if transfer.reference != intent.idempotency_key"],
+]
+observed = "The adapter derives the provider key before creating FiatIntent and encodes it into the submitted call. The hosted service refuses mismatched references before relaying the unchanged caller-signed transaction. Source locations are matched by content, not unstable line numbers. The repaired producer is identified through the capture provenance rather than old generic-vector source lines."
+
+[wiring.chain_capture]
+status = "resolved by 22.31.489"
+request = "rpc/sequencer_receipt_vectors_test.go and sdk/platform/conformance/fixtures/fiat-receipts-v1.json — sequencer/RPC owner supplied the five original captures; this task consumes them unchanged."
+
+[wiring.vector_consumer]
+status = "recorder replaced in this task"
+recorder = "services/interop/specs/conformance/fiat/record_sequenced_journeys.py"
+request = "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs — interop domain 11 owns native adapter conformance qualification; retain the negative re-signing test separately and qualify its recorded callback, one-credit and replay path with the current captures."
+
+[wiring.runtime_recovery]
+request = "services/interop/crates/layerx-interop-service/src/server.rs and src/relay.rs — interop domain 11: expose the production FiatEvidenceVerifier/FiatServicePlane and durable journey owner to an in-process runtime gate; execute the signed callback through ChainRelay, stop/reopen at submitted and receipted boundaries, and assert one credit and replay without resubmission."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_94.py"
+proven = "The declared pytest gate exercises the real importer against committed chain captures and the production Python SDK's signed transaction decoder and sequencer receipt verifier. It asserts all three rail bindings, payer recovery and transaction round trip, receipt signature/digest/sequence/key authorization, immutable regeneration from independently declared fixture paths, rejection of the original generic recording and altered signatures, preserved submitted/reverted evidence, removal of the duplicate recorder, and production source connections from provider derivation through callback, relay and adapter credit checks."
+runtime = "The Rust callback, EVM execution, ChainRelay execution, durable owner restart/replay and one-credit runtime behavior are not executed by this Python-only gate. Their production source connections are inspected, with runtime/recovery work assigned above; source assertions and recorded signatures do not certify native execution or committed finality. No shell scripts, unit files, manifests or build files are changed."
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private ledger record the exact content-derived verified revision, command, exit and log path. Build and verification must use the same candidate. No unrun gate or self-referential content revision is claimed; the runner retains the final revision evidence outside the candidate."
+
+[qualification.previous_failure]
+revision = "d2e6ddbd79011f6009bea78c8e8582b4d70fb32c"
+command = "cg spec done 22.33.94 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Historical attempt-2 evidence: five checks passed and the three credited-rail binding cases failed because the shared transaction reference was not provider-derived."
+assumption = "This is preserved historical evidence, not the current gate result; 22.31.489 has since supplied matching original producer captures."
+
+[gotcha.scope_and_baseline]
+observed = "General workflow requests GOTCHA/spec edits and commit/push, while the direct task forbids them and forbids pre-implementation verification."
+resolution = "Keep notes here, use only hf-build then hf-done, preserve runner setup, and leave publication to the runner."
+
+[gotcha.fixture_shape]
+observed = "The prior attempt required journey sequence fields and shared-fixture case IDs that do not exist in the adapter-derived capture shape."
+resolution = "Resolve each declared fixture/case; use the positive sequence from authenticated receiptJson.seq and preserve pending/reverted recordings."
+
+[gotcha.cached_context]
+observed = "cg brief reports unrelated cached task context and broad reads exceed the output budget; gate wrappers live in /out/run/bin rather than /usr/local/bin."
+resolution = "Use exact task/finding sections and bounded source reads; command -v locates wrappers and the private ledger controls gate usage."
