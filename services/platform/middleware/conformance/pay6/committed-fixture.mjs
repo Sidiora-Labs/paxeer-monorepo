@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { cometHeaderHash, cometCommitHash } from "@sidiora/layerx-sdk";
 import { fixedBytes } from "../src/receipts.ts";
-import { recordedCommittedReceipt } from "../../seller/test/committed-fixture.mjs";
+import { recordedCommittedReceipt as recordedCommittedFixture } from "../../seller/test/committed-fixture.mjs";
+
+export { recordedCommittedFixture };
 
 const bytes = (value) => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
 const sha256 = (...values) => createHash("sha256").update(Buffer.concat(values)).digest();
@@ -84,10 +86,6 @@ export function commitSignBytes(header) {
     protoBytes(5, protoInteger(1, 1n)), protoBytes(6, Buffer.from(header.chainId)),
   ]);
   return Buffer.concat([varint(BigInt(vote.length)), vote]);
-}
-
-export async function recordedCommittedFixture() {
-  return recordedCommittedReceipt();
 }
 
 export async function committedFixture() {
