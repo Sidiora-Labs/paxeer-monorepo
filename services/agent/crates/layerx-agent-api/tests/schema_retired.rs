@@ -33,6 +33,36 @@ fn settlement_domain_vocabulary_is_absent() -> std::io::Result<()> {
 }
 
 #[test]
+fn native_send_v1_records_declare_the_explicit_legacy_refusal() {
+    for source in [
+        layerx_agent_api::AGENT_API_V1_SOURCE,
+        include_str!("../../../schema/agent-api/golden/v1.kvx"),
+    ] {
+        for record in ["NativeSendPurposeV1", "SignedNativeSendPurposeV1"] {
+            let header = format!("[record.{record}]\n");
+            let section = source
+                .split_once(&header)
+                .expect("retired V1 record must remain declared")
+                .1
+                .split("\n[")
+                .next()
+                .unwrap();
+            let retired = section
+                .lines()
+                .find_map(|line| line.strip_prefix("retired = "))
+                .expect("V1 record must declare its retirement");
+            assert_eq!(
+                retired,
+                "\"Retired: validation explicitly refuses with ContractError::Mismatch(native_send.legacy_version); use NativeSendPurposeV2 and SignedNativeSendPurposeV2.\""
+            );
+            assert!(section.contains(&format!("rust = \"layerx_agent_api::identity::{record}\"")));
+            assert!(section.contains(&format!("wire_type = \"{record}Wire\"")));
+            assert!(section.lines().any(|line| line.starts_with("fields = [")));
+        }
+    }
+}
+
+#[test]
 fn verification_status_is_expressed_in_rungs_only() {
     let identity: fn(RungStatus) -> VerificationStatus = |status| status;
     assert_eq!(
