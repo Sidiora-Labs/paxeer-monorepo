@@ -30883,3 +30883,11 @@ symbol = "nextjs"
 observed = "Attempt 3: build exit 1 with the Next.js type check of lib/mixpanel/getPageType.ts line 3 reporting the missing '/chains' and '/chains/[id]' keys; verify did not run."
 assumption = "A fourth route map outside the task's declared paths (gotcha 3109)."
 severity = "medium"
+
+[finding.22.31.491.2]
+task = "22.31.491"
+file = "rpc/repair_22_31_491_test.go"
+symbol = "repair_22_31_491_test.go"
+observed = "Attempt 2: build exit 0; verify exit 1 with TestRepairM_486_DerivedCopies reporting portable provenance differs from source recordings; the rpc, sdk/platform/go, pytest and wallet targets passed."
+assumption = "A derived copy outside the task's paths that the task's own gate pins (gotcha 3110)."
+severity = "low"
