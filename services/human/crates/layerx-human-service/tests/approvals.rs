@@ -19,13 +19,13 @@ use layerx_agentd::budget::BudgetLimiter;
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::events::EventIngestor;
 use layerx_agentd::policy::approval::{
-    hold, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
+    hold_at, ApprovalContext, ApprovalRegistry, ApprovalSequence, ApprovalState, ApproverId,
 };
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_service::approvals::{
     AgentApprovalRecord, AgentApprovalState, ApprovalBoundary, ApprovalBoundaryError,
-    ApprovalEvent, Inbox, InboxState, VerifiedBudgetAfter,
+    ApprovalEvent, ApprovalNotification, Inbox, InboxState, VerifiedBudgetAfter,
 };
 use layerx_human_service::audit::AuditChain;
 use layerx_human_service::notify::{DetailLevel, Dispatcher};
@@ -87,9 +87,22 @@ fn context(id: u8) -> ApprovalContext {
 
 struct AgentdBoundary<'a> {
     service: ApprovalService<'a>,
+    clock: &'a dyn layerx_types::clock::Clock,
     queue: &'a ApprovalSubmissionQueue,
     tenant: TenantId,
     released: BTreeMap<[u8; 32], [u8; 32]>,
+}
+
+fn decision_time(
+    clock: &dyn layerx_types::clock::Clock,
+) -> Result<TimestampSeconds, ApprovalBoundaryError> {
+    let reading = clock
+        .sample(std::time::Duration::from_secs(1))
+        .map_err(|_| ApprovalBoundaryError::Unavailable)?;
+    if reading.generation == [0; 16] {
+        return Err(ApprovalBoundaryError::Unavailable);
+    }
+    Ok(TimestampSeconds(reading.unix_seconds()))
 }
 
 impl ApprovalBoundary for AgentdBoundary<'_> {
@@ -100,7 +113,12 @@ impl ApprovalBoundary for AgentdBoundary<'_> {
     ) -> Result<AgentApprovalRecord, ApprovalBoundaryError> {
         let record = self
             .service
-            .get(&self.tenant, approval_id, at_sequence)
+            .get(
+                &self.tenant,
+                approval_id,
+                at_sequence,
+                decision_time(self.clock)?,
+            )
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         let state = match record.state {
             ApprovalState::AwaitingApproval => AgentApprovalState::AwaitingApproval,
@@ -234,7 +252,6 @@ fn emit(
 fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle() {
     let directory = support::directory("approval-inbox");
     let agent_root = directory.join("agent");
-    fs::create_dir_all(&agent_root).unwrap_or_else(|error| panic!("agent root: {error}"));
     let registry = ApprovalRegistry::default();
     let limiter =
         BudgetLimiter::new(Vec::new()).unwrap_or_else(|error| panic!("limiter: {error:?}"));
@@ -243,13 +260,20 @@ fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle()
     let service = ApprovalService::new(&registry, &limiter, &expiry);
     let queue = ApprovalSubmissionQueue::default();
 
+    let clock = support::StepClock::new(10_000);
     for (id, expires) in [(1_u8, 50_u64), (2, 50), (3, 15)] {
-        hold(&registry, context(id), prepared(id, 100), 10, expires)
-            .unwrap_or_else(|error| panic!("real agent hold {id}: {error:?}"));
+        hold_at(
+            &registry,
+            context(id),
+            prepared(id, 100),
+            ApprovalSequence(10),
+            ApprovalSequence(expires),
+            decision_time(&clock).unwrap_or_else(|error| panic!("hold time: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("real agent hold {id}: {error:?}"));
     }
 
     let stream_root = agent_root.join("stream");
-    fs::create_dir_all(&stream_root).unwrap_or_else(|error| panic!("stream root: {error}"));
     let stream_store =
         AgentStore::open(&stream_root).unwrap_or_else(|error| panic!("agent event store: {error}"));
     let mut ingestor = EventIngestor::open(stream_store, tenant(), 16, 10)
@@ -276,6 +300,7 @@ fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle()
         .unwrap_or_else(|error| panic!("full notification detail: {error}"));
     let mut boundary = AgentdBoundary {
         service,
+        clock: &clock,
         queue: &queue,
         tenant: tenant(),
         released: BTreeMap::new(),
@@ -315,9 +340,12 @@ fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle()
     assert!(deliveries
         .iter()
         .all(|delivery| delivery.payload().contains("agt_")));
-    assert!(deliveries
-        .iter()
-        .all(|delivery| delivery.payload().contains("25")));
+    for delivery in &deliveries {
+        let notification = ApprovalNotification::for_delivery(&scope, delivery)
+            .unwrap_or_else(|error| panic!("approval notification binding: {error}"));
+        assert_eq!(notification.amount(), 25);
+        assert_eq!(notification.asset(), pending.items()[0].asset());
+    }
 
     let held = prepared(1, 100);
     let decision = boundary
@@ -331,6 +359,8 @@ fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle()
                 approver: ApproverId::new("human-alice")
                     .unwrap_or_else(|error| panic!("approver: {error:?}")),
                 current_sequence: 11,
+                current_time: decision_time(boundary.clock)
+                    .unwrap_or_else(|error| panic!("approval time: {error:?}")),
             },
             &held,
             &queue,
@@ -399,6 +429,8 @@ fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle()
             approver: ApproverId::new("human-alice")
                 .unwrap_or_else(|error| panic!("approver: {error:?}")),
             current_sequence: 13,
+            current_time: decision_time(boundary.clock)
+                .unwrap_or_else(|error| panic!("rejection time: {error:?}")),
         })
         .unwrap_or_else(|error| panic!("agent reject: {error:?}"));
     assert_eq!(rejected.outcome, ApprovalOutcome::Rejected);
