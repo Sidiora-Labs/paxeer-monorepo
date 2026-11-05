@@ -325,6 +325,21 @@ pub enum Event {
 }
 
 impl Event {
+    pub(crate) fn approval_notification(
+        &self,
+        scope: &crate::store::PrincipalScope<'_>,
+        delivery: &super::Delivery,
+    ) -> Result<Option<crate::approvals::ApprovalNotification>, NotifyError> {
+        let Self::ApprovalWaiting { approval_id, .. } = self else {
+            return Ok(None);
+        };
+        let binding = crate::approvals::ApprovalNotification::for_delivery(scope, delivery)?;
+        if binding.approval_id() != approval_id {
+            return Err(NotifyError::LinkSubjectMismatch);
+        }
+        Ok(Some(binding))
+    }
+
     /// Returns the notification class this event dispatches as.
     #[must_use]
     pub const fn class(&self) -> NotificationClass {

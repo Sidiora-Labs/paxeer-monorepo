@@ -1,0 +1,33 @@
+[repair]
+task = "22.31.525"
+branch = "task/22.31.525"
+base_revision = "d3ac46e4fe98ec88cc1947dd85a9a8b1bbe86ee8"
+decision = "2571"
+gotcha = "3091"
+implementation = "A refused seller decision returns the opened terminal order unchanged; only awaiting-payment orders call markRefused. A released settlement reuses an opened terminal order and checks its paid state, receipt digest and transaction before returning paid; only awaiting-payment orders call markPaid."
+unchanged = "Other checkout decisions and the settlement webhook handler retain their existing behavior."
+
+[cases]
+payment = "repair2231525PaysWithSignedReceipt: conformance signer produces the receipt; real seller, ReceiptPayloadAuthority, MerchantCheckout, DeclaredCatalog, FileOrders and FileFulfillments pay and persist the order."
+receipt_envelope = "The signer-produced signed receipt and raw transaction pass through verifySequencerReceipt; its authenticated receiptDigest populates the buyer envelope, with the signed bytes unchanged."
+replay = "repair2231525ReplaysPaidOrderAfterReopening: reopen both disk stores and return the stored paid order and settlement with one fulfillment file."
+refusal = "repair2231525RefusesTamperedAttemptWithoutChangingPaidOrder: tamper receiptDigest in the producer payload, receive kind refused and the paid order, and assert unchanged disk order records and exactly one unchanged fulfillment file."
+catalog = "repair2231525RejectsMissingSkuOnFreshCheckout: missing SKU fails catalog-item-missing before any order is created."
+baseline = "Not executed: the task gate order forbids verification before implementation and requires verification through hf-done only. Gotcha 3091 records the original paid-order refusal failure; no new baseline result is claimed."
+
+[qualification]
+build_command = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-merchant-middleware && npm --prefix services/platform/middleware/merchant run build"
+verify_command = "node --test services/platform/middleware/merchant/test/repair-22-31-525.test.mjs"
+done_command = "cg spec done 22.31.525 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "Private /out/run/gates.jsonl: build and verify rows record exact candidate revision, command, exit, and log; the final hf-done JSON line is the authoritative result."
+verified_revision = "The verify row revision in the private gate ledger, also the HEAD installed by hf-done; it must equal the passing build row revision."
+gate_results = "Read build and verify row exit fields and their private log paths from the gate ledger; this record is written before qualification so the candidate remains identical across both gates."
+constraints = "Declared build and task test only; no credentials, live endpoints, subprocess toolchains, skipped tests or weakened assertions. No commit or push by the agent."
+
+[finding.receipt_helper]
+revision = "a2da4bd9b194f17c1d5d870cf91bc0b4921bc8de"
+command = "cg spec done 22.31.525 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The conformance helper reports keccak256(signedReceipt), while the SDK authenticates the domain-separated signing digest; three payment cases failed at ReceiptPayloadAuthority.verifyReceiptDigest and the missing-SKU case passed."
+assumption = "The out-of-scope producer remains unchanged; the task test builds its transport envelope with the real SDK verifier's authenticated digest and retains every assertion."

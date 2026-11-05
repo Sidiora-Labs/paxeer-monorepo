@@ -1,0 +1,37 @@
+[repair.22.31.523]
+finding = "approval-notification-full-detail-binding"
+payload_fields = "Push and in-app JSON add amount (exact base-unit decimal string) and asset (stable asset ID); full-detail email adds Amount and Asset lines. Approval values never use Money or currency metadata."
+binding_read_path = "Inbox::consume persists ApprovalNotification before Dispatcher::dispatch; Event::approval_notification calls ApprovalNotification::for_delivery using the selected delivery route and checks the approval subject; Content::bind_approval enriches only new full-detail batches."
+privacy_and_replay = "Summary and minimal omit amount, asset and agent in all channels. Reopening the real store and replaying retained production approval events preserves every immutable delivery and its audit count even after preferences change."
+closes_wiring_request = "Task 22.31.523 closes the notify amount/asset wiring request in src/approvals/repair_22_31_159.kvx; that file is outside this task scope."
+baseline = "Not run: the explicit ordered gate instructions prohibit pre-implementation verification and direct verify_cmd invocation. No baseline cases are claimed as executed."
+tests = ["full_detail_approval_carries_maximum_base_units_and_bank_asset_after_replay", "full_detail_approval_carries_native_asset_without_currency_metadata", "full_detail_approval_escapes_stable_asset_id_in_json"]
+gates = "hf-build runs the declared cargo build --locked test target; hf-done runs cg spec done and the declared cargo test --locked test target. Exact revision, command, exit and private evidence log are recorded in the runner gate ledger and final task response; this record does not claim an unrun gate."
+
+[gotcha.approval_timed_api]
+symptom = "The predecessor repair test uses the retired sequence-only hold API and the old ApprovalService::get signature."
+fix = "Use hold_at with ApprovalSequence and TimestampSeconds, and pass current TimestampSeconds to get; no production authority or clock check is bypassed."
+
+[gate.build_1]
+revision = "20e9ff27f5c907a63ecc4e99fc14e62d1c55e22e"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_523"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "New test adapter omitted the current timestamp argument on two ApprovalService::get calls; repaired to use the current timed approval APIs."
+
+[gate.build_2]
+revision = "54c12af6e91fc52b5bc4b8bda20f05e8a836d055"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_523"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[gate.verify_1]
+revision = "54c12af6e91fc52b5bc4b8bda20f05e8a836d055"
+command = "cg spec done 22.31.523 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three tests refused the stream directory's default permissions before payload assertions; the fixture now creates its real store directory with required mode 0700."
+
+[gotcha.private_store_directory]
+symptom = "Default create_dir_all permissions are rejected by the production agent store."
+fix = "Create the test's stream directory with DirBuilderExt mode 0700; preserve the production private-directory validation."
