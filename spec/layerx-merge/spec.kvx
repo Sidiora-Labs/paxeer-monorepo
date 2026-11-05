@@ -148003,7 +148003,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.533]
 title = "Re-pin the three committed seller suites to the receipt-signature digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.530"]
@@ -148319,7 +148319,7 @@ do_7 = "Attempt 4 (continue): attempt 3 carries the four moved pairs, the guard,
 
 [task.22.31.493]
 title = "Make the Express and Next route checks accept the receipt-signature digest the seller releases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.492", "22.31.530"]
@@ -175140,7 +175140,7 @@ do_5 = "Attempt 2 also waits for 22.31.516 (gotcha 3132, decision 2591): the dec
 
 [task.22.31.532]
 title = "Give the production web payer the approval resources and the held-transaction path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
