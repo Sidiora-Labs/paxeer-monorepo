@@ -4,7 +4,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { keccak256 } from "@sidiora/layerx-sdk";
+import { keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
   PAYMENT_RESPONSE_HEADER,
@@ -33,12 +33,13 @@ const pin = {
   first_height: BigInt(vector.pinnedKey.firstHeight),
   last_height: BigInt(vector.pinnedKey.lastHeight),
 };
+const verified = await verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), [pin]);
 const proof = {
   format: "layerx-receipt-proof-v2",
   verificationLevel: "receipted",
   rawTransaction: vector.rawTransaction,
   signedReceipt: vector.signedReceipt,
-  receiptDigest: hex(keccak256(bytes(vector.signedReceipt))),
+  receiptDigest: hex(verified.receiptDigest),
   receiptKey: {
     keyId: vector.pinnedKey.keyId,
     publicKey: vector.pinnedKey.publicKey,
@@ -119,7 +120,7 @@ async function receiptReplayRefusesChangedRequestAndReplaysOriginal(t) {
   assert.deepEqual(stored.resource, first.resource);
 }
 
-async function receiptIdentityIsScopedToMerchant(t) {
+async function receiptIdentityIsBoundToOnePrincipal(t) {
   const directory = await mkdtemp(join(tmpdir(), "seller-receipt-merchants-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const middleware = seller(directory);
@@ -131,12 +132,11 @@ async function receiptIdentityIsScopedToMerchant(t) {
   const first = await middleware.handle("merchant-one", header("first request"), release);
   const second = await middleware.handle("merchant-two", header("second request"), release);
   assert.equal(first.kind, "released");
-  assert.equal(second.kind, "released");
-  assert.equal(releasedKeys.length, 2);
-  assert.notEqual(releasedKeys[0], releasedKeys[1]);
+  assertReceiptReuse(second);
+  assert.equal(releasedKeys.length, 1);
   assertReceiptReuse(await middleware.handle("merchant-one", header("second request"), release));
   assertReceiptReuse(await middleware.handle("merchant-two", header("first request"), release));
-  assert.equal(releasedKeys.length, 2);
+  assert.equal(releasedKeys.length, 1);
 }
 
 async function unverifiedReceiptCannotClaimFulfillment(t) {
@@ -163,5 +163,5 @@ async function unverifiedReceiptCannotClaimFulfillment(t) {
 }
 
 test(receiptReplayRefusesChangedRequestAndReplaysOriginal);
-test(receiptIdentityIsScopedToMerchant);
+test(receiptIdentityIsBoundToOnePrincipal);
 test(unverifiedReceiptCannotClaimFulfillment);
