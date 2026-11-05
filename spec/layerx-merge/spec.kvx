@@ -147846,7 +147846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.492]
 title = "Make the buyer, agent and conformance middleware use the receipt-signature digest the seller verifies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.511", "22.31.524"]
@@ -174726,7 +174726,7 @@ do_4 = "Attempt 2 (requalify): the final revision of attempt 1 carries the bindi
 
 [task.22.31.521]
 title = "Pass the decision time in the Human service nonce and 159 approval tests the 22.31.495 signature change left behind"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
