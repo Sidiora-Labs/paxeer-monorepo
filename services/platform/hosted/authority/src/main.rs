@@ -1,9 +1,9 @@
-mod chain_receipt;
-mod committed;
+use layerx_platform_authority::{
+    chain_receipt, committed, json, loopback_http, protected, refusal, Response,
+};
 #[path = "../../registry/src/committed_head_route.rs"]
 mod committed_head_route;
 mod human;
-mod protected;
 mod trust;
 
 use chain_receipt::{ChainReceipts, ReceiptSource};
@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::io::{Read, Write};
-use std::net::{Ipv6Addr, SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -94,18 +94,21 @@ struct Config {
     sequencer_public_key: [u8; 32],
 }
 
+impl layerx_platform_authority::budget_state::Configuration for Config {
+    fn chain_rpc_url(&self) -> &str {
+        &self.chain_rpc_url
+    }
+
+    fn protocol_network_id(&self) -> u32 {
+        self.protocol_network_id
+    }
+}
+
 struct Request {
     method: String,
     path: String,
     query: Option<String>,
     headers: BTreeMap<String, String>,
-}
-
-struct Response {
-    status: u16,
-    body: Vec<u8>,
-    retry_after: Option<u64>,
-    readiness_headers: Option<[&'static str; 2]>,
 }
 
 enum ReplicaAnswer {
@@ -190,22 +193,6 @@ fn parse_u64(variable: &str) -> Result<u64, String> {
         .map_err(|_| format!("{variable} is required"))?
         .parse::<u64>()
         .map_err(|_| format!("{variable} must be an integer"))
-}
-
-fn loopback_http(endpoint: &str) -> Option<(String, SocketAddr)> {
-    let authority = endpoint.strip_prefix("http://")?;
-    let authority = authority.strip_suffix('/').unwrap_or(authority);
-    if authority.contains(['/', '?', '#', '@', '\\']) {
-        return None;
-    }
-    let (host, port) = authority.rsplit_once(':')?;
-    let port = port.parse::<u16>().ok().filter(|port| *port != 0)?;
-    let address = match host {
-        "127.0.0.1" | "localhost" => SocketAddr::from(([127, 0, 0, 1], port)),
-        "[::1]" => SocketAddr::from((Ipv6Addr::LOCALHOST, port)),
-        _ => return None,
-    };
-    Some((format!("{host}:{port}"), address))
 }
 
 fn server_tls_config() -> Result<Arc<ServerConfig>, String> {
@@ -413,30 +400,6 @@ fn read_http_message(stream: &mut impl Read) -> Result<Request, String> {
         query,
         headers,
     })
-}
-
-fn json(status: u16, value: &serde_json::Value) -> Response {
-    Response {
-        status,
-        body: value.to_string().into_bytes(),
-        retry_after: None,
-        readiness_headers: None,
-    }
-}
-
-fn refusal(status: u16, code: &str, retry_after: Option<u64>) -> Response {
-    let body = retry_after.map_or_else(
-        || serde_json::json!({ "error": { "code": code, "retry": "never" } }),
-        |seconds| {
-            serde_json::json!({ "error": { "code": code, "retry": "after", "retry_after_seconds": seconds } })
-        },
-    );
-    Response {
-        status,
-        body: body.to_string().into_bytes(),
-        retry_after,
-        readiness_headers: None,
-    }
 }
 
 fn write_response(
@@ -1331,7 +1294,12 @@ mod chain_readiness_tests {
                             .to_string();
                     must(seen.lock()).push(request);
                     let mut stream = reader.into_inner();
-                    must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", answer.len(), answer));
+                    must(write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        answer.len(),
+                        answer
+                    ));
                 }
             });
 
