@@ -19,7 +19,9 @@ const LayoutHome = ({ children }: Props) => {
           <Layout.SideBar/>
           <Layout.MainColumn
             position="relative"
-            paddingTop={{ base: 3, lg: 6 }}
+            paddingTop={ 0 }
+            maxW="1280px"
+            mx="auto"
           >
             <Box
               data-label="hero-band"
@@ -27,10 +29,8 @@ const LayoutHome = ({ children }: Props) => {
               top={ 0 }
               left={ 0 }
               right={ 0 }
-              height={{ base: '180px', lg: '260px' }}
-              bgColor="bg.surface"
-              borderBottomWidth="1px"
-              borderColor="border.divider"
+              height="100%"
+              bgColor="bg.primary"
               pointerEvents="none"
               zIndex={ 0 }
             />
