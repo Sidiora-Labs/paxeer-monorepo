@@ -100,9 +100,18 @@ unknown and refused results distinctly; a submission acknowledgement alone is
 not a committed payment.
 
 Native wallet and token commands are documented in the
-[CLI wallet quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/tools/platform/cli/README.md#wallet-quickstart).
+[CLI wallet quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/tools/platform/cli/README.md#wallet-quickstart).
 Use its signing, receipt-policy and fee-limit requirements for the selected
 transport. Emulator and hosted registration paths have different prerequisites.
+
+Wallet and token writes require the selected wallet's Ed25519 seed, a matching
+secp256k1 key export supplied with `--evm-key-file`, an independently trusted
+`--receipt-policy` and a `--fee-limit` in integer base units. They construct
+chain-125 EIP-1559 transactions. Send/transfer first disclose and sign the native
+Ed25519 debit, including the source account's `next_sequence`, then disclose
+and sign the EVM transaction. Disclosures are written to stderr before signing.
+Review the sender, recipient, asset, amount, calldata, chain ID, nonce, gas limit
+and fee caps. The EVM nonce and native source-account sequence are distinct.
 
 ## Five-minute agent-runtime installation
 
@@ -138,13 +147,24 @@ in read-only mode. Payment submission requires the caller's **already signed
 EIP-1559 transaction**, including the correct chain ID, nonce, native payment
 calldata, gas limit and fee caps, signed by the authorised EVM account.
 
+Before signing for A2A, review the same payment and EIP-1559 disclosures with
+your signer. The A2A runtime receives signed bytes; it does not construct the
+payment or sign it from the installed CLI key or compatibility bindings.
+
 The `activity.submit` skill's arguments object contains exactly
 `{"raw_transaction":"0x02..."}` (replace the ellipsis with complete signed
 transaction bytes). The runtime validates the transaction and active network,
-submits with `eth_sendRawTransaction`, and returns the transaction hash with
-`submitted` rung. After transport ambiguity it can report `unknown`; reconcile
-the same hash. `receipt.get` accepts exactly
+submits with `eth_sendRawTransaction`, and checks that the node's returned hash
+matches the locally computed hash of those bytes. It returns `txHash` with
+`submitted` rung; this acknowledges submission without proving execution or
+commitment. After transport ambiguity it can return `txHash` with `unknown`
+rung. Keep that hash and reconcile it before retrying; starting a fresh payment
+can create a second payment. `receipt.get` accepts exactly
 `{"activity_id":"0x<64 hex digits>"}` and fetches `pax_sequencerReceipt` material.
+Set `activity_id` to the same `txHash` from the submission, including after an
+`unknown` result. CLI write timeouts likewise report `transaction_pending` with
+the hash; follow the maintained guide's `wallet receipt` flow before sending
+again, because a fresh send invocation generates a new native idempotency key.
 Receipt verification requires independently pinned keys with height ranges;
 fetched bytes alone are not a verification or finality claim.
 

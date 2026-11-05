@@ -262,6 +262,17 @@ impl RpcClient {
             _ => return Err(RpcError::InvalidResponse),
         }
         let (receipt, canonical) = verify_node_receipt(&result, activity, policy)?;
+        let batch_evidence = result
+            .get("inclusion")
+            .map(|inclusion| {
+                verify_rpc_inclusion(
+                    inclusion,
+                    &super::rpc::encode_hex(&activity),
+                    &canonical,
+                    policy,
+                )
+            })
+            .transpose()?;
         let committed_block = if commitment == Commitment::Executed {
             None
         } else {
@@ -340,7 +351,7 @@ impl RpcClient {
             receipt,
             commitment,
             canonical,
-            batch_evidence: None,
+            batch_evidence,
             canonical_activity: None,
             committed_block,
         }))
@@ -527,7 +538,10 @@ pub fn verify_node_receipt(
         Some("committed") => true,
         _ => return Err(RpcError::InvalidResponse),
     };
-    if fields.len() != EXECUTION_FIELDS.len() + if committed { 2 } else { 0 }
+    let expected_fields = EXECUTION_FIELDS.len()
+        + 2 * usize::from(committed)
+        + usize::from(fields.contains_key("inclusion"));
+    if fields.len() != expected_fields
         || EXECUTION_FIELDS
             .iter()
             .any(|field| !fields.contains_key(*field))

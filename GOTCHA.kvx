@@ -15685,3 +15685,18 @@ fix = "22.33.1537 attempt 5 continues with an agent and writes tests/support/cur
 title = "An attempt whose gates started before 22.31.550 reached main (merge d9054f4423, 15:43Z on 2026-11-05) still built the layerx-agentd test targets against the gotcha-3166 break and failed with the single E0308 in the rpc_surface_major_two target, although the repair was on main by the time its result was read; 22.31.534 attempt 2 (its own --tests build) and 22.33.223 attempt 7 (the dependent-crate check of the ai-market program crate, which builds the daemon test targets) are the last two."
 symptom = "The automatic re-qualification after a required task lands fires only for tasks whose requirements list that task; neither 534 nor 223 required 550, so they stay failed until a ruling adds it."
 fix = "Both re-qualify as they stand with 22.31.550 added to their requirements (decision 2623); no further attempt can start on a base without the repair."
+
+[gotcha.3173]
+title = "Nine re-qualified attempts whose builds first passed after 22.31.550 landed reached their verify for the first time and failed on their own tests: a fixture spelling (22.31.494), literals copied from a vector since re-recorded (22.33.1547), expectations written before a required repair changed production (22.33.217, 22.33.1536, 22.33.261), a test premise about an encoding (22.33.218), a missing task record (22.33.233) and a main test target left red by a later task (tests/repair_22_31_220.rs after 22.31.227, included by path into the 22.33.1533 binary)."
+symptom = "A tree blocked for days behind the gotcha 3033 and 3166 build breaks never ran its verify, while the repairs it requires changed the production it tests."
+fix = "Such a failure gets a continue ruling naming the production fact per failing case, never another gate-only re-run; a main test target included by path into a task binary is realigned by that task and the file is added to its paths."
+
+[gotcha.3174]
+title = "px_listAssets serves asset_id with the 0x prefix (the gateway one_source_reads transcript, exact asserted result) and services/agent/crates/layerx-client/src/px.rs line 311 keeps the text as served, while src/rpc/withdrawal.rs get_asset formats the looked-up id as bare hex and src/rpc/payments.rs get_asset compares the strings, so every withdrawal registry lookup answers AssetUnavailable."
+symptom = "Found by the first verify run of 22.33.1547 attempt 4 (withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc)."
+fix = "22.33.1547 repairs the consumer to compare decoded bytes (decision 2624)."
+
+[gotcha.3175]
+title = "services/agent/crates/layerx-agentd/src/events/ingest.rs commit_block promotes pending and retained logs to the retired legacy CHECKPOINT_FINALISED label (lines 1018, 1039 and 1052); the current verification level has no rank for it, so a promoted receipted log fails validation with ReceiptEvidenceMismatch and its persisted pending record reopens as CorruptEvent."
+symptom = "Observed by the 22.33.14 attempt 5 producer ingestion cases (12 of 14 pass; the restart case passes)."
+fix = "22.31.556 migrates the promotion and the metadata and pending codecs to the current committed level; 22.33.14 re-qualifies behind it."
