@@ -176622,7 +176622,7 @@ do_6 = "Attempt 3 (requalify after 22.31.550, gotcha 3166, decision 2620): the a
 
 [task.22.31.488]
 title = "Make the runtime terminal reader accept the framed native storage-environment settlement receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.485", "22.31.497", "22.31.550"]
@@ -177032,7 +177032,7 @@ do_10 = "Attempt 4 (after 22.31.487): attempt 3 fixed the import and the constru
 
 [task.22.33.1571]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/limits (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.483", "22.31.497", "22.31.550"]
@@ -177861,7 +177861,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1545]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/src/rpc (part 1 of 1): retired-reference, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
@@ -177902,7 +177902,7 @@ do_14 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the 
 
 [task.22.33.1544]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/src/lni (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
@@ -178267,7 +178267,7 @@ do_17 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the 
 
 [task.22.33.1535]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): doc-drift, interface-mismatch, runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.550"]
@@ -183977,7 +183977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.224]
 title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx-programs-runtime/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550"]
@@ -189486,7 +189486,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.212]
 title = "Repair audit record 22.30.89 findings in tools/platform/cli/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550"]
