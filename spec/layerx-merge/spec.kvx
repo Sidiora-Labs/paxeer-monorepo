@@ -8823,6 +8823,18 @@ value = "22.31.545 runs tests/native_send_preview_evm.rs and the refusal asserti
 basis = "Gotcha 3162: 22.31.545 attempt 1 failed only on the assertion its follower 22.31.543 owns."
 affects = ["22.31.545", "22.31.543", "22.31.219"]
 
+[decision.2619]
+title = "A proof that drives an explorer entity tab waits for the trigger to report enabled before the click and awaits the route push, because the entity tab row stays disabled while any page query still serves placeholder data"
+value = "RoutedTabs in entity display mode (apps/explorer/toolkit/components/RoutedTabs/RoutedTabs.tsx) renders every trigger with disabled bound to the isLoading flag of the page, and the Address page derives that flag (isTabsLoading in ui/pages/Address.tsx) from the address query, the tab counters query and the feature-gated widget, user operations and MUD queries together; the queries resolve in separate renders, so a sibling element showing loaded data does not mean the triggers are enabled. A proof that drives a tab waits for the trigger to report enabled, clicks it and asserts the route push (a shallow push of the page pathname with its route params and the tab) inside a waitFor; the production behaviour is unchanged. A page proof whose task has a single verify run is run by name before the gates after it was amended. Decisions 2587, 2604 and 2605 stand."
+basis = "Gotcha 3165: 22.35.6 attempt 2 clicked the History tab after the counter showed loaded data, the push was never called, and the amended proof had no verify run left."
+affects = ["22.35.6", "22.35.1"]
+
+[decision.2620]
+title = "A helper that takes a type defined in the daemon wire module lives beside that type and the inline tests call it by local path until 22.31.542 removes the by-path includes, every daemon task builds --tests, and the SDK end-to-end native send case reuses the daemon preview fixture through an include"
+value = "Until 22.31.542 removes the by-path includes from services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs, a helper that takes a type defined in src/agent_rpc_wire.rs lives in that module as a method on the type, the inline tests of the module call it by local path, and the agent RPC routing module (the file beside agent_rpc_adapters.rs) keeps a forwarding function for its callers (22.31.550 does this for the native send prepare digest). A change to the daemon that an inline test reaches through a crate path is compiled only by the --tests build that decision 2602 requires of every daemon task; 22.31.545 declared the library and two test targets and its dependent-crate check covered layerx-agentd-host and layerx-mcp, so the broken target reached main, and a daemon task declares --tests from now on whatever its size. The SDK end-to-end case of 22.31.547 reuses the daemon preview fixture by including tests/native_send_preview_evm.rs of layerx-agentd, because the SDK crate has no harness that starts a daemon; 22.31.543, which amends that file, keeps it compiling for the include. Decisions 2602 and 2614 stand."
+basis = "Gotchas 3166 and 3167: the rpc_surface_major_two target stopped compiling after 22.31.545 and the complete SDK port of 22.31.547 failed its dependent-crate check on it."
+affects = ["22.31.545", "22.31.547", "22.31.542", "22.31.543"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37713,6 +37725,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.550]
+title = "Move the native send prepare digest beside its wire type so the rpc_surface_major_two harness compiles again"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_550.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- native_send_wire_preserves_exact_signed_request_and_distinct_digest && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two"
+do_1 = "do_1 Gotcha 3166, decision 2620. In services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs give NativeSendPrepareRequestV2 a method prepare_digest(&self) -> Result<[u8; 32], serde_json::Error> that computes SHA256 over the domain tag LXP/agent/native-send-prepare/v1 followed by one zero byte and then the canonical JSON bytes of the request, exactly as native_send_prepare_digest in the agent RPC routing module (the file beside agent_rpc_adapters.rs, line 560) computes it today; the inline test native_send_wire_preserves_exact_signed_request_and_distinct_digest in the same file (line 3357) asserts request.prepare_digest() instead of calling native_send_prepare_digest of the routing module through its crate path, so the module compiles both in the library and when tests/rpc_surface_major_two.rs includes it by path."
+symbols = []
 
 [capability.22.31.549]
 title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
@@ -148125,6 +148146,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3148, decision 2605): the attempt-1 tree stands (entity header with kind label, identifier line and pills; tab rows with accent underline; labelled key and value section groups; Markets tiles; the amended proof). In EntityTabs.tsx give the tab label its own element with data-tab-label and the counter its own element with data-tab-count, and in addressPageRendersEntityTabSetAndOverview read the tab set from the data-tab-label elements (Overview, History, Transfers, Portfolio, Analytics, Contract, More) and the Transfers counter from its data-tab-count element, so the proof no longer depends on the concatenated text. Keep the other eight proofs unchanged, rebase onto the current explorer integration if it moved, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
+do_5 = "Attempt 3 (continue, gotcha 3165, decision 2619): the attempt-2 tree at 57be677d3751afc09f2b5cb4f7ca73d55d44c294 stands in full (RoutedTabs entity display mode with the data-tab-label and data-tab-count elements, the entity header, the labelled section groups, the Address, Transaction, Block and Token pages, the Markets tiles, the colour-mode stories, the record and the amended proof that waits for the History trigger to report enabled and awaits the router push with the shallow pathname and tab query). Rebase onto current main. Before the gates run the amended proof once by name (cd apps/explorer and yarn vitest run ui/shared/Page/repair-22-35-6.spec.tsx -t addressPageRendersEntityTabSetAndOverview); if it still fails, name the failing assertion in apps/explorer/ui/shared/Page/repair-22-35-6.kvx and repair inside RoutedTabs.tsx or the proof only, then run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.35.5]
 title = "Explorer list pages: dense tables for blocks, transactions, accounts and the tokens markets view"
@@ -156591,7 +156613,7 @@ do_14 = "Attempt 5 (continue after 22.31.517): 2 of 5 cases pass. (1) walletSend
 
 [task.22.33.207]
 title = "Repair audit record 22.30.120 medium findings in services/wallet/gateway/test (part 1 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.249", "22.31.250", "22.31.447"]
@@ -167385,7 +167407,7 @@ title = "Admit the compiler's key-rotation payload in the disclosure binder and 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.497"]
+requires = ["22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.496"]
 interfaces = []
@@ -167411,6 +167433,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (after 22.31.497): attempt 1 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-1 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_6 = "Attempt 3 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-1 tree stands; attempt 2 re-ran the gates after 22.31.497 landed and the --tests build failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; once 22.31.550 is on main rebase onto it, run the declared build and verify once and fix inside the paths only what still fails (the attempt-1 build failed on the targets gotcha 3033 names, so the task change set has never been exercised on a compiling base)."
 
 [task.22.31.491]
 title = "Add a committed preexecution refusal to the receipt corpus and prove it as the terminal-0 case"
@@ -167485,7 +167508,7 @@ title = "Complete the AI market Fund call within the kernel gas allowance"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.485", "22.31.497"]
+requires = ["22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.478"]
 interfaces = []
@@ -167512,6 +167535,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (requalify after 22.31.485): attempt 1 implemented the fund-gas repair in modules/lxphost/host.go and the ai-market programs crate with rpc/repair_478_test.go and passed the build; the dependent-crate check failed in services/platform/hosted/core/src/public_reads.rs, owned by 22.31.485, before the verify ran. Requalify the attempt-1 tree once 22.31.485 is on main; the fund-gas measurement the task record must carry is then recorded by the verify."
 do_6 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_7 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-2 tree stands; its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 3 re-ran the gates and failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
@@ -175356,6 +175380,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.550]
+title = "Move the native send prepare digest beside its wire type so the rpc_surface_major_two harness compiles again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.545"]
+reqs = ["22998.1"]
+capabilities = ["22.31.550"]
+interfaces = []
+do_1 = "do_1 Gotcha 3166, decision 2620. In services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs give NativeSendPrepareRequestV2 a method prepare_digest(&self) -> Result<[u8; 32], serde_json::Error> that computes SHA256 over the domain tag LXP/agent/native-send-prepare/v1 followed by one zero byte and then the canonical JSON bytes of the request, exactly as native_send_prepare_digest in the agent RPC routing module (the file beside agent_rpc_adapters.rs, line 560) computes it today; the inline test native_send_wire_preserves_exact_signed_request_and_distinct_digest in the same file (line 3357) asserts request.prepare_digest() instead of calling native_send_prepare_digest of the routing module through its crate path, so the module compiles both in the library and when tests/rpc_surface_major_two.rs includes it by path."
+do_2 = "do_2 In the agent RPC routing module (the file beside agent_rpc_adapters.rs) native_send_prepare_digest keeps its signature and forwards to request.prepare_digest(); its callers (the two sites in the routing module near lines 1645 and 1959 and human_runtime.rs near line 6971) stay unchanged. Change nothing else: the by-path includes of the harness are removed by 22.31.542."
+do_3 = "do_3 Record in services/agent/crates/layerx-agentd/tests/repair_22_31_550.kvx the move and the gate results. The build compiles every test target of the daemon (--tests, decision 2602) and the verify runs the digest test through --lib and compiles the rpc_surface_major_two target; build and verify run once at the final revision, the record lists the gate commands by reference to the gate ledger and no file is amended after the gates run."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_550.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/layerx-agentd/tests"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- native_send_wire_preserves_exact_signed_request_and_distinct_digest && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.549]
 title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
 status = "pending"
@@ -175425,7 +175479,7 @@ title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendP
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.545"]
+requires = ["22.31.545", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.547"]
 interfaces = []
@@ -175449,10 +175503,11 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.550, gotchas 3166 and 3167, decision 2620): the attempt-1 tree at fab6cba03cd0005b7ed1cc66253876a4d7a1cf3f stands in full (the SDK V2 carrier, signing and wire in native_effect.rs, the envelope transport, the catalogue version, the end-to-end case that reuses the daemon preview fixture by including tests/native_send_preview_evm.rs of layerx-agentd, the amended MCP test and the record). The dependent-crate check failed only because the rpc_surface_major_two target of layerx-agentd stopped compiling on main after 22.31.545, which 22.31.550 repairs. Once 22.31.550 is on main, rebase onto it, state in tests/repair_22_31_547.kvx that the end-to-end case reuses the daemon fixture through the include because the SDK crate has no harness that starts a daemon (do_2 named tests/native_capabilities.rs and tests/sdk.rs, which do not start one), run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 
 [task.22.31.546]
 title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.516"]
@@ -175483,7 +175538,7 @@ do_4 = "Attempt 2 (continue after 22.31.516): the attempt-1 tree at 531f68e24974
 
 [task.22.31.545]
 title = "Port the daemon native send purpose producers, wire decoders and binding verifiers to NativeSendPurposeV2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.219"]
@@ -175578,13 +175633,14 @@ do_4 = "Attempt 2 (requalify, gotcha 3152, decision 2609): the attempt-1 tree at
 do_5 = "Attempt 3 (continue, gotcha 3155, decision 2611): the attempt-2 tree at 5ce5764e25af stands (both full-frame assertions through the field helper, the record; human_peer_retired passed; the local EVM starts). The native preview case fails before the amended assertion: the first native_send_owner_preview_v1 call at line 900 returns HumanOperationError::Refused, which carries no reason. Before the gates, run that one case once with RUST_BACKTRACE=1 (cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call) and read the frame of the refusing guard inside native_send_owner_preview_on_surface of src/human_runtime.rs (the uid and token checks, decode_owner_authority, subject_owner, core_preparation_snapshot, native_fee_policy, the payload hash comparison, agent_rpc_peer::bind, the purpose and capability checks). If the guard refuses because the fixture predates a landed contract (the committed verification rank of 22.31.535 and 22.31.538, the approval time of 22.31.495, the fee policy of 9.25.7, the receipt rank of 22.31.541), amend the fixture in tests/native_send_preview_evm.rs so it emits what the daemon now requires and name the guard and the contract in tests/repair_22_31_543.kvx. If the guard refuses a request the fixture builds correctly, change nothing under src: record the guard by file and line and the reason in tests/repair_22_31_543.kvx, run the declared gates once and end implemented-not-qualified naming it, so a repair task carries the production fix. Rebase onto the current main, run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 do_6 = "Attempt 4 (continue after 22.31.545, gotcha 3158, decision 2614): the attempt-3 tree at c1ea1692db67af4e7d13364efe38b93ee817b9a2 stands (both complete refusal-frame assertions, the retired source-name checks, the record with blocker.owner_preview). Once 22.31.545 is on main, rebase onto it keeping its V2 amendments of tests/native_send_preview_evm.rs together with the frame assertions of this task; where both touched the same lines the V2 decode and field assertions of 22.31.545 win and the refusal frame of this task stays. Replace blocker.owner_preview in tests/repair_22_31_543.kvx with a closure note naming 22.31.545 and the guard it removed. Change nothing under src. Run the declared build and verify once at the final revision, record the gates by reference to the gate ledger and amend no file after they run."
 do_7 = "Amendment (gotcha 3162, decision 2618): 22.31.545 attempt 2 writes the full refusal frame assertion of do_2 in tests/native_send_preview_evm.rs; on rebase keep it as 22.31.545 left it, record in tests/repair_22_31_543.kvx that the native preview assertion landed with 22.31.545, and finish tests/human_peer_retired.rs and the record as do_1 and do_3 say."
+do_8 = "Amendment (gotcha 3167, decision 2620): services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs includes tests/native_send_preview_evm.rs of the daemon by path to reuse its fixture; keep the Fixture type, the must, read_bytes and FIXTURE_LOCK items and the preview request shape unchanged for that include, and before the gates compile the SDK target once (cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test repair_22_31_547) so the amendment of the assertion does not break it."
 
 [task.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.541", "22.31.516", "22.31.539"]
+requires = ["22.31.541", "22.31.516", "22.31.539", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.542"]
 interfaces = []
@@ -176147,7 +176203,7 @@ do_4 = "Attempt 3 (continue, gotchas 3122 and 3123): attempt 2 stands (the decis
 
 [task.22.31.516]
 title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.519", "22.31.535", "22.31.538", "22.31.541"]
@@ -176252,7 +176308,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.497]
 title = "Restore the two daemon test targets that include the authority budget-state module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.495", "22.31.516"]
@@ -176321,7 +176377,7 @@ title = "Bind the submitted signed transaction and the inclusion material to the
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.497"]
+requires = ["22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.494"]
 interfaces = []
@@ -176347,6 +176403,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (after 22.31.497): attempt 1 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-1 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_6 = "Attempt 3 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-1 tree stands; attempt 2 re-ran the gates after 22.31.497 landed, the SDK build passed and the dependent-crate check failed only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.31.488]
 title = "Make the runtime terminal reader accept the framed native storage-environment settlement receipt"
@@ -176387,7 +176444,7 @@ title = "Port the Rust SDK and the daemon budget encoder to the achieved_verific
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.485", "22.31.497"]
+requires = ["22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.487"]
 interfaces = []
@@ -176414,6 +176471,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (after 22.31.485): attempt 1 built the SDK and the daemon; the dependent-crate check failed only in the hosted core and indexer against the reshaped PxAssetEntry (gotcha 3004), repaired by 22.31.485. Re-run the gates on the attempt-1 tree once 22.31.485 is on main; the verify has not run yet and every failure inside the paths is fixed in that attempt."
 do_6 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_7 = "Attempt 4 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-2 tree stands; attempt 3 re-ran the gates after 22.31.497 landed and the --tests build of layerx-agentd failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs; once 22.31.550 is on main rebase onto it, run the declared build and verify once and fix inside the paths only what still fails (the attempt-2 build failed on the targets gotcha 3033 names, which 22.31.497 repaired, so the task change set has never been exercised on a compiling base)."
 
 [task.22.31.485]
 title = "Port the hosted core public reads and the agent API read path to the current layerx-client types"
@@ -176761,7 +176819,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/tests/li
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.483", "22.31.497"]
+requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.483", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1571"]
 interfaces = []
@@ -176793,6 +176851,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 do_9 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_10 = "Attempt 3 (continue): two of four cases pass. Both node-recovery cases fail with NotQueued when, after a lost response and a restart, they ask the outbox for the bytes to re-send a submission the daemon recorded Unknown; the outbox hands out transmission bytes only while a submission is Queued (gotcha 3036). Drive the production recovery path instead: resolve the unknown submission through the daemon's resolver with the recorded lookup exchanges, so the node's receipt settles it or, when the node has no record, the resolver returns it to Queued and the retained exact bytes are re-sent once. Keep the exactly-once budget assertions and run build and verify at the final revision."
 do_11 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_12 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands and the ruling recorded for attempt 3 in this task (resolve the unknown submission through the production resolver, re-send the retained bytes once) stands in full, because attempt 3 ended on the gotcha 3033 break before that ruling reached it and attempt 4 re-ran the gates only; once 22.31.550 is on main rebase onto it, apply that ruling, run build and verify once and fix inside the paths only what still fails."
 
 [task.22.33.1570]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/isolation/src (part 1 of 1): test-gap"
@@ -177429,7 +177488,7 @@ do_8 = "Attempt 2 (continue after 22.33.1558): the hold must carry the preparati
 
 [task.22.33.1550]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-agentd/src/approval (part 1 of 1): restart-recovery, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.443", "22.31.483", "22.31.495", "22.31.516"]
@@ -177508,7 +177567,7 @@ title = "Repair audit record 22.30.96 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1547"]
 interfaces = []
@@ -177541,6 +177600,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Next attempt (requalify after 22.31.485): the tree of attempt 1 stands; the dependent-crate check fails on consumers that were never ported to the current layerx-client types (gotcha 3004). Requalify once 22.31.485 is on main and fix inside the paths only what still fails."
 do_12 = "Attempt 3 (after 22.31.497): attempt 2 built; the dependent-crate check failed only because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the verify never ran. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_13 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-2 tree stands; its build passed and its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 3 failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.1546]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/tests (part 1 of 2): test-gap"
@@ -177588,7 +177648,7 @@ title = "Repair audit record 22.30.96 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1545"]
 interfaces = []
@@ -177622,13 +177682,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_11 = "Next attempt (requalify after 22.31.485): the tree of attempt 1 stands; the dependent-crate check fails on consumers that were never ported to the current layerx-client types (gotcha 3004). Requalify once 22.31.485 is on main and fix inside the paths only what still fails."
 do_12 = "Attempt 3 (continue): the build passed; the dependent-crate check failed because services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs constructs ObservedBlockContext with sealed_batch and finalised_checkpoint, which this change removed (gotcha 3034). That test is in the paths now: port its constructor to the current shape (the committed context derived from the verified chain head) so it still proves what 22.31.485 proved, keep the cross-domain request in the task record, and run build and verify at the final revision; the dependent-crate check must pass."
 do_13 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_14 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands; its build passed and its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 4 failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.1544]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-client/src/lni (part 1 of 1): retired-reference"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.221", "22.31.222", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1544"]
 interfaces = []
@@ -177663,6 +177724,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_13 = "Next attempt (requalify after 22.31.485): the tree of attempt 1 stands; the dependent-crate check fails on consumers that were never ported to the current layerx-client types (gotcha 3004). Requalify once 22.31.485 is on main and fix inside the paths only what still fails."
 do_14 = "Attempt 3 (after 22.31.497): attempt 2 built; the dependent-crate check failed only because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the verify never ran. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_15 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-2 tree stands; its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 3 re-ran the gates and failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.1543]
 title = "Repair audit record 22.30.96 medium findings in services/agent/crates/layerx-agentd/src/prepare (part 1 of 1): retired-reference, runtime-risk, test-gap"
@@ -177818,7 +177880,7 @@ do_10 = "Attempt 4 (continue): attempt 3 qualified but its publication conflicte
 
 [task.22.33.1539]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests/approval_ordering (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.495", "22.31.519", "22.31.516"]
@@ -177861,7 +177923,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1538"]
 interfaces = []
@@ -177896,6 +177958,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_12 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_13 = "Attempt 3 (continue): fourteen of twenty-two cases pass. Three cases of unknown_receipt_lookup.rs panic in the fixture with a malformed answer and one asserts the method pax_sequencerReceipt where the client sent eth_getTransactionReceipt: the client's authenticated lookup is two-step now (gotcha 3039), so the loopback nodes serve pax_sequencerReceipt followed by eth_getTransactionReceipt (a null or the landing receipt) for every lookup. Then missing_or_changed_payment_denomination_never_resolves_unknown in unknown.rs: the resolver returned Executed for a receipt whose paymentDenom is missing or changed; the assertion stands (22.23.11). If, with the fixtures corrected, the resolver still resolves such a receipt, record the resolver function and the path it takes in the task record and stop; that is a producer finding for the owner. Run build and verify at the final revision."
 do_14 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_15 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands and the ruling recorded for attempt 3 in this task (two-step authenticated receipt lookup fixtures, the unknown payment denomination case) stands in full, because attempt 3 ended on the gotcha 3033 break before that ruling reached it and attempt 4 re-ran the gates only; once 22.31.550 is on main rebase onto it, apply that ruling, run build and verify once and fix inside the paths only what still fails."
 
 [task.22.33.1537]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 2 of 3): retired-reference, test-gap"
@@ -177946,7 +178009,7 @@ title = "Repair audit record 22.30.95 medium findings in services/agent/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.497"]
+requires = ["22.31.368", "22.31.443", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1536"]
 interfaces = []
@@ -177983,13 +178046,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (requalify): attempt 1 built; the dependent-crate check failed only in the gateway's repair_22_31_345 test on the handle_connection arity, repaired by 22.31.483 which is on main now. Re-run the gates on the attempt-1 tree."
 do_16 = "Attempt 3 (after 22.31.497): attempt 2 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_17 = "Attempt 4 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands; the --tests build failed only on the rpc_surface_major_two target that 22.31.545 broke on main (gotcha 3166) and 22.31.550 repairs, outside the paths of this task; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.1535]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): doc-drift, interface-mismatch, runtime-risk, security, test-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497"]
+requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1535"]
 interfaces = []
@@ -178026,6 +178090,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_14 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_15 = "Attempt 3 (continue): seven of ten cases pass. finality_consumer_uses_rungs_and_reopens_authenticated_evidence and external_signing_consumer_compiles_and_submits_exact_type2_bytes fail opening the store because the Directory helper creates its root with the default mode under the temporary directory; the store requires mode 0o700, the process owner and a canonical path (gotcha 3035): create with that mode and open the canonicalised path. registry_source_contract_drives_mtls_and_refuses_unbound_responses fails because the server acceptor, which requires a peer certificate, aborts the handshake and the provider answers Unavailable where Binding is expected: read the OpenSSL error stack in the full log; the acceptor's store must hold the CA that signed the fixture client certificate and the provider must present the client certificate and key named in its protected config. If the provider never presents a client certificate, that is a defect of the registry source: fix it when the source file is in the paths, otherwise record the symbol in the task record and stop. Run build and verify at the final revision."
 do_16 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_17 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands and the ruling recorded for attempt 3 in this task (store root mode and canonical path, the acceptor CA and the client certificate of the registry source) stands in full, because attempt 3 ended on the gotcha 3033 break before that ruling reached it and attempt 4 re-ran the gates only; once 22.31.550 is on main rebase onto it, apply that ruling, run build and verify once and fix inside the paths only what still fails."
 
 [task.22.33.1533]
 title = "Repair audit record 22.30.94 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): config-drift, doc-drift, retired-reference, runtime-risk"
@@ -183694,7 +183759,7 @@ title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.224"]
 interfaces = []
@@ -183725,6 +183790,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 2 (continue): the build or the dependent-crate check failed before this task's verify because services/human/crates/layerx-human-service/tests/observed_balances_denom.rs no longer builds against the Quantity type (gotcha 2974); 22.31.443 repairs that test and this task now requires it. Keep the implementation and re-run both commands when it has published."
 do_9 = "Next attempt (requalify after 22.31.485): the tree of attempt 2 stands; the dependent-crate check fails on consumers that were never ported to the current layerx-client types (gotcha 3004). Requalify once 22.31.485 is on main and fix inside the paths only what still fails."
 do_10 = "Attempt 4 (after 22.31.497): attempt 3 built; the dependent-crate check failed only because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the verify never ran. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_11 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands; its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 4 re-ran the gates and failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.223]
 title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 1): config-drift, test-gap"
@@ -183772,7 +183838,7 @@ title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.222"]
 interfaces = []
@@ -183803,6 +183869,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 2 (continue): the build or the dependent-crate check failed before this task's verify because services/human/crates/layerx-human-service/tests/observed_balances_denom.rs no longer builds against the Quantity type (gotcha 2974); 22.31.443 repairs that test and this task now requires it. Keep the implementation and re-run both commands when it has published."
 do_9 = "Next attempt (requalify after 22.31.485): the tree of attempt 2 stands; the dependent-crate check fails on consumers that were never ported to the current layerx-client types (gotcha 3004). Requalify once 22.31.485 is on main and fix inside the paths only what still fails."
 do_10 = "Attempt 4 (after 22.31.497): attempt 3 built; the dependent-crate check failed only because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the verify never ran. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_11 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands; its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 4 re-ran the gates and failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.221]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests (part 1 of 1): test-gap"
@@ -183887,7 +183954,7 @@ title = "Repair audit record 22.30.123 medium findings in programs/crates/layerx
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.254", "22.31.255", "22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.254", "22.31.255", "22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.218"]
 interfaces = []
@@ -183921,6 +183988,7 @@ do_10 = "Attempt 2 (continue): the first attempt failed before its own verify be
 do_11 = "Attempt 3 (continue): run the verify first (the last fix was unverified). The guest-limit case must size the export so its canonical bytes exceed guest_limit by more than the 64-byte frame the runtime strips; the test file programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs is now in the paths. Keep every assertion."
 do_12 = "Next attempt (after 22.31.485): the hosted core public reads are ported to the current layerx-client types, so the dependent-crate check passes; re-run the gates on this attempt's tree and fix inside the paths only what still fails."
 do_13 = "Attempt 5 (after 22.31.497): attempt 4 built; the dependent-crate check failed only because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the verify never ran. Re-run the gates on the attempt-4 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_14 = "Attempt 6 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-4 tree stands; its dependent-crate check failed on the gotcha 3033 targets that 22.31.497 repaired, and attempt 5 re-ran the gates and failed the dependent-crate check only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.33.217]
 title = "Repair audit record 22.30.122 medium findings in programs/crates/layerx-programs-ai-market/src (part 1 of 1): config-drift, interface-mismatch, test-gap, wiring-gap"
@@ -186602,7 +186670,7 @@ title = "Repair audit record 22.30.100 medium findings in services/agent/crates/
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.147", "22.31.443", "22.31.483", "22.31.497"]
+requires = ["22.31.147", "22.31.443", "22.31.483", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.33.14"]
 interfaces = []
@@ -186633,6 +186701,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and was stopped by the dependent-crate check on services/platform/hosted/gateway/tests/repair_22_31_345.rs line 73, which still calls handle_connection with two arguments while the production function takes the config, the stream, a connection permit and a deadline; 22.31.483 owns that test. Once 22.31.483 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_9 = "Attempt 3 (continue): the task record services/agent/crates/layerx-agentd/tests/repair_22_33_14.kvx is in the paths now. Eleven of fourteen cases pass; three fail against the shared ingestion fixtures: the backpressure-and-restart case expects next_expected 40 and sees 0 (tests/ingest.rs line 292), logs_are_ingested_in_block_position_order unwraps ReceiptEvidenceMismatch (tests/ingest_eth_subscribe.rs line 99) and receipted_logs_recover_committed_without_duplicate_delivery unwraps CorruptEvent (line 252). The receipted log fixtures must carry receipt evidence that matches the logs they deliver and events encoded by the production encoder, and the restart case must resume from the persisted watermark; fix inside the paths (the two fixture files are now declared) and run build and verify at the final revision."
 do_10 = "Attempt 4 (after 22.31.497): attempt 3 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-3 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_11 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the attempt-3 tree stands and the ruling recorded for attempt 3 in this task (receipted log fixtures carrying matching receipt evidence and production-encoded events, the restart case resuming from the persisted watermark) stands in full, because attempt 3 ended on the gotcha 3033 break before that ruling reached it and attempt 4 re-ran the gates only; once 22.31.550 is on main rebase onto it, apply that ruling, run build and verify once and fix inside the paths only what still fails."
 
 [task.22.33.13]
 title = "Repair audit record 22.30.100 medium findings in services/agent/crates/layerx-agentd/src/capability (part 1 of 1): restart-recovery, retired-reference"
@@ -189197,7 +189266,7 @@ title = "Repair audit record 22.30.89 findings in tools/platform/cli/src: interf
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.485", "22.31.497"]
+requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550"]
 reqs = ["22998.1"]
 capabilities = ["22.31.212"]
 interfaces = []
@@ -189235,6 +189304,7 @@ do_14 = "Attempt 4 (continue): the build passed and the dependent-crate check fa
 do_15 = "Attempt 5 (continue): the build failed under --locked because tools/platform/Cargo.lock needs updating for the manifests in the change. Regenerate tools/platform/Cargo.lock with cargo update --workspace --manifest-path tools/platform/Cargo.toml (no version bumps beyond what the manifests require), keep it in the change (the lock is now in the paths), and run build and verify on the same final revision."
 do_16 = "Next attempt (after 22.31.485): the hosted core public reads are ported to the current layerx-client types, so the dependent-crate check passes; re-run the gates on this attempt's tree and fix inside the paths only what still fails."
 do_17 = "Attempt 7 (after 22.31.497): attempt 6 built; the dependent-crate check failed only because the daemon test targets human_approval_budget_actor and human_projection_facts no longer compile against the authority module they include (gotcha 3033), repaired by 22.31.497; the verify never ran. Re-run the gates on the attempt-6 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_18 = "Attempt 8 (requalify after 22.31.550, gotcha 3166, decision 2620): the attempt-7 tree stands (the lock file regeneration the attempt-5 ruling asked for is in it and the build passed); the dependent-crate check failed only on the rpc_surface_major_two target (gotcha 3166) that 22.31.550 repairs; once 22.31.550 is on main re-run build, dependent-crate check and verify on this tree as it stands."
 
 [task.22.31.211]
 title = "Repair audit record 22.30.88 findings in services/platform/ramps/toolkit/src: interface-mismatch, restart-recovery, runtime-risk, security"
@@ -372717,7 +372787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.490]
 title = "Repair audit record 22.30.150 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.277"]

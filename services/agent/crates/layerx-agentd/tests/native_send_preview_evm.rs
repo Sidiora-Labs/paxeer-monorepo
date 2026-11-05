@@ -1035,7 +1035,7 @@ fn native_send_preview_is_an_unsigned_ledger_transfer_call() {
     assert_eq!(input.len(), 8 + 8 + 32 + 8);
     assert_eq!(&input[16..48], &fixture.account.layerx_public_key());
     let response = fixture.post_preview(5, [12; 32]);
-    let mut expected = b"LXHAGT01\x01".to_vec();
-    field(&mut expected, b"operation.refused");
-    assert_eq!(response, expected);
+    let mut expected_refusal = b"LXHAGT01\x01".to_vec();
+    field(&mut expected_refusal, b"operation.refused");
+    assert_eq!(response, expected_refusal);
 }
