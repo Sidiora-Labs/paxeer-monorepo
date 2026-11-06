@@ -762,7 +762,7 @@ status = "in_progress"
 wave = 6
 requires = ["6.2"]
 touches = ["tests/hyperfide/cases/source_control/6_3.py", "tests/hyperfide/source-control/closure.py", "tests/hyperfide/source-control/manifests/full/**", "tests/hyperfide/source-control/registrations/6.3.json", "tests/hyperfide/source-control/claims.json", "tests/hyperfide/source-control/full_case/**", "tests/hyperfide/source-control/release_campaign.py", "tests/hyperfide/source-control/release_campaign_test.py", "tests/hyperfide/source-control/RELEASE-CAMPAIGNS.md", "tests/hyperfide/source-control/registrations/full-*.json"]
-verify_cmd = "python3 tests/hyperfide/cases/source_control/6_3.py"
+verify_cmd = "python3 tests/hyperfide/cases/source_control/6_3.py --self-test && python3 tests/hyperfide/source-control/release_campaign_test.py"
 do_1 = "Implement SCM-023 through the actual Hyperfide native environment and CLI/API surfaces: real assignment, sparse edit, source diff, checkpoint, worker replacement, submission custody, conflict repair, exact-candidate qualification, atomic acceptance and external publication observation. Identify source snapshot and provider for every step."
 do_2 = "Implement SCM-024 evidence closure over the feature-local registry and immutable receipts, checking exact requirement-clause/assertion inventories and required backend/provider variants; independently reconstruct source roots, accepted revisions, custody and remote effects without trusting handler success alone."
 do_3 = "Reject unknown/empty case selection, missing drivers, zero assertions, fake exits, fabricated/tampered hashes, missing native input identities, stale receipts, duplicate assertions used to fill gaps, omitted live variants and incomplete cleanup with nonzero status and named unmet obligations."
@@ -771,6 +771,15 @@ do_5 = "Keep the focused task gate bounded to the real integration harness and c
 reqs = ["12.1", "12.6", "12.7"]
 owner = "source-control-qualification"
 cases = ["SCM-023", "SCM-024"]
+
+# Task gate evidence is retained by the bounded runner; full product cases remain UNRUN.
+source_task = "6.3"
+carried_source = "spec/layerx-merge/source-control/source-spec.kvx"
+repair_task = "layerx-merge/22.37.25"
+evidence_ledger = "/out/run/gates.jsonl"
+build_evidence = "hf-build: same candidate revision in evidence_ledger"
+verify_evidence = "hf-done: same candidate revision in evidence_ledger"
+qualification = "bounded harness and closure refusal probes; release manifests require genuine native source capture"
 
 [task.7.1]
 title = "Ship native source documentation and reproducible release artifacts"
