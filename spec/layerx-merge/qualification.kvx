@@ -33171,3 +33171,67 @@ symbol = "replay_record.rs"
 observed = "Attempt 9 at a097f1b2762bbc7e1bf584114f5c71309f277c5c: build exit 0, dependent-crate check exit 0, verify exit 101: every carried suite passes, the live-snapshot proof admits 128 calls (leaf total 1027329, record total 1032153), the executor proof is refused at step 900 with capture witness observed 1048953 against the permitted 1048576 on a 518-byte leaf whose runtime source is 36 bytes against 16 for the live-snapshot shape."
 assumption = "The remaining twenty bytes per leaf are the response outcome region written verbatim, eighteen of them the record-constant capacity and its framing; the bound is the protocol maximum."
 severity = "high"
+
+[finding.22.31.582.1]
+task = "22.31.582"
+file = "precompiles/layerxprograms/call_receipts_test.go"
+symbol = "call_receipts_test.go"
+observed = "Attempt 1 at ef6ddee3c8900eaa2e0ffa27f272dc4c17ac7d10: build exit 0, verify exit 1: three of the four verify tests pass; the gas table test fails at the lease execution method row on the byte-equality assertion of the shared lease request helper (program, asset, limits and receipt words differ)."
+assumption = "Pre-existing since commit f3402ae5ff; nothing in the attempt-1 tree causes it."
+severity = "high"
+
+[finding.22.31.583.1]
+task = "22.31.583"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+symbol = "repair_22_31_583.rs"
+observed = "Attempt 1 at c768afd69cda3935fe06076adc13eb829de40c61: build 1 exit 101 (E0277 in the repair test), build 2 exit 0, dependent-crate check exit 101 at create.rs line 650 (non-exhaustive match, BindLayerX not covered); the verify never ran."
+assumption = "The crypto change is right; the single exhaustive consumer needs its arm."
+severity = "high"
+
+[finding.22.31.217.10]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 10 at f7933439876ab95c389d70e4920c3681f8cd7759: build exit 0, dependent-crate check exit 0 (15 crates), verify exit 1 twice: 15 of 18 cases pass; the deploy and upgrade lifecycle case and the wind-down case refuse at prepare with Disclosure(MalformedPayload); the native effect settlement case panics on the missing burn capture."
+assumption = "The disclosure decoder is the cause of the lifecycle refusals; the burn capture is a corpus gap the loopback peer fills."
+severity = "high"
+
+[finding.22.31.547.5]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 5 at 9fa0398090d51898f5ba081bcd13ad3139195fad: build exit 0, dependent-crate check exit 0, verify exit 101: case 1 fails at line 307 with 503 owner.unavailable after preparation receipt key read failed with -32601 Method not found from the fixture chain peer; case 2 fell to the poisoned fixture lock."
+assumption = "The shared chain peer predates the receipt key read 22.31.560 added to genuine Prepare; the SDK change under test is untouched."
+severity = "high"
+
+[finding.22.31.547.6]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 6 at 26219f2e8ed4b5f956ac96a77adfc766cb86ed78: build exit 0, dependent-crate check exit 0, verify exit 1 twice: cycle 1 the first Prepare answered 403 owner.refused on the partial preview fixture; cycle 2 on the 22.31.560 harness the first Prepare answered 200 and the SDK verdict was Unknown with operation Prepare at line 313; the other three cases pass."
+assumption = "The daemon accepts the V2 purpose; one bound field of the accepted body disagrees with the SDK expectation and the test does not yet say which."
+severity = "high"
+
+[finding.22.31.547.7]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 7 at 1922bbd43b5525308e8a5bbcb0760a6169ac9115: build exit 0, dependent-crate check exit 0, verify exit 1 twice: the daemon answered 200 and the first named disagreement is not_before (disclosed 0, request 1789365544000); the two included native send cases fail with PoisonError on the fixture lock after that panic; the SDK library cases and the preview case pass."
+assumption = "The window check is a consumer invention for ledger sends; the call carries the client envelope and the daemon binds the window elsewhere."
+severity = "high"
+
+[finding.9.98.4.8]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 6 at 700b579c615cab59cf917989bbec225bc92408f2: no gate ran; the attempt reached the working-time limit after 44 read commands and two edits of human_runtime.rs; the tree carries the linked-block history fixture, the environment guard and the listener answering commit, validators, block_results, px_getHistory and pax_sequencerReceipt."
+assumption = "The fixture is built; the attempt ran out of time reading the reader chain rather than on a defect, and the next attempt builds first."
+severity = "medium"
+
+[finding.18.1562.1.14]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 20 at e3dbfa274ff2cddca3511231349de84aab3f16d7: build exit 0, verify exit 1 at both revisions: the produced ABI5 reward receipt decodes, resolves and survives reopen and every refusal subcase passes; the final assertion demands distinct authority and applied-legs roots and the produced frame carries one leg and equal roots."
+assumption = "The assertion contradicts the response contract; the decoder is tightened to the node binding and the fixture stays as the producer emits it."
+severity = "high"
