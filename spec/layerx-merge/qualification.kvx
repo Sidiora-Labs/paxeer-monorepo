@@ -32339,3 +32339,27 @@ symbol = "repair_22_33_1510.rs"
 observed = "Attempt 9 at c7c69f7f4d929915034e4e7eaeb61249fd76cb41: build exit 0, dependent-crate check exit 0, verify exit 101: 1 of 3 cases passes; approvals.rs line 196 Agent(Refused) in Inbox::consume(Granted) and decide.rs line 424 Err(Refused) where Err(NotFound) was expected, both from track_released of the release reference."
 assumption = "The daemon refuses to track the release reference it issued; the producer repair lands first and the consumer asserts the tracked state."
 severity = "high"
+
+[finding.22.31.560.5]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 5 at d3335f709bf9f48a579c9d2d1214a7d653ccfd48: build exit 0, dependent-crate check exit 0, verify exit 1: the first Prepare answers 503 owner.unavailable because the peer refuses getUnifiedAccount at HEAD with unsupported committed binding read; two of three cases pass."
+assumption = "The peer served the first inventory read only; the daemon reads the whole committed inventory before it previews."
+severity = "high"
+
+[finding.22.31.566.2]
+task = "22.31.566"
+file = "include/layerx/lxp_result.h"
+symbol = "lxp_result.h"
+observed = "Attempt 2 at d8e199695e0fca59b719a0ddb8f33957dc446789: build exit 0, verify exit 1: the Go table test counts 395 entries against 394 registry rows; LXP_XWEB_INVALID_PAYLOAD has no address-table row since a8f61f1233."
+assumption = "A pre-existing table gap the task gates cover; the attempt-2 code is unaffected."
+severity = "high"
+
+[finding.22.33.1569.13]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 13 at aa587ee0f09bcc536e3a95f96551a20cbf4d7287: build exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verification did not run."
+assumption = "The tree is unchanged; the include repair lands first."
+severity = "medium"
