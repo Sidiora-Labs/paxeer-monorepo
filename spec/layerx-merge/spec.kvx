@@ -326638,7 +326638,7 @@ do_4 = "Attempt 3 (continue, gotcha 3256, decision 2673): the attempt-2 tree sta
 
 [task.22.36.1]
 title = "Move the vendored project directory under addiqate/ to tools/ and fold its documentation into docs/"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
