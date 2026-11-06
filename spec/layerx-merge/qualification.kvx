@@ -33251,3 +33251,11 @@ symbol = "repair_22_31_585.rs"
 observed = "Attempt 1 ended with no change inside scope: no command ran during the two-hour working time; no build or verify ran."
 assumption = "Environmental stall before the first command; the task starts again."
 severity = "medium"
+
+[finding.22.31.573.7]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 7 at 3d896d0a9af30e559b0cd70c8c2f47c1eba217a8: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 150 minutes."
+assumption = "Environmental stall before the first command; the ruling of the previous attempt still stands."
+severity = "medium"

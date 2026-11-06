@@ -16645,3 +16645,8 @@ fix = "9.98.4 now requires 22.31.585; the attempt-8 ruling adds the programs dep
 title = "22.31.585 attempt 1: no change inside scope; the engineering process issued no command for its whole two-hour working time after the environment was prepared, recorded one note about a hook timeout clamp, and ended at the limit with an empty error stream."
 symptom = "A stalled session that never reaches its first command leaves nothing to carry; the task starts again from current main."
 fix = "Attempt 2 relaunches the task as specified; nothing of attempt 1 is carried."
+
+[gotcha.3365]
+title = "22.31.573 attempt 7: implemented-not-qualified with no gate run; the engineering process prepared the tree (the attempt-6 tree merged with current main after 22.31.577 landed, committed at launch) and then issued no command for the whole 150-minute working time, recording only one note about a timeout clamp, the same stall signature as 22.31.585 attempt 1 (gotcha 3364) launched forty minutes earlier; every attempt launched after 17:30Z ran normally."
+symptom = "A session that stalls before its first command leaves the prepared tree untouched; the attempt-7 ruling (recorded with finding 6 of the task) was never acted on."
+fix = "Attempt 8 continues on the attempt-7 tree and re-applies the attempt-7 ruling unchanged (decision 2750)."
