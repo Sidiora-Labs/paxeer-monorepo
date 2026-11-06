@@ -1344,8 +1344,7 @@ impl StagedNativeRateUse {
             .values()
             .flat_map(|rates| rates.keys().copied())
             .collect::<std::collections::BTreeSet<_>>();
-        if digest != binding.canonical_digest()
-            || digest != binding.preparation_id()
+        if digest != binding.envelope_digest()
             || prepared.envelope.actor_did() != binding.agent()
             || constraints.chain().is_empty()
             || windows.is_empty()

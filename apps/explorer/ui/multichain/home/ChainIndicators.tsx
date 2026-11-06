@@ -62,7 +62,7 @@ const ChainIndicators = () => {
         return undefined;
       })(),
       // FIXME use non-navigation icon
-      icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="#56ACD1" borderRadius="base" color="white"/>,
+      icon: <IconSvg name="navigation/transactions" boxSize={ 6 } bgColor="indicator.transactions" borderRadius="base" color="white"/>,
       hint: (() => {
         if (statsQuery.data.new_txns_multichain_window?.info) {
           return statsQuery.data.new_txns_multichain_window.info.description;
@@ -98,7 +98,7 @@ const ChainIndicators = () => {
         }
         return '$N/A';
       })(),
-      icon: <IconSvg name="globe" boxSize={ 6 } bgColor="#6A5DCC" borderRadius="base" color="white"/>,
+      icon: <IconSvg name="globe" boxSize={ 6 } bgColor="indicator.addresses" borderRadius="base" color="white"/>,
       // eslint-disable-next-line max-len
       hint: 'The total market value of a cryptocurrency\'s circulating supply. It is analogous to the free-float capitalization in the stock market. Market Cap = Current Price x Circulating Supply.',
     },

@@ -20,6 +20,7 @@ import SearchBarInput from './SearchBarInput';
 import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
 import useSearchShortcut from './useSearchShortcut';
+import { useSearchAssistant } from './useSearchQuery';
 import useSearchWithClusters from './useSearchWithClusters';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
@@ -41,7 +42,9 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
 
   const recentSearchKeywords = getRecentSearchKeywords();
 
-  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = useSearchWithClusters();
+  const search = useSearchWithClusters();
+  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = search;
+  const assistant = useSearchAssistant(search);
   const resolveSearchRoute = useSearchRedirect();
   const searchGuard = useSearchRequestGuard();
   const searchTermRef = React.useRef(searchTerm);
@@ -80,8 +83,14 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
 
   const handleSubmit = React.useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (assistant.canAsk) {
+      searchGuard.discard();
+      void assistant.ask();
+      onOpen();
+      return;
+    }
     navigateToResults(true);
-  }, [ navigateToResults ]);
+  }, [ assistant, navigateToResults, searchGuard, onOpen ]);
 
   const handleViewAllResultsClick = React.useCallback(() => {
     navigateToResults(false);
@@ -144,7 +153,7 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
     if (!isFocusInMenu && !isFocusInInput) {
       handleDismiss();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [ handleDismiss ]);
 
   const menuPaddingX = isMobile && !isHeroBanner ? 24 : 0;
@@ -155,7 +164,7 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
   // clear input on page change
   React.useEffect(() => {
     handleTermChange('');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [ router.asPath?.split('?')?.[0] ]);
 
   React.useEffect(() => {
@@ -232,6 +241,7 @@ const SearchBarDesktop = ({ isHeroBanner, category, compact }: Props) => {
             ) }
             { searchTerm.trim().length > 0 && (
               <SearchBarSuggest
+                assistant={ assistant }
                 query={ query }
                 searchTerm={ debouncedSearchTerm }
                 onItemClick={ handleItemClick }

@@ -84,48 +84,48 @@ Support state at the documented source revision. Task status comes from spec/hyp
 - **pending**: the task is not closed and this tree has no passing task-component evidence for it.
 - **proposed**: planning text only.
 
-| Area | State | Owning task(s) |
-| --- | --- | --- |
-| Approval policy and dependency-enabled build boundaries | done | 1.4 |
-| Main-host placement, human programme interface, frontier assignment policy | implemented (component evidence) | 1.1–1.3 |
-| Control/provisioner/dispatch service entrypoints, policy-gated startup | done (policy, schema and gateway); implemented (component evidence) for the authenticated service | 1.4, 4.1, 4.2, 14.1 |
-| Pinned run specification import | pending: source in core/control-plane/src/spec, no task-component evidence index in this tree | 2.1 |
-| Dependency graphs, versioned decomposition, proof obligations | implemented (component evidence) | 2.2–2.4 |
-| Agent hierarchy, scoped packets and views | implemented (component evidence) | 3.1–3.4 |
-| PostgreSQL authority schema, primary transaction gateway, migrations and old-primary fencing | done | 4.1, 4.2, 4.4 |
-| Replica-barrier packet assembly | implemented (component evidence) | 4.3 |
-| Claims, reservations, leases, dispatch reconciliation, resource admission | implemented (component evidence) | 5.1–5.4 |
-| Outbox, inbox, instructions, dispatch recovery | implemented (component evidence) | 6.1–6.4 |
-| Central graph extraction, staging, publication, query parity | implemented (component evidence) | 7.1–7.4 |
-| Provider interface and UNSUPPORTED outcomes | done | 8.1 |
-| Provider pools, intents/orphans, placement/relocation | implemented (component evidence) | 8.2–8.4 |
-| Railway adapter | implemented (component evidence) | 9.1–9.4 |
-| Blaxel coding images | done | 10.1 |
-| Blaxel lifetime, create-or-get, preview gating | implemented (component evidence) | 10.2–10.4 |
-| Content-derived environment profiles | done | 11.1 |
-| Source and cache materialisation, readiness probes, prewarming | implemented (component evidence) | 11.2–11.4 |
-| Packet-scoped workspace slices for very large repositories | pending: no source or evidence in this tree | 11.5 |
-| Sandbox supervisor and worker slots | implemented (component evidence) | 12.1–12.4 |
-| Claude Code and Codex connectors, session lineage | implemented (component evidence) | 13.1–13.4 |
-| Identity enrolment, scoped credentials, authenticated HTTPS service | implemented (component evidence) | 14.1–14.4 |
-| Attempt source, artifacts, checkpoints, retention | implemented (component evidence) | 15.1–15.4 |
-| Independent task qualification | implemented (component evidence) | 16.1–16.4 |
-| Commit and semantic assurance | implemented (component evidence) | 17.1–17.4 |
-| Findings, GitHub projection, routing | implemented (component evidence) | 18.1–18.3 |
-| Finding closure after fenced repair | implemented; component evidence fails (exit 1: 28 of 31 registered assertions pass, and the genuine-execution-start, independent-resolution and reopen assertions are unmet) | 18.4 |
-| Integration candidates, publication gateway, closure, release barrier | implemented (component evidence) | 19.1–19.4 |
-| Typed decision providers, bounded decision assistance, decision evaluation and promotion | implemented (component evidence) | 20.1–22.4 |
-| Observability, resource accounting, notifications | implemented (component evidence) | 23.1–23.4 |
-| Supervisory and sandbox recovery, stop/drain/cancel controllers, recovery drills | implemented (component evidence) | 24.1–24.4 |
-| SQLite import, cutover/rollback, authority-mode routing, release planning | implemented (component evidence) | 25.1–25.4 |
-| Hyperfide identity, canonical hyperfide entrypoint, cg compatibility, name/alias migration, generated guidance | implemented (component evidence) | 26.1–26.4 |
-| Strict qualifier and independent receipt checker | done | 27.1 |
-| Deterministic schedule replay | implemented (component evidence); full replay cases UNRUN | 27.2 |
-| Live Railway/Blaxel provider and native agent qualification, 48/72-hour fleet campaigns | pending: campaign driver source (tests/hyperfide/campaigns/live.py) but no task-component evidence index; no measured limits exist | 27.3 |
-| Composite fault qualification | implemented (component evidence, driver component only); full campaign blocked by O-06, O-09, destructive-execution approval, database failover topology and task 27.3 full receipts | 27.4 |
-| Operational documentation, documentation closure, release readiness, traceability retention | implemented (component evidence) | 28.1–28.4 |
-| Hundreds of agents / 100 concurrent sandboxes | proposed planning target | 27.3 |
-| Optional Span GPU self-hosting | proposed; only the self-hosted promotion gate is implemented (component evidence) | 22.4 |
+| Area                                                                                                           | State                                                                                                                                                                                | Owning task(s)      |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| Approval policy and dependency-enabled build boundaries                                                        | done                                                                                                                                                                                 | 1.4                 |
+| Main-host placement, human programme interface, frontier assignment policy                                     | implemented (component evidence)                                                                                                                                                     | 1.1–1.3             |
+| Control/provisioner/dispatch service entrypoints, policy-gated startup                                         | done (policy, schema and gateway); implemented (component evidence) for the authenticated service                                                                                    | 1.4, 4.1, 4.2, 14.1 |
+| Pinned run specification import                                                                                | pending: source in core/control-plane/src/spec, no task-component evidence index in this tree                                                                                        | 2.1                 |
+| Dependency graphs, versioned decomposition, proof obligations                                                  | implemented (component evidence)                                                                                                                                                     | 2.2–2.4             |
+| Agent hierarchy, scoped packets and views                                                                      | implemented (component evidence)                                                                                                                                                     | 3.1–3.4             |
+| PostgreSQL authority schema, primary transaction gateway, migrations and old-primary fencing                   | done                                                                                                                                                                                 | 4.1, 4.2, 4.4       |
+| Replica-barrier packet assembly                                                                                | implemented (component evidence)                                                                                                                                                     | 4.3                 |
+| Claims, reservations, leases, dispatch reconciliation, resource admission                                      | implemented (component evidence)                                                                                                                                                     | 5.1–5.4             |
+| Outbox, inbox, instructions, dispatch recovery                                                                 | implemented (component evidence)                                                                                                                                                     | 6.1–6.4             |
+| Central graph extraction, staging, publication, query parity                                                   | implemented (component evidence)                                                                                                                                                     | 7.1–7.4             |
+| Provider interface and UNSUPPORTED outcomes                                                                    | done                                                                                                                                                                                 | 8.1                 |
+| Provider pools, intents/orphans, placement/relocation                                                          | implemented (component evidence)                                                                                                                                                     | 8.2–8.4             |
+| Railway adapter                                                                                                | implemented (component evidence)                                                                                                                                                     | 9.1–9.4             |
+| Blaxel coding images                                                                                           | done                                                                                                                                                                                 | 10.1                |
+| Blaxel lifetime, create-or-get, preview gating                                                                 | implemented (component evidence)                                                                                                                                                     | 10.2–10.4           |
+| Content-derived environment profiles                                                                           | done                                                                                                                                                                                 | 11.1                |
+| Source and cache materialisation, readiness probes, prewarming                                                 | implemented (component evidence)                                                                                                                                                     | 11.2–11.4           |
+| Packet-scoped workspace slices for very large repositories                                                     | pending: no source or evidence in this tree                                                                                                                                          | 11.5                |
+| Sandbox supervisor and worker slots                                                                            | implemented (component evidence)                                                                                                                                                     | 12.1–12.4           |
+| Claude Code and Codex connectors, session lineage                                                              | implemented (component evidence)                                                                                                                                                     | 13.1–13.4           |
+| Identity enrolment, scoped credentials, authenticated HTTPS service                                            | implemented (component evidence)                                                                                                                                                     | 14.1–14.4           |
+| Attempt source, artifacts, checkpoints, retention                                                              | implemented (component evidence)                                                                                                                                                     | 15.1–15.4           |
+| Independent task qualification                                                                                 | implemented (component evidence)                                                                                                                                                     | 16.1–16.4           |
+| Commit and semantic assurance                                                                                  | implemented (component evidence)                                                                                                                                                     | 17.1–17.4           |
+| Findings, GitHub projection, routing                                                                           | implemented (component evidence)                                                                                                                                                     | 18.1–18.3           |
+| Finding closure after fenced repair                                                                            | implemented; component evidence fails (exit 1: 28 of 31 registered assertions pass, and the genuine-execution-start, independent-resolution and reopen assertions are unmet)         | 18.4                |
+| Integration candidates, publication gateway, closure, release barrier                                          | implemented (component evidence)                                                                                                                                                     | 19.1–19.4           |
+| Typed decision providers, bounded decision assistance, decision evaluation and promotion                       | implemented (component evidence)                                                                                                                                                     | 20.1–22.4           |
+| Observability, resource accounting, notifications                                                              | implemented (component evidence)                                                                                                                                                     | 23.1–23.4           |
+| Supervisory and sandbox recovery, stop/drain/cancel controllers, recovery drills                               | implemented (component evidence)                                                                                                                                                     | 24.1–24.4           |
+| SQLite import, cutover/rollback, authority-mode routing, release planning                                      | implemented (component evidence)                                                                                                                                                     | 25.1–25.4           |
+| Hyperfide identity, canonical hyperfide entrypoint, cg compatibility, name/alias migration, generated guidance | implemented (component evidence)                                                                                                                                                     | 26.1–26.4           |
+| Strict qualifier and independent receipt checker                                                               | done                                                                                                                                                                                 | 27.1                |
+| Deterministic schedule replay                                                                                  | implemented (component evidence); full replay cases UNRUN                                                                                                                            | 27.2                |
+| Live Railway/Blaxel provider and native agent qualification, 48/72-hour fleet campaigns                        | pending: campaign driver source (tests/hyperfide/campaigns/live.py) but no task-component evidence index; no measured limits exist                                                   | 27.3                |
+| Composite fault qualification                                                                                  | implemented (component evidence, driver component only); full campaign blocked by O-06, O-09, destructive-execution approval, database failover topology and task 27.3 full receipts | 27.4                |
+| Operational documentation, documentation closure, release readiness, traceability retention                    | implemented (component evidence)                                                                                                                                                     | 28.1–28.4           |
+| Hundreds of agents / 100 concurrent sandboxes                                                                  | proposed planning target                                                                                                                                                             | 27.3                |
+| Optional Span GPU self-hosting                                                                                 | proposed; only the self-hosted promotion gate is implemented (component evidence)                                                                                                    | 22.4                |
 
 ## Build and start
 
@@ -148,15 +148,15 @@ The authenticated network service uses the explicit HTTPS mode, trusted TLS cert
 
 Every entrypoint (control.js, provisioner.js, dispatch.js) accepts exactly these flags, parsed by core/control-plane/src/components/service.ts; any other flag refuses startup with INVALID_ARGS:
 
-| Flag | Meaning |
-| --- | --- |
-| --policy FILE | Required. Trusted approved policy JSON, regular file of at most 1 MiB. |
-| --spec-revision REV | Required. Must equal the revision approved in the policy. |
-| --components DIR | Component fragment directory (default core/control-plane/components). |
-| --module-root DIR | Built module root (default core/control-plane/dist). |
+| Flag                        | Meaning                                                                                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| --policy FILE               | Required. Trusted approved policy JSON, regular file of at most 1 MiB.                                                                                                            |
+| --spec-revision REV         | Required. Must equal the revision approved in the policy.                                                                                                                         |
+| --components DIR            | Component fragment directory (default core/control-plane/components).                                                                                                             |
+| --module-root DIR           | Built module root (default core/control-plane/dist).                                                                                                                              |
 | --mode stdio\|https\|daemon | Default stdio (bounded JSONL on stdin/stdout). https and daemon print a ready event on stderr and run until SIGTERM/SIGINT. The provisioner refuses daemon with TRANSPORT_CONFIG. |
-| --host, --port | HTTPS listener address (host default 127.0.0.1). |
-| --tls-cert, --tls-key | HTTPS certificate and private key. |
+| --host, --port              | HTTPS listener address (host default 127.0.0.1).                                                                                                                                  |
+| --tls-cert, --tls-key       | HTTPS certificate and private key.                                                                                                                                                |
 
 HTTPS mode refuses with AUTH_REQUIRED unless the 14.1 identity component is registered, and refuses with TRANSPORT_CONFIG when HYPERFIDE_MIGRATION_JOB=1. HF_SERVICE_MAX_REQUEST_BYTES and HF_SERVICE_MAX_RESPONSE_BYTES set protocol byte limits (default 1 MiB, range 256 bytes to 64 MiB; HTTPS is further capped at 1 MiB). These are configured bounds, not measured capacity.
 
@@ -189,15 +189,15 @@ deploy/hyperfide/bootstrap-host.mjs prepares a host for the three service units.
 
 It creates the hyperfide group (gid 1900) and the system users hyperfide (uid 1900, control), hyperfide-provisioner (1901) and hyperfide-dispatch (1902), all with primary group hyperfide, home /nonexistent and shell /usr/sbin/nologin, through groupadd and useradd. An existing account with another id, group, home or shell refuses with BOOTSTRAP_IDENTITY_CONFLICT before any tree is created. It then creates /etc/hyperfide and /var/lib/hyperfide (root:hyperfide 0750), one state directory per role with its authority-journal (and, for the provisioner, preparation) directory (role user, 0700), and installs:
 
-| Installed file | Source | Owner and mode |
-| --- | --- | --- |
-| /etc/hyperfide/ROLE.env | deploy/hyperfide/env/ROLE.env.example | root:root 0600 |
-| /etc/hyperfide/ROLE-policy.json | deploy/hyperfide/policies/ROLE.example.json (task 29.5) | role user 0600 |
-| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json | deploy/hyperfide/identity/*.example.json | role user 0600 |
-| /etc/systemd/system/hyperfide-ROLE.service | deploy/hyperfide/ROLE.service | root:root 0644 |
-| hyperfide-ROLE.service.d/db-env.conf | EnvironmentFile=/etc/hyperfide/ROLE.db.env | root:root 0644 |
-| hyperfide-ROLE.service.d/preflight.conf | ExecStartPre running bootstrap-host.mjs --preflight ROLE | root:root 0644 |
-| /etc/hyperfide/grants.sql | deploy/hyperfide/grants.sql | root:root 0644 |
+| Installed file                                             | Source                                                   | Owner and mode |
+| ---------------------------------------------------------- | -------------------------------------------------------- | -------------- |
+| /etc/hyperfide/ROLE.env                                    | deploy/hyperfide/env/ROLE.env.example                    | root:root 0600 |
+| /etc/hyperfide/ROLE-policy.json                            | deploy/hyperfide/policies/ROLE.example.json (task 29.5)  | role user 0600 |
+| /etc/hyperfide/ROLE-identity.json, provisioner-worker.json | deploy/hyperfide/identity/*.example.json                 | role user 0600 |
+| /etc/systemd/system/hyperfide-ROLE.service                 | deploy/hyperfide/ROLE.service                            | root:root 0644 |
+| hyperfide-ROLE.service.d/db-env.conf                       | EnvironmentFile=/etc/hyperfide/ROLE.db.env               | root:root 0644 |
+| hyperfide-ROLE.service.d/preflight.conf                    | ExecStartPre running bootstrap-host.mjs --preflight ROLE | root:root 0644 |
+| /etc/hyperfide/grants.sql                                  | deploy/hyperfide/grants.sql                              | root:root 0644 |
 
 deploy/hyperfide/env/control.env.example names every variable the control service reads (case v21/3_24 checks both directions): the required ones with placeholders, the optional ones commented with their defaults, and the rest by area as names only. Keys, tokens and database URLs go in a root-only drop-in such as control.db.env, never in control.env.
 
@@ -205,24 +205,24 @@ Every file is created atomically and only when absent. An existing file is never
 
 The preflight runs as each unit's ExecStartPre, as the unit's user and with its environment, before the entrypoint starts, and exits 78 with the refusal code the service itself would raise:
 
-| Gap | Refusal |
-| --- | --- |
-| Any HYPERFIDE_MIGRATION_* variable present | MIGRATION_CREDENTIAL_EXPOSED |
-| HYPERFIDE_REQUIRE_SYNC_REPLICA not 0 or 1 | DURABILITY_POLICY_REQUIRED |
-| HYPERFIDE_DEPLOYMENT_ID not a UUID, or HYPERFIDE_AUTHORITY_JOURNAL_DIR missing, not canonical, not owned by the unit's uid or group/world accessible | EXTERNAL_JOURNAL_REQUIRED |
-| Control without a 64-hex-character HYPERFIDE_CAUSAL_BARRIER_KEY | BARRIER_CONFIG_INVALID |
-| Listener host or port, or HYPERFIDE_SPEC_REVISION, missing | TRANSPORT_CONFIG |
-| HYPERFIDE_ROLE_PRIMARY_DATABASE_URL missing or not postgres | DATABASE_CONFIG_INVALID |
-| HF_IDENTITY_CONFIG_FILE missing | IDENTITY_CONFIG_REQUIRED |
-| Dispatch without HF_EVENT_DISPATCH_CONFIG | DISPATCH_CONFIG_REQUIRED |
-| Provisioner without an absolute HF_PROVISIONER_EXECUTOR_CONFIG_FILE naming a regular file | PROVISIONER_EXECUTOR_CONFIG_INVALID |
-| Provisioner HF_CREDENTIAL_CONFIG_FILE set but not an absolute regular file (required in live Railway mode) | CREDENTIAL_CONFIG_REQUIRED |
-| HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE missing or not canonical | EXTERNAL_FENCE_CONFIG_REQUIRED |
-| Fence configuration not a single-link 0600 file owned by the unit's uid | EXTERNAL_FENCE_CONFIG_UNSAFE |
-| Fence configuration fields, scope or topology invalid | EXTERNAL_FENCE_CONFIG_INVALID |
-| A required writer without an isolation boundary | EXTERNAL_FENCE_CONFIG_INCOMPLETE |
-| HYPERFIDE_POOL_CONFIG missing | POOL_CONFIG_REQUIRED |
-| HF_RAILWAY_CONFIG missing | Railway trusted configuration missing |
+| Gap                                                                                                                                                  | Refusal                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Any HYPERFIDE_MIGRATION_* variable present                                                                                                           | MIGRATION_CREDENTIAL_EXPOSED          |
+| HYPERFIDE_REQUIRE_SYNC_REPLICA not 0 or 1                                                                                                            | DURABILITY_POLICY_REQUIRED            |
+| HYPERFIDE_DEPLOYMENT_ID not a UUID, or HYPERFIDE_AUTHORITY_JOURNAL_DIR missing, not canonical, not owned by the unit's uid or group/world accessible | EXTERNAL_JOURNAL_REQUIRED             |
+| Control without a 64-hex-character HYPERFIDE_CAUSAL_BARRIER_KEY                                                                                      | BARRIER_CONFIG_INVALID                |
+| Listener host or port, or HYPERFIDE_SPEC_REVISION, missing                                                                                           | TRANSPORT_CONFIG                      |
+| HYPERFIDE_ROLE_PRIMARY_DATABASE_URL missing or not postgres                                                                                          | DATABASE_CONFIG_INVALID               |
+| HF_IDENTITY_CONFIG_FILE missing                                                                                                                      | IDENTITY_CONFIG_REQUIRED              |
+| Dispatch without HF_EVENT_DISPATCH_CONFIG                                                                                                            | DISPATCH_CONFIG_REQUIRED              |
+| Provisioner without an absolute HF_PROVISIONER_EXECUTOR_CONFIG_FILE naming a regular file                                                            | PROVISIONER_EXECUTOR_CONFIG_INVALID   |
+| Provisioner HF_CREDENTIAL_CONFIG_FILE set but not an absolute regular file (required in live Railway mode)                                           | CREDENTIAL_CONFIG_REQUIRED            |
+| HYPERFIDE_EXTERNAL_FENCE_CONFIG_FILE missing or not canonical                                                                                        | EXTERNAL_FENCE_CONFIG_REQUIRED        |
+| Fence configuration not a single-link 0600 file owned by the unit's uid                                                                              | EXTERNAL_FENCE_CONFIG_UNSAFE          |
+| Fence configuration fields, scope or topology invalid                                                                                                | EXTERNAL_FENCE_CONFIG_INVALID         |
+| A required writer without an isolation boundary                                                                                                      | EXTERNAL_FENCE_CONFIG_INCOMPLETE      |
+| HYPERFIDE_POOL_CONFIG missing                                                                                                                        | POOL_CONFIG_REQUIRED                  |
+| HF_RAILWAY_CONFIG missing                                                                                                                            | Railway trusted configuration missing |
 
 The preflight prints only the outcome and code, never a value. A passing preflight does not prove that migrations, grants or an authority epoch exist; the service checks those at startup.
 
@@ -241,14 +241,14 @@ Identity enrolment of the service principals stays with bootstrap_identity.ts (t
 
 The local-first CLI is the hyperfide executable. cg is a deprecated compatibility alias from the same executable, with identical arguments, JSON and exit codes; it is byte-identical at this revision, and version prints 2.0.0-dev for both. It stays for the compatibility window of the approved release (see hyperfide help, "command names"). In local mode it works on the local store and grants no distributed authority. In distributed mode it is a control-service client: about 63 commands (spec, task, submission, graph, fleet, docs, supervisor, work, hierarchy, human, ask and the decision verbs) route to component actions with explicit run and operation identities, and hyperfide mcp serves those routes plus the same four Ask tools (ask_raise, ask_status, ask_list, approvals_list) as local mode. The service, not the CLI, decides authority. Commands relevant to operations, all listed by hyperfide help --all:
 
-| Command | Use |
-| --- | --- |
-| hyperfide version | Print the version. |
-| hyperfide config [init\|get\|set\|check] | Read or validate hyperfide.kvx settings (a legacy codify.kvx is read when it is the only file) with their origin. |
-| hyperfide docs status\|plan\|packet\|check\|trace\|close | Local grounded documentation closure evidence. |
-| hyperfide spec docs status\|auto\|manual\|off\|start\|block\|reset\|done | The reserved @docs closure stage. |
-| hyperfide fleet up\|down [--drain] [--wait SECONDS]\|pause\|resume\|runs\|status | Local run supervision; fleet down releases claims and keeps branches. |
-| hyperfide journal list\|apply\|drop | Writes queued while the local database was busy. |
+| Command                                                                          | Use                                                                                                               |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| hyperfide version                                                                | Print the version.                                                                                                |
+| hyperfide config [init\|get\|set\|check]                                         | Read or validate hyperfide.kvx settings (a legacy codify.kvx is read when it is the only file) with their origin. |
+| hyperfide docs status\|plan\|packet\|check\|trace\|close                         | Local grounded documentation closure evidence.                                                                    |
+| hyperfide spec docs status\|auto\|manual\|off\|start\|block\|reset\|done         | The reserved @docs closure stage.                                                                                 |
+| hyperfide fleet up\|down [--drain] [--wait SECONDS]\|pause\|resume\|runs\|status | Local run supervision; fleet down releases claims and keeps branches.                                             |
+| hyperfide journal list\|apply\|drop                                              | Writes queued while the local database was busy.                                                                  |
 
 The configuration file is hyperfide.kvx (src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (scripts/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
 
@@ -302,6 +302,7 @@ The activation is BOOTSTRAP only when the deployment has no authority history. R
        node deploy/hyperfide/migrate.mjs --adopt-authority --release-root RELEASE --policy-file POLICY --spec-revision REV --operation-id UUID --journal-document FILE
 
    The policy must admit storage.authority.adopt. Adoption validates the document's hash chain, requires the ACTIVE state and a positive primary receipt whose proof digest matches the last record, and never mints an epoch. A PENDING, tampered, forked or rolled-back document is refused.
+
 8. Service start. Start the control, provisioner and dispatch units. Each one checks that the epoch in its own journal is the primary's ACTIVE epoch. Every outcome line, and install-service.mjs's receipt, reports authority_activated read from the primary (null when the read itself failed). Remove the permit and the payload directory after activation; the permit is valid only for this operation id.
 
 ### Greenfield first epoch
@@ -315,13 +316,14 @@ A fresh deployment has no writer to isolate, and its runs, pools, sandboxes and 
    - HYPERFIDE_POOL_CONFIG names the same organisation. Every pool in it is inventoried through its provider admin transport. Only Railway has one, so HF_RAILWAY_CONFIG must be in live mode with its token set.
 2. Topology digest. `--topology` prints the greenfield topology: zero required writers, zero resources, legacy status NONE, the accepted-intent digest and every configured pool scope. Write its `topology_digest` into the isolation configuration and rerun it until it reports `"consistent":true`.
 3. to 5. Permit. `--permit-payload` writes claims with `"scope":"GREENFIELD"` and an empty resource allowlist. Signing, sealing and `--verify-permit` work as above. A greenfield permit is refused against a writer configuration, and a writer permit against a greenfield one, with ISOLATION_PERMIT_SCOPE.
-6. Activation. Use the same `migrate.mjs --activate-authority ... --fence-driver deploy/hyperfide/bootstrap-fence.mjs` command. Before any epoch is minted, the driver refuses a deployment with any authority history with ISOLATION_PERMIT_SCOPE. It then proves emptiness:
+4. Activation. Use the same `migrate.mjs --activate-authority ... --fence-driver deploy/hyperfide/bootstrap-fence.mjs` command. Before any epoch is minted, the driver refuses a deployment with any authority history with ISOLATION_PERMIT_SCOPE. It then proves emptiness:
    - the primary holds no sandboxes, sandbox_boots, provider_pools or runs rows for the organisation;
    - a complete inventory of every configured pool shows no sandbox other than a DESTROYED one.
 
    Anything present is refused with GREENFIELD_NOT_EMPTY. An incomplete or failed inventory, or a pool whose provider has no inventory transport, is refused with GREENFIELD_EMPTINESS_UNPROVEN. The fence journal keeps the evidence document (scope GREENFIELD, resource_count 0, legacy_status NONE, the empty writer list, each inventory and the database counts) next to a receipt of at most 30 seconds. The primary transaction inserts the BOOTSTRAP epoch, rechecks emptiness, and imports the organisation, project, repositories, source objects, spec revision and run through the accepted-intent importer, with the run pinned to the new epoch. Re-running the same operation id replays the committed epoch. Service-reachable storage.authority.v1 refuses a greenfield fence.
-7. Follower adoption and service start: steps 7 and 8 above.
-8. First operator. Run `hyperfide bootstrap --input FILE` with the same scope, metadata and accepted intent, the new epoch as `authority_epoch` and the operator credential. The import replays, and the first OPERATOR is issued.
+
+5. Follower adoption and service start: steps 7 and 8 above.
+6. First operator. Run `hyperfide bootstrap --input FILE` with the same scope, metadata and accepted intent, the new epoch as `authority_epoch` and the operator credential. The import replays, and the first OPERATOR is issued.
 
 ## Preparation, secrets and execution
 
@@ -333,18 +335,18 @@ Provider acceptance, a sandbox ID and runner readiness are separate states. Reco
 
 Provider capability differences implemented by the adapters (core/control-plane/src/providers). An UNSUPPORTED outcome is explicit; there is no emulated support:
 
-| Capability | Railway (providers/railway) | Blaxel (providers/blaxel) |
-| --- | --- | --- |
-| Stop signal | TERM and KILL | TERM only; KILL is UNSUPPORTED. A stopped API parent leaves the outcome UNKNOWN until job-tree cleanup is reconciled. |
-| Persistent volumes | Refused (persistent_volume_bytes must be 0) | Refused until per-boot qualified volume allocation exists |
-| Process stdin | Unavailable after detach or restart | — |
-| Attach with resume cursor | — | UNSUPPORTED |
-| Resources | Memory must be exactly representable | CPU and memory must match provider coupling; writable overlay cannot exceed memory; timeouts in whole seconds |
-| Pre-boot worker credentials | — | Disabled; use post-enrolment process references |
-| Snapshots, network policy, copy, lifetime methods | — | UNSUPPORTED in the process adapter (lifetime policy is a separate ttl-idle/ttl-max-age/date delete policy) |
-| Account limits | Planning input only | account_limits_qualified must be declared; live limits pending 27.3 |
+| Capability                                        | Railway (providers/railway)                 | Blaxel (providers/blaxel)                                                                                             |
+| ------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Stop signal                                       | TERM and KILL                               | TERM only; KILL is UNSUPPORTED. A stopped API parent leaves the outcome UNKNOWN until job-tree cleanup is reconciled. |
+| Persistent volumes                                | Refused (persistent_volume_bytes must be 0) | Refused until per-boot qualified volume allocation exists                                                             |
+| Process stdin                                     | Unavailable after detach or restart         | —                                                                                                                     |
+| Attach with resume cursor                         | —                                           | UNSUPPORTED                                                                                                           |
+| Resources                                         | Memory must be exactly representable        | CPU and memory must match provider coupling; writable overlay cannot exceed memory; timeouts in whole seconds         |
+| Pre-boot worker credentials                       | —                                           | Disabled; use post-enrolment process references                                                                       |
+| Snapshots, network policy, copy, lifetime methods | —                                           | UNSUPPORTED in the process adapter (lifetime policy is a separate ttl-idle/ttl-max-age/date delete policy)            |
+| Account limits                                    | Planning input only                         | account_limits_qualified must be declared; live limits pending 27.3                                                   |
 
-Provider components: 8.2 provider.pools.*, 8.3 provider.intents.* and provider.orphans.list, 8.4 provider.placement.* and provider.relocation.*. All three components register in the provisioner role, and 8.2 and 8.3 also register in the control role. Contract checks report authority NONE and live_qualification NOT_EVALUATED.
+Provider components: 8.2 provider.pools._, 8.3 provider.intents._ and provider.orphans.list, 8.4 provider.placement.* and provider.relocation.*. All three components register in the provisioner role, and 8.2 and 8.3 also register in the control role. Contract checks report authority NONE and live_qualification NOT_EVALUATED.
 
 Provider resolution Asks. An orphan or QUARANTINED provisioning intent left unresolved past the policy window becomes a decision Ask in hyperfide.asks (kind decision, chain operator, deadline 14400 s from ASK_POLICY), raised by provider.resolutions.escalate (the provisioner worker calls it every HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS) through the same path as human.ask.raise, at most one open Ask per subject. Operators see them in human.ask.list with every other Ask and answer with human.ask.answer: RETAIN or DELETE for an orphan, RELEASE or RETRY for an intent. Only an OPERATOR of the Ask's run may answer, and the answer is applied to the provider inventory in the same transaction and recorded in provider_resolutions. DELETE, and RELEASE of an intent bound to a provider resource, need evidence the resource is gone: an answer without it is refused (DELETION_EVIDENCE_REQUIRED, RELEASE_EVIDENCE_REQUIRED) and the Ask stays open; settle those with provider.orphans.resolve or provider.intents.resolve-quarantine and evidence_digest, which also close the Ask. If the Ask expires unanswered, its recommended answer is recorded as decided by default but the inventory is not changed; the subject is raised again at the next escalation. provider.resolutions.list returns the resolutions, the Asks with their subject, and legacy_asks.
 
@@ -365,11 +367,26 @@ Sandboxes never clone or fetch from GitHub; GitHub receives only the publication
 The provisioner environment file names the configuration with `HF_SLICE_SOURCE_CONFIG` (an absolute path, at most 256 KiB, for example `/etc/hyperfide/object-store.json`):
 
 ```json
-{"schema_version": 2, "missing_region": "STORE",
- "repositories": {"<repository id>": {
-   "store": "ssh://objects.example.internal/srv/hyperfide/monorepo.git",
-   "mirrors": {"railway": {"us-west2": "ssh://objects-usw2.railway.internal/srv/monorepo.git"}},
-   "submodules": {"vendor/lib": {"store": "ssh://objects.example.internal/srv/lib.git", "mirrors": {}}}}}}
+{
+  "schema_version": 2,
+  "missing_region": "STORE",
+  "repositories": {
+    "<repository id>": {
+      "store": "ssh://objects.example.internal/srv/hyperfide/monorepo.git",
+      "mirrors": {
+        "railway": {
+          "us-west2": "ssh://objects-usw2.railway.internal/srv/monorepo.git"
+        }
+      },
+      "submodules": {
+        "vendor/lib": {
+          "store": "ssh://objects.example.internal/srv/lib.git",
+          "mirrors": {}
+        }
+      }
+    }
+  }
+}
 ```
 
 - Mirrors are keyed by provider, then region. Materialisation (`preparation.slice.materialize`) reads the provider and region of the sandbox's pool and clones from that mirror. `missing_region` is required and has no default: `STORE` sends a region without a mirror to the store, `REFUSE` refuses it with `SLICE_SOURCE_NO_REGIONAL_MIRROR`.
@@ -396,11 +413,11 @@ This selects the registered task-component inventory. It does not replace a full
 
 Three sets of control actions let a person or the leader work what is waiting on findings. Each set lists, acknowledges and routes. Every verb needs the action in the credential's grant and the operator, coordinator or current programme leader role (`admin` in findings/registry.ts); any other role is refused with `AUTH_DENIED`. The list actions are read-only.
 
-| Reader | List | Acknowledge | Route |
-| --- | --- | --- | --- |
-| Leader queue | `finding.leader-queue.list` | `finding.leader-queue.acknowledge` (records who has seen a queued route) | `finding.leader-queue.route` (explicit assignment with a reason) |
-| External intake | `finding.intake.list` | `finding.intake.dismiss` (needs `reason`) | `finding.intake.link` (needs `reason`, links the issue to its canonical finding) |
-| Escalated repairs | `finding.repair.escalation.list` | `finding.repair.escalation.acknowledge` (makes sure the decision Ask exists) | `finding.repair.escalation.route` (reassigns the finding with a reason) |
+| Reader            | List                             | Acknowledge                                                                  | Route                                                                            |
+| ----------------- | -------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Leader queue      | `finding.leader-queue.list`      | `finding.leader-queue.acknowledge` (records who has seen a queued route)     | `finding.leader-queue.route` (explicit assignment with a reason)                 |
+| External intake   | `finding.intake.list`            | `finding.intake.dismiss` (needs `reason`)                                    | `finding.intake.link` (needs `reason`, links the issue to its canonical finding) |
+| Escalated repairs | `finding.repair.escalation.list` | `finding.repair.escalation.acknowledge` (makes sure the decision Ask exists) | `finding.repair.escalation.route` (reassigns the finding with a reason)          |
 
 Dismissing or linking an external issue records `triaged_by`, `triage_reason` and `triaged_at` on `finding_external_intake` (migration 0714). The database refuses an unattributed move out of triage and any later rewrite of the attribution. A repair that escalates raises a decision Ask through the shared Ask channel (`deliverAsk` in policy/human_interface.ts), so it needs the run's `operator:asks` consumer and `HF_FINDING_ESCALATION_ASK_SECONDS`.
 
@@ -481,20 +498,20 @@ Migration and rebrand components, all in the control role. The tasks are pending
 
 Rollback restores the documented previous usable state only for reversible steps. Operating rule (not yet a qualified guarantee): treat schema contraction (CONTRACT_SCHEMA) and protocol upgrades accepted by new clients as irreversible; roll back before contraction, and never accept evidence produced under an incompatible protocol. Old/new parity is not yet qualified (V-028 and V-055 remain UNRUN as full cases).
 
-| Observation | Required investigation |
-| --- | --- |
-| Service refuses startup | Approval/revision/role, linked fragment, actual dependency capability and required schema. |
-| INVALID_ARGS or POLICY_INVALID at startup | Only the flags in the entrypoint table are accepted; --policy must name a readable regular JSON file of at most 1 MiB. |
-| AUTH_REQUIRED or TRANSPORT_CONFIG with --mode https | 14.1 identity component registered; HYPERFIDE_MIGRATION_JOB unset; TLS certificate/key readable. |
+| Observation                                                                                                                            | Required investigation                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service refuses startup                                                                                                                | Approval/revision/role, linked fragment, actual dependency capability and required schema.                                                                                                                                |
+| INVALID_ARGS or POLICY_INVALID at startup                                                                                              | Only the flags in the entrypoint table are accepted; --policy must name a readable regular JSON file of at most 1 MiB.                                                                                                    |
+| AUTH_REQUIRED or TRANSPORT_CONFIG with --mode https                                                                                    | 14.1 identity component registered; HYPERFIDE_MIGRATION_JOB unset; TLS certificate/key readable.                                                                                                                          |
 | Provisioner refuses startup with PROVISIONER_EXECUTOR_CONFIG_INVALID, PROVISIONER_EXECUTOR_IDENTITY_MISMATCH or WORKER_ALREADY_RUNNING | Worker configuration and key are 0600, single-link, service-owned regular files; the credential is the current ACTIVE PROVISIONER with the matching key; no other current credential owns the run's durable worker start. |
-| DATABASE_CONFIG_INVALID or DATABASE_CONFIG_CONFLICT | Role-specific primary URL or DATABASE_URL present; HYPERFIDE_MIGRATION_DATABASE_URL for migrations; bounded PG settings in range; one configuration per process. |
-| ALIAS_CONFLICT during rename migration | Legacy CG_*/CODIFY_* and HYPERFIDE_* variables set to different values. |
-| Provider returns UNSUPPORTED | Requested capability against the Railway/Blaxel table above; no fallback emulation exists. |
-| Request is unauthenticated or stale | TLS origin, signed raw bytes, nonce/time, credential version/revocation, run epoch, boot and compute lease. |
-| Provider created a sandbox but no worker starts | Preparation proof, boot enrolment, resource/slot reservation and actual native connector readiness. |
-| Checker exited successfully but work is unqualified | Exact assertion inventory, canonical independent check, trusted execution custody, source revision and cleanup. |
-| Docs will not close | Accepted policy/check command, exact publication set, current fence, durable checker result and baseline persistence. |
-| Release remains held | Missing full-case registration/evidence, unresolved blocking findings, stale gate, unexplained retained resource or absent restore/rollback/docs proof. |
+| DATABASE_CONFIG_INVALID or DATABASE_CONFIG_CONFLICT                                                                                    | Role-specific primary URL or DATABASE_URL present; HYPERFIDE_MIGRATION_DATABASE_URL for migrations; bounded PG settings in range; one configuration per process.                                                          |
+| ALIAS_CONFLICT during rename migration                                                                                                 | Legacy CG__/CODIFY__ and HYPERFIDE_* variables set to different values.                                                                                                                                                   |
+| Provider returns UNSUPPORTED                                                                                                           | Requested capability against the Railway/Blaxel table above; no fallback emulation exists.                                                                                                                                |
+| Request is unauthenticated or stale                                                                                                    | TLS origin, signed raw bytes, nonce/time, credential version/revocation, run epoch, boot and compute lease.                                                                                                               |
+| Provider created a sandbox but no worker starts                                                                                        | Preparation proof, boot enrolment, resource/slot reservation and actual native connector readiness.                                                                                                                       |
+| Checker exited successfully but work is unqualified                                                                                    | Exact assertion inventory, canonical independent check, trusted execution custody, source revision and cleanup.                                                                                                           |
+| Docs will not close                                                                                                                    | Accepted policy/check command, exact publication set, current fence, durable checker result and baseline persistence.                                                                                                     |
+| Release remains held                                                                                                                   | Missing full-case registration/evidence, unresolved blocking findings, stale gate, unexplained retained resource or absent restore/rollback/docs proof.                                                                   |
 
 The release readiness checker must account for every native clause and required case, plus task/candidate/programme, policy, docs, restore/rollback and cleanup obligations. Its controlled-pack self-tests qualify the checker; they do not release Hyperfide. Final closure seals its validated input inventory and does not require its own digest as an input.
 
@@ -509,7 +526,6 @@ The bounded 28.2 persistence fixture uses the actual createClosureComponent fact
 Component 28.4 separates a bounded structural mapping response from release.traceability.archive, which retains the complete sanitised public pack through artifact.store.v1. An archive verifies retrievable bytes and does not grant product qualification. Component 28.3 release.readiness.assess holds incomplete evidence. release.readiness.seal requires all full-case gates, current authoritative programme and documentation closure, a verified COMPLETE artifact, then a fresh guarded primary recheck before writing its immutable release record. Controlled complete-inventory checker fixtures do not establish a product release.
 
 Release evidence admission uses a deployment-owned protected schema_version 2 index. Each entry binds reference, evidence_root, campaign, receipt_id, receipt_digest and gate_kinds; the index organisation_id/run_id must match the actual invocation. evidence_root is an exclusively service-owned mode 0700 portable stage containing trusted-relocation.json. The service must keep untrusted agents in separate UIDs or VMs and freeze its own stage writers. The canonical checker verifies every original source/input/tool/artifact pin through the exact relocation map. The release consumer uses absolute isolated Python, a closed environment, the qualified proof assets, and the actual private-stage guard/inspection lock. HYPERFIDE_RELEASE_PYTHON and HYPERFIDE_RELEASE_QUALIFIED_PROOF_ROOT are protected deployment settings, never request fields. Nonportable version 1 indexes fail closed. Component proof remains insufficient for full release gates.
-
 
 ## Full-tree graph indexing
 
@@ -533,12 +549,12 @@ and SQLite 3.46.1. Completed counts come from `index-status --json`, after
 semantic resolution has synthesized route symbols; the init progress summary
 reports extracted symbols and therefore has a lower symbol count.
 
-| Run | Wall time | Files | Symbols |
-| --- | ---: | ---: | ---: |
-| Plain `hyperfide init`, fixed snapshot | 379.636 s | 9,071 | 85,689 |
-| Paired `hyperfide init --nested`, same snapshot, SQL profiling enabled | 510.213 s | 9,071 | 85,689 |
-| Qualification `hyperfide init --nested`, current tree | 434 s | 9,070 | 85,689 |
-| Post-0.7 rerun `hyperfide init --nested` | 415 s | 9,090 | 85,783 |
+| Run                                                                    | Wall time | Files | Symbols |
+| ---------------------------------------------------------------------- | --------: | ----: | ------: |
+| Plain `hyperfide init`, fixed snapshot                                 | 379.636 s | 9,071 |  85,689 |
+| Paired `hyperfide init --nested`, same snapshot, SQL profiling enabled | 510.213 s | 9,071 |  85,689 |
+| Qualification `hyperfide init --nested`, current tree                  |     434 s | 9,070 |  85,689 |
+| Post-0.7 rerun `hyperfide init --nested`                               |     415 s | 9,090 |  85,783 |
 
 The post-0.7 rerun used the real merged modules and passed
 `tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
@@ -612,19 +628,19 @@ The real Railway ledger `state/ledger/base-ce200df474.json` records checkpoint
 `hf22-base-ce200df474`, commit `ce200df474`, built 2026-10-23 08:36 to 08:44 UTC
 on 4 vCPU / 8 GB:
 
-| Step | Seconds |
-| --- | ---: |
-| create | 4.6 |
-| upload (99.3 MB bundle) | 19.9 |
-| clone | 8.2 |
-| cg | 32.5 |
-| service | 20.6 |
-| platform (frozen install; node_modules 4.3G) | 69.2 |
-| platform-build | 177.1 |
-| index (cg init, 1574 files, 8 workers) | 109.3 |
-| tools | 4.5 |
-| checkpoint | 11.5 |
-| total (approximately) | 457 (7 min 37 s) |
+| Step                                         |          Seconds |
+| -------------------------------------------- | ---------------: |
+| create                                       |              4.6 |
+| upload (99.3 MB bundle)                      |             19.9 |
+| clone                                        |              8.2 |
+| cg                                           |             32.5 |
+| service                                      |             20.6 |
+| platform (frozen install; node_modules 4.3G) |             69.2 |
+| platform-build                               |            177.1 |
+| index (cg init, 1574 files, 8 workers)       |            109.3 |
+| tools                                        |              4.5 |
+| checkpoint                                   |             11.5 |
+| total (approximately)                        | 457 (7 min 37 s) |
 
 `make platform-install`, `make platform-build`, and `make platform-test` run pnpm
 at the repository root. `gen-jobs.py --codex hyperfide-v22 0.8` generates a packet;
@@ -642,12 +658,12 @@ record does not establish timings for the final merged branch. In particular,
 `platform-build` was best effort in that image recipe, so its elapsed time is
 not evidence of a successful platform build.
 
-| Measurement | Recorded result | Evidence boundary |
-| --- | --- | --- |
-| Image build | Approximately 457 s (7 min 37 s) | Base checkpoint ce200df474, 2026-10-23, table above |
-| Graph index | 109.3 s, 1,574 files, eight workers | Same 4 vCPU / 8 GB base build; not a full merged-tree benchmark |
+| Measurement                                 | Recorded result                                         | Evidence boundary                                                                      |
+| ------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Image build                                 | Approximately 457 s (7 min 37 s)                        | Base checkpoint ce200df474, 2026-10-23, table above                                    |
+| Graph index                                 | 109.3 s, 1,574 files, eight workers                     | Same 4 vCPU / 8 GB base build; not a full merged-tree benchmark                        |
 | Fleet boot, dispatch, collect and integrate | Not measured in tracked feature evidence on this branch | The 5.7 fixture checks sequencing with fake machines; no live timing ledger is tracked |
-| Authority and two-host qualification | Not measured in tracked feature evidence on this branch | The 6.5 two-host fixture checks receipts; no live timing ledger is tracked |
+| Authority and two-host qualification        | Not measured in tracked feature evidence on this branch | The 6.5 two-host fixture checks receipts; no live timing ledger is tracked             |
 
 Fleet cap 20, pool maximum 100, 1.5 s start staggering and 60-to-600 s backoff
 in fleet.json are configured limits, not measurements of achieved throughput.
@@ -660,3 +676,11 @@ See [the platform guide](platform.md) for the four layers and proof commands.
 ## Native source runtime releases
 
 Build and verify the [native source runtime package](../runtime/source-control.md) on the release builder. Apply its full migration catalog before starting the extracted `bin/source-control` service with the private listener configuration and scoped storage settings. Keep the previous immutable runtime directory during upgrade. Resume interrupted source operations with their original operation identities, and use the full-case closure and operator acceptance gates before declaring the new release accepted.
+
+## Native source package evidence
+
+The [source guide](source-control.md#profile-qualification) records the current source profile inventory and its UNQUALIFIED full-case variants. Follow its graph-freshness, retention and restore procedures for source operations. A successful package build or 7.1 component run does not qualify a deployment, live backend, hosted Git destination, fleet or disaster-recovery topology.
+
+The 7.1 driver executes documented source commands from both guides through the extracted binaries, checks source/evidence pins, validates recovery declarations and compares the carried specification, registry and claims inventories. It retains command logs, the package and release manifests, source input digest and component receipt under the private `tools/hyperfide/build/source-control/7.1/` evidence directory. The task’s bounded gate record supplies the verified candidate revision, command, exit status and private log reference. Keep those records with the exact package; requalify changed inputs instead of citing an older receipt.
+
+The package’s `source-release-manifest.json` describes pinned dependencies and the `git-source-pre-native-0736-v1` schema upgrade boundary. Deployment migration, full-case closure and explicit operator release acceptance have separate evidence requirements. Recovery profiles must cover metadata acknowledgment, object placements, backup retention, external journal identity and RPO/RTO objectives. Schema validity does not measure those objectives or authorize restoring an older authority epoch.
