@@ -7510,7 +7510,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         context
             .permit()
             .boundary(&self.session_control)
-            .map_err(rpc_commit_error)?;
+            .map_err(|error| {
+                eprintln!("layerx-agentd: rpc_approval_get_native boundary: {error:?}");
+                rpc_commit_error(error)
+            })?;
         let store = self
             .store
             .lock()
@@ -7520,8 +7523,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             context,
             request.approval_id,
         )
-        .map_err(|_| HumanOperationError::Refused)?;
-        native_response(&held.response().map_err(|_| HumanOperationError::Refused)?)
+        .map_err(|error| approval_refused("rpc_approval_get_native read_id", error))?;
+        native_response(
+            &held
+                .response()
+                .map_err(|error| approval_refused("rpc_approval_get_native response", error))?,
+        )
     }
 
     pub(crate) fn rpc_approval_decide_native(
@@ -7530,17 +7537,23 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         request: MutationEnvelope<layerx_agent_api::identity::NativeApprovalDecisionV1>,
         grant: bool,
     ) -> Result<HumanResponse, HumanOperationError> {
-        if crate::agent_rpc_dispatch::native_approval_digest(&request.operation, grant)
-            .map_err(|_| HumanOperationError::Refused)?
-            != request.body_digest
+        if crate::agent_rpc_dispatch::native_approval_digest(&request.operation, grant).map_err(
+            |error| approval_refused("rpc_approval_decide_native native_approval_digest", error),
+        )? != request.body_digest
         {
-            return Err(HumanOperationError::Refused);
+            return Err(approval_refused(
+                "rpc_approval_decide_native",
+                "body_digest_mismatch",
+            ));
         }
         let (observation, registry, network_id) = self
             .lock_operations()?
             .native_expiry_observation(context.peer(), &context.principal().agent)?;
         if request.operation.current_sequence != observation.through_sequence() {
-            return Err(HumanOperationError::Refused);
+            return Err(approval_refused(
+                "rpc_approval_decide_native",
+                "current_sequence_mismatch",
+            ));
         }
         let held = context
             .commit(&self.session_control, |_| {
@@ -7561,12 +7574,22 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     network_id,
                     &self.preparation_lifecycle,
                 )
-                .map_err(|_| {
-                    crate::session_control::SessionControlError::Human(HumanOperationError::Refused)
+                .map_err(|error| {
+                    crate::session_control::SessionControlError::Human(approval_refused(
+                        "rpc_approval_decide_native decide",
+                        error,
+                    ))
                 })
             })
-            .map_err(rpc_commit_error)?;
-        native_response(&held.response().map_err(|_| HumanOperationError::Refused)?)
+            .map_err(|error| {
+                eprintln!("layerx-agentd: rpc_approval_decide_native commit: {error:?}");
+                rpc_commit_error(error)
+            })?;
+        native_response(
+            &held
+                .response()
+                .map_err(|error| approval_refused("rpc_approval_decide_native response", error))?,
+        )
     }
 
     pub(crate) fn rpc_prepare(
@@ -8938,7 +8961,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 crate::policy::approval::ApprovalSequence(current_sequence),
                 current_time,
             )
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|error| approval_refused("approval_decide lookup", error))?;
         if snapshot.prepared.disclosure.canonical_digest != held_digest {
             return Err(HumanOperationError::Refused);
         }
@@ -9869,7 +9892,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let record = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
             .get(&tenant, approval_id, current_sequence, current_time)
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|error| approval_refused("approval_get lookup", error))?;
         let mut out = Encoder::new();
         encode_approval_facts(&mut out, &record)?;
         out.finish()
@@ -9894,7 +9917,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let record = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
             .get(&tenant, approval_id, current_sequence, current_time)
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|error| approval_refused("approval_budget_after lookup", error))?;
         if record.canonical_bytes_digest != held_digest
             || !matches!(
                 record.state,
@@ -10317,7 +10340,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let record = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
             .get(&tenant, approval_id, current_sequence, current_time)
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|error| approval_refused("approval_get lookup", error))?;
         let mut out = Encoder::new();
         encode_approval(&mut out, &record)?;
         out.finish()
@@ -17951,6 +17974,11 @@ fn encode_native_approval_facts(
     };
     Ok(())
 }
+fn approval_refused(operation: &str, error: impl std::fmt::Debug) -> HumanOperationError {
+    eprintln!("layerx-agentd: {operation} refused: {error:?}");
+    HumanOperationError::Refused
+}
+
 fn encode_approval_facts(
     out: &mut Encoder,
     record: &ApprovalRecord,
