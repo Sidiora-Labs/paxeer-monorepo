@@ -242,3 +242,22 @@ pub fn invoke_composed_for_qualification(
     }
     outcome.map_err(ExecutionError::Entrypoint)
 }
+
+/// Executes a validated revision through the production executor with recorded fees.
+///
+/// # Errors
+/// Returns the actual execution refusal without fabricating evidence.
+pub fn execute_versioned_for_qualification(
+    module: &crate::ValidatedModule,
+    prices: crate::FeeSchedule,
+    export: &str,
+    args: &[crate::WasmValue],
+) -> Result<crate::ExecutionRecord, crate::ExecutionError> {
+    crate::Executor::new_versioned(
+        crate::ResourceBudget::declared(),
+        prices,
+        crate::RUNTIME_VERSION,
+        crate::abi_policy::abi_version(module.abi_revision()),
+    )
+    .execute(module, export, args)
+}

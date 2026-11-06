@@ -24,7 +24,7 @@ test('with usd as primary unit +@dark-mode', async({ render, page }) => {
   await expect(page).toHaveScreenshot({ clip });
 });
 
-test('loading state', async({ render, page }) => {
+test('loading state +@dark-mode', async({ render, page }) => {
   await render(
     <GasTrackerPriceSnippet
       data={ data }
@@ -49,7 +49,7 @@ test('with gwei as primary unit +@dark-mode', async({ render, page, mockEnvs }) 
   await expect(page).toHaveScreenshot({ clip });
 });
 
-test('with zero values', async({ render, page }) => {
+test('with zero values +@dark-mode', async({ render, page }) => {
   const data = {
     fiat_price: '1.74',
     price: 0.0,
@@ -68,7 +68,7 @@ test('with zero values', async({ render, page }) => {
   await expect(page).toHaveScreenshot({ clip });
 });
 
-test('with small values', async({ render, page }) => {
+test('with small values +@dark-mode', async({ render, page }) => {
   const data = {
     fiat_price: '0.0042',
     price: 0.042,

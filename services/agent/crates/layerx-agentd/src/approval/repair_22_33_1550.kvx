@@ -1,0 +1,51 @@
+[repair.22.33.1550]
+audit = "22.30.97"
+acceptance = "22998.1"
+implementation = "Approval queue publication follows joined durable grants; authenticated rate-window advancement archives expired committed evidence atomically with admission; program presentation and requirement consumers bind the retained EIP-1559 call and sender."
+baseline = "Initial tree contained only runner changes to .cgignore and the started task status; no gate ledger or repair test existed. No baseline verify ran because the explicit Order permits only complete implementation followed by hf-build and hf-done and forbids running verify_cmd by hand; no pre-change test failures are claimed."
+qualification = "The runner's private hf-build/hf-done ledger supplies the exact candidate revision, command, exit code and log; cg spec done records the verified revision without force."
+compatibility = "Envelope records retain their explicit legacy APIs; call consumers use the existing version-2 native program carrier without synthesizing an envelope. New call holds require the version-2 call requirement companion, and missing or altered companions fail closed."
+
+[finding.grant_before_persist]
+tests = ["grant_before_persist_failed_commit_is_invisible_and_restart_recovers_exact_release", "grant_before_persist_fallback_failure_keeps_claim_retryable"]
+proof = "Real ApprovalService, ApprovalRegistry, ApprovalExpiry, budget limiter, submission queue and disk Store; a directory at store.bin.tmp injects a real durable write error after pending observation, which leaves both queue and durable bytes unchanged; reopen recovers the awaiting hold, retry commits, and a further reopen reconstructs the exact released preparation once."
+
+[finding.rate_lifetime_cap]
+tests = ["rate_lifetime_cap_more_than_4096_completed_uses_preserve_pending_and_replay_on_reopen"]
+proof = "Real rate advancement and Store read/write codecs consume a persisted snapshot of signed production program calls and authentic window evidence from the committed custody transcript with independently signed Comet quorum. 4109 expired committed uses leave pending capacity, with failed-write rollback, reopened evidence, widest-window, in-flight and foreign-actor preservation assertions."
+retention = "Expired committed records move out of the bounded pending namespace into a committed archive; admission refuses archived preparation identities, so pruning retains exact replay evidence rather than authorizing an old call again."
+
+[finding.program_presentation_legacy]
+tests = ["program_presentation_legacy_matches_reopened_approved_and_submitted_call", "program_presentation_legacy_refuses_fee_allocation_from_another_sender"]
+proof = "ProgramOperations and prepare_bound produce the call; the reopened real carrier, human read_owned consumer, secp256k1 signing, verify_before_submit, and durable Outbox agree on operation, sender, nonce, gas bounds and exact unsigned call bytes; a fee source owned by another sender refuses."
+
+[finding.program_requirement_legacy]
+tests = ["program_requirement_legacy_replay_refuses_changed_call_sender_and_decision", "program_requirement_legacy_failed_decision_keeps_recovered_requirement_awaiting"]
+proof = "Program call holds and decisions atomically persist a requirement companion containing the exact unsigned bytes, sender, operation, retry identity, nonce, owner/session and immutable hold digest. Reopened production readers refuse a validly rebound changed call, sender or fee and an altered terminal decision; a failed decision write recovers the original awaiting requirement."
+
+[wiring.policy]
+request = "services/agent/crates/layerx-agentd/src/policy/native_program.rs, src/capability/binding.rs and src/prepare — owning domain 9: migrate the remaining legacy policy/capability admission interfaces to EvmPrepared and pass authenticated rate-window evidence into the existing joined native rate admission path."
+
+[wiring.owner]
+request = "services/agent/crates/layerx-agentd/src/human_runtime.rs — owning domain 9: use the existing call carrier admission and decision methods with the rebound EvmPrepared; the in-scope read_owned consumer now presents those call records and carrier reads enforce the call requirement companion."
+
+[wiring.budget]
+request = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs — owning domain 9: migrate source allocation production to call-derived sender, canonical preparation digest and observed height; the call presentation refuses allocations that disagree with those facts."
+
+[qualification.repair1]
+revision = "35edf8a796d1c9e42b700f398aec14c72d60bf21"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "New integration tests called Outbox::new twice; the real crate constructs Outbox with Default. Both calls were corrected without changing assertions."
+
+[qualification.repair2]
+revision = "85aa1934c3a9521300c3421a6dbe187aedd2fb3b"
+command = "cg spec done 22.33.1550 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests passed; generic release replay refused the grant fixture's program call because program calls require their separate program requirement record. The two generic grant fixtures now use the real ledger preparation producer; all restart, failure, exact-byte and queue assertions are unchanged."
+
+[qualification.attempt5]
+implementation = "Continued the prior seven-path implementation on the branch containing 22.31.516; passed explicit decision/read time at all five retired API sites and admitted both generic holds through the timed production APIs with creation time 5 seconds and decision time 6 seconds."
+evidence = "The private hf-build/hf-done ledger records the exact final candidate revision and both gate results; no file is amended after qualification."

@@ -7,6 +7,8 @@
 //! The guest anchor has no durable state or cache: both observations below issue fresh
 //! ProgramReads and decode fresh bytes. Host read and finality facts are explicit inputs;
 //! this codec proof does not establish their cryptographic authority.
+//! Audit ai-real-consumer-proof is covered by repair_22_33_233.rs, which compares
+//! fresh guest captures with the hosted consumer's recorded promotion and recovery.
 //!
 //! Repairs: queries.rs::bind_snapshot promoted every evidence rank to 4 and failed to
 //! check capture size/count; the client decoder now shares the canonical guest decoder.

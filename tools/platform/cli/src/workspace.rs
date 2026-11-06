@@ -272,7 +272,7 @@ const CORE_TEST: &[Step] = &[
         &["make", "cc", "ar", "docker"],
     ),
     Step::command(
-        "Test guarantors, availability, governance, and fees",
+        "Test availability, governance, and committed-block fees",
         "make",
         &["test-wave-12"],
         ".",
@@ -292,7 +292,8 @@ const CORE_TEST: &[Step] = &[
             "test-gateway-send",
             "test-gateway-receive",
             "test-receipt-offline",
-            "test-layerxd",
+            "test-paxd-domain",
+            "test-kernel-symbol-isolation",
             "test-tools",
             "test-genesis",
             "test-genesis-import",
@@ -324,7 +325,12 @@ const CONTRACTS_TEST: &[Step] = &[Step::command(
 const AGENT_INSTALL: &[Step] = &[Step::command(
     "Fetch the locked agent workspace crates",
     "cargo",
-    &["fetch", "--manifest-path", "services/agent/Cargo.toml", "--locked"],
+    &[
+        "fetch",
+        "--manifest-path",
+        "services/agent/Cargo.toml",
+        "--locked",
+    ],
     ".",
     &["cargo"],
 )];
@@ -347,20 +353,19 @@ const HUMAN_INSTALL: &[Step] = &[
     Step::command(
         "Fetch the locked human workspace crates",
         "cargo",
-        &["fetch", "--manifest-path", "services/human/Cargo.toml", "--locked"],
+        &[
+            "fetch",
+            "--manifest-path",
+            "services/human/Cargo.toml",
+            "--locked",
+        ],
         ".",
         &["cargo"],
     ),
     Step::command(
         "Install the locked human web packages",
         "npm",
-        &[
-            "--prefix",
-            "apps/web",
-            "ci",
-            "--no-audit",
-            "--no-fund",
-        ],
+        &["--prefix", "apps/web", "ci", "--no-audit", "--no-fund"],
         ".",
         &["npm"],
     ),
@@ -619,7 +624,12 @@ const PROGRAMS_TEST: &[Step] = &[Step::command(
 const INTEROP_INSTALL: &[Step] = &[Step::command(
     "Fetch the locked interop workspace crates",
     "cargo",
-    &["fetch", "--manifest-path", "services/interop/Cargo.toml", "--locked"],
+    &[
+        "fetch",
+        "--manifest-path",
+        "services/interop/Cargo.toml",
+        "--locked",
+    ],
     ".",
     &["cargo"],
 )];
@@ -664,7 +674,7 @@ static MODULES: &[Module] = &[
     Module {
         id: "core",
         name: "Protocol core",
-        description: "C17 ledger, modules, sequencing, storage, and proofs",
+        description: "Paxd node, C17 kernel, ledger, storage, and committed-block proofs",
         tools: &["make", "cc", "ar", "docker", "forge"],
         install: CORE_INSTALL,
         build: CORE_BUILD,
@@ -1501,7 +1511,10 @@ mod tests {
 
     #[test]
     fn display_quotes_only_unsafe_arguments() {
-        assert_eq!(display_argument("services/agent/Cargo.toml"), "services/agent/Cargo.toml");
+        assert_eq!(
+            display_argument("services/agent/Cargo.toml"),
+            "services/agent/Cargo.toml"
+        );
         assert_eq!(display_argument("two words"), "\"two words\"");
     }
 }

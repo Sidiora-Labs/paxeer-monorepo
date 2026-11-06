@@ -1,5 +1,21 @@
 //! Protocol-backed and explicitly local spending limits.
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum BudgetVerificationError {
+    NotCommitted,
+    RetiredOrUnknown,
+}
+
+pub fn budget_state_is_committed(label: u8) -> Result<(), BudgetVerificationError> {
+    let level = layerx_types::verify::VerificationLevel::from_wire_rank(label)
+        .map_err(|_| BudgetVerificationError::RetiredOrUnknown)?;
+    if level.rung() == Some(layerx_types::rung::Rung::Committed) {
+        Ok(())
+    } else {
+        Err(BudgetVerificationError::NotCommitted)
+    }
+}
+
 #[path = "reconcile.rs"]
 mod accounting;
 pub mod budget_proof;
@@ -46,7 +62,8 @@ pub use mutate::{
     BudgetMutationPipeline, ConfirmedBudgetMutation,
 };
 pub use recovery::{
-    PersistedReceipt, RestartAccounting, RestartError, UnknownOutcome, UnknownReservation,
+    BudgetReceiptEvidence, PersistedReceipt, RestartAccounting, RestartError, UnknownOutcome,
+    UnknownReservation,
 };
 pub use reservations::{
     BudgetLimiter, BudgetReservation, CoreTimestampMs, DurableBudgetReservation, LimitConfig,
@@ -640,6 +657,15 @@ pub fn reconcile(
     receipts: &[SpendReceiptEvidence],
     verifier: &crate::protocol_evidence::EvidenceAuthority,
 ) -> Result<ReconciliationState, ReconcileError> {
+    reconcile_with_evidence(local, protocol, receipts, verifier)
+}
+
+pub fn reconcile_with_evidence<E: Clone + Into<BudgetReceiptEvidence>>(
+    local: &mut LocalAccounting,
+    protocol: &ProtocolBudgetState,
+    receipts: &[SpendReceiptEvidence<E>],
+    verifier: &crate::protocol_evidence::EvidenceAuthority,
+) -> Result<ReconciliationState, ReconcileError> {
     accounting::reconcile_state(local, protocol, receipts, verifier)
 }
 
@@ -768,6 +794,17 @@ pub fn rebuild(
     tenant: &crate::store::TenantId,
     unknown_ids: &[[u8; 32]],
     receipts: &[PersistedReceipt],
+    protocol: &ProtocolBudgetState,
+    verifier: &crate::protocol_evidence::EvidenceAuthority,
+) -> Result<RestartAccounting, RestartError> {
+    rebuild_with_evidence(store, tenant, unknown_ids, receipts, protocol, verifier)
+}
+
+pub fn rebuild_with_evidence<E: Clone + Into<BudgetReceiptEvidence>>(
+    store: &crate::store::Store,
+    tenant: &crate::store::TenantId,
+    unknown_ids: &[[u8; 32]],
+    receipts: &[PersistedReceipt<E>],
     protocol: &ProtocolBudgetState,
     verifier: &crate::protocol_evidence::EvidenceAuthority,
 ) -> Result<RestartAccounting, RestartError> {

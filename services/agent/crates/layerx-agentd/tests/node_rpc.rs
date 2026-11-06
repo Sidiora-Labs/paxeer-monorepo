@@ -99,7 +99,7 @@ fn node_rpc_refuses_a_chain_id_mismatch() {
         ("eth_call", json!("0x1234")),
         ("eth_sendRawTransaction", json!(hash)),
         ("pax_sequencerReceipt", Value::Null),
-        ("px_getReceiptKeys", json!([])),
+        ("px_getReceiptKeys", published_keys()),
         ("eth_getBlockByNumber", Value::Null),
     ]);
     let node = must(NodeRpc::connect(&config(url)));
@@ -109,7 +109,11 @@ fn node_rpc_refuses_a_chain_id_mismatch() {
     assert_eq!(must(node.call_at(42, &[2; 20], &[3])), vec![0x12, 0x34]);
     assert_eq!(must(node.send_raw_transaction(&[4, 5])), [0xab; 32]);
     assert_eq!(must(node.sequencer_receipt(&[0xab; 32])), None);
-    assert!(must(node.receipt_keys()).is_empty());
+    let keys = must(node.receipt_keys());
+    assert_eq!(keys.len(), 1);
+    assert_eq!(keys[0].key_id, [1; 32]);
+    assert_eq!(keys[0].first_height, 100);
+    assert_eq!(keys[0].last_height, 199);
     assert_eq!(must(node.block_by_number(42)), None);
     let requests = must(server.join());
     assert_eq!(requests.len(), 8);
@@ -220,4 +224,29 @@ fn node_rpc_config_requires_both_variables() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
+}
+
+fn published_keys() -> Value {
+    json!({"keys": [{
+        "keyId": format!("0x{}", "01".repeat(32)),
+        "publicKey": format!("0x{}", hex::encode(ed25519_dalek::SigningKey::from_bytes(&[8;32]).verifying_key().as_bytes())),
+        "firstHeight": 100, "lastHeight": 199
+    }]})
+}
+
+#[test]
+fn node_rpc_refuses_empty_receipt_keys() {
+    let (url, server) = serve(vec![
+        ("eth_chainId", json!("0x7d")),
+        ("px_getReceiptKeys", json!({"keys": []})),
+    ]);
+    let node = must(NodeRpc::connect(&config(url)));
+    assert_eq!(
+        layerx_agentd::boot::readiness_gate(&node),
+        Err(layerx_agentd::boot::GateError::NoReceiptKeys)
+    );
+    let requests = must(server.join());
+    assert_eq!(requests.len(), 2);
+    assert_eq!(requests[0]["params"], json!([]));
+    assert_eq!(requests[1]["params"], json!([]));
 }

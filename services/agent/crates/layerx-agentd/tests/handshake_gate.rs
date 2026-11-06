@@ -91,7 +91,10 @@ pub fn empty_node_config(
     receipt_checks: usize,
 ) -> (NodeRpcConfig, JoinHandle<()>) {
     let mut exchanges = vec![("eth_chainId", json!("0x7d")); chain_checks];
-    exchanges.extend(vec![("px_getReceiptKeys", json!([])); receipt_checks]);
+    exchanges.extend(vec![
+        ("px_getReceiptKeys", json!({"keys": []}));
+        receipt_checks
+    ]);
     serve(exchanges)
 }
 
@@ -102,12 +105,12 @@ fn receipt_public_key() -> [u8; 32] {
 }
 
 fn ready_node(receipt_checks: usize) -> (NodeRpc, JoinHandle<()>) {
-    let keys = json!([{
+    let keys = json!({"keys": [{
         "keyId": format!("0x{}", hex::encode(&receipt_public_key())),
         "publicKey": format!("0x{}", hex::encode(&receipt_public_key())),
-        "firstHeight": "0x1",
-        "lastHeight": "0x64",
-    }]);
+        "firstHeight": 1,
+        "lastHeight": 100,
+    }]});
     let mut exchanges = vec![("eth_chainId", json!("0x7d"))];
     exchanges.extend(vec![("px_getReceiptKeys", keys); receipt_checks]);
     let (config, server) = serve(exchanges);

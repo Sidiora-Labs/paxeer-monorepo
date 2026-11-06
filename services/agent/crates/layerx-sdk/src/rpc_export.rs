@@ -209,12 +209,12 @@ impl AgentEnvelopeTransport {
         )?;
         let read = object(
             &success.value,
-            &["value", "achieved_rung", "freshness"],
+            &["value", "achieved_verification_level", "freshness"],
             operation,
         )?;
         let read = VerifiedRead::new(
             decode_offline_export(&read["value"], operation)?,
-            rung_from_wire(&read["achieved_rung"], operation)?,
+            rung_from_wire(&read["achieved_verification_level"], operation)?,
             decode_freshness(&read["freshness"], operation)?,
         );
         if !matches!(success.verification_status, VerificationStatus::Achieved(rung) if rung == read.achieved_rung)

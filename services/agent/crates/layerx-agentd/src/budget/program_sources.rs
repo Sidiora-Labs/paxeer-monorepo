@@ -6,7 +6,6 @@ use layerx_crypto::disclosure::DisclosedNativeOperation;
 use layerx_programs::{ProgramId, ProgramLifecycle, VerifiedProgramBalanceRead};
 use layerx_proof::state::CanonicalAccount;
 use layerx_types::ids::Did;
-use layerx_types::verify::VerificationLevel;
 use layerx_wire::hash::did_id_for_protocol;
 use sha2::{Digest as _, Sha256};
 
@@ -47,7 +46,7 @@ pub(super) fn bind_program_presentation_budget_proof(
             .is_none_or(|allocated| allocated > sequence)
         || proof.age_sequences() > proof.maximum_age_sequences()
         || proof.maximum_age_sequences() == 0
-        || proof.verification() != VerificationLevel::COMMITTED
+        || super::budget_state_is_committed(proof.verification().wire_rank()).is_err()
     {
         return Err(ProgramSourceError::Snapshot);
     }

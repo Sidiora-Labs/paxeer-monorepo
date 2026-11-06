@@ -12,6 +12,7 @@ import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 
 import { VALIDATORS_STABILITY_SORT_SEQUENCE } from './utils';
 import ValidatorsTableItem from './ValidatorsTableItem';
+import { hasValidatorField } from '../columns';
 
 interface Props {
   data: Array<ValidatorStability>;
@@ -27,28 +28,37 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading }: Props) => {
     setSorting({ value: [ value ] });
   }, [ sort, setSorting ]);
 
+  const columns = {
+    status: hasValidatorField(data, 'state'),
+    blocks: hasValidatorField(data, 'blocks_validated_count'),
+  };
+
   return (
-    <TableRoot>
-      <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP }>
+    <TableRoot variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
+      <TableHeaderSticky top={ ACTION_BAR_HEIGHT_DESKTOP } bg="canvas">
         <TableRow>
-          <TableColumnHeader width="50%">Validator’s address</TableColumnHeader>
-          <TableColumnHeaderSortable
-            width="25%"
-            sortField="state"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-          >
-            Status
-          </TableColumnHeaderSortable>
-          <TableColumnHeaderSortable
-            width="25%"
-            sortField="blocks_validated"
-            sortValue={ sort }
-            onSortToggle={ onSortToggle }
-            isNumeric
-          >
-            Blocks
-          </TableColumnHeaderSortable>
+          <TableColumnHeader width="50%">Validator</TableColumnHeader>
+          { columns.status && (
+            <TableColumnHeaderSortable
+              width="25%"
+              sortField="state"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+            >
+              Status
+            </TableColumnHeaderSortable>
+          ) }
+          { columns.blocks && (
+            <TableColumnHeaderSortable
+              width="25%"
+              sortField="blocks_validated"
+              sortValue={ sort }
+              onSortToggle={ onSortToggle }
+              isNumeric
+            >
+              Blocks
+            </TableColumnHeaderSortable>
+          ) }
         </TableRow>
       </TableHeaderSticky>
       <TableBody>
@@ -56,6 +66,7 @@ const ValidatorsTable = ({ data, sort, setSorting, isLoading }: Props) => {
           <ValidatorsTableItem
             key={ item.address.hash + (isLoading ? index : '') }
             data={ item }
+            columns={ columns }
             isLoading={ isLoading }/>
         )) }
       </TableBody>

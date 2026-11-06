@@ -55,6 +55,7 @@ pub struct ProgramReplayRecord {
     boundary_count: u32,
     boundary_root: [u8; 32],
     witness_digest: [u8; 32],
+    replay_fuel: u64,
     bytes: Vec<u8>,
 }
 
@@ -86,10 +87,32 @@ impl ProgramReplayRecord {
         hashes
             .try_reserve_exact(leaves.len())
             .map_err(|_| ReplayWitnessError::Allocation)?;
+        let mut replay_fuel = 0u64;
         for (index, leaf) in leaves.iter().enumerate() {
             let length = u32::try_from(leaf.len()).map_err(|_| ReplayWitnessError::Bounds)?;
             append(&mut witness, &length.to_be_bytes(), maximum)?;
             append(&mut witness, leaf, maximum)?;
+            let boundary =
+                crate::portable_replay::PortableBoundary::decode_untrusted(leaf, maximum)?;
+            let supplement = &boundary.replay.snapshot.supplement;
+            let fuels = crate::commit::replay_step_commitment_fuels(
+                supplement.canonical_state_bytes,
+                supplement.arbitration_engine_canonical_bytes,
+                supplement.arbitration_host_state_bytes,
+            )
+            .map_err(|_| ReplayWitnessError::Bounds)?;
+            if fuels
+                != (
+                    supplement.commitment_fuel,
+                    supplement.arbitration_commitment_fuel,
+                )
+            {
+                return Err(ReplayWitnessError::Binding);
+            }
+            replay_fuel = replay_fuel
+                .checked_add(fuels.0)
+                .and_then(|total| total.checked_add(fuels.1))
+                .ok_or(ReplayWitnessError::Bounds)?;
             let mut hash = Sha256::new();
             hash.update(b"LXP/program-replay-leaf/v1\0");
             hash.update((index as u32).to_be_bytes());
@@ -155,6 +178,7 @@ impl ProgramReplayRecord {
             boundary_count,
             boundary_root,
             witness_digest,
+            replay_fuel,
             bytes,
         })
     }
@@ -190,6 +214,11 @@ impl ProgramReplayRecord {
     }
     pub const fn witness_digest(&self) -> [u8; 32] {
         self.witness_digest
+    }
+    /// Total replay work, reconstructed from the committed boundary fuel fields
+    /// when a captured or portable record is read, preserving the v1 wire layout.
+    pub const fn replay_fuel(&self) -> u64 {
+        self.replay_fuel
     }
     pub fn canonical_bytes(&self) -> &[u8] {
         &self.bytes

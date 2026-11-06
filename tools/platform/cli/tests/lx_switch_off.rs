@@ -41,7 +41,7 @@ fn request_refuses_every_switched_off_name() -> Result<(), String> {
         .set_nonblocking(true)
         .map_err(|error| error.to_string())?;
     let url = format!(
-        "http://{}/rpc",
+        "http://{}",
         listener.local_addr().map_err(|error| error.to_string())?
     );
     let clients = [

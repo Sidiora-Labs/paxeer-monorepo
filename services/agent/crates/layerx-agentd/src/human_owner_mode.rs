@@ -1,8 +1,11 @@
-use super::serve_http::{parse_request, response, DeadlineStream, Parsed};
+use super::serve_http::DeadlineStream;
+
+// The shared handler is also exercised at a real loopback listener by the repair proof.
 use super::{
     config, connect_human_authority, human_peers, optional, parse_u64, required, serve,
     start_human_owner, HttpPool, SUPERVISION_INTERVAL,
 };
+use layerx_agentd::human_receipt_frame::owner_health as health_contract;
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use std::env;
 use std::net::TcpListener;
@@ -67,13 +70,12 @@ fn owner_running(human: &mpsc::Receiver<Result<(), String>>) -> Result<(), Strin
 
 fn serve_human_owner() -> Result<(), String> {
     let listen = required("LAYERX_AGENT_PROGRAM_LISTEN")?;
-    let bearer = required("LAYERX_AGENT_PROGRAM_BEARER_TOKEN")?;
-    if !listen.starts_with("127.0.0.1:") || bearer.len() < 32 {
-        return Err("human health requires loopback and a bounded credential".to_owned());
-    }
-    if bearer == required("LAYERX_AGENT_HUMAN_AUTHORITY_BEARER")? {
-        return Err("human health and authority credentials must be distinct".to_owned());
-    }
+    let bearer = required(health_contract::HEALTH_BEARER_ENV)?;
+    health_contract::validate_health_credentials(
+        &listen,
+        &bearer,
+        &required(health_contract::AUTHORITY_BEARER_ENV)?,
+    )?;
     if optional("LAYERX_AGENT_MCP_BINDING_ROOT").is_some() {
         return Err(
             "LAYERX_AGENT_MCP_BINDING_ROOT requires the full agent mode, which serves the program endpoint and probe program the binding names"
@@ -105,21 +107,7 @@ fn serve_health<F: Fn() -> bool>(
     bearer: &str,
     owner_ready: F,
 ) -> Result<(), String> {
-    match parse_request(stream, bearer) {
-        Parsed::Closed => Ok(()),
-        Parsed::Refused(status, body) => response(stream, status, body),
-        Parsed::Admitted(path) if path != "/healthz" => {
-            response(stream, 404, "{\"error\":\"not_found\"}")
-        }
-        Parsed::Admitted(_) => {
-            let ready = owner_ready() && dependencies_ready().is_ok() && owner_ready();
-            if ready {
-                response(stream, 200, "{\"ready\":true}")
-            } else {
-                response(stream, 503, "{\"ready\":false}")
-            }
-        }
-    }
+    health_contract::serve_health(stream, bearer, owner_ready, dependencies_ready)
 }
 
 #[cfg(test)]

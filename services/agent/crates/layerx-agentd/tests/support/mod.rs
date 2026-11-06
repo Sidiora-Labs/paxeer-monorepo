@@ -36,6 +36,7 @@ use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
+pub(crate) mod current_node;
 pub(crate) mod node_transcripts;
 pub(crate) mod real_authority;
 pub(crate) mod send_authorization;
@@ -756,12 +757,14 @@ fn encoded_receipt(
     recipient: [u8; 20],
     nonce: u64,
     success: bool,
+    amount: u128,
+    sequence_number: u64,
     signature: Option<[u8; 64]>,
 ) -> Vec<u8> {
     let previous = [4; 32];
     let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
     sequence.extend_from_slice(&previous);
-    sequence.extend_from_slice(&7_u64.to_be_bytes());
+    sequence.extend_from_slice(&sequence_number.to_be_bytes());
     sequence.extend_from_slice(&tx_hash);
     let mut height = [0; 32];
     height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
@@ -791,7 +794,7 @@ fn encoded_receipt(
     must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
     must(encoder.u16(PROTOCOL_VERSION));
     must(encoder.bytes(&tx_hash, 32));
-    must(encoder.u64(7));
+    must(encoder.u64(sequence_number));
     must(encoder.bytes(&previous, 32));
     must(encoder.bytes(&sha256(&sequence), 32));
     must(encoder.bytes(&sha256(&[0xab, 0xcd]), 32));
@@ -813,14 +816,14 @@ fn encoded_receipt(
     must(encoder.u32(0));
     must(encoder.u8(2));
     must(encoder.bytes(&sha256(b"upax"), 32));
-    must(encoder.u128(1));
+    must(encoder.u128(amount));
     must(encoder.bytes(&from, 32));
-    must(encoder.u128(21_002));
-    must(encoder.u128(if success { 1 } else { 2 }));
+    must(encoder.u128(21_001 + amount));
+    must(encoder.u128(if success { 1 } else { 1 + amount }));
     must(encoder.u64(nonce));
     must(encoder.bytes(&to, 32));
     must(encoder.u128(0));
-    must(encoder.u128(u128::from(success)));
+    must(encoder.u128(if success { amount } else { 0 }));
     must(encoder.bytes(&[0; 32], 32));
     must(encoder.bytes(&[0; 32], 32));
     must(encoder.bytes(&KEY_ID, 32));
@@ -833,12 +836,48 @@ fn encoded_receipt(
 }
 
 pub fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) {
+    sequencer_receipt_with_amount(raw, success, 8, 1)
+}
+
+pub fn sequencer_receipt_with_seed(
+    raw: &[u8],
+    success: bool,
+    seed: u8,
+) -> (Value, ReceiptKeyEntry) {
+    sequencer_receipt_with_amount(raw, success, seed, 1)
+}
+
+pub fn sequencer_receipt_with_amount(
+    raw: &[u8],
+    success: bool,
+    seed: u8,
+    amount: u128,
+) -> (Value, ReceiptKeyEntry) {
+    sequencer_receipt_with_details(raw, success, seed, amount, 7)
+}
+
+pub fn sequencer_receipt_with_details(
+    raw: &[u8],
+    success: bool,
+    seed: u8,
+    amount: u128,
+    sequence_number: u64,
+) -> (Value, ReceiptKeyEntry) {
     let (transaction, signature) = must(decode_signed(raw));
     let sender = must(recover_sender(&transaction, &signature));
     let tx_hash = transaction_hash(raw);
     let nonce = transaction.nonce;
-    let signer = SigningKey::from_bytes(&[8; 32]);
-    let unsigned = encoded_receipt(tx_hash, sender, transaction.to, nonce, success, None);
+    let signer = SigningKey::from_bytes(&[seed; 32]);
+    let unsigned = encoded_receipt(
+        tx_hash,
+        sender,
+        transaction.to,
+        nonce,
+        success,
+        amount,
+        sequence_number,
+        None,
+    );
     let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
     let bytes = encoded_receipt(
         tx_hash,
@@ -846,6 +885,8 @@ pub fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) 
         transaction.to,
         nonce,
         success,
+        amount,
+        sequence_number,
         Some(signature),
     );
     let key = ReceiptKeyEntry {
@@ -856,7 +897,7 @@ pub fn sequencer_receipt(raw: &[u8], success: bool) -> (Value, ReceiptKeyEntry) 
     };
     let view = json!({
         "rung": "receipted", "txHash": rpc_hex(&tx_hash), "nonce": format!("{nonce:#x}"),
-        "seq": "0x7", "height": "0x96", "index": "0x1", "timestamp": "0x3e8",
+        "seq": format!("{sequence_number:#x}"), "height": "0x96", "index": "0x1", "timestamp": "0x3e8",
         "status": if success { "0x1" } else { "0x0" }, "returnData": "0xabcd",
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
@@ -882,6 +923,23 @@ pub struct SequencerTraffic {
 pub fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<SequencerTraffic>) {
     let (url, server) = serve_with_url(exchanges);
     (must(SequencerEndpoint::new(&url, &[])), server)
+}
+
+pub fn serve_node(
+    exchanges: Vec<Exchange>,
+) -> (
+    layerx_agentd::node_rpc::NodeRpcConfig,
+    JoinHandle<SequencerTraffic>,
+) {
+    let (url, server) = serve_with_url(exchanges);
+    (
+        layerx_agentd::node_rpc::NodeRpcConfig {
+            url,
+            chain_id: 125,
+            deadline: Duration::from_secs(2),
+        },
+        server,
+    )
 }
 
 pub fn serve_with_url(exchanges: Vec<Exchange>) -> (String, JoinHandle<SequencerTraffic>) {

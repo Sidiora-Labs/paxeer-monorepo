@@ -55,7 +55,7 @@ interface Props {
 
 const rollupFeature = config.features.rollup;
 
-const GRID_TEMPLATE_COLUMNS = { base: 'minmax(0, 1fr)', lg: 'minmax(min-content, 200px) minmax(0, 1fr)' };
+const GRID_TEMPLATE_COLUMNS = { base: 'minmax(0, 1fr)', lg: '220px minmax(0, 1fr)' };
 
 const BlockDetails = ({ query }: Props) => {
   const router = useRouter();
@@ -176,18 +176,8 @@ const BlockDetails = ({ query }: Props) => {
 
   return (
     <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-block-details>
-      <Box
-        data-block-details-card
-        bg="bg.surface"
-        borderWidth="1px"
-        borderStyle="solid"
-        borderColor="border.divider"
-        borderRadius="md"
-        boxShadow="card"
-        px={{ base: 4, lg: 6 }}
-        py={{ base: 4, lg: 5 }}
-      >
-        <DetailedInfo.Container templateColumns={ GRID_TEMPLATE_COLUMNS }>
+      <Box data-block-details-card>
+        <DetailedInfo.Group label="BLOCK INFO" templateColumns={ GRID_TEMPLATE_COLUMNS }>
           <ScanKeyValue
             label={ `${ blockTypeLabel } height` }
             hint="The block height of a particular block is defined as the number of blocks preceding it in the blockchain"
@@ -563,7 +553,23 @@ const BlockDetails = ({ query }: Props) => {
               </Skeleton>
             </ScanKeyValue>
           ) }
-        </DetailedInfo.Container>
+          { data.height > 0 && (
+            <ScanKeyValue label="Parent hash" hint="The hash of the block from which this block was generated">
+              <Flex alignItems="center" flexWrap="nowrap" minW={ 0 } w="100%">
+                <Link
+                  href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height - 1) } }, multichainContext) }
+                  overflow="hidden"
+                  whiteSpace="nowrap"
+                >
+                  <HashStringShortenDynamic
+                    hash={ data.parent_hash }
+                  />
+                </Link>
+                <CopyToClipboard text={ data.parent_hash }/>
+              </Flex>
+            </ScanKeyValue>
+          ) }
+        </DetailedInfo.Group>
       </Box>
 
       { hasMoreDetails && (
@@ -616,23 +622,6 @@ const BlockDetails = ({ query }: Props) => {
                     <HashStringShortenDynamic hash={ data.hash_for_merged_mining }/>
                   </Box>
                   <CopyToClipboard text={ data.hash_for_merged_mining }/>
-                </Flex>
-              </ScanKeyValue>
-            ) }
-
-            { data.height > 0 && (
-              <ScanKeyValue label="Parent hash" hint="The hash of the block from which this block was generated">
-                <Flex alignItems="center" flexWrap="nowrap" minW={ 0 } w="100%">
-                  <Link
-                    href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height - 1) } }, multichainContext) }
-                    overflow="hidden"
-                    whiteSpace="nowrap"
-                  >
-                    <HashStringShortenDynamic
-                      hash={ data.parent_hash }
-                    />
-                  </Link>
-                  <CopyToClipboard text={ data.parent_hash }/>
                 </Flex>
               </ScanKeyValue>
             ) }
