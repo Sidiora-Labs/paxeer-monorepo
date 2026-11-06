@@ -2887,16 +2887,16 @@ pub extern "C" fn layerx_programs_call_begin(
             )
             .map_err(|_| NON_CANONICAL)?;
             let mut final_storage = storage.clone();
-            let record = executor
-                .execute_authorized_v2_budgeted(
+            let record = crate::native_result::from_captured(
+                executor.execute_authorized_v2_budgeted(
                     &mut final_storage,
                     BudgetedAuthorizedExecutionRequest::new(request, admitted, payer, binding)
                         .with_access_declaration(access_declaration.clone())
                         .with_committed_oracle(Arc::new(CCommittedOracle { token }))
                         .with_committed_web(Arc::new(CCommittedWeb { token }))
                         .with_authenticated_execution_context(execution_context),
-                )
-                .map_err(|_| NON_CANONICAL)?;
+                ),
+            )?;
             match (profile, record.replay_record()) {
                 (Some(_), Some(replay)) => publish_replay_record(token, replay)?,
                 (None, None) => {}

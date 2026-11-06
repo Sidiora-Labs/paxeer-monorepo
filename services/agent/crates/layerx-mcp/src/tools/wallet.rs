@@ -109,8 +109,8 @@ pub fn execute(
                     }
                     execution
                         .wallet
-                        .wait_for(
-                            hash,
+                        .wait_for_signed(
+                            &raw,
                             execution.options.commitment,
                             execution.options.wait_timeout,
                         )

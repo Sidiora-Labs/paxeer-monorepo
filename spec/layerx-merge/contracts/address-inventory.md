@@ -2431,6 +2431,8 @@ Kernel codes are the lxp_result X-macro list (include/layerx/lxp_result.h:29-157
 | LXP_ARBITER_REQUIRED | precompiles/common/lxp_errors.go:151 |
 | LXP_UNAUTHORIZED_ARBITER | precompiles/common/lxp_errors.go:152 |
 | LXP_ESCROW_LINK_MISMATCH | precompiles/common/lxp_errors.go:153 |
+| LXP_REPLAY_BOUND | precompiles/common/lxp_errors.go; kernel -740, non-retryable |
+| LXP_ENGINE_FAULT | precompiles/common/lxp_errors.go; kernel -741, non-retryable |
 | LXP_UNKNOWN | precompiles/common/lxp_errors.go:170 |
 | LXP_XWEB_UNAUTHORIZED | precompiles/common/lxp_errors.go:171 |
 | LXP_XWEB_INVALID_GENESIS | precompiles/common/lxp_errors.go:172 |
@@ -2456,6 +2458,7 @@ Kernel codes are the lxp_result X-macro list (include/layerx/lxp_result.h:29-157
 | LXP_XWEB_INVALID_API | precompiles/common/lxp_errors.go:192 |
 | LXP_XWEB_INVALID_ENVELOPE | precompiles/common/lxp_errors.go:193 |
 | LXP_XWEB_INVALID_LEVEL | precompiles/common/lxp_errors.go:194 |
+| LXP_XWEB_INVALID_PAYLOAD | precompiles/common/lxp_errors.go:203 |
 | LXP_XWEB_DELEGATECALL | precompiles/common/lxp_errors.go:195 |
 | LXP_XWEB_STATICCALL | precompiles/common/lxp_errors.go:196 |
 | LXP_XWEB_KEEPER_MISSING | precompiles/common/lxp_errors.go:197 |
@@ -6417,3 +6420,28 @@ No interface block names this anchor; it is cited by acceptance criteria only.
 
 Acceptance criteria frozen against #wiring-integration (30): 6.961.1, 6.961.2, 6.961.3, 6.962.1, 6.962.2, 6.962.3, 6.963.1, 6.963.2, 6.963.3, 6.964.1, 6.964.2, 6.964.3, 6.964.4, 6.964.5, 6.965.1, 6.965.2, 6.966.1, 6.967.1, 6.967.2, 6.967.3, 6.968.1, 6.968.2, 6.968.3, 6.969.1, 6.969.2, 6.970.1, 6.971.1, 6.972.1, 6.973.1, 6.974.1.
 
+
+## Programs replay and execution statuses (decision 2668)
+
+| Kernel name | Value | Revert name | Producer | Retryable |
+|---|---|---|---|---|
+| LXP_ERR_REPLAY_BOUND | -740 | LXP_REPLAY_BOUND | Native CALL: capture serialization refuses ReplayWitnessError::Bounds | no |
+| LXP_ERR_ENGINE_FAULT | -741 | LXP_ENGINE_FAULT | Native CALL: executor engine fault (other ExecutionError::Fault values) | no |
+
+The C registry is `include/layerx/lxp_result.h`; the native adapter is
+`programs/crates/layerx-programs-runtime/src/native_result.rs`. The host name table,
+Go revert registry, Python retry table and address-table section (b) carry both
+codes. The Rust SDK derives its result table from that section. Other execution
+error variants and a missing replay record still answer LXP_ERR_NON_CANONICAL (-3).
+
+LXP_ENGINE_FAULT describes the executor engine fault of a CALL. A guest trap
+in a profiled CALL is a retained failure record with a replay record.
+
+## Xweb storage receipt status (gotcha 3262)
+
+| Code | Message | Emitting construct | Kernel or Go origin (file:line) | Retryable |
+|---|---|---|---|---|
+| LXP_XWEB_INVALID_PAYLOAD | invalid storage receipt payload | xweb 0x1019 | ErrInvalidPayload (code 26), modules/xweb/types/errors.go:91 | no |
+
+The address-table registry includes SDK xweb code 26. The generated Python
+retry table carries it as terminal; the Go revert registry uses ErrInvalidPayload.
