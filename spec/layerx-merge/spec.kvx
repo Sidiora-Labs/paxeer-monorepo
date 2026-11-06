@@ -149685,7 +149685,7 @@ do_7 = "Attempt 3 (continue, gotcha 3314, decision 2706): the attempt-2 tree sta
 
 [task.22.37.19]
 title = "Complete source product metrics, workspace state display and failure journeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
