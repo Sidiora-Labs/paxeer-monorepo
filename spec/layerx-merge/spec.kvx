@@ -149355,7 +149355,7 @@ source_task = "7.1"
 
 [task.22.37.25]
 title = "Complete the integrated source journey assertions and closure refusal probes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1", "22.37.24"]
