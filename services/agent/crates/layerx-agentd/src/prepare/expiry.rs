@@ -985,6 +985,29 @@ const STATES: [LifecycleState; 9] = [
 ];
 
 impl DurablePreparation {
+    /// Identifier shared by native owner consent, cached signing inputs and durable records.
+    #[must_use]
+    pub fn native_identifier(call: &layerx_crypto::evm_transaction::Eip1559Call) -> [u8; 32] {
+        use sha2::{Digest as _, Sha256};
+        Sha256::digest(call.encode_unsigned()).into()
+    }
+
+    pub(crate) fn authorization_reference_key(
+        tenant: &crate::store::TenantId,
+        envelope_digest: [u8; 32],
+    ) -> Result<crate::store::TenantKey, LifecycleError> {
+        crate::store::TenantKey::new(
+            tenant.clone(),
+            crate::store::ObjectKind::Configuration,
+            [
+                b"prepare/authorization-reference/".as_slice(),
+                &envelope_digest,
+            ]
+            .concat(),
+        )
+        .map_err(|_| LifecycleError::Unavailable)
+    }
+
     /// Whether the record reached a terminal state.
     #[must_use]
     pub const fn terminal(&self) -> bool {

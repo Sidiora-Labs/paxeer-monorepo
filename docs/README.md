@@ -49,3 +49,11 @@ node reference and checked-in gateway contract for current integrations.
 | [paxeer-chain-docs.md](paxeer-chain-docs.md) | Chain documentation index: Swagger/OpenAPI and EVM JSON-RPC notes; pre-merge boundary descriptions are historical |
 | [evm_jsonrpc_unsupported.md](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that are registered but return a documented error |
 | [swagger-ui/](swagger-ui/), [swagger/](swagger/) | Swagger UI assets, and the `statik.go` package that embeds them for `paxd` |
+| [hyperfide/](hyperfide/) | Vendored Hyperfide project documentation: CLI, architecture, workflows and integrations |
+| [platform/](platform/) | Platform developer documentation, API references, integration guides and documentation site tooling |
+| [wallet/](wallet/) | Wallet [app](wallet/app/) development, architecture and operations, and [service](wallet/service/) security reviews and runbooks |
+| [explorer/](explorer/) | Explorer build configuration, environment variables, contribution guides and upstream notes |
+| [launchpad/](launchpad/) | Launchpad production readiness checklist |
+| [perps/](perps/) | Perpetuals data API reference |
+| [agent/](agent/) | Agent daemon compatibility matrix |
+| [interop/](interop/) | Interoperability portability requirements and guidance |
