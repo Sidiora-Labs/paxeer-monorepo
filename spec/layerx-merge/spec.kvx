@@ -176246,7 +176246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.576]
 title = "Bind the signed transaction bytes to MCP wallet execution receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.563"]
