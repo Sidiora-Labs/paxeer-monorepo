@@ -7,6 +7,7 @@ Developer and operator tools for the repository. Selected subdirectories:
 | `chain/` | The `paxd tools` command group, wired into `paxd` by `daemon/paxd/cmd/root.go`; `chain/upgrade-replay` replays an upgrade plan against a copy of a chain's data directory |
 | `tx-scanner/` | The `paxd tools scan-tx` command described below |
 | [`codebase-map/`](codebase-map/README.md) | An offline, browsable map of the checkout |
+| [`hyperfide/`](hyperfide/README.md) | Vendored Hyperfide code and tooling; [documentation](../docs/hyperfide/DOCUMENTATION.md) |
 | `specgen/` | Compiles the kvx specs under `spec/` into generated rule files (`go run ./tools/specgen -root .`) |
 | `bringup/` | Operator scripts for serving public names (`edge.sh`) and checking live systems (`check-live.sh`) |
 | `flyci/` | The controller and the runner image of the CI runners hosted on Fly.io (each has its own `fly.toml`) |
