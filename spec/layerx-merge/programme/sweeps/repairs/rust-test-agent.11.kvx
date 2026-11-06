@@ -1,0 +1,8 @@
+[repair.rust-test-agent.11]
+target = "layerx-mcp"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-fail-fast"
+revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+result = "repaired"
+change = "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs pins the native submission object and its required fields, tests/repair_22_31_223.rs and tests/scope.rs release store writers before reopening daemon routes, and tests/repair_22_31_223.rs serves accountId at the node root instead of the retired /rpc path and asserts one account view and one grant view per decision 2521 and task 22.31.224."
+build_evidence = "hf-build ledger entry for task 22.99.52"
+verify_evidence = "hf-done ledger entry for task 22.99.52"
