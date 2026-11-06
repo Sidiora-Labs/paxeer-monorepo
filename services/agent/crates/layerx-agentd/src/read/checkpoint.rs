@@ -179,6 +179,31 @@ impl ServedCheckpoint {
         self.header.block_hash()
     }
 
+    /// Re-reads a saved, authenticated checkpoint from the configured node.
+    /// The consensus identity and block remain pinned across reader restarts.
+    pub fn reacquire(&self, endpoint: &SequencerEndpoint) -> Result<Self, CheckpointReadError> {
+        let trusted = serve_checkpoint(
+            self.height,
+            &self.header.chain_id,
+            &self.header,
+            &self.commit,
+            &self.validators,
+        )?;
+        if trusted != *self {
+            return Err(CheckpointReadError::CheckpointBlockMismatch);
+        }
+        let observed = Self::acquire_at_committed_block(
+            endpoint,
+            self.height,
+            Some(self.block_hash),
+            &self.header.chain_id,
+        )?;
+        if observed != trusted {
+            return Err(CheckpointReadError::CheckpointBlockMismatch);
+        }
+        Ok(observed)
+    }
+
     pub fn acquire_at_committed_block(
         endpoint: &SequencerEndpoint,
         height: u64,
