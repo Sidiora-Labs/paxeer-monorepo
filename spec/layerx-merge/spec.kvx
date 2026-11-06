@@ -9021,6 +9021,78 @@ value = "The daemon answer to ApprovalBudgetAfterV2 encodes the verification as 
 basis = "The consumer field is a Rung; the label space (0 to 6) belongs to a judgement the daemon makes and the consumer never repeats."
 affects = ["22.33.1510"]
 
+[decision.2652]
+title = "The explorer assistant answers through a configurable OpenAI-compatible chat-completions endpoint"
+value = "The explorer serves an Ask route (apps/explorer/pages/api/assistant.ts) that forwards the question with a page context block to a chat-completions endpoint named by the server-side environment variables EXPLORER_ASSISTANT_BASE_URL, EXPLORER_ASSISTANT_API_KEY and EXPLORER_ASSISTANT_MODEL (default xai/grok-4.7); the key never reaches the browser, the feature is off unless NEXT_PUBLIC_ASSISTANT_ENABLED is true and the server has a base URL, the route rejects a question over 2000 characters and answers 503 when the endpoint is unset, and every answer is labelled as model output, never as chain data. This closes the open item of the design brief section 8."
+basis = "One configurable endpoint and model keeps the backend swappable without a code change and keeps the credential server-side (owner ruling of 2026-11-05)."
+affects = ["22.35.10"]
+
+[decision.2653]
+title = "Legacy approval holds are rewritten by a store schema migration"
+value = "Store schema version 4 rewrites every PreparedActivity value under the hold key prefix whose magic is LXAPHLD4 into the LXAPHLD5 timed form with created_at_unix_seconds 0, meaning not recorded, and activity_expires_at_unix_seconds equal to the prepared expiry; validate_replayed keeps refusing an LXAPHLD4 value, and approval_window_expired treats created_at 0 as satisfied for its lower bound. Core record bytes (kinds 1, 4 and 8) are unchanged by the migration."
+basis = "A single legacy hold must not make a tenant unable to list its holds; the legacy form recorded no creation time, so the sentinel is the only honest value (owner ruling of 2026-11-05)."
+affects = ["22.31.565"]
+
+[decision.2654]
+title = "Program account profile records stay fixture-only"
+value = "ABI-5 program-account-profile records are served from fixtures in the current line; decision 2646 stands and no task derives them from live state before the upgrade."
+basis = "Owner ruling of 2026-11-05: fixture-only is acceptable for this line."
+affects = []
+
+[decision.2655]
+title = "The kernel names the replay bound and the guest fault with distinct status codes"
+value = "LXP_RESULT_CODE_LIST gains X(LXP_ERR_REPLAY_BOUND, -740) and X(LXP_ERR_GUEST_FAULT, -741); the native binding answers -740 when a profiled CALL exceeds its replay profile (the from_captured error) and -741 when the guest faults (ExecutionError Fault), and keeps -3 for a non-canonical payload and for a missing replay record; both codes are protocol-visible, non-retryable, and appear in every enumeration: code_names.go, lxp_errors.go, revert.py, address-table.md section (b), address-inventory.md, kernel.md and the codes test."
+basis = "Owner ruling of 2026-11-05; gotchas 3215 and 3223 show the cost of one code for three conditions."
+affects = ["22.31.566"]
+
+[decision.2656]
+title = "SDK node commit coverage is fetched per wait"
+value = "The SDK verifier pins only the NodeCommitAuthority given by the caller; for each committed wait it fetches px_getSequenceBatch at the committed height, builds the NodeCommitCoverage from the served tx and proof (total, index, leafHash, aunts), decodes the activity ids from the batch transaction, and verifies the signed header from px_getCommit against them; a fixture coverage override remains for tests only."
+basis = "Owner ruling of 2026-11-05; the node already serves the batch and a caller-pinned coverage is wrong for every height but one."
+affects = ["22.31.567"]
+
+[decision.2657]
+title = "pax_sequencerReceipt -32000 on public nodes is pre-upgrade state"
+value = "The -32000 answer of the public nodes to pax_sequencerReceipt for heights outside their retention is accepted as the state of the line before the upgrade; no repair task is opened, and the retention documentation of decision 2658 tells readers which node to query."
+basis = "Owner ruling of 2026-11-05."
+affects = []
+
+[decision.2658]
+title = "api2 is the archive node and the other public nodes prune"
+value = "Of the fourteen public nodes api1 to api14 at the root path (decision 2521), api2 keeps full history and the others prune; the public RPC documents say so and direct historical receipt and state queries to api2."
+basis = "Owner ruling of 2026-11-05."
+affects = ["22.32.190"]
+
+[decision.2659]
+title = "The explorer image stays on latest and the home page counts blocks by height"
+value = "The explorer image tag stays latest; the home page Total blocks tile and the stats total_blocks field carry the latest consensus block number (Chain.block_height), not the indexed row count."
+basis = "Owner ruling of 2026-11-05: the tile read 17 million while the chain head was higher."
+affects = ["22.35.9"]
+
+[decision.2660]
+title = "Bounty issues receive the policy answer and close"
+value = "A public issue that claims a bounty is answered with the SECURITY.md bug bounty policy and closed; issues 1514 and 1576 were closed under this rule on 2026-11-05."
+basis = "Owner ruling of 2026-11-05."
+affects = []
+
+[decision.2661]
+title = "Generated documents over 100 KB stay excluded and are regenerated at source"
+value = "The 33 generated documents over 100 KB stay excluded from the published documentation set; the closure wave reruns their generators from source rather than committing the oversized outputs."
+basis = "Owner ruling of 2026-11-05."
+affects = []
+
+[decision.2662]
+title = "The wasmer advisory is a documented exemption until the next runtime upgrade"
+value = "GHSA-55f3-3qvg-8pv5 against wasmer 4.2.2, pinned by cosmwasm-vm 1.5.12 in wasm-runtime/libwasmvm, is an accepted exemption until the next runtime upgrade: the modules load without WASI filesystem access; SECURITY.md carries a Known exemptions section with the advisory, the pinned versions, the reason and the review trigger, and the repair record of 22.31.450 and its test name the exemption as the disposition."
+basis = "Owner ruling of 2026-11-05; the alert is dismissed as tolerable risk with this record as its reference."
+affects = ["22.32.191"]
+
+[decision.2663]
+title = "Sub-project documentation lives under docs/ at the repository root"
+value = "Every sub-project under apps/ and services/ keeps its README, tooling and agent instruction files and loses its other root documents and its docs/ tree; the documents move to docs/<project>/ with links rewritten and a row in docs/README.md; code samples move next to the examples of their project; the single vendored project directory under addiqate/ moves to tools/ under its own name with the same treatment, and addiqate/ is removed. Records under spec/ and GOTCHA.kvx are history and keep their paths. The trees sdk/client/docs, contracts/launchpad/docs and tools/docs are outside this ruling and await an owner call."
+basis = "Owner ruling of 2026-11-05: one documentation root, and the vendored project under the most fitting sub-module, tools."
+affects = ["22.36.1", "22.36.2", "22.36.3", "22.36.4", "22.36.5", "22.36.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37911,6 +37983,123 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.36.6]
+title = "Index the consolidated documentation in docs/README.md"
+reqs = ["22998.1"]
+touches = ["docs/README.md", "tools/qualification/audit_repairs/test_repair_22_36_6.py", "tools/qualification/audit_repairs/repair_22_36_6.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_6.py"
+do_1 = "do_1 Gotcha 3232, decision 2663. Add one row per consolidated tree to the table in docs/README.md: the vendored project documentation under docs/ (22.36.1), docs/platform, docs/wallet (app and service), docs/explorer, docs/launchpad, docs/perps, docs/agent and docs/interop, each with a one-line description and a relative link that resolves; keep every existing row."
+symbols = []
+
+[capability.22.36.5]
+title = "Move the remaining sub-project root documents into docs/"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/production_checklist.md", "apps/perps/data_api.md", "services/agent/COMPATIBILITY.md", "services/interop/PORTABILITY.md", "docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "apps/perps", "docs/site/docs/interop/x402.md", "docs/wiki/X402Transport.md", "sdk/platform/generators/src/main.rs", "services/interop", "README.md", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_5.py"
+do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/launchpad/production_checklist.md to docs/launchpad/production-checklist.md, apps/perps/data_api.md to docs/perps/data-api.md, services/agent/COMPATIBILITY.md to docs/agent/COMPATIBILITY.md and services/interop/PORTABILITY.md to docs/interop/PORTABILITY.md; rewrite every reference outside spec/ and GOTCHA.kvx (apps/perps/deploy/README.md, apps/perps/src/components/paxeer/README.md, apps/perps/tests/repair-22-33-188.test.ts, docs/site/docs/interop/x402.md, docs/wiki/X402Transport.md, sdk/platform/generators/src/main.rs, services/interop/README.md, services/interop/crates/layerx-ap2/tests/portability_v2.rs, services/interop/crates/layerx-migrate/OPERATIONS.md, README.md and the rest the grep finds) so the tests and generators that read these files resolve. docs/README.md rows come with 22.36.6."
+symbols = []
+
+[capability.22.36.4]
+title = "Fold the explorer documentation into docs/explorer"
+reqs = ["22998.1"]
+touches = ["apps/explorer/docs", "apps/explorer/RELEASE_NOTES.md", "apps/explorer/CODE_OF_CONDUCT.md", "services/explorer/UPSTREAM.md", "docs/explorer", "apps/explorer/README.md", "apps/explorer/CLAUDE.md", "apps/explorer/.cursor", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/deploy/tools/feature-reporter/entry.js", "apps/explorer/toolkit/package/README.md", "apps/explorer/ui/snippets/user/README.md", "services/explorer/README.md", "services/explorer/backend/README.md", "tools/qualification/audit_repairs/test_repair_22_36_4.py", "tools/qualification/audit_repairs/repair_22_36_4.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_4.py"
+do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/explorer/docs (BUILD-TIME_ENVS.md, CONTRIBUTING.md, CUSTOM_BUILD.md, DEPRECATED_ENVS.md, ENVS.md, PULL_REQUEST_TEMPLATE.md), apps/explorer/RELEASE_NOTES.md, apps/explorer/CODE_OF_CONDUCT.md and services/explorer/UPSTREAM.md to docs/explorer/; rewrite the references in apps/explorer/README.md (lines 16 and 63), apps/explorer/CLAUDE.md (line 86), apps/explorer/.cursor (BUGBOT.md and the create-pr and prepare-release skills), apps/explorer/deploy/tools/envs-validator (index.ts and test.sh read ENVS.md), apps/explorer/deploy/tools/feature-reporter/entry.js, apps/explorer/toolkit/package/README.md, apps/explorer/ui/snippets/user/README.md, services/explorer/README.md, services/explorer/backend/README.md and every other reference outside spec/ and GOTCHA.kvx, so the validator and reporter still read the moved ENVS.md. docs/README.md rows come with 22.36.6."
+symbols = []
+
+[capability.22.36.3]
+title = "Fold the wallet documentation into docs/wallet"
+reqs = ["22998.1"]
+touches = ["apps/wallet/docs", "apps/wallet/CHANGELOG.md", "services/wallet/docs", "docs/wallet", "tools/qualification/audit_repairs/test_repair_22_36_3.py", "tools/qualification/audit_repairs/repair_22_36_3.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_3.py"
+do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/wallet/docs (7 files) to docs/wallet/app/, apps/wallet/CHANGELOG.md to docs/wallet/app/CHANGELOG.md, and services/wallet/docs (8 files: cutover.md, security-review.md and runbooks/) to docs/wallet/service/; remove the emptied directories; rewrite relative links inside the moved files and every reference to the old paths outside spec/ and GOTCHA.kvx. docs/README.md rows come with 22.36.6."
+symbols = []
+
+[capability.22.36.2]
+title = "Fold the platform documentation into docs/platform and move its code samples beside the examples"
+reqs = ["22998.1"]
+touches = ["services/platform", "docs/platform", "pnpm-workspace.yaml", "package.json", "pnpm-lock.yaml", "package-lock.json", ".gitignore", "docs/wiki", "scripts/qualification/paxeer-x/reference-custody.py", "sdk/integrations/next/example/test/fulfillment.test.mjs", "services/interop/README.md", "tools/qualification/audit_repairs/test_repair_22_36_2.py", "tools/qualification/audit_repairs/repair_22_36_2.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_2.py"
+do_1 = "do_1 Gotcha 3232, decision 2663. Move the 13 sample projects of services/platform/docs/samples to services/platform/examples/samples/<name> and rewrite the three entries of the root pnpm-workspace.yaml and package.json (first-payment-typescript, paid-endpoint-express, paid-route-next) to the new paths, updating the importer paths of the root lockfiles for those three packages without changing any resolution; move the rest of services/platform/docs (README.md, beta-environment.md, beta-resets.ics, build/, content/, capabilities.kvx, samples.kvx, site.kvx) to docs/platform/ and remove services/platform/docs. Rewrite every reference to the old paths outside spec/ and GOTCHA.kvx (the referencing files include .gitignore, docs/wiki/SdkQuickstart pages, scripts/qualification/paxeer-x/reference-custody.py, sdk/integrations/next/example/test/fulfillment.test.mjs, services/interop/README.md, services/platform/Makefile.inc, services/platform/tools/benchmark/src/main.rs, services/platform/tools/docs-gate, services/platform/tools/workspace-gate/src/workspace.kvx and services/platform/workspace.kvx) so every gate, generator and link resolves. docs/README.md rows come with 22.36.6."
+symbols = []
+
+[capability.22.36.1]
+title = "Move the vendored project directory under addiqate/ to tools/ and fold its documentation into docs/"
+reqs = ["22998.1"]
+touches = ["addiqate/hyperfide", "tools/hyperfide", "docs/hyperfide", "tools/README.md", "tools/qualification/audit_repairs/test_repair_22_36_1.py", "tools/qualification/audit_repairs/repair_22_36_1.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+do_1 = "do_1 Gotcha 3232, decision 2663. Move the single vendored project directory under addiqate/ to tools/ under the same directory name with git mv, then remove addiqate/. Inside the moved directory delete the root documents CHANGELOG.md, CODEMAP.md, WHY.md, MAINTAINERS.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md and CITATION.cff; keep README.md, AGENTS.md, GOTCHA.kvx, LICENSE, licenses/, Makefile, package.json, pnpm-workspace.yaml, the dot-directories and every code and spec directory. Move its docs/ tree (104 files) to docs/ at the repository root under a directory of the same name as the project, rewrite every relative link in the moved files and in the kept README.md and AGENTS.md so they resolve, and add a row for the project to the table in tools/README.md. Records under spec/ and GOTCHA.kvx keep their paths; docs/README.md rows come with 22.36.6."
+symbols = []
+
+[capability.22.32.191]
+title = "Record the wasmer advisory exemption in the security policy and the repair record"
+reqs = ["22998.1"]
+touches = ["SECURITY.md", "wasm-runtime/libwasmvm/repair_22_31_450.kvx", "tools/qualification/audit_repairs/test_repair_22_31_450.py", "spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx && grep -q 'Known exemptions' SECURITY.md && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_450.py"
+do_1 = "do_1 Gotcha 3233, decision 2662. Add a section Known exemptions to SECURITY.md after Bug bounty with one entry for GHSA-55f3-3qvg-8pv5 (wasmer 4.2.2 pinned by cosmwasm-vm 1.5.12 in wasm-runtime/libwasmvm): the modules load without WASI filesystem access, the exemption holds until the next runtime upgrade and is reviewed at that upgrade, and the record is wasm-runtime/libwasmvm/repair_22_31_450.kvx. In that record change disposition to: documented exemption until the next runtime upgrade; owner ruling 2026-11-05; SECURITY.md Known exemptions. Change the assertion at tools/qualification/audit_repairs/test_repair_22_31_450.py line 108 to the new wording."
+symbols = []
+
+[capability.22.32.190]
+title = "Document the public node retention policy and the archive node"
+reqs = ["22998.1"]
+touches = ["docs/readme/PUBLIC-RPC.md", "docs/site/docs/reference/public-rpc.md", "README.md", "spec/layerx-merge/programme/docs/rewrite/22.32.190.kvx"]
+tests = []
+verification_contract = "python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/rewrite/22.32.190.kvx && grep -q -i archive docs/readme/PUBLIC-RPC.md && grep -q -i archive docs/site/docs/reference/public-rpc.md && grep -q api2 README.md"
+do_1 = "do_1 Gotcha 3234, decision 2658. In docs/readme/PUBLIC-RPC.md add a Retention column or note to the node table (lines 27 to 40) and a paragraph stating that api2.mainnet-beta.paxeer.network keeps full history while the other thirteen nodes prune, that pax_sequencerReceipt and state queries for heights outside the retention of a pruned node answer -32000 and are not a defect, and that historical queries go to api2; make the same statement in docs/site/docs/reference/public-rpc.md (line 18) and in the node paragraph of README.md (line 75). Node names at the root path, chain id 125, no router and no separate interface (decision 2521)."
+symbols = []
+
+[capability.22.35.10]
+title = "Add the explorer Ask route and answer panel behind a configurable model endpoint"
+reqs = ["22998.1"]
+touches = ["apps/explorer/configs/app/features/assistant.ts", "apps/explorer/configs/app/features/index.ts", "apps/explorer/pages/api/assistant.ts", "apps/explorer/docs/ENVS.md", "apps/explorer/configs/envs/paxeer-x.env", "apps/explorer/deploy/tools/envs-validator/schemas/features", "apps/explorer/ui/snippets/searchBar", "apps/explorer/nextjs/pages-tests/api/repair-22-35-10.spec.ts"]
+tests = []
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run nextjs/pages-tests/api/repair-22-35-10.spec.ts ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+do_1 = "do_1 Gotcha 3237, decision 2652. Add apps/explorer/configs/app/features/assistant.ts in the Feature pattern of features/apiDocs.ts (isEnabled when NEXT_PUBLIC_ASSISTANT_ENABLED is true), export it from features/index.ts, and add the server-side page route apps/explorer/pages/api/assistant.ts (NextApiRequest and NextApiResponse as pages/api/proxy.ts): POST with a JSON body of question and an optional context object (the current route, entity kind and identifier), rejecting a question over 2000 characters with 400, answering 503 when EXPLORER_ASSISTANT_BASE_URL is unset, and otherwise calling POST on the base URL path /chat/completions with bearer EXPLORER_ASSISTANT_API_KEY, model EXPLORER_ASSISTANT_MODEL (default xai/grok-4.7), a system message naming the network, the chain id 125 and the public node names, and the user question; the route returns the answer text and the model name and never the key. Add the three server variables and the public flag to apps/explorer/docs/ENVS.md, apps/explorer/configs/envs/paxeer-x.env (flag false, no key) and the envs-validator schema under apps/explorer/deploy/tools/envs-validator/schemas/features."
+symbols = []
+
+[capability.22.35.9]
+title = "Serve the explorer total block count as the latest block number"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"]
+tests = []
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_9_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+do_1 = "do_1 Gotcha 3231, decision 2659. In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex line 99 fill total_blocks with Explorer.Chain.block_height() (services/explorer/backend/apps/explorer/lib/explorer/chain.ex line 1322, the maximum consensus block number) rendered as a string, and in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex line 19 use the same value for block_count; BlocksCount stays in place for its other readers. The frontend readers of total_blocks (types/api/stats.ts, ui/home/Stats.tsx, ui/home/BlocksContent.tsx) are unchanged."
+symbols = []
+
+[capability.22.31.567]
+title = "Fetch SDK node commit coverage per wait from the served batch"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/src/rpc_commit.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_567.kvx", "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs", "services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_567 --test repair_22_31_494"
+do_1 = "do_1 Gotcha 3230, decision 2656. In services/agent/crates/layerx-sdk/src/rpc_verification.rs replace with_node_commit_authority(authority, coverage) (lines 68 to 85) by with_node_commit_authority(authority) and a test-only with_node_commit_coverage_override(coverage); in the committed path (line 285 onward) fetch px_getSequenceBatch with the committed height as a decimal string, build the NodeCommitCoverage (rpc_commit.rs line 59) from the served tx and proof (total, index, leafHash, aunts), decode the activity ids from the batch transaction through layerx_client::rpc::receipt_commit::SequenceBatch::decode as rpc_commit.rs line 455 does, refuse with the existing verification error when the served proof does not cover the receipt activity or the node answers -32602 no_sequence_batch, and keep verify_committed (rpc_commit.rs line 353) as the verifier. Update wallet.rs and every caller of the old constructor in the SDK tests (tests/repair_22_31_494.rs lines 728 to 753, tests/support/audit_22_30_99.rs lines 330 to 353) so the loopback peer serves px_getSequenceBatch for its fixture batch."
+symbols = []
+
+[capability.22.31.566]
+title = "Name the replay bound and the guest fault with distinct kernel status codes"
+reqs = ["22998.1"]
+touches = ["include/layerx/lxp_result.h", "tests/codec/lxp_test_result_codes.c", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.kvx", "modules/lxphost/code_names.go", "precompiles/common/lxp_errors.go", "services/agent/sdk/python/layerx_sdk/revert.py", "spec/layerx-merge/contracts/address-table.md", "spec/layerx-merge/contracts/address-inventory.md", "spec/layerx-merge/contracts/kernel.md"]
+tests = []
+verification_contract = "make -C . build/tests/kernel/codec/lxp_test_result_codes && ./build/tests/kernel/codec/lxp_test_result_codes && (cd programs && cargo test -q -p layerx-programs-runtime --test repair_22_31_566) && CGO_ENABLED=1 go test -count=1 ./precompiles/common/ -run '^TestLXPRevertTable$' && grep -q LXP_ERR_REPLAY_BOUND modules/lxphost/code_names.go && grep -q LXP_ERR_GUEST_FAULT modules/lxphost/code_names.go && (cd services/agent/sdk/python && python3 -m pytest -q tests/test_revert_retryable.py)"
+do_1 = "do_1 Gotcha 3229, decision 2655. Add X(LXP_ERR_REPLAY_BOUND, -740) and X(LXP_ERR_GUEST_FAULT, -741) to LXP_RESULT_CODE_LIST in include/layerx/lxp_result.h after -739. In programs/crates/layerx-programs-runtime/src/ffi_call.rs (lines 2886 to 2902) map the execute error to the kernel status by variant: the replay-bound error of from_captured (replay_record.rs line 63; identify the ExecutionError variant it is carried in at execute.rs lines 1173 and 5620) answers -740, ExecutionError::Fault answers -741, every other variant and a missing replay record keep -3. Carry both codes through modules/lxphost/code_names.go, precompiles/common/lxp_errors.go (names LXP_REPLAY_BOUND and LXP_GUEST_FAULT, kernel true, non-retryable), services/agent/sdk/python/layerx_sdk/revert.py (both False), spec/layerx-merge/contracts/address-table.md section (b) rows with Retryable no (the layerx-types build.rs result table derives from that section), spec/layerx-merge/contracts/address-inventory.md and spec/layerx-merge/contracts/kernel.md, and add LXP_CASE_CHECK cases for both values and names in tests/codec/lxp_test_result_codes.c."
+symbols = []
+
+[capability.22.31.565]
+title = "Migrate legacy approval holds to the timed form in a store schema version 4"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/store/migrate.rs", "services/agent/crates/layerx-agentd/src/approval.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_565 --test migration"
+do_1 = "do_1 Gotcha 3228, decision 2653. In services/agent/crates/layerx-agentd/src/store/migrate.rs raise CURRENT_SCHEMA_VERSION to 4 and add migrate_v3_to_v4 to the migrate_store loop (lines 66 to 116): for every record of kind PreparedActivity (6) whose key starts with approval-hold-v1: and whose value starts with the magic LXAPHLD4, re-encode the value in the LXAPHLD5 form (approval.rs encode_hold, line 1485) with created_at_unix_seconds 0 and activity_expires_at_unix_seconds equal to the prepared expiry that decode_legacy_hold (line 1638) yields; every other record is copied byte for byte and the core bytes (kinds 1, 4 and 8) are unchanged. Extend validate_v2_or_v3 to version 4. In approval.rs approval_window_expired (lines 1198 to 1208) treat created_at 0 as satisfied for the lower bound; validate_replayed keeps refusing an LXAPHLD4 value."
+symbols = []
 
 [capability.22.31.564]
 title = "Meter replay step commitments outside the guest CPU cap"
@@ -148369,6 +148558,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.35.10]
+title = "Add the explorer Ask route and answer panel behind a configurable model endpoint"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.8"]
+reqs = ["22998.1"]
+capabilities = ["22.35.10"]
+interfaces = []
+do_1 = "do_1 Gotcha 3237, decision 2652. Add apps/explorer/configs/app/features/assistant.ts in the Feature pattern of features/apiDocs.ts (isEnabled when NEXT_PUBLIC_ASSISTANT_ENABLED is true), export it from features/index.ts, and add the server-side page route apps/explorer/pages/api/assistant.ts (NextApiRequest and NextApiResponse as pages/api/proxy.ts): POST with a JSON body of question and an optional context object (the current route, entity kind and identifier), rejecting a question over 2000 characters with 400, answering 503 when EXPLORER_ASSISTANT_BASE_URL is unset, and otherwise calling POST on the base URL path /chat/completions with bearer EXPLORER_ASSISTANT_API_KEY, model EXPLORER_ASSISTANT_MODEL (default xai/grok-4.7), a system message naming the network, the chain id 125 and the public node names, and the user question; the route returns the answer text and the model name and never the key. Add the three server variables and the public flag to apps/explorer/docs/ENVS.md, apps/explorer/configs/envs/paxeer-x.env (flag false, no key) and the envs-validator schema under apps/explorer/deploy/tools/envs-validator/schemas/features."
+do_2 = "do_2 In apps/explorer/ui/snippets/searchBar (SearchBarDesktop.tsx handleSubmit, SearchBarSuggest, useSearchQuery.tsx) add an Ask row at the top of the results panel when the feature is enabled and the query ends with a question mark or has no entity match: submitting it calls the route and renders the answer in the panel under an uppercase ASK label with a muted line reading model output, not chain data, and the model name; the row and the panel are absent when the feature is disabled. Write apps/explorer/nextjs/pages-tests/api/repair-22-35-10.spec.ts (the route refuses an over-long question, answers 503 without a base URL, forwards model and bearer to a mocked fetch, strips the key) and apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx (row present and absent by feature flag, answer rendered with the label, both colour modes resolve the tokens). Record the gate results by reference in apps/explorer/ui/snippets/searchBar/repair-22-35-10.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["assistant", "EXPLORER_ASSISTANT_BASE_URL", "EXPLORER_ASSISTANT_MODEL", "NEXT_PUBLIC_ASSISTANT_ENABLED", "handleSubmit"]
+touches = ["apps/explorer/configs/app/features/assistant.ts", "apps/explorer/configs/app/features/index.ts", "apps/explorer/pages/api/assistant.ts", "apps/explorer/docs/ENVS.md", "apps/explorer/configs/envs/paxeer-x.env", "apps/explorer/deploy/tools/envs-validator/schemas/features", "apps/explorer/ui/snippets/searchBar", "apps/explorer/nextjs/pages-tests/api/repair-22-35-10.spec.ts"]
+tests = []
+planned_paths = ["apps/explorer/configs/app/features/assistant.ts", "apps/explorer/pages/api/assistant.ts", "apps/explorer/nextjs/pages-tests/api/repair-22-35-10.spec.ts", "apps/explorer/ui/snippets/searchBar/repair-22-35-10.spec.tsx", "apps/explorer/ui/snippets/searchBar/repair-22-35-10.kvx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run nextjs/pages-tests/api/repair-22-35-10.spec.ts ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.35.8]
 title = "Explorer visual system integration: both colour modes end to end and the production build"
 status = "pending"
@@ -167583,6 +167801,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.566]
+title = "Name the replay bound and the guest fault with distinct kernel status codes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.564"]
+reqs = ["22998.1"]
+capabilities = ["22.31.566"]
+interfaces = []
+do_1 = "do_1 Gotcha 3229, decision 2655. Add X(LXP_ERR_REPLAY_BOUND, -740) and X(LXP_ERR_GUEST_FAULT, -741) to LXP_RESULT_CODE_LIST in include/layerx/lxp_result.h after -739. In programs/crates/layerx-programs-runtime/src/ffi_call.rs (lines 2886 to 2902) map the execute error to the kernel status by variant: the replay-bound error of from_captured (replay_record.rs line 63; identify the ExecutionError variant it is carried in at execute.rs lines 1173 and 5620) answers -740, ExecutionError::Fault answers -741, every other variant and a missing replay record keep -3. Carry both codes through modules/lxphost/code_names.go, precompiles/common/lxp_errors.go (names LXP_REPLAY_BOUND and LXP_GUEST_FAULT, kernel true, non-retryable), services/agent/sdk/python/layerx_sdk/revert.py (both False), spec/layerx-merge/contracts/address-table.md section (b) rows with Retryable no (the layerx-types build.rs result table derives from that section), spec/layerx-merge/contracts/address-inventory.md and spec/layerx-merge/contracts/kernel.md, and add LXP_CASE_CHECK cases for both values and names in tests/codec/lxp_test_result_codes.c."
+do_2 = "do_2 Write programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs: a profiled CALL with a replay profile too small for its capture answers -740 at the native binding, a guest that traps answers -741, an unprofiled CALL is unchanged, and both names resolve through lxp_result_name. Record the gate results by reference in tests/repair_22_31_566.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["LXP_ERR_REPLAY_BOUND", "LXP_ERR_GUEST_FAULT", "LXP_RESULT_CODE_LIST", "from_captured", "publish_replay_record"]
+touches = ["include/layerx/lxp_result.h", "tests/codec/lxp_test_result_codes.c", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.kvx", "modules/lxphost/code_names.go", "precompiles/common/lxp_errors.go", "services/agent/sdk/python/layerx_sdk/revert.py", "spec/layerx-merge/contracts/address-table.md", "spec/layerx-merge/contracts/address-inventory.md", "spec/layerx-merge/contracts/kernel.md"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.kvx"]
+build_cmd = "make -C . build/liblayerx.a && cd programs && cargo build -q -p layerx-programs-runtime --tests"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_result_codes && ./build/tests/kernel/codec/lxp_test_result_codes && (cd programs && cargo test -q -p layerx-programs-runtime --test repair_22_31_566) && CGO_ENABLED=1 go test -count=1 ./precompiles/common/ -run '^TestLXPRevertTable$' && grep -q LXP_ERR_REPLAY_BOUND modules/lxphost/code_names.go && grep -q LXP_ERR_GUEST_FAULT modules/lxphost/code_names.go && (cd services/agent/sdk/python && python3 -m pytest -q tests/test_revert_retryable.py)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.513]
 title = "Bring the Wallet Go tests workflow to green through both jobs: provision the Attestor job, regenerate the drifted copies and repair the ceremony paths"
 status = "done"
@@ -175702,6 +175949,64 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.567]
+title = "Fetch SDK node commit coverage per wait from the served batch"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.563"]
+reqs = ["22998.1"]
+capabilities = ["22.31.567"]
+interfaces = []
+do_1 = "do_1 Gotcha 3230, decision 2656. In services/agent/crates/layerx-sdk/src/rpc_verification.rs replace with_node_commit_authority(authority, coverage) (lines 68 to 85) by with_node_commit_authority(authority) and a test-only with_node_commit_coverage_override(coverage); in the committed path (line 285 onward) fetch px_getSequenceBatch with the committed height as a decimal string, build the NodeCommitCoverage (rpc_commit.rs line 59) from the served tx and proof (total, index, leafHash, aunts), decode the activity ids from the batch transaction through layerx_client::rpc::receipt_commit::SequenceBatch::decode as rpc_commit.rs line 455 does, refuse with the existing verification error when the served proof does not cover the receipt activity or the node answers -32602 no_sequence_batch, and keep verify_committed (rpc_commit.rs line 353) as the verifier. Update wallet.rs and every caller of the old constructor in the SDK tests (tests/repair_22_31_494.rs lines 728 to 753, tests/support/audit_22_30_99.rs lines 330 to 353) so the loopback peer serves px_getSequenceBatch for its fixture batch."
+do_2 = "do_2 Write services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs on the loopback peer fixtures: two committed waits at different heights verify against the coverage of their own height; a peer that serves a batch proof not covering the receipt is refused; a peer answering -32602 is refused; the override is used only when set. Record the gate results by reference in tests/repair_22_31_567.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["with_node_commit_authority", "with_node_commit_coverage_override", "NodeCommitCoverage", "verify_committed", "px_getSequenceBatch"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/src/rpc_commit.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_567.kvx", "services/agent/crates/layerx-sdk/tests/repair_22_31_494.rs", "services/agent/crates/layerx-sdk/tests/support/audit_22_30_99.rs"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/tests/repair_22_31_567.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_567.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_567 --test repair_22_31_494"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.565]
+title = "Migrate legacy approval holds to the timed form in a store schema version 4"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.565"]
+interfaces = []
+do_1 = "do_1 Gotcha 3228, decision 2653. In services/agent/crates/layerx-agentd/src/store/migrate.rs raise CURRENT_SCHEMA_VERSION to 4 and add migrate_v3_to_v4 to the migrate_store loop (lines 66 to 116): for every record of kind PreparedActivity (6) whose key starts with approval-hold-v1: and whose value starts with the magic LXAPHLD4, re-encode the value in the LXAPHLD5 form (approval.rs encode_hold, line 1485) with created_at_unix_seconds 0 and activity_expires_at_unix_seconds equal to the prepared expiry that decode_legacy_hold (line 1638) yields; every other record is copied byte for byte and the core bytes (kinds 1, 4 and 8) are unchanged. Extend validate_v2_or_v3 to version 4. In approval.rs approval_window_expired (lines 1198 to 1208) treat created_at 0 as satisfied for the lower bound; validate_replayed keeps refusing an LXAPHLD4 value."
+do_2 = "do_2 Extend services/agent/crates/layerx-agentd/tests/migration.rs so every_supported_prior_schema_migrates_forward_without_changing_core_bytes covers version 3 with a legacy hold in the prior store. Write services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs: a version-3 store holding one LXAPHLD4 hold and one LXAPHLD5 hold migrates to 4, the legacy value decodes through decode_hold with created_at 0 and the prepared expiry, the tenant listing returns both holds, a store already at version 4 is not rewritten, and a value still under LXAPHLD4 is refused with LegacyTimeUnits. Record the gate results by reference in tests/repair_22_31_565.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["migrate_v3_to_v4", "CURRENT_SCHEMA_VERSION", "encode_hold", "decode_legacy_hold", "approval_window_expired"]
+touches = ["services/agent/crates/layerx-agentd/src/store/migrate.rs", "services/agent/crates/layerx-agentd/src/approval.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_565 --test migration"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.564]
 title = "Meter replay step commitments outside the guest CPU cap"
 status = "done"
@@ -175743,7 +176048,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 3220, decision 2650. In services/agent/crates/layerx-sdk/src/wallet.rs add Wallet::wait_for_submitted(receipt, commitment, timeout): it waits through self.rpc.wait_for for the activity id of the given receipt (receipt.protocol().activity_id() as the scenarios read it), refuses with RpcError::InvalidRequest when the given receipt carries no canonical activity, and binds the same canonical activity bytes on the returned receipt (bind_canonical_activity, rpc_verification.rs line 80); add wait_for_submitted_with_commit for the Finalised path with commit evidence. RpcClient receipts stay None (rpc_verification.rs line 355); Wallet::send and Wallet::payment (wallet.rs lines 80 and 228) are unchanged."
 do_2 = "do_2 Write services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs on the loopback peer fixtures the SDK tests already use (tests/repair_22_31_494.rs): a payment waited to Executed carries canonical activity; wait_for_submitted to Batched returns a receipt with the same canonical_activity, a present batch_evidence and the Batched commitment; a receipt built without canonical activity is refused; the Finalised path binds the same bytes. Record the gate results by reference in tests/repair_22_31_563.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = ["wait_for_submitted", "wait_for_submitted_with_commit", "bind_canonical_activity", "canonical_activity"]
-touches = ["services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"]
+touches = ["services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx", "services/agent/crates/layerx-sdk/Cargo.toml", "services/agent/Cargo.lock"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests"
@@ -175759,6 +176064,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3235): the attempt-1 tree stands (the wallet waits, the test and the record). The test names layerx_programs_registry::chain_proof::merkle::SimpleProof to build the ReceiptCommitEvidence of the Finalised path, and layerx-sdk has no dependency on that crate: add to services/agent/crates/layerx-sdk/Cargo.toml under dev-dependencies the line layerx_programs_registry = { package = layerx-programs-registry, version = =0.1.0, path = ../../../../programs/crates/layerx-programs-registry } exactly as services/agent/crates/layerx-client/Cargo.toml line 10 writes it (with the quoting Cargo requires), remove the extern crate declaration at tests/repair_22_31_563.rs line 455, and update the layerx-sdk entry of services/agent/Cargo.lock by adding layerx-programs-registry to its dependencies list and nothing else, so cargo --locked accepts it; both manifests are now in the task paths. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.562]
 title = "Answer the Human budget-after request with the rung rank instead of the verification label"
@@ -175849,6 +176155,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3219): the attempt-1 tree stands (2 of 3 cases pass). In rpc_prepare_native_send (human_runtime.rs from line 6976 of the attempt tree) use one tenant, the principal tenant the DurablePreparation::store_key already uses (lines 7009 to 7012), for the retention in prepare_gated (line 7034), the authorization-reference key and the restore in verify_native_owner_purpose (capability/binding.rs line 2938); where the transport tenant of the peer differs from the principal tenant, the principal tenant is the storage tenant. Every mapping to Unavailable (the put_local of the authorization reference, the restore mapped to BindingError::Corrupt and owner_error) carries the originating error in the diagnostic (gotcha 3202). The failing case then matches the reopened Prepare to the owner preview. Run the build and the verify at the final revision and record them by reference in the task record."
+do_5 = "Attempt 3 (continue, gotcha 3238): the attempt-2 tree stands (one principal tenant through the native send prepare; 2 of 3 cases pass). The remaining 503 is the receipt key read of Prepare: human_node.rs receipt_key_at_head (line 45) calls px_getReceiptKeys (sequencer.rs line 532), which the EVM node behind the test chain peer does not serve. In tests/repair_22_31_560.rs intercept px_getReceiptKeys in the chain peer (the pattern of native_send_preview_evm.rs lines 245 to 330) and answer keys as one entry with a nonzero 32-byte keyId, a valid ed25519 publicKey, firstHeight 1 and a lastHeight above the head, as decode_receipt_keys (sequencer.rs line 947) requires; where the daemon path then needs a receipt signed by that key, sign with the matching private key the peer holds. Change no production code for this; if the first Prepare still answers 503, print the daemon log line and name it in the record. Run the build, the dependent-crate check and the verify at the final revision and record them by reference."
 
 [task.22.31.559]
 title = "Recover tenant budgets from current transaction receipt evidence after a restart"
@@ -193240,6 +193547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 1 (continue): decision 2500. The five native_reads::daemon::proof tests are isolated from the live node by 18.1578.1 (required); do not exclude or edit them. Repair the deterministic failures inside the crate: the three binding tests refused with mcp.binding_retired_key (the fixture binding still names the retired key; rebuild it from the daemon enrolment the served path opens), the_web_section_is_closed_and_typed (daemon_bound.rs:1089, Binding::parse of the served body), web_binding_names_a_receipt_key_index (web_payments_layerxpay.rs:429), a_settlement_under_another_sequencer_key_is_refused, a_web_scoped_session_without_an_attached_payer_is_refused, native_reads_producer_http_consumer_reopens_and_refuses_malformed_results and payer_artifacts_that_do_not_bind_the_offer_are_never_sent. Name in the commit any decision that retired an asserted behaviour; never delete, skip or weaken a test."
 do_5 = "Attempt 2 (continue): the proof suites demand a real local node (NotPresent, LAYERX_TEST_PAXEER_CHAIN_ID is required) and the daemon-bound fixtures still use the retired web public key field; run the suites against loopback node fixtures started by the test with no environment variable, and give the fixtures receipt_key_index as the production reader expects (gotcha 2968)."
 do_6 = "Attempt 3 (requalify, gotcha 3224): the attempt-2 tree stands (the fixture store writer ownership in the layerx-mcp tests; build exit 0 at cc4c6478ac); the verify never ran on that tree. Run the build and the verify as they stand and record them by reference in the task record."
+do_7 = "Attempt 4 (continue, gotcha 3236): the attempt-3 tree stands (the writer release in tests/repair_22_31_223.rs and tests/scope.rs, the native submission pin in tests/activity_evm_signatures.rs, the repair record). In tests/repair_22_31_223.rs move the accountId answer of the (POST, /rpc) arm (lines 704 to 730: strip the selector 3f050cbc and the padded owner, find the grant whose canonical bytes carry the asset, answer its account bytes) into the (POST, /) arm ahead of the recorded-traffic lookup (lines 740 to 747) for an eth_call whose data starts with that prefix, and drop the /rpc arm: since 22.31.224 (commit 924b876570, finding seller_rpc_misroute) payer_account sends the ledger view to the node root path, which decision 2521 fixes as the only node path. Name decision 2521 and task 22.31.224 in the commit as the retired behaviour the fixture asserted, update the change sentence of the repair record, and run the build and the whole-crate verify at the final revision, recording them by reference."
 
 [task.22.99.51]
 title = "Repair the inventory sweep target layerx-agentd-host"
@@ -324290,6 +324598,238 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.36.6]
+title = "Index the consolidated documentation in docs/README.md"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1", "22.36.2", "22.36.3", "22.36.4", "22.36.5"]
+reqs = ["22998.1"]
+capabilities = ["22.36.6"]
+interfaces = []
+do_1 = "do_1 Gotcha 3232, decision 2663. Add one row per consolidated tree to the table in docs/README.md: the vendored project documentation under docs/ (22.36.1), docs/platform, docs/wallet (app and service), docs/explorer, docs/launchpad, docs/perps, docs/agent and docs/interop, each with a one-line description and a relative link that resolves; keep every existing row."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_6.py: docs/README.md contains the eight rows and every relative link in the file resolves to an existing path. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_6.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["docs/README.md", "tools/qualification/audit_repairs/test_repair_22_36_6.py", "tools/qualification/audit_repairs/repair_22_36_6.kvx"]
+tests = []
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_36_6.py", "tools/qualification/audit_repairs/repair_22_36_6.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_6.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.36.5]
+title = "Move the remaining sub-project root documents into docs/"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.32.190"]
+reqs = ["22998.1"]
+capabilities = ["22.36.5"]
+interfaces = []
+do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/launchpad/production_checklist.md to docs/launchpad/production-checklist.md, apps/perps/data_api.md to docs/perps/data-api.md, services/agent/COMPATIBILITY.md to docs/agent/COMPATIBILITY.md and services/interop/PORTABILITY.md to docs/interop/PORTABILITY.md; rewrite every reference outside spec/ and GOTCHA.kvx (apps/perps/deploy/README.md, apps/perps/src/components/paxeer/README.md, apps/perps/tests/repair-22-33-188.test.ts, docs/site/docs/interop/x402.md, docs/wiki/X402Transport.md, sdk/platform/generators/src/main.rs, services/interop/README.md, services/interop/crates/layerx-ap2/tests/portability_v2.rs, services/interop/crates/layerx-migrate/OPERATIONS.md, README.md and the rest the grep finds) so the tests and generators that read these files resolve. docs/README.md rows come with 22.36.6."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_5.py: the four old paths do not exist and the four new files exist; every relative Markdown link in the four files resolves; no tracked file outside spec/, GOTCHA.kvx and this test contains the four old paths. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_5.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["apps/launchpad/production_checklist.md", "apps/perps/data_api.md", "services/agent/COMPATIBILITY.md", "services/interop/PORTABILITY.md", "docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "apps/perps", "docs/site/docs/interop/x402.md", "docs/wiki/X402Transport.md", "sdk/platform/generators/src/main.rs", "services/interop", "README.md", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
+tests = []
+planned_paths = ["docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_5.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.36.4]
+title = "Fold the explorer documentation into docs/explorer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.35.10"]
+reqs = ["22998.1"]
+capabilities = ["22.36.4"]
+interfaces = []
+do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/explorer/docs (BUILD-TIME_ENVS.md, CONTRIBUTING.md, CUSTOM_BUILD.md, DEPRECATED_ENVS.md, ENVS.md, PULL_REQUEST_TEMPLATE.md), apps/explorer/RELEASE_NOTES.md, apps/explorer/CODE_OF_CONDUCT.md and services/explorer/UPSTREAM.md to docs/explorer/; rewrite the references in apps/explorer/README.md (lines 16 and 63), apps/explorer/CLAUDE.md (line 86), apps/explorer/.cursor (BUGBOT.md and the create-pr and prepare-release skills), apps/explorer/deploy/tools/envs-validator (index.ts and test.sh read ENVS.md), apps/explorer/deploy/tools/feature-reporter/entry.js, apps/explorer/toolkit/package/README.md, apps/explorer/ui/snippets/user/README.md, services/explorer/README.md, services/explorer/backend/README.md and every other reference outside spec/ and GOTCHA.kvx, so the validator and reporter still read the moved ENVS.md. docs/README.md rows come with 22.36.6."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_4.py: the old paths do not exist; the nine files exist under docs/explorer; every relative Markdown link in docs/explorer resolves; the envs-validator and feature-reporter sources name the new ENVS.md path; no tracked file outside spec/, GOTCHA.kvx and this test contains the strings apps/explorer/docs/, apps/explorer/RELEASE_NOTES.md or services/explorer/UPSTREAM.md. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_4.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["apps/explorer/docs", "apps/explorer/RELEASE_NOTES.md", "apps/explorer/CODE_OF_CONDUCT.md", "services/explorer/UPSTREAM.md", "docs/explorer", "apps/explorer/README.md", "apps/explorer/CLAUDE.md", "apps/explorer/.cursor", "apps/explorer/deploy/tools/envs-validator", "apps/explorer/deploy/tools/feature-reporter/entry.js", "apps/explorer/toolkit/package/README.md", "apps/explorer/ui/snippets/user/README.md", "services/explorer/README.md", "services/explorer/backend/README.md", "tools/qualification/audit_repairs/test_repair_22_36_4.py", "tools/qualification/audit_repairs/repair_22_36_4.kvx"]
+tests = []
+planned_paths = ["docs/explorer", "tools/qualification/audit_repairs/test_repair_22_36_4.py", "tools/qualification/audit_repairs/repair_22_36_4.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_4.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.36.3]
+title = "Fold the wallet documentation into docs/wallet"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.36.3"]
+interfaces = []
+do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/wallet/docs (7 files) to docs/wallet/app/, apps/wallet/CHANGELOG.md to docs/wallet/app/CHANGELOG.md, and services/wallet/docs (8 files: cutover.md, security-review.md and runbooks/) to docs/wallet/service/; remove the emptied directories; rewrite relative links inside the moved files and every reference to the old paths outside spec/ and GOTCHA.kvx. docs/README.md rows come with 22.36.6."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_3.py: apps/wallet/docs, apps/wallet/CHANGELOG.md and services/wallet/docs do not exist; the 16 files exist under docs/wallet; every relative Markdown link in docs/wallet resolves; no tracked file outside spec/, GOTCHA.kvx and this test contains the strings apps/wallet/docs or services/wallet/docs. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_3.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["apps/wallet/docs", "apps/wallet/CHANGELOG.md", "services/wallet/docs", "docs/wallet", "tools/qualification/audit_repairs/test_repair_22_36_3.py", "tools/qualification/audit_repairs/repair_22_36_3.kvx"]
+tests = []
+planned_paths = ["docs/wallet", "tools/qualification/audit_repairs/test_repair_22_36_3.py", "tools/qualification/audit_repairs/repair_22_36_3.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_3.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.36.2]
+title = "Fold the platform documentation into docs/platform and move its code samples beside the examples"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.36.2"]
+interfaces = []
+do_1 = "do_1 Gotcha 3232, decision 2663. Move the 13 sample projects of services/platform/docs/samples to services/platform/examples/samples/<name> and rewrite the three entries of the root pnpm-workspace.yaml and package.json (first-payment-typescript, paid-endpoint-express, paid-route-next) to the new paths, updating the importer paths of the root lockfiles for those three packages without changing any resolution; move the rest of services/platform/docs (README.md, beta-environment.md, beta-resets.ics, build/, content/, capabilities.kvx, samples.kvx, site.kvx) to docs/platform/ and remove services/platform/docs. Rewrite every reference to the old paths outside spec/ and GOTCHA.kvx (the referencing files include .gitignore, docs/wiki/SdkQuickstart pages, scripts/qualification/paxeer-x/reference-custody.py, sdk/integrations/next/example/test/fulfillment.test.mjs, services/interop/README.md, services/platform/Makefile.inc, services/platform/tools/benchmark/src/main.rs, services/platform/tools/docs-gate, services/platform/tools/workspace-gate/src/workspace.kvx and services/platform/workspace.kvx) so every gate, generator and link resolves. docs/README.md rows come with 22.36.6."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_2.py: services/platform/docs does not exist; docs/platform holds the moved files; the 13 samples exist under services/platform/examples/samples and the three package entries of pnpm-workspace.yaml and package.json point at them; no tracked file outside spec/, GOTCHA.kvx and this test contains the string services/platform/docs; every relative Markdown link in docs/platform resolves. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_2.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["services/platform", "docs/platform", "pnpm-workspace.yaml", "package.json", "pnpm-lock.yaml", "package-lock.json", ".gitignore", "docs/wiki", "scripts/qualification/paxeer-x/reference-custody.py", "sdk/integrations/next/example/test/fulfillment.test.mjs", "services/interop/README.md", "tools/qualification/audit_repairs/test_repair_22_36_2.py", "tools/qualification/audit_repairs/repair_22_36_2.kvx"]
+tests = []
+planned_paths = ["docs/platform", "services/platform/examples/samples", "tools/qualification/audit_repairs/test_repair_22_36_2.py", "tools/qualification/audit_repairs/repair_22_36_2.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_2.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.36.1]
+title = "Move the vendored project directory under addiqate/ to tools/ and fold its documentation into docs/"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.36.1"]
+interfaces = []
+do_1 = "do_1 Gotcha 3232, decision 2663. Move the single vendored project directory under addiqate/ to tools/ under the same directory name with git mv, then remove addiqate/. Inside the moved directory delete the root documents CHANGELOG.md, CODEMAP.md, WHY.md, MAINTAINERS.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, SECURITY.md and CITATION.cff; keep README.md, AGENTS.md, GOTCHA.kvx, LICENSE, licenses/, Makefile, package.json, pnpm-workspace.yaml, the dot-directories and every code and spec directory. Move its docs/ tree (104 files) to docs/ at the repository root under a directory of the same name as the project, rewrite every relative link in the moved files and in the kept README.md and AGENTS.md so they resolve, and add a row for the project to the table in tools/README.md. Records under spec/ and GOTCHA.kvx keep their paths; docs/README.md rows come with 22.36.6."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_1.py: addiqate/ does not exist; the project directory exists under tools/ with README.md, AGENTS.md and LICENSE and without docs/ or any of the eight removed root documents; the documentation directory under docs/ holds 104 files; every relative Markdown link inside the moved documentation and the kept README resolves to an existing path; tools/README.md contains the row; no tracked file outside spec/, GOTCHA.kvx and this test contains the string addiqate/. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_1.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["addiqate/hyperfide", "tools/hyperfide", "docs/hyperfide", "tools/README.md", "tools/qualification/audit_repairs/test_repair_22_36_1.py", "tools/qualification/audit_repairs/repair_22_36_1.kvx"]
+tests = []
+planned_paths = ["tools/hyperfide", "docs/hyperfide", "tools/qualification/audit_repairs/test_repair_22_36_1.py", "tools/qualification/audit_repairs/repair_22_36_1.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.32.191]
+title = "Record the wasmer advisory exemption in the security policy and the repair record"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.32.191"]
+interfaces = []
+do_1 = "do_1 Gotcha 3233, decision 2662. Add a section Known exemptions to SECURITY.md after Bug bounty with one entry for GHSA-55f3-3qvg-8pv5 (wasmer 4.2.2 pinned by cosmwasm-vm 1.5.12 in wasm-runtime/libwasmvm): the modules load without WASI filesystem access, the exemption holds until the next runtime upgrade and is reviewed at that upgrade, and the record is wasm-runtime/libwasmvm/repair_22_31_450.kvx. In that record change disposition to: documented exemption until the next runtime upgrade; owner ruling 2026-11-05; SECURITY.md Known exemptions. Change the assertion at tools/qualification/audit_repairs/test_repair_22_31_450.py line 108 to the new wording."
+do_2 = "do_2 Write spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx in the manifest form of 22.32.189.kvx listing SECURITY.md. Record the gate results by reference in the manifest; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["SECURITY.md", "wasm-runtime/libwasmvm/repair_22_31_450.kvx", "tools/qualification/audit_repairs/test_repair_22_31_450.py", "spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx && grep -q 'Known exemptions' SECURITY.md && python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_450.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.32.190]
+title = "Document the public node retention policy and the archive node"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.32.190"]
+interfaces = []
+do_1 = "do_1 Gotcha 3234, decision 2658. In docs/readme/PUBLIC-RPC.md add a Retention column or note to the node table (lines 27 to 40) and a paragraph stating that api2.mainnet-beta.paxeer.network keeps full history while the other thirteen nodes prune, that pax_sequencerReceipt and state queries for heights outside the retention of a pruned node answer -32000 and are not a defect, and that historical queries go to api2; make the same statement in docs/site/docs/reference/public-rpc.md (line 18) and in the node paragraph of README.md (line 75). Node names at the root path, chain id 125, no router and no separate interface (decision 2521)."
+do_2 = "do_2 Write spec/layerx-merge/programme/docs/rewrite/22.32.190.kvx in the manifest form of 22.32.189.kvx listing the three pages with status and bytes. Record the gate results by reference in the manifest; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = []
+touches = ["docs/readme/PUBLIC-RPC.md", "docs/site/docs/reference/public-rpc.md", "README.md", "spec/layerx-merge/programme/docs/rewrite/22.32.190.kvx"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/rewrite/22.32.190.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/rewrite/22.32.190.kvx && grep -q -i archive docs/readme/PUBLIC-RPC.md && grep -q -i archive docs/site/docs/reference/public-rpc.md && grep -q api2 README.md"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programme"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.518]
 title = "State the bounty policy: reports by email to security@sidioralabs.com with a full report and credentials; public submissions fixed without attribution or reward; rewards $500 to $100,000"
 status = "done"
@@ -371809,6 +372349,35 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.35.9]
+title = "Serve the explorer total block count as the latest block number"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.35.9"]
+interfaces = []
+do_1 = "do_1 Gotcha 3231, decision 2659. In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex line 99 fill total_blocks with Explorer.Chain.block_height() (services/explorer/backend/apps/explorer/lib/explorer/chain.ex line 1322, the maximum consensus block number) rendered as a string, and in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex line 19 use the same value for block_count; BlocksCount stays in place for its other readers. The frontend readers of total_blocks (types/api/stats.ts, ui/home/Stats.tsx, ui/home/BlocksContent.tsx) are unchanged."
+do_2 = "do_2 Write services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs: with consensus blocks at numbers 10, 11 and 500 inserted and a non-consensus block at 600, GET /api/v2/stats answers total_blocks 500 as a string and the chain controller renders the same number; extend the stats_controller_test assertion at line 45 from key presence to the value. Record the gate results by reference in services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint beyond the test database the explorer test configuration already starts (gotcha 2962)."
+symbols = ["total_blocks", "block_height", "BlocksCount", "block_count"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"]
+tests = []
+planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_9_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

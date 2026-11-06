@@ -32147,3 +32147,27 @@ symbol = "repair_22_33_260.rs"
 observed = "Attempt 3 at 85cbc30284: build exit 0, dependent-crate check exit 0, verify exit 101: all 8 repair_22_33_260 cases fail with Error: ApplicationError(1) and no routed refusal is printed."
 assumption = "A schema-version refusal inside the fixture builders; the site is not yet named."
 severity = "high"
+
+[finding.22.31.563.1]
+task = "22.31.563"
+file = "services/agent/crates/layerx-sdk/src/wallet.rs"
+symbol = "wallet.rs"
+observed = "Attempt 1 at bcfedfba66: build exit 101 twice, E0463 can-not-find-crate for layerx_programs_registry and then for layerx_programs at tests/repair_22_31_563.rs line 455; no verify ran."
+assumption = "The SDK commit-evidence interface exposes a type of a client dependency the SDK tests cannot name without the dev-dependency; the implementation is unaffected."
+severity = "high"
+
+[finding.22.99.52.4]
+task = "22.99.52"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 3 at 86b4a97419: build exit 0, verify exit 1: one target fails, repair_22_31_223 existing_grants_still_require_verified_receipts, with unrecorded node request eth_call accountId to 0x101a at the node root path; every other target of the crate passes."
+assumption = "The production call moved to the node root with 22.31.224 and the 223 fixture still serves the view at /rpc; the fix is inside the crate tests."
+severity = "high"
+
+[finding.22.31.560.2]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 2 at 87aacef4fd: build exit 0, dependent-crate check exit 0 (15 crates), verify exit 101: 2 passed; native_send_first_prepare_and_reopened_prepare_match_owner_preview fails with 503 owner.unavailable, daemon log: preparation receipt key read failed, RpcRefusal -32601 Method not found."
+assumption = "The test node lacks the receipt key method the production prepare path reads; the tenant repair of attempt 2 holds."
+severity = "high"
