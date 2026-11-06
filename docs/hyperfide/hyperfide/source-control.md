@@ -2,11 +2,16 @@
 
 The source service stores immutable content and persistent trees in S3, with repository, revision, operation and authorization metadata in PostgreSQL. Its online API is `POST /api/v1/source-control`; the SDK works without a checkout or Git history.
 
-Build and start the service from `core/control-plane`:
+On the release builder, build the service from `core/control-plane`:
 
-```sh
+```sh builder
 npm run build
-HF_SOURCE_CONTROL_CONFIG=/run/secrets/source-control.json npm run source-control
+```
+
+On a worker host, put the extracted runtime’s `bin` directory on `PATH`, supply the deployment environment described below, and start its packaged launcher:
+
+```sh source
+source-control
 ```
 
 `HF_SOURCE_CONTROL_CONFIG` names an owner-only regular JSON file. TLS file paths resolve relative to that file. The server accepts Ed25519 **public** verification keys; the credential issuer retains signing keys.
@@ -18,7 +23,9 @@ HF_SOURCE_CONTROL_CONFIG=/run/secrets/source-control.json npm run source-control
   "trust": {
     "issuer": "https://identity.example.test",
     "audience": "hyperfide-source",
-    "keys": {"source-1": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"},
+    "keys": {
+      "source-1": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n"
+    },
     "max_ttl_seconds": 300,
     "clock_skew_seconds": 0
   },
@@ -37,13 +44,13 @@ The S3 backend reads `HF_SOURCE_S3_ENDPOINT`, `HF_SOURCE_S3_REGION`, `HF_SOURCE_
 
 Set `HF_SOURCE_CURSOR_KEY` to the base64url encoding of 32–64 random bytes, and supply explicit positive workspace budgets:
 
-| Variable | Unit |
-| --- | --- |
-| `HF_SOURCE_CACHE_BYTES` | Immutable cache bytes |
-| `HF_SOURCE_CACHE_ENTRIES` | Immutable cache entries |
-| `HF_SOURCE_MAX_FILE_BYTES` | Materializable file bytes |
-| `HF_SOURCE_MATERIALIZED_BYTES` | Materialized workspace bytes |
-| `HF_SOURCE_DIRTY_BYTES` | Retained dirty workspace bytes |
+| Variable                       | Unit                           |
+| ------------------------------ | ------------------------------ |
+| `HF_SOURCE_CACHE_BYTES`        | Immutable cache bytes          |
+| `HF_SOURCE_CACHE_ENTRIES`      | Immutable cache entries        |
+| `HF_SOURCE_MAX_FILE_BYTES`     | Materializable file bytes      |
+| `HF_SOURCE_MATERIALIZED_BYTES` | Materialized workspace bytes   |
+| `HF_SOURCE_DIRTY_BYTES`        | Retained dirty workspace bytes |
 
 The listener emits a bounded `source-control.ready` event containing its address. SIGTERM and SIGINT stop new requests, drain the listener and close the PostgreSQL pool.
 
@@ -52,10 +59,10 @@ The listener emits a bounded `source-control.ready` event containing its address
 The issuer supplies a short-lived `HF-SOURCE-1` bearer token for the exact organization, repository and security-domain scope. Its current credential and capability records are checked in PostgreSQL.
 
 ```ts
-import {SourceControlClient} from '@hyperfide/source-control';
+import { SourceControlClient } from "@hyperfide/source-control";
 
 const source = new SourceControlClient({
-  endpoint: 'https://source.example.test:9443/api/v1/source-control',
+  endpoint: "https://source.example.test:9443/api/v1/source-control",
   scope: {
     organisation_id: organizationId,
     repository_id: repositoryId,
@@ -66,7 +73,7 @@ const source = new SourceControlClient({
 
 const capabilities = await source.capabilities();
 const revision = await source.revision(pinnedRevisionId);
-const entry = await source.lookup(pinnedTreeId, 'sdk/example/src/index.ts');
+const entry = await source.lookup(pinnedTreeId, "sdk/example/src/index.ts");
 ```
 
 Mutations carry explicit operation and idempotency identities plus current source authority. Retain those identities across an uncertain response and query the original operation before retrying. Revision creation, qualification, acceptance and remote Git publication have separate receipts.
@@ -125,19 +132,21 @@ Set `HF_SOURCE_PUBLICATION_CONFIG` to an owner-only JSON file containing trusted
 
 ```json
 {
-  "destinations": [{
-    "id": "public-project",
-    "scope": {
-      "organisation_id": "11111111-1111-4111-8111-111111111111",
-      "repository_id": "22222222-2222-4222-8222-222222222222",
-      "security_domain_id": "33333333-3333-4333-8333-333333333333"
-    },
-    "provider": "github",
-    "repository_identity": "owner/project",
-    "remote_url": "https://github.com/owner/project.git",
-    "allowed_refs": ["refs/heads/main"],
-    "credential_file": "publication-credential.json"
-  }]
+  "destinations": [
+    {
+      "id": "public-project",
+      "scope": {
+        "organisation_id": "11111111-1111-4111-8111-111111111111",
+        "repository_id": "22222222-2222-4222-8222-222222222222",
+        "security_domain_id": "33333333-3333-4333-8333-333333333333"
+      },
+      "provider": "github",
+      "repository_identity": "owner/project",
+      "remote_url": "https://github.com/owner/project.git",
+      "allowed_refs": ["refs/heads/main"],
+      "credential_file": "publication-credential.json"
+    }
+  ]
 }
 ```
 
@@ -161,7 +170,7 @@ The native launcher completes the source assignment from the recorded manager de
 
 Workers can send an explicit versioned source request with:
 
-```sh
+```sh source
 hyperfide source invoke --request-file request.json
 ```
 
@@ -174,3 +183,104 @@ Submission accepts only the exact durable checkpoint of the assigned workspace. 
 ## Packaged runtime
 
 The [native runtime package](../runtime/source-control.md) ships the service, SDK, host adapters and native clients with a checksummed dependency closure. Worker hosts consume the extracted runtime without compiling the repository. The package smoke driver exercises API-only and sparse source, checkpointing, independently checked acceptance and disposable Git publication; the final release gate additionally requires full-case evidence and operator acceptance.
+
+## Graph freshness
+
+Configure `HF_SOURCE_GRAPH_BINARY`, `HF_SOURCE_GRAPH_BINARY_DIGEST` and `HF_SOURCE_GRAPH_SCRATCH` together. `source.graph.build` pins the native revision and root, selected paths, parser executable, resolver and build configuration. An overlay also pins its workspace generation and checkpoint revision; changing or closing that workspace refuses the build with `GRAPH_OVERLAY_STALE`.
+
+Inspect `source.graph.query` in `status` mode before using symbols, context or dependencies. Supply the exact build, revision and root identities. `coverage.complete` and `resolution_complete` are separate observations; unresolved imports and uncovered paths remain explicit. A graph channel’s generation or a prior successful scan does not establish freshness for a different revision. Publish with `source.graph.publish` and the expected channel generation. Rebuild after source, parser, resolver or configuration changes; graph coverage alone cannot qualify a candidate.
+
+## Retention
+
+`source.retention.configure` pins the backend identity, minimum object age, quarantine delay and backup hold. Independent bucket expiration must remain disabled. Retained revisions and history, active workspaces, uploads, coordinator custody, candidate evidence, imports, publications, backups and explicit holds protect their exact object incarnations. Immutable cache eviction does not discard the dirty workspace journal.
+
+Use `source.retention.acquire` and `source.retention.release` for explicit roots. Collection proceeds through bounded `source.collection.discover`, quarantine, pin recheck, exact-incarnation delete intent and reconciliation. `source.collection.inspect` reports pending work. Preserve the original operation ID after uncertainty; neither an old reference count nor a delayed deletion authorizes removal of a newer incarnation. Resolve admitted deletion work before changing retention policy. Keep metadata and object retention at least as long as every supported backup and recovery point.
+
+## Restore procedure
+
+Use the [recovery runbook](source-control-recovery.md) with an operator-owned profile matching the [recovery schema](../../../tools/hyperfide/deploy/hyperfide/source-control/recovery-profile.schema.json). A structurally complete profile is a declaration; only an executed recovery campaign can qualify its failure model and RPO/RTO.
+
+1. Stop write admission and fence former writers using the independent external authority journal. Preserve that journal outside PostgreSQL backup restoration, along with original upload, delete and publication identities.
+2. Select a verified version-2 backup manifest and restore its metadata, placements, routing, retained roots and object closure together. Native source format 1 and backup manifest version 2 are independent; a legacy backup returns `BACKUP_FORMAT_UNSUPPORTED`.
+3. Establish the current external authority and call `source.recovery.prepare`. Writes remain fenced. Run `source.backups.verify` to completion against actual object storage; copied READY metadata cannot replace verification. Missing content or an expired recovery point refuses readiness.
+4. Call `source.recovery.reconcile` with the same preparation operation and a bounded limit until no captured effects remain. Retain unknown outcomes and reconcile the actual remote state; do not upload again or push a replacement publication.
+5. Call `source.recovery.activate` only after closure and external-effect reconciliation succeed. Obtain credentials for the successor authority epoch, verify retained content and operation replay, then reopen writes. An older database or prior-epoch capability cannot authorize recovery writes.
+
+## Profile qualification
+
+This table covers every required and optional variant in the current [claims inventory](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json). **UNQUALIFIED** means its full-case qualification is UNRUN at the documented inputs, even where focused component receipts exist. No live S3, FUSE, GitHub/GitLab, fleet, scale, endurance or disaster-recovery guarantee follows from a package smoke result. A successful 7.1 run qualifies only its recorded packaged component checks; its private receipt names the exact input digest and executed documentation commands.
+
+| Profile                                                           | Variant               | Qualification | Case                                                                                          |
+| ----------------------------------------------------------------- | --------------------- | ------------- | --------------------------------------------------------------------------------------------- |
+| Canonical immutable object and tree identity                      | full                  | UNQUALIFIED   | [SCM-001](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-001) |
+| S3 uploads and durable revision boundaries                        | real-s3               | UNQUALIFIED   | [SCM-002](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-002) |
+| Idempotent native operations and divergence                       | full                  | UNQUALIFIED   | [SCM-003](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-003) |
+| Attempt fencing and online authority                              | full                  | UNQUALIFIED   | [SCM-004](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-004) |
+| Retention and garbage-collection races                            | full                  | UNQUALIFIED   | [SCM-005](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-005) |
+| API-only history queries and pinned pagination                    | full                  | UNQUALIFIED   | [SCM-006](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-006) |
+| Committed event replay and resynchronization                      | full                  | UNQUALIFIED   | [SCM-007](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-007) |
+| Server merge rebase and revert                                    | full                  | UNQUALIFIED   | [SCM-008](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-008) |
+| Atomic acceptance of exactly qualified candidates                 | full                  | UNQUALIFIED   | [SCM-009](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-009) |
+| Sparse materialization and writable-cache isolation               | full                  | UNQUALIFIED   | [SCM-010](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-010) |
+| Virtual workspace coherence and bounded cache                     | full                  | UNQUALIFIED   | [SCM-011](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-011) |
+| Incremental source-pinned graph coverage                          | full                  | UNQUALIFIED   | [SCM-012](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-012) |
+| Scoped source authorization and export privacy                    | full                  | UNQUALIFIED   | [SCM-013](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-013) |
+| Hyperfide task source custody and taskless clients                | hyperfide-fleet       | UNQUALIFIED   | [SCM-014](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-014) |
+| GitHub and GitLab remote export reconciliation                    | github                | UNQUALIFIED   | [SCM-015](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-015) |
+| GitHub and GitLab remote export reconciliation                    | gitlab                | UNQUALIFIED   | [SCM-015](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-015) |
+| Contribution and history import provenance                        | full                  | UNQUALIFIED   | [SCM-016](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-016) |
+| Monorepo migration cutover and writable rollback                  | cutover               | UNQUALIFIED   | [SCM-017](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-017) |
+| Supported service and metadata failure recovery                   | metadata-failover     | UNQUALIFIED   | [SCM-018](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-018) |
+| Backup restore and external-effect reconciliation                 | restore               | UNQUALIFIED   | [SCM-019](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-019) |
+| Growth invariance and within-repository sharding                  | growth                | UNQUALIFIED   | [SCM-020](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-020) |
+| Concurrent mixed-load and admission profiles                      | mixed-load            | UNQUALIFIED   | [SCM-021](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-021) |
+| Concurrent mixed-load and admission profiles                      | open-admission        | UNQUALIFIED   | [SCM-021](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-021) |
+| Real S3 and elapsed-time endurance                                | real-s3-72h           | UNQUALIFIED   | [SCM-022](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-022) |
+| Real S3 and elapsed-time endurance                                | real-worker           | UNQUALIFIED   | [SCM-022](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-022) |
+| End-to-end native Hyperfide source-control journey                | api-cli-ui            | UNQUALIFIED   | [SCM-023](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-023) |
+| Strict harness and independent evidence closure                   | full                  | UNQUALIFIED   | [SCM-024](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-024) |
+| Category layout and existing-system behavior preservation         | full                  | UNQUALIFIED   | [SCM-025](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-025) |
+| Manifest and interface schema with source-bound subset resolution | full                  | UNQUALIFIED   | [SCM-026](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-026) |
+| Provider sandbox install and worker isolation                     | provider-sandbox      | UNQUALIFIED   | [SCM-027](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-027) |
+| Primary and Wave Manager adaptive orchestration                   | primary-wave-managers | UNQUALIFIED   | [SCM-028](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-028) |
+| Supervisor loss and final prerequisite evidence closure           | supervisor-failover   | UNQUALIFIED   | [SCM-029](../../../tools/hyperfide/tests/hyperfide/source-control/claims.json#/cases/SCM-029) |
+
+## Documentation execution contract
+
+Fences labelled `sh source` are executable source examples. The 7.1 driver extracts every non-comment line as an argument vector and resolves its executable exclusively from the extracted runtime’s `bin` directory. It requires service readiness and a clean shutdown, and executes `source invoke` against the packaged signed HTTPS control service with a private configuration and a real scoped `source.capabilities` request in `request.json`. Supply the equivalent current request and `HF_SOURCE_CONFIG` when using that example in a deployment. Shell operators, substitutions, unlabelled runtime examples, unknown executables and failed commands are refusals. Builder and release-closure fences require their separate environments.
+
+The declarations below pin current source references. Evidence references, when present, require a content-pinned PASS receipt for this exact packaged input closure and executed command inventory. No historical receipt is declared current here. Recovery-profile references must validate against the packaged schema and its retention constraints; their validity does not promote a profile to qualified. Raw receipts and deployment profiles remain private.
+
+```json source-release
+{
+  "schema_version": 1,
+  "source_refs": [
+    {
+      "path": "tools/hyperfide/tests/hyperfide/source-control/registry.json",
+      "sha256": "5379f8bfbf1bfd71546fc127263da683819d91dba66234aa028b695170b58874"
+    },
+    {
+      "path": "tools/hyperfide/tests/hyperfide/source-control/claims.json",
+      "sha256": "c305a628a204c85f9deeafb6a768032d60535e469a887bf95a5c833436ec65e6"
+    },
+    {
+      "path": "spec/layerx-merge/source-control/source-spec.kvx",
+      "sha256": "c8474867ab2767e5d8ac9f4fd2b04160bd26f51c70ae5b59175f9f8878b33f7b"
+    },
+    {
+      "path": "tools/hyperfide/core/control-plane/src/source_control/contracts.ts",
+      "sha256": "d916cbde34b3410b024a503cc12c90a487f504999e356a7104603c9d1f72571b"
+    },
+    {
+      "path": "tools/hyperfide/core/control-plane/src/source_control/graph-adapter.ts",
+      "sha256": "290fbff086a0277035a196fd0202bc276f07ede7e38157d481cbfad4caf1dc4b"
+    },
+    {
+      "path": "tools/hyperfide/core/control-plane/src/source_control/recovery.ts",
+      "sha256": "11c7d9d3c633cb999c60602868094300131d2e6899db44f90a4aceaf03d9857b"
+    }
+  ],
+  "evidence_refs": [],
+  "recovery_profiles": []
+}
+```
