@@ -33083,3 +33083,19 @@ symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceip
 observed = "Attempt 16 at b48f134b3b15e497e4dba745f1f8f93e52db96a2: build exit 0, verify exit 1 at the first-verify revision 2d27a47f4e4137bfb1caef0906acc50fd4134df9: 586929 is not less than or equal to 524288 at sequencer_receipt_vectors_test.go line 1873; the final tree adds the production optimisation pass unverified."
 assumption = "The optimised guest fits as it does for the production target; the gap was the missing tool in the qualification environment."
 severity = "medium"
+
+[finding.22.33.223.8]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 9 at 11886f69b839deabe2308c102c41f8b8954c4b3b: build exit 0, dependent-crate check exit 0, verify exit 1: 13 of 14 cases pass; the fuel-cap case lists 334 maximum-state refusals over the cap, attempted 1000001 to 1000234, across twelve routed operations."
+assumption = "The over-cap operations are the cap repair of 22.99.77; the coverage of this task only measures them."
+severity = "medium"
+
+[finding.22.37.19.9]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 9 at fc5dfcfe1d0c53fe527feabf4bb22d7d40bd5bd7: build exit 0, verify exit 1: the browser journey and product checks pass; the signed CLI open of the empty base revision with main.txt as read and write path exits 1 because the readiness check treats the read path as a required dependency."
+assumption = "Read scope paths are not closure requirements; the dependency declaration is."
+severity = "medium"

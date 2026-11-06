@@ -9513,6 +9513,12 @@ value = "TestAiMarketTransferAuthorityReceipt builds the guest exactly as the Ma
 basis = "A deployment fixture that measures a different artifact than production deploys proves nothing about the payload, and the bound is the protocol maximum."
 affects = ["18.1562.1"]
 
+[decision.2734]
+title = "Dependency closure readiness requires only the declared dependency paths"
+value = "The closure readiness of a native workspace open is computed over the declared dependency paths: each must lie within the read scope (otherwise outsideScope) and exist in the immutable tree of the revision (otherwise missingPaths); an empty declaration is READY. Read and write scope paths are not requirements, because a workspace may create them at its first checkpoint, as the signed CLI journey and the API-only flow do. The open is refused with DEPENDENCY_CLOSURE_INCOMPLETE only on that readiness, the readiness action and the panel indicator report the same computation, and the CLI needs no new option."
+basis = "Requiring every read path to pre-exist refused the create-at-first-checkpoint flow the product has always admitted; the dependency declaration is the only closure the opener asserts."
+affects = ["22.37.19"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -149706,6 +149712,7 @@ do_11 = "Attempt 6 (continue, gotcha 3333, decision 2725): the attempt-5 tree st
 do_12 = "Attempt 7 (continue, gotcha 3336, decision 2728): the attempt-6 tree stands (the default migration set of the native source fixture helper that applies every source-control file numbered 0736 or higher whose foreign keys resolve within the series, the recorded source_request_failed events in the listener catch, the passing publication cancel). In the product actor replace the assertion at line 615 that the graphs family reports coverage UNAVAILABLE: assert that the graphs family reports coverage PARTIAL or COMPLETE and observed_rows at most the budget of 1 passed as maxRows, as the objects family is asserted at lines 613 and 614, because the 0748 migration the driver now applies creates the graphs table and metrics.ts answers UNAVAILABLE at line 115 only when that table is absent. Keep the objects assertions and the pushed check text. If the task keeps a proof of the absent-table branch, run the actor a second time through the fixture with an explicit migration list that omits 0748 and a comment naming the omitted table, and assert UNAVAILABLE there only. Run the build and the verify at the final revision and record them by reference in the task record."
 do_13 = "Attempt 8 (requalify, gotcha 3340, decision 2730): the attempt-7 tree stands (the graphs coverage and row-budget assertions of decision 2728; build exit 0; the product actor passes the metrics check). The browser journey stopped because the qualification environment had no headless browser at the absolute path the browser support names; the engineering process now provides it at that path before the gates run. Re-run the gates as they stand; if the browser journey refuses on a product fact, name it in the task record and repair the named input."
 do_14 = "Attempt 9 (continue, gotcha 3342, decision 2732): the attempt-8 tree stands; the qualification environment now provides the headless browser and the journey reached the acceptance step. In the browser journey module of the vendored product test support directory change the field helper so it selects the label whose own text node (its first child text, trimmed) equals the requested name, still throwing Missing field when none matches, and change the two calls that relied on a prefix to the full label text: Independent evidence IDs (one per line) and Expected remote Git identity (empty for new reference). Keep every view label as it is. Run the verify at the final revision and record it by reference in the task record; if the journey stops at a later step, record the step label and the page text it printed."
+do_15 = "Attempt 10 (continue, gotcha 3345, decision 2734): the attempt-9 tree stands, including the passing browser journey and product checks. In the runtime module of the source-control plugin change sourceClosureReadiness so the required set is the deduplicated dependency paths alone: each must lie within the read scope (outsideScope) and exist in the revision tree (missingPaths); checkedPaths counts them; an empty declaration is READY. Keep the refusal code, the readiness action, the panel indicator and the actor cases as they are (the incomplete-closure case declares dependencies/required.txt and stays INCOMPLETE; the ready case declares main.txt and stays READY); the CLI and the signed CLI journey are unchanged. Run the verify at the final revision and record it by reference in the task record; if the signed CLI journey stops at a later command, record the command, its response and its exit code."
 
 [task.22.37.18]
 title = "Native mode for the plugin router and integration queue with outage, publication and manager integration qualification"
@@ -187125,8 +187132,8 @@ do_11 = "Attempt 5 (requalify after 22.31.550, gotcha 3166, decision 2620): the 
 title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 1): config-drift, test-gap"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558", "22.31.478"]
+wave = 2
+requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558", "22.31.478", "22.99.77"]
 reqs = ["22998.1"]
 capabilities = ["22.33.223"]
 interfaces = []
@@ -187163,6 +187170,7 @@ do_13 = "Attempt 6 (requalify after 22.31.485): the previous attempt built; the 
 do_14 = "Attempt 7 (after 22.31.497): attempt 6 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-6 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_15 = "Attempt 8 (requalify after 22.31.550, gotcha 3172, decision 2623): the attempt-6 tree stands; attempt 7 re-ran the gates and the build passed while the dependent-crate check failed only on the rpc_surface_major_two target of layerx-agentd that 22.31.545 broke on main and 22.31.550 repairs. Re-run the gates on the attempt-6 tree."
 do_16 = "Attempt 9 (requalify, gotcha 3222): the attempt-8 tree stands; the task now requires 22.31.478, whose repair brings Fund under the 1000000 CPU cap. Re-run the gates as they stand once 478 lands; if a case still fails, the record names the attempted fuel per case."
+do_17 = "Attempt 10 (requalify after 22.99.77, gotcha 3344, decision 2729): the attempt-9 tree stands (the 55-selector coverage, the opt-level z guest profile check, the compiled close journey). The task now sits in wave 2 and requires 22.99.77, whose tree brings the over-cap operations under the 1000000 CPU cap through the joint-section readers and carries the crate-wide fuel suite. Once 22.99.77 is on main, re-run the gates on the attempt-9 tree merged over it; if maximum-state rows of its own coverage still exceed the cap, record the attempted fuel per row and repair only those rows inside the crate routing of the maximum-state path, with no cap change and no second repair of the operations 22.99.77 landed."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
