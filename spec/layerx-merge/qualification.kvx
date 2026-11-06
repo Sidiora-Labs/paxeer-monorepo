@@ -32379,3 +32379,11 @@ symbol = "human_runtime.rs"
 observed = "Attempt 1 at a1dff5f6aa8c6f9d05cd76c7c5f8aa989f470a3c: build exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verification did not run."
 assumption = "The tree is unchanged; the include repair lands first."
 severity = "medium"
+
+[finding.22.31.478.11]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 11 at 57e22cd248fe11a5617ae920772fe7275765ad77: build exit 0, dependent-crate check exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verify did not run."
+assumption = "The tree is unchanged; the include repair is on main."
+severity = "medium"

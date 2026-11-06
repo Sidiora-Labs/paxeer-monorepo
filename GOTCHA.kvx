@@ -16155,3 +16155,8 @@ fix = "Revert the producer to the main-tree semantics; the evidence rank is the 
 title = "22.31.571 attempt 1: the release-reference tracking, the recovery change and the proof were implemented in all five scoped files, then the build stopped with exit 101 on compat.rs line 8 of layerx-agentd (services/agent/COMPATIBILITY.md absent, gotcha 3263); verification never ran."
 symptom = "The attempt started at 03:13Z, eleven minutes before task 22.31.572 was published to repoint the include; the task now requires 572 and its tree is unchanged by the break."
 fix = "Requalify the attempt-1 tree once 22.31.572 has landed (decision 2680)."
+
+[gotcha.3267]
+title = "22.31.478 attempt 11: the build passed (exit 0), then the dependent-crate check stopped with exit 101 compiling layerx-agentd on the compat.rs line 8 include of services/agent/COMPATIBILITY.md (gotcha 3263); the verify never ran, so the Fund completion and the gas figures of the attempt-11 tree are implemented but unqualified."
+symptom = "The attempt started at 03:28Z from a main revision without the include repair of 22.31.572, which reached main at 03:49Z; the dependent-crate check compiles every crate that depends on the touched crates, and layerx-agentd is among them, so the break outside the task touches stops the check exactly as it stops a build."
+fix = "Requalify the attempt-11 tree once 22.31.572 is on main (decision 2681 extends decision 2680 to the dependent-crate check); the task now requires 22.31.572."
