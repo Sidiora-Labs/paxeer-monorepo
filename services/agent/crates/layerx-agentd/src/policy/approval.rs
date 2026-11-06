@@ -23,9 +23,11 @@ use layerx_types::payload::ModuleRegistry;
 
 const HOLD_KEY_PREFIX: &[u8] = b"approval-hold-v1:";
 pub(crate) const RELEASED_KEY_PREFIX: &[u8] = b"approval-released-v1:";
+const TERMINAL_KEY_PREFIX: &[u8] = b"approval-terminal-v1:";
 const HOLD_MAGIC: &[u8; 8] = b"LXAPHLD4";
 const TIMED_HOLD_MAGIC: &[u8; 8] = b"LXAPHLD5";
 const RELEASED_MAGIC: &[u8; 8] = b"LXAPREL1";
+const TERMINAL_MAGIC: &[u8; 8] = b"LXAPTER1";
 const MAX_HOLD_RECORD_BYTES: usize = 2 * 1024 * 1024;
 const MAX_DISCLOSURE_ITEMS: u32 = 64;
 
@@ -224,6 +226,29 @@ impl ApprovalRegistry {
             decoded.push((held.context.request_id, held));
         }
         let mut terminal_decoded = replay_program_terminals(&store, tenant)?;
+        for id in store
+            .list_object_ids(tenant, ObjectKind::PreparedActivity)
+            .into_iter()
+            .filter(|id| id.starts_with(TERMINAL_KEY_PREFIX))
+        {
+            if id.len() != TERMINAL_KEY_PREFIX.len() + 32 {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let key = TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id)
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            let stored = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+            if stored.class() != crate::store::StorageClass::LocalOnly {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let (state, mut held) = decode_terminal(stored.bytes())?;
+            validate_replayed(&held, tenant)?;
+            if key.object_id()[TERMINAL_KEY_PREFIX.len()..] != held.context.request_id {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            held.audit = Some(terminal_audit(&held, state, None, "terminal_replayed"));
+            held.state = state;
+            terminal_decoded.push((held.context.request_id, held));
+        }
         for id in store
             .list_object_ids(tenant, ObjectKind::Outbox)
             .into_iter()
@@ -659,6 +684,7 @@ impl ApprovalRegistry {
         if let Err(error) = release_durable(
             self,
             held,
+            state,
             limiter,
             current_sequence,
             decision_record,
@@ -1167,6 +1193,7 @@ fn remove_durable(registry: &ApprovalRegistry, held: &HeldApproval) -> Result<()
 fn release_durable(
     registry: &ApprovalRegistry,
     held: &HeldApproval,
+    state: ApprovalState,
     limiter: &BudgetLimiter,
     current_sequence: u64,
     decision_record: crate::approval::PreparedDecision,
@@ -1199,7 +1226,10 @@ fn release_durable(
                 ApprovalError::CorruptRecord,
             ));
         }
-        decision_record.remove_hold(&mut store, key)
+        let terminal_key = terminal_storage_key(&held.context.tenant, held.context.request_id)
+            .map_err(ApprovalOperationError::Registry)?;
+        let bytes = encode_terminal(held, state).map_err(ApprovalOperationError::Registry)?;
+        decision_record.replace_hold(&mut store, &key, terminal_key, bytes)
     } else {
         decision_record.persist(&mut store)
     };
@@ -1411,6 +1441,15 @@ pub(crate) fn released_storage_key(
     object.extend_from_slice(&id);
     TenantKey::new(tenant.clone(), ObjectKind::Outbox, object)
         .map_err(|_| ApprovalError::CorruptRecord)
+}
+
+fn terminal_storage_key(tenant: &TenantId, id: [u8; 32]) -> Result<TenantKey, ApprovalError> {
+    TenantKey::new(
+        tenant.clone(),
+        ObjectKind::PreparedActivity,
+        [TERMINAL_KEY_PREFIX, id.as_slice()].concat(),
+    )
+    .map_err(|_| ApprovalError::CorruptRecord)
 }
 
 /// Decodes one released approval record and returns its exact durable budget reservations
@@ -1672,6 +1711,36 @@ fn decode_released(bytes: &[u8]) -> Result<([u8; 32], HeldApproval), ApprovalErr
         return Err(ApprovalError::CorruptRecord);
     }
     Ok((submission_ref, held))
+}
+
+fn encode_terminal(held: &HeldApproval, state: ApprovalState) -> Result<Vec<u8>, ApprovalError> {
+    let tag = match state {
+        ApprovalState::Rejected => 1,
+        ApprovalState::Expired => 2,
+        ApprovalState::Defective => 3,
+        _ => return Err(ApprovalError::CorruptRecord),
+    };
+    let mut bytes = TERMINAL_MAGIC.to_vec();
+    bytes.push(tag);
+    bytes.extend_from_slice(&encode_hold(held)?);
+    if bytes.len() > MAX_HOLD_RECORD_BYTES {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    Ok(bytes)
+}
+
+fn decode_terminal(bytes: &[u8]) -> Result<(ApprovalState, HeldApproval), ApprovalError> {
+    if bytes.len() > MAX_HOLD_RECORD_BYTES || !bytes.starts_with(TERMINAL_MAGIC) {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    let state = match bytes.get(TERMINAL_MAGIC.len()) {
+        Some(1) => ApprovalState::Rejected,
+        Some(2) => ApprovalState::Expired,
+        Some(3) => ApprovalState::Defective,
+        _ => return Err(ApprovalError::CorruptRecord),
+    };
+    let held = decode_hold(&bytes[TERMINAL_MAGIC.len() + 1..])?;
+    Ok((state, held))
 }
 
 fn validate_held_call(
@@ -2346,6 +2415,145 @@ mod released_replay_tests {
     }
 
     #[test]
+    fn rejected_approval_survives_reopen_without_restoring_reservations() {
+        use std::os::unix::fs::DirBuilderExt as _;
+
+        use super::{ApprovalState, ApproverId};
+        use crate::approval::{
+            ApprovalExpiry, ApprovalOutcome, ApprovalService, ApprovalSubmissionQueue, DecisionKey,
+            DecisionRequest,
+        };
+
+        let mut nonce = [0; 16];
+        getrandom::fill(&mut nonce).unwrap_or_else(|error| panic!("entropy: {error}"));
+        let root = Root(
+            std::fs::canonicalize(std::env::temp_dir())
+                .unwrap_or_else(|error| panic!("temp directory: {error}"))
+                .join(format!("layerx-terminal-replay-{}", hex::encode(nonce))),
+        );
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root.0)
+            .unwrap_or_else(|error| panic!("private root: {error}"));
+        let store = Arc::new(Mutex::new(
+            Store::open(&root.0).unwrap_or_else(|error| panic!("store: {error}")),
+        ));
+        let original = limiter(&[1, 2]);
+        let reservation = reserve(
+            &original,
+            &ReservationRequest {
+                id: [43; 32],
+                amount: 10,
+                expiry_sequence: 40,
+                current_sequence: 10,
+                applicable_limits: vec![LimitId([1; 16]), LimitId([2; 16])],
+            },
+        )
+        .unwrap_or_else(|error| panic!("reserve: {error:?}"));
+        let registry = ApprovalRegistry::with_store(Arc::clone(&store));
+        let prepared = prepared();
+        let ticket = hold_reserved_at(
+            &registry,
+            ApprovalContext {
+                tenant: tenant(),
+                actor_address: [4; 20],
+                agent: Did::new(ACTOR.as_bytes())
+                    .unwrap_or_else(|error| panic!("agent: {error:?}")),
+                session: SessionId([2; 32]),
+                capability: CapabilityId([3; 32]),
+                policy_version: "policy-v3".to_owned(),
+                request_id: [43; 32],
+            },
+            prepared.clone(),
+            10,
+            40,
+            &reservation,
+            &crate::approval::TestClock(1_000_000),
+        )
+        .unwrap_or_else(|error| panic!("hold: {error:?}"));
+        let tenant = tenant();
+        let key = DecisionKey::new("reject-terminal-replay")
+            .unwrap_or_else(|error| panic!("decision key: {error:?}"));
+        let request = || DecisionRequest {
+            tenant: &tenant,
+            approval_id: ticket.hold_id,
+            idempotency_key: &key,
+            approver: ApproverId::new("human-terminal-replay")
+                .unwrap_or_else(|error| panic!("approver: {error:?}")),
+            current_sequence: 11,
+            current_time: TimestampSeconds(1_001),
+        };
+        let expiry = ApprovalExpiry::from_shared_store(Arc::clone(&store));
+        let rejected = ApprovalService::new(&registry, &original, &expiry)
+            .reject(request())
+            .unwrap_or_else(|error| panic!("reject claimed hold: {error:?}"));
+        assert_eq!(rejected.outcome, ApprovalOutcome::Rejected);
+        assert_eq!(rejected.submission_ref, None);
+        assert_eq!(original.held_reservations(), Ok(0));
+        assert!(store
+            .lock()
+            .unwrap_or_else(|_| panic!("store lock"))
+            .list_object_ids(&tenant, ObjectKind::Outbox)
+            .is_empty());
+        let audit = registry
+            .audit_entry(ticket.hold_id)
+            .unwrap_or_else(|error| panic!("audit: {error:?}"))
+            .unwrap_or_else(|| panic!("terminal audit"));
+        assert_eq!(audit.decision, ApprovalState::Rejected);
+        assert_eq!(audit.disclosure_digest, ticket.disclosure_digest);
+        assert_eq!(audit.reason, "approver_rejected_and_released_reservation");
+        assert_eq!(
+            registry
+                .ticket(ticket.hold_id)
+                .unwrap_or_else(|error| panic!("ticket: {error:?}"))
+                .map(|ticket| ticket.state),
+            Some(ApprovalState::Rejected)
+        );
+        drop(expiry);
+        drop(registry);
+        drop(store);
+
+        let store = Arc::new(Mutex::new(
+            Store::open(&root.0).unwrap_or_else(|error| panic!("reopen: {error}")),
+        ));
+        let restarted = limiter(&[1, 2]);
+        let registry = ApprovalRegistry::with_store(Arc::clone(&store));
+        assert_eq!(registry.replay_tenant(&tenant, &restarted), Ok(1));
+        assert_eq!(registry.restored_reservation_ids(), Ok(Vec::new()));
+        assert_eq!(restarted.held_reservations(), Ok(0));
+        for id in [1, 2] {
+            assert_eq!(restarted.held_exposure(LimitId([id; 16])), Ok(0));
+            assert_eq!(restarted.consumed(LimitId([id; 16])), Ok(0));
+        }
+        let mut expected = ticket.clone();
+        expected.state = ApprovalState::Rejected;
+        assert_eq!(registry.ticket(ticket.hold_id), Ok(Some(expected)));
+        let expiry = ApprovalExpiry::from_shared_store(Arc::clone(&store));
+        let service = ApprovalService::new(&registry, &restarted, &expiry);
+        let recovered = service
+            .get(&tenant, ticket.hold_id, 11, TimestampSeconds(1_001))
+            .unwrap_or_else(|error| panic!("get recovered rejection: {error:?}"));
+        assert_eq!(recovered.state, ApprovalState::Rejected);
+        assert_eq!(recovered.held_activity, prepared.disclosure);
+        assert_eq!(recovered.canonical_bytes_digest, ticket.disclosure_digest);
+        assert_eq!(
+            service
+                .reject(request())
+                .unwrap_or_else(|error| panic!("repeat rejection: {error:?}")),
+            rejected
+        );
+        let submissions = ApprovalSubmissionQueue::default();
+        assert_eq!(
+            service
+                .approve(request(), &prepared, &submissions)
+                .unwrap_or_else(|error| panic!("same-digest decision: {error:?}")),
+            rejected
+        );
+        assert!(submissions.is_empty());
+        assert_eq!(restarted.held_reservations(), Ok(0));
+    }
+
+    #[test]
     fn released_replay_under_a_missing_limit_is_refused_without_change() {
         let (_root, store) = persisted("missing", 41);
         let before = entries(&store.lock().unwrap_or_else(|_| panic!("store lock")));
@@ -2727,15 +2935,16 @@ impl ApprovalRegistry {
         Ok(holds
             .iter()
             .filter_map(|(id, held)| {
-                let closed_program = held
-                    .audit
-                    .as_ref()
-                    .is_some_and(|audit| audit.reason == "program_terminal_replayed")
-                    && matches!(
-                        held.state,
-                        ApprovalState::Rejected | ApprovalState::Expired | ApprovalState::Defective
-                    );
-                (!closed_program).then_some(*id)
+                let closed_terminal = held.audit.as_ref().is_some_and(|audit| {
+                    matches!(
+                        audit.reason,
+                        "program_terminal_replayed" | "terminal_replayed"
+                    )
+                }) && matches!(
+                    held.state,
+                    ApprovalState::Rejected | ApprovalState::Expired | ApprovalState::Defective
+                );
+                (!closed_terminal).then_some(*id)
             })
             .collect())
     }
