@@ -32931,3 +32931,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 18 at 3d86ac86953ad3627e42669b93d4dcec5c1d155c: build exit 0, dependent-crate check exit 0, Go Fund proof passed; verify exit 1: the Rust library test of the market crate does not compile, E0716 temporary value dropped while borrowed at src/lib.rs line 461."
 assumption = "A one-line fixture borrow; the production path and the Go proof already pass."
 severity = "medium"
+
+[finding.22.31.560.13]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 13 at 362ea3c05914641d88beb631cc742769978aa0d9: build exit 0, dependent-crate check exit 0, verify exit 101: the EVM preview case was refused at the owner preview call (native_send_preview_evm.rs line 921) with no diagnostic line, and the two repair cases met the poisoned fixture lock (repair_22_31_560.rs line 899)."
+assumption = "The fixture span is the last seconds-era value after the milliseconds correction; the sited helper makes any remaining refusal readable in one run."
+severity = "high"

@@ -9435,6 +9435,12 @@ value = "A portable replay record carries once, in its header beside code hash, 
 basis = "A witness bound of 1048576 bytes is a bound on information, not on encoding tricks; duplicated identity and state in every leaf spent half the budget and an unreviewed packing stage inside a committed format is not a repair."
 affects = ["22.31.577", "22.31.573", "22.99.77"]
 
+[decision.2721]
+title = "The Human timestamp span is milliseconds, the unit of the protocol time it bounds"
+value = "LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN, and the timestamp_span the production Human operations are constructed with, bound the width of an activity timestamp bound (not_after minus not_before); the bound is compared with the daemon protocol_timestamp, milliseconds by decision 2704, and admitted by the kernel against batch_timestamp_ms (include/layerx/lxp_kernel.h line 398), so the span is milliseconds. The native preview fixture passes 30000, the hosted material writes 60000, and contracts/agent-config.md and docs/site/docs/agents/running.md state the unit. The owner preview path of services/agent/crates/layerx-agentd/src/human_runtime.rs (native_send_owner_preview_on_surface and native_send_preview_authorization) returns HumanOperationError::Refused only through a helper that first prints layerx-agentd: native send preview refused at <site> to the daemon diagnostic log, as decision 2688 rules for the Prepare path; the RPC rejection stays owner.refused and the prints are production behaviour."
+basis = "A span in seconds beside a bound in milliseconds refuses every bound wider than thirty milliseconds; one unit for the field and the bound it limits, and a refusal that names itself."
+affects = ["22.31.560", "22.31.581"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38325,6 +38331,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.581]
+title = "Write the hosted Human timestamp span in milliseconds and document the unit"
+reqs = ["22015.1"]
+touches = ["services/platform/hosted/human/material.py", "services/platform/hosted/human/test_material.py", "contracts/agent-config.md", "docs/site/docs/agents/running.md"]
+tests = ["services/platform/hosted/human/test_material.py"]
+verification_contract = "env -u PAXEER_X_HUMAN_EVIDENCE_DIR -u PAXEER_X_HUMAN_DEPLOYMENT -u PAXEER_X_MODULE_REGISTRY -u PAXEER_X_HUMAN_GENESIS_DIR -u PAXEER_X_HUMAN_LEGACY_DEPLOYMENT python3 -m pytest -q services/platform/hosted/human/test_material.py -k test_agent_timestamp_span_is_milliseconds"
+do_1 = "do_1 Gotcha 3326, decision 2721. In services/platform/hosted/human/material.py line 856 set HUMAN_TIMESTAMP_SPAN to 60000: the daemon reads LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN as the maximum width of an activity timestamp bound in protocol time, which is milliseconds (the kernel batch timestamp is batch_timestamp_ms, include/layerx/lxp_kernel.h line 398, and the daemon protocol_timestamp is milliseconds by decision 2704); the value 60 admitted only a bound sixty milliseconds wide."
+symbols = []
 
 [capability.22.31.580]
 title = "Bring the core server builtin-registry test current with the bundled plugins directory and the source-control plugin"
@@ -178265,6 +178280,7 @@ do_12 = "Attempt 10 (continue, gotcha 3292): the attempt-9 tree stands (the COMM
 do_13 = "Attempt 11 (continue, gotcha 3301, decision 2704): the attempt-10 tree stands (the fixture proof, the committed reads, the expiry helper). Two production repairs. In services/agent/crates/layerx-agentd/src/approval/native_program.rs make StagedNativeRateUse::stage (line 1332) compare the envelope digest of the prepared canonical bytes with the envelope_digest of the binding (add a pub accessor envelope_digest() in capability/binding.rs beside preparation_id() and canonical_digest(), lines 2303 to 2306) instead of canonical_digest() and preparation_id(), which carry the call identifier under decision 2634; the pending record stays keyed by the envelope digest (the invariant at line 1261 and the lookups at lines 523, 687 and 732 are consistent with it). In services/agent/crates/layerx-agentd/src/prepare/mod.rs line 569 store protocol_timestamp as the head timestamp multiplied by 1000 with checked_mul, refusing with the existing snapshot error on overflow; every consumer keeps milliseconds. Remove the diagnostic eprintln added to human_runtime.rs (lines 7388 to 7420 of the attempt tree) or keep it as the sited refusal helper of decision 2688 without the log line. The fixture proof already feeds observed_core_ms as checkpoint seconds times 1000 (tests/repair_22_31_560.rs line 865) and the window matches once the units agree. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 do_14 = "Attempt 12 (requalify, gotcha 3317): the attempt-11 tree at bb159a15db9db7911d63e604c6071688de760b29 stands (the digest and timestamp repairs; the shared preview fixture authorization bounds and purpose expiry in milliseconds as decision 2704 rules); the only verify of attempt 11 ran at an earlier candidate before that correction and no gate has run over the final tree. Run the gates as they stand. If the owner preview still answers a refusal frame (tag byte 1 after the magic) at line 598 of the repair test or the loopback peer bootstrap still refuses at line 918 of the EVM preview test, the next attempt decodes the refusal the frame carries and names its reason in the task record before any change."
 do_15 = "Attempt 13 (requalify, gotcha 3324, decision 2719): the attempt-12 tree stands unchanged (the final native send tree of attempt 11: the preparation identifier aligned across preview, prepare cache, durable preparation and RPC Prepare). The verify now opens with anvil --version so the qualification environment provides the local EVM executable the included native_send_preview_evm.rs starts at line 170; re-run the build, the dependent-crate check and the verify as they stand and record them by reference in the task record."
+do_16 = "Attempt 14 (continue, gotcha 3326, decision 2721): the attempt-13 tree stands (the aligned preparation identifier, the milliseconds producer of decision 2704, the fixture bounds in milliseconds). Two changes. In tests/native_send_preview_evm.rs line 632 pass 30000 as the timestamp span to the production Human operations constructor, the width of the authorization bound the fixture builds at lines 809 and 810; keep every other fixture value. In src/human_runtime.rs give native_send_owner_preview_on_surface (from line 6289) and native_send_preview_authorization (from line 21707) one helper that prints layerx-agentd: native send preview refused at <site> and returns HumanOperationError::Refused, naming each site as the Prepare helper at line 7023 does (span, bound outside the core time, payload size, nonce, activity, payload hash, owner authority, fee policy, purpose, disclosure binding, session scope, capability, effects, ceilings and the rest); the RPC rejection stays owner.refused and the prints stay. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in tests/repair_22_31_560.kvx. If a case still refuses, the printed site names the next repair; record the site in the task record and stop at the budget."
 
 [task.22.31.559]
 title = "Recover tenant budgets from current transaction receipt evidence after a restart"
@@ -326730,6 +326746,36 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.31.581]
+title = "Write the hosted Human timestamp span in milliseconds and document the unit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22015.1"]
+capabilities = ["22.31.581"]
+interfaces = []
+do_1 = "do_1 Gotcha 3326, decision 2721. In services/platform/hosted/human/material.py line 856 set HUMAN_TIMESTAMP_SPAN to 60000: the daemon reads LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN as the maximum width of an activity timestamp bound in protocol time, which is milliseconds (the kernel batch timestamp is batch_timestamp_ms, include/layerx/lxp_kernel.h line 398, and the daemon protocol_timestamp is milliseconds by decision 2704); the value 60 admitted only a bound sixty milliseconds wide."
+do_2 = "do_2 In contracts/agent-config.md (the Owner setup paragraph near line 105) and docs/site/docs/agents/running.md (the Human transport bounds row near line 502) state that LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN is milliseconds of protocol time, the maximum width of an activity timestamp bound, and that the hosted material writes 60000."
+do_3 = "do_3 In services/platform/hosted/human/test_material.py add test_agent_timestamp_span_is_milliseconds to MaterialTests: generate the material the way test_generated_bootstrap_and_protected_inputs does (the material.py entry with the temporary root, network 402 and chain 31337) and assert the projected agent-config/LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN file reads 60000 and that every projected agent value whose name ends in _MS or _SPAN is at least 1000; run the verify and record the command and its exit code in the task record."
+symbols = []
+touches = ["services/platform/hosted/human/material.py", "services/platform/hosted/human/test_material.py", "contracts/agent-config.md", "docs/site/docs/agents/running.md"]
+tests = ["services/platform/hosted/human/test_material.py"]
+planned_paths = ["services/platform/hosted/human/material.py", "services/platform/hosted/human/test_material.py", "contracts/agent-config.md", "docs/site/docs/agents/running.md"]
+build_cmd = "python3 -m py_compile services/platform/hosted/human/material.py services/platform/hosted/human/test_material.py"
+verify_cmd = "env -u PAXEER_X_HUMAN_EVIDENCE_DIR -u PAXEER_X_HUMAN_DEPLOYMENT -u PAXEER_X_MODULE_REGISTRY -u PAXEER_X_HUMAN_GENESIS_DIR -u PAXEER_X_HUMAN_LEGACY_DEPLOYMENT python3 -m pytest -q services/platform/hosted/human/test_material.py -k test_agent_timestamp_span_is_milliseconds"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.36.6]
 title = "Index the consolidated documentation in docs/README.md"
