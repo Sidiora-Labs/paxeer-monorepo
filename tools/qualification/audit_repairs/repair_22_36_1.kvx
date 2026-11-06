@@ -1,0 +1,51 @@
+[task]
+id = "22.36.1"
+mode = "BUILD"
+acceptance = "22998.1"
+gotcha = "3232"
+decision = "2663"
+base_revision = "2e0a668a793a7b5c0469b44950808547467f017e"
+implementation = "Move the vendored Hyperfide project to tools/hyperfide with git mv, remove its eight specified root documents, and move all 104 documentation files to docs/hyperfide. Rewrite Markdown links to documentation, existing native and kvx sources, repository tooling and root contribution policies; add documentation links to the retained agent pointer and tools index. Preserve code, spec records, GOTCHA.kvx, licenses and dot-directories."
+proof = "The declared pytest gate checks the exact documentation inventory, every relative Markdown and HTML link in the moved Markdown files and retained README/AGENTS, the tools index row, absence of removed paths, byte-for-byte preservation and executable modes of the other vendored files, and absence of the old directory prefix in the tracked candidate."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_1.py"
+done_cmd = "cg spec done 22.36.1 -f layerx-merge --root /work/paxeer-monorepo"
+gate_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The final passing kind=verify row in the private gate ledger names the verified revision, command, exit and log. Its revision must equal the final passing kind=build revision. The final hf-done JSON repeats those four fields."
+build_log_source = "log in the final kind=build row of /out/run/gates.jsonl"
+verify_log_source = "log in the final kind=verify row of /out/run/gates.jsonl"
+evidence_binding = "Finalize this record before running hf-build and hf-done; record their results by reference so no post-gate edit changes the qualified candidate (gotcha 3142). The runner commits. No credential, environment variable or live endpoint is needed by the tests (gotcha 2962)."
+
+[gotcha.source_links]
+observed = "The documentation predates the vendored layout: native sources, kvx and repository scripts have moved; two historical TEST-REFERENCE entries name checkpoint_source.py and 14_writer_observation_transport.py, neither present in the supplied base."
+resolution = "Rewrite links to actual current paths and label the two historical entries as unavailable without creating replacement sources or deleting their historical declaration tables."
+
+[gotcha.bookkeeping]
+observed = "The runner supplied pre-existing working-tree edits in .cgignore and the root feature spec; the temporary .cgignore mentions the former parent directory and is outside task scope."
+resolution = "Leave runner bookkeeping intact and check tracked candidate blobs through git grep --cached; hf-done installs the publishable candidate in HEAD and the index before invoking the declared pytest command."
+
+[gotcha.inspection]
+observed = "The Codify graph does not index the vendored tree deeply and broad reads exceeded tool output limits."
+resolution = "Use bounded source reads and the tracked Git inventory for implementation; record findings here because root GOTCHA.kvx and spec files are outside the authorized scope."
+
+[repair_cycle.1]
+revision = "17865303006a656e4c6b8bba409080ff7fe3351a"
+command = "cg spec done 22.36.1 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six translated README checks failed on the outer destinations of nested Markdown badges linking LICENSE and the CI workflow; 86 checks passed."
+repair = "Rewrite the twelve badge destinations to the existing vendored LICENSE and CI workflow under tools/hyperfide; preserve every test and assertion. The final ledger rows supply the rebuilt and verified revision by reference."
+
+[gotcha.runner_lockfiles]
+observed = "The runner's candidate 17865303006a656e4c6b8bba409080ff7fe3351a omits relocated pnpm-lock.yaml and package-lock.json files even though git mv preserved them on disk; its directory collector retains lockfiles only when present under the destination prefix in the base tree."
+resolution = "Keep the physical lockfiles intact and report the runner publication limitation; the collector is outside the authorized edit scope. No repository source or lockfile is removed to accommodate the runner."
+
+[repair_cycle.2]
+revision = "d41ad934a29562bedb072f210d351b6e865c0d6b"
+command = "cg spec done 22.36.1 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The supplied continuation tree left 255 recordings with non-ASCII arrow filenames at the original location; the layout and preservation checks failed while 90 cases passed."
+repair = "Move those existing recordings unchanged with git mv, remove the empty original parent and retain all test assertions. The final passing build and verify ledger rows identify the repaired revision by reference."
