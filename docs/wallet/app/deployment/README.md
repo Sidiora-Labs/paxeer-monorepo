@@ -15,7 +15,7 @@ The build stage accepts the public network variables as build arguments: `NEXT_P
 
 The runtime stage runs `deployment/start-wallet.sh` under `tini`: it starts the standalone Next.js server on loopback and nginx with `deployment/nginx.conf` in front of it, and exits when either process stops. The image health check calls `/wallet/api/health?mode=liveness` on the Next.js server.
 
-Run-time server variables (`BLOCKSCOUT_UPSTREAM_BASE`, S3, VAPID, push, chat, Sentry and `TRUSTED_PROXY_SECRET`) are set on the container; the full list is in the [app README](../../README.md#configuration).
+Run-time server variables (`BLOCKSCOUT_UPSTREAM_BASE`, S3, VAPID, push, chat, Sentry and `TRUSTED_PROXY_SECRET`) are set on the container; the full list is in the [app README](../../../../apps/wallet/README.md#configuration).
 
 ## Other descriptors
 
