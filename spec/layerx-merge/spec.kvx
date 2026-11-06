@@ -9165,6 +9165,12 @@ value = "Every activity runs under the smaller of the executor budget and the pr
 basis = "The attempt-9 ruling asked for a 4000000 measuring budget and the attempt was spent on a call the runtime refuses by design."
 affects = ["22.31.478"]
 
+[decision.2676]
+title = "A committed wait acquires its own sequence-batch coverage from the served node"
+value = "Since 22.31.567 the SDK client pins Comet trust through with_node_commit_authority alone and reads the sequence-batch coverage of every committed wait from px_getSequenceBatch (height as a decimal string; the answer carries height, tx as the 241-byte batch envelope and proof with total, index, leafHash and aunts) together with the transactions list of the served block, which lists the activity ids of the batch in sequence order. Every qualification peer outside the SDK crate serves that method and that list from the batch it committed and never calls the debug coverage override; the SDK crate tests alone may use it."
+basis = "The funded workflow proves the producer, the transport and the consumer; a coverage handed to the client by the test would skip the transport the node serves."
+affects = ["22.33.1569"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -178152,7 +178158,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/qualific
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563", "22.31.568"]
+requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563", "22.31.568", "22.31.567"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1569"]
 interfaces = []
@@ -178191,6 +178197,7 @@ do_15 = "Attempt 9 (continue, gotcha 3211, decision 2645): the attempt-8 tree st
 do_16 = "Attempt 10 (continue, gotcha 3216, decision 2648, which supersedes decision 2645 on the module, operation and amount words): the attempt-9 tree stands (the verified batched Send; the asset, from, to and context-hash binding of decision 2645). In tests/support/funded_peer.rs lines 606 to 645 remove the module 1 mapping: every receipt the peer serves carries module 12, operation equal to the EVM transaction type of the raw envelope (2 for the 0x02 envelope the SDK sends) and amount equal to the transaction value, as node/sequencer/receipt.go lines 215, 319, 420 and 421 bind them. Carry the ledger precompile events in the receipt: PayerGrantIssued(grantId) for the grant issue and PaymentDrawn(grantId, from, to, assetId, amount, idempotencyKey, contextHash) for the draw, at address 0x101A with the topics and data the ABI in precompiles/layerxledger/abi.json declares, each with a matching log effect so verify_logs accepts the count. In tests/support/funded_scenario.rs replace the assertions at lines 677 to 678, 821 and 927 to 928 (operation 6 or 7, amount 2) with assertions on the node words and prove the grant issue and the draw by decoding the events from the verified logs the SDK returns. Keep the self-check through verify_node_receipt. Run the build and the verify at the final revision and record them by reference in the task record."
 do_17 = "Attempt 11 (continue, gotcha 3220, decision 2650, after 22.31.563 lands): the attempt-10 tree stands (node receipt words, the verified batched Send, the grant issue and draw proven from the verified logs). In tests/support/funded_scenario.rs replace the bare wait_for calls that produce the prior draw and the batched receipts (lines 614 and 722) with Wallet::wait_for_submitted on the executed receipt, so cumulative_evidence at line 867 receives a receipt with canonical activity and batch evidence; assert the canonical activity equals that of the executed receipt and keep the existing word assertions. Run the build and the verify at the final revision and record them by reference in the task record."
 do_18 = "Attempt 12 (requalify after 22.31.568, gotcha 3244, decision 2666): the attempt-11 tree stands (node words on every receipt, the precompile events, the pinned epoch 1 header, the SDK Send verification). The daemon refused the cumulative-use evidence because its signed-inclusion path verified the module-12 receipt under the historical kernel key variant; 22.31.568 repairs it. Re-run the gates as they stand once 22.31.568 is on main; if authenticate_cumulative_use then refuses for another reason, the next ruling reads it."
+do_19 = "Attempt 13 (continue, gotcha 3259, decision 2676): the attempt-11 tree stands (node words on every receipt, the precompile events, the pinned epoch 1 header, the SDK Send verification). Follow the SDK interface 22.31.567 landed: at tests/support/funded_peer.rs line 528 and tests/pay2e_test.rs line 69 call with_node_commit_authority with the authority alone; in the funded peer serve px_getSequenceBatch for the committed height with height as a decimal string, tx as the 0x-prefixed 241-byte batch envelope the peer committed and proof with total, index, leafHash and aunts as the peer already computed them for the coverage it used to hand over, and let the block the peer serves through eth_getBlockByNumber for that height list the activity ids of the batch in sequence order in its transactions field; the coverage override stays unused. Then re-run the gates; if authenticate_cumulative_use refuses for another reason, the next ruling reads it. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
