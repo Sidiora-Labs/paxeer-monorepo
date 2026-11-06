@@ -1,6 +1,7 @@
-use super::super::{hex, Value};
 use crate::committed::{base64, verify_membership, CommittedHeader};
+use crate::hex;
 use serde_json::json;
+use serde_json::Value;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::net::TcpStream;

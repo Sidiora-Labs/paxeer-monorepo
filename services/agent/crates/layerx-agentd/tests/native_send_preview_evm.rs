@@ -873,6 +873,11 @@ impl Drop for Fixture {
     }
 }
 
+fn field(bytes: &mut Vec<u8>, value: &[u8]) {
+    bytes.extend_from_slice(&must(u32::try_from(value.len())).to_be_bytes());
+    bytes.extend_from_slice(value);
+}
+
 fn read_bytes<'a>(input: &mut &'a [u8]) -> &'a [u8] {
     let (length, rest) = input.split_at(4);
     let length = u32::from_be_bytes(must(length.try_into())) as usize;
@@ -907,7 +912,7 @@ fn native_send_preview_is_an_unsigned_ledger_transfer_call() {
     let canonical_bytes = read_bytes(&mut input);
     let signing_preimage = read_bytes(&mut input);
     let purpose = must(
-        layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(read_bytes(
+        layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(read_bytes(
             &mut input,
         )),
     );
@@ -915,6 +920,13 @@ fn native_send_preview_is_an_unsigned_ledger_transfer_call() {
         canonical_bytes,
     ));
     assert_eq!(call.chain_id, 125);
+    assert_eq!(purpose.chain_id, 125);
+    assert_eq!(purpose.transaction_type, 2);
+    assert_eq!(purpose.evm_sender, fixture.account.evm_address());
+    assert_eq!(
+        purpose.consent_public_key,
+        fixture.account.layerx_public_key()
+    );
     assert_ne!(
         call.nonce, 7,
         "EVM nonce is independent of the ledger source sequence"
@@ -1023,5 +1035,7 @@ fn native_send_preview_is_an_unsigned_ledger_transfer_call() {
     assert_eq!(input.len(), 8 + 8 + 32 + 8);
     assert_eq!(&input[16..48], &fixture.account.layerx_public_key());
     let response = fixture.post_preview(5, [12; 32]);
-    assert_eq!(response, b"LXHAGT01\x01");
+    let mut expected_refusal = b"LXHAGT01\x01".to_vec();
+    field(&mut expected_refusal, b"operation.refused");
+    assert_eq!(response, expected_refusal);
 }

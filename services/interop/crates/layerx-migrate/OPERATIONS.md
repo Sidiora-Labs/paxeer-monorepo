@@ -109,7 +109,7 @@ exact source evidence. This observation is not a portable proof of block commit;
 even a producer state of `done` is reported as `producer-observed` with
 `provenance: external-custody`, `layerx_receipt: false` and
 `layerx_credit_verified: false`. External custody does not establish network
-credit; see [receipt verification](../../PORTABILITY.md).
+credit; see [receipt verification](../../../../docs/interop/PORTABILITY.md).
 
 ## External history
 

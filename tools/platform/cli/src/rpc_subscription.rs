@@ -44,10 +44,14 @@ pub(crate) fn next(
 }
 
 fn connect(url: &str, credential: &str, deadline: Instant) -> Result<Socket, String> {
+    // The configured RPC URL is the upgrade URL too; never invent /rpc/ws.
+    // Reuse the HTTP boundary's TLS and loopback policy before opening a socket.
+    let (origin, _) = crate::rpc::endpoint_parts(url)?;
+    crate::http::Client::new(&origin, None)?;
     let ws = if let Some(base) = url.strip_prefix("https://") {
-        format!("wss://{base}/ws")
+        format!("wss://{base}")
     } else if let Some(base) = url.strip_prefix("http://") {
-        format!("ws://{base}/ws")
+        format!("ws://{base}")
     } else {
         return Err("invalid subscription endpoint".into());
     };

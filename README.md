@@ -72,7 +72,7 @@ flowchart LR
     State -->|Transaction receipts, logs and proofs| Client
 ```
 
-The public API reaches the node directly: there is no router and no separate LayerX interface. The hosted gateway is optional developer tooling with its own declared contract; it is outside consensus and does not provide another execution or finality domain. Full and archive nodes serve committed history. A configured standby follows the integrated node's durable WAL for recovery; restart and recovery belong to the node lifecycle, without an external settlement service. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
+The public API reaches the node directly at the root path on EVM chain ID 125: there is no router and no separate LayerX interface. The hosted gateway is optional developer tooling with its own declared contract; it is outside consensus and does not provide another execution or finality domain. The archive node `api2.mainnet-beta.paxeer.network` keeps full history; the other thirteen numbered public nodes prune. On a pruned node, `pax_sequencerReceipt` and state queries for heights outside that node's retention return JSON-RPC error `-32000`; this is expected retention behavior, not a defect. Send historical receipt and state queries to `https://api2.mainnet-beta.paxeer.network` at the root path. A configured standby follows the integrated node's durable WAL for recovery; restart and recovery belong to the node lifecycle, without an external settlement service. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
 
 ## Documentation
 
@@ -81,6 +81,7 @@ The public API reaches the node directly: there is no router and no separate Lay
 - For wallets, funding and payments, follow the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md).
 - For hosted tooling and disposable integration environments, see the [hosted quickstart](docs/wiki/Quickstart.md). Build the merged node using the [commands below](#build).
 - For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/docs/concepts/checkpoints.md) and [hosted gateway methods](docs/site/docs/platform/gateway-rpc.md). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
+- Component guides include the [launchpad production checklist](docs/launchpad/production-checklist.md), [perps data API](docs/perps/data-api.md), [agent compatibility matrix](docs/agent/COMPATIBILITY.md) and [portable verification guide](docs/interop/PORTABILITY.md).
 
 ### Quick start: connect to chain 125
 

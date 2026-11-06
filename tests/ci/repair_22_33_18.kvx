@@ -1,0 +1,124 @@
+[repair.22.33.18]
+audit = "22.30.100"
+base_revision = "e827041cca0c781ef801b010257edbe54ff64ed0"
+seed_revision = "58ba7cf558d50a0c759b1650386c915ecf582add"
+baseline = "Continue the seeded first attempt without rerunning its failed aggregate gate: the supplied ruling records three task web cases plus unrelated aggregate failures; prior qualification entries below retain the earlier evidence. Direct verify_cmd execution is forbidden."
+evidence = "The private runner hf-build/hf-done ledger records candidate revision, command, exit and log; the final response copies its last result."
+qualification = "The bounded hf-done gate runs python3 -m pytest -q tests/ci/test_repair_22_33_18.py followed by the five SDK test files explicitly; the collector invokes no subprocess toolchain or native artifact."
+
+[finding.market-producer-fixture]
+test = "test_ai_market_commit.py::test_market_node_receipt_summary_events_and_return_binding"
+repair = "Consume the unchanged node program-call receipt through PaymentRpc and programs._submission; assert summary/event count, return-data digest, signed view/log refusals and unrelated-market-journal refusal. Preserve independent receipt codec coverage in market_receipt_producer.c and the in-process journal codec peer."
+limitation = "The available node recording executes a generic program, not a PAXAI envelope; it is not represented as a successful market journal execution."
+wiring = "rpc/sequencer_receipt_vectors_test.go and sdk/platform/conformance/fixtures/sequencer-receipt-v1.json — domain 9 node/programs owner: publish a successful PAXAI market-call transaction plus its node receipt, summary, events and return data for positive journal integration."
+
+[finding.market-finality-test-gap]
+test = "test_ai_market_commit.py::test_market_forged_commit_is_refused_after_restart"
+repair = "Existing journal, revert, landing and reopen cases use pinned CommitTrust and real signed multi-transaction Comet inclusion evidence; forged transaction/aunt/index/header/signature/quorum/chain evidence is refused without journal mutation. Landing-only evidence stays receipted until the pinned verifier succeeds."
+peer = "The prerequisite's committed in-process validator peer emits canonical signed commits for the retained transaction; its codec is checked against consensus/types/testdata/light_commit_v1.json."
+
+[finding.retirement-test-preserves-batches]
+test = "test_retired_kernel_receipts.py::test_kernel_receipt_paths_are_gone"
+positive_test = "test_retired_kernel_receipts.py::test_retained_receipt_and_commit_verification_are_public"
+repair = "Prohibit AuthorizedReceiptBatch, PaymentCommitmentEvidence, _SequencerAuthorization and rpc_batch_evidence across public exports and Python declarations/stubs; retain ReceiptKey, raw signed transaction, program execution/recovery and current commit-verifier proofs."
+
+[finding.web-payment-test-fixture]
+test = "test_web_search_sequencer.py::test_web_search_public_exact_exchange_replays_server_offer_and_pending"
+metered_test = "test_web_search_sequencer.py::test_web_search_public_metered_offer_binds_payer_and_refuses_retired_payment"
+repair = "Replace the native-transfer payment fixture with node payExact evidence; replay committed sidecar challenges, ledger accountId RPC responses, payer-address headers, exact payment/signature/settlement and bounded pending retry through public fetch; preserve unknown-key and altered-operation refusals. Replay metered search through real grant preparation and raw-transaction lookup with both registered and address-derived DIDs, refusing retired grants after reopen."
+wiring = "services/interop/crates/x-websearch/src/payment.rs and services/agent/sdk/python/layerx_sdk/web_search.py — domain 9 web/ledger owner: reconcile the historical metered sidecar offer with the owning ledger removal of payer grants; no successful grant receipt or settlement is invented here."
+
+[finding.draw-test-transport-shape]
+test = "test_x402_draw_sequencer.py::test_grant_draws_verify_through_receipt_keys"
+recovery_test = "test_x402_draw_sequencer.py::test_grant_draw_recovery_uses_payment_rpc_without_resubmission"
+repair = "Replace the obsolete two-argument receipt-returning transport with real PaymentRpc over a loopback transcript server; call register before and after reopen and assert typed LXP_NO_PAYER_GRANT with no rows or network sends. Separately reopen committed legacy storage, preserving raw transaction/hash bytes and unknown/submitted states; receipt-shaped evidence cannot revive a retired grant. Keep positive payExact receipt and key-tampering verification."
+wiring = "services/agent/sdk/python/layerx_sdk/x402_draw.py and modules/layerxledger — domain 9 ledger/payments owner: the proposed successful register/draw recovery path conflicts with the owning removal task, whose register unconditionally refuses payer grants; supply a supported replacement contract before adding positive draw execution."
+
+[finding.http-test-transport-shape]
+test = "test_x402_http_sequencer.py::test_buyer_verifies_sequencer_receipts_through_receipt_keys"
+commitment_test = "test_x402_http_sequencer.py::test_http_committed_offer_waits_for_verified_inclusion_after_restart"
+repair = "Use real prefixed send/hash and separate receipt lookup through PaymentRpc; call grant registration and prove typed refusal/no release. Persist and reopen buyer submissions across unknown/submitted/receipted outcomes without retransmission; committed offers refuse receipt-only evidence and release exactly once after independently pinned block inclusion, including fulfillment-store reopen."
+
+[wiring.c_harness]
+request = "Makefile test-tests-python — domain 16 build/test owner: the declared target begins with Python, and its existing CI suite also invokes native tooling; this task forbids adding Makefile edits or native artifact/toolchain requirements to its repair tests; wire tests/protocol/lxp_test_repair_22_33_18.c with tests/lxp_test_harness.c, market_receipt_producer.c compiled with MARKET_RECEIPT_CODEC_LIBRARY, and liblayerx in the separately owned native gate."
+limitation = "The C harness cases preserve codec coverage and verify verbatim node summary/event/return-data and ledger-event receipt bytes through the kernel codec/signature verifier; this Python-only gate does not claim their compilation or execution, nor C execution of Python HTTP/journal components."
+
+[wiring.task_record]
+request = "spec/layerx-merge/spec.kvx — owning spec domain: link this finding-to-test record and its wiring requests from task 22.33.18; the task explicitly forbids spec edits."
+
+
+[qualification.first_attempt]
+revision = "2e7b3b33a55559d2ea2ecd9c5a653f3c64a60179"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared verify target exited 2 before collection because the runner's selected Python interpreter had no pytest module."
+assumption = "Install the gate's required pytest dependency in the selected interpreter; no production code repair or gate weakening is needed."
+
+[qualification.web_digest_interface]
+revision = "69996c4dd98f10d663c385382596d39d075b8ac0"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "The public exact request and both metered settlement cases expose an unsigned-receipt-digest versus signed-receipt-leaf mismatch; all original positive and typed-refusal assertions remain intact."
+assumption = "The recorded server digest agrees with the real core verifier and gateway canonical_receipt_digest; repairing the production web client is outside this task's scope."
+
+[wiring.web_digest_interface]
+request = "services/agent/sdk/python/layerx_sdk/web_search.py::_receipt_digest and services/interop/crates/layerx-interop-gateway/src/evidence.rs::canonical_receipt_digest — domain 9 SDK/web owner: align the wire receiptDigest contract; the producer authenticates SHA256(receipt-domain || unsigned receipt), while the Python web client emits/expects SHA256(merkle-leaf-domain || signed receipt)."
+proof = "test_web_search_sequencer.py::test_web_search_recorded_producer_digest_is_the_authenticated_unsigned_receipt verifies both committed exact/metered receipts with production verify_sequencer_receipt, checks the server digest and transaction identity, and independently distinguishes the signed-envelope hash."
+status = "Historical qualification finding; 22.31.510 is present in this continuation and the public exact exchange asserts the unchanged recorded canonical digest. The metered case now requires receipt-unverified caused by LXP_NO_PAYER_GRANT before settlement digest comparison."
+
+[finding.web-payment-test-fixture.refusal-order]
+symbol = "services/agent/sdk/python/layerx_sdk/web_search.py::WebSearchClient._settle"
+test = "test_web_search_sequencer.py::test_web_search_public_metered_offer_binds_payer_and_refuses_retired_payment"
+observed = "The production settlement consumer compares _receipt_digest before calling verify_sequencer_receipt or reading the raw transaction, so an unchanged real server settlement returns settlement-receipt-mismatch before the retired grant can return receipt-unverified."
+proof = "Both payer-DID variants replay the committed server challenge/settlement over loopback HTTP across client reopen; the repaired consumer fetches the transaction through root-path PaymentRpc and returns receipt-unverified caused by LXP_NO_PAYER_GRANT. An independent raw-transaction lookup and verifier require the identical refusal; the finding id remains attached to the refusal-order assertions."
+wiring = "services/agent/sdk/python/layerx_sdk/web_search.py::WebSearchClient._settle — domain 9 SDK/web owner: verify the receipt before settlement comparison and align _receipt_digest with services/interop/crates/x-websearch/src/payment.rs::Plane::verify_receipt; the latter verifies the sequencer signature before binding receipt metadata, logs and payment terms."
+endpoint = "Both task web integrations construct PaymentRpc with the loopback node root, with no /rpc suffix; the imported peer's unrelated metered tests are outside the narrowed gate."
+
+[qualification.unrelated_bootstrap]
+revision = "69996c4dd98f10d663c385382596d39d075b8ac0"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "tests/test_beta_withdrawal_genesis.py has two subcase failures because native_runtime.py rejects retired bootstrap arguments."
+assumption = "This existing bootstrap interface failure is unrelated to the six SDK test gaps and is recorded without changing it."
+
+[qualification.unrelated_codec_corpus]
+revision = "69996c4dd98f10d663c385382596d39d075b8ac0"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "test_agent_codec_corpus and its repair_22_33_727 wrapper use a refused /rpc endpoint; the separate corpus-preparation test reports unexpected undeclared replay activities: []."
+assumption = "These existing codec qualification failures are unrelated to this task and their assertions remain unchanged."
+
+[qualification.unrelated_deployment]
+revision = "69996c4dd98f10d663c385382596d39d075b8ac0"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "test_deploy_scripts_use_cw20_base cannot find its required wasm paths in tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh."
+assumption = "The benchmark deployment source is outside scope and this existing test is not weakened."
+
+[qualification.unrelated_kernel]
+revision = "69996c4dd98f10d663c385382596d39d075b8ac0"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "test_no_handover_genesis_case invokes the existing native suite, which fails audit_genesis_historical_import_hashes with LXP_ERR_ROOT_MISMATCH; test_no_bridge_credit_apply_caller flags existing negative-test references."
+assumption = "These existing kernel/checker conflicts are unrelated; the declared Python target itself invokes native toolchains, but this repair's collector adds none."
+
+[continuation.after_22_31_510]
+implementation = "Resolve all eight web and four HTTP conflict hunks by preserving current coverage and integrating the seeded public exchange and committed-offer cases; preserve the emitted receive registration proof alongside the current retired-grant middleware assertions."
+imports = "The market test module adds the committed central Python test peers to its import path so the five-file SDK invocation resolves the same in-process producers as the root collector; importing peers neither collects their tests nor invokes a native toolchain."
+refusal_order = "services/agent/sdk/python/layerx_sdk/web_search.py::WebSearchClient._settle now verifies receipt/payment binding before comparing receiptDigest; assert the exact retired-grant error, non-retryable cause, transaction lookup and independently authenticated canonical digest."
+additional_proof = "test_x402_http_sequencer.py::test_http_emitted_receive_registration_cannot_release_retired_grant drives PreparedGrantDraws.register with the committed receive producer and proves no release, journal row, fulfillment row or RPC submission."
+gates = "Run hf-build followed by hf-done on the unchanged final candidate; exact candidate revision, commands, exits and private evidence paths are retained in /out/run/gates.jsonl and copied from the final gate output, without editing the qualified candidate afterward."
+
+[qualification.continuation_first_verify]
+revision = "8f06ac1cf10176fe7ee23f2b16b9723803b7c5af"
+command = "cg spec done 22.33.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "79 cases passed; two seeded cases assumed the first log was PaymentExact and the current recorded RPC view was receipted, although the retained recording has multiple events and is already committed."
+repair = "Select the unique PaymentExact event by its signature and assert its unchanged ledger terms; advance the loopback peer explicitly through receipted before committed while preserving the recorded signed receipt, all pending/refusal assertions and the verified inclusion requirement."

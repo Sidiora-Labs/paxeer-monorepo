@@ -11,7 +11,10 @@ pub use evm::{
 mod sessions;
 pub mod signer;
 
-pub use gateway::{GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, GATEWAY_FRAME_LIMIT};
+pub use gateway::{
+    GatewayChainSnapshot, GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway,
+    GATEWAY_FRAME_LIMIT,
+};
 pub use provider::{
     KmsProvider, NativeConsent, PrincipalKeyBinding, ProviderDeployment, ProviderKeyDescription,
     ProviderKeyReference, ProviderNativeSignRequest, ProviderSignRequest, RemoteCustodySigner,

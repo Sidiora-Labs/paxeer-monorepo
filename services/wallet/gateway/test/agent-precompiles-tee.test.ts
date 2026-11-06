@@ -66,17 +66,17 @@ function registeredNodeAbi(): Abi {
   const source = repositoryFile('precompiles/layerxagent/teeattestor/teeattestor.go');
   expect(source).toContain(`TeeAttestorAddress            = "${teeAddress}"`);
   expect(source).toMatch(
-    /RegisterMergeConstructor\(ethcommon\.HexToAddress\(TeeAttestorAddress\), NewMergePrecompile\)/,
+    /RegisterMergeConstructor\(ethcommon\.HexToAddress\(TeeAttestorAddress\), NewMergePrecompile\)/
   );
   expect(source).toContain(
-    'NewPrecompile(wired.XWebK(), evmKeeper, evmKeeper.UpgradeKeeper(), planName)',
+    'NewPrecompile(wired.XWebK(), evmKeeper, evmKeeper.UpgradeKeeper(), planName)'
   );
   expect(source).toContain('abi.JSON(strings.NewReader(abiJSON))');
   expect(repositoryFile('precompiles/setup.go')).toContain(
-    `{ecommon.HexToAddress("${teeAddress}"), "tee attestor"}`,
+    `{ecommon.HexToAddress("${teeAddress}"), "tee attestor"}`
   );
   expect(repositoryFile('node/precompiles.go')).toMatch(
-    /_ "[^"\n]+\/precompiles\/layerxagent\/teeattestor"/,
+    /_ "[^"\n]+\/precompiles\/layerxagent\/teeattestor"/
   );
   const embeddedAbi = source.match(/const abiJSON = `([\s\S]*?)`/);
   expect(embeddedAbi).not.toBeNull();
@@ -138,6 +138,14 @@ beforeAll(async () => {
     .agentPrecompileRoutes;
   await app.register(agentPrecompileRoutes);
   await app.ready();
+  const probeStart = requests.length;
+  await precompiles.ensureServed('teeAttestor');
+  const probes = requests.slice(probeStart);
+  expect(probes).toHaveLength(1);
+  expect(probes[0]!.method).toBe('eth_call');
+  expect(probes[0]!.params[0]).toMatchObject({ to: teeAddress, data: '0xffffffff' });
+  await precompiles.ensureServed('teeAttestor');
+  expect(requests.slice(probeStart)).toEqual(probes);
 }, 60_000);
 
 afterAll(async () => {
@@ -147,7 +155,7 @@ afterAll(async () => {
   if (proxy) {
     proxy.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
-      proxy.close((err) => (err ? reject(err) : resolve())),
+      proxy.close((err) => (err ? reject(err) : resolve()))
     );
   }
   process.env.HYPERPAXEER_RPC_URL = originalRpcUrl;
@@ -170,11 +178,11 @@ async function teeRoutesTargetServedAddress() {
   const PRECOMPILE_ADDRESSES = precompiles.PRECOMPILE_ADDRESSES;
   expect(PRECOMPILE_ADDRESSES.teeAttestor).toBe(teeAddress);
   expect(() => precompiles.servedAddress('teeAttestor')).not.toThrow(
-    precompiles.PrecompileNotServedError,
+    precompiles.PrecompileNotServedError
   );
   expect(precompiles.servedAddress('teeAttestor')).toBe(teeAddress);
   expect([...registeredRoutes].sort()).toEqual(
-    [...new Set(cases.map((example) => `POST /v1/agent/precompiles/tee/${example.path}`))].sort(),
+    [...new Set(cases.map((example) => `POST /v1/agent/precompiles/tee/${example.path}`))].sort()
   );
   for (const example of cases) {
     const { response, outgoing } = await driveRoute(example);
@@ -185,7 +193,7 @@ async function teeRoutesTargetServedAddress() {
     expect
       .soft(
         calls.length,
-        `${example.method} must issue eth_call to the serving node; RPC forwarding errors: ${forwardingFailures.join('; ')}`,
+        `${example.method} must issue eth_call to the serving node; RPC forwarding errors: ${forwardingFailures.join('; ')}`
       )
       .toBeGreaterThan(0);
     for (const rpc of outgoing) {
@@ -211,7 +219,7 @@ async function teeRoutesEncodeNodeAbiSelectors() {
   const abi = registeredNodeAbi();
   const methods = abi.filter((item) => item.type === 'function');
   expect(methods.map((method) => method.name).sort()).toEqual(
-    cases.map((example) => example.method).sort(),
+    cases.map((example) => example.method).sort()
   );
   const selectors = new Set(methods.map((method) => toFunctionSelector(method)));
   const observed = new Set<string>();

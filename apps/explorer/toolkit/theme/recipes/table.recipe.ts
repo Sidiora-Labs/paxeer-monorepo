@@ -6,6 +6,8 @@ export const recipe = defineSlotRecipe({
     root: {
       tableLayout: 'fixed',
       fontVariant: 'normal',
+      textStyle: 'small',
+      color: 'text.primary',
       fontVariantLigatures: 'no-contextual',
       borderCollapse: 'collapse',
       width: 'full',
@@ -112,6 +114,39 @@ export const recipe = defineSlotRecipe({
       },
     },
   },
+
+  // Apply the visual system after the compatibility variants and size declarations.
+  compoundVariants: [
+    {
+      variant: [ 'line', 'scan' ],
+      css: {
+        root: { bg: 'canvas', borderTopWidth: '1px', borderColor: 'hairline' },
+        header: { height: '36px' },
+        columnHeader: {
+          textStyle: 'label',
+          height: '36px',
+          py: 0,
+          color: 'text.muted',
+          backgroundColor: 'canvas',
+          borderBottomWidth: '1px',
+          borderColor: 'hairline',
+          _first: { borderTopLeftRadius: 'none' },
+          _last: { borderTopRightRadius: 'none' },
+          '&[data-is-numeric=true], &[data-numeric]': { textAlign: 'right' },
+        },
+        row: { height: '44px', bg: 'canvas', _hover: { bg: 'raised' } },
+        cell: {
+          textStyle: 'small',
+          height: '44px',
+          py: '12px',
+          verticalAlign: 'middle',
+          borderBottomWidth: '1px',
+          borderColor: 'hairline',
+          '&[data-is-numeric=true], &[data-numeric]': { textAlign: 'right', textStyle: 'number' },
+        },
+      },
+    },
+  ],
 
   defaultVariants: {
     variant: 'line',

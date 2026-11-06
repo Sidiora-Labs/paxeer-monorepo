@@ -2,11 +2,14 @@ package layerxprograms
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -33,11 +36,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
 
 type webCallHarness struct {
+	db        dbm.DB
 	ctx       sdk.Context
 	key       *sdk.KVStoreKey
 	webKey    *sdk.KVStoreKey
@@ -87,7 +92,7 @@ func newWebCallHarness(t *testing.T) *webCallHarness {
 	host, err := lxphost.NewHost(lxphost.Config{StoreKey: keys["host"], NetworkID: 7, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 1000000})
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
-	h := &webCallHarness{ctx: ctx, key: keys["host"], webKey: keys["web"], bankKey: keys["bank"], authKey: keys["auth"], host: host, executor: &PrecompileExecutor{host: host, evmKeeper: evm}, web: web, caller: common.HexToAddress("0xa111")}
+	h := &webCallHarness{db: db, ctx: ctx, key: keys["host"], webKey: keys["web"], bankKey: keys["bank"], authKey: keys["auth"], host: host, executor: &PrecompileExecutor{host: host, evmKeeper: evm}, web: web, caller: common.HexToAddress("0xa111")}
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x41}, ed25519.SeedSize))
 	copy(h.publicKey[:], private.Public().(ed25519.PublicKey))
 	message, err := evmtypes.LayerXBindMessage(evm.ChainID(ctx), h.caller, 0)
@@ -284,7 +289,9 @@ func webProgramsCallFixture(t *testing.T, webFee ...uint64) (*webCallHarness, []
 		body = append(transfer, body[1:]...)
 		data = append(data, asset[:]...)
 		data = append(data, destination[:]...)
-		ctx.KVStore(h.webKey).Set(xwebkeeper.ProgramFeeDenomKey(xwebtypes.Hash32(asset)), []byte(xwebtypes.ProgramFeeDenomPAX))
+		genesis := h.web.ExportGenesis(ctx)
+		genesis.ProgramFeeDenoms = append(genesis.ProgramFeeDenoms, xwebtypes.ProgramFeeDenomEntry{Asset: xwebtypes.Hash32(asset), Denom: xwebtypes.ProgramFeeDenomPAX})
+		h.web.InitGenesis(ctx, genesis)
 	}
 	reserveBody := []byte{0, 0x41, 48, 0x0b}
 	if feeAmount != 0 {
@@ -341,8 +348,12 @@ func TestProgramsCallRecordsFirstWebRequestFeeDenomFromAssetMapping(t *testing.T
 	account, err := h.host.ReadAccount(ctx, name, main)
 	require.NoError(t, err)
 	asset := xwebtypes.Hash32(account.AssetID)
+	genesisDenom, found := h.web.ProgramFeeDenom(ctx, asset)
+	require.True(t, found)
+	require.Equal(t, xwebtypes.ProgramFeeDenomPAX, genesisDenom)
+	require.Zero(t, h.web.ProgramPendingCount(ctx))
 	ctx.KVStore(h.webKey).Delete(xwebkeeper.ProgramFeeDenomKey(asset))
-	_, found := h.web.ProgramFeeDenom(ctx, asset)
+	_, found = h.web.ProgramFeeDenom(ctx, asset)
 	require.False(t, found)
 	ctx.KVStore(h.webKey).Set(xwebkeeper.ProgramFeeDenomKey(asset), []byte(xwebtypes.ProgramFeeDenomPAX))
 	bank := h.executor.evmKeeper.BankKeeper()
@@ -526,4 +537,180 @@ func TestProgramsCallDiscardedWhenXWebRefuses(t *testing.T) {
 	_, found, recordErr := h.web.GetProgramPendingRecord(ctx, xwebtypes.Hash32(args[0].([32]byte)), 257)
 	require.NoError(t, recordErr)
 	require.False(t, found)
+}
+
+func reopenNativeWebHarness(t *testing.T, h *webCallHarness) {
+	t.Helper()
+	before := map[sdk.StoreKey]map[string][]byte{}
+	for _, key := range []sdk.StoreKey{h.key, h.webKey, h.bankKey, h.authKey} {
+		before[key] = webStoreDump(h.ctx, key)
+	}
+	keys := h.ctx.MultiStore().StoreKeys()
+	h.host.Close()
+	h.ctx.MultiStore().(sdk.CommitMultiStore).Commit(true)
+	cms := store.NewCommitMultiStore(h.db)
+	for _, key := range keys {
+		switch key := key.(type) {
+		case *sdk.KVStoreKey:
+			cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, h.db)
+		case *sdk.TransientStoreKey:
+			cms.MountStoreWithDB(key, sdk.StoreTypeTransient, nil)
+		}
+	}
+	require.NoError(t, cms.LoadLatestVersion())
+	h.ctx = h.ctx.WithMultiStore(cms).WithEventManager(sdk.NewEventManager())
+	host, err := lxphost.NewHost(lxphost.Config{StoreKey: h.key, NetworkID: 7, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 1000000})
+	require.NoError(t, err)
+	t.Cleanup(host.Close)
+	h.host, h.executor.host = host, host
+	h.web = xwebkeeper.NewKeeper(h.webKey, h.executor.evmKeeper.BankKeeper(), h.executor.evmKeeper)
+	configureXWeb(h.executor, &h.web)
+	statedb := state.NewDBImpl(h.ctx, h.executor.evmKeeper, false)
+	t.Cleanup(statedb.Cleanup)
+	h.evm = &vm.EVM{StateDB: statedb}
+	for key, snapshot := range before {
+		require.Equal(t, snapshot, webStoreDump(h.ctx, key), key.Name())
+	}
+}
+
+func TestProgramsNativeWebGenesisAndRestart(t *testing.T) {
+	for _, restart := range []bool{false, true} {
+		t.Run(fmt.Sprintf("restart_%t", restart), func(t *testing.T) {
+			h, args, _ := webProgramsCallFixture(t, 75)
+			_, main, err := lxphost.MainAccountID(h.publicKey)
+			require.NoError(t, err)
+			bank := h.executor.evmKeeper.BankKeeper()
+			require.NoError(t, bank.AddCoins(h.ctx, lxphost.BankAddress(main), sdk.NewCoins(sdk.NewInt64Coin(xwebtypes.ProgramFeeDenomPAX, 100)), true))
+			if restart {
+				reopenNativeWebHarness(t, h)
+			}
+			method := programsABI.Methods["call"]
+			output, err := h.executor.Execute(h.ctx, &method, h.caller, Address, args, big.NewInt(0), false, h.evm, nil)
+			require.NoError(t, err)
+			values, err := method.Outputs.Unpack(output)
+			require.NoError(t, err)
+			require.Equal(t, int32(0), values[0])
+			require.Equal(t, uint8(1), values[1])
+			program := xwebtypes.Hash32(args[0].([32]byte))
+			record, found, err := h.web.GetProgramPendingRecord(h.ctx, program, 257)
+			require.NoError(t, err)
+			require.True(t, found)
+			denom, err := nativeProgramAssetDenom(h.ctx, h.executor, &h.web, record.FeeAsset)
+			require.NoError(t, err)
+			require.Equal(t, xwebtypes.ProgramFeeDenomPAX, denom)
+			require.Equal(t, sdk.NewInt(25), bank.GetBalance(h.ctx, lxphost.BankAddress(main), denom).Amount)
+			require.Equal(t, sdk.NewInt(75), bank.GetBalance(h.ctx, xwebkeeper.ProgramFeeAccount(record.FeeAsset), denom).Amount)
+			reopenNativeWebHarness(t, h)
+			recovered, found, err := h.web.GetProgramPendingRecord(h.ctx, program, 257)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, record, recovered)
+			recoveredDenom, err := nativeProgramAssetDenom(h.ctx, h.executor, &h.web, record.FeeAsset)
+			require.NoError(t, err)
+			require.Equal(t, denom, recoveredDenom)
+			require.Equal(t, sdk.NewInt(75), bank.GetBalance(h.ctx, xwebkeeper.ProgramFeeAccount(record.FeeAsset), recoveredDenom).Amount)
+			_, err = nativeProgramAssetDenom(h.ctx, h.executor, &h.web, [32]byte{0xff})
+			require.ErrorContains(t, err, "LXP_ASSET_MISMATCH")
+		})
+	}
+}
+
+func TestProgramsNativeWebDisallowedAssetRollback(t *testing.T) {
+	h, args, _ := webProgramsCallFixture(t, 75)
+	params := h.web.GetParams(h.ctx)
+	params.ProgramFeeDenoms = []string{xwebtypes.ProgramFeeDenomSID}
+	require.NoError(t, h.web.SetParams(h.ctx, params))
+	before := map[sdk.StoreKey]map[string][]byte{}
+	for _, key := range []sdk.StoreKey{h.key, h.webKey, h.bankKey, h.authKey, h.executor.evmKeeper.GetStoreKey()} {
+		before[key] = webStoreDump(h.ctx, key)
+	}
+	method := programsABI.Methods["call"]
+	output, err := h.executor.Execute(h.ctx, &method, h.caller, Address, args, big.NewInt(0), false, h.evm, nil)
+	require.Nil(t, output)
+	require.ErrorContains(t, err, "LXP_ASSET_MISMATCH")
+	for key, snapshot := range before {
+		require.Equal(t, snapshot, webStoreDump(h.ctx, key), key.Name())
+	}
+	require.Empty(t, state.GetDBImpl(h.evm.StateDB).GetAllLogs())
+}
+
+func TestProgramsNativeWebAttestedAnswer(t *testing.T) {
+	h, args, _ := webProgramsCallFixture(t, 75)
+	keys := make([]*ecdsa.PrivateKey, 3)
+	for i := range keys {
+		seed := make([]byte, 32)
+		seed[0], seed[31] = 0x3c, byte(i+1)
+		var err error
+		keys[i], err = crypto.ToECDSA(seed)
+		require.NoError(t, err)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		a, b := crypto.PubkeyToAddress(keys[i].PublicKey), crypto.PubkeyToAddress(keys[j].PublicKey)
+		return bytes.Compare(a[:], b[:]) < 0
+	})
+	genesis := h.web.ExportGenesis(h.ctx)
+	genesis.Attestors = xwebtypes.AttestorSet{Threshold: 2}
+	payouts := make([]sdk.AccAddress, len(keys))
+	for i, key := range keys {
+		signer := xwebtypes.Address20(crypto.PubkeyToAddress(key.PublicKey))
+		payouts[i] = sdk.AccAddress(signer[:])
+		genesis.Attestors.Attestors = append(genesis.Attestors.Attestors, xwebtypes.Attestor{
+			Signer: signer, Payout: payouts[i].String(), PublicKey: crypto.CompressPubkey(&key.PublicKey),
+		})
+	}
+	require.NoError(t, genesis.Validate())
+	h.web.InitGenesis(h.ctx, genesis)
+	bank := h.executor.evmKeeper.BankKeeper()
+	_, main, err := lxphost.MainAccountID(h.publicKey)
+	require.NoError(t, err)
+	require.NoError(t, bank.AddCoins(h.ctx, lxphost.BankAddress(main), sdk.NewCoins(sdk.NewInt64Coin(xwebtypes.ProgramFeeDenomPAX, 100)), true))
+	method := programsABI.Methods["call"]
+	output, err := h.executor.Execute(h.ctx, &method, h.caller, Address, args, big.NewInt(0), false, h.evm, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, output)
+	program := xwebtypes.Hash32(args[0].([32]byte))
+	record, found, err := h.web.GetProgramPendingRecord(h.ctx, program, 257)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.False(t, record.Fulfilled)
+	require.Equal(t, sdk.NewInt(75), bank.GetBalance(h.ctx, xwebkeeper.ProgramFeeAccount(record.FeeAsset), xwebtypes.ProgramFeeDenomPAX).Amount)
+	response := []byte("the committed web answer")
+	observation := xwebtypes.Observation{Origin: xwebtypes.OriginProgram, NetworkID: 7,
+		ProgramID: program, RequestID: 257, Kind: record.Kind, PayloadHash: record.PayloadHash,
+		ContentDigest: xwebtypes.Hash32(sha256.Sum256(response)), FullLength: uint32(len(response)), Response: response}
+	digest := xwebtypes.Digest(xwebtypes.Attestation{Origin: observation.Origin, NetworkID: big.NewInt(7),
+		Requester: program, RequestID: 257, Kind: record.Kind, PayloadHash: record.PayloadHash,
+		ContentDigest: observation.ContentDigest, ResponseHash: xwebtypes.Keccak(response), FullLength: observation.FullLength})
+	for _, key := range keys[:2] {
+		signature, err := crypto.Sign(digest[:], key)
+		require.NoError(t, err)
+		signature[64] += 27
+		observation.Signatures = append(observation.Signatures, signature)
+	}
+	// A real observation with only one signer must leave escrow and answers intact.
+	refused := observation
+	refused.Signatures = refused.Signatures[:1]
+	raw, err := xwebtypes.EncodeObservation(refused)
+	require.NoError(t, err)
+	beforeWeb, beforeBank := webStoreDump(h.ctx, h.webKey), webStoreDump(h.ctx, h.bankKey)
+	require.Error(t, h.web.FulfilProgram(h.ctx, raw))
+	require.Equal(t, beforeWeb, webStoreDump(h.ctx, h.webKey))
+	require.Equal(t, beforeBank, webStoreDump(h.ctx, h.bankKey))
+	raw, err = xwebtypes.EncodeObservation(observation)
+	require.NoError(t, err)
+	require.NoError(t, h.web.FulfilProgram(h.ctx, raw))
+	require.Zero(t, h.web.ProgramPendingCount(h.ctx))
+	require.Equal(t, uint64(1), h.web.ProgramCommittedCount(h.ctx))
+	require.True(t, bank.GetBalance(h.ctx, xwebkeeper.ProgramFeeAccount(record.FeeAsset), xwebtypes.ProgramFeeDenomPAX).Amount.IsZero())
+	require.Equal(t, sdk.NewInt(38), bank.GetBalance(h.ctx, payouts[0], xwebtypes.ProgramFeeDenomPAX).Amount)
+	require.Equal(t, sdk.NewInt(37), bank.GetBalance(h.ctx, payouts[1], xwebtypes.ProgramFeeDenomPAX).Amount)
+	reopenNativeWebHarness(t, h)
+	answer, err := h.web.GetProgramResult(h.ctx, program, 257)
+	require.NoError(t, err)
+	require.Equal(t, response, answer.Response)
+	require.Equal(t, observation.ContentDigest, answer.ContentDigest)
+	recovered, found, err := h.web.GetProgramPendingRecord(h.ctx, program, 257)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.True(t, recovered.Fulfilled)
 }

@@ -46,7 +46,7 @@ pub(super) fn bind_program_presentation_budget_proof(
             .is_none_or(|allocated| allocated > sequence)
         || proof.age_sequences() > proof.maximum_age_sequences()
         || proof.maximum_age_sequences() == 0
-        || !(4..=5).contains(&proof.verification().wire_rank())
+        || super::budget_state_is_committed(proof.verification().wire_rank()).is_err()
     {
         return Err(ProgramSourceError::Snapshot);
     }
@@ -214,6 +214,73 @@ impl VerifiedProgramBudgetAllocations {
     pub fn charges(&self) -> &[super::ProgramBudgetCharge] {
         &self.charges
     }
+}
+
+#[cfg(test)]
+pub(super) fn presentation_budget_reservation(
+    proof: &super::VerifiedBudgetProof,
+    sequence: u64,
+) -> super::ProgramBudgetReservation {
+    use super::{
+        BudgetLimiter, CoreTimestampMs, LimitConfig, LimitId, LimitScope, ProgramLimitDenomination,
+        ProgramReservationRequest,
+    };
+
+    let limit_id = LimitId([1; 16]);
+    let actor = Did::new(proof.owner().as_bytes()).expect("proof owner");
+    let charges = VerifiedResolvedProgramCharges {
+        actor: did_id_for_protocol(&actor, 3).expect("actor ID"),
+        state_root: proof.checkpoint_digest(),
+        batch_number: proof.committed_height(),
+        global_sequence: sequence,
+        preparation_digest: proof.digest(),
+        charges: vec![ResolvedProgramCharge {
+            source: ResolvedProgramSource::Principal {
+                account: proof.source_account(),
+            },
+            asset: proof.asset(),
+            destination: Some([9; 32]),
+            maximum_amount: 1,
+        }],
+    };
+    let allocations = charges
+        .budget_allocations(|_| Ok(vec![limit_id]))
+        .expect("budget allocations");
+    let limiter = BudgetLimiter::new(vec![LimitConfig {
+        id: limit_id,
+        name: "presentation".to_owned(),
+        scope: LimitScope::Tenant([1; 32]),
+        ceiling: 100,
+        consumed: 0,
+    }])
+    .expect("budget limiter");
+    limiter
+        .bind_program_denominations(
+            &[(
+                limit_id,
+                ProgramLimitDenomination {
+                    asset: proof.asset(),
+                    source: Some(proof.source_account()),
+                },
+                false,
+                false,
+            )],
+            || Ok::<(), super::LimitRefusal>(()),
+        )
+        .expect("limit denomination");
+    let request = ProgramReservationRequest {
+        id: [7; 32],
+        charges: allocations.charges().to_vec(),
+        expiry_sequence: sequence.checked_add(10).expect("expiry sequence"),
+        current_sequence: sequence,
+        core_deadline: Some(CoreTimestampMs(500)),
+    };
+    let reservation = limiter
+        .stage_program_allocation(&request, &allocations, CoreTimestampMs(1))
+        .expect("stage allocated reservation")
+        .publish();
+    super::ProgramBudgetReservation::decode(&reservation.encode().expect("encode reservation"))
+        .expect("decode reservation")
 }
 
 #[cfg(test)]

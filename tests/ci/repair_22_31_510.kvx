@@ -1,0 +1,33 @@
+[qualification.22.31.510]
+revision = "3ce75a4916bb105d694502932b66eb0fe881653d"
+command = "cg spec done 22.31.510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "37 cases passed; three loopback replay cases fail before digest comparison because the existing client-exchange PAX receipt declares operation 2 for a legacy transaction requiring operation 0."
+assumption = "The recording needs producer re-recording; changing its signed operation by hand or relaxing verify_payment_receipt would violate the no-fakes and no-weakening constraints."
+
+[repair.22.31.510]
+base_revision = "6e5fcbdf97cec66cffd762508692a455e1236f10"
+implementation = "WebSearchClient carries the verified canonical receipt digest in the exact payment payload and validates the settlement against that same verifier result; the private merkle-leaf digest helper is retired."
+recording = "The checkout includes qualified prerequisite 22.31.526 (6c82e5218c0b6357b300f541f6b9fe1661a5d92e); all four exact transaction/receipt pairs come from its single type-2 chain-125 signing and require no fixture rewrite here."
+proof = "Four receipt-digest cases pin the re-recorded SID, PAX, USDC and USDL receipts; the loopback SDK replay compares the entire recorded payment signature and settlement, and rejects merkle-leaf and incorrect settlement digests."
+transport = "The 147 regression preserves root and /rpc JSON-RPC coverage for submissions, receipt lookups, restart recovery, rotated keys and payer account reads."
+build_command = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/web_search.py tests/ci/test_repair_22_31_510.py && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web --test web_payments_layerxpay"
+verify_command = "python3 -m pytest -q tests/ci/test_repair_22_31_510.py tests/agent/sdk/python/test_repair_22_31_147.py && (cd services/agent/sdk/python && python3 -m pytest -q tests/test_web_search_sequencer.py tests/test_x402_http_sequencer.py tests/test_sequencer_receipt.py) && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web --test web_payments_layerxpay"
+evidence = "/out/run/gates.jsonl names the exact built and verified revision, command, exit code and private log for this attempt; the final response copies the last hf-done record. The qualification section above retains the failed previous attempt."
+
+[payment.PAX]
+previous_receiptDigest = "9748c57efc68563ca45bf9f24737979038f2be93c31b56bf008bbbd47c171560"
+new_receiptDigest = "4cd761dedbeec7e06b571a458c18d7e4a892c59a19cc5d2f12874fd3ddcd749a"
+
+[payment.SID]
+previous_receiptDigest = "7f6832be1d3a0bae621c46493082c8e16d88d9e0c256fd26244358fef97693c9"
+new_receiptDigest = "f0592bfff13daab5a4e84608ce89e1116e9968d50fdd7bc2fdd50b28967c36a6"
+
+[payment.USDC]
+previous_receiptDigest = "f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301"
+new_receiptDigest = "b27f1014cf967addb57bd2fce7ccb96e41ec8113e2da96c93314ccaa4699c398"
+
+[payment.USDL]
+previous_receiptDigest = "4db2024ca419f0a1b9910f280f37d37dc181e5ab575608c830034edecdb62332"
+new_receiptDigest = "33bda9005ca7fec26d97474f9766b9fa12e39847baec2b71cef667e09a3f00bd"

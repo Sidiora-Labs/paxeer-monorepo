@@ -155,7 +155,7 @@ fn human_owner_mode_lists_node_rpc_variables() -> Result<(), Box<dyn Error>> {
     command
         .env_clear()
         .env("LAYERX_AGENT_MODE", "human-owner")
-        .env("LAYERX_AGENT_HUMAN_NODE_LNI", &unserved_socket)
+        .env("LAYERX_AGENT_HUMAN_SOCKET", &unserved_socket)
         .env("LAYERX_AGENT_PROGRAM_LISTEN", "127.0.0.1:0")
         .env("LAYERX_AGENT_PROGRAM_BEARER_TOKEN", "h".repeat(32))
         .env("LAYERX_AGENT_HUMAN_AUTHORITY_BEARER", "a".repeat(32))
@@ -190,7 +190,7 @@ fn human_owner_mode_lists_node_rpc_variables() -> Result<(), Box<dyn Error>> {
         assert!(stderr.contains(expected), "{stderr}");
         assert!(stderr.contains("LAYERX_AGENT_NODE_RPC_URL"), "{stderr}");
         assert!(stderr.contains("LAYERX_AGENT_NODE_CHAIN_ID"), "{stderr}");
-        assert!(!stderr.contains("LNI"), "{stderr}");
+        assert!(!stderr.contains("LAYERX_AGENT_HUMAN_SOCKET"), "{stderr}");
         assert!(
             !stderr.contains("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION"),
             "{stderr}"
@@ -200,11 +200,11 @@ fn human_owner_mode_lists_node_rpc_variables() -> Result<(), Box<dyn Error>> {
             "{stderr}"
         );
     }
-    for lni_value in [std::path::Path::new(""), unserved_socket.as_path()] {
+    for human_socket_value in [std::path::Path::new(""), unserved_socket.as_path()] {
         let output = command
             .env_remove("LAYERX_AGENT_NODE_RPC_URL")
             .env("LAYERX_AGENT_NODE_CHAIN_ID", "42")
-            .env("LAYERX_AGENT_HUMAN_NODE_LNI", lni_value)
+            .env("LAYERX_AGENT_HUMAN_SOCKET", human_socket_value)
             .output()?;
         assert_eq!(output.status.code(), Some(2));
         let stderr = String::from_utf8(output.stderr)?;
@@ -214,7 +214,7 @@ fn human_owner_mode_lists_node_rpc_variables() -> Result<(), Box<dyn Error>> {
         );
         assert!(stderr.contains("LAYERX_AGENT_NODE_RPC_URL"), "{stderr}");
         assert!(stderr.contains("LAYERX_AGENT_NODE_CHAIN_ID"), "{stderr}");
-        assert!(!stderr.contains("LNI"), "{stderr}");
+        assert!(!stderr.contains("LAYERX_AGENT_HUMAN_SOCKET"), "{stderr}");
     }
     std::fs::remove_dir(root)?;
     Ok(())

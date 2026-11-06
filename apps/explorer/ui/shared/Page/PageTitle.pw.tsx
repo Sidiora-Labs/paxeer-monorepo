@@ -11,18 +11,18 @@ test.beforeEach(async({ mockTextAd, mockAssetResponse }) => {
   await mockAssetResponse('https://example.com/logo.png', './playwright/mocks/image_s.jpg');
 });
 
-test('default view +@mobile', async({ render, page }) => {
+test('default view +@mobile +@dark-mode', async({ render, page }) => {
   const component = await render(<DefaultView/>);
   await page.mouse.move(1000, 1000);
   await expect(component).toHaveScreenshot();
 });
 
-test('with text ad +@mobile', async({ render }) => {
+test('with text ad +@mobile +@dark-mode', async({ render }) => {
   const component = await render(<WithTextAd/>);
   await expect(component).toHaveScreenshot();
 });
 
-test('with long name and many tags +@mobile', async({ render }) => {
+test('with long name and many tags +@mobile +@dark-mode', async({ render }) => {
   const component = await render(<LongNameAndManyTags/>);
   await expect(component).toHaveScreenshot();
 });

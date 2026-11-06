@@ -74,7 +74,34 @@ fn budget_state_operation_reports_committed_rung() {
     assert_eq!(response["value"]["proven_head"], "42");
     assert_eq!(response["value"]["activity_id"], json!(null));
     let record = &response["value"]["record"];
-    assert_eq!(record["achieved_rung"], "committed");
+    assert_eq!(record["achieved_verification_level"], "committed");
+    let encoded = serde_json::to_string(&response).expect("budget response JSON");
+    assert!(encoded.contains("\"achieved_verification_level\":\"committed\""));
+    assert!(!encoded.contains("achieved_rung"));
+
+    let request = layerx_agent_api::budget::BudgetTarget {
+        tenant: must(TenantId::new("identity-ops")),
+        agent_did: must(AgentDid::new("did:layerx:identity-ops")),
+        budget_id: must(layerx_agent_api::budget::BudgetId::new(hex::encode(
+            [9; 32],
+        ))),
+    };
+    let success = layerx_agent_api::verify::ApiSuccess {
+        request_id: RequestId(9),
+        value: must(serde_json::from_str(&encoded)),
+        verification_status: verification.expect("protocol budget verification"),
+    };
+    let decoded = must(layerx_sdk::rpc_budget::decode_budget_state_response(
+        &request, &success,
+    ));
+    assert_eq!(decoded.value.proven_head, 42);
+    assert_eq!(decoded.value.balance.0, 650);
+    let layerx_agent_api::budget::BudgetRecord::Protocol(view) = decoded.value.record.record else {
+        panic!("protocol budget expected");
+    };
+    assert_eq!(view.achieved_rung, Rung::Committed);
+    assert_eq!(view.budget_id, [9; 32]);
+
     assert_eq!(record["enforcement"], "ProtocolBudget");
     for (field, byte) in [
         ("budget_id", 9),

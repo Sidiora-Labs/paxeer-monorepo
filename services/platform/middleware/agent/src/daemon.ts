@@ -229,16 +229,17 @@ export async function resolveDaemonReceipt(
   const signedReceipt = Buffer.from(submission.signed_receipt, "hex");
   // Select only a configured pin which verifies these exact bytes at its authorised height.
   let trusted: SequencerReceiptKey | undefined;
+  let receiptDigest: Uint8Array | undefined;
   const pins = receiptKeys.map((key) => ({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() }));
   for (const key of pins) {
-    try { await verifySequencerReceipt(signedReceipt, raw, [key]); trusted = key; break; } catch { /* Try the next configured pin. */ }
+    try { receiptDigest = (await verifySequencerReceipt(signedReceipt, raw, [key])).receiptDigest; trusted = key; break; } catch { /* Try the next configured pin. */ }
   }
-  if (trusted === undefined) throw new PlatformSdkError({ code: "verification-failure", retry: "unknown-outcome" });
+  if (trusted === undefined || receiptDigest === undefined) throw new PlatformSdkError({ code: "verification-failure", retry: "unknown-outcome" });
   const portableReceipt: PortableReceiptV2 = Object.freeze({
     // The signature proves receipt execution; the observation rung is not a commitment proof.
     format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
     rawTransaction: `0x${Buffer.from(raw).toString("hex")}`, signedReceipt: `0x${submission.signed_receipt}`,
-    receiptDigest: `0x${Buffer.from(keccak256(signedReceipt)).toString("hex")}`,
+    receiptDigest: `0x${Buffer.from(receiptDigest).toString("hex")}`,
     receiptKey: Object.freeze({ keyId: `0x${Buffer.from(trusted.keyId).toString("hex")}`,
       publicKey: `0x${Buffer.from(trusted.publicKey).toString("hex")}`,
       firstHeight: `0x${trusted.first_height.toString(16)}`, lastHeight: `0x${trusted.last_height.toString(16)}` }),

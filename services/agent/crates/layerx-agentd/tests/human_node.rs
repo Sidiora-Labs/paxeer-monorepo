@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use layerx_agentd::human_node::HumanNode;
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::read::Cursor;
-use layerx_client::sequencer::SequencerEndpoint;
+use layerx_client::sequencer::{decode_receipt_keys, ReceiptKeyEntry, SequencerEndpoint};
 use serde_json::{json, Value};
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
@@ -94,6 +94,24 @@ fn human_node_head_and_receipt_keys_come_from_json_rpc() {
         {"keyId": format!("0x{}", "01".repeat(32)), "publicKey": format!("0x{}", hex::encode(other_key)), "firstHeight": 1, "lastHeight": 149},
         {"keyId": format!("0x{}", "02".repeat(32)), "publicKey": format!("0x{}", hex::encode(key)), "firstHeight": 150, "lastHeight": 200}
     ]});
+    let decoded_keys = must(decode_receipt_keys(&keys));
+    assert_eq!(
+        decoded_keys,
+        vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: other_key,
+                first_height: 1,
+                last_height: 149,
+            },
+            ReceiptKeyEntry {
+                key_id: [2; 32],
+                public_key: key,
+                first_height: 150,
+                last_height: 200,
+            },
+        ]
+    );
     let (url, server) = serve(vec![
         ("eth_chainId", json!("0xe5")),
         ("eth_blockNumber", json!("0x96")),
@@ -109,6 +127,7 @@ fn human_node_head_and_receipt_keys_come_from_json_rpc() {
     assert_eq!(head.hash, [0x11; 32]);
     assert_eq!(head.timestamp, 0x1234);
     let receipt_key = must(node.receipt_key_at_head());
+    assert_eq!(receipt_key, decoded_keys[1]);
     assert_eq!(receipt_key.public_key, key);
     assert_eq!(receipt_key.key_id, [2; 32]);
     assert_eq!(

@@ -71,7 +71,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
       { data.size && (
         <Flex columnGap={ 2 }>
           <Text fontWeight={ 500 }>Size</Text>
-          <Skeleton loading={ isLoading } display="inline-block" color="text.secondary">
+          <Skeleton loading={ isLoading } textStyle="number" display="inline-block" color="text.secondary">
             <span>{ data.size?.toLocaleString() } bytes</span>
           </Skeleton>
         </Flex>
@@ -89,19 +89,19 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
       <Flex columnGap={ 2 }>
         <Text fontWeight={ 500 }>Txn</Text>
         { data.transactions_count > 0 ? (
-          <Skeleton loading={ isLoading } display="inline-block">
+          <Skeleton loading={ isLoading } textStyle="number" display="inline-block">
             <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }>
               { data.transactions_count }
             </Link>
           </Skeleton>
         ) :
-          <Text color="text.secondary">{ data.transactions_count }</Text>
+          <Text color="text.secondary" textStyle="number">{ data.transactions_count }</Text>
         }
       </Flex>
       <Box>
         <Text fontWeight={ 500 }>Gas used</Text>
         <Flex mt={ 2 }>
-          <Skeleton loading={ isLoading } display="inline-block" color="text.secondary" mr={ 4 }>
+          <Skeleton loading={ isLoading } textStyle="number" display="inline-block" color="text.secondary" mr={ 4 }>
             <span>{ BigNumber(data.gas_used || 0).toFormat() }</span>
           </Skeleton>
           <BlockGasUsed
@@ -115,7 +115,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward && (
         <Flex columnGap={ 2 }>
           <Text fontWeight={ 500 }>Reward { currency.symbol || 'ETH' }</Text>
-          <SimpleValue value={ totalReward } loading={ isLoading } color="text.secondary"/>
+          <SimpleValue textStyle="number" value={ totalReward } loading={ isLoading } color="text.secondary"/>
         </Flex>
       ) }
       { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees && (
@@ -124,6 +124,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           <Flex columnGap={ 4 } mt={ 2 }>
             <NativeCoinValue
               { ...getBlockNativeValueProps(currency, data.burnt_fees) }
+              textStyle="number"
               amount={ data.burnt_fees }
               noSymbol
               startElement={ <IconSvg name="flame" mr={ 2 } boxSize={ 5 } color="text.secondary" isLoading={ isLoading }/> }
@@ -140,6 +141,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           <Text fontWeight={ 500 }>Base fee</Text>
           <NativeCoinValue
             { ...getBlockNativeValueProps(currency, data.base_fee_per_gas, 'wei', 4) }
+            textStyle="number"
             amount={ data.base_fee_per_gas }
             loading={ isLoading }
             gweiThreshold={ 4 }

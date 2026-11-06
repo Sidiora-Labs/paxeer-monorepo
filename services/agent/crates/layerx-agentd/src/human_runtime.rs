@@ -27,6 +27,7 @@ use crate::approval::{
     ApprovalDecision, ApprovalExpiry, ApprovalOutcome, ApprovalRecord, ApprovalService,
     ApprovalSubmissionQueue, DecisionKey, DecisionRequest,
 };
+use crate::budget::BudgetReceiptEvidence;
 use crate::budget::{
     budget_create_identity, budget_state_key, create_protocol_budget, BudgetCreationError,
     BudgetKind, BudgetLimiter, BudgetPipeline, BudgetRequest, CoreBudgetReceipt, LimitConfig,
@@ -54,7 +55,7 @@ use crate::prepare::legacy::{
 };
 use crate::prepare::PreparationLifecycle;
 use crate::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
-use crate::receipt::{ReceiptEvidenceRecord, ReceiptMetadata};
+use crate::receipt::{CurrentReceiptEvidenceRecord, ReceiptEvidenceRecord, ReceiptMetadata};
 use crate::session::{self, OpenRequest, SessionId, SessionRegistry};
 use crate::session_control::SessionControl;
 
@@ -433,7 +434,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         prepare: HumanPrepare,
         context: McpNativeWebContextV1,
         canonical: &[u8],
-    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV1, HumanOperationError> {
+    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV2, HumanOperationError> {
         let head = self
             .lock_operations()?
             .node
@@ -1612,7 +1613,7 @@ impl CoreLeaseAttestation {
 }
 
 /// TLS-authenticated independent authority replica. The endpoint is distinct
-/// from the node LNI socket and every response is decoded into closed protocol
+/// from the node JSON-RPC endpoint and every response is decoded into closed protocol
 /// types before it can influence preparation or receipt verification.
 pub struct RemoteHumanAuthority {
     agent: ureq::Agent,
@@ -1949,6 +1950,14 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         let did =
             std::str::from_utf8(agent.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
         let value = self.get(&format!("/v1/agent/capability-scope?tenant={}&principal={}&did={}&authority={}&action_key={}&capability_id={}", query(peer.transport_tenant()), subject::principal_query(peer), query(did), hex(&authority_id), hex(&action_key), hex(&capability_id)))?;
+        let verification = u8::try_from(u64_field(&value, "verification")?)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if VerificationLevel::from_wire_rank(verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
+        {
+            return Err(HumanOperationError::Refused);
+        }
         let set16 = |name| -> Result<std::collections::BTreeSet<u16>, HumanOperationError> {
             value
                 .get(name)
@@ -2026,8 +2035,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
 
             not_before_ms,
             not_after_ms,
-            verification: u8::try_from(u64_field(&value, "verification")?)
-                .map_err(|_| HumanOperationError::Refused)?,
+            verification,
             evidence_digest: hex_field(&value, "evidence_digest")?,
         })
     }
@@ -2062,7 +2070,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         };
         if state.revocation_sequence == 0
             || state.observed_head_sequence < state.revocation_sequence
-            || state.verification != VerificationLevel::COMMITTED.wire_rank()
+            || VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?
+                != VerificationLevel::COMMITTED
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -2106,8 +2116,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
             || state.maximum_delay_seconds < state.required_delay_seconds
             || state.effective_sequence == 0
             || state.observed_head_sequence < state.effective_sequence
-            || state.verification < 4
-            || state.verification > 5
+            || VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?
+                != VerificationLevel::COMMITTED
             || state.evidence_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
             || state.maximum_age_sequences == 0
@@ -2228,7 +2239,7 @@ fn retained_activity_owner(
 
 /// Concrete production path. Prepared bytes remain key-free; externally
 /// supplied signatures are attached, reverified, durably queued, and only then
-/// submitted through the sole frozen LNI client.
+/// submitted through the node sequencer client.
 pub struct ProductionHumanOperations<A> {
     authority: A,
     node: layerx_client::sequencer::SequencerEndpoint,
@@ -2283,12 +2294,33 @@ pub struct TenantBudgetRecovery {
     pub admission: Result<(), RecoveryRefusal>,
 }
 
+fn budget_receipt_records(
+    legacy: &[ReceiptEvidenceRecord],
+    current: &[CurrentReceiptEvidenceRecord],
+) -> Vec<ReceiptEvidenceRecord<BudgetReceiptEvidence>> {
+    legacy
+        .iter()
+        .map(|receipt| ReceiptEvidenceRecord {
+            idempotency_key: receipt.idempotency_key,
+            activity_id: receipt.activity_id,
+            global_sequence: receipt.global_sequence,
+            evidence: BudgetReceiptEvidence::Legacy(receipt.evidence.clone()),
+        })
+        .chain(current.iter().map(|receipt| ReceiptEvidenceRecord {
+            idempotency_key: receipt.idempotency_key,
+            activity_id: receipt.activity_id,
+            global_sequence: receipt.global_sequence,
+            evidence: BudgetReceiptEvidence::Current(receipt.evidence.clone()),
+        }))
+        .collect()
+}
+
 /// Inputs for recovering one tenant budget from the durable store.
-pub struct BudgetRecoveryRequest<'a> {
+pub struct BudgetRecoveryRequest<'a, E = crate::protocol_evidence::RawReceiptEvidence> {
     pub budget_id: [u8; 32],
     pub protocol_budget: ProtocolBudgetState,
     pub verifier: EvidenceAuthority,
-    pub receipts_with_evidence: &'a [ReceiptEvidenceRecord],
+    pub receipts_with_evidence: &'a [ReceiptEvidenceRecord<E>],
     pub receipts_without_evidence: &'a [ReceiptMetadata],
     pub ceiling_maximum: u128,
     pub current_sequence: u64,
@@ -2311,6 +2343,14 @@ pub fn recover_tenant_budget(
     tenant: &TenantId,
     request: &BudgetRecoveryRequest<'_>,
 ) -> Result<TenantBudgetRecovery, RecoveryRefusal> {
+    recover_tenant_budget_with_evidence(store, tenant, request)
+}
+
+pub fn recover_tenant_budget_with_evidence<E: Clone + Into<BudgetReceiptEvidence>>(
+    store: &mut Store,
+    tenant: &TenantId,
+    request: &BudgetRecoveryRequest<'_, E>,
+) -> Result<TenantBudgetRecovery, RecoveryRefusal> {
     let budget_id = request.budget_id;
     let verified = request
         .verifier
@@ -2332,13 +2372,13 @@ pub fn recover_tenant_budget(
         });
     }
     let window = record.period_start..record.window_end_sequence();
-    let budget_receipts: Vec<PersistedReceipt> = request
+    let budget_receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = request
         .receipts_with_evidence
         .iter()
         .filter(|receipt| window.contains(&receipt.global_sequence))
         .map(|receipt| PersistedReceipt {
             expected_activity_id: receipt.activity_id,
-            evidence: receipt.evidence.clone(),
+            evidence: receipt.evidence.clone().into(),
         })
         .collect();
     let evidence_missing = request
@@ -2367,12 +2407,12 @@ pub fn recover_tenant_budget(
         unknown_ceiling_reservations: &[],
         current_sequence: request.current_sequence,
     };
-    let recovered = crate::outbox::recover(store, tenant, &inputs).map_err(|error| {
-        RecoveryRefusal::Recovery {
+    let recovered = inputs
+        .recover(store, tenant)
+        .map_err(|error| RecoveryRefusal::Recovery {
             budget_id,
             reason: format!("{error:?}"),
-        }
-    })?;
+        })?;
     let admission = if evidence_missing > 0 {
         Err(RecoveryRefusal::EvidenceMissing {
             budget_id,
@@ -2643,7 +2683,7 @@ impl<A: HumanAuthorityBoundary> SharedAgentOwner<A> {
         prepare: HumanPrepare,
         context: McpNativeWebContextV1,
         canonical: &[u8],
-    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV1, HumanOperationError> {
+    ) -> Result<layerx_agent_api::identity::NativeSendPurposeV2, HumanOperationError> {
         self.lock()?.mcp_native_web_purpose(
             credential,
             owner_public_key,
@@ -5086,6 +5126,39 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         })
     }
 
+    pub fn native_send_purpose_owner(
+        &mut self,
+        context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
+        public_key: [u8; 32],
+        core_sequence: u64,
+    ) -> Result<VerifiedNativeSendOwnerV2, HumanOperationError> {
+        let resolved = self.native_purpose_owner(context, public_key, core_sequence)?;
+        let operations = self.lock_operations()?;
+        let evm_sender = operations
+            .chain
+            .bound_address(&resolved.public_key())
+            .map_err(human_receipt_node_error)?
+            .filter(|address| *address != [0; 20])
+            .ok_or(HumanOperationError::Refused)?;
+        if operations
+            .chain
+            .head()
+            .map_err(human_receipt_node_error)?
+            .number
+            != core_sequence
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        context
+            .permit()
+            .boundary(&self.session_control)
+            .map_err(|_| HumanOperationError::Refused)?;
+        Ok(VerifiedNativeSendOwnerV2 {
+            resolved,
+            evm_sender,
+        })
+    }
+
     pub(crate) fn rpc_read_proof_bundle(
         &mut self,
         context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
@@ -6199,7 +6272,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     ) -> Result<crate::human::HumanNativeSendOwnerPreviewV1, HumanOperationError> {
         use crate::capability::{binding, derive_native_effects, timed, Effect, VerifiedInputs};
         use layerx_agent_api::identity::{
-            AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV1, SessionId as ApiSessionId,
+            AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV2, SessionId as ApiSessionId,
             TenantId as ApiTenantId,
         };
         let human = request.prepare;
@@ -6291,26 +6364,31 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         if context.peer() != peer {
             return Err(HumanOperationError::Refused);
         }
-        let owner = self.native_purpose_owner(
+        let owner = self.native_send_purpose_owner(
             &context,
             request.owner_public_key,
             snapshot.observed_head_sequence,
         )?;
         let canonical_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
-        let purpose = NativeSendPurposeV1 {
+        let purpose = NativeSendPurposeV2 {
             tenant: ApiTenantId::new(owner.tenant().as_str())
                 .map_err(|_| HumanOperationError::Refused)?,
             agent_did: AgentDid::new(human.actor.clone())
                 .map_err(|_| HumanOperationError::Refused)?,
             session_id: ApiSessionId::new(hex(&owner.session_id().0))
                 .map_err(|_| HumanOperationError::Refused)?,
-            owner_did: AgentDid::new(human.actor.clone())
-                .map_err(|_| HumanOperationError::Refused)?,
-            owner_public_key: owner.public_key(),
+            owner_did: AgentDid::new(
+                std::str::from_utf8(owner.agent().as_bytes())
+                    .map_err(|_| HumanOperationError::Refused)?
+                    .to_owned(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?,
+            consent_public_key: owner.public_key(),
+            evm_sender: prepared.from,
             generation: owner.generation(),
             expires_at_ms: request.purpose_expires_at_ms,
-            protocol_version: authorization.envelope.protocol_version(),
-            network_id: authorization.envelope.network_id(),
+            transaction_type: NativeSendPurposeV2::TRANSACTION_TYPE,
+            chain_id: NativeSendPurposeV2::CHAIN_ID,
             activity: NativeActivity::from(activity),
             economic_action: request.economic_action,
             idempotency_key: authorization.envelope.idempotency_key().bytes(),
@@ -6326,7 +6404,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         .map_err(|_| HumanOperationError::Refused)?;
         crate::prepare::verify_disclosure_binding(&authorization)
             .map_err(|_| HumanOperationError::Refused)?;
-        if binding::purpose_commitment(&disclosure).is_some()
+        if prepared.from != owner.evm_sender()
+            || binding::purpose_commitment(&disclosure).is_some()
             || purpose.economic_action != human.capability_id.ok_or(HumanOperationError::Refused)?
             || purpose.economic_action != owner.session_id().0
             || snapshot.protocol_timestamp >= purpose.expires_at_ms
@@ -6345,7 +6424,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 let refused = || {
                     crate::session_control::SessionControlError::Human(HumanOperationError::Refused)
                 };
-                let staged = binding::stage_native_local_grant(
+                let staged = binding::stage_native_send_local_grant(
                     store,
                     sessions,
                     &owner,
@@ -6912,7 +6991,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     pub(crate) fn rpc_prepare_native_send(
         &mut self,
         context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
-        request: MutationEnvelope<layerx_agent_api::identity::NativeSendPrepareRequestV1>,
+        request: MutationEnvelope<crate::agent_rpc_wire::NativeSendPrepareRequestV2>,
     ) -> Result<HumanResponse, HumanOperationError> {
         use crate::approval::native_effect::NativeEffectApprovalCarrier;
         use crate::approval::native_program::StagedNativeRateUse;
@@ -6959,7 +7038,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .clock,
         );
-        let (prepared, snapshot) = {
+        let (prepared, transaction, snapshot) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
@@ -6976,12 +7055,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     Some((context, &control)),
                 )?;
             }
-            let prepared = operations
+            let cached = operations
                 .prepared
                 .get(&cache_key)
-                .ok_or(HumanOperationError::Refused)?
-                .prepared
-                .clone();
+                .ok_or(HumanOperationError::Refused)?;
+            let prepared = cached.prepared.clone();
+            let transaction = cached
+                .transaction
+                .clone()
+                .ok_or(HumanOperationError::Refused)?;
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -6991,11 +7073,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
                 return Err(HumanOperationError::Refused);
             }
-            (prepared, snapshot)
+            (prepared, transaction, snapshot)
         };
-        let owner = self.native_purpose_owner(
+        let owner = self.native_send_purpose_owner(
             context,
-            request.operation.purpose.owner_public_key,
+            request.operation.purpose.purpose.consent_public_key,
             snapshot.observed_head_sequence,
         )?;
         if let Some(consent) = &request.operation.local_grant {
@@ -7068,6 +7150,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         session,
                         &owner,
                         &prepared,
+                        &transaction,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -7078,6 +7161,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         store,
                         &purpose,
                         &prepared,
+                        &transaction,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -7156,6 +7240,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         session,
                         &owner,
                         &prepared,
+                        &transaction,
                         &preparation_id,
                         &request.operation.purpose,
                         snapshot.observed_head_sequence,
@@ -7166,6 +7251,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         store,
                         &purpose,
                         &prepared,
+                        &transaction,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -8299,9 +8385,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             }
             fee
         };
-        let owner = self.native_purpose_owner(
+        let owner = self.native_send_purpose_owner(
             context,
-            signed_purpose.owner_public_key,
+            signed_purpose.purpose.consent_public_key,
             snapshot.observed_head_sequence,
         )?;
         let _signing_owner = self.native_purpose_owner(
@@ -8336,6 +8422,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         session,
                         &owner,
                         &cached.prepared,
+                        cached.transaction.as_ref().ok_or_else(refuse)?,
                         &preparation_id,
                         &signed_purpose,
                         snapshot.observed_head_sequence,
@@ -8346,6 +8433,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         store,
                         &purpose,
                         &cached.prepared,
+                        cached.transaction.as_ref().ok_or_else(refuse)?,
                         snapshot.protocol_timestamp,
                         &fee,
                         snapshot.observed_head_sequence,
@@ -9443,7 +9531,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         out.fixed(&row.budget_id());
         out.fixed(&row.source());
         out.u128(row.remaining_after_reservations());
-        out.u8(row.verification().wire_rank());
+        out.u8(receipt_rung_code(row.verification())?);
         out.fixed(&row.evidence_digest());
         out.fixed(&row.receipt_digest());
         out.fixed(&row.checkpoint_digest());
@@ -9890,7 +9978,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         if state.asset != asset
             || currency != record.held_activity.asset.as_str()
             || state.observed_head_sequence != current_sequence
-            || !(4..=5).contains(&state.verification)
+            || crate::budget::budget_state_is_committed(state.verification).is_err()
             || state.evidence_digest == [0; 32]
             || state.receipt_digest == [0; 32]
             || state.checkpoint_digest == [0; 32]
@@ -9962,7 +10050,10 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         out.fixed(&approval_id);
         out.fixed(&held_digest);
         out.u128(remaining);
-        out.u8(state.verification);
+        out.u8(receipt_rung_code(
+            VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?,
+        )?);
         out.fixed(&digest.finalize());
         out.u64(current_sequence);
         out.fixed(&state.asset);
@@ -9986,7 +10077,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         out.fixed(&digest);
         out.fixed(&receipt.metadata.activity_id);
         out.u64(receipt.metadata.global_sequence);
-        out.u8(receipt.metadata.verification_level.wire_rank());
+        out.u8(receipt_rung_code(receipt.metadata.verification_level)?);
         out.bytes(&receipt.canonical_bytes)?;
         out.finish()
     }
@@ -11428,6 +11519,15 @@ impl OwnerInput<'_> {
         &self.bytes[self.at..]
     }
 }
+fn committed_budget_rank(rank: u8) -> Result<(), HumanOperationError> {
+    let level =
+        VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused)?;
+    if level != VerificationLevel::COMMITTED {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(())
+}
+
 fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     match value {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
@@ -11860,11 +11960,20 @@ fn install_capability<A: HumanAuthorityBoundary>(
             return Err(HumanOperationError::Refused);
         }
     }
+    let rung = receipt_rung_code(
+        VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?,
+    )?;
     let mut out = Encoder::new();
     out.fixed(&request.capability_id);
     out.u64(observed.observed_sequence);
-    out.u8(observed.verification);
-    out.fixed(&observed.evidence_digest);
+    out.u8(rung);
+    out.fixed(&agent_evidence_digest(
+        request.action_key,
+        request.capability_id,
+        observed.observed_sequence,
+        rung,
+    ));
     let response = out.finish()?;
     let mut completed = Vec::with_capacity(34 + response.bytes().len());
     completed.push(1);
@@ -12202,6 +12311,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             chain_id,
             key.public_key,
+        )
+        .map_err(|_| HumanOperationError::Refused)?
+        .with_receipt_keys(
+            self.chain
+                .receipt_keys()
+                .map_err(|_| HumanOperationError::Unavailable)?,
         )
         .map_err(|_| HumanOperationError::Refused)?;
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
@@ -14029,12 +14144,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
         let (verifier, sequencer_key, _) = self.budget_read_parts(peer)?;
         let budget_id = owner.active_budget_id;
-        let (with_evidence, without_evidence) = self.attribute_receipts(
+        let (legacy_evidence, current_evidence, without_evidence) = self.attribute_receipts(
             &peer.tenant,
             &registry,
             owner.agent_did.as_bytes(),
             &inventory,
         );
+        let with_evidence = budget_receipt_records(&legacy_evidence, &current_evidence);
         let pipeline =
             NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let (committed_record, committed_height) =
@@ -14060,7 +14176,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         {
             return Ok(None);
         }
-        let receipts: Vec<PersistedReceipt> = with_evidence
+        let receipts: Vec<PersistedReceipt<BudgetReceiptEvidence>> = with_evidence
             .iter()
             .filter(|receipt| window.contains(&receipt.global_sequence))
             .map(|receipt| PersistedReceipt {
@@ -14081,7 +14197,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 let id: [u8; 32] = id.try_into().map_err(|_| HumanOperationError::Refused)?;
                 unknown_budget_ids.push(id);
             }
-            crate::budget::rebuild(
+            crate::budget::rebuild_with_evidence(
                 &store,
                 tenant,
                 &unknown_budget_ids,
@@ -14094,19 +14210,20 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if !accounting.reconciled {
             return Ok(None);
         }
-        let spend_receipts: Vec<crate::budget::SpendReceiptEvidence> = receipts
-            .iter()
-            .map(|receipt| crate::budget::SpendReceiptEvidence {
-                expected_activity_id: receipt.expected_activity_id,
-                evidence: receipt.evidence.clone(),
-            })
-            .collect();
+        let spend_receipts: Vec<crate::budget::SpendReceiptEvidence<BudgetReceiptEvidence>> =
+            receipts
+                .iter()
+                .map(|receipt| crate::budget::SpendReceiptEvidence {
+                    expected_activity_id: receipt.expected_activity_id,
+                    evidence: receipt.evidence.clone(),
+                })
+                .collect();
         let mut local = crate::budget::LocalAccounting {
             consumed: accounting.receipt_consumed,
             window_start_sequence: 0,
             last_receipt: None,
         };
-        crate::budget::reconcile(&mut local, &protocol, &spend_receipts, &verifier)
+        crate::budget::reconcile_with_evidence(&mut local, &protocol, &spend_receipts, &verifier)
             .map(Some)
             .map_err(|_| HumanOperationError::Refused)
     }
@@ -14424,12 +14541,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     ) -> Result<(), RecoveryRefusal> {
         let peer = context.peer;
         let budget_id = owner.active_budget_id;
-        let (with_evidence, without_evidence) = self.attribute_receipts(
+        let (legacy_evidence, current_evidence, without_evidence) = self.attribute_receipts(
             &peer.tenant,
             context.registry,
             owner.agent_did.as_bytes(),
             context.inventory,
         );
+        let with_evidence = budget_receipt_records(&legacy_evidence, &current_evidence);
         let pipeline =
             NodeBudgetPipeline::new(self.chain.as_ref(), ProtocolBudgetState::decode_get_budget);
         let (committed_record, committed_height) =
@@ -14481,7 +14599,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .store
                     .lock()
                     .map_err(|_| RecoveryRefusal::Store(HumanOperationError::Unavailable))?;
-                recover_tenant_budget(&mut store, context.tenant_id, &request)
+                recover_tenant_budget_with_evidence(&mut store, context.tenant_id, &request)
             }
             Err(error) => Err(RecoveryRefusal::BudgetState {
                 budget_id,
@@ -14537,9 +14655,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         registry: &ModuleRegistry,
         agent_did: &[u8],
         inventory: &crate::receipt::ReceiptEvidenceInventory,
-    ) -> (Vec<ReceiptEvidenceRecord>, Vec<ReceiptMetadata>) {
+    ) -> (
+        Vec<ReceiptEvidenceRecord>,
+        Vec<CurrentReceiptEvidenceRecord>,
+        Vec<ReceiptMetadata>,
+    ) {
         let Some(outbox) = self.outboxes.get(tenant) else {
-            return (Vec::new(), Vec::new());
+            return (Vec::new(), Vec::new(), Vec::new());
         };
         let attributed = |idempotency_key: [u8; 32]| {
             outbox
@@ -14554,13 +14676,19 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .filter(|record| attributed(record.idempotency_key))
             .cloned()
             .collect();
+        let current_evidence = inventory
+            .with_current_evidence
+            .iter()
+            .filter(|record| attributed(record.idempotency_key))
+            .cloned()
+            .collect();
         let without_evidence = inventory
             .without_evidence
             .iter()
             .filter(|metadata| attributed(metadata.idempotency_key))
             .copied()
             .collect();
-        (with_evidence, without_evidence)
+        (with_evidence, current_evidence, without_evidence)
     }
 
     fn registry_response(registry: &ModuleRegistry) -> Result<HumanResponse, HumanOperationError> {
@@ -17147,6 +17275,41 @@ fn native_response(
     .map_err(|_| HumanOperationError::Unavailable)
 }
 
+pub struct VerifiedNativeSendOwnerV2 {
+    resolved: VerifiedNativeOwnerV1,
+    evm_sender: [u8; 20],
+}
+
+impl VerifiedNativeSendOwnerV2 {
+    pub(crate) fn resolved(&self) -> &VerifiedNativeOwnerV1 {
+        &self.resolved
+    }
+    pub(crate) fn evm_sender(&self) -> [u8; 20] {
+        self.evm_sender
+    }
+    pub(crate) fn tenant(&self) -> &TenantId {
+        self.resolved.tenant()
+    }
+    pub(crate) fn agent(&self) -> &Did {
+        self.resolved.agent()
+    }
+    pub(crate) fn session_id(&self) -> crate::session::SessionId {
+        self.resolved.session_id()
+    }
+    pub(crate) fn generation(&self) -> u64 {
+        self.resolved.generation()
+    }
+    pub(crate) fn public_key(&self) -> [u8; 32] {
+        self.resolved.public_key()
+    }
+    pub(crate) fn head_sequence(&self) -> u64 {
+        self.resolved.head_sequence()
+    }
+    pub(crate) fn revocation_sequence(&self) -> u64 {
+        self.resolved.revocation_sequence()
+    }
+}
+
 pub(crate) struct VerifiedNativeOwnerV1 {
     tenant: TenantId,
     agent: Did,
@@ -18427,8 +18590,9 @@ fn verified_grant_scope<A: HumanAuthorityBoundary>(
     let action_key = capability_grant_action_key(shared_store, tenant, grant_id)?;
     let observed = authority.capability_scope(peer, actor, authority_id, action_key, *grant_id)?;
     if observed.observed_sequence == 0
-        || observed.verification < 4
-        || observed.verification > 5
+        || VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed.evidence_digest == [0; 32]
         || observed.evidence_digest
             != agent_evidence_digest(
@@ -19827,8 +19991,9 @@ fn validate_capability<A: HumanAuthorityBoundary>(
         request.capability_id,
     )?;
     if observed.observed_sequence == 0
-        || observed.verification < 4
-        || observed.verification > 5
+        || VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?
+            != VerificationLevel::COMMITTED
         || observed.evidence_digest == [0; 32]
         || request.expiry_sequence <= observed.observed_sequence
     {
@@ -21717,6 +21882,107 @@ pub fn history_operation_value(
     Ok(response)
 }
 
+pub fn retain_state_export(
+    context: &crate::export::ExportOwnerContext<'_>,
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    activity_id: [u8; 32],
+    slots: &[[u8; 32]],
+) -> Result<(), HumanOperationError> {
+    use crate::export::{
+        decode_commit, decode_header, decode_validators, encode_storage_witnesses,
+    };
+    use layerx_agent_api::export::FactRef;
+    let account_id = context.bound_account.ok_or(HumanOperationError::Refused)?;
+    if account_id[..12] != [0; 12]
+        || account_id[12..] == [0; 20]
+        || slots.is_empty()
+        || slots.len() > 1024
+        || slots
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != slots.len()
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let receipt_fact = FactRef::new(format!(
+        "receipt:{}",
+        layerx_programs::hex::encode(&activity_id)
+    ))
+    .map_err(|_| HumanOperationError::Refused)?;
+    let mut artifact = crate::export::produce_retained(
+        context.store,
+        context.tenant,
+        None,
+        context.trust,
+        &[receipt_fact],
+    )
+    .map_err(export_refusal)?
+    .response
+    .value;
+    let bundle = &mut artifact.bundles[0];
+    let header = decode_header(
+        bundle
+            .block_header
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+    )
+    .map_err(export_refusal)?;
+    let validators = decode_validators(
+        bundle
+            .validator_set
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+    )
+    .map_err(export_refusal)?;
+    let commit = decode_commit(
+        bundle
+            .commit
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?
+            .as_bytes(),
+        &validators,
+    )
+    .map_err(export_refusal)?;
+    let checkpoint = crate::read::checkpoint(
+        artifact.height,
+        &header.chain_id,
+        &header,
+        &commit,
+        &validators,
+    )
+    .map_err(|_| HumanOperationError::Refused)?;
+    let reads = crate::read::CommittedReads::at_checkpoint(endpoint, &checkpoint)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let address = account_id[12..]
+        .try_into()
+        .map_err(|_| HumanOperationError::Refused)?;
+    let witnesses = slots
+        .iter()
+        .map(|slot| reads.storage(address, *slot))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| HumanOperationError::Refused)?;
+    bundle.account_proof = Some(encode_storage_witnesses(&witnesses).map_err(export_refusal)?);
+    artifact.facts[0] = FactRef::new(format!(
+        "state:{}:{}",
+        layerx_programs::hex::encode(&activity_id),
+        layerx_programs::hex::encode(&account_id)
+    ))
+    .map_err(|_| HumanOperationError::Refused)?;
+    crate::export::retain_bundle(
+        &mut *context
+            .store
+            .lock()
+            .map_err(|_| HumanOperationError::Unavailable)?,
+        context.tenant.clone(),
+        artifact,
+        context.trust,
+    )
+    .map_err(export_refusal)
+}
+
 pub fn receipt_proof_operation(
     target: layerx_agent_api::proof::ProofBundleTarget,
     requested: layerx_types::rung::Rung,
@@ -22150,6 +22416,25 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     #[test]
+    fn repair_22_31_538_approval_budget_accepts_committed_rank() {
+        assert_eq!(
+            committed_budget_rank(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn repair_22_31_538_approval_budget_refuses_other_ranks() {
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                committed_budget_rank(rank),
+                Err(HumanOperationError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
+
+    #[test]
     fn budget_snapshot_round_trips_the_floor_of_every_current_rung() {
         use layerx_types::rung::Rung;
         for (level, rung, floor) in [
@@ -22525,6 +22810,10 @@ mod tests {
                 };
                 let mut rows = BTreeMap::new();
                 let mut rungs = BTreeMap::new();
+                let recordings: Value = must(serde_json::from_str(include_str!(
+                    "../../../../../rpc/testdata/px-history/responses.json"
+                )));
+                let freshness = &recordings[0]["body"]["freshness"];
                 for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
                     let (bytes, mut rung) =
                         signed_item(height, 1_700_000_000 - (8 - height) * 5, amount);
@@ -22598,7 +22887,7 @@ mod tests {
                             assert_eq!(params[0], rpc_hex(&[6; 20]));
                             assert_eq!(params[2], 256);
                             if params[1].is_null() {
-                                json!({"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8})
+                                json!({"account":params[0],"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
                             } else {
                                 assert_eq!(
                                     params[1],
@@ -22609,7 +22898,7 @@ mod tests {
                                     }
                                     .to_hex()
                                 );
-                                json!({"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8})
+                                json!({"account":params[0],"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
                             }
                         }
                         "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {

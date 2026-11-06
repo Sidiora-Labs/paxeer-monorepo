@@ -13,8 +13,9 @@ import { HOMEPAGE_STATS } from 'stubs/stats';
 import AddressCsvExportLink from 'ui/address/AddressCsvExportLink';
 import { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
+import ListPage from 'ui/shared/Page/ListPage';
 import Pagination from 'ui/shared/pagination/Pagination';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 import TableViewToggleButton from 'ui/shared/TableViewToggleButton';
 
@@ -200,14 +201,14 @@ const TxsContent = ({
       }}
     >
       { content && (isInsideTableCard ? content : (
-        <ScanTableCard
+        <ListPage
           title={ countLine }
           note={ note }
           actions={ isMobile ? null : csvExportLink }
           pagination={ paginationNode }
         >
           { content }
-        </ScanTableCard>
+        </ListPage>
       )) }
     </DataListDisplay>
   );

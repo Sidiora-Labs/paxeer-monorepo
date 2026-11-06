@@ -42,7 +42,8 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
       data-latest-tx={ tx.hash }
       w="100%"
       px={ 3 }
-      py={ 3 }
+      py={ 2 }
+      _hover={{ bg: 'raised' }}
       borderBottomWidth="1px"
       borderStyle="solid"
       borderColor="border.divider"
@@ -54,8 +55,7 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
           href={ priceUpdate ? priceUpdateHref(tx.hash) : undefined }
           noIcon
           truncation="constant_long"
-          textStyle="sm"
-          fontWeight="500"
+          textStyle="number"
         />
         { evmTx && <TxAdditionalInfo tx={ evmTx } isMobile isLoading={ isLoading }/> }
       </Flex>
@@ -98,13 +98,13 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
           <Box textAlign="right" data-label="tx-value">
             { !config.UI.views.tx.hiddenFields?.value && (
               <Tag variant="outlined" loading={ isLoading }>
-                { evmTx ? <NativeCoinValue amount={ evmTx.value } accuracy={ 5 } loading={ isLoading }/> : '-' }
+                { evmTx ? <NativeCoinValue amount={ evmTx.value } accuracy={ 5 } loading={ isLoading }/> : '—' }
               </Tag>
             ) }
             { !config.UI.views.tx.hiddenFields?.tx_fee && (
               <Skeleton loading={ isLoading } display="flex" justifyContent="flex-end" whiteSpace="pre" textStyle="xs" color="text.muted" mt="2px">
                 <Text as="span">Fee </Text>
-                { evmTx ? <TxFee tx={ evmTx } accuracy={ 5 } noUsd/> : '-' }
+                { evmTx ? <TxFee tx={ evmTx } accuracy={ 5 } noUsd/> : '—' }
               </Skeleton>
             ) }
           </Box>

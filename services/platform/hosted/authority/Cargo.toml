@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [lib]
+name = "layerx_platform_authority"
 path = "src/lib.rs"
 
 [[bin]]
@@ -15,6 +16,10 @@ path = "src/main.rs"
 [[test]]
 name = "repair_22_33_1473"
 path = "tests/repair_22_33_1473.rs"
+
+[[test]]
+name = "repair_22_31_535"
+path = "tests/repair_22_31_535.rs"
 
 [dependencies]
 layerx-client.workspace = true

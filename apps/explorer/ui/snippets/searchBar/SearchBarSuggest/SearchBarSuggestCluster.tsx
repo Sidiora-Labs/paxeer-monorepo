@@ -41,7 +41,7 @@ const SearchBarSuggestCluster = ({ data, searchTerm, addressFormat }: ItemsProps
       whiteSpace="nowrap"
       color="text.secondary"
     >
-      <HashStringShortenDynamic hash={ hash } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ hash } noTooltip/>
     </Text>
   );
 

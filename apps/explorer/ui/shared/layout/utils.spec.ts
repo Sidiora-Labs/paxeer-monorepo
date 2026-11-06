@@ -16,12 +16,12 @@ describe('CONTENT_MAX_WIDTH', () => {
     expect(CONTENT_MAX_WIDTH).toBe(1_280);
   });
 
-  it('keeps the wide container under the vertical navigation', async() => {
+  it('keeps the same container when vertical navigation is requested', async() => {
     window.__envs = { ...window.__envs, NEXT_PUBLIC_NAVIGATION_LAYOUT: 'vertical' };
     vi.resetModules();
 
     const utils = await import('./utils');
 
-    expect(utils.CONTENT_MAX_WIDTH).toBe(1_920);
+    expect(utils.CONTENT_MAX_WIDTH).toBe(1_280);
   });
 });
