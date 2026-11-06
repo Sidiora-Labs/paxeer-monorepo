@@ -169863,7 +169863,7 @@ do_8 = "Attempt 4 (after 22.31.508, decision 2554): the V3 re-recording, the Go 
 
 [task.22.31.478]
 title = "Complete the AI market Fund call within the kernel gas allowance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.485", "22.31.497", "22.31.550", "22.31.558", "22.31.572"]
