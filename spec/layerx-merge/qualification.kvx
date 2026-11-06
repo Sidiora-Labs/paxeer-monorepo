@@ -32387,3 +32387,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 11 at 57e22cd248fe11a5617ae920772fe7275765ad77: build exit 0, dependent-crate check exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verify did not run."
 assumption = "The tree is unchanged; the include repair is on main."
 severity = "medium"
+
+[finding.22.33.1569.14]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 14 at 9ad1cd6b00e9a0887dcbbebf3c3923612406fc64: build exit 0, verify exit 1: the SDK verified the grant draw; authenticate_cumulative_use at funded_scenario.rs line 892 refused the draw receipt with SequencerSignature because the proof authority holds no governed receipt keys."
+assumption = "The authority is built without the node keys the module 12 receipt requires; the runtime installs them and the proof must too."
+severity = "high"
