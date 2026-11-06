@@ -32475,3 +32475,11 @@ symbol = "human_runtime.rs"
 observed = "Attempt 7 at 661d628ea707925fad072075c300160943ec367a: build exit 0, dependent-crate check exit 0, verify exit 1 twice: two cases pass; the genuine first Prepare passes session admission, the committed inventory and the history proof and still answers 403 owner.refused with no diagnostic line naming the site."
 assumption = "The refusal is one of about thirty silent Refused mappings after the history proof; naming them in production ends the blind search."
 severity = "high"
+
+[finding.22.31.573.3]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 3 at 8103ae786fa624af5418823451e471ab45aaf020: build exit 0, dependent-crate check exit 0, verify exit 1: program_replay and repair_22_31_259 pass; repair_22_31_564 line 146 expects the unsited SupplementRejected reason and the runtime emits the sited one since 22.31.569 landed; the 573 and 569 binaries did not run."
+assumption = "A pre-existing consumer-contract break on main since the 569 landing; the task verify lists the proof, so the task amends it."
+severity = "high"
