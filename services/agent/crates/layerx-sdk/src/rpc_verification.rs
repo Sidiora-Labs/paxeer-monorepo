@@ -77,6 +77,12 @@ impl VerifiedRpcReceipt {
         self.canonical_activity.as_deref()
     }
 
+    pub(crate) fn submitted_activity(&self) -> Result<([u8; 32], &[u8]), RpcError> {
+        let canonical = self.canonical_activity().ok_or(RpcError::InvalidRequest)?;
+        let protocol = self.receipt().protocol().ok_or(RpcError::InvalidRequest)?;
+        Ok((protocol.activity_id(), canonical))
+    }
+
     pub(crate) fn bind_canonical_activity(&mut self, canonical: Vec<u8>) {
         self.canonical_activity = Some(canonical);
     }
@@ -330,10 +336,35 @@ impl RpcClient {
                 )
                 .map_err(|_| RpcError::Verification)?;
             } else {
-                let (authority, coverage) = self
+                let (authority, coverage_override) = self
                     .node_commit
                     .as_ref()
                     .ok_or(RpcError::MissingFinalityTrust)?;
+                let served_coverage;
+                let coverage = if coverage_override.is_override() {
+                    coverage_override
+                } else {
+                    let Some(batch) = self
+                        .read_before_deadline(
+                            "px_getSequenceBatch",
+                            &serde_json::json!([height.to_string()]),
+                            deadline,
+                        )
+                        .map_err(|error| match error {
+                            RpcError::Remote { code: -32602, .. } => RpcError::Verification,
+                            other => other,
+                        })?
+                    else {
+                        return Ok(None);
+                    };
+                    served_coverage = node_commit::NodeCommitCoverage::from_sequence_batch(
+                        &batch,
+                        height,
+                        &block,
+                        receipt.protocol().ok_or(RpcError::Verification)?,
+                    )?;
+                    &served_coverage
+                };
                 node_commit::verify_committed(
                     &material["signedHeader"],
                     receipt.protocol().ok_or(RpcError::Verification)?,

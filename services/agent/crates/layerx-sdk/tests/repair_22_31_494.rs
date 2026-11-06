@@ -47,7 +47,7 @@ fn call_target(value: u16) -> [u8; 20] {
     address[18..].copy_from_slice(&value.to_be_bytes());
     address
 }
-fn run<F: Future>(future: F) -> F::Output {
+pub(crate) fn run<F: Future>(future: F) -> F::Output {
     struct ThreadWake(std::thread::Thread);
     impl Wake for ThreadWake {
         fn wake(self: Arc<Self>) {
@@ -249,14 +249,14 @@ fn inclusion_on_network(summary: &Value, network: u32) -> Value {
     })
 }
 
-struct Node {
+pub(crate) struct Node {
     endpoint: String,
-    state: Arc<Mutex<Value>>,
+    pub(crate) state: Arc<Mutex<Value>>,
     stop: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
 }
 impl Node {
-    fn start(include_proof: bool) -> Self {
+    pub(crate) fn start(include_proof: bool) -> Self {
         let owner = derive_from_seed(&[0x41; 32], 0).expect("wallet owner");
         let state = Arc::new(Mutex::new(json!({
             "owner":owner.evm_address_text(), "nonce":0, "include_proof":include_proof,
@@ -309,11 +309,17 @@ impl Node {
                 let mut body = vec![0; length];
                 reader.read_exact(&mut body).expect("request bytes");
                 let request: Value = serde_json::from_slice(&body).expect("request JSON");
-                let result = Self::response(&mut store.lock().expect("node store"), &request);
-                let body = serde_json::to_vec(
-                    &json!({"jsonrpc":"2.0","id":request["id"],"result":result}),
-                )
-                .expect("response JSON");
+                let response = {
+                    let mut state = store.lock().expect("node store");
+                    let result = Self::response(&mut state, &request);
+                    if request["method"] == "px_getSequenceBatch" && !state["batch_error"].is_null()
+                    {
+                        json!({"jsonrpc":"2.0","id":request["id"],"error":state["batch_error"]})
+                    } else {
+                        json!({"jsonrpc":"2.0","id":request["id"],"result":result})
+                    }
+                };
+                let body = serde_json::to_vec(&response).expect("response JSON");
                 let mut stream = reader.into_inner();
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())
                     .expect("HTTP response");
@@ -376,13 +382,40 @@ impl Node {
                 state["receipts"][params[0].as_str().expect("activity hash")].clone()
             }
             "eth_getBlockByNumber" => {
-                assert_eq!(params, &json!(["0xa", false]));
-                json!({"number":state["committed"]["receiptJson"]["blockNumber"],
-                    "hash":state["committed"]["receiptJson"]["blockHash"]})
+                let height = u64::from_str_radix(
+                    params[0]
+                        .as_str()
+                        .expect("block height")
+                        .strip_prefix("0x")
+                        .expect("hex block height"),
+                    16,
+                )
+                .expect("height");
+                assert_eq!(params, &json!([format!("0x{height:x}"), false]));
+                let record = if state["committed_by_height"].is_object() {
+                    &state["committed_by_height"][height.to_string()]
+                } else {
+                    &state["committed"]
+                };
+                assert_eq!(params[0], record["receiptJson"]["blockNumber"]);
+                json!({"number":record["receiptJson"]["blockNumber"],
+                    "hash":record["receiptJson"]["blockHash"],
+                    "transactions":record["activityIds"]})
             }
-            "px_getCommit" => {
-                assert_eq!(params, &json!(["10"]));
-                json!({"height":"10","signedHeader":state["committed"]["commit"]["signed_header"]})
+            "px_getCommit" | "px_getSequenceBatch" => {
+                let height = params[0].as_str().expect("decimal height");
+                assert_eq!(height.parse::<u64>().expect("height").to_string(), height);
+                assert_eq!(params.as_array().expect("params").len(), 1);
+                let record = if state["committed_by_height"].is_object() {
+                    &state["committed_by_height"][height]
+                } else {
+                    &state["committed"]
+                };
+                if request["method"] == "px_getCommit" {
+                    json!({"height":height,"signedHeader":record["commit"]["signed_header"]})
+                } else {
+                    record["batch"].clone()
+                }
             }
             "eth_getRawTransactionByHash" => {
                 state["transactions"][params[0].as_str().expect("activity hash")].clone()
@@ -391,7 +424,7 @@ impl Node {
         }
     }
 
-    fn rpc(&self) -> RpcClient {
+    pub(crate) fn rpc(&self) -> RpcClient {
         RpcClient::connect_node(&self.endpoint, None)
             .expect("direct node RPC")
             .with_clock(Arc::new(OsClock::new()))
@@ -426,7 +459,7 @@ impl Drop for Node {
     }
 }
 
-fn policy() -> ReceiptPolicy {
+pub(crate) fn policy() -> ReceiptPolicy {
     let key = SigningKey::from_bytes(&[0x5e; 32])
         .verifying_key()
         .to_bytes();
@@ -437,7 +470,7 @@ fn policy() -> ReceiptPolicy {
         trusted_checkpoint_context_digest: None,
     }
 }
-fn options() -> PaymentOptions {
+pub(crate) fn options() -> PaymentOptions {
     PaymentOptions {
         actor: derive_from_seed(&[0x41; 32], 0).expect("owner").did(),
         idempotency_key: [4; 32],
@@ -698,9 +731,7 @@ fn invalid_inclusion_material_is_refused_without_dropping_to_summary_verificatio
 
 #[test]
 fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence() {
-    use layerx_sdk::rpc_verification::node_commit::{
-        NodeCommitAuthority, NodeCommitCoverage, NodeTransactionProof,
-    };
+    use layerx_sdk::rpc_verification::node_commit::NodeCommitAuthority;
     let node = Node::start(false);
     let record: Value = serde_json::from_str(include_str!(
         "../src/repair_22_31_227_fixture/committed.json"
@@ -712,6 +743,7 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
         let mut state = node.state.lock().expect("node store");
         state["receipts"][hash_text] = record["receiptJson"].clone();
         state["committed"] = record.clone();
+        state["committed"]["activityIds"] = json!([hash_text]);
     }
     let authority = NodeCommitAuthority::new(
         "committed-fixture".to_owned(),
@@ -725,32 +757,9 @@ fn committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence(
         10,
     )
     .expect("pinned Comet authority");
-    let coverage = NodeCommitCoverage {
-        covering_height: 10,
-        batch_transaction: unhex(record["batch"]["tx"].as_str().expect("batch transaction")),
-        transaction_proof: NodeTransactionProof {
-            total: record["batch"]["proof"]["total"]
-                .as_u64()
-                .expect("leaf count"),
-            index: record["batch"]["proof"]["index"]
-                .as_u64()
-                .expect("leaf index"),
-            aunts: record["batch"]["proof"]["aunts"]
-                .as_array()
-                .expect("aunts")
-                .iter()
-                .map(|v| {
-                    unhex(v.as_str().expect("aunt"))
-                        .try_into()
-                        .expect("aunt width")
-                })
-                .collect(),
-        },
-        activity_ids: vec![hash],
-    };
     let rpc = node
         .rpc()
-        .with_node_commit_authority(authority, coverage)
+        .with_node_commit_authority(authority)
         .expect("committed coverage");
     let policy = ReceiptPolicy {
         protocol_version: 2,

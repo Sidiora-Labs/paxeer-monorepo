@@ -70,6 +70,7 @@ pub(crate) struct RuntimeState {
     trace_storage_baseline: crate::storage::Storage,
     v2_host_identity: Option<crate::abi::HostStateIdentity>,
     boundary_capture: Option<BoundaryCapture>,
+    supplement_refusal_site: core::cell::Cell<Option<&'static str>>,
 }
 
 #[derive(Debug)]
@@ -78,6 +79,7 @@ struct BoundaryCapture {
     maximum_snapshots: usize,
     maximum_bytes: usize,
     retained_bytes: usize,
+    replay_fuel: u64,
     snapshots: Vec<crate::replay::CapturedSemanticReplayV2>,
 }
 
@@ -298,6 +300,7 @@ fn write_composition_refusal(
 }
 
 fn supplement_snapshot_bytes(
+    state: &RuntimeState,
     charge: &wasmi::ObservationCharge,
 ) -> Result<u64, wasmi::ExecutionObserverError> {
     let engine_bytes = charge
@@ -305,10 +308,10 @@ fn supplement_snapshot_bytes(
         .and_then(|bytes| bytes.checked_sub(charge.retained_instruction_bytes))
         .and_then(|bytes| bytes.checked_sub(charge.host_state_bytes))
         .and_then(|bytes| bytes.checked_sub(charge.instance_state_bytes))
-        .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
+        .ok_or_else(|| state.reject_supplement("supplement_snapshot_bytes.engine_bytes"))?;
     let snapshot_bytes = 214_u64
         .checked_add(engine_bytes)
-        .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
+        .ok_or_else(|| state.reject_supplement("supplement_snapshot_bytes.snapshot_bytes"))?;
     Ok(snapshot_bytes)
 }
 
@@ -321,6 +324,30 @@ struct SupplementHostState {
 }
 
 impl RuntimeState {
+    fn reject_supplement(&self, site: &'static str) -> wasmi::ExecutionObserverError {
+        self.record_supplement_refusal(site, wasmi::ExecutionObserverError::SupplementRejected)
+    }
+
+    fn record_supplement_refusal(
+        &self,
+        site: &'static str,
+        error: wasmi::ExecutionObserverError,
+    ) -> wasmi::ExecutionObserverError {
+        if self.supplement_refusal_site.get().is_none() {
+            self.supplement_refusal_site.set(Some(site));
+        }
+        error
+    }
+
+    pub(crate) fn execution_observer_reason(&self, error: wasmi::ExecutionObserverError) -> String {
+        match (error, self.supplement_refusal_site.get()) {
+            (wasmi::ExecutionObserverError::SupplementRejected, Some(site)) => {
+                format!("deterministic execution observer refused: {error:?} at {site}")
+            }
+            _ => format!("deterministic execution observer refused: {error:?}"),
+        }
+    }
+
     fn v2_identity(
         abi: &Abi,
         baseline: &crate::storage::Storage,
@@ -504,7 +531,7 @@ impl RuntimeState {
         let meter = self
             .meter
             .execution_trace_usage()
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+            .map_err(|_| self.reject_supplement("uncollected_supplement.usage"))?;
         Ok(wasmi::ExecutionSupplement {
             storage_overlay: Vec::new(),
             authoritative_fuel: self.meter.cpu_remaining(),
@@ -541,53 +568,89 @@ impl RuntimeState {
             maximum_snapshots,
             maximum_bytes,
             retained_bytes: 0,
+            replay_fuel: 0,
             snapshots: Vec::new(),
         });
         Ok(())
     }
 
-    fn retain_boundary_capture(&mut self) -> Result<(), wasmi::ExecutionObserverError> {
+    fn retain_boundary_capture(
+        &mut self,
+        replay_fuel: u64,
+    ) -> Result<(), wasmi::ExecutionObserverError> {
         let Some(capture) = self.boundary_capture.as_ref() else {
             return Ok(());
         };
         if capture.snapshots.len() >= capture.maximum_snapshots {
-            return Err(wasmi::ExecutionObserverError::SnapshotLimitExceeded);
+            return Err(self.record_supplement_refusal(
+                "retain_boundary_capture.snapshot_limit",
+                wasmi::ExecutionObserverError::SnapshotLimitExceeded,
+            ));
         }
         let remaining = capture
             .maximum_bytes
             .checked_sub(capture.retained_bytes)
-            .ok_or(wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
+            .ok_or_else(|| {
+                self.record_supplement_refusal(
+                    "retain_boundary_capture.remaining_bytes",
+                    wasmi::ExecutionObserverError::SnapshotLimitExceeded,
+                )
+            })?;
         let source = self
             .capture_semantic_replay_source(capture.code_hash, remaining)
-            .map_err(|error| match error {
-                crate::replay::ReplayWitnessError::Bounds => {
-                    wasmi::ExecutionObserverError::SnapshotLimitExceeded
-                }
-                _ => wasmi::ExecutionObserverError::SupplementRejected,
+            .map_err(|error| {
+                self.record_supplement_refusal(
+                    "retain_boundary_capture.source",
+                    match error {
+                        crate::replay::ReplayWitnessError::Bounds => {
+                            wasmi::ExecutionObserverError::SnapshotLimitExceeded
+                        }
+                        _ => wasmi::ExecutionObserverError::SupplementRejected,
+                    },
+                )
             })?;
         let bytes = source
             .canonical_bytes(remaining)
-            .map_err(|error| match error {
-                crate::replay::ReplayWitnessError::Bounds => {
-                    wasmi::ExecutionObserverError::SnapshotLimitExceeded
-                }
-                _ => wasmi::ExecutionObserverError::SupplementRejected,
+            .map_err(|error| {
+                self.record_supplement_refusal(
+                    "retain_boundary_capture.canonical_bytes",
+                    match error {
+                        crate::replay::ReplayWitnessError::Bounds => {
+                            wasmi::ExecutionObserverError::SnapshotLimitExceeded
+                        }
+                        _ => wasmi::ExecutionObserverError::SupplementRejected,
+                    },
+                )
             })?
             .len();
-        let capture = self
-            .boundary_capture
-            .as_mut()
-            .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
-        capture.retained_bytes = capture
-            .retained_bytes
-            .checked_add(bytes)
-            .ok_or(wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
-        capture
-            .snapshots
-            .try_reserve(1)
-            .map_err(|_| wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
-        capture.snapshots.push(source);
-        Ok(())
+        let Some(capture) = self.boundary_capture.as_mut() else {
+            return Err(self.reject_supplement("retain_boundary_capture.capture_missing"));
+        };
+        let result = (|| {
+            capture.retained_bytes = capture
+                .retained_bytes
+                .checked_add(bytes)
+                .ok_or(wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
+            capture
+                .snapshots
+                .try_reserve(1)
+                .map_err(|_| wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
+            capture.replay_fuel = capture
+                .replay_fuel
+                .checked_add(replay_fuel)
+                .ok_or(wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
+            capture.snapshots.push(source);
+            Ok(())
+        })();
+        result.map_err(|error| {
+            self.record_supplement_refusal("retain_boundary_capture.retain", error)
+        })
+    }
+
+    pub(crate) fn boundary_capture_replay_fuel(&self) -> Option<u64> {
+        self.boundary_capture
+            .as_ref()
+            .map(|capture| capture.replay_fuel)
     }
 
     pub(crate) fn take_boundary_captures(
@@ -605,14 +668,14 @@ impl RuntimeState {
         let measured = if self.abi.is_some() {
             let state = self
                 .v2_host_state_measurement()
-                .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+                .map_err(|_| self.reject_supplement("measure_supplement_host.measurement"))?;
             let identity = self
                 .v2_host_state_identity()
-                .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+                .map_err(|_| self.reject_supplement("measure_supplement_host.identity"))?;
             charge.host_state_bytes = state
                 .canonical_bytes
                 .checked_mul(3)
-                .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
+                .ok_or_else(|| self.reject_supplement("measure_supplement_host.host_bytes"))?;
             SupplementHostState {
                 bytes: state.canonical_bytes,
                 identity: Some(identity),
@@ -624,13 +687,12 @@ impl RuntimeState {
                 root: Sha256::digest(b"LayerX/programs/v2/isolated-host-state\0").into(),
                 canonical_bytes: b"LayerX/programs/v2/isolated-host-state\0".len() as u64,
             };
-            let identity = self
-                .v2_host_identity
-                .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
-            charge.host_state_bytes = state
-                .canonical_bytes
-                .checked_mul(3)
-                .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
+            let identity = self.v2_host_identity.ok_or_else(|| {
+                self.reject_supplement("measure_supplement_host.isolated_identity")
+            })?;
+            charge.host_state_bytes = state.canonical_bytes.checked_mul(3).ok_or_else(|| {
+                self.reject_supplement("measure_supplement_host.isolated_host_bytes")
+            })?;
             SupplementHostState {
                 bytes: state.canonical_bytes,
                 identity: Some(identity),
@@ -669,11 +731,13 @@ impl RuntimeState {
         }
         let (overlay_entries, overlay_bytes) = if let Some(abi) = self.abi.as_ref() {
             abi.storage_commitment_delta_metrics(&self.trace_storage_baseline)
-                .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?
+                .ok_or_else(|| self.reject_supplement("execution_supplement.storage_delta"))?
         } else {
             crate::storage::Storage::new()
                 .commitment_delta_metrics(&self.trace_storage_baseline)
-                .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?
+                .ok_or_else(|| {
+                    self.reject_supplement("execution_supplement.isolated_storage_delta")
+                })?
         };
         charge.storage_overlay_bytes = overlay_bytes;
         let SupplementHostState {
@@ -683,45 +747,48 @@ impl RuntimeState {
         } = self.measure_supplement_host(charge)?;
         let retained_instruction_bytes = charge.retained_instruction_bytes;
         let arbitration_instance_retained_bytes = charge.instance_state_bytes;
-        let snapshot_bytes = supplement_snapshot_bytes(charge)?;
+        let snapshot_bytes = supplement_snapshot_bytes(self, charge)?;
         let retained_bytes = snapshot_bytes
             .checked_add(retained_instruction_bytes)
             .and_then(|bytes| bytes.checked_add(arbitration_instance_retained_bytes))
             .and_then(|bytes| bytes.checked_add(charge.host_state_bytes))
             .and_then(|bytes| bytes.checked_add(charge.arbitration_engine_canonical_bytes))
-            .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
+            .ok_or_else(|| self.reject_supplement("execution_supplement.retained_bytes"))?;
         if retained_bytes > remaining_bytes || retained_bytes > remaining_work {
-            return Err(wasmi::ExecutionObserverError::SnapshotLimitExceeded);
+            return Err(self.record_supplement_refusal(
+                "execution_supplement.retained_limit",
+                wasmi::ExecutionObserverError::SnapshotLimitExceeded,
+            ));
         }
-        let snapshot_fuel = crate::step_commitment_fuel(snapshot_bytes)
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
         let arbitration_engine_bytes = charge.arbitration_engine_canonical_bytes;
-        let arbitration_fuel = crate::arbitration_step_commitment_fuel_with_host(
+        let (snapshot_fuel, arbitration_fuel) = crate::commit::replay_step_commitment_fuels(
             snapshot_bytes,
             arbitration_engine_bytes,
             host_state_bytes,
         )
-        .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+        .map_err(|_| self.reject_supplement("execution_supplement.commitment_fuels"))?;
         let total_fuel = snapshot_fuel
             .checked_add(arbitration_fuel)
-            .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
-        self.meter
-            .charge_cpu(total_fuel)
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+            .ok_or_else(|| self.reject_supplement("execution_supplement.total_fuel"))?;
+        if self.boundary_capture.is_none() {
+            self.meter
+                .charge_cpu(total_fuel)
+                .map_err(|_| self.reject_supplement("execution_supplement.charge_cpu"))?;
+        }
         let host_state = if let Some(state) = isolated_host_state {
             state
         } else {
             let state = self
                 .v2_host_state_commitment()
-                .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+                .map_err(|_| self.reject_supplement("execution_supplement.commitment"))?;
             if state.canonical_bytes != host_state_bytes {
-                return Err(wasmi::ExecutionObserverError::SupplementRejected);
+                return Err(self.reject_supplement("execution_supplement.host_bytes_mismatch"));
             }
             state
         };
         charge.value_bytes = snapshot_bytes
             .checked_add(retained_instruction_bytes)
-            .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
+            .ok_or_else(|| self.reject_supplement("execution_supplement.value_bytes"))?;
         charge.frame_bytes = 0;
         charge.local_bytes = 0;
         charge.global_bytes = 0;
@@ -732,7 +799,7 @@ impl RuntimeState {
         let meter = self
             .meter
             .execution_trace_usage()
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+            .map_err(|_| self.reject_supplement("execution_supplement.usage"))?;
         let storage_overlay = self.supplement_storage_overlay(overlay_entries);
         let supplement = wasmi::ExecutionSupplement {
             storage_overlay,
@@ -754,10 +821,10 @@ impl RuntimeState {
                 snapshot_bytes,
                 arbitration_engine_bytes,
             )
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?,
+            .map_err(|_| self.reject_supplement("execution_supplement.arbitration_state_bytes"))?,
             arbitration_commitment_fuel: arbitration_fuel,
         };
-        self.retain_boundary_capture()?;
+        self.retain_boundary_capture(total_fuel)?;
         Ok(supplement)
     }
 
@@ -777,6 +844,7 @@ impl RuntimeState {
             legacy_reference_engine_committed: 0,
             trace_storage_baseline: crate::storage::Storage::new(),
             boundary_capture: None,
+            supplement_refusal_site: core::cell::Cell::new(None),
             v2_host_identity: Some(crate::abi::HostStateIdentity {
                 base_state: Sha256::digest(b"LayerX/programs/v2/isolated-base-state\0").into(),
                 receipt_oracle: Sha256::digest(b"LayerX/programs/v2/isolated-receipt-oracle\0")
@@ -805,6 +873,7 @@ impl RuntimeState {
             trace_storage_baseline,
             v2_host_identity,
             boundary_capture: None,
+            supplement_refusal_site: core::cell::Cell::new(None),
         }
     }
 
@@ -839,6 +908,7 @@ impl RuntimeState {
             trace_storage_baseline,
             v2_host_identity,
             boundary_capture: None,
+            supplement_refusal_site: core::cell::Cell::new(None),
         })
     }
 
@@ -1687,6 +1757,7 @@ impl RuntimeState {
             trace_storage_baseline: pair.baseline,
             v2_host_identity,
             boundary_capture: None,
+            supplement_refusal_site: core::cell::Cell::new(None),
         };
         let mut canonical = Vec::new();
         let mut failure = None;

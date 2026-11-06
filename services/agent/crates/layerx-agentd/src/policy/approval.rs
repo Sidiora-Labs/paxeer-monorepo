@@ -22,7 +22,7 @@ use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 use layerx_types::payload::ModuleRegistry;
 
 const HOLD_KEY_PREFIX: &[u8] = b"approval-hold-v1:";
-const RELEASED_KEY_PREFIX: &[u8] = b"approval-released-v1:";
+pub(crate) const RELEASED_KEY_PREFIX: &[u8] = b"approval-released-v1:";
 const HOLD_MAGIC: &[u8; 8] = b"LXAPHLD4";
 const TIMED_HOLD_MAGIC: &[u8; 8] = b"LXAPHLD5";
 const RELEASED_MAGIC: &[u8; 8] = b"LXAPREL1";
@@ -223,7 +223,46 @@ impl ApprovalRegistry {
             }
             decoded.push((held.context.request_id, held));
         }
-        let terminal_decoded = replay_program_terminals(&store, tenant)?;
+        let mut terminal_decoded = replay_program_terminals(&store, tenant)?;
+        for id in store
+            .list_object_ids(tenant, ObjectKind::Outbox)
+            .into_iter()
+            .filter(|id| id.starts_with(RELEASED_KEY_PREFIX))
+        {
+            if id.len() != RELEASED_KEY_PREFIX.len() + 32 {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let key = TenantKey::new(tenant.clone(), ObjectKind::Outbox, id)
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            let stored = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+            if stored.class() != crate::store::StorageClass::LocalOnly {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            if native_release_link(stored.bytes())? {
+                released_tracking(&store, tenant, key.object_id())?;
+                continue;
+            }
+            let (reference, mut held) = decode_released(stored.bytes())?;
+            validate_replayed(&held, tenant)?;
+            if key.object_id()[RELEASED_KEY_PREFIX.len()..] != held.context.request_id {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            if crate::approval::program_requirement::has_bound_approval(&store, &snapshot(&held))
+                .map_err(|_| ApprovalError::CorruptRecord)?
+            {
+                continue;
+            }
+            let mut audit = terminal_audit(
+                &held,
+                ApprovalState::Approved,
+                None,
+                "released_terminal_replayed",
+            );
+            audit.resulting_activity_id = Some(reference);
+            held.state = ApprovalState::Approved;
+            held.audit = Some(audit);
+            terminal_decoded.push((held.context.request_id, held));
+        }
         drop(store);
         let reservations = decoded
             .iter()
@@ -260,6 +299,10 @@ impl ApprovalRegistry {
             let key = TenantKey::new(tenant.clone(), ObjectKind::Outbox, id)
                 .map_err(|_| ApprovalError::CorruptRecord)?;
             let value = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+            if native_release_link(value.bytes())? {
+                released_tracking(&store, tenant, key.object_id())?;
+                continue;
+            }
             let (submission_ref, held) = decode_released(value.bytes())?;
             validate_replayed(&held, tenant)?;
             let canonical = held.prepared.unsigned_canonical_bytes.as_bytes();
@@ -1200,7 +1243,8 @@ fn approval_window_expired(
     current_time: TimestampSeconds,
 ) -> Result<bool, ApprovalError> {
     if current_sequence < held.created_at_sequence
-        || current_time.get() < presentation.created_at_unix_seconds
+        || (presentation.created_at_unix_seconds != 0
+            && current_time.get() < presentation.created_at_unix_seconds)
     {
         return Err(ApprovalError::InvalidWindow);
     }
@@ -1384,6 +1428,213 @@ pub(crate) fn released_reservations(
     Ok(held.budget_reservations)
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct ReleaseSubmissionLink {
+    pub submission_id: [u8; 32],
+    pub principal: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct LinkedRelease {
+    release: Vec<u8>,
+    reference: [u8; 32],
+    preparation_id: [u8; 32],
+    unsigned_bytes: Vec<u8>,
+    submission: ReleaseSubmissionLink,
+}
+
+const LINKED_RELEASE_MAGIC: &[u8; 8] = b"LXAPREL2";
+
+pub(crate) struct ReleasedTracking {
+    pub reference: [u8; 32],
+    pub canonical_digest: [u8; 32],
+    pub unsigned_bytes: Vec<u8>,
+    pub submission: Option<ReleaseSubmissionLink>,
+    preparation: Option<Prepared>,
+}
+
+impl ReleasedTracking {
+    pub(crate) fn prepared(&self) -> Option<&Prepared> {
+        self.preparation.as_ref()
+    }
+}
+
+fn linked_release(bytes: &[u8]) -> Result<Option<LinkedRelease>, ApprovalError> {
+    if !bytes.starts_with(LINKED_RELEASE_MAGIC) {
+        return Ok(None);
+    }
+    if bytes.len() > MAX_HOLD_RECORD_BYTES {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    let record: LinkedRelease =
+        serde_json::from_slice(&bytes[8..]).map_err(|_| ApprovalError::CorruptRecord)?;
+    if record.reference == [0; 32]
+        || record.submission.submission_id == [0; 32]
+        || record.submission.principal.is_empty()
+        || record.submission.principal.len() > 1024
+        || encode_linked_release(&record)? != bytes
+    {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    Ok(Some(record))
+}
+
+fn encode_linked_release(record: &LinkedRelease) -> Result<Vec<u8>, ApprovalError> {
+    let mut bytes = LINKED_RELEASE_MAGIC.to_vec();
+    bytes.extend(serde_json::to_vec(record).map_err(|_| ApprovalError::CorruptRecord)?);
+    if bytes.len() > MAX_HOLD_RECORD_BYTES {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    Ok(bytes)
+}
+
+fn native_release_link(bytes: &[u8]) -> Result<bool, ApprovalError> {
+    Ok(linked_release(bytes)?.is_some_and(|record| record.release.is_empty()))
+}
+
+pub(crate) fn released_tracking(
+    store: &Store,
+    tenant: &TenantId,
+    object: &[u8],
+) -> Result<ReleasedTracking, ApprovalError> {
+    let id: [u8; 32] = object
+        .strip_prefix(RELEASED_KEY_PREFIX)
+        .ok_or(ApprovalError::CorruptRecord)?
+        .try_into()
+        .map_err(|_| ApprovalError::CorruptRecord)?;
+    let key = released_storage_key(tenant, id)?;
+    let stored = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+    if stored.class() != crate::store::StorageClass::LocalOnly {
+        return Err(ApprovalError::CorruptRecord);
+    }
+    let linked = linked_release(stored.bytes())?;
+    let (reference, preparation, unsigned_bytes) = match &linked {
+        Some(record) if record.release.is_empty() => {
+            if record.preparation_id != id {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let key = crate::prepare::DurablePreparation::store_key(tenant, id)
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            let raw = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+            let durable = crate::prepare::DurablePreparation::decode(tenant.clone(), raw.bytes())
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            let reference = if durable.extensions.contains_key(&7) {
+                let held = crate::approval::native_program::NativeProgramApprovalCarrier::retained_for_tenant(store, tenant)
+                    .map_err(|_| ApprovalError::CorruptRecord)?
+                    .into_iter().find(|held| held.preparation_id() == id)
+                    .ok_or(ApprovalError::CorruptRecord)?;
+                held.response()
+                    .map_err(|_| ApprovalError::CorruptRecord)?
+                    .submission_ref
+            } else if durable
+                .extensions
+                .contains_key(&crate::approval::native_effect::DURABLE_EXTENSION)
+            {
+                crate::approval::native_effect::NativeEffectApprovalCarrier::read(store, tenant, id)
+                    .map_err(|_| ApprovalError::CorruptRecord)?
+                    .release_ref()
+            } else {
+                return Err(ApprovalError::CorruptRecord);
+            };
+            let signing = crate::sign::SigningPreparation::restore(store, tenant.clone(), id)
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            if reference != Some(record.reference)
+                || signing.transaction.call.encode_unsigned() != record.unsigned_bytes
+            {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            (record.reference, None, record.unsigned_bytes.clone())
+        }
+        _ => {
+            let (reference, held) = decode_released(stored.bytes())?;
+            validate_replayed(&held, tenant)?;
+            validate_held_call(&held)?;
+            if held.context.request_id != id {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let unsigned_bytes = held.prepared.unsigned_canonical_bytes.as_bytes().to_vec();
+            if linked.as_ref().is_some_and(|record| {
+                record.reference != reference
+                    || record.unsigned_bytes != unsigned_bytes
+                    || record.preparation_id != id
+            }) {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            (reference, Some(held.prepared), unsigned_bytes)
+        }
+    };
+    Ok(ReleasedTracking {
+        reference,
+        canonical_digest: canonical_digest(&unsigned_bytes),
+        unsigned_bytes,
+        preparation,
+        submission: linked.map(|record| record.submission),
+    })
+}
+
+pub(crate) fn link_released_submission(
+    store: &mut Store,
+    tenant: &TenantId,
+    reference: [u8; 32],
+    preparation_id: [u8; 32],
+    unsigned_bytes: &[u8],
+    submission: ReleaseSubmissionLink,
+    native: bool,
+) -> Result<(), ApprovalError> {
+    let mut selected = None;
+    for object in store.list_object_ids(tenant, ObjectKind::Outbox) {
+        if !object.starts_with(RELEASED_KEY_PREFIX) {
+            continue;
+        }
+        let tracking = released_tracking(store, tenant, &object)?;
+        if tracking.reference == reference {
+            if selected.is_some()
+                || tracking.unsigned_bytes != unsigned_bytes
+                || tracking
+                    .submission
+                    .as_ref()
+                    .is_some_and(|existing| existing != &submission)
+            {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let id = object[RELEASED_KEY_PREFIX.len()..]
+                .try_into()
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            selected = Some(released_storage_key(tenant, id)?);
+        }
+    }
+    let key = match selected {
+        Some(key) => key,
+        None if native => {
+            let key = released_storage_key(tenant, preparation_id)?;
+            if store.get(&key).is_some() {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            key
+        }
+        None => return Err(ApprovalError::NotFound),
+    };
+    let release = match store.get(&key) {
+        Some(stored) => match linked_release(stored.bytes())? {
+            Some(record) => record.release,
+            None => stored.bytes().to_vec(),
+        },
+        None => Vec::new(),
+    };
+    let record = LinkedRelease {
+        release,
+        reference,
+        preparation_id: key.object_id()[RELEASED_KEY_PREFIX.len()..]
+            .try_into()
+            .map_err(|_| ApprovalError::CorruptRecord)?,
+        unsigned_bytes: unsigned_bytes.to_vec(),
+        submission,
+    };
+    store
+        .update_local_batch(vec![(key, encode_linked_release(&record)?)])
+        .map_err(|_| ApprovalError::Unavailable)
+}
+
 fn encode_released(
     held: &HeldApproval,
     submission_ref: [u8; 32],
@@ -1400,6 +1651,12 @@ fn encode_released(
 }
 
 fn decode_released(bytes: &[u8]) -> Result<([u8; 32], HeldApproval), ApprovalError> {
+    let linked = linked_release(bytes)?;
+    let bytes = match &linked {
+        Some(record) if !record.release.is_empty() => record.release.as_slice(),
+        Some(_) => return Err(ApprovalError::CorruptRecord),
+        None => bytes,
+    };
     if bytes.len() < RELEASED_MAGIC.len() + 32 || &bytes[..RELEASED_MAGIC.len()] != RELEASED_MAGIC {
         return Err(ApprovalError::CorruptRecord);
     }
@@ -1407,6 +1664,13 @@ fn decode_released(bytes: &[u8]) -> Result<([u8; 32], HeldApproval), ApprovalErr
         .try_into()
         .map_err(|_| ApprovalError::CorruptRecord)?;
     let held = decode_hold(&bytes[RELEASED_MAGIC.len() + 32..])?;
+    if linked.as_ref().is_some_and(|record| {
+        record.reference != submission_ref
+            || record.preparation_id != held.context.request_id
+            || record.unsigned_bytes != held.prepared.unsigned_canonical_bytes.as_bytes()
+    }) {
+        return Err(ApprovalError::CorruptRecord);
+    }
     Ok((submission_ref, held))
 }
 
@@ -1480,6 +1744,21 @@ fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) -> Result<(), ApprovalError> {
 }
 fn put_text(out: &mut Vec<u8>, text: &str) -> Result<(), ApprovalError> {
     put_bytes(out, text.as_bytes())
+}
+
+pub(crate) fn migrate_legacy_hold(
+    key: &[u8],
+    bytes: &[u8],
+) -> Result<Option<Vec<u8>>, ApprovalError> {
+    if !key.starts_with(HOLD_KEY_PREFIX) || !bytes.starts_with(HOLD_MAGIC) {
+        return Ok(None);
+    }
+    let mut held = decode_legacy_hold(bytes)?;
+    held.presentation = Some(ApprovalPresentation {
+        created_at_unix_seconds: 0,
+        activity_expires_at_unix_seconds: held.prepared.expiry.get(),
+    });
+    encode_hold(&held).map(Some)
 }
 
 fn encode_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
@@ -2126,7 +2405,10 @@ pub(crate) fn validate_released_snapshot(
         || held.created_at_sequence != expected.created_at_sequence
         || held.expires_at_sequence != expected.expires_at_sequence
         || held.presentation != expected.presentation
-        || encode_released(&held, reference)?.as_slice() != bytes
+        || encode_released(&held, reference)?.as_slice()
+            != linked_release(bytes)?
+                .as_ref()
+                .map_or(bytes, |record| record.release.as_slice())
     {
         return Err(ApprovalError::CorruptRecord);
     }

@@ -39,10 +39,15 @@ defmodule BlockScoutWeb.API.V2.StatsControllerTest do
     end
 
     test "get all fields", %{conn: conn} do
+      insert(:block, number: 10, consensus: true)
+      insert(:block, number: 11, consensus: true)
+      insert(:block, number: 500, consensus: true)
+      insert(:block, number: 600, consensus: false)
+
       request = get(conn, "/api/v2/stats")
       assert response = json_response(request, 200)
 
-      assert Map.has_key?(response, "total_blocks")
+      assert response["total_blocks"] == "500"
       assert Map.has_key?(response, "total_addresses")
       assert Map.has_key?(response, "total_transactions")
       assert Map.has_key?(response, "average_block_time")

@@ -20,7 +20,7 @@ Other directories are not pnpm packages:
 | `ceremony/` | Go module: the `ceremony` command (`plan`, `deliver`, `archive`, `rehearse`, `move`) for custody key ceremonies |
 | `schema/attestor-api` | Attestor API contract (`v1.kvx`) and golden examples |
 | `deploy/` | Attestor, gateway, endpoint and human service configuration files and the cutover material |
-| `docs/` | Cutover notes, runbooks and the security review |
+| `../../docs/wallet/service/` | [Cutover notes](../../docs/wallet/service/cutover.md), [runbooks](../../docs/wallet/service/runbooks/backup-restore.md) and the [security review](../../docs/wallet/service/security-review.md) |
 
 ## Install and test
 
