@@ -32563,3 +32563,51 @@ symbol = "human_runtime.rs"
 observed = "Attempt 4 at b2133820f6619f942c9133419ec5d697a1470721: build exit 0, dependent-crate check exit 0, verify exit 101: SUBMIT with the release reference passes and the linked TRACK equals the direct TRACK before restart; after the Store is reopened the linked TRACK answers 5 (Unknown) at byte 73 where the proof expected 3 (Submitted) and stops at line 1199."
 assumption = "The restored state is production recovery behaviour, not a defect of the linked path; the proof asserted a state the outbox never keeps across a restart."
 severity = "high"
+
+[finding.22.31.573.6]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 6 at b3dc253635cd10cdc10849c5e3fd0e5c6f0f8311: build exit 0, no verify run: the agent stopped at the reader condition of decision 2696 after finding the native market single-step adjudicator decoding the complete memory of a single leaf (execute.rs lines 6020 to 6049 and 5728)."
+assumption = "The stop was right; the encoding is settled by decision 2698 in a task of its own and this task measures under it."
+severity = "high"
+
+[finding.22.33.1569.19]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 19 at dac14a0ab0350b542eecb192eafaa62a4a3671a3: build exit 0, verify exit 1: the MCP grant draw is refused with WalletToolError::Arguments before submission (funded_scenario.rs line 8); every earlier step passes."
+assumption = "The refusal is the production policy check reading a payment field the draw disclosure never carries; the repair is a task of its own."
+severity = "high"
+
+[finding.22.31.560.9]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 9 at b43065e7201cde14881227032a2af9c0e82b896b: builds 2, verify runs 2, repair cycles 2; the second verify refuses at native rate staging (human_runtime.rs line 7374) and native_send_first_prepare_and_reopened_prepare_match_owner_preview fails 403 against 200 at tests/repair_22_31_560.rs line 622; 2 cases pass."
+assumption = "One Binding error hides a dozen conditions; the diagnostic locates the fixture mismatch."
+severity = "high"
+
+[finding.22.33.1536.8]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 8 at 34a1e6edcd856709cbac864b9843b542a03e018f (base 61612c2b19a7): build and verify passed; publication stopped on a three-way conflict in human_node_budgets.rs at the signed_receipt literal (lines 204 and 208) against dbd4e68ed9."
+assumption = "The conflict is textual; both sides are wanted."
+severity = "medium"
+
+[finding.22.33.1135.1]
+task = "22.33.1135"
+file = "src/codec/lxp_codec.c"
+symbol = "lxp_codec.c"
+observed = "Attempt 1 at 584642067465bfa30d22a870958c22b659179f38: build and verify passed (make -s test-codec test-codec-limits test-codec-vectors test-codec-version); publication held for changed files outside touches and planned paths."
+assumption = "do_4 requires the published vectors; the touches list did not foresee them."
+severity = "medium"
+
+[finding.22.31.478.15]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 15 at cc579828686b96262c97dc0fe3c6b9d72ff41486: builds 3, verify runs 1, repair cycles 2; verify exit 1: the executor proof passes (Fund Ok, 896330 CPU fuel) and the candidate Fund refuses LXP_ERR_NON_CANONICAL at pre-runtime with recorded CPU fuel 0, before the fresh-receipt correction was built."
+assumption = "The refusal is the stale receipt binding the agent found; the correction is built and unverified."
+severity = "high"

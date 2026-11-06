@@ -9297,6 +9297,24 @@ value = "After a restart the outbox restores a Submitted submission without a ve
 basis = "A restart cannot know whether a submitted envelope reached the network; Unknown is the honest state until a receipt resolves it, and a proof that pins the pre-restart state would force recovery to invent certainty."
 affects = ["22.31.571"]
 
+[decision.2698]
+title = "A boundary leaf commits to its memory through a chunk root and the single-step adjudication rebuilds the pre memory from evidence"
+value = "A portable boundary leaf (replay_record.rs captured_leaf_bytes, prefix LXP/program-replay-boundary/v2) carries, in place of the complete linear memory, a memory root (a binary hash tree over fixed 4096-byte chunks of the full linear memory under a chunk domain, the memory length first) and the changed chunks: for the first leaf every chunk that differs from the initial memory of the validated module, for every later leaf every chunk that differs from the previous leaf of the record, each as its chunk index and bytes. The record witness is bounded by those chunks, so the kernel maximum of 1048576 bytes bounds a record and not one memory image. A market step evidence (execute.rs decode_market_step_evidence) gains a memory section for the pre boundary: the chunks that differ from the initial module memory, bounded by MAX_STEP_STATE_BYTES (commit.rs line 25); the adjudicator rebuilds the pre memory from the module and those chunks, refuses Evidence when the rebuilt root differs from the memory root the pre leaf commits to, replays the step and compares the observed post memory against the post leaf by root and changed chunks. Every other leaf field, the leaf hash and node hash functions, the witness root, the fuel binding of from_captured and the kernel leaf hashing are unchanged. This supersedes decision 2696; its reader stop is resolved by this shape. Owner flag: the leaf format version and the evidence format change together."
+basis = "The record witness and the single-step adjudication need different sizes of the same memory; one root in the leaf serves both, bounded witnesses for the record and full pre memory for the adjudicator, without a second encoding of one boundary."
+affects = ["22.31.577", "22.31.573", "22.99.77"]
+
+[decision.2699]
+title = "MCP DrawGrant policy dimensions derive from the decoded Receive cross-checked against the bound draw"
+value = "In the MCP wallet tool, prepare returns the Payment::Receive that prepare_alias_call decodes with Payment::decode together with the Eip1559Call, the disclosure and the sender; for a DrawGrant the policy dimensions are the amount, the asset and the payer (from) of that Receive, accepted only when the bound LedgerDraw disclosure names the same grant, the same idempotency key, the same amount and a recipient equal to the Receive to field; any mismatch or an absent Receive is WalletToolError::Arguments. The disclosure binding of layerx-crypto bind_call is unchanged: a LedgerDraw disclosure carries the counterparties, the Transfer amount and the idempotency key and no payment field, because the draw calldata holds no payer and no asset."
+basis = "The draw calldata cannot carry the payer and the asset the policy check needs; the decoded Receive carries them and the bound disclosure proves the call it authorizes."
+affects = ["22.31.578", "22.33.1569"]
+
+[decision.2700]
+title = "The carried source-control specification completes under the moved vendored directory with component-mode gates"
+value = "Every unfinished task of spec/layerx-merge/source-control/source-spec.kvx becomes a task 22.37.N whose source_task names the original; each requires 22.36.1 and names the moved paths tools/<project> and docs/<project>; the drivers bind the project subtree (git rev-parse HEAD:<prefix>) and record the host commit separately; receipts live under the task record, never under an ignored build directory. A verify runs the component mode only; a live provider, model or object-store run is recorded UNRUN in the qualification record with the exact command, and the owner supplies the credentials before any live PASS is claimed (owner flag). Proposed migrations are numbered after the highest migration of the moved tree: 0761 to 0765."
+basis = "The qualification environment holds no provider credentials and the snapshot holds no receipts; a gate that cannot pass by construction qualifies nothing."
+affects = ["22.37.1", "22.37.2", "22.37.3", "22.37.4", "22.37.5", "22.37.6", "22.37.7", "22.37.8", "22.37.9", "22.37.10", "22.37.11", "22.37.12", "22.37.13", "22.37.14", "22.37.15", "22.37.16", "22.37.17", "22.37.18", "22.37.19", "22.37.20", "22.37.21", "22.37.22", "22.37.23", "22.37.24", "22.37.25", "22.37.26", "22.37.27"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38187,6 +38205,267 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.37.27]
+title = "Run the released source system and close the release with restore and publication reconciliation"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/7_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_full_journey.mjs", "tools/hyperfide/tests/hyperfide/source-control/registrations/7.2.json", "docs/hyperfide/hyperfide/source-control.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/7_2.py --self-test"
+do_1 = "do_1 Add a running system phase to cases/source_control/7_2.py that extracts the 7.1 artifact, starts bin/source-control with the qualified profile and drives the SCM-023 journey through support/native_source_full_journey.mjs against it"
+symbols = ["7_2.py", "native_source_full_journey.mjs"]
+
+[capability.22.37.26]
+title = "Finish source documentation truthfulness and release driver checks"
+reqs = ["22998.1"]
+touches = ["docs/hyperfide/hyperfide/source-control.md", "docs/hyperfide/runtime/source-control.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/tests/hyperfide/cases/source_control/7_1.py", "tools/hyperfide/deploy/hyperfide/source-control/package.py", "tools/hyperfide/deploy/hyperfide/source-control/recovery-profile.schema.json", "tools/hyperfide/tests/hyperfide/support/native_source_package_smoke.mjs"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/7_1.py"
+do_1 = "do_1 Add sections to product docs source-control.md for graph freshness, retention, restore procedure and a table of profiles marked qualified or unqualified with links to the case ids in claims.json"
+symbols = ["7_1.py", "native_source_package_smoke.mjs", "package.py"]
+
+[capability.22.37.25]
+title = "Complete the integrated source journey assertions and closure refusal probes"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/support/native_source_full_journey.mjs", "tools/hyperfide/tests/hyperfide/source-control/full_case/scm_023.py", "tools/hyperfide/tests/hyperfide/source-control/registry.json", "tools/hyperfide/tests/hyperfide/source-control/claims.json", "tools/hyperfide/tests/hyperfide/source-control/registrations/full-SCM-023-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/source-control/registrations/full-SCM-023-owned-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/cases/source_control/6_3.py", "tools/hyperfide/tests/hyperfide/source-control/closure.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
+tests = ["tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py"]
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_3.py --self-test && python3 tests/hyperfide/source-control/release_campaign_test.py"
+do_1 = "do_1 Add sparse edit and source diff steps to runFullSourceJourney in support/native_source_full_journey.mjs using the source.queries.diff action and the CLI, emitting assertions SCM-023.sparse-edit-materializes-only-scope and SCM-023.source-diff-matches-checkpoint"
+symbols = ["6_3.py", "closure.py", "native_source_full_journey.mjs", "release_campaign.py", "release_campaign_test.py", "scm_023.py"]
+
+[capability.22.37.24]
+title = "Add campaign mislabel and inflation negatives, BLOCKED outcomes and hydrate and cache accounting to the workload harness"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_workload.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_external_workload.mjs", "tools/hyperfide/tests/hyperfide/source-control/workloads/storage_observer.mjs", "tools/hyperfide/tests/hyperfide/source-control/registrations/6.2.json", "tools/hyperfide/tests/hyperfide/source-control/workloads/README.md"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_2.py"
+do_1 = "do_1 Add receipt validation in tests/<project>/source-control/workloads/campaign.mjs that rejects imported revisions counted as new, missing latency samples, cache state cold when the cache was warmed, and logical opens reported as materialized files."
+symbols = ["campaign.mjs", "native_source_external_workload.mjs", "native_source_workload.mjs", "storage_observer.mjs"]
+
+[capability.22.37.23]
+title = "Finish recovery qualification with concurrent rebalance, stale acceptance refusal and per failure-domain outcomes"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/6_1.py", "docs/hyperfide/hyperfide/source-control-recovery.md", "tools/hyperfide/core/control-plane/src/source_control/routing.ts"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py --component"
+do_1 = "do_1 Change the routing mode in tests/<project>/support/native_source_recovery_actor.mjs to run continuous reads and revision commits in parallel with SourceRoutingService.move and assert no failed read, no lost acknowledged commit and STALE_ROUTE for the obsolete owner."
+symbols = ["6_1.py", "native_source_recovery_actor.mjs", "routing.ts"]
+
+[capability.22.37.22]
+title = "Complete migration inventory, access and evidence parity, boundary crash coverage and UNRUN deployment record"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/parity.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/cutover.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/epoch_adoption.ts", "tools/hyperfide/tests/hyperfide/support/native_source_migration_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_3.py", "docs/hyperfide/hyperfide/source-control-migration.md"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_3.py"
+do_1 = "do_1 Extend migrationInventory in core/control-plane/src/source_control/migration/inventory.ts to return the declared legacy writer ids, installed source and evidence schema versions, open workspaces with dirty paths and custody holders, selected history counts and unresolved external publication effects, and make SourceMigrationService.drained use it."
+symbols = ["5_3.py", "cutover.ts", "epoch_adoption.ts", "inventory.ts", "native_source_migration_actor.mjs", "parity.ts"]
+
+[capability.22.37.21]
+title = "Route imported contributions into candidates and import legacy source maps"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/git/import.ts", "tools/hyperfide/core/control-plane/src/source_control/git/projection.ts", "tools/hyperfide/core/control-plane/src/source_control/candidates.ts", "tools/hyperfide/core/control-plane/src/source_control/metrics.ts", "tools/hyperfide/tests/hyperfide/support/native_source_import_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_2.py"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_2.py"
+do_1 = "do_1 In SourceGitImporter.createContribution and readContribution (core/control-plane/src/source_control/git/import.ts) create an idempotent native candidate from the completed import revision through the existing candidate service with the requested scope, so qualification and acceptance run through the ordinary candidate and acceptance services; a new tip under the same provider identity creates a new contribution and new revision."
+symbols = ["5_2.py", "candidates.ts", "import.ts", "metrics.ts", "native_source_import_actor.mjs", "projection.ts"]
+
+[capability.22.37.20]
+title = "Route the platform publisher through native export and observe destination protection"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/plugins/hyperfide-qualify/publication.ts", "tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts", "tools/hyperfide/core/control-plane/src/integration/publication.ts", "tools/hyperfide/core/control-plane/src/source_control/git/github.ts", "tools/hyperfide/core/control-plane/src/source_control/git/gitlab.ts", "tools/hyperfide/core/control-plane/src/source_control/git/transport.ts", "tools/hyperfide/core/control-plane/src/source_control/git/types.ts", "tools/hyperfide/core/control-plane/src/source_control/git/export.ts", "tools/hyperfide/tests/hyperfide/support/native_source_git_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_1.py"]
+tests = ["tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts"]
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_1.py && pnpm --filter @hyperfide/hyperfide-qualify vitest run publication.test.ts"
+do_1 = "do_1 Add a versioned native export adapter to the qualify plugin publication module and make WavePublication.prepare create a native publication through SourceControlClient.createPublication when a native destination is configured, keeping historical local receipts readable and removing the git worktree path for native mode."
+symbols = ["5_1.py", "export.ts", "github.ts", "gitlab.ts", "native_source_git_actor.mjs", "publication.test.ts", "publication.ts", "transport.ts"]
+
+[capability.22.37.19]
+title = "Complete source product metrics, workspace state display and failure journeys"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/host-daemon/src/source-control/metrics.ts", "tools/hyperfide/core/host-daemon/src/source-control/cache.ts", "tools/hyperfide/core/host-daemon/src/source-control/materializer.ts", "tools/hyperfide/core/host-daemon/src/source-control/checkpoint.ts", "tools/hyperfide/core/control-plane/src/source_control/metrics.ts", "tools/hyperfide/plugins/hyperfide-source-control/views/metrics.tsx", "tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx", "tools/hyperfide/plugins/hyperfide-source-control/app.tsx", "tools/hyperfide/plugins/hyperfide-source-control/runtime.ts", "tools/hyperfide/plugins/hyperfide-source-control/contract.ts", "tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_3.py"
+do_1 = "do_1 Extend SourceMetrics in core/host-daemon/src/source-control/metrics.ts with bounded enum labels for mode, status and partition and with counters for logical opens, materialization bytes and files, cache hits, evictions and dirty bytes, transfer queue depth, graph work items, checkpoint latency buckets, integration retries and remote lag; make the busy refusal a typed LIMIT_EXCEEDED diagnostic that names the limiting budget."
+symbols = ["4_3.py", "cache.ts", "checkpoint.ts", "contract.ts", "materializer.ts", "metrics.ts", "native_source_product_actor.mjs", "native_source_product_browser.mjs"]
+
+[capability.22.37.18]
+title = "Native mode for the plugin router and integration queue with outage, publication and manager integration qualification"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/contracts.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/runners.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts", "tools/hyperfide/plugins/hyperfide-dispatch/package.json", "tools/hyperfide/tests/hyperfide/support/native_source_fleet_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_fleet_reconciliation.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/4_2.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"]
+verification_contract = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/hyperfide-dispatch test && python3 tests/hyperfide/cases/source_control/4_2.py"
+do_1 = "do_1 In the router plugin contracts.ts replace the tip and bundle integration contract with a versioned assignment descriptor union: native with revision_id, root_tree_id, scope, closure and environment ids and task, attempt and workspace generations, and legacy with an explicit compatibility tag; update runners.ts and the router module accordingly."
+symbols = ["4_2.py", "contracts.ts", "dispatcher.ts", "native_source_fleet_actor.mjs", "native_source_fleet_reconciliation.mjs", "queue.test.ts", "queue.ts", "runners.ts"]
+
+[capability.22.37.17]
+title = "Complete native acceptance qualification with batch suite, retention race, lifecycle projection and a recorded run"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/4_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/4_1_batches.py", "tools/hyperfide/tests/hyperfide/support/native_source_acceptance_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_acceptance_fixture.mjs", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/core/control-plane/src/source_control/server.ts", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/acceptance.ts", "tools/hyperfide/sdk/source-control/src/client.ts", "tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_1.py"
+do_1 = "do_1 Change the 4_1.py case script to also run the 4_1_batches.py case script and fail on a nonzero exit, and add migrations 0746-source-control-retention.sql and 0757-source-control-candidate-queue.sql to its list."
+symbols = ["4_1.py", "4_1_batches.py", "acceptance.ts", "api.ts", "client.ts", "contracts.ts", "native_source_acceptance_actor.mjs", "native_source_acceptance_fixture.mjs"]
+
+[capability.22.37.16]
+title = "Admit native revision identity in packet, slice and review graph consumers and qualify interrupted graph publication"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/graph/publication.ts", "tools/hyperfide/core/control-plane/src/graph/native.ts", "tools/hyperfide/core/control-plane/src/preparation/slices.ts", "tools/hyperfide/core/control-plane/src/hierarchy/packets.ts", "tools/hyperfide/core/control-plane/src/review/receipts.ts", "tools/hyperfide/plugins/hyperfide-graph/contract.ts", "tools/hyperfide/plugins/hyperfide-graph/host.ts", "tools/hyperfide/plugins/hyperfide-graph/host.test.ts", "tools/hyperfide/tests/hyperfide/support/native_source_graph_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/3_3.py"]
+tests = ["tools/hyperfide/plugins/hyperfide-graph/host.test.ts"]
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_3.py && pnpm --filter @hyperfide/hyperfide-graph test"
+do_1 = "do_1 In core/control-plane/src/graph/publication.ts loadGraphSnapshot add a versioned native pin form with sha256 revision_id and root_tree_id that resolves through loadNativeGraph in core/control-plane/src/graph/native.ts instead of the raw Git commit pattern, keeping imported Git provenance as a separate field."
+symbols = ["3_3.py", "contract.ts", "host.test.ts", "host.ts", "native.ts", "native_source_graph_actor.mjs", "packets.ts", "publication.ts"]
+
+[capability.22.37.15]
+title = "Bind virtual workspace writes to attempt expiry and qualify the real FUSE case"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/sdk/source-control/src/host/virtual-filesystem.ts", "tools/hyperfide/sdk/source-control/src/host/client.ts", "tools/hyperfide/plugins/environment-slices/contract.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/3_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_virtual_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_virtual_fixture.mjs", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_2.py"
+do_1 = "do_1 Add an attempt_expires_at column to source_workspaces in a new migration under core/control-plane/migrations and return it from workspace detail in core/control-plane/src/source_control/workspaces.ts; refuse source.workspaces.checkpoint with a typed ATTEMPT_EXPIRED error once it has passed, leaving checkpoint_revision_id unchanged"
+symbols = ["3_2.py", "client.ts", "contract.ts", "native_source_virtual_actor.mjs", "native_source_virtual_fixture.mjs", "virtual-filesystem.ts", "workspaces.ts"]
+
+[capability.22.37.14]
+title = "Wire source producers to durable retention roots and verify backend lifecycle policy"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/core/control-plane/src/source_control/candidates.ts", "tools/hyperfide/core/control-plane/src/source_control/evidence.ts", "tools/hyperfide/core/control-plane/src/source_control/git/export.ts", "tools/hyperfide/core/control-plane/src/source_control/s3.ts", "tools/hyperfide/core/control-plane/src/source_control/gc.ts", "tools/hyperfide/core/control-plane/src/source_control/retention.ts", "tools/hyperfide/core/control-plane/src/source_control/storage_contract.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_collection.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_collection_api.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/2_3.py"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_3.py"
+do_1 = "do_1 In core/control-plane/src/source_control/workspaces.ts open and checkpoint paths, insert a WORKSPACE pin for the workspace base root and the checkpoint root inside the same transaction, keyed by workspace_id, so the existing delete at close releases a real pin; add the matching release on workspace expiry"
+symbols = ["2_3.py", "backend.mjs", "candidates.ts", "evidence.ts", "export.ts", "gc.ts", "native_source_collection.mjs", "native_source_collection_api.mjs"]
+
+[capability.22.37.13]
+title = "Complete workspace readiness receipts, host name checks and a standalone qualification for sparse materialization"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/sdk/source-control/src/host/materializer.ts", "tools/hyperfide/sdk/source-control/src/host/client.ts", "tools/hyperfide/sdk/source-control/src/host/checkpoint.ts", "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_fixture.py", "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_2.py"
+do_1 = "do_1 Add a readiness receipt to SparseSourceMaterializer.materialize in the sdk host materializer.ts carrying scope, workspace and scope generations, base revision, selected paths, a digest of the installed entry set and a closure manifest digest, separate from the admission receipt returned by NativeWorkspaceClient.open"
+symbols = ["2_2.py", "checkpoint.ts", "client.ts", "materializer.ts", "native_source_fixture.py", "native_source_sparse_fixture.mjs", "workspaces.ts"]
+
+[capability.22.37.12]
+title = "Add ancestry indexing, admission classes and replica aware causal reads to the source query API"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/queries.ts", "tools/hyperfide/core/control-plane/src/source_control/cursors.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/core/control-plane/src/source_control/http.ts", "tools/hyperfide/core/control-plane/src/source_control/causal.ts", "tools/hyperfide/core/control-plane/src/source_control/revisions.ts", "tools/hyperfide/core/control-plane/src/source_control/metadata.ts", "tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_causal_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/2_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/causal.py"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_1.py && python3 tests/hyperfide/cases/source_control/causal.py && python3 tests/hyperfide/cases/source_control/batch.py"
+do_1 = "do_1 Add a revision generation number column and a bounded ancestry index table in a new migration, filled when revisions are created in revisions.ts, and use it in SourceQueries ancestry, history and mergeBases to prune walks; expose index_generation and index_complete freshness fields in every query response"
+symbols = ["2_1.py", "api.ts", "causal.py", "causal.ts", "contracts.ts", "cursors.ts", "http.ts", "metadata.ts"]
+
+[capability.22.37.11]
+title = "Complete source capability qualification through the registered service path"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/1_3.py", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/capabilities.ts", "tools/hyperfide/core/control-plane/src/source_control/transfer_grants.ts", "tools/hyperfide/core/control-plane/src/source_control/audit.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_3.py && python3 tests/hyperfide/cases/source_control/admin.py"
+do_1 = "do_1 Extend case driver 1_3.py so that, in addition to the component checks, it starts createSourceService and startSourceHttp from the compiled source modules (as native_source_api_actor.mjs does) and repeats revocation, cross domain guessing and path prefix denial through api.invoke over HTTP with the SDK client"
+symbols = ["1_3.py", "audit.ts", "capabilities.ts", "contracts.ts", "transfer_grants.ts"]
+
+[capability.22.37.10]
+title = "Complete revision metadata replay after lease release, reassignment and real collection interleavings"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/operations.ts", "tools/hyperfide/core/control-plane/src/source_control/metadata.ts", "tools/hyperfide/core/control-plane/src/source_control/revisions.ts", "tools/hyperfide/core/control-plane/src/source_control/gc.ts", "tools/hyperfide/tests/hyperfide/support/source_metadata_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/1_2.py", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_2.py && python3 tests/hyperfide/cases/source_control/events.py"
+do_1 = "do_1 Correct the task touches to name core/control-plane/migrations/0737-source-control-metadata.sql and drop the nonexistent 0718 path"
+symbols = ["1_2.py", "gc.ts", "metadata.ts", "operations.ts", "revisions.ts", "source_metadata_actor.mjs"]
+
+[capability.22.37.9]
+title = "Complete the object and persistent tree slice with multipart tracking, golden vectors and registered consumer coverage"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/objects.ts", "tools/hyperfide/core/control-plane/src/source_control/object_catalog.ts", "tools/hyperfide/core/control-plane/src/source_control/storage_contract.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/1_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/storage.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_1.py --component && python3 tests/hyperfide/cases/source_control/0_1.py"
+do_1 = "do_1 Add golden vectors for blob file descriptors, chunked file descriptors, tree-index nodes and the empty root to the contracts-v1.json fixture used by 0_1 and assert exact bytes and ids in fixtures/objects/storage.mjs"
+symbols = ["1_1.py", "api.ts", "backend.mjs", "object_catalog.ts", "objects.ts", "storage.mjs", "storage_contract.ts"]
+
+[capability.22.37.8]
+title = "Complete pagination and replay contract checks for the native source contract"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json", "tools/hyperfide/spec/hyperfide-source-control/decisions.md", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_1.py"
+do_1 = "do_1 Add parseSourcePage and parseSourceCursor to the SDK contracts.ts that validate items array, opaque bounded cursor, coverage enum, snapshot object id and optional index generation, and refuse unknown fields; regenerate the control plane copy of contracts.ts through the contract sync script."
+symbols = ["0_1.py", "contracts.ts"]
+
+[capability.22.37.7]
+title = "Run the final prerequisite journey and publish the native source handoff"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_14.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_live.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_setup.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "docs/hyperfide/hyperfide/fleet.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/deploy/hyperfide/sandbox", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component"
+do_1 = "do_1 Add a component mode (--component) to tests/<project>/cases/source_control/0_14.py that runs the actor checks and the deterministic fault cases through the throwaway database the withpg support provides, writes the component receipt with the live sections marked UNRUN, and exits 0 when every component check passes; the gate runs that mode (decision 2700)."
+symbols = ["0_14.py", "0_14_live.py", "0_14_setup.py", "fleet_live_qualification.py"]
+
+[capability.22.37.6]
+title = "Qualify manager led provisioning and agent assignment with live evidence"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_13.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_live.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_13.py --component"
+do_1 = "do_1 Where the owner has supplied provider credentials, run the live prerequisite journey driver 0_14_live.py against a configured provider pool and model backend to produce a pinned evidence index and target that cover every case listed for 0.13 in the live qualification support module. Otherwise record that run as UNRUN (decision 2700)."
+symbols = ["0_13.py", "0_14_live.py", "fleet_live_qualification.py"]
+
+[capability.22.37.5]
+title = "Qualify co-located Primary and Wave Manager model sessions live with restoration after process loss"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_12.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "tools/hyperfide/core/control-plane/src/agents/fleet_orchestration.ts", "tools/hyperfide/core/control-plane/src/fleet-supervisor.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_12.py --component"
+do_1 = "do_1 Add the live campaign driver tests/<project>/support/model_live_collect.py in the vendored project that starts the control plane supervisor with one Primary and two Wave Manager identities on the configured supervisory host, captures session reason requests and responses, and writes the private evidence index for the seven model cases"
+symbols = ["0_12.py", "fleet-supervisor.ts", "fleet_live_qualification.py", "fleet_orchestration.ts", "model_live_collect.py"]
+
+[capability.22.37.4]
+title = "Qualify the install path live on a provider isolated environment and expose install status through the client SDK"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/sdk/client/src/areas/system.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_11.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/traceability.md"]
+tests = ["tools/hyperfide/sdk/client/test/install-status.test.ts"]
+verification_contract = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run test/install-status.test.ts && python3 tests/hyperfide/cases/source_control/0_11.py --component"
+do_1 = "do_1 Add an installStatus method and typed install error mapping in sdk/client/src/areas/system.ts of the vendored project that calls the control plane install status action and returns the typed install error codes unchanged, with the vitest file sdk/client/test/install-status.test.ts"
+symbols = ["0_11.py", "install-status.test.ts", "install_live_collect.py", "system.ts"]
+
+[capability.22.37.3]
+title = "Gate the agent group contract driver on the layout receipt and cover the control plane tool contract surface"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/sdk/client/src/public-types.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
+verification_contract = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run --config vitest.config.ts test/agent-group-contracts.test.ts && python3 tests/hyperfide/cases/source_control/0_10.py"
+do_1 = "do_1 In cases/source_control/0_10.py main, refuse with LAYOUT_RECEIPT_REQUIRED unless build/layout/0.9/receipt.json has status PASS, along with the current mapping_sha256 and layout_generation from repository-layout.json."
+symbols = ["0_10.py", "agent-group-contracts.test.ts", "contract_surface_consumer.mjs", "public-types.ts"]
+
+[capability.22.37.2]
+title = "Re-anchor layout qualification to the vendored history and emit a schema checked layout receipt"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/tests/hyperfide/source-control/layout-receipt.schema.json", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"]
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_receipt_gate_test.py && python3 tests/hyperfide/cases/source_control/0_9.py"
+do_1 = "do_1 Add spec/<project>-source-control/layout-vendored-baseline.json. It records the upstream implementation_baseline and layout revision, the monorepo import commit ebcb190287 and the subtree prefix, and is added as a new file so the frozen mapping and its digest stay unchanged."
+symbols = ["0_10.py", "0_9.py", "layout_receipt_gate_test.py"]
+
+[capability.22.37.1]
+title = "Make the tooling and release layout driver self contained and qualify it against the vendored tree"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_8.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py"]
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_tooling_driver_test.py && python3 tests/hyperfide/cases/source_control/0_8.py"
+do_1 = "do_1 Move the historical-document exceptions used by source_references in cases/source_control/0_8.py into a new tracked file spec/<project>-source-control/layout-reference-exceptions.json. Each entry names the file, line range, pinned revision a2a367f9 and reason. Change source_references to read that file and stop depending on untracked receipts under build/layout/0.9."
+symbols = ["0_8.py", "0_9.py", "layout_tooling_driver_test.py"]
+
+[capability.22.31.578]
+title = "Derive the MCP DrawGrant policy dimensions from the decoded Receive cross-checked against the bound draw"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/wallet.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_578.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_578"
+do_1 = "do_1 Gotcha 3291, decision 2699. In services/agent/crates/layerx-mcp/src/tools/wallet.rs make prepare_alias_call (lines 124 to 150) return the Payment::Receive it decodes with Payment::decode together with the Eip1559Call, and make prepare (line 152) return it with the call, the disclosure and the sender; add one pub function (for example draw_policy_dimensions) that takes the decoded Receive and the bound disclosure and answers the DrawGrant dimensions (the amount, the asset and the from of the Receive) when the LedgerDraw disclosure names the same grant, the same idempotency key, the same amount and a recipient equal to the Receive to field, and WalletToolError::Arguments otherwise."
+symbols = ["policy_dimensions", "prepare", "prepare_alias_call"]
+
+[capability.22.31.577]
+title = "Commit boundary memory through a chunk root and rebuild the pre memory for single-step adjudication"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-runtime/src/replay_record.rs", "programs/crates/layerx-programs-runtime/src/portable_replay.rs", "programs/crates/layerx-programs-runtime/src/replay.rs", "programs/crates/layerx-programs-runtime/src/execute.rs", "programs/crates/layerx-programs-runtime/src/market_tests.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs", "programs/crates/layerx-programs-runtime/tests/program_replay.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_569.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib market_tests --test repair_22_31_577 --test repair_22_31_259 --test repair_22_31_564 --test repair_22_31_569 --test program_replay"
+do_1 = "do_1 Gotcha 3290, decision 2698. In programs/crates/layerx-programs-runtime/src/replay_record.rs captured_leaf_bytes and in src/portable_replay.rs (the decoder at line 128 and the legacy copy at line 480, reencode_untrusted at line 535) change the boundary prefix to LXP/program-replay-boundary/v2 and encode the memory as a 32-byte memory root (binary hash tree over 4096-byte chunks of the full linear memory, memory length hashed first, chunk and node domains named in the file) followed by the changed-chunk list (count, then chunk index and 4096 bytes each, the last chunk padded to the memory length); the capture in src/replay.rs computes the first leaf against the initial memory of the validated module and each later leaf against the previous leaf of the same record. Keep every other leaf field, replay_leaf_hash, replay_node_hash, the witness root and the fuel binding of from_captured unchanged."
+symbols = []
 
 [capability.22.31.576]
 title = "Bind the signed transaction bytes to MCP wallet execution receipts"
@@ -148843,6 +149122,947 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.37.27]
+title = "Run the released source system and close the release with restore and publication reconciliation"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.36.1", "22.37.26", "22.37.25"]
+reqs = ["22998.1"]
+capabilities = ["22.37.27"]
+interfaces = []
+do_1 = "do_1 Add a running system phase to cases/source_control/7_2.py that extracts the 7.1 artifact, starts bin/source-control with the qualified profile and drives the SCM-023 journey through support/native_source_full_journey.mjs against it"
+do_2 = "do_2 Add a restore drill that stops the packaged service, restores PostgreSQL and object metadata from backup, restarts and reconciles source roots against the pre drill accepted revisions"
+do_3 = "do_3 Add an ambiguous publication probe that drops the publication response, then resumes by operation id and verifies exactly one remote ref update via independent git readback"
+do_4 = "do_4 Split evidence classes in verify_release so component receipts and live backend, GitHub, consolidation, growth and recovery receipts are listed separately and a missing required class fails closure"
+do_5 = "do_5 Create source-control/manifests/release.json as the pinned release manifest template and emit a closure report file under build/source-control/7.2 that lists each case outcome"
+do_6 = "do_6 Make the bounded verify_cmd run 7_2.py --self-test and add self-test probes for stale custody and missing evidence class"
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 7.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["7_2.py", "native_source_full_journey.mjs"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/7_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_full_journey.mjs", "tools/hyperfide/tests/hyperfide/source-control/registrations/7.2.json", "docs/hyperfide/hyperfide/source-control.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
+tests = []
+planned_paths = ["tools/hyperfide/tests/hyperfide/source-control/manifests/release.json"]
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/7_2.py --self-test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "7.2"
+
+[task.22.37.26]
+title = "Finish source documentation truthfulness and release driver checks"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.36.1", "22.37.25"]
+reqs = ["22998.1"]
+capabilities = ["22.37.26"]
+interfaces = []
+do_1 = "do_1 Add sections to product docs source-control.md for graph freshness, retention, restore procedure and a table of profiles marked qualified or unqualified with links to the case ids in claims.json"
+do_2 = "do_2 Add a documented command extractor to cases/source_control/7_1.py that runs each fenced source command from product docs source-control.md and docs/runtime/source-control.md against the extracted runtime bin directory"
+do_3 = "do_3 Add checks in 7_1.py that refuse a stale evidence reference or source digest named in the docs and an incomplete recovery profile validated against deploy source-control/recovery-profile.schema.json"
+do_4 = "do_4 Emit a release manifest from deploy source-control/package.py listing source format version, protocol version, pinned dependency closure and upgrade compatibility from the legacy migration profile"
+do_5 = "do_5 Run the specification and claims consistency check (registry.json against claims.json and spec.kvx case inventory) from 7_1.py and add refusal probes for each new check"
+do_6 = "do_6 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 7.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["7_1.py", "native_source_package_smoke.mjs", "package.py"]
+touches = ["docs/hyperfide/hyperfide/source-control.md", "docs/hyperfide/runtime/source-control.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/tests/hyperfide/cases/source_control/7_1.py", "tools/hyperfide/deploy/hyperfide/source-control/package.py", "tools/hyperfide/deploy/hyperfide/source-control/recovery-profile.schema.json", "tools/hyperfide/tests/hyperfide/support/native_source_package_smoke.mjs"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/7_1.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "7.1"
+
+[task.22.37.25]
+title = "Complete the integrated source journey assertions and closure refusal probes"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.36.1", "22.37.24"]
+reqs = ["22998.1"]
+capabilities = ["22.37.25"]
+interfaces = []
+do_1 = "do_1 Add sparse edit and source diff steps to runFullSourceJourney in support/native_source_full_journey.mjs using the source.queries.diff action and the CLI, emitting assertions SCM-023.sparse-edit-materializes-only-scope and SCM-023.source-diff-matches-checkpoint"
+do_2 = "do_2 Record per step source snapshot (revision_id, root_tree_id) and provider identity in journey.json and check them in source-control/full_case/scm_023.py"
+do_3 = "do_3 Extend IDS in full_case/scm_023.py, full_assertion_ids in registry.json, claims.json and both full-SCM-023 registrations with the new assertions"
+do_4 = "do_4 Add self_test probes in cases/source_control/6_3.py for empty case selection, missing driver, zero assertions, fake exit code, missing native input identity, duplicate assertion fill, omitted live variant and incomplete cleanup, each asserting a nonzero BLOCKED result naming the unmet obligation"
+do_5 = "do_5 Add explicit reuse records to source-control/release_campaign.py that justify reuse of unaffected receipts by unchanged inventory digest and mark affected receipts invalid, with tests in release_campaign_test.py"
+do_6 = "do_6 Create source-control/manifests/full/ with pinned manifests for SCM-023 api-cli-ui and SCM-024 full and make the 6.3 verify_cmd run the bounded self-test"
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 6.3 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["6_3.py", "closure.py", "native_source_full_journey.mjs", "release_campaign.py", "release_campaign_test.py", "scm_023.py"]
+touches = ["tools/hyperfide/tests/hyperfide/support/native_source_full_journey.mjs", "tools/hyperfide/tests/hyperfide/source-control/full_case/scm_023.py", "tools/hyperfide/tests/hyperfide/source-control/registry.json", "tools/hyperfide/tests/hyperfide/source-control/claims.json", "tools/hyperfide/tests/hyperfide/source-control/registrations/full-SCM-023-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/source-control/registrations/full-SCM-023-owned-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/cases/source_control/6_3.py", "tools/hyperfide/tests/hyperfide/source-control/closure.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
+tests = ["tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py"]
+planned_paths = ["tools/hyperfide/tests/hyperfide/source-control/manifests/full/scm-023-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/source-control/manifests/full/scm-024-full.json"]
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_3.py --self-test && python3 tests/hyperfide/source-control/release_campaign_test.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "6.3"
+
+[task.22.37.24]
+title = "Add campaign mislabel and inflation negatives, BLOCKED outcomes and hydrate and cache accounting to the workload harness"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.24"]
+interfaces = []
+do_1 = "do_1 Add receipt validation in tests/<project>/source-control/workloads/campaign.mjs that rejects imported revisions counted as new, missing latency samples, cache state cold when the cache was warmed, and logical opens reported as materialized files."
+do_2 = "do_2 Add negative cases for each rule to tests/<project>/support/native_source_workload.mjs with new assertion ids and register them in tests/<project>/source-control/registrations/6.2.json."
+do_3 = "do_3 Make campaignManifest callers in tests/<project>/support/native_source_external_workload.mjs record status BLOCKED with the missing capability name when real_backend capability or required capacity is absent, instead of exiting with an error."
+do_4 = "do_4 Record hydrated bytes, cache hits and misses and storage request counts from tests/<project>/source-control/workloads/storage_observer.mjs in each mixed and admission result, and keep logical opens separate."
+do_5 = "do_5 Add a reachable-object check to tests/<project>/support/native_source_workload.mjs that walks every acknowledged revision root and asserts each referenced object is readable."
+do_6 = "do_6 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 6.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["campaign.mjs", "native_source_external_workload.mjs", "native_source_workload.mjs", "storage_observer.mjs"]
+touches = ["tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_workload.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_external_workload.mjs", "tools/hyperfide/tests/hyperfide/source-control/workloads/storage_observer.mjs", "tools/hyperfide/tests/hyperfide/source-control/registrations/6.2.json", "tools/hyperfide/tests/hyperfide/source-control/workloads/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_2.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "6.2"
+
+[task.22.37.23]
+title = "Finish recovery qualification with concurrent rebalance, stale acceptance refusal and per failure-domain outcomes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.23"]
+interfaces = []
+do_1 = "do_1 Change the routing mode in tests/<project>/support/native_source_recovery_actor.mjs to run continuous reads and revision commits in parallel with SourceRoutingService.move and assert no failed read, no lost acknowledged commit and STALE_ROUTE for the obsolete owner."
+do_2 = "do_2 Add a stale-acceptance mode to tests/<project>/support/native_source_recovery_actor.mjs that tries source.acceptance.accept with the prior epoch credential after restore activation and asserts a typed refusal, and call it from tests/<project>/cases/source_control/6_1.py."
+do_3 = "do_3 Extend the receipt in tests/<project>/cases/source_control/6_1.py with failure_domains mapping PROCESS_LOSS, PRIMARY_INSTANCE_LOSS and FAILURE_DOMAIN_LOSS to PASS, FAIL or UNRUN, a deterministic_faults list separate from real_infrastructure results, the backend identity and version, and unresolved_debt."
+do_4 = "do_4 Record in docs/<project>/source-control-recovery.md which failure domains remain UNRUN and how to run the live S3 variant versus --component."
+do_5 = "do_5 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
+do_6 = "do_6 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 6.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["6_1.py", "native_source_recovery_actor.mjs", "routing.ts"]
+touches = ["tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/6_1.py", "docs/hyperfide/hyperfide/source-control-recovery.md", "tools/hyperfide/core/control-plane/src/source_control/routing.ts"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py --component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "6.1"
+
+[task.22.37.22]
+title = "Complete migration inventory, access and evidence parity, boundary crash coverage and UNRUN deployment record"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.22"]
+interfaces = []
+do_1 = "do_1 Extend migrationInventory in core/control-plane/src/source_control/migration/inventory.ts to return the declared legacy writer ids, installed source and evidence schema versions, open workspaces with dirty paths and custody holders, selected history counts and unresolved external publication effects, and make SourceMigrationService.drained use it."
+do_2 = "do_2 Add access-policy and evidence comparison to compareNativeMigration in core/control-plane/src/source_control/migration/parity.ts: compare path grants of the projection policy against native capabilities and compare retained evidence bindings per project, and include both digests in NativeParityReceipt."
+do_3 = "do_3 Allow SourceMigrationService.control in core/control-plane/src/source_control/migration/cutover.ts to cover every id in legacy_writer_ids by requiring one isolation receipt per declared writer, and refuse unknown writers."
+do_4 = "do_4 Extend adoptSourceEpoch in core/control-plane/src/source_control/migration/epoch_adoption.ts to version graph, findings and qualification source bindings, recording old and new epochs per binding."
+do_5 = "do_5 Add a dirty workspace preservation case to tests/<project>/support/native_source_migration_actor.mjs: an open workspace with uncommitted paths must block quiesce, then be checkpointed and reopened under the new epoch with identical content."
+do_6 = "do_6 Add process-kill cases to tests/<project>/support/native_source_migration_actor.mjs driven from tests/<project>/cases/source_control/5_3.py: kill the actor before and after quiesce commit, before and after activate commit, and after recover, then rerun with the same operation ids and assert identical results and a single authoritative writer."
+do_7 = "do_7 Write deployment_migration: UNRUN and the list of crash boundaries exercised into the 5.3 receipt, and keep overall status separate from that UNRUN field."
+do_8 = "do_8 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 5.3 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["5_3.py", "cutover.ts", "epoch_adoption.ts", "inventory.ts", "native_source_migration_actor.mjs", "parity.ts"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/parity.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/cutover.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/epoch_adoption.ts", "tools/hyperfide/tests/hyperfide/support/native_source_migration_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_3.py", "docs/hyperfide/hyperfide/source-control-migration.md"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_3.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "5.3"
+
+[task.22.37.21]
+title = "Route imported contributions into candidates and import legacy source maps"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.21"]
+interfaces = []
+do_1 = "do_1 In SourceGitImporter.createContribution and readContribution (core/control-plane/src/source_control/git/import.ts) create an idempotent native candidate from the completed import revision through the existing candidate service with the requested scope, so qualification and acceptance run through the ordinary candidate and acceptance services; a new tip under the same provider identity creates a new contribution and new revision."
+do_2 = "do_2 Add a legacy source map import entry point in core/control-plane/src/source_control/git/import.ts that reads a bounded legacy map of original Git ids to existing native revisions, validates each pair, and records them in source_git_import_commits with disposition MAPPED so resumed imports reuse them."
+do_3 = "do_3 Report historical ingestion metrics separately from new authored revision metrics in the import receipt and in the server metrics family for imports."
+do_4 = "do_4 Extend native_source_import_actor.mjs with a contribution that is qualified and accepted through the candidate path, a changed contribution tip that yields a new revision, a merge whose second side is excluded collapsing to one parent, and a legacy map import followed by a resumed import that reuses mapped revisions."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 5.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["5_2.py", "candidates.ts", "import.ts", "metrics.ts", "native_source_import_actor.mjs", "projection.ts"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/git/import.ts", "tools/hyperfide/core/control-plane/src/source_control/git/projection.ts", "tools/hyperfide/core/control-plane/src/source_control/candidates.ts", "tools/hyperfide/core/control-plane/src/source_control/metrics.ts", "tools/hyperfide/tests/hyperfide/support/native_source_import_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_2.py"]
+tests = []
+planned_paths = ["tools/hyperfide/core/control-plane/migrations/0765-source-control-import-legacy-maps.sql"]
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_2.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "5.2"
+
+[task.22.37.20]
+title = "Route the platform publisher through native export and observe destination protection"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.20"]
+interfaces = []
+do_1 = "do_1 Add a versioned native export adapter to the qualify plugin publication module and make WavePublication.prepare create a native publication through SourceControlClient.createPublication when a native destination is configured, keeping historical local receipts readable and removing the git worktree path for native mode."
+do_2 = "do_2 Add observeProtection to the GitHub and GitLab destinations in core/control-plane/src/source_control/git/github.ts and gitlab.ts, reading repository identity and branch protection or rulesets through the provider API with the same credential, and refuse publication with a typed PROTECTION_UNSATISFIED error when the observed identity or rules differ from configuration."
+do_3 = "do_3 Persist credential cleanup debt in source_git_publications through a new migration (credential state and cleanup_debt columns) and settle it in SourceGitPublicationService after push and reconciliation in git/export.ts."
+do_4 = "do_4 Extend native_source_git_actor.mjs with a stub provider API over a local HTTPS listener to assert identity mismatch refusal, protection change refusal, and a credential cleanup debt row that clears after reconciliation; extend the qualify plugin publication.test.ts to assert native mode never invokes git worktree."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 5.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["5_1.py", "export.ts", "github.ts", "gitlab.ts", "native_source_git_actor.mjs", "publication.test.ts", "publication.ts", "transport.ts"]
+touches = ["tools/hyperfide/plugins/hyperfide-qualify/publication.ts", "tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts", "tools/hyperfide/core/control-plane/src/integration/publication.ts", "tools/hyperfide/core/control-plane/src/source_control/git/github.ts", "tools/hyperfide/core/control-plane/src/source_control/git/gitlab.ts", "tools/hyperfide/core/control-plane/src/source_control/git/transport.ts", "tools/hyperfide/core/control-plane/src/source_control/git/types.ts", "tools/hyperfide/core/control-plane/src/source_control/git/export.ts", "tools/hyperfide/tests/hyperfide/support/native_source_git_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_1.py"]
+tests = ["tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts"]
+planned_paths = ["tools/hyperfide/core/control-plane/migrations/0764-source-control-publication-credentials.sql"]
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-qualify typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_1.py && pnpm --filter @hyperfide/hyperfide-qualify vitest run publication.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "5.1"
+
+[task.22.37.19]
+title = "Complete source product metrics, workspace state display and failure journeys"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.19"]
+interfaces = []
+do_1 = "do_1 Extend SourceMetrics in core/host-daemon/src/source-control/metrics.ts with bounded enum labels for mode, status and partition and with counters for logical opens, materialization bytes and files, cache hits, evictions and dirty bytes, transfer queue depth, graph work items, checkpoint latency buckets, integration retries and remote lag; make the busy refusal a typed LIMIT_EXCEEDED diagnostic that names the limiting budget."
+do_2 = "do_2 Feed the host cache and materializer (core/host-daemon/src/source-control/cache.ts, materializer.ts, checkpoint.ts) into those counters and surface them in the metrics view (plugins/.../views/metrics.tsx)."
+do_3 = "do_3 Show explicit dirty, uploading, acknowledged, submitted, accepted and exported states in views/workspace-detail.tsx derived from the operation journal and server receipts, never from local edits alone, and add a dependency closure readiness indicator and a workspace picker fed by the project assignments list."
+do_4 = "do_4 Extend native_source_product_actor.mjs with cases for an incomplete dependency closure open, a history and diff larger than one page that is walked through next_cursor to completion, a read of an unauthorized path returning a denial without content, an unavailable virtualization request returning a typed refusal, and a cardinality assertion that path, revision and project values never become labels."
+do_5 = "do_5 Extend native_source_product_browser.mjs to page an oversized diff in the UI and to assert that a reconnect after an ambiguous checkpoint never shows the edit as durable until the receipt arrives; keep desktop, tablet and mobile screenshots."
+do_6 = "do_6 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 4.3 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["4_3.py", "cache.ts", "checkpoint.ts", "contract.ts", "materializer.ts", "metrics.ts", "native_source_product_actor.mjs", "native_source_product_browser.mjs"]
+touches = ["tools/hyperfide/core/host-daemon/src/source-control/metrics.ts", "tools/hyperfide/core/host-daemon/src/source-control/cache.ts", "tools/hyperfide/core/host-daemon/src/source-control/materializer.ts", "tools/hyperfide/core/host-daemon/src/source-control/checkpoint.ts", "tools/hyperfide/core/control-plane/src/source_control/metrics.ts", "tools/hyperfide/plugins/hyperfide-source-control/views/metrics.tsx", "tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx", "tools/hyperfide/plugins/hyperfide-source-control/app.tsx", "tools/hyperfide/plugins/hyperfide-source-control/runtime.ts", "tools/hyperfide/plugins/hyperfide-source-control/contract.ts", "tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/host-daemon typecheck && pnpm --filter @hyperfide/hyperfide-source-control typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_3.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "4.3"
+
+[task.22.37.18]
+title = "Native mode for the plugin router and integration queue with outage, publication and manager integration qualification"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.36.1", "22.37.17"]
+reqs = ["22998.1"]
+capabilities = ["22.37.18"]
+interfaces = []
+do_1 = "do_1 In the router plugin contracts.ts replace the tip and bundle integration contract with a versioned assignment descriptor union: native with revision_id, root_tree_id, scope, closure and environment ids and task, attempt and workspace generations, and legacy with an explicit compatibility tag; update runners.ts and the router module accordingly."
+do_2 = "do_2 Add a native path to IntegrationQueue in the router plugin integrate/queue.ts that creates, qualifies and accepts candidates through the source SDK client and never executes git, keeping the Git path only under the legacy tag; cover it in queue.test.ts with an assertion that no git command is issued in native mode."
+do_3 = "do_3 Add a source and authority outage group to the agent-group actor module named in touches: interrupt the source service during submission and acceptance, replay, and assert exactly one task completion and one acceptance."
+do_4 = "do_4 Run remote publication in the default verify path against a local bare destination and assert process exit, object upload, checkpoint, acceptance and publication receipts are distinct and none implies another."
+do_5 = "do_5 Add a manager integration group where the manager principal completes candidate creation, qualification and acceptance in API_ONLY mode and assert no materialized workspace exists for that principal."
+do_6 = "do_6 Run the actor with a PATH git shim installed after fixture setup that records invocations and assert zero calls; append a qualification.kvx entry with revision, command, exit code and log path."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 4.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["4_2.py", "contracts.ts", "dispatcher.ts", "native_source_fleet_actor.mjs", "native_source_fleet_reconciliation.mjs", "queue.test.ts", "queue.ts", "runners.ts"]
+touches = ["tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/contracts.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/runners.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts", "tools/hyperfide/plugins/hyperfide-dispatch/package.json", "tools/hyperfide/tests/hyperfide/support/native_source_fleet_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_fleet_reconciliation.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/4_2.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"]
+planned_paths = []
+build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check && cd ../.. && pnpm --filter @hyperfide/hyperfide-dispatch typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/hyperfide-dispatch test && python3 tests/hyperfide/cases/source_control/4_2.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "4.2"
+
+[task.22.37.17]
+title = "Complete native acceptance qualification with batch suite, retention race, lifecycle projection and a recorded run"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.17"]
+interfaces = []
+do_1 = "do_1 Change the 4_1.py case script to also run the 4_1_batches.py case script and fail on a nonzero exit, and add migrations 0746-source-control-retention.sql and 0757-source-control-candidate-queue.sql to its list."
+do_2 = "do_2 Add a retention race group to the native_source_acceptance_actor.mjs test module that configures SourceRetentionService, runs discover and collect concurrently with accept, and asserts the accepted root tree, contributor revisions and evidence objects are never QUARANTINED or ABSENT."
+do_3 = "do_3 Add a changed tree receipt group: evidence whose recorded root_tree_id differs from the candidate root is refused with a typed code and the domain head is unchanged."
+do_4 = "do_4 Add a lifecycle read action in core/control-plane/src/source_control/api.ts and server.ts returning SourceLifecycle states with the receipt id for each stage per revision and domain, add it to sdk/source-control/src/client.ts, and assert in the acceptance actor that acceptance does not imply REMOTELY_PUBLISHED."
+do_5 = "do_5 Replace the absent tasks table assertion with a fixture that creates the task tables and asserts acceptance writes no task completion or attempt state change."
+do_6 = "do_6 Run the verify command once and append a qualification.kvx entry with revision, command, exit code and log path."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 4.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["4_1.py", "4_1_batches.py", "acceptance.ts", "api.ts", "client.ts", "contracts.ts", "native_source_acceptance_actor.mjs", "native_source_acceptance_fixture.mjs"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/4_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/4_1_batches.py", "tools/hyperfide/tests/hyperfide/support/native_source_acceptance_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_acceptance_fixture.mjs", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/core/control-plane/src/source_control/server.ts", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/acceptance.ts", "tools/hyperfide/sdk/source-control/src/client.ts", "tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check && cd ../.. && pnpm --filter @hyperfide/source-control typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_1.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "4.1"
+
+[task.22.37.16]
+title = "Admit native revision identity in packet, slice and review graph consumers and qualify interrupted graph publication"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.16"]
+interfaces = []
+do_1 = "do_1 In core/control-plane/src/graph/publication.ts loadGraphSnapshot add a versioned native pin form with sha256 revision_id and root_tree_id that resolves through loadNativeGraph in core/control-plane/src/graph/native.ts instead of the raw Git commit pattern, keeping imported Git provenance as a separate field."
+do_2 = "do_2 Update core/control-plane/src/preparation/slices.ts and core/control-plane/src/hierarchy/packets.ts to pass native pins to the graph reader and record native source mismatch or incomplete coverage as explicit FULL_TREE fallback reasons."
+do_3 = "do_3 Update core/control-plane/src/review/receipts.ts so review receipts accept and record the native graph snapshot identity."
+do_4 = "do_4 In the graph plugin contract.ts and host.ts route survey and why through source.graph.query when a native source configuration is present and return a typed refusal instead of running the local binary against a checkout in native mode; add a case to the graph plugin host.test.ts."
+do_5 = "do_5 Extend the native_source_graph_actor.mjs test module: abort after the first extracted file, inject a failure inside the publication transaction, and assert the channel keeps the previous build id and generation; assert source capability reads complete while two builds saturate admission."
+do_6 = "do_6 Add a slice derivation assertion to the graph actor that a native published graph drives a non FULL_TREE slice for the pinned revision."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 3.3 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["3_3.py", "contract.ts", "host.test.ts", "host.ts", "native.ts", "native_source_graph_actor.mjs", "packets.ts", "publication.ts"]
+touches = ["tools/hyperfide/core/control-plane/src/graph/publication.ts", "tools/hyperfide/core/control-plane/src/graph/native.ts", "tools/hyperfide/core/control-plane/src/preparation/slices.ts", "tools/hyperfide/core/control-plane/src/hierarchy/packets.ts", "tools/hyperfide/core/control-plane/src/review/receipts.ts", "tools/hyperfide/plugins/hyperfide-graph/contract.ts", "tools/hyperfide/plugins/hyperfide-graph/host.ts", "tools/hyperfide/plugins/hyperfide-graph/host.test.ts", "tools/hyperfide/tests/hyperfide/support/native_source_graph_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/3_3.py"]
+tests = ["tools/hyperfide/plugins/hyperfide-graph/host.test.ts"]
+planned_paths = []
+build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_3.py && pnpm --filter @hyperfide/hyperfide-graph test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "3.3"
+
+[task.22.37.15]
+title = "Bind virtual workspace writes to attempt expiry and qualify the real FUSE case"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.36.1", "22.37.13"]
+reqs = ["22998.1"]
+capabilities = ["22.37.15"]
+interfaces = []
+do_1 = "do_1 Add an attempt_expires_at column to source_workspaces in a new migration under core/control-plane/migrations and return it from workspace detail in core/control-plane/src/source_control/workspaces.ts; refuse source.workspaces.checkpoint with a typed ATTEMPT_EXPIRED error once it has passed, leaving checkpoint_revision_id unchanged"
+do_2 = "do_2 In sdk/source-control/src/host/virtual-filesystem.ts current(), refuse writable access and checkpoint() when the retained descriptor attempt deadline has passed, mapping ATTEMPT_EXPIRED to EACCES while keeping dirty overlay bytes on disk"
+do_3 = "do_3 Add a byte-range read path in sdk/source-control/src/host/virtual-filesystem.ts READ so a handle fetches only the chunks covering the requested range for chunked files, keeping stable base bytes per handle"
+do_4 = "do_4 In 3_2.py resolve the node binary from the existing node binary override variable or the node on PATH instead of a host-specific default"
+do_5 = "do_5 Extend native_source_virtual_actor.mjs with checks that let a real attempt deadline and a real capability grant expire while mounted and assert write and checkpoint refusal with the last acknowledged revision unchanged, plus a range read of a large chunked file with bounded fetched bytes"
+do_6 = "do_6 Run the 3_2 case on a host with /dev/fuse, pinned mount helpers and real S3 configuration and record a PASS receipt with the revision in qualification.kvx"
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 3.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["3_2.py", "client.ts", "contract.ts", "native_source_virtual_actor.mjs", "native_source_virtual_fixture.mjs", "virtual-filesystem.ts", "workspaces.ts"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/sdk/source-control/src/host/virtual-filesystem.ts", "tools/hyperfide/sdk/source-control/src/host/client.ts", "tools/hyperfide/plugins/environment-slices/contract.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/3_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_virtual_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_virtual_fixture.mjs", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = ["tools/hyperfide/core/control-plane/migrations/0763-source-control-workspace-attempts.sql"]
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/source-control typecheck && cd core/control-plane && npm run check"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_2.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "3.2"
+
+[task.22.37.14]
+title = "Wire source producers to durable retention roots and verify backend lifecycle policy"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.36.1", "22.37.9", "22.37.10", "22.37.11"]
+reqs = ["22998.1"]
+capabilities = ["22.37.14"]
+interfaces = []
+do_1 = "do_1 In core/control-plane/src/source_control/workspaces.ts open and checkpoint paths, insert a WORKSPACE pin for the workspace base root and the checkpoint root inside the same transaction, keyed by workspace_id, so the existing delete at close releases a real pin; add the matching release on workspace expiry"
+do_2 = "do_2 In core/control-plane/src/source_control/candidates.ts and evidence.ts, acquire a CANDIDATE or EVIDENCE root through SourceRetentionService.acquire for every retained candidate tree and evidence object and release it when the candidate or evidence record reaches its terminal retention state"
+do_3 = "do_3 In core/control-plane/src/source_control/git/export.ts, acquire an EXPORT root for the exported tree for the lifetime of the export operation and release it on completion or cancel"
+do_4 = "do_4 Add a lifecycleConfiguration method to S3SourceObjectBackend in core/control-plane/src/source_control/s3.ts that reads the bucket lifecycle and versioning configuration; make SourceCollector.configure in gc.ts refuse any enabled expiration or noncurrent version expiration rule that covers the source/v1 prefix instead of trusting the independent_expiration flag"
+do_5 = "do_5 Replace the scope-wide backup_until stop in gc.ts discover with a per-object check against the BACKUP roots and the source_backup_objects table so only objects captured by an unexpired backup are kept"
+do_6 = "do_6 Extend SourceCollector.inspect in gc.ts to also return RESERVED child reservations whose parent outcome is unknown, with a typed debt kind"
+do_7 = "do_7 Extend the 2_3 case actors native_source_collection.mjs and native_source_collection_api.mjs with checks for workspace and candidate producer roots, a real lifecycle rule refusal against the S3 fixture, per-backup version retention and reservation debt in inspect; rerun the case and record the receipt with the revision"
+do_8 = "do_8 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 2.3 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["2_3.py", "backend.mjs", "candidates.ts", "evidence.ts", "export.ts", "gc.ts", "native_source_collection.mjs", "native_source_collection_api.mjs"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/core/control-plane/src/source_control/candidates.ts", "tools/hyperfide/core/control-plane/src/source_control/evidence.ts", "tools/hyperfide/core/control-plane/src/source_control/git/export.ts", "tools/hyperfide/core/control-plane/src/source_control/s3.ts", "tools/hyperfide/core/control-plane/src/source_control/gc.ts", "tools/hyperfide/core/control-plane/src/source_control/retention.ts", "tools/hyperfide/core/control-plane/src/source_control/storage_contract.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_collection.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_collection_api.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/2_3.py"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_3.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "2.3"
+
+[task.22.37.13]
+title = "Complete workspace readiness receipts, host name checks and a standalone qualification for sparse materialization"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.36.1", "22.37.12"]
+reqs = ["22998.1"]
+capabilities = ["22.37.13"]
+interfaces = []
+do_1 = "do_1 Add a readiness receipt to SparseSourceMaterializer.materialize in the sdk host materializer.ts carrying scope, workspace and scope generations, base revision, selected paths, a digest of the installed entry set and a closure manifest digest, separate from the admission receipt returned by NativeWorkspaceClient.open"
+do_2 = "do_2 Add a dependency closure manifest field to the workspace descriptor in the control plane workspaces.ts and its migration, with an explicit incomplete closure state, and return it from source.workspaces.open and detail"
+do_3 = "do_3 Probe the host filesystem for case folding and Unicode normalization at materializer start and refuse with HOST_NAME_INCOMPATIBLE before installing two names that collide on that host"
+do_4 = "do_4 In NativeWorkspaceCheckpoint, inspect object ids before upload and only put missing objects; count skipped uploads in the result"
+do_5 = "do_5 Make case driver 2_2.py self contained: when no profile is given, start the owned PostgreSQL source service and HTTP listener itself (reuse native_source_fixture.py and the API actor setup) instead of exiting 2"
+do_6 = "do_6 Add 2_2.py checks for a server side capability revocation during materialization, for colliding names on a case folding probe, and for bounded traversal: add 1000 unrelated directories outside the selected scope and assert the number of tree and object reads does not change"
+do_7 = "do_7 Append one qualification.kvx entry for 2.2 with command, exit code and receipt digest"
+do_8 = "do_8 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 2.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["2_2.py", "checkpoint.ts", "client.ts", "materializer.ts", "native_source_fixture.py", "native_source_sparse_fixture.mjs", "workspaces.ts"]
+touches = ["tools/hyperfide/sdk/source-control/src/host/materializer.ts", "tools/hyperfide/sdk/source-control/src/host/client.ts", "tools/hyperfide/sdk/source-control/src/host/checkpoint.ts", "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_fixture.py", "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = ["tools/hyperfide/core/control-plane/migrations/0762-source-control-workspace-closure.sql"]
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/source-control run typecheck && pnpm --filter @hyperfide/control-services run check && pnpm --filter @hyperfide/host-daemon run typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_2.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "2.2"
+
+[task.22.37.12]
+title = "Add ancestry indexing, admission classes and replica aware causal reads to the source query API"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.36.1", "22.37.11"]
+reqs = ["22998.1"]
+capabilities = ["22.37.12"]
+interfaces = []
+do_1 = "do_1 Add a revision generation number column and a bounded ancestry index table in a new migration, filled when revisions are created in revisions.ts, and use it in SourceQueries ancestry, history and mergeBases to prune walks; expose index_generation and index_complete freshness fields in every query response"
+do_2 = "do_2 Replace the seen set inside query cursors with a server side continuation record keyed by an opaque id (or with generation bounded frontiers) so history and ancestry pagination work past 10000 revisions; add a regression in the API actor that pages history over 2000 revisions"
+do_3 = "do_3 Give mergeBases a resumable continuation and return PARTIAL with next_cursor instead of an empty result"
+do_4 = "do_4 Add optional path filters to diff, history and trees.entries and return REDACTED coverage entries for paths outside the capability prefixes instead of denying the whole request"
+do_5 = "do_5 Add per class admission budgets (upload, query, event, acceptance, mutation) to startSourceHttp and classify each action in api.ts; a saturated query class must not refuse mutations"
+do_6 = "do_6 Route causal dependent reads to a replica when the replica has applied the receipt, with a bounded fall back to the primary, and reject changed epochs; cover this in causal.py with a lagging replica connection"
+do_7 = "do_7 Extend native_source_api_actor.mjs with operation cancellation, a late event commit observed through subscriptions, admission class isolation and the long history page; make the receipt status reflect an UNRUN host journey instead of PASS"
+do_8 = "do_8 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 2.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["2_1.py", "api.ts", "causal.py", "causal.ts", "contracts.ts", "cursors.ts", "http.ts", "metadata.ts"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/queries.ts", "tools/hyperfide/core/control-plane/src/source_control/cursors.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/core/control-plane/src/source_control/http.ts", "tools/hyperfide/core/control-plane/src/source_control/causal.ts", "tools/hyperfide/core/control-plane/src/source_control/revisions.ts", "tools/hyperfide/core/control-plane/src/source_control/metadata.ts", "tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_causal_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/2_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/causal.py"]
+tests = []
+planned_paths = ["tools/hyperfide/core/control-plane/migrations/0761-source-control-ancestry-index.sql"]
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services run check && pnpm --filter @hyperfide/source-control run typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_1.py && python3 tests/hyperfide/cases/source_control/causal.py && python3 tests/hyperfide/cases/source_control/batch.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "2.1"
+
+[task.22.37.11]
+title = "Complete source capability qualification through the registered service path"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.11"]
+interfaces = []
+do_1 = "do_1 Extend case driver 1_3.py so that, in addition to the component checks, it starts createSourceService and startSourceHttp from the compiled source modules (as native_source_api_actor.mjs does) and repeats revocation, cross domain guessing and path prefix denial through api.invoke over HTTP with the SDK client"
+do_2 = "do_2 Add negative fixtures to 1_3.py for malicious repository paths (dot segments, absolute paths, NUL and backslash bytes, overlong names) and for symlink entries that point outside the tree; assert INVALID_PATH or SCOPE_DENIED with no object backend request"
+do_3 = "do_3 Record residual_validity_ms returned by issueSourceTransferGrant for the revoked GET grant in the receipt as a separate field from the immediate mutation revocation result"
+do_4 = "do_4 Add a changed request digest check: replay a source.revisions.create operation id with a different body through the API and assert IDEMPOTENCY_CONFLICT with no new audit or revision row"
+do_5 = "do_5 Define an explicit private agent group context schema in contracts.ts (parse function plus field allowlist) and assert in 1_3.py that revision provenance and audit records reject its fields"
+do_6 = "do_6 Write the receipt with source and dist digests and append one qualification.kvx entry for task 1.3 with command, exit code and receipt digest"
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 1.3 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["1_3.py", "audit.ts", "capabilities.ts", "contracts.ts", "transfer_grants.ts"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/1_3.py", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/capabilities.ts", "tools/hyperfide/core/control-plane/src/source_control/transfer_grants.ts", "tools/hyperfide/core/control-plane/src/source_control/audit.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services run check && pnpm --filter @hyperfide/source-control run typecheck"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_3.py && python3 tests/hyperfide/cases/source_control/admin.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "1.3"
+
+[task.22.37.10]
+title = "Complete revision metadata replay after lease release, reassignment and real collection interleavings"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.10"]
+interfaces = []
+do_1 = "do_1 Correct the task touches to name core/control-plane/migrations/0737-source-control-metadata.sql and drop the nonexistent 0718 path"
+do_2 = "do_2 Add replay handling in core/control-plane/src/source_control/operations.ts and metadata.ts so a COMMITTED operation returns its stored receipt after the compute lease that issued it is released, and a PENDING operation reassigned to a new attempt generation is refused for the old attempt with STALE_AUTHORITY while the new attempt can complete it once"
+do_3 = "do_3 Add cases to the source_metadata_actor.mjs support actor for replay after lease release and for reassigned incomplete work, asserting one effect and one event"
+do_4 = "do_4 Add an actor case that races createRevision against the real collector in core/control-plane/src/source_control/gc.ts on the same root and against an in-flight upload, asserting either a protected revision or a clean refusal with no partial rows"
+do_5 = "do_5 Race identical and different payloads under the same idempotency key concurrently and assert exactly one COMMITTED result and IDEMPOTENCY_CONFLICT for the others"
+do_6 = "do_6 Have the actor write build/source-control/1.2/receipt.json and append a qualification.kvx record"
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 1.2 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["1_2.py", "gc.ts", "metadata.ts", "operations.ts", "revisions.ts", "source_metadata_actor.mjs"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/operations.ts", "tools/hyperfide/core/control-plane/src/source_control/metadata.ts", "tools/hyperfide/core/control-plane/src/source_control/revisions.ts", "tools/hyperfide/core/control-plane/src/source_control/gc.ts", "tools/hyperfide/tests/hyperfide/support/source_metadata_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/1_2.py", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_2.py && python3 tests/hyperfide/cases/source_control/events.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "1.2"
+
+[task.22.37.9]
+title = "Complete the object and persistent tree slice with multipart tracking, golden vectors and registered consumer coverage"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.9"]
+interfaces = []
+do_1 = "do_1 Add golden vectors for blob file descriptors, chunked file descriptors, tree-index nodes and the empty root to the contracts-v1.json fixture used by 0_1 and assert exact bytes and ids in fixtures/objects/storage.mjs"
+do_2 = "do_2 Add malformed input cases to storage.mjs for decodeFileDescriptor and decodeTreeNode in core/control-plane/src/source_control/objects.ts: non-canonical tuple bytes, wrong chunk lengths, unsorted or duplicate leaf names, bad radix digits and count mismatch, each expecting the typed error code"
+do_3 = "do_3 Add a multipart upload path to SourceObjectService in objects.ts for envelopes above a configured part threshold and record backend_upload_id and multipart_parts through new PostgresSourceObjectCatalog methods in object_catalog.ts; an incomplete part set must stay UNKNOWN and never VERIFIED"
+do_4 = "do_4 Add a deterministic fault case in storage.mjs and backend.mjs for multipart: lost complete response and a missing part, asserting no readiness until exact readback"
+do_5 = "do_5 Add a storage.mjs case where two owners reserve the same direct child and one parent upload ends UNKNOWN; assert the child pin still blocks deletion"
+do_6 = "do_6 Extend the bounded-work fixture to nested trees of increasing size (for example 1k, 10k, 100k files across directories) and assert nodes_read and nodes_written grow with changed path depth only"
+do_7 = "do_7 Route at least the put, read and inspect checks in storage.mjs through the registered source.objects actions in core/control-plane/src/source_control/api.ts"
+do_8 = "do_8 Add an assertion that no git process is spawned and no pack files are written during the run, and append a qualification.kvx record for the component run"
+do_9 = "do_9 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
+do_10 = "do_10 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 1.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["1_1.py", "api.ts", "backend.mjs", "object_catalog.ts", "objects.ts", "storage.mjs", "storage_contract.ts"]
+touches = ["tools/hyperfide/core/control-plane/src/source_control/objects.ts", "tools/hyperfide/core/control-plane/src/source_control/object_catalog.ts", "tools/hyperfide/core/control-plane/src/source_control/storage_contract.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/1_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/storage.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_1.py --component && python3 tests/hyperfide/cases/source_control/0_1.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "1.1"
+
+[task.22.37.8]
+title = "Complete pagination and replay contract checks for the native source contract"
+status = "pending"
+mode = "BUILD"
+wave = 8
+requires = ["22.36.1", "22.37.7"]
+reqs = ["22998.1"]
+capabilities = ["22.37.8"]
+interfaces = []
+do_1 = "do_1 Add parseSourcePage and parseSourceCursor to the SDK contracts.ts that validate items array, opaque bounded cursor, coverage enum, snapshot object id and optional index generation, and refuse unknown fields; regenerate the control plane copy of contracts.ts through the contract sync script."
+do_2 = "do_2 Add vectors for integer bound generations, escaped control characters and non BMP strings to contracts-v1.json and assert them in 0_1.py."
+do_3 = "do_3 Add 0_1.py cases for page parsing, refused malformed cursors, refused partial coverage without a cursor where required, and replay of the same operation id with a different payload digest being refused by the codec or documented as a server rule."
+do_4 = "do_4 Add a check in 0_1.py that the server contract file and the SDK contract file have identical digests so codec divergence is reported explicitly."
+do_5 = "do_5 Default the node binary in 0_1.py to the node found on PATH when the node override variable is unset."
+do_6 = "do_6 Run 0_1.py once 0.14 is done and record the result in qualification.kvx."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.1 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_1.py", "contracts.ts"]
+touches = ["tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json", "tools/hyperfide/spec/hyperfide-source-control/decisions.md", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/source-control run build && pnpm --filter @hyperfide/source-control run typecheck && npm --prefix core/control-plane run check"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_1.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.1"
+
+[task.22.37.7]
+title = "Run the final prerequisite journey and publish the native source handoff"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["22.36.1", "22.37.6"]
+reqs = ["22998.1"]
+capabilities = ["22.37.7"]
+interfaces = []
+do_1 = "do_1 Add a component mode (--component) to tests/<project>/cases/source_control/0_14.py that runs the actor checks and the deterministic fault cases through the throwaway database the withpg support provides, writes the component receipt with the live sections marked UNRUN, and exits 0 when every component check passes; the gate runs that mode (decision 2700)."
+do_2 = "do_2 Change 0_14.py so that, after the actor checks, it calls the live verifier with the evidence index and target and returns 0 only when the live receipt is PASS; keep BLOCKED with exit 2 otherwise."
+do_3 = "do_3 Where the owner has supplied provider credentials, run 0_14_live.py end to end on a configured provider pool and model backend, then capture the fault cases (supervisory box loss, stale generation replay, ambiguous provider outcome, interrupted install, failed implementing agent run, model unavailability) into the evidence index. Otherwise record that run as UNRUN (decision 2700)."
+do_4 = "do_4 Write a classified assertion inventory into the live receipt listing each contract, source, toolchain, manifest, interface and provider assertion with its evidence reference or an explicit baseline defect or missing coverage class."
+do_5 = "do_5 Add a Prerequisite handoff section to the agent group guide and the operations guide listed in touches, naming the receipts, recovery steps and the source adapter migration boundary, and stating that native task 0.1 is released only after this qualification."
+do_6 = "do_6 Record the run in qualification.kvx."
+do_7 = "do_7 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
+do_8 = "do_8 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.14 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_14.py", "0_14_live.py", "0_14_setup.py", "fleet_live_qualification.py"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_14.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_live.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_setup.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "docs/hyperfide/hyperfide/fleet.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/deploy/hyperfide/sandbox", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.14"
+
+[task.22.37.6]
+title = "Qualify manager led provisioning and agent assignment with live evidence"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.36.1", "22.37.5"]
+reqs = ["22998.1"]
+capabilities = ["22.37.6"]
+interfaces = []
+do_1 = "do_1 Where the owner has supplied provider credentials, run the live prerequisite journey driver 0_14_live.py against a configured provider pool and model backend to produce a pinned evidence index and target that cover every case listed for 0.13 in the live qualification support module. Otherwise record that run as UNRUN (decision 2700)."
+do_2 = "do_2 Add a case to 0_13.py that, in component mode, asserts a manager stale generation and a cross package selection are refused by the manager execute action with typed errors and no effect receipts."
+do_3 = "do_3 Where the owner has supplied provider credentials, run 0_13.py in live mode with the evidence index and target and keep the live receipt; on any refused case record the exact refusal code. Otherwise record that run as UNRUN (decision 2700)."
+do_4 = "do_4 Append the run (revision, command, exit code, log path) to qualification.kvx and only then mark 0.13 done."
+do_5 = "do_5 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
+do_6 = "do_6 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.13 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_13.py", "0_14_live.py", "fleet_live_qualification.py"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_13.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_live.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
+tests = []
+planned_paths = []
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_13.py --component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.13"
+
+[task.22.37.5]
+title = "Qualify co-located Primary and Wave Manager model sessions live with restoration after process loss"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.36.1", "22.37.4"]
+reqs = ["22998.1"]
+capabilities = ["22.37.5"]
+interfaces = []
+do_1 = "do_1 Add the live campaign driver tests/<project>/support/model_live_collect.py in the vendored project that starts the control plane supervisor with one Primary and two Wave Manager identities on the configured supervisory host, captures session reason requests and responses, and writes the private evidence index for the seven model cases"
+do_2 = "do_2 Exercise model replan and constraint refusal by changing observed state between two reasoning rounds and submitting an over budget DELEGATE_WAVE decision, asserting the typed refusal codes in the decision and effect receipt tables"
+do_3 = "do_3 Exercise supervisory host loss by killing the supervisor process and its host, then restarting from the persisted supervisor state file and cohort rows, asserting the same accepted decisions are reconstructed without new model calls"
+do_4 = "do_4 Make tests/<project>/cases/source_control/0_12.py in the vendored project read the native profile path from an explicit environment variable and fail with a typed message when the private profile is absent instead of a raw missing file error"
+do_5 = "do_5 Where the owner has supplied provider credentials, run 0_12.py with the live evidence and target files and append one qualification.kvx entry for task 0.12 with revision, command, exit code and log path Otherwise record that run as UNRUN (decision 2700)."
+do_6 = "do_6 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.12 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_12.py", "fleet-supervisor.ts", "fleet_live_qualification.py", "fleet_orchestration.ts", "model_live_collect.py"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_12.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "tools/hyperfide/core/control-plane/src/agents/fleet_orchestration.ts", "tools/hyperfide/core/control-plane/src/fleet-supervisor.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = []
+planned_paths = ["tools/hyperfide/tests/hyperfide/support/model_live_collect.py"]
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && make hyperfide hyperfide-native"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_12.py --component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.12"
+
+[task.22.37.4]
+title = "Qualify the install path live on a provider isolated environment and expose install status through the client SDK"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.36.1", "22.37.3"]
+reqs = ["22998.1"]
+capabilities = ["22.37.4"]
+interfaces = []
+do_1 = "do_1 Add an installStatus method and typed install error mapping in sdk/client/src/areas/system.ts of the vendored project that calls the control plane install status action and returns the typed install error codes unchanged, with the vitest file sdk/client/test/install-status.test.ts"
+do_2 = "do_2 Add the live evidence collector tests/<project>/support/install_live_collect.py in the vendored project that drives the eleven install cases named in the live qualification support module against one provider isolated environment and writes the private live evidence index plus the target pin file with contract files, toolchains and native binary pins"
+do_3 = "do_3 Extend the component mode of tests/<project>/cases/source_control/0_11.py in the vendored project so it exercises installer refusals for path escape, stale input, missing dependency and missing configuration through fixtures under fixtures/install, keeping the UNRUN markers until the live verifier passes"
+do_4 = "do_4 Where the owner has supplied provider credentials, run 0_11.py with the live evidence and target files, capture fetch volume and the immutable READY receipt, and append one qualification.kvx entry for task 0.11 with revision, command, exit code and log path Otherwise record that run as UNRUN (decision 2700)."
+do_5 = "do_5 Record in spec/<project>-source-control/traceability.md of the vendored project that SCM-026 and SCM-027 map to the live receipt"
+do_6 = "do_6 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.11 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_11.py", "install-status.test.ts", "install_live_collect.py", "system.ts"]
+touches = ["tools/hyperfide/sdk/client/src/areas/system.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_11.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/traceability.md"]
+tests = ["tools/hyperfide/sdk/client/test/install-status.test.ts"]
+planned_paths = ["tools/hyperfide/sdk/client/test/install-status.test.ts", "tools/hyperfide/tests/hyperfide/support/install_live_collect.py"]
+build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && make hyperfide hyperfide-native && pnpm --filter @hyperfide/sdk build"
+verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run test/install-status.test.ts && python3 tests/hyperfide/cases/source_control/0_11.py --component"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.11"
+
+[task.22.37.3]
+title = "Gate the agent group contract driver on the layout receipt and cover the control plane tool contract surface"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.36.1", "22.37.2"]
+reqs = ["22998.1"]
+capabilities = ["22.37.3"]
+interfaces = []
+do_1 = "do_1 In cases/source_control/0_10.py main, refuse with LAYOUT_RECEIPT_REQUIRED unless build/layout/0.9/receipt.json has status PASS, along with the current mapping_sha256 and layout_generation from repository-layout.json."
+do_2 = "do_2 Add support/contract_surface_consumer.mjs under cases/source_control. It imports MANAGER_ACTION_CONTRACTS from the compiled scheduler module in core/control-plane/dist/scheduler and asserts that every non-Primary DECISION_ACTIONS entry has a contract with required fields. It also asserts that core/control-plane/dist/contracts copies of index.mjs and index.d.mts are byte-identical to the canonical files under contracts. Call it from 0_10.py as an extra check."
+do_3 = "do_3 Add typed re-exports of the decision, assignment and interface selection envelope types to sdk/client/src/public-types.ts from the contract declaration file, and add sdk/client/test/agent-group-contracts.test.ts asserting that the exported type names compile and match the runtime action list."
+do_4 = "do_4 Record the run in qualification.kvx with the monorepo revision."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.10 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_10.py", "agent-group-contracts.test.ts", "contract_surface_consumer.mjs", "public-types.ts"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/sdk/client/src/public-types.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
+planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs", "tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
+build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run build && cd ../.. && pnpm --filter @hyperfide/sdk build"
+verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run --config vitest.config.ts test/agent-group-contracts.test.ts && python3 tests/hyperfide/cases/source_control/0_10.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.10"
+
+[task.22.37.2]
+title = "Re-anchor layout qualification to the vendored history and emit a schema checked layout receipt"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.36.1", "22.37.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.2"]
+interfaces = []
+do_1 = "do_1 Add spec/<project>-source-control/layout-vendored-baseline.json. It records the upstream implementation_baseline and layout revision, the monorepo import commit ebcb190287 and the subtree prefix, and is added as a new file so the frozen mapping and its digest stay unchanged."
+do_2 = "do_2 Change cases/source_control/0_9.py so that when the upstream revisions are absent, the ancestry, inventory and follow-on checks resolve through the vendored baseline file and use subtree tree ids."
+do_3 = "do_3 Re-run cases/source_control/0_3.py at the import commit to recreate build/layout/0.3/receipt.json and its inventory as the frozen baseline."
+do_4 = "do_4 Add validation of the emitted report against tests/<project>/source-control/layout-receipt.schema.json inside 0_9.py main. Any schema violation becomes a regression."
+do_5 = "do_5 Add a layout receipt gate to cases/source_control/0_10.py main: before running checks, require build/layout/0.9/receipt.json with status PASS and case_qualification PASS, plus a matching mapping_sha256 and layout_generation. Otherwise refuse with LAYOUT_RECEIPT_REQUIRED."
+do_6 = "do_6 Add cases/source_control/layout_receipt_gate_test.py with fixtures for a missing receipt, a stale mapping digest, a schema-invalid receipt and a passing receipt."
+do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.9 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_10.py", "0_9.py", "layout_receipt_gate_test.py"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/tests/hyperfide/source-control/layout-receipt.schema.json", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"]
+planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py", "tools/hyperfide/spec/hyperfide-source-control/layout-vendored-baseline.json"]
+build_cmd = "cd tools/hyperfide && corepack enable && python3 -m py_compile tests/hyperfide/cases/source_control/0_9.py tests/hyperfide/cases/source_control/0_10.py"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_receipt_gate_test.py && python3 tests/hyperfide/cases/source_control/0_9.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.9"
+
+[task.22.37.1]
+title = "Make the tooling and release layout driver self contained and qualify it against the vendored tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.36.1"]
+reqs = ["22998.1"]
+capabilities = ["22.37.1"]
+interfaces = []
+do_1 = "do_1 Move the historical-document exceptions used by source_references in cases/source_control/0_8.py into a new tracked file spec/<project>-source-control/layout-reference-exceptions.json. Each entry names the file, line range, pinned revision a2a367f9 and reason. Change source_references to read that file and stop depending on untracked receipts under build/layout/0.9."
+do_2 = "do_2 Change capture_bindings in cases/source_control/0_9.py (which 0_8.py imports) to bind the project subtree. Use git rev-parse --show-prefix and git rev-parse HEAD:<prefix> for source_tree_id, and record the host commit separately, so that a vendored placement binds the right tree."
+do_3 = "do_3 Add cases/source_control/layout_tooling_driver_test.py. It should use temporary fixtures to exercise source_references classification for a historical exception, an installed-artifact path and an unresolved live reference, and also the subtree binding."
+do_4 = "do_4 Build core/control-plane, then on a disposable executor run cases/source_control/0_8.py --assemble-release. Write build/layout/0.8/inputs.json with the release directory, the release command receipt and an installed control startup receipt in which component_bootstrap and source_stamp_preflight are PASS for the service archive SHA256."
+do_5 = "do_5 Produce a prepared image for layout generation category-layout-v1 with its manifest, command receipt and provider read-back receipt, and add it to inputs.json. If no provider is available, record the missing prepared-image evidence in qualification.kvx as implemented-not-qualified instead of claiming PASS."
+do_6 = "do_6 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.8 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
+symbols = ["0_8.py", "0_9.py", "layout_tooling_driver_test.py"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_8.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py"]
+planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py", "tools/hyperfide/spec/hyperfide-source-control/layout-reference-exceptions.json"]
+build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm ci --ignore-scripts && npm run build"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_tooling_driver_test.py && python3 tests/hyperfide/cases/source_control/0_8.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+source_task = "0.8"
+
 [task.22.35.10]
 title = "Add the explorer Ask route and answer panel behind a configurable model endpoint"
 status = "pending"
@@ -168370,7 +169590,7 @@ do_2 = "do_2 Repair the real cause where it lives (the program crate or the host
 do_3 = "do_3 Add TestRepair478_ in rpc/repair_478_test.go proving the ABI5 Fund call completes under the production allowance in the committed runtime fixture and logging the kernel gas used, plus a Rust unit test in the program crate bounding the Fund entry's gas for the fixture's input."
 do_4 = "do_4 Record in rpc/repair_478.kvx the measured kernel gas before and after, the cause and the changed files; 18.1562.1 requires this task."
 symbols = []
-touches = ["programs/crates/layerx-programs-ai-market", "modules/lxphost", "rpc/repair_478_test.go", "rpc/repair_478.kvx"]
+touches = ["programs/crates/layerx-programs-ai-market", "modules/lxphost", "rpc/repair_478_test.go", "rpc/repair_478.kvx", "programs/Cargo.lock"]
 tests = []
 planned_paths = ["rpc/repair_478_test.go", "programs/crates/layerx-programs-ai-market/src/lib.rs"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./rpc/ ./modules/lxphost/..."
@@ -168400,6 +169620,7 @@ do_15 = "Attempt 12 (requalify, gotcha 3267, decision 2681): the attempt-11 tree
 do_16 = "Attempt 13 (continue, gotcha 3276, decision 2686): the attempt-12 tree stands (the Fund path under the kernel gas allowance in rewards.rs, registry.rs and lib.rs, the fixture transport, the Go proof). In rpc/repair_478_test.go line 382 replace balance.FillBytes(make([]byte, 16)) with balance.BigInt().FillBytes(make([]byte, 16)); change nothing else in the proof unless the Go compiler names another test-side error, which is fixed the same way. Run the build, the dependent-crate check and the full verify (the Go proof and the Rust market suite) at the final revision and record them by reference in the task record."
 do_17 = "Attempt 14 (continue, gotcha 3280, decision 2690): the attempt-13 tree stands (the Fund path under the kernel gas allowance, the fixture transport, the Go proof with the BigInt fix; the candidate Fund runs at 896330 CPU fuel under the cap). Make the two fixture corrections the gate exposed. In rpc/repair_478_test.go, before the block advance at line 363 and the Fund call, run the production block finalization of the host module for the previous height so the occupancy ledger has block 1002 finalized through the same path the chain runs between blocks; fabricate no occupancy state. In programs/crates/layerx-programs-ai-market/examples/repair_478_fixture.rs line 17, decode the kernel terminal wrapper (terminal-applied-legs/v1, the response bytes the log prints) with the canonical terminal decoder of the runtime before reading the candidate failure, instead of panicking on it. Keep every assertion and both allowances (kernel 10000000, CPU 1000000). If the candidate Fund then refuses for another reason, record the callback stage and the code in the task record so the next ruling reads it. Run the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
 do_18 = "Attempt 15 (continue, gotcha 3287, decision 2647): the attempt-14 tree stands at 9f6737b7fe (block 1002 finalized through the production host-module path, the terminal decoder selecting the bare pre-runtime format by its tag, the Fund outcome record); the final decoder correction has not run under a gate. Run the verify once as it stands and read the decoded refusal and the independent executor result the Go case logs. The candidate Fund refuses at pre-runtime with LXP_ERR_NON_CANONICAL (-3), recorded CPU fuel 0 and no callback stage: by decision 2647 that is the native binding mapping of an executor error or a missing replay record of a profiled CALL (ffi_call.rs lines 2896 to 2902), not a fuel stop. Where the independent executor run (the probe mode of examples/repair_478_fixture.rs) refuses, repair the cause its ExecutionError names: a replay bound (replay_record.rs from_captured lines 62 to 90) is met by passing the replay profile at the kernel maximum of 4096 boundaries and 1048576 bytes from the host module call, a guest fault by the guest path it names. Where the executor succeeds and the kernel still answers -3, align the replay profile, budget and inputs the host module (modules/lxphost) passes with those of the executor run and record the differing field in the task record. Keep every assertion and both allowances (kernel 10000000, CPU 1000000). Run the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
+do_19 = "Attempt 16 (requalify, gotcha 3296): the attempt-15 tree stands at cc579828686b96262c97dc0fe3c6b9d72ff41486 (the fresh receipt bound after block 1002 is finalized through the production host path, the kernel gas counter reading, the synchronized node layout of modules/lxphost ctx.go and simulate.go, the independent executor proof answering Fund Ok at 896330 CPU fuel); the fresh-receipt correction has not run under a gate. Run the verify once as it stands. If the candidate Fund still refuses at pre-runtime, read the decoded refusal the Go case logs (the pre-runtime failure wrapper carries the module result and the payload hash) and the native balance sight inputs (the receipt sequence and the state root the fixture passes against the ones the host module holds after finalization) and repair the fixture binding the log names; no kernel or runtime check is relaxed. The touches list now includes programs/Cargo.lock. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
@@ -176244,6 +177465,70 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.578]
+title = "Derive the MCP DrawGrant policy dimensions from the decoded Receive cross-checked against the bound draw"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.578"]
+interfaces = []
+do_1 = "do_1 Gotcha 3291, decision 2699. In services/agent/crates/layerx-mcp/src/tools/wallet.rs make prepare_alias_call (lines 124 to 150) return the Payment::Receive it decodes with Payment::decode together with the Eip1559Call, and make prepare (line 152) return it with the call, the disclosure and the sender; add one pub function (for example draw_policy_dimensions) that takes the decoded Receive and the bound disclosure and answers the DrawGrant dimensions (the amount, the asset and the from of the Receive) when the LedgerDraw disclosure names the same grant, the same idempotency key, the same amount and a recipient equal to the Receive to field, and WalletToolError::Arguments otherwise."
+do_2 = "do_2 In policy_dimensions (line 256) route the DrawGrant arm (lines 278 to 287) through that function instead of reading the payment field of the disclosure; the IssueGrant and RevokeGrant arms and every other arm keep their current source, and the execute path (line 48) keeps checking the effect amount, asset and counterparty against the dimensions."
+do_3 = "do_3 Do not change layerx-crypto disclosure/call.rs: bind_call for ConstructMethod::LedgerDraw (lines 968 to 981) keeps the counterparties, the Transfer amount and the idempotency key and no payment field."
+do_4 = "do_4 Write services/agent/crates/layerx-mcp/tests/repair_22_31_578.rs with the record repair_22_31_578.kvx beside it: encode a Receive payload with the payments encoder the tool decodes, run prepare_alias_call and bind_call for a LedgerDraw, assert the dimensions equal the Receive amount, asset and from, and assert Arguments for a Receive whose grant, idempotency key, amount or recipient differs from the bound draw and for an absent Receive."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["policy_dimensions", "prepare", "prepare_alias_call"]
+touches = ["services/agent/crates/layerx-mcp/src/tools/wallet.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/repair_22_31_578.rs"]
+planned_paths = ["services/agent/crates/layerx-mcp/tests/repair_22_31_578.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_578.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_578"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.577]
+title = "Commit boundary memory through a chunk root and rebuild the pre memory for single-step adjudication"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.574"]
+reqs = ["22998.1"]
+capabilities = ["22.31.577"]
+interfaces = []
+do_1 = "do_1 Gotcha 3290, decision 2698. In programs/crates/layerx-programs-runtime/src/replay_record.rs captured_leaf_bytes and in src/portable_replay.rs (the decoder at line 128 and the legacy copy at line 480, reencode_untrusted at line 535) change the boundary prefix to LXP/program-replay-boundary/v2 and encode the memory as a 32-byte memory root (binary hash tree over 4096-byte chunks of the full linear memory, memory length hashed first, chunk and node domains named in the file) followed by the changed-chunk list (count, then chunk index and 4096 bytes each, the last chunk padded to the memory length); the capture in src/replay.rs computes the first leaf against the initial memory of the validated module and each later leaf against the previous leaf of the same record. Keep every other leaf field, replay_leaf_hash, replay_node_hash, the witness root and the fuel binding of from_captured unchanged."
+do_2 = "do_2 In programs/crates/layerx-programs-runtime/src/execute.rs extend decode_market_step_evidence with a memory section after the proofs: the chunk list of the pre boundary relative to the initial module memory, bounded by MAX_STEP_STATE_BYTES; in open_market_boundary and the market step observer (line 5728) rebuild the pre memory from the validated module and that list, refuse MarketStepRefusal::Evidence when its root differs from the memory root of the pre leaf, replay the step from the rebuilt memory and compare the observed post boundary with the post leaf through the memory root and its changed chunks in market_step_holds; the OPEN and TERMINAL modes rebuild the same way. The evidence encoder of src/market_tests.rs and of tests/repair_22_31_259.rs writes the memory section."
+do_3 = "do_3 Write programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs: a 17-page guest in the shape of tests/repair_22_31_573.rs performing 128 host calls that each touch one distinct page, run under ProgramReplayProfile::new(4096, 1048576), answers Ok with a replay record whose leaves total at most 1048576 bytes; its portable record decodes, every leaf memory rebuilds to the memory the in-memory snapshot holds, and a market step TRANSITION evidence for a middle boundary with the memory section is adjudicated through the host path as market_tests.rs does and a chunk altered in the memory section is refused Evidence. Record the admitted count, the leaf total and the record total in tests/repair_22_31_577.kvx."
+do_4 = "do_4 The runtime suites program_replay, repair_22_31_259, repair_22_31_564 and repair_22_31_569 and the market tests of the crate pass at the final revision; where a suite asserted the v1 prefix or a full-memory leaf length, amend it to the v2 shape and record the amended assertion in the task record."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["captured_leaf_bytes", "decode_market_step_evidence", "open_market_boundary", "market_step_holds", "replay_leaf_hash", "from_captured"]
+touches = ["programs/crates/layerx-programs-runtime/src/replay_record.rs", "programs/crates/layerx-programs-runtime/src/portable_replay.rs", "programs/crates/layerx-programs-runtime/src/replay.rs", "programs/crates/layerx-programs-runtime/src/execute.rs", "programs/crates/layerx-programs-runtime/src/market_tests.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs", "programs/crates/layerx-programs-runtime/tests/program_replay.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_569.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.kvx"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --lib market_tests --test repair_22_31_577 --test repair_22_31_259 --test repair_22_31_564 --test repair_22_31_569 --test program_replay"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.576]
 title = "Bind the signed transaction bytes to MCP wallet execution receipts"
 status = "done"
@@ -176338,7 +177623,7 @@ title = "Charge a replay boundary with the state it retains so a default-stack g
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.569", "22.31.572", "22.31.574"]
+requires = ["22.31.569", "22.31.572", "22.31.574", "22.31.577"]
 reqs = ["22998.1"]
 capabilities = ["22.31.573"]
 interfaces = []
@@ -176369,6 +177654,7 @@ do_7 = "Attempt 3 (continue, gotcha 3275, decision 2685): the attempt-2 tree sta
 do_8 = "Attempt 4 (continue, gotcha 3279, decision 2689): the attempt-3 tree stands (the retained-state supplement accounting, the vendored engine changes, the 573 proof and record). In programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs amend the reason assertion of replay_capture_still_refuses_byte_and_boundary_profile_limits (lines 143 to 150) to the sited text the runtime emits since 22.31.569: deterministic execution observer refused: SupplementRejected at retain_boundary_capture.source, as repair_22_31_569.rs line 206 asserts; amend any other assertion in that file that names the unsited reason the same way and change nothing else in it. Then run the repair_22_31_573 and repair_22_31_569 binaries individually to read their own results, repair what they show in the task files, and run the build, the dependent-crate check and the verify as it stands at the final revision and record them by reference in the task record."
 do_9 = "Attempt 5 (continue, gotcha 3282, decision 2692): the attempt-4 tree stands (the retained-state supplement accounting, the vendored engine changes, the 564 reason amendment, the 573 proof and record). In programs/crates/layerx-programs-runtime/src/execute.rs, when the executor carries a program replay profile, do not materialize the legacy ExecutionTrace: skip the trace build and its peak accounting (the guard at line 893 and the account_trace_snapshot path before it) and leave the optional trace field of the record None; the commit.rs totals are then never reached for a profiled execution and commit.rs is unchanged. Executions without a profile are unchanged. In tests/repair_22_31_573.rs shrink the baseline storage value the guest writes before the host calls from 4096 bytes to 32 bytes so the per-boundary witness no longer carries 8 KiB of baseline copies; keep RETAINED_PAGE_BYTES for the memory pages, keep every assertion including the rollback read of the baseline, and record the measured leaf total and count of the 128-call case in the task record. If the 128-call case still exceeds 1048576 witness bytes, lower HOST_CALLS to the largest count whose leaves fit, keep it above 64, and record the per-boundary witness composition. If a suite in the verify list asserts a legacy trace under a replay profile, record the case in the task record and stop. Run the repair_22_31_573 and repair_22_31_569 binaries individually first, then the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
 do_10 = "Attempt 6 (continue, gotcha 3288, decision 2696): the attempt-5 tree stands (the profiled execution without the legacy trace, the 32-byte baseline, the largest-count search). In programs/crates/layerx-programs-runtime/src/portable_replay.rs and the capture in src/replay.rs encode the linear memory field of a leaf as the pages changed by that boundary (index and bytes per page, the first leaf against the initial memory of the validated module, later leaves against the previous leaf of the record) and give the decoder a reader that rebuilds the memory of a boundary from the leaves before it; keep every other leaf field, the leaf hash, the witness root and the fuel binding of replay_record.rs from_captured unchanged; both files are added to the touches. Where src/modules/programs/call.c or another kernel reader decodes the memory field of a leaf, record the site in the task record and stop. In tests/repair_22_31_573.rs replace the per-leaf 17-page assertion with the rebuilt memory and keep every other assertion; record the measured leaf total, the leaf count and the bytes per leaf kind of the admitted count in the task record; if 128 calls still exceed 1048576 bytes, keep the largest-count search as it stands with no floor and record the admitted count. Run the program_replay suite and the five verify binaries individually first, then the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
+do_11 = "Attempt 7 (continue, gotcha 3290, decision 2698, which supersedes decision 2696): do_10 is withdrawn; the leaf encoding is the work of 22.31.577, which this task now requires, so start from main with 577 merged and keep the attempt-5 tree (the retained-state supplement accounting, the vendored engine changes, the profiled execution without the legacy trace, the 32-byte baseline). In tests/repair_22_31_573.rs run the largest-count search under the chunk-root leaves of 577: assert the 128-call case is admitted under ProgramReplayProfile::new(4096, 1048576) with leaves totalling at most 1048576 bytes, or record the largest admitted count above 64 with the measured totals; replace the assertions that read the complete linear memory of a leaf (lines 50, 325 and 335 of the attempt-5 proof) with the memory rebuilt through the reader 577 adds. Change nothing in src/portable_replay.rs or src/replay.rs. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.572]
 title = "Point the daemon compatibility include and README link at the matrix moved under docs/agent"
@@ -176740,6 +178026,7 @@ do_8 = "Attempt 6 (continue, gotcha 3261): the attempt-5 tree stands. In tests/r
 do_9 = "Attempt 7 (continue, gotcha 3271): the attempt-6 tree stands (the committed-read chain peer, the native effect policy file with its export trust, the preparation identifier alignment). Before changing the fixture, add a temporary eprintln at every Refused return in the native PREPARE span of human_runtime.rs on the attempt-6 tree (lines 7145 to 7156, 7158 to 7190, 7199 to 7218 and the committed_prepared_caps checks at 23132 to 23145), run only native_send_first_prepare_and_reopened_prepare_match_owner_preview, read which site refuses and which read, policy row, history item or trust pin it consulted, remove the trace before the commit and name the site and its input in the task record. Then repair the fixture in tests/repair_22_31_560.rs so the first PREPARE passes that check as the preview does: the committed reads the chain peer serves, the policy file, the policy history the peer answers, or the trust pins, whichever the trace names. Change no production code. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 do_10 = "Attempt 8 (continue, gotcha 3278, decision 2688): the attempt-7 tree stands (the signed local grant in prepare_rpc, the authenticated history peer, the committed inventory peer, every assertion). First, in src/human_runtime.rs inside rpc_prepare_native_send (lines 7010 to 7461) replace every mapping to HumanOperationError::Refused and every use of the local refused closure with one helper that prints layerx-agentd: native send prepare refused at <site> and returns Refused, naming each site with a short static text; keep the RPC rejection owner.refused unchanged and keep the prints in the production tree. Then run the first-Prepare case alone with --nocapture, read the printed site from the log, and repair the fixture for that site only, as attempts 6 and 7 did for the session scope and the history window; if the site is a production condition the fixture cannot satisfy honestly, record the site and the condition in the task record and stop there so the next ruling reads it. Run the build and the verify at the final revision and record them by reference in the task record."
 do_11 = "Attempt 9 (continue, gotcha 3285, decision 2694): the attempt-8 tree stands (the sited refusal helper, the aligned preparation identifier, the expiry and binding changes, the proof and record). In services/agent/crates/layerx-agentd/src/read/committed.rs make both CommittedCaps::level definitions (lines 166 and 420) return VerificationLevel::COMMITTED; change nothing else in that file, which is added to the touches. Re-run the first-Prepare case with --nocapture; if the helper prints a further refusal site, repair the fixture for that site only, or record the site in the task record and stop. Keep every assertion. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
+do_12 = "Attempt 10 (continue, gotcha 3292): the attempt-9 tree stands (the COMMITTED read level, the protected denomination attached through attach_program_budget_denominations, the tenant-bound limit, the refusal helper). In services/agent/crates/layerx-agentd/src/approval/native_program.rs StagedNativeRateUse::stage (lines 1333 to 1420) add a production diagnostic that names which condition refused (the disclosure binding, the canonical digest, the preparation id, the actor, the empty chain or window set, the evidence count, the window proof field that differs, the pending-use advance) in the CarrierError::Binding it answers, so the refusal site is visible in the gate log; keep every condition. Then check the fixture window proof of tests/repair_22_31_560.rs against the binding equalities: through_sequence equal to the prepared observed_head_sequence, observed_core_ms equal to the constraint observed_at_ms, the window set equal to the rate obligations of the constraint chain, exactly one observed batch id per proof, and the proof newer than any pending record; repair the fixture evidence the diagnostic names. No production check is relaxed. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.559]
 title = "Recover tenant budgets from current transaction receipt evidence after a restart"
@@ -178541,7 +179828,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/qualific
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563", "22.31.568", "22.31.567", "22.31.572", "22.31.575", "22.31.576"]
+requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563", "22.31.568", "22.31.567", "22.31.572", "22.31.575", "22.31.576", "22.31.578"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1569"]
 interfaces = []
@@ -178587,6 +179874,7 @@ do_22 = "Attempt 16 (continue, gotcha 3270, decision 2684): the attempt-15 tree 
 do_23 = "Attempt 17 (continue, gotcha 3277, decision 2687, after task 22.31.575 lands): the attempt-16 tree stands (the maintained batch shape of decision 2684, the verified batched Send, the node words of decision 2648). In tests/support/funded_scenario.rs replace the authenticate_cumulative_use calls at lines 892, 1002 and 1014 with authenticate_account_cumulative_use, passing the treasury DID the scenario already binds at line 888 and the 20-byte EVM address of the payer account the peer serves receipts for (funded_peer.rs line 191 reads it from the payer account), with the same window and the same entry from layerx_mcp::tools::wallet::cumulative_evidence. The daemon decodes the EIP-1559 activity itself; do not re-encode the activity as a LayerX envelope. If the consumer then refuses for another reason, the next ruling reads it. Run the build and the verify at the final revision and record them by reference in the task record."
 do_24 = "Attempt 18 (continue, gotcha 3283, decision 2693): the attempt-17 tree stands (the account-bound evidence calls, the peer responses for the address precompile, the identity sequence, the block, the commit and the validators). In services/agent/qualification/pay2/sequence.rs, in resolve (from line 124), print the failing read and its error to the test diagnostic output at each of the four BoundaryUnavailable mappings (bound_address, get_identity_sequence, block_number, CommittedReads::open) before returning; change nothing else in that file. Run the proof once to read the site. Where it is CommittedReads::open, make the peer serve for height 6 a block, a commit and a validator set that the production verifier in layerx-agentd src/read/committed.rs (open at line 719 and the checkpoint authentication behind it) accepts: the commit signed by the validator keys the peer serves over the block it serves, the app hash non-zero; the verifier is unchanged. Where it is another read, repair that peer response. Keep every assertion of the funded SDK and MCP proof. Run the build and the verify at the final revision and record them by reference in the task record."
 do_25 = "Attempt 19 (continue after 22.31.576, gotcha 3286, decision 2695): the attempt-18 tree stands (the checkpoint the production verifier authenticates, the resolver diagnostics, the verified SDK Send). With 22.31.576 landed the MCP wallet execution receipt carries the signed transaction bytes as its canonical activity, so wait_batched (funded_scenario.rs line 598) accepts the MCP grant issue and draw receipts unchanged; change nothing for that. Re-run the proof. If a committed wait of the MCP path then fails, print the SDK error and the receipt fields (activity id, rung, canonical length, commit coverage height) at the wait_batched call to the test diagnostic output and repair only the peer response the diagnostic names. Keep every assertion. Run the build and the verify at the final revision and record them by reference in the task record."
+do_26 = "Attempt 20 (requalify, gotcha 3291, decision 2699): the attempt-19 tree stands (registration, the SDK Send, the SDK and MCP grant issue and the SDK draw pass). Start from main with 22.31.578 merged, which this task now requires: the MCP DrawGrant policy dimensions derive from the decoded Receive cross-checked against the bound draw. Keep the scenario unchanged unless the MCP draw step of tests/support/funded_scenario.rs passes a Receive whose grant, idempotency key, amount or recipient differs from the draw it binds, in which case align the scenario with the draw it issues. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
@@ -179719,6 +181007,7 @@ do_18 = "Attempt 5 (continue after the first verify run, gotcha 3173): the attem
 do_19 = "Attempt 6 (requalify after 22.31.558, gotcha 3184, decision 2628): the attempt-5 tree stands (the fixture repairs built, exit 0); the dependent-crate check failed on the stale site in layerx-human-service tests/native_send_producer.rs line 659 that 22.31.558 ports, before the verify ran. Re-run the gates as they stand once 22.31.558 is on main."
 do_20 = "Attempt 7 (continue, gotcha 3195, decision 2636): the attempt-5 tree stands (15 cases pass across the included targets and the repair cases). Three fixture facts to repair. First, handshake_gate.rs lines 279 and 312: decode_receipt_keys decodes an empty keys array as an empty list and boot.rs readiness refuses it with GateError::NoReceiptKeys, so restore the assertions of the main version (receipt_keys answers an empty list, readiness_gate answers NoReceiptKeys, status NotReady, guard_write NotReady). Second, export.rs: verify answers Contract for the state artifact from OfflineExport::validate, from the fact-to-bundle count check or when no bundle established the block hash; read OfflineExport::validate in the agent API for what a state fact and its bundle require and build the state artifact the way produce in src/export.rs builds it (the account proof encoding the daemon emits, not JSON rows), then assert the tampering cases against that artifact. Third, finality_rungs.rs: the accepted quorum cases run through verify_with_header, which checks header height, chain id, version_block 11, validators hash, header.block_hash() against commit.block_hash, a non-empty transaction list and the data root over SHA-256 transaction hashes; assert each of those equalities separately on the fixture triple (header, commit, the loopback block) to find the field that disagrees, including that the block decoded from the loopback JSON re-encodes to the exact signed transaction bytes, and repair the fixture. Keep the u64::MAX voting power cases. Commit before the gates run."
 do_21 = "Attempt 8 (continue after 22.31.561, gotchas 3207 and 3208, decisions 2641 and 2642): the attempt-7 tree stands (the handshake and finality rung facts; the ICS23 witness fixture over a loopback eth_getProof listener). Finality: keep the u64::MAX voting power cases, but under the header-bound path (verify_with_header through read::checkpoint, checkpoint.rs lines 660 to 670) expect InvalidCommit for both the four-by-u64::MAX and the three-signer case, and keep the accepted expectation only through observe_block as main does (finality_rungs.rs lines 314 on). Export: once 22.31.561 has landed, encode the fixture witnesses as the export state evidence that task defines (the canonical ICS23 witness encoding verified under the header app hash and bound to the account), remove the JSON row encoding, and expect verify to answer the fact for the consistent witness and Contract for a tampered one. Record the sites and the gate results by reference in the task record; amend no file after the gates run (gotcha 3142)."
+do_22 = "Attempt 9 (continue, gotcha 3293): the attempt-8 tree qualified at 34a1e6edcd856709cbac864b9843b542a03e018f but cannot publish: services/agent/crates/layerx-agentd/tests/human_node_budgets.rs conflicts with the part-2 landing on main. Start from current main and replay the attempt-8 changes onto the main version of that file: the edits at lines 79, 92 and 161, the PAYMENT_DENOM entry of the receipt literal, and the new case after budget_pipeline_submits_raw_transaction_and_reads_get_budget, keeping the main-side paymentDenom, feeDenom and signingKey lines of signed_receipt as they stand; every other file of the attempt-8 tree applies unchanged. Rerun the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1535]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): doc-drift, interface-mismatch, runtime-risk, security, test-gap"
@@ -284854,7 +286143,7 @@ do_5 = "Prove each repair with a case added to the C test suite that the verify 
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["src/codec/lxp_codec.c"]
+touches = ["src/codec/lxp_codec.c", "tests/codec", "tests/vectors/codec"]
 tests = []
 planned_paths = ["tests/codec"]
 build_cmd = "make -s all"
@@ -284870,6 +286159,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue, gotcha 3294): the attempt-1 tree qualified at 584642067465bfa30d22a870958c22b659179f38 but changed files outside the touches: tests/codec/generate_nfc_tables.py, tests/codec/lxp_test_codec_composite.c, tests/codec/lxp_test_fee_meter_refused.c, the vectors tests/vectors/codec/NormalizationTest-15.0.0.txt and UNICODE-LICENSE.txt, and the record written at tests/repair_22_33_1135.kvx. The touches list now includes tests/codec and tests/vectors/codec. Keep the vectors, the license and the generator; move the record to tests/codec/repair_22_33_1135.kvx; rerun the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1134]
 title = "Repair audit record 22.30.5 medium findings in src/modules/governance (part 1 of 1): runtime-risk, security"
