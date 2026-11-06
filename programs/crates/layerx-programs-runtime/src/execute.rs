@@ -1468,7 +1468,7 @@ impl ProgramInstance {
                 }));
             }
             return Err(ExecutionFault::EngineFault {
-                reason: format!("deterministic execution observer refused: {error:?}"),
+                reason: self.store.data().execution_observer_reason(error),
             });
         }
         let transitions = self.store.take_execution_transitions();
@@ -1495,7 +1495,7 @@ impl ProgramInstance {
                         })
                     }
                     _ => ExecutionFault::EngineFault {
-                        reason: format!("deterministic execution observer refused: {error:?}"),
+                        reason: self.store.data().execution_observer_reason(error),
                     },
                 },
                 |refusal| ExecutionFault::Resource { refusal },
