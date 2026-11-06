@@ -33219,3 +33219,11 @@ symbol = "repair_22_31_547.rs"
 observed = "Attempt 7 at 1922bbd43b5525308e8a5bbcb0760a6169ac9115: build exit 0, dependent-crate check exit 0, verify exit 1 twice: the daemon answered 200 and the first named disagreement is not_before (disclosed 0, request 1789365544000); the two included native send cases fail with PoisonError on the fixture lock after that panic; the SDK library cases and the preview case pass."
 assumption = "The window check is a consumer invention for ledger sends; the call carries the client envelope and the daemon binds the window elsewhere."
 severity = "high"
+
+[finding.9.98.4.8]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 6 at 700b579c615cab59cf917989bbec225bc92408f2: no gate ran; the attempt reached the working-time limit after 44 read commands and two edits of human_runtime.rs; the tree carries the linked-block history fixture, the environment guard and the listener answering commit, validators, block_results, px_getHistory and pax_sequencerReceipt."
+assumption = "The fixture is built; the attempt ran out of time reading the reader chain rather than on a defect, and the next attempt builds first."
+severity = "medium"
