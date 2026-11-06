@@ -36,18 +36,8 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "0.1",
-        "1.1"
-      ],
-      "reqs": [
-        "2.1",
-        "2.2",
-        "2.3",
-        "2.4",
-        "4.2",
-        "12.1"
-      ],
+      "tasks": ["0.1", "1.1"],
+      "reqs": ["2.1", "2.2", "2.3", "2.4", "4.2", "12.1"],
       "oracle": "Canonical tree reconstruction and explicit rejection of noncanonical or escaping entries."
     },
     "SCM-002": {
@@ -82,16 +72,8 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "1.1",
-        "1.2"
-      ],
-      "reqs": [
-        "3.1",
-        "3.2",
-        "4.5",
-        "12.1"
-      ],
+      "tasks": ["1.1", "1.2"],
+      "reqs": ["3.1", "3.2", "4.5", "12.1"],
       "oracle": "Every acknowledged revision reconstructs from verified durable objects after each supported interrupted write."
     },
     "SCM-003": {
@@ -124,17 +106,8 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "1.2",
-        "2.1"
-      ],
-      "reqs": [
-        "4.1",
-        "4.4",
-        "4.5",
-        "5.3",
-        "12.1"
-      ],
+      "tasks": ["1.2", "2.1"],
+      "reqs": ["4.1", "4.4", "4.5", "5.3", "12.1"],
       "oracle": "Request ledgers and immutable histories show one result per identical operation and explicit divergent revisions."
     },
     "SCM-004": {
@@ -224,18 +197,8 @@
         "explicit scoped capabilities and current source authority; no live-provider claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "1.3",
-        "4.2"
-      ],
-      "reqs": [
-        "1.1",
-        "8.2",
-        "11.1",
-        "11.3",
-        "11.6",
-        "12.1"
-      ],
+      "tasks": ["1.3", "4.2"],
+      "reqs": ["1.1", "8.2", "11.1", "11.3", "11.6", "12.1"],
       "oracle": "Obsolete/disconnected attempts cannot mutate or accept source under stale authority."
     },
     "SCM-005": {
@@ -266,16 +229,8 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "2.3"
-      ],
-      "reqs": [
-        "3.4",
-        "3.5",
-        "11.6",
-        "12.1",
-        "12.7"
-      ],
+      "tasks": ["2.3"],
+      "reqs": ["3.4", "3.5", "11.6", "12.1", "12.7"],
       "oracle": "Independent reachability and object retrieval prove no rooted content is swept during concurrent writes or pinning."
     },
     "SCM-006": {
@@ -307,18 +262,8 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "2.1"
-      ],
-      "reqs": [
-        "1.2",
-        "5.1",
-        "5.2",
-        "5.5",
-        "5.6",
-        "12.1",
-        "13.1"
-      ],
+      "tasks": ["2.1"],
+      "reqs": ["1.2", "5.1", "5.2", "5.5", "5.6", "12.1", "13.1"],
       "oracle": "Results match immutable reference trees/history without client checkout or substituted index coverage."
     },
     "SCM-007": {
@@ -352,16 +297,8 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "1.2",
-        "2.1"
-      ],
-      "reqs": [
-        "5.4",
-        "5.5",
-        "5.6",
-        "12.1"
-      ],
+      "tasks": ["1.2", "2.1"],
+      "reqs": ["5.4", "5.5", "5.6", "12.1"],
       "oracle": "Client state converges to every committed effect despite delayed commits and cursor retention gaps."
     },
     "SCM-008": {
@@ -388,16 +325,8 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "component",
-      "tasks": [
-        "3.1"
-      ],
-      "reqs": [
-        "4.3",
-        "4.4",
-        "4.6",
-        "7.4",
-        "12.1"
-      ],
+      "tasks": ["3.1"],
+      "reqs": ["4.3", "4.4", "4.6", "7.4", "12.1"],
       "oracle": "Result trees match independent three-way vectors or expose structured conflicts while inputs stay immutable."
     },
     "SCM-009": {
@@ -437,19 +366,8 @@
         "owned PostgreSQL runtime and isolated SigV4 HTTP fixture; no live-S3 claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "4.1"
-      ],
-      "reqs": [
-        "7.1",
-        "7.2",
-        "7.3",
-        "7.4",
-        "7.5",
-        "7.6",
-        "8.5",
-        "12.1"
-      ],
+      "tasks": ["4.1"],
+      "reqs": ["7.1", "7.2", "7.3", "7.4", "7.5", "7.6", "8.5", "12.1"],
       "oracle": "Acceptance history contains only current authorized candidates and exact matching evidence."
     },
     "SCM-010": {
@@ -474,19 +392,8 @@
         "owned PostgreSQL runtime, configured real S3 object backend and actual native host filesystem"
       ],
       "tier": "integration",
-      "tasks": [
-        "2.2"
-      ],
-      "reqs": [
-        "1.5",
-        "3.3",
-        "6.1",
-        "6.2",
-        "6.3",
-        "6.4",
-        "6.5",
-        "12.1"
-      ],
+      "tasks": ["2.2"],
+      "reqs": ["1.5", "3.3", "6.1", "6.2", "6.3", "6.4", "6.5", "12.1"],
       "oracle": "Manifest-selected files match pinned bytes/types and absent paths do not become deletions."
     },
     "SCM-011": {
@@ -524,19 +431,8 @@
         "Linux FUSE character device and admitted mount capability for linux-fuse7-source-v1"
       ],
       "tier": "integration",
-      "tasks": [
-        "3.2"
-      ],
-      "reqs": [
-        "1.5",
-        "6.1",
-        "6.3",
-        "6.4",
-        "6.5",
-        "6.6",
-        "12.1",
-        "13.4"
-      ],
+      "tasks": ["3.2"],
+      "reqs": ["1.5", "6.1", "6.3", "6.4", "6.5", "6.6", "12.1", "13.4"],
       "oracle": "Snapshot-consistent filesystem behavior and change reconciliation preserve dirty data across eviction and outages."
     },
     "SCM-012": {
@@ -565,15 +461,8 @@
         "actual pinned native scanner, owned PostgreSQL and isolated SigV4 object fixture; no live-S3 claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "3.3"
-      ],
-      "reqs": [
-        "5.2",
-        "7.4",
-        "8.4",
-        "12.1"
-      ],
+      "tasks": ["3.3"],
+      "reqs": ["5.2", "7.4", "8.4", "12.1"],
       "oracle": "Graph observations identify exact source/extractor/coverage and detect affected consumers and incomplete generations."
     },
     "SCM-013": {
@@ -671,18 +560,8 @@
         "explicit scoped capabilities and current source authority; no live-provider claim"
       ],
       "tier": "integration",
-      "tasks": [
-        "1.3"
-      ],
-      "reqs": [
-        "9.7",
-        "11.1",
-        "11.2",
-        "11.3",
-        "11.4",
-        "11.5",
-        "12.1"
-      ],
+      "tasks": ["1.3"],
+      "reqs": ["9.7", "11.1", "11.2", "11.3", "11.4", "11.5", "12.1"],
       "oracle": "All source/query/cache paths reject unauthorized scope and public projection contains only allowed data."
     },
     "SCM-014": {
@@ -707,10 +586,7 @@
         "protected independent native source and taskless client configuration"
       ],
       "tier": "live-fleet",
-      "tasks": [
-        "4.2",
-        "4.3"
-      ],
+      "tasks": ["4.2", "4.3"],
       "reqs": [
         "1.7",
         "1.8",
@@ -759,9 +635,7 @@
         "explicit untouched private GitHub canary repository and approved retained resource expiry"
       ],
       "tier": "live-remote",
-      "tasks": [
-        "5.1"
-      ],
+      "tasks": ["5.1"],
       "reqs": [
         "1.6",
         "7.6",
@@ -799,17 +673,8 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "integration",
-      "tasks": [
-        "5.2"
-      ],
-      "reqs": [
-        "9.8",
-        "10.1",
-        "10.2",
-        "10.3",
-        "10.4",
-        "12.1"
-      ],
+      "tasks": ["5.2"],
+      "reqs": ["9.8", "10.1", "10.2", "10.3", "10.4", "12.1"],
       "oracle": "Imported proposals preserve tree and ancestry provenance with idempotent replay and separate import counters."
     },
     "SCM-017": {
@@ -832,9 +697,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "integration",
-      "tasks": [
-        "5.3"
-      ],
+      "tasks": ["5.3"],
       "reqs": [
         "10.1",
         "10.2",
@@ -885,17 +748,8 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "6.1"
-      ],
-      "reqs": [
-        "3.2",
-        "3.6",
-        "5.5",
-        "11.6",
-        "12.1",
-        "12.7"
-      ],
+      "tasks": ["6.1"],
+      "reqs": ["3.2", "3.6", "5.5", "11.6", "12.1", "12.7"],
       "oracle": "Independent acknowledgment/acceptance histories survive the declared faults and stale epochs remain fenced."
     },
     "SCM-019": {
@@ -949,18 +803,8 @@
         "actual local Git receive-pack and source authority recovery; no failure-domain-loss claim"
       ],
       "tier": "backend",
-      "tasks": [
-        "6.1"
-      ],
-      "reqs": [
-        "3.4",
-        "3.5",
-        "3.6",
-        "10.7",
-        "11.6",
-        "12.1",
-        "12.7"
-      ],
+      "tasks": ["6.1"],
+      "reqs": ["3.4", "3.5", "3.6", "10.7", "11.6", "12.1", "12.7"],
       "oracle": "All required reachable objects and configured recovery points reconcile before fresh authority reopens writes."
     },
     "SCM-020": {
@@ -983,9 +827,7 @@
         "actual configured backend or fleet required by the case; missing capability blocks execution"
       ],
       "tier": "scale",
-      "tasks": [
-        "6.2"
-      ],
+      "tasks": ["6.2"],
       "reqs": [
         "1.3",
         "1.4",
@@ -1022,19 +864,8 @@
         "actual configured backend or fleet required by the case; missing capability blocks execution"
       ],
       "tier": "scale",
-      "tasks": [
-        "6.2"
-      ],
-      "reqs": [
-        "4.6",
-        "7.5",
-        "12.1",
-        "12.2",
-        "12.3",
-        "12.5",
-        "13.3",
-        "13.4"
-      ],
+      "tasks": ["6.2"],
+      "reqs": ["4.6", "7.5", "12.1", "12.2", "12.3", "12.5", "13.3", "13.4"],
       "oracle": "Actual offered/completed workload, bounded resources and correctness satisfy separate active/burst/open profiles."
     },
     "SCM-022": {
@@ -1057,19 +888,8 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "live-storage",
-      "tasks": [
-        "6.2"
-      ],
-      "reqs": [
-        "3.1",
-        "3.2",
-        "3.3",
-        "12.1",
-        "12.2",
-        "12.5",
-        "12.6",
-        "12.7"
-      ],
+      "tasks": ["6.2"],
+      "reqs": ["3.1", "3.2", "3.3", "12.1", "12.2", "12.5", "12.6", "12.7"],
       "oracle": "Actual S3 traffic and 72 elapsed hours establish sustained new revisions while client and real-worker counts stay separate."
     },
     "SCM-023": {
@@ -1087,6 +907,8 @@
         "SCM-023.plain-sql-qualification-snapshot",
         "SCM-023.queue-preserves-qualified-dependencies",
         "SCM-023.replacement-reaches-qualified-acceptance",
+        "SCM-023.sparse-edit-materializes-only-scope",
+        "SCM-023.source-diff-matches-checkpoint",
         "SCM-023.signed-cli-revision-read",
         "SCM-023.signed-cli-history-without-checkout",
         "SCM-023.ui-shows-exact-fleet-accepted-source",
@@ -1101,11 +923,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "live-fleet",
-      "tasks": [
-        "6.3",
-        "7.1",
-        "7.2"
-      ],
+      "tasks": ["6.3", "7.1", "7.2"],
       "reqs": [
         "1.1",
         "1.2",
@@ -1204,19 +1022,8 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "closure",
-      "tasks": [
-        "0.2",
-        "6.3",
-        "7.2"
-      ],
-      "reqs": [
-        "12.1",
-        "12.6",
-        "12.7",
-        "14.1",
-        "14.4",
-        "14.5"
-      ],
+      "tasks": ["0.2", "6.3", "7.2"],
+      "reqs": ["12.1", "12.6", "12.7", "14.1", "14.4", "14.5"],
       "oracle": "False-success and tampering probes fail and a full current assertion/variant inventory is required for closure."
     },
     "SCM-025": {
@@ -1238,15 +1045,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.3",
-        "0.4",
-        "0.5",
-        "0.6",
-        "0.7",
-        "0.8",
-        "0.9"
-      ],
+      "tasks": ["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"],
       "reqs": [
         "15.1",
         "15.2",
@@ -1305,11 +1104,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.10",
-        "0.11",
-        "0.14"
-      ],
+      "tasks": ["0.10", "0.11", "0.14"],
       "reqs": [
         "17.1",
         "17.2",
@@ -1357,11 +1152,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.11",
-        "0.13",
-        "0.14"
-      ],
+      "tasks": ["0.11", "0.13", "0.14"],
       "reqs": [
         "17.1",
         "17.2",
@@ -1399,21 +1190,8 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.12",
-        "0.13",
-        "0.14"
-      ],
-      "reqs": [
-        "16.1",
-        "16.2",
-        "16.3",
-        "16.4",
-        "16.5",
-        "16.6",
-        "16.7",
-        "16.8"
-      ],
+      "tasks": ["0.12", "0.13", "0.14"],
+      "reqs": ["16.1", "16.2", "16.3", "16.4", "16.5", "16.6", "16.7", "16.8"],
       "oracle": "Actual co-located model sessions choose and revise admitted actions; provider/worker effects match persisted decisions and out-of-scope actions fail without a hidden deterministic planner."
     },
     "SCM-029": {
@@ -1441,11 +1219,7 @@
         "immutable campaign manifest with pinned source and environment"
       ],
       "tier": "prerequisite",
-      "tasks": [
-        "0.12",
-        "0.13",
-        "0.14"
-      ],
+      "tasks": ["0.12", "0.13", "0.14"],
       "reqs": [
         "16.1",
         "16.2",
@@ -1499,11 +1273,7 @@
   "registration_glob": "registrations/*.json",
   "workload_profiles": {
     "growth": {
-      "file_counts": [
-        10000,
-        100000,
-        1000000
-      ],
+      "file_counts": [10000, 100000, 1000000],
       "fixed_modified_files": 10,
       "fixed_modified_bytes": 1048576,
       "status": "UNRUN",
