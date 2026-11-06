@@ -380,7 +380,12 @@ impl Node {
             "eth_getBlockByNumber" => {
                 assert_eq!(params, &json!(["0x3e8", false]));
                 json!({"number":state["committed"]["receiptJson"]["blockNumber"],
-                    "hash":state["committed"]["receiptJson"]["blockHash"]})
+                    "hash":state["committed"]["receiptJson"]["blockHash"],
+                    "transactions":state["committed"]["activityIds"]})
+            }
+            "px_getSequenceBatch" => {
+                assert_eq!(params, &json!(["1000"]));
+                state["committed"]["batch"].clone()
             }
             "px_getCommit" => {
                 assert_eq!(params, &json!(["1000"]));
@@ -596,7 +601,12 @@ impl CommitFixture {
         summary["blockNumber"] = json!("0x3e8");
         summary["blockHash"] = json!(format!("0x{}", hex(&block_hash)));
         state["committed"] = json!({"receiptJson":summary.clone(),
-            "commit":{"signed_header":signed}});
+            "activityIds":[format!("0x{}", hex(&activity))],
+            "commit":{"signed_header":signed},
+            "batch":{"height":"1000", "tx":format!("0x{}", hex(&batch_transaction)),
+                "proof":{"total":proof.total, "index":proof.index,
+                    "leafHash":format!("0x{}", hex(&proof.leaf_hash)),
+                    "aunts":proof.aunts.iter().map(|aunt| format!("0x{}", hex(aunt))).collect::<Vec<_>>()}}});
         Self {
             verifier,
             coverage: NodeCommitCoverage {
@@ -707,7 +717,7 @@ fn submitted_payment_keeps_canonical_activity_through_batched_and_finalised_wait
     let commit = CommitFixture::publish(&node, &executed);
     let committed_rpc = node
         .rpc()
-        .with_node_commit_authority(commit.authority(), commit.coverage.clone())
+        .with_node_commit_authority(commit.authority())
         .expect("node commit trust");
     let committed_wallet = self::wallet(&committed_rpc, &signer, &policy);
     let batched = committed_wallet
@@ -718,6 +728,16 @@ fn submitted_payment_keeps_canonical_activity_through_batched_and_finalised_wait
     assert_eq!(batched.committed_block(), Some((1000, commit.block_hash)));
     assert_activity(&batched, activity, &raw);
     assert_inclusion(&batched, &policy);
+    assert_eq!(
+        node.state.lock().expect("node store")["requests"]
+            .as_array()
+            .expect("requests")
+            .iter()
+            .filter(|request| request["method"] == "px_getSequenceBatch")
+            .map(|request| request["params"].clone())
+            .collect::<Vec<_>>(),
+        vec![json!(["1000"])]
+    );
     let finalised = wallet
         .wait_for_submitted_with_commit(&batched, Duration::from_secs(5), &commit.evidence())
         .expect("Finalised submitted receipt under explicit commit evidence");

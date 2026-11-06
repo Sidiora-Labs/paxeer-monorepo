@@ -32179,3 +32179,67 @@ symbol = "migrate.rs"
 observed = "Attempt 1 at base 2e0a668a79: no change inside scope, no gate ran; the agent reported the task path src/approval.rs absent and the named functions in src/policy/approval.rs."
 assumption = "The implementation plan stands; only the file path of the hold module was wrong."
 severity = "medium"
+
+[finding.22.36.3.1]
+task = "22.36.3"
+file = "apps/wallet/docs"
+symbol = "docs"
+observed = "Attempt 1 at fbba95e6c8: build exit 0, verify exit 1: 3 passed, test_no_tracked_references_to_retired_wallet_documentation_paths fails on docker/wallet-pwa/Dockerfile.dockerignore line 28."
+assumption = "Two readers of the old paths were outside the scope; the move itself is complete."
+severity = "medium"
+
+[finding.22.36.2.1]
+task = "22.36.2"
+file = "services/platform"
+symbol = "platform"
+observed = "Attempt 1 at a73aa52ce9: build exit 0, verify exit 1: 4 passed, 3 failed: the moved Rust lockfile is absent from the candidate, twelve files outside the scope name services/platform/docs, and the committed Human API reference page differs from the generator output (minor 5 against 10)."
+assumption = "The readers were outside the scope, the records are history, and the stale page predates the task."
+severity = "medium"
+
+[finding.22.35.9.1]
+task = "22.35.9"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex"
+symbol = "stats_controller.ex"
+observed = "Attempt 1 at ea61c356be: compile exit 0, test exit 1: the stats case passes; both chain page cases raise Phoenix.Router.NoRouteError for GET / because the web router is not forwarded to."
+assumption = "The controller change is right; the page cannot be reached through the router in the test or the deployment."
+severity = "medium"
+
+[finding.22.31.560.3]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 3 at 320d602a27: build exit 0, dependent-crate check exit 0 over 15 crates, verify exit 101: 2 passed; native_send_first_prepare_and_reopened_prepare_match_owner_preview receives 503 owner.unavailable because the authority fixture panics on /v1/agent/balance-context, then the peer drop panics."
+assumption = "The fixture serves fewer routes than the Prepare path reads; the production change stands."
+severity = "medium"
+
+[finding.22.33.1569.11]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 11 at 42fa055269: build exit 0, verify exit 101: 1 passed; the funded workflow fails at tests/support/funded_scenario.rs line 892 with Receipt(Receipt(VerificationFailure SequencerSignature)) from authenticate_cumulative_use."
+assumption = "The consumer is the defect; the fixture is unchanged."
+severity = "high"
+
+[finding.22.33.1510.7]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 7 at d477f5b701: build exit 0, verify exit 101: 1 passed; the approvals case fails opening the agent store (store root is not a canonical owned private directory) and the decide case receives Refused from the first approval_get."
+assumption = "The temp root is not canonical in this environment; the decide refusal follows the same cause until shown otherwise."
+severity = "medium"
+
+[finding.22.31.478.9]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 9 at 8fc7d8b34b: build exit 0, dependent-crate check exit 0 over 29 crates, verify exit 1: TestRepair478_FundWithinProductionAllowance stops Fund with LXP_ERR_GAS_EXHAUSTED at 999968 CPU fuel; the Rust tests were not reached."
+assumption = "The remaining cost is the decode of carried regions; a measurement precedes the next reduction."
+severity = "high"
+
+[finding.22.31.567.1]
+task = "22.31.567"
+file = "services/agent/crates/layerx-sdk/src/rpc_verification.rs"
+symbol = "rpc_verification.rs"
+observed = "Attempt 1 at 65fe5b490f: build exit 101: tests/repair_22_31_563.rs line 710 passes a second NodeCommitCoverage argument the method no longer takes; no other error."
+assumption = "The caller was outside the scope; the signature change is the task."
+severity = "medium"
