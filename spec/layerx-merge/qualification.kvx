@@ -32171,3 +32171,11 @@ symbol = "human_runtime.rs"
 observed = "Attempt 2 at 87aacef4fd: build exit 0, dependent-crate check exit 0 (15 crates), verify exit 101: 2 passed; native_send_first_prepare_and_reopened_prepare_match_owner_preview fails with 503 owner.unavailable, daemon log: preparation receipt key read failed, RpcRefusal -32601 Method not found."
 assumption = "The test node lacks the receipt key method the production prepare path reads; the tenant repair of attempt 2 holds."
 severity = "high"
+
+[finding.22.31.565.1]
+task = "22.31.565"
+file = "services/agent/crates/layerx-agentd/src/store/migrate.rs"
+symbol = "migrate.rs"
+observed = "Attempt 1 at base 2e0a668a79: no change inside scope, no gate ran; the agent reported the task path src/approval.rs absent and the named functions in src/policy/approval.rs."
+assumption = "The implementation plan stands; only the file path of the hold module was wrong."
+severity = "medium"
