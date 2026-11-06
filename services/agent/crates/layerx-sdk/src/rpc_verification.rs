@@ -77,6 +77,12 @@ impl VerifiedRpcReceipt {
         self.canonical_activity.as_deref()
     }
 
+    pub(crate) fn submitted_activity(&self) -> Result<([u8; 32], &[u8]), RpcError> {
+        let canonical = self.canonical_activity().ok_or(RpcError::InvalidRequest)?;
+        let protocol = self.receipt().protocol().ok_or(RpcError::InvalidRequest)?;
+        Ok((protocol.activity_id(), canonical))
+    }
+
     pub(crate) fn bind_canonical_activity(&mut self, canonical: Vec<u8>) {
         self.canonical_activity = Some(canonical);
     }

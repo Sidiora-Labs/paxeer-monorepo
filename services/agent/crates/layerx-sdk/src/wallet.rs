@@ -211,6 +211,42 @@ impl<'Wallet> Wallet<'Wallet> {
             .wait_for_with_commit(activity, self.policy, timeout, evidence)
     }
 
+    /// Waits for a submitted receipt while retaining its exact signed activity.
+    ///
+    /// # Errors
+    /// Refuses receipts without canonical activity and preserves RPC verification errors.
+    pub fn wait_for_submitted(
+        &self,
+        receipt: &VerifiedRpcReceipt,
+        commitment: Commitment,
+        timeout: Duration,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        let (activity, canonical) = receipt.submitted_activity()?;
+        let mut waited = self
+            .rpc
+            .wait_for(activity, commitment, self.policy, timeout)?;
+        waited.bind_canonical_activity(canonical.to_vec());
+        Ok(waited)
+    }
+
+    /// Waits for finality under caller-pinned commit evidence, retaining the signed activity.
+    ///
+    /// # Errors
+    /// Refuses receipts without canonical activity and preserves commit verification errors.
+    pub fn wait_for_submitted_with_commit(
+        &self,
+        receipt: &VerifiedRpcReceipt,
+        timeout: Duration,
+        evidence: &layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        let (activity, canonical) = receipt.submitted_activity()?;
+        let mut waited = self
+            .rpc
+            .wait_for_with_commit(activity, self.policy, timeout, evidence)?;
+        waited.bind_canonical_activity(canonical.to_vec());
+        Ok(waited)
+    }
+
     /// # Errors
     /// Refuses malformed payment payloads and propagates preparation, signing and verification errors.
     pub async fn payment(
