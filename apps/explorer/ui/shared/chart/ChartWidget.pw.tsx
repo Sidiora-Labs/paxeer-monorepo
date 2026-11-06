@@ -165,13 +165,13 @@ test('multiple charts +@dark-mode', async({ render, page }) => {
           {
             type: 'area' as const,
             gradient: {
-              startColor: 'rgba(233, 216, 253, 1)',
-              stopColor: 'rgba(233, 216, 253, 0)',
+              startColor: 'var(--chakra-colors-chart-area-start)',
+              stopColor: 'var(--chakra-colors-chart-area-stop)',
             },
           },
           {
             type: 'line' as const,
-            color: '#DBC7F5',
+            color: 'var(--chakra-colors-accent)',
           },
         ],
       },
@@ -181,7 +181,7 @@ test('multiple charts +@dark-mode', async({ render, page }) => {
         charts: [
           {
             type: 'line' as const,
-            color: '#D53F8C',
+            color: 'var(--chakra-colors-positive)',
             strokeWidth: 3,
             strokeDasharray: '6 6',
           },

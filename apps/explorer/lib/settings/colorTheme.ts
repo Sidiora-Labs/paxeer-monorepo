@@ -1,7 +1,8 @@
 import type { ColorThemeId } from 'types/settings';
 
-import config from 'configs/app';
+import { getEnvValue, parseEnvJson } from 'configs/app/utils';
 import type { ColorMode } from 'toolkit/chakra/color-mode';
+import { LIGHT, DARK } from 'toolkit/theme/foundations/palette';
 
 export interface ColorTheme {
   id: ColorThemeId;
@@ -10,6 +11,8 @@ export interface ColorTheme {
   hex: string;
   sampleBg: string;
 }
+
+export const COLOR_THEME_OVERRIDES = parseEnvJson<Record<string, unknown>>(getEnvValue('NEXT_PUBLIC_COLOR_THEME_OVERRIDES')) || {};
 
 const getNestedValue = (obj: Record<string, unknown>, property: string) => {
   const keys = property.split('.');
@@ -34,7 +37,7 @@ export function getThemeHexWithOverrides(colorThemeId: ColorThemeId) {
     return;
   }
 
-  const overrides = config.UI.colorTheme.overrides;
+  const overrides = COLOR_THEME_OVERRIDES;
   if (colorThemeId === 'light') {
     const value = getNestedValue(overrides, 'bg.primary._light.value');
     return typeof value === 'string' ? value : defaultHex;
@@ -59,7 +62,7 @@ export const COLOR_THEMES: Array<ColorTheme> = [
     id: 'light',
     label: 'Light',
     colorMode: 'light',
-    hex: '#FFFFFF',
+    hex: LIGHT.canvas,
     sampleBg: 'linear-gradient(154deg, #EFEFEF 50%, rgba(255, 255, 255, 0.00) 330.86%)',
   },
   {
@@ -80,7 +83,7 @@ export const COLOR_THEMES: Array<ColorTheme> = [
     id: 'dark',
     label: 'Dark',
     colorMode: 'dark',
-    hex: '#101112',
+    hex: DARK.canvas,
     sampleBg: 'linear-gradient(161deg, #000 9.37%, #383838 92.52%)',
   },
 ];

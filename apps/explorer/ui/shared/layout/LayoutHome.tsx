@@ -16,7 +16,6 @@ const LayoutHome = ({ children }: Props) => {
         <Layout.NavBar/>
         <HeaderMobile/>
         <Layout.MainArea>
-          <Layout.SideBar/>
           <Layout.MainColumn
             position="relative"
             paddingTop={ 0 }

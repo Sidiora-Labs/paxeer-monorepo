@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-import config from 'configs/app';
+import { getEnvValue } from 'configs/app/utils';
 import { isBrowser } from 'toolkit/utils/isBrowser';
 
 /**
@@ -43,7 +43,7 @@ export const PRIVATE_MODE_DISALLOWED: ReadonlyArray<NAMES> = [
 
 export const getDefaultAttributes = () => ({
   path: '/explorer',
-  secure: config.app.protocol === 'https',
+  secure: (getEnvValue('NEXT_PUBLIC_APP_PROTOCOL') || 'https') === 'https',
 });
 
 export function get(name?: NAMES | undefined | null, serverCookie?: string) {

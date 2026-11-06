@@ -8,7 +8,7 @@ const scrollbar = {
   'body *::-webkit-scrollbar-thumb': {
     backgroundColor: '{colors.global.scrollbar.thumb}',
     borderRadius: '20px',
-    border: `8px solid rgba(0,0,0,0)`,
+    border: '8px solid transparent',
     backgroundClip: 'content-box',
     minHeight: '32px',
   },
