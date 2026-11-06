@@ -170270,7 +170270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1562.1]
 title = "Issue #1562: Decode and validate transfer-authority wrappers in AI market receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441", "22.31.463", "22.31.478", "22.31.582"]
