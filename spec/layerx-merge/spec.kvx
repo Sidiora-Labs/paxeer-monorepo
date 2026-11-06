@@ -9129,6 +9129,12 @@ value = "The runtime records the site of every SupplementRejected it raises in t
 basis = "Gotcha 3250: twelve native proofs fail on one undifferentiated value, and the 564 proof never exercised the sites a real guest reaches."
 affects = ["22.31.569", "22.99.77"]
 
+[decision.2670]
+title = "A document-move retirement grep excludes repair records by pattern and counts code comments and live tests as references"
+value = "The test of a task that moves or retires a document runs git grep for the old paths over the tracked tree excluding spec/, GOTCHA.kvx, CHANGELOG and CODEMAP files, the test itself and every repair record (paths matching repair_*.kvx and repair-*.kvx and the .kvx files under tools/qualification/audit_repairs, tools/bringup and test directories). A source comment that points a reader at the document and a live test that reads it are references: the moving task rewrites them to the new path and lists the files in its scope."
+basis = "Gotcha 3251: the scope was written by directory and missed a Go comment and a Python test; a repair record keeps the path of its time (decision 2665)."
+affects = ["22.36.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -324759,7 +324765,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/launchpad/production_checklist.md to docs/launchpad/production-checklist.md, apps/perps/data_api.md to docs/perps/data-api.md, services/agent/COMPATIBILITY.md to docs/agent/COMPATIBILITY.md and services/interop/PORTABILITY.md to docs/interop/PORTABILITY.md; rewrite every reference outside spec/ and GOTCHA.kvx (apps/perps/deploy/README.md, apps/perps/src/components/paxeer/README.md, apps/perps/tests/repair-22-33-188.test.ts, docs/site/docs/interop/x402.md, docs/wiki/X402Transport.md, sdk/platform/generators/src/main.rs, services/interop/README.md, services/interop/crates/layerx-ap2/tests/portability_v2.rs, services/interop/crates/layerx-migrate/OPERATIONS.md, README.md and the rest the grep finds) so the tests and generators that read these files resolve. docs/README.md rows come with 22.36.6."
 do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_5.py: the four old paths do not exist and the four new files exist; every relative Markdown link in the four files resolves; no tracked file outside spec/, GOTCHA.kvx and this test contains the four old paths. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_5.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = []
-touches = ["apps/launchpad/production_checklist.md", "apps/perps/data_api.md", "services/agent/COMPATIBILITY.md", "services/interop/PORTABILITY.md", "docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "apps/perps", "docs/site/docs/interop/x402.md", "docs/wiki/X402Transport.md", "sdk/platform/generators/src/main.rs", "services/interop", "README.md", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
+touches = ["apps/launchpad/production_checklist.md", "apps/perps/data_api.md", "services/agent/COMPATIBILITY.md", "services/interop/PORTABILITY.md", "docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "apps/perps", "docs/site/docs/interop/x402.md", "docs/wiki/X402Transport.md", "sdk/platform/generators/src/main.rs", "services/interop", "README.md", "services/platform/perps-data/internal/records/records.go", "tools/qualification/audit_repairs/test_repair_22_33_1565.py", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
 tests = []
 planned_paths = ["docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
 build_cmd = "python3 --version"
@@ -324775,6 +324781,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3251, decision 2670): the attempt-1 tree stands (the four moves and the rewritten references). Rewrite the comment at services/platform/perps-data/internal/records/records.go line 119 to docs/perps/data-api.md and the three reads at tools/qualification/audit_repairs/test_repair_22_33_1565.py lines 50, 80 and 110 to docs/agent/COMPATIBILITY.md, and run that test once to show it still passes against the moved file. In tools/qualification/audit_repairs/test_repair_22_36_5.py extend the git grep excludes with the repair-record patterns of decision 2670 (repair_*.kvx and repair-*.kvx anywhere, and the .kvx files under tools/qualification/audit_repairs and tools/bringup), so that repair_22_33_1565.kvx and apps/perps/src/core/repair-22-33-78.kvx keep the paths of their time; if the attempt rewrote repair-22-33-78.kvx, restore its original text. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.36.4]
 title = "Fold the explorer documentation into docs/explorer"

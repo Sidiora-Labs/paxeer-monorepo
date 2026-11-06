@@ -32259,3 +32259,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 18 at 3122042d8aa21cee0733713bc79aa76de7065c5e: build exit 0, dependents exit 0, verify exit 1: twelve native proofs refused with SupplementRejected, eight fuel residuals, five view-binding cases and three reward cases fail."
 assumption = "The observer refusal is a runtime defect exposed by the 564 landing; the remaining residuals are consumer-side."
 severity = "high"
+
+[finding.22.36.5.1]
+task = "22.36.5"
+file = "apps/launchpad/production_checklist.md"
+symbol = "production_checklist.md"
+observed = "Attempt 1 at 175a8b06fe6498f54d2783c7bbf6e1c064ba8363: build exit 0, verify exit 1: 8 passed, 1 failed: three tracked files outside the listed scope still name an old document path."
+assumption = "Two of the files are live references the move must follow; the third is a repair record the grep excludes."
+severity = "medium"
