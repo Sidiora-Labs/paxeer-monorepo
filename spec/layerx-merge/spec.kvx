@@ -178004,7 +178004,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.577]
 title = "Commit boundary memory through a chunk root and rebuild the pre memory for single-step adjudication"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.574"]
