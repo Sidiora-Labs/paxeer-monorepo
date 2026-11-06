@@ -32555,3 +32555,11 @@ symbol = "store.rs"
 observed = "Attempt 5 at cc0d031fba2fe245ebafb601946a98f479b05b3d: build exit 0, dependent-crate check exit 0, verify exit 101: the 128-call case is refused at retain_boundary_capture.source and the 65-call case at the replay record byte bound; every leaf carries the full 17-page memory."
 assumption = "A full-memory leaf cannot fit the kernel witness maximum; the encoding is the cause."
 severity = "high"
+
+[finding.22.31.571.4]
+task = "22.31.571"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 4 at b2133820f6619f942c9133419ec5d697a1470721: build exit 0, dependent-crate check exit 0, verify exit 101: SUBMIT with the release reference passes and the linked TRACK equals the direct TRACK before restart; after the Store is reopened the linked TRACK answers 5 (Unknown) at byte 73 where the proof expected 3 (Submitted) and stops at line 1199."
+assumption = "The restored state is production recovery behaviour, not a defect of the linked path; the proof asserted a state the outbox never keeps across a restart."
+severity = "high"

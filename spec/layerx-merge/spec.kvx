@@ -9291,6 +9291,12 @@ value = "The linear memory field of a portable boundary leaf holds, for the firs
 basis = "A full-memory leaf of a 17-page guest exceeds the kernel witness maximum by itself, so no profile holds a boundary; the AI market programs and the 573 proof are both refused by that bound."
 affects = ["22.31.573", "22.99.77"]
 
+[decision.2697]
+title = "A Human proof asserts the outbox state recovery restores after a restart"
+value = "After a restart the outbox restores a Submitted submission without a verified receipt as Unknown (state code 5) with the reason that the restart made the transport outcome indeterminate and lists it for receipt resolution (outbox/recover.rs restore_submissions, lines 233 to 243); Executed, Failed, Expired and Committed restore unchanged. A TRACK answer, direct or through an approval release reference, reports that restored state; a proof that restarts before a receipt is served asserts 5 and compares the linked answer with the direct answer taken after the same restart, never with an answer taken before it. No task changes the recovery mapping."
+basis = "A restart cannot know whether a submitted envelope reached the network; Unknown is the honest state until a receipt resolves it, and a proof that pins the pre-restart state would force recovery to invent certainty."
+affects = ["22.31.571"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -176240,7 +176246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.576]
 title = "Bind the signed transaction bytes to MCP wallet execution receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.563"]
@@ -176428,6 +176434,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Attempt 2 (requalify, gotcha 3266, decision 2680): the attempt-1 tree stands (the release reference resolves through TRACK from release to the verified receipt; the recovery change and the proof in tests/repair_22_31_571.rs are implemented). The build stopped on the compat.rs include of the matrix that 22.36.5 moved; task 22.31.572 repoints it and this task requires it. Re-run the gates as they stand once 22.31.572 has landed."
 do_6 = "Attempt 3 (continue, gotcha 3274): the attempt-2 tree stands (the TRACK resolution from the approval release to the verified receipt in human_runtime.rs, policy/approval.rs and outbox/recover.rs, the proof). In tests/repair_22_31_571.rs line 1067 bind the guard first, as lines 1174 and 1190 do: let store = must(shared.lock()); then pass a reference to it to SigningPreparation::restore. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record; fix any further test-side compile error the same way and report a production-side one as a finding."
 do_7 = "Attempt 4 (continue, gotcha 3281, decision 2691): the attempt-3 tree stands, including the proof-frame correction that hashes the PREPARE and SUBMIT text lengths as 32-bit values like hash_text (human_runtime.rs line 20011). First run the build, the dependent-crate check and the verify as the tree stands; if the proof passes, record the gates and stop there. If PREPARE still answers operation.refused, apply decision 2691: route every Refused mapping of prepare_gated (human_runtime.rs from line 15293) through a helper that prints layerx-agentd: human prepare refused at <site> to the daemon diagnostic log, run the proof once to read the site, and repair what it names: a proof input (the frame, the actor DID, the authority encoding, the nonce the proof observes, the daemon limit it creates) or, where the site is a production check that refuses a well-formed journey, the production path, named in the task record. Keep every assertion of the proof and the grant-to-receipt-to-restart sequence it proves. Run the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
+do_8 = "Attempt 5 (continue, gotcha 3289, decision 2697): the attempt-4 tree stands (SUBMIT with approval_release_ref, the released record under the LXAPREL2 prefix, the linked TRACK path, the recovery validation of the released link). In tests/repair_22_31_571.rs replace the assertion at line 1199: after the Store is reopened and the runtime rebuilt, take the direct TRACK for the submission with the peer principal and the linked TRACK by reference with the human-observer principal, assert byte 73 of the linked answer is 5 (Unknown, the state outbox/recover.rs restore_submissions assigns a Submitted submission without a receipt at lines 233 to 243) and assert the linked answer from byte 41 equals the direct answer from byte 9; keep the header and submission-id assertions. Keep the later assertion that the verified receipt survives restart unchanged (Executed restores as Executed). If the receipt-serving TRACK after the restart refuses the Unknown to Executed transition, the task record names the transition rule and the repair resolves the receipt through the path the runtime runs for submissions listed for receipt resolution; restore_submissions is not changed. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.570]
 title = "Restore released terminal approvals on replay and name the cause of every approval refusal"
