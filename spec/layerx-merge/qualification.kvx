@@ -33259,3 +33259,19 @@ symbol = "store.rs"
 observed = "Attempt 7 at 3d896d0a9af30e559b0cd70c8c2f47c1eba217a8: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 150 minutes."
 assumption = "Environmental stall before the first command; the ruling of the previous attempt still stands."
 severity = "medium"
+
+[finding.22.31.547.8]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 8 at 94e776988899c68eb77d9c4d2fe71af8f041ab93: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 120 minutes."
+assumption = "The session never reached its model; the ruling of attempt 7 still stands."
+severity = "medium"
+
+[finding.22.31.583.2]
+task = "22.31.583"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+symbol = "repair_22_31_583.rs"
+observed = "Attempt 2 at 0b8900b54f2f78a73ba06fe7b9e3265f18257c5f: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 90 minutes."
+assumption = "The session never reached its model; the ruling of attempt 1 still stands."
+severity = "medium"
