@@ -32331,3 +32331,11 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 12 at 7807e9d49bdddd5e074026e881e316761927b205: build exit 101 (E0061, with_node_commit_authority takes one argument at funded_peer.rs line 528 and pay2e_test.rs line 69); the verify did not run."
 assumption = "An interface change of 22.31.567 reached the base after the attempt-11 tree was written; the peer serves what the client now reads."
 severity = "medium"
+
+[finding.22.33.1510.9]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 9 at c7c69f7f4d929915034e4e7eaeb61249fd76cb41: build exit 0, dependent-crate check exit 0, verify exit 101: 1 of 3 cases passes; approvals.rs line 196 Agent(Refused) in Inbox::consume(Granted) and decide.rs line 424 Err(Refused) where Err(NotFound) was expected, both from track_released of the release reference."
+assumption = "The daemon refuses to track the release reference it issued; the producer repair lands first and the consumer asserts the tracked state."
+severity = "high"

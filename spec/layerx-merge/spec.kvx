@@ -9171,6 +9171,12 @@ value = "Since 22.31.567 the SDK client pins Comet trust through with_node_commi
 basis = "The funded workflow proves the producer, the transport and the consumer; a coverage handed to the client by the test would skip the transport the node serves."
 affects = ["22.33.1569"]
 
+[decision.2677]
+title = "An approval release reference is trackable through TRACK for its tenant from release to receipt"
+value = "The daemon answers TRACK for an approval release reference of the tenant of the peer: while the released preparation is queued and unsubmitted the observation carries state Queued, the reference as submission id and the canonical digest of the released disclosure as activity id; once a SUBMIT carrying that approval_release_ref is accepted the daemon persists the link from the reference to the submission id in the release journal record of the tenant, restores it at start, and answers the status and verified receipt of that submission exactly as it answers the submission id to the submitting principal. An unknown reference and a release of another tenant stay Refused. The Human service keeps tracking by the release reference (approvals/mod.rs line 523, approvals/decide.rs line 322)."
+basis = "The Human inbox hydrates every granted approval through track_released; a release the daemon issues but refuses to track leaves the inbox unable to show the state of the approved call."
+affects = ["22.31.571", "22.33.1510"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38061,6 +38067,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.571]
+title = "Resolve an approval release reference through TRACK from release to the verified receipt"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_571"
+do_1 = "do_1 Gotcha 3260, decision 2677. In services/agent/crates/layerx-agentd/src/human_runtime.rs make track_evm (line 12613) and track_with_settlement (line 13212) resolve a reference that is absent from the submissions set as an approval release reference of the tenant of the peer before refusing: when ApprovalSubmissionQueue::prepared (approval/mod.rs line 2073) holds it for that tenant and no submission is linked, answer the observation with state Queued, the reference as submission id and the canonical digest of the released disclosure as activity id, without a node read; an unknown reference and a release of another tenant stay Refused and the answer to the submitting principal for its own submission id is unchanged."
+symbols = []
 
 [capability.22.31.570]
 title = "Restore released terminal approvals on replay and name the cause of every approval refusal"
@@ -176057,6 +176072,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.571]
+title = "Resolve an approval release reference through TRACK from release to the verified receipt"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.571"]
+interfaces = []
+do_1 = "do_1 Gotcha 3260, decision 2677. In services/agent/crates/layerx-agentd/src/human_runtime.rs make track_evm (line 12613) and track_with_settlement (line 13212) resolve a reference that is absent from the submissions set as an approval release reference of the tenant of the peer before refusing: when ApprovalSubmissionQueue::prepared (approval/mod.rs line 2073) holds it for that tenant and no submission is linked, answer the observation with state Queued, the reference as submission id and the canonical digest of the released disclosure as activity id, without a node read; an unknown reference and a release of another tenant stay Refused and the answer to the submitting principal for its own submission id is unchanged."
+do_2 = "do_2 When a SUBMIT whose approval_release_ref names a release is accepted (rpc_submit_external line 8579 after the release authorization at lines 8845 to 8851, and the native carriers at lines 8041, 8236 and 8437), persist the link from the reference to the submission id in the release journal record of the tenant (the approval-released-v1 record written under released_storage_key, policy/approval.rs line 1397) and restore the link at start where line 13830 now skips those records (outbox/recover.rs line 14 names the prefix), so that TRACK of the reference answers the status and verified receipt of the linked submission exactly as track_evm answers the submission id."
+do_3 = "do_3 Prove it in services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs through the Human peer transport the way tests/human_peer_rungs.rs drives TRACK (line 206): a granted approval then TRACK of the reference by the Human peer answers Queued with the reference as submission id and a non-zero activity id; a SUBMIT with that approval_release_ref then TRACK of the reference answers the state of the submission and, once the receipt is served, the verified receipt; an unknown reference answers Refused; after a restart of the runtime the linked answer is unchanged. Record every case in repair_22_31_571.kvx."
+do_4 = "do_4 Close the findings: the task record names each case with its proving test and makes no change to the Human service."
+symbols = ["track_evm", "track_with_settlement", "rpc_submit_external", "released_storage_key", "prepared"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/outbox/recover.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_571"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.570]
 title = "Restore released terminal approvals on replay and name the cause of every approval refusal"
 status = "done"
@@ -180189,7 +180235,7 @@ title = "Repair audit record 22.30.90 medium findings in services/human/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562", "22.31.570"]
+requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562", "22.31.570", "22.31.571"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1510"]
 interfaces = []
@@ -180226,6 +180272,7 @@ do_13 = "Attempt 6 (continue after 22.31.534, gotcha 3124, decision 2585): attem
 do_14 = "Attempt 7 (requalify, gotcha 3226, decision 2651): the attempt-6 tree stands (1 passed); the task now requires 22.31.562, which makes the daemon write the rung rank the Human decoder reads. Re-run the gates as they stand once 562 lands; if a case still answers Corrupt, the record names the response byte."
 do_15 = "Attempt 8 (continue, gotcha 3245): the attempt-7 tree stands (the owner fixture tests/support/approval_owner.rs, the authority fixture files, both cases). In approval_owner.rs Runtime::start (line 585) build the root from fs::canonicalize(std::env::temp_dir()) as tests/production_unhooked.rs line 62 does, keep mode 0700 on it, and on any further refusal of the store root print the given path, its canonical path, its uid against the effective uid and its mode before failing. Re-run both cases; if digest_bound_decisions_converge_and_export_the_agent_outcome still answers Refused from approval_get, record the agent-side log line that precedes the refusal (server/agent_runtime.rs lines 98, 126, 234 and 237 map it) in the task record. Production files unchanged. Run the build and the verify at the final revision and record them by reference in the task record."
 do_16 = "Attempt 9 (continue after 22.31.570, gotcha 3254, decision 2672): the attempt-8 tree stands (the canonical fixture root, the head aligned with each emitted event, the diagnostics). The task now requires 22.31.570, which restores decided approvals on replay and makes every Refused carry its cause. Rebase on main once 22.31.570 has landed, change nothing in production, and re-run the gates; if a case still answers Refused, print the diagnostic the boundary now carries beside the failing call and name both in the task record together with the daemon log line that precedes the refusal."
+do_17 = "Attempt 10 (continue after 22.31.571, gotcha 3260, decision 2677): the attempt-9 tree stands (the canonical fixture root, the recorded authority, the diagnostics beside each tracking call). The task now requires 22.31.571, which makes TRACK answer a release reference of the tenant. Once it has landed, rebase on main and in tests/decide.rs line 424 replace the assertion of Err(NotFound), which map_approval_error at server/agent_runtime.rs line 4387 can never produce, with the tracked state: Ok with state Queued and the reference as submission id; in tests/approvals.rs line 196 Inbox::consume(Granted) then hydrates the Approved item with its tracking and the case asserts it. Close the release-tracking wiring record of the task record against 22.31.571; change no production file; run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1508]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): runtime-risk"
