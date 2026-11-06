@@ -16240,3 +16240,28 @@ fix = "Decision 2692: under a replay profile the replay record is the commitment
 title = "22.33.1569 attempt 17: the account-bound evidence of 22.31.575 passes the cumulative-use checks; the funded MCP identity registration then fails BoundaryUnavailable at funded_scenario.rs line 138 after the loopback peer served eth_call to the address precompile, the identity sequence, eth_blockNumber, eth_getBlockByNumber 6 twice, px_getCommit 6 and px_getValidators 6; the agent added the missing peer responses in two cycles and ran out of budget."
 symptom = "The qualification resolver (services/agent/qualification/pay2/sequence.rs, resolve from line 124) maps four distinct boundary reads to BoundaryUnavailable without naming which; the last of them, CommittedReads::open (layerx-agentd src/read/committed.rs line 719), authenticates the served checkpoint through the production verifier over the commit and the validator keys, so a served commit the keys did not sign is reported as an unavailable boundary."
 fix = "Decision 2693: the resolver prints the failing read; the peer serves a checkpoint for the committed height that the production verifier authenticates."
+
+[gotcha.3284]
+title = "22.35.8 attempts 2 to 4: each run reached the result collection step and was ended by the qualification environment past its deadline grace; no result of those runs exists. The collection step added the changed explorer directories (thousands of files under apps/explorer/ui and apps/explorer/toolkit) to the candidate index one file at a time, rewriting the whole monorepo index per file, so every collection took 17 to 30 minutes."
+symptom = "The per-file add was invisible on small tasks; the explorer restyle tasks change whole directories."
+fix = "The collection step adds every file of a directory entry in one call and prints its timing; the collection step gets a grace of its own. Attempt 1 at 38bc60fa64 is the only tree and continues."
+
+[gotcha.3285]
+title = "22.31.560 attempt 8: the sited refusal helper prints native send prepare refused at budget source read; the first-Prepare case gets 403 owner.refused because budget/program_sources.rs lines 433 and 564 refuse caps.level() below STATE_PROVEN, and read/committed.rs CommittedCaps::level (lines 166 and 420) answers CHECKPOINT_FINALISED for every committed read."
+symptom = "In layerx-types verify.rs the deprecated CheckpointFinalised rank orders below Unverified (the Ord keys CheckpointFinalised and SettlementAnchored to 0 and 1, the live ranks to wire rank plus 2), so a committed read never satisfies a STATE_PROVEN floor; the daemon-wide retirement of the label is 22.31.539, which waits on 560."
+fix = "Decision 2694: the two level() sites answer COMMITTED now; 22.31.539 keeps the rest of its scope."
+
+[gotcha.3286]
+title = "22.33.1569 attempt 18: the served checkpoint authenticates, the SDK Send verifies to Batched with pinned authority and coverage, the MCP grant issue executes and its executed receipt is served, then wait_batched (funded_scenario.rs line 598) fails InvalidRequest before any further peer request."
+symptom = "Wallet::wait_for_submitted (layerx-sdk wallet.rs line 220) refuses a receipt without canonical activity (rpc_verification.rs submitted_activity line 80); the MCP wallet execute (layerx-mcp tools/wallet.rs lines 97 to 115) waits through Wallet::wait_for and never binds the signed bytes, unlike Wallet::send and Wallet::payment (wallet.rs lines 78 to 80 and 262 to 266); the MCP cumulative_evidence (line 312) refuses the same receipts."
+fix = "Decision 2695 and task 22.31.576: the SDK exposes a wait that binds the signed bytes and the MCP execute uses it; 1569 continues after 576."
+
+[gotcha.3287]
+title = "22.31.478 attempt 14: the build and the dependent-crate check pass, every prior block and block 1002 finalize through the production host-module path, and the candidate Fund answers the canonical synthetic pre-runtime failure with code -3 (LXP_ERR_NON_CANONICAL), recorded CPU fuel 0 and no callback stage; the fixture binary panicked decoding that bare terminal as an applied-legs wrapper (examples/repair_478_fixture.rs line 17), the second repair selected the decoder by tag, and the budget ended before it ran under a gate."
+symptom = "The -3 at pre-runtime with zero fuel is the native binding mapping of an executor error or a missing replay record of a profiled CALL (decision 2647, ffi_call.rs lines 2896 to 2902), not a fuel stop; the Go case reads only the terminal, so the cause is in the independent executor result the fixture now prints."
+fix = "Attempt 15 runs the standing tree once, reads the executor result and repairs the cause it names."
+
+[gotcha.3288]
+title = "22.31.573 attempt 5: the build, the dependent-crate check (58 crates) and four recorded suites pass, the baseline value is 32 bytes and the proof searches for the largest admitted count; the 128-call case is refused SupplementRejected at retain_boundary_capture.source and the 65-call case is refused program replay record refused: Bounds, so no count above 64 fits the 1048576-byte witness."
+symptom = "A portable boundary leaf carries the whole linear memory of the guest (portable_replay.rs line 128 reads it as one owned field up to MAX_STEP_STATE_BYTES; the proof asserts 17 pages, 1114112 bytes, in every leaf), so one leaf of a 17-page guest is larger than the kernel maximum of 1048576 witness bytes (programs.h line 677) and no profile the kernel accepts holds even one boundary of such a guest; the native CALL refusals of 22.99.77 under the 128-boundary 1 MiB profile are the same bound."
+fix = "Decision 2696: a leaf carries the memory pages the boundary changed; 573 implements it and measures; 22.99.77 inherits it through 573."

@@ -32515,3 +32515,43 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 17 at 4172b5752d1836d2cba9d22af78e9e2a23ebdb0f: build exit 0, verify exit 101: the funded MCP identity registration fails BoundaryUnavailable at funded_scenario.rs line 138 after the peer served the block, commit and validator reads."
 assumption = "The served checkpoint does not authenticate under the production verifier, and the resolver hides which read failed."
 severity = "high"
+
+[finding.22.35.8.2]
+task = "22.35.8"
+file = "apps/explorer/ui/repair-22-35-8.spec.ts"
+symbol = "repair-22-35-8.spec.ts"
+observed = "Attempts 2 to 4 were ended by the qualification environment during result collection and left no result; attempt 1 at 38bc60fa6434a600ba04d6b4640ef4077586abb7: build exit 0 (tsc), verify exit 1."
+assumption = "Environmental; the collection step is corrected and the attempt-1 tree is unchanged."
+severity = "medium"
+
+[finding.22.31.560.8]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 8 at 72f65dc1000449a7c2041a8937ea8f43c92f832b: build exit 0, dependent-crate check exit 0, verify exit 101: the first-Prepare case gets 403 owner.refused with the diagnostic native send prepare refused at budget source read."
+assumption = "The committed read label orders below the STATE_PROVEN floor; two production lines outside the task scope block it."
+severity = "high"
+
+[finding.22.33.1569.18]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 18 at 71635a058d7f20b997b70af7dc213eef28e5b568: build exit 0, verify exit 101: the MCP grant issue fails InvalidRequest in wait_batched before any further peer request; the SDK Send through the same helper passes."
+assumption = "The MCP execute returns receipts without canonical activity; the producer is repaired by 22.31.576."
+severity = "high"
+
+[finding.22.31.478.14]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 14 at 9f6737b7feda60ac2542935b37ddd7342f0dcd6e: build exit 0, dependent-crate check exit 0, verify exit 1 at the second repair revision 05f6522dca4092e22229bb5caffb78c19ab5c57a: TestRepair478_FundWithinProductionAllowance fails (candidate Fund must succeed) after the fixture binary panicked decoding the bare pre-runtime terminal; the final decoder correction ran under no gate."
+assumption = "The pre-runtime -3 masks the executor error the probe mode now prints."
+severity = "high"
+
+[finding.22.31.573.5]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 5 at cc0d031fba2fe245ebafb601946a98f479b05b3d: build exit 0, dependent-crate check exit 0, verify exit 101: the 128-call case is refused at retain_boundary_capture.source and the 65-call case at the replay record byte bound; every leaf carries the full 17-page memory."
+assumption = "A full-memory leaf cannot fit the kernel witness maximum; the encoding is the cause."
+severity = "high"
