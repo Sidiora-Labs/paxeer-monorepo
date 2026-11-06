@@ -9231,6 +9231,12 @@ value = "The SDK Int (sdk/types/int.go) wraps a big.Int and offers BigInt(), Int
 basis = "The SDK keeps its integer surface narrow on purpose; the big integer is one call away."
 affects = ["22.31.478"]
 
+[decision.2687]
+title = "A node EVM transaction activity authenticates by its transaction hash and recovered sender"
+value = "When a cumulative-use or time-window entry pairs a receipt whose module id is above KERNEL_MODULE_COUNT with a canonical activity whose first byte is 0x02, the daemon consumer decodes it with layerx_crypto::evm_transaction::decode_signed, takes transaction_hash of the raw bytes as the activity id compared with the receipt activity id, and takes recover_sender as the actor. The actor matches when the recovered address equals the 20-byte account the caller binds to the actor DID through the account forms authenticate_account_cumulative_use and authenticate_account_cumulative_time_use: the DID and the EVM address of one wallet account are paired by the caller, which knows both, and the consumer derives neither from the other. The DID-only forms refuse an EVM activity with CumulativeUseError::AccountBinding or TimeWindowUseError::AccountBinding. Kernel-module receipts keep the LayerX envelope path unchanged, as does a LayerX envelope paired with a node receipt; an envelope decode_signed refuses (a value, an access list, non-canonical RLP) stays CumulativeUseError::Activity."
+basis = "The node identifies an EVM activity by etx.Hash() and its sender by signature recovery; a consumer that only reads LayerX envelopes refuses every real node receipt, and the node receipt binds no DID."
+affects = ["22.33.1569"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38121,6 +38127,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.575]
+title = "Authenticate node EVM transaction activities in the daemon cumulative-use and time-window consumers"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_575.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_575.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_575 --test repair_22_31_568"
+do_1 = "do_1 In services/agent/crates/layerx-agentd/src/protocol_evidence.rs add one private helper that reads an entry: given the canonical activity bytes and the optional kernel ModuleId of its receipt (None above KERNEL_MODULE_COUNT, line 31), it returns the activity id and an actor binding. For a receipt above KERNEL_MODULE_COUNT whose activity starts with 0x02 it decodes with layerx_crypto::evm_transaction::decode_signed, takes transaction_hash of the raw bytes as the id and recover_sender of the call and signature as an account binding; a decode or recovery refusal is CumulativeUseError::Activity or TimeWindowUseError::Activity. Otherwise it keeps the present envelope path (peek_signed_activity_type, ModuleRegistration, the layerx_wire decode_signed, activity_id, actor_did) unchanged, including the ActivityReceiptMismatch and Identity refusals of lines 857 to 872 and 1235 to 1262."
+symbols = []
 
 [capability.22.31.574]
 title = "Frame the usage receipt with its digest in the runtime terminal decoder proof"
@@ -176157,6 +176172,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.575]
+title = "Authenticate node EVM transaction activities in the daemon cumulative-use and time-window consumers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.568"]
+reqs = ["22998.1"]
+capabilities = ["22.31.575"]
+interfaces = []
+do_1 = "do_1 In services/agent/crates/layerx-agentd/src/protocol_evidence.rs add one private helper that reads an entry: given the canonical activity bytes and the optional kernel ModuleId of its receipt (None above KERNEL_MODULE_COUNT, line 31), it returns the activity id and an actor binding. For a receipt above KERNEL_MODULE_COUNT whose activity starts with 0x02 it decodes with layerx_crypto::evm_transaction::decode_signed, takes transaction_hash of the raw bytes as the id and recover_sender of the call and signature as an account binding; a decode or recovery refusal is CumulativeUseError::Activity or TimeWindowUseError::Activity. Otherwise it keeps the present envelope path (peek_signed_activity_type, ModuleRegistration, the layerx_wire decode_signed, activity_id, actor_did) unchanged, including the ActivityReceiptMismatch and Identity refusals of lines 857 to 872 and 1235 to 1262."
+do_2 = "do_2 Add pub fn authenticate_account_cumulative_use(&self, actor: &Did, account: [u8; 20], window: CumulativeUseWindow, entries: &[RawActivityReceiptEvidence]) and pub fn authenticate_account_cumulative_time_use(&self, actor: &Did, account: [u8; 20], window_seconds: u64, observed: &AuthenticatedCoreTime, batches: &[RawTimeWindowBatch]) on EvidenceAuthority. Each counts an entry when its actor binding is the DID equal to actor or the account equal to account, keeping the result_code, amount, count and asset bookkeeping of lines 873 to 890 and 1263 to 1278. The existing authenticate_cumulative_use (line 847) and authenticate_cumulative_time_use (line 1095) delegate with no account and refuse an EVM activity with the new variants CumulativeUseError::AccountBinding and TimeWindowUseError::AccountBinding; extend every exhaustive match on either enum in the crate."
+do_3 = "do_3 Write tests/repair_22_31_575.rs after the shape of tests/repair_22_31_568.rs (its entry, signed_receipt and batch header builders and its governed receipt key): the canonical activity is an Eip1559Call (chain id 125, to the ledger precompile 0x101A, zero value) signed with a fixed secp256k1 secret through Eip1559Call::sign; the receipt is module 12 operation 2 with the activity id equal to transaction_hash of the raw bytes, served under the governed receipt key as governed_receipt_key_authenticates_node_cumulative_use does. Cases: the account form with the recovered sender counts 1 and the receipt amount; the account form with another account counts 0; the DID-only form refuses with AccountBinding; a receipt whose activity id differs from the transaction hash refuses with ActivityReceiptMismatch; the kernel-envelope cases of repair_22_31_568 still pass."
+do_4 = "do_4 Record the derivation (transaction hash as the activity id, recovered sender bound to the caller-supplied account, decision 2687) in tests/repair_22_31_575.kvx, then run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["authenticate_account_cumulative_use", "authenticate_account_cumulative_time_use", "AccountBinding", "transaction_hash", "recover_sender"]
+touches = ["services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_575.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_575.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_575.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_575.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_575 --test repair_22_31_568"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.574]
 title = "Frame the usage receipt with its digest in the runtime terminal decoder proof"
 status = "pending"
@@ -178387,7 +178433,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/qualific
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563", "22.31.568", "22.31.567", "22.31.572"]
+requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563", "22.31.568", "22.31.567", "22.31.572", "22.31.575"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1569"]
 interfaces = []
@@ -178430,6 +178476,7 @@ do_19 = "Attempt 13 (continue, gotcha 3259, decision 2676): the attempt-11 tree 
 do_20 = "Attempt 14 (requalify, gotcha 3263): the attempt-13 tree stands (both client constructors install only the pinned authority; the peer serves the signed sequence batch envelope, the proof and the ordered activity ids; the integration test checks batch coverage for every funded operation). The build stopped before any test on the compat.rs include of the matrix that 22.36.5 moved; task 22.31.572 repoints it. Re-run the gates as they stand once 22.31.572 has landed."
 do_21 = "Attempt 15 (continue, gotcha 3268, decision 2682): the attempt-13 tree stands (the node words of decision 2648, the ledger events in the receipt logs, the verified batched Send and the SDK-verified draw). In tests/support/funded_scenario.rs pay2_evidence_authority (lines 331 to 372) install the governed receipt keys before returning the authority: take the readiness status the gate returns (receipt_keys of boot.rs ReadinessStatus), and return gate.evidence_authority().clone().with_receipt_keys(status.receipt_keys.clone()) with its error treated as a proof failure, mirroring layerx-agentd human_runtime.rs lines 12333 to 12344. Keep the pinned authority file and the readiness assertion on the key range. Do not change boot.rs or protocol_evidence.rs. Then follow the funded proof to its next refusal, if any, and name it in the task record with the check and the line. Run the build and the verify at the final revision and record them by reference in the task record."
 do_22 = "Attempt 16 (continue, gotcha 3270, decision 2684): the attempt-15 tree stands (the node words of decision 2648, the batched Send, the verified logs, the chained state roots). In tests/support/funded_peer.rs serve the maintained batch shape: the activity sequence at lines 385 to 387 becomes 2n minus 1 for the n-th submitted activity; in commit_receipt (lines 905 to 957) field 4 becomes n, field 5 the activity sequence, field 6 the activity sequence plus one, field 3 stays 1, fields 7 and 8 chain as today, and field 10 becomes the root of build_proof over two leaves: the canonical receipt at leaf 0 (its inclusion proof now has leaf_count 2 and leaf_index 0) and a maintenance leaf at leaf 1. Encode the maintenance leaf as an occupancy maintenance record in the layout decode_occupancy_maintenance reads (layerx-wire batch_maintenance.rs: the occupancy domain, batch_number n, global_sequence the activity sequence plus one, nonzero parameter_version, schedule_version, the seven schedule prices, a nonzero occupancy asset id, zero byte batches and fee units, no payers, schedule_commitment computed as the decoder computes it, a non-empty settlement evidence and its sha256 digest, a nonzero ledger root, a zero transfer-set root, previous_state_root = field 7 and resulting_state_root = field 8); before serving, decode it with decode_maintenance and check it with MaintenanceReceipt::verify_header against the header, and fail the peer with the decoder error if either refuses. Keep the SequenceBatch at lines 955 to 957 (from = to = the activity sequence) and the receipt batch_id word as they are. In tests/support/funded_scenario.rs the issue sequence (lines 882 to 885, prior last plus one) and the draw window (lines 984 to 1035, prior first to issue last with two entries) already follow the maintained shape; update the window length arithmetic at lines 921 to 925 and the assertion at line 971 for the two-sequence batch. Run the build and the verify at the final revision and record them by reference in the task record."
+do_23 = "Attempt 17 (continue, gotcha 3277, decision 2687, after task 22.31.575 lands): the attempt-16 tree stands (the maintained batch shape of decision 2684, the verified batched Send, the node words of decision 2648). In tests/support/funded_scenario.rs replace the authenticate_cumulative_use calls at lines 892, 1002 and 1014 with authenticate_account_cumulative_use, passing the treasury DID the scenario already binds at line 888 and the 20-byte EVM address of the payer account the peer serves receipts for (funded_peer.rs line 191 reads it from the payer account), with the same window and the same entry from layerx_mcp::tools::wallet::cumulative_evidence. The daemon decodes the EIP-1559 activity itself; do not re-encode the activity as a LayerX envelope. If the consumer then refuses for another reason, the next ruling reads it. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
