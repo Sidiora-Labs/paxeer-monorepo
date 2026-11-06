@@ -9561,6 +9561,18 @@ value = "Extending decisions 2735 and 2738: the capacity word of the ResponseReg
 basis = "The executor and live-snapshot runtime sources of the same step shape differ by eighteen bytes of response outcome region whose only variable content is two markers; the capacity is fixed by the request before the first step; the bound is the protocol maximum and is never raised (decision 2675)."
 affects = ["22.31.577"]
 
+[decision.2742]
+title = "A committed codec vector binds the fixture that recorded it"
+value = "A test helper shared by several fixtures encodes the request of the fixture that calls it and never asserts byte equality against a committed vector recorded by one of them; the byte-equality assertion against a committed vector lives in the test that recorded the vector and in that test only, and every other caller proves the codec through decode and field assertions on its own request. The lease request vector of the lease execution method (testdata/repair_m213_lease_request.hex) is asserted by the usage test alone; the gas table fixture encodes its own request from the program it deploys."
+basis = "A shared helper that asserts the bytes of one fixture for every caller turns every other caller red the moment its fixture differs, which is what happened to the gas table test on 2026-11-05."
+affects = ["22.31.584", "22.31.582"]
+
+[decision.2743]
+title = "The programs lifecycle calls are disclosable construct calls"
+value = "decode_method of the call disclosure decodes a call to the Programs precompile 0x101D whose selector is one of deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes), upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128), setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes), deprecate(bytes32,bytes32,uint64), tombstone(bytes32), exitValue(bytes32,bytes32) or exitValueBounded(bytes32,bytes32,uint128) into ConstructMethod::ProgramDeploy, ProgramUpgrade and ProgramWindDown carrying the existing DisclosedProgramDeploy, DisclosedProgramUpgrade and DisclosedProgramWindDown values, with the argument layout the lifecycle settlement binder of 22.31.217 names (policy byte and authority word for deploy; the hook and clear-interface flag word, old and new hash, hook, interface, module bytes and fee word for upgrade; the operation-specific words of each wind-down selector). fields discloses them with ActivityType Programs ordinals 1, 2 and 7 (the lifecycle ordinals of the conformance fixtures), the sender as actor and authority, the fee limit every branch computes, and native_operation ProgramDeploy, ProgramUpgrade or ProgramWindDown. The nine-argument call selector keeps ConstructMethod::ProgramCall; any other selector, or a noncanonical offset, length, padding, truncation or trailing byte at 0x101D, stays MalformedPayload."
+basis = "The daemon prepares and the signer verifies every construct call through this disclosure; a lifecycle call that cannot be disclosed can never be prepared or signed, so the deploy, upgrade and wind-down paths of the programs lifecycle were unreachable through finish_call (the same class as decision 2740)."
+affects = ["22.31.585", "22.31.217"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38451,6 +38463,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.585]
+title = "Disclose the programs lifecycle calls in the call disclosure decoder"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/src/disclosure/program.rs", "services/human/crates/layerx-human-service/src/agents/create.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_585.kvx"]
+tests = ["services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --test repair_22_31_585 && cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --lib -- disclosure::call::tests"
+do_1 = "do_1 Gotcha 3357, decision 2743. In services/agent/crates/layerx-crypto/src/disclosure/call.rs add ConstructMethod::ProgramDeploy { deploy: Box<DisclosedProgramDeploy> }, ProgramUpgrade { upgrade: Box<DisclosedProgramUpgrade>, fee_limit: u128 } and ProgramWindDown { wind_down: Box<DisclosedProgramWindDown> }; in decode_method (line 547) route a 0x101D call by selector: the nine-argument call selector to decode_program_call as today, the deploy, upgrade, setExitRoute, deprecate, tombstone, exitValue and exitValueBounded selectors of decision 2743 to the new decoders; any other selector at 0x101D stays MalformedPayload. method_signature (line 108) names each signature."
+symbols = []
+
+[capability.22.31.584]
+title = "Bind the recorded lease request vector to the usage test that recorded it"
+reqs = ["22998.1"]
+touches = ["precompiles/layerxprograms/method_sandbox_execute_test.go", "precompiles/layerxprograms/gas_charge_test.go", "precompiles/layerxprograms/repair_22_31_584_test.go", "precompiles/layerxprograms/repair_22_31_584.kvx"]
+tests = ["precompiles/layerxprograms/repair_22_31_584_test.go"]
+verification_contract = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsWriteMethodsChargeGasTable|TestPrograms.*ExecuteEmitsUsage|TestPrograms.*ExecuteZeroAssetReverts|TestRepair22_31_584.*)$'"
+do_1 = "do_1 Gotcha 3355, decision 2742. In the lease execution method test file change the shared lease request helper (line 37) so it encodes the lease request from the fixture that calls it: the program the fixture deployed, its asset, its limits, its activity id and its receipt digest; remove the byte-equality assertion against the committed vector from the helper (line 119) and keep the lease id derivation local to the recording test. The helper returns the request it encoded so every caller can assert on its own fields."
+symbols = []
 
 [capability.22.31.583]
 title = "Disclose the bindLayerX registration call in the call disclosure decoder"
@@ -177832,6 +177862,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.585]
+title = "Disclose the programs lifecycle calls in the call disclosure decoder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.585"]
+interfaces = []
+do_1 = "do_1 Gotcha 3357, decision 2743. In services/agent/crates/layerx-crypto/src/disclosure/call.rs add ConstructMethod::ProgramDeploy { deploy: Box<DisclosedProgramDeploy> }, ProgramUpgrade { upgrade: Box<DisclosedProgramUpgrade>, fee_limit: u128 } and ProgramWindDown { wind_down: Box<DisclosedProgramWindDown> }; in decode_method (line 547) route a 0x101D call by selector: the nine-argument call selector to decode_program_call as today, the deploy, upgrade, setExitRoute, deprecate, tombstone, exitValue and exitValueBounded selectors of decision 2743 to the new decoders; any other selector at 0x101D stays MalformedPayload. method_signature (line 108) names each signature."
+do_2 = "do_2 In services/agent/crates/layerx-crypto/src/disclosure/program.rs add decode_program_deploy, decode_program_upgrade and decode_program_wind_down beside decode_program_call with the same discipline: canonical head words, ordered zero-padded tails, and offset, length, padding, truncation and trailing-byte refusals as MalformedPayload; each returns the existing disclosed type whose native() encoder round-trips the value. Add the matching encoders beside encode_program_call so one codec builds and reads the same calls."
+do_3 = "do_3 In fields (line 837) give the new variants ActivityType Programs ordinals 1, 2 and 7, actor and authority the sender, native_operation ProgramDeploy, ProgramUpgrade or ProgramWindDown (src/disclosure/native.rs lines 45 to 48) and the fee limit every branch computes; the module selection at line 874 treats them as Programs."
+do_4 = "do_4 In services/human/crates/layerx-human-service/src/agents/create.rs line 650 add the three new variants to the arm that returns Refused(invalid lifecycle transaction method) beside ProgramCall, so the only exhaustive match over ConstructMethod compiles and the dependent-crate check passes; rebase onto main before the final gates because 22.31.583 adds its own arm to that match."
+do_5 = "do_5 Add services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs: for each of the seven selectors a canonical call built by the new encoder decodes through bind_call and construct_method to the expected variant and fields (ordinal, module, native operation, fee limit); noncanonical offset and length words, truncated and trailing bytes and an unknown selector at 0x101D refuse MalformedPayload; the nine-argument call still decodes to ProgramCall; signing_digest succeeds for a deploy and a deprecate. Record the signatures, the ordinals, decision 2743 and the gates by reference to the gate ledger in tests/repair_22_31_585.kvx; amend no file after the gates run (gotcha 3142)."
+symbols = ["decode_method", "fields", "decode_program_deploy", "decode_program_upgrade", "decode_program_wind_down", "ConstructMethod"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/src/disclosure/program.rs", "services/human/crates/layerx-human-service/src/agents/create.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_585.kvx"]
+tests = ["services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"]
+planned_paths = ["services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_585.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --test repair_22_31_585 && cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --lib -- disclosure::call::tests"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.583]
 title = "Disclose the bindLayerX registration call in the call disclosure decoder"
 status = "pending"
@@ -177845,7 +177907,7 @@ do_1 = "do_1 Gotcha 3353, decision 2740. In services/agent/crates/layerx-crypto/
 do_2 = "do_2 Prove it in the crate: bind_call of a 164-byte bindLayerX call to 0x1004 (as BindAuthorization::to_call of binding.rs encodes it) discloses BindLayerX with the key and the signature through construct_method, signing_digest succeeds and the disclosure validates; a call with a 32-byte signature, a wrong offset word, trailing bytes or another selector at 0x1004 is refused; a local signer signs the disclosed call through the disclosure signing path as tests/signer_call.rs does for the ledger calls. Write services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs for these cases and keep the in-file tests of call.rs passing."
 do_3 = "do_3 Record in services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx the branch, decision 2740 and the gates by reference to the gate ledger; amend no file after the gates run (gotcha 3142). The dependent crates match ConstructMethod with wildcard arms (the agent daemon, the MCP tools, the SDK wallet and the hosted core), so no other crate changes. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = ["decode_method", "fields", "bind_call", "ConstructMethod"]
-touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx", "services/human/crates/layerx-human-service/src/agents/create.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"]
 planned_paths = ["services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
@@ -177861,6 +177923,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3356): the attempt-1 tree stands (the BindLayerX variant, the 160-byte argument check, the Governance ordinal 1 disclosure). In the repair test map the PayloadError of the signature construction to a DisclosureError explicitly with map_err instead of the question-mark operator, so the first build passes. In services/human/crates/layerx-human-service/src/agents/create.rs line 650 add an arm Some(ConstructMethod::BindLayerX { .. }) that returns Err(AgentFailure::Refused(lifecycle transaction is a bind registration)) beside the PointerTransfer arm, so the exhaustive match compiles and the dependent-crate check passes; rebase onto main before the final gates because 22.31.585 adds arms to the same match. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.579]
 title = "Decode the daemon TRACK answer in the Human agent runtime as the daemon writes it"
@@ -192525,7 +192588,7 @@ title = "Repair audit record 22.30.92 findings in services/agent/crates/layerx-a
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.483", "22.31.497", "22.31.558", "22.31.572", "22.31.560"]
+requires = ["22.31.443", "22.31.483", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585"]
 reqs = ["22998.1"]
 capabilities = ["22.31.217"]
 interfaces = []
@@ -192571,6 +192634,7 @@ do_22 = "Attempt 7 (continue, gotcha 3210, decision 2644): the attempt-6 tree st
 do_23 = "Attempt 8 (continue, gotcha 3225): the attempt-7 tree stands (12 passed). One production condition per failing case, each verified on main. (1) The MalformedPayload cases at lines 548 and 722: prepare/disclose.rs bind (lines 21 to 26) refuses only chain_id 0, gas_limit 0 or max_priority_fee_per_gas above max_fee_per_gas; give the fixture call chain id 125, a nonzero gas limit and a priority fee at or below the max fee, and assert the bound disclosure. (2) The Snapshot cases at lines 1408, 1507 and 1568: budget/fee_policy.rs native_fee_policy (lines 123 to 137 and 216 to 223) refuses when height is 0, block_number is below height, block_by_number(height) is empty, the header number differs from height, the header hash or the state root is zero, or the re-read differs; make the loopback endpoint of the fixture serve a head at or above the height, the header with that number and a nonzero hash, and a nonzero state root, stable across the two reads. (3) The dependent case follows. Every assertion prints the originating refusal. No production interface is missing; the binder and the reader stay. Run the build and the verify at the final revision and record them by reference in the task record."
 do_24 = "Attempt 9 (continue after 22.31.560, gotcha 3306, decision 2694): the attempt-8 tree stands (12 passed). Three case classes. (1) The Snapshot cases at lines 1461, 1564 and 1629 refuse only on the level: CommittedCaps::level answers the retired CHECKPOINT_FINALISED until 22.31.560 lands decision 2694 (COMMITTED); re-run them on a tree that includes 560 and change nothing in the fixture for them unless another condition of the reader (program_sources.rs lines 559 to 575: did, state root, global and observed head sequence, batch number, block number) refuses afterwards; then name that condition. (2) The deploy and exitValue cases at line 769: the binder table (layerx-crypto disclosure/call.rs lines 102 to 127) has no deploy or exitValue construct, so those cases must not call prepare_bound; drive the lifecycle and settlement readers directly with the signed EIP-1559 call of the corpus as the attempt-7 ruling (do_22 item 1) describes. (3) The create-source case at line 549: call disclosure::call::bind_call directly on the production-encoded corpus call in a probe, name the refusing helper and word index (word, uint, dynamic and tail at call.rs lines 351 to 405 refuse a non-zero high byte, a dynamic offset other than the head words times 32, or bytes after the padded tail); if the corpus argument is at fault, correct the corpus; if the production encoder and the production binder disagree on the layout of that construct, record the construct, the helper and the word index in the task record as a producer-to-consumer defect and leave the case asserting the refusal with that record. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 do_25 = "Attempt 10 (continue, gotcha 3350): the attempt-9 final tree at 9303d75302808e2710a4d0b3a72aa09a880866cd stands (the authenticated burn account in the corpus, the former account as the negative ownership case, reservations through the real allocator, limiter and store recovery). Two repairs. (1) In tests/repair_22_31_217.rs replace the call of BudgetLimiter::bind_program_denominations at line 933 with the production entry install_program_enrolment_denominations (src/budget/mod.rs line 885) over a VerifiedProgramBudgetDenominations produced by the enrolment module for the two real preferences, so the test reaches the pub(super) binder only through the public path; the build must pass before the first verify. (2) For each lifecycle case (deploy, upgrade, wind_down, wind_down_exit) serve from the case endpoint a Receipted observation for transaction_hash(signed_transaction) built with the node receipt layout of decision 2648 (module 12, operation equal to the transaction type of the signed envelope, amount equal to its value, from the recovered sender, to and nonce of the decoded call), so read_signed_native_execution_observation (src/budget/program_settlement.rs lines 413 to 445) answers Ok; where the following verifications of the case read account-status proofs or the retained approval store, produce those entries through the production encoders (layerx_proof nested account proofs, the approval store of the daemon) in the test or the committed fixture, never as an evidence gap note. Keep the twelve passing cases and the four SourceOwnership repairs of the final tree. Run the build and the verify at the final revision and record them by reference in the task record."
+do_26 = "Attempt 11 (continue after 22.31.585, gotcha 3357, decision 2743): the attempt-10 tree stands (the native lifecycle settlement binder, the corpus, the 15 passing cases). Rebase onto main once 22.31.585 is there: the deploy, upgrade and wind-down cases then prepare through finish_call because the call disclosure discloses the lifecycle constructs; where the attempt-10 binder re-decodes the payload, reuse the disclosed values. For the native effect settlement case record the burn capture: run the burn construct through the production prepare path against the loopback peer, which serves a module-12 receipt with the transaction type and value words and the precompile events (decision 2648), write the capture and store paths into the corpus entry, and let the case settle; no refusal path replaces the settlement assertion (decision 2644 covers the program settlement case only). If the loopback peer refuses the burn, the task record names the exact refusal and the repair that made it serve. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.216]
 title = "Repair audit record 22.30.90 findings in services/agent/crates/layerx-agentd/src/policy: interface-mismatch"
@@ -284165,12 +284229,43 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.31.584]
+title = "Bind the recorded lease request vector to the usage test that recorded it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.584"]
+interfaces = []
+do_1 = "do_1 Gotcha 3355, decision 2742. In the lease execution method test file change the shared lease request helper (line 37) so it encodes the lease request from the fixture that calls it: the program the fixture deployed, its asset, its limits, its activity id and its receipt digest; remove the byte-equality assertion against the committed vector from the helper (line 119) and keep the lease id derivation local to the recording test. The helper returns the request it encoded so every caller can assert on its own fields."
+do_2 = "do_2 In the usage test of the lease execution method (line 180) keep the byte-equality assertion against the committed vector testdata/repair_m213_lease_request.hex as the only site that asserts the recorded bytes, and assert that the helper request decodes to the recorded program, asset, limits, activity id and receipt digest."
+do_3 = "do_3 In gas_charge_test.go the gas fixture of the lease execution method (lines 98 to 125) encodes its own request through the helper from the program keyed by the test name; the gas table row of the lease execution method passes with the committed gas and without any change to the recorded vector, the ABI, the request codec or any production file. This task touches test files only."
+do_4 = "do_4 Add repair_22_31_584_test.go with TestRepair22_31_584 cases: the helper request of a fixture with a distinct program decodes to that program and asset; the recording test vector still round-trips byte for byte through the request codec; the gas table row of the lease execution method charges the committed gas. Record the two provenance facts (recording test, gas fixture) and the gates by reference to the gate ledger in repair_22_31_584.kvx; amend no file after the gates run (gotcha 3142)."
+symbols = ["TestProgramsWriteMethodsChargeGasTable", "TestRepair22_31_584"]
+touches = ["precompiles/layerxprograms/method_sandbox_execute_test.go", "precompiles/layerxprograms/gas_charge_test.go", "precompiles/layerxprograms/repair_22_31_584_test.go", "precompiles/layerxprograms/repair_22_31_584.kvx"]
+tests = ["precompiles/layerxprograms/repair_22_31_584_test.go"]
+planned_paths = ["precompiles/layerxprograms/repair_22_31_584_test.go", "precompiles/layerxprograms/repair_22_31_584.kvx"]
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxprograms/..."
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsWriteMethodsChargeGasTable|TestPrograms.*ExecuteEmitsUsage|TestPrograms.*ExecuteZeroAssetReverts|TestRepair22_31_584.*)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.582]
 title = "Serve receipt authorities on a programs precompile call through callWithReceipts"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.584"]
 reqs = ["22998.1"]
 capabilities = ["22.31.582"]
 interfaces = []
@@ -284196,6 +284291,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue after 22.31.584, gotcha 3355, decision 2742): the attempt-1 tree stands (the callWithReceipts method, the thirty-six-method ABI, the gas table rows, the receipt authorities on submit). The gas table failure at the lease execution method row is the pre-existing defect of the shared lease request helper that 22.31.584 removes; rebase onto main once 22.31.584 is there, change neither the helper nor the recorded vector yourself, and run the build and the verify at the final revision; record the four verified test names by reference in the task record."
 
 [task.22.31.505]
 title = "Restore the GENESIS and GOVERNANCE admission of the system reserve and withdrawals accounts in lx_account_open"
